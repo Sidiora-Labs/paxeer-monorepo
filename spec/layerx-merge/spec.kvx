@@ -94384,7 +94384,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.12.2]
 title = "Retire the budget pull activity that draws on receive payer grants"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["1.0.3", "16.2.1", "16.96.2"]
@@ -94712,7 +94712,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.15.2]
 title = "Delete the feed store, the replay engine bind and the fee relay declarations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["1.15.1", "1.14.3", "1.16.1", "1.0.4", "16.2.1", "16.96.1", "8.96.5", "13.8.1"]
@@ -119224,7 +119224,7 @@ do_4 = "Attempts 1 to 3 (460ed8339 first) delete tests/daemon/lxp_test_daemon_al
 
 [task.5.54.5]
 title = "Retire the batch-WAL consumer daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.11.1", "16.11.2", "16.11.3", "16.11.4", "16.11.5"]
@@ -127657,7 +127657,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.60.4]
 title = "Retire the paxeer_x_credit_profiles kernel harness files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.51.1", "16.8.3"]
@@ -145668,7 +145668,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.10]
 title = "Python x402 draws verify sequencer receipts through pinned receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.96.1"]
@@ -145699,7 +145699,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.9]
 title = "Python web search verifies sequencer receipts through pinned receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.96.1"]
@@ -170181,7 +170181,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.3.4]
 title = "Retire the platform-node image"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -170629,7 +170629,7 @@ do_7 = "The task gate also runs scripts/ci/runner-routing-check.sh, which fails 
 
 [task.16.6.1]
 title = "Retire the beta deployment script for the retired root contracts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "16.5.3"]
@@ -171375,7 +171375,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.6]
 title = "Remove retired daemon and codec references from the native program link and archive producers (2 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171407,7 +171407,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.7]
 title = "Remove retired daemon and codec references from the authority evidence and storage recovery producers (1 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171470,7 +171470,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.9]
 title = "Remove retired daemon and codec references from the agent envelope, event delivery and form validation producers (1 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -173121,7 +173121,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.32.9]
 title = "Delete the batch write-ahead log, maintenance publication and recovery-order checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.0.4", "16.5.2", "16.11.9", "16.11.2", "16.11.8"]
@@ -192694,7 +192694,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1297.2]
 title = "Issue #1297: Refresh services/platform/Cargo.lock after the registry manifest dropped layerx-programs-protocol-adapter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

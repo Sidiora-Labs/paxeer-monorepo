@@ -20,15 +20,11 @@ from .account_derivation import (
     keccak256,
     layerx_did_call,
 )
-from .generated.receipt import ReceiptFailureCode
 from .verifier import (
-    AuthorizedReceiptBatch,
-    LocalSignatureVerifier,
+    ReceiptKey,
     ReceiptVerification,
-    ReceiptVerificationError,
-    verify_receipt,
+    verify_sequencer_receipt as verify_pinned_sequencer_receipt,
 )
-from .x402 import PAYMENT_RECEIPT_PROTOCOL_VERSIONS, receipt_protocol_version
 from .x402_receive import _GRANT, encode_grant
 from .x402_rpc import PaymentRpc, PaymentRpcError, _submission_error
 
@@ -101,6 +97,7 @@ class WebSearchMeteredPayment:
 @dataclass(frozen=True)
 class WebSearchExactPayment:
     receipt: bytes
+    raw_transaction: bytes | None = None
 
 
 class WebSearchPayer(Protocol):
@@ -177,6 +174,7 @@ class _Reply:
 class _PreparedPayment:
     header: str
     receipt: bytes | None
+    raw_transaction: bytes | None = None
 
 
 def _hex32(value: object) -> bool:
@@ -424,6 +422,42 @@ def _loopback(host: str) -> bool:
         return False
 
 
+def verify_sequencer_receipt(
+    receipt: bytes,
+    raw_transaction: bytes | None,
+    offer: WebSearchOffer,
+    receipt_keys: tuple[ReceiptKey, ...],
+) -> ReceiptVerification:
+    try:
+        if raw_transaction is None or not raw_transaction:
+            raise WebSearchError("receipt-unverified")
+        verified = verify_pinned_sequencer_receipt(
+            receipt, raw_transaction, receipt_keys
+        )
+        body = verified.receipt
+        if body.result_code != 0:
+            raise WebSearchError("receipt-unverified")
+        if body.module_id == 1 and (
+            body.operation == 0
+            or body.from_balance_before < body.amount
+            or body.from_balance_before - body.amount != body.from_balance_after
+            or body.to_balance_before + body.amount >= 1 << 128
+            or body.to_balance_before + body.amount != body.to_balance_after
+        ):
+            raise WebSearchError("receipt-unverified")
+    except Exception:
+        raise WebSearchError("receipt-unverified") from None
+    if (
+        body.asset.hex() != offer.asset
+        or body.amount != int(offer.amount)
+        or body.to_account.hex() != offer.pay_to
+    ):
+        raise WebSearchError("receipt-offer-mismatch")
+    if offer.payer is not None and body.from_account.hex() != offer.payer:
+        raise WebSearchError("settlement-payer-mismatch")
+    return verified
+
+
 class WebSearchClient:
     def __init__(
         self,
@@ -432,10 +466,8 @@ class WebSearchClient:
         native_asset: str,
         assets: Mapping[str, WebSearchAssetTerms],
         payer: WebSearchPayer,
-        authority: Callable[[bytes, WebSearchOffer], AuthorizedReceiptBatch],
-        signatures: LocalSignatureVerifier,
+        receipt_keys: Sequence[ReceiptKey],
         *,
-        protocol_version: int | None = None,
         now: Callable[[], int] | None = None,
         pending_attempts: int = 5,
         payer_rpc: PaymentRpc | None = None,
@@ -475,11 +507,6 @@ class WebSearchClient:
             or not 1 <= pending_attempts <= 60
         ):
             raise WebSearchError("invalid-pending-attempts")
-        if protocol_version is not None and (
-            type(protocol_version) is not int
-            or protocol_version not in PAYMENT_RECEIPT_PROTOCOL_VERSIONS
-        ):
-            raise WebSearchError("invalid-protocol-version")
         if (payer_rpc is None) != (payer_address is None):
             raise WebSearchError("invalid-payer")
         self._payer_did_call: str | None = None
@@ -497,9 +524,7 @@ class WebSearchClient:
         self._native_asset = native_asset
         self._assets = dict(assets)
         self._payer = payer
-        self._authority = authority
-        self._signatures = signatures
-        self._protocol_version = protocol_version
+        self._receipt_keys = tuple(receipt_keys)
         self._now = now if now is not None else (lambda: int(time.time()))
         self._pending_attempts = pending_attempts
 
@@ -809,48 +834,31 @@ class WebSearchClient:
                 }
             )
             return _PreparedPayment(header=header, receipt=None)
-        receipt = bytes(self._payer.exact(offer, target).receipt)
-        self._verify(receipt, offer)
+        payment = self._payer.exact(offer, target)
+        receipt = bytes(payment.receipt)
+        raw_transaction = (
+            bytes(payment.raw_transaction)
+            if payment.raw_transaction is not None
+            else None
+        )
+        verify_sequencer_receipt(
+            receipt, raw_transaction, offer, self._receipt_keys
+        )
+        if raw_transaction is None:
+            raise WebSearchError("receipt-unverified")
         payload = {
             "receipt": base64.b64encode(receipt).decode("ascii"),
             "receiptDigest": _receipt_digest(receipt),
             "verificationLevel": "sequencer-signed",
+            "rawTransaction": "0x" + raw_transaction.hex(),
         }
         return _PreparedPayment(
             header=_encode_header(
                 {"x402Version": 2, "accepted": raw, "payload": payload}
             ),
             receipt=receipt,
+            raw_transaction=raw_transaction,
         )
-
-    def _verify(self, receipt: bytes, offer: WebSearchOffer) -> ReceiptVerification:
-        try:
-            version = receipt_protocol_version(receipt)
-        except ReceiptVerificationError as error:
-            raise WebSearchError(
-                "receipt-protocol-version"
-                if error.check is ReceiptFailureCode.PROTOCOL_VERSION
-                else "receipt-unverified"
-            ) from None
-        if self._protocol_version is not None and version != self._protocol_version:
-            raise WebSearchError("receipt-protocol-version")
-        try:
-            authorized = self._authority(receipt, offer)
-            verified = verify_receipt(
-                receipt, authorized, self._signatures, protocol_version=version
-            )
-        except Exception:
-            raise WebSearchError("receipt-unverified") from None
-        body = verified.receipt
-        if (
-            body.asset.hex() != offer.asset
-            or body.amount != int(offer.amount)
-            or body.to_account.hex() != offer.pay_to
-        ):
-            raise WebSearchError("receipt-offer-mismatch")
-        if offer.payer is not None and body.from_account.hex() != offer.payer:
-            raise WebSearchError("settlement-payer-mismatch")
-        return verified
 
     def _settle(
         self, header: str | None, offer: WebSearchOffer, payment: _PreparedPayment
@@ -880,7 +888,21 @@ class WebSearchClient:
             raise WebSearchError("settlement-receipt-mismatch")
         if payment.receipt is not None and payment.receipt != receipt:
             raise WebSearchError("settlement-receipt-mismatch")
-        verified = self._verify(receipt, offer)
+        encoded_transaction = layerx.get("rawTransaction")
+        if (
+            not isinstance(encoded_transaction, str)
+            or re.fullmatch(r"0x(?:[0-9a-f]{2})+", encoded_transaction) is None
+        ):
+            raise WebSearchError("settlement-receipt-mismatch")
+        raw_transaction = bytes.fromhex(encoded_transaction[2:])
+        if (
+            payment.raw_transaction is not None
+            and payment.raw_transaction != raw_transaction
+        ):
+            raise WebSearchError("settlement-receipt-mismatch")
+        verified = verify_sequencer_receipt(
+            receipt, raw_transaction, offer, self._receipt_keys
+        )
         transaction = "0x" + verified.receipt.activity_id.hex()
         if settlement.get("transaction") != transaction:
             raise WebSearchError("settlement-receipt-mismatch")
