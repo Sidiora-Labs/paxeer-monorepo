@@ -22,7 +22,7 @@ RUN CARGO_TARGET_DIR=/src/.lane-target cargo build --locked --manifest-path serv
         --package layerx-mirror --bin layerx-mirror-publisher --bin layerx-mirror-verify \
     && CARGO_TARGET_DIR=/src/.lane-target cargo build --locked --manifest-path services/interop/Cargo.toml --release \
         --package layerx-mirror-signer --bin layerx-mirror-signer
-RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-human-kms -p layerx-explorer-index --bins
+RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-human-kms --bins
 RUN cargo build --locked --release --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd -p layerx-mcp --bin layerx-mcp
 RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider -p layerx-human-security-provider -p layerx-human-movement-provider --bins
 RUN cargo build --locked --release --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml
@@ -322,24 +322,19 @@ COPY migrations/0007_history_index.sql /opt/layerx/migrations/0007_history_index
 COPY services/platform/hosted/node/bootstrap.sh services/platform/hosted/node/supervisor.sh \
      services/platform/hosted/node/sequencer-env.sh services/platform/hosted/node/genesis-modules.conf \
      services/platform/hosted/node/genesis_fees.py services/platform/hosted/node/genesis-module-fees.json \
-     services/platform/hosted/node/data_directory.py services/platform/hosted/node/guarantor.sh \
-     services/platform/hosted/node/checkpoint-authority.py /opt/layerx/
+     services/platform/hosted/node/data_directory.py /opt/layerx/
 COPY services/platform/hosted/node/generation_client.py services/platform/hosted/node/generation_transport.py /opt/layerx/node/
 COPY precompiles/layerxanchor/abi.json /opt/layerx/precompiles/layerxanchor/abi.json
 COPY services/platform/hosted/node/signer /opt/layerx/signer
 COPY services/platform/hosted/paxeer/evm.py /opt/layerx/paxeer/evm.py
 COPY services/platform/hosted/tests/publication-policy.py /opt/layerx/publication-policy.py
-COPY services/platform/relay_archive/__init__.py services/platform/relay_archive/runtime.py \
-     services/platform/relay_archive/store.py services/platform/relay_archive/protocol.py \
-     services/platform/relay_archive/forward.py services/platform/relay_archive/peers.py /opt/layerx/relay_archive/
-COPY --chmod=0555 services/platform/relay_archive/install.sh /opt/layerx/relay_archive/install.sh
 COPY services/platform/hosted/human/provision.py services/platform/hosted/human/owner_native.py services/platform/hosted/human/owner_kms.py \
      services/platform/hosted/human/onboarding_socket.py services/platform/hosted/human/onboarding_bootstrap.py \
      services/platform/hosted/human/onboarding_material.py services/platform/hosted/human/material.py \
      services/platform/hosted/human/recipient_binding.py services/platform/hosted/human/recipient_check.py /usr/local/lib/layerx-human/
 COPY --chmod=0555 tools/bringup/kernel-genesis.sh /opt/layerx/kernel-genesis.sh
 COPY --chmod=0555 docker/kernel/init.sh /usr/local/bin/kernel-init
-RUN chmod 0555 /opt/layerx/bootstrap.sh /opt/layerx/supervisor.sh /opt/layerx/guarantor.sh
+RUN chmod 0555 /opt/layerx/bootstrap.sh /opt/layerx/supervisor.sh
 ENTRYPOINT ["/usr/local/bin/kernel-init"]
 
 FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
@@ -356,14 +351,13 @@ COPY --from=build /src/services/platform/hosted/human/recipient_binding.py /src/
 COPY --from=build /src/migrations/0007_history_index.sql /opt/layerx/migrations/0007_history_index.sql
 COPY --from=build /src/services/platform/hosted/node/bootstrap.sh /src/services/platform/hosted/node/genesis-modules.conf \
      /src/services/platform/hosted/node/genesis_fees.py /src/services/platform/hosted/node/genesis-module-fees.json \
-     /src/services/platform/hosted/node/data_directory.py /src/services/platform/hosted/node/supervisor.sh \
-     /src/services/platform/hosted/node/guarantor.sh /src/services/platform/hosted/node/checkpoint-authority.py /opt/layerx/
+     /src/services/platform/hosted/node/data_directory.py /src/services/platform/hosted/node/supervisor.sh /opt/layerx/
 COPY --from=build /src/services/platform/hosted/node/generation_client.py /src/services/platform/hosted/node/generation_transport.py /opt/layerx/node/
 COPY --from=build /src/precompiles/layerxanchor/abi.json /opt/layerx/precompiles/layerxanchor/abi.json
 COPY --from=build /src/services/platform/hosted/node/signer /opt/layerx/signer
 COPY --from=build /src/services/platform/hosted/paxeer/evm.py /opt/layerx/paxeer/evm.py
 COPY --from=build /src/services/platform/hosted/tests/publication-policy.py /opt/layerx/publication-policy.py
-RUN chmod 0755 /opt/layerx/bootstrap.sh /opt/layerx/supervisor.sh /opt/layerx/guarantor.sh
+RUN chmod 0755 /opt/layerx/bootstrap.sh /opt/layerx/supervisor.sh
 COPY --from=build /src/services/platform/target/release/layerx-core-boundary /src/services/platform/target/release/layerx-receipt-authority \
      /src/services/platform/target/release/layerx-runtime-clock /src/services/platform/target/release/layerx-agent-boundary \
      /src/services/platform/target/release/layerx-paxeer-boundary /usr/local/bin/
@@ -371,7 +365,7 @@ COPY --from=build /src/.lane-target/release/layerx-mirror-publisher /src/.lane-t
      /src/.lane-target/release/layerx-mirror-signer /usr/local/bin/
 COPY --from=build /src/services/human/target/release/layerx-human-service /src/services/human/target/release/layerx-human-components \
      /src/services/human/target/release/layerx-human-onboarding /src/services/human/target/release/layerx-human-kms \
-     /src/services/human/target/release/layerx-explorer-index /src/services/human/target/release/layerx-human-identity-provider \
+     /src/services/human/target/release/layerx-human-identity-provider \
      /src/services/human/target/release/layerx-human-security-provider /src/services/human/target/release/layerx-human-movement-provider \
      /src/services/agent/target/release/layerx-agentd /src/services/agent/target/release/layerx-mcp /usr/local/bin/
 COPY services/platform/hosted/human/provision.py services/platform/hosted/human/owner_native.py services/platform/hosted/human/owner_kms.py \
@@ -379,10 +373,6 @@ COPY services/platform/hosted/human/provision.py services/platform/hosted/human/
      services/platform/hosted/human/onboarding_material.py services/platform/hosted/human/material.py \
      services/platform/hosted/human/recipient_binding.py services/platform/hosted/human/recipient_check.py /usr/local/lib/layerx-human/
 COPY --chmod=0555 docker/human-service/entrypoint.sh /usr/local/bin/human-entrypoint
-COPY --from=build /src/services/platform/relay_archive/__init__.py /src/services/platform/relay_archive/runtime.py \
-     /src/services/platform/relay_archive/store.py /src/services/platform/relay_archive/protocol.py \
-     /src/services/platform/relay_archive/forward.py /src/services/platform/relay_archive/peers.py /opt/layerx/relay_archive/
-COPY --from=build --chmod=0555 /src/services/platform/relay_archive/install.sh /opt/layerx/relay_archive/install.sh
 # The value loop of tools/bringup/value-loop.sh (task 1.6).
 COPY --from=build /src/services/platform/hosted/node/tests/probe/target/release/layerx-node-probe \
      /usr/local/bin/
