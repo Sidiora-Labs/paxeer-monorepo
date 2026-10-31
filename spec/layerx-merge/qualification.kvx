@@ -14811,3 +14811,51 @@ symbol = "PNS_ORIGIN"
 observed = "The wallet already consumes a name indexer: apps/wallet/src/lib/pns.ts:180-253 calls the explorer name-service API shape (addresses:lookup, domains/<name>, domains/<name>/events, addresses/<address>, domains:lookup) under NEXT_PUBLIC_PNS_API_BASE, the five proxy routes under apps/wallet/src/app/api/pns forward to a literal hosted origin at apps/wallet/src/server/wallet-read-proxy.ts:28 that serves nothing for chain 125, and apps/explorer/configs/app/apis.ts:64 reads the same API shape from NEXT_PUBLIC_NAME_SERVICE_API_HOST; decision 2150 left the indexer out of scope, so the My Names tab and the explorer's name display would stay empty after the contracts deploy."
 assumption = "The hosted indexer gains a names module serving that API shape, and the wallet proxy points at it through configuration (decision 2160)."
 severity = "major"
+
+[finding.12.35.2.4]
+task = "12.35.2"
+file = "apps/wallet/playwright.wallet-app.config.ts:8"
+symbol = "walletServer"
+observed = "Attempt 4 (1d21cfab8) builds and lists the tests; the verify waits the full 600 seconds because the embedded Next server answers GET / and GET /index.html with 404: the server script sets basePath to the empty string on the imported config object, but next() without a conf option reads apps/wallet/next.config.mjs itself, so the product basePath /wallet stays in force and the readiness probe on the root never sees a page. The second run then fails at browserType.launch because the gate environment has no Playwright browser (Executable doesn't exist under ~/.cache/ms-playwright; the message asks for pnpm exec playwright install)."
+assumption = "The server script passes the config with basePath cleared as next()'s conf option, and the build command installs the chromium browser before listing the tests (decision 2161)."
+severity = "major"
+
+[finding.18.670.1.7]
+task = "18.670.1"
+file = "node/app.go:1651"
+symbol = "ProcessProposalHandler"
+observed = "Attempt 7 (7c753e924) builds, the first block of the new node emits FundingSettled for markets 0 and 11 with no perps_endblock_error (the genesis perps state of decision 2154 works), and TestEndToEnd then fails at e2e_test.go:494 with no receipt for the withdraw transaction: the node log shows every proposal from height 34742429 rejected with 'sequenced proposal tx 0 is not a sequence batch' and consensus prevoting nil through round 26. The v6120 export is past the sequencer activation height, so app.Sequenced is true and ProcessProposal requires tx 0 to be a sequence batch; a node started without --sequencer proposes plain transactions and can never include one. Decision 2137 kept this task on the plain start; the chain it starts cannot carry the test's transactions."
+assumption = "The verify command starts v6120-node.sh with --sequencer (the primary-only mode of decision 2134) and the test keeps reading PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET from the written environment (decision 2162)."
+severity = "major"
+
+[finding.10.0.3.9]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:1406"
+symbol = "upstream_degraded"
+observed = "Attempt 12 (1e3033129) builds and passes the plan test; intent_submit_records_each_leg_tx_hash submits (the node double served eth_sendRawTransaction after the balance reads) and the following GET /v1/journeys/<id> answers 503 upstream-degraded. The intent arm of the journey read (services/human/crates/layerx-human-service/src/server/production_components.rs:1393-1412) loads the journey and advances it through poll_once_ready, mapping both the poll error and the advance error to upstream_degraded with the error discarded (:1406-1407), so the response says nothing about which step of the advance failed. The node double's served list ends with eth_sendRawTransaction and eth_chainId: the advance's next read is the receipt of the sent transaction, and the double answers no eth_getTransactionReceipt or eth_getBlockByNumber."
+assumption = "The node double answers the receipt and block reads for the hash it accepted, and the intent arm logs the advance error with the journey id before mapping it (decision 2163)."
+severity = "major"
+
+[finding.10.6.3.1]
+task = "10.6.3"
+file = "services/human/crates/layerx-human-service/src/journeys/router.rs:1507"
+symbol = "base_shapes"
+observed = "Attempt 5 (8dcaba4fa) builds with the removals applied; intent_legs_reusing_a_nonce_are_refused fails at intent_nonces.rs:61 with NoRoute { source: PaxeerWallet, destination: Human }: since task 10.6.2 (ec7c4dc54) base_shapes refuses every intent with a PaxeerWallet endpoint and every remaining internal route yields exactly one shape (services/human/crates/layerx-human-service/src/journeys/router.rs:1515-1545), while top-ups are a record on the single leg, so plan() can no longer produce the two-leg custody deposit the test needs to make leg 1 reuse leg 0's nonce. UnifiedPlan exposes no constructor to the tests (seal is private)."
+assumption = "The two-leg test goes with the route it depended on; the pending-nonce test stays (decision 2164)."
+severity = "minor"
+
+[finding.18.1272.1.3]
+task = "18.1272.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:555"
+symbol = "bound_activity"
+observed = "Attempt 8 (1eebb5ac8) builds on a main that carries 9.99.2; creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths panics in services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:20 with Refused('lifecycle transaction binding differs') raised by assert_outcome's call to ProtocolEvidence::bound_activity. That refusal is one string for eight comparisons (activity type, actor, authority word, chain id, non-zero network, idempotency key, transaction hash against activity_id and against tx_hash; create.rs:543-556), so the output does not say which binding the test's EVM-form owner (sign_transaction for the receipt() stages, prepare_call for the budget creation stage) gets wrong."
+assumption = "assert_outcome compares the eight bindings itself with named assertions before calling bound_activity, and the next attempt fixes the one that differs on the test side (decision 2165)."
+severity = "major"
+
+[finding.19.1.1.2]
+task = "19.1.1"
+file = "tests/solidity/names/PaxRegistrarController.t.sol:9"
+symbol = "LayerXTimelock"
+observed = "Attempt 5 (cc5753c65) adds [profile.names] and testOnlyPaxNamesAreRegistrable, and the names build still fails: the controller test imports contracts/governance/LayerXTimelock.sol to act as the Governed authority, and that file imports contracts/security/LayerXComponent.sol and contracts/libraries/Error.sol, both retired earlier in this feature (tasks 6.80.3 and 6.57.9); the timelock itself is retired by task 6.55.1. The names profile therefore compiles the one governance source that cannot compile on main."
+assumption = "The names tests use a plain governance address and never import contracts/governance (decision 2166)."
+severity = "major"
