@@ -11551,3 +11551,28 @@ fix = "List only the symbols the task adds or keeps; move deletions to the do li
 title = "A unit gate can pass while the real path fails"
 symptom = "Tasks that change an interface passed their declared test with mocked transports or hand-built messages and failed in the next task that consumed the real output: receipts the consumer could not verify, a socket a reader still needed, a validator with a live caller, a generator pinned to a removed schema."
 fix = "Interface-changing tasks carry proof_policy: drive the real producer through the real transport into the real consumer in the declared test, restart and recover where state crosses a restart (decision 1990)."
+
+[gotcha.2348]
+title = "A cargo gate without --locked lets a manifest change drift the workspace lock"
+symptom = "0fdebd9dc (task 8.96.4) dropped a dependency from services/platform/hosted/registry/Cargo.toml; its build ran without --locked, cargo rewrote the lock in the tree, the lock was outside touches and stayed stale on main, and every later --locked gate of the platform workspace refused before compiling (8.98.5, 8.98.1, 8.4.4, 10.20.3)."
+fix = "A task that edits a Cargo.toml dependency declares the workspace Cargo.lock in touches and builds with --locked; a lock refresh task (18.1297.2) repairs a drift that already landed."
+
+[gotcha.2349]
+title = "Refreshing a stale lock in the tree qualifies a tree that is not the one published"
+symptom = "Attempts of 8.11.3 (622f52719), 8.4.4 and 8.98.1 ran cargo fetch without --locked to get past the stale platform lock, built and verified with the refreshed lock, and published without it because the lock was outside touches; main still refuses --locked builds."
+fix = "Record the drift as a finding and let the lock refresh task land; a passing gate on a tree the publication does not contain is not the task's proof."
+
+[gotcha.2350]
+title = "A whole-binary cargo test verify is an aggregate gate when another task owns cases in the binary"
+symptom = "18.1228.1 ran cargo test --test agent_controls_rungs and failed thirteen attempts on three archive_fixture cases that 18.1149.1 lists as its tests."
+fix = "Name the owned cases with --skip in the verify command (decision.1993) or run the declared cases with --exact; the owning task proves its own cases."
+
+[gotcha.2351]
+title = "A symbols entry the task deletes fails the graph check"
+symptom = "8.50.4 listed post_activity in symbols while do_3 deletes Client::post_activity; two attempts implemented and tested everything and cg spec done refused with 'symbol post_activity — not defined in the graph'."
+fix = "symbols lists only the symbols that exist after the task; a deleted symbol is named in the do line and the test, never in symbols."
+
+[gotcha.2352]
+title = "Regenerating a contract's outputs breaks the consumers the contract rewrite left behind"
+symptom = "8.45.1 rewrote the receipt contract and 9.97.3 regenerated its Rust, TypeScript and Python outputs; the SDK verifiers, programs modules and web search and x402 clients still implemented the kernel receipt path over names the new contract no longer defines, and no task owned their port."
+fix = "When a contract is rewritten, list every consumer of the generated names and give each a retirement or port task that the regeneration task requires (decision.1992)."

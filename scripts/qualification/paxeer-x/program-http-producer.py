@@ -337,7 +337,6 @@ def produce(manifest_path, output, corpus_path, run_verify):
                          'LAYERX_AUTHORITY_REPLICA_URL': owner['replica_endpoint'],
                          'LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE': owner['replica_authorization_file'],
                          'LAYERX_AUTHORITY_REPLICA_ID': owner['replica_id'],
-                         'LAYERX_AUTHORITY_LNI_SOCKET': owner['node_socket'],
                          'LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID': str(owner['network_id']),
                          'LAYERX_AUTHORITY_NETWORK_ID': str(owner['network_id']), 'LAYERX_AUTHORITY_WIRE_VERSION': '3',
                          'LAYERX_AUTHORITY_SEQUENCER_ID': owner['sequencer_id'],
