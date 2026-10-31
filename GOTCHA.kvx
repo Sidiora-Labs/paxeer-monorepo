@@ -12246,3 +12246,13 @@ fix = "Have the test support recompute and assert each binding with its own mess
 title = "A retired contract imported by a test breaks a scoped Foundry profile"
 symptom = "A names-only Foundry profile still failed to build because one test imported the governance timelock, whose own imports were retired earlier in the feature."
 fix = "Scoped profiles compile every import of their tests; govern Governed components in tests through a pranked plain address and never import sources outside the profile's own directory."
+
+[gotcha.2486]
+title = "budgetCreate carries no idempotency word; its disclosure word is the budget id"
+symptom = "A lifecycle binding compared the disclosure idempotency word against the stage action key for every method; for budgetCreate the word is the budget id by construction, so the budget-creation stage could never pass on any owner path."
+fix = "When a disclosure derives the idempotency word from a method-specific field, bind that field to what the payload comparison already pins and keep the action-key comparison for the methods that carry one."
+
+[gotcha.2487]
+title = "A test that writes under the repository root leaves untracked files behind every run"
+symptom = "An integration test rooted its TLS fixture tree at qual-logs/hm2 under the repository; the gate passed and the attempt was still refused for sixty untracked files outside the task's scope."
+fix = "Root test fixtures at env!(CARGO_TARGET_TMPDIR) (or an equivalent build-output directory) and never under a source path that git does not ignore."

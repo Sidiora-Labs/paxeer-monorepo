@@ -6111,6 +6111,18 @@ value = "In tests/solidity/names/PaxRegistrarController.t.sol the Governed autho
 basis = "Finding 19.1.1.2: the only source in the names build that cannot compile is one the test pulled in for convenience, and the component it models is leaving the tree."
 affects = ["19.1.1", "19.1.2", "19.1.3", "19.4.4"]
 
+[decision.2167]
+title = "The lifecycle binding treats budgetCreate's idempotency word as the budget id"
+value = "In services/human/crates/layerx-human-service/src/agents/create.rs ProtocolEvidence::bound_activity compares disclosure.idempotency_key with self.action_key for every construct method except PayBudgetCreate, for which the disclosure word is the budget id (payload[2..34], call.rs:555-556) and is pinned by the callers' payload comparison (:1262 and the matching checks in create_native.rs, controls.rs, agent_creation.rs and onboarding/native.rs); the other seven bindings and the signature of bound_activity are unchanged, so the ten callers compile as they are. The refusal string names the binding that differed. In services/human/crates/layerx-human-service/tests/support/canonical_owner.rs assert_outcome applies the same rule: for a budgetCreate transaction the idempotency word is compared with the budget id word of the compiled payload, otherwise with evidence.action_key. services/human/crates/layerx-human-service/src/agents/create.rs joins the touches of 18.1272.1 for this bounded change; everything else in that file stays as 9.99.2 left it."
+basis = "Finding 18.1272.1.4: a binding that no producer can satisfy is a defect of the check, not of the producer; the budget id is bound by the payload comparison every caller already makes, so dropping the duplicate comparison for one method loses nothing."
+affects = ["18.1272.1"]
+
+[decision.2168]
+title = "The authority TLS test keeps its fixture tree under the Cargo target temp directory"
+value = "In services/platform/hosted/authority/tests/human_tls.rs the fixture root is PathBuf::from(env!('CARGO_TARGET_TMPDIR')).join('hm2') instead of the qual-logs path under the repository root; the child processes keep reading LAYERX_HUMAN_TLS_ROOT and nothing else in the test changes. The same convention (CARGO_TARGET_TMPDIR) is the one the ai-artifacts and indexer integration tests already use, so a passing run leaves the working tree clean."
+basis = "Finding 8.98.15.5: a test that writes into the source tree turns every passing run into an unreviewed change; Cargo provides the per-target temp directory for exactly this."
+affects = ["8.98.15"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -116407,7 +116419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.4.2]
 title = "Add the xweb storage-receipt request kind with its digest-and-bucket payload"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -142758,6 +142770,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Findings 8.98.15.1 and 8.98.15.2: continue from attempt 1 (95762caa0), whose port and exports are complete. In tests/chain_receipts.rs add chain_rpc_url: format!('http://{address}/evm') to the Config initializer at :249, the URL the test already passes to ChainReceipts::load. Change nothing else. Build once and verify once."
 do_5 = "Decision 2152: continue from attempt 3 (9699103b6), keeping its port and the receipt key file. In tests/human_tls.rs make wire_status_at return (status, body), print the body and the tail of <root>/server.log in every status assertion message and in the Refused panics, run the three failing tests once to read the refusal code, then fix exactly what the code names (a fixture file, a permission, an environment variable the server now requires, or a handler that reaches for the chain on a chain-free route); do not point those tests at the node double. Append /qual-logs/ to .cgignore. Record the code you observed in the task's finding text when you report. Build once and verify once."
 do_6 = "Decision 2159: continue from attempt 4 (72c479b34), keeping its port, the key file and the body-printing assertions. In tests/human_tls.rs re-sign the fixture at run time exactly as the decision lists (signer from a fixed pattern, key_id = sha256 of the verifying key, context_hash and header sequencer_id words replaced, receipt and header re-signed, receipt root word updated where the header carries it, key file, environment and state record from the re-signed values). Change nothing in src/. Build once and verify once; if a 503 remains, print the refusal body and the server log tail as the assertions already do and record the code in the finding."
+do_7 = "Decision 2168: continue from attempt 5 (2f09eeb4d), which qualified; change only human_tls.rs:49 so the fixture root is env!('CARGO_TARGET_TMPDIR') joined with hm2, then build once and verify once."
 
 [task.9.0.1]
 title = "Add Rung and RungStatus to the agent-api verify contract beside Level"
@@ -197969,7 +197982,7 @@ do_2 = "Check the disclosure the way the KMS does (services/human/crates/layerx-
 do_3 = "Keep every other equality arm of :253-263 as written, change nothing in agent_runtime.rs, journeys/engine.rs or custody/provider.rs (10.13.5 ports those producers), and leave the decode at :336-344 in place for the submit path."
 do_4 = "In creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths (services/human/crates/layerx-human-service/tests/agent_create.rs:796) assert that the creation reaches its receipt-gated evidence with a prepared disclosure whose source is a call (bind_call of the decoded preparation equals it), and that a preparation whose disclosure actor differs from the call sender is refused with 'agent preparation differs from creation intent'."
 symbols = ["prepare_action", "creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths"]
-touches = ["services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/tests/agent_create.rs", "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs"]
+touches = ["services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/tests/agent_create.rs", "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs", "services/human/crates/layerx-human-service/src/agents/create.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/agent_create.rs::creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_create"
@@ -197991,6 +198004,7 @@ do_7 = "Decision 2102 withdraws decision 2089's Governance arm: attempt 6 (570af
 do_8 = "Decision 2135: continue from attempt 6 (570af0da6). Replace the ledger send(bytes) construction of the Governance arm in prepare_lifecycle_intent (src/server/agent_creation.rs:578 of that tree) and in sign_transaction of tests/support/canonical_owner.rs (:79-83 of that tree) with a call to 0x000000000000000000000000000000000000101C, calldata = the recordLifecycle(bytes,bytes32) selector, the compiled Governance payload as the dynamic bytes argument and the intent's idempotency key as the bytes32 argument; add the ConstructMethod::AuthLifecycle arm to bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:562-579) answering (payload, layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION); keep the KeyRotation, EvmPayoutBinding and budget arms as attempt 6 left them. If decode_method has no AuthLifecycle variant at this task's base, 9.99.1 is missing: stop and record the finding. Build once, verify once."
 do_9 = "Decision 2146: continue from attempt 7 (fd5a06e21), whose files are complete; the AuthLifecycle arm of bound_activity is added by task 9.99.2, which this task now requires, so do not edit create.rs. Rebase onto a main that carries 9.99.2, then build once and verify once."
 do_10 = "Decision 2165: continue from attempt 8 (1eebb5ac8). Add the eight named binding assertions to assert_outcome in services/human/crates/layerx-human-service/tests/support/canonical_owner.rs before bound_activity, run the test, and fix the differing binding in the test's owner construction; change nothing in src/. Build once and verify once; if the differing comparison is a production rule, record it in the finding with the two values and stop."
+do_11 = "Decision 2167: continue from attempt 9 (921694364), keeping the eight named assertions. In services/human/crates/layerx-human-service/src/agents/create.rs bound_activity, compute the expected idempotency word per construct method: self.action_key for every method, except that a PayBudgetCreate disclosure is accepted with its budget id word (the payload comparison at :1262 pins it); make the refusal name the binding that differed. Mirror the rule in assert_outcome. Change nothing else in src/. Build once and verify once; if another stage now fails its named assertion, record the field and the two values in the finding and stop."
 
 [req.181272]
 title = "Agent creation admits a preparation whose disclosure is bind_call of its unsigned EIP-1559 call"
