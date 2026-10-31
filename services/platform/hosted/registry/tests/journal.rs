@@ -25,31 +25,38 @@ const UNEQUAL_SETS: &str = "every deployment projection must have one protocol a
 
 struct Evidence {
     verifier: ProtocolDeploymentVerifier,
+    trusted_chains: BTreeMap<[u8; 32], support::chain::ChainFixture>,
     deploy: VerifiedDeploymentEvidence,
-    upgrade: VerifiedDeploymentEvidence,
+    replacement: VerifiedDeploymentEvidence,
 }
 
 impl Evidence {
     fn all(&self) -> Vec<&VerifiedDeploymentEvidence> {
-        vec![&self.deploy, &self.upgrade]
+        vec![&self.deploy, &self.replacement]
     }
 }
 
 fn evidence() -> Evidence {
     let policy = UpgradePolicy::Authority(AUTHORITY);
-    let deploy = deploy_fixture(WASM_V1, policy, 70, 1_700_000_070);
-    let upgrade = upgrade_fixture(WASM_V1, WASM_V2, 71, 1_700_000_071);
-    let verifier = verifier_for_fixture(&deploy, 70, 100, None, 1_000);
+    let deploy = deploy_fixture(WASM_V1, policy, 70, NOW);
+    let replacement = deploy_fixture(WASM_V2, policy, 71, NOW);
+    let verifier = verifier_for_fixture(&deploy, 1_000);
+    let deploy_chain = deploy.chain;
+    let replacement_chain = replacement.chain;
     let deploy = verifier
         .verify_deployment(&deploy.proof, NOW)
         .unwrap_or_else(|error| panic!("deploy evidence: {error}"));
-    let upgrade = verifier
-        .verify_deployment(&upgrade.proof, NOW)
-        .unwrap_or_else(|error| panic!("upgrade evidence: {error}"));
+    let replacement = verifier
+        .verify_deployment(&replacement.proof, NOW)
+        .unwrap_or_else(|error| panic!("replacement evidence: {error}"));
     Evidence {
         verifier,
+        trusted_chains: BTreeMap::from([
+            (deploy.receipt_digest(), deploy_chain),
+            (replacement.receipt_digest(), replacement_chain),
+        ]),
         deploy,
-        upgrade,
+        replacement,
     }
 }
 
@@ -115,8 +122,17 @@ fn read(path: &Path) -> Vec<u8> {
 }
 
 fn record_frame_end(envelope: &DeploymentEnvelope) -> usize {
-    let bytes = envelope.canonical_encoding();
-    bytes.len() - 32 - 4 - envelope.proof().canonical_encoding().len()
+    let bytes = envelope
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("encode envelope: {error}"));
+    bytes.len()
+        - 32
+        - 4
+        - envelope
+            .proof()
+            .canonical_encoding()
+            .unwrap_or_else(|error| panic!("encode proof: {error}"))
+            .len()
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -124,7 +140,8 @@ struct Projection {
     digests: Vec<[u8; 32]>,
     records: Vec<Vec<u8>>,
     latest: u32,
-    resolved: Vec<[u8; 32]>,
+    admissions: Vec<Result<(), RegistryError>>,
+    resolved: Vec<Result<[u8; 32], RegistryError>>,
 }
 
 fn project(mut evidence: Vec<VerifiedDeploymentEvidence>, records: Vec<Vec<u8>>) -> Projection {
@@ -134,11 +151,13 @@ fn project(mut evidence: Vec<VerifiedDeploymentEvidence>, records: Vec<Vec<u8>>)
         .collect::<Vec<(VerifiedDeploymentEvidence, Vec<u8>)>>();
     ordered.sort_by_key(|(evidence, _)| (evidence.record().sequence, evidence.version()));
     let mut registry = Registry::new();
-    for (evidence, _) in &ordered {
-        registry
-            .record_verified_deployment(evidence)
-            .unwrap_or_else(|error| panic!("projection: {error}"));
-    }
+    let admissions = ordered
+        .iter()
+        .map(|(evidence, _)| {
+            assert_eq!(evidence.record().old_code_hash, None);
+            registry.record_verified_deployment(evidence)
+        })
+        .collect();
     let latest = registry
         .latest_version(program())
         .unwrap_or_else(|error| panic!("latest version: {error}"));
@@ -150,16 +169,16 @@ fn project(mut evidence: Vec<VerifiedDeploymentEvidence>, records: Vec<Vec<u8>>)
     let resolved = ordered
         .into_iter()
         .map(|(evidence, _)| {
-            registry.resolve_deployment(evidence).map_or_else(
-                |error| panic!("resolve deployment: {error}"),
-                |resolved| resolved.receipt_digest(),
-            )
+            registry
+                .resolve_deployment(evidence)
+                .map(|resolved| resolved.receipt_digest())
         })
         .collect();
     Projection {
         digests,
         records,
         latest,
+        admissions,
         resolved,
     }
 }
@@ -173,15 +192,32 @@ fn expected_projection(evidence: &Evidence) -> Projection {
     project(evidence.all().into_iter().cloned().collect(), records)
 }
 
-fn replay(journal: &FileDeploymentJournal, verifier: &ProtocolDeploymentVerifier) -> Projection {
+fn replay(journal: &FileDeploymentJournal, source: &Evidence) -> Projection {
     let mut evidence = Vec::new();
     let mut records = Vec::new();
     for proof in journal
         .proofs()
         .unwrap_or_else(|error| panic!("replay proofs: {error}"))
     {
-        let deployment = verifier
-            .verify_historical_deployment(&proof)
+        let digest = proof
+            .claimed_receipt_digest()
+            .unwrap_or_else(|error| panic!("replay digest: {error}"));
+        let chain = source
+            .trusted_chains
+            .get(&digest)
+            .unwrap_or_else(|| panic!("no trusted chain for {}", hex::encode(&digest)));
+        let current = chain
+            .verifier
+            .verify_head(&chain.header, &chain.commit)
+            .unwrap_or_else(|error| panic!("trusted replay head: {error:?}"));
+        let history = [(
+            chain.header.clone(),
+            chain.commit.clone(),
+            chain.verifier.validators.clone(),
+        )];
+        let deployment = source
+            .verifier
+            .verify_historical_deployment(&proof, &current, &history, NOW)
             .unwrap_or_else(|error| panic!("replay verification: {error}"));
         journal
             .audit_projection(&deployment)
@@ -216,7 +252,7 @@ fn interruption_at_every_write_step_recovers_on_restart_without_repair() {
         let root = journal_root("interrupt");
         let first = append(&open(&root), &evidence.deploy);
         let interrupted = open(&root).interrupt_before(step);
-        let error = match interrupted.append(&evidence.upgrade) {
+        let error = match interrupted.append(&evidence.replacement) {
             Ok(digest) => panic!("{step} did not interrupt {}", hex::encode(&digest)),
             Err(error) => error,
         };
@@ -226,7 +262,7 @@ fn interruption_at_every_write_step_recovers_on_restart_without_repair() {
         let restarted = open(&root);
         let loaded = load(&restarted);
         let committed = step == WriteStep::SyncDirectory;
-        let second = evidence.upgrade.receipt_digest();
+        let second = evidence.replacement.receipt_digest();
         let mut expected_units = BTreeSet::from([first]);
         if committed {
             expected_units.insert(second);
@@ -283,7 +319,7 @@ fn interruption_at_every_write_step_recovers_on_restart_without_repair() {
             assert_eq!(unit.proof(), source.proof(), "{step}");
         }
 
-        assert_eq!(append(&restarted, &evidence.upgrade), second, "{step}");
+        assert_eq!(append(&restarted, &evidence.replacement), second, "{step}");
         let recovered = load(&restarted);
         assert_eq!(
             digests(&recovered),
@@ -293,7 +329,7 @@ fn interruption_at_every_write_step_recovers_on_restart_without_repair() {
         assert!(recovered.quarantined.is_empty(), "{step}: {recovered:?}");
         assert!(recovered.leftovers.is_empty(), "{step}");
         assert!(!unit_path(&root, second, "envelope.tmp").exists(), "{step}");
-        assert_eq!(replay(&restarted, &evidence.verifier), expected, "{step}");
+        assert_eq!(replay(&restarted, &evidence), expected, "{step}");
         fs::remove_dir_all(&root).unwrap_or_else(|error| panic!("cleanup: {error}"));
     }
 }
@@ -302,17 +338,36 @@ fn interruption_at_every_write_step_recovers_on_restart_without_repair() {
 fn replaying_the_journal_reproduces_the_projection_of_its_evidence() {
     let evidence = evidence();
     let expected = expected_projection(&evidence);
+    assert_eq!(
+        expected.digests,
+        vec![
+            evidence.deploy.receipt_digest(),
+            evidence.replacement.receipt_digest()
+        ]
+    );
+    assert_eq!(
+        expected.admissions,
+        vec![Ok(()), Err(RegistryError::VersionHistoryMismatch)]
+    );
+    assert_eq!(expected.latest, 1);
+    assert_eq!(
+        expected.resolved,
+        vec![
+            Ok(evidence.deploy.receipt_digest()),
+            Err(RegistryError::UnverifiedRead)
+        ]
+    );
     let reference_root = journal_root("reference");
     let reference = open(&reference_root);
-    append(&reference, &evidence.upgrade);
+    append(&reference, &evidence.replacement);
     append(&reference, &evidence.deploy);
-    assert_eq!(replay(&reference, &evidence.verifier), expected);
+    assert_eq!(replay(&reference, &evidence), expected);
 
     let recovered_root = journal_root("recovered");
     append(&open(&recovered_root), &evidence.deploy);
     assert!(open(&recovered_root)
         .interrupt_before(WriteStep::Commit)
-        .append(&evidence.upgrade)
+        .append(&evidence.replacement)
         .is_err());
     let recovered = open(&recovered_root);
     assert_eq!(
@@ -322,8 +377,8 @@ fn replaying_the_journal_reproduces_the_projection_of_its_evidence() {
             .len(),
         1
     );
-    append(&recovered, &evidence.upgrade);
-    assert_eq!(replay(&recovered, &evidence.verifier), expected);
+    append(&recovered, &evidence.replacement);
+    assert_eq!(replay(&recovered, &evidence), expected);
     assert_eq!(load(&recovered).units, load(&open(&reference_root)).units);
     for evidence in evidence.all() {
         assert_eq!(
@@ -337,10 +392,57 @@ fn replaying_the_journal_reproduces_the_projection_of_its_evidence() {
 }
 
 #[test]
+fn chain_upgrade_records_are_quarantined_without_inventing_predecessor_hashes() {
+    let fixture = upgrade_fixture(WASM_V1, WASM_V2, 71, NOW);
+    let verifier = verifier_for_fixture(&fixture, 1_000);
+    let upgrade = verifier
+        .verify_deployment(&fixture.proof, NOW)
+        .unwrap_or_else(|error| panic!("upgrade evidence: {error}"));
+    assert_eq!(upgrade.version(), 2);
+    assert_eq!(upgrade.record().old_code_hash, None);
+    assert_eq!(
+        upgrade.record().validate(),
+        Err(RegistryError::VersionHistoryMismatch)
+    );
+    let root = journal_root("upgrade");
+    let journal = open(&root);
+    let digest = append(&journal, &upgrade);
+    let loaded = load(&journal);
+    assert!(loaded.units.is_empty());
+    assert!(loaded.leftovers.is_empty());
+    assert_eq!(
+        quarantine(&loaded),
+        BTreeMap::from([(
+            digest,
+            (
+                vec![unit_path(&root, digest, "envelope")],
+                UnitDefect::Corrupt {
+                    part: UnitPart::Record,
+                    reason: RegistryError::VersionHistoryMismatch.to_string(),
+                }
+            ),
+        )])
+    );
+    assert_eq!(
+        journal.canonical_record(digest),
+        Err(RegistryError::JournalUnavailable)
+    );
+    assert!(journal
+        .audit_projection(&upgrade)
+        .is_err_and(|error| error.contains(&RegistryError::VersionHistoryMismatch.to_string())));
+    assert!(journal
+        .proofs()
+        .is_err_and(|error| error.contains(&RegistryError::VersionHistoryMismatch.to_string())));
+    fs::remove_dir_all(&root).unwrap_or_else(|error| panic!("cleanup: {error}"));
+}
+
+#[test]
 fn envelope_encoding_round_trips_and_names_the_missing_part() {
     let evidence = evidence();
     let envelope = DeploymentEnvelope::from_evidence(&evidence.deploy);
-    let bytes = envelope.canonical_encoding();
+    let bytes = envelope
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("encode envelope: {error}"));
     assert_eq!(DeploymentEnvelope::decode(&bytes), Ok(envelope.clone()));
     assert_eq!(envelope.receipt_digest(), evidence.deploy.receipt_digest());
     assert_eq!(envelope.record(), evidence.deploy.record());
@@ -426,8 +528,8 @@ fn startup_quarantines_defective_units_and_loads_the_rest() {
     let root = journal_root("quarantine");
     let journal = open(&root);
     let first = append(&journal, &evidence.deploy);
-    let second = append(&journal, &evidence.upgrade);
-    let envelope = DeploymentEnvelope::from_evidence(&evidence.upgrade);
+    let second = append(&journal, &evidence.replacement);
+    let envelope = DeploymentEnvelope::from_evidence(&evidence.replacement);
     let second_path = unit_path(&root, second, "envelope");
     let whole = read(&second_path);
 
@@ -501,7 +603,7 @@ fn startup_quarantines_defective_units_and_loads_the_rest() {
     assert!(loaded.quarantined.is_empty(), "{loaded:?}");
     assert!(loaded.leftovers.is_empty());
     assert_eq!(
-        replay(&open(&root), &evidence.verifier),
+        replay(&open(&root), &evidence),
         expected_projection(&evidence)
     );
     assert_eq!(
@@ -519,9 +621,13 @@ fn legacy_two_file_units_load_when_complete_and_quarantine_when_not() {
     let evidence = evidence();
     let root = journal_root("legacy");
     let first = evidence.deploy.receipt_digest();
-    let second = evidence.upgrade.receipt_digest();
+    let second = evidence.replacement.receipt_digest();
     let first_record = evidence.deploy.record().canonical_encoding();
-    let first_proof = evidence.deploy.proof().canonical_encoding();
+    let first_proof = evidence
+        .deploy
+        .proof()
+        .canonical_encoding()
+        .unwrap_or_else(|error| panic!("encode legacy proof: {error}"));
     open(&root);
     write(&unit_path(&root, first, "deployment"), &first_record);
     write(&unit_path(&root, first, "admission"), &first_proof);
@@ -531,7 +637,7 @@ fn legacy_two_file_units_load_when_complete_and_quarantine_when_not() {
     let lone_record = unit_path(&root, second, "deployment");
     write(
         &lone_record,
-        &evidence.upgrade.record().canonical_encoding(),
+        &evidence.replacement.record().canonical_encoding(),
     );
     let loaded = load(&open(&root));
     assert_eq!(digests(&loaded), BTreeSet::from([first]));
@@ -549,7 +655,14 @@ fn legacy_two_file_units_load_when_complete_and_quarantine_when_not() {
     fs::remove_file(&lone_record).unwrap_or_else(|error| panic!("remove: {error}"));
 
     let lone_proof = unit_path(&root, second, "admission");
-    write(&lone_proof, &evidence.upgrade.proof().canonical_encoding());
+    write(
+        &lone_proof,
+        &evidence
+            .replacement
+            .proof()
+            .canonical_encoding()
+            .unwrap_or_else(|error| panic!("encode legacy proof: {error}")),
+    );
     let loaded = load(&open(&root));
     assert_eq!(
         quarantine(&loaded),
@@ -584,15 +697,12 @@ fn legacy_two_file_units_load_when_complete_and_quarantine_when_not() {
     );
 
     let journal = open(&root);
-    assert_eq!(append(&journal, &evidence.upgrade), second);
+    assert_eq!(append(&journal, &evidence.replacement), second);
     let loaded = load(&journal);
     assert_eq!(digests(&loaded), BTreeSet::from([first, second]));
     assert!(loaded.quarantined.is_empty());
     assert_eq!(loaded.leftovers, vec![interrupted.clone()]);
-    assert_eq!(
-        replay(&journal, &evidence.verifier),
-        expected_projection(&evidence)
-    );
+    assert_eq!(replay(&journal, &evidence), expected_projection(&evidence));
 
     assert_eq!(append(&journal, &evidence.deploy), first);
     let loaded = load(&journal);
@@ -675,7 +785,7 @@ fn assert_incomplete_envelope(
         Err(RegistryError::JournalUnavailable)
     );
     assert!(open(root)
-        .audit_projection(&evidence.upgrade)
+        .audit_projection(&evidence.replacement)
         .is_err_and(|error| error.contains("is corrupt")));
 
     write(second_path, &whole[..whole.len() - 32]);
@@ -689,7 +799,7 @@ fn assert_incomplete_envelope(
         .proofs()
         .is_err_and(|error| error.contains("ends before its seal")));
 
-    assert_eq!(append(&open(root), &evidence.upgrade), second);
+    assert_eq!(append(&open(root), &evidence.replacement), second);
     assert_eq!(digests(&load(&open(root))), BTreeSet::from([first, second]));
 }
 

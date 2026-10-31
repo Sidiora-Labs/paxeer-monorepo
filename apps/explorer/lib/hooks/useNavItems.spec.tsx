@@ -7,7 +7,7 @@ import type { NavItem, NavGroupItem } from 'types/client/navigation';
 
 import * as capabilitiesMock from 'mocks/paxeerX/capabilities';
 import { routerState } from 'ui/shared/layout/testWrapper';
-import { describe, it, test, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, waitFor, wrapper } from 'vitest/lib';
 
 vi.hoisted(() => {
@@ -53,7 +53,7 @@ describe('useNavItems', () => {
 
     const texts = textsOf(result.current.mainNavItems);
 
-    expect(texts.slice(0, 4)).toEqual([ 'Home', 'Blockchain', 'Tokens', 'Kernel' ]);
+    expect(texts.slice(0, 4)).toEqual([ 'Home', 'Blockchain', 'Tokens', 'Kernel archive' ]);
     expect(texts).toContain('Resources');
     expect(texts[texts.length - 1]).toBe('More');
   });
@@ -98,7 +98,7 @@ describe('useNavItems', () => {
   it('collects the kernel pages in their own group', () => {
     const { result } = renderNavItems();
 
-    const kernel = groupOf(result.current.mainNavItems, 'Kernel');
+    const kernel = groupOf(result.current.mainNavItems, 'Kernel archive');
 
     expect(textsOf(kernel.subItems.flat())).toEqual([ 'Anchor checkpoints', 'Kernel receipts' ]);
   });
@@ -155,7 +155,7 @@ describe('useNavItems', () => {
     expect(textsOf(groupOf(result.current.mainNavItems, 'Blockchain').subItems.flat())).not.toContain('Price feed');
   });
 
-  async function nav_hides_feed_without_price_feed_capability() {
+  it('nav_hides_feed_without_price_feed_capability', async() => {
     const capabilities: PaxeerXCapabilities = { ...capabilitiesMock.allEnabled };
     expect(capabilities).not.toHaveProperty('price_feed');
     mockCapabilities(capabilities);
@@ -174,7 +174,5 @@ describe('useNavItems', () => {
     const items = groupOf(result.current.navigation.mainNavItems, 'Blockchain').subItems.flat();
     expect(textsOf(items)).not.toContain('Price feed');
     expect(items.some((item) => isInternalItem(item) && item.nextRoute.pathname === '/feed')).toBe(false);
-  }
-
-  test(nav_hides_feed_without_price_feed_capability);
+  });
 });

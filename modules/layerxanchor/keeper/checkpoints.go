@@ -1,12 +1,10 @@
 package keeper
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
@@ -55,123 +53,9 @@ func (k Keeper) GetCheckpoints(ctx sdk.Context) []types.Checkpoint {
 	return out
 }
 
-func (k Keeper) domain(params types.Params) verify.SettlementDomain {
-	return verify.SettlementDomain{PaxeerChainID: params.PaxeerChainID, SettlementContract: params.SettlementContract}
-}
-
-// continuity requires the checkpoint to extend the latest finalized one (or
-// the genesis anchor, or to be batch 1 when neither exists): next batch number, next global sequence, and the
-// previous state root equal to the settled root, the settlement_anchor rule
-// of lxp_checkpoint_finalisable.
-func (k Keeper) continuity(ctx sdk.Context, header *codec.BatchHeader) error {
-	if header.LastSequence < header.FirstSequence {
-		return types.ErrContinuity.Wrap("reversed sequence range")
-	}
-	var batch, lastSequence uint64
-	var root types.Hash32
-	if latest, ok := k.LatestFinalizedBatch(ctx); ok {
-		checkpoint, _ := k.GetCheckpoint(ctx, latest)
-		batch, lastSequence, root = checkpoint.BatchNumber, checkpoint.LastSequence, checkpoint.StateRoot
-	} else if anchor := k.GetAnchor(ctx); anchor.Set {
-		batch, lastSequence, root = anchor.BatchNumber, anchor.LastSequence, anchor.StateRoot
-	} else {
-		// Without a genesis anchor the chain of checkpoints starts at batch 1.
-		if header.BatchNumber != 1 {
-			return types.ErrContinuity.Wrapf("batch %d cannot start the finalized chain", header.BatchNumber)
-		}
-		return nil
-	}
-	if header.BatchNumber != batch+1 {
-		return types.ErrContinuity.Wrapf("batch %d does not follow finalized batch %d", header.BatchNumber, batch)
-	}
-	if header.FirstSequence != lastSequence+1 {
-		return types.ErrContinuity.Wrapf("sequence %d does not follow %d", header.FirstSequence, lastSequence)
-	}
-	if types.Hash32(header.PreviousStateRoot) != root {
-		return types.ErrContinuity.Wrap("previous state root is not the finalized state root")
-	}
-	return nil
-}
-
-// SubmitCheckpoint verifies a sequencer-signed header and its guarantor
-// certificate, records the checkpoint as submitted, and finalizes it when the
-// finality rule holds. Anyone may submit; every refusal leaves state unchanged.
+// SubmitCheckpoint refuses the retired guarantor checkpoint path.
 func (k Keeper) SubmitCheckpoint(ctx sdk.Context, submitter sdk.AccAddress, header []byte, headerSignature [64]byte, certificateBytes []byte) (types.Checkpoint, error) {
-	params := k.GetParams(ctx)
-	certificate, err := codec.DecodeCheckpointCertificate(certificateBytes)
-	if err != nil {
-		return types.Checkpoint{}, types.ErrCertificate.Wrap(err.Error())
-	}
-	if !bytes.Equal(certificate.HeaderBytes, header) {
-		return types.Checkpoint{}, types.ErrCertificate.Wrap("certificate is over a different header")
-	}
-	if params.NetworkID != 0 && certificate.Header.NetworkID != params.NetworkID {
-		return types.Checkpoint{}, types.ErrCertificate.Wrap("network identifier")
-	}
-	authorization, ok := k.SequencerAuthorization(ctx, certificate.Header.SequencerID, certificate.Header.BatchNumber)
-	if !ok {
-		return types.Checkpoint{}, types.ErrSequencerUnauthorized
-	}
-	verified, err := verify.BatchHeader(header, headerSignature, authorization)
-	if err != nil {
-		return types.Checkpoint{}, types.ErrSequencerUnauthorized.Wrap(err.Error())
-	}
-	existing, exists := k.GetCheckpoint(ctx, certificate.Header.BatchNumber)
-	if exists && existing.Status == types.CheckpointFinal {
-		return types.Checkpoint{}, types.ErrCheckpointFinal
-	}
-	if err := k.continuity(ctx, certificate.Header); err != nil {
-		return types.Checkpoint{}, err
-	}
-	checkpointID, signers, err := verify.CheckpointCertificate(certificate, k.domain(params), params.MaxAttestationDelayMs,
-		k.EligibleSigner(ctx, params))
-	if err != nil {
-		return types.Checkpoint{}, types.ErrCertificate.Wrap(err.Error())
-	}
-	if exists {
-		if existing.OpenChallenges != 0 {
-			return types.Checkpoint{}, types.ErrChallenge.Wrap("the submitted checkpoint is under challenge")
-		}
-		if signers < len(existing.Guarantors) {
-			return types.Checkpoint{}, types.ErrCertificate.Wrap("fewer guarantors than the submitted checkpoint")
-		}
-		if existing.CheckpointID != types.Hash32(checkpointID) {
-			k.clearAvailability(ctx, existing.BatchNumber)
-		}
-	}
-	h := certificate.Header
-	checkpoint := types.Checkpoint{
-		BatchNumber: h.BatchNumber, CheckpointID: checkpointID, HeaderDigest: verified.Digest,
-		ProtocolVersion: h.ProtocolVersion, NetworkID: h.NetworkID, Epoch: h.Epoch,
-		FirstSequence: h.FirstSequence, LastSequence: h.LastSequence,
-		PreviousStateRoot: h.PreviousStateRoot, StateRoot: h.ResultingStateRoot, ReceiptRoot: h.ReceiptMerkleRoot,
-		DataAvailabilityRoot: h.DataAvailabilityRoot, SequencerID: h.SequencerID, TimestampMs: h.TimestampMs,
-		Status: types.CheckpointSubmitted, DeclaredThreshold: certificate.Threshold,
-		Submitter: submitter.String(), SubmittedHeight: ctx.BlockHeight(), SubmittedTime: ctx.BlockTime().Unix(),
-	}
-	if exists && existing.CheckpointID == types.Hash32(checkpointID) {
-		checkpoint.Submitter = existing.Submitter
-		checkpoint.SubmittedHeight = existing.SubmittedHeight
-		checkpoint.SubmittedTime = existing.SubmittedTime
-	}
-	for _, attestation := range certificate.Attestations {
-		checkpoint.Guarantors = append(checkpoint.Guarantors, attestation.GuarantorID)
-		k.set(ctx, types.AvailabilityKey(h.BatchNumber, attestation.GuarantorID), types.AvailabilityAttestation{
-			BatchNumber: h.BatchNumber, GuarantorID: attestation.GuarantorID, CheckpointID: checkpointID,
-			ClassMask: attestation.AvailabilityClassMask, AttestedAtMs: attestation.AttestedAtMs, Height: ctx.BlockHeight(),
-		})
-	}
-	checkpoint.AvailabilityMask = k.availabilityMask(ctx, checkpoint.BatchNumber, params)
-	k.setCheckpoint(ctx, checkpoint)
-	ctx.EventManager().EmitEvent(sdk.NewEvent(types.EventCheckpointSubmitted,
-		sdk.NewAttribute(types.AttributeBatchNumber, fmt.Sprint(checkpoint.BatchNumber)),
-		sdk.NewAttribute(types.AttributeCheckpointID, fmt.Sprintf("%x", checkpointID[:])),
-		sdk.NewAttribute(types.AttributeStateRoot, fmt.Sprintf("%x", checkpoint.StateRoot[:])),
-		sdk.NewAttribute(types.AttributeSigners, fmt.Sprint(signers))))
-	if k.finalizable(ctx, checkpoint, params) == nil {
-		checkpoint = k.finalize(ctx, checkpoint)
-	}
-	return checkpoint, nil
+	return types.Checkpoint{}, types.ErrModuleRetired.Wrap("SubmitCheckpoint")
 }
 
 // finalizable is the finality rule ported from lxp_checkpoint_finalisable and
@@ -284,44 +168,7 @@ func (k Keeper) availabilityMask(ctx sdk.Context, batchNumber uint64, params typ
 	return mask
 }
 
-// SubmitAvailabilityAttestation records one guarantor's signed possession
-// statement for a known checkpoint. It must name that checkpoint, claim
-// possession of a non-empty subset of the five classes, be fresh, and be
-// signed by a bonded active guarantor. A later statement from the same
-// guarantor may only widen its mask.
+// SubmitAvailabilityAttestation refuses the retired guarantor availability path.
 func (k Keeper) SubmitAvailabilityAttestation(ctx sdk.Context, encoded []byte) (types.Checkpoint, types.AvailabilityAttestation, error) {
-	params := k.GetParams(ctx)
-	attestation, err := codec.DecodeGuarantorAttestation(encoded)
-	if err != nil {
-		return types.Checkpoint{}, types.AvailabilityAttestation{}, types.ErrAvailability.Wrap(err.Error())
-	}
-	checkpoint, ok := k.GetCheckpoint(ctx, attestation.BatchNumber)
-	if !ok {
-		return checkpoint, types.AvailabilityAttestation{}, types.ErrCheckpointUnknown
-	}
-	header := &codec.BatchHeader{ProtocolVersion: checkpoint.ProtocolVersion, NetworkID: checkpoint.NetworkID,
-		Epoch: checkpoint.Epoch, BatchNumber: checkpoint.BatchNumber, DataAvailabilityRoot: checkpoint.DataAvailabilityRoot,
-		TimestampMs: checkpoint.TimestampMs}
-	if err := verify.Attestation(attestation, header, checkpoint.CheckpointID, k.domain(params), params.MaxAttestationDelayMs,
-		k.EligibleSigner(ctx, params)); err != nil {
-		return checkpoint, types.AvailabilityAttestation{}, types.ErrAvailability.Wrap(err.Error())
-	}
-	record := types.AvailabilityAttestation{BatchNumber: checkpoint.BatchNumber, GuarantorID: attestation.GuarantorID,
-		CheckpointID: checkpoint.CheckpointID, ClassMask: attestation.AvailabilityClassMask,
-		AttestedAtMs: attestation.AttestedAtMs, Height: ctx.BlockHeight()}
-	var previous types.AvailabilityAttestation
-	if k.get(ctx, types.AvailabilityKey(record.BatchNumber, record.GuarantorID), &previous) {
-		if previous.ClassMask|record.ClassMask == previous.ClassMask {
-			return checkpoint, previous, types.ErrAvailability.Wrap("attestation adds no availability class")
-		}
-		record.ClassMask |= previous.ClassMask
-	}
-	k.set(ctx, types.AvailabilityKey(record.BatchNumber, record.GuarantorID), record)
-	checkpoint.AvailabilityMask = k.availabilityMask(ctx, checkpoint.BatchNumber, params)
-	k.setCheckpoint(ctx, checkpoint)
-	ctx.EventManager().EmitEvent(sdk.NewEvent(types.EventAvailability,
-		sdk.NewAttribute(types.AttributeBatchNumber, fmt.Sprint(record.BatchNumber)),
-		sdk.NewAttribute(types.AttributeGuarantorID, fmt.Sprintf("%x", record.GuarantorID[:])),
-		sdk.NewAttribute(types.AttributeClassMask, fmt.Sprint(record.ClassMask))))
-	return checkpoint, record, nil
+	return types.Checkpoint{}, types.AvailabilityAttestation{}, types.ErrModuleRetired.Wrap("SubmitAvailabilityAttestation")
 }

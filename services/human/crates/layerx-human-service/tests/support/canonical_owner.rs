@@ -76,6 +76,42 @@ pub fn sign_transaction(
     );
     assert_eq!(payload.activity_type().ordinal(), 1);
     assert_eq!(&payload.as_bytes()[2..34], &action_key);
+    let mut to = [0; 20];
+    to[18..].copy_from_slice(&0x101b_u16.to_be_bytes());
+    let call = layerx_crypto::evm_transaction::Eip1559Call {
+        chain_id: u64::from(network),
+        nonce: 1,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 10,
+        gas_limit: 100_000,
+        to,
+        data: budget_create_calldata(payload),
+    };
+    let bytes = checked(call.sign(&[0x68; 32]));
+    assert_eq!(bytes[0], 2);
+    let (decoded, signature) = checked(layerx_crypto::evm_transaction::decode_signed(&bytes));
+    assert_eq!(decoded, call);
+    assert_eq!(
+        layerx_crypto::evm_transaction::assemble(&decoded, &signature),
+        bytes
+    );
+    let sender = checked(layerx_crypto::evm_transaction::recover_sender(
+        &decoded, &signature,
+    ));
+    let disclosure = checked(layerx_crypto::disclosure::call::bind_call(&decoded, sender));
+    assert_eq!(disclosure.activity_type, payload.activity_type());
+    assert_eq!(disclosure.idempotency_key, action_key);
+    let mut public_key = [0; 32];
+    public_key[12..].copy_from_slice(&sender);
+    SignedOwner {
+        id: layerx_crypto::evm_transaction::transaction_hash(&bytes),
+        bytes,
+        public_key,
+        actor: disclosure.actor,
+    }
+}
+
+fn budget_create_calldata(payload: &Payload) -> Vec<u8> {
     let mut budget = layerx_wire::decode::Decoder::new(payload.as_bytes(), 0);
     assert_eq!(checked(budget.u16()), 1);
     let mut data = layerx_crypto::disclosure::call::ledger_selector(
@@ -96,36 +132,7 @@ pub fn sign_transaction(
     data.extend_from_slice(&[0; 31]);
     data.push(checked(budget.u8()));
     checked(budget.finish());
-    let mut to = [0; 20];
-    to[18..].copy_from_slice(&0x101b_u16.to_be_bytes());
-    let call = layerx_crypto::evm_transaction::Eip1559Call {
-        chain_id: u64::from(network),
-        nonce: 1,
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 10,
-        gas_limit: 100_000,
-        to,
-        data,
-    };
-    let bytes = checked(call.sign(&[0x68; 32]));
-    assert_eq!(bytes[0], 2);
-    let (decoded, signature) = checked(layerx_crypto::evm_transaction::decode_signed(&bytes));
-    assert_eq!(decoded, call);
-    assert_eq!(
-        layerx_crypto::evm_transaction::assemble(&decoded, &signature),
-        bytes
-    );
-    let sender = checked(layerx_crypto::evm_transaction::recover_sender(
-        &decoded, &signature,
-    ));
-    let mut public_key = [0; 32];
-    public_key[12..].copy_from_slice(&sender);
-    SignedOwner {
-        id: layerx_crypto::evm_transaction::transaction_hash(&bytes),
-        bytes,
-        public_key,
-        actor: b"did:layerx:owner-receipt-fixture".to_vec(),
-    }
+    data
 }
 
 pub fn assert_outcome(

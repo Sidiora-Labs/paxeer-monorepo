@@ -47,7 +47,7 @@ fn generated_typescript_declares_contract_major_two_and_rungs() {
             .map(str::trim)
             .filter(|line| !line.is_empty())
             .collect::<Vec<_>>(),
-        ["submitted = 0,", "receipted = 1,", "committed = 2,"]
+        ["Submitted = 0,", "Receipted = 1,", "Committed = 2,"]
     );
     assert!(output(&generated, "python/layerx_sdk/generated/client.py")
         .contains("\"contract_major\": 2,"));

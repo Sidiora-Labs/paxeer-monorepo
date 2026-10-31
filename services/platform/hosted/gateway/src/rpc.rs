@@ -352,8 +352,7 @@ fn kernel_backend(method: &str) -> Option<KernelBackend> {
         | "lx_getProof"
         | "lx_listAssets"
         | "lx_getAsset"
-        | "lx_getNodeInfo"
-        | "px_listAssets" => Some(KernelBackend::PublicCore),
+        | "lx_getNodeInfo" => Some(KernelBackend::PublicCore),
         _ => None,
     }
 }

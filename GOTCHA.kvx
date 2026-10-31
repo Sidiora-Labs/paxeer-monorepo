@@ -11446,3 +11446,58 @@ fix = "When a task removes the last writer of a store table, grep src/ for every
 title = "A verify leg that selects --lib on a binary-only package fails after every other leg passed"
 symptom = "A fixture re-record task passed nine verify legs and failed the tenth with 'no library targets found' because the service package declares only a [[bin]] and the verify_cmd asked for --lib; the leg had never run because earlier attempts stopped at earlier legs."
 fix = "When writing a cargo test leg for a package, read its Cargo.toml: a package with only [[bin]] takes --bin <name>, a package with [lib] takes --lib; check every leg of a chained verify_cmd against its target list before the first attempt."
+
+[gotcha.2327]
+title = "A vector consumer task that its producer lists as a requirement never finds the vector"
+symptom = "A decoder task failed three times with 'No such file or directory' on a shared test vector because the task that writes the vector listed the decoder as a requirement, so the file could only appear after the test that reads it had passed."
+fix = "When a task reads a planned file, the task that creates it must be in that task's requires and in an earlier or equal wave; check the producer's planned_paths against the touches and do lines of every consumer before landing the requires lists."
+
+[gotcha.2328]
+title = "A task that deletes or reshapes a public type leaves unlisted callers red on main"
+symptom = "Tasks 13.4.5 and 13.4.6 replaced the ProtocolDeploymentVerifier head model and completed on their own gates; layerx-platform-registry (31 errors) and layerx-human-security-provider (2 errors) stayed red on main, every gateway task then failed the build of its dependents, and the aggregate gate failed in human-build; attempts of three tasks repeated the same failure."
+fix = "Before a task deletes or changes a pub item, grep every workspace (programs, services/agent, services/platform, services/human, tools) for its callers; add each caller crate to the touches of that task or create the port tasks in the same batch, ordered before the gates that build those crates, and make the aggregate gate require every port its workspace build needs."
+
+[gotcha.2329]
+title = "Explorer spec files are linted by the production build, not by vitest or yarn lint:tsc"
+symptom = "The frontend image build runs next build, which runs ESLint over lib/ with @typescript-eslint/naming-convention, vitest/valid-title and vitest/expect-expect; spec files that passed snake_case functions as test titles (test(fn, fn)) or declared a snake_case const resource passed vitest and the type check and failed the image build, so paxscan.io kept serving a stale frontend (openapi.yaml 404, home block rows at 0 transactions) until f038ebb3f."
+fix = "Write test titles as string literals, keep the assertions inline in the test callback, name identifiers camelCase or inline them into the typed map; an explorer task gate does not run the production lint, so the author checks these three rules before the gate."
+
+[gotcha.2330]
+title = "The agent daemon's human socket directory must carry no other-user bits"
+symptom = "layerx-agentd exits 2 with 'human listener is invalid: Unauthenticated' when LAYERX_AGENT_HUMAN_SOCKET sits in a directory whose mode has any bit in 0o007 (0o711 for example), whose uid or gid differ from LAYERX_AGENT_HUMAN_SOCKET_UID and _GID, or that is a symlink (services/agent/crates/layerx-agentd/src/human.rs:1725-1742)."
+fix = "Bind the socket inside a dedicated directory created with mode 0o700 by the uid and gid the daemon is told to expect; keep shared fixture roots at their wider mode."
+
+[gotcha.2331]
+title = "apps/web is outside the root npm workspace"
+symptom = "make human-build fails with 'tsup: not found' (or another missing devDependency) in an environment that installed only the root package-lock.json: apps/web has its own lockfile and is excluded from the root workspaces, so the root install never provides its tools."
+fix = "Run npm ci inside apps/web before any human-build or human-test target; the root install does not cover it."
+
+[gotcha.2332]
+title = "A go test package fails to build when another test file still names a removed field"
+symptom = "go test ./precompiles/<pkg>/ -run X reports '[build failed]' from a different test file of the package (retire_read_gate_test.go:115 keepers.AnchorKeeper undefined) even though the focused test and the package build pass."
+fix = "A task that removes a field from a shared struct owns every test file in the package that names it: add those files to touches and delete the dead statements in the same change."
+
+[gotcha.2333]
+title = "A gateway method moved off the kernel core must also leave kernel_backend"
+symptom = "The gateway answers {'code':-32010,'data':{'backend':'public_core','code':'kernel_unavailable','reason':'not_configured'}} for a method whose handler no longer reads the kernel, because kernel_backend (services/platform/hosted/gateway/src/rpc.rs:338) still maps the method name to a KernelBackend and the readiness check runs before the handler."
+fix = "When a method's reads move to the indexer or the chain, remove its arm from kernel_backend in the same task and declare rpc.rs in touches."
+
+[gotcha.2334]
+title = "The precompile wrapper repacks an executor's retirement revert"
+symptom = "A precompile method retired inside its executor (layerxanchor Execute answering RetiredRevert) reaches the EVM as Error('execution reverted') (100 bytes) instead of the 132-byte LXP_MODULE_DISABLED data, because precompiles/common/precompiles.go Run repacks every executor error through revertData unless its own retirePlan gate fired for that method."
+fix = "Test retirement through Run, not GetExecutor().Execute; keep executor revert data in Run when the error is vm.ErrExecutionReverted and bytes were returned (decision.1981), and evaluate retirement before the staticcall refusal in Execute."
+
+[gotcha.2335]
+title = "A symbol a task deletes cannot stay in its symbols list"
+symptom = "The focused test passes and completion fails with 'symbol <name> not defined in the graph' because the task's symbols list names a function one of its do lines deletes."
+fix = "When a do line deletes a function, remove it from symbols in the same spec edit; symbols names what the finished task defines."
+
+[gotcha.2336]
+title = "A client component cannot import a server-only module"
+symptom = "next build fails on a 'use client' component that imports a module beginning with import 'server-only' (apps/web/src/api/gateway.ts), even if only one function is used."
+fix = "Move the read behind a 'use server' action in the route's actions.ts and call the action from the client."
+
+[gotcha.2337]
+title = "UnixMovementProvider validates socket ownership and mode at open"
+symptom = "ProductionComponents::open fails with 'movement provider refused startup' when LAYERX_HUMAN_MOVEMENT_SOCKET names a path with no socket, a symlink, a socket not owned by LAYERX_HUMAN_MOVEMENT_PEER_UID/GID, or one with other-permission bits (the umask leaves them after bind); the provider connects lazily, so no provider process is needed."
+fix = "In tests bind a UnixListener at the path inside a 0o700 directory, chmod the socket to 0o600 right after bind and keep the listener alive for the test's duration."
