@@ -148683,7 +148683,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.13.8]
 title = "Preview native sends at the pending nonce"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.13.3", "9.1.8", "18.1119.1", "10.13.4", "10.13.5", "10.2.8", "18.1297.1", "10.13.9"]
