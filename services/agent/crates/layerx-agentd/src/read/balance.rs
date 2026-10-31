@@ -41,6 +41,85 @@ pub fn balance(
     account: [u8; 20],
     height: Option<u64>,
 ) -> Result<BalanceRead, ApiError> {
+    let (agent, freshness) = read_context(config, height)?;
+    let relative_to = freshness.relative_to;
+    let address: String = account.iter().map(|byte| format!("{byte:02x}")).collect();
+    let value = rpc(
+        &agent,
+        config,
+        "eth_getBalance",
+        json!([format!("0x{address}"), relative_to.tag()]),
+        height.is_some(),
+    )?;
+    let digits = quantity(&value).ok_or_else(malformed)?;
+    let amount = u128::from_str_radix(digits, 16)
+        .map(Amount::from_u128)
+        .map_err(|_| refusal(ErrorClass::CoreRejection, "read.amount_overflow"))?;
+    Ok(BalanceRead {
+        account,
+        amount,
+        canonical_bytes: amount.to_be_bytes().to_vec(),
+        achieved_rung: None,
+        freshness,
+    })
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LedgerBalanceRead {
+    pub account: [u8; 32],
+    pub asset: [u8; 32],
+    pub amount: Amount,
+    pub canonical_bytes: Vec<u8>,
+    pub achieved_rung: Option<Rung>,
+    pub freshness: Freshness,
+}
+
+pub fn ledger_balance(
+    config: &NodeRpcConfig,
+    account: [u8; 32],
+    asset: [u8; 32],
+    height: Option<u64>,
+) -> Result<LedgerBalanceRead, ApiError> {
+    let (agent, freshness) = read_context(config, height)?;
+    let selector = layerx_crypto::evm_transaction::transaction_hash(b"balanceOf(bytes32,bytes32)");
+    let mut data = selector[..4].to_vec();
+    data.extend_from_slice(&account);
+    data.extend_from_slice(&asset);
+    let value = rpc(
+        &agent,
+        config,
+        "eth_call",
+        json!([{
+            "to": "0x000000000000000000000000000000000000101a",
+            "data": format!("0x{}", layerx_programs::hex::encode(&data)),
+        }, freshness.relative_to.tag()]),
+        height.is_some(),
+    )?;
+    let digits = value
+        .as_str()
+        .and_then(|value| value.strip_prefix("0x"))
+        .filter(|digits| digits.len() == 64 && digits.bytes().all(|byte| byte.is_ascii_hexdigit()))
+        .ok_or_else(malformed)?;
+    if digits[..32].bytes().any(|byte| byte != b'0') {
+        return Err(refusal(ErrorClass::CoreRejection, "read.amount_overflow"));
+    }
+    let amount = u128::from_str_radix(&digits[32..], 16)
+        .map(Amount::from_u128)
+        .map_err(|_| malformed())?;
+    Ok(LedgerBalanceRead {
+        account,
+        asset,
+        amount,
+        canonical_bytes: amount.to_be_bytes().to_vec(),
+        achieved_rung: None,
+        freshness,
+    })
+}
+
+fn read_context(
+    config: &NodeRpcConfig,
+    height: Option<u64>,
+) -> Result<(ureq::Agent, Freshness), ApiError> {
     let _node = NodeRpc::connect(config).map_err(node_error)?;
     let certificates = if config.url.starts_with("https://") {
         let loaded = rustls_native_certs::load_native_certs();
@@ -81,29 +160,14 @@ pub fn balance(
             chain_head.checked_add(1).ok_or_else(malformed)?,
         ),
     };
-    let address: String = account.iter().map(|byte| format!("{byte:02x}")).collect();
-    let value = rpc(
-        &agent,
-        config,
-        "eth_getBalance",
-        json!([format!("0x{address}"), relative_to.tag()]),
-        height.is_some(),
-    )?;
-    let digits = quantity(&value).ok_or_else(malformed)?;
-    let amount = u128::from_str_radix(digits, 16)
-        .map(Amount::from_u128)
-        .map_err(|_| refusal(ErrorClass::CoreRejection, "read.amount_overflow"))?;
-    Ok(BalanceRead {
-        account,
-        amount,
-        canonical_bytes: amount.to_be_bytes().to_vec(),
-        achieved_rung: None,
-        freshness: Freshness {
+    Ok((
+        agent,
+        Freshness {
             chain_head,
             value_height,
             relative_to,
         },
-    })
+    ))
 }
 
 fn quantity(value: &Value) -> Option<&str> {

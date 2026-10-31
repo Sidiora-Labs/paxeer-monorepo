@@ -14355,3 +14355,43 @@ symbol = "GetPayerGrant"
 observed = "After Host.ReadPayerGrant leaves, the ledger precompile's grant lifecycle has no store behind it: keeper/grants.go still issues grants through kernel activities 0x00010007 and 0x00010008 that task 1.12.1 retired, include/layerx/lx_asset.h:27 still declares LX_ASSET_GRANT_ISSUE, and twelve test files call Draw or getPayerGrant."
 assumption = "Whether the payer grant lifecycle is re-homed on the ledger module's own store or retired with its ABI methods is an owner ruling for the ledger precompile; 1.12.4 keeps the ABI and makes the reads answer types.ErrNoPayerGrant."
 severity = "owner"
+
+[finding.8.98.3.2]
+task = "8.98.3"
+file = "services/platform/hosted/authority/src/trust.rs:177"
+symbol = "trust::checkpoint"
+observed = "trust.rs:177 fetches the checkpoint over a FrameTransport at a lni Version, the only caller of limits() (:32); with the authority on the RPC evidence functions the fetch has no caller."
+assumption = "Removing it with 8.98.3 is the completion of wiring.J44.20 for the authority; nothing else in services/platform calls trust::limits."
+severity = "cross-task"
+
+[finding.9.97.12.2]
+task = "9.97.12"
+file = "apps/web/e2e/fixtures/px-get-unified-history.json"
+symbol = "px-get-unified-history.json"
+observed = "The recorded gateway answer's rows carry tx_id (the indexer transaction hash for paxeer rows, services/platform/hosted/indexer/src/paxeer.rs:268) and no tx_hash, while the TypeScript history decoder (services/agent/sdk/typescript/src/history.ts:190-209) requires a 66-character tx_hash; commit 861c48b90 restored the fixture to the gateway's answer and removed the tx_hash f977a0dfa had added by hand."
+assumption = "The producer is short of the consumer's contract: the gateway history rows gain tx_hash with task 9.97.13; the SDK decoder stays."
+severity = "owner"
+
+[finding.8.47.11.1]
+task = "8.47.11"
+file = "services/platform/hosted/authority/tests/support/LIFECYCLE_DSP_X:173"
+symbol = "receipt-programs-positive-v3.json"
+observed = "Readers outside the agent crates still name the removed fixtures: authority tests/support/lifecycle_dispatch.rs:173, services/platform/hosted/agent-boundary/src/lifecycle_tests.rs:197, sdk/platform/go/native_program_lifecycle_test.go:169 and sdk/platform/conformance/kernel-fixtures-retired-4.test.py:9."
+assumption = "The platform and Go readers belong to their own retirement tasks (spec sections on native_program_lifecycle_test.go and the kernel-fixtures-retired readers); 8.47.11 covers the agent workspace only."
+severity = "cross-task"
+
+[finding.9.97.11.1]
+task = "9.97.11"
+file = "services/agent/sdk/python/layerx_sdk/web_search.py:913"
+symbol = "verify_web_search_payment"
+observed = "web_search.py:913 (metered path) and :440 (body.module_id == 1) keep the kernel-era module and operation checks on sequencer receipts, whose cases all decode to module 12, operation 2 (sdk/platform/conformance/fixtures/sequencer-receipt-v1.json)."
+assumption = "Outside 9.97.11's touches; the web search verifier needs the same removal in its own task."
+severity = "cross-task"
+
+[finding.8.98.14.1]
+task = "8.98.14"
+file = "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs:16"
+symbol = "platform_names_no_kernel_disclosure_or_send_codec"
+observed = "The scan test of task 8.94.3 includes services/platform/hosted/gateway/tests/local/funding.rs and withdrawal.rs with include_str (:16-17); task 8.19.5 (4cfd3a413) deleted both files, so every build of layerx-platform-core's test targets on main fails before any test runs (attempts 1 to 3 of 8.98.14: f558a861c, 25e68910b)."
+assumption = "A deleted file names no codec; removing the two entries keeps the scan's intent and belongs to the first task that builds the core test targets, 8.98.14."
+severity = "cross-task"

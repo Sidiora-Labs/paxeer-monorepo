@@ -47,6 +47,7 @@ typedef struct lxphost_node {
     uint64_t epoch;
     int store_ready;
     uint8_t arena_bytes[LXPHOST_ARENA_BYTES];
+    lxp_verified_receipt_index verified_receipts;
 } lxphost_node;
 
 static lxphost_envelope *lxphost_node_envelope(lxphost_node *node)

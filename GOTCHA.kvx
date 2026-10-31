@@ -11896,3 +11896,48 @@ fix = "Wrap every top-level block of a node:test file in await test(name, ...) s
 title = "A directory-wide scan test reaches files outside the task's touches"
 symptom = "8.14.2 attempt 4 removed the anchor scripts and the scan still found the anchor genesis wiring in deployment.yaml and init-chain.sh."
 fix = "Run the scan's pattern over the whole scanned tree while writing the task and add every hit to touches."
+
+[gotcha.2417]
+title = "Duplicated cgo preambles must change together"
+symptom = "1.26.1 attempt 5 added a struct field to host.go's preamble and cgo refused the package with inconsistent definitions for C.lxphost_node because simulate.go repeats the typedef."
+fix = "Before changing a cgo preamble type, grep the package for every file that repeats it and change all copies identically."
+
+[gotcha.2418]
+title = "A regenerated output cannot pass a lock that only a later task reseals"
+symptom = "9.97.3 attempt 5 regenerated the receipt outputs and failed the pipeline lock comparison; the --write reseal belongs to 8.45.4, which requires 9.97.3."
+fix = "When a task regenerates locked outputs, put the lock file in touches and update the affected digest entries by hand."
+
+[gotcha.2419]
+title = "Removed fixtures break include_str in test targets the dependents check compiles"
+symptom = "10.13.9 attempts 1 and 2 failed the dependents compile on layerx-wire tests/maintenance_identity.rs, which includes two kernel fixtures task 8.47.5 deleted."
+fix = "A fixture deletion task greps include_str, read_to_string and open paths across every workspace for the deleted names and lists the readers in a follow-up task before publishing."
+
+[gotcha.2420]
+title = "Module and operation on a sequencer receipt are not a payment discriminator"
+symptom = "9.97.11 attempts 1 to 3 refused every draw with draw-receipt-mismatch on receipt.module_id == 1 and operation == 6 while every sequencer-receipt-v1.json case decodes to module 12, operation 2."
+fix = "Decode the fixture once before writing a receipt field check; prove payment terms through the verifier's amount, asset and pay_to arguments."
+
+[gotcha.2421]
+title = "CacheValue::from_receipt never yields a Committed rung"
+symptom = "18.1205.1 attempt 6 built its Committed cache value from a verified receipt and the level stayed SEQUENCER_SIGNED."
+fix = "Build Committed values with CacheValue::from_checkpoint over a ThresholdReport from verify_certificate; copy the certificate fixture of layerx-proof tests/checkpoint.rs."
+
+[gotcha.2422]
+title = "A test-local copy of a shared helper drifts from production"
+symptom = "18.1272.1 attempt 5 kept an inline canonical_owner module signing kernel envelope bytes while tests/support/canonical_owner.rs and production had moved to EVM transactions."
+fix = "Include the shared support helper with #[path] and extend it; never keep a second copy in one test file."
+
+[gotcha.2423]
+title = "ProductionComponents fixtures need the whole production environment"
+symptom = "10.0.3 attempt 3 set the roots and clock variables and stopped at LAYERX_HUMAN_AUTH_INDEX_KEY is required."
+fix = "Copy the complete environment block of tests/production_unhooked.rs:872-895 into any fixture that constructs ProductionComponents."
+
+[gotcha.2424]
+title = "Renaming or deleting an enum variant is a crate-wide change"
+symptom = "10.6.2 attempt 5 renamed Mechanism variants in resolver.rs and left six compile errors in move_money.rs, production_components.rs and a cfg(test) module of observed.rs."
+fix = "grep the crate for every variant path including cfg(test) modules, add each file to touches, and build the library unit tests as well as the integration target."
+
+[gotcha.2425]
+title = "Deleting a test source breaks scan tests that include it from another crate"
+symptom = "8.98.14 attempts 1 to 3 failed to compile layerx-platform-core's test targets because no_kernel_disclosure_codec.rs includes two gateway test files task 8.19.5 deleted."
+fix = "A task that deletes a source file greps the repository for its path in include_str, source! and read_to_string calls and removes or re-points every reader in the same change."
