@@ -135729,7 +135729,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.19.1]
 title = "Delete the hosted guarantor launcher and its checkpoint authority helper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["8.0.4", "8.14.2", "8.18.1", "16.96.3", "16.96.4", "5.54.2", "5.54.10"]
@@ -136066,7 +136066,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.19.11]
 title = "Delete the kernel settlement and custody helpers of the gateway local harness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["8.19.5"]
@@ -136134,7 +136134,7 @@ do_7 = "Attempt 1 (918bd4937 on 00271f78c) failed its build after do_2 deleted v
 
 [task.8.20.2]
 title = "Delete the kernel daemon tests of the core boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["8.0.4", "8.20.1", "8.19.5", "16.96.5"]
@@ -140911,7 +140911,7 @@ do_11 = "Decision 2058: do_10 is withdrawn; treasury_sequence keeps lib.rs's cus
 
 [task.8.98.6]
 title = "Migrate the core callers of wiring.J44.20"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["8.0.2", "18.1083.1", "8.98.5", "18.1297.1"]
