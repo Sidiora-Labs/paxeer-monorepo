@@ -12126,3 +12126,53 @@ fix = "When adding a layerxauth method, raise the pinned counts in gas_test.go a
 title = "Store row keys are limited to 128 identifier characters, and two 32-byte hex fields plus a prefix exceed it"
 symptom = "A handler built a Cache row key from a prefix and two 64-character hex digests (148 characters); RowKey::new refused it as InvalidKey and the handler reported upstream-degraded on every request."
 fix = "Key rows by one digest of the inputs (prefix plus 64 hex characters) and keep RowKey::new's IDENTIFIER_LIMIT in mind whenever a key concatenates hashes."
+
+[gotcha.2463]
+title = "A panic inside an evmrpc handler is reported only as 'method handler crashed' and the node log shows nothing"
+symptom = "A client saw 'method handler crashed' from eth_sendRawTransaction; the JSON-RPC server recovers handler panics and logs them through its own logger, which the node does not route, and the handler's deferred recordMetricsWithError re-panicked without logging, so node.log held no error, no stack and the goroutine dump had already unwound."
+fix = "Log the panic value and debug.Stack() in recordMetricsWithError before re-raising (task 12.35.11), and reproduce handler paths in process with the production SendConfig instead of only through a started binary."
+
+[gotcha.2464]
+title = "A retired-module scan list is per crate, and extending it before that crate's own port fails the port's neighbour"
+symptom = "A core task added 'read' to the authority crate's retired-module list because an early do-line bundled the authority reader with the core port; the core port passed its own scan and the task failed on the authority crate's unchanged import."
+fix = "Keep each crate's retired list with the task that ports that crate; a cross-crate clause in a do-line is a second task, not a line item."
+
+[gotcha.2465]
+title = "The agent creation lifecycle binding matches the disclosure construct method exhaustively"
+symptom = "A task added a variant to layerx_crypto::disclosure::call::ConstructMethod, built and tested layerx-crypto, and landed; every later build of the layerx-human-service library failed with error[E0004] non-exhaustive patterns in agents/create.rs bound_activity."
+fix = "When adding a ConstructMethod variant, add its bound_activity arm in the same change and build layerx-human-service as part of the gate; the two crates live in different workspaces, so the human service build must be named explicitly."
+
+[gotcha.2466]
+title = "The human service's component server validates every response against the declared schema and answers upstream-degraded on an undeclared key"
+symptom = "A handler emitted fields the schema file did not declare; the service built and the peers answered, and every request still got 503 upstream-degraded with no log of the cause, because encode_response refuses an undeclared object key after the backend has executed."
+fix = "When a handler emits a new response field, declare it in services/human/schema/human-api (optional lists are additive within a major), regenerate baseline.kvx with the refresh command in its manifest, and run the schema-check conformance test with the handler's test."
+
+[gotcha.2467]
+title = "Test wrappers start with Block.MaxGasWanted zero and the sequencer admission then refuses every transaction"
+symptom = "An rpc test harness built app.NewTestWrapper, funded accounts and sent a transaction; the sequencer answered 'transaction does not fit the block limits: gas wanted 21000 exceeds Block.MaxGasWanted 0' from node/sequencer/limits.go, because the admission check reads the stored consensus params and the wrapper never stores any."
+fix = "Store consensus params with Block.MaxGasWanted set (50000000 is the production genesis value) through App.StoreConsensusParams before the harness's first block, as node/genesis_sequenced_test.go does."
+
+[gotcha.2468]
+title = "Removing a variant from a human-service enum left two test targets uncompilable on main"
+symptom = "A task removed two variants from journeys::resolver::Mechanism, built and tested its own targets and landed; tests/intent_nonces.rs and tests/resolver.rs still named the variants and every later --all-targets build of layerx-human-service failed on them."
+fix = "When removing or renaming an enum variant in services/human, grep the crate's tests directory for the variant and build the crate with --all-targets in the gate; the resolver's refusal for custody routes is pinned in tests/send_routes.rs, so do not duplicate it elsewhere."
+
+[gotcha.2469]
+title = "The authority's Config is built literally in more than one test, so a new field breaks tests outside the task that added it"
+symptom = "A task added chain_rpc_url to the hosted authority's Config and updated the tests it owned; cargo build --tests then failed in tests/chain_receipts.rs, which constructs Config with a struct literal and was not in the task's touches."
+fix = "When adding a field to services/platform/hosted/authority's Config, grep the crate's tests for 'Config {' and add every literal to the touches before the build."
+
+[gotcha.2469]
+title = "The wallet's .pax name widget targets contract addresses that hold no code on chain 125"
+symptom = "apps/wallet/src/lib/pns.ts pins a controller, resolver and reverse registrar address and the widget drives registrations against them; eth_getCode for each returns empty on the live chain and the repository holds no name-service contract source."
+fix = "Treat a client with pinned addresses as a specification of the ABI, not as evidence of a deployment; check eth_getCode before building on a pinned address, and prefer environment-configured addresses with a not-configured state."
+
+[gotcha.2470]
+title = "A cargo gate that names a test target another task has yet to create exits 101 before any test runs"
+symptom = "A verify command listed --test intent_plan_evm for a crate whose tests/intent_plan_evm.rs is a planned path of a different task; cargo refused with no test target named intent_plan_evm and the task could not qualify although its own change built."
+fix = "Name only test targets that exist at the task's base or that the task itself creates; leave another task's planned target to that task's gate."
+
+[gotcha.2471]
+title = "A status-only assertion against the authority hides which refusal code produced a 503"
+symptom = "Three TLS tests failed with 503 where 200 was expected and the attempt could only report pre-existing; the authority's refusal body carries error.code and server.log carries the eprintln reasons, neither of which the assertions printed."
+fix = "Assert on status and body together and print the server log tail on failure, so a refused route names its cause in the first run."

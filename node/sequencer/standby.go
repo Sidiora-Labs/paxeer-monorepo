@@ -305,7 +305,7 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 		if err := syncWAL(); err != nil {
 			return Ack{}, err
 		}
-		return Ack{Status: AckOK, LastSeq: maxSeq}, nil
+		return Ack{Status: AckOK, LastSeq: r.lastSeq}, nil
 	}
 	var group errgroup.Group
 	group.Go(syncWAL)
