@@ -133828,7 +133828,7 @@ do_6 = "Attempts 1 and 2 (954c60ae0 and 66d37aa82 on a1c0f4e7f) pass px_get_netw
 
 [task.8.6.1]
 title = "Stop proxying the live explorer anchor and receipt views; proxy the archive views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.4.4", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1"]
