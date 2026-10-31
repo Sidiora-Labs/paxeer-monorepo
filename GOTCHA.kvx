@@ -11476,3 +11476,8 @@ fix = "Run npm ci inside apps/web before any human-build or human-test target; t
 title = "A go test package fails to build when another test file still names a removed field"
 symptom = "go test ./precompiles/<pkg>/ -run X reports '[build failed]' from a different test file of the package (retire_read_gate_test.go:115 keepers.AnchorKeeper undefined) even though the focused test and the package build pass."
 fix = "A task that removes a field from a shared struct owns every test file in the package that names it: add those files to touches and delete the dead statements in the same change."
+
+[gotcha.2333]
+title = "A gateway method moved off the kernel core must also leave kernel_backend"
+symptom = "The gateway answers {'code':-32010,'data':{'backend':'public_core','code':'kernel_unavailable','reason':'not_configured'}} for a method whose handler no longer reads the kernel, because kernel_backend (services/platform/hosted/gateway/src/rpc.rs:338) still maps the method name to a KernelBackend and the readiness check runs before the handler."
+fix = "When a method's reads move to the indexer or the chain, remove its arm from kernel_backend in the same task and declare rpc.rs in touches."

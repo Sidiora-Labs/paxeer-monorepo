@@ -37162,7 +37162,7 @@ symbols = ["get_balances", "get_account", "decode_coins", "px_get_balances_reads
 [capability.8.5.2]
 title = "Answer px_listAssets from the indexer asset list and chain metadata"
 reqs = ["8041.1"]
-touches = ["services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/src/evm.rs", "services/platform/hosted/gateway/openrpc.json", "services/platform/hosted/gateway/tests/one_source_reads.rs"]
+touches = ["services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/src/evm.rs", "services/platform/hosted/gateway/openrpc.json", "services/platform/hosted/gateway/tests/one_source_reads.rs", "services/platform/hosted/gateway/src/rpc.rs"]
 tests = ["services/platform/hosted/gateway/tests/one_source_reads.rs::px_list_assets_joins_indexer_assets_with_chain_metadata"]
 verification_contract = "contracts/platform-gateway.md#gateway-jsonrpc-methods"
 do_1 = "Replace layerx_assets (services/platform/hosted/gateway/src/paxeer.rs:543-569), which reads the kernel core /v1/assets through public_reads::read (services/platform/hosted/gateway/src/public_reads.rs:46), with the indexer /v1/assets list task 8.2.2 reads for history, sorted and truncated to MAX_JOINED_ASSETS exactly as today."
@@ -133496,7 +133496,7 @@ do_3 = "list_assets (services/platform/hosted/gateway/src/paxeer.rs:602) answers
 do_4 = "Update the px_listAssets result schema of services/platform/hosted/gateway/openrpc.json (services/platform/hosted/gateway/openrpc.json:1506)."
 do_5 = "Add px_list_assets_joins_indexer_assets_with_chain_metadata to services/platform/hosted/gateway/tests/one_source_reads.rs (planned)."
 symbols = ["list_assets", "layerx_assets", "custody_asset", "decode_ledger_asset", "px_list_assets_joins_indexer_assets_with_chain_metadata"]
-touches = ["services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/src/evm.rs", "services/platform/hosted/gateway/openrpc.json", "services/platform/hosted/gateway/tests/one_source_reads.rs"]
+touches = ["services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/src/evm.rs", "services/platform/hosted/gateway/openrpc.json", "services/platform/hosted/gateway/tests/one_source_reads.rs", "services/platform/hosted/gateway/src/rpc.rs"]
 tests = ["services/platform/hosted/gateway/tests/one_source_reads.rs::px_list_assets_joins_indexer_assets_with_chain_metadata"]
 planned_paths = ["services/platform/hosted/gateway/tests/one_source_reads.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway"
@@ -133514,6 +133514,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempts 1 to 3 (f9d7a9c98 on de9686155, ad2cb2232 on 042310e9e, 9c314362a on 16f187251) built layerx-platform-gateway and never reached the gate: the build of the crates that depend on the gateway library fails in layerx-platform-registry, red since tasks 13.4.5 and 13.4.6 (finding 8.4.3.1), which task 8.12.3 ports and which this task now requires (decision.1971). The next attempt starts from the latest candidate 9c314362a after checking it against do_1 to do_5, edits only the four touched files, and spends no repair cycle on services/platform/hosted/registry."
 do_7 = "Attempts 4 (5723517e1 on 2fafc70a4) and 5 (1685bac94 on f038ebb3f) built layerx-platform-gateway and stopped in the check of every target of the dependent crates at the journal and producer_tls test targets of layerx-platform-registry (finding 8.5.2.3); task 8.12.4 ports them and precedes this task. The attempt 5 content is re-qualified unchanged once 8.12.4 is on main."
+do_8 = "Attempt 6 (33b0b5024 on d88134e96) builds, passes the check of the dependent crates for the first time and fails px_list_assets_joins_indexer_assets_with_chain_metadata at one_source_reads.rs:903 with {'code':-32010,'data':{'backend':'public_core','code':'kernel_unavailable','reason':'not_configured'}}: kernel_backend (services/platform/hosted/gateway/src/rpc.rs:338-357) still maps px_listAssets to KernelBackend::PublicCore at :356, so the gateway refuses the method before list_assets runs whenever no kernel core is configured, which req.8041 ac_1 makes the normal case. rpc.rs joins touches: remove px_listAssets from that arm (the lx_* methods keep theirs), change nothing else in the file, keep the attempt 6 content and re-qualify."
 
 [task.8.5.3]
 title = "Answer px_getNetwork with the consensus head instead of the anchor checkpoint"
@@ -195424,6 +195425,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 
