@@ -170692,7 +170692,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.7.2]
 title = "Remove the guarantor and custody-proof steps from kernel genesis and the value loop"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -174111,7 +174111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.3]
 title = "Stop copying the guarantor and relay archive files and the explorer index binary into the images and rollout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "8.0.4", "10.0.4"]
