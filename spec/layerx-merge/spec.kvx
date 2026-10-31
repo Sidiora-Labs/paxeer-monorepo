@@ -134111,7 +134111,7 @@ do_7 = "This task no longer waits for task 8.0.4: that gateway router proof cove
 
 [task.8.12.4]
 title = "Port the registry journal and producer TLS tests to the current journal and fixture interfaces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 28
 requires = ["8.12.3"]
@@ -163892,7 +163892,7 @@ do_5 = "apps/explorer/lib/api/services/general/paxeerX.spec.ts:57 asserts capabi
 
 [task.14.32.7]
 title = "Name the Kernel archive group in the navigation menu test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["14.32.5", "14.21.3"]
