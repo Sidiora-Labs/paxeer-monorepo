@@ -146622,7 +146622,7 @@ do_13 = "Decision 2079: attempt 9 (eb382d822) builds and passes every declared t
 
 [task.9.97.11]
 title = "Re-point the x402 HTTP and grant-draw verifiers at the sequencer receipt verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.97.7"]
