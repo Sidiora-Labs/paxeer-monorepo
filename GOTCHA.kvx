@@ -12081,3 +12081,8 @@ fix = "Assert the probe as that eth_call and exclude it from per-route eth_call 
 title = "The attestor test support resolves a wallet identity only from a held secp256k1 key bound to the primary's policy account"
 symptom = "A service test created a human primary key through the attestor test support and asked for its EVM wallet; the attestors refused with key_invalid_share: the inventory listed no key for generation, and the public-wallet route needs a held secp256k1 key owned by the same subject whose address equals the account the primary was generated with."
 fix = "Generate the owner's secp256k1 wallet first, approve the primary key id for generate, create the primary with the wallet address as its account, approve it for sign, then resolve the wallet."
+
+[gotcha.2454]
+title = "A human service test gated on the protected native producer fixture never runs inside a qualification gate"
+symptom = "A new test copied the fixture reader of tests/native_send_producer.rs, which expects PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, a running human service over TLS and a real daemon socket; the gate had none of them, so both cases panicked with NotPresent before their first assertion and the task failed three times without the preview path ever being exercised."
+fix = "Write such tests against an in-process peer double over a UnixListener and a temporary principal store, the way tests/agent_runtime_nonces.rs and tests/agent_runtime_eip1559.rs do; leave the protected fixture tests as release gates."

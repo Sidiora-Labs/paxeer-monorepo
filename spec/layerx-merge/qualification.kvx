@@ -14595,3 +14595,11 @@ symbol = "AttestorKms::create_owned_key"
 observed = "Attempt 7 (12846c417) builds; intent_plan_answers_eip1559_legs and intent_submit_records_each_leg_tx_hash both return Error: Kms(Refused) from Fixture::open before any request: bootstrap (:740-775 of that tree) creates each subject's primary key through kms.create_owned_key with account 0x00000000000000000000000000000000000000a1 and resolves the wallet with keystore.evm_wallet (:769, KMS operation 6). The attestors refuse the service's key generation with key_invalid_share because the test support's wallet inventory lists no key (Inventory.Check, services/wallet/attestor/internal/server/authority.go:125-165, the refusal finding 18.1151.1.2 recorded), and an admitted primary still cannot answer operation 6: doPublicWallet (services/wallet/attestor/internal/server/public_identity.go:56-100) resolves the owner's held secp256k1 key and requires the primary's policy account to equal that wallet's address, while the native-only support holds no secp256k1 key for any owner (tests/wallet_identity_e2e.rs:1033-1038 asserts exactly that absence). attestor_refusal surfaces both codes as KmsError::Refused."
 assumption = "The fixture provisions the real wallet identity per owner (decision 2130). 18.1151.1 requires this task and specifies the same two support helpers and the pub Keystore::binding, so this task adds them and 18.1151.1 finds them present."
 severity = "major"
+
+[finding.10.13.8.4]
+task = "10.13.8"
+file = "services/human/crates/layerx-human-service/tests/native_send_nonces.rs:311"
+symbol = "fixture"
+observed = "Attempt 3 (56b9b087d) built and implemented the preview and expiry changes, but both tests read PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, connect to a running human service over TLS and to a real daemon socket, the release-gate profile of tests/native_send_producer.rs:555; the gate carries no such foundation (finding 10.4.3.2 recorded the same for 10.4.3), so both panicked at :312 with NotPresent before any assertion."
+assumption = "The two cases run self-contained against an in-process peer double and a temporary principal store (decision 2131); the protected producer test stays a release gate."
+severity = "major"
