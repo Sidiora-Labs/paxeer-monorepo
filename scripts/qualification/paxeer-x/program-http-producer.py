@@ -173,7 +173,7 @@ def build(cache_path, output):
                 compiled[role].append(event['executable'])
     require(finished and len(executable) == 1 and all(len(paths) == 1 for paths in compiled.values())
             and identity() == source, 'actual source-bound producer and every production executable required')
-    tracked = subprocess.check_output(['git', 'ls-files', '-z', '--', 'services/platform', 'agent', 'programs', 'include', 'src', 'cmd'], cwd=ROOT)
+    tracked = subprocess.check_output(['git', 'ls-files', '-z', '--', 'services/platform', 'agent', 'programs', 'include', 'src', 'cmd', ':(exclude)**/agent-boundary/tests/**'], cwd=ROOT)
     sources = {}
     for encoded in tracked.split(b'\0'):
         if not encoded:
@@ -185,9 +185,7 @@ def build(cache_path, output):
         if path.is_file() and not path.is_symlink():
             sources[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
     value['source'] = source
-    value['artifacts']['real-node-tests'] = {'artifact': artifact(executable[0]), 'source_files': {
-        'services/platform/hosted/agent-boundary/tests/real_node/native_interfaces.rs':
-        artifact(ROOT / 'services/platform/hosted/agent-boundary/tests/real_node/native_interfaces.rs')['sha256']}}
+    value['artifacts']['real-node-tests'] = {'artifact': artifact(executable[0]), 'source_files': sources}
     for role, paths in compiled.items():
         value['artifacts'][role] = {'artifact': artifact(paths[0]), 'source_files': sources}
     if value['registry_configuration'] is not None:
