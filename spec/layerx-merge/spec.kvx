@@ -161449,7 +161449,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.33.1]
 title = "Prove the SDK web-reader example round-trips a request and answer through 0x101D and xweb"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["13.32.1", "13.0.3", "6.0.3", "18.1073.1"]
