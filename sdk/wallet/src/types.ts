@@ -70,7 +70,11 @@ export class PaxeerWalletError extends Error {
 
 export class FundedUnsupportedError extends PaxeerWalletError {
   constructor() {
-    super('Funded accounts are retired; use an embedded or injected wallet.', 'FUNDED_UNSUPPORTED', 410);
+    super(
+      'Funded accounts are retired; use an embedded or injected wallet.',
+      'FUNDED_UNSUPPORTED',
+      410,
+    );
     this.name = 'FundedUnsupportedError';
   }
 }
@@ -280,73 +284,6 @@ export interface AssetPage {
   joined_limit: number;
 }
 
-export interface PaxeerAccountHalf {
-  address: `0x${string}`;
-  balance: `0x${string}`;
-  nonce: `0x${string}`;
-}
-
-export interface JoinedAccount {
-  account: UnifiedAccountDocument;
-  paxeer: PaxeerAccountHalf | null;
-  layerx: Record<string, unknown> | null;
-}
-
-export interface CustodyAssetRecord {
-  asset_id: string;
-  denom: string;
-  pointer: `0x${string}`;
-  enabled: boolean;
-  paused: boolean;
-  minimum_deposit: string;
-  custody_cap: string;
-  custodied: string;
-  released: string;
-  pending: string;
-}
-
-export interface JoinedAsset {
-  asset_id: string;
-  layerx: Record<string, unknown>;
-  paxeer: CustodyAssetRecord | null;
-}
-
-export interface AssetMap {
-  assets: JoinedAsset[];
-  joined_limit: number;
-}
-
-export interface JoinedBalanceRow {
-  asset_id: string;
-  denom: string | null;
-  custody: CustodyAssetRecord | null;
-  paxeer: { denom: string; amount: string } | null;
-  layerx: Record<string, unknown> | null;
-}
-
-export interface JoinedBalances {
-  account: UnifiedAccountDocument;
-  balances: JoinedBalanceRow[];
-  joined_limit: number;
-}
-
-export type CompletionAsset =
-  | { kind: 'native'; symbol: string; decimals: number; denom?: string }
-  | { kind: 'erc20'; address: `0x${string}`; symbol?: string; decimals?: number };
-
-export interface CompletedBalance {
-  asset: CompletionAsset;
-  source: 'eth_getBalance' | 'erc20_balanceOf';
-  amount: string | null;
-  error: JsonRpcErrorObject | null;
-}
-
-export interface AccountBalances extends JoinedBalances {
-  asset_map: AssetMap;
-  join_limit_reached: boolean;
-  completed: CompletedBalance[];
-}
-
 export interface Capabilities {
   exchange: boolean;
   bridge: boolean;
@@ -356,20 +293,6 @@ export interface Capabilities {
 }
 
 export type KernelReason = 'available' | 'not_configured' | 'unreachable' | 'consensus_unavailable';
-
-export interface KernelStatus {
-  available: boolean;
-  reason: KernelReason;
-}
-
-export interface AnchorHead {
-  latest_finalized_batch: number | null;
-  status: number | null;
-  status_name: AnchorStatusName | null;
-  status_ladder: Record<string, string>;
-}
-
-export type AnchorStatusName = 'unknown' | 'submitted' | 'final';
 
 export interface ConsensusHead {
   latest_height: string;
@@ -557,7 +480,11 @@ export type EvidenceClass =
   | 'approval-hold'
   | 'wallet-ack';
 
-export type VerificationLevel = 'unverified' | 'receipt-verified' | 'checkpoint-finalised' | 'paxeer-finalised';
+export type VerificationLevel =
+  | 'unverified'
+  | 'receipt-verified'
+  | 'checkpoint-finalised'
+  | 'paxeer-finalised';
 
 export interface EvidenceRef {
   evidence_id: string;
@@ -655,7 +582,12 @@ export interface RequestArguments {
   readonly params?: readonly unknown[] | Record<string, unknown>;
 }
 
-export type ProviderEvent = 'connect' | 'disconnect' | 'accountsChanged' | 'chainChanged' | 'message';
+export type ProviderEvent =
+  | 'connect'
+  | 'disconnect'
+  | 'accountsChanged'
+  | 'chainChanged'
+  | 'message';
 
 export type ProviderListener = (...args: unknown[]) => void;
 
@@ -749,11 +681,6 @@ export interface SignTypedDataResponse {
 }
 
 export interface SignDigestResponse {
-  signature: Hex;
-  address: Hex;
-}
-
-export interface SignCustodyResponse {
   signature: Hex;
   address: Hex;
 }
