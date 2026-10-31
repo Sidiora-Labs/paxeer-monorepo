@@ -133899,7 +133899,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.8.3]
 title = "Retire the kernel activity and program routes of the agent-boundary gateway plane"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.8.2", "8.0.4", "9.1.8", "18.1083.1", "18.1297.1"]
@@ -139644,7 +139644,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.96.2]
 title = "Build AI market finality evidence v2 from the block commit in the indexer and webhooks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "13.0.4", "13.29.1", "8.1.5", "8.1.6", "18.1083.1", "18.1297.1"]
@@ -139706,7 +139706,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.96.4]
 title = "Read program state through eth_call on 0x101D in the registry instead of the protocol adapter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "6.0.4", "9.1.8", "18.1083.1", "18.1297.1"]
