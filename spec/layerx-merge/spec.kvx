@@ -134209,7 +134209,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.7.3]
 title = "Retire the kernel activity and program production routes of the gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["8.3.1", "8.7.2", "8.1.5", "18.1083.1", "18.1297.1"]
