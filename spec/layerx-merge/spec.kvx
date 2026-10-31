@@ -119224,7 +119224,7 @@ do_4 = "Attempts 1 to 3 (460ed8339 first) delete tests/daemon/lxp_test_daemon_al
 
 [task.5.54.5]
 title = "Retire the batch-WAL consumer daemon tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.0.3", "16.11.1", "16.11.2", "16.11.3", "16.11.4", "16.11.5"]
