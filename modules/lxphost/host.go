@@ -53,6 +53,7 @@ typedef struct lxphost_node {
     uint64_t epoch;
     int store_ready;
     uint8_t arena_bytes[LXPHOST_ARENA_BYTES];
+    lxp_verified_receipt_index verified_receipts;
 } lxphost_node;
 
 typedef struct lxphost_service_node {
@@ -147,6 +148,8 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
     (void)memset(node, 0, sizeof(*node));
     node->epoch = epoch;
     node->parameters = 1U;
+    status = lxp_verified_receipt_index_init(&node->verified_receipts);
+    if (status != LXP_OK) return status;
     node->fees.version = 1U;
     node->fees.multiplier_basis_points = 10000U;
     status = lx_account_registry_init(&node->accounts);
@@ -558,6 +561,7 @@ static int32_t lxphost_execute(lxphost_node *node, uint32_t network_id,
         binding_authority;
     execution->binding_authority =
         node->envelope.activity.signature.length == 0U && binding_authority;
+    execution->verified_receipts = &node->verified_receipts;
     execution->identities = &node->identities;
     execution->authority = &node->authority;
     execution->fee_parameters = &node->fees;
@@ -866,7 +870,20 @@ func lxphost_bind_assets(node *C.lxphost_node, networkID uint32, bindingAuthorit
 	return result(C.lxphost_bind_assets(node, C.uint32_t(networkID), C.bool(bindingAuthority)))
 }
 
-func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool) error {
+func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool, authorities ...ReceiptAuthority) error {
+	if err := result(C.lxp_verified_receipt_index_bind_authority_network(&node.verified_receipts, C.uint32_t(cfg.NetworkID))); err != nil {
+		return err
+	}
+	for _, authority := range authorities {
+		if authority.BlockHeight >= branch.batchNumber {
+			return codeNonCanonical
+		}
+		encoded := C.lxp_byte_span{bytes: bytesPtr(authority.CanonicalReceipt), length: C.size_t(len(authority.CanonicalReceipt))}
+		if err := result(C.lxp_verified_receipt_index_add_height_authority(&node.verified_receipts, encoded,
+			C.uint64_t(authority.BlockHeight), &node.arena)); err != nil {
+			return err
+		}
+	}
 	balance, err := fee_balance(node)
 	if err != nil {
 		return err
@@ -901,6 +918,7 @@ type KernelAccount struct {
 }
 
 type Config struct {
+	Workers           int
 	StoreKey          sdk.StoreKey
 	NetworkID         uint32
 	Epoch             uint64
@@ -914,18 +932,24 @@ func (h *Host) TimestampWindowMs() uint64 {
 	return h.cfg.TimestampWindowMs
 }
 
+type ReceiptAuthority struct {
+	CanonicalReceipt []byte
+	BlockHeight      uint64
+}
+
 type Activity struct {
-	ProtocolVersion uint16
-	Type            uint32
-	ActorDID        []byte
-	AuthorityKey    [32]byte
-	AccountSequence uint64
-	NotBefore       uint64
-	NotAfter        uint64
-	IdempotencyKey  [32]byte
-	FeeLimit        [16]byte
-	Payload         []byte
-	Signature       []byte
+	ReceiptAuthorities []ReceiptAuthority
+	ProtocolVersion    uint16
+	Type               uint32
+	ActorDID           []byte
+	AuthorityKey       [32]byte
+	AccountSequence    uint64
+	NotBefore          uint64
+	NotAfter           uint64
+	IdempotencyKey     [32]byte
+	FeeLimit           [16]byte
+	Payload            []byte
+	Signature          []byte
 }
 
 type KernelAuthority struct {
@@ -974,9 +998,10 @@ type Receipt struct {
 }
 
 type Host struct {
-	mu   sync.Mutex
-	cfg  Config
-	node *C.lxphost_node
+	mu    sync.RWMutex
+	cfg   Config
+	node  *C.lxphost_node
+	nodes chan *C.lxphost_node
 }
 
 type kvEntry struct {
@@ -986,27 +1011,63 @@ type kvEntry struct {
 }
 
 func NewHost(cfg Config) (*Host, error) {
-	if cfg.StoreKey == nil || cfg.NetworkID == 0 || cfg.ParameterVersion == 0 || cfg.GasLimit == 0 {
+	if cfg.StoreKey == nil || cfg.NetworkID == 0 || cfg.ParameterVersion == 0 || cfg.GasLimit == 0 || cfg.Workers < 0 || cfg.Workers > 16 {
 		return nil, codeNonCanonical
 	}
-	var status C.int32_t
-	node := C.lxphost_node_new(C.uint64_t(cfg.Epoch), &status)
-	if node == nil {
-		return nil, Code(status)
+	if cfg.Workers == 0 {
+		cfg.Workers = 1
 	}
-	return &Host{cfg: cfg, node: node}, nil
+	h := &Host{cfg: cfg, nodes: make(chan *C.lxphost_node, cfg.Workers)}
+	for i := 0; i < cfg.Workers; i++ {
+		var status C.int32_t
+		node := C.lxphost_node_new(C.uint64_t(cfg.Epoch), &status)
+		if node == nil {
+			for len(h.nodes) != 0 {
+				C.lxphost_node_free(<-h.nodes)
+			}
+			return nil, Code(status)
+		}
+		if i == 0 {
+			h.node = node
+		}
+		h.nodes <- node
+	}
+	return h, nil
+}
+
+func (h *Host) borrowNode() (*C.lxphost_node, error) {
+	h.mu.RLock()
+	if h.node == nil {
+		h.mu.RUnlock()
+		return nil, codeNonCanonical
+	}
+	return <-h.nodes, nil
+}
+
+func (h *Host) returnNode(node *C.lxphost_node) {
+	h.nodes <- node
+	h.mu.RUnlock()
 }
 
 func (h *Host) Close() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	C.lxphost_node_free(h.node)
+	if h.node == nil {
+		return
+	}
+	for i := 0; i < cap(h.nodes); i++ {
+		C.lxphost_node_free(<-h.nodes)
+	}
+	close(h.nodes)
 	h.node = nil
 }
 
 func (h *Host) ProgramsOccupancyAsset() [32]byte {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	if h.node == nil {
+		return [32]byte{}
+	}
 	return *(*[32]byte)(unsafe.Pointer(&h.node.programs_runtime.occupancy_asset_id[0]))
 }
 
@@ -1070,6 +1131,13 @@ func (h *Host) Execute(ctx sdk.Context, activity Activity, authority KernelAutho
 // blobs and identity sequences are loaded from and
 // committed to the host store.
 func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelAuthority) (Receipt, error) {
+	node, err := h.borrowNode()
+	if err != nil {
+		return Receipt{}, err
+	}
+	defer h.returnNode(node)
+	h = &Host{cfg: h.cfg, node: node}
+
 	bindingAuthority := binding_authority(activity, authority)
 	if len(activity.Signature) == 0 && !bindingAuthority {
 		return Receipt{}, Code(C.LXP_ERR_BAD_SIGNATURE)
@@ -1077,11 +1145,6 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 	branch, err := newBranchCtx(ctx, h.cfg.StoreKey)
 	if err != nil {
 		return Receipt{}, err
-	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.node == nil {
-		return Receipt{}, codeNonCanonical
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -1126,7 +1189,7 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 	if err := result(C.lxphost_actor_sequence_set(h.node, bytes32(&did), C.uint64_t(next))); err != nil {
 		return Receipt{}, err
 	}
-	if err := lxphost_execute(h.node, h.cfg, branch, bindingAuthority); err != nil {
+	if err := lxphost_execute(h.node, h.cfg, branch, bindingAuthority, activity.ReceiptAuthorities...); err != nil {
 		return Receipt{}, err
 	}
 	var outcome lxphost_outcome
@@ -1190,14 +1253,16 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 }
 
 func (h *Host) ServiceApplyDefaultOutcomes(ctx sdk.Context) (Receipt, error) {
-	branch, err := newBranchCtx(ctx, h.cfg.StoreKey)
+	node, err := h.borrowNode()
 	if err != nil {
 		return Receipt{}, err
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	if h.node == nil {
-		return Receipt{}, codeNonCanonical
+	defer h.returnNode(node)
+	h = &Host{cfg: h.cfg, node: node}
+
+	branch, err := newBranchCtx(ctx, h.cfg.StoreKey)
+	if err != nil {
+		return Receipt{}, err
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()

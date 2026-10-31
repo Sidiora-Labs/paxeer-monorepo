@@ -1,4 +1,3 @@
-mod caps_reads;
 mod chain_fund;
 mod public_reads;
 
@@ -800,73 +799,6 @@ fn registry_with_asset_ordinals(asset_ordinals: &[u16]) -> Result<ModuleRegistry
 
 fn submission_registry() -> Result<ModuleRegistry, String> {
     registry_with_asset_ordinals(&ASSET_SUBMISSION_ORDINALS)
-}
-
-fn submission_decode_registry() -> Result<ModuleRegistry, String> {
-    let mut ordinals = ASSET_SUBMISSION_ORDINALS.to_vec();
-    ordinals.push(9);
-    ordinals.sort_unstable();
-    registry_with_asset_ordinals(&ordinals)
-}
-
-use validate_fee_payload as validate_submission_payload;
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum FeePayloadValidationError {
-    AssetOrdinalReserved,
-    InvalidAssetActivity,
-    InvalidProgramCall,
-    InvalidProgramAccountOperation,
-    InvalidProgramLifecycle,
-}
-
-impl FeePayloadValidationError {
-    fn response(self) -> Response {
-        match self {
-            Self::AssetOrdinalReserved => refusal(422, "asset_ordinal_reserved", None),
-            Self::InvalidAssetActivity => refusal(400, "invalid_asset_activity", None),
-            Self::InvalidProgramCall => refusal(400, "invalid_program_call", None),
-            Self::InvalidProgramAccountOperation => {
-                refusal(400, "invalid_program_account_operation", None)
-            }
-            Self::InvalidProgramLifecycle => refusal(400, "invalid_program_lifecycle", None),
-        }
-    }
-}
-
-fn validate_fee_payload(
-    canonical: &[u8],
-    activity: &layerx_wire::activity::Activity,
-    registry: &ModuleRegistry,
-) -> Result<(), FeePayloadValidationError> {
-    let module = activity.activity_type().module();
-    let ordinal = activity.activity_type().ordinal();
-    if module == ModuleId::Asset {
-        if ordinal == 9 {
-            return Err(FeePayloadValidationError::AssetOrdinalReserved);
-        }
-        let unsigned = layerx_wire::activity::encode_unsigned(activity)
-            .map_err(|_| FeePayloadValidationError::InvalidAssetActivity)?;
-        layerx_crypto::disclosure::bind(&unsigned, registry)
-            .map(|_| ())
-            .map_err(|_| FeePayloadValidationError::InvalidAssetActivity)?;
-    } else if module == ModuleId::Programs {
-        if ordinal == 3 {
-            layerx_types::program_call::NativeProgramCall::decode(activity.payload())
-                .map_err(|_| FeePayloadValidationError::InvalidProgramCall)?;
-        } else if matches!(ordinal, 5 | 6) {
-            let unsigned = layerx_wire::activity::encode_unsigned(activity)
-                .map_err(|_| FeePayloadValidationError::InvalidProgramAccountOperation)?;
-            layerx_crypto::disclosure::bind(&unsigned, registry)
-                .map_err(|_| FeePayloadValidationError::InvalidProgramAccountOperation)?;
-            validate_fee_program_account(ordinal, activity.payload())
-                .map_err(|()| FeePayloadValidationError::InvalidProgramAccountOperation)?;
-        } else {
-            validate_fee_program_lifecycle(canonical, registry, ordinal)
-                .map_err(|_| FeePayloadValidationError::InvalidProgramLifecycle)?;
-        }
-    }
-    Ok(())
 }
 
 fn validate_fee_program_account(ordinal: u16, payload: &[u8]) -> Result<(), ()> {
