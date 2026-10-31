@@ -711,6 +711,46 @@ fn rung(value: u8) -> Option<Rung> {
     })
 }
 
+#[cfg(test)]
+mod receipt_rung_wire_tests {
+    use super::{rung, HumanOperationError, Rung};
+    use layerx_types::verify::VerificationLevel;
+
+    #[test]
+    fn batch_included_and_state_proven_receipts_decode_as_receipted(
+    ) -> Result<(), HumanOperationError> {
+        for level in [
+            VerificationLevel::BATCH_INCLUDED,
+            VerificationLevel::STATE_PROVEN,
+        ] {
+            assert_eq!(
+                rung(crate::human_runtime::receipt_rung_code(level)?),
+                Some(Rung::Receipted)
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn checkpoint_finalised_receipt_decodes_as_committed() -> Result<(), HumanOperationError> {
+        assert_eq!(
+            rung(crate::human_runtime::receipt_rung_code(
+                VerificationLevel::CHECKPOINT_FINALISED
+            )?),
+            Some(Rung::Committed)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn settlement_anchored_receipt_level_is_refused() {
+        assert_eq!(
+            crate::human_runtime::receipt_rung_code(VerificationLevel::SETTLEMENT_ANCHORED),
+            Err(HumanOperationError::Refused)
+        );
+    }
+}
+
 pub(crate) fn rung_name(value: Rung) -> &'static str {
     value.name()
 }
