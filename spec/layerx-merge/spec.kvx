@@ -170791,7 +170791,7 @@ do_5 = "Continue from attempt 1 (ad6d9fd98): keep its px_listAssets and px_getAc
 
 [task.16.8.1]
 title = "Remove the guarantor and finality steps from the paxeer-x gates 2.2 and 24.14"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
