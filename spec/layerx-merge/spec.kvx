@@ -6027,6 +6027,18 @@ value = "In services/platform/hosted/authority/tests/human_tls.rs wire_status_at
 basis = "Finding 8.98.15.3: a bare status assertion hid the code that explains the failure, and the test roots inside the repository would have failed the task even with green tests."
 affects = ["8.98.15"]
 
+[decision.2153]
+title = "The SDK export map serves CommonJS consumers and the wallet-app dev server readiness is observable"
+value = "In services/agent/sdk/typescript/package.json the exports entries . and ./browser each gain 'default': the same dist path as their import condition, after types and import, so require() from the CommonJS Playwright loader resolves them (Node 24 requires ES modules synchronously; the SDK has no top-level await). In apps/wallet/playwright.wallet-app.config.ts webServer gains stdout: 'pipe' and timeout: 600_000, and the probe stays on the root URL. The regenerated apps/wallet/next-env.d.ts is committed with the task. If the probe still times out, the attempt curls http://127.0.0.1:3099/ once the port answers and records the status and the first 40 lines of the body in the finding: a 500 names the module that failed to compile, and the task fixes exactly that module or records it as a finding when it lies outside the wallet and the two SDK packages. The chain-side verify (the in-tree node with --sequencer, the three WALLET_TRANSFER_TRUTH_* variables and the signed one-wei transfer of decisions 2134 and 2137) stands."
+basis = "Finding 12.35.2.3: an exports map without a require or default condition is unreachable from CommonJS, and a readiness probe that ignores stdout and treats a 500 as not-ready hides the compile error that explains the wait; both are facts of the harness the test runs in, not of the receipted rung the test is about."
+affects = ["12.35.2"]
+
+[decision.2154]
+title = "The local node's genesis pre-dates the perps funding hour so the first block emits FundingSettled, and end-block failures are read from block results"
+value = "In tools/qualification/localnode/v6120-node.sh the genesis build keeps deleting the exported pricefeed, perps and spot state (:394) and then adds an app_state.perps object: default params, the markets 0 (BTC) and 11 (PAX) with exactly the fields the v6.12.0 perps hook installs (node/upgrades_v6120.go:93-95 calls the perps keeper function that builds the market list from its rows; copy the two rows' values field for field, Enabled true), and two market_states whose last_index_hour is floor(genesis_time / 3600) - 1 and whose other fields are the zero values the hook would leave. The hook skips a market that already exists and keeps params that are set, so the rest of the list is still installed at the first block with LastIndexHour 0 and settles an hour later, which the test does not need. The script's existing validate-genesis step must pass on the result; if GenesisState.Validate (modules/perps/types/genesis.go:199) demands a field the script cannot derive, the attempt records the field in the finding and stops rather than editing the module. With that genesis the first block's funding step finds hour > LastIndexHour and elapsed 1 and writes FundingSettled for markets 0 and 11 at the node's first block, so the six-minute wait in services/platform/perps-data/e2e_test.go returns at once. Before changing the script, the attempt reads /block_results of the first block whose time is past a whole hour on the running node and records every perps_endblock_error event (step, market_id, error) and whether the synthetic perps receipt holds FundingSettled logs; a failure there in the price or premium step of markets 0 or 11 is fixed in the local profile or the test fixture, and a failure in the module is a finding that stops the task."
+basis = "Finding 18.670.1.6: the test waits for a settlement the chain only produces at a whole-hour boundary, and the one signal that explains a missing settlement is a Cosmos event, not an EVM log; the local profile owns the determinism and the test owns the observability."
+affects = ["18.670.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -108401,7 +108413,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.2.1]
 title = "Write the names SDK core: normalisation, namehash, manifests and the Paxeer contenthash form"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -116086,7 +116098,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.99.2]
 title = "Match the AuthLifecycle disclosure method in the agent creation lifecycle binding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["9.99.1"]
@@ -116176,7 +116188,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.5.1]
 title = "Commit a consensus vector: validator set, header with app hash and the commit over it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -160286,7 +160298,7 @@ do_1 = "apps/wallet/e2e/send.spec.ts:95 asserts the hash stays pending until a r
 do_2 = "Keep the reload evidence assertion of apps/wallet/e2e/send.spec.ts:95 and assert the reloaded observation keeps the receipted step."
 do_3 = "Add the test below to apps/wallet/e2e/send.spec.ts:408."
 symbols = ["send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"]
-touches = ["apps/wallet/e2e/send.spec.ts"]
+touches = ["apps/wallet/e2e/send.spec.ts", "services/agent/sdk/typescript/package.json", "apps/wallet/playwright.wallet-app.config.ts", "apps/wallet/next-env.d.ts"]
 tests = ["apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"]
 planned_paths = []
 build_cmd = "make -f chain.mk install && pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts --list"
@@ -160305,6 +160317,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Run the transfer truth against the in-tree node that tools/qualification/localnode/v6120-node.sh --sequencer starts (task 12.35.4, decision.1886): the verify names WALLET_TRANSFER_TRUTH_ANVIL_URL and the new WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL as LOCAL_NODE_SEQUENCER_RPC, WALLET_TRANSFER_TRUTH_SENDER as LOCAL_NODE_ADDRESS and the new WALLET_TRANSFER_TRUTH_SEQUENCER_KEY as LOCAL_NODE_KEY from the script's env file; add the sequencer URL to the OBSERVED_METHODS routing at apps/wallet/e2e/send.spec.ts:26, :85-89 so pax_sequencerReceipt reaches that node, and derive any other WALLET_TRANSFER_TRUTH_* or PAXEER_X_* variable the suite requires (send.spec.ts:24-31, :75-76) from the same node instead of requiring a second chain. No stub answer for pax_sequencerReceipt is added to page.route."
 do_5 = "The new test signs its one-wei transfer with WALLET_TRANSFER_TRUTH_SEQUENCER_KEY through viem (privateKeyToAccount, the chain id read from the node) and submits it with eth_sendRawTransaction to WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL instead of the eth_sendTransaction helper of send.spec.ts:46-51, which assumes an unlocked anvil account; the existing tests keep that helper."
 do_6 = "Decision 2137: the hold is lifted; qualify against the in-tree node exactly as verify_cmd states, with the primary-only --sequencer mode decision 2134 gives v6120-node.sh. Build once, verify once."
+do_7 = "Decision 2153: continue from attempt 3 (021b681bd), whose new test is complete. Add a default condition beside import for . and ./browser in services/agent/sdk/typescript/package.json; set stdout: 'pipe' and timeout: 600_000 on webServer in apps/wallet/playwright.wallet-app.config.ts; commit the apps/wallet/next-env.d.ts that next dev regenerates. Build once (the list must now show the send.spec.ts tests) and verify once; if the readiness probe still times out, record the dev server's first response (status and body head) and the module it names, fix that module when it is in apps/wallet, sdk/wallet or the SDK, and otherwise stop with the finding."
 
 [task.12.35.3]
 title = "Assert the committed rung needs a matching explorer answer in the send e2e test"
@@ -178946,7 +178959,7 @@ do_2 = "Keep in restart_new_snapshot_id only the assertions: welcomeB differs fr
 do_3 = "Leave websocket_dense_seq_after_restart (e2e_test.go:228), rest_graphql (e2e_test.go:308) and explorer_portal (e2e_test.go:377) reading readerB and gwURL unchanged, so they now run against the live replacement gateway and socket."
 do_4 = "Qualify through the existing TestEndToEnd, whose websocket_dense_seq_after_restart, rest_graphql and explorer_portal subtests must pass against the replacement gateway with no closed-socket read error and no refused connection."
 symbols = ["TestEndToEnd"]
-touches = ["services/platform/perps-data/e2e_test.go"]
+touches = ["services/platform/perps-data/e2e_test.go", "tools/qualification/localnode/v6120-node.sh"]
 tests = ["services/platform/perps-data/e2e_test.go::TestEndToEnd"]
 planned_paths = []
 build_cmd = "make -f chain.mk install && go build ./services/platform/perps-data/..."
@@ -178967,6 +178980,7 @@ do_6 = "latestFunding (services/platform/perps-data/e2e_test.go:998-1011) walks 
 do_7 = "The comment at e2e_test.go:428-431 assumes the chain already holds an hourly FundingSettled log; a fresh in-tree node has none until fundingPeriods (modules/perps/keeper/funding.go:15) have elapsed, so the test waits for the first FundingSettled log on the local node (or drives the blocks that produce it) before asserting projections, and records the wait it needs in the test rather than reaching for a hosted chain."
 do_8 = "Attempt 5 (a350a148f) passes the earliest-block clamp and the funding wait (e2e_test.go:432-460) and the WETH read (:485), then fails at e2e_test.go:486 because getMarkPriceDetails(11) reverts: market 11 is PAX (modules/pricefeed/types/market.go:44, stored with the other perps markets by the perps hook of the v6.12.0 plan at node/upgrades_v6120.go:93-95, which the in-tree node applies at its first block, tools/qualification/localnode/v6120-node.sh:368-385), but the price loop of v6120-node.sh:99-102 submits market_id 0 only, so the market 11 price is never fresh, updateMarketPrice keeps a zero mark (modules/perps/keeper/mark.go:94-97) and viewMark refuses it (precompiles/perps/views.go:197-201). Task 5.98.3 makes market 11 fresh and gives the LOCAL_NODE_KEY account perps collateral; re-qualify against it with e2e_test.go still reading market 11, PAX, store.USDL and the precompiles at :62-67 and :76-78 as written."
 do_9 = "Decision 2137: the hold is lifted; qualify against the in-tree node exactly as verify_cmd states (no --sequencer, no sequencer receipt read). Build once, verify once."
+do_10 = "Decision 2154: continue from attempt 6 (03685946f), keeping the earliest-block clamp and the funding wait. First, with the node running, fetch /block_results for the first block past a whole hour and record every perps_endblock_error event and the FundingSettled logs of the synthetic perps receipt in the finding. Then add the app_state.perps object to the genesis build in tools/qualification/localnode/v6120-node.sh after :394 (default params, markets 0 and 11 copied field for field from the v6.12.0 hook's market list, market_states with last_index_hour = floor(genesis_time/3600) - 1) so the first block settles funding, and keep validate-genesis passing. Change nothing in modules/perps. Build once and verify once."
 
 [req.18670]
 title = "Keep the restarted perps data gateway alive through the post-restart end-to-end checks"
