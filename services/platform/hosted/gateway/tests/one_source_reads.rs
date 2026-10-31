@@ -1,20 +1,13 @@
+include!("../src/main.rs");
+
 use layerx_platform_gateway::evm;
-use layerx_platform_gateway::store::{RedisEndpoint, RedisStore};
-use layerx_platform_internal::http;
+use layerx_platform_internal::http as internal_http;
 use layerx_platform_internal::tls::{Origin, Upstream};
-use native_tls::Certificate;
-use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
-use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use serde_json::{json, Value};
-use std::fs;
-use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use zeroize::Zeroizing;
+use std::sync::atomic::AtomicBool;
+use std::sync::Mutex;
 
 const CHAIN_ID: &str = "0x7d";
 const LATEST_BLOCK: &str = "0x10";
@@ -286,8 +279,23 @@ fn start_gateway_with_indexer(
     chain_port: u16,
     indexer_port: Option<u16>,
 ) -> Gateway {
+    start_gateway_with_consensus(redis, chain_port, indexer_port, None)
+}
+
+fn start_gateway_with_consensus(
+    redis: &RedisProcess,
+    chain_port: u16,
+    indexer_port: Option<u16>,
+    consensus_url: Option<&str>,
+) -> Gateway {
     let listen = free_port();
     let mut environment = chain_only_environment(redis, chain_port, listen);
+    if let Some(url) = consensus_url {
+        environment.push((
+            "LAYERX_GATEWAY_CONSENSUS_RPC_URL".to_owned(),
+            url.to_owned(),
+        ));
+    }
     if let Some(port) = indexer_port {
         environment.push((
             "LAYERX_GATEWAY_INDEXER_URL".to_owned(),
@@ -378,9 +386,9 @@ impl ChainListener {
                         tcp.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
                         let connection = ServerConnection::new(Arc::clone(&tls)).unwrap();
                         let mut stream = StreamOwned::new(connection, tcp);
-                        if let Ok(request) = http::parse_client_request(&mut stream) {
+                        if let Ok(request) = internal_http::parse_client_request(&mut stream) {
                             let answer = chain_answer(&state, &request);
-                            let _ = http::write_response(&mut stream, &answer);
+                            let _ = internal_http::write_response(&mut stream, &answer);
                         }
                     }
                     Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -423,10 +431,6 @@ fn main_account() -> String {
     hex(&layerx_wire::hash::account_id_for_protocol(&account, 3).unwrap())
 }
 
-fn hex(bytes: &[u8]) -> String {
-    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
-}
-
 fn account_document() -> Value {
     json!({
         "evm_address": ACCOUNT,
@@ -462,7 +466,10 @@ impl ChainState {
     }
 }
 
-fn chain_answer(state: &Mutex<ChainState>, request: &http::Request) -> http::Response {
+fn chain_answer(
+    state: &Mutex<ChainState>,
+    request: &internal_http::Request,
+) -> internal_http::Response {
     assert_eq!(request.path, "/rpc");
     let call: Value = serde_json::from_slice(&request.body).unwrap();
     let mut state = state.lock().unwrap();
@@ -527,7 +534,7 @@ fn chain_answer(state: &Mutex<ChainState>, request: &http::Request) -> http::Res
         }
         _ => panic!("unexpected chain request: {call}"),
     };
-    http::json(200, &result.map_or_else(
+    internal_http::json(200, &result.map_or_else(
         || json!({"jsonrpc":"2.0", "id":call["id"], "error":{"code":-32000,"message":"execution reverted"}}),
         |result| json!({"jsonrpc":"2.0", "id":call["id"], "result":result}),
     ))
@@ -711,7 +718,7 @@ fn ledger_asset_answer() -> Vec<u8> {
     answer
 }
 
-fn asset_chain_answer(call: &Value) -> http::Response {
+fn asset_chain_answer(call: &Value) -> internal_http::Response {
     let to = call["params"][0]["to"].as_str().unwrap();
     let data = call["params"][0]["data"].as_str().unwrap();
     assert_ne!(to, evm::address_hex(&evm::CUSTODY_PRECOMPILE));
@@ -753,7 +760,7 @@ fn asset_chain_answer(call: &Value) -> http::Response {
             panic!("unexpected bank read: {call}");
         }
     };
-    http::json(
+    internal_http::json(
         200,
         &match answer {
             Some(bytes) => {
@@ -934,4 +941,140 @@ fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
     let invalid = gateway.rpc("px_listAssets", &json!(["unexpected"]));
     assert_eq!(invalid["error"]["code"], -32602);
     assert!(state.lock().unwrap().take_calls().is_empty());
+}
+
+#[test]
+fn px_get_network_reports_the_consensus_head() {
+    let block_hash = "A1".repeat(32);
+    let app_hash = "B2".repeat(32);
+    for (height, catching_up) in [("34742403", false), ("9007199254740993", true)] {
+        let status = json!({
+            "sync_info": {
+                "latest_block_height": height,
+                "latest_block_hash": block_hash,
+                "latest_app_hash": app_hash,
+                "catching_up": catching_up,
+                "earliest_block_height": "1"
+            }
+        });
+        let head = chain_reads::ConsensusHead::from_status(&status)
+            .expect("the consensus status sync_info must decode");
+        let result = paxeer::network_result("paxeer-degraded", CHAIN_ID, LATEST_BLOCK, Some(head));
+        assert_eq!(
+            result,
+            json!({
+                "network_id": "paxeer-degraded",
+                "paxeer": {"chain_id": CHAIN_ID, "latest_block": LATEST_BLOCK},
+                "consensus": {
+                    "latest_height": height,
+                    "latest_block_hash": block_hash,
+                    "latest_app_hash": app_hash,
+                    "catching_up": catching_up
+                }
+            })
+        );
+        for member in ["anchor", "kernel", "layerx", "reason"] {
+            assert!(result.get(member).is_none(), "{result}");
+        }
+        for (field, invalid) in [
+            ("latest_block_height", json!(16)),
+            ("latest_block_height", json!("-1")),
+            ("latest_block_height", json!("18446744073709551616")),
+            ("latest_block_hash", json!("not-a-hash")),
+            ("latest_app_hash", json!(null)),
+            ("catching_up", json!("false")),
+        ] {
+            let mut malformed = status.clone();
+            malformed["sync_info"][field] = invalid;
+            assert!(
+                chain_reads::ConsensusHead::from_status(&malformed).is_none(),
+                "{malformed}"
+            );
+        }
+        for field in [
+            "latest_block_height",
+            "latest_block_hash",
+            "latest_app_hash",
+            "catching_up",
+        ] {
+            let mut incomplete = status.clone();
+            incomplete["sync_info"]
+                .as_object_mut()
+                .unwrap()
+                .remove(field);
+            assert!(
+                chain_reads::ConsensusHead::from_status(&incomplete).is_none(),
+                "{incomplete}"
+            );
+        }
+    }
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let redis = RedisProcess::start();
+    assert!(redis.store().ready());
+    let state = Arc::new(Mutex::new(ChainState::new()));
+    let chain = ChainListener::start(tls(&redis), Arc::clone(&state));
+    let unavailable_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let unavailable_port = unavailable_listener.local_addr().unwrap().port();
+    drop(unavailable_listener);
+    let unavailable_url = format!("https://localhost:{unavailable_port}/consensus");
+    for consensus_url in [None, Some(unavailable_url.as_str())] {
+        let gateway = start_gateway_with_consensus(&redis, chain.port, None, consensus_url);
+        state.lock().unwrap().take_calls();
+        let answer = gateway.rpc("px_getNetwork", &json!([]));
+        assert!(answer.get("error").is_none(), "{answer}");
+        assert_eq!(
+            answer["result"],
+            json!({
+                "network_id": "paxeer-degraded",
+                "paxeer": {"chain_id": CHAIN_ID, "latest_block": LATEST_BLOCK},
+                "consensus": null,
+                "reason": "consensus_unavailable"
+            })
+        );
+        let calls = state.lock().unwrap().take_calls();
+        let mut exchanges = calls.chunks_exact(2);
+        let methods: Vec<_> = exchanges
+            .by_ref()
+            .map(|exchange| {
+                assert_eq!(exchange[0], json!({
+                    "jsonrpc": "2.0", "id": "route-network", "method": "eth_chainId", "params": []
+                }));
+                assert_eq!(exchange[1]["id"], "px-read");
+                assert_eq!(exchange[1]["params"], json!([]));
+                exchange[1]["method"].as_str().unwrap()
+            })
+            .collect();
+        assert!(exchanges.remainder().is_empty());
+        assert_eq!(methods, ["eth_chainId", "eth_blockNumber"]);
+        let invalid = gateway.rpc("px_getNetwork", &json!(["unexpected"]));
+        assert_eq!(invalid["error"]["code"], -32602);
+        assert!(state.lock().unwrap().take_calls().is_empty());
+    }
+
+    let document: Value = serde_json::from_str(include_str!("../openrpc.json")).unwrap();
+    let method = document["methods"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|method| method["name"] == "px_getNetwork")
+        .unwrap();
+    let schema = &method["result"]["schema"];
+    assert_eq!(schema["additionalProperties"], false);
+    assert_eq!(
+        schema["required"],
+        json!(["network_id", "paxeer", "consensus"])
+    );
+    assert_eq!(
+        schema["properties"]["consensus"]["required"],
+        json!([
+            "latest_height",
+            "latest_block_hash",
+            "latest_app_hash",
+            "catching_up"
+        ])
+    );
+    for member in ["anchor", "kernel", "layerx"] {
+        assert!(schema["properties"].get(member).is_none());
+    }
 }
