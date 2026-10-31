@@ -14603,3 +14603,11 @@ symbol = "fixture"
 observed = "Attempt 3 (56b9b087d) built and implemented the preview and expiry changes, but both tests read PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, connect to a running human service over TLS and to a real daemon socket, the release-gate profile of tests/native_send_producer.rs:555; the gate carries no such foundation (finding 10.4.3.2 recorded the same for 10.4.3), so both panicked at :312 with NotPresent before any assertion."
 assumption = "The two cases run self-contained against an in-process peer double and a temporary principal store (decision 2131); the protected producer test stays a release gate."
 severity = "major"
+
+[finding.10.0.3.5]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:894"
+symbol = "Fixture::request"
+observed = "Attempt 8 (1ba15e3ad) provisions the wallet identity and inventory approvals as decision 2130 orders and both tests now pass Fixture::open and the key bootstrap (keystore.evm_wallet equals the generated address). The first verify run failed at ProductionComponents startup because the fixture set a movement socket path it never bound; the repair binds a 0600 UnixListener at root/movement-socket/movement.sock as tests/production_unhooked.rs does. The second run reaches POST /v1/intents/plan, which answers 403 {code: forbidden, copy_key: error.request.forbidden, retry: final} with no reason; kms.last_refusal_code() is None, so no attestor refused. The second test then panicked on the ENVIRONMENT mutex poisoned by the first."
+assumption = "ApiFailure::forbidden (src/server/backend.rs:64-73) carries no cause and the plan route has about a dozen emitters of it; decision 2132 makes the fixture record which peer requests, node RPC methods and gateway paths were served before the refusal so the refusing check is bracketed, and names the emitters to bisect."
+severity = "major"

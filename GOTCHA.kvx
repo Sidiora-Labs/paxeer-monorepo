@@ -12086,3 +12086,8 @@ fix = "Generate the owner's secp256k1 wallet first, approve the primary key id f
 title = "A human service test gated on the protected native producer fixture never runs inside a qualification gate"
 symptom = "A new test copied the fixture reader of tests/native_send_producer.rs, which expects PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, a running human service over TLS and a real daemon socket; the gate had none of them, so both cases panicked with NotPresent before their first assertion and the task failed three times without the preview path ever being exercised."
 fix = "Write such tests against an in-process peer double over a UnixListener and a temporary principal store, the way tests/agent_runtime_nonces.rs and tests/agent_runtime_eip1559.rs do; leave the protected fixture tests as release gates."
+
+[gotcha.2455]
+title = "The human service's plan route answers every refusal with the same reasonless 403"
+symptom = "An end-to-end fixture got {code: forbidden, retry: final} from POST /v1/intents/plan with no attestor refusal recorded; the route has about a dozen checks that answer exactly this (assertion admission, owner identity, balance coordinates, custody binding, plan refusals, leg transactions, observation cache), so the failing check could not be read from the response."
+fix = "Make the fixture's doubles record every request they serve and print the lists in the failure text, then bisect along the route's forbidden emitters in call order."
