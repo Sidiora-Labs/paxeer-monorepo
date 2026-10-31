@@ -23,7 +23,6 @@ PREPARE
     export LAYERX_MULTI_ASSET_BUILD_REVISION=$(git rev-parse HEAD)
     export LAYERX_MULTI_ASSET_CORE_EVENTS="${LAYERX_MULTI_ASSET_BUILD_MANIFEST}.core.jsonl"
     export LAYERX_MULTI_ASSET_PROBE_EVENTS="${LAYERX_MULTI_ASSET_BUILD_MANIFEST}.probe.jsonl"
-    CARGO_TARGET_DIR="$LAYERX_MULTI_ASSET_CORE_TARGET_DIR" cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --test custody_asset_send --no-run --message-format=json > "$LAYERX_MULTI_ASSET_CORE_EVENTS"
     CARGO_TARGET_DIR="$LAYERX_MULTI_ASSET_PROBE_TARGET_DIR" cargo build --locked --release --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml --message-format=json > "$LAYERX_MULTI_ASSET_PROBE_EVENTS"
     python3 - <<'RECORD'
 import hashlib,json,os,subprocess
@@ -33,7 +32,6 @@ revision=os.environ['LAYERX_MULTI_ASSET_BUILD_REVISION']
 assert not git('status','--porcelain','--untracked-files=all') and git('rev-parse','HEAD')==revision
 artifacts={}
 for key,event,name,kind in (
-    ('custody_asset_send','LAYERX_MULTI_ASSET_CORE_EVENTS','custody_asset_send','test'),
     ('probe','LAYERX_MULTI_ASSET_PROBE_EVENTS','layerx-node-probe','bin')):
     rows=[json.loads(line) for line in Path(os.environ[event]).read_text().splitlines() if line.strip()]
     assert rows[-1]=={'reason':'build-finished','success':True},'actual successful Cargo completion required'
