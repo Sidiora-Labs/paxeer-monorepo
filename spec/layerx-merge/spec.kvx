@@ -96134,7 +96134,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.28.3]
 title = "Remove the admission queue from lxp_admission.c and keep kernel admission"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["1.21.1", "1.0.3", "16.31.2"]
