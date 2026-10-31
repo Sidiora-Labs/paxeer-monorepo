@@ -134404,7 +134404,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.7.4]
 title = "Retire the kernel activity scripts of the gateway tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["8.7.3", "16.8.6"]
@@ -140492,7 +140492,7 @@ do_4 = "Port services/platform/hosted/agent-boundary/src/main.rs to the replacem
 
 [task.8.98.2]
 title = "Migrate the agent-boundary callers of wiring.J44.20"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["8.0.2", "9.1.8", "8.8.2", "8.8.4", "8.19.6", "18.1083.1", "18.1297.1"]
