@@ -14395,3 +14395,19 @@ symbol = "platform_names_no_kernel_disclosure_or_send_codec"
 observed = "The scan test of task 8.94.3 includes services/platform/hosted/gateway/tests/local/funding.rs and withdrawal.rs with include_str (:16-17); task 8.19.5 (4cfd3a413) deleted both files, so every build of layerx-platform-core's test targets on main fails before any test runs (attempts 1 to 3 of 8.98.14: f558a861c, 25e68910b)."
 assumption = "A deleted file names no codec; removing the two entries keeps the scan's intent and belongs to the first task that builds the core test targets, 8.98.14."
 severity = "cross-task"
+
+[finding.5.98.4.2]
+task = "5.98.4"
+file = "precompiles/layerxagent/common/common.go:99"
+symbol = "ErrNotActive"
+observed = "At 0x0901 the unknown-selector probe of attempt 5 (4fd96be14) answered 'execution reverted: LXP_AGENT_NOT_ACTIVE: v7.0 not active at height 34742402' instead of LXP_PRECOMPILE_UNKNOWN_METHOD: every 0x0901-0x0908 handler checks the merge upgrade activation before it reads the selector (common.go:99; streams.go:60, orob.go:41, oracle.go:111, eip712.go:43, teeattestor.go:93), and the local node binds no activation reader, so those handlers refuse every call."
+assumption = "Whether the local node fixture should activate the v7.0 plan at genesis is the node runtime owners' question (tasks 12.35.x); for readiness, a handler that answers its own refusal is served."
+severity = "owner"
+
+[finding.12.35.4.15]
+task = "12.35.4"
+file = "tools/qualification/localnode/v6120-node.sh:428-441"
+symbol = "standby_power"
+observed = "Attempt 18 (110c9d81f) adds the standby to genesis as a second bonded validator with a third of the power and as the second sequencer leader; the standby's consensus then proposes every fourth height and fails with 'sequencer: no sealed layer' (standby.log 12:57:28.868, 12:57:40.903, ...), and the primary's replication reads time out on the standby listener at those same seconds ('standby did not acknowledge: read tcp ...->127.0.0.1:55013: i/o timeout', node.log 12:57:28.247, 12:57:40.495, ...); the transfer then fails with 'method handler crashed' from eth_sendRawTransaction and node.log carries no 'RPC method ... crashed' line."
+assumption = "A standby leader that is also a proposer blocks its own replication acknowledgement while it is asked to seal; whether a standby may hold validator power is the node runtime owners' question. The handler crash is logged by core/deps/geth/rpc/service.go:200 at error level only if that logger reaches node.log."
+severity = "owner"

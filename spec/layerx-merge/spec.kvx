@@ -5685,6 +5685,18 @@ value = "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs joins
 basis = "Three attempts of 8.98.14 failed to build the core test targets on an include_str of files 8.19.5 removed (finding.8.98.14.1)."
 affects = ["8.98.14"]
 
+[decision.2096]
+title = "The merge precompile readiness probe accepts the activation refusal of the agent-function handlers"
+value = "require_merge_precompiles and its test accept LXP_PRECOMPILE_UNKNOWN_METHOD or LXP_AGENT_NOT_ACTIVE as proof that the address is served by its handler."
+basis = "Attempt 5 of 5.98.4 (4fd96be14) saw the agent handlers refuse the unknown selector on activation first (finding.5.98.4.2); the refusal comes from the handler itself."
+affects = ["5.98.4"]
+
+[decision.2097]
+title = "The local node standby is a sequencer leader without validator power"
+value = "v6120-node.sh keeps the standby in app_state.sequencer.leaders and removes it from the bonded validators and genesis.validators; the test prints handler crash and panic lines with context; a persisting acknowledgement timeout is recorded as a node/sequencer cause and ends the fixture attempts."
+basis = "Attempt 18 of 12.35.4 (110c9d81f) correlates the standby's failed proposals with the primary's acknowledgement timeouts (finding.12.35.4.15); eighteen fixture attempts have not qualified the sequencer receipt test."
+affects = ["12.35.4"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -96498,7 +96510,7 @@ do_6 = "Decision 2080: attempt 4 (5d09c9378) removed Host.ReadPayerGrant, and ma
 
 [task.1.26.1]
 title = "Replace the single host mutex with a bounded pool of kernel nodes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["1.25.1", "1.17.4", "1.98.1", "1.23.5"]
@@ -122080,6 +122092,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Consumer-proof task: the test starts the real fixture, reads the real node over its JSON-RPC and asserts the code the wallet gateway's probe requires at every merge address; a mocked node or a stubbed eth_getCode is not a proof (decision.1990)."
 do_5 = "Decision 2061: the node serves precompiles as native handlers without account code (attempt 1: eth_getCode answers 0x at all twelve merge addresses while the native ledger accountId eth_call is served), so eth_getCode is not a readiness probe. require_merge_precompiles in tools/qualification/localnode/v6120-node.sh probes each MergeAddressTable address (precompiles/setup.go) with eth_call data 0xffffffff: every merge precompile rejects an unknown selector with LXP_PRECOMPILE_UNKNOWN_METHOD (precompiles/common/precompiles.go:277-283, precompiles/layerxledger/layerxledger.go:75-81, precompiles/layerxagent/common/common.go:194-196), so a JSON-RPC error means served and an empty 0x result means no handler is registered there; keep the native-ledger accountId positive call; the planned test asserts the same over RPC after start. Where the 0x0901-0x0908 handlers answer 0x, the fixture's upgrade or genesis configuration must register them (do_1-do_3); the gateway's own eth_getCode probe is task 12.13.7's (finding.5.98.4.1). Continue from attempt 2 (dfcaca56f) once the node builds again (task 1.12.4): apply this, build once and verify once."
+do_6 = "Decision 2096: attempt 5 (4fd96be14) fails at 0x0901 because the agent-function handlers at 0x0901-0x0908 check the merge upgrade activation before the selector and answer LXP_AGENT_NOT_ACTIVE (finding.5.98.4.2). require_merge_precompiles treats a JSON-RPC error whose message contains LXP_PRECOMPILE_UNKNOWN_METHOD or LXP_AGENT_NOT_ACTIVE as served; any other error text, an empty 0x result or a successful return fails the probe as before. The planned test asserts the same two accepted codes. Continue from attempt 5, build once and verify once."
 
 [task.5.98.3]
 title = "Seed the local node's dev genesis with the perps market, pricefeed and collateral state of the perps-data test"
@@ -145553,7 +145566,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.12]
 title = "Read the receipt key of the TypeScript gateway tests from the sequencer receipt fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = []
@@ -146609,7 +146622,7 @@ do_13 = "Decision 2079: attempt 9 (eb382d822) builds and passes every declared t
 
 [task.9.97.11]
 title = "Re-point the x402 HTTP and grant-draw verifiers at the sequencer receipt verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.97.7"]
@@ -159149,6 +159162,7 @@ do_14 = "Attempt 13 (e4f1f13bb) applies do_13: the pending nonce read passes and
 do_15 = "Attempt 14 (a564859dd on 22b9ee184) passes the build and fails TestLocalNodeV6120SequencerReceipt at v6120_test.go:221 with 'send one-wei transfer: sequencer: replication halted: sequencer: no block is open': the node seals the open layer between the accept and the send of the transfer, the accepter's Snapshot call (node/sequencer/accepter.go:86) returns ErrLayerNotOpen and replication halts. Task 12.35.8 repairs the accepter; this task requires it and re-qualifies the attempt 14 content unchanged on a revision that includes it. Change nothing in the two touched files for this failure."
 do_16 = "tools/qualification/localnode/v6120-node.sh writes LOCAL_NODE_HOME=%q of $NODE_HOME into localnode.env next to LOCAL_NODE_RPC (:719-724), and sequencer_evidence (:129-158) also greps 'method handler crashed|panic|goroutine ' in node.log; TestLocalNodeV6120SequencerReceipt registers a t.Cleanup that, when t.Failed(), logs the last 150 lines of $LOCAL_NODE_HOME/node.log. Attempt 15 (f779633fc on caf5a0531) failed at v6120_test.go:221 with 'send one-wei transfer: method handler crashed' from eth_sendRawTransaction; the closing report must quote the panic site from node.log, and a fix stays within the two touched files unless the panic names a product path, which is then recorded in qualification.kvx."
 do_17 = "Continue from attempt 16 (63dda2164): the test now fails at v6120_test.go:243 with ErrNoAck from node/sequencer/standby.go:42 on the send path. Make sequencer_evidence and the failing test's Cleanup print the standby's node.log replication and sequencer lines as well as the primary's; confirm the standby address the primary dials (--sequencer.standby-address) is the replication listener the standby's configuration opens; record in the closing report whether the standby received the group and why it did not acknowledge within --sequencer.replication-timeout, and fix the fixture accordingly (decision.2053); a cause in node/sequencer is recorded in qualification.kvx with file and line and the task stops. Build once and verify once."
+do_18 = "Decision 2097: attempt 18 (110c9d81f) fails with 'send one-wei transfer: method handler crashed' (v6120_test.go:286); the standby proposes every fourth height and fails with 'no sealed layer' at the same seconds the primary's acknowledgement reads time out (finding.12.35.4.15). Keep the standby as the second sequencer leader but out of the validator set: no bonded validator entry, no power and no genesis.validators entry for it (v6120-node.sh:428-441 and the identity check :478-491 follow), so consensus never asks it to seal. The test prints every node.log and standby.log line containing 'crashed' or 'panic' with the forty lines after it, and the standby and node start with the rpc logger at error level reaching their logs. If the acknowledgement timeouts persist with a non-proposing standby, or the sequencer module refuses a leader outside the validator set, record one qualification entry naming the node/sequencer file and line and stop; no further fixture-only attempt follows. Continue from attempt 18, build once and verify once."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
