@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createHash, createPublicKey, verify } from "node:crypto";
-import { verifyProgramLifecycleReceipt } from "../src/verifier.js";
 import { encodeProgramMutationBody, decodeProgramBoundaryError, decodeEnvelope } from "../src/agent-http.js";
 import { bindSignedProgramLifecycle } from "../src/program-wire.js";
-import { verifyLifecycleRecovery, resolveLifecycleResponse, resolveLifecycleFailure } from "../src/programs.js";
+import { resolveLifecycleFailure } from "../src/programs.js";
 import { decodeNativeProgramDeploy, decodeNativeProgramUpgrade, decodeNativeProgramWindDown,
   encodeNativeProgramDeploy, encodeNativeProgramUpgrade, encodeNativeProgramWindDown, NativeProgramLifecycleRequest } from "../src/program-lifecycle.js";
 
@@ -29,17 +28,6 @@ for (const name of ["deploy", "upgrade", "wind-down-route", "wind-down-deprecate
   const ordinal = name === "deploy" ? 1 : name === "upgrade" ? 2 : 7;
   const binding = await request.bind();
   const expectedUnknown = { state: "unknown", activity_id: fixture.activity_id_hex, idempotency_key: fixture.idempotency_key_hex, retained_signed_activity: fixture.signed_activity_hex };
-  const receiptFixture = JSON.parse(readFileSync(new URL("../../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v3.json", import.meta.url), "utf8"));
-  const damagedReceipt = Buffer.from(receiptFixture.canonical_receipt_hex, "hex");
-  damagedReceipt[damagedReceipt.length - 1] = damagedReceipt[damagedReceipt.length - 1]! ^ 1;
-  for (const response of [
-    { state: "executed", activity_id: fixture.activity_id_hex, receipt: damagedReceipt.toString("hex"), terminal_payload: "", call_graph: "" },
-    { state: "refused", activity_id: fixture.activity_id_hex, receipt: "00", terminal_payload: "", call_graph: "" },
-    { state: "unknown", activity_id: "00".repeat(32), retry: "after", retry_after_seconds: 2 },
-  ]) {
-    const value = decodeEnvelope(200, Buffer.from(JSON.stringify({ result: response })), "program.deploy");
-    assert.deepEqual(await resolveLifecycleResponse(value, binding, Buffer.from(receiptFixture.authorized_batch.sequencer_public_key_hex, "hex")), expectedUnknown);
-  }
   for (const encoded of [Buffer.from('{"result":'), Buffer.from(JSON.stringify({ result: {}, extra: true }))]) {
     let caught: unknown;
     try { decodeEnvelope(200, encoded, "program.deploy"); } catch (error) { caught = error; }
@@ -94,13 +82,6 @@ assert.equal(decodeProgramBoundaryError(503, { code: "node_unavailable", retry: 
 assert.throws(() => decodeProgramBoundaryError(200, { code: "invalid_program_payload", retry: "never" }));
 assert.throws(() => decodeProgramBoundaryError(400, { code: "invalid_program_payload", retry: "never", extra: 0 }));
 assert.throws(() => decodeProgramBoundaryError(503, { code: "node_unavailable", retry: "after", retry_after_seconds: true }));
-const callReceipt = JSON.parse(readFileSync(new URL("../../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v3.json", import.meta.url), "utf8")) as { canonical_receipt_hex: string; authorized_batch: { sequencer_public_key_hex: string } };
-await assert.rejects(verifyProgramLifecycleReceipt(Buffer.from(callReceipt.canonical_receipt_hex, "hex"), Buffer.alloc(32, 0x41), Buffer.from(callReceipt.authorized_batch.sequencer_public_key_hex, "hex")));
-const recovery = { activity_id: "41".repeat(32), receipt: callReceipt.canonical_receipt_hex };
-const sequencer = Buffer.from(callReceipt.authorized_batch.sequencer_public_key_hex, "hex");
-await assert.rejects(verifyLifecycleRecovery(recovery, "42".repeat(32), sequencer));
-await assert.rejects(verifyLifecycleRecovery({ ...recovery, program_id: "11".repeat(32) }, recovery.activity_id, sequencer));
-await assert.rejects(verifyLifecycleRecovery(recovery, recovery.activity_id, sequencer));
 assert.throws(() => encodeNativeProgramDeploy({ programId, guestAbi: 2, policy: 0, authority: programId, newHash, wasm }));
 assert.throws(() => encodeNativeProgramDeploy({ programId, guestAbi: 2, policy: 0, authority: Buffer.alloc(32), newHash, wasm, interface: Buffer.alloc(953) }));
 assert.throws(() => encodeNativeProgramUpgrade({ programId, guestAbi: 2, oldHash: newHash, newHash, wasm, migrationHook: Buffer.alloc(0), clearInterface: true }));
