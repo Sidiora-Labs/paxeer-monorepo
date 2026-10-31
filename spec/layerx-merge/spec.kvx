@@ -125106,7 +125106,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.32.3]
 title = "Check every 0x1014 selector returns LXP_MODULE_DISABLED after anchor store delete"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.32.2", "6.34.1", "6.0.3", "6.34.2"]
@@ -157138,7 +157138,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.5.10]
 title = "Make the web app build resolve the wallet SDK and keep gateway reads on the server"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["12.33.8"]
