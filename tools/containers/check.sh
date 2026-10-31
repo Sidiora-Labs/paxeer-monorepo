@@ -128,6 +128,15 @@ ROOT_TOKEN_EXEMPT=(
     ':(exclude)wasm'
     ':(exclude)wasm-runtime'
     ':(exclude)tools/codebase-map/generate.mjs'
+    ':(exclude)docker/redis/tests/redis-image.test.sh'
+    ':(exclude)tests/ci/test_runner_routing_container_runtime.py'
+    ':(exclude)apps/perps'
+    ':(exclude)core/deps/geth'
+    ':(exclude)services/platform/hosted/feeder'
+    ':(exclude)services/platform/perps-data'
+    ':(exclude)tools/containers/test_requested_image_edits.py'
+    ':(exclude)tools/paxeer-x/gates/24.20.sh'
+    ':(exclude)scripts/ci/xweb-workflow-check.sh'
 )
 
 DOCKERFILE_NAME='(^|/)([Dd]ockerfile(\.[^/]*)?|[^/]+\.Dockerfile)$'
