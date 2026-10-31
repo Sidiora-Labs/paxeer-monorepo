@@ -123,8 +123,6 @@ final class GeneratedContract {
         "refused-by-protocol",
         "refused-by-limit",
         "quote-expired",
-        "wallet-not-bound",
-        "exit-unavailable",
         "already-decided",
         "hold-expired",
         "hold-defective",
