@@ -174359,7 +174359,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.5]
 title = "Remove the gates and path lists that run the deleted reset recovery, core kernel and gateway harness tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "8.0.4"]
@@ -192014,7 +192014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1228.1]
 title = "Issue #1228: Port the session-key revocation tests to GrantRevokedOnChain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1199.1", "18.1172.2", "10.2.8", "18.1206.1", "10.2.9", "18.1297.1", "18.1304.1", "18.1204.2", "18.1228.2"]
