@@ -116277,7 +116277,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.4.3]
 title = "Attest storage receipts: fetch the object by digest from the bucket and refuse a mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["19.4.2"]
