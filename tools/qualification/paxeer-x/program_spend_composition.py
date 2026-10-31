@@ -84,7 +84,7 @@ def source():
         'programs/sdk/rust', 'programs/.cargo', 'programs/vendor', 'services/agent/crates',
         'services/agent/Cargo.lock', 'services/agent/Cargo.toml', 'programs/Cargo.lock', 'programs/Cargo.toml',
         'Makefile', 'services/platform/Makefile.inc', 'tools/build/sanitizers.mk',
-        'rust-toolchain.toml', 'contracts/config/checkpoint-settlement.json',
+        'rust-toolchain.toml',
         'tests/programs/test_call_activity.c', 'tests/programs/test_spend_capability_composition.c',
         MAKEFILE, 'tools/paxeer-x/gates/104.30.4.sh',
         'tools/qualification/paxeer-x/program_spend_composition.py']).splitlines()

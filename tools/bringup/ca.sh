@@ -170,14 +170,12 @@ agentd box:KERNEL_HOST volume layerx-agentd serverAuth DNS:layerx-agentd,DNS:loc
 agentd-client box:KERNEL_HOST volume layerx-agentd-client clientAuth -
 paxeer-boundary-loopback box:KERNEL_HOST volume paxeer-boundary serverAuth DNS:paxeer-boundary,DNS:paxeer-boundary-loopback,DNS:localhost,IP:127.0.0.1
 paxeer-boundary-public box:KERNEL_HOST volume paxeer-observer-boundary serverAuth DNS:paxeer-observer-boundary,DNS:paxeer-boundary-public,DNS:localhost,IP:127.0.0.1
-guarantor box:KERNEL_HOST volume layerx-guarantor serverAuth,clientAuth DNS:localhost,IP:127.0.0.1
 human box:KERNEL_HOST volume layerx-human serverAuth DNS:layerx-human,DNS:localhost,IP:127.0.0.1
 human-event-client box:KERNEL_HOST volume layerx-human-events clientAuth URI:urn:layerx:webhooks:role:producer
 human-attestor-client box:KERNEL_HOST volume layerx-human-components clientAuth -
 human-kms box:KERNEL_HOST volume layerx-human-kms serverAuth DNS:layerx-human-kms,DNS:localhost,IP:127.0.0.1
 human-kms-client box:KERNEL_HOST volume layerx-human-components clientAuth -
 human-kms-executor box:KERNEL_HOST volume layerx-human-movement clientAuth -
-relay-archive box:KERNEL_HOST volume layerx-relay-archive serverAuth DNS:layerx-relay-archive,DNS:localhost,IP:127.0.0.1
 gateway-redis railway:redis-router REDIS_TLS layerx-gateway-redis serverAuth DNS:layerx-gateway-redis,DNS:localhost,IP:127.0.0.1
 gateway-client railway:router ENDPOINT_CLIENT layerx-gateway clientAuth URI:urn:layerx:webhooks:role:producer
 identity railway:identity IDENTITY_TLS layerx-identity serverAuth DNS:layerx-identity,DNS:identity,DNS:localhost,IP:127.0.0.1

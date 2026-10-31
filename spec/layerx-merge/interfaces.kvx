@@ -445468,9 +445468,9 @@ notes = "public path layerx_human_service::agents::controls::AgentControls::boun
 [interface.10.rs-human-service-agents-controls-agent-controls-change-limit]
 kind = "rust_pub_item"
 path = "services/human/crates/layerx-human-service/src/agents/controls.rs"
-line = 534
-signature = "impl AgentControls { pub fn change_limit( &mut self, registry: &ModuleRegistry, request: LimitChangeRequest, observed_at: u64, ) -> Result<AgentControlView, AgentControlError> }"
-callers = ["services/human/crates/layerx-human-service/tests/agent_controls.rs:634", "services/human/crates/layerx-human-service/tests/agent_controls.rs:652", "services/human/crates/layerx-human-service/tests/agent_controls.rs:666"]
+line = 532
+signature = "impl AgentControls { pub fn change_limit( &mut self, authority_rung: Rung, registry: &ModuleRegistry, request: LimitChangeRequest, observed_at: u64, ) -> Result<AgentControlView, AgentControlError> }"
+callers = ["services/human/crates/layerx-human-service/tests/agent_controls.rs:638", "services/human/crates/layerx-human-service/tests/agent_controls.rs:653", "services/human/crates/layerx-human-service/tests/agent_controls.rs:667", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:654", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:669", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:683", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:861", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:879", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:893", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:906"]
 status = "stable"
 contract = "contracts/services.md#human-service"
 notes = "public path layerx_human_service::agents::controls::AgentControls::change_limit"

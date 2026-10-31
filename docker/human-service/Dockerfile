@@ -6,10 +6,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
     && rm -rf /var/lib/apt/lists/*
 COPY . .
 RUN cargo build --locked --release --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock
-RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-human-kms -p layerx-explorer-index --bins
+RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-human-kms --bins
 RUN cargo build --locked --release --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd
 RUN cargo build --locked --release --manifest-path cmd/layerxctl/Cargo.toml
-RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider -p layerx-human-security-provider -p layerx-human-movement-provider --bins
+RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider -p layerx-human-security-provider --bins
 
 FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libssl3 curl python3 python3-cryptography util-linux \
@@ -21,11 +21,9 @@ COPY --from=build /src/services/human/target/release/layerx-human-service /usr/l
 COPY --from=build /src/services/human/target/release/layerx-human-components /usr/local/bin/layerx-human-components
 COPY --from=build /src/services/human/target/release/layerx-human-onboarding /usr/local/bin/layerx-human-onboarding
 COPY --from=build /src/services/human/target/release/layerx-human-kms /usr/local/bin/layerx-human-kms
-COPY --from=build /src/services/human/target/release/layerx-explorer-index /usr/local/bin/layerx-explorer-index
 COPY --from=build /src/services/agent/target/release/layerx-agentd /usr/local/bin/layerx-agentd
 COPY --from=build /src/services/human/target/release/layerx-human-identity-provider /usr/local/bin/layerx-human-identity-provider
 COPY --from=build /src/services/human/target/release/layerx-human-security-provider /usr/local/bin/layerx-human-security-provider
-COPY --from=build /src/services/human/target/release/layerx-human-movement-provider /usr/local/bin/layerx-human-movement-provider
 COPY --from=build /src/cmd/layerxctl/target/release/layerxctl /usr/local/bin/layerxctl
 COPY services/platform/hosted/human/provision.py services/platform/hosted/human/owner_native.py services/platform/hosted/human/owner_kms.py services/platform/hosted/human/onboarding_socket.py services/platform/hosted/human/onboarding_bootstrap.py services/platform/hosted/human/onboarding_material.py services/platform/hosted/human/material.py services/platform/hosted/human/recipient_binding.py /usr/local/lib/layerx-human/
 COPY --chmod=0555 docker/human-service/entrypoint.sh /usr/local/bin/human-entrypoint
