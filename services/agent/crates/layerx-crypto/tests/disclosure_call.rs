@@ -32,6 +32,15 @@ fn dynamic(payload: &[u8]) -> Vec<u8> {
     args
 }
 
+fn lifecycle_args(payload: &[u8], idempotency_key: [u8; 32]) -> Vec<u8> {
+    let mut args = word(64).to_vec();
+    args.extend_from_slice(&idempotency_key);
+    args.extend_from_slice(&word(payload.len() as u128));
+    args.extend_from_slice(payload);
+    args.resize(args.len().div_ceil(32) * 32, 0);
+    args
+}
+
 fn call(target: u16, selector: [u8; 4], args: &[u8]) -> Eip1559Call {
     let mut to = [0; 20];
     to[18..].copy_from_slice(&target.to_be_bytes());
@@ -236,8 +245,128 @@ fn ledger_send_call_discloses_the_send_payload_fields() -> Result<(), Box<dyn st
 }
 
 #[test]
+fn auth_lifecycle_call_discloses_the_governance_payload() -> Result<(), Box<dyn std::error::Error>>
+{
+    use layerx_crypto::disclosure::call::ledger_selector;
+
+    let selector = ledger_selector("recordLifecycle(bytes,bytes32)");
+    let idempotency_key = [0x42; 32];
+    for (ordinal, variant, fields, length) in [
+        (1, 0, 2, 68),
+        (1, 2, 1, 8),
+        (1, 2, 1, 1024),
+        (3, 0, 3, 70),
+        (3, 0, 5, 86),
+    ] {
+        let mut payload = vec![0x71, ordinal, variant, fields];
+        payload.resize(length, 0x23);
+        let transaction = call(0x101c, selector, &lifecycle_args(&payload, idempotency_key));
+        let disclosure = bind_call(&transaction, SENDER)?;
+        assert_eq!(disclosure.activity_type.module(), ModuleId::Governance);
+        assert_eq!(disclosure.activity_type.ordinal(), u16::from(ordinal));
+        assert_eq!(disclosure.idempotency_key, idempotency_key);
+        assert!(disclosure.counterparties.is_empty());
+        assert!(disclosure.amounts.is_empty());
+        assert_eq!(disclosure.asset, [0; 32]);
+        assert_eq!(disclosure.payment, None);
+        assert_eq!(disclosure.payload_sequence()?, None);
+        assert_eq!(disclosure.canonical_payload(), transaction.data);
+        assert_eq!(disclosure.signing_digest()?, transaction.signing_hash());
+        assert_eq!(
+            disclosure.construct_method()?,
+            Some(ConstructMethod::AuthLifecycle {
+                payload,
+                idempotency_key,
+            })
+        );
+        let mut altered = disclosure.clone();
+        altered.idempotency_key[0] ^= 1;
+        assert!(altered.signing_digest().is_err());
+    }
+    for (tag, ordinal, variant, fields, length) in [
+        (0x71, 5, 1, 3, 52),
+        (0x1a, 1, 0, 2, 68),
+        (0x71, 2, 0, 4, 92),
+        (0x71, 1, 1, 2, 68),
+        (0x71, 1, 0, 1, 68),
+        (0x71, 1, 0, 2, 67),
+        (0x71, 1, 0, 2, 69),
+        (0x71, 1, 2, 2, 8),
+        (0x71, 1, 2, 1, 7),
+        (0x71, 1, 2, 1, 1025),
+        (0x71, 3, 1, 3, 70),
+        (0x71, 3, 0, 4, 70),
+        (0x71, 3, 0, 3, 69),
+        (0x71, 3, 0, 3, 71),
+        (0x71, 3, 0, 3, 86),
+        (0x71, 3, 0, 5, 70),
+        (0x71, 3, 0, 5, 85),
+        (0x71, 3, 0, 5, 87),
+    ] {
+        let mut payload = vec![tag, ordinal, variant, fields];
+        payload.resize(length, 0x23);
+        assert_eq!(
+            bind_call(
+                &call(0x101c, selector, &lifecycle_args(&payload, idempotency_key)),
+                SENDER
+            ),
+            Err(DisclosureError::MalformedPayload),
+            "header {tag:#x}/{ordinal}/{variant}/{fields}, length {length}"
+        );
+    }
+    for length in 0..4 {
+        let payload = &([0x71, 1, 0, 2])[..length];
+        assert_eq!(
+            bind_call(
+                &call(0x101c, selector, &lifecycle_args(payload, idempotency_key)),
+                SENDER
+            ),
+            Err(DisclosureError::MalformedPayload)
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn unknown_target_or_selector_is_refused() -> Result<(), Box<dyn std::error::Error>> {
-    for original in fixtures()? {
+    let mut payload = vec![0x71, 1, 0, 2];
+    payload.resize(68, 0x23);
+    let args = lifecycle_args(&payload, [0x42; 32]);
+    assert_eq!(
+        bind_call(&call(0x101c, [0; 4], &args), SENDER),
+        Err(DisclosureError::MalformedPayload)
+    );
+    let selector =
+        layerx_crypto::disclosure::call::ledger_selector("recordLifecycle(bytes,bytes32)");
+    for offset in [word(0), word(32), word(96), [0xff; 32]] {
+        let mut invalid = args.clone();
+        invalid[..32].copy_from_slice(&offset);
+        assert_eq!(
+            bind_call(&call(0x101c, selector, &invalid), SENDER),
+            Err(DisclosureError::MalformedPayload)
+        );
+    }
+    let mut invalid = args.clone();
+    invalid[64..96].fill(0xff);
+    assert_eq!(
+        bind_call(&call(0x101c, selector, &invalid), SENDER),
+        Err(DisclosureError::MalformedPayload)
+    );
+    let mut invalid = args.clone();
+    *invalid.last_mut().expect("ABI padding") = 1;
+    assert_eq!(
+        bind_call(&call(0x101c, selector, &invalid), SENDER),
+        Err(DisclosureError::MalformedPayload)
+    );
+    let mut invalid = args.clone();
+    invalid.extend_from_slice(&[0; 32]);
+    assert_eq!(
+        bind_call(&call(0x101c, selector, &invalid), SENDER),
+        Err(DisclosureError::MalformedPayload)
+    );
+    let mut calls = fixtures()?;
+    calls.push(call(0x101c, selector, &args));
+    for original in calls {
         let mut unknown = original.clone();
         unknown.to[18..].copy_from_slice(&0x1002_u16.to_be_bytes());
         assert_eq!(

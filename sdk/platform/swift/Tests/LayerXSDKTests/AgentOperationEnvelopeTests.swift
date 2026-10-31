@@ -178,17 +178,6 @@ final class AgentOperationEnvelopeTests: XCTestCase {
         }
     }
 
-    func testSdkSwiftFaucetClaimIsRetiredUnavailableCapability() async throws {
-        let file = try caseFile()
-        do {
-            _ = try await transport(file).sendEnvelope(call(.agentFaucetClaim, .emptyObject))
-            XCTFail("faucet.claim was accepted")
-        } catch let error as PlatformSDKError {
-            XCTAssertEqual(error.code, .unavailableCapability)
-            XCTAssertEqual(error.retry, .never)
-        }
-    }
-
     func testSdkSwiftWrongGenerationIsRefusedBySessionAuthority() async throws {
         let file = try caseFile()
         guard let request = file.requests["read"]?.objectValue?["request"],

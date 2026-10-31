@@ -4404,14 +4404,6 @@ impl ProductionComponents {
             (LegMechanism::Protocol(Mechanism::BudgetFund), protocol),
             (LegMechanism::Protocol(Mechanism::BudgetDefund), protocol),
             (
-                LegMechanism::Protocol(Mechanism::BridgeDepositCredit),
-                protocol,
-            ),
-            (
-                LegMechanism::Protocol(Mechanism::BridgeWithdrawRequest),
-                protocol,
-            ),
-            (
                 LegMechanism::PaxeerCustodyDeposit,
                 u128::from(self.evm_gas_limit).saturating_mul(u128::from(self.evm_max_fee_per_gas)),
             ),
@@ -7032,7 +7024,7 @@ impl ProductionComponents {
                 current,
             )
             .map_err(|_| ApiFailure::upstream_degraded())?;
-        ProductionAgentCreation::finalization_evidence(&receipt, ModuleId::Budget, 7, self.now()?)
+        ProductionAgentCreation::finalization_evidence(&receipt, ModuleId::Budget, 8, self.now()?)
             .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(())
     }
@@ -8576,8 +8568,10 @@ impl ProductionComponents {
         ))
         .map_err(|_| ApiFailure::unavailable())?;
         if scope.get(Table::Journeys, &retained_key).is_some() {
-            let retained = super::native_send::load_access(scope, access.action_key, now)
-                .map_err(agent_failure_from_creation_contract)?;
+            let mut runtime = self.principal_agent(scope)?;
+            let retained =
+                super::native_send::load_access(scope, &mut runtime, access.action_key, now)
+                    .map_err(agent_failure_from_creation_contract)?;
             if retained.commitment != access.commitment
                 || retained.session.owner.as_bytes() != access.owner.as_bytes()
                 || retained.session.owner_public_key != access.owner_public_key
@@ -8636,7 +8630,7 @@ impl ProductionComponents {
             )
         } else if let Some(id) = selected {
             let context =
-                super::native_send::load_access(scope, native_access_hex(id)?, self.now()?)
+                super::native_send::load_access(scope, agent, native_access_hex(id)?, self.now()?)
                     .map_err(agent_failure_from_creation_contract)?;
             let expiry = context.expires_at_ms;
             let bytes = serde_json::to_vec(&json!({"access_id":id,"purpose_expires_at_ms":expiry}))
@@ -8648,9 +8642,13 @@ impl ProductionComponents {
         } else {
             return Ok(());
         };
-        let context =
-            super::native_send::load_access(scope, native_access_hex(&access_id)?, self.now()?)
-                .map_err(agent_failure_from_creation_contract)?;
+        let context = super::native_send::load_access(
+            scope,
+            agent,
+            native_access_hex(&access_id)?,
+            self.now()?,
+        )
+        .map_err(agent_failure_from_creation_contract)?;
         agent
             .bind_native_journey_context(context, expiry)
             .map_err(agent_failure)

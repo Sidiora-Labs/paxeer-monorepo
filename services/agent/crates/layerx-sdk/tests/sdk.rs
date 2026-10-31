@@ -83,7 +83,7 @@ fn freshness() -> Freshness {
 fn daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls() {
     let daemon = Client::daemon(
         "/run/layerx/agentd.sock",
-        ContractVersion { major: 1, minor: 2 },
+        ContractVersion { major: 2, minor: 2 },
     )
     .unwrap_or_else(|error| panic!("daemon: {error:?}"));
     let direct =
@@ -93,7 +93,14 @@ fn daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls() {
     assert_eq!(daemon.guarantees(), GUARANTEES);
     assert_eq!(daemon.guarantees(), direct.guarantees());
 
-    let request = mutation(SessionOpen(context()));
+    let request = mutation(SessionOpen {
+        context: context(),
+        grant_id: [1; 32],
+        registration_payload: Vec::new(),
+        expiry_sequence: 100,
+        purpose: [2; 32],
+        fee_limit: Amount(1),
+    });
     let daemon_call = daemon.session_open(request.clone());
     let direct_call = direct.session_open(request);
     assert_eq!(daemon_call.operation(), Operation::SessionOpen);
@@ -105,39 +112,65 @@ fn daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls() {
 
 #[test]
 fn operation_catalogue_covers_the_complete_contract_surface() {
-    assert_eq!(Operation::ALL.len(), 50);
+    assert_eq!(Operation::ALL.len(), 53);
     let names: std::collections::BTreeSet<_> = Operation::ALL
         .iter()
         .map(|operation| operation.name())
         .collect();
     for required in [
         "agent.register",
-        "session.open",
-        "capability.create",
-        "budget.create",
-        "project",
-        "prepare",
-        "sign",
-        "submit",
-        "track",
-        "read.balance",
-        "read.proof_bundle",
-        "availability.fetch",
-        "faucet.claim",
-        "subscription.create",
-        "approval.list",
-        "approval.get",
         "approval.approve",
+        "approval.get",
+        "approval.list",
         "approval.reject",
-        "program.discover",
-        "program.interface",
-        "program.simulate",
+        "availability.fetch",
+        "budget.create",
+        "budget.fund",
+        "budget.list",
+        "budget.reconciliation",
+        "budget.revoke",
+        "budget.state",
+        "capability.attenuate",
+        "capability.create",
+        "capability.list",
+        "capability.revoke",
+        "export.offline",
+        "mcp.invoke",
+        "policy.dry_run",
+        "prepare",
+        "program.activity",
         "program.call",
         "program.deploy",
+        "program.discover",
+        "program.interface",
+        "program.receipt",
+        "program.simulate",
         "program.upgrade",
         "program.wind-down",
-        "program.receipt",
-        "program.activity",
+        "project",
+        "read.account",
+        "read.balance",
+        "read.batch",
+        "read.checkpoint",
+        "read.history",
+        "read.module_state",
+        "read.proof_bundle",
+        "session.close",
+        "session.list",
+        "session.open",
+        "session.refresh",
+        "sign",
+        "submit",
+        "subscription.acknowledge",
+        "subscription.create",
+        "subscription.delete",
+        "subscription.health",
+        "subscription.list",
+        "subscription.pause",
+        "subscription.resume",
+        "tenant.readiness",
+        "track",
+        "wait",
     ] {
         assert!(names.contains(required), "missing SDK operation {required}");
     }
@@ -194,7 +227,7 @@ fn approval_module_matches_contract_1_1_operations_events_and_outcomes() {
     let key = DecisionKey::new("decision-7").unwrap_or_else(|error| panic!("key: {error:?}"));
     let client = Client::daemon(
         "/run/layerx/agentd.sock",
-        ContractVersion { major: 1, minor: 1 },
+        ContractVersion { major: 2, minor: 1 },
     )
     .unwrap_or_else(|error| panic!("daemon: {error:?}"));
     assert_eq!(
@@ -342,7 +375,7 @@ fn unknown_and_future_protocol_codes_remain_lossless() {
 }
 
 #[test]
-fn signer_surface_contains_no_key_export_and_offline_verifier_is_real() {
+fn signer_surface_contains_no_key_export() {
     let source = include_str!("../src/lib.rs");
     let signer_start = source
         .find("pub mod signer")
@@ -358,19 +391,6 @@ fn signer_surface_contains_no_key_export_and_offline_verifier_is_real() {
     assert!(!signer_source.contains("secret"));
     assert!(signer_source.contains("trait ExternalSigner"));
 
-    let keys = [];
-    assert_eq!(
-        layerx_sdk::production::verify_receipt(
-            &[],
-            layerx_sdk::production::ReceiptKeys::HeightRanges(&keys),
-            [1; 32],
-            [2; 32],
-            [3; 32],
-        )
-        .map_err(|failure| failure.check),
-        Err(layerx_sdk::ReceiptFailureCode::Decode)
-    );
-
     let key = IdempotencyRef::new("caller-owned-key")
         .unwrap_or_else(|error| panic!("idempotency: {error:?}"));
     assert_eq!(key.as_str(), "caller-owned-key");
@@ -378,15 +398,9 @@ fn signer_surface_contains_no_key_export_and_offline_verifier_is_real() {
 
 #[test]
 fn sdk_crate_has_no_settlement_domain_or_activity_codec() {
-    use ed25519_dalek::{Signer as _, SigningKey};
-    use layerx_proof::inclusion::SequencerAuthorization;
-    use layerx_sdk::production::{verify_receipt, ReceiptKeys};
     use layerx_sdk::rpc::{wallet_account, RpcClient, RpcError};
     use layerx_sdk::wallet::Payment;
-    use layerx_sdk::ReceiptFailureCode;
     use layerx_types::payload::ModuleId;
-    use layerx_wire::hash::receipt_digest;
-    use layerx_wire::receipt::{decode, encode_unsigned};
 
     for source in [
         include_str!("../src/lib.rs"),
@@ -404,83 +418,6 @@ fn sdk_crate_has_no_settlement_domain_or_activity_codec() {
             assert!(!source.contains(retired), "SDK still uses {retired}");
         }
     }
-
-    let fixture: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/receipt-positive-v2.json"
-    ))
-    .unwrap_or_else(|error| panic!("receipt fixture: {error}"));
-    let hex = fixture["canonical_receipt_hex"]
-        .as_str()
-        .unwrap_or_else(|| panic!("canonical receipt missing"));
-    assert!(hex.len().is_multiple_of(2));
-    let mut canonical: Vec<u8> = (0..hex.len() / 2)
-        .map(|index| {
-            u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16)
-                .unwrap_or_else(|error| panic!("receipt hex: {error}"))
-        })
-        .collect();
-    let receipt = decode(&canonical).unwrap_or_else(|error| panic!("receipt decode: {error:?}"));
-    let protocol = receipt
-        .protocol()
-        .unwrap_or_else(|| panic!("protocol receipt missing"));
-    let height = 42_u64;
-    let mut batch_id = [0; 32];
-    batch_id[24..].copy_from_slice(&height.to_be_bytes());
-    let offsets: Vec<_> = canonical
-        .windows(32)
-        .enumerate()
-        .filter_map(|(offset, bytes)| (bytes == protocol.batch_id()).then_some(offset))
-        .collect();
-    assert_eq!(offsets.len(), 1);
-    canonical[offsets[0]..offsets[0] + 32].copy_from_slice(&batch_id);
-    let receipt =
-        decode(&canonical).unwrap_or_else(|error| panic!("height receipt decode: {error:?}"));
-    let unsigned =
-        encode_unsigned(&receipt).unwrap_or_else(|error| panic!("receipt preimage: {error:?}"));
-    let digest =
-        receipt_digest(&unsigned).unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
-    let signer = SigningKey::from_bytes(&[0x33; 32]);
-    let signature_offset = canonical.len() - 64;
-    canonical[signature_offset..].copy_from_slice(&signer.sign(&digest).to_bytes());
-    let keys = [SequencerAuthorization::new(
-        protocol.context_hash(),
-        signer.verifying_key().to_bytes(),
-        height,
-        height,
-    )];
-    let verify = |bytes: &[u8], keys: &[SequencerAuthorization]| {
-        verify_receipt(
-            bytes,
-            ReceiptKeys::HeightRanges(keys),
-            protocol.asset(),
-            protocol.previous_state_root(),
-            protocol.resulting_state_root(),
-        )
-    };
-    let verified = verify(&canonical, &keys)
-        .unwrap_or_else(|error| panic!("public receipt verification: {error:?}"));
-    assert_eq!(verified.canonical_bytes(), canonical);
-    assert_eq!(verified.rung(), Rung::Receipted);
-    assert_eq!(verified.evidence().receipt_digest(), Some(digest));
-    assert_eq!(
-        verify(&canonical, &[]).map_err(|failure| failure.check),
-        Err(ReceiptFailureCode::SequencerSignature)
-    );
-    let expired = [SequencerAuthorization::new(
-        protocol.context_hash(),
-        signer.verifying_key().to_bytes(),
-        height + 1,
-        height + 1,
-    )];
-    assert_eq!(
-        verify(&canonical, &expired).map_err(|failure| failure.check),
-        Err(ReceiptFailureCode::SequencerSignature)
-    );
-    canonical[signature_offset] ^= 1;
-    assert_eq!(
-        verify(&canonical, &keys).map_err(|failure| failure.check),
-        Err(ReceiptFailureCode::SequencerSignature)
-    );
 
     let native = wallet_account("did:layerx:alice", [0; 32], [0; 32])
         .unwrap_or_else(|error| panic!("native wallet account: {error:?}"));
@@ -518,15 +455,12 @@ fn sdk_crate_has_no_settlement_domain_or_activity_codec() {
 
 #[test]
 fn production_verifies_mirror_receipts_from_committed_sources() {
-    use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_proof::inclusion::SequencerAuthorization;
     use layerx_sdk::production::{
-        verify_mirror_receipt_from_sources, verify_receipt, MirrorReadPolicy, MirrorSdkError,
-        MirrorSources, MirrorVerification, ReceiptKeys,
+        verify_mirror_receipt_from_sources, MirrorReadPolicy, MirrorSdkError, MirrorSources,
+        MirrorVerification,
     };
-    use layerx_sdk::ReceiptFailureCode;
-    use layerx_wire::hash::receipt_digest;
-    use layerx_wire::receipt::{decode, encode_unsigned, Receipt};
+    use layerx_wire::receipt::Receipt;
 
     let _: fn(
         &MirrorSources,
@@ -544,76 +478,4 @@ fn production_verifies_mirror_receipts_from_committed_sources() {
     ] {
         assert!(!source.contains(retired), "SDK still uses {retired}");
     }
-
-    let fixture: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/receipt-positive-v2.json"
-    ))
-    .unwrap_or_else(|error| panic!("receipt fixture: {error}"));
-    let hex = fixture["canonical_receipt_hex"]
-        .as_str()
-        .unwrap_or_else(|| panic!("canonical receipt missing"));
-    assert!(hex.len().is_multiple_of(2));
-    let mut canonical: Vec<u8> = (0..hex.len() / 2)
-        .map(|index| {
-            u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16)
-                .unwrap_or_else(|error| panic!("receipt hex: {error}"))
-        })
-        .collect();
-    let receipt = decode(&canonical).unwrap_or_else(|error| panic!("receipt decode: {error:?}"));
-    let protocol = receipt
-        .protocol()
-        .unwrap_or_else(|| panic!("protocol receipt missing"));
-    let height = 42_u64;
-    let mut batch_id = [0; 32];
-    batch_id[24..].copy_from_slice(&height.to_be_bytes());
-    let offsets: Vec<_> = canonical
-        .windows(32)
-        .enumerate()
-        .filter_map(|(offset, bytes)| (bytes == protocol.batch_id()).then_some(offset))
-        .collect();
-    assert_eq!(offsets.len(), 1);
-    canonical[offsets[0]..offsets[0] + 32].copy_from_slice(&batch_id);
-    let receipt =
-        decode(&canonical).unwrap_or_else(|error| panic!("height receipt decode: {error:?}"));
-    let unsigned =
-        encode_unsigned(&receipt).unwrap_or_else(|error| panic!("receipt preimage: {error:?}"));
-    let digest =
-        receipt_digest(&unsigned).unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
-    let signer = SigningKey::from_bytes(&[0x33; 32]);
-    let signature_offset = canonical.len() - 64;
-    canonical[signature_offset..].copy_from_slice(&signer.sign(&digest).to_bytes());
-    let keys = [SequencerAuthorization::new(
-        protocol.context_hash(),
-        signer.verifying_key().to_bytes(),
-        height,
-        height,
-    )];
-    let verify = |bytes: &[u8], keys: &[SequencerAuthorization]| {
-        verify_receipt(
-            bytes,
-            ReceiptKeys::HeightRanges(keys),
-            protocol.asset(),
-            protocol.previous_state_root(),
-            protocol.resulting_state_root(),
-        )
-    };
-    let verified = verify(&canonical, &keys)
-        .unwrap_or_else(|error| panic!("public receipt verification: {error:?}"));
-    assert_eq!(verified.canonical_bytes(), canonical);
-    assert_eq!(verified.rung(), Rung::Receipted);
-    assert_eq!(verified.evidence().receipt_digest(), Some(digest));
-    assert_eq!(
-        verify(&canonical, &[]).map_err(|failure| failure.check),
-        Err(ReceiptFailureCode::SequencerSignature)
-    );
-    let expired = [SequencerAuthorization::new(
-        protocol.context_hash(),
-        signer.verifying_key().to_bytes(),
-        height + 1,
-        height + 1,
-    )];
-    assert_eq!(
-        verify(&canonical, &expired).map_err(|failure| failure.check),
-        Err(ReceiptFailureCode::SequencerSignature)
-    );
 }

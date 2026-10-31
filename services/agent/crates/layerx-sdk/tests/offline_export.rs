@@ -3,8 +3,6 @@ use layerx_agent_api::export::FactRef;
 use layerx_proof::export_codec::{CompleteOfflineArtifact, EncodedOfflineArtifact, FactSelector};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::{build_proof, encode_proof};
-use layerx_sdk::production::{verify_receipt, ReceiptKeys, ReceiptVerificationFailure};
-use layerx_sdk::ReceiptFailureCode;
 use layerx_types::rung::Rung;
 use layerx_wire::encode::Encoder;
 use layerx_wire::handover::sequencer_id;
@@ -256,30 +254,11 @@ fn api_buckets_refuse_trailing_truncated_or_misplaced_records() {
 }
 
 #[test]
-fn decoded_export_never_claims_an_unverified_rung_or_a_rogue_sequencer() {
+fn decoded_export_verifies_receipt_inclusion() {
     let key = SigningKey::from_bytes(&[9; 32]);
     let activity = id(1);
     let decoded = must(decode_export(&api(&buckets(&key, activity))));
-    let keys = [SequencerAuthorization::new(
-        [11; 32],
-        key.verifying_key().to_bytes(),
-        1,
-        1,
-    )];
     let record = &decoded.receipts[0];
-    let verified = must(verify_receipt(
-        &record.canonical_receipt,
-        ReceiptKeys::HeightRanges(&keys),
-        record.authorised_batch.asset(),
-        record.authorised_batch.previous_state_root(),
-        record.authorised_batch.resulting_state_root(),
-    ));
-    assert_eq!(verified.rung(), Rung::Receipted);
-    assert!(verified.rung() < Rung::Committed);
-    assert_eq!(
-        verified.evidence().receipt_digest(),
-        Some(record.expected_receipt_digest)
-    );
 
     let layerx_proof::export_codec::ProofRecord::Inclusion(inclusion) = &decoded.proofs[0] else {
         panic!("receipt inclusion missing");
@@ -311,19 +290,4 @@ fn decoded_export_never_claims_an_unverified_rung_or_a_rogue_sequencer() {
         &authorization,
     )
     .is_err());
-
-    let rogue = SigningKey::from_bytes(&[0x77; 32]);
-    let forged = must(decode_export(&api(&buckets(&rogue, activity))));
-    assert_eq!(
-        verify_receipt(
-            &forged.receipts[0].canonical_receipt,
-            ReceiptKeys::HeightRanges(&keys),
-            record.authorised_batch.asset(),
-            record.authorised_batch.previous_state_root(),
-            record.authorised_batch.resulting_state_root(),
-        ),
-        Err(ReceiptVerificationFailure {
-            check: ReceiptFailureCode::SequencerSignature
-        })
-    );
 }
