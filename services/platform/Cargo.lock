@@ -1588,7 +1588,6 @@ dependencies = [
  "layerx-crypto",
  "layerx-platform-gateway",
  "layerx-platform-internal",
- "layerx-programs-protocol-adapter",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
