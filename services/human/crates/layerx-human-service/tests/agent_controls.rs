@@ -640,10 +640,7 @@ fn protocol_and_app_limit_changes_keep_their_real_enforcement_labels() {
     assert_eq!(changed.limit.monthly, 750);
     assert_eq!(changed.limit.enforcement, LimitEnforcement::Protocol);
     assert_eq!(changed.limit.enforcement_copy_key, PROTOCOL_LIMIT_COPY_KEY);
-    assert_eq!(
-        changed.limit.verification_level,
-        layerx_types::rung::Rung::Committed
-    );
+    assert_eq!(changed.limit.verification_level, Rung::Committed);
     assert_eq!(
         protocol
             .boundary()

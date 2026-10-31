@@ -11711,3 +11711,38 @@ fix = "An interface change lists every consumer of the old value (grep the const
 title = "An archive schema derived from the schema it replaces"
 symptom = "14.23.1 built the explorer archive schemas from the kernel schemas' schema() functions; 14.23.5, which deletes those, could not compile."
 fix = "A replacement schema is written standalone; a task that deletes a schema greps for its module name in schemas and tests and lists every deriving file in its touches."
+
+[gotcha.2380]
+title = "A fixture deleted while unit tests include it by path"
+symptom = "8.47.6 deleted receipt-programs-executed-v4.json and scanned sdk/platform/conformance; layerx-sdk, layerx-agentd and the platform CLI include the file with include_str! in their unit tests, so three lib test targets stopped compiling on main."
+fix = "A deletion task greps the basename across the whole repository, tests included, and lists every reader in its touches or a wave-1 follow-up removes them before the deletion publishes."
+
+[gotcha.2381]
+title = "Generated constants asserted undefined by a retiring task"
+symptom = "9.97.8 asserted PROGRAM_OUTCOME_TAGS and PROGRAMS_MODULE_ID undefined; they are generated into src/generated/receipt.ts and only the generator task removes them."
+fix = "A retirement test asserts only names its own touches delete; generated names belong to the task that regenerates them."
+
+[gotcha.2382]
+title = "A continue line that does not restate the skipped do line"
+symptom = "Attempt 4 of 1.12.1 continued from attempt 3 and skipped do_7's deletion a second time; the continue line said only 'keep its deletions'."
+fix = "A continue line names the specific do lines the earlier attempt left undone, with the file and lines."
+
+[gotcha.2383]
+title = "A wave-29 scan asserting deletions of wave 44"
+symptom = "16.9.4 ran the retired-callers scan with --deleted over trees that later-wave tasks delete and failed on every tree that still existed."
+fix = "A task asserts only the state its own wave produces; absence of a tree is proven by the task that deletes it."
+
+[gotcha.2384]
+title = "A test that pins sibling test sources with include_str!"
+symptom = "8.98.4's scan test included tests/real_node.rs, which task 8.19.7 deleted while the attempt ran, and the test binary stopped compiling."
+fix = "Scan tests read the sources they check from disk at run time and list only files the task owns or no pending task deletes."
+
+[gotcha.2385]
+title = "A mock RPC script written from the described order, not the code's"
+symptom = "lookup_authenticated issues pax_sequencerReceipt and px_getReceiptKeys and verifies execution before eth_getTransactionReceipt; seventeen attempts of 18.1200.1 scripted a receipt that failed verification and never reached the last exchange."
+fix = "Read the client's call order from the code and script the mock's exchanges in that order with a receipt the client verifies."
+
+[gotcha.2386]
+title = "Chain-reading tests run against the default RPC URL"
+symptom = "The gateway precompile route tests of 12.13.2, 12.13.3 and 12.13.4 need a node serving the precompiles; four attempts each ran against the default mainnet URL and failed with 502."
+fix = "A task whose tests read the chain starts the local node fixture in verify_cmd and passes its RPC URL."
