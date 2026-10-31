@@ -12156,3 +12156,8 @@ fix = "Store consensus params with Block.MaxGasWanted set (50000000 is the produ
 title = "Removing a variant from a human-service enum left two test targets uncompilable on main"
 symptom = "A task removed two variants from journeys::resolver::Mechanism, built and tested its own targets and landed; tests/intent_nonces.rs and tests/resolver.rs still named the variants and every later --all-targets build of layerx-human-service failed on them."
 fix = "When removing or renaming an enum variant in services/human, grep the crate's tests directory for the variant and build the crate with --all-targets in the gate; the resolver's refusal for custody routes is pinned in tests/send_routes.rs, so do not duplicate it elsewhere."
+
+[gotcha.2469]
+title = "The authority's Config is built literally in more than one test, so a new field breaks tests outside the task that added it"
+symptom = "A task added chain_rpc_url to the hosted authority's Config and updated the tests it owned; cargo build --tests then failed in tests/chain_receipts.rs, which constructs Config with a struct literal and was not in the task's touches."
+fix = "When adding a field to services/platform/hosted/authority's Config, grep the crate's tests for 'Config {' and add every literal to the touches before the build."

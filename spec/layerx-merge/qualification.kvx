@@ -14707,3 +14707,19 @@ symbol = "resolver_selects_every_normative_mechanism_and_vocabulary_term"
 observed = "Attempt 1 (3a80aa5e0) adds the AuthLifecycle arm and the library build passes; the verify command, a build of every target of layerx-human-service, fails in two test targets that do not compile on main: tests/intent_nonces.rs:49 and tests/resolver.rs:128 and :133 still name Mechanism::BridgeDepositCredit and Mechanism::BridgeWithdrawRequest, which task 10.6.2 (ec7c4dc54) removed from journeys::resolver::Mechanism without touching either test (its touches were the resolver, router, move_money, production_components and tests/send_routes.rs). The resolver now answers RouteError::Unavailable with relationship custody-deposit or custody-withdrawal for those requests (src/journeys/resolver.rs:1069-1070), which tests/send_routes.rs::bridge_only_destination_is_refused already pins. The breakage predates 9.99.2 and is unrelated to its arm."
 assumption = "The two tests are repaired by their own task 10.6.3 (req.8956); 9.99.2's gate becomes a compile of the library tests and of its two consumer test targets, agent_create and intent_plan_evm, which is what 18.1272.1 and 10.0.3 need (decision 2149)."
 severity = "major"
+
+[finding.8.98.15.1]
+task = "8.98.15"
+file = "services/platform/hosted/authority/tests/chain_receipts.rs:249"
+symbol = "Config"
+observed = "Attempt 1 (95762caa0) ports budget_state.rs, dynamic.rs and main.rs onto SequencerEndpoint and PxEndpoint over LAYERX_AUTHORITY_CHAIN_RPC_URL and writes the v2 exports; the build of the crate's tests fails with error[E0063] missing field chain_rpc_url in the Config initializer at tests/chain_receipts.rs:249, a test outside the touches that builds Config literally and already carries the node URL it needs as format!('http://{address}/evm') in its ChainReceipts::load call two lines below. The repair cycle could not touch it."
+assumption = "tests/chain_receipts.rs joins the touches and its initializer gains chain_rpc_url with that same URL; nothing else changes."
+severity = "minor"
+
+[finding.8.98.15.2]
+task = "8.98.15"
+file = "services/platform/hosted/authority/src/human/dynamic.rs:1"
+symbol = "subject"
+observed = "The attempt reports that the subject check it replaced compared four fields of the module 7 identity record that the node join does not carry one-for-one: the raw identity bytes, the authority key, the canonical account name and the record's chain sequence against the head. Decision 2145 replaces that record with px_getAccount's layerx join deliberately: the join's layerx_did and layerx_account bound to the subject's EVM address is the node's statement of identity, the committed height and the anchor's finality replace the sequence-against-head staleness check, and an unbound subject answers subject_not_bound."
+assumption = "The four legacy comparisons have no node twin by design; the bound join plus finality is the equivalent, and the attempt's refusal paths (subject_not_bound, subject_checkpoint_stale) are the ones decision 2145 asks for."
+severity = "minor"
