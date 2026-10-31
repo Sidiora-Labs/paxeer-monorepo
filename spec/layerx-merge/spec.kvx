@@ -6003,6 +6003,12 @@ value = "In rpc/send_sequencer_test.go newSendSeqHarness, before the funding Fin
 basis = "Finding 12.35.11.1: the sequencer's own admission check correctly refuses a block cap of zero, and the harness never set one; the node tests that do set it pass. Fixing the harness proves the send path under the real admission rule rather than bypassing it."
 affects = ["12.35.11"]
 
+[decision.2149]
+title = "9.99.2 proves its arm by compiling the library tests and its two consumer test targets; the resolver and intent-nonce tests are repaired by task 10.6.3"
+value = "Task 9.99.2's verify command becomes cargo test --no-run --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --test agent_create --test intent_plan_evm, the library's unit tests plus the two test targets whose tasks wait on the arm (18.1272.1's agent_create, 10.0.3's intent_plan_evm). Task 10.6.3 (req.8956, wave 19, requires 10.6.2) removes the BridgeDepositCredit and BridgeWithdrawRequest references from tests/intent_nonces.rs and tests/resolver.rs as its do-lines spell out and runs both test targets; no task waits on it. Decision 2146's sentence that a ConstructMethod variant must build layerx-human-service stands, and the matching rule applies to removing an enum variant in this crate: the removing task builds the crate with --all-targets so no test target is left behind."
+basis = "Finding 9.99.2.1: the all-targets gate did its job and found two test targets that have not compiled since 10.6.2; that repair belongs to a task that owns those files, not to the one-arm task two human-service tasks are waiting on."
+affects = ["9.99.2", "10.6.3", "10.6.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -19954,6 +19960,10 @@ title = "Remove bridge mechanisms from send routing and executable shapes"
 ac_1 = "RouteResolver::resolve for an EVM address destination yields one bank 0x1001 transfer at the pending nonce (planned), replacing the routes of services/human/crates/layerx-human-service/src/journeys/resolver.rs:756."
 ac_2 = "A destination reachable only by BridgeDepositCredit at HEAD is refused (planned) (services/human/crates/layerx-human-service/src/journeys/resolver.rs:528)."
 
+[req.8956]
+title = "The resolver and intent-nonce tests compile and pass against the send-only mechanism set"
+ac_1 = "tests/resolver.rs and tests/intent_nonces.rs of layerx-human-service compile against journeys::resolver::Mechanism as task 10.6.2 left it (BudgetCreate, BudgetFund, Send, BudgetDefund, ReceiveUnderPayerGrant), their tests pass, and the refusal of custody deposit and withdrawal routes stays pinned only by tests/send_routes.rs::bridge_only_destination_is_refused."
+
 [req.10052]
 title = "Plan and execute Move money as bank 0x1001 sends completed from receipts"
 ac_1 = "MovePlan for a two-leg move plans two bank 0x1001 transfers at consecutive nonces (planned), replacing the movement-provider legs of services/human/crates/layerx-human-service/src/journeys/move_money.rs:190."
@@ -32941,7 +32951,7 @@ title = "Match the AuthLifecycle disclosure method in the agent creation lifecyc
 reqs = ["8955.1"]
 touches = ["services/human/crates/layerx-human-service/src/agents/create.rs"]
 tests = []
-verification_contract = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets"
+verification_contract = "cargo test --no-run --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --test agent_create --test intent_plan_evm"
 do_1 = "In services/human/crates/layerx-human-service/src/agents/create.rs add the arm Some(layerx_crypto::disclosure::call::ConstructMethod::AuthLifecycle { payload, .. }) => (payload, layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION) to the bound_activity match on disclosure.construct_method() (:558-612 on main) directly after the PayBudgetCreate arm (:580), leaving the LedgerSend arm, the grouped canonical_payload arm and the None refusal exactly as they are; idempotency_key is not read here because the disclosure's signing digest already binds it (decision 2146). Change nothing else. Build once and verify once."
 symbols = ["bound_activity", "ConstructMethod"]
 
@@ -41539,6 +41549,15 @@ tests = ["services/human/crates/layerx-human-service/tests/send_routes.rs::send_
 verification_contract = "contracts/services.md#human-service"
 do_1 = "`Mechanism` (services/human/crates/layerx-human-service/src/journeys/resolver.rs:528) carries `BridgeDepositCredit` and bridge withdraw variants; delete them so the only send mechanisms are bank 0x1001 transfers and agent-runtime calls."
 symbols = ["Mechanism", "SendRoute", "RouteResolver::resolve", "ExecutableShape::classify"]
+
+[capability.10.6.3]
+title = "Remove the retired bridge mechanisms from the resolver and intent-nonce tests"
+reqs = ["8956.1"]
+touches = ["services/human/crates/layerx-human-service/tests/intent_nonces.rs", "services/human/crates/layerx-human-service/tests/resolver.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/resolver.rs::resolver_selects_every_normative_mechanism_and_vocabulary_term"]
+verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test intent_nonces --test resolver"
+do_1 = "In services/human/crates/layerx-human-service/tests/intent_nonces.rs remove the row (LegMechanism::Protocol(Mechanism::BridgeDepositCredit), 3) from the FeeSchedule at :46-50; the schedule keeps the Send and PaxeerCustodyDeposit rows and every assertion over plan.legs() stays as it is."
+symbols = ["resolver_selects_every_normative_mechanism_and_vocabulary_term", "FeeSchedule"]
 
 [capability.10.7.1]
 title = "Bind intent legs to pending-tag nonces"
@@ -115674,7 +115693,7 @@ touches = ["services/human/crates/layerx-human-service/src/agents/create.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
-verify_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets"
+verify_cmd = "cargo test --no-run --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --test agent_create --test intent_plan_evm"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -115686,6 +115705,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_2 = "Decision 2149: continue from attempt 1 (3a80aa5e0), whose arm is complete and correct; the two test targets that failed the all-targets build are repaired by task 10.6.3 and are not yours. Rebase, build once and run the narrowed verify command once."
 
 [task.2.96.1]
 title = "Add recordLifecycle to the layerxauth precompile so DID and recovery registrations execute through the kernel"
@@ -141798,7 +141818,7 @@ do_6 = "Attempt 3 ran an earlier build command that compiled the layerx-gateway-
 
 [task.8.98.10]
 title = "Migrate the node probe callers of wiring.J44.20"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["8.0.2", "18.1083.1", "8.98.14"]
@@ -141992,7 +142012,7 @@ do_1 = "Decision 2145. Session (services/platform/hosted/authority/src/human/bud
 do_2 = "Budget. module(3, key) and Record::decode are replaced by getBudget(budget_id) and budgetRemaining(budget_id) on the layerxpay precompile (address 0x...101B, precompiles/layerxpay/layerxpay.go:28) through SequencerEndpoint::call_at(committed_height, ...) with selectors computed as rpc/module_state.rs:3 computes them; the return of getBudget is one tuple (offset word, then owner, budgetAccount, assetId, purposeHash as bytes32, perPeriodLimit, configuredPeriodLimit, carryCap, spentThisPeriod, carried as uint128 words, periodLengthMs, periodStartMs, expiryMs, revocationSequence as uint64 words, rolloverPolicy, closed, revoked, the delegates offset and sourceAccount, with the bytes32[] at its offset). Record keeps its fields: id = budget_id, owner, account = budgetAccount, asset = assetId, source = Some(sourceAccount) unless zero or equal to owner, limit = perPeriodLimit, spent = spentThisPeriod, period_start = periodStartMs, expiry = expiryMs, revocation = revocationSequence, closed, revoked; a zero owner means the budget does not exist and answers the refusal the missing module record answers today; remaining comes from budgetRemaining instead of Record::remaining. Identity. identity(did) and dynamic.rs current() (:115-140) drop the LXGI1 record decode and the authority_key comparison, which have no node twin, and instead require network.account(did) (px_getAccount, services/agent/crates/layerx-client/src/px.rs:107) to answer a layerx join whose accounts array holds an entry with a bound evm_address and a layerx_account equal to the record's owner (current(): equal to subject.account_id); the account checks of current() that the join answers (kind, frozen, asset) are kept from the join's fields and those with no field are dropped and listed in the finding. accounts() reads the owner, budget and source balances of record.asset from network.balances(hex account) (px_getBalances) in place of session.account."
 do_3 = "Export. read_dynamic and export_dynamic (services/platform/hosted/authority/src/human/budget_state.rs:468-491) answer schema layerx.human.budget-proof.v2: budget_state keeps its keys with remaining from budgetRemaining, accounts and identity_key stay, head becomes {batch_number, committed_height, checkpoint_id}, finality becomes {batch_number, checkpoint_id, state_root, finalized_height, status}, and proofs becomes {budget_call, remaining_call, checkpoint_call, account_join} holding the hex raw return data of the three calls and the px_getAccount answer; lni_interface_version goes. services/platform/hosted/authority/tests/retired_client_modules.rs adds 'read' to its retired list (its only remaining user is this file). The test support module in tests/support that answers the authority's node reads gains eth_blockNumber, eth_call (getBudget, budgetRemaining, latestFinalized, checkpoint by selector), px_getAccount and px_getBalances arms, and services/platform/hosted/authority/tests/human_tls.rs budget-state and budget-proof cases (:407, :503) and services/platform/hosted/authority/tests/budget_proof_exports.rs move to the v2 keys; the corpus test stays gated on its environment variable. One build, one verify; a node answer the design above does not cover is a finding, not a workaround."
 symbols = ["Session", "Record", "identity_key", "read_dynamic", "export_dynamic"]
-touches = ["services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/src/human/budget_state/record.rs", "services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/tests/human_tls.rs", "services/platform/hosted/authority/tests/budget_proof_exports.rs", "services/platform/hosted/authority/tests/support/human_unit.rs", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs"]
+touches = ["services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/src/human/budget_state/record.rs", "services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/tests/human_tls.rs", "services/platform/hosted/authority/tests/budget_proof_exports.rs", "services/platform/hosted/authority/tests/support/human_unit.rs", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs", "services/platform/hosted/authority/tests/chain_receipts.rs"]
 tests = ["services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/tests/human_tls.rs", "services/platform/hosted/authority/tests/budget_proof_exports.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
@@ -142008,6 +142028,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Findings 8.98.15.1 and 8.98.15.2: continue from attempt 1 (95762caa0), whose port and exports are complete. In tests/chain_receipts.rs add chain_rpc_url: format!('http://{address}/evm') to the Config initializer at :249, the URL the test already passes to ChainReceipts::load. Change nothing else. Build once and verify once."
 
 [task.9.0.1]
 title = "Add Rung and RungStatus to the agent-api verify contract beside Level"
@@ -148350,6 +148371,36 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "Decision 2073: attempt 4 (7f38a18fa) changed SendRoute::intent (src/journeys/resolver.rs:561 on main) to return Option<&Intent>, which breaks sixteen call sites outside the task (src/agents/reclaim.rs:283 and :312, src/journeys/intent_submit.rs:350, src/journeys/move_money.rs:984 and :1023 among them) and so the build. intent() keeps returning &Intent: a destination only a bridge mechanism reached is refused by RouteResolver::resolve (do_2), never represented as a route without an intent. Continue from attempt 4: restore the accessor, keep the refusal and the nonce carrying, build once and verify once."
 do_6 = "Decision 2088: attempt 5 (6a449ae79) renamed the Mechanism variants of src/journeys/resolver.rs to BudgetCreate, BudgetFund, Send, BudgetDefund and ReceiveUnderPayerGrant and the build fails on callers outside the task: src/journeys/move_money.rs:1102-1104 (the BridgeDepositCredit | BridgeWithdrawRequest arm with the wallet-boundary text) and :1191-1192, src/server/production_components.rs:4407 and :4411 (LegMechanism::Protocol(Mechanism::Bridge...)), and src/journeys/observed.rs:414-415 inside the cfg(test) fees() of its tests module. The three files join touches: delete the bridge arms (the bridge mechanisms no longer exist) and port the remaining matches to the new variants; src/custody/signer.rs:858 is SigningOperation::BridgeWithdrawRequest, another enum, and stays. The build compiles the library's unit tests too, so the cfg(test) caller is covered. Continue from attempt 5, build once and verify once."
+
+[task.10.6.3]
+title = "Remove the retired bridge mechanisms from the resolver and intent-nonce tests"
+status = "pending"
+mode = "BUILD"
+wave = 19
+requires = ["10.6.2"]
+reqs = ["8956.1"]
+capabilities = ["10.6.3"]
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-service/tests/intent_nonces.rs remove the row (LegMechanism::Protocol(Mechanism::BridgeDepositCredit), 3) from the FeeSchedule at :46-50; the schedule keeps the Send and PaxeerCustodyDeposit rows and every assertion over plan.legs() stays as it is."
+do_2 = "In services/human/crates/layerx-human-service/tests/resolver.rs remove the deposit and withdrawal entries from the cases table of resolver_selects_every_normative_mechanism_and_vocabulary_term (:124-133) together with the deposit and withdrawal request constructions above it that only those entries use (the Relationship::Custody(CustodyRoute::Deposit {..}) and ::Withdrawal {..} requests), and any now-unused imports; the table keeps transfer, allocate, returned and received. Do not add a refusal assertion here, since send_routes.rs::bridge_only_destination_is_refused pins RouteError::Unavailable with relationship custody-deposit for the same request. Build once and verify once."
+symbols = ["resolver_selects_every_normative_mechanism_and_vocabulary_term", "FeeSchedule"]
+touches = ["services/human/crates/layerx-human-service/tests/intent_nonces.rs", "services/human/crates/layerx-human-service/tests/resolver.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/resolver.rs::resolver_selects_every_normative_mechanism_and_vocabulary_term"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test intent_nonces --test resolver"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test intent_nonces --test resolver"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the two files in touches; the two test targets fail to compile against the resolver again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 
 [task.10.7.1]
 title = "Bind intent legs to pending-tag nonces"

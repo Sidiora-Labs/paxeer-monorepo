@@ -192,7 +192,9 @@ feed_loop() {
         jq -n --arg feeder "$TEST_ACCOUNT" --arg sequence "$((height))" --arg timestamp "$timestamp" \
             '{body:{messages:[{"@type":"/paxprotocol.paxchain.pricefeed.MsgSubmitPrices",
               feeder:$feeder,observations:[{market_id:"0",sequence:$sequence,index_price:"60000000000000000000000",
-              mark_price:"60000000000000000000000",source_timestamp_ms:$timestamp}]}],
+              mark_price:"60000000000000000000000",source_timestamp_ms:$timestamp},
+              {market_id:"11",sequence:$sequence,index_price:"1000000000000000000",
+              mark_price:"1000000000000000000",source_timestamp_ms:$timestamp}]}],
               memo:"",timeout_height:"0",extension_options:[],non_critical_extension_options:[]},
               auth_info:{signer_infos:[],fee:{amount:[],gas_limit:"2000000",payer:"",granter:""}},signatures:[]}' \
             > "$NODE_HOME/observation.json"
@@ -693,6 +695,12 @@ fi
 if [ "$SEQUENCER" = 0 ]; then
     printf -v MINT_DATA '40c10f19000000000000000000000000%s%064x' "${ETH_ADDRESSES[1]#0x}" 1000000000000
     evm_call deployer "$USDL" "$MINT_DATA"
+    PERPS=0x0000000000000000000000000000000000001015
+    COLLATERAL_AMOUNT=1000000000
+    printf -v APPROVE_DATA '095ea7b3000000000000000000000000%s%064x' "${PERPS#0x}" "$COLLATERAL_AMOUNT"
+    evm_call test "$USDL" "$APPROVE_DATA"
+    printf -v DEPOSIT_DATA '47e7ef24000000000000000000000000%s%064x' "${USDL#0x}" "$COLLATERAL_AMOUNT"
+    evm_call test "$PERPS" "$DEPOSIT_DATA"
     PUBKEY=$(python3 - "$NODE_HOME/test.json" <<'PYKEY'
 import base64
 import json
@@ -718,10 +726,12 @@ PYKEY
     while :; do
         kill -0 "$(cat "$NODE_HOME/feeder.pid")" 2>/dev/null || fail "feeder exited: $NODE_HOME/feeder.log"
         if price=$("$PAXD" q pricefeed price 0 --node "$NODE" -o json 2>/dev/null) \
-            && jq -e '.fresh == true and .index == "60000000000000000000000"' <<< "$price" >/dev/null; then
+            && jq -e '.fresh == true and .index == "60000000000000000000000"' <<< "$price" >/dev/null \
+            && price=$("$PAXD" q pricefeed price 11 --node "$NODE" -o json 2>/dev/null) \
+            && jq -e '.fresh == true and .index == "1000000000000000000"' <<< "$price" >/dev/null; then
             break
         fi
-        (( SECONDS < deadline )) || fail "BTC price did not become fresh: $NODE_HOME/feeder.log"
+        (( SECONDS < deadline )) || fail "BTC and PAX prices did not become fresh: $NODE_HOME/feeder.log"
         sleep 0.2
     done
     activate_merge

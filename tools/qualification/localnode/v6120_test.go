@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
+	perpsabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps/abi"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -115,6 +116,94 @@ func TestLocalNodeV6120Serves(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestLocalNodeV6120PerpsMarket(t *testing.T) {
+	endpoint := os.Getenv("LOCAL_NODE_RPC")
+	keyHex := os.Getenv("LOCAL_NODE_KEY")
+	if endpoint == "" || keyHex == "" {
+		t.Fatal("LOCAL_NODE_RPC and LOCAL_NODE_KEY are required; start v6120-node.sh and source its env file")
+	}
+	key, err := crypto.HexToECDSA(strings.TrimPrefix(keyHex, "0x"))
+	if err != nil {
+		t.Fatalf("decode local node key: %v", err)
+	}
+	sender := crypto.PubkeyToAddress(key.PublicKey)
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	client, err := ethclient.DialContext(ctx, endpoint)
+	if err != nil {
+		t.Fatalf("dial local node: %v", err)
+	}
+	defer client.Close()
+	contract, err := perpsabi.ABI()
+	if err != nil {
+		t.Fatalf("parse perps ABI: %v", err)
+	}
+	perps := common.HexToAddress("0x0000000000000000000000000000000000001015")
+	usdl := common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479")
+	call := func(method string, args ...interface{}) []interface{} {
+		t.Helper()
+		data, err := contract.Pack(method, args...)
+		if err != nil {
+			t.Fatalf("pack %s: %v", method, err)
+		}
+		result, err := client.CallContract(ctx, ethereum.CallMsg{From: sender, To: &perps, Data: data}, nil)
+		if err != nil {
+			t.Fatalf("call %s: %v", method, err)
+		}
+		values, err := contract.Unpack(method, result)
+		if err != nil || len(values) != len(contract.Methods[method].Outputs) {
+			t.Fatalf("decode %s: values=%v error=%v", method, values, err)
+		}
+		return values
+	}
+	var market struct {
+		Config struct {
+			MarketId             *big.Int
+			Symbol               string
+			Name                 string
+			OracleSymbol         string
+			SzDecimals           uint8
+			PxDecimals           uint8
+			TickSize             *big.Int
+			LotSize              *big.Int
+			MaxLeverage          *big.Int
+			TierClass            uint8
+			ImpactNotionalUsd    *big.Int
+			OiCapUsd             *big.Int
+			FundingCapPpmPerHour *big.Int
+			Enabled              bool
+			ListedAt             uint64
+		}
+	}
+	if err := contract.Methods["getMarketConfig"].Outputs.Copy(&market, call("getMarketConfig", big.NewInt(11))); err != nil {
+		t.Fatalf("decode market config: %v", err)
+	}
+	cfg := market.Config
+	if cfg.MarketId == nil || cfg.MarketId.Cmp(big.NewInt(11)) != 0 || cfg.Symbol != "PAX" || cfg.OracleSymbol != "PAX" || !cfg.Enabled {
+		t.Fatalf("market 11 config = %+v, want enabled PAX with PAX oracle", cfg)
+	}
+	prices := call("getMarkPriceDetails", big.NewInt(11))
+	mark, ok := prices[0].(*big.Int)
+	if !ok || mark == nil || mark.Cmp(big.NewInt(10_000_000_000_000)) < 0 {
+		t.Fatalf("market 11 mark = %v, want at least one 1e13 tick", prices[0])
+	}
+	if fresh, ok := prices[3].(bool); !ok || !fresh {
+		t.Fatalf("market 11 fresh = %v, want true", prices[3])
+	}
+	code, err := client.CodeAt(ctx, usdl, nil)
+	if err != nil {
+		t.Fatalf("read USDL code: %v", err)
+	}
+	if len(code) == 0 {
+		t.Fatal("USDL has no deployed runtime")
+	}
+	balances := call("getBalance", sender, usdl)
+	collateral, ok := balances[0].(*big.Int)
+	if !ok || collateral == nil || collateral.Cmp(big.NewInt(1_000_000_000)) < 0 {
+		t.Fatalf("perps collateral for %s = %v, want at least 1000 USDL (1000000000 base units)", sender, balances[0])
 	}
 }
 
