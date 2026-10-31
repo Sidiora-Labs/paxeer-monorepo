@@ -10,6 +10,7 @@ use std::time::Duration;
 
 use k256::ecdsa::SigningKey;
 use serde_json::{json, Value};
+use sha2::{Digest as _, Sha256};
 use x_websearch::api::ApiPayload;
 use x_websearch::attest::{
     self, evm_requester, network_word, recover_signer, sign_digest, signer_address,
@@ -718,6 +719,144 @@ fn an_attestor_fetches_and_searches_independently_and_signs_the_digest() -> Outc
         ..request
     };
     assert_eq!(attestor.attest(&binary), Err(attest::AttestError::Payload));
+    Ok(())
+}
+
+#[test]
+fn storage_receipt_kind_attests_the_object_digest_and_refuses_a_mismatch() -> Outcome {
+    let scratch = Scratch::new("storage-receipt")?;
+    let store = Arc::new(ContentStore::open(&scratch.0, &[])?);
+    let index = Arc::new(WebIndex::open(&scratch.0)?);
+    let mut object = vec![0xff; 2_097_153];
+    object[..6].copy_from_slice(b"\0\xfe\x80\r\n\0");
+    let digest: [u8; 32] = Sha256::digest(&object).into();
+    let hex = canonical::digest_hex(&digest);
+    let path = format!("/objects/{hex}");
+    let body = Arc::new(Mutex::new(object.clone()));
+    let served_body = Arc::clone(&body);
+    let served_path = path.clone();
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    let base = format!("http://{}", listener.local_addr()?);
+    let server = thread::spawn(move || -> std::io::Result<Vec<String>> {
+        let mut requests = Vec::new();
+        for connection in listener.incoming().take(3) {
+            let mut stream = connection?;
+            stream.set_read_timeout(Some(Duration::from_secs(10)))?;
+            stream.set_write_timeout(Some(Duration::from_secs(10)))?;
+            let (head, _) =
+                read_http(&mut stream).map_err(|error| std::io::Error::other(error.to_string()))?;
+            let target = head.split(' ').nth(1).unwrap_or_default().to_owned();
+            if target == served_path {
+                let bytes = served_body.lock().unwrap_or_else(PoisonError::into_inner);
+                stream.write_all(format!(
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                    bytes.len()
+                ).as_bytes())?;
+                stream.write_all(&bytes)?;
+            } else {
+                stream.write_all(
+                    b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                )?;
+            }
+            requests.push(target);
+        }
+        Ok(requests)
+    });
+    let attestor = Attestor::new(
+        attestor_key(1)?,
+        CHAIN_ID,
+        Arc::new(loopback_fetcher()?),
+        Arc::clone(&index),
+        Arc::clone(&store),
+    );
+    let mut payload = digest.to_vec();
+    payload.extend_from_slice(base.as_bytes());
+    let request = WebRequest {
+        request_id: 19,
+        requester: [0x42; 20],
+        kind: 4,
+        payload,
+        callback_gas: 50_000,
+        paid: [0; 32],
+        timeout_height: 900,
+        block_number: 30,
+    };
+    let answer = attestor.attest(&request)?;
+    let receipt = format!("pns-receipt/v1\n{hex}\n{}\n{base}\n", object.len());
+    assert_eq!(answer.response, receipt.as_bytes());
+    assert_eq!(
+        answer.attestation.full_length,
+        u32::try_from(receipt.len())?
+    );
+    assert_eq!(answer.attestation.response_hash, keccak(receipt.as_bytes()));
+    assert_eq!(answer.attestation.payload_hash, keccak(&request.payload));
+    assert_eq!(answer.level, Level::Majority);
+    assert!(attestor.binds(&request, &answer));
+    assert_eq!(
+        recover_signer(&answer.digest, &answer.signature)?,
+        attestor.signer()
+    );
+    let canonical =
+        canonical::canonical_bytes(ContentKind::Fetch, &request.payload, "text/plain", &receipt)?;
+    assert_eq!(
+        answer.attestation.content_digest,
+        canonical::content_digest(&canonical)
+    );
+    assert_eq!(
+        store.get(&answer.attestation.content_digest)?,
+        Some(canonical)
+    );
+    *body.lock().unwrap_or_else(PoisonError::into_inner) = b"different object".to_vec();
+    assert_eq!(
+        attestor.attest(&request),
+        Err(attest::AttestError::DigestMismatch)
+    );
+    assert_eq!(
+        server
+            .join()
+            .map_err(|_| fail("bucket server panicked"))??,
+        vec!["/robots.txt".to_owned(), path.clone(), path]
+    );
+
+    let strict = Attestor::new(
+        attestor_key(1)?,
+        CHAIN_ID,
+        Arc::new(Fetcher::new(FetchLimits {
+            allow_loopback: false,
+            ..*loopback_fetcher()?.limits()
+        })?),
+        index,
+        store,
+    );
+    assert_eq!(
+        strict.attest(&request),
+        Err(attest::AttestError::InvalidPayload)
+    );
+    for invalid in [
+        vec![1; 31],
+        digest.to_vec(),
+        [digest.as_slice(), &[0xff]].concat(),
+        [[0; 32].as_slice(), b"https://bucket.example"].concat(),
+        [digest.as_slice(), b"http://bucket.example"].concat(),
+        [digest.as_slice(), b"https://bucket.example/"].concat(),
+        [digest.as_slice(), b"https://bucket.example?q=1"].concat(),
+        [digest.as_slice(), b"https://bucket.example#fragment"].concat(),
+        [digest.as_slice(), b"https://user@bucket.example"].concat(),
+        [
+            digest.as_slice(),
+            format!("https://bucket.example/{}", "a".repeat(512)).as_bytes(),
+        ]
+        .concat(),
+    ] {
+        let invalid_request = WebRequest {
+            payload: invalid,
+            ..request.clone()
+        };
+        assert_eq!(
+            attestor.attest(&invalid_request),
+            Err(attest::AttestError::InvalidPayload)
+        );
+    }
     Ok(())
 }
 

@@ -583,6 +583,13 @@ impl ProtocolEvidence {
                     layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
                 )
             }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::AuthLifecycle {
+                payload,
+                ..
+            }) => (
+                payload,
+                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+            ),
             Some(
                 layerx_crypto::disclosure::call::ConstructMethod::LedgerOpenAccount { .. }
                 | layerx_crypto::disclosure::call::ConstructMethod::LedgerRegister { .. }

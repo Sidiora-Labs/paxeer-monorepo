@@ -12176,3 +12176,88 @@ fix = "Name only test targets that exist at the task's base or that the task its
 title = "A status-only assertion against the authority hides which refusal code produced a 503"
 symptom = "Three TLS tests failed with 503 where 200 was expected and the attempt could only report pre-existing; the authority's refusal body carries error.code and server.log carries the eprintln reasons, neither of which the assertions printed."
 fix = "Assert on status and body together and print the server log tail on failure, so a refused route names its cause in the first run."
+
+[gotcha.2472]
+title = "An ES-module package whose exports declare only import and types conditions cannot be required by Playwright's CommonJS loader"
+symptom = "A Playwright suite in a package without 'type': 'module' imported a workspace library that imports @sidiora/layerx-sdk/browser; Node failed with Package subpath './browser' is not defined by exports because the map had no require or default condition, while Vitest over the same files passed."
+fix = "Give every exports entry a default condition (Node 24 can require an ES module), and when a Playwright webServer never becomes ready, pipe its stdout and fetch the probe URL by hand: Playwright treats a 500 as not ready and says nothing about why."
+
+[gotcha.2473]
+title = "A fresh perps node emits its first FundingSettled only at the first whole hour after its first block, and end-block failures surface as Cosmos events"
+symptom = "An end-to-end test waited six minutes for FundingSettled on a freshly started node and passed or failed depending on where its window fell against the wall-clock hour; the perps funding step records the first hour it sees and emits nothing, and a market whose end-block step fails is skipped with a perps_endblock_error event that eth_getLogs never shows."
+fix = "Give a local genesis perps market states whose last_index_hour is one hour before genesis so the first block settles, and read /block_results for perps_endblock_error before concluding that a settlement is late."
+
+[gotcha.2474]
+title = "An exports map with only types and import conditions breaks every bundler and CommonJS consumer"
+symptom = "A webpack build and a CommonJS loader both failed to resolve a package subpath whose exports entry declared only types and import; the ESM consumers passed, so the defect surfaced only in aggregate builds."
+fix = "Give every exports entry a default (or require) condition beside import, and make aggregate gate tests print the failing step's log tail so the owning module is visible from the test output."
+
+[gotcha.2475]
+title = "The root Foundry project does not build as a whole, so new contracts need their own profile"
+symptom = "forge build --root . under the default profile failed on retired kernel contracts whose libraries no longer exist and on tests importing an unpopulated contracts/lib; the new contracts themselves were fine."
+fix = "Build and test new Solidity work under a dedicated [profile.<name>] in foundry.toml (its own src, test, out and cache_path) and prefix the commands with FOUNDRY_PROFILE=<name>."
+
+[gotcha.2476]
+title = "Every declared touch path must exist and change, and the xweb kind admissions live under types/"
+symptom = "A task declared modules/xweb/observation.go and modules/xweb/genesis.go; the files live in modules/xweb/types, so the done check refused the otherwise passing attempt for two unchanged paths."
+fix = "Check each touch path exists on main before committing a task block, and expect the done check to refuse any declared path that no commit changed."
+
+[gotcha.2477]
+title = "pnpm install inside the repository resolves the root workspace unless told otherwise"
+symptom = "pnpm --dir <package> install for a package outside pnpm-workspace.yaml still found the repository workspace file and tried to install all twenty members, one of which depends on a registry package that does not exist."
+fix = "Pass --ignore-workspace to pnpm install for packages that are not workspace members, and keep their file: dependencies on sibling packages."
+
+[gotcha.2478]
+title = "A pinned receipt key is selected by the receipt's context_hash, so kernel-era signed fixtures cannot be pinned"
+symptom = "A server-launching test pinned the fixture's sequencer id as a receipt key; the authority refused every state record as state_evidence_refused because the signed receipt's context_hash was another value, and a zero key id is refused outright."
+fix = "Derive test receipts from the committed fixture at run time: write the key id into context_hash, re-encode unsigned, re-sign the receipt digest and the batch header digest with the test key, and pin that key."
+
+[gotcha.2479]
+title = "The wallet already consumes a name indexer in the explorer name-service shape"
+symptom = "A name system planned without an indexer would have left the wallet's My Names tab and the explorer's name display empty: apps/wallet/src/lib/pns.ts and apps/explorer/configs/app/apis.ts both read the explorer name-service API, and the wallet proxy pointed at a literal origin serving nothing."
+fix = "When a feature replaces a hosted dependency, grep the consumers for the API shape they already speak and serve that shape; commit one answer vector that the producer test and the consumer test both assert against."
+
+[gotcha.2480]
+title = "A Next custom server ignores edits to the imported config object"
+symptom = "An embedded dev server set basePath to the empty string on the object imported from next.config.mjs and still served the product basePath, so every probe on the root answered 404 and the Playwright web server never became ready."
+fix = "Pass the adjusted object as next({ conf }) explicitly, and install the Playwright browser in the gate's build command when the environment has none."
+
+[gotcha.2481]
+title = "The v6120 export is past the sequencer activation height, so a plain local node rejects its own proposals"
+symptom = "A local node started from the v6120 export without sequencer mode produced its first block and then rejected every proposal with 'sequenced proposal tx 0 is not a sequence batch'; a test waiting for a transaction receipt timed out with no error from the RPC."
+fix = "Start v6120-node.sh with --sequencer for any test that sends a transaction; look for the proposal rejection in the node log whenever a receipt never arrives."
+
+[gotcha.2482]
+title = "An advance error mapped to one opaque code is unbisectable; log it with the journey id"
+symptom = "A journey read advanced an intent journey and mapped every error to upstream-degraded, so a failing test saw only the code after the node double had accepted the transaction and served no receipt."
+fix = "Log the error's Debug form with the journey id before mapping it, and make test doubles serve the receipt and block reads for every transaction they accept."
+
+[gotcha.2483]
+title = "Retiring a planner route also retires the tests that needed its multi-leg plans"
+symptom = "After the planner began refusing every custody endpoint, a nonce-reuse test that built a two-leg deposit plan failed with NoRoute; no remaining route yields more than one leg and the plan type has no test constructor."
+fix = "When a route is removed, list the tests that reach it through plan() and remove or rewrite them in the same wave; keep the single-leg assertions."
+
+[gotcha.2484]
+title = "A refusal that folds several comparisons into one string needs test-side named assertions"
+symptom = "A creation test failed with 'lifecycle transaction binding differs' twice; the production check compares eight fields and names none, so neither attempt could tell which binding of the EVM-form owner was wrong."
+fix = "Have the test support recompute and assert each binding with its own message before calling the production check, so the next failure names the field."
+
+[gotcha.2485]
+title = "A retired contract imported by a test breaks a scoped Foundry profile"
+symptom = "A names-only Foundry profile still failed to build because one test imported the governance timelock, whose own imports were retired earlier in the feature."
+fix = "Scoped profiles compile every import of their tests; govern Governed components in tests through a pranked plain address and never import sources outside the profile's own directory."
+
+[gotcha.2486]
+title = "budgetCreate carries no idempotency word; its disclosure word is the budget id"
+symptom = "A lifecycle binding compared the disclosure idempotency word against the stage action key for every method; for budgetCreate the word is the budget id by construction, so the budget-creation stage could never pass on any owner path."
+fix = "When a disclosure derives the idempotency word from a method-specific field, bind that field to what the payload comparison already pins and keep the action-key comparison for the methods that carry one."
+
+[gotcha.2487]
+title = "A test that writes under the repository root leaves untracked files behind every run"
+symptom = "An integration test rooted its TLS fixture tree at qual-logs/hm2 under the repository; the gate passed and the attempt was still refused for sixty untracked files outside the task's scope."
+fix = "Root test fixtures at env!(CARGO_TARGET_TMPDIR) (or an equivalent build-output directory) and never under a source path that git does not ignore."
+
+[gotcha.2488]
+title = "A mode guard around test-node setup leaves the sequenced node without prices or collateral"
+symptom = "The local node script skipped its price feed and collateral setup in sequencer mode; the perps end-to-end test then saw getMarkPriceDetails revert with a zero mark on a market whose funding was already settling."
+fix = "Gate only the steps a mode truly cannot run (here activate_merge on an already-activated export) and run every state-setup step in every mode; check the script's own mode-neutral tests against each start form."
