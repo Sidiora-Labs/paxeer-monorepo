@@ -6123,6 +6123,12 @@ value = "In services/platform/hosted/authority/tests/human_tls.rs the fixture ro
 basis = "Finding 8.98.15.5: a test that writes into the source tree turns every passing run into an unreviewed change; Cargo provides the per-target temp directory for exactly this."
 affects = ["8.98.15"]
 
+[decision.2169]
+title = "The local node posts prices and funds the test account in sequencer mode too"
+value = "In tools/qualification/localnode/v6120-node.sh the collateral and price-feed setup that follows the node start (mint USDL to the test account, approve and deposit collateral into the perps precompile, registerFeedKey for the validator, the feeder started with --feed, and the wait until the BTC and PAX prices are fresh) runs in both modes; only activate_merge keeps the SEQUENCER = 0 guard, because the v6120 export is already past activation. In sequencer mode the block runs after the bootstrap peer is stopped, so NODE and EVM already name the primary and the feeder's process.env needs no change; evm_call and the pricefeed queries use the same endpoints. TestLocalNodeV6120PerpsMarket is the in-tree statement of what a started node provides and must pass against a --sequencer start as it does against a plain one."
+basis = "Finding 18.670.1.8: a node that carries transactions but has no price and no collateral is still not the network the perps test is about; the setup was gated by mode for no reason the sequenced chain still has."
+affects = ["18.670.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -116271,7 +116277,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.4.3]
 title = "Attest storage receipts: fetch the object by digest from the bucket and refuse a mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["19.4.2"]
@@ -142740,7 +142746,7 @@ do_15 = "Finding 8.98.14.7: continue from attempt 10 (f38f93171); the code is co
 
 [task.8.98.15]
 title = "Port the authority budget reader onto the node's JSON-RPC and retire its LNI session"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["8.98.14", "8.98.4"]
@@ -149117,7 +149123,7 @@ do_6 = "Decision 2088: attempt 5 (6a449ae79) renamed the Mechanism variants of s
 
 [task.10.6.3]
 title = "Remove the retired bridge mechanisms from the resolver and intent-nonce tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.6.2", "9.99.2"]
@@ -179191,6 +179197,7 @@ do_8 = "Attempt 5 (a350a148f) passes the earliest-block clamp and the funding wa
 do_9 = "Decision 2137: the hold is lifted; qualify against the in-tree node exactly as verify_cmd states (no --sequencer, no sequencer receipt read). Build once, verify once."
 do_10 = "Decision 2154: continue from attempt 6 (03685946f), keeping the earliest-block clamp and the funding wait. First, with the node running, fetch /block_results for the first block past a whole hour and record every perps_endblock_error event and the FundingSettled logs of the synthetic perps receipt in the finding. Then add the app_state.perps object to the genesis build in tools/qualification/localnode/v6120-node.sh after :394 (default params, markets 0 and 11 copied field for field from the v6.12.0 hook's market list, market_states with last_index_hour = floor(genesis_time/3600) - 1) so the first block settles funding, and keep validate-genesis passing. Change nothing in modules/perps. Build once and verify once."
 do_11 = "Decision 2162: continue from attempt 7 (7c753e924), keeping the genesis perps state, the environment lines for PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET and the funding wait. Run the verify command as now declared, with --sequencer; change nothing in the test for the mode. If the withdraw receipt is still missing, record the node's last ten proposal log lines in the finding and stop."
+do_12 = "Decision 2169: continue from attempt 8 (fd5d55aa7), keeping the sequencer start and the genesis perps state. In tools/qualification/localnode/v6120-node.sh move the SEQUENCER = 0 guard so that only activate_merge is plain-mode and the mint, approve, deposit, registerFeedKey, feeder and fresh-price wait run in both modes. Change nothing in the test. Build once and verify once; if the fresh-price wait fails under --sequencer, record the feeder log tail in the finding and stop."
 
 [req.18670]
 title = "Keep the restarted perps data gateway alive through the post-restart end-to-end checks"
@@ -180419,7 +180426,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.1.1]
 title = "Write the .pax registry, base registrar and registrar controller matching the wallet's controller ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

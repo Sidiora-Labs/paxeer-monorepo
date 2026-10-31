@@ -12256,3 +12256,8 @@ fix = "When a disclosure derives the idempotency word from a method-specific fie
 title = "A test that writes under the repository root leaves untracked files behind every run"
 symptom = "An integration test rooted its TLS fixture tree at qual-logs/hm2 under the repository; the gate passed and the attempt was still refused for sixty untracked files outside the task's scope."
 fix = "Root test fixtures at env!(CARGO_TARGET_TMPDIR) (or an equivalent build-output directory) and never under a source path that git does not ignore."
+
+[gotcha.2488]
+title = "A mode guard around test-node setup leaves the sequenced node without prices or collateral"
+symptom = "The local node script skipped its price feed and collateral setup in sequencer mode; the perps end-to-end test then saw getMarkPriceDetails revert with a zero mark on a market whose funding was already settling."
+fix = "Gate only the steps a mode truly cannot run (here activate_merge on an already-activated export) and run every state-setup step in every mode; check the script's own mode-neutral tests against each start form."
