@@ -156560,7 +156560,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.24.5]
 title = "Decode the px_getNetwork consensus head in place of anchor and kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.24.4", "12.25.3", "8.0.4"]
