@@ -245,10 +245,8 @@ LOCAL_COMMANDS = {
         ("make", "--no-print-directory", "human-test-journeys"),
         ("make", "--no-print-directory", "human-test-agents"),
         ("make", "--no-print-directory", "human-test-approvals"),
-        ("make", "--no-print-directory", "human-test-paxeer"),
     ),
     "human-qualify-fabrication": (
-        ("make", "--no-print-directory", "human-test-explorer"),
         ("make", "--no-print-directory", "human-test-activity"),
         ("make", "--no-print-directory", "human-test-component"),
     ),
