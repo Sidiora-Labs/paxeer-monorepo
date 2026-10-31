@@ -192793,7 +192793,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1205.1]
 title = "Issue #1205: Port the degraded-mode tests to rungs and the current metric labels"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1199.1", "18.1206.1", "18.1200.1", "18.1304.1"]
