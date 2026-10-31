@@ -159812,7 +159812,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.35.4]
 title = "Start the in-tree node as a sequencer primary with a standby for local qualification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["5.98.2", "18.1299.1", "18.1307.1", "12.35.5", "12.35.6", "12.35.7", "12.35.8", "12.35.9", "12.35.11"]
