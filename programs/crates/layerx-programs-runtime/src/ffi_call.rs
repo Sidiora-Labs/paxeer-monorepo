@@ -4152,28 +4152,30 @@ mod arbiter_authority_cases {
         assert_eq!(check(&v2, DIGEST_WORDS, BATCH), -801);
 
         let v1 = authority_bytes(1);
-        assert_eq!(v1.len(), RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES);
-        assert_eq!(check(&v1, DIGEST_WORDS, BATCH), OK);
-        assert_eq!(check(&v1, DIGEST_WORDS, HEIGHT), -801);
-        for (bytes, height) in [(&v2, HEIGHT), (&v1, BATCH)] {
+        assert_eq!(v1.len(), 247);
+        assert_eq!(check(&v1, DIGEST_WORDS, BATCH), -101);
+        assert_eq!(check(&v1, DIGEST_WORDS, HEIGHT), -101);
+        for (bytes, height, digest_error, length_error) in
+            [(&v2, HEIGHT, -801, NON_CANONICAL), (&v1, BATCH, -101, -101)]
+        {
             for index in 0..4 {
                 let mut mismatched_digest = DIGEST_WORDS;
                 mismatched_digest[index] ^= 1;
-                assert_eq!(check(bytes, mismatched_digest, height), -801);
+                assert_eq!(check(bytes, mismatched_digest, height), digest_error);
             }
             assert_eq!(
                 check(&bytes[..bytes.len() - 1], DIGEST_WORDS, height),
-                NON_CANONICAL
+                length_error
             );
         }
 
-        let mut unsupported = v1.clone();
+        let mut unsupported = v2.clone();
         unsupported[6..8].copy_from_slice(&u16::MAX.to_be_bytes());
-        assert_eq!(check(&unsupported, DIGEST_WORDS, BATCH), -101);
+        assert_eq!(check(&unsupported, DIGEST_WORDS, HEIGHT), -101);
         for (offset, bound) in [(39, BATCH + 1), (47, BATCH - 1)] {
             let mut unauthorized = v1.clone();
             unauthorized[offset..offset + 8].copy_from_slice(&bound.to_be_bytes());
-            assert_eq!(check(&unauthorized, DIGEST_WORDS, BATCH), -204);
+            assert_eq!(check(&unauthorized, DIGEST_WORDS, BATCH), -101);
         }
     }
 }
@@ -4506,9 +4508,7 @@ mod native_authority_cases {
         assert_eq!(bytes.len(), 151);
         let authority = decode_native_receipt_authority(&bytes, DIGEST, HEIGHT)
             .unwrap_or_else(|status| panic!("V2 authority status: {status}"));
-        let NativeReceiptAuthority::V2(value) = authority else {
-            panic!("expected V2 authority");
-        };
+        let NativeReceiptAuthority::V2(value) = authority;
         assert_eq!(value.version(), 2);
         assert_eq!(value.network_id(), 125);
         assert_eq!(value.protocol_version(), PROTOCOL_STATE_COMMITMENT);
@@ -4532,29 +4532,39 @@ mod native_authority_cases {
 
         let bytes = authority_bytes(1);
         assert_eq!(bytes.len(), 247);
-        let authority = decode_native_receipt_authority(&bytes, DIGEST, HEIGHT)
-            .unwrap_or_else(|status| panic!("V1 authority status: {status}"));
-        let NativeReceiptAuthority::V1(value) = authority else {
-            panic!("expected V1 authority");
-        };
-        assert_eq!(value.version(), 1);
+        assert_eq!(
+            decode_native_receipt_authority(&bytes, DIGEST, HEIGHT),
+            Err(-101)
+        );
+    }
+
+    #[test]
+    fn authority_decoder_refuses_version_1_after_retirement() {
+        let v1 = authority_bytes(1);
+        assert_eq!(v1.len(), 247);
+        assert_eq!(
+            decode_native_receipt_authority(&v1, DIGEST, HEIGHT),
+            Err(-101)
+        );
+        assert_eq!(native_receipt_authority_length(1), Err(-101));
+
+        let v2 = authority_bytes(2);
+        assert_eq!(v2.len(), 151);
+        let NativeReceiptAuthority::V2(value) =
+            decode_native_receipt_authority(&v2, DIGEST, HEIGHT)
+                .unwrap_or_else(|status| panic!("V2 authority status: {status}"));
+        assert_eq!(value.version(), 2);
         assert_eq!(value.network_id(), 125);
         assert_eq!(value.protocol_version(), PROTOCOL_STATE_COMMITMENT);
         assert_eq!(value.module_id(), 0x1234);
         assert_eq!(value.operation(), 7);
         assert_eq!(value.result_code(), -400);
-        assert_eq!(value.batch_number(), HEIGHT);
-        assert_eq!(value.epoch(), 9);
-        assert_eq!(value.global_sequence(), 10);
-        assert_eq!(value.authorization_first_batch_number(), HEIGHT - 1);
-        assert_eq!(value.authorization_last_batch_number(), HEIGHT + 1);
+        assert_eq!(value.block_height(), HEIGHT);
         assert_eq!(value.receipt_digest(), DIGEST);
         assert_eq!(value.activity_id(), [0x32; 32]);
         assert_eq!(value.previous_state_root(), [0x43; 32]);
         assert_eq!(value.resulting_state_root(), [0x54; 32]);
-        assert_eq!(value.sequencer_id(), [0x65; 32]);
-        assert_eq!(value.sequencer_public_key(), [0x76; 32]);
-        assert_eq!(value.canonical_bytes().as_slice(), bytes.as_slice());
+        assert_eq!(value.canonical_bytes().as_slice(), v2.as_slice());
     }
 
     #[test]
@@ -4567,21 +4577,22 @@ mod native_authority_cases {
         );
         for version in [1, 2] {
             let bytes = authority_bytes(version);
+            let length_error = if version == 1 { -101 } else { NON_CANONICAL };
             assert_eq!(
                 decode_native_receipt_authority(&bytes[..bytes.len() - 1], DIGEST, HEIGHT),
-                Err(NON_CANONICAL)
+                Err(length_error)
             );
             let mut trailing = bytes.clone();
             trailing.push(0);
             assert_eq!(
                 decode_native_receipt_authority(&trailing, DIGEST, HEIGHT),
-                Err(NON_CANONICAL)
+                Err(length_error)
             );
             let mut wrong_length = bytes;
             wrong_length[..2].copy_from_slice(&(3 - version).to_be_bytes());
             assert_eq!(
                 decode_native_receipt_authority(&wrong_length, DIGEST, HEIGHT),
-                Err(NON_CANONICAL)
+                Err(if version == 1 { NON_CANONICAL } else { -101 })
             );
         }
         for bytes in [&[][..], &[0][..]] {
@@ -4591,30 +4602,6 @@ mod native_authority_cases {
             );
         }
     }
-}
-
-pub const RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES: usize = 247;
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RawNativeReceiptAuthorityV1 {
-    version: u16,
-    network_id: u32,
-    protocol_version: u16,
-    module_id: u16,
-    operation: u8,
-    result_code: i32,
-    batch_number: u64,
-    epoch: u64,
-    global_sequence: u64,
-    authorization_first_batch_number: u64,
-    authorization_last_batch_number: u64,
-    receipt_digest: [u8; 32],
-    activity_id: [u8; 32],
-    previous_state_root: [u8; 32],
-    resulting_state_root: [u8; 32],
-    sequencer_id: [u8; 32],
-    sequencer_public_key: [u8; 32],
-    canonical_bytes: [u8; RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES],
 }
 
 pub const RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES: usize = 151;
@@ -4637,7 +4624,6 @@ pub struct RawNativeReceiptAuthorityV2 {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum NativeReceiptAuthority {
-    V1(RawNativeReceiptAuthorityV1),
     V2(RawNativeReceiptAuthorityV2),
 }
 
@@ -4680,66 +4666,8 @@ impl RawNativeReceiptAuthorityV2 {
     }
 }
 
-impl RawNativeReceiptAuthorityV1 {
-    pub const fn version(&self) -> u16 {
-        self.version
-    }
-    pub const fn network_id(&self) -> u32 {
-        self.network_id
-    }
-    pub const fn protocol_version(&self) -> u16 {
-        self.protocol_version
-    }
-    pub const fn module_id(&self) -> u16 {
-        self.module_id
-    }
-    pub const fn operation(&self) -> u8 {
-        self.operation
-    }
-    pub const fn result_code(&self) -> i32 {
-        self.result_code
-    }
-    pub const fn batch_number(&self) -> u64 {
-        self.batch_number
-    }
-    pub const fn epoch(&self) -> u64 {
-        self.epoch
-    }
-    pub const fn global_sequence(&self) -> u64 {
-        self.global_sequence
-    }
-    pub const fn authorization_first_batch_number(&self) -> u64 {
-        self.authorization_first_batch_number
-    }
-    pub const fn authorization_last_batch_number(&self) -> u64 {
-        self.authorization_last_batch_number
-    }
-    pub const fn receipt_digest(&self) -> [u8; 32] {
-        self.receipt_digest
-    }
-    pub const fn activity_id(&self) -> [u8; 32] {
-        self.activity_id
-    }
-    pub const fn previous_state_root(&self) -> [u8; 32] {
-        self.previous_state_root
-    }
-    pub const fn resulting_state_root(&self) -> [u8; 32] {
-        self.resulting_state_root
-    }
-    pub const fn sequencer_id(&self) -> [u8; 32] {
-        self.sequencer_id
-    }
-    pub const fn sequencer_public_key(&self) -> [u8; 32] {
-        self.sequencer_public_key
-    }
-    pub const fn canonical_bytes(&self) -> &[u8; RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES] {
-        &self.canonical_bytes
-    }
-}
-
 fn native_receipt_authority_length(version: u16) -> Result<usize, i32> {
     match version {
-        1 => Ok(RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES),
         2 => Ok(RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES),
         _ => Err(-101),
     }
@@ -4754,14 +4682,6 @@ fn decode_native_receipt_authority(
     let version = cursor.u16().map_err(|_| NON_CANONICAL)?;
     if bytes.len() != native_receipt_authority_length(version)? {
         return Err(NON_CANONICAL);
-    }
-    if version == 1 {
-        return decode_native_receipt_authority_v1(
-            bytes.try_into().map_err(|_| NON_CANONICAL)?,
-            expected_digest,
-            expected_height,
-        )
-        .map(NativeReceiptAuthority::V1);
     }
     let mut parse = || -> Result<RawNativeReceiptAuthorityV2, crate::replay::ReplayWitnessError> {
         let value = RawNativeReceiptAuthorityV2 {
@@ -4801,67 +4721,6 @@ fn decode_native_receipt_authority(
     Ok(NativeReceiptAuthority::V2(value))
 }
 
-fn decode_native_receipt_authority_v1(
-    bytes: [u8; RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES],
-    expected_digest: [u8; 32],
-    expected_batch: u64,
-) -> Result<RawNativeReceiptAuthorityV1, i32> {
-    let parse = || -> Result<RawNativeReceiptAuthorityV1, crate::replay::ReplayWitnessError> {
-        let mut cursor = crate::replay::ReplayCursor::new(&bytes);
-        let value = RawNativeReceiptAuthorityV1 {
-            version: cursor.u16()?,
-            network_id: cursor.u32()?,
-            protocol_version: cursor.u16()?,
-            module_id: cursor.u16()?,
-            operation: cursor.u8()?,
-            result_code: cursor.i32()?,
-            batch_number: cursor.u64()?,
-            epoch: cursor.u64()?,
-            global_sequence: cursor.u64()?,
-            authorization_first_batch_number: cursor.u64()?,
-            authorization_last_batch_number: cursor.u64()?,
-            receipt_digest: cursor.array()?,
-            activity_id: cursor.array()?,
-            previous_state_root: cursor.array()?,
-            resulting_state_root: cursor.array()?,
-            sequencer_id: cursor.array()?,
-            sequencer_public_key: cursor.array()?,
-            canonical_bytes: bytes,
-        };
-        if !cursor.done() {
-            return Err(crate::replay::ReplayWitnessError::Encoding);
-        }
-        Ok(value)
-    };
-    let value = parse().map_err(|_| NON_CANONICAL)?;
-    if value.version != 1
-        || !matches!(
-            value.protocol_version,
-            PROTOCOL_LEGACY | PROTOCOL_OCCUPANCY | PROTOCOL_STATE_COMMITMENT
-        )
-    {
-        return Err(-101);
-    }
-    if value.network_id == 0
-        || value.batch_number == 0
-        || value.global_sequence == 0
-        || value.receipt_digest == [0; 32]
-        || value.sequencer_id == [0; 32]
-        || value.sequencer_public_key == [0; 32]
-    {
-        return Err(NON_CANONICAL);
-    }
-    if value.batch_number != expected_batch || value.receipt_digest != expected_digest {
-        return Err(-801);
-    }
-    if value.authorization_first_batch_number > value.batch_number
-        || value.authorization_last_batch_number < value.batch_number
-    {
-        return Err(-204);
-    }
-    Ok(value)
-}
-
 extern "C" {
     fn layerx_programs_call_arbiter_authority_begin(
         token: u64,
@@ -4895,7 +4754,7 @@ pub unsafe fn read_native_receipt_authority(
         status if status < 0 => return Err(status),
         _ => return Err(NON_CANONICAL),
     }
-    let mut bytes = [0; RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES];
+    let mut bytes = [0; RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES];
     for (offset, byte) in bytes[..2].iter_mut().enumerate() {
         let value = unsafe { layerx_programs_call_arbiter_authority_byte(token, offset as u32) };
         *byte = u8::try_from(value).map_err(|_| if value < 0 { value } else { NON_CANONICAL })?;
