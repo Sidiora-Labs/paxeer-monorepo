@@ -20,7 +20,7 @@ use crate::codec::{be_decimal, be_signed_decimal, hex, hex0x, is_zero, unhex_fix
 use crate::IndexError;
 
 /// The native precompile addresses by ABI directory name.
-pub const KNOWN_PRECOMPILES: [(&str, u16); 23] = [
+pub const KNOWN_PRECOMPILES: [(&str, u16); 20] = [
     ("bank", 0x1001),
     ("wasmd", 0x1002),
     ("json", 0x1003),
@@ -34,9 +34,6 @@ pub const KNOWN_PRECOMPILES: [(&str, u16); 23] = [
     ("pointer", 0x100B),
     ("solo", 0x100C),
     ("p256", 0x1011),
-    ("layerxverify", 0x1012),
-    ("layerxcustody", 0x1013),
-    ("layerxanchor", 0x1014),
     ("perps", 0x1015),
     ("layerxbridge", 0x1016),
     ("launchpad", 0x1017),
@@ -357,6 +354,12 @@ impl AbiRegistry {
                 .and_then(|name| name.to_str())
                 .ok_or_else(|| IndexError::Config("ABI directory name is not UTF-8".to_owned()))?
                 .to_owned();
+            if matches!(
+                contract.as_str(),
+                "layerxverify" | "layerxcustody" | "layerxanchor"
+            ) {
+                continue;
+            }
             let text = fs::read_to_string(directory.join("abi.json"))
                 .map_err(|error| IndexError::Config(format!("{contract}/abi.json: {error}")))?;
             let document: Value = serde_json::from_str(&text)
@@ -729,6 +732,28 @@ mod tests {
     }
 
     #[test]
+    fn retired_kernel_precompiles_have_no_address() {
+        let registry = repository_precompiles();
+        assert!(!registry.abis().is_empty());
+        for (contract, number) in [
+            ("layerxverify", 0x1012),
+            ("layerxcustody", 0x1013),
+            ("layerxanchor", 0x1014),
+        ] {
+            assert!(!KNOWN_PRECOMPILES
+                .iter()
+                .any(|(name, address)| *name == contract || *address == number));
+            assert!(!registry.abis().iter().any(|abi| {
+                abi.contract == contract || abi.address == Some(precompile_address(number))
+            }));
+        }
+        let deposit = keccak(b"CustodyDeposit(bytes32,bytes32,address,bytes32,uint256,uint64)");
+        assert!(registry
+            .lookup(precompile_address(0x1013), deposit)
+            .is_none());
+    }
+
+    #[test]
     fn merged_construct_precompiles_are_known() {
         let registry = repository_precompiles();
         for (contract, number) in [
@@ -996,27 +1021,18 @@ mod tests {
             .iter()
             .map(|abi| abi.contract.as_str())
             .collect();
-        for expected in [
-            "addr",
-            "bank",
-            "ibc",
-            "layerxanchor",
-            "layerxcustody",
-            "launchpad",
-            "layerxverify",
-            "oracle",
-            "pointer",
-        ] {
+        for expected in ["addr", "bank", "ibc", "launchpad", "oracle", "pointer"] {
             assert!(
                 names.contains(&expected),
                 "{expected} missing from {names:?}"
             );
         }
-        let deposit = keccak(b"CustodyDeposit(bytes32,bytes32,address,bytes32,uint256,uint64)");
+        let deposit = keccak(b"CollateralDeposited(address,uint256,uint256)");
         let found = registry
-            .lookup(precompile_address(0x1013), deposit)
-            .unwrap_or_else(|| panic!("custody deposit not registered"));
-        assert_eq!(found.contract, "layerxcustody");
+            .lookup(precompile_address(0x1015), deposit)
+            .unwrap_or_else(|| panic!("perps collateral deposit not registered"));
+        assert_eq!(found.contract, "perps");
+        assert_eq!(found.name, "CollateralDeposited");
         assert!(registry
             .lookup(precompile_address(0x1014), deposit)
             .is_none());
