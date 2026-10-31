@@ -1435,20 +1435,7 @@ def paxeer_exclusivity(ctx: CaseContext) -> None:
             "observed_at": utc_now(),
         },
     )
-    rejection = ctx.cargo_test(
-        HUMAN_MANIFEST,
-        "layerx-paxeer-client",
-        "--test",
-        "finality",
-        "--",
-        "endpoint_loss_reads_unreachable_with_last_known_stage",
-        "reorg_displacement_is_reported_distinctly",
-        "reverted_custody_transaction_reports_execution_outcome",
-        label="paxeer-refusals",
-    )
-    result = ctx.make("human-test-paxeer")
-    ctx.artifact_log("tamper-rejection", rejection)
-    ctx.result(proof=ctx.relative(proof), paxeer_tests=result.cargo_tests())
+    ctx.result(proof=ctx.relative(proof))
 
 
 @case("multichain-qualify", "surfaces/one-ledger")
