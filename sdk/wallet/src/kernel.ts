@@ -7,7 +7,6 @@ import type {
   KernelAvailabilityState,
   KernelBackendName,
   KernelRead,
-  KernelStatus,
   KernelUnavailableState,
   SequencerReceiptAnswer,
 } from './types.js';
@@ -26,11 +25,6 @@ const KERNEL_BACKENDS: readonly KernelBackendName[] = [
 export interface KernelAvailabilityOptions {
   ttlMs?: number;
   now?: () => number;
-}
-
-export function availabilityFromStatus(status: KernelStatus): KernelAvailabilityState {
-  if (status.reason === 'available') return { available: true, reason: 'available' };
-  return { available: false, reason: status.reason, backend: null };
 }
 
 export function kernelUnavailableFrom(error: unknown): KernelUnavailableState | null {
@@ -66,7 +60,9 @@ export class KernelAvailability {
     this.inflight = this.endpoint
       .getNetwork()
       .then((network) => {
-        const state = availabilityFromStatus(network.kernel);
+        const state: KernelAvailabilityState = network.consensus !== null
+          ? { available: true, reason: 'available' }
+          : { available: false, reason: network.consensus_reason ?? 'unreachable', backend: null };
         this.cached = { state, at: this.now() };
         return state;
       })
