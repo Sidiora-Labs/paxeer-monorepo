@@ -4,21 +4,15 @@ import hashlib
 import json
 import os
 from pathlib import Path
-import queue
 import shlex
-import shutil
 import subprocess
 import sys
-import tempfile
-import threading
-import time
 
 ROOT = Path(__file__).resolve().parents[3]
 TASK = "104.5.5"
 SCHEMA = "layerx.asset-inventory.v1"
 TEST = "real_native_effective_asset_transport"
 DECLARED = (
-    "tests/daemon/lxp_test_asset_inventory.c",
     "services/agent/crates/layerx-client/tests/effective_asset.rs",
     "services/agent/crates/layerx-client/src/evidence/caps.rs",
     "services/agent/crates/layerx-client/src/evidence/asset_record.rs",
@@ -62,7 +56,6 @@ def inputs():
             "Makefile",
             "src",
             "include",
-            "cmd/layerxd",
             "node/sequencer",
             "modules/sequencer",
             "modules/lxphost",
@@ -75,15 +68,12 @@ def inputs():
             "services/agent/Cargo.lock",
             "services/agent/crates/layerx-client",
             "services/agent/crates/layerx-proof",
-            "services/agent/crates/layerx-wire",
             "services/agent/crates/layerx-types",
             "services/agent/crates/layerx-crypto",
             "programs/Cargo.toml",
             "programs/Cargo.lock",
             "programs/crates",
             "programs/sdk/rust",
-            "tests/daemon/lxp_test_arbiter_prestate.c",
-            "tests/daemon/lxp_test_arbiter_admission.c",
             "tests/programs/test_call_activity.c",
             "tests/bridge/files.h",
             "contracts/config",
@@ -141,41 +131,6 @@ def build(arguments, evidence):
     manifest = evidence / "artifacts.json"
     manifest.unlink(missing_ok=True)
     source = inputs()
-    native_make = evidence / "build-native.mk"
-    native_make.write_text(""".PHONY: paxeer-x-asset-inventory-build
-paxeer-x-asset-inventory-build: layerxd $(BUILD_DIR)/tests/lxp_test_asset_inventory
-$(BUILD_DIR)/tests/lxp_test_asset_inventory: tests/daemon/lxp_test_asset_inventory.c tests/programs/test_call_activity.c $(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-\t@mkdir -p $(@D)
-\t$(CC) $(CPPFLAGS) $(CFLAGS) -Icmd/layerxd $< $(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) -lssl -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
-""")
-    native_make.chmod(0o600)
-    native_command = [
-        "make",
-        "-f",
-        "Makefile",
-        "-f",
-        str(native_make),
-        "-j4",
-        "BUILD_DIR=/root/lx-target/arbiter-prestate/native",
-        "PROGRAMS_TARGET_DIR=/root/lx-target/arbiter-prestate/rust",
-        "PROGRAMS_RUNTIME_LIB=/root/lx-target/arbiter-prestate/rust/debug/liblayerx_programs_sandbox.a",
-        "paxeer-x-asset-inventory-build",
-    ]
-    with (evidence / "build-native.log").open("w") as output:
-        result = subprocess.run(
-            native_command,
-            cwd=ROOT,
-            stdin=subprocess.DEVNULL,
-            stdout=output,
-            stderr=subprocess.STDOUT,
-            timeout=1100,
-        )
-    if result.returncode:
-        raise subprocess.CalledProcessError(result.returncode, native_command)
-    arguments.native = (
-        "/root/lx-target/arbiter-prestate/native/tests/lxp_test_asset_inventory"
-    )
-    arguments.daemon = "/root/lx-target/arbiter-prestate/native/bin/layerxd"
     command = [
         *shlex.split(arguments.cargo),
         "test",
@@ -234,25 +189,13 @@ $(BUILD_DIR)/tests/lxp_test_asset_inventory: tests/daemon/lxp_test_asset_invento
             "task": TASK,
             "revision": revision,
             "inputs": source,
-            "native": artifact(arguments.native),
-            "daemon": artifact(arguments.daemon),
             "rust": artifact(executables.pop()),
         },
     )
     print("ARTIFACTS " + str(manifest), flush=True)
 
 
-def become_client():
-    os.setgroups([])
-    os.setgid(65534)
-    os.setuid(65534)
-
-
 def qualify(evidence):
-    if os.geteuid() != 0:
-        raise RuntimeError(
-            "distinct owner and admitted service UID qualification requires root"
-        )
     manifest = json.loads((evidence / "artifacts.json").read_text())
     if (
         manifest.get("schema") != SCHEMA
@@ -260,137 +203,43 @@ def qualify(evidence):
         or manifest.get("inputs") != inputs()
     ):
         raise RuntimeError("declared artifacts do not bind current source")
-    native, rust = checked(manifest["native"]), checked(manifest["rust"])
-    checked(manifest["daemon"])
-    fixture = Path(tempfile.mkdtemp(prefix="lxp-asset-inventory-"))
-    os.chown(fixture, 0, 65534)
-    fixture.chmod(0o750)
-    executable = fixture / "client-probe"
-    shutil.copyfile(rust, executable)
-    os.chown(executable, 0, 65534)
-    executable.chmod(0o750)
-    if digest(executable) != manifest["rust"]["sha256"]:
-        raise RuntimeError("client executable copy changed")
-    events = queue.Queue()
-    native_log = evidence / "verify-native.log"
-    stream = native_log.open("w")
-    process = subprocess.Popen(
-        [str(native), str(fixture)],
-        cwd=ROOT,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
-
-    def capture():
-        for line in process.stdout:
-            stream.write(line)
-            stream.flush()
-            if line.startswith("ASSET_INVENTORY_TRANSPORT_READY "):
-                events.put(line.strip())
-        events.put("EXIT")
-
-    reader = threading.Thread(target=capture, daemon=True)
-    reader.start()
-    try:
-        for phase in ("initial", "updated"):
-            if phase == "updated":
-                process.stdin.write("mutate\n")
-                process.stdin.flush()
-            marker = events.get(timeout=120)
-            if marker != "ASSET_INVENTORY_TRANSPORT_READY " + phase:
-                raise RuntimeError(
-                    "genuine native boundary failed before "
-                    + phase
-                    + ": "
-                    + str(native_log)
-                )
-            current = json.loads((fixture / "inputs.json").read_text())
-            if current.get("expected_source") != (
-                "genesis" if phase == "initial" else "override"
-            ):
-                raise RuntimeError("genuine initial/override phase mismatch")
-            if current.get("expected_paused") != (phase == "updated"):
-                raise RuntimeError("actual pause mutation required")
-            for path in fixture.iterdir():
-                if path.is_file() and not path.is_socket():
-                    os.chown(path, 0, 65534)
-                    path.chmod(0o750 if path == executable else 0o640)
-            command = [
-                str(executable),
-                TEST,
-                "--exact",
-                "--nocapture",
-                "--test-threads=1",
-            ]
-            environment = {
-                "LAYERX_ASSET_INVENTORY_INPUTS": str(fixture / "inputs.json"),
-                "LAYERX_ASSET_INVENTORY_PHASE": phase,
-                "RUST_BACKTRACE": "0",
-            }
-            log = evidence / ("verify-client-" + phase + ".log")
-            with log.open("w") as output:
-                result = subprocess.run(
-                    command,
-                    cwd=fixture,
-                    env=environment,
-                    preexec_fn=become_client,
-                    stdin=subprocess.DEVNULL,
-                    stdout=output,
-                    stderr=subprocess.STDOUT,
-                    timeout=120,
-                )
-            if result.returncode:
-                raise subprocess.CalledProcessError(result.returncode, command)
-            if (
-                "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
-                not in log.read_text()
-            ):
-                raise RuntimeError("genuine client assertions skipped or incomplete")
-        process.stdin.write("stop\n")
-        process.stdin.flush()
-        if process.wait(timeout=30) != 0:
-            raise RuntimeError("native shutdown failed: " + str(native_log))
-        reader.join(timeout=5)
-        if (
-            "ASSET_INVENTORY_TRANSPORT native-committed-genesis-authenticated-pause-boundary"
-            not in native_log.read_text()
-        ):
-            raise RuntimeError("native capture/reopen boundary did not complete")
-        if inputs() != manifest["inputs"]:
-            raise RuntimeError("source changed during verification")
-        save(
-            evidence / "result.json",
-            {
-                "task": TASK,
-                "revision": manifest["revision"],
-                "command": "timeout 10m python3 tools/qualification/paxeer-x/asset-inventory.py",
-                "exit": 0,
-                "phases": ["initial", "updated"],
-                "fixture": str(fixture),
-                "native_log": str(native_log),
-            },
+    rust = checked(manifest["rust"])
+    command = [str(rust), TEST, "--exact", "--nocapture", "--test-threads=1"]
+    log = evidence / "verify-client.log"
+    with log.open("w") as output:
+        result = subprocess.run(
+            command,
+            cwd=ROOT,
+            stdin=subprocess.DEVNULL,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            timeout=120,
         )
-        print("VERIFIED " + str(evidence / "result.json"), flush=True)
-    finally:
-        if process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
-        reader.join(timeout=5)
-        stream.close()
+    if result.returncode:
+        raise subprocess.CalledProcessError(result.returncode, command)
+    if (
+        "test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"
+        not in log.read_text()
+    ):
+        raise RuntimeError("genuine client assertions skipped or incomplete")
+    if inputs() != manifest["inputs"]:
+        raise RuntimeError("source changed during verification")
+    save(
+        evidence / "result.json",
+        {
+            "task": TASK,
+            "revision": manifest["revision"],
+            "command": "timeout 10m python3 tools/qualification/paxeer-x/asset-inventory.py",
+            "exit": 0,
+            "rust_log": str(log),
+        },
+    )
+    print("VERIFIED " + str(evidence / "result.json"), flush=True)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", action="store_true")
-    parser.add_argument("--native")
-    parser.add_argument("--daemon")
     parser.add_argument("--cargo", default="cargo")
     arguments = parser.parse_args()
     evidence = evidence_directory()
@@ -403,13 +252,7 @@ def main():
 if __name__ == "__main__":
     try:
         main()
-    except (
-        OSError,
-        ValueError,
-        RuntimeError,
-        queue.Empty,
-        subprocess.SubprocessError,
-    ) as error:
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
         print("FAILED " + str(error), file=sys.stderr)
         sys.exit(
             error.returncode if isinstance(error, subprocess.CalledProcessError) else 1

@@ -195,8 +195,6 @@ static int cache_fixture_init(metered_fixture *f)
 
 
 #include "balance_read_guests.h"
-#include "layerx/lxp_history.h"
-#include <pthread.h>
 
 typedef struct balance_fixture {
     metered_fixture f;
@@ -209,11 +207,6 @@ typedef struct balance_fixture {
     uint8_t proof_storage[4U * LXP_MAX_ACTIVITY_BYTES];
     uint8_t digest[32];
     uint8_t source[32];
-    lxp_log feed_log, canonical_log;
-    lxp_history history;
-    lx_programs_state_feed_store feed;
-    pthread_mutex_t feed_mutex;
-    char directory[128];
 } balance_fixture;
 
 static void balance_le32(uint8_t *p, uint32_t n) {
@@ -271,22 +264,6 @@ static int balance_init(balance_fixture *b) {
     for(unsigned i=0;i<33;++i) for(unsigned j=i+1;j<33;++j)
         if(memcmp(b->sight[i]->id,b->sight[j]->id,32)>0) {lx_account *a=b->sight[i];b->sight[i]=b->sight[j];b->sight[j]=a;}
     METERED_CHECK(lxp_state_root(&b->f.kernel,b->f.kernel.current_state_root)==LXP_OK);
-    {
-        char path[192],database[192];
-        strcpy(b->directory,"/tmp/lxp-balance-read-XXXXXX");
-        METERED_CHECK(mkdtemp(b->directory)!=NULL&&pthread_mutex_init(&b->feed_mutex,NULL)==0);
-        METERED_CHECK(snprintf(path,sizeof(path),"%s/feed.log",b->directory)>0);
-        METERED_CHECK(lxp_log_open_or_create(&b->feed_log,path,LXP_MAX_BATCH_BODY_BYTES)==LXP_OK);
-        METERED_CHECK(snprintf(path,sizeof(path),"%s/canonical.log",b->directory)>0);
-        METERED_CHECK(lxp_log_open_or_create(&b->canonical_log,path,LXP_MAX_BATCH_BODY_BYTES)==LXP_OK);
-        METERED_CHECK(snprintf(database,sizeof(database),"%s/history.db",b->directory)>0);
-        METERED_CHECK(lxp_history_open(&b->history,&b->canonical_log,database,"migrations/0007_history_index.sql")==LXP_OK);
-        METERED_CHECK(lxp_programs_state_feed_store_open(&b->feed,&b->feed_log,&b->canonical_log,&b->history,&b->proof_arena,&b->feed_mutex)==LXP_OK);
-        METERED_CHECK(lxp_programs_state_feed_store_anchor(&b->feed,b->f.state.next_sequence,b->f.kernel.current_state_root)==LXP_OK);
-        b->f.runtime.state_feed=&b->feed.feed;
-        METERED_CHECK(lxp_programs_bind_state_feed(&b->f.kernel,b->f.runtime.state_feed)==LXP_OK);
-        METERED_CHECK(lxp_programs_state_feed_store_recover(&b->feed,&b->f.kernel)==LXP_OK);
-    }
     for(unsigned i=0;i<5;++i) {
         uint8_t payload[66000],hash[32]; size_t n=program_spend_deploy_payload(payload,b->programs[i],b->f.identity->did_id,b->wasm[i],b->wasm_length[i],hash);
         METERED_CHECK(balance_execute(b,LX_PROGRAMS_DEPLOY,payload,n)==0);

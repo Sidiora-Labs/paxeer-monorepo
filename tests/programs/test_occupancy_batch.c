@@ -3,9 +3,6 @@
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_genesis.h"
 #include "layerx/lxp_kernel.h"
-#include "layerx/lxp_da.h"
-
-#include <stdlib.h>
 
 #include "../../src/modules/programs/storage.h"
 
@@ -13,17 +10,6 @@
 
 static const uint8_t fee_active_key[] = "progfee/active/v1";
 static const uint8_t fee_history_prefix[] = "progfee/history/v1/";
-
-static lxp_result parameter_version(void *context, uint64_t epoch,
-                                    uint32_t *version)
-{
-    const uint32_t *configured = (const uint32_t *)context;
-    (void)epoch;
-    if (configured == NULL || version == NULL || *configured == 0U)
-        return LXP_ERR_NON_CANONICAL;
-    *version = *configured;
-    return LXP_OK;
-}
 
 static lxp_result occupancy_parameters(
     void *context, uint32_t version, lx_programs_fee_schedule *schedule,
@@ -81,77 +67,6 @@ static lxp_result seed_fee_governance(
     return LXP_OK;
 }
 
-static lxp_result expected_body(lxp_kernel *kernel, const lxp_batch_header *header,
-                                  uint32_t parameters, lxp_arena *arena,
-                                  lxp_batch_body *body)
-{
-    lxp_kernel *preview = malloc(sizeof(*preview));
-    lxp_state_snapshot *snapshot = NULL;
-    lxp_state_journal journal = {0};
-    lx_programs_transfer_runtime runtime;
-    lxp_replay_activity_output output;
-    lxp_batch_header sealed = *header;
-    lxp_result status;
-    if (preview == NULL) return LXP_ERR_IO;
-    status = lxp_state_snapshot_create(kernel->state, &snapshot);
-    if (status != LXP_OK) { free(preview); return status; }
-    *preview = *kernel;
-    preview->state = lxp_state_snapshot_store_for_prepare(snapshot);
-    preview->journal = &journal;
-    runtime = *(lx_programs_transfer_runtime *)kernel->module_runtime[LXP_MODULE_PROGRAMS];
-    runtime.accounts = lxp_state_snapshot_accounts_for_prepare(snapshot);
-    runtime.occupancy_parameter_context = preview;
-    status = lxp_kernel_bind_module_runtime(preview, LXP_MODULE_PROGRAMS, &runtime);
-    if (status == LXP_OK)
-        status = lxp_programs_replay_finalize(preview, header, parameters,
-            header->last_sequence, header->previous_state_root, arena, &output);
-    if (status == LXP_OK) {
-        lxp_batch_roots roots;
-        (void)memcpy(sealed.resulting_state_root, output.resulting_state_root, 32U);
-        status = lxp_batch_roots_compute(&(lxp_batch_root_inputs){NULL, 0U,
-            &output.canonical_receipt, 1U, NULL, 0U, NULL, 0U, NULL, 0U}, arena, &roots);
-        if (status == LXP_OK) {
-            (void)memcpy(sealed.activity_merkle_root, roots.activity_merkle_root, 32U);
-            (void)memcpy(sealed.receipt_merkle_root, roots.receipt_merkle_root, 32U);
-            (void)memcpy(sealed.event_merkle_root, roots.event_merkle_root, 32U);
-            (void)memcpy(sealed.oracle_root, roots.oracle_root, 32U);
-            status = lxp_da_body_from_kernels(&sealed, kernel, preview, NULL, 0U,
-                &output.canonical_receipt, 1U, NULL, 0U, NULL, 0U, arena, body);
-        }
-    }
-    lxp_state_snapshot_destroy(snapshot);
-    free(preview);
-    return status;
-}
-
-static lxp_result empty_batch(lxp_replay_engine *engine, lxp_kernel *kernel,
-                              uint64_t batch_number, uint64_t sequence,
-                              lxp_arena *arena,
-                              lxp_replay_batch_result *result)
-{
-    lxp_batch_body body;
-    lxp_byte_span empty;
-    lxp_result status;
-    (void)memset(&body, 0, sizeof(body));
-    body.header.protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY;
-    body.header.network_id = 1U;
-    body.header.epoch = kernel->epoch;
-    body.header.batch_number = batch_number;
-    body.header.first_sequence = sequence;
-    body.header.last_sequence = sequence;
-    body.header.timestamp_ms = batch_number * 1000U;
-    (void)memcpy(body.header.previous_state_root,
-                 kernel->current_state_root, 32U);
-    status = lxp_replay_section_encode(NULL, 0U, arena, &empty);
-    if (status != LXP_OK) return status;
-    body.activities = empty;
-    body.oracle_inputs = empty;
-    status = expected_body(kernel, &body.header, *(uint32_t *)engine->context, arena, &body);
-    if (status != LXP_OK) return status;
-    return lxp_replay_batch(engine, &body, body.header.previous_state_root,
-                            arena, result);
-}
-
 static lxp_result seed_principal_storage(lxp_kernel *kernel, lxp_arena *arena)
 {
     lxp_module_ctx ctx;
@@ -180,82 +95,6 @@ static lxp_result seed_principal_storage(lxp_kernel *kernel, lxp_arena *arena)
     return status;
 }
 
-static int replay_publication(lxp_byte_span canonical_maintenance, bool mutate)
-{
-    static uint8_t bytes[8U * 1024U * 1024U];
-    lxp_arena arena;
-    lxp_state_store state;
-    lxp_state_journal journal;
-    lxp_kernel kernel;
-    lxp_replay_engine engine;
-    lxp_replay_batch_result result;
-    lx_account_registry accounts;
-    lxp_transfer_asset_state asset = {{0x41U}, true, false};
-    lx_programs_transfer_runtime runtime;
-    lxp_programs_occupancy_receipt record;
-    lxp_batch_body body;
-    lxp_batch_roots roots;
-    lxp_byte_span encoded;
-    uint32_t parameters = 1U;
-    lxp_result status;
-    (void)memset(&runtime, 0, sizeof(runtime));
-    (void)memset(&body, 0, sizeof(body));
-    runtime.accounts = &accounts;
-    runtime.assets = &asset;
-    runtime.asset_count = 1U;
-    runtime.fee_schedule = (lx_programs_fee_schedule){1U, 1U, 1U, 2U, 4U, 1U, 1U, 1U};
-    (void)memcpy(runtime.occupancy_asset_id, asset.asset_id, 32U);
-    runtime.resolve_occupancy_parameters = occupancy_parameters;
-    runtime.occupancy_parameter_context = &kernel;
-    if (lx_account_registry_init(&accounts) != LXP_OK ||
-        lxp_state_store_init(&state, 0U) != LXP_OK ||
-        lxp_kernel_create(&kernel, &state, &journal, &parameters, 0U) != LXP_OK ||
-        lxp_kernel_register_module(&kernel, programs_module_registration()) != LXP_OK ||
-        lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_PROGRAMS, &runtime) != LXP_OK ||
-        seed_fee_governance(&kernel, &runtime) != LXP_OK ||
-        lxp_arena_init(&arena, bytes, sizeof(bytes)) != LXP_OK ||
-        seed_principal_storage(&kernel, &arena) != LXP_OK ||
-        lxp_replay_engine_init(&engine, parameter_version, &parameters) != LXP_OK ||
-        lxp_programs_replay_engine_bind(&engine, &kernel) != LXP_OK ||
-        lxp_programs_occupancy_receipt_decode(canonical_maintenance.bytes,
-            canonical_maintenance.length, &record) != LXP_OK)
-        return 1;
-    if (mutate) record.ledger_root[0] ^= 1U;
-    if (lxp_programs_occupancy_receipt_encode(&record, &arena, &encoded) != LXP_OK)
-        return 1;
-    body.header.protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY;
-    body.header.network_id = 1U;
-    body.header.epoch = kernel.epoch;
-    body.header.batch_number = 1U;
-    body.header.timestamp_ms = 1000U;
-    (void)memcpy(body.header.previous_state_root, kernel.current_state_root, 32U);
-    (void)memcpy(body.header.resulting_state_root, record.resulting_state_root, 32U);
-    if (expected_body(&kernel, &body.header, parameters, &arena, &body) != LXP_OK)
-        return 1;
-    if (lxp_replay_section_encode(NULL, 0U, &arena, &body.activities) != LXP_OK ||
-        lxp_replay_section_encode(NULL, 0U, &arena, &body.events) != LXP_OK ||
-        lxp_replay_section_encode(NULL, 0U, &arena, &body.oracle_inputs) != LXP_OK ||
-        lxp_da_receipt_section_encode(&encoded, 1U, NULL, 0U, &arena, &body.receipts) != LXP_OK ||
-        lxp_batch_roots_compute(&(lxp_batch_root_inputs){NULL, 0U, &encoded, 1U,
-            NULL, 0U, NULL, 0U, NULL, 0U}, &arena, &roots) != LXP_OK)
-        return 1;
-    (void)memcpy(body.header.activity_merkle_root, roots.activity_merkle_root, 32U);
-    (void)memcpy(body.header.receipt_merkle_root, roots.receipt_merkle_root, 32U);
-    (void)memcpy(body.header.event_merkle_root, roots.event_merkle_root, 32U);
-    (void)memcpy(body.header.oracle_root, roots.oracle_root, 32U);
-    if (lxp_batch_availability_root(&body, &arena, body.header.data_availability_root) != LXP_OK)
-        return 1;
-    status = lxp_replay_batch_publication(&engine, &body,
-        body.header.previous_state_root, &arena, &result);
-    if (mutate) return status == LXP_FATAL_REPLAY_DIVERGENCE ? 0 : 1;
-    return status == LXP_OK && state.next_sequence == 1U &&
-        result.receipt_count == 1U &&
-        memcmp(kernel.current_state_root, record.resulting_state_root, 32U) == 0 &&
-        result.encoded_batch_maintenance_receipt.length == canonical_maintenance.length &&
-        memcmp(result.encoded_batch_maintenance_receipt.bytes,
-            canonical_maintenance.bytes, canonical_maintenance.length) == 0 ? 0 : 1;
-}
-
 int main(void)
 {
     static uint8_t arena_bytes[8U * 1024U * 1024U];
@@ -263,9 +102,10 @@ int main(void)
     lxp_state_store state;
     lxp_state_journal journal;
     lxp_kernel kernel;
-    lxp_replay_engine engine;
-    lxp_replay_batch_result first;
-    lxp_replay_batch_result second;
+    lxp_programs_occupancy_receipt first;
+    lxp_programs_occupancy_receipt second;
+    lxp_byte_span first_encoded;
+    lxp_byte_span second_encoded;
     lx_account_registry accounts;
     lxp_transfer_asset_state asset = {{0x41U}, true, false};
     lx_programs_transfer_runtime runtime;
@@ -292,21 +132,16 @@ int main(void)
                                        &runtime) != LXP_OK ||
         seed_fee_governance(&kernel, &runtime) != LXP_OK ||
         lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK ||
-        seed_principal_storage(&kernel, &arena) != LXP_OK ||
-        lxp_replay_engine_init(&engine, parameter_version, &parameters) !=
-            LXP_OK ||
-        lxp_programs_replay_engine_bind(&engine, &kernel) != LXP_OK)
+        seed_principal_storage(&kernel, &arena) != LXP_OK)
         return 1;
-    if (empty_batch(&engine, &kernel, 1U, 0U, &arena, &first) != LXP_OK ||
-        first.activity_count != 0U || first.receipt_count != 1U ||
-        first.batch_maintenance_output.result_code != LXP_OK ||
-        first.batch_maintenance_output.canonical_receipt.length == 0U ||
+    if (lxp_programs_finalize_occupancy_batch(
+            &kernel, 1U, 1000U, 0U, parameters, &arena, &first,
+            &first_encoded) != LXP_OK ||
+        first_encoded.length == 0U ||
         memcmp(first.resulting_state_root, kernel.current_state_root, 32U) != 0 ||
         state.next_sequence != 1U || !state.account_root_required ||
         lxp_programs_occupancy_receipt_decode(
-            first.batch_maintenance_output.canonical_receipt.bytes,
-            first.batch_maintenance_output.canonical_receipt.length,
-            &decoded) != LXP_OK ||
+            first_encoded.bytes, first_encoded.length, &decoded) != LXP_OK ||
         decoded.batch_number != 1U || decoded.global_sequence != 0U ||
         decoded.parameter_version != 1U || decoded.schedule_version != 1U ||
         decoded.byte_batches.hi != 0U || decoded.byte_batches.lo != 3U ||
@@ -318,26 +153,17 @@ int main(void)
         selected.version != 1U || selected.occupancy_byte_batch != 1U ||
         memcmp(selected_asset, asset.asset_id, 32U) != 0)
         return 1;
-    if (replay_publication(first.batch_maintenance_output.canonical_receipt, false) != 0 ||
-        replay_publication(first.batch_maintenance_output.canonical_receipt, true) != 0)
-        return 1;
-    if (engine.batch_finalize(
-            engine.batch_finalize_context, &(lxp_batch_header){
-                .protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY,
-                .batch_number = 1U,
-                .first_sequence = 0U,
-                .last_sequence = 0U,
-                .timestamp_ms = 1000U
-            }, parameters, 0U, kernel.current_state_root, &arena,
-            &second.batch_maintenance_output) != LXP_ERR_IDEMPOTENT_REPLAY)
+    if (lxp_programs_finalize_occupancy_batch(
+            &kernel, 1U, 1000U, 0U, parameters, &arena, &second,
+            &second_encoded) != LXP_ERR_IDEMPOTENT_REPLAY)
         return 1;
     parameters = 2U;
-    if (empty_batch(&engine, &kernel, 2U, 1U, &arena, &second) != LXP_OK ||
-        second.receipt_count != 1U ||
+    if (lxp_programs_finalize_occupancy_batch(
+            &kernel, 2U, 2000U, 1U, parameters, &arena, &second,
+            &second_encoded) != LXP_OK ||
         lxp_programs_occupancy_receipt_decode(
-            second.batch_maintenance_output.canonical_receipt.bytes,
-            second.batch_maintenance_output.canonical_receipt.length,
-            &decoded) != LXP_OK || decoded.global_sequence != 1U ||
+            second_encoded.bytes, second_encoded.length, &decoded) != LXP_OK ||
+        decoded.global_sequence != 1U ||
         decoded.schedule_version != 1U || state.next_sequence != 2U ||
         decoded.schedule_prices[6] != 1U || decoded.byte_batches.hi != 0U ||
         decoded.byte_batches.lo != 3U || !lxp_u128_is_zero(decoded.fee_units) ||
@@ -347,16 +173,17 @@ int main(void)
             &kernel, 0U, &selected, selected_asset) != LXP_OK ||
         selected.version != 1U || selected.occupancy_byte_batch != 1U)
         return 1;
-    if (empty_batch(&engine, &kernel, 2U, 1U, &arena, &second) !=
-        LXP_ERR_IDEMPOTENT_REPLAY)
+    if (lxp_programs_finalize_occupancy_batch(
+            &kernel, 2U, 2000U, 1U, parameters, &arena, &second,
+            &second_encoded) != LXP_ERR_IDEMPOTENT_REPLAY)
         return 1;
     parameters = 4U;
-    if (empty_batch(&engine, &kernel, 3U, 2U, &arena, &second) != LXP_OK ||
+    if (lxp_programs_finalize_occupancy_batch(
+            &kernel, 3U, 3000U, 2U, parameters, &arena, &second,
+            &second_encoded) != LXP_OK ||
         state.next_sequence != 3U ||
         lxp_programs_occupancy_receipt_decode(
-            second.batch_maintenance_output.canonical_receipt.bytes,
-            second.batch_maintenance_output.canonical_receipt.length,
-            &decoded) != LXP_OK ||
+            second_encoded.bytes, second_encoded.length, &decoded) != LXP_OK ||
         decoded.parameter_version != 4U || decoded.schedule_version != 1U ||
         lxp_programs_fee_governance_resolve_runtime(
             &kernel, 4U, &selected, selected_asset) !=

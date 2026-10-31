@@ -7,10 +7,11 @@ from pathlib import Path
 
 from layerx_sdk import AuthorizedReceiptBatch, PlatformSdkError, verify_receipt
 from layerx_sdk.verifier import _decode_protocol_receipt
-from test_receipt_fixture import LayerXSignatureVerifier
+from test_receipt_fixture import LayerXSignatureVerifier, _load_fixture, _verify_vector
 
 ROOT = Path(__file__).resolve().parents[4]
 NATIVE = ROOT / "tests/fixtures/asset/daemon-send-supply"
+SUPPLY_PUBLIC_KEY = bytes.fromhex("17cb79fb2b4120f2b1ec65e4198d6e08b28e813feb01e4a400839b85e18080ce")
 
 
 def authority(canonical, public_key):
@@ -46,17 +47,32 @@ class SupplyReceiptTests(unittest.TestCase):
         with self.assertRaises(PlatformSdkError):
             verify_receipt(canonical, bound, self.signatures)
 
+    def test_sequencer_vectors_bind_supply_and_fee_fields(self):
+        seen = set()
+        for vector in _load_fixture()["cases"]:
+            if vector["vector"] not in ("V1", "V2"):
+                continue
+            with self.subTest(vector=vector["id"]):
+                receipt = _verify_vector(vector).receipt
+                self.assertIsNone(receipt.total_units)
+                self.assertEqual(receipt.fee_charged, int(vector["receiptJson"]["feeAmount"], 16))
+                if vector["id"] == "V1-pax-transfer":
+                    self.assertEqual(receipt.amount, 10**18)
+                    self.assertEqual(receipt.from_balance_before - receipt.from_balance_after,
+                                     receipt.amount + receipt.fee_charged)
+                    self.assertEqual(receipt.to_balance_after - receipt.to_balance_before, receipt.amount)
+                seen.add(vector["vector"])
+        self.assertEqual(seen, {"V1", "V2"})
+
     def test_original_native_supply_fixture_still_verifies(self):
         canonical = (ROOT / "tests/fixtures/receipt-supply-v2.bin").read_bytes()
-        fixture = json.loads((ROOT / "sdk/platform/conformance/fixtures/receipt-positive-v2.json").read_text())
-        bound = authority(canonical, bytes.fromhex(fixture["authorized_batch"]["sequencer_public_key_hex"]))
+        bound = authority(canonical, SUPPLY_PUBLIC_KEY)
         verified = verify_receipt(canonical, bound, self.signatures)
         self.assertEqual(verified.receipt.total_units, (1_000_000, 1_000_000))
         self.assertEqual(verified.receipt.amount, 25_000)
 
     def test_canonical_native_pause_and_unpause_supply_fields(self):
-        fixture = json.loads((ROOT / "sdk/platform/conformance/fixtures/receipt-positive-v2.json").read_text())
-        public_key = bytes.fromhex(fixture["authorized_batch"]["sequencer_public_key_hex"])
+        public_key = SUPPLY_PUBLIC_KEY
         for name, operation in (("pause", 2), ("unpause", 3)):
             canonical = (ROOT / "tests/fixtures/asset" / f"supply-{name}.receipt").read_bytes()
             verified = verify_receipt(canonical, authority(canonical, public_key), self.signatures)

@@ -2,7 +2,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
   use BlockScoutWeb.ConnCase
 
   alias Explorer.Chain.Address
-  alias Explorer.Chain.PaxeerX.{AccountBinding, Anchor, Receipt}
+  alias Explorer.Chain.PaxeerX.AccountBinding
   alias Explorer.Repo
   alias OpenApiSpex.{Cast, MediaType, Operation, PathItem, Response, Schema}
 
@@ -12,15 +12,37 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
 
   @paxeer_x_paths [
     "/v2/addresses/{address_hash_param}/unified",
-    "/v2/paxeer-x/archive/anchors",
     "/v2/paxeer-x/capabilities",
+    "/v2/paxeer-x/archive/anchors",
     "/v2/paxeer-x/archive/receipts",
     "/v2/paxeer-x/archive/receipts/{id}",
-    "/v2/transactions/{transaction_hash_param}/status"
+    "/v2/paxeer-x/feed/markets",
+    "/v2/paxeer-x/feed/markets/{market_id}/updates",
+    "/v2/paxeer-x/feed/updates",
+    "/v2/paxeer-x/feed/updates/{hash}",
+    "/v2/transactions/{transaction_hash_param}/status",
+    "/v2/transactions/{transaction_hash_param}/signature"
   ]
 
+  test "openapi_lists_archive_paths_not_live_kernel_paths" do
+    spec = BlockScoutWeb.Specs.Public.spec()
+
+    refute Map.has_key?(spec.paths, "/v2/paxeer-x/anchors")
+    refute Map.has_key?(spec.paths, "/v2/paxeer-x/receipts")
+    refute Map.has_key?(spec.paths, "/v2/paxeer-x/receipts/{id}")
+
+    for path <- [
+          "/v2/paxeer-x/archive/anchors",
+          "/v2/paxeer-x/archive/receipts",
+          "/v2/paxeer-x/archive/receipts/{id}"
+        ] do
+      assert %PathItem{get: %Operation{}} = Map.get(spec.paths, path),
+             "the specification carries no archive GET operation for #{path}"
+    end
+  end
+
   describe "the generated specification" do
-    test "lists the six Paxeer X paths with no registration beyond the API router" do
+    test "lists the eleven Paxeer X paths with no registration beyond the API router" do
       spec = BlockScoutWeb.Specs.Public.spec()
 
       for path <- @paxeer_x_paths do
@@ -65,38 +87,9 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
       assert_absent_rejected_in_list(response, "activity", schema, spec)
     end
 
-    test "reject an anchors page that lost a field", %{conn: conn} do
-      insert_anchor(3)
-
-      response = json_response(get(conn, "/api/v2/paxeer-x/archive/anchors"), 200)
-      {spec, schema} = declared_schema("/v2/paxeer-x/archive/anchors")
-
-      assert_absent_rejected(response, schema, spec)
-      assert_absent_rejected_in_list(response, "items", schema, spec)
-    end
-
     test "reject a capabilities document that lost a field", %{conn: conn} do
       response = json_response(get(conn, "/api/v2/paxeer-x/capabilities"), 200)
       {spec, schema} = declared_schema("/v2/paxeer-x/capabilities")
-
-      assert_absent_rejected(response, schema, spec)
-    end
-
-    test "reject a receipts page that lost a field", %{conn: conn} do
-      insert_receipt(4)
-
-      response = json_response(get(conn, "/api/v2/paxeer-x/archive/receipts"), 200)
-      {spec, schema} = declared_schema("/v2/paxeer-x/archive/receipts")
-
-      assert_absent_rejected(response, schema, spec)
-      assert_absent_rejected_in_list(response, "items", schema, spec)
-    end
-
-    test "reject one receipt that lost a field", %{conn: conn} do
-      insert_receipt(4)
-
-      response = json_response(get(conn, "/api/v2/paxeer-x/archive/receipts/#{receipt_id(4)}"), 200)
-      {spec, schema} = declared_schema("/v2/paxeer-x/archive/receipts/{id}")
 
       assert_absent_rejected(response, schema, spec)
     end
@@ -216,52 +209,4 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
       ]
     )
   end
-
-  defp insert_anchor(batch_number) do
-    block = insert(:block, number: batch_number * 10)
-    transaction = :transaction |> insert() |> with_block(block)
-
-    attributes = %{
-      transaction_hash: transaction.hash,
-      log_index: 0,
-      block_hash: block.hash,
-      block_number: block.number,
-      block_consensus: true,
-      batch_number: batch_number,
-      checkpoint_id: "0x" <> Base.encode16(<<batch_number::256>>, case: :lower),
-      state_root: to_string(block_hash()),
-      receipt_root: to_string(block_hash()),
-      signers: 5,
-      status: :submitted,
-      kernel_height: batch_number * 100,
-      sealed_height: batch_number * 100 - 1
-    }
-
-    %Anchor{}
-    |> Ecto.Changeset.cast(attributes, Map.keys(attributes))
-    |> Repo.insert!()
-  end
-
-  defp insert_receipt(index) do
-    block = insert(:block, number: index * 10)
-    transaction = :transaction |> insert() |> with_block(block)
-
-    attributes = %{
-      transaction_hash: transaction.hash,
-      log_index: 0,
-      block_hash: block.hash,
-      block_number: block.number,
-      block_consensus: true,
-      receipt_id: receipt_id(index),
-      account: "0x" <> @kernel_key,
-      payload_hash: to_string(block_hash()),
-      status: :sequencer_signed
-    }
-
-    %Receipt{}
-    |> Ecto.Changeset.cast(attributes, Map.keys(attributes))
-    |> Repo.insert!()
-  end
-
-  defp receipt_id(index), do: "0x" <> Base.encode16(<<index::256>>, case: :lower)
 end

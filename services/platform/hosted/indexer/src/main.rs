@@ -9,7 +9,6 @@ use layerx_indexer::backfill::Backfill;
 use layerx_indexer::config::{BackfillConfig, Config};
 use layerx_indexer::explorer::ExplorerApi;
 use layerx_indexer::follow::StepOutcome;
-use layerx_indexer::layerx::LayerXIngester;
 use layerx_indexer::paxeer::PaxeerIngester;
 use layerx_indexer::paxscan::PaxscanDatabase;
 use layerx_indexer::store::Store;
@@ -148,14 +147,6 @@ fn run() -> Result<(), IndexError> {
                 },
             ),
         };
-    if let Some(source) = config.layerx.clone() {
-        let ingester = LayerXIngester::new(source.relay, source.policy, source.start_batch);
-        readiness.sources.push("layerx");
-        store.start_source("layerx")?;
-        follow("layerx", Arc::clone(&store), config.poll, move |store| {
-            ingester.step(store)
-        });
-    }
     if let Some(source) = config.paxeer.clone() {
         if source.comet.is_some() {
             readiness.sources.push("comet");
