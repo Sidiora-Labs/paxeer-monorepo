@@ -1,21 +1,9 @@
 mod artifacts;
 mod chain_receipt;
 mod deployment;
-mod head_attestation;
-#[cfg(test)]
-mod head_attestation_tests;
 #[cfg(test)]
 mod lifecycle_tests;
 
-use layerx_client::lni::handshake::{perform, Handshake, HandshakeConfig};
-use layerx_client::lni::program_read::ProgramReadResult;
-use layerx_client::lni::schema::{encode_envelope, Capability, Envelope, Version};
-use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, TransportError, Uds};
-use layerx_client::receipt::{
-    lookup_authenticated, AuthenticatedLookup, AuthenticatedLookupContext, ReceiptError,
-    ReceiptWaitMode,
-};
-use layerx_client::submit::{submit_signed, Submission, SubmissionContext, SubmitError};
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::program_call::NativeProgramCall;
@@ -38,9 +26,9 @@ use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 use subtle::ConstantTimeEq;
 use zeroize::{Zeroize, Zeroizing};
 
@@ -52,9 +40,6 @@ const MAX_ARTIFACT_RESPONSE_BYTES: usize = 4 * MAX_ACTIVITY_BYTES + 16 * 1024;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const IO_TIMEOUT: Duration = Duration::from_secs(15);
 const MAX_CONNECTIONS: usize = 128;
-const LNI_FRAME_BYTES: usize = 1_212_416;
-const LNI_CONNECTIONS: usize = 4;
-const ERROR_RESPONSE_TAG: u16 = 25;
 const MAX_MODULES: usize = 9;
 const MAX_ORDINALS: usize = 64;
 const DEFAULT_ORDINALS: u16 = 16;
@@ -70,8 +55,6 @@ struct Config {
     gateway_token: Zeroizing<String>,
     registry_token: Zeroizing<String>,
     webhook_token: Zeroizing<String>,
-    lni_socket: PathBuf,
-    lni_deadline: Duration,
     node: NodeEndpoint,
     chain_receipts: chain_receipt::ChainReceipts,
     node_token: Zeroizing<String>,
@@ -80,109 +63,7 @@ struct Config {
     network_name: String,
     registry: ModuleRegistry,
     receipt_wait: Duration,
-    gate: ConnectionGate,
-    sessions: SessionPool,
     key_locks: Mutex<BTreeMap<String, Arc<Mutex<()>>>>,
-}
-
-struct Session {
-    transport: Uds,
-    handshake: Handshake,
-    next_correlation: u64,
-}
-
-struct SessionSlot {
-    current: Option<Session>,
-    previous: Option<Handshake>,
-}
-
-struct SessionPool {
-    slots: Vec<Mutex<SessionSlot>>,
-    state: Mutex<SessionPoolState>,
-    changed: Condvar,
-}
-
-struct SessionPoolState {
-    busy: Vec<bool>,
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum SessionUse {
-    Interactive,
-    ReceiptWait,
-}
-
-struct SessionLease<'a> {
-    pool: &'a SessionPool,
-    index: usize,
-}
-
-impl SessionPool {
-    fn new() -> Self {
-        Self {
-            slots: (0..LNI_CONNECTIONS)
-                .map(|_| {
-                    Mutex::new(SessionSlot {
-                        current: None,
-                        previous: None,
-                    })
-                })
-                .collect(),
-            state: Mutex::new(SessionPoolState {
-                busy: vec![false; LNI_CONNECTIONS],
-            }),
-            changed: Condvar::new(),
-        }
-    }
-
-    fn acquire(
-        &self,
-        usage: SessionUse,
-        timeout: Duration,
-    ) -> Result<SessionLease<'_>, LniFailure> {
-        let deadline = Instant::now().checked_add(timeout).ok_or_else(|| {
-            LniFailure::Unavailable("session admission deadline invalid".to_owned())
-        })?;
-        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-        loop {
-            let remaining = deadline
-                .checked_duration_since(Instant::now())
-                .filter(|duration| !duration.is_zero())
-                .ok_or_else(|| {
-                    LniFailure::Unavailable("session admission deadline exceeded".to_owned())
-                })?;
-            let first = usize::from(usage == SessionUse::ReceiptWait);
-            if let Some(index) = (first..state.busy.len()).find(|index| !state.busy[*index]) {
-                state.busy[index] = true;
-                return Ok(SessionLease { pool: self, index });
-            }
-            let (next, _) = self
-                .changed
-                .wait_timeout(state, remaining)
-                .unwrap_or_else(PoisonError::into_inner);
-            state = next;
-        }
-    }
-}
-
-impl Drop for SessionLease<'_> {
-    fn drop(&mut self) {
-        let mut state = self
-            .pool
-            .state
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
-        state.busy[self.index] = false;
-        self.pool.changed.notify_all();
-    }
-}
-
-impl Session {
-    fn correlation(&mut self) -> u64 {
-        let value = self.next_correlation;
-        self.next_correlation = self.next_correlation.wrapping_add(1).max(1);
-        value
-    }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -295,65 +176,6 @@ struct Response {
     status: u16,
     body: String,
     retry_after: Option<u64>,
-}
-
-enum LniFailure {
-    Unavailable(String),
-    Transport(String),
-    Undelivered(String),
-}
-
-impl LniFailure {
-    const fn retires_session(&self) -> bool {
-        matches!(self, Self::Transport(_) | Self::Undelivered(_))
-    }
-
-    fn response(&self) -> Response {
-        match self {
-            Self::Unavailable(detail) => {
-                eprintln!("{SERVICE}: node unavailable: {detail}");
-                refusal(503, "node_unavailable", Some(5))
-            }
-            Self::Transport(detail) | Self::Undelivered(detail) => {
-                eprintln!("{SERVICE}: node transport lost: {detail}");
-                refusal(503, "node_transport_lost", Some(5))
-            }
-        }
-    }
-}
-
-struct SubmissionTransport<'a> {
-    inner: &'a mut Uds,
-    send_failure: Option<TransportError>,
-}
-
-impl FrameTransport for SubmissionTransport<'_> {
-    fn send(&mut self, canonical_envelope: &[u8]) -> Result<(), TransportError> {
-        let sent = self.inner.send(canonical_envelope);
-        if let Err(error) = sent {
-            self.send_failure = Some(error);
-        }
-        sent
-    }
-
-    fn receive(&mut self) -> Result<Vec<u8>, TransportError> {
-        self.inner.receive()
-    }
-}
-
-enum Lookup {
-    Absent,
-    Present {
-        receipt: Vec<u8>,
-        result_code: i32,
-        module_id: u16,
-        sequencer_public_key: [u8; 32],
-    },
-}
-
-enum SubmitOutcome {
-    Acknowledged,
-    Refused(Refusal),
 }
 
 struct Decoded {
@@ -562,14 +384,6 @@ fn config() -> Result<Config, String> {
     {
         return Err("webhook bearer token must be distinct from gateway and registry".to_owned());
     }
-    let lni_socket = PathBuf::from(
-        env::var("LAYERX_AGENT_BOUNDARY_LNI_SOCKET")
-            .map_err(|_| "LAYERX_AGENT_BOUNDARY_LNI_SOCKET is required")?,
-    );
-    let lni_deadline_ms = parse_u64("LAYERX_AGENT_BOUNDARY_LNI_DEADLINE_MS", 10_000)?;
-    if !(1..=60_000).contains(&lni_deadline_ms) {
-        return Err("LAYERX_AGENT_BOUNDARY_LNI_DEADLINE_MS must be within 1..=60000".to_owned());
-    }
     let receipt_wait_ms = parse_u64("LAYERX_AGENT_BOUNDARY_RECEIPT_WAIT_MS", 5_000)?;
     if !(1..=60_000).contains(&receipt_wait_ms) {
         return Err("LAYERX_AGENT_BOUNDARY_RECEIPT_WAIT_MS must be within 1..=60000".to_owned());
@@ -598,8 +412,6 @@ fn config() -> Result<Config, String> {
         gateway_token,
         registry_token,
         webhook_token,
-        lni_socket,
-        lni_deadline: Duration::from_millis(lni_deadline_ms),
         node: node_endpoint(
             &env::var("LAYERX_AGENT_BOUNDARY_NODE_URL")
                 .map_err(|_| "LAYERX_AGENT_BOUNDARY_NODE_URL is required")?,
@@ -618,127 +430,8 @@ fn config() -> Result<Config, String> {
         network_name,
         registry: module_registry()?,
         receipt_wait: Duration::from_millis(receipt_wait_ms),
-        gate: ConnectionGate::new(LNI_CONNECTIONS),
-        sessions: SessionPool::new(),
         key_locks: Mutex::new(BTreeMap::new()),
     })
-}
-
-fn lni_limits(config: &Config, slot: usize) -> Limits {
-    Limits {
-        maximum_frame_bytes: LNI_FRAME_BYTES,
-        maximum_connections: LNI_CONNECTIONS,
-        maximum_streams: 1,
-        maximum_queued_bytes: LNI_FRAME_BYTES,
-        deadline: if slot == 0 {
-            config.lni_deadline
-        } else {
-            config.lni_deadline.min(config.receipt_wait)
-        },
-    }
-}
-
-fn open_session(
-    config: &Config,
-    slot: usize,
-    previous: Option<&Handshake>,
-) -> Result<Session, LniFailure> {
-    let mut transport = Uds::connect(&config.lni_socket, &config.gate, lni_limits(config, slot))
-        .map_err(|error| LniFailure::Unavailable(format!("{error:?}")))?;
-    let expected = HandshakeConfig {
-        built_interface_version: Version::V1_7,
-        expected_protocol_version: PROTOCOL_VERSION,
-        expected_network_id: config.protocol_network_id,
-    };
-    let handshake = perform(&mut transport, &expected, previous)
-        .map_err(|error| LniFailure::Unavailable(format!("{error:?}")))?;
-    for capability in [
-        Capability::NodeInfo,
-        Capability::Submit,
-        Capability::ReceiptLookup,
-    ] {
-        if !handshake.capabilities().contains(capability) {
-            return Err(LniFailure::Unavailable(format!(
-                "node does not advertise {capability:?}"
-            )));
-        }
-    }
-    let seed = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|elapsed| u64::try_from(elapsed.as_nanos()).unwrap_or(u64::MAX))
-        .unwrap_or(1)
-        .max(1);
-    Ok(Session {
-        transport,
-        handshake,
-        next_correlation: seed,
-    })
-}
-
-fn with_session<T>(
-    config: &Config,
-    operation: impl FnOnce(&mut Session) -> Result<T, LniFailure>,
-) -> Result<T, LniFailure> {
-    with_session_for(config, SessionUse::Interactive, operation)
-}
-
-fn with_session_for<T>(
-    config: &Config,
-    usage: SessionUse,
-    operation: impl FnOnce(&mut Session) -> Result<T, LniFailure>,
-) -> Result<T, LniFailure> {
-    let lease = config.sessions.acquire(usage, config.lni_deadline)?;
-    let mut slot = config.sessions.slots[lease.index]
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner);
-    if slot.current.is_none() {
-        let opened = open_session(config, lease.index, slot.previous.as_ref())?;
-        slot.previous = Some(opened.handshake.clone());
-        slot.current = Some(opened);
-    }
-    let Some(session) = slot.current.as_mut() else {
-        return Err(LniFailure::Unavailable("session is absent".to_owned()));
-    };
-    let result = operation(session);
-    if result.as_ref().is_err_and(LniFailure::retires_session) {
-        if let Some(retired) = slot.current.take() {
-            slot.previous = Some(retired.handshake);
-        }
-    }
-    result
-}
-
-fn lookup_receipt(
-    session: &mut Session,
-    activity: [u8; 32],
-    wait_mode: ReceiptWaitMode,
-) -> Result<Lookup, LniFailure> {
-    let sequencer_public_key = session.handshake.node().authorised_sequencer_key;
-    let context = AuthenticatedLookupContext {
-        interface_version: session.handshake.node().interface_version,
-        correlation_id: session.correlation(),
-        sequencer_public_key,
-        wait_mode,
-    };
-    match lookup_authenticated(&mut session.transport, activity, context) {
-        Ok(AuthenticatedLookup::Absent | AuthenticatedLookup::TimedOut) => Ok(Lookup::Absent),
-        Ok(AuthenticatedLookup::Verified(receipt)) => Ok(Lookup::Present {
-            receipt: receipt.canonical_bytes().to_vec(),
-            result_code: receipt.result_code().raw(),
-            module_id: receipt.module_id(),
-            sequencer_public_key,
-        }),
-        Err(
-            error @ (ReceiptError::CoreRefusal { .. }
-            | ReceiptError::UnavailableCapability
-            | ReceiptError::InterfaceVersion(_)),
-        ) => Err(LniFailure::Unavailable(format!(
-            "receipt lookup refused: {error:?}"
-        ))),
-        Err(error) => Err(LniFailure::Transport(format!(
-            "receipt lookup failed: {error:?}"
-        ))),
-    }
 }
 
 fn result_refusal(result: ResultCode) -> Refusal {
@@ -765,119 +458,6 @@ fn terminal(status: u16, code: &str) -> Refusal {
         status,
         code: code.to_owned(),
         retry_after: None,
-    }
-}
-
-fn withdrawal_admission(
-    config: &Config,
-    session: &mut Session,
-    signed: &[u8],
-) -> Result<Option<Refusal>, LniFailure> {
-    use layerx_client::payments::SnapshotContext;
-    use layerx_client::withdrawal::WithdrawalConfigurationError;
-
-    let Ok(activity) = decode_signed(signed, &config.registry) else {
-        return Ok(Some(terminal(400, "malformed_activity")));
-    };
-    if activity.activity_type().module() != ModuleId::Asset
-        || activity.activity_type().ordinal() != 9
-    {
-        return Ok(None);
-    }
-    let correlation_id = session.next_correlation;
-    session.next_correlation = correlation_id
-        .checked_add(3)
-        .ok_or_else(|| LniFailure::Unavailable("withdrawal correlation exhausted".to_owned()))?;
-    let context = SnapshotContext {
-        interface_version: session.handshake.node().interface_version,
-        correlation_id,
-        minimum_sequence: session.handshake.node().chain_head_sequence,
-    };
-    match layerx_client::withdrawal::registry(
-        &mut session.transport,
-        &activity,
-        context,
-        config.protocol_network_id,
-    ) {
-        Ok(_) => Ok(None),
-        Err(WithdrawalConfigurationError::Unsupported) => {
-            Ok(Some(terminal(422, "asset_ordinal_reserved")))
-        }
-        Err(WithdrawalConfigurationError::InvalidActivity) => {
-            Ok(Some(terminal(400, "invalid_asset_activity")))
-        }
-        Err(WithdrawalConfigurationError::AssetUnavailable) => {
-            Ok(Some(terminal(422, "withdrawal_asset_unavailable")))
-        }
-        Err(WithdrawalConfigurationError::Unavailable) => Err(LniFailure::Unavailable(
-            "committed withdrawal configuration is unavailable".to_owned(),
-        )),
-    }
-}
-
-fn submit_activity(
-    config: &Config,
-    session: &mut Session,
-    decoded: &Decoded,
-    attempt: u32,
-    signed: &[u8],
-) -> Result<SubmitOutcome, LniFailure> {
-    if let Some(refusal) = withdrawal_admission(config, session, signed)? {
-        return Ok(SubmitOutcome::Refused(refusal));
-    }
-    let node = session.handshake.node();
-    let context = SubmissionContext {
-        interface_version: node.interface_version,
-        protocol_version: node.protocol_version,
-        network_id: node.network_id,
-        correlation_id: session.correlation(),
-        signer_public_key: decoded.signer_public_key,
-        attempt,
-    };
-    let mut transport = SubmissionTransport {
-        inner: &mut session.transport,
-        send_failure: None,
-    };
-    let submission = submit_signed(&mut transport, &config.registry, context, signed);
-    let send_failure = transport.send_failure;
-    match submission {
-        Ok(Submission::Acknowledged(acknowledgement)) => {
-            if acknowledgement.activity_id() != decoded.activity_id {
-                return Err(LniFailure::Transport(
-                    "acknowledgement names a different activity".to_owned(),
-                ));
-            }
-            Ok(SubmitOutcome::Acknowledged)
-        }
-        Ok(Submission::Unknown(_)) => Err(send_failure.map_or_else(
-            || LniFailure::Transport("submission outcome is indeterminate".to_owned()),
-            |error| {
-                LniFailure::Undelivered(format!(
-                    "submission frame was not written to the node: {error:?}"
-                ))
-            },
-        )),
-        Err(SubmitError::CoreRefusal { result, .. }) => {
-            Ok(SubmitOutcome::Refused(result_refusal(result)))
-        }
-        Err(SubmitError::Wire(_) | SubmitError::Envelope(_)) => {
-            Ok(SubmitOutcome::Refused(terminal(400, "malformed_activity")))
-        }
-        Err(SubmitError::SignatureLength(_) | SubmitError::Signature(_)) => {
-            Ok(SubmitOutcome::Refused(terminal(422, "bad_signature")))
-        }
-        Err(SubmitError::ProtocolVersion { .. }) => {
-            Ok(SubmitOutcome::Refused(terminal(422, "version_unsupported")))
-        }
-        Err(SubmitError::Network { .. }) => {
-            Ok(SubmitOutcome::Refused(terminal(422, "wrong_network")))
-        }
-        Err(SubmitError::UnavailableCapability) => Err(LniFailure::Unavailable(
-            "node does not accept submissions".to_owned(),
-        )),
-        Err(SubmitError::Disconnected) => Err(LniFailure::Transport(
-            "node disconnected before the submission".to_owned(),
-        )),
     }
 }
 
@@ -1356,135 +936,6 @@ fn complete_record(
     outcome_response(record)
 }
 
-fn await_receipt(
-    config: &Config,
-    activity: [u8; 32],
-    wait: Duration,
-) -> Result<Lookup, LniFailure> {
-    let (usage, wait_mode) = if wait.is_zero() {
-        (SessionUse::Interactive, ReceiptWaitMode::Immediate)
-    } else {
-        (SessionUse::ReceiptWait, ReceiptWaitMode::Durable)
-    };
-    with_session_for(config, usage, |session| {
-        lookup_receipt(session, activity, wait_mode)
-    })
-}
-
-fn resolve_record(
-    config: &Config,
-    key_digest: &str,
-    record: &mut JournalRecord,
-    decoded: &Decoded,
-    signed: &[u8],
-) -> Response {
-    if record.attempts > 0 {
-        let wait = if record.state == "acknowledged" {
-            config.receipt_wait
-        } else {
-            Duration::ZERO
-        };
-        match await_receipt(config, decoded.activity_id, wait) {
-            Ok(Lookup::Present {
-                receipt,
-                result_code,
-                sequencer_public_key,
-                ..
-            }) => {
-                return complete_record(
-                    config,
-                    key_digest,
-                    record,
-                    &receipt,
-                    result_code,
-                    sequencer_public_key,
-                )
-            }
-            Ok(Lookup::Absent) => return unknown_response(&record.activity_id),
-            Err(failure) => return failure.response(),
-        }
-    }
-    "submitting".clone_into(&mut record.state);
-    record.attempts = record.attempts.saturating_add(1);
-    let attempt = record.attempts;
-    if store_record(config, key_digest, record).is_err() {
-        return refusal(503, "persistence_unavailable", Some(5));
-    }
-    let outcome = with_session(config, |session| {
-        submit_activity(config, session, decoded, attempt, signed)
-    });
-    match outcome {
-        Ok(SubmitOutcome::Acknowledged) => {
-            "acknowledged".clone_into(&mut record.state);
-            if store_record(config, key_digest, record).is_err() {
-                return refusal(503, "persistence_unavailable", Some(5));
-            }
-            match await_receipt(config, decoded.activity_id, config.receipt_wait) {
-                Ok(Lookup::Present {
-                    receipt,
-                    result_code,
-                    sequencer_public_key,
-                    ..
-                }) => complete_record(
-                    config,
-                    key_digest,
-                    record,
-                    &receipt,
-                    result_code,
-                    sequencer_public_key,
-                ),
-                Ok(Lookup::Absent) | Err(_) => unknown_response(&record.activity_id),
-            }
-        }
-        Ok(SubmitOutcome::Refused(stored)) => {
-            "refused".clone_into(&mut record.state);
-            record.refusal = Some(stored.clone());
-            if store_record(config, key_digest, record).is_err() {
-                return refusal(503, "persistence_unavailable", Some(5));
-            }
-            refusal_response(&stored)
-        }
-        Err(LniFailure::Transport(_)) => unknown_response(&record.activity_id),
-        Err(failure @ (LniFailure::Unavailable(_) | LniFailure::Undelivered(_))) => {
-            failure.response()
-        }
-    }
-}
-
-fn simulation_response(
-    simulation: &layerx_client::lni::simulate::Simulation,
-    program_id: &[u8; 32],
-    result_code: i32,
-    state: &str,
-) -> Response {
-    let document = serde_json::json!({
-        "result": {
-            "committed": false,
-            "execution": {
-                "state": state,
-                "activity_id": hex(&simulation.execution.activity_id),
-                "program_id": hex(program_id),
-                "result_code": result_code,
-                "receipt": hex(&simulation.execution.receipt),
-                "terminal_payload": hex(&simulation.execution.terminal_payload),
-                "call_graph": hex(&simulation.execution.call_graph),
-            },
-            "simulation_evidence": {
-                "boundary_id": hex(&simulation.evidence.boundary_id),
-                "activity_id": hex(&simulation.evidence.activity_id),
-                "previous_state_root": hex(&simulation.evidence.previous_state_root),
-                "hypothetical_state_root": hex(&simulation.evidence.hypothetical_state_root),
-                "observed_sequence": simulation.evidence.observed_sequence.to_string(),
-                "observed_at": simulation.evidence.observed_at.to_string(),
-                "committed": false,
-                "public_key": hex(&simulation.evidence.public_key),
-                "signature": hex(&simulation.evidence.signature),
-            }
-        }
-    });
-    ok(document.to_string())
-}
-
 struct ProgramReadFreshness {
     minimum_sequence: u64,
     expected_state_root: Option<[u8; 32]>,
@@ -1522,48 +973,6 @@ fn program_read_freshness(request: &Request) -> Result<ProgramReadFreshness, Res
         minimum_sequence,
         expected_state_root,
     })
-}
-
-fn program_read_response(
-    result: &ProgramReadResult,
-    program_id: &[u8; 32],
-    result_code: i32,
-) -> Response {
-    let state = if result_code == 0 { "read" } else { "refused" };
-    let document = serde_json::json!({
-        "result": {
-            "committed": false,
-            "read_only": true,
-            "execution": {
-                "state": state,
-                "activity_id": hex(&result.execution.activity_id),
-                "program_id": hex(program_id),
-                "result_code": result_code,
-                "receipt": hex(&result.execution.receipt),
-                "receipt_kind": "hypothetical",
-                "terminal_payload": hex(&result.execution.terminal_payload),
-                "call_graph": hex(&result.execution.call_graph),
-            },
-            "simulation_evidence": {
-                "boundary_id": hex(&result.evidence.boundary_id),
-                "activity_id": hex(&result.evidence.activity_id),
-                "previous_state_root": hex(&result.evidence.previous_state_root),
-                "hypothetical_state_root": hex(&result.evidence.hypothetical_state_root),
-                "observed_sequence": result.evidence.observed_sequence.to_string(),
-                "observed_at": result.evidence.observed_at.to_string(),
-                "committed": false,
-                "public_key": hex(&result.evidence.public_key),
-                "signature": hex(&result.evidence.signature),
-            },
-            "snapshot": {
-                "minimum_sequence": result.snapshot.minimum_sequence.to_string(),
-                "observed_sequence": result.snapshot.observed_sequence.to_string(),
-                "state_root": hex(&result.snapshot.state_root),
-                "verification": "sequencer_signed_snapshot",
-            }
-        }
-    });
-    ok(document.to_string())
 }
 
 fn receipt_route(config: &Config, transaction_text: &str, plane: Plane) -> Response {
@@ -1715,16 +1124,12 @@ fn readiness(config: &Config) -> Response {
         return refusal(503, "node_unavailable", Some(5));
     }
     let probe = Sha256::digest(b"LayerX-AgentBoundary-Readiness/v1").into();
-    let protocol_version = match with_session(config, |session| {
-        lookup_receipt(session, probe, ReceiptWaitMode::Immediate)?;
-        Ok(session.handshake.node().protocol_version)
-    }) {
-        Ok(version) => version,
-        Err(failure) => return failure.response(),
-    };
+    if config.chain_receipts.lookup(probe).is_err() {
+        return refusal(503, "node_unavailable", Some(5));
+    }
     ok(format!(
         "{{\"ready\":true,\"network_id\":\"{}\",\"wire_version\":\"{}\",\"synchronous_receipts\":true,\"state_snapshot\":true}}",
-        config.network_name, protocol_version
+        config.network_name, PROTOCOL_VERSION
     ))
 }
 
@@ -1784,9 +1189,6 @@ fn route(config: &Config, request: &Request) -> Response {
         Err(response) => return response,
     };
     if let Some(response) = deployment::route(config, request, path, query, plane) {
-        return response;
-    }
-    if let Some(response) = head_attestation::route(config, request, path, query, plane) {
         return response;
     }
     if relay_path_allowed(path, query) {
