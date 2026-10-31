@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import hashlib
 import json
 import os
@@ -160,7 +161,7 @@ def snapshot(url, account):
     )
     require(
         value["observation"]["verification"]
-        in ("state_proven", "checkpoint_finalised", "settlement_anchored"),
+        in ("state_proven", "checkpoint_finalised"),
         "caps verification required",
     )
     require(
@@ -383,6 +384,10 @@ try {
 
 def main():
     global STATE, PG_STOP, CA
+    parser = argparse.ArgumentParser(
+        description="Qualify wallet capabilities using a protected fixture bundle."
+    )
+    parser.parse_args()
     os.umask(0o077)
     argument = os.environ.get("WALLET_CAPS_FIXTURE_BUNDLE")
     require(
