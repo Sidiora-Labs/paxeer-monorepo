@@ -133823,7 +133823,7 @@ do_5 = "SELECTOR_GET_ASSET (src/evm.rs:75, 0x2cc3ce80) is the ledger getAsset(by
 
 [task.8.4.5]
 title = "Drop the custody precompile assertion from the gateway one-source reads test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
