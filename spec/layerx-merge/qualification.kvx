@@ -14643,3 +14643,11 @@ symbol = "TestAuthSurfaceFrozen"
 observed = "Attempt 1 (2f7d8e2e5) builds and passes TestAuthABIMethods and TestPrecompileRecordLifecycleRegistersDid; the verify command fails in TestAuthGasTable (gas_test.go:27: gas table has 10 rows, want 9) and TestAuthSurfaceFrozen (surface_test.go:28-30: three require.Len pins at 9), because both tests pin the layerxauth method count and neither file is in the task's touches."
 assumption = "The two test files join the touches and their pins move to ten with the recordLifecycle row and signature (decision 2140)."
 severity = "minor"
+
+[finding.10.0.3.7]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:4489"
+symbol = "plan_intent"
+observed = "Attempt 10 (bd2ffdb5f) builds; the gateway double now answers px_getBalances in the declared joined shape (the assertion text prints it: bound true with layerx_did and layerx_account, one row with paxeer and layerx, joined_limit 16), and intent_plan_answers_eip1559_legs and intent_submit_records_each_leg_tx_hash still fail at tests/intent_plan_evm.rs:1006 with 503 upstream-degraded. The next emitter after the balances read is the observation memo: plan_intent builds the Cache row key intent-observation-<64 hex plan digest>-<64 hex session digest> (services/human/crates/layerx-human-service/src/server/production_components.rs:4489-4492 on main), 148 characters, and RowKey::new (src/store/mod.rs:69-82) refuses any identifier above IDENTIFIER_LIMIT = 128, which :4493 maps to upstream_degraded. submit_intent rebuilds the same 148-character key at :4517-4527 and answers invalid_request(plan_digest). The limit and the key shape both predate this task; the memo already carries plan_digest, and submit_intent compares it (:4535), so the key needs only to be unique per plan and session."
+assumption = "The observation key becomes intent-observation-<64 hex> over a digest of the two inputs at both sites, a production change this task is allowed to make in services/human/crates/layerx-human-service/src/server/production_components.rs (decision 2142); the remaining fixture stays as attempt 10 left it."
+severity = "major"

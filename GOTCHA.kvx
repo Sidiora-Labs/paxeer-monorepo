@@ -12121,3 +12121,8 @@ fix = "Read precompile-backed state through eth_call (SequencerEndpoint::call_at
 title = "The layerxauth precompile pins its method count in two tests"
 symptom = "A new layerxauth precompile method passed its own tests and the ABI test, then failed TestAuthGasTable (row count) and TestAuthSurfaceFrozen (three Len pins) because both pin the method count."
 fix = "When adding a layerxauth method, raise the pinned counts in gas_test.go and surface_test.go together with the ABI, handler and gas row."
+
+[gotcha.2462]
+title = "Store row keys are limited to 128 identifier characters, and two 32-byte hex fields plus a prefix exceed it"
+symptom = "A handler built a Cache row key from a prefix and two 64-character hex digests (148 characters); RowKey::new refused it as InvalidKey and the handler reported upstream-degraded on every request."
+fix = "Key rows by one digest of the inputs (prefix plus 64 hex characters) and keep RowKey::new's IDENTIFIER_LIMIT in mind whenever a key concatenates hashes."
