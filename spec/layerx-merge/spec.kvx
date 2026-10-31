@@ -5679,6 +5679,12 @@ value = "modules/lxphost/simulate.go joins 1.26.1's touches; its lxphost_node ty
 basis = "Attempt 5 (2434dfc8e) failed with cgo's inconsistent-definitions error; cgo requires every preamble copy of a type to agree."
 affects = ["1.26.1"]
 
+[decision.2095]
+title = "The core codec scan stops including the two deleted gateway local test sources"
+value = "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs joins 8.98.14's touches and loses the funding.rs and withdrawal.rs source! entries."
+basis = "Three attempts of 8.98.14 failed to build the core test targets on an include_str of files 8.19.5 removed (finding.8.98.14.1)."
+affects = ["8.98.14"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -141340,7 +141346,7 @@ do_2 = "Add no_kernel_custody_reads_in_core to services/platform/hosted/core/tes
 do_3 = "Remove the LAYERX_CORE_LNI_SOCKET read at services/platform/hosted/core/src/main.rs:349 and the variable at node/deployment.yaml:432 once no code path reads it (8.18.1 do_2 keeps it until this task); if a reader remains, stop and record it."
 do_4 = "Change nothing under services/agent and weaken no scan; layerx-platform-core and layerx-node-probe build and the retired_client_modules_w2 target passes both scans."
 symbols = ["no_kernel_custody_reads_in_core"]
-touches = ["services/platform/hosted/core/src/lib.rs", "services/platform/hosted/core/tests/retired_client_modules_w2.rs", "services/platform/hosted/core/src/main.rs", "node/deployment.yaml", "services/platform/hosted/node/tests/probe/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/src/human/budget_state.rs"]
+touches = ["services/platform/hosted/core/src/lib.rs", "services/platform/hosted/core/tests/retired_client_modules_w2.rs", "services/platform/hosted/core/src/main.rs", "node/deployment.yaml", "services/platform/hosted/node/tests/probe/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs"]
 tests = ["services/platform/hosted/core/tests/retired_client_modules_w2.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --tests && cargo build --locked --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml -p layerx-node-probe && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
@@ -141360,6 +141366,7 @@ do_5 = "Port the probe custody steps of services/platform/hosted/node/tests/prob
 do_6 = "When custody_session and the custody reads no longer open an LNI connection, delete connect_client, connect_raw, connect_raw_with_deadline and lni_limits from services/platform/hosted/core/src/main.rs with the layerx_client::lni imports at :6-:9, port or delete their remaining callers (await_receipt :724 and program_idempotency_receipt :975 read receipts by selector; where no transaction hash exists, record the gap in qualification.kvx as 8.98.5 do_6 says), and add lni to the main.rs list of tests/retired_client_modules_w2.rs (decision.2006)."
 do_7 = "When connect_client and its layerx_client::client import leave services/platform/hosted/core/src/main.rs, add 'client' to the retired_modules list of tests/retired_client_modules_w2.rs (decision.2024)."
 do_8 = "After porting the custody block and the authority budget reader (services/platform/hosted/authority/src/human/budget_state.rs, decision 2057), add 'read' to the retired_modules lists of services/platform/hosted/core/tests/retired_client_modules_w2.rs and services/platform/hosted/authority/tests/retired_client_modules.rs (decisions 2057 and 2058), so both tests then prove the port."
+do_9 = "Decision 2095: attempts 1 to 3 (f558a861c and 25e68910b among them) fail the build on the core test target no_kernel_disclosure_codec.rs, whose source! list (:16-17) includes services/platform/hosted/gateway/tests/local/funding.rs and withdrawal.rs, files task 8.19.5 deleted (finding.8.98.14.1). The test joins touches: delete those two source! entries and no other; then the task as declared. Continue from attempt 3, build once and verify once."
 
 [task.9.0.1]
 title = "Add Rung and RungStatus to the agent-api verify contract beside Level"

@@ -7,9 +7,9 @@ from .x402_rpc import PaymentRpcError, rpc_hex, verify_rpc_payment
 
 
 class PreparedGrantDraws:
-    def __init__(self, path, actor, network, rpc, authority, signatures):
+    def __init__(self, path, actor, network, rpc, authority, receipt_keys):
         self.path, self.actor, self.network = path, actor, network
-        self.rpc, self.authority, self.signatures = rpc, authority, signatures
+        self.rpc, self.authority, self.receipt_keys = rpc, authority, receipt_keys
         with sqlite3.connect(path) as db:
             db.execute("PRAGMA journal_mode=WAL")
             db.execute(
@@ -105,20 +105,15 @@ class PreparedGrantDraws:
             result,
             row["activity_id"],
             receive["from"],
-            evidence.authorized_batch,
-            self.signatures,
+            receipt_keys=self.receipt_keys,
+            raw_transaction=evidence.raw_transaction,
             amount=offer["amount"],
             asset=offer["asset"],
             pay_to=offer["payTo"],
             commitment=offer["extra"]["layerx"]["commitment"],
-            evidence=evidence.commitment_evidence,
         )
         if verified is None:
             return None
-        if (
-            verified.receipt.module_id != 1
-            or verified.receipt.operation != 6
-            or evidence.canonical_receipt != receipt
-        ):
+        if evidence.canonical_receipt != receipt:
             raise ValueError("draw-receipt-mismatch")
         return evidence
