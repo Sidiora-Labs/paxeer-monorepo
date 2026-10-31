@@ -26,6 +26,59 @@ use crate::journeys::{
     AgentBoundary, AgentBoundaryError, AgentObservation, AgentPreparation, ReceiptLookup,
 };
 
+pub type TransactionType2 = layerx_crypto::evm_transaction::Eip1559Call;
+
+pub fn decode_unsigned(bytes: &[u8]) -> Result<TransactionType2, AgentBoundaryError> {
+    layerx_human_kms::attestor::decode_unsigned_evm_transaction(bytes)
+        .map_err(|_| AgentBoundaryError::CorruptResponse)
+}
+
+pub(crate) fn validate_call(
+    call: &TransactionType2,
+    activity_type: ActivityType,
+    payload: &[u8],
+    nonce: u64,
+    fee_limit: u128,
+) -> Result<(), AgentBoundaryError> {
+    use layerx_crypto::disclosure::call::{encode_payment_call, ledger_selector};
+    let mut target = [0; 20];
+    target[18] = 0x10;
+    let data = match (activity_type.module(), activity_type.ordinal()) {
+        (ModuleId::Budget, 8) if payload.len() == 50 && payload[..2] == [0, 1] => {
+            target[19] = 0x1b;
+            let mut data = ledger_selector("budgetDefund(bytes32,uint128)").to_vec();
+            data.extend_from_slice(&payload[2..34]);
+            data.extend_from_slice(&[0; 16]);
+            data.extend_from_slice(&payload[34..]);
+            data
+        }
+        (ModuleId::Asset, 5) => {
+            target[19] = 0x1a;
+            layerx_agentd::prepare::PrecompileCall::ledger_transfer(payload.to_vec())
+                .encode()
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+        }
+        (ModuleId::Asset, ordinal) => {
+            target[19] = 0x1a;
+            let payment =
+                layerx_crypto::payments::Payment::decode(ModuleId::Asset, ordinal, payload, &[])
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+            encode_payment_call(&payment, &[]).map_err(|_| AgentBoundaryError::CorruptResponse)?
+        }
+        _ => return Err(AgentBoundaryError::Refused),
+    };
+    if call.nonce != nonce
+        || call.to != target
+        || call.data != data
+        || call.gas_limit == 0
+        || call.max_priority_fee_per_gas > call.max_fee_per_gas
+        || u128::from(call.gas_limit).checked_mul(call.max_fee_per_gas) != Some(fee_limit)
+    {
+        return Err(AgentBoundaryError::CorruptResponse);
+    }
+    Ok(())
+}
+
 const MAGIC: &[u8; 8] = b"LXHAGT01";
 const LXHAGT02: &[u8; 8] = b"LXHAGT02";
 
@@ -120,6 +173,7 @@ pub struct AgentRuntime {
     gate: ConnectionGate,
     limits: crate::frame::Limits,
     registry: ModuleRegistry,
+    transaction_sender: Option<[u8; 20]>,
     subject: Option<Subject>,
     native_journey: Option<(super::native_send::HumanOwnerNativeContextV1, u64)>,
 }
@@ -162,6 +216,7 @@ impl AgentRuntime {
             limits: self.limits,
             registry: self.registry.clone(),
             native_journey: None,
+            transaction_sender: None,
             subject: Some(Subject {
                 principal: principal.as_str().to_owned(),
                 owner: owner.clone(),
@@ -291,9 +346,9 @@ impl NativeProgramApprovalMaterial {
         facts: &NativeProgramApprovalFacts,
         registry: &ModuleRegistry,
     ) -> Result<(), AgentBoundaryError> {
-        let activity =
-            layerx_wire::activity::decode_unsigned(&self.canonical_unsigned_bytes, registry)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let transaction = decode_unsigned(&self.canonical_unsigned_bytes)?;
+        let mut target = [0; 20];
+        target[18..].copy_from_slice(&[0x10, 0x1d]);
         if self.approval_id != facts.approval_id
             || self.held_digest != facts.held_digest
             || self.owner != facts.owner
@@ -301,25 +356,39 @@ impl NativeProgramApprovalMaterial {
                 != self.approval_id
             || <[u8; 32]>::from(sha2::Sha256::digest(&self.immutable_carrier_bytes))
                 != self.held_digest
-            || activity.protocol_version() != 3
-            || activity.activity_type().module() != ModuleId::Programs
-            || layerx_wire::activity::encode_unsigned(&activity)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+            || transaction.to != target
+            || facts.activity_module != ModuleId::Programs as u16
+            || layerx_human_kms::attestor::unsigned_evm_transaction(&transaction)
                 != self.canonical_unsigned_bytes
-            || activity.activity_type().module() as u16 != facts.activity_module
-            || activity.activity_type().ordinal() != facts.activity_ordinal
-            || activity.actor_did() != facts.actor.as_bytes()
-            || activity.payload() != facts.canonical_payload_bytes
-            || activity.timestamp_bound().not_after != facts.activity_expires_at_unix_milliseconds
+            || transaction.data != facts.canonical_payload_bytes
+            || self.actor != facts.actor
+            || self.activity_ordinal != facts.activity_ordinal
+            || self.canonical_payload_bytes != transaction.data
+            || self.activity_expires_at_unix_milliseconds
+                != facts.activity_expires_at_unix_milliseconds
+            || u128::from(transaction.gas_limit).checked_mul(transaction.max_fee_per_gas)
+                != Some(self.fee_limit)
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
+        validate_native_program_payload(facts.activity_ordinal, &transaction.data)?;
+        let _ = registry;
         let carrier: serde_json::Value = serde_json::from_slice(&self.immutable_carrier_bytes)
             .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        if carrier
-            .get("created_at_sequence")
-            .and_then(serde_json::Value::as_u64)
-            != Some(facts.created_at_sequence)
+        if !program_carrier_bytes(&carrier, "actor", facts.actor.as_bytes())
+            || !program_carrier_bytes(&carrier, "canonical_bytes", &self.canonical_unsigned_bytes)
+            || carrier
+                .get("activity_module")
+                .and_then(serde_json::Value::as_u64)
+                != Some(u64::from(facts.activity_module))
+            || carrier
+                .get("activity_ordinal")
+                .and_then(serde_json::Value::as_u64)
+                != Some(u64::from(facts.activity_ordinal))
+            || carrier
+                .get("created_at_sequence")
+                .and_then(serde_json::Value::as_u64)
+                != Some(facts.created_at_sequence)
             || carrier
                 .get("budget_expiry_sequence")
                 .and_then(serde_json::Value::as_u64)
@@ -443,10 +512,7 @@ impl NativeProgramApprovalMaterial {
                 }
             }
             match kind {
-                3 if destination.is_none()
-                    && maximum_amount == activity.fee_limit()
-                    && fee.is_none() =>
-                {
+                3 if destination.is_none() && maximum_amount == self.fee_limit && fee.is_none() => {
                     fee = Some(asset)
                 }
                 1 | 2 if destination.is_some() => limits.push(NativeProgramLimit {
@@ -470,7 +536,7 @@ impl NativeProgramApprovalMaterial {
             NativeProgramApprovalSemantics::AuthorizedLimits(limits)
         };
         if fee != facts.fee_asset
-            || fee.is_some() != (activity.fee_limit() != 0)
+            || fee.is_some() != (self.fee_limit != 0)
             || semantics != facts.semantics
         {
             return Err(AgentBoundaryError::CorruptResponse);
@@ -2181,6 +2247,7 @@ impl AgentRuntime {
             registry,
             subject: None,
             native_journey: None,
+            transaction_sender: None,
         })
     }
 
@@ -2526,35 +2593,46 @@ impl AgentRuntime {
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
-        let activity =
-            layerx_wire::activity::decode_unsigned(&canonical_unsigned_bytes, &self.registry)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        if activity.protocol_version() != 3
-            || activity.activity_type().module() != ModuleId::Programs
-            || layerx_wire::activity::encode_unsigned(&activity)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+        let transaction = decode_unsigned(&canonical_unsigned_bytes)?;
+        let mut target = [0; 20];
+        target[18..].copy_from_slice(&[0x10, 0x1d]);
+        if transaction.to != target
+            || layerx_human_kms::attestor::unsigned_evm_transaction(&transaction)
                 != canonical_unsigned_bytes
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
-        validate_native_program_payload(activity.activity_type().ordinal(), activity.payload())?;
         let carrier: serde_json::Value = serde_json::from_slice(&immutable_carrier_bytes)
             .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         let subject = self.subject.as_ref().ok_or(AgentBoundaryError::Refused)?;
+        let activity_ordinal = carrier
+            .get("activity_ordinal")
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| u16::try_from(value).ok())
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
+        validate_native_program_payload(activity_ordinal, &transaction.data)?;
+        let actor_bytes: Vec<u8> = carrier
+            .get("actor")
+            .and_then(serde_json::Value::as_array)
+            .filter(|bytes| !bytes.is_empty() && bytes.len() <= MAX_TEXT)
+            .ok_or(AgentBoundaryError::CorruptResponse)?
+            .iter()
+            .map(|value| {
+                value
+                    .as_u64()
+                    .and_then(|byte| u8::try_from(byte).ok())
+                    .ok_or(AgentBoundaryError::CorruptResponse)
+            })
+            .collect::<Result<_, _>>()?;
         if carrier.get("principal").and_then(serde_json::Value::as_str)
             != Some(subject.principal.as_str())
             || carrier
                 .get("activity_module")
                 .and_then(serde_json::Value::as_u64)
                 != Some(9)
-            || carrier
-                .get("activity_ordinal")
-                .and_then(serde_json::Value::as_u64)
-                != Some(u64::from(activity.activity_type().ordinal()))
             || !program_carrier_bytes(&carrier, "preparation", &approval_id)
             || !program_carrier_bytes(&carrier, "canonical_bytes", &canonical_unsigned_bytes)
             || !program_carrier_bytes(&carrier, "program_budget", &canonical_budget_bytes)
-            || !program_carrier_bytes(&carrier, "actor", activity.actor_did())
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
@@ -2574,12 +2652,16 @@ impl AgentRuntime {
         if !allocation_body.starts_with(b"LXPB\x02") || allocation_digest != expected {
             return Err(AgentBoundaryError::CorruptResponse);
         }
-        let actor = String::from_utf8(activity.actor_did().to_vec())
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        let activity_ordinal = activity.activity_type().ordinal();
-        let canonical_payload_bytes = activity.payload().to_vec();
-        let fee_limit = activity.fee_limit();
-        let activity_expires_at_unix_milliseconds = activity.timestamp_bound().not_after;
+        let actor =
+            String::from_utf8(actor_bytes).map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let canonical_payload_bytes = transaction.data;
+        let fee_limit = u128::from(transaction.gas_limit)
+            .checked_mul(transaction.max_fee_per_gas)
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
+        let activity_expires_at_unix_milliseconds = carrier
+            .get("envelope_not_after")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
         Ok(NativeProgramApprovalMaterial {
             approval_id,
             held_digest,
@@ -4000,6 +4082,18 @@ fn decision(
 }
 
 impl AgentBoundary for AgentRuntime {
+    fn bind_transaction_sender(&mut self, sender: [u8; 20]) -> Result<(), AgentBoundaryError> {
+        if sender == [0; 20]
+            || self
+                .transaction_sender
+                .is_some_and(|current| current != sender)
+        {
+            return Err(AgentBoundaryError::Refused);
+        }
+        self.transaction_sender = Some(sender);
+        Ok(())
+    }
+
     fn native_journey_preview(
         &mut self,
         call: &Call<IdempotentMutation<PrepareRequest>>,
@@ -4070,8 +4164,22 @@ impl AgentBoundary for AgentRuntime {
         let mut reader = self.exchange(&writer.finish())?;
         let preparation_ref =
             PreparationRef::new(reader.text()?).map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        let unsigned_canonical_bytes = reader.bytes()?;
-        let signing_preimage = reader.bytes()?;
+        if reader.u8()? != 2 {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        let transaction = TransactionType2 {
+            chain_id: reader.u64()?,
+            nonce: reader.u64()?,
+            max_priority_fee_per_gas: reader.u128()?,
+            max_fee_per_gas: reader.u128()?,
+            gas_limit: reader.u64()?,
+            to: reader.fixed()?,
+            data: reader.bytes()?,
+        };
+        let unsigned_canonical_bytes =
+            layerx_human_kms::attestor::unsigned_evm_transaction(&transaction);
+        let transaction = decode_unsigned(&unsigned_canonical_bytes)?;
+        let signing_preimage = transaction.signing_hash().to_vec();
         let activity_type = ActivityType::from_u32(reader.u32()?)
             .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         let actor = layerx_agent_api::identity::AgentDid::new(reader.text()?)
@@ -4087,15 +4195,31 @@ impl AgentBoundary for AgentRuntime {
         let idempotency_key = reader.fixed::<32>()?;
         reader.finish()?;
 
-        let disclosure = disclosure::bind(&unsigned_canonical_bytes, &self.registry)
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        if disclosure
-            .reencode()
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?
-            != unsigned_canonical_bytes
+        validate_call(
+            &transaction,
+            activity_type,
+            &payload,
+            account_sequence,
+            fee_limit,
+        )?;
+        if actor != request.actor
+            || authority != request.authority
+            || account_sequence != request.account_sequence.0
+            || not_before != request.timestamp_bound.not_before.0
+            || not_after != request.timestamp_bound.not_after.0
+            || fee_limit != request.fee_limit.0
+            || activity_type.value() != request.protocol_activity_type
+            || payload != request.payload.as_bytes()
+            || payload_hash != request.payload_hash
+            || idempotency_key != decode_hex32(request.idempotency_key.as_str())?
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
+        let disclosure = disclosure::call::bind_call(
+            &transaction,
+            self.transaction_sender.ok_or(AgentBoundaryError::Refused)?,
+        )
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         Ok(AgentPreparation {
             preparation_ref,
             unsigned_canonical_bytes,
@@ -4888,33 +5012,25 @@ impl AgentRuntime {
         canonical: Vec<u8>,
         preimage: Vec<u8>,
     ) -> Result<AgentPreparation, AgentBoundaryError> {
-        let activity = layerx_wire::activity::decode_unsigned(&canonical, &self.registry)
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        let actual_preimage = layerx_wire::sign::preimage(&activity)
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        if activity.activity_type().value() != request.protocol_activity_type
-            || activity.actor_did() != request.actor.as_str().as_bytes()
-            || activity.account_sequence() != request.account_sequence.0
-            || activity.timestamp_bound().not_before != request.timestamp_bound.not_before.0
-            || activity.timestamp_bound().not_after != request.timestamp_bound.not_after.0
-            || activity.fee_limit() != request.fee_limit.0
-            || activity.payload() != request.payload.as_bytes()
-            || activity.payload_hash() != request.payload_hash
-            || activity.idempotency_key() != decode_hex32(request.idempotency_key.as_str())?
-            || actual_preimage.as_bytes().as_slice() != preimage.as_slice()
-        {
+        let transaction = decode_unsigned(&canonical)?;
+        let activity_type = ActivityType::from_u32(request.protocol_activity_type)
+            .map_err(|_| AgentBoundaryError::Refused)?;
+        validate_call(
+            &transaction,
+            activity_type,
+            request.payload.as_bytes(),
+            request.account_sequence.0,
+            request.fee_limit.0,
+        )?;
+        if preimage != transaction.signing_hash() {
             return Err(AgentBoundaryError::CorruptResponse);
         }
         let id: [u8; 32] = sha2::Sha256::digest(&canonical).into();
-        let disclosure = disclosure::bind(&canonical, &self.registry)
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        if disclosure
-            .reencode()
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?
-            != canonical
-        {
-            return Err(AgentBoundaryError::CorruptResponse);
-        }
+        let disclosure = disclosure::call::bind_call(
+            &transaction,
+            self.transaction_sender.ok_or(AgentBoundaryError::Refused)?,
+        )
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         let hex: String = id.iter().map(|byte| format!("{byte:02x}")).collect();
         let idempotency_key = decode_hex32(request.idempotency_key.as_str())?;
         Ok(AgentPreparation {
@@ -5023,25 +5139,19 @@ impl AgentRuntime {
                 {
                     return Err(AgentBoundaryError::CorruptResponse);
                 }
-                let activity = layerx_wire::activity::decode_unsigned(
-                    &material.canonical_unsigned_bytes,
-                    &self.registry,
-                )
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-                if activity.protocol_version() != statement.protocol_version
-                    || activity.network_id() != statement.network_id
-                    || layerx_agent_api::identity::NativeActivity::from(activity.activity_type())
-                        != statement.activity
-                    || activity.idempotency_key() != statement.idempotency_key
+                let transaction = decode_unsigned(&material.canonical_unsigned_bytes)?;
+                if u32::try_from(transaction.chain_id).ok() != Some(statement.network_id)
+                    || statement.activity.module != 1
+                    || statement.activity.ordinal != 5
+                    || statement.idempotency_key != decode_hex32(request.idempotency_key.as_str())?
                 {
                     return Err(AgentBoundaryError::CorruptResponse);
                 }
-                let preimage = layerx_wire::sign::preimage(&activity)
-                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+                let preimage = transaction.signing_hash().to_vec();
                 let preparation = self.native_journey_preparation(
                     request,
                     material.canonical_unsigned_bytes,
-                    preimage.as_bytes().to_vec(),
+                    preimage,
                 )?;
                 return Ok(crate::journeys::NativeJourneyAdmission {
                     preparation,
@@ -5262,17 +5372,17 @@ impl AgentRuntime {
         };
         reader.finish()?;
         let canonical_digest: [u8; 32] = sha2::Sha256::digest(&value.canonical_bytes).into();
-        let activity =
-            layerx_wire::activity::decode_unsigned(&value.canonical_bytes, &self.registry)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let transaction = decode_unsigned(&value.canonical_bytes)?;
         if value.purpose.owner_did.as_str() != session.owner
             || value.purpose.owner_public_key != session.owner_public_key
             || value.purpose.economic_action != session.session_id
             || value.purpose.idempotency_key != decode_hex32(request.idempotency_key.as_str())?
             || value.purpose.activity.module != 1
             || value.purpose.activity.ordinal != 5
-            || value.purpose.protocol_version != activity.protocol_version()
-            || value.purpose.network_id != activity.network_id()
+            || value.purpose.network_id
+                != u32::try_from(transaction.chain_id)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?
+            || value.signing_preimage != transaction.signing_hash()
             || value.purpose.tenant.as_str() != session.tenant
             || value.purpose.agent_did.as_str() != session.owner
             || value
