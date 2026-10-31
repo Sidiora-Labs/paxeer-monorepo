@@ -11481,3 +11481,23 @@ fix = "A task that removes a field from a shared struct owns every test file in 
 title = "A gateway method moved off the kernel core must also leave kernel_backend"
 symptom = "The gateway answers {'code':-32010,'data':{'backend':'public_core','code':'kernel_unavailable','reason':'not_configured'}} for a method whose handler no longer reads the kernel, because kernel_backend (services/platform/hosted/gateway/src/rpc.rs:338) still maps the method name to a KernelBackend and the readiness check runs before the handler."
 fix = "When a method's reads move to the indexer or the chain, remove its arm from kernel_backend in the same task and declare rpc.rs in touches."
+
+[gotcha.2334]
+title = "The precompile wrapper repacks an executor's retirement revert"
+symptom = "A precompile method retired inside its executor (layerxanchor Execute answering RetiredRevert) reaches the EVM as Error('execution reverted') (100 bytes) instead of the 132-byte LXP_MODULE_DISABLED data, because precompiles/common/precompiles.go Run repacks every executor error through revertData unless its own retirePlan gate fired for that method."
+fix = "Test retirement through Run, not GetExecutor().Execute; keep executor revert data in Run when the error is vm.ErrExecutionReverted and bytes were returned (decision.1981), and evaluate retirement before the staticcall refusal in Execute."
+
+[gotcha.2335]
+title = "A symbol a task deletes cannot stay in its symbols list"
+symptom = "The focused test passes and completion fails with 'symbol <name> not defined in the graph' because the task's symbols list names a function one of its do lines deletes."
+fix = "When a do line deletes a function, remove it from symbols in the same spec edit; symbols names what the finished task defines."
+
+[gotcha.2336]
+title = "A client component cannot import a server-only module"
+symptom = "next build fails on a 'use client' component that imports a module beginning with import 'server-only' (apps/web/src/api/gateway.ts), even if only one function is used."
+fix = "Move the read behind a 'use server' action in the route's actions.ts and call the action from the client."
+
+[gotcha.2337]
+title = "UnixMovementProvider validates socket ownership and mode at open"
+symptom = "ProductionComponents::open fails with 'movement provider refused startup' when LAYERX_HUMAN_MOVEMENT_SOCKET names a path with no socket, a symlink, a socket not owned by LAYERX_HUMAN_MOVEMENT_PEER_UID/GID, or one with other-permission bits (the umask leaves them after bind); the provider connects lazily, so no provider process is needed."
+fix = "In tests bind a UnixListener at the path inside a 0o700 directory, chmod the socket to 0o600 right after bind and keep the listener alive for the test's duration."

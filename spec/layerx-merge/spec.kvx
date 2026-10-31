@@ -4983,6 +4983,36 @@ value = "services/interop/crates/layerx-interop-service/src/payer_tx.rs joins th
 basis = "Attempt 7 (0b506ccc2 on 22b9ee184) fails payer_tx::tests::decodes_the_recorded_pay_exact_transaction at payer_tx.rs:195 on literals the re-recorded fixtures changed, ten server::tests and one relay test with EvidenceMismatch; the payer literals are this task's fixtures, the relay test is owned by [capability.11.11.2]."
 affects = ["18.1211.5"]
 
+[decision.1979]
+title = "The relay tests join the sequenced-receipt fixture task"
+value = "services/interop/crates/layerx-interop-service/src/relay.rs joins the touches of task 18.1211.5 for its tests module only: a_committed_answer_with_another_block_hash_is_receipted (relay.rs:794) reads the block number and block hash from the re-recorded fixture it includes instead of literals, and no assertion changes. This amends decision.1978, which left the relay tests with capability 11.11.2; that capability is done and the test fails only on this task's fixture."
+basis = "Attempt 8 (eb4261f6c on 29f8a5dc1) fails a_committed_answer_with_another_block_hash_is_receipted because the mock block hash literal now equals the re-recorded receipt's block hash, so receipt() (relay.rs:292-312) no longer answers Receipted; the ten server::tests fail on the remaining 'layerx:beta' network literals (server.rs:4696, :4758, :5386) that server.rs:1131 refuses and services/interop/crates/layerx-x402/src/facilitator.rs:693-718 turns into UnsupportedOffer."
+affects = ["18.1211.5"]
+
+[decision.1980]
+title = "A budget-create protocol action's key is the budget id its payload submits"
+value = "For every protocol action whose stage compiles a PayBudgetCreate call, ProtocolAction.action_key equals the budget id at payload[2..34]: modules/layerxpay/keeper/budget_create.go:33 submits the budget id as the idempotency key, bind_call discloses it (services/agent/crates/layerx-crypto/src/disclosure/call.rs:529-532) and the production boundary binds evidence.action_key to that disclosed key (services/human/crates/layerx-human-service/src/server/agent_creation.rs:422, :474, :538-568). change_protocol_limit (services/human/crates/layerx-human-service/src/agents/controls.rs:575-660) therefore submits action_key: replacement and compares evidence.action_key against replacement, keeping the replacement derivation at :585 and LimitChangeEvidence unchanged; tests/support/canonical_owner.rs keeps its sign_transaction assertion that payload[2..34] equals the action key. This supersedes decision.1976 on the test side: the replacement digest still fills payload[2..34], and it is also the action key."
+basis = "Attempt 11 of task 18.1228.1 (c61196b80 on 29f8a5dc1) fails only protocol_and_app_limit_changes_keep_their_real_enforcement_labels with Refused 'lifecycle transaction binding differs': bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:524-556) refuses at :550 when disclosure.idempotency_key differs from the evidence action_key, and the control action key (control_action_key, controls.rs:686) can never equal the replacement budget id the payload carries; porting the test's receipt builder cannot resolve a contradiction inside the production module."
+affects = ["18.1228.1", "18.1228.2"]
+
+[decision.1981]
+title = "Retirement reverts survive the precompile wrapper"
+value = "precompiles/common/precompiles.go Run keeps revert data an executor already supplied: in the deferred handler, when errors.Is(err, vm.ErrExecutionReverted) and len(bz) > 0, the bytes stay as the executor packed them and only err is normalised; the reasons/retiredCall repack through revertData applies to every other error. precompiles/layerxanchor/layerxanchor.go Execute evaluates retirement before the staticcall refusal: p.anchor == nil, RetiredAt(StoreDeleteUpgrade) for any method, or RetiredAt(MergeUpgrade) for a write method answers RetiredRevert first, and only then is a write under readOnly refused. precompiles/layerxverify/layerxverify.go gains the wrapper rule without further change."
+basis = "Attempts 1 to 3 of task 6.32.3 (b6d68f78f on b8937670d, 11359f1e9 and e499b9df6 on a1c0f4e7f) fail the 48 cases of the 12 write methods at heights 40 and 41 through Call and StaticCall alike: Execute (layerxanchor.go:171-192) answers RetiredRevert (132 bytes) or the staticcall error, and Run's deferred handler (precompiles.go:197-235) repacks any executor error whose wrapper gate did not fire into Error('execution reverted') (100 bytes), because retiredCall is set only by the wrapper's own retirePlan gate (:215-223), which names the nine view methods."
+affects = ["6.34.2", "6.32.3"]
+
+[decision.1982]
+title = "Readiness without a configured kernel backend reports the chain surface only"
+value = "When no KernelBackend is configured (config.backend(b) is Err for every KernelBackend::ALL entry), readiness() (services/platform/hosted/gateway/src/main.rs:3990) leaves the kernel backends out of 'backends' and the kernel entries and principal_state_boundary out of 'components'; status is 'ready' when every listed backend is ready and chain_serving is ready, layerx_activity stays not_configured, product_routes is reported but does not gate, and the route answers 200. With any kernel backend configured the document, scope and status code are unchanged."
+basis = "Attempt 1 of task 8.0.4 (f87e0cd18 on a1c0f4e7f; attempt 2 d399c7d77 repeats it) fails router_surface.rs:1010 with status 'degraded' against the expected 'ready': gateway_readiness_scope (main.rs:4117) computes complete from every KernelBackend::ALL entry and product_routes['complete'], so a gateway serving receipts, balances and assets from the chain alone (req.8153 ac_1) can never report ready, and 8.0.4 do_3 forbids service edits."
+affects = ["8.0.5", "8.0.4"]
+
+[decision.1983]
+title = "The movement socket precondition of the production startup tests is a bound listener"
+value = "The tests of services/human/crates/layerx-human-service/tests/production_unhooked.rs that start production components bind a std::os::unix::net::UnixListener at the LAYERX_HUMAN_MOVEMENT_SOCKET path inside a 0o700 directory they create, set the socket to 0o600 after bind and keep the listener alive for the whole test, including while the spawned layerx-human-components binary runs; the real movement provider binary and its KMS and Paxeer RPC configuration are not a precondition of these tests."
+basis = "Attempt 22 of task 10.20.3 (9449cd2a4 on 29f8a5dc1) builds and passes production_configuration_validates_without_retired_operations but the two startup tests fail with 'movement provider refused startup': UnixMovementProvider::new (src/server/movement_provider.rs:835-846) runs validate_socket (:1006-1021: an existing non-symlink socket owned by LAYERX_HUMAN_MOVEMENT_PEER_UID/GID with no other-permission bits, in a directory meeting the same rules) at open and connects lazily in move_plan (:954), and the test Environment sets the socket path without creating a socket."
+affects = ["10.20.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -16054,6 +16084,7 @@ ac_2 = "Execute returns RetiredRevert(\"layerxAnchor\") for each of the nine rea
 [req.6284]
 title = "Check every 0x1014 selector returns LXP_MODULE_DISABLED after anchor store delete"
 ac_1 = "After the store-delete step every one of the 21 methods in precompiles/layerxanchor/abi.json reverts LXP_MODULE_DISABLED, the address stays registered (precompiles/setup.go:180) and no 0x1014 event of the 12 in the ABI is emitted."
+ac_2 = "A write method of 0x1014 called through precompile.Run after the store-delete step, with readOnly true or false, reverts with the 132-byte LXP_MODULE_DISABLED data and not with Error('execution reverted'); the nine view methods keep their revert data."
 
 [req.6285]
 title = "Add RetireAtMerge returning every guarantor bond and emitting layerx_anchor_retired"
@@ -17031,6 +17062,7 @@ ac_1 = "Each ROUTER_METHODS name posted to a chain-only gateway answers a JSON-R
 [req.8153]
 title = "The router and the hosted receipt readers serve from the chain with every kernel variable unset"
 ac_1 = "With every kernel-side variable unset, the gateway answers px_getBalances, px_listAssets, px_getCapabilities and pax_sequencerReceipt from the chain and indexer listeners and reports ready."
+ac_2 = "With every kernel-side variable unset and the chain and indexer listeners ready, the readiness route answers 200 with status 'ready', lists no kernel backend under backends and no kernel entry or principal_state_boundary under components, and keeps layerx_activity not_configured; with a kernel backend configured the document is unchanged."
 
 [req.8181]
 title = "Indexer events of the fee token, xweb, pay and programs precompiles decode at their fixed addresses"
@@ -23098,6 +23130,7 @@ ac_1 = "run_all returns every parity row passed with at least one test."
 [req.17054]
 title = "Run the wave 0 aggregate gate once on the merged wave revision"
 ac_1 = "gates.run_wave(0) returns 0 and writes one evidence line on the merged wave-0 revision."
+ac_2 = "npm --prefix apps/web run build exits 0 on the merged wave-0 revision: apps/web/src/app/exchange/exchange-client.tsx imports no server-only module and every package sdk/wallet/src imports resolves from apps/web."
 
 [req.17055]
 title = "Run the wave 1 aggregate gate once on the merged wave revision"
@@ -125076,7 +125109,7 @@ title = "Check every 0x1014 selector returns LXP_MODULE_DISABLED after anchor st
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["6.32.2", "6.34.1", "6.0.3"]
+requires = ["6.32.2", "6.34.1", "6.0.3", "6.34.2"]
 reqs = ["6284.1"]
 capabilities = ["6.32.3"]
 interfaces = []
@@ -125093,6 +125126,37 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-chain-modules"
 rollback = "Delete the test file; it changes no production code."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempts 1 to 3 (b6d68f78f on b8937670d; 11359f1e9 and e499b9df6 on a1c0f4e7f) fail the 48 cases of the 12 write methods at heights 40 and 41 through Call and StaticCall alike: Execute answers RetiredRevert but precompile.Run's deferred handler repacks it into Error('execution reverted') because the wrapper's own retirement gate names the nine view methods only (decision.1981). Task 6.34.2 fixes the wrapper and the Execute order and this task requires it; keep the attempt 3 test unchanged and re-qualify on a base that carries 6.34.2."
+
+[task.6.34.2]
+title = "Keep executor retirement reverts through the precompile wrapper"
+status = "pending"
+mode = "BUILD"
+wave = 29
+requires = ["6.32.2", "6.34.1", "6.0.3"]
+reqs = ["6284.2"]
+capabilities = []
+interfaces = []
+do_1 = "precompiles/common/precompiles.go Run (:197-235): in the deferred handler keep the bytes the executor returned when errors.Is(err, vm.ErrExecutionReverted) and len(bz) > 0, normalising only err to vm.ErrExecutionReverted; the p.reasons and retiredCall repack through revertData (:168) applies to every other error exactly as today (decision.1981)."
+do_2 = "precompiles/layerxanchor/layerxanchor.go Execute (:171-192): after the delegatecall refusal evaluate retirement first (p.anchor == nil, RetiredAt(StoreDeleteUpgrade) for any method, RetiredAt(MergeUpgrade) for a write method, each answering RetiredRevert) and only then refuse a write under readOnly with the existing 'cannot change layerxAnchor state from staticcall' error. Change no other production file; precompiles/layerxverify/layerxverify.go (:200, :238, :280, :295) gains the wrapper rule without edits."
+do_3 = "precompiles/layerxanchor/retired_wrapper_test.go TestAnchorRetirementSurvivesTheWrapper: set up the app, mark MergeUpgrade done at height 20 and StoreDeleteUpgrade at height 40, and at height 41 call every write method of precompiles/layerxanchor/abi.json through the precompile's Run with readOnly false and again with readOnly true, asserting the returned data equals RetiredRevert's bytes each time; then call one view method the same way and assert the same. The test goes through Run, the path the EVM takes, not through GetExecutor().Execute."
+symbols = ["TestAnchorRetirementSurvivesTheWrapper"]
+touches = ["precompiles/common/precompiles.go", "precompiles/layerxanchor/layerxanchor.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
+tests = ["precompiles/layerxanchor/retired_wrapper_test.go::TestAnchorRetirementSurvivesTheWrapper"]
+planned_paths = ["precompiles/layerxanchor/retired_wrapper_test.go"]
+build_cmd = "go build ./precompiles/..."
+verify_cmd = "go test -count=1 ./precompiles/layerxanchor/ -run '^TestAnchorRetirementSurvivesTheWrapper$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the two production files and delete the test; retired write methods answer the generic revert through the wrapper again."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -132956,7 +133020,7 @@ title = "Prove the hosted chain readers before the kernel switch-off"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.0.3", "8.4.3", "8.5.2", "8.7.1", "8.8.2", "8.10.2", "8.11.2", "8.12.2", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1"]
+requires = ["8.0.3", "8.4.3", "8.5.2", "8.7.1", "8.8.2", "8.10.2", "8.11.2", "8.12.2", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1", "8.0.5"]
 reqs = ["8153.1"]
 capabilities = ["8.15.94"]
 interfaces = []
@@ -132981,6 +133045,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Record the two surfaces task 8.4.3 adds in the release rows this test shares: services/platform/hosted/gateway/tests/router_surface.rs:453-457 lists the probe calldata rows (0x8162486b, 1), (0xb187bd26, 1), (0x8eec5d70, 1), (0xd7778749 followed by 32 zero bytes, 1) and (0xbbe2e42d, 9) and the fixture panics at :475-483 on undeclared calldata, so add the accountId(bytes32,bytes32) row (its ledger ABI selector followed by 64 zero bytes, answering one word) and the isLive(bytes32,uint64,uint64) row (its auth ABI selector followed by 96 zero bytes, answering four words: false and the string LXP_UNKNOWN_FIELD); the surface list asserted at :726 (exchange, bridge, launchpad, pay, programs) gains ledger and auth; and the px_getCapabilities description of services/platform/hosted/gateway/openrpc.json:3472 names the two surfaces. Task 8.12.3 no longer waits for this gate: it requires 13.4.5 and 13.4.6 and precedes 8.4.3 and 8.5.2 (decision.1971), so do_3 lists 8.3.1, 8.7.3, 8.8.4, 8.11.3 and 8.13.2 only."
+do_5 = "Attempt 1 (f87e0cd18 on a1c0f4e7f; attempt 2 d399c7d77 repeats it) fails at router_surface.rs:1010 with readiness status 'degraded' against 'ready': the kernel backends are listed not_configured and unavailable and gateway_readiness_scope (src/main.rs:4117) gates complete on them, so a chain-only gateway cannot report ready while do_3 forbids service edits (decision.1982). Task 8.0.5 changes readiness and this task requires it; keep the attempt 1 test and openrpc.json unchanged and re-qualify on a base that carries 8.0.5."
+
+[task.8.0.5]
+title = "Report chain-only readiness when no kernel backend is configured"
+status = "pending"
+mode = "BUILD"
+wave = 29
+requires = ["8.5.2"]
+reqs = ["8153.2"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/hosted/gateway/src/main.rs, readiness() (:3990) and gateway_readiness_scope (:4117): when config.backend(b) is Err for every KernelBackend::ALL entry, leave the kernel backends out of 'backends', leave the kernel entries and 'principal_state_boundary' out of 'components', compute complete as every listed backend ready and chain_serving ready, keep layerx_activity_readiness (:4085-4105) reporting not_configured, report product_routes without gating on it, and answer 200 with status 'ready'. With any kernel backend configured the document, the scope and the status code stay exactly as today (decision.1982)."
+do_2 = "services/platform/hosted/gateway/tests/chain_only_readiness.rs chain_only_readiness_omits_kernel_backends: start the gateway the way tests/router_surface.rs does with every kernel-side variable unset and the chain and indexer listeners ready, GET the readiness route and assert status 200, status 'ready', no KernelBackend name under backends, no kernel entry and no principal_state_boundary under components, layerx_activity not_configured and chain_serving ready; then start it again with one kernel backend configured and assert that backend is listed under backends again."
+symbols = ["readiness", "gateway_readiness_scope", "chain_only_readiness_omits_kernel_backends"]
+touches = ["services/platform/hosted/gateway/src/main.rs", "services/platform/hosted/gateway/tests/chain_only_readiness.rs"]
+tests = ["services/platform/hosted/gateway/tests/chain_only_readiness.rs::chain_only_readiness_omits_kernel_backends"]
+planned_paths = ["services/platform/hosted/gateway/tests/chain_only_readiness.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test chain_only_readiness -- --exact chain_only_readiness_omits_kernel_backends"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert main.rs and delete the test; readiness reports degraded again whenever no kernel backend is configured."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.8.0.9]
 title = "Gate domain 8 completion on its retired surfaces and planned paths"
@@ -133530,7 +133624,7 @@ do_2 = "Read the consensus status method (consensus/internal/rpc/core/routes.go:
 do_3 = "In services/platform/hosted/gateway/src/paxeer.rs:744 (get_network) answer consensus null with reason consensus_unavailable when the consensus endpoint is unset or unreachable; chain_id and latest_block still answer."
 do_4 = "Update the px_getNetwork result schema of services/platform/hosted/gateway/openrpc.json (services/platform/hosted/gateway/openrpc.json:1564)."
 do_5 = "Add px_get_network_reports_the_consensus_head to services/platform/hosted/gateway/tests/one_source_reads.rs (planned)."
-symbols = ["get_network", "anchor_head", "kernel_availability", "px_get_network_reports_the_consensus_head"]
+symbols = ["get_network", "px_get_network_reports_the_consensus_head"]
 touches = ["services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/src/chain_reads.rs", "services/platform/hosted/gateway/openrpc.json", "services/platform/hosted/gateway/tests/one_source_reads.rs"]
 tests = ["services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_network_reports_the_consensus_head"]
 planned_paths = ["services/platform/hosted/gateway/src/chain_reads.rs", "services/platform/hosted/gateway/tests/one_source_reads.rs"]
@@ -133547,6 +133641,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempts 1 and 2 (954c60ae0 and 66d37aa82 on a1c0f4e7f) pass px_get_network_reports_the_consensus_head; completion failed because the symbols list named anchor_head and kernel_availability, which do_1 deletes. The symbols list now names get_network and the test only; continue from attempt 1 unchanged."
 
 [task.8.6.1]
 title = "Stop proxying the live explorer anchor and receipt views; proxy the archive views"
@@ -147449,6 +147544,7 @@ do_23 = "Attempt 18 (5f4c319c4, the attempt 17 candidate 19d2b3b6d re-qualified 
 do_24 = "Attempt 19 (9b9d22da9, the attempt 18 candidate 5f4c319c4 continued on d4bf62f09 with the do_23 change applied: tests/production_unhooked.rs:144-149 read LAYERX_TEST_PAXEER_RPC_PORT and LAYERX_TEST_PAXEER_CHAIN_ID by name and :189-193 give layerx-agentd LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID, LNI kept at :195) passes the first two build_cmd members and fails the third, cargo build -p layerx-agentd-host --bin layerx-agentd, with E0277 twice at services/agent/crates/layerx-agentd/src/main.rs:1013: `Box::new(NodeRpc::connect(&NodeRpcConfig::from_environment()?)?)` carries NodeRpcError (src/node_rpc.rs:23, :90) through `?` inside start_shared_owner (:936), which returns Result<_, String> (:948-955), and no From<NodeRpcError> for String exists. 8c526e4f0 (task 9.12.7 do_3) added the line and qualified with -p layerx-agentd --test human_node, which never compiles main.rs (autobins = false, services/agent/crates/layerx-agentd/Cargo.toml:3; the binary belongs to layerx-agentd-host, Cargo.toml:8-10; decision.1964). The line is the same on main at the base and at 8a2c936b0, in a file this task does not touch; task 9.12.11 maps both errors as src/human_owner_mode.rs:41-47 and :83-84 do. This task now requires 9.12.11 and changes nothing under services/agent; re-qualify the attempt 19 candidate unchanged once 9.12.11 is on main, confirming first that main.rs:1013 shows .map_err around both calls, and record any later layerx-agentd or layerx-human-components startup refusal as the finding of do_16."
 do_25 = "Attempt 20 (6a89eaade, the attempt 19 candidate 9b9d22da9 re-qualified unchanged on 16f187251 with 9.12.11 merged) passes all three build_cmd members for the first time, production_configuration_validates_without_retired_operations passes, and both startup tests fail because layerx-agentd exits 2 with 'LAYERX_AGENT_HUMAN_LIMIT_ID has the wrong width': the daemon now passes the authority, the layerxd LNI connection, the store and the node RPC pair and reaches verified_limit (services/agent/crates/layerx-agentd/src/main.rs:330-348, evaluated at :1070), whose parse_hex (:312-316) demands exactly 32 hex characters for the 16-byte LimitId (services/agent/crates/layerx-agentd/src/budget/reserve.rs:11, unchanged since 7764645a0; docs/site/docs/agents/running.md:728), while tests/production_unhooked.rs:241 gives the fixture hex of a 32-byte array. Change that one value to the hex of a 16-byte array (as services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:9 builds LimitId([1; 16])); keep LAYERX_AGENT_HUMAN_LIMIT_SCOPE_ID at 32 bytes (:244), which LimitScope::Tenant([u8; 32]) at reserve.rs:18-24 takes and the daemon already accepted. Change no other line, no assertion, and nothing under services/agent; a later layerx-agentd or layerx-human-components startup refusal is recorded as the finding of do_16."
 do_26 = "Attempt 21 (962aaebd0 on 877e81900) passes the three build_cmd members and production_configuration_validates_without_retired_operations; both startup tests fail because layerx-agentd exits 2 with 'human listener is invalid: Unauthenticated': HumanUnixServer::bind (services/agent/crates/layerx-agentd/src/human.rs:1629-1667) validates the socket's parent directory with validate_path (:1725-1742), which refuses a directory whose mode has any other-user bit (mode & 0o007 != 0), and the test binds the socket at root/agent.sock (services/human/crates/layerx-human-service/tests/production_unhooked.rs:185) while :459 sets root to 0o711 for the node fixture. Create root/agent-socket with DirBuilder mode 0o700 as :157 does for agent-sessions, bind the socket inside it, leave root at 0o711 and the daemon environment as attempt 21 has it; re-qualify the three tests."
+do_27 = "Attempt 22 (9449cd2a4 on 29f8a5dc1) builds, passes production_configuration_validates_without_retired_operations and fails the two startup tests with 'movement provider refused startup': UnixMovementProvider::new (src/server/movement_provider.rs:835-846) validates the configured socket at open (validate_socket :1006-1021) and connects lazily (:954), and the test Environment sets LAYERX_HUMAN_MOVEMENT_SOCKET without creating a socket (decision.1983). In tests/production_unhooked.rs give the Environment a std::os::unix::net::UnixListener bound at that path inside a 0o700 directory it creates, set the socket's mode to 0o600 right after bind, keep the listener alive for the whole test including while the spawned layerx-human-components binary runs, and change nothing else."
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
@@ -157032,6 +157128,36 @@ gate_kind = "existing"
 sandbox_profile = "node"
 owner_role = "fm-wallet"
 rollback = "Revert the five files; the callers return to the v1 perps shapes and fail to type-check against the SDK."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.17.5.10]
+title = "Make the web app build resolve the wallet SDK and keep gateway reads on the server"
+status = "pending"
+mode = "BUILD"
+wave = 18
+requires = ["12.33.8"]
+reqs = ["17054.2"]
+capabilities = []
+interfaces = []
+do_1 = "apps/web/src/app/exchange/exchange-client.tsx is a client component ('use client', :1) and imports pxResolveAccount from the server-only ../../api/gateway (:18, used at :133), which next build refuses. Add a server action resolvePerpsAccount(account) to apps/web/src/app/exchange/actions.ts (already 'use server') that calls pxResolveAccount and returns the ResolvedAccount shape the client consumes, and call it from the client in place of the direct import."
+do_2 = "sdk/wallet/src is bundled through the tsconfig alias @paxeer/wallet -> ../../sdk/wallet/src/index.ts, so its packages must resolve from apps/web: declare @noble/curves ^1.9.1, @noble/hashes ^1.8.0, @supabase/supabase-js ^2.45.4 and @sidiora/layerx-sdk (the same link to services/agent/sdk/typescript sdk/wallet/package.json uses) in apps/web/package.json with the versions sdk/wallet/package.json declares, and make apps/web/next.config.mjs resolve modules imported from sdk/wallet/src through apps/web/node_modules (webpack resolve.modules with the app's node_modules first, or transpilePackages for sdk/wallet). Change nothing under sdk/wallet."
+do_3 = "docker/web/Dockerfile copies sdk/wallet to /src/sdk/wallet before npm ci so the image build resolves the alias the same way; the agent SDK copy at /src/services/agent/sdk/typescript stays."
+symbols = ["resolvePerpsAccount"]
+touches = ["apps/web/src/app/exchange/exchange-client.tsx", "apps/web/src/app/exchange/actions.ts", "apps/web/next.config.mjs", "apps/web/package.json", "docker/web/Dockerfile"]
+tests = []
+planned_paths = []
+build_cmd = "npm --prefix apps/web run typecheck"
+verify_cmd = "npm --prefix apps/web run build"
+gate_kind = "existing"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the five files; next build fails again on the server-only import and the unresolved wallet SDK packages."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -174820,7 +174946,7 @@ title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5", "9.12.11", "10.99.1"]
+requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5", "9.12.11", "10.99.1", "17.5.10"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
 interfaces = []
@@ -174853,6 +174979,7 @@ do_8 = "Attempt 11 (778c340aa, base 9f8c07033 with 10.16.4 at f478f7a5a) carries
 do_9 = "Attempt 12 (af44d7420, base a373fef18 with 10.16.5 at 3441fc681) carries the attempt 9 test unchanged and exited 2 in step 2, make workspace-build, one target earlier than attempt 11: build passes and agent-build (Makefile:1947) stops compiling the layerx-agentd binary of services/agent/crates/layerx-agentd-host at services/agent/crates/layerx-agentd/src/main.rs:1013 with E0277 twice, because 8c526e4f0 (9.12.7, do_3) added `Box::new(NodeRpc::connect(&NodeRpcConfig::from_environment()?)?)` inside start_shared_owner, which returns Result<_, String> (main.rs:948-955), while NodeRpcConfig::from_environment (node_rpc.rs:23) and NodeRpc::connect (node_rpc.rs:90) return NodeRpcError and no From<NodeRpcError> for String exists (only for GateError at boot.rs:34 and FinalityError at finality.rs:35). 9.12.7's gates built -p layerx-agentd --test human_node only; the binary is declared in services/agent/crates/layerx-agentd-host/Cargo.toml with path ../layerx-agentd/src/main.rs and layerx-agentd sets autobins = false, so main.rs was never compiled before the merge (decision.1964). The repair belongs to 9.12.11, outside this task's touches; this task now requires it. The test is unchanged and right: in attempt 12 the ledger, stdout, log-file and size assertions (test_wave_0_gate.py:41-44) passed and only :45 (exit_code == 0) failed. Re-qualify it once on a revision that includes 9.12.11 and record each further failure the step logs under logs/waves/0 name, with file, line and owning task; human-build (Makefile:1957-1961, so the lib.rs:225 repair of 10.16.5 is unconfirmed by this gate), the later workspace-build targets (Makefile:2917-2919) and make workspace-lint have not run on any attempt, and the step 2 log shows 81 rustc warnings in the layerx-agentd library plus warnings in layerx-sdk, layerx-intents, layerx-human-kms and layerx-programs-registry that agent-lint and human-lint (clippy --all-targets -D warnings, Makefile:2112, :2230-2231) deny."
 do_10 = "Attempt 13 (ee7d7eaf0, base de9686155) carries the attempt 9 test unchanged and exited in step 2, make workspace-build: build and agent-build pass and human-build (Makefile:1960) stops at services/human/crates/layerx-human-security-provider/src/state.rs:56 and :136 with E0599, no function from_protected_history on ProtocolDeploymentVerifier, deleted by task 13.4.6 (0461a4f71). Task 10.99.1 ports the provider onto the chain trust root and is now required (decision.1971); the next attempt starts after it lands and changes no file."
 do_11 = "Attempt 14 (befea813e on c833996dd) fails test_wave_0_gate_passes because make human-build runs npm run build in apps/web and tsup (apps/web/package.json devDependency, 8.5.1 in apps/web/package-lock.json) is not installed: apps/web is not a member of the root npm workspace, so the root install never provides its tools. The gate environment now installs apps/web before the test; nothing in the test file changes for this failure and the attempt 14 content is re-qualified unchanged."
+do_12 = "Attempt 15 (682092ffd on 29f8a5dc1) fails in the web app build: next build stops on apps/web/src/app/exchange/exchange-client.tsx importing the server-only ../../api/gateway and on the packages sdk/wallet/src imports that apps/web/package.json does not declare. Task 17.5.10 owns that repair and this task requires it; re-run the gate unchanged on a base that carries 17.5.10."
 
 [task.17.5.2]
 title = "Run the wave 1 aggregate gate once on the merged wave revision"
@@ -183598,6 +183725,7 @@ ac_1 = "POST /v1/wallet/provision (services/wallet/gateway/src/routes/wallet.ts:
 [req.181228]
 title = "Every session-key revocation test builds against the three-variant InvalidationReason"
 ac_1 = "No test under services/agent/crates/layerx-agentd/tests or services/human/crates/layerx-human-service/tests names InvalidationReason::SessionKeyRevoked; the eleven session-key sites construct GrantRevokedOnChain (services/agent/crates/layerx-agentd/src/session_revocation.rs:218) and the revocation, tenant_resolve, session_keys, archive, session_rungs, agent_controls and agent_controls_rungs targets build and pass."
+ac_2 = "protocol_and_app_limit_changes_keep_their_real_enforcement_labels passes against the production control adapter: change_protocol_limit submits the replacement budget id as the action key, the limit-change receipt comes from canonical_owner::sign_transaction, and no assertion of the test or of tests/support/canonical_owner.rs is weakened."
 
 [req.181229]
 title = "Sponsored status accepts the gas station budget in its produced fields and units"
@@ -190764,6 +190892,7 @@ do_10 = "Attempt 11 (593fa04a4, the attempt 10 candidate re-qualified unchanged 
 do_11 = "Attempt 13 (6ef704375, the attempt 11 candidate re-qualified unchanged on e8519e92e with 5.7.3 merged) builds green; migration passes 9 tests and operator passes 6 of 7. The finality authority stage is gone, and inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal now panics at tests/support/real_authority.rs:493 (wait_for_lni) because layerxd --serve exits 1 with 'protocol owner module runtime binding failed with result -3' (LXP_ERR_NON_CANONICAL): lxp_daemon_protocol_owner_attach (cmd/layerxd/lxp_daemon_protocol.c:1115-1122) sets programs_runtime->state_feed and calls lxp_kernel_bind_module_runtime and then lxp_programs_state_feed_store_bind_maintenance (src/modules/programs/feed_store.c:1041-1051). bind_maintenance refuses unless kernel->commit_observer_context is the feed and observe_commit is set, and only lxp_programs_bind_state_feed (src/modules/programs/feed.c:114-123) sets them; 38c544316 (task 1.15.1) deleted its call from lxp_kernel_bind_module_runtime, and no daemon code replaced it. Task 10.20.3 attempt 17 fails identically on the same base. Keep the seven files and every assertion exactly as written, change nothing under cmd/, src/ or tests/support/real_authority.rs, and re-qualify the attempt 13 candidate unchanged once task 5.7.4 is on main."
 do_12 = "Attempt 14 (51fc68ead on 4f424c474, the first base carrying 5.7.3 and 5.7.4) builds green, migration passes 9 tests and operator passes 6 of 7; inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal now gets past layerxd startup: layerxd --serve stays alive, admits the NativeProgramCall (LNI tag 4, real_authority.rs:635-642) and then answers every by-id receipt lookup over LNI V1_4 for 30 s with an empty envelope (cmd/layerxd/lxp_daemon_lni.c:2946-2962, :2997-2999), so submit_and_wait panics at tests/support/real_authority.rs:659 'receipt never became durable'. The admitted LX_PROGRAMS_CALL (0x00090003, include/layerx/programs.h:173) never reached install_pending_receipts (cmd/layerxd/lxp_daemon_process.c:4145-4146) nor a refusal disposition, which points at the executor stopping or stalling inside apply_canonical_batch after admission (cmd/layerxd/lxp_daemon_main.c:189-194 stops the executor without exiting the process; the serve loop at lxp_daemon_process.c:6303-6306 polls only the LNI server), most plausibly in the Programs state-feed observer re-bound by 5.7.4 at cmd/layerxd/lxp_daemon_protocol.c:1124-1125 (src/modules/programs/feed_store.c:438-472, :572-580; src/protocol/lxp_kernel.c:6384) or in the synchronous replica publication at lxp_daemon_process.c:4129-4144. The seven files of this task and real_authority.rs are byte-identical to attempts 7-13 and are not at fault; the fix belongs to task 5.7.6, which this task now requires. The environment that runs the gates keeps <temp>/layerx-authority-*/sequencer.stderr and replica.stderr (real_authority.rs:397-400, :1133, :1381) next to the verify log, because the :659 panic does not print them. Re-qualify the attempt 14 candidate unchanged once 5.7.6 is done; change none of this task's files unless the verify names one of them."
 do_13 = "Decision 1975: port tests/operator_route.rs:14-66 to the 74-byte reply of route_operator_command (src/human_runtime.rs:18296-18365): assert len 74, [0] == 1, [1..33] the activity id the request carried, [33..65] == [1; 32], [65] == 5 and [66..74] == 1u64 big-endian; keep :59-61 as written and change no file under src."
+do_14 = "Attempt 16 (b00385370 on 29f8a5dc1) passes operator_route and fails the three recovery tests with ReceiptLocationRequired: the transition helper at services/agent/crates/layerx-agentd/tests/recovery.rs:49-63 drives Executed through outbox::transition (src/outbox/mod.rs:310), which passes no block location, and the Committed check (:461-481) refuses. Drive the Executed step through outbox::record_execution (:325) with the support receipt and an explicit block position (height 9, transaction index 0), keep transition for the other states, keep tests/operator_route.rs as attempt 16 left it and change no assertion."
 
 [task.18.1203.1]
 title = "Issue #1203: Refuse operator verification retries for settlement-anchored requests"
@@ -191142,7 +191271,7 @@ title = "Issue #1228: Port the session-key revocation tests to GrantRevokedOnCha
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["18.1199.1", "18.1172.2", "10.2.8", "18.1206.1", "10.2.9", "18.1297.1", "18.1304.1", "18.1204.2"]
+requires = ["18.1199.1", "18.1172.2", "10.2.8", "18.1206.1", "10.2.9", "18.1297.1", "18.1304.1", "18.1204.2", "18.1228.2"]
 reqs = ["181228.1"]
 capabilities = []
 interfaces = []
@@ -191179,6 +191308,37 @@ do_13 = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.r
 do_14 = "Attempt 8 (fa18da842 on 9f8c07033) ran on a base without 64c4d6a23 (task 18.1204.2), so services/human/crates/layerx-human-service/tests/support/canonical_owner.rs held sign and assert_outcome only and bind_call had no budgetCreate branch; do_11 to do_13 apply only on a base that carries 64c4d6a23, where the fixture is :1-162 with sign_transaction at :65-129, assert_outcome at :131-162, the verify_native_owner_outcome call of do_12 at :137-148 and the batch assertions of do_11 at :154-157. The second cargo invocation of the verify stops at the first failing binary, so attempt 8 observed none of session_keys, archive, session_rungs or agent_controls_rungs; agent_controls_rungs.rs:854-855 reaches the same refusal (do_13). Build the owner as services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs does with sign_transaction(compiled.payload(), action_key, STATE_COMMITMENT_PROTOCOL_VERSION, 77); keep encode_receipt (agent_controls.rs:779-812, agent_controls_rungs.rs) as written, since its timestamp 1_002 and fee_charged 1 satisfy verify_outcome (create.rs:503-506) against the bind_call disclosure (fee_limit = gas_limit 100_000, expiry 0..u64::MAX at services/agent/crates/layerx-crypto/src/disclosure/call.rs:432-437); the Governance 1 and Budget 7 refusals at agent_controls.rs:613-623 keep holding through finalization_evidence (services/human/crates/layerx-human-service/src/server/agent_creation.rs:640-642)."
 do_15 = "Attempt 9 (09ee34cfb on bf4e10a64) applied do_11 to do_13 in full and moved the agent_controls failure one statement forward: bound_activity now accepts the sign_transaction owner (services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:136 passes) and the do_12 call layerx_proof::receipt::verify_outcome at canonical_owner.rs:137-140 fails with VerificationFailure { check: Operation }. receipt::verify_outcome (services/agent/crates/layerx-proof/src/receipt.rs:334-368) refuses every receipt whose operation tag (the u8 at services/agent/crates/layerx-wire/src/receipt.rs:209, decoded at :794 after parameter_version) is 0 unless the module is Bridge 8, Programs 9 or Asset 1 with operation 9 (:351-366); the tag is compared with 0 and with nothing else. The fixture writes operation 0 (agent_controls.rs `bytes.push(0)` after module_version 1 and parameter_version 1, :794 on main, :805 in attempt 9; agent_controls_rungs.rs:876 / :814; tests/agent_creation_rungs.rs:103 writes the same 0 and passes because it never calls layerx_proof), and 0 is the product contract for a native owner Budget receipt: finalization_evidence refuses operation != 0 at services/human/crates/layerx-human-service/src/server/agent_creation.rs:649 and change_protocol_limit refuses it at services/human/crates/layerx-human-service/src/agents/controls.rs:628, while the agent double submit_protocol (agent_controls.rs:373-378, agent_controls_rungs.rs:448-453) needs finalization_evidence to succeed on the same bytes for every change_limit (:634, :652). A non-zero tag therefore fails the same test at the next step; the two verifiers admit one receipt only after task 9.27.5 (decision.929, wave 35) reworks receipt.rs, and services/agent/crates/layerx-proof/tests/native_owner_outcome.rs:61-68 pins the present behaviour (operation 0, verify_outcome answers Operation). Keep the operation tag 0 and change no file under src. In assert_outcome (canonical_owner.rs:131-154 of attempt 9) replace the :137-140 call with checked(layerx_proof::receipt::verify_sequencer_signature(&evidence.receipt_bytes, authorized_batch.sequencer_public_key())) (receipt.rs:707-738; a bare [u8; 32] is ReceiptKeys::HistoricalKernel, :46-50, accepted for module 3 at :769-773; it checks decoding, canonical re-encoding, protocol version, non-zero activity_id and the sequencer signature over receipt_digest, the LXP/v1/receipt tagged preimage the fixture signs, services/agent/crates/layerx-wire/src/hash.rs:69 and :330), and after `let protocol = receipt.protocol().expect(...)` add assert_eq!(protocol.batch_id(), authorized_batch.batch_id()), assert_eq!(protocol.previous_state_root(), authorized_batch.previous_state_root()) and assert_eq!(protocol.resulting_state_root(), authorized_batch.resulting_state_root()) (accessors receipt.rs:148-170), which restores the batch, root and signature checks verify_native_owner_outcome made (services/agent/crates/layerx-proof/src/receipt/owner_module.rs:130). Keep the AuthorizedBatch::new call at agent_controls.rs:777-782 of attempt 9 as written, keep every other line of attempt 9, and keep every assertion. After agent_controls passes, cargo runs agent_controls_rungs, archive, session_keys and session_rungs for the first time under this verify."
 do_16 = "Decision 1976: give sign_transaction (services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:55-100) a previous_budget_id parameter, compute the replacement as sha256 over BUDGET_DOMAIN, previous_budget_id and action_key exactly as services/human/crates/layerx-human-service/src/agents/controls.rs:585 and :686-700 do, assert payload[2..34] against it at :78, and pass the agent's active protocol budget id from every caller; change no file under src."
+do_17 = "Attempt 11 (c61196b80 on 29f8a5dc1) passes revocation, tenant_resolve and every target except protocol_and_app_limit_changes_keep_their_real_enforcement_labels, which refuses with 'lifecycle transaction binding differs' because change_protocol_limit submits the control action key while the payload carries the replacement budget id (decision.1980). Task 18.1228.2 owns src/agents/controls.rs, tests/agent_controls_rungs.rs and tests/support/canonical_owner.rs for that fix, do_11 to do_13 move to it, and this task requires it. Continue from attempt 11 with tests/support/canonical_owner.rs and tests/agent_controls_rungs.rs restored to the base, keep the edits of the other six files, and re-qualify on a base that carries 18.1228.2."
+
+[task.18.1228.2]
+title = "Issue #1228: Submit the replacement budget id as the limit-change action key"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["18.1204.2", "10.2.9"]
+reqs = ["181228.2"]
+capabilities = []
+interfaces = []
+do_1 = "services/human/crates/layerx-human-service/src/agents/controls.rs change_protocol_limit (:575-660): keep replacement = digest(&[BUDGET_DOMAIN, &previous, &action_key]) at :585 and the BudgetCreate payload, submit ProtocolAction { action_key: replacement, stage: BudgetCreation, .. } at :610 and compare evidence.action_key against replacement at :618; keep verify_outcome, the protocol checks and LimitChangeEvidence { replacement_budget: Some(replacement) } as they are (decision.1980). control_action_key (:686) keeps feeding the replacement derivation only."
+do_2 = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs protocol_receipt_for_payload (:815-857): build the limit-change receipt with canonical_owner::sign_transaction instead of canonical_owner::sign, so the disclosure is derived from the compiled payload and its idempotency_key is payload[2..34], the replacement budget id; keep block_height 11, Rung::Committed and the protocol_cache keyed by action.action_key in RealAgentLayer::submit_protocol (:428-466). Change no assertion of protocol_and_app_limit_changes_keep_their_real_enforcement_labels."
+do_3 = "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs keeps sign (:23) and the sign_transaction assertion at :78 that payload[2..34] equals the action key exactly as on the base; it is in touches only for a shared helper if sign_transaction needs one for the receipt builder."
+symbols = ["change_protocol_limit", "protocol_receipt_for_payload", "sign_transaction"]
+touches = ["services/human/crates/layerx-human-service/src/agents/controls.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs", "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs::protocol_and_app_limit_changes_keep_their_real_enforcement_labels"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_controls_rungs"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_controls_rungs -- --exact protocol_and_app_limit_changes_keep_their_real_enforcement_labels"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the three files; change_protocol_limit submits the control action key again and the limit-change test refuses with 'lifecycle transaction binding differs'."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.18.1229.1]
 title = "Issue #1229: Validate the sponsored-status budget in the gas station's own fields and gas units"
@@ -194848,7 +195008,7 @@ do_4 = "Copy the rewritten V1, V2 and V3 cases byte for byte into sdk/platform/c
 do_5 = "Replace the recorded V1-layerxledger-pay-exact receipt, digest, transaction hash, log and payee word in services/interop/specs/conformance/x402/sequenced-settlement.json, services/interop/specs/conformance/ucp/sequenced-order.json, services/interop/specs/conformance/fiat/sequenced-journeys.json (also the V2 transaction hash and digest) and services/interop/PORTABILITY.md:136-146 with the rewritten values, and the payee literal 0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985 with 0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4 in services/interop/crates/layerx-visa-tap/tests/middleware.rs:273, tests/sequencer_result.rs:146, services/interop/crates/layerx-fiat/tests/adapter.rs:693 and services/interop/crates/layerx-interop-service/src/server.rs:4761 (recorded_x402_request); the paymentReference literal at server.rs:4756 is an input of the recording and does not change."
 do_6 = "Leave daemon/committed-fixture/vectors/vector-v2-receipted-revert.json (provenance revision 9e6b79d65), services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json, the layerx-bridge-relayer and layerx-gas-station test fixtures and services/interop/specs/conformance/x402/settlement-response.json unchanged; they are verified on their own and are recorded once in the qualification log. This task touches thirteen files because the fixture, its byte-equal copies and the payee literals must change in one revision (decision.1928)."
 symbols = ["seqVecLedgerPay", "seqVecLedgerPayment", "seqVecAssertFields", "TestSequencerReceiptVectors", "TestVectorFilesV1ToV3MatchSequencerReceiptFixture"]
-touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", "sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json", "sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json", "sdk/platform/conformance/fixtures/vector-v3-receipt-refusals.json", "services/interop/specs/conformance/x402/sequenced-settlement.json", "services/interop/specs/conformance/ucp/sequenced-order.json", "services/interop/specs/conformance/fiat/sequenced-journeys.json", "services/interop/PORTABILITY.md", "services/interop/crates/layerx-visa-tap/tests/middleware.rs", "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs", "services/interop/crates/layerx-fiat/tests/adapter.rs", "services/interop/crates/layerx-interop-service/src/server.rs", "services/interop/crates/layerx-x402/src/buyer.rs", "services/interop/crates/layerx-interop-service/src/payer_tx.rs"]
+touches = ["rpc/sequencer_receipt_vectors_test.go", "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", "sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json", "sdk/platform/conformance/fixtures/vector-v2-receipted-revert.json", "sdk/platform/conformance/fixtures/vector-v3-receipt-refusals.json", "services/interop/specs/conformance/x402/sequenced-settlement.json", "services/interop/specs/conformance/ucp/sequenced-order.json", "services/interop/specs/conformance/fiat/sequenced-journeys.json", "services/interop/PORTABILITY.md", "services/interop/crates/layerx-visa-tap/tests/middleware.rs", "services/interop/crates/layerx-visa-tap/tests/sequencer_result.rs", "services/interop/crates/layerx-fiat/tests/adapter.rs", "services/interop/crates/layerx-interop-service/src/server.rs", "services/interop/crates/layerx-x402/src/buyer.rs", "services/interop/crates/layerx-interop-service/src/payer_tx.rs", "services/interop/crates/layerx-interop-service/src/relay.rs"]
 tests = ["rpc/sequencer_receipt_vectors_test.go::TestSequencerReceiptVectors"]
 planned_paths = []
 build_cmd = "go build ./rpc/..."
@@ -194869,6 +195029,7 @@ do_8 = "Decision 1959 (extends decision.1928; 4ba621dc6, ac23f4e4a) orders this 
 do_9 = "Decision 1966 (extends decision.1928; 4e013c19c, 11.5.1) adds services/interop/crates/layerx-x402/src/buyer.rs to touches as a fourteenth file, for its tests module only. const TRANSACTION (src/buyer.rs:709-713) is a literal copy of the V1-layerxledger-pay-exact txHash that settlement() (:715-734) reads from sdk/platform/conformance/fixtures/sequencer-receipt-v1.json and that buyer_accepts_receipted_transaction_hash (:849-856) asserts against; set its 32 bytes to the re-recorded txHash 0xa0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1 (do_3). The literal stays a literal and is not read from the fixture (decision.1928); the assertions, capture_settlement (:434) and every other line of src/buyer.rs stay unchanged. Attempt 5 (06a27a325, the attempt 4 content 305a918a1 on base 1768567797) passed both Go legs and failed only this assertion (left 0xa0d985..., right 0x9f6be3b6...); the x402 sequenced_vectors and buyer_sequencer binaries and the five other cargo legs have not yet run and give the next real result."
 do_10 = "Attempt 6 (222f916 on dee4a39aa, the attempt 5 content plus do_9) built and passed every verify leg through layerx-visa-tap sequencer_result, including buyer::tests::buyer_accepts_receipted_transaction_hash with the re-recorded TRANSACTION literal, and failed only the last leg: 'error: no library targets found in package layerx-interop-service', because services/interop/crates/layerx-interop-service/Cargo.toml declares only the binary layerx-interop-gateway (src/main.rs) and the unit tests of its touched module live in that binary (src/server.rs; #[cfg(test)] modules in payer_tx.rs:150, relay.rs:345, config.rs:1066). The verify leg now selects --bin layerx-interop-gateway instead of --lib; the leg had never run green before because attempts 1 to 5 stopped at an earlier leg. Re-qualify 222f916 unchanged; no source change is expected."
 do_11 = "Attempt 7 (0b506ccc2 on 22b9ee184), decision 1978: re-record the literals of payer_tx::tests::decodes_the_recorded_pay_exact_transaction (payer_tx.rs:195, left.from against right.to) from the fixtures this task re-recorded; repair the ten server::tests failures (ap2_execute_relays_the_mandate_transaction, fiat_capture_evidence_refuses_missing_capture_and_unauthenticated_provider, fiat_capture_evidence_refuses_unsettled_tampered_or_mismatched_capture, fiat_callback_settles_through_the_relay, fiat_capture_evidence_restores_refunds_after_restart_without_resubmission, receipt_must_match_the_exact_submitted_activity, ucp_complete_relays_the_checkout_transaction, x402_settle_pending_carries_the_transaction_hash, visa_execute_refuses_a_transaction_to_another_contract, x402_settle_succeeds_on_the_receipted_rung) whose expected evidence comes from the fixtures this task changed, and record as one qualification line each failure whose expectation does not; relay::tests::a_committed_answer_with_another_block_hash_is_receipted is owned by capability 11.11.2 and is recorded, not repaired."
+do_12 = "Attempt 8 (eb4261f6c on 29f8a5dc1), three parts: (1) port the three remaining 'layerx:beta' network literals of services/interop/crates/layerx-interop-service/src/server.rs (:4696, :4758, :5386) to 'eip155:125', the only network server.rs:1131 admits (services/interop/crates/layerx-x402/src/facilitator.rs:693-718 turns the mismatch into UnsupportedOffer, the failure of the ten server::tests); (2) in the tests module of services/interop/crates/layerx-interop-service/src/relay.rs, in touches now (decision.1979), make a_committed_answer_with_another_block_hash_is_receipted (:794) take the block number and block hash from the re-recorded fixture it includes instead of the literals 1001 and 0xab..ab, so the mock block's hash differs from the receipt's and receipt() (:292-312) answers Receipted; (3) for x402_settle_succeeds_on_the_receipted_rung (server.rs:5227) check the settlement fixture against the EvidenceMismatch conditions of services/interop/crates/layerx-x402/src/seller.rs:315-352 (signature verification, protocol.activity_id equal to the transaction hash, committed proof) and re-record it to this candidate's pay_to and concatenation order if that is the mismatch. Change no assertion."
 
 [req.1812115]
 title = "The recorded payExact receipt carries a derivable payee in native PaymentExact order"
@@ -195425,6 +195586,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 
