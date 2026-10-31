@@ -9,19 +9,15 @@ use layerx_types::payload::ModuleRegistry;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
-use crate::binding::BindingJourney;
 use crate::custody::{CustodySigner, KeyId, Operation};
 use crate::notify::JourneyId;
 use crate::store::PrincipalScope;
 use crate::trace::TraceId;
 
 use super::{
-    AgentBoundary, DepositForwardFailure, DepositForwardJourney, DepositForwardStage,
-    DepositForwardStatus, DepositJourney, DepositJourneyError, DepositPlan, DepositStage,
-    DepositStatus, Endpoint, ExecutableShape, IntentWithdrawalJourney, IntentWithdrawalStage,
-    IntentWithdrawalStatus, JourneyEngine, JourneyError, JourneyLeg, JourneyPlan, JourneyState,
-    JourneyStatus, LegMechanism, Mechanism, RequiredAuthority, RouteRequest, RouteResolver,
-    UnifiedPlan, WithdrawalJourneyError, WithdrawalPlan, WithdrawalStage,
+    AgentBoundary, ExecutableShape, JourneyEngine, JourneyError, JourneyLeg, JourneyPlan,
+    JourneyState, JourneyStatus, LegMechanism, Mechanism, RequiredAuthority, RouteRequest,
+    RouteResolver, UnifiedPlan,
 };
 
 /// The submit classifier is the planner's executable shape contract.
@@ -411,200 +407,6 @@ pub async fn drive_intent_journey(
     Ok(status)
 }
 
-/// Starts the existing deposit journey for a verified custody-deposit plan.
-/// The deposit plan must credit exactly the planned amount and asset to the
-/// planned home account under the observed owner and the bound sequence.
-///
-/// # Errors
-///
-/// Refuses any binding defect, a plan of another shape, a deposit plan that
-/// differs from the signed plan, an unbound wallet, a submission already used
-/// under another idempotency key, and a journey that cannot be persisted.
-pub fn start_deposit_journey(
-    scope: &mut PrincipalScope<'_>,
-    plan: &UnifiedPlan,
-    request: &SubmitPlanRequest,
-    expectation: &BindingExpectation,
-    deposit: &DepositPlan,
-    binding: &BindingJourney,
-) -> Result<DepositJourney, SubmitRefusal> {
-    verify_bindings(plan, request, expectation)?;
-    if plan.executable_shape() != ExecutableShape::CustodyDeposit {
-        return Err(SubmitRefusal::UnsupportedPlan);
-    }
-    check_deposit(plan, request, expectation, deposit)?;
-    DepositJourney::start(scope, binding, deposit, expectation.now).map_err(|error| match error {
-        DepositJourneyError::IdempotencyConflict => SubmitRefusal::AlreadySubmitted,
-        DepositJourneyError::BindingUnavailable => SubmitRefusal::WalletNotBound,
-        _ => SubmitRefusal::JourneyUnavailable,
-    })
-}
-
-/// Starts the durable deposit-forwarding parent for a verified plan that
-/// deposits into the home account and then forwards through `LayerX` legs.
-/// The deposit child, the forward engine and the parent row are persisted
-/// together; the forward legs cannot prepare until the parent has verified
-/// the credit receipt.
-///
-/// # Errors
-///
-/// Refuses any binding defect, a plan of another shape, a deposit plan that
-/// differs from the signed credit leg, a forward route that does not resolve to
-/// its planned leg, a submission already used under another key, and a journey
-/// that cannot be persisted.
-pub fn start_deposit_forward_journey(
-    scope: &mut PrincipalScope<'_>,
-    plan: &UnifiedPlan,
-    request: &SubmitPlanRequest,
-    expectation: &BindingExpectation,
-    deposit: &DepositPlan,
-    binding: &BindingJourney,
-    forward: KernelStart<'_>,
-) -> Result<DepositForwardJourney, SubmitRefusal> {
-    verify_bindings(plan, request, expectation)?;
-    if plan.executable_shape() != ExecutableShape::DepositForward {
-        return Err(SubmitRefusal::UnsupportedPlan);
-    }
-    check_deposit(plan, request, expectation, deposit)?;
-    let legs = kernel_journey_legs(plan, request, expectation, forward.routes)?;
-    DepositForwardJourney::start(
-        scope,
-        binding,
-        deposit,
-        legs,
-        forward.custody_key,
-        forward.registry,
-        forward.journey_id,
-        plan.digest(),
-        expectation.now,
-    )
-    .map_err(|error| match error {
-        DepositJourneyError::IdempotencyConflict
-        | DepositJourneyError::Journey(JourneyError::IdempotencyConflict) => {
-            SubmitRefusal::AlreadySubmitted
-        }
-        DepositJourneyError::BindingUnavailable => SubmitRefusal::WalletNotBound,
-        _ => SubmitRefusal::JourneyUnavailable,
-    })
-}
-
-/// Starts the durable withdrawal parent for a verified plan that ends in a
-/// withdrawal request and its Paxeer finalisation. A transfer-then-withdraw
-/// plan persists its `LayerX` prelude first; the withdrawal itself starts only
-/// after every prelude leg carries verified receipt evidence.
-///
-/// # Errors
-///
-/// Refuses any binding defect, a plan of another shape, a withdrawal plan that
-/// differs from the signed request leg, a prelude route that does not resolve
-/// to its planned leg, a submission already used under another key, and a
-/// journey that cannot be persisted.
-pub fn start_withdrawal_intent(
-    scope: &mut PrincipalScope<'_>,
-    plan: &UnifiedPlan,
-    request: &SubmitPlanRequest,
-    expectation: &BindingExpectation,
-    withdrawal: &WithdrawalPlan,
-    prelude: KernelStart<'_>,
-) -> Result<IntentWithdrawalJourney, SubmitRefusal> {
-    verify_bindings(plan, request, expectation)?;
-    let shape = plan.executable_shape();
-    if !matches!(
-        shape,
-        ExecutableShape::WithdrawToWallet | ExecutableShape::TransferThenWithdraw
-    ) {
-        return Err(SubmitRefusal::UnsupportedPlan);
-    }
-    let count = plan.legs().len();
-    let (Some(debit), Some(debit_binding), Some(finalise)) = (
-        plan.legs().get(count.saturating_sub(2)),
-        request.bindings.get(count.saturating_sub(2)),
-        plan.legs().last(),
-    ) else {
-        return Err(SubmitRefusal::UnsupportedPlan);
-    };
-    let Endpoint::Human(owner) = debit.source() else {
-        return Err(SubmitRefusal::WithdrawalMismatch);
-    };
-    if debit.mechanism() != LegMechanism::Protocol(Mechanism::BridgeWithdrawRequest)
-        || finalise.mechanism() != LegMechanism::PaxeerWithdrawFinalise
-        || withdrawal.amount != debit.amount()
-        || withdrawal.asset != debit.asset()
-        || &withdrawal.owner != owner
-        || withdrawal.currency != expectation.currency
-        || withdrawal.agent.actor != expectation.actor
-        || withdrawal.agent.authority != expectation.authority
-        || withdrawal.agent.account_sequence != debit_binding.account_sequence
-        || withdrawal.agent.fee_limit > debit_binding.fee_limit
-        || withdrawal.agent.not_before < debit_binding.not_before
-        || withdrawal.agent.not_after > debit_binding.not_after
-    {
-        return Err(SubmitRefusal::WithdrawalMismatch);
-    }
-    let prelude_legs = if shape == ExecutableShape::TransferThenWithdraw {
-        kernel_journey_legs(plan, request, expectation, prelude.routes)?
-    } else if prelude.routes.is_empty() {
-        Vec::new()
-    } else {
-        return Err(SubmitRefusal::UnboundLegs {
-            expected: 0,
-            bound: prelude.routes.len(),
-        });
-    };
-    IntentWithdrawalJourney::start(
-        scope,
-        prelude.journey_id,
-        plan.digest(),
-        prelude_legs,
-        prelude.custody_key,
-        prelude.registry,
-        withdrawal,
-        expectation.now,
-    )
-    .map_err(|error| match error {
-        WithdrawalJourneyError::IdempotencyConflict
-        | WithdrawalJourneyError::Journey(JourneyError::IdempotencyConflict) => {
-            SubmitRefusal::AlreadySubmitted
-        }
-        _ => SubmitRefusal::JourneyUnavailable,
-    })
-}
-
-fn check_deposit(
-    plan: &UnifiedPlan,
-    request: &SubmitPlanRequest,
-    expectation: &BindingExpectation,
-    deposit: &DepositPlan,
-) -> Result<(), SubmitRefusal> {
-    let (Some(custody), Some(credit), Some(credit_binding)) = (
-        plan.legs().first(),
-        plan.legs().get(1),
-        request.bindings.get(1),
-    ) else {
-        return Err(SubmitRefusal::UnsupportedPlan);
-    };
-    if custody.mechanism() != LegMechanism::PaxeerCustodyDeposit
-        || credit.mechanism() != LegMechanism::Protocol(Mechanism::BridgeDepositCredit)
-    {
-        return Err(SubmitRefusal::UnsupportedPlan);
-    }
-    let Endpoint::Human(recipient) = credit.destination() else {
-        return Err(SubmitRefusal::DepositMismatch);
-    };
-    if deposit.amount != credit.amount()
-        || deposit.asset != credit.asset()
-        || &deposit.recipient != recipient
-        || deposit.currency != expectation.currency
-        || deposit.agent.actor != expectation.actor
-        || deposit.agent.authority != expectation.authority
-        || deposit.agent.account_sequence != credit_binding.account_sequence
-        || deposit.agent.fee_limit > credit_binding.fee_limit
-    {
-        return Err(SubmitRefusal::DepositMismatch);
-    }
-    Ok(())
-}
-
 /// The `IntentSubmission` the submit operation returns.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct IntentSubmission {
@@ -624,73 +426,6 @@ impl IntentSubmission {
             JourneyState::StillChecking => "still-checking",
             JourneyState::Done => "done",
             JourneyState::Refused => "refused",
-        };
-        Self {
-            journey_id: status.journey_id().clone(),
-            plan_digest,
-            state,
-        }
-    }
-
-    /// Describes a custody-deposit intent journey at its current stage.
-    #[must_use]
-    pub fn from_deposit(status: &DepositStatus, plan_digest: [u8; 32]) -> Self {
-        let state = match status.stage() {
-            DepositStage::WaitingForWallet => "waiting-for-you",
-            DepositStage::ConfirmingPaxeer { .. } | DepositStage::CreditingLayerX => "processing",
-            DepositStage::Done => "done",
-            DepositStage::Failed(_) => "refused",
-        };
-        Self {
-            journey_id: status.journey_id().clone(),
-            plan_digest,
-            state,
-        }
-    }
-
-    /// Describes a deposit-forwarding parent journey at its current stage.
-    #[must_use]
-    pub fn from_deposit_forward(status: &DepositForwardStatus, plan_digest: [u8; 32]) -> Self {
-        let state = match status.stage() {
-            DepositForwardStage::Depositing(DepositStage::WaitingForWallet) => "waiting-for-you",
-            DepositForwardStage::Depositing(DepositStage::Failed(_))
-            | DepositForwardStage::Failed(
-                DepositForwardFailure::DepositFailed(_) | DepositForwardFailure::ForwardRefused,
-            ) => "refused",
-            DepositForwardStage::Depositing(
-                DepositStage::ConfirmingPaxeer { .. }
-                | DepositStage::CreditingLayerX
-                | DepositStage::Done,
-            )
-            | DepositForwardStage::Forwarding => "processing",
-            DepositForwardStage::Done => "done",
-        };
-        Self {
-            journey_id: status.journey_id().clone(),
-            plan_digest,
-            state,
-        }
-    }
-
-    /// Describes a withdrawal parent journey at its current stage.
-    #[must_use]
-    pub fn from_withdrawal(status: &IntentWithdrawalStatus, plan_digest: [u8; 32]) -> Self {
-        let state = match status.stage() {
-            IntentWithdrawalStage::Transferring => "processing",
-            IntentWithdrawalStage::Withdrawing(
-                WithdrawalStage::ReadyToClaim | WithdrawalStage::ReadyToFinalise,
-            )
-            | IntentWithdrawalStage::AwaitingAuthorization => "waiting-for-you",
-            IntentWithdrawalStage::Withdrawing(
-                WithdrawalStage::Processing
-                | WithdrawalStage::WaitingForSettlement { .. }
-                | WithdrawalStage::ClaimSubmitting
-                | WithdrawalStage::WaitingForChallengeWindow { .. }
-                | WithdrawalStage::VerifyingPayout,
-            ) => "processing",
-            IntentWithdrawalStage::Withdrawing(WithdrawalStage::PaidOut(_)) => "done",
-            IntentWithdrawalStage::Withdrawing(WithdrawalStage::Cancelled(_))
-            | IntentWithdrawalStage::TransferRefused => "refused",
         };
         Self {
             journey_id: status.journey_id().clone(),

@@ -851,3 +851,36 @@ fn readyz_reports_the_funding_chain_and_sender() {
         json!({"ready": false, "reason": "chain_unavailable"})
     );
 }
+
+#[test]
+fn retired_activity_and_program_routes_answer_not_found() {
+    let harness = Harness::with_chain("retired-routes", false, Some(([127, 0, 0, 1], 1).into()));
+    for path in [
+        "/v1/activities",
+        "/v1/programs/call",
+        "/v1/programs/deploy",
+        "/v1/programs/upgrade",
+        "/v1/programs/wind-down",
+        "/v1/programs/read",
+        "/v1/programs/simulate",
+    ] {
+        for (method, content_type, body) in [
+            ("POST", "application/json", r#"{"activity":"00"}"#),
+            ("POST", "application/octet-stream", "activity"),
+            ("GET", "application/json", ""),
+        ] {
+            let (status, document) = harness.request_on(
+                harness.listen,
+                &format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\nContent-Type: {content_type}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()),
+            );
+            assert_eq!(status, 404, "{method} {path}: {document}");
+            assert_eq!(document["error"]["code"], "not_found", "{method} {path}");
+        }
+    }
+    let (status, document) = harness.request_on(
+        harness.listen,
+        "GET /v1/sequencer HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
+    );
+    assert_eq!(status, 503, "{document}");
+    assert_eq!(document["error"]["code"], "node_unavailable");
+}

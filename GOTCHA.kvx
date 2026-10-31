@@ -11476,3 +11476,373 @@ fix = "Run npm ci inside apps/web before any human-build or human-test target; t
 title = "A go test package fails to build when another test file still names a removed field"
 symptom = "go test ./precompiles/<pkg>/ -run X reports '[build failed]' from a different test file of the package (retire_read_gate_test.go:115 keepers.AnchorKeeper undefined) even though the focused test and the package build pass."
 fix = "A task that removes a field from a shared struct owns every test file in the package that names it: add those files to touches and delete the dead statements in the same change."
+
+[gotcha.2333]
+title = "A gateway method moved off the kernel core must also leave kernel_backend"
+symptom = "The gateway answers {'code':-32010,'data':{'backend':'public_core','code':'kernel_unavailable','reason':'not_configured'}} for a method whose handler no longer reads the kernel, because kernel_backend (services/platform/hosted/gateway/src/rpc.rs:338) still maps the method name to a KernelBackend and the readiness check runs before the handler."
+fix = "When a method's reads move to the indexer or the chain, remove its arm from kernel_backend in the same task and declare rpc.rs in touches."
+
+[gotcha.2334]
+title = "The precompile wrapper repacks an executor's retirement revert"
+symptom = "A precompile method retired inside its executor (layerxanchor Execute answering RetiredRevert) reaches the EVM as Error('execution reverted') (100 bytes) instead of the 132-byte LXP_MODULE_DISABLED data, because precompiles/common/precompiles.go Run repacks every executor error through revertData unless its own retirePlan gate fired for that method."
+fix = "Test retirement through Run, not GetExecutor().Execute; keep executor revert data in Run when the error is vm.ErrExecutionReverted and bytes were returned (decision.1981), and evaluate retirement before the staticcall refusal in Execute."
+
+[gotcha.2335]
+title = "A symbol a task deletes cannot stay in its symbols list"
+symptom = "The focused test passes and completion fails with 'symbol <name> not defined in the graph' because the task's symbols list names a function one of its do lines deletes."
+fix = "When a do line deletes a function, remove it from symbols in the same spec edit; symbols names what the finished task defines."
+
+[gotcha.2336]
+title = "A client component cannot import a server-only module"
+symptom = "next build fails on a 'use client' component that imports a module beginning with import 'server-only' (apps/web/src/api/gateway.ts), even if only one function is used."
+fix = "Move the read behind a 'use server' action in the route's actions.ts and call the action from the client."
+
+[gotcha.2337]
+title = "UnixMovementProvider validates socket ownership and mode at open"
+symptom = "ProductionComponents::open fails with 'movement provider refused startup' when LAYERX_HUMAN_MOVEMENT_SOCKET names a path with no socket, a symlink, a socket not owned by LAYERX_HUMAN_MOVEMENT_PEER_UID/GID, or one with other-permission bits (the umask leaves them after bind); the provider connects lazily, so no provider process is needed."
+fix = "In tests bind a UnixListener at the path inside a 0o700 directory, chmod the socket to 0o600 right after bind and keep the listener alive for the test's duration."
+
+[gotcha.2338]
+title = "decode_block requires receiptsRoot"
+symptom = "A mock eth_getBlockByNumber answer without receiptsRoot decodes as SequencerError::Malformed in layerx-client sequencer.rs decode_block, and the interop relay then reports Receipted instead of Committed; it looks like a hash mismatch but is a missing field."
+fix = "Mock blocks carry number, hash, parentHash, timestamp, transactionsRoot, receiptsRoot and transactions."
+
+[gotcha.2339]
+title = "ProductionComponents::open needs the events upstream variables"
+symptom = "layerx-human-service ProductionComponents::open starts HumanOutbox, which calls producer::Client::from_environment and refuses without LAYERX_EVENTS_JOURNEY_, LAYERX_EVENTS_APPROVAL_ and LAYERX_EVENTS_WEBHOOKS_ UPSTREAM_URL (https origin with a port) and UPSTREAM_CA_DER (existing DER file)."
+fix = "Tests bind a TcpListener on 127.0.0.1, point the three URLs at https://127.0.0.1:<port> and the three CA paths at a DER file they write; spawn opens no connection at startup."
+
+[gotcha.2340]
+title = "SELECTOR_GET_ASSET is the ledger getAsset selector"
+symptom = "The gateway's SELECTOR_GET_ASSET (0x2cc3ce80) looks like a custody-only constant but custody_asset sends it to the ledger precompile; deleting it with the custody selectors breaks paxeer.rs."
+fix = "Keep it beside the ledger constants when retiring the custody selectors."
+
+[gotcha.2341]
+title = "Local node panics need node.log"
+symptom = "tools/qualification/localnode/v6120-node.sh keeps node.log under $NODE_HOME and exports no home path, so an eth_sendRawTransaction 'method handler crashed' in the Go test leaves no panic site in the test output."
+fix = "Export LOCAL_NODE_HOME in localnode.env and log the tail of node.log from a t.Cleanup when the test failed."
+
+[gotcha.2342]
+title = "A webpack alias can hide a server-only import"
+symptom = "next build passes when next.config.mjs aliases a server-only module path to a 'use server' actions file for one importer, while the importer still names the server-only module."
+fix = "Import the server action module directly; add no resolve.alias detours."
+
+[gotcha.2343]
+title = "The receipt authority's kernel socket has three readers"
+symptom = "Deleting Config.lni_socket and lni_gate in services/platform/hosted/authority/src/main.rs breaks human/budget_state.rs:77 and :256, checkpoint_for and verify_withdrawal_request with E0609; the receipt handshake is only one of the socket's users."
+fix = "Remove the handshake first; delete the fields after the budget-state, checkpoint and withdrawal readers are ported."
+
+[gotcha.2344]
+title = "validate_submission_payload has a caller in public_reads.rs"
+symptom = "The core fee route public_reads.rs:246 calls super::validate_submission_payload, so deleting the submission validator with the activity routes in main.rs fails the build."
+fix = "Keep the validator until the fee route is ported or retired."
+
+[gotcha.2345]
+title = "sdkgen receipt_contract requires the retired program-execution sections"
+symptom = "sdk/platform/generators receipt_contract fails with 'missing declaration type.ProgramExecutionV4.domain' because programs.kvx no longer carries [type.ProgramExecutionV4] and [type.ProgramExecutionV5] since 1d0cc3720."
+fix = "Delete the ProgramExecutionV4/V5 loop of receipt_contract; keep the ProgramGuestAbi checks."
+
+[gotcha.2346]
+title = "The completion check refuses symbols another task already removed"
+symptom = "cg spec done fails when a task's symbols list names identifiers that an earlier task deleted, even if the task's own build and tests passed."
+fix = "List only the symbols the task adds or keeps; move deletions to the do lines."
+
+[gotcha.2347]
+title = "A unit gate can pass while the real path fails"
+symptom = "Tasks that change an interface passed their declared test with mocked transports or hand-built messages and failed in the next task that consumed the real output: receipts the consumer could not verify, a socket a reader still needed, a validator with a live caller, a generator pinned to a removed schema."
+fix = "Interface-changing tasks carry proof_policy: drive the real producer through the real transport into the real consumer in the declared test, restart and recover where state crosses a restart (decision 1990)."
+
+[gotcha.2348]
+title = "A cargo gate without --locked lets a manifest change drift the workspace lock"
+symptom = "0fdebd9dc (task 8.96.4) dropped a dependency from services/platform/hosted/registry/Cargo.toml; its build ran without --locked, cargo rewrote the lock in the tree, the lock was outside touches and stayed stale on main, and every later --locked gate of the platform workspace refused before compiling (8.98.5, 8.98.1, 8.4.4, 10.20.3)."
+fix = "A task that edits a Cargo.toml dependency declares the workspace Cargo.lock in touches and builds with --locked; a lock refresh task (18.1297.2) repairs a drift that already landed."
+
+[gotcha.2349]
+title = "Refreshing a stale lock in the tree qualifies a tree that is not the one published"
+symptom = "Attempts of 8.11.3 (622f52719), 8.4.4 and 8.98.1 ran cargo fetch without --locked to get past the stale platform lock, built and verified with the refreshed lock, and published without it because the lock was outside touches; main still refuses --locked builds."
+fix = "Record the drift as a finding and let the lock refresh task land; a passing gate on a tree the publication does not contain is not the task's proof."
+
+[gotcha.2350]
+title = "A whole-binary cargo test verify is an aggregate gate when another task owns cases in the binary"
+symptom = "18.1228.1 ran cargo test --test agent_controls_rungs and failed thirteen attempts on three archive_fixture cases that 18.1149.1 lists as its tests."
+fix = "Name the owned cases with --skip in the verify command (decision.1993) or run the declared cases with --exact; the owning task proves its own cases."
+
+[gotcha.2351]
+title = "A symbols entry the task deletes fails the graph check"
+symptom = "8.50.4 listed post_activity in symbols while do_3 deletes Client::post_activity; two attempts implemented and tested everything and cg spec done refused with 'symbol post_activity — not defined in the graph'."
+fix = "symbols lists only the symbols that exist after the task; a deleted symbol is named in the do line and the test, never in symbols."
+
+[gotcha.2352]
+title = "Regenerating a contract's outputs breaks the consumers the contract rewrite left behind"
+symptom = "8.45.1 rewrote the receipt contract and 9.97.3 regenerated its Rust, TypeScript and Python outputs; the SDK verifiers, programs modules and web search and x402 clients still implemented the kernel receipt path over names the new contract no longer defines, and no task owned their port."
+fix = "When a contract is rewritten, list every consumer of the generated names and give each a retirement or port task that the regeneration task requires (decision.1992)."
+
+[gotcha.2353]
+title = "A build command that checks the file the task deletes"
+symptom = "16.8.1's build_cmd was bash -n on tools/paxeer-x/gates/2.2.sh while do_1 deletes that file; two attempts exited 127 at build and never verified."
+fix = "When a do line deletes a file, the build and verify commands must name only files that remain; point them at the surviving sibling."
+
+[gotcha.2354]
+title = "A scan path wider than the task's touches catches sibling work"
+symptom = "16.6.1 scanned --path scripts for retired callers and failed on scripts/ci/solidity-state-surface.sh, which 16.5.3 owned and had not yet published."
+fix = "Either narrow the scan path to the task's own files or add the owner of every other file under the path to requires."
+
+[gotcha.2355]
+title = "A self-test that reads the spec text goes stale with the spec"
+symptom = "retired_callers_test.py --self-test required its component set to equal the --component names in spec verify_cmd lines; after the scans moved into unittest files no verify_cmd named the tool and the self-test failed for every caller."
+fix = "A tool's self-test must not depend on how the spec phrases its gates; check inclusion over every spec line, or drop the coupling."
+
+[gotcha.2356]
+title = "An operator renderer that reaches ssh and the live gateway cannot run as a gate"
+symptom = "16.7.4's test ran xweb-config.sh render serve, which lists names over ssh through the private host map and prices through the gateway; the gate exited 2 on the unset host map."
+fix = "Give the renderer overridable inputs (names variable, endpoint variable) and prove the consumer path against a loopback fixture in the record shape the contract test asserts."
+
+[gotcha.2357]
+title = "A continuation note on file relaunches a parked task at once"
+symptom = "Tasks 12.34.4, 9.97.6, 8.19.6, 16.3.1 and 16.3.2 were relaunched within a minute of parking, each time from a stale note written before the spec change had synced; the holds placed afterwards found them claimed."
+fix = "Hold the task first, land and sync the spec change, then write the continuation note and release; never write a note for a task whose packet would still carry the old touches."
+
+[gotcha.2358]
+title = "A Makefile rule retirement that drops sources from the link list"
+symptom = "16.0.4 removed lxp_daemon_finality_authority.c and lxp_daemon_batch_wal.c from LAYERXD_SOURCES while retiring their test rules; the daemon's other sources still call them and layerxd no longer links, which make -n build test cannot show."
+fix = "A source leaves a link list only with its last caller; when a task retires test rules, its build must link the binaries those rules exercised."
+
+[gotcha.2359]
+title = "An app-wide typecheck as the build gate of a shared hook change"
+symptom = "12.34.4 changed one hook's return type with two consumer components outside its touches; the declared build (the whole wallet typecheck) failed three attempts on those consumers."
+fix = "A task that changes a shared hook's shape owns every consumer the build compiles; list them in touches before the first attempt."
+
+[gotcha.2360]
+title = "A cargo test skip filter with a module prefix"
+symptom = "18.1228.1 skipped archive_fixture::<case> and the same cases failed at the top level of another test binary."
+fix = "cargo test --skip matches a substring; skip the bare case name so every binary that carries the case skips it."
+
+[gotcha.2361]
+title = "A no-argument container layout aggregate as a task gate"
+symptom = "16.3.1's test ran tools/containers/check.sh with no arguments and failed on six Dockerfiles outside docker/ that other owners hold."
+fix = "Gate on the explicit service and on the absence of the retired paths; the repo-wide layout aggregate is not a task-level gate."
+
+[gotcha.2362]
+title = "An included makefile defines a target the root test treats as retired"
+symptom = "16.2.4 retired platform-hosted-topology-check from the root Makefile and make -n still answered it from services/platform/Makefile.inc:199."
+fix = "Before listing a target as retired, run make -n <target> and read which included file still defines it; an included module's own check stays."
+
+[gotcha.2363]
+title = "A verify command that names a test binary the task empties"
+symptom = "9.97.6 deleted receipt_keys.rs and receipt_fixture.rs as its do line allowed and the verify command still passed --test receipt_keys: 'no test target named receipt_keys'."
+fix = "When a do line may delete a whole test file, the verify command lists only the binaries that survive."
+
+[gotcha.2364]
+title = "A retired type still named by a sibling module's header"
+symptom = "1.12.1 deleted lxp_grant_state and lx_budget.h:204 (a budget module reader with no caller) still declared a function on it, outside 1.12.1's touches."
+fix = "Before deleting a type, grep every header and source for its name and put each declaring file in the touches."
+
+[gotcha.2365]
+title = "A retirement assertion counted as a live reference"
+symptom = "6.52.4's path scan flagged tools/ci/tests/test_makefile_wave4.py:61, where a retired contract path appears only in a list asserting it is absent from make -n output."
+fix = "Give every retired-path scan a skip set for files that name retired paths to assert absence (makefile retirement tests, the deleted-tree catalogue); a match there is not a caller."
+
+[gotcha.2366]
+title = "A dependents compile fails on a sibling test a done task broke"
+symptom = "8.16.7 built its crate clean and the dependents compile failed on a gateway test that names a constant a done task deleted eleven waves earlier; the done task's gate ran only its unit tests."
+fix = "When a task deletes a pub item, its scan covers every test binary of the workspace that names it; when a dependents compile fails outside the task's touches, open a wave-1 repair task and gate the affected builds on it instead of widening the task."
+
+[gotcha.2367]
+title = "Relinking a retiring binary to satisfy a consumer"
+symptom = "16.0.5 was written to relink layerxd so make build would pass for the emulator; the daemon does not even compile on main after a type retirement, and it is scheduled for deletion."
+fix = "When a consumer's build runs an aggregate that links a retiring binary, point the consumer at the artifact it consumes; never restore a retiring surface to satisfy an aggregate."
+
+[gotcha.2368]
+title = "A producer shape change whose test readers live in another file"
+symptom = "8.5.3 changed px_getNetwork's result and verified its own one_source_reads test; four degraded.rs tests kept asserting the old kernel field and failed on main for a week until 8.3.1's verify named one."
+fix = "A task that changes a response shape greps the whole crate's tests for the old field names and lists each file in its touches; the proof_policy requires the consumers' assertions, not only the producer's."
+
+[gotcha.2369]
+title = "A self-test that hard-codes a path a tree move renamed"
+symptom = "The retired-callers self-test expected the path agent to overlap a deleted tree; after the agent workspace moved to services/agent, no tree lay under agent/ and the self-test has failed on main since."
+fix = "After a tree move, run every self-test that builds fixtures from repository paths and grep self-tests for the old prefix."
+
+[gotcha.2370]
+title = "A do line keeps helpers the task's own planned scan forbids"
+symptom = "8.98.5 do_7 kept the lni connect helpers for a later task while do_4 asked the planned scan to fail on every retired path, so attempt 7 could not pass."
+fix = "When a do line defers part of a retirement, the planned scan's list excludes that part explicitly and the deferring task's do lines add it back."
+
+[gotcha.2371]
+title = "A rule-text task built a binary another task ports"
+symptom = "16.2.4's planned test asserted the make rule omits the WAL source and then built the binary, whose caller source still names the WAL symbols; the link failed in a task that does not touch that source."
+fix = "The link proof belongs to the task that ports the caller; a Makefile task asserts rule text and make -n output and leaves the build to the task whose touches hold the sources."
+
+[gotcha.2372]
+title = "A root-token scan cannot tell a project's own Dockerfile from the root one"
+symptom = "16.3.5 failed twice on eighteen lines where tests, deploy configuration and gates name the Dockerfile beside them, a docker/<name>/Dockerfile path or a retired-paths ledger."
+fix = "When a scan matches a bare file token, read every hit before ruling: exempt directories that own a file of that name and ledgers that list retired paths; read the first failure of an attempt, not only the last."
+
+[gotcha.2373]
+title = "Sibling retirement groups reference each other's files"
+symptom = "8.47.4's generator writes a fixture 8.47.5 deletes and 8.47.5's fixtures name 8.47.4's generator, so each task's absence scan hit the other's files."
+fix = "When a retirement is split into groups, each scan skips the sibling groups' files and the task that requires all groups asserts the closure."
+
+[gotcha.2374]
+title = "A red test binary pulled into a verify"
+symptom = "Decision 2005 put the layerx-sdk sdk binary into 9.97.6's verify; it had been failing on main since the agent-api contract moved to major 2 and the task failed on assertions it never touched."
+fix = "Before adding a test binary to a verify, check it is green on main at the task's base; if it is red, the task that owns the file updates the stale assertions and the finding records the red period."
+
+[gotcha.2375]
+title = "A dead public path kept alive by package exports"
+symptom = "The Python SDK's checkpoint-evidence path (x402.py, x402_checkpoint.py) had no caller but the __init__ exports and still broke the package import when its verifier dependencies went."
+fix = "When deleting a stack, follow every import of the deleted names through the package, including modules the task did not list, and delete dead consumers with the stack instead of keeping them importable."
+
+[gotcha.2376]
+title = "Type-only consumers of a retiring interface"
+symptom = "The TypeScript SDK's ai_market.ts imports two verifier interfaces as types only; deleting them with the kernel receipt functions broke the build three times."
+fix = "When retiring a module, grep for type imports as well as calls; interfaces with a surviving type-only consumer stay exported and the finding names the consumer for its owner."
+
+[gotcha.2377]
+title = "Graph-check symbols must be defined in touched files"
+symptom = "18.1195.1 and 18.1196.1 passed their verify and the qualification refused symbols naming the production item under test, which lives in an untouched file."
+fix = "A test-only task lists its declared test functions as symbols; the graph indexes only touched and declared-symbol files."
+
+[gotcha.2378]
+title = "An ordinal change proven on the producer only"
+symptom = "18.1188.1 moved the budget defund to activity 8 in the intents crate and verified that crate; the service's expected-operation constant and two test registries kept 7, so the real archive defund refuses its receipt and the archive binary has failed on main since."
+fix = "An interface change lists every consumer of the old value (grep the constant and the ordinal across the workspace, tests included) in its touches and runs the consumers' binaries; this is the producer-transport-consumer proof the proof_policy requires."
+
+[gotcha.2379]
+title = "An archive schema derived from the schema it replaces"
+symptom = "14.23.1 built the explorer archive schemas from the kernel schemas' schema() functions; 14.23.5, which deletes those, could not compile."
+fix = "A replacement schema is written standalone; a task that deletes a schema greps for its module name in schemas and tests and lists every deriving file in its touches."
+
+[gotcha.2380]
+title = "A fixture deleted while unit tests include it by path"
+symptom = "8.47.6 deleted receipt-programs-executed-v4.json and scanned sdk/platform/conformance; layerx-sdk, layerx-agentd and the platform CLI include the file with include_str! in their unit tests, so three lib test targets stopped compiling on main."
+fix = "A deletion task greps the basename across the whole repository, tests included, and lists every reader in its touches or a wave-1 follow-up removes them before the deletion publishes."
+
+[gotcha.2381]
+title = "Generated constants asserted undefined by a retiring task"
+symptom = "9.97.8 asserted PROGRAM_OUTCOME_TAGS and PROGRAMS_MODULE_ID undefined; they are generated into src/generated/receipt.ts and only the generator task removes them."
+fix = "A retirement test asserts only names its own touches delete; generated names belong to the task that regenerates them."
+
+[gotcha.2382]
+title = "A continue line that does not restate the skipped do line"
+symptom = "Attempt 4 of 1.12.1 continued from attempt 3 and skipped do_7's deletion a second time; the continue line said only 'keep its deletions'."
+fix = "A continue line names the specific do lines the earlier attempt left undone, with the file and lines."
+
+[gotcha.2383]
+title = "A wave-29 scan asserting deletions of wave 44"
+symptom = "16.9.4 ran the retired-callers scan with --deleted over trees that later-wave tasks delete and failed on every tree that still existed."
+fix = "A task asserts only the state its own wave produces; absence of a tree is proven by the task that deletes it."
+
+[gotcha.2384]
+title = "A test that pins sibling test sources with include_str!"
+symptom = "8.98.4's scan test included tests/real_node.rs, which task 8.19.7 deleted while the attempt ran, and the test binary stopped compiling."
+fix = "Scan tests read the sources they check from disk at run time and list only files the task owns or no pending task deletes."
+
+[gotcha.2385]
+title = "A mock RPC script written from the described order, not the code's"
+symptom = "lookup_authenticated issues pax_sequencerReceipt and px_getReceiptKeys and verifies execution before eth_getTransactionReceipt; seventeen attempts of 18.1200.1 scripted a receipt that failed verification and never reached the last exchange."
+fix = "Read the client's call order from the code and script the mock's exchanges in that order with a receipt the client verifies."
+
+[gotcha.2386]
+title = "Chain-reading tests run against the default RPC URL"
+symptom = "The gateway precompile route tests of 12.13.2, 12.13.3 and 12.13.4 need a node serving the precompiles; four attempts each ran against the default mainnet URL and failed with 502."
+fix = "A task whose tests read the chain starts the local node fixture in verify_cmd and passes its RPC URL."
+
+[gotcha.2387]
+title = "A codec deleted at wave 29 while its callers retire at wave 44"
+symptom = "1.6.3 deleted lxp_state_diff.h and its source at wave 29; three files that 1.34.1, 1.34.2 and 1.33.3 delete at wave 44 still included it and the library build stopped at the first include."
+fix = "A deletion task sits after every task that deletes the remaining callers and requires them; its title saying 'once the users leave' is not a schedule."
+
+[gotcha.2388]
+title = "Build commands naming test targets an earlier retirement unruled"
+symptom = "16.33.2, 16.33.5 and 16.33.6 built targets whose Makefile rules 16.0.4 and 16.2.4 had removed and stopped with 'No rule to make target' before any verify."
+fix = "Before a batch lands, grep the Makefile for every target build_cmd names; a test file no rule compiles is dead and a retirement task deletes it."
+
+[gotcha.2389]
+title = "A retired-suite scan matching a shared header include"
+symptom = "16.97.2's web intake scan matched '#include layerx/lx_web.h' and listed five live tests that include the still-live web module header."
+fix = "Absence scans match the retired suite's own path and identifiers, never a header other live files include."
+
+[gotcha.2390]
+title = "A symbols list naming a helper the task deletes"
+symptom = "8.18.1 listed collide, the manifest_check.py helper its do_4 removes; the verify passed and the graph check failed on the missing symbol twice."
+fix = "symbols names only what the task defines or keeps in its touched files; anything a do line deletes leaves the list."
+
+[gotcha.2391]
+title = "A package initialiser importing the module a task deletes"
+symptom = "8.32.1 deleted relay_archive/runtime.py and forward.py and __init__.py:3 still imported RelayArchive from the deleted module, failing the task's own import scan."
+fix = "When a task deletes modules of a python package that outlives them, its touches include the package's __init__.py and a do line removes the import."
+
+[gotcha.2392]
+title = "A retired-module scan list longer than the task's port"
+symptom = "8.98.4 and 8.98.5 listed every retired client module while their do lines kept lni, client, evidence or handover uses; attempts peeled one module per attempt, failing on the next."
+fix = "The scan list of a migration task equals the modules its do lines port in the files it owns; kept modules are named in a do line and left out of the list."
+
+[gotcha.2393]
+title = "A differential that reports one line for six checks"
+symptom = "13.34.1's qualify_workload returned 1 from six places and printed only 'low-conflict differential failed'; four attempts could not tell which stage diverged."
+fix = "A test with several silent early returns prints the stage and the compared values on each return before any repair is attempted."
+
+[gotcha.2394]
+title = "A recorded exchange re-recorded under a test that decodes it"
+symptom = "18.1129.1 re-recorded the x-websearch client exchange with a grantId reference; the typescript web search test still decoded grant bytes from it and failed on main."
+fix = "A task that re-records a shared fixture lists every reader of the fixture and ports or hands off each; readers across the sdk trees count."
+
+[gotcha.2395]
+title = "A locked cargo build against a lock a path dependency outdated"
+symptom = "18.1211.5 changed no manifest and cargo --locked refused services/interop/Cargo.lock; a path dependency manifest changed after the lock was last written."
+fix = "When a candidate changes no manifest and --locked refuses, the lock is stale on main: the task touches the lock and refreshes it before the build."
+
+[gotcha.2396]
+title = "A deletion whose last caller sits outside the touches"
+symptom = "1.12.1 deleted lxp_verify_payer_grant with the ledger header and lx_asset_transfer.c:68, not in its touches, still called it."
+fix = "Before deleting a declaration, grep every caller across src, include and tests and add each file to touches with a do line."
+
+[gotcha.2397]
+title = "End-to-end tests still starting a retired daemon"
+symptom = "10.20.3 and 18.1200.1 ran tests that start layerxd from build/bin after 5.50.1, 5.50.3 and 5.50.4 retired its servers; the binary no longer builds and 26 attempts chased it."
+fix = "When a component is retired, every test that spawns it is listed and reworked onto the replacement in the same programme; a precondition on its binaries is a stop sign."
+
+[gotcha.2398]
+title = "A local node fixture that never brings the merge precompiles live"
+symptom = "The gateway route tests of 12.13.2, 12.13.3 and 12.13.4 ran against the local node and every route returned precompile_not_served: eth_getCode at 0x0905-0x0908 is empty on the fresh genesis."
+fix = "A fixture that stands in for the merged node proves the precompile set it serves with eth_getCode before any consumer test depends on it."
+
+[gotcha.2399]
+title = "A byte scan for a retired route matching the test that asserts its refusal"
+symptom = "8.7.4's scan for /v1/activities under the gateway tests matched degraded.rs, a Rust test that posts to the route to assert the 503 refusal task 8.3.1 wrote."
+fix = "A retired-corpus scan is scoped to the file kinds of the corpus; a test asserting the refusal of a retired route is a live consumer proof, not a leftover."
+
+[gotcha.2400]
+title = "Touched files a prerequisite task deleted"
+symptom = "8.98.2 listed head_attestation.rs and head_attestation_tests.rs, which 8.8.4 removed before it ran; the graph check failed twice on files that cannot change."
+fix = "When a prerequisite deletes a file in touches, the task drops it from touches and marks the do line superseded in the same batch that records the deletion."
+
+[gotcha.2401]
+title = "A planned retirement test must name a target the Makefile builds and runs bare"
+symptom = "16.33.2 and 16.33.5 prescribed build_and_run_c_suite on lxp_test_maintenance_publication, which no rule builds, and on test_bridge_withdraw, which exits 1 silently and needs no input."
+fix = "Before prescribing a target, find its build rule and a bare run rule in the Makefile; without a run rule prescribe a make exit-0 check only."
+
+[gotcha.2402]
+title = "A touched path a prerequisite already cleaned invites a gratuitous edit"
+symptom = "16.33.2 attempt 5 changed two lines of tests/test_bridge_withdraw.c only to give the touched path a change after 16.94.1 had already satisfied the do line."
+fix = "When a prerequisite satisfied a do line, drop the path from touches in a decision instead of leaving it to be edited."
+
+[gotcha.2403]
+title = "A verifier signature change must re-point every consumer in the same task or a named follow-up"
+symptom = "verify_payment_receipt changed shape (9.97.10) while verify_rpc_payment, x402_http.py and x402_draw.py kept the old call shapes, so the x402 payment path has raised TypeError on main since."
+fix = "Grep the callers of a changed function across the package and its tests and list them in touches or a follow-up task before the change lands."
+
+[gotcha.2404]
+title = "eth_getCode is not a precompile readiness probe"
+symptom = "The node serves precompiles as native handlers and writes no account code, so getCode-based readiness refuses every served precompile."
+fix = "Probe with eth_call data 0xffffffff and read the LXP_PRECOMPILE_UNKNOWN_METHOD rejection as served and an empty 0x result as not served."
+
+[gotcha.2405]
+title = "Retiring a kernel C symbol must remove its cgo consumer"
+symptom = "1.12.1 deleted four grant symbols from the headers while modules/lxphost/read.go kept calling them, so make -f chain.mk install failed for every node task until 1.12.4."
+fix = "For every deleted declaration grep C.<symbol> under modules/, precompiles/, node/ and daemon/ and touch those files in the same task."
+
+[gotcha.2406]
+title = "A removed fixture must leave every include_str! and readFileSync that names it"
+symptom = "8.47.4 removed receipt-positive-v2.json while four Rust test files and one TypeScript test still include it, so two test builds failed on main."
+fix = "Grep the fixture name across *.rs, *.ts and *.py before deleting it and touch each consumer in the same task or a named follow-up."

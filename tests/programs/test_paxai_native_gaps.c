@@ -1,64 +1,29 @@
-#define _GNU_SOURCE
-
 #include "layerx/programs.h"
 
 #include "layerx/lxp_activity.h"
-#include "layerx/lxp_batch.h"
 #include "layerx/lxp_crypto.h"
-#include "layerx/lxp_daemon.h"
 #include "layerx/lxp_fee.h"
 #include "layerx/lxp_genesis.h"
-#include "layerx/lxp_handover.h"
 #include "layerx/lxp_hash.h"
-#include "layerx/lxp_history.h"
 #include "layerx/lxp_identity.h"
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_module_ctx.h"
 #include "layerx/lxp_protocol.h"
 #include "layerx/lxp_receipt.h"
 #include "layerx/lxp_state_proof.h"
-#include "layerx/lxp_storage.h"
-
-#include "lxp_daemon_lni_internal.h"
 
 #include <openssl/evp.h>
 
-#include <dirent.h>
-#include <errno.h>
-#include <pthread.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
 
 enum {
     ACTORS = 4,
     OWNER = 0,
     CONTROLLER = 3,
     NETWORK_ID = 7,
-    LNI_MAJOR = 1,
-    LNI_MINOR = 8,
-    NODE_INFO_REQUEST = 1,
-    NODE_INFO_RESPONSE = 2,
-    ERROR_RESPONSE = 25,
-    RESERVE = 52,
-    CANCEL = 56,
-    INSTALL = 58,
-    ENVELOPE_FIXED_BYTES = 22,
-    LNI_PROOF_BYTES = 96,
-    ID_BODY_BYTES = 10,
-    NODE_INFO_BYTES = 65536,
-    NODE_INFO_FIXED_BYTES = 93,
-    CAPABILITY_MAX_BYTES = 64,
-    OWNER_SCRATCH_BYTES = 2 * 1024 * 1024,
-    FLOOR_BLOBS = 64,
-    FLOOR_BYTES = 8388608,
-    FLOOR_KV = 16,
-    MAX_WORK_LIFETIME = 8,
     PROOF_CAPACITY = 6144,
     REPLAY_DOMAIN_BYTES = 29,
     REPLAY_BODY_BYTES = 365,
@@ -70,10 +35,7 @@ enum {
     CONTROL_RETIREMENTS = 187,
     CONTROL_BLOBS = 195,
     CONTROL_BYTES = 203,
-    CONTROL_REPLAYS = 211,
-    REC_ID = 0,
-    REC_STATE = 9,
-    REC_DIGEST = 10
+    CONTROL_REPLAYS = 211
 };
 
 _Static_assert((int)REPLAY_DOMAIN_BYTES + (int)REPLAY_BODY_BYTES == 394,
@@ -99,56 +61,6 @@ typedef struct node {
     bool live;
 } node;
 
-typedef struct reply {
-    uint16_t tag;
-    uint8_t payload[1U + LXP_CAPACITY_RECORD_BYTES + LXP_CAPACITY_OBSERVATION_BYTES];
-    size_t length;
-    uint8_t refusal_class;
-    lxp_result refusal;
-} reply;
-
-typedef struct cap_request {
-    uint8_t kind;
-    uint8_t activity[32];
-    uint8_t idempotency[32];
-    const char *actor;
-    uint32_t blobs;
-    uint64_t bytes;
-    uint32_t kv;
-    uint64_t sequence;
-    uint8_t root[32];
-    uint64_t lifetime;
-} cap_request;
-
-typedef struct connection {
-    int descriptor;
-    int server_descriptor;
-    pthread_t thread;
-    lxp_result status;
-    bool open;
-} connection;
-
-typedef struct lni_fixture {
-    lxp_daemon_protocol_owner owner;
-    lxp_daemon_receipt_authority_store receipt_authority;
-    lxp_history history;
-    lxp_log canonical_log;
-    lxp_arena scratch;
-    uint8_t *scratch_bytes;
-    lxp_daemon daemon;
-    lxp_daemon_lni_server server;
-    char socket_directory[64];
-    char admission_directory[64];
-    char socket_path[LXP_DAEMON_LNI_SOCKET_PATH_BYTES];
-    size_t applied;
-    bool daemon_started;
-    bool lni_started;
-    bool owner_ready;
-    connection link;
-    uint8_t node_info[NODE_INFO_BYTES];
-    size_t node_info_length;
-} lni_fixture;
-
 static const char *const dids[ACTORS] = {
     "did:lxp:paxai-owner", "did:lxp:paxai-treasury", "did:lxp:paxai-outsider",
     "did:lxp:paxai-controller"
@@ -160,12 +72,7 @@ static const uint8_t archive_seed_b[32] = {0x69U};
 static const uint8_t asset_id[32] = {9U};
 static const uint8_t replay_domain[REPLAY_DOMAIN_BYTES] =
     "LXP/program-replay-native/v1";
-static const char request_domain[] = "LayerX/storage-capacity-request/v1";
-static const char response_domain[] = "LayerX/storage-capacity-response/v1";
-static const char capacity_prefix[] = "capacity:";
-
 static node *primary, *scratch_node;
-static lni_fixture lni;
 static lxp_state_witness witness;
 static uint8_t retirement_payload[LXP_PROGRAMS_RETIREMENT_HEADER_BYTES +
                                   LXP_PROGRAMS_RETIREMENT_CANDIDATE_BYTES +
@@ -173,7 +80,6 @@ static uint8_t retirement_payload[LXP_PROGRAMS_RETIREMENT_HEADER_BYTES +
 static uint8_t sequencer_public[32];
 static uint8_t program_id[32];
 static uint8_t profile_digest[32];
-static uint64_t correlation = 1U;
 static size_t passed, failed;
 
 #define CHECK(condition, name) \
@@ -220,11 +126,6 @@ static void put_u64(uint8_t *p, uint64_t v)
     put_u32(p + 4U, (uint32_t)v);
 }
 
-static uint16_t get_u16(const uint8_t *p)
-{
-    return (uint16_t)(((uint16_t)p[0] << 8U) | p[1]);
-}
-
 static uint32_t get_u32(const uint8_t *p)
 {
     return ((uint32_t)p[0] << 24U) | ((uint32_t)p[1] << 16U) |
@@ -234,17 +135,6 @@ static uint32_t get_u32(const uint8_t *p)
 static uint64_t get_u64(const uint8_t *p)
 {
     return ((uint64_t)get_u32(p) << 32U) | get_u32(p + 4U);
-}
-
-static void hex_encode(const uint8_t *bytes, size_t length, char *out)
-{
-    static const char digits[] = "0123456789abcdef";
-    size_t i;
-    for (i = 0U; i < length; ++i) {
-        out[i * 2U] = digits[bytes[i] >> 4U];
-        out[i * 2U + 1U] = digits[bytes[i] & 0x0fU];
-    }
-    out[length * 2U] = '\0';
 }
 
 static int public_key_for(const uint8_t private_key[32], uint8_t public_key[32])
@@ -273,30 +163,6 @@ static int sign_raw(const uint8_t private_key[32], const uint8_t *message,
     EVP_MD_CTX_free(context);
     EVP_PKEY_free(key);
     return ok ? 0 : 1;
-}
-
-static int write_all(int descriptor, const uint8_t *bytes, size_t length)
-{
-    size_t offset = 0U;
-    while (offset < length) {
-        ssize_t written = write(descriptor, bytes + offset, length - offset);
-        if (written > 0) offset += (size_t)written;
-        else if (written < 0 && errno == EINTR) continue;
-        else return 1;
-    }
-    return 0;
-}
-
-static int read_all(int descriptor, uint8_t *bytes, size_t length)
-{
-    size_t offset = 0U;
-    while (offset < length) {
-        ssize_t got = read(descriptor, bytes + offset, length - offset);
-        if (got > 0) offset += (size_t)got;
-        else if (got < 0 && errno == EINTR) continue;
-        else return 1;
-    }
-    return 0;
 }
 
 static lxp_result install_metering_v1(lxp_kernel *kernel)
@@ -581,418 +447,6 @@ static int seed_open(node *n, lxp_module_ctx *ctx, lxp_arena *arena,
                             UINT64_C(100000000), arena, true) != LXP_OK;
 }
 
-static int send_frame(int descriptor, uint16_t minor, uint16_t tag,
-                      uint64_t correlation_id, const uint8_t *payload,
-                      size_t length)
-{
-    uint8_t frame[4U + ENVELOPE_FIXED_BYTES + LXP_CAPACITY_REQUEST_BYTES + 8U];
-    size_t cursor = 4U;
-    if (length > LXP_CAPACITY_REQUEST_BYTES + 8U) return 1;
-    put_u32(frame, (uint32_t)(ENVELOPE_FIXED_BYTES + length));
-    put_u16(frame + cursor, LNI_MAJOR); cursor += 2U;
-    put_u16(frame + cursor, minor); cursor += 2U;
-    put_u16(frame + cursor, tag); cursor += 2U;
-    put_u64(frame + cursor, correlation_id); cursor += 8U;
-    put_u32(frame + cursor, (uint32_t)length); cursor += 4U;
-    if (length != 0U) (void)memcpy(frame + cursor, payload, length);
-    cursor += length;
-    put_u32(frame + cursor, 0U); cursor += 4U;
-    return write_all(descriptor, frame, cursor);
-}
-
-static int verify_proof(uint16_t tag, const uint8_t *payload, size_t length,
-                        const uint8_t *proof)
-{
-    uint8_t *message = (uint8_t *)malloc(sizeof(response_domain) - 1U + 6U +
-                                         length);
-    uint8_t digest[32];
-    size_t cursor = sizeof(response_domain) - 1U;
-    int failure;
-    if (message == NULL) return 1;
-    (void)memcpy(message, response_domain, cursor);
-    put_u32(message + cursor, NETWORK_ID); cursor += 4U;
-    put_u16(message + cursor, tag); cursor += 2U;
-    (void)memcpy(message + cursor, payload, length);
-    cursor += length;
-    failure = lxp_hash_sha256(message, cursor, digest) != LXP_OK ||
-        memcmp(proof, sequencer_public, 32U) != 0 ||
-        lxp_ed25519_verify_raw(proof, proof + 32U, digest, 32U) != LXP_OK;
-    free(message);
-    return failure;
-}
-
-static int receive_reply(int descriptor, uint64_t correlation_id, reply *out)
-{
-    uint8_t prefix[4];
-    uint8_t *frame;
-    uint32_t length, payload_length, proof_length;
-    int failure = 0;
-    (void)memset(out, 0, sizeof(*out));
-    if (read_all(descriptor, prefix, 4U) != 0) return 1;
-    length = get_u32(prefix);
-    if (length < ENVELOPE_FIXED_BYTES || length > 65536U) return 1;
-    frame = (uint8_t *)malloc(length);
-    if (frame == NULL) return 1;
-    if (read_all(descriptor, frame, length) != 0) failure = 1;
-    if (failure == 0) {
-        payload_length = get_u32(frame + 14U);
-        if (get_u16(frame) != LNI_MAJOR || get_u16(frame + 2U) != LNI_MINOR ||
-            get_u64(frame + 6U) != correlation_id ||
-            payload_length > length - ENVELOPE_FIXED_BYTES ||
-            payload_length > sizeof(out->payload))
-            failure = 1;
-    }
-    if (failure == 0) {
-        proof_length = get_u32(frame + 18U + payload_length);
-        out->tag = get_u16(frame + 4U);
-        out->length = payload_length;
-        (void)memcpy(out->payload, frame + 18U, payload_length);
-        if (18U + payload_length + 4U + proof_length != length) failure = 1;
-        else if (out->tag == ERROR_RESPONSE) {
-            if (payload_length != 5U || proof_length != 0U) failure = 1;
-            else {
-                out->refusal_class = out->payload[0];
-                out->refusal = (lxp_result)(int32_t)get_u32(out->payload + 1U);
-            }
-        } else if (proof_length != LNI_PROOF_BYTES ||
-                   verify_proof(out->tag, out->payload, payload_length,
-                                frame + 22U + payload_length) != 0) {
-            failure = 1;
-        }
-    }
-    free(frame);
-    return failure;
-}
-
-static int lni_call(uint16_t tag, const uint8_t *body, size_t length,
-                    reply *out)
-{
-    uint64_t id = correlation++;
-    if (send_frame(lni.link.descriptor, LNI_MINOR, tag, id, body, length) != 0 ||
-        receive_reply(lni.link.descriptor, id, out) != 0)
-        return 1;
-    return out->tag == ERROR_RESPONSE || out->tag == tag + 1U ? 0 : 1;
-}
-
-static void *connection_run(void *context)
-{
-    connection *link = (connection *)context;
-    link->status = lxp_daemon_lni_serve_connected(&lni.server,
-                                                  link->server_descriptor);
-    (void)close(link->server_descriptor);
-    return NULL;
-}
-
-static int connection_open(connection *link)
-{
-    int sockets[2];
-    uint8_t prefix[4];
-    uint8_t *frame;
-    uint32_t length, payload_length;
-    int failure;
-    (void)memset(link, 0, sizeof(*link));
-    if (socketpair(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC, 0, sockets) != 0)
-        return 1;
-    link->descriptor = sockets[0];
-    link->server_descriptor = sockets[1];
-    if (pthread_create(&link->thread, NULL, connection_run, link) != 0) {
-        (void)close(sockets[0]);
-        (void)close(sockets[1]);
-        return 1;
-    }
-    link->open = true;
-    if (send_frame(link->descriptor, LNI_MINOR, NODE_INFO_REQUEST, 0U, NULL,
-                   0U) != 0 ||
-        read_all(link->descriptor, prefix, 4U) != 0)
-        return 1;
-    length = get_u32(prefix);
-    if (length < ENVELOPE_FIXED_BYTES || length > 1048576U) return 1;
-    frame = (uint8_t *)malloc(length);
-    if (frame == NULL) return 1;
-    failure = read_all(link->descriptor, frame, length) != 0 ||
-        get_u16(frame + 2U) != LNI_MINOR ||
-        get_u16(frame + 4U) != NODE_INFO_RESPONSE ||
-        get_u64(frame + 6U) != 0U;
-    if (failure == 0) {
-        payload_length = get_u32(frame + 14U);
-        failure = payload_length > length - ENVELOPE_FIXED_BYTES ||
-            payload_length > sizeof(lni.node_info);
-        if (failure == 0) {
-            (void)memcpy(lni.node_info, frame + 18U, payload_length);
-            lni.node_info_length = payload_length;
-        }
-    }
-    free(frame);
-    return failure;
-}
-
-static int connection_close(connection *link)
-{
-    if (!link->open) return 0;
-    link->open = false;
-    (void)shutdown(link->descriptor, SHUT_RDWR);
-    (void)close(link->descriptor);
-    if (pthread_join(link->thread, NULL) != 0) return 1;
-    return link->status == LXP_OK ? 0 : 1;
-}
-
-static int connection_reopen(void)
-{
-    return connection_close(&lni.link) != 0 || connection_open(&lni.link) != 0;
-}
-
-static void request_encode(const cap_request *r,
-                           uint8_t out[LXP_CAPACITY_REQUEST_BYTES])
-{
-    size_t cursor = 0U;
-    size_t actor_length = strlen(r->actor);
-    (void)memset(out, 0, LXP_CAPACITY_REQUEST_BYTES);
-    put_u16(out, 1U); cursor += 2U;
-    out[cursor++] = r->kind;
-    (void)memcpy(out + cursor, r->activity, 32U); cursor += 32U;
-    (void)memcpy(out + cursor, r->idempotency, 32U); cursor += 32U;
-    put_u16(out + cursor, (uint16_t)actor_length); cursor += 2U;
-    (void)memcpy(out + cursor, r->actor, actor_length); cursor += 255U;
-    put_u32(out + cursor, r->blobs); cursor += 4U;
-    put_u64(out + cursor, r->bytes); cursor += 8U;
-    put_u32(out + cursor, r->kv); cursor += 4U;
-    put_u64(out + cursor, r->sequence); cursor += 8U;
-    (void)memcpy(out + cursor, r->root, 32U); cursor += 32U;
-    put_u64(out + cursor, r->lifetime); cursor += 8U;
-    put_u64(out + cursor, 0U);
-}
-
-static void work_request(cap_request *r, uint8_t activity, uint32_t blobs,
-                         uint64_t bytes, uint32_t kv)
-{
-    (void)memset(r, 0, sizeof(*r));
-    r->kind = LXP_CAPACITY_WORK;
-    (void)memset(r->activity, activity, 32U);
-    (void)memset(r->idempotency, activity ^ 0xa5, 32U);
-    r->actor = dids[OWNER];
-    r->blobs = blobs;
-    r->bytes = bytes;
-    r->kv = kv;
-    r->sequence = primary->state.next_sequence;
-    (void)memcpy(r->root, primary->kernel.current_state_root, 32U);
-    r->lifetime = 4U;
-}
-
-static int reserve(const cap_request *r, uint64_t *id)
-{
-    uint8_t body[LXP_CAPACITY_REQUEST_BYTES];
-    uint8_t message[sizeof(request_domain) - 1U + LXP_CAPACITY_REQUEST_BYTES];
-    uint8_t digest[32];
-    reply answer;
-    request_encode(r, body);
-    (void)memcpy(message, request_domain, sizeof(request_domain) - 1U);
-    (void)memcpy(message + sizeof(request_domain) - 1U, body, sizeof(body));
-    if (lxp_hash_sha256(message, sizeof(message), digest) != LXP_OK ||
-        lni_call(RESERVE, body, sizeof(body), &answer) != 0 ||
-        answer.tag != RESERVE + 1U ||
-        answer.length != 1U + LXP_CAPACITY_RECORD_BYTES ||
-        answer.payload[0] != 0U ||
-        answer.payload[1U + REC_STATE] != LXP_CAPACITY_RESERVED ||
-        memcmp(answer.payload + 1U + REC_DIGEST, digest, 32U) != 0)
-        return 1;
-    *id = get_u64(answer.payload + 1U + REC_ID);
-    return 0;
-}
-
-static int cancel(uint64_t id)
-{
-    uint8_t body[ID_BODY_BYTES];
-    reply answer;
-    put_u16(body, 1U);
-    put_u64(body + 2U, id);
-    return lni_call(CANCEL, body, sizeof(body), &answer) != 0 ||
-        answer.tag != CANCEL + 1U ||
-        answer.length != LXP_CAPACITY_RECORD_BYTES ||
-        get_u64(answer.payload + REC_ID) != id ||
-        answer.payload[REC_STATE] != LXP_CAPACITY_CANCELLED;
-}
-
-static lxp_result apply_none(void *context, uint64_t global_sequence,
-                             const uint8_t *bytes, size_t length)
-{
-    (void)global_sequence;
-    (void)bytes;
-    (void)length;
-    ++*(size_t *)context;
-    return LXP_ERR_MODULE_DISABLED;
-}
-
-static int lni_serve(void)
-{
-    lxp_daemon_lni_configuration configuration;
-    (void)memset(&configuration, 0, sizeof(configuration));
-    configuration.socket_path = lni.socket_path;
-    configuration.admission_directory = lni.admission_directory;
-    configuration.allowed_peer_uid = (uint32_t)geteuid() + 1U;
-    configuration.allowed_peer_gid = (uint32_t)getegid();
-    configuration.frame_bytes = LXP_DAEMON_LNI_MAX_FRAME_BYTES;
-    configuration.deadline_milliseconds = 10000U;
-    configuration.socket_mode = 0660U;
-    if (lxp_daemon_lni_serve(&lni.server, &lni.daemon, &lni.owner,
-                             &configuration) != LXP_OK)
-        return 1;
-    lni.lni_started = true;
-    if (pthread_mutex_lock(&lni.server.mutex) != 0) return 1;
-    lni.server.allowed_peer_uid = (uint32_t)geteuid();
-    lni.server.allowed_peer_gid = (uint32_t)getegid();
-    return pthread_mutex_unlock(&lni.server.mutex) == 0 ? 0 : 1;
-}
-
-static int lni_stop(void)
-{
-    if (!lni.lni_started) return 0;
-    lni.lni_started = false;
-    return lxp_daemon_lni_stop(&lni.server) == LXP_OK ? 0 : 1;
-}
-
-static int lni_init(void)
-{
-    lxp_daemon_configuration daemon_configuration;
-    char key_hex[65];
-    int written;
-    lni.scratch_bytes = (uint8_t *)malloc(OWNER_SCRATCH_BYTES);
-    if (lni.scratch_bytes == NULL ||
-        lxp_arena_init(&lni.scratch, lni.scratch_bytes, OWNER_SCRATCH_BYTES) !=
-            LXP_OK ||
-        pthread_mutex_init(&lni.owner.mutex, NULL) != 0 ||
-        pthread_mutex_init(&lni.owner.receipt_mutex, NULL) != 0 ||
-        pthread_mutex_init(&lni.owner.publication_mutex, NULL) != 0 ||
-        pthread_mutex_init(&lni.owner.receipt_authority_mutex, NULL) != 0)
-        return 1;
-    lni.owner_ready = true;
-    lni.canonical_log.descriptor = -1;
-    lni.history.log = &lni.canonical_log;
-    lni.owner.kernel = &primary->kernel;
-    lni.owner.identities = &primary->identities;
-    lni.owner.programs_runtime = &primary->runtime;
-    lni.owner.network_id = NETWORK_ID;
-    lni.owner.protocol_version = LXP_PROTOCOL_VERSION;
-    lni.owner.history = &lni.history;
-    lni.owner.receipt_authority = &lni.receipt_authority;
-    lni.owner.scratch = &lni.scratch;
-    lni.owner.feed_store.baseline_present = true;
-    lni.owner.feed_store.baseline_next_sequence = 1U;
-    lni.owner.attached = true;
-    (void)memcpy(lni.receipt_authority.authorization.public_key,
-                 sequencer_public, 32U);
-    if (lxp_handover_sequencer_id(sequencer_public,
-            lni.receipt_authority.authorization.sequencer_id) != LXP_OK)
-        return 1;
-    lni.receipt_authority.authorization.first_batch_number = 1U;
-    lni.receipt_authority.authorization.last_batch_number = 1000000U;
-    lni.receipt_authority.authorization.authorized = 1U;
-    hex_encode(sequencer_seed, 32U, key_hex);
-    if (setenv("LAYERX_NODE_SEQUENCER_PRIVATE_KEY", key_hex, 1) != 0)
-        return 1;
-    (void)memset(&daemon_configuration, 0, sizeof(daemon_configuration));
-    daemon_configuration.role = LXP_DAEMON_SEQUENCER;
-    daemon_configuration.network_id = NETWORK_ID;
-    daemon_configuration.start_sequence = 1U;
-    daemon_configuration.serial_execution = true;
-    if (lxp_daemon_start(&lni.daemon, &daemon_configuration, apply_none,
-                         &lni.applied) != LXP_OK)
-        return 1;
-    lni.daemon_started = true;
-    (void)strcpy(lni.socket_directory, "/tmp/lxp-native-gaps-socket-XXXXXX");
-    (void)strcpy(lni.admission_directory, "/tmp/lxp-native-gaps-node-XXXXXX");
-    if (mkdtemp(lni.socket_directory) == NULL ||
-        mkdtemp(lni.admission_directory) == NULL ||
-        chmod(lni.socket_directory, 0750) != 0 ||
-        chmod(lni.admission_directory, 0700) != 0)
-        return 1;
-    written = snprintf(lni.socket_path, sizeof(lni.socket_path), "%s/lni.sock",
-                       lni.socket_directory);
-    if (written < 0 || (size_t)written >= sizeof(lni.socket_path)) return 1;
-    return lni_serve() != 0 || connection_open(&lni.link) != 0;
-}
-
-static int capacity_entry(char *out, size_t capacity)
-{
-    const uint8_t *p = lni.node_info;
-    const uint8_t *previous = NULL;
-    size_t previous_length = 0U;
-    size_t cursor = NODE_INFO_FIXED_BYTES, i, count, found = 0U;
-    if (lni.node_info_length < NODE_INFO_FIXED_BYTES ||
-        get_u32(p + 6U) != NETWORK_ID ||
-        memcmp(p + 59U, sequencer_public, 32U) != 0)
-        return 1;
-    count = get_u16(p + 91U);
-    for (i = 0U; i < count; ++i) {
-        size_t length, shared;
-        int order;
-        if (cursor + 2U > lni.node_info_length) return 1;
-        length = get_u16(p + cursor);
-        cursor += 2U;
-        if (length == 0U || length > CAPABILITY_MAX_BYTES ||
-            cursor + length > lni.node_info_length)
-            return 1;
-        if (previous != NULL) {
-            shared = previous_length < length ? previous_length : length;
-            order = memcmp(previous, p + cursor, shared);
-            if (order > 0 || (order == 0 && previous_length >= length))
-                return 1;
-        }
-        if (length >= sizeof(capacity_prefix) - 1U &&
-            memcmp(p + cursor, capacity_prefix, sizeof(capacity_prefix) - 1U) ==
-                0) {
-            if (length >= capacity) return 1;
-            (void)memcpy(out, p + cursor, length);
-            out[length] = '\0';
-            ++found;
-        }
-        previous = p + cursor;
-        previous_length = length;
-        cursor += length;
-    }
-    return cursor == lni.node_info_length && found == 1U ? 0 : 1;
-}
-
-static int expected_capacity(char *out, size_t capacity)
-{
-    lxp_capacity_observation observation;
-    int written;
-    if (primary->kernel.capacity == NULL) {
-        written = snprintf(out, capacity, "capacity:granted=0,0,0");
-    } else {
-        if (lxp_kernel_capacity_observe(&primary->kernel,
-                                        primary->kernel.capacity,
-                                        &observation) != LXP_OK)
-            return 1;
-        written = snprintf(
-            out, capacity, "capacity:granted=%llu,%llu,%llu",
-            (unsigned long long)observation.obligations.blobs +
-                observation.work.blobs,
-            (unsigned long long)observation.obligations.bytes +
-                observation.work.bytes,
-            (unsigned long long)observation.obligations.kv +
-                observation.work.kv);
-    }
-    return written < 0 || (size_t)written >= capacity ? 1 : 0;
-}
-
-static int install_profile(void)
-{
-    lxp_capacity_profile profile;
-    uint8_t body[LXP_CAPACITY_PROFILE_BYTES];
-    reply answer;
-    (void)memset(&profile, 0, sizeof(profile));
-    profile.version = 1U;
-    (void)memset(profile.digest, 0x51, 32U);
-    profile.floor = (lxp_capacity_demand){FLOOR_BLOBS, FLOOR_BYTES, FLOOR_KV};
-    profile.maximum_work_lifetime = MAX_WORK_LIFETIME;
-    lxp_capacity_profile_encode(&profile, body);
-    return lni_call(INSTALL, body, sizeof(body), &answer) != 0 ||
-        answer.tag != INSTALL + 1U || answer.length != sizeof(body) ||
-        memcmp(answer.payload, body, sizeof(body)) != 0 ||
-        primary->kernel.capacity == NULL ||
-        primary->kernel.capacity->profile.version != 1U;
-}
-
 static size_t retirement_encode(uint8_t count, uint64_t cutoff,
                                 const uint8_t digest[32], uint32_t size,
                                 const uint8_t origin_root[32],
@@ -1215,123 +669,6 @@ static int case_module5_retirement(void)
     return pass(name);
 }
 
-static int case_prepare_refusal(void)
-{
-    static const char name[] = "commit_above_open_reservation_refused";
-    static uint8_t bytes[65536];
-    static uint8_t holder_bytes[65536];
-    lxp_capacity_observation head, held;
-    cap_request request;
-    lxp_module_ctx ctx, holder;
-    lxp_arena arena, holder_arena;
-    uint8_t key[32], blob[64], root[32];
-    const size_t blobs_before = primary->kernel.blob_count;
-    const uint64_t blob_bytes_before = primary->kernel.blob_total_bytes;
-    lxp_result status, holder_status = LXP_OK;
-    uint64_t id;
-    CHECK(primary->kernel.capacity != NULL &&
-          lxp_kernel_capacity_observe(&primary->kernel,
-                                      primary->kernel.capacity,
-                                      &head) == LXP_OK &&
-          head.available.blobs != 0U && head.active_reservations == 0U, name);
-    (void)memcpy(root, primary->kernel.current_state_root, 32U);
-    work_request(&request, 0x41, head.available.blobs, 1U, 0U);
-    CHECK(reserve(&request, &id) == 0, name);
-    CHECK(lxp_kernel_capacity_observe(&primary->kernel,
-                                      primary->kernel.capacity,
-                                      &held) == LXP_OK &&
-          held.available.blobs == 0U && held.active_reservations == 1U &&
-          held.work.blobs == head.available.blobs, name);
-    (void)memset(blob, 0x6b, sizeof(blob));
-    CHECK(lxp_hash_sha256(blob, sizeof(blob), key) == LXP_OK &&
-          seed_open(primary, &ctx, &arena, bytes, sizeof(bytes)) == 0, name);
-    status = lxp_ctx_blob_put(&ctx, key, blob, sizeof(blob));
-    if (status == LXP_OK) status = lxp_module_ctx_prepare_commit(&ctx);
-    (void)printf("NATIVE_GAPS_NOTE %s prepare_status=%d\n", name, (int)status);
-    if (status != LXP_ERR_ARENA_EXHAUSTED) {
-        lxp_module_ctx_rollback(&ctx);
-        (void)cancel(id);
-    }
-    CHECK(status == LXP_ERR_ARENA_EXHAUSTED, name);
-    if (!(ctx.staged_blob_count == 1U && !ctx.commit_prepared &&
-          !ctx.staged_blobs[0].deleted &&
-          ctx.staged_blobs[0].length == sizeof(blob) &&
-          memcmp(ctx.staged_blobs[0].key, key, 32U) == 0 &&
-          memcmp(ctx.staged_blobs[0].bytes, blob, sizeof(blob)) == 0 &&
-          primary->kernel.blob_count == blobs_before &&
-          primary->kernel.blob_total_bytes == blob_bytes_before &&
-          find_blob(&primary->kernel, key) == NULL))
-        status = LXP_FATAL_INVARIANT;
-    if (status == LXP_ERR_ARENA_EXHAUSTED) {
-        if (seed_open(primary, &holder, &holder_arena, holder_bytes,
-                      sizeof(holder_bytes)) != 0) {
-            holder_status = LXP_FATAL_INVARIANT;
-        } else {
-            (void)memset(holder.activity_id, 0x41, 32U);
-            holder_status = lxp_ctx_blob_put(&holder, key, blob, sizeof(blob));
-            if (holder_status == LXP_OK)
-                holder_status = lxp_module_ctx_prepare_commit(&holder);
-            lxp_module_ctx_rollback(&holder);
-        }
-    }
-    if (cancel(id) != 0) {
-        lxp_module_ctx_rollback(&ctx);
-        CHECK(false, name);
-    }
-    if (status != LXP_ERR_ARENA_EXHAUSTED) lxp_module_ctx_rollback(&ctx);
-    CHECK(status == LXP_ERR_ARENA_EXHAUSTED, name);
-    CHECK(holder_status == LXP_OK, name);
-    CHECK(memcmp(root, primary->kernel.current_state_root, 32U) == 0, name);
-    status = lxp_module_ctx_prepare_commit(&ctx);
-    if (status != LXP_OK) lxp_module_ctx_rollback(&ctx);
-    CHECK(status == LXP_OK, name);
-    CHECK(lxp_module_ctx_commit(&ctx) == LXP_OK &&
-          lxp_state_root(&primary->kernel,
-                         primary->kernel.current_state_root) == LXP_OK, name);
-    CHECK(primary->kernel.blob_count == blobs_before + 1U &&
-          primary->kernel.blob_total_bytes == blob_bytes_before + sizeof(blob) &&
-          find_blob(&primary->kernel, key) != NULL, name);
-    return pass(name);
-}
-
-static int case_node_info_capacity(void)
-{
-    static const char name[] = "node_info_carries_granted_capacity";
-    char advertised[CAPABILITY_MAX_BYTES + 1U];
-    char expected[CAPABILITY_MAX_BYTES + 1U];
-    lxp_capacity_observation observation;
-    cap_request request;
-    uint64_t id;
-    CHECK(primary->kernel.capacity == NULL, name);
-    CHECK(capacity_entry(advertised, sizeof(advertised)) == 0 &&
-          expected_capacity(expected, sizeof(expected)) == 0 &&
-          strcmp(advertised, expected) == 0 &&
-          strcmp(advertised, "capacity:granted=0,0,0") == 0, name);
-    CHECK(install_profile() == 0, name);
-    work_request(&request, 0x52, 3U, 4096U, 2U);
-    CHECK(reserve(&request, &id) == 0, name);
-    CHECK(connection_reopen() == 0, name);
-    CHECK(lxp_kernel_capacity_observe(&primary->kernel,
-                                      primary->kernel.capacity,
-                                      &observation) == LXP_OK &&
-          observation.obligations.blobs == 0U &&
-          observation.obligations.bytes == 0U &&
-          observation.obligations.kv == 0U &&
-          observation.work.blobs == 3U && observation.work.bytes == 4096U &&
-          observation.work.kv == 2U, name);
-    CHECK(capacity_entry(advertised, sizeof(advertised)) == 0 &&
-          expected_capacity(expected, sizeof(expected)) == 0, name);
-    (void)printf("NATIVE_GAPS_NOTE %s advertised=%s\n", name, advertised);
-    CHECK(strcmp(advertised, expected) == 0 &&
-          strcmp(advertised, "capacity:granted=3,4096,2") == 0, name);
-    CHECK(cancel(id) == 0 && connection_reopen() == 0, name);
-    CHECK(capacity_entry(advertised, sizeof(advertised)) == 0 &&
-          expected_capacity(expected, sizeof(expected)) == 0 &&
-          strcmp(advertised, expected) == 0 &&
-          strcmp(advertised, "capacity:granted=0,0,0") == 0, name);
-    return pass(name);
-}
-
 static bool lists_v4(const lxp_module_iface *iface)
 {
     size_t i;
@@ -1408,45 +745,10 @@ static int case_module_pin(void)
     return pass(name);
 }
 
-static void remove_tree(const char *directory)
-{
-    DIR *listing;
-    struct dirent *entry;
-    char path[256];
-    if (directory[0] == '\0') return;
-    if ((listing = opendir(directory)) != NULL) {
-        while ((entry = readdir(listing)) != NULL) {
-            int written;
-            if (strcmp(entry->d_name, ".") == 0 ||
-                strcmp(entry->d_name, "..") == 0)
-                continue;
-            written = snprintf(path, sizeof(path), "%s/%s", directory,
-                               entry->d_name);
-            if (written > 0 && (size_t)written < sizeof(path))
-                (void)unlink(path);
-        }
-        (void)closedir(listing);
-    }
-    (void)rmdir(directory);
-}
-
 static void cleanup(void)
 {
-    (void)connection_close(&lni.link);
-    (void)lni_stop();
-    if (lni.daemon_started) (void)lxp_daemon_shutdown(&lni.daemon);
-    remove_tree(lni.socket_directory);
-    remove_tree(lni.admission_directory);
     if (primary != NULL) node_destroy(primary);
     if (scratch_node != NULL) node_destroy(scratch_node);
-    if (lni.owner_ready) {
-        (void)pthread_mutex_destroy(&lni.owner.mutex);
-        (void)pthread_mutex_destroy(&lni.owner.receipt_mutex);
-        (void)pthread_mutex_destroy(&lni.owner.publication_mutex);
-        (void)pthread_mutex_destroy(&lni.owner.receipt_authority_mutex);
-    }
-    (void)unsetenv("LAYERX_NODE_SEQUENCER_PRIVATE_KEY");
-    free(lni.scratch_bytes);
     free(primary);
     free(scratch_node);
 }
@@ -1460,7 +762,7 @@ static int setup(void)
         public_key_for(sequencer_seed, sequencer_public) != 0)
         return 1;
     (void)memset(program_id, 0x71, 32U);
-    return node_genesis(primary, &registration, 1U) != 0 || lni_init() != 0;
+    return node_genesis(primary, &registration, 1U) != 0;
 }
 
 int main(void)
@@ -1472,8 +774,6 @@ int main(void)
     }
     (void)tally(case_module_pin());
     (void)tally(case_module5_retirement());
-    (void)tally(case_node_info_capacity());
-    (void)tally(case_prepare_refusal());
     cleanup();
     (void)printf("PASSED %zu FAILED %zu\n", passed, failed);
     return failed == 0U ? 0 : 1;

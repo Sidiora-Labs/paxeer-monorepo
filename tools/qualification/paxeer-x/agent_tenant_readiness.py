@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import copy
 import hashlib
 import importlib.util
@@ -196,7 +197,7 @@ class Corpus:
         if verified:
             value = response['verification_status']
             require(value.get('state') == 'achieved' and value.get('level') in (
-                'StateProven', 'CheckpointFinalised', 'SettlementAnchored'),
+                'StateProven', 'CheckpointFinalised'),
                 'actual authenticated operation did not achieve StateProven evidence')
         return response
 
@@ -329,9 +330,9 @@ class Corpus:
         verification = response['verification_status']
         receipt = value.get('receipt')
         require(verification.get('state') == 'achieved' and verification.get('level') in (
-            'StateProven', 'CheckpointFinalised', 'SettlementAnchored')
+            'StateProven', 'CheckpointFinalised')
             and isinstance(receipt, dict) and receipt.get('verification_level') in (
-                'StateProven', 'CheckpointFinalised', 'SettlementAnchored'),
+                'StateProven', 'CheckpointFinalised'),
                 'executed write lacks actual StateProven receipt evidence')
         facts = receipt_facts(receipt.get('canonical_bytes'), activity)
         self.outcomes[index] = {'activity_id': activity, 'submission_ref': reference, 'receipt': receipt,
@@ -599,14 +600,16 @@ def main():
 
 
 if __name__ == '__main__':
-    if sys.argv[1:] == ['--worker']:
+    parser = argparse.ArgumentParser(description='Qualify per-tenant agent readiness and durable recovery.')
+    parser.add_argument('--worker', action='store_true', help=argparse.SUPPRESS)
+    args = parser.parse_args()
+    if args.worker:
         def interrupted(signum, _frame):
             raise HTTP.Failure('qualification interrupted by signal ' + str(signum))
         signal.signal(signal.SIGTERM, interrupted)
         signal.signal(signal.SIGINT, interrupted)
         subprocess.run(['ip', 'link', 'set', 'lo', 'up'], check=True)
         sys.exit(main())
-    require(not sys.argv[1:], 'unexpected qualification arguments')
     environment = dict(os.environ)
     for namespace in ('net', 'pid', 'mnt'):
         environment['PAXEER_X_HTTP_PARENT_' + namespace.upper()] = os.readlink('/proc/self/ns/' + namespace)

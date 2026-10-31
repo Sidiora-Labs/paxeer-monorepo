@@ -1,20 +1,16 @@
 import { supportsProgramGuestAbi } from "./generated/receipt.js";
 import { encodeNativeProgramCall, encodeNativeProgramCallV1, type NativeProgramCall, type NativeProgramCallV1 } from "./native-program-call.js";
-import { NativeProgramLifecycleRequest, type ProgramLifecycleSubmission } from "./program-lifecycle.js";
-import type { AuthorizedReceiptBatch, ReceiptVerification, SelectableProtocolVersion } from "./verifier.js";
-import { DEFAULT_PROTOCOL_VERSION, isSelectableProtocolVersion, programsModuleVersionForProtocol, verifyProgramLifecycleReceipt,
-  supportedProgramGuestAbi, verifyReceiptOutcome, verifyNativeProgramReceiptOutcomeV5 } from "./verifier.js";
-import { PlatformSdkError, type IdempotencyKey, type ProductionClient } from "./production.js";
-import { assertFreshSimulationObservation, bindRetainedProgramCall, decodeAndVerifyProgramTerminal, decodeSignedProgramCall,
-  type DecodedSignedProgramCall, type OccupancyPayer } from "./program-wire.js";
+import type { SelectableProtocolVersion } from "./verifier.js";
+import { DEFAULT_PROTOCOL_VERSION, isSelectableProtocolVersion } from "./verifier.js";
+import { PlatformSdkError, type ProductionClient } from "./production.js";
+import type { DecodedSignedProgramCall } from "./program-wire.js";
+import type { ProgramLifecycleSubmission } from "./program-lifecycle.js";
 
 export type { OccupancyPayer } from "./program-wire.js";
 
 const HEX32 = /^[0-9a-f]{64}$/u;
-const DECIMAL_U128 = /^(0|[1-9][0-9]{0,38})$/u;
 const MAX_U128 = 340282366920938463463374607431768211455n;
 const MAX_CALLDATA = 1_048_576;
-const MAX_CAPABILITIES = 5;
 const DEFAULT_MAXIMUM_SIMULATION_AGE_MILLISECONDS = 300_000n;
 const CAPABILITY_ORDER = Object.freeze({
   storage_read: 1,
@@ -76,7 +72,6 @@ export interface ProgramUnknownSubmission { readonly state: "unknown"; readonly 
 export type ProgramSubmission = ProgramUnknownSubmission | (ProgramExecutionDocument & Readonly<{ state: "executed" | "refused" }>);
 export interface ProgramSimulationEvidence { readonly boundary_id: string; readonly activity_id: string; readonly previous_state_root: string; readonly hypothetical_state_root: string; readonly observed_sequence: string; readonly observed_at: string; readonly committed: false; readonly public_key: string; readonly signature: string }
 export interface ProgramSimulation { readonly committed: false; readonly execution: ProgramExecutionDocument & Readonly<{ state: "simulated" }>; readonly simulation_evidence: ProgramSimulationEvidence }
-export interface VerifiedProgramReceipt { readonly verification: ReceiptVerification; readonly terminalPayload: Uint8Array; readonly callGraph: Uint8Array; readonly transferVerification: "reconstructed" | "recorded_terminal_root_not_locally_reconstructable"; readonly occupancyPaymentAccounts: readonly string[] }
 
 export class ProgramTrustContext {
   readonly #sequencerPublicKey: Uint8Array;
@@ -111,149 +106,7 @@ export class ProgramTrustContext {
   public maximumSimulationAgeMilliseconds(): bigint { return this.#maximumSimulationAgeMilliseconds; }
 }
 
-function validateCall(call: ProgramCall): void {
-  if (!HEX32.test(call.programId) || call.programId === "0".repeat(64) || call.calldata.length > MAX_CALLDATA || call.signedActivity.length === 0 || call.signedActivity.length > MAX_CALLDATA
-    || call.budget.fuel <= 0n || call.budget.fuel > 18446744073709551615n
-    || call.budget.feeLimit < 0n || call.budget.feeLimit > MAX_U128
-    || call.capabilities.length > MAX_CAPABILITIES) throw new TypeError("invalid bounded program call");
-  let prior = 0;
-  for (const capability of call.capabilities) {
-    const current = CAPABILITY_ORDER[capability];
-    if (current === undefined || current <= prior) throw new TypeError("program capabilities must be canonical");
-    prior = current;
-  }
-}
-
-export async function verifyProgramReceipt(
-  execution: ProgramExecutionDocument,
-  authority: AuthorizedReceiptBatch,
-  trust: ProgramTrustContext,
-  expectedSignedActivity?: Uint8Array,
-  occupancyPayers: readonly OccupancyPayer[] = [],
-): Promise<VerifiedProgramReceipt> {
-  const protocolVersion = trust.protocolVersion();
-  if (!HEX32.test(execution.activity_id)
-    || !programsModuleVersionForProtocol(protocolVersion, execution.module_version, false)
-    || !supportedProgramGuestAbi(execution.guest_abi_version)) throw new TypeError("invalid program execution evidence");
-  const receipt = decodeHex(execution.receipt, 1_048_576);
-  const terminalPayload = decodeHex(execution.terminal_payload, 1_048_576);
-  const callGraph = decodeHex(execution.call_graph, 1_048_576);
-  const pinnedKey = trust.sequencerPublicKey();
-  if (!equal(authority.sequencerPublicKey, pinnedKey)
-    || execution.authority.sequencer_public_key !== hex(pinnedKey)) throw new TypeError("program sequencer authority mismatch");
-  const verification = await verifyReceiptOutcome(receipt, authority, { protocolVersion });
-  const protocol = verification.receipt;
-  const outcome = protocol.programOutcome;
-  if (protocol.moduleId !== 9 || protocol.operation !== 3 || protocol.protocolVersion !== protocolVersion
-    || !programsModuleVersionForProtocol(protocol.protocolVersion, protocol.moduleVersion, false)
-    || protocol.moduleVersion !== execution.module_version
-    || hex(protocol.activityId) !== execution.activity_id || outcome === undefined
-    || outcome.abiVersion !== execution.guest_abi_version
-    || outcome.resultCode !== execution.result_code
-    || hex(protocol.batchId) !== execution.batch_id || execution.batch_id !== execution.authority.batch_id
-    || protocol.globalSequence.toString() !== execution.global_sequence
-    || hex(protocol.previousStateRoot) !== execution.authority.previous_state_root
-    || hex(protocol.resultingStateRoot) !== execution.state_root
-    || execution.state_root !== execution.authority.resulting_state_root
-    || hex(verification.receiptDigest) !== execution.receipt_digest
-    || callGraph.length === 0
-    || !equal(await digest(terminalPayload), outcome.terminalPayloadRoot)
-    || !equal(await digest(callGraph), outcome.callGraphRoot)) {
-    throw new TypeError("program receipt binding failed");
-  }
-  const retained = execution.retained_signed_activity === undefined ? undefined : decodeHex(execution.retained_signed_activity, MAX_CALLDATA);
-  if (retained !== undefined && expectedSignedActivity !== undefined && !equal(retained, expectedSignedActivity)) throw new TypeError("retained program activity mismatch");
-  const canonical = expectedSignedActivity ?? retained;
-  if (canonical !== undefined) {
-    const bound = await bindRetainedProgramCall(canonical, execution.activity_id, execution.program_id, protocol.protocolVersion);
-    if (bound.guestAbi !== execution.guest_abi_version
-      || execution.idempotency_key !== undefined && bound.idempotencyKey !== execution.idempotency_key) throw new TypeError("retained program call metadata mismatch");
-  }
-  const terminal = await decodeAndVerifyProgramTerminal(terminalPayload, callGraph, execution.program_id, outcome, protocol.protocolVersion,
-    canonical === undefined ? undefined : { protocol, signedActivity: canonical }, occupancyPayers);
-  if (!sameUsage(terminal.usage, execution.usage) || !sameOutcome(terminal.outcome, execution.outcome)) throw new TypeError("program terminal document binding failed");
-  return Object.freeze({ verification, terminalPayload, callGraph, transferVerification: terminal.transferVerification,
-    occupancyPaymentAccounts: terminal.occupancyPaymentAccounts });
-}
-
-export async function verifyProgramReceiptV5(
-  execution: ProgramExecutionDocument,
-  authority: AuthorizedReceiptBatch,
-  trust: ProgramTrustContext,
-  expectedSignedActivity?: Uint8Array,
-  occupancyPayers: readonly OccupancyPayer[] = [],
-): Promise<VerifiedProgramReceipt> {
-  const protocolVersion = trust.protocolVersion();
-  if (!HEX32.test(execution.activity_id)
-    || !programsModuleVersionForProtocol(protocolVersion, execution.module_version, false)
-    || protocolVersion !== 3 || (execution.guest_abi_version !== 3 && execution.guest_abi_version !== 4 && execution.guest_abi_version !== 5)
-    || execution.guest_abi_version > execution.module_version) throw new TypeError("invalid program execution evidence");
-  const receipt = decodeHex(execution.receipt, 1_048_576);
-  const terminalPayload = decodeHex(execution.terminal_payload, 1_048_576);
-  const callGraph = decodeHex(execution.call_graph, 1_048_576);
-  const pinnedKey = trust.sequencerPublicKey();
-  if (!equal(authority.sequencerPublicKey, pinnedKey)
-    || execution.authority.sequencer_public_key !== hex(pinnedKey)) throw new TypeError("program sequencer authority mismatch");
-  const verification = await verifyNativeProgramReceiptOutcomeV5(receipt, authority);
-  const protocol = verification.receipt;
-  const outcome = protocol.programOutcome;
-  if (protocol.moduleId !== 9 || protocol.operation !== 3 || protocol.protocolVersion !== protocolVersion
-    || !programsModuleVersionForProtocol(protocol.protocolVersion, protocol.moduleVersion, false)
-    || protocol.moduleVersion !== execution.module_version
-    || hex(protocol.activityId) !== execution.activity_id || outcome === undefined
-    || outcome.abiVersion !== execution.guest_abi_version
-    || outcome.resultCode !== execution.result_code
-    || hex(protocol.batchId) !== execution.batch_id || execution.batch_id !== execution.authority.batch_id
-    || protocol.globalSequence.toString() !== execution.global_sequence
-    || hex(protocol.previousStateRoot) !== execution.authority.previous_state_root
-    || hex(protocol.resultingStateRoot) !== execution.state_root
-    || execution.state_root !== execution.authority.resulting_state_root
-    || hex(verification.receiptDigest) !== execution.receipt_digest
-    || callGraph.length === 0
-    || !equal(await digest(terminalPayload), outcome.terminalPayloadRoot)
-    || !equal(await digest(callGraph), outcome.callGraphRoot)) {
-    throw new TypeError("program receipt binding failed");
-  }
-  const retained = execution.retained_signed_activity === undefined ? undefined : decodeHex(execution.retained_signed_activity, MAX_CALLDATA);
-  if (retained !== undefined && expectedSignedActivity !== undefined && !equal(retained, expectedSignedActivity)) throw new TypeError("retained program activity mismatch");
-  const canonical = expectedSignedActivity ?? retained;
-  if (canonical === undefined) throw new TypeError("v5 requires original signed request");
-  if (canonical !== undefined) {
-    const bound = await bindRetainedProgramCall(canonical, execution.activity_id, execution.program_id, protocol.protocolVersion);
-    if (bound.guestAbi !== execution.guest_abi_version
-      || execution.idempotency_key !== undefined && bound.idempotencyKey !== execution.idempotency_key) throw new TypeError("retained program call metadata mismatch");
-  }
-  const terminal = await decodeAndVerifyProgramTerminal(terminalPayload, callGraph, execution.program_id, outcome, protocol.protocolVersion,
-    canonical === undefined ? undefined : { protocol, signedActivity: canonical }, occupancyPayers);
-  if (!sameUsage(terminal.usage, execution.usage) || !sameOutcome(terminal.outcome, execution.outcome)) throw new TypeError("program terminal document binding failed");
-  return Object.freeze({ verification, terminalPayload, callGraph, transferVerification: terminal.transferVerification,
-    occupancyPaymentAccounts: terminal.occupancyPaymentAccounts });
-}
-
 export class ProgramOperations {
-  public async lifecycleReceipt(request: NativeProgramLifecycleRequest): Promise<ReceiptVerification> {
-    if (this.trust.protocolVersion() !== 3) throw new TypeError("lifecycle scope");
-    const binding = await request.bind();
-    const result = await this.client.agent<unknown, unknown>("program.receipt", {
-      idempotency_key: binding.idempotencyKey, expected_activity_id: binding.activityId, requested_verification_level: "sequencer-signed",
-    });
-    return verifyLifecycleRecovery(result, binding.activityId, this.trust.sequencerPublicKey());
-  }
-  public deploy(request: NativeProgramLifecycleRequest, key: IdempotencyKey): Promise<ProgramLifecycleSubmission> { return this.lifecycle(request, key, 1, "program.deploy"); }
-  public upgrade(request: NativeProgramLifecycleRequest, key: IdempotencyKey): Promise<ProgramLifecycleSubmission> { return this.lifecycle(request, key, 2, "program.upgrade"); }
-  public windDown(request: NativeProgramLifecycleRequest, key: IdempotencyKey): Promise<ProgramLifecycleSubmission> { return this.lifecycle(request, key, 7, "program.wind-down"); }
-
-  private async lifecycle(request: NativeProgramLifecycleRequest, key: IdempotencyKey, ordinal: 1 | 2 | 7, operation: "program.deploy" | "program.upgrade" | "program.wind-down"): Promise<ProgramLifecycleSubmission> {
-    if (request.ordinal !== ordinal || this.trust.protocolVersion() !== 3) throw new TypeError("lifecycle scope");
-    const binding = await request.bind(String(key));
-    const retained = hex(binding.canonicalBytes);
-    let result: unknown;
-    try { result = await this.client.agent(operation, { signed_activity: retained }, { idempotencyKey: key }); }
-    catch (error) {
-      return resolveLifecycleFailure(error, binding);
-    }
-    return resolveLifecycleResponse(result, binding, this.trust.sequencerPublicKey());
-  }
   readonly #heads = new Map<string, ProgramHeadObservation>();
   readonly #gatewayDiscoveries = new Map<string, GatewayProgramDiscovery>();
 
@@ -281,24 +134,6 @@ export class ProgramOperations {
     return result;
   }
 
-  public async simulate(call: ProgramCall): Promise<ProgramSimulation> {
-    validateCall(call);
-    if (call.nativeCall !== undefined && this.trust.protocolVersion() !== 3) throw new TypeError("native call requires selected protocol 3");
-    const signed = await decodeSignedProgramCall(call);
-    const prior = this.#heads.get(call.programId);
-    if (prior === undefined) throw new TypeError("a fresh discovered program head is required before simulation");
-    requireFreshHead(prior, this.trust.nowMilliseconds());
-    const value = await this.client.agent<unknown, unknown>("program.simulate", wireCall(call));
-    this.#requireCurrentHead(call.programId, prior);
-    requireFreshHead(prior, this.trust.nowMilliseconds());
-    const simulation = simulationDocument(value, call.programId, signed.activityId);
-    const verified = await verifyServedProgramReceipt(simulation.execution, wireAuthority(simulation.execution.authority, this.trust), this.trust, signed.canonicalBytes);
-    await verifySimulationEvidence(simulation, verified, prior, signed, this.trust);
-    this.#requireCurrentHead(call.programId, prior);
-    requireFreshHead(prior, this.trust.nowMilliseconds());
-    return simulation;
-  }
-
   #rememberHead(programId: string, candidate: ProgramHeadObservation): void {
     const current = this.#heads.get(programId);
     if (current !== undefined && (candidate.sequence < current.sequence
@@ -306,55 +141,6 @@ export class ProgramOperations {
       || (candidate.sequence === current.sequence && (candidate.stateRoot !== current.stateRoot
         || candidate.validThrough < current.validThrough)))) throw new TypeError("program head rollback or conflict");
     this.#heads.set(programId, candidate);
-  }
-
-  #requireCurrentHead(programId: string, expected: ProgramHeadObservation): void {
-    const current = this.#heads.get(programId);
-    if (current === undefined || current.sequence !== expected.sequence || current.stateRoot !== expected.stateRoot
-      || current.observedAt !== expected.observedAt || current.validThrough !== expected.validThrough) {
-      throw new TypeError("program head changed during simulation");
-    }
-  }
-
-  public async submit(call: ProgramCall, idempotencyKey: IdempotencyKey): Promise<ProgramSubmission> {
-    validateCall(call);
-    if (call.nativeCall !== undefined && this.trust.protocolVersion() !== 3) throw new TypeError("native call requires selected protocol 3");
-    if (!HEX32.test(idempotencyKey)) throw new TypeError("invalid program idempotency key");
-    const signed = await decodeSignedProgramCall(call, idempotencyKey);
-    const retained = hex(signed.canonicalBytes);
-    try {
-      const value = await this.client.agent<unknown, unknown>("program.call", wireCall(call), { idempotencyKey });
-      return await submissionDocument(value, this.trust, { programId: call.programId, activityId: signed.activityId,
-        idempotencyKey, retainedSignedActivity: retained });
-    } catch (error) {
-      if (definitiveServiceRefusal(error)) throw error;
-      return Object.freeze({ state: "unknown", activity_id: signed.activityId, idempotency_key: idempotencyKey,
-        retained_signed_activity: retained });
-    }
-  }
-
-  public async nativeReceipt(call: NativeProgramRequestV1, idempotencyKey: IdempotencyKey): Promise<ProgramSubmission> {
-    validateCall(call);
-    if (this.trust.protocolVersion() !== 3) throw new TypeError("native receipt requires protocol3");
-    const signed = await decodeSignedProgramCall(call, idempotencyKey);
-    const value = await this.client.agent<unknown, unknown>("program.receipt", { idempotency_key: idempotencyKey,
-      expected_activity_id: signed.activityId, requested_verification_level: "sequencer-signed" });
-    return submissionDocument(value, this.trust, { programId: call.programId, activityId: signed.activityId,
-      idempotencyKey, retainedSignedActivity: hex(signed.canonicalBytes) });
-  }
-
-  public async receipt(idempotencyKey: string, expectedActivityId: string): Promise<ProgramSubmission> {
-    if (!HEX32.test(idempotencyKey) || !HEX32.test(expectedActivityId)) throw new TypeError("invalid program receipt selector");
-    const value = await this.client.agent<unknown, unknown>("program.receipt", { idempotency_key: idempotencyKey,
-      expected_activity_id: expectedActivityId, requested_verification_level: "sequencer-signed" });
-    return await submissionDocument(value, this.trust, { idempotencyKey, activityId: expectedActivityId });
-  }
-
-  public async activity(activityId: string): Promise<ProgramSubmission> {
-    if (!HEX32.test(activityId)) throw new TypeError("invalid activity id");
-    const value = await this.client.agent<unknown, unknown>("program.activity", { activity_id: activityId,
-      requested_verification_level: "sequencer-signed" });
-    return await submissionDocument(value, this.trust, { activityId });
   }
 }
 
@@ -367,83 +153,7 @@ export function resolveLifecycleFailure(error: unknown, binding: DecodedSignedPr
   throw error;
 }
 
-export async function resolveLifecycleResponse(result: unknown, binding: DecodedSignedProgramCall, sequencer: Uint8Array): Promise<ProgramLifecycleSubmission> {
-  try {
-    const value = object(result);
-    if (value.state === "unknown") {
-      exactKeys(value, ["state", "activity_id", "retry", "retry_after_seconds"]);
-      if (value.activity_id !== binding.activityId || value.retry !== "after" || value.retry_after_seconds !== 2) throw new TypeError("unknown lifecycle binding");
-      return unknownLifecycleSubmission(binding);
-    }
-    exactKeys(value, ["state", "activity_id", "receipt", "terminal_payload", "call_graph"]);
-    if (value.terminal_payload !== "" || value.call_graph !== "") throw new TypeError("unexpected lifecycle artifacts");
-    if (value.activity_id !== binding.activityId || typeof value.receipt !== "string" || !/^(?:[0-9a-f]{2})+$/u.test(value.receipt) || value.receipt.length > 2_097_152) throw new TypeError("lifecycle receipt binding");
-    const verified = await verifyProgramLifecycleReceipt(decodeHex(value.receipt, 1_048_576), decodeHex(binding.activityId, 32), sequencer);
-    if (value.state !== (verified.receipt.resultCode === 0 ? "executed" : "refused")) throw new TypeError("lifecycle result binding");
-    return Object.freeze({ state: "acknowledged", activity_id: binding.activityId, receipt: value.receipt, result_code: verified.receipt.resultCode });
-  } catch {
-    return unknownLifecycleSubmission(binding);
-  }
-}
-
-export async function verifyLifecycleRecovery(result: unknown, expectedActivity: string, sequencer: Uint8Array): Promise<ReceiptVerification> {
-  if (result === null || typeof result !== "object" || Array.isArray(result)) throw new TypeError("lifecycle recovery response");
-  const value = result as Readonly<Record<string, unknown>>;
-  exactKeys(value, ["activity_id", "receipt"]);
-  if (value.activity_id !== expectedActivity || typeof value.receipt !== "string" || !/^(?:[0-9a-f]{2})+$/u.test(value.receipt) || value.receipt.length > 2_097_152) throw new TypeError("lifecycle recovery binding");
-  return verifyProgramLifecycleReceipt(decodeHex(value.receipt, 1_048_576), decodeHex(expectedActivity, 32), sequencer);
-}
-
-interface SubmissionExpectation { readonly programId?: string; readonly activityId?: string; readonly idempotencyKey?: string; readonly retainedSignedActivity?: string }
 interface ProgramHeadObservation { readonly stateRoot: string; readonly sequence: bigint; readonly observedAt: bigint; readonly validThrough: bigint }
-
-async function submissionDocument(value: unknown, trust: ProgramTrustContext, expected: SubmissionExpectation): Promise<ProgramSubmission> {
-  const candidate = object(value);
-  if (candidate.state === "unknown") {
-    exactKeys(candidate, ["state", "activity_id", "idempotency_key"], ["retained_signed_activity"]);
-    const activityId = requiredHex32(candidate, "activity_id");
-    const idempotencyKey = requiredHex32(candidate, "idempotency_key");
-    const retained = candidate.retained_signed_activity === undefined ? undefined : requiredHex(candidate, "retained_signed_activity", MAX_CALLDATA);
-    if ((expected.activityId !== undefined && activityId !== expected.activityId)
-      || (expected.idempotencyKey !== undefined && idempotencyKey !== expected.idempotencyKey)
-      || (expected.retainedSignedActivity !== undefined && retained !== undefined && retained !== expected.retainedSignedActivity)) throw new TypeError("program unknown binding failed");
-    const boundRetained = retained ?? expected.retainedSignedActivity;
-    return Object.freeze({ state: "unknown", activity_id: activityId, idempotency_key: idempotencyKey,
-      ...(boundRetained === undefined ? {} : { retained_signed_activity: boundRetained }) });
-  }
-  if (candidate.state !== "executed" && candidate.state !== "refused") throw new TypeError("invalid program submission state");
-  const execution = servedExecutionDocument(candidate, candidate.state);
-  if ((expected.programId !== undefined && execution.program_id !== expected.programId)
-    || (expected.activityId !== undefined && execution.activity_id !== expected.activityId)
-    || (expected.idempotencyKey !== undefined && execution.idempotency_key !== expected.idempotencyKey)) throw new TypeError("program execution binding failed");
-  await verifyServedProgramReceipt(execution, wireAuthority(execution.authority, trust), trust,
-    expected.retainedSignedActivity === undefined ? undefined : decodeHex(expected.retainedSignedActivity, MAX_CALLDATA));
-  return execution as ProgramSubmission;
-}
-
-function simulationDocument(value: unknown, expectedProgramId: string, expectedActivityId: string): ProgramSimulation {
-  const candidate = object(value);
-  exactKeys(candidate, ["committed", "execution", "simulation_evidence"]);
-  if (candidate.committed !== false) throw new TypeError("committed program simulation");
-  const execution = servedExecutionDocument(object(candidate.execution), "simulated") as ProgramSimulation["execution"];
-  if (execution.program_id !== expectedProgramId || execution.activity_id !== expectedActivityId) throw new TypeError("program simulation binding failed");
-  const rawEvidence = object(candidate.simulation_evidence);
-  const evidence: ProgramSimulationEvidence = Object.freeze({
-    boundary_id: requiredHex32(rawEvidence, "boundary_id"),
-    activity_id: requiredHex32(rawEvidence, "activity_id"),
-    previous_state_root: requiredHex32(rawEvidence, "previous_state_root"),
-    hypothetical_state_root: requiredHex32(rawEvidence, "hypothetical_state_root"),
-    observed_sequence: decimal(rawEvidence.observed_sequence),
-    observed_at: decimal(rawEvidence.observed_at),
-    committed: rawEvidence.committed === false ? false : (() => { throw new TypeError("invalid simulation evidence"); })(),
-    public_key: requiredHex32(rawEvidence, "public_key"),
-    signature: requiredHex(rawEvidence, "signature", 64, 64),
-  });
-  exactKeys(rawEvidence, ["boundary_id", "activity_id", "previous_state_root", "hypothetical_state_root",
-    "observed_sequence", "observed_at", "committed", "public_key", "signature"]);
-  if (evidence.activity_id !== execution.activity_id || evidence.hypothetical_state_root !== execution.state_root) throw new TypeError("program simulation evidence binding failed");
-  return Object.freeze({ committed: false, execution, simulation_evidence: evidence });
-}
 
 export function parseProgramExecutionDocument(value: unknown): ProgramExecutionDocument {
   const candidate = object(value);
@@ -543,21 +253,11 @@ function executionDocumentV5(candidate: Readonly<Record<string, unknown>>, state
   return result;
 }
 
-function servedExecutionDocument(candidate: Readonly<Record<string, unknown>>, state: "executed" | "refused" | "simulated"): ProgramExecutionDocument {
-  return candidate.guest_abi_version === 3 || candidate.guest_abi_version === 4 || candidate.guest_abi_version === 5
-    ? executionDocumentV5(candidate, state) : executionDocument(candidate, state);
-}
-
 export function parseProgramExecutionDocumentV5(value: unknown): ProgramExecutionDocument {
   const candidate = object(value);
   if (candidate.state !== "executed" && candidate.state !== "refused" && candidate.state !== "simulated") throw new TypeError("invalid program execution state");
   return executionDocumentV5(candidate, candidate.state);
 }
-
-const verifyServedProgramReceipt: typeof verifyProgramReceipt = (execution, authority, trust, signed, payers) =>
-  execution.guest_abi_version === 3 || execution.guest_abi_version === 4 || execution.guest_abi_version === 5
-    ? verifyProgramReceiptV5(execution, authority, trust, signed, payers)
-    : verifyProgramReceipt(execution, authority, trust, signed, payers);
 
 export interface GatewayProgramDiscovery extends ProgramDiscovery {
   readonly deployment_receipt_digest: string;
@@ -667,54 +367,6 @@ async function programInterface(value: unknown, programId: string, now: bigint):
   return result;
 }
 
-function wireAuthority(value: ProgramAuthorityDocument, trust: ProgramTrustContext): AuthorizedReceiptBatch {
-  const pinned = trust.sequencerPublicKey();
-  if (value.sequencer_public_key !== hex(pinned)) throw new TypeError("program sequencer key does not match pin");
-  return Object.freeze({ batchId: decodeHex(value.batch_id, 32), asset: decodeHex(value.asset, 32), previousStateRoot: decodeHex(value.previous_state_root, 32), resultingStateRoot: decodeHex(value.resulting_state_root, 32), sequencerPublicKey: pinned });
-}
-
-async function verifySimulationEvidence(simulation: ProgramSimulation, verified: VerifiedProgramReceipt,
-  prior: ProgramHeadObservation, binding: DecodedSignedProgramCall, trust: ProgramTrustContext): Promise<void> {
-  const evidence = simulation.simulation_evidence;
-  const publicKey = decodeHex(evidence.public_key, 32);
-  const pinned = trust.sequencerPublicKey();
-  const now = trust.nowMilliseconds();
-  if (!equal(publicKey, pinned)) throw new TypeError("simulation sequencer key does not match pin");
-  const expectedBoundary = await digest(concat(new TextEncoder().encode("LayerX/emulator/simulation-boundary/v1\0"), publicKey));
-  if (!equal(expectedBoundary, decodeHex(evidence.boundary_id, 32))) throw new TypeError("simulation boundary mismatch");
-  const signed = concat(
-    new TextEncoder().encode("LayerX/agent/program-simulation-evidence/v1\0"), decodeHex(evidence.boundary_id, 32),
-    decodeHex(evidence.activity_id, 32), decodeHex(evidence.previous_state_root, 32), decodeHex(evidence.hypothetical_state_root, 32),
-    u64(BigInt(evidence.observed_sequence)), u64(BigInt(evidence.observed_at)), new Uint8Array([0]),
-  );
-  const evidenceDigest = await digest(signed);
-  const key = await globalThis.crypto.subtle.importKey("raw", buffer(publicKey), { name: "Ed25519" }, false, ["verify"]);
-  if (!await globalThis.crypto.subtle.verify("Ed25519", key, buffer(decodeHex(evidence.signature, 64)), buffer(evidenceDigest))) throw new TypeError("simulation evidence signature mismatch");
-  const protocol = verified.verification.receipt;
-  const observedSequence = BigInt(evidence.observed_sequence);
-  const observedAt = BigInt(evidence.observed_at);
-  requireFreshHead(prior, now);
-  assertFreshSimulationObservation(observedAt, binding, now, trust.maximumSimulationAgeMilliseconds());
-  if (evidence.previous_state_root !== prior.stateRoot || observedSequence !== prior.sequence
-    || hex(protocol.previousStateRoot) !== prior.stateRoot
-    || protocol.globalSequence !== observedSequence + 1n || observedAt < prior.observedAt
-    || observedAt > prior.validThrough) throw new TypeError("stale or mismatched simulation head");
-}
-
-function wireCall(call: ProgramCall): Readonly<Record<string, unknown>> {
-  const feeLimit = call.budget.feeLimit.toString();
-  if (!DECIMAL_U128.test(feeLimit)) throw new TypeError("invalid fee limit");
-  if (call.nativeCall !== undefined) {
-    const native = call.nativeCall;
-    return Object.freeze({ payload_encoding: "native-v1", program_id: call.programId, calldata: hex(call.calldata),
-      budget: { fuel: call.budget.fuel.toString(), fee_limit: feeLimit }, signed_activity: hex(call.signedActivity),
-      native_call: { guest_abi: native.guestAbi, entrypoint: native.entrypoint, capabilities_hex: hex(native.capabilities),
-        access_declaration_hex: hex(native.accessDeclaration), response_capacity: native.responseCapacity,
-        resources: native.resources.map(value => value.toString()) } });
-  }
-  return Object.freeze({ program_id: call.programId, calldata: hex(call.calldata), budget: Object.freeze({ fuel: call.budget.fuel.toString(), fee_limit: feeLimit }), capabilities: call.capabilities, signed_activity: hex(call.signedActivity) });
-}
-
 function programSource(value: unknown): ProgramSource {
   const source = object(value);
   if (source.status === "unpublished") {
@@ -793,26 +445,6 @@ function requireFreshHead(value: ProgramHeadObservation, now: bigint): void {
   if (value.observedAt > now || now > value.validThrough || value.validThrough < value.observedAt) throw new TypeError("stale program head");
 }
 
-function sameUsage(left: ProgramUsage, right: ProgramUsage): boolean {
-  return left.cpu_fuel === right.cpu_fuel && left.memory_bytes === right.memory_bytes
-    && left.storage_read_bytes === right.storage_read_bytes && left.storage_write_bytes === right.storage_write_bytes
-    && left.output_values === right.output_values && left.output_bytes === right.output_bytes && left.fee_units === right.fee_units;
-}
-
-function sameOutcome(left: ProgramOutcome, right: ProgramOutcome): boolean {
-  if (left.kind !== right.kind) return false;
-  if (left.kind === "completed" && right.kind === "completed") return left.code === right.code && left.response === right.response;
-  if (left.kind === "legacy_completed" && right.kind === "legacy_completed") return left.code === right.code && JSON.stringify(left.values) === JSON.stringify(right.values);
-  if (left.kind === "refused" && right.kind === "refused") return JSON.stringify(left.failure) === JSON.stringify(right.failure);
-  return false;
-}
-
-function definitiveServiceRefusal(error: unknown): boolean {
-  return error instanceof PlatformSdkError && error.retry === "never" && ["invalid-argument", "idempotency-required",
-    "protocol-incompatibility", "unavailable-capability", "core-rejection", "policy-refusal", "capability-refusal",
-    "budget-refusal", "idempotency-conflict"].includes(error.code);
-}
-
 function object(value: unknown): Readonly<Record<string, unknown>> { if (value === null || typeof value !== "object" || Array.isArray(value)) throw new TypeError("invalid program document"); return value as Readonly<Record<string, unknown>>; }
 function exactKeys(value: Readonly<Record<string, unknown>>, required: readonly string[], optional: readonly string[] = []): void { const allowed = new Set([...required, ...optional]); if (required.some((key) => !(key in value)) || Object.keys(value).some((key) => !allowed.has(key))) throw new TypeError("invalid program document fields"); }
 function requiredHex32(value: Readonly<Record<string, unknown>>, field: string): string { const candidate = value[field]; if (typeof candidate !== "string" || !HEX32.test(candidate)) throw new TypeError("invalid program identity"); return candidate; }
@@ -821,7 +453,6 @@ function decimal(value: unknown, u128 = false): string { if (typeof value !== "s
 function exactInteger(value: unknown, minimum: number, maximum: number): number { if (typeof value !== "number" || !Number.isSafeInteger(value) || value < minimum || value > maximum) throw new TypeError("invalid program integer"); return value; }
 function hex(value: Uint8Array): string { return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join(""); }
 function decodeHex(value: string, maximum: number): Uint8Array { if (value.length % 2 !== 0 || value.length > maximum * 2 || !/^[0-9a-f]*$/u.test(value)) throw new TypeError("invalid hexadecimal evidence"); return Uint8Array.from(value.match(/.{2}/gu) ?? [], (pair) => Number.parseInt(pair, 16)); }
-function equal(left: Uint8Array, right: Uint8Array): boolean { if (left.length !== right.length) return false; let difference = 0; for (let index = 0; index < left.length; index += 1) difference |= (left[index] ?? 0) ^ (right[index] ?? 0); return difference === 0; }
 async function digest(value: Uint8Array): Promise<Uint8Array> { const copy = new Uint8Array(value); return new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", copy.buffer)); }
 function concat(...values: readonly Uint8Array[]): Uint8Array { const output = new Uint8Array(values.reduce((length, value) => length + value.length, 0)); let offset = 0; for (const value of values) { output.set(value, offset); offset += value.length; } return output; }
 function u64(value: bigint): Uint8Array { if (value < 0n || value > 18446744073709551615n) throw new TypeError("u64 overflow"); const encoded = new Uint8Array(8); let remaining = value; for (let index = 7; index >= 0; index -= 1) { encoded[index] = Number(remaining & 0xffn); remaining >>= 8n; } return encoded; }

@@ -1259,10 +1259,8 @@ version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
  "k256",
- "layerx-client",
  "layerx-committed-proof",
  "layerx-crypto",
- "layerx-paxeer-verifier",
  "layerx-platform-internal",
  "layerx-programs-ai-market",
  "layerx-proof",
@@ -1401,10 +1399,6 @@ dependencies = [
  "ed25519-dalek",
  "getrandom 0.4.3",
  "layerx-agentd",
- "layerx-client",
- "layerx-programs-protocol-adapter",
- "layerx-programs-registry",
- "layerx-programs-runtime",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
@@ -1584,11 +1578,9 @@ name = "layerx-platform-registry"
 version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
- "layerx-client",
  "layerx-crypto",
  "layerx-platform-gateway",
  "layerx-platform-internal",
- "layerx-programs-protocol-adapter",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
@@ -1663,13 +1655,6 @@ dependencies = [
  "layerx-program-sdk",
  "sha2 0.10.9",
  "spin",
-]
-
-[[package]]
-name = "layerx-programs-protocol-adapter"
-version = "0.1.0"
-dependencies = [
- "layerx-programs-registry",
 ]
 
 [[package]]

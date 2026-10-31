@@ -1,24 +1,10 @@
 mod artifacts;
 mod chain_receipt;
 mod deployment;
-mod head_attestation;
-#[cfg(test)]
-mod head_attestation_tests;
 #[cfg(test)]
 mod lifecycle_tests;
 
-use layerx_client::lni::handshake::{perform, Handshake, HandshakeConfig};
-use layerx_client::lni::program_read::{
-    read_program, ProgramReadContext, ProgramReadError, ProgramReadResult,
-};
-use layerx_client::lni::schema::{encode_envelope, Capability, Envelope, Version};
-use layerx_client::lni::simulate::{simulate, SimulateContext, SimulateError};
-use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, TransportError, Uds};
-use layerx_client::receipt::{
-    lookup_authenticated, AuthenticatedLookup, AuthenticatedLookupContext, ReceiptError,
-    ReceiptWaitMode,
-};
-use layerx_client::submit::{submit_signed, Submission, SubmissionContext, SubmitError};
+use crate::chain_receipt::ChainReceipts;
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::program_call::NativeProgramCall;
@@ -41,9 +27,9 @@ use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 use subtle::ConstantTimeEq;
 use zeroize::{Zeroize, Zeroizing};
 
@@ -55,9 +41,6 @@ const MAX_ARTIFACT_RESPONSE_BYTES: usize = 4 * MAX_ACTIVITY_BYTES + 16 * 1024;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const IO_TIMEOUT: Duration = Duration::from_secs(15);
 const MAX_CONNECTIONS: usize = 128;
-const LNI_FRAME_BYTES: usize = 1_212_416;
-const LNI_CONNECTIONS: usize = 4;
-const ERROR_RESPONSE_TAG: u16 = 25;
 const MAX_MODULES: usize = 9;
 const MAX_ORDINALS: usize = 64;
 const DEFAULT_ORDINALS: u16 = 16;
@@ -73,119 +56,15 @@ struct Config {
     gateway_token: Zeroizing<String>,
     registry_token: Zeroizing<String>,
     webhook_token: Zeroizing<String>,
-    lni_socket: PathBuf,
-    lni_deadline: Duration,
     node: NodeEndpoint,
-    chain_receipts: chain_receipt::ChainReceipts,
+    chain_receipts: ChainReceipts,
     node_token: Zeroizing<String>,
     state_dir: PathBuf,
     protocol_network_id: u32,
     network_name: String,
     registry: ModuleRegistry,
     receipt_wait: Duration,
-    gate: ConnectionGate,
-    sessions: SessionPool,
     key_locks: Mutex<BTreeMap<String, Arc<Mutex<()>>>>,
-}
-
-struct Session {
-    transport: Uds,
-    handshake: Handshake,
-    next_correlation: u64,
-}
-
-struct SessionSlot {
-    current: Option<Session>,
-    previous: Option<Handshake>,
-}
-
-struct SessionPool {
-    slots: Vec<Mutex<SessionSlot>>,
-    state: Mutex<SessionPoolState>,
-    changed: Condvar,
-}
-
-struct SessionPoolState {
-    busy: Vec<bool>,
-}
-
-#[derive(Clone, Copy, Eq, PartialEq)]
-enum SessionUse {
-    Interactive,
-    ReceiptWait,
-}
-
-struct SessionLease<'a> {
-    pool: &'a SessionPool,
-    index: usize,
-}
-
-impl SessionPool {
-    fn new() -> Self {
-        Self {
-            slots: (0..LNI_CONNECTIONS)
-                .map(|_| {
-                    Mutex::new(SessionSlot {
-                        current: None,
-                        previous: None,
-                    })
-                })
-                .collect(),
-            state: Mutex::new(SessionPoolState {
-                busy: vec![false; LNI_CONNECTIONS],
-            }),
-            changed: Condvar::new(),
-        }
-    }
-
-    fn acquire(
-        &self,
-        usage: SessionUse,
-        timeout: Duration,
-    ) -> Result<SessionLease<'_>, LniFailure> {
-        let deadline = Instant::now().checked_add(timeout).ok_or_else(|| {
-            LniFailure::Unavailable("session admission deadline invalid".to_owned())
-        })?;
-        let mut state = self.state.lock().unwrap_or_else(PoisonError::into_inner);
-        loop {
-            let remaining = deadline
-                .checked_duration_since(Instant::now())
-                .filter(|duration| !duration.is_zero())
-                .ok_or_else(|| {
-                    LniFailure::Unavailable("session admission deadline exceeded".to_owned())
-                })?;
-            let first = usize::from(usage == SessionUse::ReceiptWait);
-            if let Some(index) = (first..state.busy.len()).find(|index| !state.busy[*index]) {
-                state.busy[index] = true;
-                return Ok(SessionLease { pool: self, index });
-            }
-            let (next, _) = self
-                .changed
-                .wait_timeout(state, remaining)
-                .unwrap_or_else(PoisonError::into_inner);
-            state = next;
-        }
-    }
-}
-
-impl Drop for SessionLease<'_> {
-    fn drop(&mut self) {
-        let mut state = self
-            .pool
-            .state
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
-        state.busy[self.index] = false;
-        self.pool.changed.notify_all();
-    }
-}
-
-impl Session {
-    fn correlation(&mut self) -> u64 {
-        let value = self.next_correlation;
-        self.next_correlation = self.next_correlation.wrapping_add(1).max(1);
-        value
-    }
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -298,65 +177,6 @@ struct Response {
     status: u16,
     body: String,
     retry_after: Option<u64>,
-}
-
-enum LniFailure {
-    Unavailable(String),
-    Transport(String),
-    Undelivered(String),
-}
-
-impl LniFailure {
-    const fn retires_session(&self) -> bool {
-        matches!(self, Self::Transport(_) | Self::Undelivered(_))
-    }
-
-    fn response(&self) -> Response {
-        match self {
-            Self::Unavailable(detail) => {
-                eprintln!("{SERVICE}: node unavailable: {detail}");
-                refusal(503, "node_unavailable", Some(5))
-            }
-            Self::Transport(detail) | Self::Undelivered(detail) => {
-                eprintln!("{SERVICE}: node transport lost: {detail}");
-                refusal(503, "node_transport_lost", Some(5))
-            }
-        }
-    }
-}
-
-struct SubmissionTransport<'a> {
-    inner: &'a mut Uds,
-    send_failure: Option<TransportError>,
-}
-
-impl FrameTransport for SubmissionTransport<'_> {
-    fn send(&mut self, canonical_envelope: &[u8]) -> Result<(), TransportError> {
-        let sent = self.inner.send(canonical_envelope);
-        if let Err(error) = sent {
-            self.send_failure = Some(error);
-        }
-        sent
-    }
-
-    fn receive(&mut self) -> Result<Vec<u8>, TransportError> {
-        self.inner.receive()
-    }
-}
-
-enum Lookup {
-    Absent,
-    Present {
-        receipt: Vec<u8>,
-        result_code: i32,
-        module_id: u16,
-        sequencer_public_key: [u8; 32],
-    },
-}
-
-enum SubmitOutcome {
-    Acknowledged,
-    Refused(Refusal),
 }
 
 struct Decoded {
@@ -565,14 +385,6 @@ fn config() -> Result<Config, String> {
     {
         return Err("webhook bearer token must be distinct from gateway and registry".to_owned());
     }
-    let lni_socket = PathBuf::from(
-        env::var("LAYERX_AGENT_BOUNDARY_LNI_SOCKET")
-            .map_err(|_| "LAYERX_AGENT_BOUNDARY_LNI_SOCKET is required")?,
-    );
-    let lni_deadline_ms = parse_u64("LAYERX_AGENT_BOUNDARY_LNI_DEADLINE_MS", 10_000)?;
-    if !(1..=60_000).contains(&lni_deadline_ms) {
-        return Err("LAYERX_AGENT_BOUNDARY_LNI_DEADLINE_MS must be within 1..=60000".to_owned());
-    }
     let receipt_wait_ms = parse_u64("LAYERX_AGENT_BOUNDARY_RECEIPT_WAIT_MS", 5_000)?;
     if !(1..=60_000).contains(&receipt_wait_ms) {
         return Err("LAYERX_AGENT_BOUNDARY_RECEIPT_WAIT_MS must be within 1..=60000".to_owned());
@@ -601,13 +413,11 @@ fn config() -> Result<Config, String> {
         gateway_token,
         registry_token,
         webhook_token,
-        lni_socket,
-        lni_deadline: Duration::from_millis(lni_deadline_ms),
         node: node_endpoint(
             &env::var("LAYERX_AGENT_BOUNDARY_NODE_URL")
                 .map_err(|_| "LAYERX_AGENT_BOUNDARY_NODE_URL is required")?,
         )?,
-        chain_receipts: chain_receipt::ChainReceipts::from_config(
+        chain_receipts: ChainReceipts::from_config(
             &env::var("LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL")
                 .map_err(|_| "LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL is required")?,
             &PathBuf::from(
@@ -621,127 +431,8 @@ fn config() -> Result<Config, String> {
         network_name,
         registry: module_registry()?,
         receipt_wait: Duration::from_millis(receipt_wait_ms),
-        gate: ConnectionGate::new(LNI_CONNECTIONS),
-        sessions: SessionPool::new(),
         key_locks: Mutex::new(BTreeMap::new()),
     })
-}
-
-fn lni_limits(config: &Config, slot: usize) -> Limits {
-    Limits {
-        maximum_frame_bytes: LNI_FRAME_BYTES,
-        maximum_connections: LNI_CONNECTIONS,
-        maximum_streams: 1,
-        maximum_queued_bytes: LNI_FRAME_BYTES,
-        deadline: if slot == 0 {
-            config.lni_deadline
-        } else {
-            config.lni_deadline.min(config.receipt_wait)
-        },
-    }
-}
-
-fn open_session(
-    config: &Config,
-    slot: usize,
-    previous: Option<&Handshake>,
-) -> Result<Session, LniFailure> {
-    let mut transport = Uds::connect(&config.lni_socket, &config.gate, lni_limits(config, slot))
-        .map_err(|error| LniFailure::Unavailable(format!("{error:?}")))?;
-    let expected = HandshakeConfig {
-        built_interface_version: Version::V1_7,
-        expected_protocol_version: PROTOCOL_VERSION,
-        expected_network_id: config.protocol_network_id,
-    };
-    let handshake = perform(&mut transport, &expected, previous)
-        .map_err(|error| LniFailure::Unavailable(format!("{error:?}")))?;
-    for capability in [
-        Capability::NodeInfo,
-        Capability::Submit,
-        Capability::ReceiptLookup,
-    ] {
-        if !handshake.capabilities().contains(capability) {
-            return Err(LniFailure::Unavailable(format!(
-                "node does not advertise {capability:?}"
-            )));
-        }
-    }
-    let seed = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|elapsed| u64::try_from(elapsed.as_nanos()).unwrap_or(u64::MAX))
-        .unwrap_or(1)
-        .max(1);
-    Ok(Session {
-        transport,
-        handshake,
-        next_correlation: seed,
-    })
-}
-
-fn with_session<T>(
-    config: &Config,
-    operation: impl FnOnce(&mut Session) -> Result<T, LniFailure>,
-) -> Result<T, LniFailure> {
-    with_session_for(config, SessionUse::Interactive, operation)
-}
-
-fn with_session_for<T>(
-    config: &Config,
-    usage: SessionUse,
-    operation: impl FnOnce(&mut Session) -> Result<T, LniFailure>,
-) -> Result<T, LniFailure> {
-    let lease = config.sessions.acquire(usage, config.lni_deadline)?;
-    let mut slot = config.sessions.slots[lease.index]
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner);
-    if slot.current.is_none() {
-        let opened = open_session(config, lease.index, slot.previous.as_ref())?;
-        slot.previous = Some(opened.handshake.clone());
-        slot.current = Some(opened);
-    }
-    let Some(session) = slot.current.as_mut() else {
-        return Err(LniFailure::Unavailable("session is absent".to_owned()));
-    };
-    let result = operation(session);
-    if result.as_ref().is_err_and(LniFailure::retires_session) {
-        if let Some(retired) = slot.current.take() {
-            slot.previous = Some(retired.handshake);
-        }
-    }
-    result
-}
-
-fn lookup_receipt(
-    session: &mut Session,
-    activity: [u8; 32],
-    wait_mode: ReceiptWaitMode,
-) -> Result<Lookup, LniFailure> {
-    let sequencer_public_key = session.handshake.node().authorised_sequencer_key;
-    let context = AuthenticatedLookupContext {
-        interface_version: session.handshake.node().interface_version,
-        correlation_id: session.correlation(),
-        sequencer_public_key,
-        wait_mode,
-    };
-    match lookup_authenticated(&mut session.transport, activity, context) {
-        Ok(AuthenticatedLookup::Absent | AuthenticatedLookup::TimedOut) => Ok(Lookup::Absent),
-        Ok(AuthenticatedLookup::Verified(receipt)) => Ok(Lookup::Present {
-            receipt: receipt.canonical_bytes().to_vec(),
-            result_code: receipt.result_code().raw(),
-            module_id: receipt.module_id(),
-            sequencer_public_key,
-        }),
-        Err(
-            error @ (ReceiptError::CoreRefusal { .. }
-            | ReceiptError::UnavailableCapability
-            | ReceiptError::InterfaceVersion(_)),
-        ) => Err(LniFailure::Unavailable(format!(
-            "receipt lookup refused: {error:?}"
-        ))),
-        Err(error) => Err(LniFailure::Transport(format!(
-            "receipt lookup failed: {error:?}"
-        ))),
-    }
 }
 
 fn result_refusal(result: ResultCode) -> Refusal {
@@ -768,119 +459,6 @@ fn terminal(status: u16, code: &str) -> Refusal {
         status,
         code: code.to_owned(),
         retry_after: None,
-    }
-}
-
-fn withdrawal_admission(
-    config: &Config,
-    session: &mut Session,
-    signed: &[u8],
-) -> Result<Option<Refusal>, LniFailure> {
-    use layerx_client::payments::SnapshotContext;
-    use layerx_client::withdrawal::WithdrawalConfigurationError;
-
-    let Ok(activity) = decode_signed(signed, &config.registry) else {
-        return Ok(Some(terminal(400, "malformed_activity")));
-    };
-    if activity.activity_type().module() != ModuleId::Asset
-        || activity.activity_type().ordinal() != 9
-    {
-        return Ok(None);
-    }
-    let correlation_id = session.next_correlation;
-    session.next_correlation = correlation_id
-        .checked_add(3)
-        .ok_or_else(|| LniFailure::Unavailable("withdrawal correlation exhausted".to_owned()))?;
-    let context = SnapshotContext {
-        interface_version: session.handshake.node().interface_version,
-        correlation_id,
-        minimum_sequence: session.handshake.node().chain_head_sequence,
-    };
-    match layerx_client::withdrawal::registry(
-        &mut session.transport,
-        &activity,
-        context,
-        config.protocol_network_id,
-    ) {
-        Ok(_) => Ok(None),
-        Err(WithdrawalConfigurationError::Unsupported) => {
-            Ok(Some(terminal(422, "asset_ordinal_reserved")))
-        }
-        Err(WithdrawalConfigurationError::InvalidActivity) => {
-            Ok(Some(terminal(400, "invalid_asset_activity")))
-        }
-        Err(WithdrawalConfigurationError::AssetUnavailable) => {
-            Ok(Some(terminal(422, "withdrawal_asset_unavailable")))
-        }
-        Err(WithdrawalConfigurationError::Unavailable) => Err(LniFailure::Unavailable(
-            "committed withdrawal configuration is unavailable".to_owned(),
-        )),
-    }
-}
-
-fn submit_activity(
-    config: &Config,
-    session: &mut Session,
-    decoded: &Decoded,
-    attempt: u32,
-    signed: &[u8],
-) -> Result<SubmitOutcome, LniFailure> {
-    if let Some(refusal) = withdrawal_admission(config, session, signed)? {
-        return Ok(SubmitOutcome::Refused(refusal));
-    }
-    let node = session.handshake.node();
-    let context = SubmissionContext {
-        interface_version: node.interface_version,
-        protocol_version: node.protocol_version,
-        network_id: node.network_id,
-        correlation_id: session.correlation(),
-        signer_public_key: decoded.signer_public_key,
-        attempt,
-    };
-    let mut transport = SubmissionTransport {
-        inner: &mut session.transport,
-        send_failure: None,
-    };
-    let submission = submit_signed(&mut transport, &config.registry, context, signed);
-    let send_failure = transport.send_failure;
-    match submission {
-        Ok(Submission::Acknowledged(acknowledgement)) => {
-            if acknowledgement.activity_id() != decoded.activity_id {
-                return Err(LniFailure::Transport(
-                    "acknowledgement names a different activity".to_owned(),
-                ));
-            }
-            Ok(SubmitOutcome::Acknowledged)
-        }
-        Ok(Submission::Unknown(_)) => Err(send_failure.map_or_else(
-            || LniFailure::Transport("submission outcome is indeterminate".to_owned()),
-            |error| {
-                LniFailure::Undelivered(format!(
-                    "submission frame was not written to the node: {error:?}"
-                ))
-            },
-        )),
-        Err(SubmitError::CoreRefusal { result, .. }) => {
-            Ok(SubmitOutcome::Refused(result_refusal(result)))
-        }
-        Err(SubmitError::Wire(_) | SubmitError::Envelope(_)) => {
-            Ok(SubmitOutcome::Refused(terminal(400, "malformed_activity")))
-        }
-        Err(SubmitError::SignatureLength(_) | SubmitError::Signature(_)) => {
-            Ok(SubmitOutcome::Refused(terminal(422, "bad_signature")))
-        }
-        Err(SubmitError::ProtocolVersion { .. }) => {
-            Ok(SubmitOutcome::Refused(terminal(422, "version_unsupported")))
-        }
-        Err(SubmitError::Network { .. }) => {
-            Ok(SubmitOutcome::Refused(terminal(422, "wrong_network")))
-        }
-        Err(SubmitError::UnavailableCapability) => Err(LniFailure::Unavailable(
-            "node does not accept submissions".to_owned(),
-        )),
-        Err(SubmitError::Disconnected) => Err(LniFailure::Transport(
-            "node disconnected before the submission".to_owned(),
-        )),
     }
 }
 
@@ -1359,215 +937,6 @@ fn complete_record(
     outcome_response(record)
 }
 
-fn await_receipt(
-    config: &Config,
-    activity: [u8; 32],
-    wait: Duration,
-) -> Result<Lookup, LniFailure> {
-    let (usage, wait_mode) = if wait.is_zero() {
-        (SessionUse::Interactive, ReceiptWaitMode::Immediate)
-    } else {
-        (SessionUse::ReceiptWait, ReceiptWaitMode::Durable)
-    };
-    with_session_for(config, usage, |session| {
-        lookup_receipt(session, activity, wait_mode)
-    })
-}
-
-fn resolve_record(
-    config: &Config,
-    key_digest: &str,
-    record: &mut JournalRecord,
-    decoded: &Decoded,
-    signed: &[u8],
-) -> Response {
-    if record.attempts > 0 {
-        let wait = if record.state == "acknowledged" {
-            config.receipt_wait
-        } else {
-            Duration::ZERO
-        };
-        match await_receipt(config, decoded.activity_id, wait) {
-            Ok(Lookup::Present {
-                receipt,
-                result_code,
-                sequencer_public_key,
-                ..
-            }) => {
-                return complete_record(
-                    config,
-                    key_digest,
-                    record,
-                    &receipt,
-                    result_code,
-                    sequencer_public_key,
-                )
-            }
-            Ok(Lookup::Absent) => return unknown_response(&record.activity_id),
-            Err(failure) => return failure.response(),
-        }
-    }
-    "submitting".clone_into(&mut record.state);
-    record.attempts = record.attempts.saturating_add(1);
-    let attempt = record.attempts;
-    if store_record(config, key_digest, record).is_err() {
-        return refusal(503, "persistence_unavailable", Some(5));
-    }
-    let outcome = with_session(config, |session| {
-        submit_activity(config, session, decoded, attempt, signed)
-    });
-    match outcome {
-        Ok(SubmitOutcome::Acknowledged) => {
-            "acknowledged".clone_into(&mut record.state);
-            if store_record(config, key_digest, record).is_err() {
-                return refusal(503, "persistence_unavailable", Some(5));
-            }
-            match await_receipt(config, decoded.activity_id, config.receipt_wait) {
-                Ok(Lookup::Present {
-                    receipt,
-                    result_code,
-                    sequencer_public_key,
-                    ..
-                }) => complete_record(
-                    config,
-                    key_digest,
-                    record,
-                    &receipt,
-                    result_code,
-                    sequencer_public_key,
-                ),
-                Ok(Lookup::Absent) | Err(_) => unknown_response(&record.activity_id),
-            }
-        }
-        Ok(SubmitOutcome::Refused(stored)) => {
-            "refused".clone_into(&mut record.state);
-            record.refusal = Some(stored.clone());
-            if store_record(config, key_digest, record).is_err() {
-                return refusal(503, "persistence_unavailable", Some(5));
-            }
-            refusal_response(&stored)
-        }
-        Err(LniFailure::Transport(_)) => unknown_response(&record.activity_id),
-        Err(failure @ (LniFailure::Unavailable(_) | LniFailure::Undelivered(_))) => {
-            failure.response()
-        }
-    }
-}
-
-fn simulate_route(config: &Config, request: &Request) -> Response {
-    if request.headers.get("content-type").map(String::as_str) != Some("application/octet-stream") {
-        return refusal(400, "content_type_required", None);
-    }
-    if request.body.is_empty() || request.body.len() > MAX_ACTIVITY_BYTES {
-        return refusal(400, "invalid_activity_length", None);
-    }
-    let decoded = match decode_activity(config, Route::ProgramCall, &request.body) {
-        Ok(decoded) => decoded,
-        Err(response) => return response,
-    };
-    let Some(program_id) = decoded.program_id else {
-        return refusal(400, "not_program_call", None);
-    };
-    let outcome = with_session(config, |session| {
-        if !session
-            .handshake
-            .capabilities()
-            .contains(Capability::Simulate)
-        {
-            return Ok(Err(refusal(503, "capability_unavailable", Some(60))));
-        }
-        let context = SimulateContext {
-            interface_version: session.handshake.node().interface_version,
-            sequencer_public_key: session.handshake.node().authorised_sequencer_key,
-            correlation_id: session.correlation(),
-        };
-        match simulate(
-            &mut session.transport,
-            &config.registry,
-            &request.body,
-            context,
-        ) {
-            Ok(simulation) => Ok(Ok(simulation)),
-            Err(SimulateError::Transport(error)) => {
-                Err(LniFailure::Transport(format!("{error:?}")))
-            }
-            Err(SimulateError::CoreRefusal { class, result }) => {
-                if class == 3 {
-                    return Ok(Err(refusal(503, "capability_unavailable", Some(60))));
-                }
-                Ok(Err(refusal_response(&result_refusal(result))))
-            }
-            Err(SimulateError::MalformedRequest) => {
-                Ok(Err(refusal(400, "malformed_activity", None)))
-            }
-            Err(SimulateError::UnavailableCapability | SimulateError::InterfaceVersion(_)) => {
-                Ok(Err(refusal(503, "capability_unavailable", Some(60))))
-            }
-            Err(error) => Err(LniFailure::Transport(format!("{error:?}"))),
-        }
-    });
-    let simulation = match outcome {
-        Ok(Ok(simulation)) => simulation,
-        Ok(Err(response)) => return response,
-        Err(failure) => return failure.response(),
-    };
-    if simulation.execution.activity_id != decoded.activity_id {
-        return LniFailure::Transport("simulation names a different activity".to_owned())
-            .response();
-    }
-    let Ok(receipt) = verify_sequencer_signature(
-        &simulation.execution.receipt,
-        simulation.evidence.public_key,
-    ) else {
-        return LniFailure::Transport("simulated receipt is not sequencer-signed".to_owned())
-            .response();
-    };
-    let Some(protocol) = receipt.protocol() else {
-        return LniFailure::Transport("simulated receipt is not a protocol receipt".to_owned())
-            .response();
-    };
-    let state = if protocol.result_code() == 0 {
-        "simulated"
-    } else {
-        "refused"
-    };
-    simulation_response(&simulation, &program_id, protocol.result_code(), state)
-}
-
-fn simulation_response(
-    simulation: &layerx_client::lni::simulate::Simulation,
-    program_id: &[u8; 32],
-    result_code: i32,
-    state: &str,
-) -> Response {
-    let document = serde_json::json!({
-        "result": {
-            "committed": false,
-            "execution": {
-                "state": state,
-                "activity_id": hex(&simulation.execution.activity_id),
-                "program_id": hex(program_id),
-                "result_code": result_code,
-                "receipt": hex(&simulation.execution.receipt),
-                "terminal_payload": hex(&simulation.execution.terminal_payload),
-                "call_graph": hex(&simulation.execution.call_graph),
-            },
-            "simulation_evidence": {
-                "boundary_id": hex(&simulation.evidence.boundary_id),
-                "activity_id": hex(&simulation.evidence.activity_id),
-                "previous_state_root": hex(&simulation.evidence.previous_state_root),
-                "hypothetical_state_root": hex(&simulation.evidence.hypothetical_state_root),
-                "observed_sequence": simulation.evidence.observed_sequence.to_string(),
-                "observed_at": simulation.evidence.observed_at.to_string(),
-                "committed": false,
-                "public_key": hex(&simulation.evidence.public_key),
-                "signature": hex(&simulation.evidence.signature),
-            }
-        }
-    });
-    ok(document.to_string())
-}
-
 struct ProgramReadFreshness {
     minimum_sequence: u64,
     expected_state_root: Option<[u8; 32]>,
@@ -1605,214 +974,6 @@ fn program_read_freshness(request: &Request) -> Result<ProgramReadFreshness, Res
         minimum_sequence,
         expected_state_root,
     })
-}
-
-fn program_read_response(
-    result: &ProgramReadResult,
-    program_id: &[u8; 32],
-    result_code: i32,
-) -> Response {
-    let state = if result_code == 0 { "read" } else { "refused" };
-    let document = serde_json::json!({
-        "result": {
-            "committed": false,
-            "read_only": true,
-            "execution": {
-                "state": state,
-                "activity_id": hex(&result.execution.activity_id),
-                "program_id": hex(program_id),
-                "result_code": result_code,
-                "receipt": hex(&result.execution.receipt),
-                "receipt_kind": "hypothetical",
-                "terminal_payload": hex(&result.execution.terminal_payload),
-                "call_graph": hex(&result.execution.call_graph),
-            },
-            "simulation_evidence": {
-                "boundary_id": hex(&result.evidence.boundary_id),
-                "activity_id": hex(&result.evidence.activity_id),
-                "previous_state_root": hex(&result.evidence.previous_state_root),
-                "hypothetical_state_root": hex(&result.evidence.hypothetical_state_root),
-                "observed_sequence": result.evidence.observed_sequence.to_string(),
-                "observed_at": result.evidence.observed_at.to_string(),
-                "committed": false,
-                "public_key": hex(&result.evidence.public_key),
-                "signature": hex(&result.evidence.signature),
-            },
-            "snapshot": {
-                "minimum_sequence": result.snapshot.minimum_sequence.to_string(),
-                "observed_sequence": result.snapshot.observed_sequence.to_string(),
-                "state_root": hex(&result.snapshot.state_root),
-                "verification": "sequencer_signed_snapshot",
-            }
-        }
-    });
-    ok(document.to_string())
-}
-
-fn program_read_route(config: &Config, request: &Request) -> Response {
-    if request.headers.get("content-type").map(String::as_str) != Some("application/octet-stream") {
-        return refusal(400, "content_type_required", None);
-    }
-    if request.body.is_empty() || request.body.len() > MAX_ACTIVITY_BYTES {
-        return refusal(400, "invalid_activity_length", None);
-    }
-    let freshness = match program_read_freshness(request) {
-        Ok(freshness) => freshness,
-        Err(response) => return response,
-    };
-    let decoded = match decode_activity(config, Route::ProgramCall, &request.body) {
-        Ok(decoded) => decoded,
-        Err(response) => return response,
-    };
-    let Some(program_id) = decoded.program_id else {
-        return refusal(400, "not_program_call", None);
-    };
-    let outcome = with_session(config, |session| {
-        if !session
-            .handshake
-            .capabilities()
-            .contains(Capability::ProgramRead)
-        {
-            return Ok(Err(refusal(503, "capability_unavailable", Some(60))));
-        }
-        let context = ProgramReadContext {
-            interface_version: session.handshake.node().interface_version,
-            sequencer_public_key: session.handshake.node().authorised_sequencer_key,
-            correlation_id: session.correlation(),
-            minimum_sequence: freshness.minimum_sequence,
-            expected_state_root: freshness.expected_state_root,
-        };
-        match read_program(
-            &mut session.transport,
-            &config.registry,
-            &request.body,
-            context,
-        ) {
-            Ok(result) => Ok(Ok(result)),
-            Err(ProgramReadError::SnapshotStale) => {
-                Ok(Err(refusal(409, "snapshot_stale", Some(1))))
-            }
-            Err(ProgramReadError::SnapshotMismatch) => {
-                Ok(Err(refusal(409, "snapshot_mismatch", None)))
-            }
-            Err(ProgramReadError::CoreRefusal { class, result }) => {
-                if class == 3 {
-                    Ok(Err(refusal(503, "capability_unavailable", Some(60))))
-                } else {
-                    Ok(Err(refusal_response(&result_refusal(result))))
-                }
-            }
-            Err(ProgramReadError::CanonicalActivity | ProgramReadError::MalformedRequest) => {
-                Ok(Err(refusal(400, "malformed_activity", None)))
-            }
-            Err(
-                ProgramReadError::UnavailableCapability | ProgramReadError::InterfaceVersion(_),
-            ) => Ok(Err(refusal(503, "capability_unavailable", Some(60)))),
-            Err(error) => Err(LniFailure::Transport(format!(
-                "program read failed: {error:?}"
-            ))),
-        }
-    });
-    let result = match outcome {
-        Ok(Ok(result)) => result,
-        Ok(Err(response)) => return response,
-        Err(failure) => return failure.response(),
-    };
-    if result.execution.activity_id != decoded.activity_id {
-        return LniFailure::Transport("program read names a different activity".to_owned())
-            .response();
-    }
-    let Ok(receipt) =
-        verify_sequencer_signature(&result.execution.receipt, result.evidence.public_key)
-    else {
-        return LniFailure::Transport("program read receipt is not sequencer-signed".to_owned())
-            .response();
-    };
-    let Some(protocol) = receipt.protocol() else {
-        return LniFailure::Transport("program read receipt is not a protocol receipt".to_owned())
-            .response();
-    };
-    program_read_response(&result, &program_id, protocol.result_code())
-}
-
-fn submit_route(config: &Config, request: &Request, route: Route) -> Response {
-    if request.headers.get("content-type").map(String::as_str) != Some("application/octet-stream") {
-        return refusal(400, "content_type_required", None);
-    }
-    if request.body.is_empty() || request.body.len() > MAX_ACTIVITY_BYTES {
-        return refusal(400, "invalid_activity_length", None);
-    }
-    let Some(idempotency) = request.headers.get("idempotency-key") else {
-        return refusal(400, "idempotency_key_required", None);
-    };
-    if !valid_identifier(idempotency, 128) {
-        return refusal(400, "invalid_idempotency_key", None);
-    }
-    let decoded = match decode_activity(config, route, &request.body) {
-        Ok(decoded) => decoded,
-        Err(response) => return response,
-    };
-    let key_digest = sha256_hex(idempotency.as_bytes());
-    let request_digest = sha256_hex(&request.body);
-    let lock = key_lock(config, &key_digest);
-    let _guard = lock.lock().unwrap_or_else(PoisonError::into_inner);
-    let Ok(existing) = load_record(config, &key_digest) else {
-        return refusal(503, "persistence_unavailable", Some(5));
-    };
-    let mut record = match existing {
-        Some(mut record) => {
-            if record
-                .request_digest
-                .as_bytes()
-                .ct_eq(request_digest.as_bytes())
-                .unwrap_u8()
-                != 1
-                || record.route != route.name()
-            {
-                return refusal(409, "idempotency_conflict", None);
-            }
-            if record.activity_id != hex(&decoded.activity_id)
-                || record.signed_activity != hex(&request.body)
-            {
-                return refusal(503, "persistence_invalid", Some(5));
-            }
-            record.program_id = decoded.program_id.map(|id| hex(&id));
-            match record.state.as_str() {
-                "completed"
-                    if record.program_id.is_none() || record.program_execution.is_some() =>
-                {
-                    return completed_response(config, &record);
-                }
-                "completed" if record.attempts == 0 => {
-                    return refusal(503, "persistence_invalid", Some(5))
-                }
-                "refused" => {
-                    return record.refusal.as_ref().map_or_else(
-                        || refusal(503, "persistence_invalid", Some(5)),
-                        refusal_response,
-                    )
-                }
-                _ => record,
-            }
-        }
-        None => JournalRecord {
-            idempotency_key: idempotency.clone(),
-            route: route.name().to_owned(),
-            request_digest,
-            activity_id: hex(&decoded.activity_id),
-            program_id: decoded.program_id.map(|id| hex(&id)),
-            signed_activity: hex(&request.body),
-            state: "submitting".to_owned(),
-            attempts: 0,
-            refusal: None,
-            receipt: None,
-            result_code: None,
-            program_execution: None,
-            lifecycle_sequencer_key: None,
-            receipt_sequencer_key: None,
-        },
-    };
-    resolve_record(config, &key_digest, &mut record, &decoded, &request.body)
 }
 
 fn receipt_route(config: &Config, transaction_text: &str, plane: Plane) -> Response {
@@ -1898,160 +1059,12 @@ fn verify_idempotency_receipt(
     Ok(document)
 }
 
-fn idempotency_receipt_route(config: &Config, key: &str) -> Response {
-    if !valid_identifier(key, 128) {
-        return refusal(400, "invalid_idempotency_key", None);
-    }
-    let (protocol_key, expected_activity) = match idempotency_binding(config, key) {
-        Ok(binding) => binding,
-        Err(response) => return response,
-    };
-    let answer = relay_bounded(
-        config,
-        &format!("/v1/programs/receipts/by-idempotency/{protocol_key}"),
-        MAX_RELAY_BYTES,
-    );
-    if answer.status == 404 {
-        return refusal(404, "receipt_not_found", None);
-    }
-    if answer.status != 200 {
-        return refusal(503, "receipt_unavailable", Some(5));
-    }
-    let Ok(signer) = with_session(config, |session| {
-        Ok(session.handshake.node().authorised_sequencer_key)
-    }) else {
-        return refusal(503, "receipt_unavailable", Some(5));
-    };
-    match verify_idempotency_receipt(&answer.body, signer, expected_activity.as_deref()) {
-        Ok(document) => ok(serde_json::json!({"result":{"activity_id":document.activity_id,"receipt":document.receipt}}).to_string()),
-        Err(_) => refusal(502, "receipt_invalid", None),
-    }
-}
-
-fn program_activity_route(config: &Config, activity_text: &str) -> Response {
-    let Some(activity) = parse_hex32(activity_text) else {
-        return refusal(400, "invalid_activity_id", None);
-    };
-    let activity_hex = hex(&activity);
-    let key_digest = match fs::read_to_string(activity_index_path(config, &activity_hex)) {
-        Ok(digest) if is_hex32(&digest) => digest,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return refusal(404, "activity_not_journaled", None)
-        }
-        _ => return refusal(503, "persistence_unavailable", Some(5)),
-    };
-    let lock = key_lock(config, &key_digest);
-    let _guard = lock.lock().unwrap_or_else(PoisonError::into_inner);
-    let mut record = match load_record(config, &key_digest) {
-        Ok(Some(record)) if record.activity_id == activity_hex => record,
-        Ok(None) => return refusal(404, "activity_not_journaled", None),
-        _ => return refusal(503, "persistence_unavailable", Some(5)),
-    };
-    let Ok(signed) = artifacts::canonical_hex(&record.signed_activity, MAX_ACTIVITY_BYTES) else {
-        return refusal(503, "persistence_invalid", Some(5));
-    };
-    let decoded = match decode_activity(config, Route::ProgramCall, &signed) {
-        Ok(decoded) => decoded,
-        Err(response) => return response,
-    };
-    let Some(program_id) = decoded.program_id.map(|id| hex(&id)) else {
-        return refusal(400, "not_program_call", None);
-    };
-    if decoded.activity_id != activity
-        || record
-            .program_id
-            .as_ref()
-            .is_some_and(|stored| stored != &program_id)
-    {
-        return refusal(503, "persistence_invalid", Some(5));
-    }
-    record.program_id = Some(program_id.clone());
-    let response = if record.state == "completed" && record.program_execution.is_some() {
-        completed_response(config, &record)
-    } else {
-        match with_session(config, |session| {
-            lookup_receipt(session, activity, ReceiptWaitMode::Immediate)
-        }) {
-            Ok(Lookup::Present {
-                receipt,
-                result_code,
-                module_id,
-                sequencer_public_key,
-            }) => {
-                if module_id != 9 {
-                    return refusal(400, "not_program_call", None);
-                }
-                complete_record(
-                    config,
-                    &key_digest,
-                    &mut record,
-                    &receipt,
-                    result_code,
-                    sequencer_public_key,
-                )
-            }
-            Ok(Lookup::Absent) => return refusal(404, "receipt_not_found", None),
-            Err(failure) => return failure.response(),
-        }
-    };
-    if response.status != 200 {
-        return response;
-    }
-    let mut document: serde_json::Value = match serde_json::from_str(&response.body) {
-        Ok(document) => document,
-        Err(_) => return refusal(503, "persistence_invalid", Some(5)),
-    };
-    document["result"]["program_id"] = serde_json::Value::String(program_id);
-    if record.result_code == Some(0) {
-        document["result"]["state"] = serde_json::Value::String("executed".into());
-    }
-    ok(document.to_string())
-}
-
 fn relay_path_allowed(path: &str, query: Option<&str>) -> bool {
-    let digits = |value: &str| !value.is_empty() && value.bytes().all(|byte| byte.is_ascii_digit());
     if path == "/v1/protocol/account-state/head" {
         return query.is_none();
     }
     if let Some(rest) = path.strip_prefix("/v1/receipts/") {
         return query.is_none() && rest.strip_suffix("/account-state").is_some_and(is_hex32);
-    }
-    if path == "/v1/programs/account-state/changes" {
-        return query
-            .and_then(|query| query.strip_prefix("after_sequence="))
-            .is_some_and(digits);
-    }
-    if let Some(rest) = path.strip_prefix("/v1/programs/") {
-        let canonical_sequence = |value: &str| {
-            digits(value)
-                && value
-                    .parse::<u64>()
-                    .ok()
-                    .is_some_and(|number| number != 0 && number.to_string() == value)
-        };
-        if rest.strip_suffix("/state-proof").is_some_and(is_hex32) {
-            return query
-                .and_then(|query| query.strip_prefix("at="))
-                .is_some_and(canonical_sequence);
-        }
-        if rest.strip_suffix("/account-state").is_some_and(is_hex32) {
-            let Some(sequence) = query.and_then(|query| query.strip_prefix("at=")) else {
-                return false;
-            };
-            return digits(sequence)
-                || sequence
-                    .strip_suffix("&profile=2")
-                    .is_some_and(canonical_sequence);
-        }
-        return false;
-    }
-    if let Some(rest) = path.strip_prefix("/v1/batches/") {
-        return rest
-            .strip_suffix("/receipt-authority")
-            .is_some_and(is_hex32)
-            && query
-                .and_then(|query| query.strip_prefix("receipt_digest="))
-                .is_some_and(is_hex32);
     }
     false
 }
@@ -2112,16 +1125,12 @@ fn readiness(config: &Config) -> Response {
         return refusal(503, "node_unavailable", Some(5));
     }
     let probe = Sha256::digest(b"LayerX-AgentBoundary-Readiness/v1").into();
-    let protocol_version = match with_session(config, |session| {
-        lookup_receipt(session, probe, ReceiptWaitMode::Immediate)?;
-        Ok(session.handshake.node().protocol_version)
-    }) {
-        Ok(version) => version,
-        Err(failure) => return failure.response(),
-    };
+    if config.chain_receipts.lookup(probe).is_err() {
+        return refusal(503, "node_unavailable", Some(5));
+    }
     ok(format!(
         "{{\"ready\":true,\"network_id\":\"{}\",\"wire_version\":\"{}\",\"synchronous_receipts\":true,\"state_snapshot\":true}}",
-        config.network_name, protocol_version
+        config.network_name, PROTOCOL_VERSION
     ))
 }
 
@@ -2183,9 +1192,6 @@ fn route(config: &Config, request: &Request) -> Response {
     if let Some(response) = deployment::route(config, request, path, query, plane) {
         return response;
     }
-    if let Some(response) = head_attestation::route(config, request, path, query, plane) {
-        return response;
-    }
     if relay_path_allowed(path, query) {
         if plane != Plane::Registry {
             return refusal(403, "entitlement_denied", None);
@@ -2207,48 +1213,17 @@ fn route(config: &Config, request: &Request) -> Response {
     if !path.starts_with("/v1/") || query.is_some() {
         return refusal(404, "not_found", None);
     }
-    let gateway_path = matches!(
-        path,
-        "/v1/activities"
-            | "/v1/programs/call"
-            | "/v1/programs/read"
-            | "/v1/programs/simulate"
-            | "/v1/programs/deploy"
-            | "/v1/programs/upgrade"
-            | "/v1/programs/wind-down"
-    ) || path
+    let Some(activity) = path
         .strip_prefix("/v1/receipts/")
-        .or_else(|| path.strip_prefix("/v1/programs/activities/"))
-        .is_some_and(|activity| !activity.contains('/'));
-    let gateway_path = gateway_path
-        || path
-            .strip_prefix("/v1/programs/receipts/by-idempotency/")
-            .is_some_and(|key| !key.contains('/'));
-    if !gateway_path {
+        .filter(|activity| !activity.contains('/'))
+    else {
         return refusal(404, "not_found", None);
-    }
+    };
     if plane != Plane::Gateway {
         return refusal(403, "entitlement_denied", None);
     }
-    match (request.method.as_str(), path) {
-        ("POST", "/v1/activities") => submit_route(config, request, Route::Activities),
-        ("POST", "/v1/programs/call") => submit_route(config, request, Route::ProgramCall),
-        ("POST", "/v1/programs/deploy") => submit_route(config, request, Route::ProgramDeploy),
-        ("POST", "/v1/programs/upgrade") => submit_route(config, request, Route::ProgramUpgrade),
-        ("POST", "/v1/programs/wind-down") => submit_route(config, request, Route::ProgramWindDown),
-        ("POST", "/v1/programs/read") => program_read_route(config, request),
-        ("POST", "/v1/programs/simulate") => simulate_route(config, request),
-        ("GET", target) => {
-            if let Some(key) = target.strip_prefix("/v1/programs/receipts/by-idempotency/") {
-                idempotency_receipt_route(config, key)
-            } else if let Some(activity) = target.strip_prefix("/v1/receipts/") {
-                receipt_route(config, activity, plane)
-            } else if let Some(activity) = target.strip_prefix("/v1/programs/activities/") {
-                program_activity_route(config, activity)
-            } else {
-                refusal(404, "not_found", None)
-            }
-        }
+    match request.method.as_str() {
+        "GET" => receipt_route(config, activity, plane),
         _ => refusal(404, "not_found", None),
     }
 }

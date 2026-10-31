@@ -22,8 +22,7 @@ enum {
     LX_BUDGET_CLOSE = 0x00030007,
     LX_BUDGET_DEFUND = 0x00030008,
     LX_BUDGET_REVOKE = 0x00030009,
-    LX_BUDGET_DELEGATE_SPEND = 0x0003000a,
-    LX_BUDGET_PULL = 0x0003000b
+    LX_BUDGET_DELEGATE_SPEND = 0x0003000a
 };
 
 enum {
@@ -41,9 +40,7 @@ enum {
     LX_BUDGET_CLOSE_PAYLOAD_BYTES = 42,
     LX_BUDGET_DEFUND_PAYLOAD_BYTES = 50,
     LX_BUDGET_REVOKE_PAYLOAD_BYTES = 42,
-    LX_BUDGET_DELEGATE_SPEND_PAYLOAD_BYTES = 114,
-    LX_BUDGET_PULL_PAYLOAD_BYTES =
-        LX_BUDGET_DELEGATE_SPEND_PAYLOAD_BYTES + 346
+    LX_BUDGET_DELEGATE_SPEND_PAYLOAD_BYTES = 114
 };
 
 typedef enum lx_budget_rollover_policy {
@@ -123,12 +120,6 @@ typedef struct lx_budget_delegate_spend_request {
     lx_budget_delegate_capability *capability;
 } lx_budget_delegate_spend_request;
 
-typedef struct lx_budget_pull_request {
-    lx_budget_spend_request spend;
-    lxp_grant_state *grant_state;
-    const lx_account *grantor;
-} lx_budget_pull_request;
-
 typedef struct lx_budget_close_request {
     lx_budget_store *store;
     const uint8_t *budget_id;
@@ -192,15 +183,6 @@ typedef struct lx_budget_delegate_spend_payload {
     uint8_t idempotency_key[32];
 } lx_budget_delegate_spend_payload;
 
-typedef struct lx_budget_pull_payload {
-    uint16_t encoding_version;
-    uint8_t budget_id[32];
-    uint8_t recipient[32];
-    lxp_u128 amount;
-    uint8_t idempotency_key[32];
-    lxp_payer_grant grant;
-} lx_budget_pull_payload;
-
 typedef struct lx_budget_close_payload {
     uint8_t budget_id[32];
     uint64_t revocation_sequence;
@@ -217,9 +199,6 @@ typedef struct lx_budget_revoke_payload {
 } lx_budget_revoke_payload;
 
 const lxp_module_iface *lx_budget_module_iface(void);
-lxp_result lx_budget_grant_draws_read(const struct lxp_kernel *kernel,
-                                      const uint8_t grant_id[32],
-                                      lxp_grant_state *draws);
 lxp_result lx_budget_lookup(lx_budget_store *store,
                             const uint8_t budget_id[32],
                             lx_budget_record **record);
@@ -244,8 +223,6 @@ lxp_result lx_budget_spend_decode(const uint8_t *bytes, size_t length,
 lxp_result lx_budget_delegate_spend_decode(
     const uint8_t *bytes, size_t length,
     lx_budget_delegate_spend_payload *payload);
-lxp_result lx_budget_pull_decode(const uint8_t *bytes, size_t length,
-                                 lx_budget_pull_payload *payload);
 lxp_result lx_budget_close_decode(const uint8_t *bytes, size_t length,
                                   lx_budget_close_payload *payload);
 lxp_result lx_budget_defund_decode(const uint8_t *bytes, size_t length,
@@ -295,9 +272,6 @@ lxp_result lx_budget_authorize_delegate(
 lxp_result lx_budget_delegate_spend_execute(
     lxp_module_ctx *ctx, const lx_budget_delegate_spend_request *request,
     lxp_receipt *receipt);
-lxp_result lx_budget_pull_execute(lxp_module_ctx *ctx,
-                                  const lx_budget_pull_request *request,
-                                  lxp_receipt *receipt);
 lxp_result lx_budget_defund_limit(const lx_budget_record *record,
                                   lxp_u128 balance, lxp_u128 amount,
                                   lxp_u128 *limit);
