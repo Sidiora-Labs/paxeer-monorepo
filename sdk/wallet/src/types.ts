@@ -355,7 +355,7 @@ export interface Capabilities {
   rpc_height: string;
 }
 
-export type KernelReason = 'available' | 'not_configured' | 'unreachable' | 'no_finalised_checkpoint';
+export type KernelReason = 'available' | 'not_configured' | 'unreachable' | 'consensus_unavailable';
 
 export interface KernelStatus {
   available: boolean;
@@ -381,9 +381,8 @@ export interface ConsensusHead {
 export interface NetworkHead {
   network_id: string;
   paxeer: { chain_id: `0x${string}`; latest_block: `0x${string}` };
-  layerx: { node_info: Record<string, unknown> | null };
-  anchor: AnchorHead | null;
-  kernel: KernelStatus;
+  consensus: ConsensusHead | null;
+  consensus_reason: 'consensus_unavailable' | null;
 }
 
 export interface HistoryAssetMetadata {
@@ -461,7 +460,7 @@ export type KernelAvailabilityState = KernelAvailable | KernelUnavailableState;
 
 export type KernelRead<T> = { available: true; result: T } | KernelUnavailableState;
 
-export type KernelDocument = Record<string, unknown>;
+export type KernelDocument = ChainAccount | Balances | SequencerReceiptAnswer | null;
 
 export interface HumanMoney {
   amount: string;
