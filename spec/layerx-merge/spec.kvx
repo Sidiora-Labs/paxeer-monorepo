@@ -139514,7 +139514,7 @@ do_5 = "Continue from attempt 1 (f9055cb8b): keep its deletions, scope the scan 
 
 [task.8.47.10]
 title = "Unit tests of the agent SDK, agentd and the platform CLI stop including the removed kernel program v4 fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
