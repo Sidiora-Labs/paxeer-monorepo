@@ -12176,3 +12176,13 @@ fix = "Name only test targets that exist at the task's base or that the task its
 title = "A status-only assertion against the authority hides which refusal code produced a 503"
 symptom = "Three TLS tests failed with 503 where 200 was expected and the attempt could only report pre-existing; the authority's refusal body carries error.code and server.log carries the eprintln reasons, neither of which the assertions printed."
 fix = "Assert on status and body together and print the server log tail on failure, so a refused route names its cause in the first run."
+
+[gotcha.2472]
+title = "An ES-module package whose exports declare only import and types conditions cannot be required by Playwright's CommonJS loader"
+symptom = "A Playwright suite in a package without 'type': 'module' imported a workspace library that imports @sidiora/layerx-sdk/browser; Node failed with Package subpath './browser' is not defined by exports because the map had no require or default condition, while Vitest over the same files passed."
+fix = "Give every exports entry a default condition (Node 24 can require an ES module), and when a Playwright webServer never becomes ready, pipe its stdout and fetch the probe URL by hand: Playwright treats a 500 as not ready and says nothing about why."
+
+[gotcha.2473]
+title = "A fresh perps node emits its first FundingSettled only at the first whole hour after its first block, and end-block failures surface as Cosmos events"
+symptom = "An end-to-end test waited six minutes for FundingSettled on a freshly started node and passed or failed depending on where its window fell against the wall-clock hour; the perps funding step records the first hour it sees and emits nothing, and a market whose end-block step fails is skipped with a perps_endblock_error event that eth_getLogs never shows."
+fix = "Give a local genesis perps market states whose last_index_hour is one hour before genesis so the first block settles, and read /block_results for perps_endblock_error before concluding that a settlement is late."
