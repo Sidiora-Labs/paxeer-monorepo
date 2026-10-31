@@ -7,8 +7,8 @@
 
 #include <stdint.h>
 
-enum {
-    LXP_QUAL_ACTIVITY_TYPE_COUNT = 53,
+enum LXP_QUAL_ACTIVITY_TYPE_COUNT {
+    LXP_QUAL_ACTIVITY_TYPE_COUNT = 50,
     LXP_QUAL_BATCH_HEADER_BYTES = 72,
     LXP_QUAL_RECEIPT_BYTES = 106,
     LXP_QUAL_EVENT_BYTES = 36
@@ -40,8 +40,6 @@ lxp_result lxp_qual_root_ledger(const char *root_ledger_path,
 lxp_result lxp_qual_replay_matrix(const char *corpus_path,
                                   const char *root_ledger_path,
                                   lxp_qual_replay_result *result);
-lxp_result lxp_partition_sim(void);
-lxp_result lxp_sequencer_loss_sim(void);
 lxp_result lxp_qual_fault_boundaries(void);
 lxp_result lxp_u128_proof_harness(uint64_t *case_count);
 lxp_result lxp_u256_boundary_case(uint64_t *case_count);
