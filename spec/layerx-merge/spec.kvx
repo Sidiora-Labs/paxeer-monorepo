@@ -6039,6 +6039,42 @@ value = "In tools/qualification/localnode/v6120-node.sh the genesis build keeps 
 basis = "Finding 18.670.1.6: the test waits for a settlement the chain only produces at a whole-hour boundary, and the one signal that explains a missing settlement is a Cosmos event, not an EVM log; the local profile owns the determinism and the test owns the observability."
 affects = ["18.670.1"]
 
+[decision.2155]
+title = "The wave-0 aggregate gate waits for the SDK export fix and prints the failing step's log on failure"
+value = "Task 17.5.1 requires 12.35.2 (decision 2153: the SDK exports map gains default conditions) and re-runs scripts/gates/wave-0.sh unchanged once a revision carrying it is on main. test_wave_0_gate_passes in spec/layerx-merge/programme/tests/test_wave_0_gate.py asserts with a message that names the failing step and includes the last forty lines of that step's log under logs/waves/0, so a gate failure is readable from the test output alone."
+basis = "Finding 17.5.1.14: the gate fails in a module the gate does not own, and attempts 14 to 16 each had to be read from the raw step logs to learn that."
+affects = ["17.5.1", "12.35.2"]
+
+[decision.2156]
+title = "The .pax contracts build under a names Foundry profile, and pax is the only name extension"
+value = "foundry.toml gains [profile.names] with src = contracts/names, test = tests/solidity/names, script = contracts/names, out = build/forge-artifacts-names, cache_path = build/forge-cache-names and fs_permissions granting read on ./tests/vectors/names; everything else is inherited from the default profile. Tasks 19.1.1, 19.1.2, 19.1.3 and 19.4.4 build with FOUNDRY_PROFILE=names forge build --root . and test with FOUNDRY_PROFILE=names forge test --root . and their existing match arguments; 19.1.1 owns the profile and adds foundry.toml to its touches. Extension: pax is the only name extension of the system. The registrar's base node is namehash(pax) = keccak256(bytes32(0) || keccak256(bytes('pax'))), the controller registers labels under that node only, and every other surface names pax alone: the wallet's PNS_TLD constant, the DNS zone, the host shell's <label>.pax.<shell domain> origin, the SDK resolver and the name indexer's protocol tld_list. 19.1.1 proves it with testOnlyPaxNamesAreRegistrable in tests/solidity/names/PaxRegistrarController.t.sol."
+basis = "Finding 19.1.1.1: the root project's whole build has been broken since the retired kernel contracts lost their libraries, and the names contracts need none of them; a profile isolates the real producer (the Solidity sources) from that debt without hiding it. The .pax extension was already fixed by the wallet client and decision 2150; pinning it with a test keeps every later surface honest."
+affects = ["19.1.1", "19.1.2", "19.1.3", "19.4.4"]
+
+[decision.2157]
+title = "The xweb kind admissions live in modules/xweb/types, and the storage-receipt task touches them there"
+value = "Task 19.4.2's touches replace modules/xweb/observation.go with modules/xweb/types/observation.go and modules/xweb/genesis.go with modules/xweb/types/genesis.go. Both admit KindStorageReceipt beside KindFetch and KindSearch (observation.go:33, genesis.go:125); the existing tests of those files (observation_test.go:129, genesis_test.go:139) exercise kinds by value and need no change."
+basis = "Finding 19.4.2.1: the task text already cited the right line numbers under the wrong directory; the done check is right to insist that every declared path changes."
+affects = ["19.4.2"]
+
+[decision.2158]
+title = "Name packages outside the pnpm workspace install with --ignore-workspace"
+value = "Every pnpm install in the build commands of tasks 19.3.1 and 19.3.2 (sdk/names, tools/names, apps/names) passes --ignore-workspace, so pnpm installs the one package instead of the repository workspace whose members depend on unpublished registry packages. The packages stay outside pnpm-workspace.yaml."
+basis = "Finding 19.3.1.1: the workspace's own members are not installable from the public registry, and the name packages have no reason to join it."
+affects = ["19.3.1", "19.3.2"]
+
+[decision.2159]
+title = "The authority TLS tests re-sign their receipt fixture under the pinned-key rule"
+value = "In services/platform/hosted/authority/tests/human_tls.rs the fixture-writing function (:167 on main) derives its evidence from the committed fixture the way trust_snapshot_is_the_pinned_key_list in tests/chain_receipts.rs:584-636 does: an ed25519 signer from a fixed 32-byte pattern; key_id = sha256 of the verifying key (non-zero); the receipt's context_hash word replaced by key_id by searching the original 32-byte value as chain_receipts.rs:603-609 does, re-encoded with layerx_wire::receipt::encode_unsigned, signed over layerx_wire::hash::receipt_digest and the trailing 64 bytes replaced; the header's sequencer_id word replaced by key_id, its network id and height bytes left as the fixture has them, and the header signed over layerx_wire::hash::batch_header_digest; where the header carries the receipt root the empty proof binds, that word becomes the re-signed receipt's digest. receipt-keys.json pins keyId = key_id and publicKey = the verifying key with firstHeight 1 and lastHeight 100; LAYERX_AUTHORITY_SEQUENCER_ID = key_id and LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY, the replica document's sequencer_public_key and the state record's receipt_hex, header_hex and header_signature are the re-signed values; the receipt locator, the activity id and the policy evidence come from the re-signed receipt. The committed fixture file stays for the corpus-driven test. Expected statuses of the three tests are unchanged."
+basis = "Finding 8.98.15.4: the rule that a receipt's context_hash names its pinned key is the product's own, and the only fixture that satisfies it is one signed under it; the receipt test already shows how to derive such a fixture from the committed one without a kernel."
+affects = ["8.98.15"]
+
+[decision.2160]
+title = "The name indexer is a module of the hosted indexer serving the explorer name-service API shape"
+value = "The sentence of decision 2150 leaving the hosted name indexer out of scope is replaced by this decision. Producer: services/platform/hosted/indexer/src/names.rs decodes the .pax events (registry NewOwner, Transfer, NewResolver; registrar ERC-721 Transfer and NameRegistered; controller NameRegistered and NameRenewed; resolver AddrChanged, TextChanged, ContenthashChanged, NameChanged; reverse registrar ReverseClaimed) from the five contract addresses LAYERX_INDEXER_NAMES_REGISTRY, _REGISTRAR, _CONTROLLER, _RESOLVER and _REVERSE (all five set or the module is off) with an events-only ABI committed at services/platform/hosted/indexer/abis/names.json, embedded with include_str and registered as bound entries of the ingester's AbiRegistry; a test pins every topic in that ABI to keccak256 of the event declarations in contracts/names/IPaxNames.sol. Store: name_events(chain, position, height, tx_hash, log_index, node, action, from_address, timestamp, data) is the append-only source of truth, keyed by (tx_hash, log_index) and rolled back with the unit like events; names(node, label, name, owner, registrant, resolver, resolved_address, contenthash, registered_at, expires_at, token_id) is the view rebuilt for the touched nodes after every commit and rollback by replaying their events; label comes from the controller's NameRegistered string, name = <label>.pax. Transport: GET /api/v1/addresses:lookup (address, owned_by, only_active, sort, order), /api/v1/domains/<name>, /api/v1/domains/<name>/events (order), /api/v1/addresses/<address> and /api/v1/domains:lookup (name, only_active) in api.rs, answering the explorer name-service shape the wallet types in apps/wallet/src/lib/pns.ts:138-175 declare: items plus next_page_params null; a domain carries id (node hex), name, resolved_address, owner and registrant as {hash}, registration_date and expiry_date as RFC 3339, tokens [{id, contract_hash, type NATIVE_DOMAIN_TOKEN}], resolver_address, other_addresses {}, stored_offchain false and protocol {id pax, short_name PNS, title Paxeer Name System, tld_list [pax]}; an event carries transaction_hash, timestamp, from_address {hash} and action (register, renew, transfer, set_addr, set_contenthash, set_text, set_name); names are normalised to lower case with or without the .pax suffix; unknown query parameters answer 400 unknown_query_parameter as the other routes do. The exact answers for the ingest fixture are committed as tests/vectors/names/indexer_api_v1.json and both the indexer test and the wallet test assert against that one file, which is the proof of the producer, transport and consumer path. Consumer: apps/wallet/src/server/wallet-read-proxy.ts takes the name-service origin from PNS_API_ORIGIN (the literal at :28 goes) and answers 503 name_service_not_configured when it is unset; apps/wallet/src/lib/pns.ts defaults NEXT_PUBLIC_PNS_API_BASE to /api/pns so the browser always reaches the indexer through the proxy; the explorer frontend reads the same API from NEXT_PUBLIC_NAME_SERVICE_API_HOST and needs no code change. Tasks 19.7.1 (ingestion), 19.7.2 (API and vector) and 19.7.3 (wallet proxy and consumer test) carry requirement 19010 and join 19.0.1's requires."
+basis = "Finding 19.0.1.1: the consumers already exist and already speak this API, so the smallest real indexer is one that serves it from the chain's own logs inside the service that already follows blocks and rolls back forks; a committed answer vector shared by producer and consumer tests catches shape drift before deployment."
+affects = ["19.7.1", "19.7.2", "19.7.3", "19.0.1", "19.4.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -32976,6 +33012,33 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.19.7.3]
+title = "Point the wallet's name proxy at the configured indexer and prove the wallet parses its answers"
+reqs = ["19010.3"]
+touches = ["apps/wallet/src/server/wallet-read-proxy.ts", "apps/wallet/src/server/wallet-read-proxy.test.ts", "apps/wallet/src/lib/pns.ts", "apps/wallet/src/lib/pns.indexer.test.ts", "apps/wallet/README.md"]
+tests = ["apps/wallet/src/lib/pns.indexer.test.ts::pns_helpers_parse_the_committed_indexer_vector", "apps/wallet/src/lib/pns.indexer.test.ts::pns_helpers_return_empty_when_the_proxy_is_not_configured", "apps/wallet/src/server/wallet-read-proxy.test.ts::proxy_refuses_name_routes_until_the_origin_is_configured"]
+verification_contract = "pnpm --dir apps/wallet exec vitest run src/lib/pns.indexer.test.ts src/server/wallet-read-proxy.test.ts -t '^(pns_helpers_parse_the_committed_indexer_vector|pns_helpers_return_empty_when_the_proxy_is_not_configured|proxy_refuses_name_routes_until_the_origin_is_configured)$'"
+do_1 = "In apps/wallet/src/server/wallet-read-proxy.ts replace the literal name-service origin at :28 with readPnsApiOrigin() from PNS_API_ORIGIN (an https or http URL without path, query or trailing slash); when it is unset the five pns-* targets answer 503 {error: {code: name_service_not_configured}} without a fetch; the other targets are unchanged. In apps/wallet/src/lib/pns.ts the indexer base defaults to /api/pns when NEXT_PUBLIC_PNS_API_BASE is unset, so the browser reaches the indexer through the proxy; the fetch helpers (:180-253) keep their signatures."
+symbols = ["readPnsApiOrigin", "pns_helpers_parse_the_committed_indexer_vector", "pns_helpers_return_empty_when_the_proxy_is_not_configured", "proxy_refuses_name_routes_until_the_origin_is_configured"]
+
+[capability.19.7.2]
+title = "Serve the .pax names in the explorer name-service API shape and commit the answer vector"
+reqs = ["19010.2"]
+touches = ["services/platform/hosted/indexer/src/api.rs", "services/platform/hosted/indexer/src/store.rs", "services/platform/hosted/indexer/tests/names_api.rs", "tests/vectors/names/indexer_api_v1.json"]
+tests = ["services/platform/hosted/indexer/tests/names_api.rs::names_api_answers_match_the_committed_vector", "services/platform/hosted/indexer/tests/names_api.rs::names_api_refuses_unknown_parameters_and_names"]
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test names_api"
+do_1 = "In services/platform/hosted/indexer/src/api.rs (route_with) add GET /api/v1/addresses:lookup (address required; owned_by, only_active, sort = registration_date, order = ASC|DESC accepted), /api/v1/domains/<name>, /api/v1/domains/<name>/events (order), /api/v1/addresses/<address> and /api/v1/domains:lookup (name required, only_active); names normalise to lower case with or without the .pax suffix; unknown parameters answer 400 unknown_query_parameter and an unknown name 404 domain_not_found. Store queries in src/store.rs: names_owned_by(address, only_active, order), name(name), name_events(node, order) and name_for_address(address) (the reverse record, else the single name whose resolved_address is the address)."
+symbols = ["names_owned_by", "name_for_address", "names_api_answers_match_the_committed_vector", "names_api_refuses_unknown_parameters_and_names"]
+
+[capability.19.7.1]
+title = "Index the .pax name events into the hosted indexer"
+reqs = ["19010.1"]
+touches = ["services/platform/hosted/indexer/src/names.rs", "services/platform/hosted/indexer/src/lib.rs", "services/platform/hosted/indexer/src/main.rs", "services/platform/hosted/indexer/src/store.rs", "services/platform/hosted/indexer/src/paxeer.rs", "services/platform/hosted/indexer/abis/names.json", "services/platform/hosted/indexer/fixtures/names_blocks.json", "services/platform/hosted/indexer/tests/names_ingest.rs"]
+tests = ["services/platform/hosted/indexer/tests/names_ingest.rs::names_ingest_builds_the_view_and_events", "services/platform/hosted/indexer/tests/names_ingest.rs::names_rollback_replays_the_view", "services/platform/hosted/indexer/tests/names_ingest.rs::names_abi_topics_match_the_interface"]
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test names_ingest"
+do_1 = "Write services/platform/hosted/indexer/src/names.rs (planned): NamesConfig::from_env reading LAYERX_INDEXER_NAMES_REGISTRY, LAYERX_INDEXER_NAMES_REGISTRAR, LAYERX_INDEXER_NAMES_CONTROLLER, LAYERX_INDEXER_NAMES_RESOLVER and LAYERX_INDEXER_NAMES_REVERSE as 20-byte addresses (None when all five are unset, a config error when only some are); names_abi() parsing the events-only ABI at services/platform/hosted/indexer/abis/names.json (planned, embedded with include_str) into five bound LoadedAbi entries added to the ingester's AbiRegistry (src/abi.rs) in src/main.rs where the registry is built; decode(event, sender, timestamp) -> Option<NameEventRow> mapping registry NewOwner, Transfer and NewResolver, registrar Transfer and NameRegistered, controller NameRegistered (label string, label hash, owner, expires) and NameRenewed, resolver AddrChanged, TextChanged, ContenthashChanged and NameChanged, and reverse ReverseClaimed to actions register, renew, transfer, set_addr, set_contenthash, set_text and set_name with the node, the from address (the transaction sender) and the block timestamp."
+symbols = ["NamesConfig", "names_abi", "NameEventRow", "rebuild_names", "names_ingest_builds_the_view_and_events", "names_rollback_replays_the_view", "names_abi_topics_match_the_interface"]
+
 [capability.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"
 reqs = ["19009.1"]
@@ -33026,7 +33089,7 @@ title = "Write the name availability contract that requests storage receipts thr
 reqs = ["19006.1"]
 touches = ["contracts/names/PaxNameAvailability.sol", "tests/solidity/names/PaxNameAvailability.t.sol"]
 tests = ["tests/solidity/names/PaxNameAvailability.t.sol::testReceiptRequestCarriesTheManifestDigestAndRecordsTheCallback", "tests/solidity/names/PaxNameAvailability.t.sol::testCallbackIsRefusedFromAnyOtherCaller"]
-verification_contract = "forge test --root . --match-path 'tests/solidity/names/PaxNameAvailability.t.sol' --match-test '^(testReceiptRequestCarriesTheManifestDigestAndRecordsTheCallback|testCallbackIsRefusedFromAnyOtherCaller)$'"
+verification_contract = "FOUNDRY_PROFILE=names forge test --root . --match-path 'tests/solidity/names/PaxNameAvailability.t.sol' --match-test '^(testReceiptRequestCarriesTheManifestDigestAndRecordsTheCallback|testCallbackIsRefusedFromAnyOtherCaller)$'"
 do_1 = "Write contracts/names/PaxNameAvailability.sol (planned): Governed; constructor(address resolver, address governanceTimelock, address emergencyAuthority, string bucketBaseUrl); an inline IXWeb interface with request(uint8 kind, bytes payload, uint64 callbackGas) payable returns (uint64) and the callback onXWebResponse(uint64 requestId, bytes32 contentDigest, uint64 fullLength, bytes response) exactly as precompiles/xweb/abi.json and the consumers under contracts/src/xweb declare them; XWEB constant 0x0000000000000000000000000000000000001019; setBucketBaseUrl onlyGovernance; requestReceipt(bytes32 node) payable reads resolver.contenthash(node), requires the 36-byte Paxeer form, builds payload = digest || bytes(bucketBaseUrl), calls XWEB.request{value: msg.value}(4, payload, callbackGas) and stores pending[requestId] = node, emitting ReceiptRequested(node, requestId, digest); onXWebResponse only from XWEB: records receipts[node] = Receipt{digest, fullLength, block.number, contentDigest}, deletes pending and emits ReceiptRecorded; availability(bytes32 node) view returns (bytes32 digest, uint64 length, uint256 atBlock)."
 symbols = ["PaxNameAvailability", "testReceiptRequestCarriesTheManifestDigestAndRecordsTheCallback", "testCallbackIsRefusedFromAnyOtherCaller"]
 
@@ -33042,7 +33105,7 @@ symbols = ["fetch_bytes", "storage_receipt_kind_attests_the_object_digest_and_re
 [capability.19.4.2]
 title = "Add the xweb storage-receipt request kind with its digest-and-bucket payload"
 reqs = ["19006.1"]
-touches = ["modules/xweb/types/state.go", "modules/xweb/types/storage_receipt.go", "modules/xweb/types/storage_receipt_test.go", "modules/xweb/keeper/request.go", "modules/xweb/keeper/storage_receipt_request_test.go", "modules/xweb/observation.go", "modules/xweb/genesis.go"]
+touches = ["modules/xweb/types/state.go", "modules/xweb/types/storage_receipt.go", "modules/xweb/types/storage_receipt_test.go", "modules/xweb/keeper/request.go", "modules/xweb/keeper/storage_receipt_request_test.go", "modules/xweb/types/observation.go", "modules/xweb/types/genesis.go"]
 tests = ["modules/xweb/types/storage_receipt_test.go::TestStorageReceiptPayloadRoundTripAndRefusals", "modules/xweb/keeper/storage_receipt_request_test.go::TestRequestAdmitsStorageReceiptKind"]
 verification_contract = "go test ./modules/xweb/... -run '^(TestStorageReceiptPayloadRoundTripAndRefusals|TestRequestAdmitsStorageReceiptKind)$' -count=1"
 do_1 = "In modules/xweb/types/state.go:49-55 add KindStorageReceipt uint8 = 4 to the kind constants and KnownKind. Write modules/xweb/types/storage_receipt.go (planned): type StorageReceiptPayload struct { ObjectDigest [32]byte; BaseURL string }, EncodeStorageReceiptPayload and DecodeStorageReceiptPayload(bytes) (digest first, then the UTF-8 base URL), ValidateStorageReceiptPayload requiring a non-zero digest, an https scheme, a host, no query, fragment or userinfo, no trailing slash and at most 512 bytes; the request keeper (modules/xweb/keeper/request.go:18-50) decodes and validates the payload for KindStorageReceipt the way it decodes KindApi payloads and refuses with ErrInvalidPayload otherwise; modules/xweb/observation.go:33 and modules/xweb/genesis.go:125 admit KindStorageReceipt alongside Fetch and Search; the LevelSingle rule at state.go:328-338 stays KindApi-only, so storage receipts use the default attestation level."
@@ -33107,7 +33170,7 @@ title = "Wire the .pax contract set in one deployment and prove commit, register
 reqs = ["19001.3"]
 touches = ["contracts/names/NamesDeployment.sol", "contracts/names/DeployNames.s.sol", "tests/solidity/names/NamesEndToEnd.t.sol", "foundry.toml"]
 tests = ["tests/solidity/names/NamesEndToEnd.t.sol::testCommitRegisterPublishAndResolveThroughTheWiredSet", "tests/solidity/names/NamesEndToEnd.t.sol::testDeploymentHandsControlToGovernance"]
-verification_contract = "forge test --root . --match-path 'tests/solidity/names/NamesEndToEnd.t.sol' --match-test '^(testCommitRegisterPublishAndResolveThroughTheWiredSet|testDeploymentHandsControlToGovernance)$'"
+verification_contract = "FOUNDRY_PROFILE=names forge test --root . --match-path 'tests/solidity/names/NamesEndToEnd.t.sol' --match-test '^(testCommitRegisterPublishAndResolveThroughTheWiredSet|testDeploymentHandsControlToGovernance)$'"
 do_1 = "Write contracts/names/NamesDeployment.sol (planned): contract NamesDeployment with function deploy(address governanceTimelock, address emergencyAuthority, address treasury, uint256[3] calldata yearlyPrices, uint256 gracePeriod) returns (Addresses) that deploys PaxRegistry, PaxBaseRegistrar, PaxPublicResolver, PaxReverseRegistrar and PaxRegistrarController, creates the pax node and the reverse and addr.reverse nodes through setSubnodeOwner, hands pax to the registrar and addr.reverse to the reverse registrar, adds the controller to the registrar, sets the controller on the resolver, sets the three tier prices, then transfers the registry root to the timelock and emits NamesDeployed with the five addresses. Write contracts/names/DeployNames.s.sol (planned): a script contract (no forge-std; declare the cheatcode subset it uses: envAddress, envUint, startBroadcast, stopBroadcast, writeJson, toString) reading NAMES_GOVERNANCE_TIMELOCK, NAMES_EMERGENCY_AUTHORITY, NAMES_TREASURY, NAMES_PRICE_3, NAMES_PRICE_4, NAMES_PRICE_5 and NAMES_GRACE_SECONDS, calling deploy under broadcast and writing build/names-deployment.json with the five addresses and the chain id. Add { access = 'write', path = './build' } to fs_permissions in foundry.toml."
 symbols = ["NamesDeployment", "DeployNames", "testCommitRegisterPublishAndResolveThroughTheWiredSet", "testDeploymentHandsControlToGovernance"]
 
@@ -33116,18 +33179,18 @@ title = "Write the .pax public resolver with the Paxeer contenthash form, the re
 reqs = ["19001.2"]
 touches = ["contracts/names/PaxPublicResolver.sol", "contracts/names/PaxReverseRegistrar.sol", "tests/solidity/names/PaxPublicResolver.t.sol", "tests/vectors/names/resolver_layout_v1.json", "foundry.toml"]
 tests = ["tests/solidity/names/PaxPublicResolver.t.sol::testResolverLayoutVectorIsCurrent", "tests/solidity/names/PaxPublicResolver.t.sol::testAddrNameTextAndContenthashRecordsAreOwnerOnly", "tests/solidity/names/PaxPublicResolver.t.sol::testContenthashAcceptsOnlyThePaxeerTag", "tests/solidity/names/PaxPublicResolver.t.sol::testFreezeClearsAndBlocksTheContenthash", "tests/solidity/names/PaxPublicResolver.t.sol::testReverseSetNameBindsTheCallerAddress"]
-verification_contract = "forge test --root . --match-path 'tests/solidity/names/PaxPublicResolver.t.sol' --match-test '^(testResolverLayoutVectorIsCurrent|testAddrNameTextAndContenthashRecordsAreOwnerOnly|testContenthashAcceptsOnlyThePaxeerTag|testFreezeClearsAndBlocksTheContenthash|testReverseSetNameBindsTheCallerAddress)$'"
+verification_contract = "FOUNDRY_PROFILE=names forge test --root . --match-path 'tests/solidity/names/PaxPublicResolver.t.sol' --match-test '^(testResolverLayoutVectorIsCurrent|testAddrNameTextAndContenthashRecordsAreOwnerOnly|testContenthashAcceptsOnlyThePaxeerTag|testFreezeClearsAndBlocksTheContenthash|testReverseSetNameBindsTheCallerAddress)$'"
 do_1 = "Write contracts/names/PaxPublicResolver.sol (planned): constructor(address registry, address governanceTimelock, address emergencyAuthority) (Governed), records addr(bytes32) / setAddr(bytes32,address), name(bytes32) / setName(bytes32,string), text(bytes32,string) / setText(bytes32,string,string), contenthash(bytes32) returns (bytes) / setContenthash(bytes32,bytes), supportsInterface for the ENS addr, name, text and contenthash interface ids, multicall(bytes[]) returns (bytes[]) and the ENS events (AddrChanged, NameChanged, TextChanged, ContenthashChanged). Authorisation: msg.sender is registry.owner(node) or registry.isApprovedForAll(owner, msg.sender) or the registrar controller address set once by governance (so register can write records for the new owner). Freeze: freeze(bytes32 node) onlyGovernance or onlyEmergencyCouncil clears the stored digest, emits ContenthashChanged with empty bytes and refuses setContenthash and setText for the node until unfreeze(bytes32) onlyGovernance."
 symbols = ["PaxPublicResolver", "PaxReverseRegistrar", "MANIFEST_DIGEST_SLOT", "testResolverLayoutVectorIsCurrent", "testAddrNameTextAndContenthashRecordsAreOwnerOnly", "testContenthashAcceptsOnlyThePaxeerTag", "testFreezeClearsAndBlocksTheContenthash", "testReverseSetNameBindsTheCallerAddress"]
 
 [capability.19.1.1]
 title = "Write the .pax registry, base registrar and registrar controller matching the wallet's controller ABI"
 reqs = ["19001.1"]
-touches = ["contracts/names/PaxRegistry.sol", "contracts/names/PaxBaseRegistrar.sol", "contracts/names/PaxRegistrarController.sol", "contracts/names/IPaxNames.sol", "tests/solidity/names/PaxRegistry.t.sol", "tests/solidity/names/PaxRegistrarController.t.sol"]
-tests = ["tests/solidity/names/PaxRegistrarController.t.sol::testCommitRegisterRenewFollowsTheWalletAbi", "tests/solidity/names/PaxRegistrarController.t.sol::testRegistrationRefusesEarlyRevealAndInvalidLabels", "tests/solidity/names/PaxRegistrarController.t.sol::testPriceTiersAndReservedLabelsAreGovernanceSet", "tests/solidity/names/PaxRegistry.t.sol::testRecordsFollowSubnodeOwnership"]
-verification_contract = "forge test --root . --match-path 'tests/solidity/names/*.t.sol' --match-test '^(testCommitRegisterRenewFollowsTheWalletAbi|testRegistrationRefusesEarlyRevealAndInvalidLabels|testPriceTiersAndReservedLabelsAreGovernanceSet|testRecordsFollowSubnodeOwnership)$'"
+touches = ["contracts/names/PaxRegistry.sol", "contracts/names/PaxBaseRegistrar.sol", "contracts/names/PaxRegistrarController.sol", "contracts/names/IPaxNames.sol", "tests/solidity/names/PaxRegistry.t.sol", "tests/solidity/names/PaxRegistrarController.t.sol", "foundry.toml"]
+tests = ["tests/solidity/names/PaxRegistrarController.t.sol::testCommitRegisterRenewFollowsTheWalletAbi", "tests/solidity/names/PaxRegistrarController.t.sol::testRegistrationRefusesEarlyRevealAndInvalidLabels", "tests/solidity/names/PaxRegistrarController.t.sol::testPriceTiersAndReservedLabelsAreGovernanceSet", "tests/solidity/names/PaxRegistry.t.sol::testRecordsFollowSubnodeOwnership", "tests/solidity/names/PaxRegistrarController.t.sol::testOnlyPaxNamesAreRegistrable"]
+verification_contract = "FOUNDRY_PROFILE=names forge test --root . --match-path 'tests/solidity/names/*.t.sol' --match-test '^(testCommitRegisterRenewFollowsTheWalletAbi|testRegistrationRefusesEarlyRevealAndInvalidLabels|testPriceTiersAndReservedLabelsAreGovernanceSet|testRecordsFollowSubnodeOwnership|testOnlyPaxNamesAreRegistrable)$'"
 do_1 = "Write contracts/names/PaxRegistry.sol (planned): the ENS registry surface owner(bytes32), resolver(bytes32), ttl(bytes32), setOwner, setResolver, setTTL, setSubnodeOwner(bytes32 node, bytes32 label, address owner) returns (bytes32), setRecord, setSubnodeRecord, setApprovalForAll and isApprovedForAll with the ENS events (NewOwner, Transfer, NewResolver, NewTTL, ApprovalForAll); the deployer owns the root node bytes32(0) at construction. Write contracts/names/IPaxNames.sol (planned) with the IPaxRegistry, IPaxBaseRegistrar, IPaxRegistrarController, IPaxPublicResolver and IPaxReverseRegistrar interfaces and the Registration struct {string label; address owner; uint256 duration; bytes32 secret; address resolver; bytes[] data; uint8 reverseRecord; bytes32 referrer}, the exact tuple order the wallet encodes at apps/wallet/src/lib/pns.ts:33-43."
-symbols = ["PaxRegistry", "PaxBaseRegistrar", "PaxRegistrarController", "testCommitRegisterRenewFollowsTheWalletAbi", "testRegistrationRefusesEarlyRevealAndInvalidLabels", "testPriceTiersAndReservedLabelsAreGovernanceSet", "testRecordsFollowSubnodeOwnership"]
+symbols = ["PaxRegistry", "PaxBaseRegistrar", "PaxRegistrarController", "testCommitRegisterRenewFollowsTheWalletAbi", "testRegistrationRefusesEarlyRevealAndInvalidLabels", "testPriceTiersAndReservedLabelsAreGovernanceSet", "testRecordsFollowSubnodeOwnership", "testOnlyPaxNamesAreRegistrable"]
 
 [capability.9.99.2]
 title = "Match the AuthLifecycle disclosure method in the agent creation lifecycle binding"
@@ -108235,6 +108298,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.19.7.3]
+title = "Point the wallet's name proxy at the configured indexer and prove the wallet parses its answers"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["19.7.2", "19.4.1"]
+reqs = ["19010.3"]
+capabilities = ["19.7.3"]
+interfaces = []
+do_1 = "In apps/wallet/src/server/wallet-read-proxy.ts replace the literal name-service origin at :28 with readPnsApiOrigin() from PNS_API_ORIGIN (an https or http URL without path, query or trailing slash); when it is unset the five pns-* targets answer 503 {error: {code: name_service_not_configured}} without a fetch; the other targets are unchanged. In apps/wallet/src/lib/pns.ts the indexer base defaults to /api/pns when NEXT_PUBLIC_PNS_API_BASE is unset, so the browser reaches the indexer through the proxy; the fetch helpers (:180-253) keep their signatures."
+do_2 = "Write apps/wallet/src/lib/pns.indexer.test.ts (planned, vitest): pns_helpers_parse_the_committed_indexer_vector stubs global fetch to answer each path from tests/vectors/names/indexer_api_v1.json and asserts fetchOwnedDomains, fetchDomainDetail, fetchDomainEvents, fetchAddressName and lookupDomain return the vector's domains and events typed as PNSDomain, PNSDetailedDomain and PNSDomainEvent (name alice.pax, owner hash, expiry_date, seven events in DESC order, protocol tld_list [pax]); pns_helpers_return_empty_when_the_proxy_is_not_configured stubs a 503 and asserts the empty results. Add proxy_refuses_name_routes_until_the_origin_is_configured to apps/wallet/src/server/wallet-read-proxy.test.ts (unset PNS_API_ORIGIN, expect 503 and the code). Document PNS_API_ORIGIN and the /api/pns default in apps/wallet/README.md beside the name variables of 19.4.1."
+symbols = ["readPnsApiOrigin", "pns_helpers_parse_the_committed_indexer_vector", "pns_helpers_return_empty_when_the_proxy_is_not_configured", "proxy_refuses_name_routes_until_the_origin_is_configured"]
+touches = ["apps/wallet/src/server/wallet-read-proxy.ts", "apps/wallet/src/server/wallet-read-proxy.test.ts", "apps/wallet/src/lib/pns.ts", "apps/wallet/src/lib/pns.indexer.test.ts", "apps/wallet/README.md"]
+tests = ["apps/wallet/src/lib/pns.indexer.test.ts::pns_helpers_parse_the_committed_indexer_vector", "apps/wallet/src/lib/pns.indexer.test.ts::pns_helpers_return_empty_when_the_proxy_is_not_configured", "apps/wallet/src/server/wallet-read-proxy.test.ts::proxy_refuses_name_routes_until_the_origin_is_configured"]
+planned_paths = ["apps/wallet/src/lib/pns.indexer.test.ts"]
+build_cmd = "pnpm --dir apps/wallet --ignore-workspace install --frozen-lockfile && pnpm --dir apps/wallet exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/wallet exec vitest run src/lib/pns.indexer.test.ts src/server/wallet-read-proxy.test.ts -t '^(pns_helpers_parse_the_committed_indexer_vector|pns_helpers_return_empty_when_the_proxy_is_not_configured|proxy_refuses_name_routes_until_the_origin_is_configured)$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Restore the literal origin, remove the default base, the new test file, the proxy test case and the README rows."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.19.6.2]
 title = "Resolve .pax names from the agent SDK"
 status = "pending"
@@ -108323,6 +108415,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Document the three contract variables and NEXT_PUBLIC_PNS_SHELL_DOMAIN in apps/wallet/README.md next to the existing environment table (around :43), stating that the widget shows a not-configured state until the .pax contracts of 19.1.3 are deployed and the addresses set."
+do_5 = "The five indexer proxy routes live under apps/wallet/src/app/api/pns (not apps/wallet/src/app/wallet/api/pns as do_2 says); they stay unchanged in this task and are repointed by 19.7.3 (decision 2160)."
 
 [task.19.3.2]
 title = "Write the host shell that serves a published .pax site from its proof-verified manifest on an isolated per-name origin"
@@ -108339,7 +108432,7 @@ symbols = ["proxy", "serve", "shell_serves_a_published_site_after_proof_verified
 touches = ["apps/names/package.json", "apps/names/tsconfig.json", "apps/names/next.config.ts", "apps/names/pnpm-lock.yaml", "apps/names/src/proxy.ts", "apps/names/src/lib/serve.ts", "apps/names/src/app/_pns/[label]/[[...path]]/route.ts", "apps/names/src/app/page.tsx", "apps/names/src/app/layout.tsx", "apps/names/e2e/shell.test.ts", "tools/names/test/doubles.ts", "tools/names/test/publish.test.ts"]
 tests = ["apps/names/e2e/shell.test.ts::shell_serves_a_published_site_after_proof_verified_resolution", "apps/names/e2e/shell.test.ts::shell_refuses_an_object_whose_digest_differs_from_the_manifest"]
 planned_paths = ["apps/names/package.json", "apps/names/tsconfig.json", "apps/names/next.config.ts", "apps/names/pnpm-lock.yaml", "apps/names/src/proxy.ts", "apps/names/src/lib/serve.ts", "apps/names/src/app/_pns/[label]/[[...path]]/route.ts", "apps/names/src/app/page.tsx", "apps/names/src/app/layout.tsx", "apps/names/e2e/shell.test.ts", "tools/names/test/doubles.ts"]
-build_cmd = "pnpm --dir sdk/names install --no-frozen-lockfile && pnpm --dir tools/names install --no-frozen-lockfile && pnpm --dir apps/names install --no-frozen-lockfile && pnpm --dir apps/names exec tsc --noEmit"
+build_cmd = "pnpm --dir sdk/names --ignore-workspace install --no-frozen-lockfile && pnpm --dir tools/names --ignore-workspace install --no-frozen-lockfile && pnpm --dir apps/names --ignore-workspace install --no-frozen-lockfile && pnpm --dir apps/names exec tsc --noEmit"
 verify_cmd = "pnpm --dir apps/names exec node --test --test-name-pattern '^(shell_serves_a_published_site_after_proof_verified_resolution|shell_refuses_an_object_whose_digest_differs_from_the_manifest)$' e2e/shell.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -108368,7 +108461,7 @@ symbols = ["publish", "verify", "publish_uploads_only_missing_objects_and_writes
 touches = ["tools/names/package.json", "tools/names/tsconfig.json", "tools/names/pnpm-lock.yaml", "tools/names/src/publish.ts", "tools/names/src/verify.ts", "tools/names/src/cli.ts", "tools/names/test/publish.test.ts"]
 tests = ["tools/names/test/publish.test.ts::publish_uploads_only_missing_objects_and_writes_the_manifest", "tools/names/test/publish.test.ts::publish_sets_the_contenthash_to_the_manifest_digest", "tools/names/test/publish.test.ts::verify_refuses_an_object_whose_hash_differs"]
 planned_paths = ["tools/names/package.json", "tools/names/tsconfig.json", "tools/names/pnpm-lock.yaml", "tools/names/src/publish.ts", "tools/names/src/verify.ts", "tools/names/src/cli.ts", "tools/names/test/publish.test.ts"]
-build_cmd = "pnpm --dir sdk/names install --no-frozen-lockfile && pnpm --dir tools/names install --no-frozen-lockfile && pnpm --dir tools/names exec tsc -p tsconfig.json --noEmit"
+build_cmd = "pnpm --dir sdk/names --ignore-workspace install --no-frozen-lockfile && pnpm --dir tools/names --ignore-workspace install --no-frozen-lockfile && pnpm --dir tools/names exec tsc -p tsconfig.json --noEmit"
 verify_cmd = "pnpm --dir tools/names exec node --test --test-name-pattern '^(publish_uploads_only_missing_objects_and_writes_the_manifest|publish_sets_the_contenthash_to_the_manifest_digest|verify_refuses_an_object_whose_hash_differs)$' test/publish.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -108381,6 +108474,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2158: continue from attempt 1 (26892f709), whose code and tests are written. Run the build command as now declared (each pnpm install with --ignore-workspace); change nothing in the package set. Build once and verify once."
 
 [task.19.2.3]
 title = "Verify storage proofs in TypeScript and resolve a name's content against a signed header's app hash"
@@ -116067,6 +116161,66 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.19.7.2]
+title = "Serve the .pax names in the explorer name-service API shape and commit the answer vector"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["19.7.1"]
+reqs = ["19010.2"]
+capabilities = ["19.7.2"]
+interfaces = []
+do_1 = "In services/platform/hosted/indexer/src/api.rs (route_with) add GET /api/v1/addresses:lookup (address required; owned_by, only_active, sort = registration_date, order = ASC|DESC accepted), /api/v1/domains/<name>, /api/v1/domains/<name>/events (order), /api/v1/addresses/<address> and /api/v1/domains:lookup (name required, only_active); names normalise to lower case with or without the .pax suffix; unknown parameters answer 400 unknown_query_parameter and an unknown name 404 domain_not_found. Store queries in src/store.rs: names_owned_by(address, only_active, order), name(name), name_events(node, order) and name_for_address(address) (the reverse record, else the single name whose resolved_address is the address)."
+do_2 = "Answers follow apps/wallet/src/lib/pns.ts:138-175: lookups return {items: [domain], next_page_params: null}; a domain is {id: node hex, name, resolved_address: {hash}|null, owner: {hash}, wrapped_owner: null, registration_date, expiry_date (RFC 3339 UTC), protocol: {id: pax, short_name: PNS, title: Paxeer Name System, tld_list: [pax]}}; the detailed domain adds tokens [{id: token id decimal, contract_hash: registrar, type: NATIVE_DOMAIN_TOKEN}], registrant {hash}, resolver_address {hash}, other_addresses {} and stored_offchain false; an event is {transaction_hash, timestamp, from_address: {hash}, action}; /api/v1/addresses/<address> answers {domain: detailed|null, resolved_domains_count}."
+do_3 = "Write tests/vectors/names/indexer_api_v1.json (planned) holding, for the fixture of 19.7.1 after block 3, the exact bodies of the five routes for alice.pax, its owner and its resolved address, and services/platform/hosted/indexer/tests/names_api.rs (planned): names_api_answers_match_the_committed_vector ingests the fixture and asserts each route's status 200 and body equal to the vector entry; names_api_refuses_unknown_parameters_and_names asserts 400 on an unknown parameter and 404 on bob.pax. The vector is written by hand from the fixture, never regenerated from the service output."
+symbols = ["names_owned_by", "name_for_address", "names_api_answers_match_the_committed_vector", "names_api_refuses_unknown_parameters_and_names"]
+touches = ["services/platform/hosted/indexer/src/api.rs", "services/platform/hosted/indexer/src/store.rs", "services/platform/hosted/indexer/tests/names_api.rs", "tests/vectors/names/indexer_api_v1.json"]
+tests = ["services/platform/hosted/indexer/tests/names_api.rs::names_api_answers_match_the_committed_vector", "services/platform/hosted/indexer/tests/names_api.rs::names_api_refuses_unknown_parameters_and_names"]
+planned_paths = ["services/platform/hosted/indexer/tests/names_api.rs", "tests/vectors/names/indexer_api_v1.json"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test names_api"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Remove the five routes, the store queries, the test and the vector."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.19.7.1]
+title = "Index the .pax name events into the hosted indexer"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["19.1.2"]
+reqs = ["19010.1"]
+capabilities = ["19.7.1"]
+interfaces = []
+do_1 = "Write services/platform/hosted/indexer/src/names.rs (planned): NamesConfig::from_env reading LAYERX_INDEXER_NAMES_REGISTRY, LAYERX_INDEXER_NAMES_REGISTRAR, LAYERX_INDEXER_NAMES_CONTROLLER, LAYERX_INDEXER_NAMES_RESOLVER and LAYERX_INDEXER_NAMES_REVERSE as 20-byte addresses (None when all five are unset, a config error when only some are); names_abi() parsing the events-only ABI at services/platform/hosted/indexer/abis/names.json (planned, embedded with include_str) into five bound LoadedAbi entries added to the ingester's AbiRegistry (src/abi.rs) in src/main.rs where the registry is built; decode(event, sender, timestamp) -> Option<NameEventRow> mapping registry NewOwner, Transfer and NewResolver, registrar Transfer and NameRegistered, controller NameRegistered (label string, label hash, owner, expires) and NameRenewed, resolver AddrChanged, TextChanged, ContenthashChanged and NameChanged, and reverse ReverseClaimed to actions register, renew, transfer, set_addr, set_contenthash, set_text and set_name with the node, the from address (the transaction sender) and the block timestamp."
+do_2 = "In src/store.rs add name_events(chain, position, height, tx_hash, log_index, node, action, from_address, timestamp, data json, PRIMARY KEY(tx_hash, log_index)) and names(node PRIMARY KEY, label, name, owner, registrant, resolver, resolved_address, contenthash, registered_at, expires_at, token_id) to SCHEMA; Unit (store.rs:317) gains name_events: Vec<NameEventRow>; commit and commit_backfill write them, rollback deletes rows above the fork position like events, and rebuild_names(nodes) replays each touched node's events in (height, log_index) order into names after every commit and rollback; decode_block (src/paxeer.rs) fills unit.name_events from decoded logs whose emitter is one of the five addresses."
+do_3 = "Write services/platform/hosted/indexer/tests/names_ingest.rs (planned) on the local JSON-RPC double tests/ingest.rs uses, serving services/platform/hosted/indexer/fixtures/names_blocks.json (planned): block 1 registers alice.pax (registrar NameRegistered, controller NameRegistered, registry NewOwner, resolver AddrChanged and ContenthashChanged with the 36-byte Paxeer form), block 2 renews it and transfers the token, block 3 sets a text record and a reverse name. names_ingest_builds_the_view_and_events asserts the names row (owner after transfer, expires_at after renewal, contenthash, resolved_address) and the seven name_events rows in order; names_rollback_replays_the_view asserts that rolling back to block 1 restores the pre-transfer owner and removes the later events; names_abi_topics_match_the_interface parses the event lines of contracts/names/IPaxNames.sol, canonicalises each signature and asserts keccak256 of it equals the topic the ABI yields."
+symbols = ["NamesConfig", "names_abi", "NameEventRow", "rebuild_names", "names_ingest_builds_the_view_and_events", "names_rollback_replays_the_view", "names_abi_topics_match_the_interface"]
+touches = ["services/platform/hosted/indexer/src/names.rs", "services/platform/hosted/indexer/src/lib.rs", "services/platform/hosted/indexer/src/main.rs", "services/platform/hosted/indexer/src/store.rs", "services/platform/hosted/indexer/src/paxeer.rs", "services/platform/hosted/indexer/abis/names.json", "services/platform/hosted/indexer/fixtures/names_blocks.json", "services/platform/hosted/indexer/tests/names_ingest.rs"]
+tests = ["services/platform/hosted/indexer/tests/names_ingest.rs::names_ingest_builds_the_view_and_events", "services/platform/hosted/indexer/tests/names_ingest.rs::names_rollback_replays_the_view", "services/platform/hosted/indexer/tests/names_ingest.rs::names_abi_topics_match_the_interface"]
+planned_paths = ["services/platform/hosted/indexer/src/names.rs", "services/platform/hosted/indexer/abis/names.json", "services/platform/hosted/indexer/fixtures/names_blocks.json", "services/platform/hosted/indexer/tests/names_ingest.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test names_ingest"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Remove names.rs, the two tables, the Unit field, the ABI and fixture files and the test; the indexer ingests as before."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.19.4.3]
 title = "Attest storage receipts: fetch the object by digest from the bucket and refuse a mismatch"
 status = "pending"
@@ -116227,7 +116381,7 @@ interfaces = []
 do_1 = "In modules/xweb/types/state.go:49-55 add KindStorageReceipt uint8 = 4 to the kind constants and KnownKind. Write modules/xweb/types/storage_receipt.go (planned): type StorageReceiptPayload struct { ObjectDigest [32]byte; BaseURL string }, EncodeStorageReceiptPayload and DecodeStorageReceiptPayload(bytes) (digest first, then the UTF-8 base URL), ValidateStorageReceiptPayload requiring a non-zero digest, an https scheme, a host, no query, fragment or userinfo, no trailing slash and at most 512 bytes; the request keeper (modules/xweb/keeper/request.go:18-50) decodes and validates the payload for KindStorageReceipt the way it decodes KindApi payloads and refuses with ErrInvalidPayload otherwise; modules/xweb/observation.go:33 and modules/xweb/genesis.go:125 admit KindStorageReceipt alongside Fetch and Search; the LevelSingle rule at state.go:328-338 stays KindApi-only, so storage receipts use the default attestation level."
 do_2 = "Write modules/xweb/types/storage_receipt_test.go (planned) with TestStorageReceiptPayloadRoundTripAndRefusals (round trip; refuse a zero digest, http, a query string, a 513-byte URL and a 31-byte payload) and modules/xweb/keeper/storage_receipt_request_test.go (planned) with TestRequestAdmitsStorageReceiptKind built on the keeper test fixtures the existing keeper tests use (modules/xweb/keeper/fulfil_test.go): a kind-4 request with a valid payload is stored with its kind, and the same request with an http URL is refused."
 symbols = ["KindStorageReceipt", "StorageReceiptPayload", "DecodeStorageReceiptPayload", "ValidateStorageReceiptPayload", "TestStorageReceiptPayloadRoundTripAndRefusals", "TestRequestAdmitsStorageReceiptKind"]
-touches = ["modules/xweb/types/state.go", "modules/xweb/types/storage_receipt.go", "modules/xweb/types/storage_receipt_test.go", "modules/xweb/keeper/request.go", "modules/xweb/keeper/storage_receipt_request_test.go", "modules/xweb/observation.go", "modules/xweb/genesis.go"]
+touches = ["modules/xweb/types/state.go", "modules/xweb/types/storage_receipt.go", "modules/xweb/types/storage_receipt_test.go", "modules/xweb/keeper/request.go", "modules/xweb/keeper/storage_receipt_request_test.go", "modules/xweb/types/observation.go", "modules/xweb/types/genesis.go"]
 tests = ["modules/xweb/types/storage_receipt_test.go::TestStorageReceiptPayloadRoundTripAndRefusals", "modules/xweb/keeper/storage_receipt_request_test.go::TestRequestAdmitsStorageReceiptKind"]
 planned_paths = ["modules/xweb/types/storage_receipt.go", "modules/xweb/types/storage_receipt_test.go", "modules/xweb/keeper/storage_receipt_request_test.go"]
 build_cmd = "go build ./modules/xweb/... ./precompiles/xweb/..."
@@ -116243,6 +116397,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2157: continue from attempt 1 (afde1c7b6), which is complete apart from the two admissions. In modules/xweb/types/observation.go:33 and modules/xweb/types/genesis.go:125 admit KindStorageReceipt beside KindFetch and KindSearch; change nothing else. Build once and verify once."
 
 [task.19.2.2]
 title = "Prove a resolver contenthash through eth_getProof against the committed app hash and commit the storage proof vector"
@@ -142566,6 +142721,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Findings 8.98.15.1 and 8.98.15.2: continue from attempt 1 (95762caa0), whose port and exports are complete. In tests/chain_receipts.rs add chain_rpc_url: format!('http://{address}/evm') to the Config initializer at :249, the URL the test already passes to ChainReceipts::load. Change nothing else. Build once and verify once."
 do_5 = "Decision 2152: continue from attempt 3 (9699103b6), keeping its port and the receipt key file. In tests/human_tls.rs make wire_status_at return (status, body), print the body and the tail of <root>/server.log in every status assertion message and in the Refused panics, run the three failing tests once to read the refusal code, then fix exactly what the code names (a fixture file, a permission, an environment variable the server now requires, or a handler that reaches for the chain on a chain-free route); do not point those tests at the node double. Append /qual-logs/ to .cgignore. Record the code you observed in the task's finding text when you report. Build once and verify once."
+do_6 = "Decision 2159: continue from attempt 4 (72c479b34), keeping its port, the key file and the body-printing assertions. In tests/human_tls.rs re-sign the fixture at run time exactly as the decision lists (signer from a fixed pattern, key_id = sha256 of the verifying key, context_hash and header sequencer_id words replaced, receipt and header re-signed, receipt root word updated where the header carries it, key file, environment and state record from the re-signed values). Change nothing in src/. Build once and verify once; if a 503 remains, print the refusal body and the server log tail as the assertions already do and record the code in the finding."
 
 [task.9.0.1]
 title = "Add Rung and RungStatus to the agent-api verify contract beside Level"
@@ -177876,7 +178032,7 @@ title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5", "9.12.11", "10.99.1", "17.5.10"]
+requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5", "9.12.11", "10.99.1", "17.5.10", "12.35.2"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
 interfaces = []
@@ -177910,6 +178066,7 @@ do_9 = "Attempt 12 (af44d7420, base a373fef18 with 10.16.5 at 3441fc681) carries
 do_10 = "Attempt 13 (ee7d7eaf0, base de9686155) carries the attempt 9 test unchanged and exited in step 2, make workspace-build: build and agent-build pass and human-build (Makefile:1960) stops at services/human/crates/layerx-human-security-provider/src/state.rs:56 and :136 with E0599, no function from_protected_history on ProtocolDeploymentVerifier, deleted by task 13.4.6 (0461a4f71). Task 10.99.1 ports the provider onto the chain trust root and is now required (decision.1971); the next attempt starts after it lands and changes no file."
 do_11 = "Attempt 14 (befea813e on c833996dd) fails test_wave_0_gate_passes because make human-build runs npm run build in apps/web and tsup (apps/web/package.json devDependency, 8.5.1 in apps/web/package-lock.json) is not installed: apps/web is not a member of the root npm workspace, so the root install never provides its tools. The gate environment now installs apps/web before the test; nothing in the test file changes for this failure and the attempt 14 content is re-qualified unchanged."
 do_12 = "Attempt 15 (682092ffd on 29f8a5dc1) fails in the web app build: next build stops on apps/web/src/app/exchange/exchange-client.tsx importing the server-only ../../api/gateway and on the packages sdk/wallet/src imports that apps/web/package.json does not declare. Task 17.5.10 owns that repair and this task requires it; re-run the gate unchanged on a base that carries 17.5.10."
+do_13 = "Decision 2155: attempt 16 (e378dbed1) fails in step 2, make workspace-build, on apps/web's next build resolving '@sidiora/layerx-sdk/browser' (the exports-condition defect decision 2153 assigns to 12.35.2). Continue from attempt 16 on a base that carries 12.35.2, keep the gate script and the test's structure, and make the failure message of test_wave_0_gate_passes name the failing step and quote the last forty lines of its log. Build once and verify once; if step 2 still fails, record the first error line of the step log in the finding and stop."
 
 [task.17.5.2]
 title = "Run the wave 1 aggregate gate once on the merged wave revision"
@@ -178942,7 +179099,7 @@ completion_task = "18.0.1"
 [feature.19]
 name = "paxeer-name-system"
 scope = "Paxeer Name System: the .pax name contracts (registry, registrar, controller, resolver, reverse registrar) under the governance timelock, content-addressed site publishing into S3-compatible buckets with only the manifest digest on chain, proof-backed resolution against the signed header's app hash, storage receipts through xweb, the host shell, the wallet repoint, DNS and SDK resolvers, plus the closure check 19.0.1."
-requirements = ["19001", "19002", "19003", "19004", "19005", "19006", "19007", "19008", "19009"]
+requirements = ["19001", "19002", "19003", "19004", "19005", "19006", "19007", "19008", "19009", "19010"]
 completion_task = "19.0.1"
 
 [task.18.670.1]
@@ -180131,8 +180288,8 @@ symbols = ["PaxNameAvailability", "testReceiptRequestCarriesTheManifestDigestAnd
 touches = ["contracts/names/PaxNameAvailability.sol", "tests/solidity/names/PaxNameAvailability.t.sol"]
 tests = ["tests/solidity/names/PaxNameAvailability.t.sol::testReceiptRequestCarriesTheManifestDigestAndRecordsTheCallback", "tests/solidity/names/PaxNameAvailability.t.sol::testCallbackIsRefusedFromAnyOtherCaller"]
 planned_paths = ["contracts/names/PaxNameAvailability.sol", "tests/solidity/names/PaxNameAvailability.t.sol"]
-build_cmd = "forge build --root ."
-verify_cmd = "forge test --root . --match-path 'tests/solidity/names/PaxNameAvailability.t.sol' --match-test '^(testReceiptRequestCarriesTheManifestDigestAndRecordsTheCallback|testCallbackIsRefusedFromAnyOtherCaller)$'"
+build_cmd = "FOUNDRY_PROFILE=names forge build --root ."
+verify_cmd = "FOUNDRY_PROFILE=names forge test --root . --match-path 'tests/solidity/names/PaxNameAvailability.t.sol' --match-test '^(testReceiptRequestCarriesTheManifestDigestAndRecordsTheCallback|testCallbackIsRefusedFromAnyOtherCaller)$'"
 gate_kind = "planned"
 sandbox_profile = "solidity"
 owner_role = "fm-chain-modules"
@@ -180161,8 +180318,8 @@ symbols = ["NamesDeployment", "DeployNames", "testCommitRegisterPublishAndResolv
 touches = ["contracts/names/NamesDeployment.sol", "contracts/names/DeployNames.s.sol", "tests/solidity/names/NamesEndToEnd.t.sol", "foundry.toml"]
 tests = ["tests/solidity/names/NamesEndToEnd.t.sol::testCommitRegisterPublishAndResolveThroughTheWiredSet", "tests/solidity/names/NamesEndToEnd.t.sol::testDeploymentHandsControlToGovernance"]
 planned_paths = ["contracts/names/NamesDeployment.sol", "contracts/names/DeployNames.s.sol", "tests/solidity/names/NamesEndToEnd.t.sol"]
-build_cmd = "forge build --root ."
-verify_cmd = "forge test --root . --match-path 'tests/solidity/names/NamesEndToEnd.t.sol' --match-test '^(testCommitRegisterPublishAndResolveThroughTheWiredSet|testDeploymentHandsControlToGovernance)$'"
+build_cmd = "FOUNDRY_PROFILE=names forge build --root ."
+verify_cmd = "FOUNDRY_PROFILE=names forge test --root . --match-path 'tests/solidity/names/NamesEndToEnd.t.sol' --match-test '^(testCommitRegisterPublishAndResolveThroughTheWiredSet|testDeploymentHandsControlToGovernance)$'"
 gate_kind = "planned"
 sandbox_profile = "solidity"
 owner_role = "fm-chain-modules"
@@ -180193,8 +180350,8 @@ symbols = ["PaxPublicResolver", "PaxReverseRegistrar", "MANIFEST_DIGEST_SLOT", "
 touches = ["contracts/names/PaxPublicResolver.sol", "contracts/names/PaxReverseRegistrar.sol", "tests/solidity/names/PaxPublicResolver.t.sol", "tests/vectors/names/resolver_layout_v1.json", "foundry.toml"]
 tests = ["tests/solidity/names/PaxPublicResolver.t.sol::testResolverLayoutVectorIsCurrent", "tests/solidity/names/PaxPublicResolver.t.sol::testAddrNameTextAndContenthashRecordsAreOwnerOnly", "tests/solidity/names/PaxPublicResolver.t.sol::testContenthashAcceptsOnlyThePaxeerTag", "tests/solidity/names/PaxPublicResolver.t.sol::testFreezeClearsAndBlocksTheContenthash", "tests/solidity/names/PaxPublicResolver.t.sol::testReverseSetNameBindsTheCallerAddress"]
 planned_paths = ["contracts/names/PaxPublicResolver.sol", "contracts/names/PaxReverseRegistrar.sol", "tests/solidity/names/PaxPublicResolver.t.sol", "tests/vectors/names/resolver_layout_v1.json"]
-build_cmd = "forge build --root ."
-verify_cmd = "forge test --root . --match-path 'tests/solidity/names/PaxPublicResolver.t.sol' --match-test '^(testResolverLayoutVectorIsCurrent|testAddrNameTextAndContenthashRecordsAreOwnerOnly|testContenthashAcceptsOnlyThePaxeerTag|testFreezeClearsAndBlocksTheContenthash|testReverseSetNameBindsTheCallerAddress)$'"
+build_cmd = "FOUNDRY_PROFILE=names forge build --root ."
+verify_cmd = "FOUNDRY_PROFILE=names forge test --root . --match-path 'tests/solidity/names/PaxPublicResolver.t.sol' --match-test '^(testResolverLayoutVectorIsCurrent|testAddrNameTextAndContenthashRecordsAreOwnerOnly|testContenthashAcceptsOnlyThePaxeerTag|testFreezeClearsAndBlocksTheContenthash|testReverseSetNameBindsTheCallerAddress)$'"
 gate_kind = "planned"
 sandbox_profile = "solidity"
 owner_role = "fm-chain-modules"
@@ -180221,12 +180378,12 @@ do_2 = "Write contracts/names/PaxBaseRegistrar.sol (planned): an ERC-721 (implem
 do_3 = "Write contracts/names/PaxRegistrarController.sol (planned) with exactly the wallet surface: rentPrice(string label, uint256 duration) view returns (uint256 base, uint256 premium) with premium 0 and base = yearly tier price * duration / 365 days where tiers are governance-set per label length class (3 characters, 4 characters, 5 and more) through setPrice(uint8 tier, uint256 pricePerYear) onlyGovernance; available(string label) view (valid label and registrar.available(id) and not reserved); makeCommitment(Registration) pure returns (bytes32) = keccak256(abi.encode(registration)); commit(bytes32); minCommitmentAge() view and a maxCommitmentAge, both governance-set with constructor defaults 60 seconds and 24 hours; register(Registration) payable, which checks the commitment age window, the label rule, the price (msg.value at least base, refund the excess, forward the price to the governance-set treasury), registers through the base registrar, sets the resolver and the records in data through the resolver's multicall(bytes[]) as the resolver owner-authorised path, sets the reverse record through the reverse registrar when reverseRecord is 1, and emits NameRegistered(label, labelhash, owner, cost, expires, referrer); renew(string label, uint256 duration) payable with NameRenewed. Reserved labels: setReserved(bytes32 labelhash, bool) onlyGovernance. Label rule: 3 to 63 characters, lowercase a-z, digits and hyphen, no leading or trailing hyphen; the wallet's own check at apps/wallet/src/lib/pns.ts:423-427 admits a superset, so the contract is the rule. The controller is Governed too and takes registrar, registry, resolver, reverse registrar and treasury addresses in its constructor (the resolver and reverse registrar may be zero at construction and set once through setResolvers onlyGovernance so wave order does not block deployment)."
 do_4 = "Write tests/solidity/names/PaxRegistry.t.sol and tests/solidity/names/PaxRegistrarController.t.sol (planned) in the root Foundry project style (relative imports only, a minimal cheatcode interface declared in the test the way tests/solidity/LayerXTimelock.t.sol:15 declares TimelockVm: warp, prank, deal, expectRevert, load). testRecordsFollowSubnodeOwnership (registry): subnode creation, setRecord and approval-gated writes. testCommitRegisterRenewFollowsTheWalletAbi: encode Registration exactly as the wallet does, commit, warp past minCommitmentAge, register with value = base, assert the token owner, the registry owner of namehash(label.pax), the expiry, the treasury balance and the refund; renew and assert the new expiry. testRegistrationRefusesEarlyRevealAndInvalidLabels: reveal before minCommitmentAge, after maxCommitmentAge, labels ab, -abc, abc-, ABC and a 64-character label all revert. testPriceTiersAndReservedLabelsAreGovernanceSet: a non-governance caller cannot set a price or reservation, the timelock can, and a reserved label reports unavailable. Build once with forge build --root . and verify once with the declared command; no --offline flag is needed because the root project has no dependencies."
 do_5 = "The real path this task proves is wallet ABI encoding -> controller -> registrar -> registry record, which is why the controller test encodes the Registration tuple with abi.encode in the wallet's field order rather than calling the contract through a Solidity struct literal alone."
-symbols = ["PaxRegistry", "PaxBaseRegistrar", "PaxRegistrarController", "testCommitRegisterRenewFollowsTheWalletAbi", "testRegistrationRefusesEarlyRevealAndInvalidLabels", "testPriceTiersAndReservedLabelsAreGovernanceSet", "testRecordsFollowSubnodeOwnership"]
-touches = ["contracts/names/PaxRegistry.sol", "contracts/names/PaxBaseRegistrar.sol", "contracts/names/PaxRegistrarController.sol", "contracts/names/IPaxNames.sol", "tests/solidity/names/PaxRegistry.t.sol", "tests/solidity/names/PaxRegistrarController.t.sol"]
-tests = ["tests/solidity/names/PaxRegistrarController.t.sol::testCommitRegisterRenewFollowsTheWalletAbi", "tests/solidity/names/PaxRegistrarController.t.sol::testRegistrationRefusesEarlyRevealAndInvalidLabels", "tests/solidity/names/PaxRegistrarController.t.sol::testPriceTiersAndReservedLabelsAreGovernanceSet", "tests/solidity/names/PaxRegistry.t.sol::testRecordsFollowSubnodeOwnership"]
+symbols = ["PaxRegistry", "PaxBaseRegistrar", "PaxRegistrarController", "testCommitRegisterRenewFollowsTheWalletAbi", "testRegistrationRefusesEarlyRevealAndInvalidLabels", "testPriceTiersAndReservedLabelsAreGovernanceSet", "testRecordsFollowSubnodeOwnership", "testOnlyPaxNamesAreRegistrable"]
+touches = ["contracts/names/PaxRegistry.sol", "contracts/names/PaxBaseRegistrar.sol", "contracts/names/PaxRegistrarController.sol", "contracts/names/IPaxNames.sol", "tests/solidity/names/PaxRegistry.t.sol", "tests/solidity/names/PaxRegistrarController.t.sol", "foundry.toml"]
+tests = ["tests/solidity/names/PaxRegistrarController.t.sol::testCommitRegisterRenewFollowsTheWalletAbi", "tests/solidity/names/PaxRegistrarController.t.sol::testRegistrationRefusesEarlyRevealAndInvalidLabels", "tests/solidity/names/PaxRegistrarController.t.sol::testPriceTiersAndReservedLabelsAreGovernanceSet", "tests/solidity/names/PaxRegistry.t.sol::testRecordsFollowSubnodeOwnership", "tests/solidity/names/PaxRegistrarController.t.sol::testOnlyPaxNamesAreRegistrable"]
 planned_paths = ["contracts/names/PaxRegistry.sol", "contracts/names/PaxBaseRegistrar.sol", "contracts/names/PaxRegistrarController.sol", "contracts/names/IPaxNames.sol", "tests/solidity/names/PaxRegistry.t.sol", "tests/solidity/names/PaxRegistrarController.t.sol"]
-build_cmd = "forge build --root ."
-verify_cmd = "forge test --root . --match-path 'tests/solidity/names/*.t.sol' --match-test '^(testCommitRegisterRenewFollowsTheWalletAbi|testRegistrationRefusesEarlyRevealAndInvalidLabels|testPriceTiersAndReservedLabelsAreGovernanceSet|testRecordsFollowSubnodeOwnership)$'"
+build_cmd = "FOUNDRY_PROFILE=names forge build --root ."
+verify_cmd = "FOUNDRY_PROFILE=names forge test --root . --match-path 'tests/solidity/names/*.t.sol' --match-test '^(testCommitRegisterRenewFollowsTheWalletAbi|testRegistrationRefusesEarlyRevealAndInvalidLabels|testPriceTiersAndReservedLabelsAreGovernanceSet|testRecordsFollowSubnodeOwnership|testOnlyPaxNamesAreRegistrable)$'"
 gate_kind = "planned"
 sandbox_profile = "solidity"
 owner_role = "fm-chain-modules"
@@ -180238,10 +180395,17 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2156: continue from attempt 1 (3018063d3), whose six files are written. Add [profile.names] to foundry.toml exactly as the decision lists it (src contracts/names, test tests/solidity/names, script contracts/names, out build/forge-artifacts-names, cache_path build/forge-cache-names, read permission on ./tests/vectors/names) and run the build and verify commands with FOUNDRY_PROFILE=names. Add testOnlyPaxNamesAreRegistrable to PaxRegistrarController.t.sol: registrar.baseNode() equals keccak256(abi.encodePacked(bytes32(0), keccak256('pax'))), a registered label is owned in the registry at namehash(<label>.pax), and the registrar refuses a controller or caller that presents another parent node. Build once and verify once; if the profile still compiles a file outside contracts/names and tests/solidity/names, name it in the finding and stop."
 
 [req.18764]
 title = "An unchanged custodied value sync never reverts a vault release"
 ac_1 = "GuarantorBond.syncCustodiedValue (contracts/GuarantorBond.sol:153) called by the vault with a value equal to custodiedValue succeeds without changing custodiedValue, membershipVersion or emitting CustodiedValueSynchronized, so LayerXVault.release (contracts/custody/LayerXVault.sol:178) of amount X after a direct USDL transfer of X into the vault no longer reverts."
+
+[req.19010]
+title = "Names are indexed from the chain and served in the explorer name-service API shape the wallet and explorer already consume"
+ac_1 = "The hosted indexer decodes the .pax registry, registrar, controller, resolver and reverse-registrar events from the configured addresses into an append-only name_events table and a names view rebuilt per node, rolls them back with the unit on a fork, and pins every ABI topic to the event declarations of contracts/names/IPaxNames.sol."
+ac_2 = "GET /api/v1/addresses:lookup, /api/v1/domains/<name>, /api/v1/domains/<name>/events, /api/v1/addresses/<address> and /api/v1/domains:lookup answer the explorer name-service shape (items, domain with id, name, owner, resolved_address, registration_date, expiry_date, tokens, protocol tld_list [pax]; events with transaction_hash, timestamp, from_address, action) exactly as the committed vector tests/vectors/names/indexer_api_v1.json records for the ingest fixture."
+ac_3 = "The wallet read proxy forwards its five name routes to the origin PNS_API_ORIGIN names and answers 503 name_service_not_configured when it is unset, and the wallet's name fetch helpers parse the committed vector into their declared record types."
 
 [req.19009]
 title = "The name system closes only when every name task is done"
@@ -180283,6 +180447,7 @@ title = "The .pax name contracts register, renew, resolve and reverse-resolve na
 ac_1 = "A commit, register, renew and transfer sequence driven through the exact controller ABI the wallet client in apps/wallet/src/lib/pns.ts already encodes (rentPrice, available, makeCommitment, commit, register, minCommitmentAge, renew with the Registration tuple) succeeds on the in-tree contract set, pays the governance-set tier price into the treasury and mints the ERC-721 token whose id is keccak256 of the label."
 ac_2 = "Resolver records (addr, name, text, contenthash) change only through the node owner or an approved operator; setContenthash accepts exactly the 36-byte Paxeer form (tag 0x70617831 followed by a 32-byte manifest digest), and a governance or emergency-council freeze clears the digest and refuses later writes until governance unfreezes."
 ac_3 = "One deployment path wires registry, registrar, controller, resolver and reverse registrar, hands the root and the pax node to the governance timelock and is exercised end to end by a test that commits, registers with resolver data and a reverse record, publishes a contenthash and reads addr, name and contenthash back."
+ac_4 = "The registrar's base node is namehash(pax), keccak256(bytes32(0) || keccak256(bytes('pax'))); the controller registers labels only under that node, and a registered name resolves in the registry at namehash(<label>.pax)."
 
 [acceptance.18.764.1]
 feature = "18"
@@ -184692,6 +184857,30 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.19.7.3]
+feature = "19"
+req = "19010.3"
+scenario = "Given the committed indexer vector served through the proxy, when the wallet's name helpers run, then they return the typed domains and events; given PNS_API_ORIGIN unset, then the proxy answers 503 name_service_not_configured and the helpers return empty results"
+contract = "contracts/names.md#wallet"
+test = "apps/wallet/src/lib/pns.indexer.test.ts::pns_helpers_parse_the_committed_indexer_vector (planned)"
+qualification = "UNRUN"
+
+[acceptance.19.7.2]
+feature = "19"
+req = "19010.2"
+scenario = "Given the ingested 19.7.1 fixture, when each of the five name routes is called for alice.pax, its owner and its resolved address, then every body equals the committed vector entry as JSON, an unknown parameter answers 400 and bob.pax answers 404"
+contract = "contracts/names.md#indexer"
+test = "services/platform/hosted/indexer/tests/names_api.rs::names_api_answers_match_the_committed_vector (planned)"
+qualification = "UNRUN"
+
+[acceptance.19.7.1]
+feature = "19"
+req = "19010.1"
+scenario = "Given three blocks of .pax events from the five configured addresses, when the indexer ingests them and then rolls back to block 1, then the names view shows the post-transfer owner and renewed expiry before the rollback and the original owner after it, and every ABI topic equals keccak256 of its IPaxNames.sol declaration"
+contract = "contracts/names.md#indexer"
+test = "services/platform/hosted/indexer/tests/names_ingest.rs::names_ingest_builds_the_view_and_events (planned)"
+qualification = "UNRUN"
+
 [acceptance.19.0.1]
 feature = "19"
 req = "19009.1"
@@ -184823,9 +185012,9 @@ qualification = "UNRUN"
 [acceptance.19.1.1]
 feature = "19"
 req = "19001.1"
-scenario = "Given the in-tree registry, registrar and controller with the timelock as governance, when a Registration encoded in the wallet's tuple order is committed and revealed after minCommitmentAge with the tier price, then the token, the registry owner and the expiry follow the registration and the treasury receives the price"
+scenario = "Given the in-tree registry, registrar and controller with the timelock as governance, when a Registration encoded in the wallet's tuple order is committed and revealed after minCommitmentAge with the tier price, then the token, the registry owner and the expiry follow the registration and the treasury receives the price; and registrar.baseNode() equals namehash(pax), registry.owner(namehash(<label>.pax)) is the registrant, and no method of the controller or registrar accepts another parent node (19001.4)"
 contract = "contracts/names.md#registration"
-test = "tests/solidity/names/PaxRegistrarController.t.sol::testCommitRegisterRenewFollowsTheWalletAbi (planned)"
+test = "tests/solidity/names/PaxRegistrarController.t.sol::testCommitRegisterRenewFollowsTheWalletAbi (planned); tests/solidity/names/PaxRegistrarController.t.sol::testOnlyPaxNamesAreRegistrable (planned)"
 qualification = "UNRUN"
 
 [acceptance.18.790.2]
@@ -185952,7 +186141,7 @@ title = "Refuse the name-system closure while any name task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["19.1.1", "19.1.2", "19.1.3", "19.2.1", "19.2.2", "19.2.3", "19.3.1", "19.3.2", "19.4.1", "19.4.2", "19.4.3", "19.4.4", "19.5.1", "19.5.2", "19.6.1", "19.6.2"]
+requires = ["19.1.1", "19.1.2", "19.1.3", "19.2.1", "19.2.2", "19.2.3", "19.3.1", "19.3.2", "19.4.1", "19.4.2", "19.4.3", "19.4.4", "19.5.1", "19.5.2", "19.6.1", "19.6.2", "19.7.1", "19.7.2", "19.7.3"]
 reqs = ["19009.1"]
 capabilities = ["19.0.1"]
 interfaces = []
