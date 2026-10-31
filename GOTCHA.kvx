@@ -12111,3 +12111,13 @@ fix = "Add the ABI method, gas row and handler on the layerxauth precompile and 
 title = "The gateway client refuses a balances answer that says bound without a DID and an account"
 symptom = "A test double answered px_getBalances with account {evm_address, bound: true} and the service reported upstream-degraded: retain_lookup in the gateway client requires bound to equal the presence of both layerx_did and layerx_account and an evm_address on every bound answer, and the plan path maps every gateway error to upstream-degraded."
 fix = "Answer the declared nested join shape the gateway crate's own decoder test fixes: identities with evm_address, pax_address, layerx_did, layerx_account and bound, rows with asset_id, denom, custody, paxeer and layerx, and an integer joined_limit."
+
+[gotcha.2460]
+title = "The JSON-RPC module-state read proves one storage word, not a kernel module record"
+symptom = "A caller ported a kernel module-state read (a 223-byte record) onto rpc::module_state::module_state and found it returns a single 32-byte slot value proven against a signed header the caller must supply; kernel-era records with their own layouts have no slot twin, and the node keeps that state in precompiles instead."
+fix = "Read precompile-backed state through eth_call (SequencerEndpoint::call_at with the ABI selector and arguments) and take finality from the anchor precompile's latestFinalized and checkpoint views; reserve rpc::module_state for genuine single-slot module values."
+
+[gotcha.2461]
+title = "The layerxauth precompile pins its method count in two tests"
+symptom = "A new layerxauth precompile method passed its own tests and the ABI test, then failed TestAuthGasTable (row count) and TestAuthSurfaceFrozen (three Len pins) because both pin the method count."
+fix = "When adding a layerxauth method, raise the pinned counts in gas_test.go and surface_test.go together with the ABI, handler and gas row."

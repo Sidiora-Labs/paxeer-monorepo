@@ -14627,3 +14627,19 @@ symbol = "px_getBalances"
 observed = "Attempt 9 (0de777956) builds; intent_plan_answers_eip1559_legs and intent_submit_records_each_leg_tx_hash fail at tests/intent_plan_evm.rs:981 with HTTP 503 upstream-degraded after the peers served eth_chainId, eth_call and px_getBalances (gateway: '/ px_getBalances') and no attestor refused. The plan path reads the sender's joined balances with GatewayEndpoint::get_balances(AccountIdentifier::Evm(wallet)) (src/server/production_components.rs:4629 of that tree, every error mapped to upstream_degraded at :4631); get_balances (services/human/crates/layerx-network-gateway/src/lib.rs:633-641) decodes the answer and then calls retain_lookup (:243-257), which refuses with GatewayError::Unbound when bound is true but layerx_did or layerx_account is absent. The test double answers {account: {evm_address: <queried wallet>, bound: true}, balances: [{asset_id, denom: alxp}], joined_limit: '1'} (tests/intent_plan_evm.rs:506-509 of that tree): bound without a DID and an account, so the real client refuses it as unbound."
 assumption = "The double answers the declared nested join shape the gateway crate's own test fixes (services/human/crates/layerx-network-gateway/src/lib.rs:1108-1135 of that tree) for the identity whose wallet was queried (decision 2139); the production mapping at :4631 is not relaxed."
 severity = "major"
+
+[finding.8.98.14.5]
+task = "8.98.14"
+file = "services/platform/hosted/core/src/lib.rs:575"
+symbol = "custody_read"
+observed = "Attempt 8 (f2cf54eb5) builds and moves node_info, sequence and receipt_event in public_reads.rs onto the JSON-RPC twins decision 2133 names; both scans of retired_client_modules_w2.rs still fail: lib.rs keeps the FrameTransport parameters and layerx_client::read and ::evidence at :451, :511 and :575, and main.rs keeps the lni imports at :4-7 for connect_raw (:579), lookup_receipt_selector (:617) and await_receipt (:703), which the receipt route (:867) and the funding reconciliation (:2062) still call. The custody twin decision 2133 chose does not fit: rpc::module_state::module_state (services/agent/crates/layerx-client/src/rpc/module_state.rs:87-125) proves one 32-byte storage word of a module slot by eth_getProof against a SignedHeader the caller must already hold, while the kernel custody records are a 5-byte LXBR1 registry marker, 223-byte LX:CUSTODY:PROFILE:v2 profiles and 89-byte LXLT1 LX:CUSTODY:TRUST:v2 records, and no LX:CUSTODY domain exists anywhere in the node. The node's custody state is the custody precompile at 0x...1013 (getAsset(bytes32) view: assetId, denom, pointer, enabled, paused, minimumDeposit, custodyCap, custodied, released, pending) and the anchor precompile at 0x...1014 (latestFinalized(), checkpoint(uint64), finalizedStateRoot(uint64))."
+assumption = "The custody reads move onto eth_call against the custody and anchor precompiles and the receipt waits onto rpc::receipt::lookup_authenticated (decision 2140); the scans of retired_client_modules_w2.rs stay the gate."
+severity = "major"
+
+[finding.2.96.1.1]
+task = "2.96.1"
+file = "precompiles/layerxauth/surface_test.go:28"
+symbol = "TestAuthSurfaceFrozen"
+observed = "Attempt 1 (2f7d8e2e5) builds and passes TestAuthABIMethods and TestPrecompileRecordLifecycleRegistersDid; the verify command fails in TestAuthGasTable (gas_test.go:27: gas table has 10 rows, want 9) and TestAuthSurfaceFrozen (surface_test.go:28-30: three require.Len pins at 9), because both tests pin the layerxauth method count and neither file is in the task's touches."
+assumption = "The two test files join the touches and their pins move to ten with the recordLifecycle row and signature (decision 2140)."
+severity = "minor"
