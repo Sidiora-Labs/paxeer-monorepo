@@ -171219,7 +171219,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.2]
 title = "Remove retired daemon and codec references from the arbiter producers (2 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171252,7 +171252,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.3]
 title = "Remove retired daemon and codec references from the replay and market sandbox producers (1 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171477,7 +171477,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.10]
 title = "Remove retired daemon and codec references from the agent envelope, event delivery and form validation producers (2 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
@@ -171509,7 +171509,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.16.11.11]
 title = "Remove retired daemon and codec references from the custody and credit producers (1 of 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4"]
