@@ -7,7 +7,9 @@ use layerx_client::lni::handshake::{perform, Handshake, HandshakeConfig};
 use layerx_client::lni::refusal::decode_core_refusal;
 use layerx_client::lni::schema::{decode_envelope, encode_envelope, Capability, Envelope, Version};
 use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
+use layerx_client::px::PxEndpoint;
 use layerx_client::read::ReadError;
+use layerx_client::sequencer::SequencerEndpoint;
 use layerx_platform_core::{
     asset_registry, did_for_public_key, fixed_hex, hex_decode, hex_encode, main_account, SendError,
     SocketSigner, TreasurySigner as _,
@@ -75,6 +77,8 @@ struct Config {
     tls: Arc<ServerConfig>,
     admin_tls: Arc<ServerConfig>,
     lni_socket: PathBuf,
+    sequencer: SequencerEndpoint,
+    network: PxEndpoint,
     network_id: u32,
     node: NodeEndpoint,
     node_token: Zeroizing<String>,
@@ -320,6 +324,23 @@ fn config() -> Result<Config, String> {
     fs::File::open(&state_dir)
         .and_then(|directory| directory.sync_all())
         .map_err(|error| format!("LAYERX_CORE_STATE_DIR is not durable: {error}"))?;
+    let lni_socket = PathBuf::from(required("LAYERX_CORE_LNI_SOCKET")?);
+    let sequencer_url = required("LAYERX_CORE_SEQUENCER_ENDPOINT")?;
+    let trust_anchor_path = required("LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER")?;
+    let mut trust_anchor = Vec::new();
+    fs::File::open(&trust_anchor_path)
+        .and_then(|file| file.take(1_048_577).read_to_end(&mut trust_anchor))
+        .map_err(|error| format!("LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER: {error}"))?;
+    if trust_anchor.is_empty() || trust_anchor.len() > 1_048_576 {
+        return Err("invalid LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER".to_owned());
+    }
+    RootCertStore::empty()
+        .add(CertificateDer::from(trust_anchor.clone()))
+        .map_err(|error| format!("invalid LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER: {error}"))?;
+    let sequencer = SequencerEndpoint::new(&sequencer_url, &[&trust_anchor])
+        .map_err(|error| format!("LayerX sequencer endpoint rejected: {error:?}"))?;
+    let network = PxEndpoint::new(&sequencer_url, &[&trust_anchor])
+        .map_err(|error| format!("LayerX sequencer network endpoint rejected: {error:?}"))?;
     Ok(Config {
         listen: parse_listen("LAYERX_CORE_LISTEN", "0.0.0.0:9443")?,
         admin_listen: parse_listen("LAYERX_CORE_ADMIN_LISTEN", "0.0.0.0:9444")?,
@@ -333,7 +354,9 @@ fn config() -> Result<Config, String> {
             "LAYERX_CORE_ADMIN_TLS_KEY_DER",
             None,
         )?,
-        lni_socket: PathBuf::from(required("LAYERX_CORE_LNI_SOCKET")?),
+        lni_socket,
+        sequencer,
+        network,
         network_id,
         node: parse_node_url(&required("LAYERX_CORE_NODE_URL")?)?,
         node_token: read_secret("LAYERX_CORE_NODE_BEARER_TOKEN_FILE")?,
@@ -1006,8 +1029,8 @@ fn program_idempotency_receipt(config: &Config, key: &str) -> Response {
 }
 
 fn readiness(config: &Config) -> Response {
-    let mut response = (|| match connect_client(config) {
-        Ok(client) => {
+    let mut response = (|| match config.network.network() {
+        Ok(head) => {
             let zero = "0".repeat(64);
             let target = format!("/v1/batches/{zero}/receipt-authority?receipt_digest={zero}");
             if !matches!(
@@ -1022,12 +1045,17 @@ fn readiness(config: &Config) -> Response {
             if journal_probe(&config.state_dir.join("journal/ready")).is_err() {
                 return refusal(503, "journal_unavailable", Some(5));
             }
-            let node = client.handshake().node();
             json_response(
                 200,
                 &serde_json::json!({
                     "ready": true,
-                    "network_id": node.network_id.to_string(),
+                    "network_id": head.network_id,
+                    "paxeer": {
+                        "chain_id": head.paxeer.chain_id,
+                        "latest_block": head.paxeer.latest_block,
+                    },
+                    "layerx": head.layerx,
+                    "latest_committed_height": head.latest_committed_height,
                     "wire_version": WIRE_VERSION,
                     "synchronous_receipts": true,
                     "state_snapshot": true,
@@ -1035,7 +1063,7 @@ fn readiness(config: &Config) -> Response {
             )
         }
         Err(error) => {
-            eprintln!("layerx-core-boundary: readiness: {error}");
+            eprintln!("layerx-core-boundary: readiness: {error:?}");
             refusal(503, "node_unavailable", Some(5))
         }
     })();
@@ -1052,18 +1080,18 @@ fn readiness(config: &Config) -> Response {
 }
 
 fn sequencer_route(config: &Config) -> Response {
-    match connect_client(config) {
-        Ok(client) => {
-            let node = client.handshake().node();
-            success(&serde_json::json!({
-                "network_id": node.network_id,
-                "sequencer_public_key": hex_encode(&node.authorised_sequencer_key),
-                "chain_head_sequence": node.chain_head_sequence,
-                "latest_sealed_batch": node.latest_sealed_batch,
-            }))
-        }
+    match config.network.network() {
+        Ok(head) => success(&serde_json::json!({
+            "network_id": head.network_id,
+            "paxeer": {
+                "chain_id": head.paxeer.chain_id,
+                "latest_block": head.paxeer.latest_block,
+            },
+            "layerx": head.layerx,
+            "latest_committed_height": head.latest_committed_height,
+        })),
         Err(error) => {
-            eprintln!("layerx-core-boundary: {error}");
+            eprintln!("layerx-core-boundary: {error:?}");
             refusal(503, "node_unavailable", Some(5))
         }
     }
