@@ -14483,3 +14483,139 @@ symbol = "validator not in committee"
 observed = "Attempt 19 of 12.35.4 (ef91a499c) built and the qualification failed before the Go test ran: the acknowledgement timeout persisted and the log then reported 'validator ... not in committee' at consensus/internal/consensus/types/round_state.go:537 while the replication endpoints matched."
 assumption = "Nineteen attempts have not shown whether the standby's validator key belongs to the committee the fixture seals; the correlation between the standby identity and the committee needs a product ruling before another attempt runs."
 severity = "owner"
+
+[finding.10.0.3.2]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:147"
+symbol = "Fixture::open"
+observed = "Attempt 5 (40dd6adae) built and both tests failed with 'real in-process agent requires LAYERX_AGENT_HUMAN_NODE_LNI (native node LNI)': the fixture's agent branch (:147-183) demands a native node socket, the authority endpoint, bearer and CA and LAYERX_HUMAN_AGENT_ACTOR from the environment, which the qualification environment does not provide (tests/production_unhooked.rs:160-175 needs LAYERX_TEST_AGENTD_BIN, LAYERX_TEST_NATIVE_BIN_DIR and root for the same reason and is not this task's gate)."
+assumption = "Decision 2071 (do_10) already rules the test self-contained with the agent side served in process by RealAgentLayer (tests/intent_submit.rs:326, :385), which reads no environment variable and opens no node socket; attempt 5 chose the external-node path instead."
+severity = "cross-task"
+
+[finding.8.45.4.1]
+task = "8.45.4"
+file = "sdk/platform/pipeline.kvx:252"
+symbol = "pipeline_lock_matches_repository"
+observed = "Attempt 5 (bf181d7df) ran layerx-platform-sdkgen --write, saw it refresh digests and handwritten lists across sdk/platform/pipeline.kvx and rewrite sdk/platform/go/generated.go and the JVM GeneratedContract.java beyond the two moved items, treated the whole as the do_8 stop condition, restored the regenerated files and stopped without the verify."
+assumption = "The do_8 stop condition names generated.go only; the pipeline.kvx changes are the reseal do_1 asks for, and the generated.go and GeneratedContract.java reversions are hand edits that 8.46.1, 8.46.2, 8.46.4 and 18.1308.2 made inside files whose header says DO NOT EDIT, which the generator cannot reproduce from the schemas."
+severity = "cross_task"
+
+[finding.8.45.4.2]
+task = "8.45.4"
+file = "sdk/platform/go/generated.go:467"
+symbol = "HumanOperation.Metadata"
+observed = "intent.plan and intent.submit carry Method eth_call and eth_sendRawTransaction with an empty Path (8.46.1), while the human schema declares POST /v1/intents/plan and /v1/intents/submit (services/human/schema/human-api/intent.kvx:66-85) and the Go human transport builds its HTTP request from exactly these fields (sdk/platform/go/http.go:97-110); the Swift and .NET descriptors render POST with an empty path (OperationCatalog.swift:386, OperationCatalog.cs:388) and the JVM kept the routes (GeneratedContract.java:208-209)."
+assumption = "The per-leg EVM calls live inside the IntentPlan result (req.8520 ac_1); the operations themselves are human-service routes, so the Go, Swift and .NET catalogues cannot reach the service as committed."
+severity = "cross_task"
+
+[finding.8.45.4.3]
+task = "8.45.4"
+file = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:2582"
+symbol = "HumanVerificationLevel"
+observed = "The Go (generated.go:682) and JVM human verification enums carry block-committed and refuse checkpoint-finalised (8.46.2 do_4, 8.46.7), while the human schema (services/human/schema/human-api/journeys.kvx:26-28, decision.1002) and the human service (services/human/crates/layerx-human-service/src/server/projection.rs:16, production_reads.rs:591) name the committed rung checkpoint-finalised; block-committed is the webhook vocabulary of decision.813 (services/platform/hosted/webhooks/src/events.rs:36)."
+assumption = "Consumers of the human API speak the human service's words; req.8520 ac_2 and req.8521 ac_1 borrowed the webhook word and are amended by decision 2115."
+severity = "owner"
+
+[finding.8.98.3.5]
+task = "8.98.3"
+file = "services/platform/hosted/authority/src/trust.rs:203"
+symbol = "trust::checkpoint"
+observed = "Attempt 8 (006f514eb) deleted call_fixture and verify_withdrawal_request as decisions 2104 and 2100 ask; no_retired_layerx_client_module_paths_w2 then fails on the single remaining layerx_client::batch::lookup_untrusted call at src/trust.rs:203, inside the trust::checkpoint read that decision 2105 keeps."
+assumption = "Decision 2105 keeps trust::checkpoint and lists batch among the trust.rs scan modules at the same time; the scan has to follow the keep."
+severity = "cross_task"
+
+[finding.16.28.1.1]
+task = "16.28.1"
+file = "tools/repotest/reachability_test.go:60"
+symbol = "TestEveryCTestMainHasBuildReference"
+observed = "Attempt 2 (e5415471d) lists 78 tests/**/*.c programs without a root-relative path in Makefile, chain.mk, tools/ or scripts/: 69 in tests/arith, tests/codec, tests/crypto and tests/fuzz (built by name through the kernel pattern rule at Makefile:1157 by their suites' own qualification commands), tests/programs/test_module_registration.c (built by stem from tools/paxeer-x/gates/104.19.4.sh:18 and :145), tests/fixtures/asset/generate_supply_receipts.c (built by tests/fixtures/asset/generate_supply_receipts.sh:8), tests/daemon/lxp_test_owner_rotation.c and lxp_test_replica_prefix.c and tests/bridge/test_credit_admission.c (deleted by pending 5.54.9 and 6.60.2), and four programs whose rules earlier retirements removed without the file: tests/state/lxp_test_idempotency.c (16.2.2 do_5, wiring.J21.25), tests/network/test_oracle_replay_absent.c (16.2.2 do_2), tests/programs/test_paxai_storage_continuity.c (16.0.4 do_6, wiring.J40.22) and tests/modules/dump_trading_vectors.c (never had a rule; its header says so). TestEveryRustTestFileIsCompiled lists the 11 msg.rs and querier.rs modules of the cosmwasm fixture crates under tests/fixtures/example/cosmwasm/*/src, each a member of a Cargo package rooted under tests/."
+assumption = "The guard is right about the four rule-less programs and wrong about the rest; acceptance.16.297.1 already excludes the kernel suites, and the fixture-crate modules are reached through their own Cargo.toml."
+severity = "cross_task"
+
+[finding.18.1188.2.5]
+task = "18.1188.2"
+file = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1415"
+symbol = "RealAgentLayer::prepare"
+observed = "Attempt 9 (569d39e41) fails archive_requires_real_reclaim_and_step_up_then_retires_authority_once at src/agents/reclaim.rs:135: the agent preparation for ActivityType(196616) (Budget ordinal 8, budget_defund) is refused with Disclosure(Decode(FieldMismatch('budget_id'))); the test double at tests/agent_controls_rungs.rs:1415-1455 hardcodes budget_id [0x41; 32] and derives the budget account from it, while services/agent/crates/layerx-crypto/src/disclosure/native.rs:345 bound_context compares the payload's budget_id (bytes 2..34 of the 50-byte budget_defund payload, native.rs:402-423) with the context's."
+assumption = "The double has to read the identity from the payload it is handed; a constant identity passes until the first real-identity check."
+severity = "cross_task"
+
+[finding.10.13.9.1]
+task = "10.13.9"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs:6118"
+symbol = "native_send_preview_v1"
+observed = "Attempts 1 and 2 of 10.13.9 recorded build and dependents only, never the verify; decision 2087's statement that both pass their test was wrong. Attempt 4 (0a356e6d7) fails native_send_preview_is_an_unsigned_ledger_transfer_call at tests/native_send_preview_evm.rs:970 with Refused: the check at services/agent/crates/layerx-agentd/src/human_runtime.rs:6118 (attempt 4 :6098) requires binding::purpose_commitment(&prepared.disclosure) == Some(purpose.commitment), but a native send discloses counterparties, amount, asset, idempotency and expiry (services/agent/crates/layerx-crypto/src/disclosure/call.rs:483-500) with payment None (disclosure.rs:503, :727, :789), and capability/binding.rs:170-179 returns Some only for BudgetCreate, IssueGrant and Receive, so every native send is refused."
+assumption = "The purpose commitment of a send is bound by the capability check at :6162 and the signed grant; the owner-preview path at :6403 already uses the is_some() refusal form."
+severity = "cross_task"
+
+[finding.8.98.14.3]
+task = "8.98.14"
+file = "services/platform/hosted/core/src/lib.rs:451"
+symbol = "FrameTransport"
+observed = "Attempt 7 (a41a80ed3) leaves the three `&mut dyn layerx_client::lni::transport::FrameTransport` parameters at services/platform/hosted/core/src/lib.rs:451, :511 and :575 because no rpc read serves what they fetch: the custody profile record is [u8; 223] (lib.rs:386-397, :476-486) while services/agent/crates/layerx-client/src/rpc/module_state.rs:143-150 returns one 32-byte storage word from account_proof, and services/platform/hosted/core/src/public_reads.rs (outside the touches) reads node_info (:290), the sequence (:339) and the receipt by global sequence (:474) over the kernel socket."
+assumption = "Serving a 223-byte module record and the three public reads needs a new rpc surface or a record layout the owner has to choose; the task cannot pass by deleting the transport parameters."
+severity = "owner"
+
+[finding.10.0.3.3]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:147"
+symbol = "RealAgentLayer::start"
+observed = "Attempt 6 (b4ad3a357) builds and fails both tests with 'real in-process agent requires LAYERX_AGENT_HUMAN_NODE_LNI (native node LNI)': its RealAgentLayer::start (tests/intent_plan_evm.rs:125-265 of that tree) starts a real agent that needs a node socket, the authority endpoint, bearer and CA from the environment, because ProductionComponents reaches the agent only through AgentRuntime over the Unix socket named by LAYERX_HUMAN_AGENT_SOCKET (src/server/production_components.rs:411, src/server/agent_runtime.rs:170-195), while the RealAgentLayer of tests/intent_submit.rs:326-420 implements the journey-level AgentBoundary that a Router over ProductionComponents never calls."
+assumption = "Decisions 2071 and 2112 pointed at the journey-level boundary for a router-level test; the router-level seam this crate already uses in tests is an in-process socket peer (tests/agent_runtime_eip1559.rs:174-249 Peer::serve, tests/production_unhooked.rs:910) that answers layerx_agentd::human::HumanRequest frames."
+severity = "cross_task"
+
+[finding.8.45.4.4]
+task = "8.45.4"
+file = "sdk/platform/go/cmd/conformance/main.go:426"
+symbol = "HumanOperationMetadata.PerLeg"
+observed = "Attempt 6 (a82f26174) reseals the pipeline and the generated catalogues as decisions 2113-2119 ask; go -C sdk/platform/go build ./... then fails at cmd/conformance/main.go:426 because the regenerated HumanOperationMetadata no longer carries the PerLeg field that 8.46.1 added by hand, and main.go is outside the touches."
+assumption = "After the reseal every one of the 84 human-plane operations in operations.json has the http transport (intent.plan and intent.submit are POST /v1/intents/plan and /v1/intents/submit with golden request vectors under services/human/schema/human-api/golden), so the eth_-prefixed branch at main.go:424-428 has no operation left to check."
+severity = "cross_task"
+
+[finding.10.13.9.2]
+task = "10.13.9"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc.rs:809"
+symbol = "handle_rpc"
+observed = "Attempt 5 (d994bc887) builds, passes the commitment refusal case, and stops at tests/native_send_preview_evm.rs:1059 with status 400 reason envelope.malformed: the prepare operation of the JSON surface routes only the variants native_effect_v1, native_registration_v1, native_send_v1 and native_send_submit_v1 (src/agent_rpc_dispatch.rs:508-550), so no JSON request reaches native_send_preview_v1 and the handle_rpc path that do_4 and decision 2124 named does not exist."
+assumption = "The real transport of a native send preview is the human frame: the human service writes operation 63 (NATIVE_SEND_PREVIEW_V1, human.rs:116) field by field (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4794-4843) and exchanges it over the socket, and the daemon reads it in decode_operation (src/human.rs:2481-2520) inside serve_one (src/human.rs:1754), which also encodes the answer (encode_response, :1787)."
+severity = "cross_task"
+
+[finding.12.13.2.3]
+task = "12.13.2"
+file = "services/wallet/gateway/src/precompiles.ts:60"
+symbol = "ensureServed"
+observed = "Attempts 6 of 12.13.2 (91c1a17d3), 12.13.3 (d45816d07) and 12.13.4 (3836a0732) reach the served precompiles over the node fixture and fail only their probe assertions: agent-precompiles-scheduler.test.ts:367 expects an eth_getCode record and sees none, agent-precompiles-streams.test.ts:334-336 expects one eth_getCode probe and sees zero, agent-precompiles-eip712.test.ts:254 expects one eth_call on the domain-separator route and sees two."
+assumption = "Since decision 2061 (task 5.98.4) the node serves precompiles as native handlers without account code, so ensureServed (src/precompiles.ts:60-71) probes with eth_call to the address with data 0xffffffff once per process per key, accepting non-empty data or an error whose message contains LXP_PRECOMPILE_UNKNOWN_METHOD, and never issues eth_getCode; the second eth_call on the first eip712 route is that probe."
+severity = "cross_task"
+
+[finding.10.0.3.4]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:746"
+symbol = "AttestorKms::create_owned_key"
+observed = "Attempt 7 (12846c417) builds; intent_plan_answers_eip1559_legs and intent_submit_records_each_leg_tx_hash both return Error: Kms(Refused) from Fixture::open before any request: bootstrap (:740-775 of that tree) creates each subject's primary key through kms.create_owned_key with account 0x00000000000000000000000000000000000000a1 and resolves the wallet with keystore.evm_wallet (:769, KMS operation 6). The attestors refuse the service's key generation with key_invalid_share because the test support's wallet inventory lists no key (Inventory.Check, services/wallet/attestor/internal/server/authority.go:125-165, the refusal finding 18.1151.1.2 recorded), and an admitted primary still cannot answer operation 6: doPublicWallet (services/wallet/attestor/internal/server/public_identity.go:56-100) resolves the owner's held secp256k1 key and requires the primary's policy account to equal that wallet's address, while the native-only support holds no secp256k1 key for any owner (tests/wallet_identity_e2e.rs:1033-1038 asserts exactly that absence). attestor_refusal surfaces both codes as KmsError::Refused."
+assumption = "The fixture provisions the real wallet identity per owner (decision 2130). 18.1151.1 requires this task and specifies the same two support helpers and the pub Keystore::binding, so this task adds them and 18.1151.1 finds them present."
+severity = "major"
+
+[finding.10.13.8.4]
+task = "10.13.8"
+file = "services/human/crates/layerx-human-service/tests/native_send_nonces.rs:311"
+symbol = "fixture"
+observed = "Attempt 3 (56b9b087d) built and implemented the preview and expiry changes, but both tests read PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, connect to a running human service over TLS and to a real daemon socket, the release-gate profile of tests/native_send_producer.rs:555; the gate carries no such foundation (finding 10.4.3.2 recorded the same for 10.4.3), so both panicked at :312 with NotPresent before any assertion."
+assumption = "The two cases run self-contained against an in-process peer double and a temporary principal store (decision 2131); the protected producer test stays a release gate."
+severity = "major"
+
+[finding.10.0.3.5]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:894"
+symbol = "Fixture::request"
+observed = "Attempt 8 (1ba15e3ad) provisions the wallet identity and inventory approvals as decision 2130 orders and both tests now pass Fixture::open and the key bootstrap (keystore.evm_wallet equals the generated address). The first verify run failed at ProductionComponents startup because the fixture set a movement socket path it never bound; the repair binds a 0600 UnixListener at root/movement-socket/movement.sock as tests/production_unhooked.rs does. The second run reaches POST /v1/intents/plan, which answers 403 {code: forbidden, copy_key: error.request.forbidden, retry: final} with no reason; kms.last_refusal_code() is None, so no attestor refused. The second test then panicked on the ENVIRONMENT mutex poisoned by the first."
+assumption = "ApiFailure::forbidden (src/server/backend.rs:64-73) carries no cause and the plan route has about a dozen emitters of it; decision 2132 makes the fixture record which peer requests, node RPC methods and gateway paths were served before the refusal so the refusing check is bracketed, and names the emitters to bisect."
+severity = "major"
+
+[finding.8.98.14.4]
+task = "8.98.14"
+file = "services/platform/hosted/core/src/public_reads.rs:289"
+symbol = "node_info"
+observed = "Attempt 7 (a41a80ed3) stopped at do_11 for the owner's ruling. node_info (services/platform/hosted/core/src/public_reads.rs:289) answers from client.handshake().node(), sequence (:335) from client.preparation_state(&actor, 1), receipt_event (:448) from connect_raw plus lookup_receipt_selector with a selector of 3 followed by the big-endian global sequence, and read_custody_profile / read_custody_asset (services/platform/hosted/core/src/lib.rs:450, :524) read custody module 8 through custody_read (:588) on layerx_client::read::module_state over a FrameTransport. Every one of those is a retired frame-protocol surface. The node answers a receipt only by transaction hash (rpc/sequencer_receipt.go:252; the decoded receipt carries its global sequence) and no node method looks a receipt up by global sequence."
+assumption = "Decision 2133 rules the twins: PxEndpoint::network plus px_getReceiptKeys plus rpc::evidence::checkpoint for node_info, rpc::history::did_accounts plus eth_getTransactionCount(pending) for sequence, pax_sequencerReceipt by transaction hash for the receipt-events route, and rpc::module_state::module_state with the unchanged verify_module_evidence check for the custody reads; no new node method and no local profile file."
+severity = "major"

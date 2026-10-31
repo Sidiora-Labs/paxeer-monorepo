@@ -33,11 +33,8 @@ def test_no_claim_or_deposit_root_callers():
 
 
 def test_replay_expects_sequence_refusal():
-    idempotency = C_NON_CODE.sub(
-        " ", (ROOT / "tests/state/lxp_test_idempotency.c").read_text()
-    )
-    assert not re.search(r"\bLXP_ERR_IDEMPOTENT_REPLAY\b", idempotency), (
-        "Retired replay expectations remain in tests/state/lxp_test_idempotency.c"
+    assert not (ROOT / "tests/state/lxp_test_idempotency.c").exists(), (
+        "Retired test program remains: tests/state/lxp_test_idempotency.c"
     )
     transition = C_NON_CODE.sub(
         " ", (ROOT / "tests/test_state_commitment_transition.c").read_text()
