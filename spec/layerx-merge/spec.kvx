@@ -156934,7 +156934,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.13.2]
 title = "Conformance: agent scheduler routes reach the served precompile 0x0905"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.13.1", "5.98.4", "12.13.7"]
