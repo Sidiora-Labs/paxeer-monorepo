@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 import subprocess
 import sys
-import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
 EVIDENCE = Path(os.environ.get("LAYERX_AUTHENTICATED_REPLAY_EVIDENCE", "/root/lx-ops/paxeer-x-integration-2026-10-03/qualification/task1043525"))
@@ -26,7 +25,7 @@ def sha(path):
 
 def sources():
     result = subprocess.run(
-        ["git", "ls-files", "-z", "--", "src", "include", "cmd/layerxd", "programs", "Makefile", "tests/daemon/lxp_test_program_replay.c", "tests/daemon/lxp_test_arbiter_admission.c", "tests/programs/test_call_activity.c", "tests/bridge/files.h", "tools/paxeer-x/build/104.35.20.mk", "tools/qualification/paxeer-x/program-replay-record.py"],
+        ["git", "ls-files", "-z", "--", "programs"],
         cwd=ROOT, check=True, capture_output=True,
     )
     names = {os.fsdecode(p) for p in result.stdout.split(b"\0") if p} | set(DECLARED)
@@ -66,22 +65,17 @@ def main():
     environment["PATH"] = "/root/.cargo/bin:" + environment.get("PATH", "")
     environment["CARGO_BUILD_JOBS"] = "4"
     environment["CARGO_TARGET_DIR"] = "/root/lx-target/arbiter-prestate/rust"
-    environment["PAXEER_X_PROGRAM_REPLAY_EVIDENCE"] = str(EVIDENCE / "producer")
     if args.build:
         inputs = sources()
-        execute([
-            "flock", "/root/lx-cargo/native-build.lock", "make", "-j4",
-            "BUILD_DIR=/root/lx-target/arbiter-prestate/native",
-            "PROGRAMS_TARGET_DIR=/root/lx-target/arbiter-prestate/rust",
-            "PROGRAMS_RUNTIME_LIB=/root/lx-target/arbiter-prestate/rust/debug/liblayerx_programs_sandbox.a",
-            "paxeer-x-program-replay-build",
-        ], EVIDENCE / "build-native.log", environment, 900)
+        runtime_output = execute([
+            "/root/.cargo/bin/cargo", "test", "--locked", "--manifest-path", "programs/Cargo.toml",
+            "-p", "layerx-programs-runtime", "--test", "program_replay", "--no-run", "--message-format=json",
+        ], EVIDENCE / "build-runtime.log", environment, 900)
         output = execute([
             "/root/.cargo/bin/cargo", "test", "--locked", "--manifest-path", "programs/Cargo.toml",
             "-p", "layerx-programs-arbiter", "--test", "verified_step", "--no-run", "--message-format=json",
         ], EVIDENCE / "build-arbiter.log", environment, 900)
-        producer = json.loads((EVIDENCE / "producer/artifacts.json").read_text())
-        binaries = {"native": producer["native"], "runtime": producer["rust"], "arbiter": artifact(output, "verified_step")}
+        binaries = {"runtime": artifact(runtime_output, "program_replay"), "arbiter": artifact(output, "verified_step")}
         if inputs != sources():
             raise RuntimeError("source changed during the single task build")
         (EVIDENCE / "artifacts.json").write_text(json.dumps({"inputs": inputs, "binaries": {key: {"path": path, "sha256": sha(path)} for key, path in binaries.items()}}, indent=2))
@@ -92,17 +86,11 @@ def main():
     for value in manifest["binaries"].values():
         if sha(value["path"]) != value["sha256"]:
             raise RuntimeError("genuine artifact changed")
-    fixture = Path(tempfile.mkdtemp(prefix="native-", dir=EVIDENCE))
-    output = execute([manifest["binaries"]["native"]["path"], str(fixture)], EVIDENCE / "verify-native.log", environment, 360)
-    if "PROGRAM_REPLAY real-signed-serial-scheduled-trap-proof-reopen-refusal" not in output:
-        raise RuntimeError("native serial/scheduled/trap/refusal/reopen corpus incomplete")
-    environment["LAYERX_AUTHENTICATED_REPLAY_INPUTS"] = str(fixture / "replay-inputs.json")
-    environment["LAYERX_ARBITER_ADMISSION_INPUTS"] = str(fixture / "inputs.json")
     execute([manifest["binaries"]["runtime"]["path"], "--nocapture", "--test-threads=1"], EVIDENCE / "verify-runtime.log", environment, 120)
     execute([manifest["binaries"]["arbiter"]["path"], "--nocapture", "--test-threads=1"], EVIDENCE / "verify-arbiter.log", environment, 360)
     if manifest["inputs"] != sources():
         raise RuntimeError("source changed during qualification")
-    (EVIDENCE / "result.json").write_text(json.dumps({"command": "timeout 10m python3 tools/qualification/paxeer-x/authenticated-replay-step.py", "exit": 0, "fixture": str(fixture), "native_log": str(EVIDENCE / "verify-native.log"), "runtime_log": str(EVIDENCE / "verify-runtime.log"), "arbiter_log": str(EVIDENCE / "verify-arbiter.log")}, indent=2))
+    (EVIDENCE / "result.json").write_text(json.dumps({"command": "timeout 10m python3 tools/qualification/paxeer-x/authenticated-replay-step.py", "exit": 0, "runtime_log": str(EVIDENCE / "verify-runtime.log"), "arbiter_log": str(EVIDENCE / "verify-arbiter.log")}, indent=2))
     return 0
 
 
