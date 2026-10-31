@@ -140991,7 +140991,7 @@ do_13 = "Decision 2057: layerx_client::read stays in services/platform/hosted/au
 
 [task.9.97.13]
 title = "Write tx_hash on every gateway history row and re-record the unified history web fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.97.12"]
