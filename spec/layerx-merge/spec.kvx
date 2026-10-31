@@ -135216,7 +135216,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.19.7]
 title = "Delete the kernel node test of the receipt authority"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "8.11.3"]
@@ -139952,7 +139952,7 @@ do_7 = "Attempt 2 (ecf49ad3c) and attempt 3 failed before the verify: the core b
 
 [task.8.98.1]
 title = "Migrate the agent-boundary callers of wiring.J44.20 (wave 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.2", "9.1.8", "8.8.1", "8.8.3", "8.8.4", "18.1083.1", "18.1297.1"]
@@ -156718,7 +156718,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.25.4]
 title = "Derive kernel availability from the px_getNetwork consensus head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.24.5"]
