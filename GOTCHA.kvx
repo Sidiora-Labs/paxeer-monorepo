@@ -11806,3 +11806,13 @@ fix = "When a component is retired, every test that spawns it is listed and rewo
 title = "A local node fixture that never brings the merge precompiles live"
 symptom = "The gateway route tests of 12.13.2, 12.13.3 and 12.13.4 ran against the local node and every route returned precompile_not_served: eth_getCode at 0x0905-0x0908 is empty on the fresh genesis."
 fix = "A fixture that stands in for the merged node proves the precompile set it serves with eth_getCode before any consumer test depends on it."
+
+[gotcha.2399]
+title = "A byte scan for a retired route matching the test that asserts its refusal"
+symptom = "8.7.4's scan for /v1/activities under the gateway tests matched degraded.rs, a Rust test that posts to the route to assert the 503 refusal task 8.3.1 wrote."
+fix = "A retired-corpus scan is scoped to the file kinds of the corpus; a test asserting the refusal of a retired route is a live consumer proof, not a leftover."
+
+[gotcha.2400]
+title = "Touched files a prerequisite task deleted"
+symptom = "8.98.2 listed head_attestation.rs and head_attestation_tests.rs, which 8.8.4 removed before it ran; the graph check failed twice on files that cannot change."
+fix = "When a prerequisite deletes a file in touches, the task drops it from touches and marks the do line superseded in the same batch that records the deletion."

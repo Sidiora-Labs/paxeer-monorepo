@@ -14203,3 +14203,35 @@ symbol = "ensureServed"
 observed = "Attempts 12.13.2 a5 (af3bbc0c2), 12.13.3 a5 (985ac288a) and 12.13.4 a5 (64b301354) ran against the local node fixture and every route answered 503 precompile_not_served: eth_getCode at 0x0905, 0x0906 and 0x0908 is empty on the fixture's fresh genesis."
 assumption = "The merge upgrade that registers the precompiles has not run on the fixture's chain; task 5.98.4 brings the set live (decision.2048)."
 severity = "blocker"
+
+[finding.8.7.4.1]
+task = "8.7.4"
+file = "services/platform/hosted/gateway/tests/degraded.rs"
+symbol = "test_gateway_tests_ship_no_activity_script"
+observed = "Attempts 1 and 2 (21c0b992f, e6488ad8e) failed 'Retired activity route remains in gateway tests: degraded.rs'; degraded.rs:669 posts to /v1/activities and asserts the gateway's 503 kernel_unavailable refusal written by task 8.3.1."
+assumption = "The byte scan matched the refusal test instead of the retired script corpus (decision.2050)."
+severity = "minor"
+
+[finding.8.98.2.1]
+task = "8.98.2"
+file = "services/platform/hosted/agent-boundary/src/head_attestation.rs"
+symbol = "no_retired_layerx_client_module_paths"
+observed = "Attempts 2 and 3 (d10bdb5cf, df173a4ba) passed the verify and failed the graph check on touched files head_attestation.rs and head_attestation_tests.rs, which no longer exist on main."
+assumption = "The touches list predates task 8.8.4's removal of the attestation files (decision.2051); the attempt 3 candidate qualifies unchanged."
+severity = "minor"
+
+[finding.18.1188.2.2]
+task = "18.1188.2"
+file = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs"
+symbol = "archive_fixture"
+observed = "Attempt 5 (41203dd42, base 37437d4c4): 8 passed, 3 failed; two archive_fixture tests panic at :1921 with 'journey custody failure: canonical bytes have no complete disclosure' (layerx-crypto signer.rs:207) and the reclaim test at :2234 with 'agent boundary failure: Refused', after raw_transaction (:1118) was rebuilt to disclosed calls."
+assumption = "A second fixture helper still hands undisclosed bytes to the custody step; the backtrace names it (decision.2052)."
+severity = "major"
+
+[finding.12.35.4.14]
+task = "12.35.4"
+file = "tools/qualification/localnode/v6120-node.sh"
+symbol = "TestLocalNodeV6120SequencerReceipt"
+observed = "Attempt 16 (63dda2164, base 540ce351c) started the primary, standby and bootstrap peer and the one-wei send failed with 'sequencer: standby did not acknowledge ... i/o timeout' (ErrNoAck, node/sequencer/standby.go:42) at v6120_test.go:243; the primary's log excerpt shows no replication error."
+assumption = "The standby either never receives the group (dial target) or fails to apply it within the replication timeout; the standby's log decides (decision.2053)."
+severity = "major"
