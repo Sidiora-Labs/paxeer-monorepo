@@ -1262,7 +1262,6 @@ dependencies = [
  "layerx-client",
  "layerx-committed-proof",
  "layerx-crypto",
- "layerx-paxeer-verifier",
  "layerx-platform-internal",
  "layerx-programs-ai-market",
  "layerx-proof",
