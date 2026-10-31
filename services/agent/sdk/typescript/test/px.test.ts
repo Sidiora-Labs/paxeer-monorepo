@@ -577,15 +577,16 @@ await test(px_methods_list_is_the_router_px_set);
 const receiptFixture = JSON.parse(
   readFileSync(
     new URL(
-      "../../../../../../sdk/platform/conformance/fixtures/receipt-positive-v2.json",
+      "../../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
       import.meta.url,
     ),
     "utf8",
   ),
 ) as {
-  authorized_batch: { sequencer_public_key_hex: string };
+  cases: { pinnedKey: { publicKey: string } }[];
 };
-const publicKey = receiptFixture.authorized_batch.sequencer_public_key_hex;
+assert.ok(receiptFixture.cases[0]);
+const publicKey = receiptFixture.cases[0].pinnedKey.publicKey.slice(2);
 const receiptKey = {
   keyId: Buffer.alloc(32, 11).toString("base64"),
   publicKey: Buffer.from(publicKey, "hex").toString("base64"),
@@ -669,7 +670,7 @@ const invalidReceiptKeys: readonly {
   ),
 ];
 
-await test("receipt_keys_shape", () => {
+function receipt_keys_shape() {
   assert.deepEqual(PX_METHODS, [
     "px_resolveAccount",
     "px_getAccount",
@@ -709,7 +710,9 @@ await test("receipt_keys_shape", () => {
     () => decodePxReceiptKeys([{ ...receiptKey, keyId: nonCanonical }]),
     { message: "Invalid gateway receipt key bytes" },
   );
-});
+}
+
+await test(receipt_keys_shape);
 
 await test("python_px_matches_ts", () => {
   const script = `
@@ -909,392 +912,394 @@ await assert.rejects(
   ),
 );
 
-// A px_getUnifiedHistory answer recorded from the gateway history read over a
-// loopback indexer store; the gateway's own tests keep it equal to what the
-// gateway answers. Its px_getHistory page is the same rows without `side`.
-const recordedUnified = (
-  JSON.parse(
-    readFileSync(
-      new URL(
-        "../../../../../../apps/web/e2e/fixtures/px-get-unified-history.json",
-        import.meta.url,
+await test("px_history_routes", async () => {
+  // A px_getUnifiedHistory answer recorded from the gateway history read over a
+  // loopback indexer store; the gateway's own tests keep it equal to what the
+  // gateway answers. Its px_getHistory page is the same rows without `side`.
+  const recordedUnified = (
+    JSON.parse(
+      readFileSync(
+        new URL(
+          "../../../../../../apps/web/e2e/fixtures/px-get-unified-history.json",
+          import.meta.url,
+        ),
+        "utf8",
       ),
-      "utf8",
-    ),
-  ) as {
-    result: Record<string, unknown> & { items: Record<string, unknown>[] };
-  }
-).result;
-const EVE = `0x${"ee".repeat(20)}`;
-const CURSOR = "000000000000000c0000000100000000";
-const recordedRows = recordedUnified.items;
-const { accounts: _accounts, ...recordedEnvelope } = recordedUnified;
-const recordedPaxeer = {
-  ...recordedEnvelope,
-  account: EVE,
-  items: recordedRows.map(({ side: _side, ...row }) => row),
-};
-
-assert.deepEqual(historyParams(EVE), [EVE, null, null, null]);
-assert.deepEqual(
-  historyParams(EVE, { cursor: CURSOR, limit: 7, kind: "erc20_transfer" }),
-  [EVE, CURSOR, 7, "erc20_transfer"],
-);
-for (const refused of [
-  { cursor: "" },
-  { cursor: "9" },
-  { cursor: "1&limit=500" },
-  { cursor: CURSOR.toUpperCase() },
-  { cursor: `${CURSOR}00` },
-  { limit: 0 },
-  { limit: 101 },
-  { limit: 1.5 },
-  { kind: "Transfer" },
-  { kind: "" },
-]) {
-  assert.throws(() => historyParams(EVE, refused));
-}
-assert.equal(HISTORY_DEFAULT_LIMIT, 50);
-assert.equal(historyAccount(` ${DID.toUpperCase()} `), DID);
-assert.equal(historyAccount(EVE.toUpperCase().replace("0X", "0x")), EVE);
-assert.throws(() => historyAccount(ACCOUNT));
-assert.throws(() => historyAccount("not-an-account"));
-
-const unifiedPage = decodeUnifiedHistoryPage(recordedUnified);
-assert.deepEqual(
-  unifiedPage.items.map((row) => [
-    row.id,
-    row.side,
-    row.blockHeight,
-    row.txIndex,
-    row.logIndex,
-  ]),
-  [
-    ["3", "paxeer", 10, 0, 0],
-    ["6", "paxeer", 11, 0, 0],
-    ["9", "paxeer", 12, 0, 0],
-    ["11", "paxeer", 12, 1, 0],
-  ],
-);
-assert.deepEqual(unifiedPage.accounts, [{ side: "paxeer", account: EVE }]);
-assert.equal(unifiedPage.nextCursor, null);
-assert.equal(unifiedPage.account.evm_address, EVE);
-assert.equal(unifiedPage.items[0]!.direction, "out");
-assert.equal(unifiedPage.items[0]!.amount, 1000000000000000000n);
-assert.equal(unifiedPage.items[0]!.assetMetadata?.decimals, 18);
-assert.equal(unifiedPage.items[0]!.assetMetadata?.symbol, null);
-assert.equal(
-  unifiedPage.items[1]!.assetMetadata?.pointer,
-  `0x${"cc".repeat(20)}`,
-);
-assert.equal(unifiedPage.items[1]!.assetMetadata?.denom, "ulxp");
-assert.equal(unifiedPage.items[1]!.assetMetadata?.symbol, "LXP");
-assert.equal(unifiedPage.items[3]!.assetMetadata, null);
-
-function history_boundary_rows_decode(): void {
-  const MAX_U256 = (1n << 256n) - 1n;
-  const first = {
-    id: "explorer:1",
-    height_or_seq: "10",
-    chain: "paxeer",
-    kind: "native_transfer",
-    direction: "out",
+    ) as {
+      result: Record<string, unknown> & { items: Record<string, unknown>[] };
+    }
+  ).result;
+  const EVE = `0x${"ee".repeat(20)}`;
+  const CURSOR = "000000000000000c0000000100000000";
+  const recordedRows = recordedUnified.items;
+  const { accounts: _accounts, ...recordedEnvelope } = recordedUnified;
+  const recordedPaxeer = {
+    ...recordedEnvelope,
     account: EVE,
-    counterparty: EVM,
-    asset: "evm:native",
-    amount: MAX_U256.toString(),
-    tx_hash: `0x${"12".repeat(32)}`,
-    ordinal: "0",
-    final: false,
-    decoded: { position: "10" },
-    asset_metadata: {
-      asset: "evm:native",
-      chain: "paxeer",
-      kind: "native",
-      address: null,
-      denom: null,
-      symbol: null,
-      decimals: 18,
-      native_id: null,
-      pointer: null,
-      metadata: {},
-    },
-    blockHeight: 10,
-    txIndex: 0,
-    logIndex: 0,
-    side: "paxeer",
+    items: recordedRows.map(({ side: _side, ...row }) => row),
   };
-  const layerx = {
-    ...first,
-    id: "2",
-    height_or_seq: "11",
-    chain: "layerx",
-    kind: "asset_transfer",
-    direction: "in",
-    account: ACCOUNT,
-    counterparty: UNJOINED,
-    asset: NATIVE,
-    amount: "7",
-    tx_hash: `0x${"34".repeat(32)}`,
-    ordinal: "1",
-    final: true,
-    decoded: { transfer: { amount: "7", recipient: ACCOUNT } },
-    asset_metadata: {
-      asset: NATIVE,
-      chain: "layerx",
-      kind: "native",
-      address: null,
-      denom: "ulxp",
-      symbol: "LXP",
-      decimals: 6,
-      native_id: NATIVE,
-      pointer: EVM,
-      metadata: { display: { name: "LayerX asset", tags: ["native", "LXP"] } },
-    },
-    blockHeight: 11,
-    txIndex: 1,
-    logIndex: 1,
-    side: "layerx",
-  };
-  const items = [
-    first,
-    layerx,
-    {
-      ...first,
-      id: "explorer:3",
-      height_or_seq: "12",
-      amount: "2",
-      asset_metadata: null,
-      blockHeight: 12,
-      txIndex: 2,
-      logIndex: 2,
-    },
-    {
-      ...first,
-      id: "4",
-      height_or_seq: "13",
-      amount: "3",
-      counterparty: null,
-      blockHeight: 13,
-      txIndex: 3,
-      logIndex: 3,
-    },
-  ];
-  const document = {
-    account: identities,
-    accounts: [
-      { side: "paxeer", account: EVE },
-      { side: "layerx", account: ACCOUNT },
-    ],
-    items,
-    next_cursor: "000000000000000d0000000300000003",
-  };
-  const page = decodeUnifiedHistoryPage(document);
-  assert.deepEqual(page.account, identities);
-  assert.deepEqual(page.accounts, document.accounts);
+
+  assert.deepEqual(historyParams(EVE), [EVE, null, null, null]);
   assert.deepEqual(
-    page.items.map((row) => row.id),
-    ["explorer:1", "2", "explorer:3", "4"],
+    historyParams(EVE, { cursor: CURSOR, limit: 7, kind: "erc20_transfer" }),
+    [EVE, CURSOR, 7, "erc20_transfer"],
   );
+  for (const refused of [
+    { cursor: "" },
+    { cursor: "9" },
+    { cursor: "1&limit=500" },
+    { cursor: CURSOR.toUpperCase() },
+    { cursor: `${CURSOR}00` },
+    { limit: 0 },
+    { limit: 101 },
+    { limit: 1.5 },
+    { kind: "Transfer" },
+    { kind: "" },
+  ]) {
+    assert.throws(() => historyParams(EVE, refused));
+  }
+  assert.equal(HISTORY_DEFAULT_LIMIT, 50);
+  assert.equal(historyAccount(` ${DID.toUpperCase()} `), DID);
+  assert.equal(historyAccount(EVE.toUpperCase().replace("0X", "0x")), EVE);
+  assert.throws(() => historyAccount(ACCOUNT));
+  assert.throws(() => historyAccount("not-an-account"));
+
+  const unifiedPage = decodeUnifiedHistoryPage(recordedUnified);
   assert.deepEqual(
-    page.items.map((row) => [row.blockHeight, row.txIndex, row.logIndex]),
+    unifiedPage.items.map((row) => [
+      row.id,
+      row.side,
+      row.blockHeight,
+      row.txIndex,
+      row.logIndex,
+    ]),
     [
-      [10, 0, 0],
-      [11, 1, 1],
-      [12, 2, 2],
-      [13, 3, 3],
+      ["3", "paxeer", 10, 0, 0],
+      ["6", "paxeer", 11, 0, 0],
+      ["9", "paxeer", 12, 0, 0],
+      ["11", "paxeer", 12, 1, 0],
     ],
   );
-  assert.equal(page.items[0]!.amount, MAX_U256);
-  assert.deepEqual(page.items[1], {
-    id: "2",
-    heightOrSeq: 11n,
-    chain: "layerx",
-    kind: "asset_transfer",
-    direction: "in",
-    account: ACCOUNT,
-    counterparty: UNJOINED,
-    asset: NATIVE,
-    amount: 7n,
-    txHash: `0x${"34".repeat(32)}`,
-    ordinal: 1n,
-    final: true,
-    decoded: { transfer: { amount: "7", recipient: ACCOUNT } },
-    assetMetadata: {
-      asset: NATIVE,
+  assert.deepEqual(unifiedPage.accounts, [{ side: "paxeer", account: EVE }]);
+  assert.equal(unifiedPage.nextCursor, null);
+  assert.equal(unifiedPage.account.evm_address, EVE);
+  assert.equal(unifiedPage.items[0]!.direction, "out");
+  assert.equal(unifiedPage.items[0]!.amount, 1000000000000000000n);
+  assert.equal(unifiedPage.items[0]!.assetMetadata?.decimals, 18);
+  assert.equal(unifiedPage.items[0]!.assetMetadata?.symbol, null);
+  assert.equal(
+    unifiedPage.items[1]!.assetMetadata?.pointer,
+    `0x${"cc".repeat(20)}`,
+  );
+  assert.equal(unifiedPage.items[1]!.assetMetadata?.denom, "ulxp");
+  assert.equal(unifiedPage.items[1]!.assetMetadata?.symbol, "LXP");
+  assert.equal(unifiedPage.items[3]!.assetMetadata, null);
+
+  function history_boundary_rows_decode(): void {
+    const MAX_U256 = (1n << 256n) - 1n;
+    const first = {
+      id: "explorer:1",
+      height_or_seq: "10",
+      chain: "paxeer",
+      kind: "native_transfer",
+      direction: "out",
+      account: EVE,
+      counterparty: EVM,
+      asset: "evm:native",
+      amount: MAX_U256.toString(),
+      tx_hash: `0x${"12".repeat(32)}`,
+      ordinal: "0",
+      final: false,
+      decoded: { position: "10" },
+      asset_metadata: {
+        asset: "evm:native",
+        chain: "paxeer",
+        kind: "native",
+        address: null,
+        denom: null,
+        symbol: null,
+        decimals: 18,
+        native_id: null,
+        pointer: null,
+        metadata: {},
+      },
+      blockHeight: 10,
+      txIndex: 0,
+      logIndex: 0,
+      side: "paxeer",
+    };
+    const layerx = {
+      ...first,
+      id: "2",
+      height_or_seq: "11",
       chain: "layerx",
-      kind: "native",
-      address: null,
-      denom: "ulxp",
-      symbol: "LXP",
-      decimals: 6,
-      nativeId: NATIVE,
-      pointer: EVM,
-      metadata: { display: { name: "LayerX asset", tags: ["native", "LXP"] } },
-    },
-    blockHeight: 11,
-    txIndex: 1,
-    logIndex: 1,
-    side: "layerx",
-  });
-  assert.equal(page.items[2]!.assetMetadata, null);
-  assert.equal(page.items[3]!.counterparty, null);
-  assert.equal(page.nextCursor, document.next_cursor);
-  assert.throws(
+      kind: "asset_transfer",
+      direction: "in",
+      account: ACCOUNT,
+      counterparty: UNJOINED,
+      asset: NATIVE,
+      amount: "7",
+      tx_hash: `0x${"34".repeat(32)}`,
+      ordinal: "1",
+      final: true,
+      decoded: { transfer: { amount: "7", recipient: ACCOUNT } },
+      asset_metadata: {
+        asset: NATIVE,
+        chain: "layerx",
+        kind: "native",
+        address: null,
+        denom: "ulxp",
+        symbol: "LXP",
+        decimals: 6,
+        native_id: NATIVE,
+        pointer: EVM,
+        metadata: { display: { name: "LayerX asset", tags: ["native", "LXP"] } },
+      },
+      blockHeight: 11,
+      txIndex: 1,
+      logIndex: 1,
+      side: "layerx",
+    };
+    const items = [
+      first,
+      layerx,
+      {
+        ...first,
+        id: "explorer:3",
+        height_or_seq: "12",
+        amount: "2",
+        asset_metadata: null,
+        blockHeight: 12,
+        txIndex: 2,
+        logIndex: 2,
+      },
+      {
+        ...first,
+        id: "4",
+        height_or_seq: "13",
+        amount: "3",
+        counterparty: null,
+        blockHeight: 13,
+        txIndex: 3,
+        logIndex: 3,
+      },
+    ];
+    const document = {
+      account: identities,
+      accounts: [
+        { side: "paxeer", account: EVE },
+        { side: "layerx", account: ACCOUNT },
+      ],
+      items,
+      next_cursor: "000000000000000d0000000300000003",
+    };
+    const page = decodeUnifiedHistoryPage(document);
+    assert.deepEqual(page.account, identities);
+    assert.deepEqual(page.accounts, document.accounts);
+    assert.deepEqual(
+      page.items.map((row) => row.id),
+      ["explorer:1", "2", "explorer:3", "4"],
+    );
+    assert.deepEqual(
+      page.items.map((row) => [row.blockHeight, row.txIndex, row.logIndex]),
+      [
+        [10, 0, 0],
+        [11, 1, 1],
+        [12, 2, 2],
+        [13, 3, 3],
+      ],
+    );
+    assert.equal(page.items[0]!.amount, MAX_U256);
+    assert.deepEqual(page.items[1], {
+      id: "2",
+      heightOrSeq: 11n,
+      chain: "layerx",
+      kind: "asset_transfer",
+      direction: "in",
+      account: ACCOUNT,
+      counterparty: UNJOINED,
+      asset: NATIVE,
+      amount: 7n,
+      txHash: `0x${"34".repeat(32)}`,
+      ordinal: 1n,
+      final: true,
+      decoded: { transfer: { amount: "7", recipient: ACCOUNT } },
+      assetMetadata: {
+        asset: NATIVE,
+        chain: "layerx",
+        kind: "native",
+        address: null,
+        denom: "ulxp",
+        symbol: "LXP",
+        decimals: 6,
+        nativeId: NATIVE,
+        pointer: EVM,
+        metadata: { display: { name: "LayerX asset", tags: ["native", "LXP"] } },
+      },
+      blockHeight: 11,
+      txIndex: 1,
+      logIndex: 1,
+      side: "layerx",
+    });
+    assert.equal(page.items[2]!.assetMetadata, null);
+    assert.equal(page.items[3]!.counterparty, null);
+    assert.equal(page.nextCursor, document.next_cursor);
+    assert.throws(
+      () =>
+        decodeUnifiedHistoryPage({
+          ...document,
+          items: [{ ...first, amount: (1n << 256n).toString() }, ...items.slice(1)],
+        }),
+      /^Error: Invalid history decimal$/,
+    );
+  }
+  test(history_boundary_rows_decode);
+
+  const paxeerPage = decodePaxeerHistoryPage(recordedPaxeer);
+  assert.equal(paxeerPage.account, EVE);
+  assert.equal(paxeerPage.nextCursor, null);
+  assert.deepEqual(
+    paxeerPage.items.map((row) => [row.id, row.side]),
+    [
+      ["3", null],
+      ["6", null],
+      ["9", null],
+      ["11", null],
+    ],
+  );
+  assert.equal(
+    decodePaxeerHistoryPage({ ...recordedPaxeer, items: [], next_cursor: null })
+      .items.length,
+    0,
+  );
+  assert.equal(
+    decodePaxeerHistoryPage({ ...recordedPaxeer, next_cursor: CURSOR })
+      .nextCursor,
+    CURSOR,
+  );
+
+  const [native, pointer, , erc20] = recordedRows as [
+    Record<string, unknown>,
+    Record<string, unknown>,
+    Record<string, unknown>,
+    Record<string, unknown>,
+  ];
+  for (const refused of [
     () =>
       decodeUnifiedHistoryPage({
-        ...document,
-        items: [{ ...first, amount: (1n << 256n).toString() }, ...items.slice(1)],
+        ...recordedUnified,
+        items: [...recordedRows].reverse(),
       }),
-    /^Error: Invalid history decimal$/,
-  );
-}
-test(history_boundary_rows_decode);
+    () =>
+      decodeUnifiedHistoryPage({
+        ...recordedUnified,
+        items: [native, recordedPaxeer.items[1]],
+      }),
+    () =>
+      decodeUnifiedHistoryPage({
+        ...recordedUnified,
+        items: [native, { ...pointer, txIndex: "0" }],
+      }),
+    () => decodePaxeerHistoryPage({ ...recordedPaxeer, account: DID }),
+    () => decodePaxeerHistoryPage({ ...recordedPaxeer, next_cursor: "9" }),
+    () =>
+      decodePaxeerHistoryPage({
+        ...recordedPaxeer,
+        items: [],
+        next_cursor: CURSOR,
+      }),
+    () =>
+      decodeUnifiedHistoryPage({
+        ...recordedUnified,
+        items: [{ ...native, amount: "-7" }],
+      }),
+    () =>
+      decodeUnifiedHistoryPage({
+        ...recordedUnified,
+        items: [{ ...native, direction: "sideways" }],
+      }),
+    () =>
+      decodeUnifiedHistoryPage({
+        ...recordedUnified,
+        items: [
+          {
+            ...native,
+            asset_metadata: { ...(pointer.asset_metadata as object) },
+          },
+        ],
+      }),
+    () => decodeUnifiedHistoryPage(recordedUnified, 3),
+    () =>
+      decodeHistoryAssetMetadata({
+        ...(native.asset_metadata as object),
+        decimals: 256,
+      }),
+  ]) {
+    assert.throws(refused);
+  }
+  assert.equal(erc20.side, "paxeer");
 
-const paxeerPage = decodePaxeerHistoryPage(recordedPaxeer);
-assert.equal(paxeerPage.account, EVE);
-assert.equal(paxeerPage.nextCursor, null);
-assert.deepEqual(
-  paxeerPage.items.map((row) => [row.id, row.side]),
-  [
-    ["3", null],
-    ["6", null],
-    ["9", null],
-    ["11", null],
-  ],
-);
-assert.equal(
-  decodePaxeerHistoryPage({ ...recordedPaxeer, items: [], next_cursor: null })
-    .items.length,
-  0,
-);
-assert.equal(
-  decodePaxeerHistoryPage({ ...recordedPaxeer, next_cursor: CURSOR })
-    .nextCursor,
-  CURSOR,
-);
+  assert.equal("getHistory" in JsonRpcClient.prototype, false);
 
-const [native, pointer, , erc20] = recordedRows as [
-  Record<string, unknown>,
-  Record<string, unknown>,
-  Record<string, unknown>,
-  Record<string, unknown>,
-];
-for (const refused of [
-  () =>
-    decodeUnifiedHistoryPage({
-      ...recordedUnified,
-      items: [...recordedRows].reverse(),
-    }),
-  () =>
-    decodeUnifiedHistoryPage({
-      ...recordedUnified,
-      items: [native, recordedPaxeer.items[1]],
-    }),
-  () =>
-    decodeUnifiedHistoryPage({
-      ...recordedUnified,
-      items: [native, { ...pointer, txIndex: "0" }],
-    }),
-  () => decodePaxeerHistoryPage({ ...recordedPaxeer, account: DID }),
-  () => decodePaxeerHistoryPage({ ...recordedPaxeer, next_cursor: "9" }),
-  () =>
-    decodePaxeerHistoryPage({
-      ...recordedPaxeer,
-      items: [],
-      next_cursor: CURSOR,
-    }),
-  () =>
-    decodeUnifiedHistoryPage({
-      ...recordedUnified,
-      items: [{ ...native, amount: "-7" }],
-    }),
-  () =>
-    decodeUnifiedHistoryPage({
-      ...recordedUnified,
-      items: [{ ...native, direction: "sideways" }],
-    }),
-  () =>
-    decodeUnifiedHistoryPage({
-      ...recordedUnified,
-      items: [
-        {
-          ...native,
-          asset_metadata: { ...(pointer.asset_metadata as object) },
-        },
-      ],
-    }),
-  () => decodeUnifiedHistoryPage(recordedUnified, 3),
-  () =>
-    decodeHistoryAssetMetadata({
-      ...(native.asset_metadata as object),
-      decimals: 256,
-    }),
-]) {
-  assert.throws(refused);
-}
-assert.equal(erc20.side, "paxeer");
-
-assert.equal("getHistory" in JsonRpcClient.prototype, false);
-
-const historyRequests: {
-  readonly method: unknown;
-  readonly params: unknown;
-}[] = [];
-const historyGateway = http.createServer((request, response) => {
-  const chunks: Buffer[] = [];
-  request.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
-  request.on("end", () => {
-    const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
-      id: string;
-      method: string;
-      params: unknown;
-    };
-    historyRequests.push({ method: body.method, params: body.params });
-    const result =
-      body.method === "px_getHistory" ? recordedPaxeer : recordedUnified;
-    const encoded = Buffer.from(
-      JSON.stringify({ jsonrpc: "2.0", id: body.id, result }),
-      "utf8",
-    );
-    response.writeHead(200, {
-      "Content-Type": "application/json",
-      "Content-Length": encoded.length,
+  const historyRequests: {
+    readonly method: unknown;
+    readonly params: unknown;
+  }[] = [];
+  const historyGateway = http.createServer((request, response) => {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+    request.on("end", () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+        id: string;
+        method: string;
+        params: unknown;
+      };
+      historyRequests.push({ method: body.method, params: body.params });
+      const result =
+        body.method === "px_getHistory" ? recordedPaxeer : recordedUnified;
+      const encoded = Buffer.from(
+        JSON.stringify({ jsonrpc: "2.0", id: body.id, result }),
+        "utf8",
+      );
+      response.writeHead(200, {
+        "Content-Type": "application/json",
+        "Content-Length": encoded.length,
+      });
+      response.end(encoded);
     });
-    response.end(encoded);
   });
-});
-historyGateway.listen(0, "127.0.0.1");
-await once(historyGateway, "listening");
-const historyAddress = historyGateway.address();
-assert(
-  historyAddress !== null && typeof historyAddress === "object",
-  "history gateway listener missing",
-);
-try {
-  const px = new PxClient({
-    endpoint: `http://127.0.0.1:${historyAddress.port}/rpc`,
-  });
-  const unified = await px.getUnifiedHistory(DID.toUpperCase(), { limit: 4 });
-  assert.deepEqual(
-    unified.items.map((row) => row.id),
-    ["3", "6", "9", "11"],
+  historyGateway.listen(0, "127.0.0.1");
+  await once(historyGateway, "listening");
+  const historyAddress = historyGateway.address();
+  assert(
+    historyAddress !== null && typeof historyAddress === "object",
+    "history gateway listener missing",
   );
-  const paxeer = await px.getHistory(DID, {
-    cursor: CURSOR,
-    kind: "erc20_transfer",
-  });
-  assert.equal(paxeer.items.length, 4);
-  await px.getHistory(EVE.toUpperCase().replace("0X", "0x"));
-  await assert.rejects(px.getUnifiedHistory(EVE, { limit: 2 }));
-  await assert.rejects(px.getHistory(ACCOUNT));
-  assert.deepEqual(historyRequests, [
-    { method: "px_getUnifiedHistory", params: [DID, null, 4, null] },
-    { method: "px_getHistory", params: [DID, CURSOR, null, "erc20_transfer"] },
-    { method: "px_getHistory", params: [EVE, null, null, null] },
-    { method: "px_getUnifiedHistory", params: [EVE, null, 2, null] },
-  ]);
-} finally {
-  historyGateway.close();
-  await once(historyGateway, "close");
-}
+  try {
+    const px = new PxClient({
+      endpoint: `http://127.0.0.1:${historyAddress.port}/rpc`,
+    });
+    const unified = await px.getUnifiedHistory(DID.toUpperCase(), { limit: 4 });
+    assert.deepEqual(
+      unified.items.map((row) => row.id),
+      ["3", "6", "9", "11"],
+    );
+    const paxeer = await px.getHistory(DID, {
+      cursor: CURSOR,
+      kind: "erc20_transfer",
+    });
+    assert.equal(paxeer.items.length, 4);
+    await px.getHistory(EVE.toUpperCase().replace("0X", "0x"));
+    await assert.rejects(px.getUnifiedHistory(EVE, { limit: 2 }));
+    await assert.rejects(px.getHistory(ACCOUNT));
+    assert.deepEqual(historyRequests, [
+      { method: "px_getUnifiedHistory", params: [DID, null, 4, null] },
+      { method: "px_getHistory", params: [DID, CURSOR, null, "erc20_transfer"] },
+      { method: "px_getHistory", params: [EVE, null, null, null] },
+      { method: "px_getUnifiedHistory", params: [EVE, null, 2, null] },
+    ]);
+  } finally {
+    historyGateway.close();
+    await once(historyGateway, "close");
+  }
+});
