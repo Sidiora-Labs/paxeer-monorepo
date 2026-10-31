@@ -482,6 +482,21 @@ impl AuditEvent {
     }
 
     pub(super) fn encode(&self, output: &mut Vec<u8>) -> Result<(), AuditError> {
+        if matches!(
+            self,
+            Self::SigningDecision {
+                operation: SigningOperation::EmergencyExit,
+                ..
+            } | Self::JourneyTransition {
+                kind: JourneyKind::WalletBinding,
+                ..
+            } | Self::IdentityLifecycle {
+                event: IdentityEvent::WalletBinding,
+                ..
+            }
+        ) {
+            return Err(AuditError::Corrupt("retired audit event kind"));
+        }
         match self {
             Self::Authentication { method, outcome } => {
                 output.push(1);

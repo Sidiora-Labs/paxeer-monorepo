@@ -57,21 +57,3 @@ lxp_result lx_asset_send_execute(lxp_module_ctx *ctx,
 {
     return execute(ctx, request, receipt);
 }
-
-lxp_result lx_asset_receive_execute(lxp_module_ctx *ctx,
-                                    const lx_asset_transfer_request *request,
-                                    lxp_receipt *receipt)
-{
-    lxp_result status;
-    if (request == NULL || request->payer_grant == NULL || request->from == NULL)
-        return LXP_ERR_NO_PAYER_GRANT;
-    status = lxp_verify_payer_grant(request->payer_grant, request->from);
-    if (status != LXP_OK) return status;
-    if (memcmp(request->payer_grant->from, request->from->id, 32U) != 0 ||
-        memcmp(request->payer_grant->recipient, request->to->id, 32U) != 0 ||
-        memcmp(request->payer_grant->asset, request->asset->asset_id, 32U) != 0 ||
-        lxp_u128_cmp(request->amount,
-                     request->payer_grant->per_draw_maximum) > 0)
-        return LXP_ERR_GRANT_SCOPE_VIOLATION;
-    return execute(ctx, request, receipt);
-}
