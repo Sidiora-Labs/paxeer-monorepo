@@ -12,7 +12,7 @@ import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import java.util.HexFormat;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -68,30 +68,39 @@ public final class RelayReceiptResolver implements ReceiptGate.ReceiptResolver {
     }
 
     private ReceiptGate.Evidence evidence(JsonNode payload) {
-        if (payload == null || !payload.isObject() || !payload.path("canonical_receipt_base64").isTextual()
-                || !payload.path("authorized_batch").isObject()) {
+        if (payload == null || !payload.isObject() || !payload.path("raw_transaction").isTextual()
+                || !payload.path("signed_receipt").isTextual() || !payload.path("receipt_key").isObject()) {
             throw MobileIntegrationException.of(MobileIntegrationException.Code.DECODE_FAILURE);
         }
-        JsonNode batch = payload.path("authorized_batch");
-        byte[] canonical;
+        JsonNode key = payload.path("receipt_key");
         try {
-            canonical = Base64.getDecoder().decode(payload.path("canonical_receipt_base64").textValue());
-        } catch (IllegalArgumentException error) {
+            if (key.size() != 4 || !key.path("firstHeight").isIntegralNumber()
+                    || !key.path("lastHeight").isIntegralNumber()) {
+                throw MobileIntegrationException.of(MobileIntegrationException.Code.DECODE_FAILURE);
+            }
+            byte[] rawTransaction = hex(field(payload, "raw_transaction"));
+            byte[] signedReceipt = hex(field(payload, "signed_receipt"));
+            LocalVerifier.ReceiptKey receiptKey = new LocalVerifier.ReceiptKey(
+                hex(field(key, "keyId")), hex(field(key, "publicKey")),
+                key.path("firstHeight").bigIntegerValue(), key.path("lastHeight").bigIntegerValue());
+            return new ReceiptGate.Evidence(rawTransaction, signedReceipt, receiptKey);
+        } catch (RuntimeException error) {
             throw MobileIntegrationException.of(MobileIntegrationException.Code.DECODE_FAILURE);
         }
-        return new ReceiptGate.Evidence(canonical, new LocalVerifier.AuthorizedReceiptBatch(
-            hex32(field(batch, "batch_id")),
-            hex32(field(batch, "asset")),
-            hex32(field(batch, "previous_state_root")),
-            hex32(field(batch, "resulting_state_root")),
-            hex32(field(batch, "sequencer_public_key"))));
     }
 
-    private static String field(JsonNode batch, String name) {
-        if (!batch.path(name).isTextual()) {
+    private static String field(JsonNode object, String name) {
+        if (!object.path(name).isTextual()) {
             throw MobileIntegrationException.of(MobileIntegrationException.Code.DECODE_FAILURE);
         }
-        return batch.path(name).textValue();
+        return object.path(name).textValue();
+    }
+
+    private static byte[] hex(String value) {
+        if (!value.startsWith("0x") || value.length() <= 2 || value.length() % 2 != 0) {
+            throw MobileIntegrationException.of(MobileIntegrationException.Code.DECODE_FAILURE);
+        }
+        return HexFormat.of().parseHex(value.substring(2));
     }
 
     public static byte[] hex32(String value) {

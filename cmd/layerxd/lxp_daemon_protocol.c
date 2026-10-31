@@ -12,6 +12,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+lxp_result lxp_programs_bind_state_feed(
+    lxp_kernel *kernel, const lx_programs_state_feed *feed);
+
 enum {
     PROTOCOL_RESPONSE_MAX_BYTES = 64 * 1024 * 1024,
     PROGRAM_EVENTS_TOPIC_MAX_BYTES = 64,
@@ -1118,6 +1121,9 @@ lxp_result lxp_daemon_protocol_owner_attach(
         status = lxp_kernel_bind_module_runtime(
             kernel, LXP_MODULE_PROGRAMS, programs_runtime);
     }
+    if (status == LXP_OK) stage = "state feed binding";
+    if (status == LXP_OK)
+        status = lxp_programs_bind_state_feed(kernel, &owner->feed_store.feed);
     if (status == LXP_OK)
         status = lxp_programs_state_feed_store_bind_maintenance(&owner->feed_store, kernel);
     if (status == LXP_OK) stage = "canonical replay";

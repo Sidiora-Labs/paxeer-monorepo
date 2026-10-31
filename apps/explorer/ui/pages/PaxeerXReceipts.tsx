@@ -1,5 +1,7 @@
-import { Box } from '@chakra-ui/react';
+import { Box, Text } from '@chakra-ui/react';
 import React from 'react';
+
+import type { PaxeerXArchiveReceiptsResponse } from 'types/api/paxeerXArchive';
 
 import useIsMobile from 'lib/hooks/useIsMobile';
 import { PAXEER_X_RECEIPTS_ITEM } from 'stubs/paxeerXLists';
@@ -18,7 +20,7 @@ const ITEMS_NAME = 'kernel receipts';
 const PaxeerXReceipts = () => {
   const isMobile = useIsMobile();
 
-  const { data, isError, isPlaceholderData, pagination } = useQueryWithPages({
+  const { data, isError, isPlaceholderData, pagination } = useQueryWithPages<'general:paxeer_x_receipts'>({
     resourceName: 'general:paxeer_x_receipts',
     options: {
       placeholderData: generateListStub<'general:paxeer_x_receipts'>(
@@ -30,7 +32,7 @@ const PaxeerXReceipts = () => {
             id: PAXEER_X_RECEIPTS_ITEM.id,
           },
         },
-      ),
+      ) satisfies PaxeerXArchiveReceiptsResponse,
     },
   });
 
@@ -75,7 +77,10 @@ const PaxeerXReceipts = () => {
 
   return (
     <>
-      <PageTitle title="Kernel receipts" withTextAd/>
+      <PageTitle title="Kernel receipts (archive)" withTextAd/>
+      <Text data-archive-notice mb={ 6 } color="text.secondary">
+        This is a frozen archive of kernel receipts.
+      </Text>
       <DataListDisplay
         isError={ isError }
         itemsNum={ data?.items.length }

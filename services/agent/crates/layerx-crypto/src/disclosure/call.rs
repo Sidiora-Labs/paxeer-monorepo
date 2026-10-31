@@ -39,6 +39,9 @@ pub enum ConstructMethod {
         grant: [u8; 32],
         revocation_sequence: u64,
     },
+    PayBudgetCreate {
+        payload: Vec<u8>,
+    },
     PayBudgetDefund {
         budget: [u8; 32],
         amount: u128,
@@ -346,6 +349,26 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
     if target(&call.to, [0x10, 0x1b]) {
         return match selector {
             value
+                if value
+                    == ledger_selector(
+                        "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
+                    ) && args.len() == 384 =>
+            {
+                let mut payload = Vec::with_capacity(211);
+                payload.extend_from_slice(&1_u16.to_be_bytes());
+                for index in 0..4 {
+                    payload.extend_from_slice(&word(args, index)?);
+                }
+                for index in 4..7 {
+                    payload.extend_from_slice(&uint::<16>(word(args, index)?)?);
+                }
+                for index in 7..11 {
+                    payload.extend_from_slice(&uint::<8>(word(args, index)?)?);
+                }
+                payload.extend_from_slice(&uint::<1>(word(args, 11)?)?);
+                Ok(ConstructMethod::PayBudgetCreate { payload })
+            }
+            value
                 if value == ledger_selector("budgetDefund(bytes32,uint128)")
                     && args.len() == 64 =>
             {
@@ -381,7 +404,7 @@ pub(super) fn fields(
     let method = decode_method(call)?;
     let ordinal = match &method {
         ConstructMethod::LedgerOpenAccount { .. } => 4,
-        ConstructMethod::LedgerRegister { .. } => 1,
+        ConstructMethod::LedgerRegister { .. } | ConstructMethod::PayBudgetCreate { .. } => 1,
         ConstructMethod::LedgerMint { .. } => 10,
         ConstructMethod::LedgerBurn { .. } => 11,
         ConstructMethod::LedgerSend { .. } | ConstructMethod::BankSend { .. } => 5,
@@ -390,7 +413,10 @@ pub(super) fn fields(
         ConstructMethod::LedgerRevokeGrant { .. } => 8,
         ConstructMethod::PayBudgetDefund { .. } => 8,
     };
-    let module = if matches!(&method, ConstructMethod::PayBudgetDefund { .. }) {
+    let module = if matches!(
+        &method,
+        ConstructMethod::PayBudgetCreate { .. } | ConstructMethod::PayBudgetDefund { .. }
+    ) {
         ModuleId::Budget
     } else {
         ModuleId::Asset
@@ -499,6 +525,20 @@ pub(super) fn fields(
                 grant,
                 revocation_sequence,
             });
+        }
+        ConstructMethod::PayBudgetCreate { payload } => {
+            fields.idempotency_key = payload[2..34]
+                .try_into()
+                .map_err(|_| DisclosureError::MalformedPayload)?;
+            fields.asset = payload[66..98]
+                .try_into()
+                .map_err(|_| DisclosureError::MalformedPayload)?;
+            let amount = u128::from_be_bytes(
+                payload[162..178]
+                    .try_into()
+                    .map_err(|_| DisclosureError::MalformedPayload)?,
+            );
+            disclose_amount(&mut fields.amounts, AmountRole::Transfer, amount);
         }
         ConstructMethod::PayBudgetDefund { budget, amount } => {
             disclose_party(&mut fields.counterparties, CounterpartyRole::Payer, budget);

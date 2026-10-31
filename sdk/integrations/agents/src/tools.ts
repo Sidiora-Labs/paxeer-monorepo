@@ -8,8 +8,10 @@ import {
 } from "@sidiora/layerx-agent-middleware";
 import {
   PlatformSdkError,
-  verifyReceipt,
+  verifySequencerReceipt as verifyPinnedSequencerReceipt,
   type ProductionClient,
+  type SequencerReceiptKey,
+  type SequencerReceiptVerification,
 } from "@sidiora/layerx-sdk";
 import { AgentIntegrationError, toHex, type AgentDeclaredConfig } from "./config.js";
 
@@ -398,11 +400,11 @@ export class AgentToolExecutor {
       state: jsonValue(submission["state"]),
     };
     if (submission.state === "Executed") {
-      const evidence = submission.receiptEvidence;
-      if (evidence === undefined || submission.activity_id === undefined) throw new AgentMiddlewareError("verification-failure");
+      const evidence = submission.portableReceipt;
+      if (evidence === undefined || submission.tx_hash === undefined) throw new AgentMiddlewareError("verification-failure");
       try {
-        const verified = await verifyReceipt(evidence.canonicalReceipt, evidence.authorizedBatch, { protocolVersion: this.#config.protocolVersion });
-        if (toHex(verified.receipt.activityId) !== submission.activity_id) throw new AgentMiddlewareError("verification-failure");
+        const verified = await verifySequencerReceipt(receiptBytes(evidence.signedReceipt), receiptBytes(evidence.rawTransaction), this.#config.receiptKeys);
+        if (toHex(verified.receipt.activityId) !== submission.tx_hash) throw new AgentMiddlewareError("verification-failure");
         output["receiptDigest"] = toHex(verified.receiptDigest);
         output["verificationLevel"] = verified.level;
       } catch { throw new AgentMiddlewareError("verification-failure"); }
@@ -419,9 +421,9 @@ export class AgentToolExecutor {
     const amount = canonicalInteger(object, "amount");
     const recipient = hex32(object, "recipient");
     const evidence = await this.#receipts.resolve(receiptRef);
-    const verification = await verifyReceipt(evidence.canonicalReceipt, evidence.authorizedBatch, {
-      protocolVersion: this.#config.protocolVersion,
-    });
+    const verification = await verifySequencerReceipt(
+      receiptBytes(evidence.signedReceipt), receiptBytes(evidence.rawTransaction), this.#config.receiptKeys,
+    );
     if (
       verification.receipt.amount !== BigInt(amount)
       || toHex(verification.receipt.asset) !== asset
@@ -439,6 +441,27 @@ export class AgentToolExecutor {
       recipient,
     };
   }
+}
+
+async function verifySequencerReceipt(
+  signedReceipt: Uint8Array,
+  rawTransaction: Uint8Array,
+  receiptKeys: readonly SequencerReceiptKey[],
+): Promise<SequencerReceiptVerification> {
+  try {
+    const verification = await verifyPinnedSequencerReceipt(signedReceipt, rawTransaction, receiptKeys);
+    if (verification.receipt.resultCode !== 0) throw new AgentMiddlewareError("verification-failure");
+    return verification;
+  } catch {
+    throw new AgentMiddlewareError("verification-failure");
+  }
+}
+
+function receiptBytes(value: string): Uint8Array {
+  if (typeof value !== "string" || value.length > 2 + 2 * 1048576 || !/^0x(?:[0-9a-f]{2})+$/u.test(value)) {
+    throw new AgentMiddlewareError("verification-failure");
+  }
+  return Buffer.from(value.slice(2), "hex");
 }
 
 export function renderOutcome(outcome: ToolOutcome): ToolJsonObject {

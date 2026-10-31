@@ -1079,7 +1079,7 @@ impl AgentRuntime {
     pub fn capability_install(
         &mut self,
         request: &AgentCapabilityInstall,
-    ) -> Result<([u8; 32], u64, u8, [u8; 32]), AgentBoundaryError> {
+    ) -> Result<([u8; 32], u64, Rung, [u8; 32]), AgentBoundaryError> {
         if request.action_key == [0; 32]
             || request.activity_types.is_empty()
             || request.counterparties.is_empty()
@@ -1124,17 +1124,14 @@ impl AgentRuntime {
         let mut reader = self.exchange(&writer.finish())?;
         let object_id = reader.fixed()?;
         let observed_sequence = reader.u64()?;
-        let verification = reader.u8()?;
+        let rung = decode_rung(reader.u8()?)?;
         let receipt_digest = reader.fixed()?;
-        if object_id != request.capability_id
-            || observed_sequence == 0
-            || !(2..=5).contains(&verification)
-            || receipt_digest == [0; 32]
+        if object_id != request.capability_id || observed_sequence == 0 || receipt_digest == [0; 32]
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
         reader.finish()?;
-        Ok((object_id, observed_sequence, verification, receipt_digest))
+        Ok((object_id, observed_sequence, rung, receipt_digest))
     }
     /// # Errors
     /// Returns a boundary refusal for invalid request fields, an unavailable transport, or a malformed response.

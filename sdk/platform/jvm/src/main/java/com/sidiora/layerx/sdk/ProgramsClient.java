@@ -699,21 +699,11 @@ public final class ProgramsClient {
         byte[] raw = submittedTransactions.get(hex(hash));
         if (raw == null) throw new PlatformSdkException(PlatformSdkException.Code.INVALID_ARGUMENT,
             PlatformSdkException.Retry.NEVER, null, null, null);
-        return receiptByIdempotency(key, raw).thenApply(verified -> {
+        return sequencerReceipt(raw).thenApply(verified -> {
             ObjectNode value = object().put("transaction_hash", Programs.hexData(hash)).put("verification", "receipted");
             return new Submission(verified.status() == 1 ? SubmissionState.EXECUTED : SubmissionState.REFUSED,
                 hash, key.value(), raw, verified, value);
         });
-    }
-    public CompletionStage<LocalVerifier.SequencerReceiptVerification> receiptByIdempotency(IdempotencyKey key, byte[] signedTransaction) {
-        if (key == null || !canonicalLowerHex(key.value(), 32)) invalid();
-        byte[] raw = signedTransaction.clone();
-        return ethCall(AUTH_ADDRESS, Programs.abi(Programs.selector("resultByIdempotency(bytes32,bytes32)"),
-            new Object[] {didId, hex32(key.value())})).thenApply(data -> {
-                byte[] receipt = Programs.dynamic(data, 0, 0);
-                if (!Arrays.equals(data, Programs.abi("", new Object[] {receipt}, 0))) throw decodeFailure();
-                return LocalVerifier.verifySequencerReceipt(receipt, raw, receiptKeys);
-            });
     }
     public CompletionStage<JsonNode> activity(byte[] transactionHash) { return activity(transactionHash, "pending"); }
     public CompletionStage<JsonNode> activity(byte[] transactionHash, String verificationLevel) {

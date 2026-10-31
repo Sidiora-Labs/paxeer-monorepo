@@ -18,11 +18,11 @@ version = "0.1.0"
 dependencies = [
  "layerx-agent-api",
  "layerx-agentd",
- "layerx-client",
- "layerx-proof",
  "layerx-sdk",
  "layerx-types",
- "layerx-wire",
+ "serde_json",
+ "ureq",
+ "url",
 ]
 
 [[package]]

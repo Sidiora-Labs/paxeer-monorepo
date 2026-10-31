@@ -17,7 +17,6 @@ func TestAuthGasTable(t *testing.T) {
 		{"grantSessionSuccessor", true, 38600},
 		{"grantCapability", true, 34760},
 		{"revokeGrant", true, 5000},
-		{"resultByIdempotency", false, 1204},
 		{"getGrant", false, 1108},
 		{"isLive", false, 1300},
 		{"sessionKey", false, 1108},

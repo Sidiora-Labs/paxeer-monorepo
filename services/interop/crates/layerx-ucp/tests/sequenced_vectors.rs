@@ -201,6 +201,22 @@ fn gateway(trace: &TraceId, count: u64) -> GatewayCore {
     gateway
 }
 
+fn payment_exact_words(case: &Value) -> [[u8; 32]; 3] {
+    let transaction = hex(&case["rawTransaction"]);
+    let offsets: Vec<usize> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact selector");
+    let calldata = &transaction[offsets[0] + 4..];
+    [5, 0, 1].map(|word| {
+        calldata[word * 32..(word + 1) * 32]
+            .try_into()
+            .unwrap_or_else(|_| panic!("recorded payExact word {word}"))
+    })
+}
+
 fn assert_payment_derivation(vector: &Value, source: &Value, submission: &CheckoutSubmission) {
     let name = string(vector, "name");
     let mut expected_logs = source["receiptJson"]["logs"].clone();
@@ -210,12 +226,20 @@ fn assert_payment_derivation(vector: &Value, source: &Value, submission: &Checko
         .iter()
         .flat_map(hex)
         .collect();
-    let reference: [u8; 32] = array(&expected_logs[0]["topics"][3]);
+    let [reference, from, to] = payment_exact_words(source);
+    let topic_hex = |word: [u8; 32]| {
+        format!(
+            "0x{}",
+            word.iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        )
+    };
     expected_logs[0]["topics"] = serde_json::json!([
         expected_logs[0]["topics"][0],
-        expected_logs[0]["topics"][3],
-        expected_logs[0]["topics"][1],
-        expected_logs[0]["topics"][2],
+        topic_hex(reference),
+        topic_hex(from),
+        topic_hex(to),
     ]);
     let gateway_key = submission.idempotency_key.gateway_key();
     assert_ne!(

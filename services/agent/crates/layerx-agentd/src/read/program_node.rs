@@ -3,6 +3,7 @@
 use std::time::Duration;
 
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
+use layerx_programs::chain_evidence::commitment_trust_step;
 use layerx_programs::chain_proof::{
     decode::{decode_commitment_proof, CommitmentProof},
     merkle::SimpleProof,
@@ -11,9 +12,9 @@ use layerx_programs::state_record::{
     ProtocolAdapterError as StateRecordError, ProtocolProgramStateRead,
 };
 use layerx_programs::{
-    hex, AccountStateHead, ProgramBundleError, ProgramHeadKind, ProgramId, ProgramLifecycle,
-    ProgramStateBundle, ProtocolDeploymentVerifier, ProtocolEvidenceError, Registry,
-    VerifiedChainHead, VerifiedProgramBundle,
+    hex, AccountStateHead, DeploymentProof, ProgramBundleError, ProgramHeadKind, ProgramId,
+    ProgramLifecycle, ProgramStateBundle, ProtocolDeploymentVerifier, ProtocolEvidenceError,
+    Registry, VerifiedChainHead, VerifiedDeploymentEvidence, VerifiedProgramBundle,
 };
 use serde_json::Value;
 
@@ -83,7 +84,6 @@ pub struct LayerxdProgramBalanceReader {
     authority_authorization: String,
     authority_replica_id: [u8; 32],
     verifier: ProtocolDeploymentVerifier,
-    protected_verifier: ProtocolDeploymentVerifier,
     registry: Registry,
     staleness_limit: u64,
 }
@@ -209,23 +209,9 @@ impl LayerxdProgramBalanceReader {
             authority_authorization,
             authority_replica_id,
             staleness_limit: verifier.staleness_limit_ms(),
-            protected_verifier: verifier.clone(),
             verifier,
             registry,
         })
-    }
-
-    /// # Errors
-    /// Refuses a projection conflicting with immutable protected policy or revocations.
-    pub fn refresh_authority(
-        &mut self,
-        history: &layerx_proof::signed_authority::SignedAuthorityHistory,
-    ) -> Result<(), ProgramReadError> {
-        self.verifier = self
-            .protected_verifier
-            .with_signed_history(history)
-            .map_err(|_| ProgramReadError::NonCanonicalView)?;
-        Ok(())
     }
 
     /// Reads and locally re-verifies one complete current protocol state.
@@ -399,6 +385,43 @@ impl LayerxdProgramBalanceReader {
         self.verify_head(&head_document, now)
     }
 
+    pub fn verify_journal_admission(
+        &self,
+        proof: &DeploymentProof,
+        now: u64,
+    ) -> Result<VerifiedDeploymentEvidence, ChainHeadError> {
+        if now == 0 {
+            return Err(ChainHeadError::View(ProgramReadError::NonCanonicalView));
+        }
+        let head_document = self
+            .get(
+                &self.endpoint,
+                &self.authorization,
+                "/v1/protocol/account-state/head",
+            )
+            .map_err(ChainHeadError::View)?;
+        self.verify_head(&head_document, now)?;
+        let head = chain_head_evidence(&head_document).map_err(ChainHeadError::View)?;
+        let trust = self.verifier.chain_trust().ok_or(ChainHeadError::Evidence(
+            ProtocolEvidenceError::InvalidTrustAnchor,
+        ))?;
+        let admission_step = commitment_trust_step(&proof.state.commitment)
+            .map_err(|_| ChainHeadError::Evidence(ProtocolEvidenceError::Encoding))?;
+        let current_step = commitment_trust_step(&head.commitment)
+            .map_err(|_| ChainHeadError::Evidence(ProtocolEvidenceError::Encoding))?;
+        let current = trust
+            .verify_head(&current_step.0, &current_step.1)
+            .map_err(|_| ChainHeadError::Evidence(ProtocolEvidenceError::ChainProof))?;
+        let trust_chain = if current_step.0.height == admission_step.0.height {
+            vec![admission_step]
+        } else {
+            vec![admission_step, current_step]
+        };
+        self.verifier
+            .verify_historical_deployment(proof, &current, &trust_chain, now)
+            .map_err(ChainHeadError::Evidence)
+    }
+
     /// Decodes one kind-5 Programs state answer and binds it to the one
     /// authenticated chain head under the refreshed protected trust.
     ///
@@ -522,15 +545,6 @@ impl ProgramBalanceReadRoute {
     #[must_use]
     pub const fn new(reader: LayerxdProgramBalanceReader) -> Self {
         Self { reader }
-    }
-
-    /// # Errors
-    /// Propagates protected policy and authenticated-history refusals unchanged.
-    pub fn refresh_authority(
-        &mut self,
-        history: &layerx_proof::signed_authority::SignedAuthorityHistory,
-    ) -> Result<(), ProgramReadError> {
-        self.reader.refresh_authority(history)
     }
 
     /// Serves one committed balance read through the connected reader.

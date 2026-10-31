@@ -163,8 +163,8 @@ func TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied(t *testing.T) {
 	// height whichever entry names them; both stay in the activation entry.
 	fork[1], fork[5] = fork[5], fork[1]
 	modules := [][]string{
-		{layerxanchortypes.ModuleName}, {launchpadtypes.ModuleName},
-		{layerxanchortypes.ModuleName}, {layerxexchangetypes.ModuleName},
+		{layerxcustodytypes.ModuleName}, {launchpadtypes.ModuleName},
+		{layerxcustodytypes.ModuleName}, {layerxexchangetypes.ModuleName},
 		{layerxbridgetypes.ModuleName}, {layerxcustodytypes.ModuleName},
 		{layerxbridgetypes.ModuleName}, {xwebtypes.ModuleName},
 	}
@@ -179,7 +179,7 @@ func TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied(t *testing.T) {
 	}
 	k.SetCustomPrecompileActivation([]evmkeeper.CustomPrecompileActivation{
 		{Upgrade: app.ActivationUpgrade, Modules: firstModules},
-		{Upgrade: app.MergeUpgrade, Modules: secondModules},
+		{Upgrade: app.AnchorStoreDeleteUpgrade, Modules: secondModules},
 	})
 
 	// While both module sets are known, both entries serve their addresses.
@@ -194,7 +194,7 @@ func TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied(t *testing.T) {
 		upgradeStore.Delete(append([]byte{upgradetypes.VersionMapByte}, name...))
 	}
 	require.Zero(t, testApp.UpgradeKeeper.GetDoneHeight(ctx, app.ActivationUpgrade))
-	require.Zero(t, testApp.UpgradeKeeper.GetDoneHeight(ctx, app.MergeUpgrade))
+	require.Zero(t, testApp.UpgradeKeeper.GetDoneHeight(ctx, app.AnchorStoreDeleteUpgrade))
 	below := k.CustomPrecompiles(ctx)
 	require.Len(t, below, len(full)-len(fork))
 	for addr := range full {
@@ -209,7 +209,7 @@ func TestCustomPrecompilesWithheldUntilEachEntryPlanIsApplied(t *testing.T) {
 	// from its own done height, whichever plan is applied first.
 	const firstHeight, secondHeight = int64(20), int64(12)
 	k.UpgradeKeeper().SetDone(ctx.WithBlockHeight(firstHeight), app.ActivationUpgrade)
-	k.UpgradeKeeper().SetDone(ctx.WithBlockHeight(secondHeight), app.MergeUpgrade)
+	k.UpgradeKeeper().SetDone(ctx.WithBlockHeight(secondHeight), app.AnchorStoreDeleteUpgrade)
 	for _, tc := range []struct {
 		height   int64
 		served   []common.Address
