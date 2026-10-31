@@ -174615,7 +174615,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.33.5]
 title = "Delete the programs occupancy, balance-read and interface suites; drop batch signing from call activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.2.4", "16.97.5", "16.11.17", "16.37.2"]
