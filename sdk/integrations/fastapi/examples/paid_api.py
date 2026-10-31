@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from base64 import b64decode, b64encode
+from dataclasses import asdict
 from os import environ, fsync
 from pathlib import Path
 from typing import Awaitable, Callable, Mapping
@@ -16,6 +17,7 @@ from layerx_fastapi import (
     MiddlewareError,
     MiddlewareErrorCode,
     ProposedFulfillment,
+    PxReceiptKeyEntry,
     SingleProcessWebhookDeliveryStore,
     StoredFulfillment,
     mount_layerx,
@@ -39,7 +41,9 @@ class FileFulfillmentRepository:
         record = json.dumps(
             {
                 "requestDigest": proposed.request_digest,
-                "receipt": b64encode(proposed.canonical_receipt).decode("ascii"),
+                "rawTransaction": b64encode(proposed.raw_transaction).decode("ascii"),
+                "signedReceipt": b64encode(proposed.signed_receipt).decode("ascii"),
+                "receiptKey": asdict(proposed.receipt_key),
                 "contentType": resource.content_type,
                 "body": b64encode(resource.body).decode("ascii"),
             }
@@ -55,8 +59,9 @@ class FileFulfillmentRepository:
         return StoredFulfillment(
             idempotency_key=proposed.idempotency_key,
             request_digest=proposed.request_digest,
-            canonical_receipt=proposed.canonical_receipt,
-            authorized_batch=proposed.authorized_batch,
+            raw_transaction=proposed.raw_transaction,
+            signed_receipt=proposed.signed_receipt,
+            receipt_key=proposed.receipt_key,
             resource=resource,
         )
 
@@ -67,8 +72,9 @@ class FileFulfillmentRepository:
         return StoredFulfillment(
             idempotency_key=proposed.idempotency_key,
             request_digest=proposed.request_digest,
-            canonical_receipt=b64decode(stored["receipt"], validate=True),
-            authorized_batch=proposed.authorized_batch,
+            raw_transaction=b64decode(stored["rawTransaction"], validate=True),
+            signed_receipt=b64decode(stored["signedReceipt"], validate=True),
+            receipt_key=PxReceiptKeyEntry(**stored["receiptKey"]),
             resource=LayerXResource(
                 content_type=stored["contentType"],
                 body=b64decode(stored["body"], validate=True),
@@ -103,6 +109,10 @@ mount = mount_layerx(
         fulfillments=FileFulfillmentRepository(Path(environ.get("LAYERX_FULFILLMENT_DIR", "./fulfillments"))),
         deliveries=SingleProcessWebhookDeliveryStore(),
         events=events,
+        environment={
+            **environ,
+            "LAYERX_RECEIPT_KEYS_JSON": environ["LAYERX_RECEIPT_KEYS_JSON"],
+        },
     ),
 )
 

@@ -29,7 +29,6 @@ from .protocol import (
     parse_hex32,
 )
 from .seller import (
-    AuthorizedBatchResolver,
     FulfillmentRepository,
     PaymentRequiredDecision,
     PendingDecision,
@@ -38,7 +37,6 @@ from .seller import (
     ReleasedDecision,
     SellerMiddleware,
     SellerPaymentAuthority,
-    StaticAuthorizedBatches,
 )
 from .signatures import LayerXSignatureVerifier
 from .webhooks import (
@@ -75,7 +73,6 @@ class LayerXMountOptions:
     deliveries: WebhookDeliveryStore
     events: LayerXWebhookEventHandler
     environment: Mapping[str, str] | None = None
-    authorized_batches: AuthorizedBatchResolver | None = None
     authority: SellerPaymentAuthority | None = None
     signatures: LocalSignatureVerifier | None = None
     now: Callable[[], int] | None = None
@@ -104,19 +101,18 @@ def platform_int_fastapi() -> str:
 
 
 def create_layerx_mount(options: LayerXMountOptions) -> LayerXMount:
+    return create_integration(options)
+
+
+def create_integration(options: LayerXMountOptions) -> LayerXMount:
     config = read_declared_config(options.environment)
-    authorized_batches = (
-        options.authorized_batches
-        if options.authorized_batches is not None
-        else StaticAuthorizedBatches(config.authorized_batch)
-    )
     signatures = options.signatures if options.signatures is not None else LayerXSignatureVerifier()
     seller: SellerMiddleware[LayerXResource] = SellerMiddleware(
         payment_required=config.payment_required,
         authority=(
             options.authority
             if options.authority is not None
-            else ReceiptPayloadAuthority(authorized_batches)
+            else ReceiptPayloadAuthority(config.receipt_keys)
         ),
         fulfillments=options.fulfillments,
         signatures=signatures,

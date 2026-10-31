@@ -2,9 +2,7 @@
 
 import {
   GatewayUnavailableError,
-  ethTransactionReceipt as gatewayTransactionReceipt,
   pxResolveAccount,
-  type GatewayReceipt,
   type ResolvedAccount,
 } from "../../api/gateway";
 import { perpsPreflight } from "../../api/precompiles";
@@ -16,10 +14,6 @@ const CALLDATA = /^0x[0-9a-fA-F]{8}(?:[0-9a-fA-F]{64})*$/u;
 
 export async function resolvePerpsAccount(account: string): Promise<ResolvedAccount> {
   return pxResolveAccount(account);
-}
-
-export async function ethTransactionReceipt(hash: string): Promise<GatewayReceipt | undefined> {
-  return gatewayTransactionReceipt(hash);
 }
 
 /** Runs a perps write against 0x1015 as `from` before the wallet opens, answering the precompile's revert reason. */
