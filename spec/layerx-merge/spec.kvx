@@ -96584,7 +96584,7 @@ do_9 = "Decision 2094: attempt 5 (2434dfc8e, the re-qualification of attempt 4) 
 
 [task.1.26.2]
 title = "Prove optimistic concurrent execution equals sequential execution through the host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["1.26.1", "1.23.2"]
@@ -98081,7 +98081,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.39.2]
 title = "Check read bridge calls against concurrent executions on the node pool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["1.26.1"]
@@ -163544,7 +163544,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.98.1]
 title = "Program submissions carry their receipt authorities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["13.22.4", "13.0.4", "1.26.1", "18.1073.1", "18.1130.1"]
