@@ -14723,3 +14723,27 @@ symbol = "subject"
 observed = "The attempt reports that the subject check it replaced compared four fields of the module 7 identity record that the node join does not carry one-for-one: the raw identity bytes, the authority key, the canonical account name and the record's chain sequence against the head. Decision 2145 replaces that record with px_getAccount's layerx join deliberately: the join's layerx_did and layerx_account bound to the subject's EVM address is the node's statement of identity, the committed height and the anchor's finality replace the sequence-against-head staleness check, and an unbound subject answers subject_not_bound."
 assumption = "The four legacy comparisons have no node twin by design; the bound join plus finality is the equivalent, and the attempt's refusal paths (subject_not_bound, subject_checkpoint_stale) are the ones decision 2145 asks for."
 severity = "minor"
+
+[finding.19.4.1.1]
+task = "19.4.1"
+file = "apps/wallet/src/lib/pns.ts:11"
+symbol = "PNS_CONTRACTS"
+observed = "The wallet's name library hard-codes three contract addresses (controller 0xed04f296..., public resolver 0x0f7b8437..., reverse registrar 0x967e8e45...) and the widget drives commit, register, renew, transfer and setName against them, but eth_getCode for all three on chain 125 (block 41447835) returns no code, and no name-service contract source exists in the repository; every write the widget offers fails on chain."
+assumption = "Feature 19 writes the contract set in-tree with the exact controller ABI the wallet encodes (19.1.1 to 19.1.3) and 19.4.1 repoints the wallet at environment-configured addresses with a not-configured state instead of literal addresses without code."
+severity = "major"
+
+[finding.9.99.2.2]
+task = "9.99.2"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "ConstructMethod::AuthLifecycle"
+observed = "Attempts 3 and 4 (5d6f04258) build the AuthLifecycle arm and then fail the verify command with cargo exit 101: no test target named intent_plan_evm in layerx-human-service, because tests/intent_plan_evm.rs is a planned path of task 10.0.3 and is not on main."
+assumption = "The verify command and the capability's verification contract compile the library and the agent_create target only (decision 2151); 10.0.3 keeps its own gate."
+severity = "minor"
+
+[finding.8.98.15.3]
+task = "8.98.15"
+file = "services/platform/hosted/authority/tests/human_tls.rs:429"
+symbol = "real_server_wire_statuses_remain_distinct"
+observed = "Attempt 3 (9699103b6) builds and passes retired_client_modules, budget_proof_exports (5 tests) and the corpus-driven human_tls test, but the three human_tls tests that launch the authority with the unreachable chain URL http://127.0.0.1:1 fail at their first registry read: /v1/agent/registry answers 503 where 200 is expected (:429), the real client reports Refused (:15) and the child client run fails (:364). The registry handler (src/human.rs:545, registry(&human.registry_path)) reads only the module registry file, so the refusal code in the response body (policy_unavailable, module_registry_unavailable, module_registry_invalid, human_authority_unconfigured or state_unavailable) is the diagnosis the attempt did not capture; the suite had not run on main since the authority began requiring LAYERX_AUTHORITY_CHAIN_RPC_URL and LAYERX_AUTHORITY_RECEIPT_KEYS_FILE (src/main.rs:283-287) without the test setting them. Separately, prepare_root (:49) creates every test root under qual-logs/hm2 inside the repository, and the qualification harness lists those files as changes outside the task's scope."
+assumption = "The attempt prints the refusal body and server.log tail on every status assertion, fixes the cause the code names without replacing the unreachable chain URL in those three tests, and /qual-logs/ joins .cgignore (decision 2152)."
+severity = "major"

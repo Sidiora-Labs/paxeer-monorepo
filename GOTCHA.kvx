@@ -12161,3 +12161,18 @@ fix = "When removing or renaming an enum variant in services/human, grep the cra
 title = "The authority's Config is built literally in more than one test, so a new field breaks tests outside the task that added it"
 symptom = "A task added chain_rpc_url to the hosted authority's Config and updated the tests it owned; cargo build --tests then failed in tests/chain_receipts.rs, which constructs Config with a struct literal and was not in the task's touches."
 fix = "When adding a field to services/platform/hosted/authority's Config, grep the crate's tests for 'Config {' and add every literal to the touches before the build."
+
+[gotcha.2469]
+title = "The wallet's .pax name widget targets contract addresses that hold no code on chain 125"
+symptom = "apps/wallet/src/lib/pns.ts pins a controller, resolver and reverse registrar address and the widget drives registrations against them; eth_getCode for each returns empty on the live chain and the repository holds no name-service contract source."
+fix = "Treat a client with pinned addresses as a specification of the ABI, not as evidence of a deployment; check eth_getCode before building on a pinned address, and prefer environment-configured addresses with a not-configured state."
+
+[gotcha.2470]
+title = "A cargo gate that names a test target another task has yet to create exits 101 before any test runs"
+symptom = "A verify command listed --test intent_plan_evm for a crate whose tests/intent_plan_evm.rs is a planned path of a different task; cargo refused with no test target named intent_plan_evm and the task could not qualify although its own change built."
+fix = "Name only test targets that exist at the task's base or that the task itself creates; leave another task's planned target to that task's gate."
+
+[gotcha.2471]
+title = "A status-only assertion against the authority hides which refusal code produced a 503"
+symptom = "Three TLS tests failed with 503 where 200 was expected and the attempt could only report pre-existing; the authority's refusal body carries error.code and server.log carries the eprintln reasons, neither of which the assertions printed."
+fix = "Assert on status and body together and print the server log tail on failure, so a refused route names its cause in the first run."
