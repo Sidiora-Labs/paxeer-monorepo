@@ -5013,6 +5013,42 @@ value = "The tests of services/human/crates/layerx-human-service/tests/productio
 basis = "Attempt 22 of task 10.20.3 (9449cd2a4 on 29f8a5dc1) builds and passes production_configuration_validates_without_retired_operations but the two startup tests fail with 'movement provider refused startup': UnixMovementProvider::new (src/server/movement_provider.rs:835-846) runs validate_socket (:1006-1021: an existing non-symlink socket owned by LAYERX_HUMAN_MOVEMENT_PEER_UID/GID with no other-permission bits, in a directory meeting the same rules) at open and connects lazily in move_plan (:954), and the test Environment sets the socket path without creating a socket."
 affects = ["10.20.3"]
 
+[decision.1984]
+title = "A submission enqueued without preparation authorization recovers as queued_without_authority"
+value = "Outbox::enqueue (services/agent/crates/layerx-agentd/src/outbox/mod.rs:138-147) stores a Queued record with no origin through enqueue_exact, and recover.rs:196-200 lists such a record under queued_without_authority; a test that enqueues through Outbox::enqueue asserts queued_without_authority, and queued_for_transmission is reserved for records enqueued with an origin. bytes_for_transmission (mod.rs:279) serves any Queued record."
+basis = "18.1200.1 attempt 17 failed recovery.rs:121 expecting queued_for_transmission == [ids[0]] and got []; enqueue_with_origin is pub(crate), so the test cannot supply an origin without a product change, and do_4 forbids src changes."
+affects = ["18.1200.1"]
+
+[decision.1985]
+title = "The gateway keeps the ledger getAsset selector"
+value = "SELECTOR_GET_ASSET (services/platform/hosted/gateway/src/evm.rs:75, 0x2cc3ce80) is the LayerXLedger getAsset(bytes32) selector (precompiles/layerxledger/abi_test.go:59) that custody_asset (services/platform/hosted/gateway/src/paxeer.rs:664-686) sends to LEDGER_PRECOMPILE; 8.4.4 retires the five custody-only selectors and their fixture rows and leaves this constant and paxeer.rs in place."
+basis = "8.4.4 attempt 1 (6e3b7a21b on 6faf2f06b) deleted the constant and failed its build with E0425 at paxeer.rs:676; paxeer.rs belongs to the done tasks 8.1.4, 8.5.1, 8.5.2 and 8.5.3."
+affects = ["8.4.4"]
+
+[decision.1986]
+title = "Web wallet reads import their server action directly"
+value = "apps/web/src/api/wallet.ts imports gatewayTransactionReceipt from a 'use server' module apps/web/src/api/gateway-actions.ts that wraps ethTransactionReceipt of src/api/gateway.ts, and keeps GatewayReceipt as a type-only import; no webpack resolve.alias rewrites an import path to another module. 17.5.11 replaces the alias that 17.5.10 attempt 2 (cf3827a1e) added to next.config.mjs."
+basis = "An alias that maps ./gateway.ts to src/app/exchange/actions.ts for one importer hides the server boundary from the type checker and from readers of wallet.ts (:4, :99, :185, :275); the build passed while the source still names the server-only module."
+affects = ["17.5.10", "17.5.11", "17.5.1"]
+
+[decision.1987]
+title = "The receipt authority keeps its kernel socket configuration until the remaining socket readers are ported"
+value = "Config.lni_socket, Config.lni_gate and LAYERX_AUTHORITY_LNI_SOCKET of services/platform/hosted/authority/src/main.rs stay while human/budget_state.rs:77 and :256, checkpoint_for (main.rs:739-750) and verify_withdrawal_request (main.rs:916-941) connect through them. 8.11.3 removes only the receipt handshake (validate_receipt_handshake, receipt_connection, the trust.rs Uds import) and proves receipt admission without the socket; 8.98.4 ports budget_state.rs; 8.98.3 requires 8.98.4, ports the two main.rs readers (its do_4) and then deletes the fields and the variable."
+basis = "8.11.3 attempts 1 and 2 (663d598ac on 00271f78c, 3790dd5e0 on e164e1a2a) deleted the fields and failed their build with eight E0609 in budget_state.rs and main.rs, files of 8.98.4 and 8.98.3; both already require 8.11.3, so the deletion moves downstream."
+affects = ["8.11.3", "8.98.3", "8.98.4", "8.0.9", "8.9.2", "8.18.1", "8.19.7", "9.25.1"]
+
+[decision.1988]
+title = "Core keeps the submission validator for the public fee route until that route is ported"
+value = "validate_fee_payload (aliased validate_submission_payload for public_reads.rs:246), SubmissionValidationError and submission_decode_registry of services/platform/hosted/core/src/main.rs stay while public_reads.rs:246 (estimate_fee) calls them; 8.20.1 (published at b3959ad55) deleted the activity and program routes around them, and 8.98.6 deletes them with its fee route port (do_10), since a fee for a retired kernel activity has no caller."
+basis = "8.20.1 attempt 1 (918bd4937 on 00271f78c) deleted them per do_2 and failed its build on public_reads.rs:246, a file of 8.98.5 and 8.98.6 (wave 30); attempt 2 (b3959ad55) kept them under the fee-payload name and qualified."
+affects = ["8.20.1", "8.98.5", "8.98.6"]
+
+[decision.1989]
+title = "The receipt contract generator stops requiring the retired program-execution sections"
+value = "receipt_contract (sdk/platform/generators/src/main.rs:418) no longer requires [type.ProgramExecutionV4] and [type.ProgramExecutionV5] of services/agent/schema/agent-api/programs.kvx nor their terminal.rs domain producers; the ProgramGuestAbi checks stay. 9.97.3 makes the change and regenerates; 8.45.4 reseals the digests afterwards."
+basis = "1d0cc3720 (task 9.10.2) removed both sections from programs.kvx; 9.97.3 attempt 1 (ae367b322 on 00271f78c) failed with 'missing declaration type.ProgramExecutionV4.domain' and no pending task owned sdk/platform/generators/src/main.rs."
+affects = ["9.97.3", "8.45.4"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -133541,6 +133577,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "SELECTOR_GET_ASSET (src/evm.rs:75, 0x2cc3ce80) is the ledger getAsset(bytes32) selector (precompiles/layerxledger/abi_test.go:59) that custody_asset (src/paxeer.rs:664-686) sends to LEDGER_PRECOMPILE (decision.1985): keep it beside the ledger constants and delete only assetByPointer, nativeAssetId, latestFinalized, statusOf and checkpoint; drop the ('custody.getAsset', SELECTOR_GET_ASSET) rows at evm.rs:780 and :821 and the custody.getAsset case of services/platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json:64; paxeer.rs stays unchanged."
 
 [task.8.5.1]
 title = "Answer px_getAccount and px_getBalances from chain state alone"
@@ -133930,7 +133967,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.8.4]
 title = "Remove the kernel session and the head attestation route from the agent boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.8.3", "8.12.3", "9.1.8", "18.1083.1", "18.1297.1"]
@@ -134164,12 +134201,12 @@ do_1 = "Delete LAYERX_AUTHORITY_LNI_SOCKET (services/platform/hosted/authority/s
 do_2 = "Delete validate_receipt_handshake (services/platform/hosted/authority/src/main.rs:662) and receipt_connection (services/platform/hosted/authority/src/main.rs:679-720) and the Uds imports of services/platform/hosted/authority/src/trust.rs:128."
 do_3 = "Rewrite actual_node_info_refuses_incompatible_receipt_admission (services/platform/hosted/authority/src/main.rs:1433), which drives the kernel handshake, into a check of the chain client's chain id refusal."
 do_4 = "Add authority_starts_without_an_lni_socket to services/platform/hosted/authority/tests/chain_receipts.rs (planned)."
-symbols = ["authority_starts_without_an_lni_socket"]
+symbols = ["receipt_admission_needs_no_kernel_socket"]
 touches = ["services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/tests/chain_receipts.rs"]
-tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::authority_starts_without_an_lni_socket"]
+tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::receipt_admission_needs_no_kernel_socket"]
 planned_paths = ["services/platform/hosted/authority/tests/chain_receipts.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority"
-verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test chain_receipts -- --exact authority_starts_without_an_lni_socket"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test chain_receipts -- --exact receipt_admission_needs_no_kernel_socket"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -134181,6 +134218,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Config.lni_socket and lni_gate (src/main.rs:94-95) and LAYERX_AUTHORITY_LNI_SOCKET (src/main.rs:281-290, :337-338) stay: human/budget_state.rs:77 and :256 (task 8.98.4), checkpoint_for (src/main.rs:739-750) and verify_withdrawal_request (src/main.rs:916-941; task 8.98.3 do_4) still connect through them, and attempts 1 and 2 (663d598ac, 3790dd5e0) failed their build with eight E0609 after deleting them (decision.1987). This task deletes validate_receipt_handshake, receipt_connection and rewrites the handshake test per do_2 and do_3 only; its test is receipt_admission_needs_no_kernel_socket in tests/chain_receipts.rs (planned): start the authority with LAYERX_AUTHORITY_LNI_SOCKET naming an absolute path nothing listens on and show a receipt is admitted through the chain client. do_1 and do_4 are superseded."
 
 [task.8.12.1]
 title = "Observe program heads from the programs construct getStateHead"
@@ -135217,7 +135255,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.20.1]
 title = "Retire the activity and program routes of the core boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "8.10.2", "18.1083.1", "18.1297.1"]
@@ -135248,6 +135286,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Attempt 1 (918bd4937 on 00271f78c) failed its build after do_2 deleted validate_submission_payload, which public_reads.rs:246 (estimate_fee, the public fee route 8.98.6 do_10 ports) calls; attempt 2 (b3959ad55 on 8451db6ab, published) kept the validator as validate_fee_payload with the alias `use validate_fee_payload as validate_submission_payload;` and kept SubmissionValidationError and submission_decode_registry for that caller (decision.1988). 8.98.6 removes them with its fee route port."
 
 [task.8.20.2]
 title = "Delete the kernel daemon tests of the core boundary"
@@ -136230,7 +136269,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.27.2]
 title = "Pay through the Python public RPC example with a raw EIP-1559 transaction and receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.27.1", "9.96.1"]
@@ -139303,7 +139342,7 @@ do_1 = "Drop the lxp_history.h and lxp_batch.h includes at tools/platform/emulat
 do_2 = "Replace lxp_batch_seal and lxp_batch_sign at tools/platform/emulator/core/emulator_core.c:452-455 with a static emulator_head_digest that hashes the two receipts and the resulting state root and signs it with the emulator's ed25519 key, keeping the head proof bytes the gateway route returns."
 do_3 = "Create tools/platform/emulator/tests/core_linkage.rs (planned)."
 do_4 = "Leave the native state feed, its history store and lxp_programs_state_feed_store_open at tools/platform/emulator/core/emulator_core.c:485-503 to task 8.96.5, which removes them."
-symbols = ["open_native_feed", "close_native_feed", "emulator_head_digest"]
+symbols = ["emulator_head_digest"]
 touches = ["tools/platform/emulator/core/emulator_core.c", "tools/platform/emulator/tests/core_linkage.rs"]
 tests = ["tools/platform/emulator/tests/core_linkage.rs::emulator_core_builds_without_batch_and_history_symbols", "tools/platform/emulator/tests/core_linkage.rs::emulator_head_proof_still_verifies"]
 planned_paths = ["tools/platform/emulator/tests/core_linkage.rs"]
@@ -139320,6 +139359,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Task 8.96.5 (done) already removed open_native_feed, close_native_feed and the lxp_history.h include, so the symbols list names emulator_head_digest alone and do_1 drops the lxp_batch.h include only; attempt 1 (db0225c9e on 00271f78c) built, passed both declared tests and failed only the symbol check."
 
 [task.8.51.2]
 title = "Release pipeline drops the replay-matrix gate"
@@ -139846,7 +139886,7 @@ title = "Migrate the authority callers of wiring.J44.20 (wave 2)"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.0.2", "8.11.3", "9.1.8", "18.1083.1", "18.1297.1"]
+requires = ["8.0.2", "8.11.3", "9.1.8", "18.1083.1", "18.1297.1", "8.98.4"]
 reqs = ["8943.1"]
 capabilities = ["8.98.3"]
 interfaces = []
@@ -139872,6 +139912,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Port the VerifiedCheckpoint and proof_bundle_with_history uses of services/platform/hosted/authority/src/main.rs to rpc::evidence (SequencerBlock, ProofBundle) after 8.11.3 removes the LNI connection; the rest is scan-only (decision.1813)."
+do_5 = "This task requires 8.98.4, which ports human/budget_state.rs off Uds::connect; after do_4 ports checkpoint_for (src/main.rs:739-750) and verify_withdrawal_request (src/main.rs:916-941), delete Config.lni_socket and lni_gate (src/main.rs:94-95), the LAYERX_AUTHORITY_LNI_SOCKET block (src/main.rs:281-290, :337-338) and MAX_LNI_CONNECTIONS with the layerx_client::lni imports, so no_retired_layerx_client_module_paths_w2 finds no lni path in main.rs (decision.1987)."
 
 [task.8.98.4]
 title = "Migrate the authority callers of wiring.J44.20"
@@ -139909,6 +139950,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_9 = "Port services/platform/hosted/authority/src/human/budget_state.rs, src/human.rs and tests/budget_proof_exports.rs from read::* and evidence::checkpoint to rpc::module_state::module_state(ModuleReadContext{precompile, committed_height, signed_header, policy}) and rpc::evidence::checkpoint (decision.1813); src/trust.rs is scan-only."
+do_10 = "Config.lni_socket and lni_gate stay in src/main.rs for this task; 8.98.3, which requires it, deletes them after porting the main.rs readers (decision.1987)."
 
 [task.8.98.5]
 title = "Migrate the core callers of wiring.J44.20 (wave 2)"
@@ -139982,6 +140024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "Exclude tests/boundary.rs and tests/custody_asset_send.rs, which 8.20.2 deletes at wave 33, from the port and from the retired-module scan until that task lands; delete src/caps_reads.rs and its callers (caps has no replacement in decision.1813); port src/public_reads.rs to rpc::account and src/withdrawal.rs to the withdrawal rpc twin."
 do_9 = "Attempt 3 deleted src/caps_reads.rs (caps has no twin, decision.1813) but services/platform/hosted/core/src/main.rs:1 still declares mod caps_reads, so the layerx-core-boundary binary fails with E0583. Remove the declaration and every use of caps_reads from main.rs; main.rs joins the touches for those lines only, and 8.98.5 (which owns the rest of main.rs) now requires this task."
 do_10 = "Attempt 4 (bae0b02cf): src/public_reads.rs still uses payments::{SnapshotContext, AssetMetadata, get_asset, list_assets, estimate_fee}, evidence::{RootSelector, CheckpointSelector, ProofBundleSelector, VerifiedProofBundle}, head::HeadTracker and read::{ReadContext, Requested, did_accounts}. Port them over the PxEndpoint that 8.98.5 do_5 builds from LAYERX_CORE_SEQUENCER_ENDPOINT (this task requires 8.98.5): rpc::payments::list_assets(&endpoint) and get_asset(&endpoint, id) replace the transport calls and PxAssetEntry replaces AssetMetadata in asset_json; rpc::payments::estimate_fee over the SequencerEndpoint of the same URL and a CallRequest replaces estimate_fee; rpc::history::did_accounts(&endpoint) replaces read::did_accounts; endpoint.network()?.latest_committed_height replaces HeadTracker; rpc::evidence::checkpoint and proof_bundle at that height replace the selectors and VerifiedProofBundle; verification_label stays (decision.1813, decision.1843). The JSON shapes the handlers answer stay unchanged."
+do_11 = "With the public fee route port of do_10, drop the super::validate_submission_payload call of src/public_reads.rs:246 and delete validate_fee_payload, its validate_submission_payload alias, SubmissionValidationError and submission_decode_registry from src/main.rs, which 8.20.1 (b3959ad55) kept for this caller (decision.1988)."
 
 [task.8.98.7]
 title = "Migrate the local callers of wiring.J44.20 (wave 2)"
@@ -140051,7 +140094,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "The scan test is an integration test of layerx-platform-gateway at services/platform/hosted/gateway/tests/retired_client_modules.rs reading the scanned source with include_str!(\"local/<file>.rs\"), because the local qualification package (services/platform/hosted/gateway/tests/local) has a build.rs that requires a parent-built core binary through LAYERX_TEST_CORE_BIN and whose boundary fixture path contract no longer matches, so it cannot be built on its own."
 [task.8.98.9]
 title = "Migrate the indexer callers of wiring.J44.20"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.2", "8.1.5", "8.16.4", "18.1083.1", "18.1297.1"]
@@ -145350,7 +145393,7 @@ do_1 = "Run layerx-platform-sdkgen --write-program-contracts after task 8.45.1 r
 do_2 = "Regenerate services/agent/sdk/python/layerx_sdk/generated/receipt.pyi in the same run, next to receipt.py (services/agent/sdk/python/layerx_sdk/generated/receipt.py:1); hand edits to the four files are refused."
 do_3 = "Write services/agent/sdk/python/tests/test_receipt_generated_current.py (planned) with the test below."
 symbols = ["test_receipt_outputs_match_pipeline_lock"]
-touches = ["services/agent/crates/layerx-sdk/src/receipt_generated.rs", "services/agent/sdk/typescript/src/generated/receipt.ts", "services/agent/sdk/python/layerx_sdk/generated/receipt.py", "services/agent/sdk/python/layerx_sdk/generated/receipt.pyi", "services/agent/sdk/python/tests/test_receipt_generated_current.py"]
+touches = ["services/agent/crates/layerx-sdk/src/receipt_generated.rs", "services/agent/sdk/typescript/src/generated/receipt.ts", "services/agent/sdk/python/layerx_sdk/generated/receipt.py", "services/agent/sdk/python/layerx_sdk/generated/receipt.pyi", "services/agent/sdk/python/tests/test_receipt_generated_current.py", "sdk/platform/generators/src/main.rs"]
 tests = ["services/agent/sdk/python/tests/test_receipt_generated_current.py::test_receipt_outputs_match_pipeline_lock"]
 planned_paths = ["services/agent/sdk/python/tests/test_receipt_generated_current.py"]
 build_cmd = "cargo build --manifest-path services/agent/Cargo.toml -p layerx-sdk"
@@ -145366,6 +145409,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "receipt_contract (sdk/platform/generators/src/main.rs:418) requires [type.ProgramExecutionV4] and [type.ProgramExecutionV5] of services/agent/schema/agent-api/programs.kvx, which 1d0cc3720 (task 9.10.2) removed with the kernel program-execution types, so attempt 1 (ae367b322 on 00271f78c) failed with 'missing declaration type.ProgramExecutionV4.domain' (decision.1989). Delete that loop (main.rs:519-553) with the terminal.rs read it drives, keep the ProgramGuestAbi checks and the rest of ReceiptContract, keep the drift.rs fixtures parsing, then run --write-program-contracts per do_1; sdk/platform/generators/src/main.rs joins the touches. 8.45.4, which requires this task, reseals the digests afterwards."
 
 [task.9.97.4]
 title = "Verify managed agent owner transactions as EIP-1559 instead of layerx-intents envelopes"
@@ -147545,6 +147589,7 @@ do_24 = "Attempt 19 (9b9d22da9, the attempt 18 candidate 5f4c319c4 continued on 
 do_25 = "Attempt 20 (6a89eaade, the attempt 19 candidate 9b9d22da9 re-qualified unchanged on 16f187251 with 9.12.11 merged) passes all three build_cmd members for the first time, production_configuration_validates_without_retired_operations passes, and both startup tests fail because layerx-agentd exits 2 with 'LAYERX_AGENT_HUMAN_LIMIT_ID has the wrong width': the daemon now passes the authority, the layerxd LNI connection, the store and the node RPC pair and reaches verified_limit (services/agent/crates/layerx-agentd/src/main.rs:330-348, evaluated at :1070), whose parse_hex (:312-316) demands exactly 32 hex characters for the 16-byte LimitId (services/agent/crates/layerx-agentd/src/budget/reserve.rs:11, unchanged since 7764645a0; docs/site/docs/agents/running.md:728), while tests/production_unhooked.rs:241 gives the fixture hex of a 32-byte array. Change that one value to the hex of a 16-byte array (as services/agent/crates/layerx-agentd/tests/human_projection_facts.rs:9 builds LimitId([1; 16])); keep LAYERX_AGENT_HUMAN_LIMIT_SCOPE_ID at 32 bytes (:244), which LimitScope::Tenant([u8; 32]) at reserve.rs:18-24 takes and the daemon already accepted. Change no other line, no assertion, and nothing under services/agent; a later layerx-agentd or layerx-human-components startup refusal is recorded as the finding of do_16."
 do_26 = "Attempt 21 (962aaebd0 on 877e81900) passes the three build_cmd members and production_configuration_validates_without_retired_operations; both startup tests fail because layerx-agentd exits 2 with 'human listener is invalid: Unauthenticated': HumanUnixServer::bind (services/agent/crates/layerx-agentd/src/human.rs:1629-1667) validates the socket's parent directory with validate_path (:1725-1742), which refuses a directory whose mode has any other-user bit (mode & 0o007 != 0), and the test binds the socket at root/agent.sock (services/human/crates/layerx-human-service/tests/production_unhooked.rs:185) while :459 sets root to 0o711 for the node fixture. Create root/agent-socket with DirBuilder mode 0o700 as :157 does for agent-sessions, bind the socket inside it, leave root at 0o711 and the daemon environment as attempt 21 has it; re-qualify the three tests."
 do_27 = "Attempt 22 (9449cd2a4 on 29f8a5dc1) builds, passes production_configuration_validates_without_retired_operations and fails the two startup tests with 'movement provider refused startup': UnixMovementProvider::new (src/server/movement_provider.rs:835-846) validates the configured socket at open (validate_socket :1006-1021) and connects lazily (:954), and the test Environment sets LAYERX_HUMAN_MOVEMENT_SOCKET without creating a socket (decision.1983). In tests/production_unhooked.rs give the Environment a std::os::unix::net::UnixListener bound at that path inside a 0o700 directory it creates, set the socket's mode to 0o600 right after bind, keep the listener alive for the whole test including while the spawned layerx-human-components binary runs, and change nothing else."
+do_28 = "HumanOutbox::start (src/event_producer.rs:268) calls layerx_platform_internal::producer::Client::from_environment(&['journey', 'approval']) unconditionally from production_components.rs:769, and Upstream::from_environment (producer.rs:652-664, tls.rs:252-257) requires LAYERX_EVENTS_JOURNEY_UPSTREAM_URL, LAYERX_EVENTS_APPROVAL_UPSTREAM_URL and LAYERX_EVENTS_WEBHOOKS_UPSTREAM_URL (an https origin with a non-zero port) with the matching _UPSTREAM_CA_DER files. The tests/production_unhooked.rs fixture sets the three URLs to https://127.0.0.1:<port of a TcpListener the test binds and keeps alive> and the three CA paths to the authority-ca.der it already writes; Client::spawn (producer.rs:969) opens no connection at startup, so the three tests pass without a live upstream."
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
@@ -156324,7 +156369,7 @@ do_3 = "sdk/wallet/src/types.ts:325 KernelReason lists no_finalised_checkpoint; 
 do_4 = "sdk/wallet/src/types.ts:412 KernelRead stays; sdk/wallet/src/types.ts:414 KernelDocument becomes ChainAccount | Balances | SequencerReceiptAnswer | null in place of Record<string, unknown>, matching the KernelClient reads of tasks 12.25.2 and 12.25.3."
 do_5 = "Create sdk/wallet/test/network.test.ts (planned) with the test below."
 symbols = ["decodeNetwork", "NetworkHead", "ConsensusHead", "KernelReason"]
-touches = ["sdk/wallet/src/endpoint.ts", "sdk/wallet/src/types.ts", "sdk/wallet/test/network.test.ts"]
+touches = ["sdk/wallet/src/endpoint.ts", "sdk/wallet/src/types.ts", "sdk/wallet/test/network.test.ts", "sdk/wallet/src/kernel.ts"]
 tests = ["sdk/wallet/test/network.test.ts::endpoint_network_decodes_the_consensus_head_or_its_absence"]
 planned_paths = ["sdk/wallet/test/network.test.ts"]
 build_cmd = "pnpm --dir sdk/wallet run typecheck"
@@ -156340,6 +156385,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "sdk/wallet/src/kernel.ts:69 KernelAvailability.current() reads network.kernel, which do_2 removes from NetworkHead, so the type check fails with TS2339 (attempts 1 and 2, 2e3c1204f and 39be7d0d9). kernel.ts joins the touches: current() answers the available result when network.consensus is non-null and {available: false, reason: network.consensus_reason ?? 'unreachable', backend: null} otherwise, dropping availabilityFromStatus when nothing else calls it; human.ts:129 keeps calling this.kernel.current()."
 
 [task.12.24.6]
 title = "Retire the joined endpoint reads and their decoders"
@@ -157165,6 +157211,37 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (cf3827a1e on f01e6246f) passed the build through a next.config.mjs webpack resolve.alias that maps ./gateway.ts$ imported from src/api/wallet.ts to src/app/exchange/actions.ts, which re-exports ethTransactionReceipt as a server action; task 17.5.11 replaces the detour with a direct server-action import (decision.1986)."
+
+[task.17.5.11]
+title = "Web wallet reads call the gateway through a server-action module without a build alias"
+status = "pending"
+mode = "BUILD"
+wave = 19
+requires = ["17.5.10"]
+reqs = ["17054.2"]
+capabilities = []
+interfaces = []
+do_1 = "apps/web/src/api/wallet.ts:4 imports ethTransactionReceipt and the GatewayReceipt type from ./gateway.ts, a module that begins with import 'server-only', and uses the function at :99, :185 and :275. Create apps/web/src/api/gateway-actions.ts (planned) starting with 'use server' and exporting async gatewayTransactionReceipt(...args) that returns ethTransactionReceipt(...args) from ./gateway.ts; wallet.ts imports gatewayTransactionReceipt from ./gateway-actions.ts and keeps GatewayReceipt as import type from ./gateway.ts (decision.1986)."
+do_2 = "Delete the webpack rule of apps/web/next.config.mjs that aliases ./gateway.ts$ for imports from src/api/wallet.ts to src/app/exchange/actions.ts; apps/web/src/app/exchange/actions.ts keeps resolvePerpsAccount and drops its ethTransactionReceipt re-export when no other module imports it."
+do_3 = "The gate is the production build (npm --prefix apps/web run build) after the type check; no test file is added."
+symbols = ["gatewayTransactionReceipt"]
+touches = ["apps/web/src/api/wallet.ts", "apps/web/src/api/gateway-actions.ts", "apps/web/next.config.mjs", "apps/web/src/app/exchange/actions.ts"]
+tests = []
+planned_paths = ["apps/web/src/api/gateway-actions.ts"]
+build_cmd = "npm --prefix apps/web run typecheck"
+verify_cmd = "npm --prefix apps/web run build"
+gate_kind = "existing"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the four files; the build then resolves wallet.ts through the next.config.mjs alias again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.12.34.1]
 title = "Label the account status ladder submitted, receipted and committed"
@@ -157605,6 +157682,7 @@ do_12 = "Attempt 11 (29f5c75f6) re-ran the a48caaeb7 files with 12.35.6 merged. 
 do_13 = "Attempt 12 (2bbcaee77) applies do_12 and the standby answers eth_chainId, so v6120_test.go:152-160 passes for the first time. The test then fails at v6120_test.go:163: eth_getTransactionCount(sender, pending) answers 'pending block unavailable: sequencer: no block is open'. On the sequencer a pending-tag read resolves through the open block (rpc/tx.go:430-436, rpc/watermark_manager.go:57-65) and sequential.Snapshot returns ErrLayerNotOpen while no block is open (node/sequencer/executor.go:28, :329-333). The primary seals its open block when it builds the proposal for H+1 (consensus/internal/state/execution.go:267-270; executor.go:295-305 sets open to nil) and opens the next block only in Driver.OnCommit(H+1) (node/sequencer/driver.go:93), so between the proposal and the commit of every block there is no open block by design (rpc/utils.go:55-58). The primary committed 34742447 at 18:30:23.811 and finalized 34742448 at 18:30:24.194 while the 0.06 s test ran. eth_sendRawTransaction in that window answers the bare 'sequencer: no block is open' (rpc/send.go:293, node/sequencer/receipt.go:328, rpc/send_sequencer_test.go:265-268) and admits nothing, and eth_getBalance pending answers the wrapped text (rpc/state.go:55). TestLocalNodeV6120SequencerReceipt gains one helper that repeats a single RPC call every 20 ms until the test context ends while the error text is exactly 'pending block unavailable: sequencer: no block is open' or 'sequencer: no block is open', as daemon/committed-fixture/vector_v4.go:224-241 does, and uses it for the pending nonce (:161), the pending balance before the send (:174) and after the receipt (:215) and eth_sendRawTransaction (:189). Any other error still fails the test at once and every asserted value stays as written; HeaderByNumber(nil) stays a latest read. v6120-node.sh is unchanged. The primary's node.log also shows four proposal failures 'seal height N: sequencer: standby did not acknowledge: ... i/o timeout' at 34742429, 34742433, 34742435 and 34742440 between 18:29:05 and 18:29:44, each a 10 s SEAL replication timeout (node/sequencer/standby.go:314-346 with the standby's commit-pending AckGap at :823-825, :855-857); the chain recovered and the test did not run in such a window. Continue 2bbcaee77."
 do_14 = "Attempt 13 (e4f1f13bb) applies do_13: the pending nonce read passes and TestLocalNodeV6120SequencerReceipt fails at v6120_test.go:191 because HeaderByNumber(nil) answers 'decode consensus transaction 0 in block 34742531: expected 2 wire type, got 0: tx parse error'. The chain is the fresh local pair (node/testdata/v6120-halt-export.json initial_height 34742401; every endpoint is loopback) and the two curl (28) lines are the /status readiness probes of v6120-node.sh:655-657. Transaction 0 of every sequenced block is the 241-byte MsgSequenceBatch (node/app.go:1639-1656; modules/sequencer/types/batch_tx.go:12-26; first byte 0x50 is protowire field 10 wire type 0), and validateBlockExecutionReceipts (rpc/utils.go:330-334, reached from EncodeTmBlock rpc/block.go:547, the count paths :163 and :185, getBlockByHash :457 and rpc/subscribe.go:573) decodes every block transaction with the sdk TxDecoder (sdk/x/auth/tx/decoder.go:29-34, :128-129), so every committed block view at a sequenced height fails on any sequencer node. This task requires 12.35.7 (decision.1968), which recognises the batch at index 0 in that validation. Re-qualify e4f1f13bb unchanged after 12.35.7 is on main; v6120-node.sh and v6120_test.go stay as written and HeaderByNumber(nil) stays a latest read."
 do_15 = "Attempt 14 (a564859dd on 22b9ee184) passes the build and fails TestLocalNodeV6120SequencerReceipt at v6120_test.go:221 with 'send one-wei transfer: sequencer: replication halted: sequencer: no block is open': the node seals the open layer between the accept and the send of the transfer, the accepter's Snapshot call (node/sequencer/accepter.go:86) returns ErrLayerNotOpen and replication halts. Task 12.35.8 repairs the accepter; this task requires it and re-qualifies the attempt 14 content unchanged on a revision that includes it. Change nothing in the two touched files for this failure."
+do_16 = "tools/qualification/localnode/v6120-node.sh writes LOCAL_NODE_HOME=%q of $NODE_HOME into localnode.env next to LOCAL_NODE_RPC (:719-724), and sequencer_evidence (:129-158) also greps 'method handler crashed|panic|goroutine ' in node.log; TestLocalNodeV6120SequencerReceipt registers a t.Cleanup that, when t.Failed(), logs the last 150 lines of $LOCAL_NODE_HOME/node.log. Attempt 15 (f779633fc on caf5a0531) failed at v6120_test.go:221 with 'send one-wei transfer: method handler crashed' from eth_sendRawTransaction; the closing report must quote the panic site from node.log, and a fix stays within the two touched files unless the panic names a product path, which is then recorded in qualification.kvx."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
@@ -168629,7 +168707,7 @@ do_7 = "The verify_cmd imports layerx_fastapi (sdk/integrations/fastapi/layerx_f
 
 [task.15.4.3]
 title = "Verify signed sequencer receipts in the fastapi seller and protocol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["15.4.2", "8.0.3", "9.0.3", "9.96.1"]
@@ -190893,6 +190971,7 @@ do_11 = "Attempt 13 (6ef704375, the attempt 11 candidate re-qualified unchanged 
 do_12 = "Attempt 14 (51fc68ead on 4f424c474, the first base carrying 5.7.3 and 5.7.4) builds green, migration passes 9 tests and operator passes 6 of 7; inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal now gets past layerxd startup: layerxd --serve stays alive, admits the NativeProgramCall (LNI tag 4, real_authority.rs:635-642) and then answers every by-id receipt lookup over LNI V1_4 for 30 s with an empty envelope (cmd/layerxd/lxp_daemon_lni.c:2946-2962, :2997-2999), so submit_and_wait panics at tests/support/real_authority.rs:659 'receipt never became durable'. The admitted LX_PROGRAMS_CALL (0x00090003, include/layerx/programs.h:173) never reached install_pending_receipts (cmd/layerxd/lxp_daemon_process.c:4145-4146) nor a refusal disposition, which points at the executor stopping or stalling inside apply_canonical_batch after admission (cmd/layerxd/lxp_daemon_main.c:189-194 stops the executor without exiting the process; the serve loop at lxp_daemon_process.c:6303-6306 polls only the LNI server), most plausibly in the Programs state-feed observer re-bound by 5.7.4 at cmd/layerxd/lxp_daemon_protocol.c:1124-1125 (src/modules/programs/feed_store.c:438-472, :572-580; src/protocol/lxp_kernel.c:6384) or in the synchronous replica publication at lxp_daemon_process.c:4129-4144. The seven files of this task and real_authority.rs are byte-identical to attempts 7-13 and are not at fault; the fix belongs to task 5.7.6, which this task now requires. The environment that runs the gates keeps <temp>/layerx-authority-*/sequencer.stderr and replica.stderr (real_authority.rs:397-400, :1133, :1381) next to the verify log, because the :659 panic does not print them. Re-qualify the attempt 14 candidate unchanged once 5.7.6 is done; change none of this task's files unless the verify names one of them."
 do_13 = "Decision 1975: port tests/operator_route.rs:14-66 to the 74-byte reply of route_operator_command (src/human_runtime.rs:18296-18365): assert len 74, [0] == 1, [1..33] the activity id the request carried, [33..65] == [1; 32], [65] == 5 and [66..74] == 1u64 big-endian; keep :59-61 as written and change no file under src."
 do_14 = "Attempt 16 (b00385370 on 29f8a5dc1) passes operator_route and fails the three recovery tests with ReceiptLocationRequired: the transition helper at services/agent/crates/layerx-agentd/tests/recovery.rs:49-63 drives Executed through outbox::transition (src/outbox/mod.rs:310), which passes no block location, and the Committed check (:461-481) refuses. Drive the Executed step through outbox::record_execution (:325) with the support receipt and an explicit block position (height 9, transaction index 0), keep transition for the other states, keep tests/operator_route.rs as attempt 16 left it and change no assertion."
+do_15 = "The support receipt of tests/support/mod.rs (sequencer_receipt and encoded_receipt, :822-941) must verify under layerx_client::rpc::receipt::lookup_authenticated (signature over the supplied keys, verify_execution, then eth_getTransactionReceipt): align it with the builders of services/agent/crates/layerx-client/tests/receipt_rpc.rs:42-145 (encoded_receipt, signed_receipt) so restart_resolution_uses_receipts_without_duplicate_delivery reaches its scripted eth_getTransactionReceipt exchange; keep every exchange and assertion. recovery.rs:121: a submission enqueued through Outbox::enqueue carries no preparation authorization and recovery restores it as queued_without_authority (decision.1984); assert queued_without_authority == vec![ids[0]] and queued_for_transmission empty, and keep the bytes_for_transmission(ids[0]) check."
 
 [task.18.1203.1]
 title = "Issue #1203: Refuse operator verification retries for settlement-anchored requests"
@@ -191309,6 +191388,7 @@ do_14 = "Attempt 8 (fa18da842 on 9f8c07033) ran on a base without 64c4d6a23 (tas
 do_15 = "Attempt 9 (09ee34cfb on bf4e10a64) applied do_11 to do_13 in full and moved the agent_controls failure one statement forward: bound_activity now accepts the sign_transaction owner (services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:136 passes) and the do_12 call layerx_proof::receipt::verify_outcome at canonical_owner.rs:137-140 fails with VerificationFailure { check: Operation }. receipt::verify_outcome (services/agent/crates/layerx-proof/src/receipt.rs:334-368) refuses every receipt whose operation tag (the u8 at services/agent/crates/layerx-wire/src/receipt.rs:209, decoded at :794 after parameter_version) is 0 unless the module is Bridge 8, Programs 9 or Asset 1 with operation 9 (:351-366); the tag is compared with 0 and with nothing else. The fixture writes operation 0 (agent_controls.rs `bytes.push(0)` after module_version 1 and parameter_version 1, :794 on main, :805 in attempt 9; agent_controls_rungs.rs:876 / :814; tests/agent_creation_rungs.rs:103 writes the same 0 and passes because it never calls layerx_proof), and 0 is the product contract for a native owner Budget receipt: finalization_evidence refuses operation != 0 at services/human/crates/layerx-human-service/src/server/agent_creation.rs:649 and change_protocol_limit refuses it at services/human/crates/layerx-human-service/src/agents/controls.rs:628, while the agent double submit_protocol (agent_controls.rs:373-378, agent_controls_rungs.rs:448-453) needs finalization_evidence to succeed on the same bytes for every change_limit (:634, :652). A non-zero tag therefore fails the same test at the next step; the two verifiers admit one receipt only after task 9.27.5 (decision.929, wave 35) reworks receipt.rs, and services/agent/crates/layerx-proof/tests/native_owner_outcome.rs:61-68 pins the present behaviour (operation 0, verify_outcome answers Operation). Keep the operation tag 0 and change no file under src. In assert_outcome (canonical_owner.rs:131-154 of attempt 9) replace the :137-140 call with checked(layerx_proof::receipt::verify_sequencer_signature(&evidence.receipt_bytes, authorized_batch.sequencer_public_key())) (receipt.rs:707-738; a bare [u8; 32] is ReceiptKeys::HistoricalKernel, :46-50, accepted for module 3 at :769-773; it checks decoding, canonical re-encoding, protocol version, non-zero activity_id and the sequencer signature over receipt_digest, the LXP/v1/receipt tagged preimage the fixture signs, services/agent/crates/layerx-wire/src/hash.rs:69 and :330), and after `let protocol = receipt.protocol().expect(...)` add assert_eq!(protocol.batch_id(), authorized_batch.batch_id()), assert_eq!(protocol.previous_state_root(), authorized_batch.previous_state_root()) and assert_eq!(protocol.resulting_state_root(), authorized_batch.resulting_state_root()) (accessors receipt.rs:148-170), which restores the batch, root and signature checks verify_native_owner_outcome made (services/agent/crates/layerx-proof/src/receipt/owner_module.rs:130). Keep the AuthorizedBatch::new call at agent_controls.rs:777-782 of attempt 9 as written, keep every other line of attempt 9, and keep every assertion. After agent_controls passes, cargo runs agent_controls_rungs, archive, session_keys and session_rungs for the first time under this verify."
 do_16 = "Decision 1976: give sign_transaction (services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:55-100) a previous_budget_id parameter, compute the replacement as sha256 over BUDGET_DOMAIN, previous_budget_id and action_key exactly as services/human/crates/layerx-human-service/src/agents/controls.rs:585 and :686-700 do, assert payload[2..34] against it at :78, and pass the agent's active protocol budget id from every caller; change no file under src."
 do_17 = "Attempt 11 (c61196b80 on 29f8a5dc1) passes revocation, tenant_resolve and every target except protocol_and_app_limit_changes_keep_their_real_enforcement_labels, which refuses with 'lifecycle transaction binding differs' because change_protocol_limit submits the control action key while the payload carries the replacement budget id (decision.1980). Task 18.1228.2 owns src/agents/controls.rs, tests/agent_controls_rungs.rs and tests/support/canonical_owner.rs for that fix, do_11 to do_13 move to it, and this task requires it. Continue from attempt 11 with tests/support/canonical_owner.rs and tests/agent_controls_rungs.rs restored to the base, keep the edits of the other six files, and re-qualify on a base that carries 18.1228.2."
+do_18 = "Attempt 12 (d18b453ab on 7bf426680) restored canonical_owner.rs and agent_controls_rungs.rs per do_17 but tests/agent_controls.rs still calls canonical_owner::replacement_budget_id (:397, :721) and a five-argument sign_transaction (:747): E0425 twice and E0061. Re-port agent_controls.rs to decision.1980: self.active_budget_id = action.action_key at :397, BudgetId::new(action_key) at :721, and the four-argument sign_transaction(payload, action_key, version, network) of canonical_owner.rs:65 at :747 and in protocol_receipt and its callers, dropping previous_budget_id; canonical_owner.rs and agent_controls_rungs.rs stay at their base content."
 
 [task.18.1228.2]
 title = "Issue #1228: Submit the replacement budget id as the limit-change action key"
@@ -195030,6 +195110,7 @@ do_9 = "Decision 1966 (extends decision.1928; 4e013c19c, 11.5.1) adds services/i
 do_10 = "Attempt 6 (222f916 on dee4a39aa, the attempt 5 content plus do_9) built and passed every verify leg through layerx-visa-tap sequencer_result, including buyer::tests::buyer_accepts_receipted_transaction_hash with the re-recorded TRANSACTION literal, and failed only the last leg: 'error: no library targets found in package layerx-interop-service', because services/interop/crates/layerx-interop-service/Cargo.toml declares only the binary layerx-interop-gateway (src/main.rs) and the unit tests of its touched module live in that binary (src/server.rs; #[cfg(test)] modules in payer_tx.rs:150, relay.rs:345, config.rs:1066). The verify leg now selects --bin layerx-interop-gateway instead of --lib; the leg had never run green before because attempts 1 to 5 stopped at an earlier leg. Re-qualify 222f916 unchanged; no source change is expected."
 do_11 = "Attempt 7 (0b506ccc2 on 22b9ee184), decision 1978: re-record the literals of payer_tx::tests::decodes_the_recorded_pay_exact_transaction (payer_tx.rs:195, left.from against right.to) from the fixtures this task re-recorded; repair the ten server::tests failures (ap2_execute_relays_the_mandate_transaction, fiat_capture_evidence_refuses_missing_capture_and_unauthenticated_provider, fiat_capture_evidence_refuses_unsettled_tampered_or_mismatched_capture, fiat_callback_settles_through_the_relay, fiat_capture_evidence_restores_refunds_after_restart_without_resubmission, receipt_must_match_the_exact_submitted_activity, ucp_complete_relays_the_checkout_transaction, x402_settle_pending_carries_the_transaction_hash, visa_execute_refuses_a_transaction_to_another_contract, x402_settle_succeeds_on_the_receipted_rung) whose expected evidence comes from the fixtures this task changed, and record as one qualification line each failure whose expectation does not; relay::tests::a_committed_answer_with_another_block_hash_is_receipted is owned by capability 11.11.2 and is recorded, not repaired."
 do_12 = "Attempt 8 (eb4261f6c on 29f8a5dc1), three parts: (1) port the three remaining 'layerx:beta' network literals of services/interop/crates/layerx-interop-service/src/server.rs (:4696, :4758, :5386) to 'eip155:125', the only network server.rs:1131 admits (services/interop/crates/layerx-x402/src/facilitator.rs:693-718 turns the mismatch into UnsupportedOffer, the failure of the ten server::tests); (2) in the tests module of services/interop/crates/layerx-interop-service/src/relay.rs, in touches now (decision.1979), make a_committed_answer_with_another_block_hash_is_receipted (:794) take the block number and block hash from the re-recorded fixture it includes instead of the literals 1001 and 0xab..ab, so the mock block's hash differs from the receipt's and receipt() (:292-312) answers Receipted; (3) for x402_settle_succeeds_on_the_receipted_rung (server.rs:5227) check the settlement fixture against the EvidenceMismatch conditions of services/interop/crates/layerx-x402/src/seller.rs:315-352 (signature verification, protocol.activity_id equal to the transaction hash, committed proof) and re-record it to this candidate's pay_to and concatenation order if that is the mismatch. Change no assertion."
+do_13 = "decode_block (services/agent/crates/layerx-client/src/sequencer.rs) requires number, hash, parentHash, timestamp, transactionsRoot, receiptsRoot and transactions; the mock block of a_committed_answer_with_another_block_hash_is_receipted (relay.rs tests) carries no receiptsRoot, so block_by_number answers Malformed and receipt() (relay.rs:292-312) downgrades to Receipted before any hash comparison, which is the attempt 9 failure. Add 'receiptsRoot' as 32 zero bytes in 0x hex to that mock block; change no assertion."
 
 [req.1812115]
 title = "The recorded payExact receipt carries a derivable payee in native PaymentExact order"
@@ -195586,6 +195667,7 @@ scenario = "Given a payer whose standing_grant names a ledger grant that getPaye
 contract = "contracts/agent-mcp.md#web-search"
 test = "services/agent/crates/layerx-mcp/src/tools/web.rs::standing_grant_settles_metered_offer_without_issue"
 qualification = "UNRUN"
+
 
 
 
