@@ -197749,7 +197749,7 @@ ac_2 = "make build/tools/dump_trading_vectors builds tests/modules/dump_trading_
 
 [task.16.28.5]
 title = "Delete the three rule-less retired kernel test programs and give the trading vector generator a Makefile rule"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["16.2.2", "16.0.4", "16.94.1", "16.34.1", "16.96.1"]
