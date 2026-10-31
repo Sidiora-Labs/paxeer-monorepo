@@ -7024,7 +7024,7 @@ impl ProductionComponents {
                 current,
             )
             .map_err(|_| ApiFailure::upstream_degraded())?;
-        ProductionAgentCreation::finalization_evidence(&receipt, ModuleId::Budget, 7, self.now()?)
+        ProductionAgentCreation::finalization_evidence(&receipt, ModuleId::Budget, 8, self.now()?)
             .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(())
     }
