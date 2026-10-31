@@ -483,6 +483,7 @@ func recordMetricsWithError(ctx context.Context, apiMethod string, connectionTyp
 	stats.RecordAPIInvocation(apiMethod, string(connectionType), startTime, success)
 
 	if panicValue != nil {
+		logger.Error("rpc handler panicked", "method", apiMethod, "panic", fmt.Sprint(panicValue), "stack", string(debug.Stack()))
 		panic(panicValue)
 	}
 }

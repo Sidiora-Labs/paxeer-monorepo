@@ -2,7 +2,7 @@ use layerx_client::px::PxAssetEntry;
 use layerx_client::rpc::evidence::{verification_label, Rung};
 use layerx_client::rpc::{account as account_rpc, evidence as evidence_rpc, history, payments};
 
-use super::{connect_client, fixed_hex, hex_encode, refusal, success, Config, Request, Response};
+use super::{fixed_hex, hex_encode, refusal, success, Config, Request, Response};
 
 pub(super) fn account(config: &Config, id: &str) -> Response {
     let Ok(account_id) = fixed_hex::<32>("account_id", id) else {
@@ -222,8 +222,8 @@ pub(super) fn route(config: &Config, request: &Request) -> Option<Response> {
             node_info(config)
         });
     }
-    if let Some(sequence) = request.path.strip_prefix("/internal/v1/receipt-events/") {
-        return Some(receipt_event(config, request, sequence));
+    if let Some(hash) = request.path.strip_prefix("/internal/v1/receipt-events/") {
+        return Some(receipt_event(config, request, hash));
     }
     let parts: Vec<_> = request.path.split('/').collect();
     let target = match parts.as_slice() {
@@ -287,18 +287,27 @@ pub(super) fn route(config: &Config, request: &Request) -> Option<Response> {
 }
 
 fn node_info(config: &Config) -> Response {
-    let Ok(client) = connect_client(config) else {
+    let Ok(head) = config.network.network() else {
         return refusal(503, "node_unavailable", Some(5));
     };
-    let node = client.handshake().node();
+    let Ok(keys) = config.sequencer.receipt_keys() else {
+        return refusal(503, "node_unavailable", Some(5));
+    };
+    let Some(key) = keys.iter().max_by_key(|key| key.last_height) else {
+        return refusal(503, "node_unavailable", Some(5));
+    };
+    let Ok(checkpoint) = evidence_rpc::checkpoint(&config.sequencer, head.latest_committed_height)
+    else {
+        return refusal(503, "node_unavailable", Some(5));
+    };
     success(&serde_json::json!({
-        "protocol_version": node.protocol_version,
-        "network_id": node.network_id,
-        "chain_head_sequence": node.chain_head_sequence.to_string(),
-        "latest_sealed_batch": node.latest_sealed_batch.to_string(),
-        "latest_finalised_checkpoint": hex_encode(&node.latest_finalised_checkpoint),
-        "authorised_sequencer_key": hex_encode(&node.authorised_sequencer_key),
-        "capabilities": node.advertised_capabilities
+        "protocol_version": layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+        "network_id": head.network_id,
+        "chain_head_sequence": head.latest_committed_height.to_string(),
+        "latest_sealed_batch": head.paxeer.latest_block.to_string(),
+        "latest_finalised_checkpoint": hex_encode(&checkpoint.hash),
+        "authorised_sequencer_key": hex_encode(&key.public_key),
+        "capabilities": head.layerx.unwrap_or_default()
     }))
 }
 
@@ -333,21 +342,34 @@ fn evidence(config: &Config, kind: &str, id: &str) -> Response {
 }
 
 fn sequence(config: &Config, did: &str) -> Response {
-    let Ok(actor) = layerx_types::ids::Did::new(did.as_bytes()) else {
+    if layerx_types::ids::Did::new(did.as_bytes()).is_err() {
         return refusal(400, "invalid_did", None);
+    }
+    let Ok(accounts) = history::did_accounts(&config.network, did) else {
+        return refusal(503, "sequence_unavailable", Some(5));
     };
-    let Ok(mut client) = connect_client(config) else {
+    let Some(account) = accounts.first() else {
+        return refusal(404, "unknown_did", None);
+    };
+    let Some(address) = account
+        .get("evm_address")
+        .and_then(serde_json::Value::as_str)
+        .and_then(|address| address.strip_prefix("0x"))
+        .and_then(|address| fixed_hex::<20>("evm_address", address).ok())
+    else {
+        return refusal(503, "sequence_unavailable", Some(5));
+    };
+    let Ok(next_sequence) = config.sequencer.pending_nonce(&address) else {
+        return refusal(503, "sequence_unavailable", Some(5));
+    };
+    let Ok(head) = config.network.network() else {
         return refusal(503, "node_unavailable", Some(5));
     };
-    match client.preparation_state(&actor, 1) {
-        Ok(snapshot) => success(&serde_json::json!({
-            "did": did, "next_sequence": snapshot.account_sequence.to_string(),
-            "observed_head_sequence": snapshot.observed_head_sequence.to_string(),
-            "state_root": hex_encode(&snapshot.observed_state_root),
-            "verification": "authenticated_node_snapshot"
-        })),
-        Err(_) => refusal(503, "sequence_unavailable", Some(5)),
-    }
+    success(&serde_json::json!({
+        "did": did, "next_sequence": next_sequence.to_string(),
+        "observed_head_sequence": head.latest_committed_height.to_string(),
+        "verification": "sequencer_pending_nonce"
+    }))
 }
 
 fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Response {
@@ -445,7 +467,8 @@ fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Respon
     success(&result)
 }
 
-fn receipt_event(config: &Config, request: &Request, sequence: &str) -> Response {
+fn receipt_event(config: &Config, request: &Request, hash: &str) -> Response {
+    use layerx_client::sequencer::SequencerReceipt;
     use subtle::ConstantTimeEq;
     let Some(token) = &config.receipt_events_token else {
         return refusal(503, "receipt_events_not_configured", None);
@@ -461,31 +484,27 @@ fn receipt_event(config: &Config, request: &Request, sequence: &str) -> Response
     if request.method != "GET" {
         return refusal(405, "method_not_allowed", None);
     }
-    let Ok(number) = sequence.parse::<u64>() else {
-        return refusal(400, "invalid_sequence", None);
+    let Ok(hash) = fixed_hex::<32>("tx_hash", hash) else {
+        return refusal(400, "invalid_tx_hash", None);
     };
-    if number == 0
-        || number.to_string() != sequence
-        || request.query.is_some()
-        || !request.body.is_empty()
-    {
-        return refusal(400, "invalid_sequence", None);
+    if request.query.is_some() || !request.body.is_empty() {
+        return refusal(400, "invalid_tx_hash", None);
     }
-    let Ok((mut transport, handshake)) = super::connect_raw(config) else {
-        return refusal(503, "node_unavailable", Some(5));
-    };
-    let mut selector = vec![3];
-    selector.extend_from_slice(&number.to_be_bytes());
-    match super::lookup_receipt_selector(&mut transport, &handshake, selector, 1, true) {
-        Ok(Some(bytes)) => {
-            match super::receipt_facts(&bytes, handshake.node().authorised_sequencer_key) {
-                Ok(facts) if facts.global_sequence == number => {
-                    success(&super::receipt_result(&facts))
-                }
-                _ => refusal(502, "invalid_receipt_event", None),
-            }
+    match config.sequencer.sequencer_receipt(&hash) {
+        Ok(Some(
+            SequencerReceipt::Receipted(receipt) | SequencerReceipt::Committed { receipt, .. },
+        )) => success(&serde_json::json!({
+            "state": if receipt.success { "completed" } else { "refused" },
+            "activity_id": hex_encode(&hash),
+            "global_sequence": receipt.seq.to_string(),
+            "height": receipt.height.to_string(),
+            "index": receipt.index.to_string(),
+            "result_code": if receipt.success { 0 } else { 1 },
+            "timestamp": receipt.timestamp.to_string()
+        })),
+        Ok(Some(SequencerReceipt::Submitted { .. }) | None) => {
+            super::json_response(202, &serde_json::json!({"result":{"state":"pending"}}))
         }
-        Ok(None) => super::json_response(202, &serde_json::json!({"result":{"state":"pending"}})),
         Err(_) => refusal(503, "receipt_events_unavailable", Some(5)),
     }
 }
