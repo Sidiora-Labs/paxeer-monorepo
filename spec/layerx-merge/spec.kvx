@@ -94384,7 +94384,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.12.2]
 title = "Retire the budget pull activity that draws on receive payer grants"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["1.0.3", "16.2.1", "16.96.2"]
@@ -94712,7 +94712,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.15.2]
 title = "Delete the feed store, the replay engine bind and the fee relay declarations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["1.15.1", "1.14.3", "1.16.1", "1.0.4", "16.2.1", "16.96.1", "8.96.5", "13.8.1"]
