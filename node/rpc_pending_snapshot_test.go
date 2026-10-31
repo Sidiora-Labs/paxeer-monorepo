@@ -59,3 +59,32 @@ func TestRPCPendingSnapshotServesBaseFee(t *testing.T) {
 		})
 	}
 }
+
+func TestRPCContextProviderWaitsForTheNextOpenBlock(t *testing.T) {
+	a, exec, genesis := newSequencerContextApp(t, false)
+	a.SetOpenBlock(exec)
+	require.NoError(t, exec.Open(seqCtxOpen, genesis.Add(time.Second).UnixMilli()))
+	batch, err := exec.Seal(seqCtxOpen)
+	require.NoError(t, err)
+	_, err = a.PendingSnapshot()
+	require.ErrorIs(t, err, evmrpc.ErrLayerNotOpen)
+	require.Same(t, evmrpc.ErrLayerNotOpen, sequencer.ErrLayerNotOpen)
+	batch.Store.Write()
+	require.Equal(t, seqCtxOpen, a.CommitMultiStore().Commit(true).Version)
+	reopened := make(chan error, 1)
+	start := time.Now()
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		reopened <- exec.Open(seqCtxOpen+1, genesis.Add(2*time.Second).UnixMilli())
+	}()
+	var ctx sdk.Context
+	require.NotPanics(t, func() {
+		ctx = a.RPCContextProvider(app.PendingCtxHeight)
+	})
+	require.NoError(t, <-reopened)
+	require.GreaterOrEqual(t, time.Since(start), 50*time.Millisecond)
+	require.Equal(t, seqCtxOpen+1, ctx.BlockHeight())
+	require.True(t, ctx.IsEVM())
+	require.True(t, ctx.IsTracing())
+	require.False(t, ctx.IsCheckTx())
+}
