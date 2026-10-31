@@ -133612,7 +133612,7 @@ do_8 = "Attempt 6 (33b0b5024 on d88134e96) builds, passes the check of the depen
 
 [task.8.5.3]
 title = "Answer px_getNetwork with the consensus head instead of the anchor checkpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.5.2", "8.1.3", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1"]
