@@ -127541,7 +127541,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.60.1]
 title = "Retire tests/bridge/test_light_credit.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.51.1", "16.0.4"]
@@ -134930,7 +134930,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.17.1]
 title = "Delete the storage keeper crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "6.0.3", "16.0.4"]
@@ -139873,7 +139873,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.96.3]
 title = "Drop the relay-archive plain listener from the platform make targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "16.0.4"]
@@ -156282,7 +156282,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.21.3]
 title = "Delete the joined, anchor and custody types from the wallet SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.24.6", "12.28.1", "12.34.9"]
@@ -170449,7 +170449,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.5.2]
 title = "Remove the retired daemon and credit paths from the xweb workflow check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "9.27.7"]
@@ -171025,7 +171025,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.9.3]
 title = "Delete the lx_ route entries from the paxeer-x route catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "8.0.4"]
