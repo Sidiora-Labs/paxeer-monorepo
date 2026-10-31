@@ -122152,7 +122152,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.98.4]
 title = "Bring the merge precompile set live in the local node fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -193877,7 +193877,7 @@ do_6 = "Attempt 5 kept do_1 to do_3 and did do_5 with the build green but left d
 
 [task.8.47.11]
 title = "Drop the layerx-wire and layerx-proof tests that include the removed kernel programs-module receipt vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = []
