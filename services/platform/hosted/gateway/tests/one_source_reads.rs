@@ -278,8 +278,22 @@ fn gateway_command(environment: &[(String, String)]) -> Command {
 }
 
 fn start_gateway(redis: &RedisProcess, chain_port: u16) -> Gateway {
+    start_gateway_with_indexer(redis, chain_port, None)
+}
+
+fn start_gateway_with_indexer(
+    redis: &RedisProcess,
+    chain_port: u16,
+    indexer_port: Option<u16>,
+) -> Gateway {
     let listen = free_port();
-    let environment = chain_only_environment(redis, chain_port, listen);
+    let mut environment = chain_only_environment(redis, chain_port, listen);
+    if let Some(port) = indexer_port {
+        environment.push((
+            "LAYERX_GATEWAY_INDEXER_URL".to_owned(),
+            format!("http://127.0.0.1:{port}"),
+        ));
+    }
     assert!(environment.iter().all(|(name, _)| {
         name != "LAYERX_GATEWAY_COMPONENT_URL"
             && name != "LAYERX_GATEWAY_PUBLIC_CORE_URL"
@@ -427,6 +441,7 @@ struct ChainState {
     calls: Vec<Value>,
     bank_answer: String,
     bank_refused: bool,
+    asset_reads: bool,
 }
 
 impl ChainState {
@@ -438,6 +453,7 @@ impl ChainState {
                 vector("bank.all_balances")["result"].as_str().unwrap()
             ),
             bank_refused: false,
+            asset_reads: false,
         }
     }
 
@@ -466,6 +482,9 @@ fn chain_answer(state: &Mutex<ChainState>, request: &http::Request) -> http::Res
         "eth_call" => {
             let data = call["params"][0]["data"].as_str().unwrap();
             let to = call["params"][0]["to"].as_str().unwrap();
+            if state.asset_reads {
+                return asset_chain_answer(&call);
+            }
             let unified = vector("addr.getUnifiedAccount");
             let reverse = vector("addr.getEvmAddrByLayerX");
             let bank = vector("bank.all_balances");
@@ -658,4 +677,261 @@ fn px_get_account_reads_no_kernel_backend() {
         readiness["backends"]["public_core"]["reason"], "not_configured",
         "{readiness}"
     );
+}
+
+fn abi_word(value: u128) -> Vec<u8> {
+    let mut word = vec![0; 16];
+    word.extend_from_slice(&value.to_be_bytes());
+    word
+}
+
+fn abi_bytes(value: &[u8]) -> Vec<u8> {
+    let mut bytes = abi_word(value.len() as u128);
+    bytes.extend_from_slice(value);
+    bytes.resize(32 + value.len().div_ceil(32) * 32, 0);
+    bytes
+}
+
+fn ledger_asset_answer() -> Vec<u8> {
+    let mut answer = vec![0x11; 32];
+    answer.extend(abi_word(384));
+    answer.extend(abi_word(448));
+    answer.extend(abi_word(18));
+    answer.extend(abi_word(u128::MAX));
+    answer.extend([0x61; 32]);
+    answer.extend([0x42; 32]);
+    answer.extend(abi_word(1));
+    answer.extend(abi_word(2));
+    answer.extend(abi_word(512));
+    answer.extend(abi_word(0));
+    answer.extend(abi_word(u128::MAX - 1));
+    answer.extend(abi_bytes(b"LED"));
+    answer.extend(abi_bytes(b"Ledger Asset"));
+    answer.extend(abi_bytes(&[0xff, 0x00, 0x81]));
+    answer
+}
+
+fn asset_chain_answer(call: &Value) -> http::Response {
+    let to = call["params"][0]["to"].as_str().unwrap();
+    let data = call["params"][0]["data"].as_str().unwrap();
+    assert_ne!(to, evm::address_hex(&evm::CUSTODY_PRECOMPILE));
+    assert_eq!(call["params"][1], LATEST_BLOCK);
+    let answer = if to == evm::address_hex(&evm::LEDGER_PRECOMPILE) {
+        let calldata = |byte| format!("0x2cc3ce80{}", hex(&[byte; 32]));
+        if data == calldata(0x11) {
+            Some(ledger_asset_answer())
+        } else if data == calldata(0x22) {
+            None
+        } else if data == calldata(0x33) {
+            Some(vec![0; 32])
+        } else if data == calldata(0x44) {
+            Some(ledger_asset_answer())
+        } else {
+            panic!("unexpected ledger read: {call}");
+        }
+    } else {
+        assert_eq!(to, evm::address_hex(&evm::BANK_PRECOMPILE));
+        // Independent ABI calldata for a single dynamic string argument.
+        let calldata = |selector: &str, denom: &[u8]| {
+            format!(
+                "0x{selector}{}{}",
+                hex(&abi_word(32)),
+                hex(&abi_bytes(denom))
+            )
+        };
+        if data == calldata("5b43bc99", b"ubroken") {
+            None
+        } else if data == calldata("5b43bc99", b"ubank") {
+            Some([abi_word(32), abi_bytes(b"Bank Asset")].concat())
+        } else if data == calldata("41bb0559", b"ubank") {
+            Some([abi_word(32), abi_bytes(b"BANK")].concat())
+        } else if data == calldata("3b2b3204", b"ubank") {
+            Some(abi_word(6))
+        } else if data == calldata("6923a1fd", b"ubank") {
+            Some(vec![0xff; 32])
+        } else {
+            panic!("unexpected bank read: {call}");
+        }
+    };
+    http::json(
+        200,
+        &match answer {
+            Some(bytes) => {
+                json!({"jsonrpc":"2.0", "id":call["id"], "result":format!("0x{}", hex(&bytes))})
+            }
+            None => {
+                json!({"jsonrpc":"2.0", "id":call["id"], "error":{"code":-32000, "message":"execution reverted"}})
+            }
+        },
+    )
+}
+
+#[test]
+fn px_list_assets_joins_indexer_assets_with_chain_metadata() {
+    use layerx_indexer::store::{AssetRow, Store};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let abi: Value = serde_json::from_str(include_str!(
+        "../../../../../precompiles/layerxledger/abi.json"
+    ))
+    .unwrap();
+    let get_asset = abi
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|entry| entry["name"] == "getAsset")
+        .unwrap();
+    let outputs: Vec<_> = get_asset["outputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|output| output["type"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        outputs,
+        [
+            "bytes32", "string", "string", "uint8", "uint128", "bytes32", "bytes32", "uint8",
+            "uint8", "bytes", "bool", "uint128"
+        ]
+    );
+    assert_eq!(
+        evm::SELECTOR_GET_ASSET,
+        layerx_indexer::abi::keccak(b"getAsset(bytes32)")[..4]
+    );
+    for (signature, selector) in [
+        ("name(string)", evm::SELECTOR_BANK_NAME),
+        ("symbol(string)", evm::SELECTOR_BANK_SYMBOL),
+        ("decimals(string)", evm::SELECTOR_BANK_DECIMALS),
+        ("supply(string)", evm::SELECTOR_BANK_SUPPLY),
+    ] {
+        assert_eq!(
+            selector,
+            layerx_indexer::abi::keccak(signature.as_bytes())[..4]
+        );
+    }
+    let bytes = ledger_asset_answer();
+    let decoded = evm::decode_ledger_asset(&bytes).unwrap();
+    assert_eq!(decoded.asset_id, [0x11; 32]);
+    assert_eq!(decoded.name, "Ledger Asset");
+    assert_eq!(decoded.symbol, "LED");
+    assert_eq!(decoded.decimals, 18);
+    assert_eq!(decoded.supply_cap, u128::MAX);
+    assert_eq!(decoded.total_units, u128::MAX - 1);
+    assert_eq!(decoded.custody_reference, [0xff, 0x00, 0x81]);
+    for (offset, value) in [
+        (3 * 32, 1),
+        (4 * 32, 1),
+        (7 * 32, 1),
+        (8 * 32, 1),
+        (10 * 32 + 31, 2),
+        (11 * 32, 1),
+    ] {
+        let mut malformed = bytes.clone();
+        malformed[offset] = value;
+        assert_eq!(
+            evm::decode_ledger_asset(&malformed),
+            Err(evm::AbiError::Width)
+        );
+    }
+    let mut malformed = bytes.clone();
+    malformed[63] = 32;
+    malformed[62] = 0;
+    assert_eq!(
+        evm::decode_ledger_asset(&malformed),
+        Err(evm::AbiError::Offset)
+    );
+    assert!(evm::decode_ledger_asset(&bytes[..383]).is_err());
+    assert!(evm::decode_ledger_asset(&bytes[..bytes.len() - 1]).is_err());
+
+    let store = Store::open_in_memory().unwrap();
+    let mut rows = Vec::new();
+    // The first sorted asset is registered beyond the first indexer page.
+    for number in (0..501).rev() {
+        rows.push(AssetRow {
+            asset: format!("z{number:04}"),
+            chain: "paxeer".to_owned(),
+            kind: "erc20".to_owned(),
+            address: None,
+            denom: None,
+            metadata: json!({}),
+        });
+    }
+    let mut expected = Vec::new();
+    for byte in [0x44, 0x33, 0x22, 0x11] {
+        let asset_id = hex(&[byte; 32]);
+        rows.push(AssetRow { asset:asset_id.clone(), chain:"paxeer".to_owned(),
+            kind:"layerx".to_owned(), address:None, denom:None,
+            metadata:json!({"name":"stale indexer name", "symbol":"STALE", "decimals":2,"supply":"7"}) });
+        expected.push(if byte == 0x11 {
+            json!({"asset_id":asset_id,"denom":null,"kind":"layerx","name":"Ledger Asset","symbol":"LED","decimals":18,"supply":(u128::MAX - 1).to_string()})
+        } else {
+            json!({"asset_id":asset_id,"denom":null,"kind":"layerx","name":null,"symbol":null,"decimals":null,"supply":null})
+        });
+    }
+    for (denom, kind) in [("ubank", "bank"), ("ubroken", "token_factory")] {
+        let asset_id = format!("denom:{denom}");
+        rows.push(AssetRow {
+            asset: asset_id.clone(),
+            chain: "paxeer".to_owned(),
+            kind: kind.to_owned(),
+            address: None,
+            denom: Some(denom.to_owned()),
+            metadata: json!({}),
+        });
+        expected.push(if denom == "ubank" {
+            json!({"asset_id":asset_id,"denom":denom,"kind":kind,"name":"Bank Asset","symbol":"BANK","decimals":6,"supply":"115792089237316195423570985008687907853269984665640564039457584007913129639935"})
+        } else {
+            json!({"asset_id":asset_id,"denom":denom,"kind":kind,"name":null,"symbol":null,"decimals":null,"supply":null})
+        });
+    }
+    for number in 0..10 {
+        expected.push(json!({"asset_id":format!("z{number:04}"),"denom":null,"kind":"erc20","name":null,"symbol":null,"decimals":null,"supply":null}));
+    }
+    expected.sort_by(|a, b| a["asset_id"].as_str().cmp(&b["asset_id"].as_str()));
+    store.register_assets(&rows).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let indexer_address = listener.local_addr().unwrap();
+    let store = Arc::new(store);
+    thread::spawn(move || layerx_indexer::api::serve(&listener, &store, None));
+    let redis = RedisProcess::start();
+    assert!(redis.store().ready());
+    let state = Arc::new(Mutex::new(ChainState::new()));
+    state.lock().unwrap().asset_reads = true;
+    let chain = ChainListener::start(tls(&redis), Arc::clone(&state));
+    let gateway = start_gateway_with_indexer(&redis, chain.port, Some(indexer_address.port()));
+    let answer = gateway.rpc("px_listAssets", &json!([]));
+    assert!(answer.get("error").is_none(), "{answer}");
+    assert_eq!(
+        answer["result"],
+        json!({"height":16,"assets":expected,"joined_limit":16})
+    );
+    let calls = state.lock().unwrap().take_calls();
+    assert_eq!(
+        calls
+            .iter()
+            .filter(|call| call["method"] == "eth_blockNumber")
+            .count(),
+        1
+    );
+    let asset_calls: Vec<_> = calls
+        .iter()
+        .filter(|call| call["method"] == "eth_call")
+        .collect();
+    assert_eq!(asset_calls.len(), 9);
+    for call in asset_calls {
+        assert_eq!(call["params"][1], LATEST_BLOCK);
+        assert!(
+            matches!(
+                call["params"][0]["to"].as_str(),
+                Some(
+                    "0x0000000000000000000000000000000000001001"
+                        | "0x000000000000000000000000000000000000101a"
+                )
+            ),
+            "{call}"
+        );
+    }
+    let invalid = gateway.rpc("px_listAssets", &json!(["unexpected"]));
+    assert_eq!(invalid["error"]["code"], -32602);
+    assert!(state.lock().unwrap().take_calls().is_empty());
 }

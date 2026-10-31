@@ -13459,3 +13459,83 @@ symbol = "start_agent"
 observed = "Attempt 21 (962aaebd0 on 877e81900): the real daemon refused its human listener because the socket's parent directory root carries mode 0o711 and validate_path (services/agent/crates/layerx-agentd/src/human.rs:1725-1742) refuses any other-user bit on it."
 assumption = "Fixture layout, not a daemon defect: a 0o700 socket directory under root satisfies the listener and keeps root traversable for the node; do_26 applies it."
 severity = "task-scoped"
+
+[finding.8.5.2.4]
+task = "8.5.2"
+file = "services/platform/hosted/gateway/src/rpc.rs:356"
+symbol = "kernel_backend"
+observed = "Attempt 6 (33b0b5024 on d88134e96) reached the gate for the first time and px_listAssets was refused with kernel_unavailable/not_configured because kernel_backend still routes it to the public core kernel, which the test (and req.8041) run without."
+assumption = "A one-arm product change outside the four declared files; rpc.rs joins touches and do_8 removes the arm. Task 8.3.1 (pending) also touches rpc.rs and is unaffected."
+severity = "cross-task"
+
+[finding.18.1200.1.10]
+task = "18.1200.1"
+file = "services/agent/crates/layerx-agentd/tests/recovery.rs:49"
+symbol = "transition"
+observed = "Attempt 16 (b00385370 on 29f8a5dc1) fails restart_preserves_recovery_actions_but_blocks_writes_without_budget_schema and the two other recovery tests with ReceiptLocationRequired from src/outbox/mod.rs:461-481 because the helper reaches Executed through outbox::transition, which carries no block location."
+assumption = "A test-helper gap, not a product change: do_14 routes the Executed step through outbox::record_execution with the support receipt and a block position."
+severity = "minor"
+
+[finding.18.1211.5.5]
+task = "18.1211.5"
+file = "services/interop/crates/layerx-interop-service/src/relay.rs:794"
+symbol = "a_committed_answer_with_another_block_hash_is_receipted"
+observed = "Attempt 8 (eb4261f6c on 29f8a5dc1) fails this relay test, ten server::tests and x402_settle_succeeds_on_the_receipted_rung: the relay mock's block hash literal equals the re-recorded receipt's hash, the server tests still build offers on the 'layerx:beta' network that server.rs:1131 refuses, and the settle test reports EvidenceMismatch from services/interop/crates/layerx-x402/src/seller.rs:315-352."
+assumption = "relay.rs joins touches for its tests module (decision.1979, amending 1978) and do_12 carries the three repairs without changing an assertion."
+severity = "cross-task"
+
+[finding.18.1228.1.9]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/src/agents/controls.rs:610"
+symbol = "change_protocol_limit"
+observed = "Attempt 11 (c61196b80 on 29f8a5dc1) fails only protocol_and_app_limit_changes_keep_their_real_enforcement_labels with Refused 'lifecycle transaction binding differs' (src/agents/create.rs:550): the ProtocolAction carries control_action_key (:686) while the compiled PayBudgetCreate payload and its disclosure carry the replacement budget id (:585), and the production boundary (src/server/agent_creation.rs:422, :474) binds the evidence to the disclosed key."
+assumption = "A production contradiction, not a fixture gap; decision.1980 rules the action key is the budget id and task 18.1228.2 changes controls.rs and the test's receipt builder."
+severity = "owner"
+
+[finding.18.1228.1.10]
+task = "18.1228.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:1457"
+symbol = "BudgetCreation"
+observed = "The creation journey's BudgetCreation stage compiles a PayBudgetCreate whose budget id is BudgetId::new(agent_id) (:1457) while its action key is digest(ACTION_DOMAIN, agent_id, stage) (:1646) and :1481 sets the idempotency key from that action key; under decision.1980 the two keys would have to coincide, and no gate fails on it today."
+assumption = "Recorded for the owner, not fixed by any task in this batch; the limit-change fix of 18.1228.2 does not touch the creation stages."
+severity = "owner"
+
+[finding.6.32.3.1]
+task = "6.32.3"
+file = "precompiles/common/precompiles.go:197"
+symbol = "Run"
+observed = "Attempts 1 to 3 (b6d68f78f, 11359f1e9, e499b9df6) fail 48 of 84 cases: every write method of 0x1014 after the store-delete step answers Error('execution reverted') (100 bytes) through Run instead of RetiredRevert (132 bytes), because the deferred handler repacks executor errors whenever the wrapper's retirePlan gate (:215-223) did not fire, and that gate names the nine view methods only."
+assumption = "A wrapper defect outside this test-only task; decision.1981 and task 6.34.2 keep executor revert data and reorder the Execute checks, and 6.32.3 requires it."
+severity = "cross-task"
+
+[finding.8.0.4.1]
+task = "8.0.4"
+file = "services/platform/hosted/gateway/src/main.rs:4117"
+symbol = "gateway_readiness_scope"
+observed = "Attempts 1 and 2 (f87e0cd18, d399c7d77 on a1c0f4e7f) fail chain_only_router_serves_receipts_balances_and_assets at router_surface.rs:1010: readiness answers 'degraded' because complete is computed over every KernelBackend::ALL entry and product_routes['complete'] even when no kernel backend is configured, while paxeer_chain, consensus and chain_serving are ready."
+assumption = "A product readiness rule outside this test-only task; decision.1982 and task 8.0.5 make an unconfigured kernel fall out of the readiness document, and 8.0.4 requires it."
+severity = "cross-task"
+
+[finding.8.5.3.1]
+task = "8.5.3"
+file = "services/platform/hosted/gateway/src/rpc.rs"
+symbol = "anchor_head"
+observed = "Attempts 1 and 2 (954c60ae0, 66d37aa82 on a1c0f4e7f) pass the declared test, and the completion check then fails on symbol anchor_head not defined in the graph because do_1 deletes it."
+assumption = "A spec defect: a symbol a task removes cannot stay in its symbols list; the list now names the surviving function and the test."
+severity = "note"
+
+[finding.10.20.3.16]
+task = "10.20.3"
+file = "services/human/crates/layerx-human-service/src/server/movement_provider.rs:835"
+symbol = "UnixMovementProvider::new"
+observed = "Attempt 22 (9449cd2a4 on 29f8a5dc1) fails production_components_open_without_paxeer_or_exit_environment and components_binary_starts_without_recipient_or_exit_environment with 'movement provider refused startup' from src/server/production_components.rs:707: validate_socket requires an existing socket owned by the configured peer with no other-permission bits, and the test environment only names the path."
+assumption = "A test precondition, not a product change (decision.1983); do_27 binds a listener in the test environment."
+severity = "minor"
+
+[finding.17.5.1.13]
+task = "17.5.1"
+file = "apps/web/src/app/exchange/exchange-client.tsx:18"
+symbol = "pxResolveAccount"
+observed = "Attempt 15 (682092ffd on 29f8a5dc1) fails the wave-0 gate in the apps/web build: the client component imports the server-only ../../api/gateway, and @noble/curves, @noble/hashes, @sidiora/layerx-sdk and @supabase/supabase-js imported by the aliased sdk/wallet/src are not declared by apps/web."
+assumption = "A product build defect outside this gate task; task 17.5.10 moves the read behind a server action and declares the packages, and 17.5.1 requires it."
+severity = "cross-task"

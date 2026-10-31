@@ -100,9 +100,10 @@ type Accepted struct {
 	// Height is the open height, which is also the batch id.
 	Height int64
 	// TxIndex is the position in the block; index 0 holds MsgSequenceBatch.
-	TxIndex     int
-	TimestampMs int64
-	Result      *abci.ExecTxResult
+	TxIndex        int
+	TimestampMs    int64
+	Result         *abci.ExecTxResult
+	ReceiptContext sdk.Context
 }
 
 // Batch is the sealed content of one open layer.
@@ -323,19 +324,24 @@ func (s *sequential) Seal(height int64) (*Batch, error) {
 	}, nil
 }
 
-// Snapshot holds the lock only to freeze the top branch; the read-only branch
-// over it is built and read without the lock, so readers never block Accept.
+// Snapshot holds the lock while freezing the top branch and creating a read-only
+// cache over it; the returned context is read without the lock.
 func (s *sequential) Snapshot() (sdk.Context, error) {
 	s.mu.Lock()
 	if s.open == nil {
 		s.mu.Unlock()
 		return sdk.Context{}, ErrLayerNotOpen
 	}
+	ctx := s.receiptContextLocked()
+	s.mu.Unlock()
+	return ctx, nil
+}
+
+func (s *sequential) receiptContextLocked() sdk.Context {
 	ctx := s.open.ctx
 	frozen := s.open.layers.freeze(len(s.open.txs))
 	s.open.ctx = ctx.WithMultiStore(s.open.layers.top())
-	s.mu.Unlock()
-	return ctx.WithMultiStore(frozen.CacheMultiStore()), nil
+	return ctx.WithMultiStore(frozen.CacheMultiStore())
 }
 
 func (s *sequential) PendingTx(hash [32]byte) (PendingTx, bool) {
