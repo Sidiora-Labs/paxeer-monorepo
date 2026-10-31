@@ -134302,7 +134302,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.11.3]
 title = "Remove the kernel socket from the receipt authority"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.11.2", "8.0.4", "9.1.8", "18.1083.1", "18.1297.1"]
@@ -157422,7 +157422,7 @@ do_4 = "Attempt 2 (cf3827a1e on f01e6246f) passed the build through a next.confi
 
 [task.17.5.11]
 title = "Web wallet reads call the gateway through a server-action module without a build alias"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["17.5.10"]
@@ -168969,7 +168969,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.4.4]
 title = "Drop the authorized-batch exports from the fastapi package surface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["15.4.3"]
