@@ -5055,6 +5055,24 @@ value = "Every pending task with a non-empty interfaces list carries proof_polic
 basis = "The 2026-10-31 review of the qualified work found unit gates passing while the real path did not: a support receipt the consumer could not verify (18.1200.1), a socket the authority still needed after its removal (8.11.3), a validator with a live caller (8.20.1), a generator pinned to a removed schema (9.97.3), a mock block missing a field the decoder requires (18.1211.5). Each cost a repair cycle that an end-to-end proof in the first attempt would have caught."
 affects = ["18.1200.1", "8.11.3", "8.20.1", "9.97.3", "18.1211.5", "16.2.4", "5.97.1", "15.0.4", "10.20.3", "8.98.3", "8.98.4", "8.98.5", "8.98.6"]
 
+[decision.1991]
+title = "The paxeer verifier leaves the platform manifests, not the platform lock"
+value = "Task 8.20.3 removes the layerx-paxeer-verifier dependency from services/platform/hosted/authority/Cargo.toml:17 and services/platform/hosted/indexer/Cargo.toml:22 and the PaxeerCheckpointVerifier from trust.rs; the [[package]] entry for layerx-paxeer-verifier stays in services/platform/Cargo.lock because layerx-client (services/agent/crates/layerx-client/Cargo.toml), layerx-agentd and layerx-paxeer-client, which the platform crates depend on, still pull it. test_paxeer_verifier_is_not_a_platform_dependency asserts the two manifests name no verifier and the layerx-platform-authority and layerx-indexer package entries of the lock list no 'layerx-paxeer-verifier' dependency; it does not assert the package is absent from the lock."
+basis = "Attempts 1 and 2 of 8.20.3 (94b5caf8c on 71b0f8ac8, 0c05fca05 on b4769b6cf) removed both direct dependencies, built with --locked and failed only the planned test, which asserted the whole lock free of the verifier while layerx-client, layerx-agentd and layerx-paxeer-client still depend on it; retiring the verifier from the agent crates is a different task."
+affects = ["8.20.3"]
+
+[decision.1992]
+title = "The SDK consumers retire the kernel receipt verification before the receipt outputs are regenerated"
+value = "sdk/platform/generators/receipt.kvx (task 8.45.1) lists failure_checks decode, canonical-encoding, receipt-version, activity-id, key-id, key-height, raw-transaction, fields, return-data, logs, sequence-hash and signature and no program outcome, programs module id or required-nonzero list, so the regenerated receipt_generated.rs, receipt.ts and receipt.py no longer define PROGRAMS_MODULE_ID, PROGRAM_OUTCOME_TAGS, REQUIRED_NONZERO_CHECKS or the ReceiptFailureCode members ReceiptShape, ModuleId, ResultCode, ResultingStateRoot, Timestamp, SequencerSignature, ProgramOutcome, ProtocolVersion, GlobalSequence and ModuleVersion. The kernel receipt verification that still uses them (services/agent/crates/layerx-sdk/src/production.rs verify_receipt and its decoding, lib.rs:69-71, services/agent/sdk/python/layerx_sdk/verifier.py verify_receipt and the protocol receipt stack, services/agent/sdk/typescript/src/verifier.ts verifyReceipt and the program outcome decoders, with their callers in programs.py, web_search.py, x402.py, programs.ts) verifies receipts of the kernel producer 1d0cc3720 (task 9.10.2) retired. It is deleted first: task 9.97.6 (Rust), tasks 9.97.9 and 9.97.10 then 9.97.7 (Python: web_search and x402 draw move to verify_sequencer_receipt as the TypeScript SDK already does in web-search.ts:315 and x402/draw.ts:70), task 9.97.8 (TypeScript); 9.97.3 requires 9.97.6, 9.97.7 and 9.97.8 and regenerates afterwards so every revision compiles. The sequencer and committed receipt paths (verify_sequencer_receipt, verifySequencerReceipt, verifyCommittedReceipt, ReceiptKey, verify_mirror_receipt_from_sources) stay."
+basis = "Attempts 3 and 4 of 9.97.3 (28f485ddd on 17dd9f358, feb420d28 on d9595e251) regenerated the four outputs correctly and cargo build -p layerx-sdk failed with 22 errors in production.rs:62-99 and the lib.rs re-exports; verifier.py:9-10 imports PROGRAM_OUTCOME_TAGS and PROGRAMS_MODULE_ID and verifier.ts:5-7 the same, so the Python test and the TypeScript build would fail the same way. No open task touched those consumers."
+affects = ["9.97.3", "9.97.6", "9.97.7", "9.97.8", "9.97.9", "9.97.10", "8.45.4"]
+
+[decision.1993]
+title = "A test gate skips the cases another task owns in the same binary"
+value = "When a task's declared tests share a cargo test binary with cases another open task owns (its tests list names them), the verify command runs the binary with --skip for those cases instead of the whole binary; the owning task's gate proves them. 18.1228.1 skips archive_fixture::every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity, archive_fixture::acknowledgement_gap_faults_converge_without_resubmitting_unknown and archive_fixture::crashes_after_every_durable_stage_resume_with_one_effect_per_leg of services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs, which 18.1149.1 lists as its tests (decision.1883)."
+basis = "Attempt 13 of 18.1228.1 (0315bff0d on 17dd9f358) built all seven test binaries and failed only those three archive_fixture cases with UndeclaredActivity(196616) at agent_controls_rungs.rs:2197, the reclaim journey divergence finding.10.2.9.1 already assigned to 18.1149.1; the whole-binary verify made 18.1228.1 an aggregate gate for work it does not own."
+affects = ["18.1228.1", "18.1149.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -135216,7 +135234,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.19.7]
 title = "Delete the kernel node test of the receipt authority"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "8.11.3"]
@@ -135457,8 +135475,8 @@ fulfils = ["wiring.J44.10"]
 do_1 = "Delete the layerx-paxeer-verifier dependency of the indexer (services/platform/hosted/indexer/Cargo.toml:21), whose only user settlement.rs (services/platform/hosted/indexer/src/settlement.rs:15) task 8.16.4 deletes."
 do_2 = "Delete the PaxeerCheckpointVerifier import, field and constructor argument of the authority trust (services/platform/hosted/authority/src/trust.rs:14, services/platform/hosted/authority/src/trust.rs:25, services/platform/hosted/authority/src/trust.rs:106), unused once task 8.11.2 removes the checkpoint verification (services/platform/hosted/authority/src/trust.rs:155-176)."
 do_3 = "Delete the layerx-paxeer-verifier dependency of the authority (services/platform/hosted/authority/Cargo.toml:17)."
-do_4 = "Regenerate services/platform/Cargo.lock offline so only layerx-paxeer-verifier and the packages it alone pulled leave the lock (services/platform/Cargo.lock:1); decision.809 allows this edit."
-do_5 = "Add test_paxeer_verifier_is_not_a_platform_dependency to services/platform/hosted/tests/test_workspace_manifest.py (planned)."
+do_4 = "Regenerate services/platform/Cargo.lock offline so the layerx-platform-authority and layerx-indexer package entries lose their 'layerx-paxeer-verifier' dependency line; the layerx-paxeer-verifier package entry stays because layerx-client, layerx-agentd and layerx-paxeer-client still pull it (services/platform/Cargo.lock:1387, decision.1991); decision.809 allows this edit. Regenerating also drops the stale 'layerx-programs-protocol-adapter' line under layerx-platform-registry (task 18.1297.2) when it is still there."
+do_5 = "Add test_paxeer_verifier_is_not_a_platform_dependency to services/platform/hosted/tests/test_workspace_manifest.py (planned): parse services/platform/hosted/authority/Cargo.toml and services/platform/hosted/indexer/Cargo.toml and assert neither names layerx-paxeer-verifier; parse services/platform/Cargo.lock and assert the [[package]] entries named layerx-platform-authority and layerx-indexer list no 'layerx-paxeer-verifier' dependency. Do not assert the package is absent from the lock (decision.1991)."
 symbols = ["Trust", "test_paxeer_verifier_is_not_a_platform_dependency"]
 touches = ["services/platform/hosted/indexer/Cargo.toml", "services/platform/hosted/authority/Cargo.toml", "services/platform/hosted/authority/src/trust.rs", "services/platform/Cargo.lock", "services/platform/hosted/tests/test_workspace_manifest.py"]
 tests = ["services/platform/hosted/tests/test_workspace_manifest.py::test_paxeer_verifier_is_not_a_platform_dependency"]
@@ -139448,7 +139466,7 @@ do_2 = "Delete program_events_page and program_events_query (tools/platform/cli/
 do_3 = "Delete Client::post_activity (tools/platform/cli/src/http.rs:197), whose last callers were the /v1/programs routes removed by task 8.49.2."
 do_4 = "Remove the lx_ methods from tools/platform/cli/tests/fixtures/openrpc.json:1 and re-target the lx_requestFunds and lx_subscribe cases of tools/platform/cli/tests/rpc_identity.rs:64-140 to the faucet route and eth_subscribe."
 do_5 = "Create tools/platform/cli/tests/lx_switch_off.rs (planned) covering vector V8 of spec/layerx-merge/contracts/clients.md:277."
-symbols = ["request", "call", "program_events_page", "post_activity"]
+symbols = ["request", "call", "program_events_page"]
 touches = ["tools/platform/cli/src/rpc.rs", "tools/platform/cli/src/http.rs", "tools/platform/cli/tests/fixtures/openrpc.json", "tools/platform/cli/tests/rpc_identity.rs", "tools/platform/cli/tests/lx_switch_off.rs"]
 tests = ["tools/platform/cli/tests/lx_switch_off.rs::request_refuses_every_switched_off_name", "tools/platform/cli/tests/lx_switch_off.rs::openrpc_fixture_lists_no_lx_method", "tools/platform/cli/tests/lx_switch_off.rs::server_minus_32601_is_reported_as_switched_off"]
 planned_paths = ["tools/platform/cli/tests/lx_switch_off.rs"]
@@ -139466,6 +139484,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Attempts 1 and 2 (e16f669b1, 71346e460 on 17dd9f358) implemented every do line, built and passed the three declared tests, and the graph check refused because symbols listed post_activity, which do_3 deletes; symbols now lists only request, call and program_events_page, the symbols that exist after the task. Continue from attempt 2; no code change is expected."
 
 [task.8.51.1]
 title = "Emulator core stops calling the retired batch seal, batch sign and history functions"
@@ -139952,7 +139971,7 @@ do_7 = "Attempt 2 (ecf49ad3c) and attempt 3 failed before the verify: the core b
 
 [task.8.98.1]
 title = "Migrate the agent-boundary callers of wiring.J44.20 (wave 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.2", "9.1.8", "8.8.1", "8.8.3", "8.8.4", "18.1083.1", "18.1297.1"]
@@ -145537,7 +145556,7 @@ title = "Regenerate the receipt contract outputs after the resealed pipeline loc
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["9.0.4", "8.0.4", "9.1.7", "18.1304.1"]
+requires = ["9.0.4", "8.0.4", "9.1.7", "18.1304.1", "9.97.6", "9.97.7", "9.97.8"]
 reqs = ["9967.1"]
 capabilities = []
 interfaces = []
@@ -145563,6 +145582,165 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "receipt_contract (sdk/platform/generators/src/main.rs:418) requires [type.ProgramExecutionV4] and [type.ProgramExecutionV5] of services/agent/schema/agent-api/programs.kvx, which 1d0cc3720 (task 9.10.2) removed with the kernel program-execution types, so attempt 1 (ae367b322 on 00271f78c) failed with 'missing declaration type.ProgramExecutionV4.domain' (decision.1989). Delete that loop (main.rs:519-553) with the terminal.rs read it drives, keep the ProgramGuestAbi checks and the rest of ReceiptContract, keep the drift.rs fixtures parsing, then run --write-program-contracts per do_1; sdk/platform/generators/src/main.rs joins the touches. 8.45.4, which requires this task, reseals the digests afterwards."
+do_5 = "Attempts 3 and 4 (28f485ddd on 17dd9f358, feb420d28 on d9595e251) regenerated the four outputs from the 8.45.1 contract and layerx-sdk stopped compiling: production.rs:56-209 and :791, lib.rs:69-71, verifier.py and verifier.ts still implemented the kernel receipt verification over PROGRAMS_MODULE_ID, PROGRAM_OUTCOME_TAGS, REQUIRED_NONZERO_CHECKS and the retired ReceiptFailureCode members. Tasks 9.97.6 (Rust), 9.97.7 with 9.97.9 and 9.97.10 (Python) and 9.97.8 (TypeScript) retire those consumers first; this task now requires 9.97.6, 9.97.7 and 9.97.8 and regenerates against consumers that only use the sequencer receipt path (decision.1992)."
+
+[task.9.97.8]
+title = "Retire the kernel receipt verification from the TypeScript SDK"
+status = "pending"
+mode = "BUILD"
+wave = 29
+requires = ["9.92.1", "9.34.2"]
+reqs = ["9967.1"]
+capabilities = []
+interfaces = []
+fulfils = []
+do_1 = "Delete from services/agent/sdk/typescript/src/verifier.ts the kernel receipt stack: the PROGRAM_OUTCOME_TAGS and PROGRAMS_MODULE_ID imports (:5-7) and the PROGRAM_OUTCOME_V1..V4 unpacking (:24), programsModuleVersionForProtocol (:48), decodeProgramReceiptOutcomeFrom (:509), decodeProgramReceiptOutcome (:604), decodeProtocolReceipt (:619), verifyStateChain, verifyTransferOutcome, verifyProgramCallOutcome and verifyProgramStateOutcome (:774-834), verifyProgramLifecycleReceipt (:835), verifyReceiptOutcome (:847), verifyNativeProgramReceiptOutcomeV5 (:894) and verifyReceipt (:940) with the ProtocolReceipt, ProgramReceiptOutcome and AuthorizedReceiptBatch types and the batch header and merkle helpers no kept item uses. Keep verifySequencerReceipt (:1026), verifyCommittedReceipt (:1105), their types, receiptFailure with the regenerated ReceiptFailureCode members, isSelectableProtocolVersion, selectedProtocolVersion and supportedProgramGuestAbi (decision.1992)."
+do_2 = "Delete the kernel program receipt callers in services/agent/sdk/typescript/src/programs.ts: verifyProgramReceipt (:127), verifyProgramReceiptV5 (:179), resolveLifecycleResponse (:370), verifyLifecycleRecovery (:389) and wireAuthority (:670) with the imports at :4-6 they alone need; keep the program discovery, interface and execution-document functions. index.ts re-exports both modules, so no export list changes."
+do_3 = "Delete the test cases that exercise the deleted functions in test/program-executed-v3.test.ts, test/native-abi5.test.ts, test/native-receipt.test.ts, test/program-lifecycle.test.ts and test/receipt-fixture.test.ts; a file left without cases is deleted and removed from the test script of services/agent/sdk/typescript/package.json."
+do_4 = "Create services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts (planned) with kernel_receipt_paths_are_gone: import the built package index and assert verifyReceipt, verifyReceiptOutcome, verifyProgramLifecycleReceipt, verifyNativeProgramReceiptOutcomeV5, decodeProgramReceiptOutcome, verifyProgramReceipt, PROGRAM_OUTCOME_TAGS and PROGRAMS_MODULE_ID are undefined and verifySequencerReceipt and verifyCommittedReceipt are functions; the sequencer receipt, web search and x402 draw tests of the verify command stay green."
+symbols = ["verifyReceipt", "verifyReceiptOutcome", "verifyProgramReceipt"]
+touches = ["services/agent/sdk/typescript/src/verifier.ts", "services/agent/sdk/typescript/src/programs.ts", "services/agent/sdk/typescript/package.json", "services/agent/sdk/typescript/test/program-executed-v3.test.ts", "services/agent/sdk/typescript/test/native-abi5.test.ts", "services/agent/sdk/typescript/test/native-receipt.test.ts", "services/agent/sdk/typescript/test/program-lifecycle.test.ts", "services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts"]
+tests = ["services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts::kernel_receipt_paths_are_gone", "services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key", "services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts::verify_committed_receipt_two_thirds"]
+planned_paths = ["services/agent/sdk/typescript/test/retired-kernel-receipts.test.ts"]
+build_cmd = "cd services/agent/sdk/typescript && npm run build"
+verify_cmd = "cd services/agent/sdk/typescript && npm run build && node dist/test/retired-kernel-receipts.test.js && node dist/test/sequencer-receipt-verify.test.js verify_sequencer_receipt_pinned_key verify_committed_receipt_two_thirds && node dist/test/web-search-sequencer.test.js && node dist/test/x402-draw-sequencer.test.js"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the touched files; the TypeScript SDK exports the kernel receipt verification again and 9.97.3 stays blocked."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.97.7]
+title = "Retire the kernel receipt verification from the Python SDK"
+status = "pending"
+mode = "BUILD"
+wave = 29
+requires = ["9.96.1", "9.97.9", "9.97.10"]
+reqs = ["9967.1"]
+capabilities = []
+interfaces = []
+fulfils = []
+do_1 = "Delete from services/agent/sdk/python/layerx_sdk/verifier.py the kernel receipt stack: the PROGRAM_OUTCOME_TAGS and PROGRAMS_MODULE_ID imports (:9-10), programs_module_version_for_protocol (:16), the _PROGRAM_OUTCOME_V1..V4 unpacking (:34), ReceiptEffect (:272), ProgramReceiptOutcome (:283), ProtocolReceipt (:311), AuthorizedReceiptBatch (:345), SequencerAuthorization (:446), InclusionVerification (:457), verify_batch_inclusion (:464), CheckpointAttestation, GuarantorKey, CheckpointCertificate, CheckpointVerificationInput and CheckpointVerification (:507-562), _attestation_message (:581), verify_checkpoint (:602), _all_zero (:690), _decode_program_receipt_outcome_from (:697), decode_program_receipt_outcome (:809), _decode_protocol_receipt (:825), verify_program_lifecycle_receipt (:971), verify_receipt_outcome (:984), verify_program_receipt_outcome_v5 (:993), _verify_receipt_outcome (:1017) and verify_receipt (:1088), plus BatchHeader, decode_batch_header, _field and verify_merkle_inclusion when no kept item uses them. Keep ReceiptVerificationError, _receipt_failure, _failure, _exact, _equal, _digest, LocalSignatureVerifier, ReceiptVerification, ReceiptKey, SequencerReceiptVerificationError, SequencerReceiptVerification and verify_sequencer_receipt (:387) (decision.1992)."
+do_2 = "Delete verify_program_receipt (services/agent/sdk/python/layerx_sdk/programs.py:188) and the imports it alone needs (:18-29: AuthorizedReceiptBatch, programs_module_version_for_protocol, verify_program_lifecycle_receipt, verify_receipt_outcome, verify_program_receipt_outcome_v5); the kernel program receipt it verified has no producer since 1d0cc3720 (task 9.10.2)."
+do_3 = "Remove the exports of the deleted names from services/agent/sdk/python/layerx_sdk/__init__.py (verify_program_receipt :136, AuthorizedReceiptBatch :183 and :358, ProtocolReceipt :193, verify_batch_inclusion :199, verify_checkpoint :200, verify_receipt :202, verify_receipt_outcome :203 and any other deleted name), keeping ReceiptKey, verify_sequencer_receipt and the x402 and web search exports."
+do_4 = "Create services/agent/sdk/python/tests/test_retired_kernel_receipts.py (planned) with test_kernel_receipt_paths_are_gone: import layerx_sdk and layerx_sdk.verifier and assert verify_receipt, verify_receipt_outcome, verify_program_lifecycle_receipt, verify_batch_inclusion, verify_checkpoint, decode_program_receipt_outcome, AuthorizedReceiptBatch, ProtocolReceipt and verify_program_receipt are absent and verify_sequencer_receipt and ReceiptKey present; the sequencer receipt, web search and x402 draw tests of the verify command stay green."
+symbols = ["verify_receipt", "verify_receipt_outcome", "verify_program_receipt"]
+touches = ["services/agent/sdk/python/layerx_sdk/verifier.py", "services/agent/sdk/python/layerx_sdk/programs.py", "services/agent/sdk/python/layerx_sdk/__init__.py", "services/agent/sdk/python/tests/test_retired_kernel_receipts.py"]
+tests = ["services/agent/sdk/python/tests/test_retired_kernel_receipts.py::test_kernel_receipt_paths_are_gone", "services/agent/sdk/python/tests/test_sequencer_receipt.py::test_verify_sequencer_receipt_pinned_key", "services/agent/sdk/python/tests/test_sequencer_receipt.py::test_verify_rpc_payment_uses_receipt_keys"]
+planned_paths = ["services/agent/sdk/python/tests/test_retired_kernel_receipts.py"]
+build_cmd = "python3 -m compileall -q services/agent/sdk/python/layerx_sdk"
+verify_cmd = "cd services/agent/sdk/python && python3 -m pytest tests/test_retired_kernel_receipts.py tests/test_sequencer_receipt.py tests/test_web_search_sequencer.py tests/test_x402_draw_sequencer.py -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the three modules and delete the planned test; the Python SDK exports the kernel receipt verification again and 9.97.3 stays blocked."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.97.10]
+title = "Python x402 draws verify sequencer receipts through pinned receipt keys"
+status = "pending"
+mode = "BUILD"
+wave = 29
+requires = ["9.96.1"]
+reqs = ["9967.1"]
+capabilities = []
+interfaces = []
+fulfils = []
+do_1 = "Port the draw verification of services/agent/sdk/python/layerx_sdk/x402.py:120-200, which checks a kernel protocol version, verify_batch_inclusion (:128), verify_checkpoint (:158) and verify_receipt_outcome over an AuthorizedReceiptBatch (:163-191), to verify_sequencer_receipt(signed_receipt, raw_transaction, receipt_keys) of services/agent/sdk/python/layerx_sdk/verifier.py:387 with the receipt keys services/agent/sdk/python/layerx_sdk/x402_rpc.py already pins (task 9.96.1), exactly as services/agent/sdk/typescript/src/x402/draw.ts:70 does with verifySequencerReceipt; drop the batch, checkpoint and protocol-version inputs the kernel draw carried (decision.1992)."
+do_2 = "Keep the draw's ledger and payment behaviour unchanged; the verified receipt's activity id and raw transaction are what the draw records, as test/x402-draw-sequencer.test.ts asserts for the TypeScript SDK."
+do_3 = "Create services/agent/sdk/python/tests/test_x402_draw_sequencer.py (planned) with test_x402_draw_verifies_the_sequencer_receipt and test_x402_draw_refuses_a_receipt_under_an_unknown_key over the signed receipt and raw transaction fixture of tests/test_sequencer_receipt.py, with the key pinned and then replaced by an unknown key."
+symbols = ["verify_sequencer_receipt"]
+touches = ["services/agent/sdk/python/layerx_sdk/x402.py", "services/agent/sdk/python/tests/test_x402_draw_sequencer.py"]
+tests = ["services/agent/sdk/python/tests/test_x402_draw_sequencer.py::test_x402_draw_verifies_the_sequencer_receipt", "services/agent/sdk/python/tests/test_x402_draw_sequencer.py::test_x402_draw_refuses_a_receipt_under_an_unknown_key"]
+planned_paths = ["services/agent/sdk/python/tests/test_x402_draw_sequencer.py"]
+build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402.py services/agent/sdk/python/layerx_sdk/x402_rpc.py services/agent/sdk/python/layerx_sdk/verifier.py"
+verify_cmd = "cd services/agent/sdk/python && python3 -m pytest tests/test_x402_draw_sequencer.py -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert x402.py and delete the planned test; the Python x402 draw verifies kernel batches and checkpoints again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.97.9]
+title = "Python web search verifies sequencer receipts through pinned receipt keys"
+status = "pending"
+mode = "BUILD"
+wave = 29
+requires = ["9.96.1"]
+reqs = ["9967.1"]
+capabilities = []
+interfaces = []
+fulfils = []
+do_1 = "Port the receipt verification of services/agent/sdk/python/layerx_sdk/web_search.py:835-845, which builds an AuthorizedReceiptBatch through the authority callable (:435) and calls verify_receipt, to verify_sequencer_receipt(signed_receipt, raw_transaction, receipt_keys) of services/agent/sdk/python/layerx_sdk/verifier.py:387 with receipt keys the client is constructed with, exactly as services/agent/sdk/typescript/src/web-search.ts:315 and :482-505 do with verifySequencerReceipt over receiptKeys; drop the authority callable, the protocol-version option and the WebSearchError('receipt-protocol-version') refusal (:836) that only the kernel receipt carried (decision.1992)."
+do_2 = "Keep every other web search behaviour (offers, payment, result decoding) unchanged; the receipt the client verifies is the sequencer receipt the gateway returns with its raw transaction, the same input test/web-search-sequencer.test.ts feeds the TypeScript client."
+do_3 = "Create services/agent/sdk/python/tests/test_web_search_sequencer.py (planned) with test_web_search_receipt_verifies_through_receipt_keys and test_web_search_refuses_a_receipt_under_an_unknown_key, driving the Python client against the same signed receipt and raw transaction fixture tests/test_sequencer_receipt.py::test_verify_sequencer_receipt_pinned_key uses, with the key pinned and then replaced by an unknown key."
+symbols = ["verify_sequencer_receipt"]
+touches = ["services/agent/sdk/python/layerx_sdk/web_search.py", "services/agent/sdk/python/tests/test_web_search_sequencer.py"]
+tests = ["services/agent/sdk/python/tests/test_web_search_sequencer.py::test_web_search_receipt_verifies_through_receipt_keys", "services/agent/sdk/python/tests/test_web_search_sequencer.py::test_web_search_refuses_a_receipt_under_an_unknown_key"]
+planned_paths = ["services/agent/sdk/python/tests/test_web_search_sequencer.py"]
+build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/web_search.py services/agent/sdk/python/layerx_sdk/verifier.py"
+verify_cmd = "cd services/agent/sdk/python && python3 -m pytest tests/test_web_search_sequencer.py -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert web_search.py and delete the planned test; the Python web search client verifies kernel receipts again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.97.6]
+title = "Retire the kernel receipt verification from layerx-sdk"
+status = "pending"
+mode = "BUILD"
+wave = 29
+requires = ["9.32.4", "11.26.6", "9.35.2"]
+reqs = ["9967.1"]
+capabilities = []
+interfaces = []
+fulfils = []
+do_1 = "Delete verify_receipt (services/agent/crates/layerx-sdk/src/production.rs:791) and the kernel receipt decoding only it uses: proof_receipt_failure (:56), the RECEIPT_STRUCTURE_TAG, RECEIPT_MAX_EFFECTS, RECEIPT_MAX_EFFECT_BODY, RECEIPT_SIGNATURE_TAIL_BYTES and PROGRAM_OUTCOME_ENCODED_BYTES constants (:78-82), ReceiptNonzeroFacts (:84-109), receipt_array, receipt_prefix, receipt_decode_failure and decode_receipt_invariants (:110-209), the layerx_proof::receipt imports (:18-21) and ReceiptVerificationFailure (:34) when nothing else uses it. Keep verify_mirror_receipt_from_sources (:834), verify_batch_inclusion (:852), verify_state_inclusion (:873) and everything else in the file (decision.1992)."
+do_2 = "Drop PROGRAMS_MODULE_ID, PROGRAM_OUTCOME_TAGS and REQUIRED_NONZERO_CHECKS from the receipt_generated re-export at services/agent/crates/layerx-sdk/src/lib.rs:69-71, keeping ReceiptFailureCode; receipt_generated.rs itself is not edited (task 9.97.3 regenerates it)."
+do_3 = "Delete the test cases that call production::verify_receipt: tests/sdk.rs (:363, :452, :592), tests/receipt_fixture.rs (:247, :330, :348, :405), tests/receipt_keys.rs (:99, :124) and tests/offline_export.rs (:270, :318), with the fixtures only they use; keep the layerx_proof::inclusion::verify_receipt cases of offline_export.rs (:296, :306) and every sequencer receipt and ReceiptKey case. A test file left without cases is deleted and its touches entry records that."
+do_4 = "The four remaining test binaries pass unchanged otherwise; the run is the proof that the sequencer receipt path never used the deleted items."
+symbols = ["verify_receipt", "ReceiptNonzeroFacts"]
+touches = ["services/agent/crates/layerx-sdk/src/production.rs", "services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs", "services/agent/crates/layerx-sdk/tests/receipt_fixture.rs", "services/agent/crates/layerx-sdk/tests/receipt_keys.rs", "services/agent/crates/layerx-sdk/tests/offline_export.rs"]
+tests = ["services/agent/crates/layerx-sdk/tests/receipt_keys.rs", "services/agent/crates/layerx-sdk/tests/receipt_fixture.rs", "services/agent/crates/layerx-sdk/tests/offline_export.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs"]
+planned_paths = []
+build_cmd = "cargo build --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests"
+verify_cmd = "cargo test --manifest-path services/agent/Cargo.toml -p layerx-sdk --test receipt_keys --test receipt_fixture --test offline_export --test sdk"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the six touched files; layerx-sdk verifies kernel receipts again and 9.97.3 stays blocked."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.9.97.4]
 title = "Verify managed agent owner transactions as EIP-1559 instead of layerx-intents envelopes"
@@ -156718,7 +156896,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.25.4]
 title = "Derive kernel availability from the px_getNetwork consensus head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.24.5"]
@@ -169408,7 +169586,7 @@ do_13 = "Attempt 5 (7e3367d33) passes both unittest gates and test_makefile_chai
 
 [task.16.0.4]
 title = "Retire the batch WAL, finality, custody-proof, credit and anchor submit rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.3", "8.0.4", "10.0.4"]
@@ -191642,7 +191820,7 @@ touches = ["services/agent/crates/layerx-agentd/tests/revocation.rs", "services/
 tests = ["services/agent/crates/layerx-agentd/tests/revocation.rs::revocation_cancels_only_unsubmitted_work_and_persists_session_invalidation", "services/agent/crates/layerx-agentd/tests/tenant_resolve.rs::spoofed_request_tenants_are_ignored_on_every_surface", "services/human/crates/layerx-human-service/tests/session_keys.rs::real_agent_session_is_scope_bounded_and_pause_archive_revoke_both_layers"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test revocation --test tenant_resolve && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test session_keys --test archive --test session_rungs --test agent_controls --test agent_controls_rungs"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test revocation --test tenant_resolve && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test session_keys --test archive --test session_rungs --test agent_controls --test agent_controls_rungs"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test revocation --test tenant_resolve && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test session_keys --test archive --test session_rungs --test agent_controls --test agent_controls_rungs -- --skip archive_fixture::every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity --skip archive_fixture::acknowledgement_gap_faults_converge_without_resubmitting_unknown --skip archive_fixture::crashes_after_every_durable_stage_resume_with_one_effect_per_leg"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -191669,6 +191847,7 @@ do_15 = "Attempt 9 (09ee34cfb on bf4e10a64) applied do_11 to do_13 in full and m
 do_16 = "Decision 1976: give sign_transaction (services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:55-100) a previous_budget_id parameter, compute the replacement as sha256 over BUDGET_DOMAIN, previous_budget_id and action_key exactly as services/human/crates/layerx-human-service/src/agents/controls.rs:585 and :686-700 do, assert payload[2..34] against it at :78, and pass the agent's active protocol budget id from every caller; change no file under src."
 do_17 = "Attempt 11 (c61196b80 on 29f8a5dc1) passes revocation, tenant_resolve and every target except protocol_and_app_limit_changes_keep_their_real_enforcement_labels, which refuses with 'lifecycle transaction binding differs' because change_protocol_limit submits the control action key while the payload carries the replacement budget id (decision.1980). Task 18.1228.2 owns src/agents/controls.rs, tests/agent_controls_rungs.rs and tests/support/canonical_owner.rs for that fix, do_11 to do_13 move to it, and this task requires it. Continue from attempt 11 with tests/support/canonical_owner.rs and tests/agent_controls_rungs.rs restored to the base, keep the edits of the other six files, and re-qualify on a base that carries 18.1228.2."
 do_18 = "Attempt 12 (d18b453ab on 7bf426680) restored canonical_owner.rs and agent_controls_rungs.rs per do_17 but tests/agent_controls.rs still calls canonical_owner::replacement_budget_id (:397, :721) and a five-argument sign_transaction (:747): E0425 twice and E0061. Re-port agent_controls.rs to decision.1980: self.active_budget_id = action.action_key at :397, BudgetId::new(action_key) at :721, and the four-argument sign_transaction(payload, action_key, version, network) of canonical_owner.rs:65 at :747 and in protocol_receipt and its callers, dropping previous_budget_id; canonical_owner.rs and agent_controls_rungs.rs stay at their base content."
+do_19 = "Attempt 13 (0315bff0d on 17dd9f358) built all seven test binaries and failed only the three archive_fixture cases of agent_controls_rungs.rs that task 18.1149.1 owns (UndeclaredActivity(196616) at :2197, finding.10.2.9.1); the verify command now skips those three cases and proves every other test of the seven binaries (decision.1993). Continue from attempt 13 without touching the archive_fixture module."
 
 [task.18.1228.2]
 title = "Issue #1228: Submit the replacement budget id as the limit-change action key"
@@ -192480,6 +192659,36 @@ gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
 rollback = "Restore the eight lock files from the previous revision; --locked builds in those workspaces are refused again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1297.2]
+title = "Issue #1297: Refresh services/platform/Cargo.lock after the registry manifest dropped layerx-programs-protocol-adapter"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181297.1"]
+capabilities = []
+interfaces = []
+do_1 = "0fdebd9dc (task 8.96.4) removed the layerx-programs-protocol-adapter path dependency from services/platform/hosted/registry/Cargo.toml and its gate built without --locked, so services/platform/Cargo.lock still lists 'layerx-programs-protocol-adapter' under the layerx-platform-registry package (services/platform/Cargo.lock:1583, the entry at :1591) and every --locked gate of the platform workspace refuses with 'the lock file needs to be updated' (attempts 8.98.5 a5 82bf18444, 8.98.1 a3 2002fee9b, 8.4.4 a2 dbeb9da7e, 10.20.3 a24 88a3285ad)."
+do_2 = "Regenerate services/platform/Cargo.lock against the current manifests with cargo metadata --manifest-path services/platform/Cargo.toml --format-version 1 >/dev/null (without --locked); the only intended change is the removal of that one dependency line, with no version moves: layerx-programs-protocol-adapter itself stays because services/platform/hosted/agent-boundary/Cargo.toml:26 still depends on it. If the line is already gone at the base revision, the task is a no-op proven by do_3."
+do_3 = "Then cargo metadata --locked --manifest-path services/platform/Cargo.toml --format-version 1 and cargo build --locked -p layerx-platform-registry pass; no Cargo.toml changes (decision.809 allows the lock edit)."
+symbols = []
+touches = ["services/platform/Cargo.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cargo metadata --manifest-path services/platform/Cargo.toml --format-version 1 >/dev/null"
+verify_cmd = "cargo metadata --locked --manifest-path services/platform/Cargo.toml --format-version 1 >/dev/null && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-registry"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Restore services/platform/Cargo.lock from the previous revision; --locked builds in the platform workspace are refused again."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
