@@ -26,7 +26,6 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
     case agentCapabilityList = "agent:capability.list"
     case agentCapabilityRevoke = "agent:capability.revoke"
     case agentExportOffline = "agent:export.offline"
-    case agentFaucetClaim = "agent:faucet.claim"
     case agentMcpInvoke = "agent:mcp.invoke"
     case agentPolicyDryRun = "agent:policy.dry_run"
     case agentPrepare = "agent:prepare"
@@ -167,7 +166,6 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
         case .agentCapabilityList: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
         case .agentCapabilityRevoke: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
         case .agentExportOffline: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
-        case .agentFaucetClaim: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
         case .agentMcpInvoke: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
         case .agentPolicyDryRun: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
         case .agentPrepare: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
@@ -240,8 +238,8 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
         case .humanAuthenticatorStatus: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
         case .humanEvidenceGet: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
         case .humanHomeSummary: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
-        case .humanIntentPlan: return OperationTransport(kind: "evm", method: "eth_call", to: nil, selector: nil, perLeg: true)
-        case .humanIntentSubmit: return OperationTransport(kind: "evm", method: "eth_sendRawTransaction", to: nil, selector: nil, perLeg: true)
+        case .humanIntentPlan: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
+        case .humanIntentSubmit: return OperationTransport(kind: "http", method: "POST", to: nil, selector: nil, perLeg: false)
         case .humanJourneyGet: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
         case .humanJourneyList: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
         case .humanJourneyPage: return OperationTransport(kind: "http", method: "GET", to: nil, selector: nil, perLeg: false)
@@ -310,7 +308,6 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
         case .agentCapabilityList: return OperationDescriptor(plane: .agent, name: "capability.list", method: .post, path: "", requestType: "object", responseType: "AuthorityResponse<CapabilityRecords>", requiresIdempotency: false, bodyless: false)
         case .agentCapabilityRevoke: return OperationDescriptor(plane: .agent, name: "capability.revoke", method: .post, path: "", requestType: "object", responseType: "AuthorityResponse<CapabilityRecord>", requiresIdempotency: true, bodyless: false)
         case .agentExportOffline: return OperationDescriptor(plane: .agent, name: "export.offline", method: .post, path: "", requestType: "object", responseType: "VerifiedRead<OfflineExport>", requiresIdempotency: false, bodyless: false)
-        case .agentFaucetClaim: return OperationDescriptor(plane: .agent, name: "faucet.claim", method: .post, path: "", requestType: "object", responseType: "FaucetGrant", requiresIdempotency: false, bodyless: false)
         case .agentMcpInvoke: return OperationDescriptor(plane: .agent, name: "mcp.invoke", method: .post, path: "", requestType: "McpInvokeRequest", responseType: "object", requiresIdempotency: true, bodyless: false)
         case .agentPolicyDryRun: return OperationDescriptor(plane: .agent, name: "policy.dry_run", method: .post, path: "", requestType: "object", responseType: "PolicyDryRunResult", requiresIdempotency: false, bodyless: false)
         case .agentPrepare: return OperationDescriptor(plane: .agent, name: "prepare", method: .post, path: "", requestType: "PrepareRequest", responseType: "Prepared", requiresIdempotency: true, bodyless: false)
@@ -383,8 +380,8 @@ public enum PlatformOperation: String, CaseIterable, Sendable {
         case .humanAuthenticatorStatus: return OperationDescriptor(plane: .human, name: "authenticator.status", method: .get, path: "/v1/security/authenticators", requestType: "Empty", responseType: "AuthenticatorStatus", requiresIdempotency: false, bodyless: true)
         case .humanEvidenceGet: return OperationDescriptor(plane: .human, name: "evidence.get", method: .get, path: "/v1/evidence/{evidence_id}", requestType: "Empty", responseType: "EvidenceMaterial", requiresIdempotency: false, bodyless: true)
         case .humanHomeSummary: return OperationDescriptor(plane: .human, name: "home.summary", method: .get, path: "/v1/home", requestType: "Empty", responseType: "HomeSummary", requiresIdempotency: false, bodyless: true)
-        case .humanIntentPlan: return OperationDescriptor(plane: .human, name: "intent.plan", method: .post, path: "", requestType: "PlanIntentRequest", responseType: "IntentPlan", requiresIdempotency: false, bodyless: false)
-        case .humanIntentSubmit: return OperationDescriptor(plane: .human, name: "intent.submit", method: .post, path: "", requestType: "SubmitPlanRequest", responseType: "IntentSubmission", requiresIdempotency: true, bodyless: false)
+        case .humanIntentPlan: return OperationDescriptor(plane: .human, name: "intent.plan", method: .post, path: "/v1/intents/plan", requestType: "PlanIntentRequest", responseType: "IntentPlan", requiresIdempotency: false, bodyless: false)
+        case .humanIntentSubmit: return OperationDescriptor(plane: .human, name: "intent.submit", method: .post, path: "/v1/intents/submit", requestType: "SubmitPlanRequest", responseType: "IntentSubmission", requiresIdempotency: true, bodyless: false)
         case .humanJourneyGet: return OperationDescriptor(plane: .human, name: "journey.get", method: .get, path: "/v1/journeys/{journey_id}", requestType: "Empty", responseType: "Journey", requiresIdempotency: false, bodyless: true)
         case .humanJourneyList: return OperationDescriptor(plane: .human, name: "journey.list", method: .get, path: "/v1/journeys", requestType: "Empty", responseType: "JourneyPage", requiresIdempotency: false, bodyless: true)
         case .humanJourneyPage: return OperationDescriptor(plane: .human, name: "journey.page", method: .get, path: "/v1/journeys/page/{cursor}", requestType: "Empty", responseType: "JourneyPage", requiresIdempotency: false, bodyless: true)
@@ -486,9 +483,6 @@ public extension PlatformClient {
     }
     func agentExportOffline(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {
         try await read(.agentExportOffline, request: request, pathParameters: pathParameters)
-    }
-    func agentFaucetClaim(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue {
-        try await read(.agentFaucetClaim, request: request, pathParameters: pathParameters)
     }
     func agentMcpInvoke(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue {
         try await mutate(.agentMcpInvoke, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters)
@@ -852,6 +846,6 @@ public extension PlatformClient {
     }
 }
 
-private let sdkMetadata = SDKMetadata(name: "LayerXSDK", version: "0.1.0", agentOperations: 54, humanOperations: 84)
+private let sdkMetadata = SDKMetadata(name: "LayerXSDK", version: "0.1.0", agentOperations: 53, humanOperations: 84)
 
 public func platform_sdk_swift() -> SDKMetadata { sdkMetadata }
