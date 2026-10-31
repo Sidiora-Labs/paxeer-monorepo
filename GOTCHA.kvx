@@ -12136,3 +12136,18 @@ fix = "Log the panic value and debug.Stack() in recordMetricsWithError before re
 title = "A retired-module scan list is per crate, and extending it before that crate's own port fails the port's neighbour"
 symptom = "A core task added 'read' to the authority crate's retired-module list because an early do-line bundled the authority reader with the core port; the core port passed its own scan and the task failed on the authority crate's unchanged import."
 fix = "Keep each crate's retired list with the task that ports that crate; a cross-crate clause in a do-line is a second task, not a line item."
+
+[gotcha.2465]
+title = "The agent creation lifecycle binding matches the disclosure construct method exhaustively"
+symptom = "A task added a variant to layerx_crypto::disclosure::call::ConstructMethod, built and tested layerx-crypto, and landed; every later build of the layerx-human-service library failed with error[E0004] non-exhaustive patterns in agents/create.rs bound_activity."
+fix = "When adding a ConstructMethod variant, add its bound_activity arm in the same change and build layerx-human-service as part of the gate; the two crates live in different workspaces, so the human service build must be named explicitly."
+
+[gotcha.2466]
+title = "The human service's component server validates every response against the declared schema and answers upstream-degraded on an undeclared key"
+symptom = "A handler emitted fields the schema file did not declare; the service built and the peers answered, and every request still got 503 upstream-degraded with no log of the cause, because encode_response refuses an undeclared object key after the backend has executed."
+fix = "When a handler emits a new response field, declare it in services/human/schema/human-api (optional lists are additive within a major), regenerate baseline.kvx with the refresh command in its manifest, and run the schema-check conformance test with the handler's test."
+
+[gotcha.2467]
+title = "Test wrappers start with Block.MaxGasWanted zero and the sequencer admission then refuses every transaction"
+symptom = "An rpc test harness built app.NewTestWrapper, funded accounts and sent a transaction; the sequencer answered 'transaction does not fit the block limits: gas wanted 21000 exceeds Block.MaxGasWanted 0' from node/sequencer/limits.go, because the admission check reads the stored consensus params and the wrapper never stores any."
+fix = "Store consensus params with Block.MaxGasWanted set (50000000 is the production genesis value) through App.StoreConsensusParams before the harness's first block, as node/genesis_sequenced_test.go does."
