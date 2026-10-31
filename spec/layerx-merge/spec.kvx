@@ -115555,7 +115555,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.96.1]
 title = "Add recordLifecycle to the layerxauth precompile so DID and recovery registrations execute through the kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = []
