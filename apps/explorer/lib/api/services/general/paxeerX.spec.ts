@@ -18,14 +18,14 @@ describe('the Paxeer X resource definitions', () => {
   it('takes the transaction hash as a path parameter and paginates the two list paths', () => {
     expect(GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_tx_status.path).toBe('/api/v2/transactions/:hash/status');
     expect(GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_tx_status.pathParams).toEqual([ 'hash' ]);
-    expect(GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_anchors.path).toBe('/api/v2/paxeer-x/anchors');
+    expect(GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_anchors.path).toBe('/api/v2/paxeer-x/archive/anchors');
     expect(GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_anchors.paginated).toBe(true);
-    expect(GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_receipts.path).toBe('/api/v2/paxeer-x/receipts');
+    expect(GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_receipts.path).toBe('/api/v2/paxeer-x/archive/receipts');
     expect(GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_receipts.paginated).toBe(true);
   });
 
   it('reads a single receipt by the id in its path', () => {
-    expect(GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_receipt.path).toBe('/api/v2/paxeer-x/receipts/:id');
+    expect(GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_receipt.path).toBe('/api/v2/paxeer-x/archive/receipts/:id');
     expect(GENERAL_API_PAXEER_X_LISTS_RESOURCES.paxeer_x_receipt.pathParams).toEqual([ 'id' ]);
   });
 });
@@ -54,10 +54,9 @@ describe('the Paxeer X payload map', () => {
     expect(unifiedAccount.identities.evm).toBe(unifiedAccountMock.evmAddress);
     expect(unifiedAccount.balances).toHaveLength(3);
     expect(capabilities.addr).toBe(true);
-    expect(capabilities.custody).toBe(false);
     expect(txStatus.rung).toBe(PAXEER_X_TX_STATUS.rung);
     expect(anchors.items[0].checkpoint_id).toBe(PAXEER_X_ANCHORS_ITEM.checkpoint_id);
-    expect(receipts.items[0].status).toBe(PAXEER_X_RECEIPTS_ITEM.status);
+    expect(receipts.items[0].frozen).toBe(PAXEER_X_RECEIPTS_ITEM.frozen);
     expect(receipt.id).toBe(PAXEER_X_RECEIPTS_ITEM.id);
     expect(receipt.verification_status).toBe('checkpoint_finalised');
   });

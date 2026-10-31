@@ -29,6 +29,7 @@ const PROGRAMS_ACCOUNT_ABI_VERSION: u16 = 2;
 const OCCUPANCY_PROTOCOL_VERSION: u16 = 2;
 const SANDBOX_PROGRAMS_REGISTRATION_ABI: u16 = 3;
 const SANDBOX_USAGE_MAGIC: &[u8; 4] = b"LXUR";
+const SANDBOX_STATE_STORE: &str = "lxphost";
 pub const MAX_CANONICAL_CALL_BYTES: usize = 1_056_000;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -361,6 +362,9 @@ impl SandboxSubmissionReceipt {
         evidence: SandboxReceiptEvidence,
         now_ms: u64,
     ) -> Result<Self, SandboxActivityRefusal> {
+        if evidence.tx != submission.payload() {
+            return Err(SandboxActivityRefusal::InvalidReceipt);
+        }
         let invalid = |_| SandboxActivityRefusal::InvalidReceipt;
         let current = verifier
             .verify_head(&evidence.tx_proof.header, &evidence.tx_proof.commit)
@@ -393,14 +397,21 @@ impl SandboxSubmissionReceipt {
             .commitment
             .value
             .ok_or(SandboxActivityRefusal::InvalidReceipt)?;
-        if evidence.commitment.store_name != "layerx"
+        if evidence.commitment.store_name != SANDBOX_STATE_STORE
             || evidence.commitment.key != key
             || evidence.commitment.proof_ops != evidence.usage_ops
             || value.len() > MAX_USAGE_STATE_VALUE_BYTES
         {
             return Err(SandboxActivityRefusal::InvalidReceipt);
         }
-        verify_state(&next, "layerx", &key, &value, &evidence.usage_ops).map_err(invalid)?;
+        verify_state(
+            &next,
+            SANDBOX_STATE_STORE,
+            &key,
+            &value,
+            &evidence.usage_ops,
+        )
+        .map_err(invalid)?;
         let receipt = Self {
             activity_id,
             canonical_receipt: value,

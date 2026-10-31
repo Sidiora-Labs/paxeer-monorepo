@@ -175,38 +175,8 @@ func decodeProgramAgentEnvelope(status int, encoded []byte, operation string) (j
 	if err := json.Unmarshal(encoded, &fields); err != nil {
 		return nil, newSDKError(ErrorDecodeFailure, RetryNever)
 	}
-	if (programLifecycleOrdinals[operation] != 0 || operation == "program.receipt") && status >= 200 && status < 300 && exactFields(fields, "result") {
+	if operation == "program.receipt" && status >= 200 && status < 300 && exactFields(fields, "result") {
 		return append(json.RawMessage(nil), fields["result"]...), nil
-	}
-	if programLifecycleOrdinals[operation] != 0 && status >= 400 && status < 500 && exactFields(fields, "error") {
-		var refusal map[string]json.RawMessage
-		var code, retry string
-		if decodeStrict(fields["error"], &refusal) != nil || !(exactFields(refusal, "code", "retry") || exactFields(refusal, "code", "retry", "retry_after_seconds")) || json.Unmarshal(refusal["code"], &code) != nil || len(code) == 0 || len(code) > 256 || json.Unmarshal(refusal["retry"], &retry) != nil {
-			return nil, newSDKError(ErrorDecodeFailure, RetryNever)
-		}
-		result := newSDKError(ErrorCoreRejection, RetryNever)
-		result.ServiceCode = code
-		if status == 401 || status == 403 {
-			result.Code = ErrorCapabilityRefusal
-		}
-		if status == 409 {
-			result.Code = ErrorIdempotencyConflict
-		}
-		if status == 429 {
-			result.Code = ErrorRateLimit
-		}
-		if retry == "after" {
-			var seconds uint64
-			if json.Unmarshal(refusal["retry_after_seconds"], &seconds) != nil || seconds == 0 || seconds > ^uint64(0)/1000 {
-				return nil, newSDKError(ErrorDecodeFailure, RetryNever)
-			}
-			milliseconds := seconds * 1000
-			result.Retry = RetryAfter
-			result.RetryAfterMillis = &milliseconds
-		} else if retry != "never" || !exactFields(refusal, "code", "retry") {
-			return nil, newSDKError(ErrorDecodeFailure, RetryNever)
-		}
-		return nil, result
 	}
 	if _, failed := fields["class"]; failed {
 		if status >= 200 && status < 300 || len(fields) != 5 {
@@ -410,10 +380,6 @@ func NewAgentSessionCredential(tenant string, sessionID string, tokenID *SecretB
 	return &AgentSessionCredential{tenant: tenant, sessionID: sessionID, tokenID: tokenID, generation: generation}, nil
 }
 
-func agentEnvelopeBootstrap(operation AgentOperation) bool {
-	return operation == AgentOperationAgentRegister || operation == AgentOperationSessionOpen
-}
-
 type AgentEnvelopeHTTPTransport struct {
 	endpoint   *HumanHTTPTransport
 	credential *AgentSessionCredential
@@ -493,21 +459,15 @@ func (transport *AgentEnvelopeHTTPTransport) encode(call TransportCall, requestI
 		encoded, err = json.Marshal(envelope)
 		return err
 	}
-	if agentEnvelopeBootstrap(operation) {
-		if err := encode(); err != nil {
-			return nil, newSDKError(ErrorInvalidArgument, RetryNever)
-		}
-	} else {
-		if transport.credential == nil {
-			return nil, newSDKError(ErrorCapabilityRefusal, RetryNever)
-		}
-		credential := transport.credential
-		if err := credential.tokenID.Expose(func(token []byte) error {
-			envelope.Credential = &agentEnvelopeCredential{Tenant: credential.tenant, SessionID: credential.sessionID, TokenID: string(token), Generation: strconv.FormatUint(credential.generation, 10)}
-			return encode()
-		}); err != nil {
-			return nil, newSDKError(ErrorInvalidArgument, RetryNever)
-		}
+	if transport.credential == nil {
+		return nil, newSDKError(ErrorCapabilityRefusal, RetryNever)
+	}
+	credential := transport.credential
+	if err := credential.tokenID.Expose(func(token []byte) error {
+		envelope.Credential = &agentEnvelopeCredential{Tenant: credential.tenant, SessionID: credential.sessionID, TokenID: string(token), Generation: strconv.FormatUint(credential.generation, 10)}
+		return encode()
+	}); err != nil {
+		return nil, newSDKError(ErrorInvalidArgument, RetryNever)
 	}
 	if len(encoded) > maximumAgentEnvelopeRequestBytes {
 		clear(encoded)

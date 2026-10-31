@@ -2,7 +2,9 @@ from layerx_sdk import (
     Client,
     IdempotentMutation,
     Rung,
-    SubmissionExecuted,
+    SubmissionCommitted,
+    SubmissionReceipted,
+    SubmissionReverted,
     SubmissionState,
     VerifiedRead,
     require_verified,
@@ -17,6 +19,8 @@ def payment_with_verification(
     if not isinstance(result, VerifiedRead):
         raise TypeError("invalid_submit_response")
     verified = require_verified(Rung.RECEIPTED, result)
-    if isinstance(verified.value, SubmissionExecuted):
+    if isinstance(verified.value, (SubmissionReceipted, SubmissionCommitted)):
         return verified
-    raise RuntimeError(f"payment_not_executed:{verified.value.kind}")
+    if isinstance(verified.value, SubmissionReverted):
+        raise RuntimeError(f"payment_reverted:{verified.value.revert_reason}")
+    raise RuntimeError(f"payment_not_receipted:{verified.value.kind}")

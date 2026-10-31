@@ -34,8 +34,6 @@ const apiDocsFeature = config.features.apiDocs;
 
 const CAPABILITY_ROWS: Array<{ key: keyof PaxeerXCapabilities; label: string; hint: string }> = [
   { key: 'addr', label: 'Account binding', hint: 'Whether this node answers the account binding precompile that spells one account four ways' },
-  { key: 'custody', label: 'Custody', hint: 'Whether this node answers the custody precompile that holds balances outside the chain state' },
-  { key: 'anchor', label: 'Anchoring', hint: 'Whether this node answers the anchor precompile that settles kernel checkpoints on chain' },
 ];
 
 // The probe answers three booleans; until it has answered, the card says nothing either way.
@@ -182,7 +180,7 @@ const PaxeerXAccountPageContent = () => {
       alignItems="start"
     >
       <DetailsCard title="Overview">
-        <ScanKeyValue label="Assets held" hint="Number of assets the account holds across the chain, the custody vault and the kernel" isLoading={ isLoading }>
+        <ScanKeyValue label="Assets held" hint="Number of assets the account holds on the chain" isLoading={ isLoading }>
           <Skeleton loading={ isLoading } data-field="assets-count">{ data.balances.length }</Skeleton>
         </ScanKeyValue>
         <ScanKeyValue label="Activity entries on this page" hint="Page-local count, not the complete account history" isLoading={ isLoading }>
@@ -246,11 +244,6 @@ const PaxeerXAccountPageContent = () => {
       count: data.balances.length,
       component: (
         <Flex flexDir="column" rowGap={ 3 }>
-          { capabilities && !capabilities.custody && (
-            <Box color="text.secondary" data-capability-notice="custody">
-              The custody precompile is not available on this node, so only chain balances are counted.
-            </Box>
-          ) }
           <AssetList items={ data.balances } isLoading={ isLoading }/>
         </Flex>
       ),

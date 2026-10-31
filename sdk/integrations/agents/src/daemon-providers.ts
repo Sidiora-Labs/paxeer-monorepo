@@ -5,7 +5,8 @@ import type {
   AgentReceiptContext, AgentReceiptEvidence, AgentReceiptRecording, AgentReceiptResolver,
 } from "@sidiora/layerx-agent-middleware";
 import {
-  AgentEnvelopeTransport, PlatformSdkError, isSelectableProtocolVersion, verifyReceipt,
+  AgentEnvelopeTransport, PlatformSdkError, isSelectableProtocolVersion, keccak256,
+  verifySequencerReceipt as verifySignedSequencerReceipt,
   type AgentEnvelopeSuccess, type SelectableProtocolVersion,
 } from "@sidiora/layerx-sdk";
 
@@ -27,7 +28,7 @@ const APPLICATION_ID = 0x4c585250;
 const MAX_BINDINGS = 65536;
 const MAX_RECEIPT_BYTES = 1048576;
 const VERIFIED_LEVELS = new Set([
-  "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised", "SettlementAnchored",
+  "SequencerSigned", "BatchIncluded", "StateProven", "CheckpointFinalised",
 ]);
 const CONTEXT_SCHEMA = "CREATE TABLE receipt_context (singleton INTEGER PRIMARY KEY CHECK (singleton = 1), tenant TEXT NOT NULL, actor TEXT NOT NULL, session_id TEXT NOT NULL, protocol_version INTEGER NOT NULL) STRICT";
 const BINDING_SCHEMA = "CREATE TABLE receipt_bindings (receipt_digest TEXT PRIMARY KEY, idempotency_key TEXT NOT NULL UNIQUE, activity_id TEXT NOT NULL UNIQUE) STRICT";
@@ -127,38 +128,17 @@ export class DaemonReceiptResolver implements AgentReceiptResolver {
   async #lookup(context: AgentReceiptContext, expectedDigest?: string): Promise<{ evidence: AgentReceiptEvidence; receiptDigest: string }> {
     this.#assertPrincipal();
     const response = await this.#transport.call<
-      { readonly idempotency_key: string; readonly expected_activity_id: string }, AgentEnvelopeSuccess
+      { readonly idempotency_key: string; readonly expected_activity_id: string; readonly requested_verification_level: "sequencer-signed" }, AgentEnvelopeSuccess
     >({
       plane: "agent", operation: "program.receipt",
-      request: { idempotency_key: context.idempotencyKey, expected_activity_id: context.activityId },
+      request: { idempotency_key: context.idempotencyKey, expected_activity_id: context.activityId,
+        requested_verification_level: "sequencer-signed" },
     });
     const value = record(response.value, decodeFailure);
     if (value["found"] === false) { exact(value, ["found"], decodeFailure); throw unavailable(); }
     exact(value, ["found", "receipt"], decodeFailure);
     if (value["found"] !== true) throw decodeFailure();
-    const receipt = record(value["receipt"], decodeFailure);
-    exact(receipt, ["canonical_bytes", "authorised_batch", "verification_level"], decodeFailure);
-    const level = receipt["verification_level"];
-    if (typeof level !== "string" || !VERIFIED_LEVELS.has(level)) throw verificationFailure();
-    const status = record(response.verification_status, decodeFailure);
-    exact(status, ["state", "level"], decodeFailure);
-    if (status["state"] !== "achieved" || status["level"] !== level) throw verificationFailure();
-    const batch = record(receipt["authorised_batch"], decodeFailure);
-    exact(batch, ["batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key"], decodeFailure);
-    const fixed = (field: string): Uint8Array => Buffer.from(hex(batch[field], 32, 32), "hex");
-    const evidence: AgentReceiptEvidence = {
-      canonicalReceipt: Buffer.from(hex(receipt["canonical_bytes"], MAX_RECEIPT_BYTES), "hex"),
-      authorizedBatch: { batchId: fixed("batch_id"), asset: fixed("asset"),
-        previousStateRoot: fixed("previous_state_root"), resultingStateRoot: fixed("resulting_state_root"),
-        sequencerPublicKey: fixed("sequencer_public_key") },
-    };
-    try {
-      const verified = await verifyReceipt(evidence.canonicalReceipt, evidence.authorizedBatch, { protocolVersion: this.#protocolVersion });
-      const receiptDigest = Buffer.from(verified.receiptDigest).toString("hex");
-      if (expectedDigest !== undefined && receiptDigest !== expectedDigest
-        || Buffer.from(verified.receipt.activityId).toString("hex") !== context.activityId) throw verificationFailure();
-      return { evidence, receiptDigest };
-    } catch { throw verificationFailure(); }
+    return verifySequencerReceipt(value["receipt"], response.verification_status, context, expectedDigest);
   }
 
   #persist(binding: Binding, reference: string): void {
@@ -206,6 +186,49 @@ export class DaemonReceiptResolver implements AgentReceiptResolver {
     try { assertPrincipal(this.#database, this.#principal, this.#protocolVersion); }
     catch { throw storeFailure(); }
   }
+}
+
+export async function verifySequencerReceipt(
+  receiptValue: unknown, verificationStatus: unknown, input: AgentReceiptContext, expectedDigest?: string,
+): Promise<{ evidence: AgentReceiptEvidence; receiptDigest: string }> {
+  const context = copyContext(input);
+  const receipt = record(receiptValue, decodeFailure);
+  exact(receipt, ["raw_transaction", "signed_receipt", "receipt_key", "verification_level"], decodeFailure);
+  const level = receipt["verification_level"];
+  if (typeof level !== "string" || !VERIFIED_LEVELS.has(level)) throw verificationFailure();
+  const status = record(verificationStatus, decodeFailure);
+  exact(status, ["state", "level"], decodeFailure);
+  if (status["state"] !== "achieved" || status["level"] !== level) throw verificationFailure();
+  const key = record(receipt["receipt_key"], decodeFailure);
+  exact(key, ["key_id", "public_key", "first_height", "last_height"], decodeFailure);
+  const rawTransaction = hex(receipt["raw_transaction"], MAX_RECEIPT_BYTES);
+  const signedReceipt = hex(receipt["signed_receipt"], MAX_RECEIPT_BYTES);
+  const keyId = hex(key["key_id"], 32, 32), publicKey = hex(key["public_key"], 32, 32);
+  const firstHeight = receiptHeight(key["first_height"]), lastHeight = receiptHeight(key["last_height"]);
+  if (BigInt(firstHeight) > BigInt(lastHeight)) throw decodeFailure();
+  try {
+    const signedBytes = Buffer.from(signedReceipt, "hex");
+    const verified = await verifySignedSequencerReceipt(signedBytes, Buffer.from(rawTransaction, "hex"), [{
+      keyId: Buffer.from(keyId, "hex"), publicKey: Buffer.from(publicKey, "hex"),
+      first_height: BigInt(firstHeight), last_height: BigInt(lastHeight),
+    }]);
+    const receiptDigest = Buffer.from(keccak256(signedBytes)).toString("hex");
+    if (expectedDigest !== undefined && receiptDigest !== expectedDigest
+      || Buffer.from(verified.receipt.activityId).toString("hex") !== context.activityId
+      || verified.receipt.resultCode !== 0) throw verificationFailure();
+    const evidence: AgentReceiptEvidence = {
+      format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
+      rawTransaction: `0x${rawTransaction}`, signedReceipt: `0x${signedReceipt}`, receiptDigest: `0x${receiptDigest}`,
+      receiptKey: { keyId: `0x${keyId}`, publicKey: `0x${publicKey}`, firstHeight, lastHeight },
+    };
+    return { evidence, receiptDigest };
+  } catch { throw verificationFailure(); }
+}
+
+function receiptHeight(value: unknown): string {
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]{0,19})$/u.test(value)
+    || BigInt(value) > 0xffff_ffff_ffff_ffffn) throw decodeFailure();
+  return value;
 }
 
 function initialize(database: DatabaseSync, principal: DaemonReceiptPrincipal, protocolVersion: number): void {

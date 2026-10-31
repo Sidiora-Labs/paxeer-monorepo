@@ -100,7 +100,7 @@ export default function useBlockQuery({ heightOrHash }: Params): BlockQuery {
   }, [ rpcQuery.data, rpcQuery.isPlaceholderData ]);
 
   // Price updates are indexed after their block, so the block is sent again on blocks:new_block once
-  // its submissions are stored; the open block takes the count from that message.
+  // its submissions are stored; the open block takes the transaction and price update counts from that message.
   const queryClient = useQueryClient();
   const multichainContext = useMultichainContext();
   const blockHeight = apiQuery.data?.height;
@@ -116,11 +116,22 @@ export default function useBlockQuery({ heightOrHash }: Params): BlockQuery {
     });
 
     queryClient.setQueryData(queryKey, (prevData: Block | undefined) => {
-      if (!prevData || prevData.height !== payload.block.height || prevData.price_update_count === payload.block.price_update_count) {
+      if (!prevData || prevData.height !== payload.block.height) {
         return prevData;
       }
 
-      return { ...prevData, price_update_count: payload.block.price_update_count };
+      if (
+        prevData.price_update_count === payload.block.price_update_count &&
+        prevData.transactions_count === payload.block.transactions_count
+      ) {
+        return prevData;
+      }
+
+      return {
+        ...prevData,
+        transactions_count: payload.block.transactions_count,
+        price_update_count: payload.block.price_update_count,
+      };
     });
   }, [ blockHeight, heightOrHash, multichainContext?.chain?.id, queryClient ]);
 

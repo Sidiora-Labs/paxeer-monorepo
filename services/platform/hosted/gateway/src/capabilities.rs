@@ -49,16 +49,20 @@ pub(super) enum Surface {
     Exchange,
     Bridge,
     Launchpad,
+    Ledger,
     Pay,
+    Auth,
     Programs,
 }
 
 impl Surface {
-    pub(super) const ALL: [Self; 5] = [
+    pub(super) const ALL: [Self; 7] = [
         Self::Exchange,
         Self::Bridge,
         Self::Launchpad,
+        Self::Ledger,
         Self::Pay,
+        Self::Auth,
         Self::Programs,
     ];
 
@@ -67,7 +71,9 @@ impl Surface {
             Self::Exchange => "exchange",
             Self::Bridge => "bridge",
             Self::Launchpad => "launchpad",
+            Self::Ledger => "ledger",
             Self::Pay => "pay",
+            Self::Auth => "auth",
             Self::Programs => "programs",
         }
     }
@@ -77,7 +83,9 @@ impl Surface {
             Self::Exchange => evm::EXCHANGE_PRECOMPILE,
             Self::Bridge => evm::BRIDGE_PRECOMPILE,
             Self::Launchpad => evm::LAUNCHPAD_PRECOMPILE,
+            Self::Ledger => evm::LEDGER_PRECOMPILE,
             Self::Pay => evm::PAY_PRECOMPILE,
+            Self::Auth => evm::AUTH_PRECOMPILE,
             Self::Programs => evm::PROGRAMS_PRECOMPILE,
         }
     }
@@ -107,12 +115,26 @@ impl Surface {
                 words: 1,
                 abi: "precompiles/launchpad/abi.json",
             },
+            Self::Ledger => ProbeView {
+                signature: "accountId(bytes32,bytes32)",
+                selector: [0x3f, 0x05, 0x0c, 0xbc],
+                outputs: &["bytes32"],
+                words: 1,
+                abi: "precompiles/layerxledger/abi.json",
+            },
             Self::Pay => ProbeView {
                 signature: "budgetRemaining(bytes32)",
                 selector: [0xd7, 0x77, 0x87, 0x49],
                 outputs: &["uint128"],
                 words: 1,
                 abi: "precompiles/layerxpay/abi.json",
+            },
+            Self::Auth => ProbeView {
+                signature: "isLive(bytes32,uint64,uint64)",
+                selector: [0xd4, 0xa0, 0x3b, 0x3d],
+                outputs: &["bool", "string"],
+                words: 4,
+                abi: "precompiles/layerxauth/abi.json",
             },
             Self::Programs => ProbeView {
                 signature: "getCurrentFeeSchedule()",
@@ -128,6 +150,12 @@ impl Surface {
     fn probe_calldata(self) -> Vec<u8> {
         let selector = self.probe_view().selector;
         match self {
+            Self::Ledger | Self::Auth => {
+                let mut calldata = evm::calldata_empty(selector);
+                let words = if self == Self::Ledger { 2 } else { 3 };
+                calldata.resize(4 + words * 32, 0);
+                calldata
+            }
             Self::Pay => evm::calldata_word(selector, &[0; 32]),
             _ => evm::calldata_empty(selector),
         }
@@ -142,12 +170,13 @@ impl Surface {
         match self {
             Self::Bridge => answer.bool(0).is_ok(),
             Self::Pay => answer.word(0).is_ok_and(|word| word[..16] == [0; 16]),
+            Self::Auth => answer.bool(0).is_ok() && answer.string(1, 0).is_ok(),
             Self::Programs => {
                 answer.u32(0).is_ok()
                     && (1..8).all(|index| answer.u64(index).is_ok())
                     && answer.word(8).is_ok()
             }
-            Self::Exchange | Self::Launchpad => answer.word(0).is_ok(),
+            Self::Exchange | Self::Launchpad | Self::Ledger => answer.word(0).is_ok(),
         }
     }
 
@@ -164,7 +193,9 @@ pub(super) struct Capabilities {
     pub(super) exchange: bool,
     pub(super) bridge: bool,
     pub(super) launchpad: bool,
+    pub(super) ledger: bool,
     pub(super) pay: bool,
+    pub(super) auth: bool,
     pub(super) programs: bool,
     pub(super) probed_at: u64,
     pub(super) rpc_height: u64,
@@ -176,7 +207,9 @@ impl Capabilities {
             Surface::Exchange => self.exchange,
             Surface::Bridge => self.bridge,
             Surface::Launchpad => self.launchpad,
+            Surface::Ledger => self.ledger,
             Surface::Pay => self.pay,
+            Surface::Auth => self.auth,
             Surface::Programs => self.programs,
         }
     }
@@ -195,7 +228,9 @@ impl Capabilities {
             "exchange": self.exchange,
             "bridge": self.bridge,
             "launchpad": self.launchpad,
+            "ledger": self.ledger,
             "pay": self.pay,
+            "auth": self.auth,
             "programs": self.programs,
             "addresses": addresses,
             "probed_at": self.probed_at,
@@ -311,12 +346,14 @@ pub(super) fn probe(
         }))?;
         *slot = answers(surface, &answer);
     }
-    let [exchange, bridge, launchpad, pay, programs] = live;
+    let [exchange, bridge, launchpad, ledger, pay, auth, programs] = live;
     Ok(Capabilities {
         exchange,
         bridge,
         launchpad,
+        ledger,
         pay,
+        auth,
         programs,
         probed_at,
         rpc_height,
@@ -547,7 +584,9 @@ mod tests {
             exchange,
             bridge,
             launchpad,
+            ledger: false,
             pay: false,
+            auth: false,
             programs: false,
             probed_at: 1_790_000_000,
             rpc_height: 23_860_000,
@@ -556,6 +595,15 @@ mod tests {
 
     fn word(value: u64) -> String {
         format!("0x{value:064x}")
+    }
+
+    fn auth_missing_grant_answer() -> [u8; 128] {
+        let reason = b"LXP_UNKNOWN_FIELD";
+        let mut answer = [0; 128];
+        answer[63] = 64;
+        answer[95] = u8::try_from(reason.len()).expect("reason fits one word");
+        answer[96..96 + reason.len()].copy_from_slice(reason);
+        answer
     }
 
     /// Paxeer answers to the probe: pre-fork every view answers `0x` (a call
@@ -584,7 +632,9 @@ mod tests {
                         json!(match surface {
                             Surface::Exchange => word(7),
                             Surface::Bridge => word(0),
-                            Surface::Launchpad | Surface::Pay => word(0),
+                            Surface::Launchpad | Surface::Ledger | Surface::Pay => word(0),
+                            Surface::Auth =>
+                                format!("0x{}", crate::hex(&auth_missing_grant_answer())),
                             Surface::Programs => format!("0x{}", "00".repeat(9 * 32)),
                         })
                     } else {
@@ -613,18 +663,23 @@ mod tests {
         );
 
         for surface in Surface::ALL {
+            let mut zero = vec![0; surface.probe_view().words * 32];
+            if surface == Surface::Auth {
+                zero = auth_missing_grant_answer().to_vec();
+            }
             assert!(
                 answers(
                     surface,
-                    &json!({"result": format!("0x{}", "00".repeat(surface.probe_view().words * 32))})
+                    &json!({"result": format!("0x{}", crate::hex(&zero))})
                 ),
                 "{}",
                 surface.name()
             );
+            zero[31] = 1;
             assert!(
                 answers(
                     surface,
-                    &json!({"result": format!("{}{}", word(1), "00".repeat((surface.probe_view().words - 1) * 32))})
+                    &json!({"result": format!("0x{}", crate::hex(&zero))})
                 ),
                 "{}",
                 surface.name()
@@ -652,7 +707,7 @@ mod tests {
         let calls = Cell::new(0);
         let before = probe(recorded_node(false, &calls), 1_790_000_000)
             .unwrap_or_else(|code| panic!("{code}"));
-        assert_eq!(calls.get(), 6);
+        assert_eq!(calls.get(), 8);
         assert_eq!(before, {
             let mut expected = capabilities(false, false, false);
             expected.rpc_height = 0x16c_1320;
@@ -664,13 +719,17 @@ mod tests {
                 "exchange": false,
                 "bridge": false,
                 "launchpad": false,
+                "ledger": false,
                 "pay": false,
+                "auth": false,
                 "programs": false,
                 "addresses": {
                     "exchange": "0x0000000000000000000000000000000000001015",
                     "bridge": "0x0000000000000000000000000000000000001016",
                     "launchpad": "0x0000000000000000000000000000000000001017",
+                    "ledger": "0x000000000000000000000000000000000000101a",
                     "pay": "0x000000000000000000000000000000000000101b",
+                    "auth": "0x000000000000000000000000000000000000101c",
                     "programs": "0x000000000000000000000000000000000000101d"
                 },
                 "probed_at": 1_790_000_000_u64,
@@ -679,7 +738,7 @@ mod tests {
         );
         let after = probe(recorded_node(true, &calls), 1_790_000_015)
             .unwrap_or_else(|code| panic!("{code}"));
-        assert_eq!(calls.get(), 12);
+        assert_eq!(calls.get(), 16);
         assert!(Surface::ALL.into_iter().all(|surface| after.live(surface)));
 
         let mut bridge_refuses = recorded_node(true, &calls);
@@ -782,7 +841,7 @@ mod tests {
             evm::address_hex(&Surface::Programs.address()),
             programs_address
         );
-        assert_eq!(Surface::ALL.len(), 5);
+        assert_eq!(Surface::ALL.len(), 7);
         assert!(Surface::ALL.contains(&Surface::Pay));
         assert!(Surface::ALL.contains(&Surface::Programs));
 
@@ -823,7 +882,7 @@ mod tests {
                 1_790_000_100,
             )
             .expect("capabilities probe");
-            assert_eq!(visited.len(), 5);
+            assert_eq!(visited.len(), 7);
             for surface in Surface::ALL {
                 let address = evm::address_hex(&surface.address());
                 assert_eq!(visited.iter().filter(|to| **to == address).count(), 1);
@@ -895,6 +954,170 @@ mod tests {
     }
 
     #[test]
+    fn ledger_and_auth_surfaces_probe_their_served_views() {
+        capabilities_probe_views_exist_in_the_served_abi_of_each_surface();
+
+        let ledger = Surface::Ledger;
+        let auth = Surface::Auth;
+        assert_eq!(Surface::ALL.len(), 7);
+        for (surface, name, address, address_hex, signature, selector, inputs, outputs, words) in [
+            (
+                ledger,
+                "ledger",
+                evm::LEDGER_PRECOMPILE,
+                "0x000000000000000000000000000000000000101a",
+                "accountId(bytes32,bytes32)",
+                [0x3f, 0x05, 0x0c, 0xbc],
+                2,
+                vec!["bytes32"],
+                1,
+            ),
+            (
+                auth,
+                "auth",
+                evm::AUTH_PRECOMPILE,
+                "0x000000000000000000000000000000000000101c",
+                "isLive(bytes32,uint64,uint64)",
+                [0xd4, 0xa0, 0x3b, 0x3d],
+                3,
+                vec!["bool", "string"],
+                4,
+            ),
+        ] {
+            assert_eq!(surface.name(), name);
+            assert_eq!(surface.address(), address);
+            assert_eq!(evm::address_hex(&surface.address()), address_hex);
+            assert!(Surface::ALL.contains(&surface));
+            assert_eq!(surface.probe_view().signature, signature);
+            assert_eq!(surface.probe_view().outputs, outputs);
+            assert_eq!(surface.probe_view().words, words);
+            let mut calldata = selector.to_vec();
+            calldata.resize(4 + inputs * 32, 0);
+            assert_eq!(surface.probe_calldata(), calldata);
+            for raw in [eip1559(&surface.address()), legacy(&surface.address())] {
+                assert_eq!(
+                    submission_surface("eth_sendRawTransaction", Some(&submission(&raw))),
+                    Some(surface)
+                );
+            }
+        }
+
+        let maximum = [0xff; 32];
+        for valid in [[0; 32], maximum] {
+            assert!(ledger.decodes(&valid));
+            assert!(answers(
+                ledger,
+                &json!({"result": format!("0x{}", crate::hex(&valid))})
+            ));
+        }
+        let missing_grant = auth_missing_grant_answer();
+        let decoded = evm::Answer::new(&missing_grant);
+        assert_eq!(decoded.bool(0), Ok(false));
+        assert_eq!(
+            decoded.string(1, 0).expect("auth refusal reason"),
+            "LXP_UNKNOWN_FIELD"
+        );
+        assert!(auth.decodes(&missing_grant));
+        assert!(answers(
+            auth,
+            &json!({"result": format!("0x{}", crate::hex(&missing_grant))})
+        ));
+
+        let calls = Cell::new(0);
+        let absent = probe(recorded_node(false, &calls), 1_790_000_000).expect("pre-fork probe");
+        assert_eq!(calls.get(), 8);
+        for surface in [ledger, auth] {
+            assert!(!absent.live(surface));
+            assert_eq!(absent.document()[surface.name()], false);
+        }
+        let live = probe(recorded_node(true, &calls), 1_790_000_015).expect("served probe");
+        assert_eq!(calls.get(), 16);
+        for surface in [ledger, auth] {
+            assert!(live.live(surface));
+            assert_eq!(live.document()[surface.name()], true);
+            assert_eq!(
+                live.document()["addresses"][surface.name()],
+                evm::address_hex(&surface.address())
+            );
+        }
+        for (surface, valid, lengths) in [
+            (ledger, maximum.to_vec(), vec![0, 1, 31, 33, 64, 12 * 32]),
+            (
+                auth,
+                missing_grant.to_vec(),
+                vec![0, 1, 32, 64, 96, 127, 129, 160],
+            ),
+        ] {
+            let mut invalid = Vec::new();
+            for length in lengths {
+                let bytes = vec![0; length];
+                assert!(
+                    !surface.decodes(&bytes),
+                    "{} accepted {length} bytes",
+                    surface.name()
+                );
+                invalid.push(json!({"result": format!("0x{}", crate::hex(&bytes))}));
+            }
+            if surface == auth {
+                for (index, value) in [
+                    (0, 1),
+                    (31, 2),
+                    (32, 1),
+                    (63, 65),
+                    (63, 128),
+                    (64, 1),
+                    (95, 33),
+                    (96, 0xff),
+                ] {
+                    let mut malformed = valid.clone();
+                    malformed[index] = value;
+                    assert!(
+                        !auth.decodes(&malformed),
+                        "auth accepted malformed byte {index}"
+                    );
+                    invalid.push(json!({"result": format!("0x{}", crate::hex(&malformed))}));
+                }
+            }
+            invalid.extend([
+                json!({"error": {"code": -32000, "message": "execution reverted"}}),
+                json!({"result": "0xzz"}),
+                json!({"result": "0x0"}),
+                json!({"result": crate::hex(&valid)}),
+                json!({}),
+            ]);
+            for answer in invalid {
+                assert!(
+                    !answers(surface, &answer),
+                    "{} accepted {answer}",
+                    surface.name()
+                );
+                let mut node = recorded_node(true, &calls);
+                let probed = probe(
+                    |request| {
+                        if request["params"][0]["to"] == evm::address_hex(&surface.address()) {
+                            Ok(answer.clone())
+                        } else {
+                            node(request)
+                        }
+                    },
+                    1_790_000_030,
+                )
+                .expect("invalid surface answer probe");
+                for other in Surface::ALL {
+                    assert_eq!(
+                        probed.live(other),
+                        other != surface,
+                        "{} after {} answered {answer}",
+                        other.name(),
+                        surface.name()
+                    );
+                    assert_eq!(probed.document()[other.name()], other != surface);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn capabilities_probe_views_exist_in_the_served_abi_of_each_surface() {
         let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../../");
         for surface in Surface::ALL {
@@ -949,9 +1172,13 @@ mod tests {
             let hash = layerx_indexer::abi::keccak(view.signature.as_bytes());
             assert_eq!(view.selector, hash[..4], "{}", view.signature);
             let mut expected = hash[..4].to_vec();
-            if surface == Surface::Pay {
-                expected.extend_from_slice(&[0; 32]);
-            }
+            let inputs = match surface {
+                Surface::Ledger => 2,
+                Surface::Auth => 3,
+                Surface::Pay => 1,
+                _ => 0,
+            };
+            expected.resize(4 + inputs * 32, 0);
             assert_eq!(surface.probe_calldata(), expected, "{}", view.signature);
             let words = view
                 .outputs
@@ -959,7 +1186,8 @@ mod tests {
                 .map(|output| match *output {
                     "uint256" | "bool" | "uint128" | "uint32" | "bytes32" => 1,
                     "uint64[7]" => 7,
-                    other => panic!("unexpected static output {other}"),
+                    "string" => 3,
+                    other => panic!("unexpected probe output {other}"),
                 })
                 .sum::<usize>();
             assert_eq!(view.words, words, "{}", view.signature);
@@ -1145,7 +1373,9 @@ mod tests {
                     Surface::Exchange => live.exchange = true,
                     Surface::Bridge => live.bridge = true,
                     Surface::Launchpad => live.launchpad = true,
+                    Surface::Ledger => live.ledger = true,
                     Surface::Pay => live.pay = true,
+                    Surface::Auth => live.auth = true,
                     Surface::Programs => live.programs = true,
                 }
                 let fresh = Cache::new(Duration::from_secs(15));

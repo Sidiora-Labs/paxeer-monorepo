@@ -269,32 +269,3 @@ func TestPrecompileCheckActivity(t *testing.T) {
 	f.execute(t, 44, f.activity(t, 0x00070006, 3, types.EncodeRevokePayload(f.capabilityID, 1, 44)))
 	require.Equal(t, []interface{}{"LXP_AUTH_REVOKED"}, f.view(t, f.unbound, "checkActivity", f.capabilityID, uint32(0x00090004), f.asset, big.NewInt(5)))
 }
-
-func TestPrecompileResultByIdempotency(t *testing.T) {
-	f := newPrecompileViewFixture(t)
-	stored, err := f.keeper.ResultByIdempotency(f.ctx, f.public, f.sessionActivity.IdempotencyKey)
-	require.NoError(t, err)
-	require.NotEmpty(t, stored)
-	recorded, err := f.host.ReadIdempotentReceipt(f.ctx, f.did, f.sessionActivity.IdempotencyKey)
-	require.NoError(t, err)
-	require.Equal(t, recorded.Encoded, stored)
-	output := f.view(t, f.unbound, "resultByIdempotency", f.public, f.sessionActivity.IdempotencyKey)
-	require.Equal(t, []interface{}{stored}, output)
-	receipt, err := codec.DecodeReceipt(output[0].([]byte))
-	require.NoError(t, err)
-	require.Equal(t, uint64(42), receipt.GlobalSequence)
-	for _, tc := range []struct {
-		name string
-		did  [32]byte
-		key  [32]byte
-	}{
-		{"unknownKey", f.public, [32]byte{0xff}},
-		{"otherIdentity", f.delegate, f.sessionActivity.IdempotencyKey},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			output := f.view(t, f.unbound, "resultByIdempotency", tc.did, tc.key)
-			require.Len(t, output, 1)
-			require.Empty(t, output[0].([]byte))
-		})
-	}
-}

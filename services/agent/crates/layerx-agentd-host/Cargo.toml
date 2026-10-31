@@ -10,8 +10,16 @@ name = "layerx-agentd"
 path = "../layerx-agentd/src/main.rs"
 
 [[test]]
+name = "retired_env"
+path = "../layerx-agentd/host-tests/retired_env.rs"
+
+[[test]]
 name = "runtime_mode"
 path = "../layerx-agentd/host-tests/runtime_mode.rs"
+
+[[test]]
+name = "node_integration"
+path = "../layerx-agentd/host-tests/node_integration.rs"
 
 [[test]]
 name = "serve_routes"
@@ -45,7 +53,7 @@ ureq = { version = "=3.4.0", default-features = false, features = ["json", "rust
 rustls-native-certs = "=0.8.4"
 rustls = { version = "=0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
 rustls-webpki = { version = "=0.103.15", default-features = false, features = ["std"] }
-rustix = { version = "=1.1.4", features = ["net"] }
+rustix = { version = "=1.1.4", features = ["net", "process"] }
 zeroize = "=1.9.0"
 getrandom = "=0.3.4"
 

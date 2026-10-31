@@ -4,8 +4,8 @@ import { pickBy } from 'es-toolkit';
 import { useRouter } from 'next/router';
 import React from 'react';
 
-import type { PaxeerXReceipt } from 'types/api/paxeerXLists';
-import { PAXEER_X_STATUS_RUNGS, PAXEER_X_VERIFICATION_STATUSES } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveReceipt } from 'types/api/paxeerXArchive';
+import { PAXEER_X_ARCHIVE_VERIFICATION_STATUSES } from 'types/api/paxeerXArchive';
 
 import { route } from 'nextjs/routes';
 
@@ -31,12 +31,12 @@ const REFRESH_INTERVAL = 5_000;
 const REQUEST_TIMEOUT = 15_000;
 const MAX_RETRY_INTERVAL = 30_000;
 
-const terminal = (data: PaxeerXReceipt | undefined) =>
-  data?.status === 'final' && data.verification_status === 'settlement_anchored';
+const terminal = (data: PaxeerXArchiveReceipt | undefined) =>
+  data?.verification_status === 'settlement_anchored';
 
-const admissible = (next: PaxeerXReceipt, id: string, previous?: PaxeerXReceipt) => {
+const admissible = (next: PaxeerXArchiveReceipt, id: string, previous?: PaxeerXArchiveReceipt) => {
   if (!next || typeof next.id !== 'string' || next.id.toLowerCase() !== id.toLowerCase() ||
-    !PAXEER_X_STATUS_RUNGS.includes(next.status) || !PAXEER_X_VERIFICATION_STATUSES.includes(next.verification_status) ||
+    next.frozen !== true || !PAXEER_X_ARCHIVE_VERIFICATION_STATUSES.includes(next.verification_status) ||
     !(next.account === null || typeof next.account === 'string') ||
     !(next.payload_hash === null || typeof next.payload_hash === 'string') ||
     !(next.transaction_hash === null || typeof next.transaction_hash === 'string') ||
@@ -49,8 +49,8 @@ const admissible = (next: PaxeerXReceipt, id: string, previous?: PaxeerXReceipt)
     return true;
   }
 
-  return PAXEER_X_STATUS_RUNGS.indexOf(next.status) >= PAXEER_X_STATUS_RUNGS.indexOf(previous.status) &&
-    PAXEER_X_VERIFICATION_STATUSES.indexOf(next.verification_status) >= PAXEER_X_VERIFICATION_STATUSES.indexOf(previous.verification_status) &&
+  return PAXEER_X_ARCHIVE_VERIFICATION_STATUSES.indexOf(next.verification_status) >=
+    PAXEER_X_ARCHIVE_VERIFICATION_STATUSES.indexOf(previous.verification_status) &&
     (previous.account === null || next.account === previous.account) &&
     (previous.payload_hash === null || next.payload_hash === previous.payload_hash);
 };
@@ -63,7 +63,7 @@ const ReceiptContent = ({ id, chainId }: { id: string; chainId?: string }) => {
     ...getResourceKey('general:paxeer_x_receipt', { pathParams: { id }, chainId }), 'open-detail', viewId,
   ], [ id, chainId, viewId ]);
   const [ availability, setAvailability ] = React.useState({ visible: false, online: true });
-  const [ evidence, setEvidence ] = React.useState<{ data: PaxeerXReceipt; receivedAt: number }>();
+  const [ evidence, setEvidence ] = React.useState<{ data: PaxeerXArchiveReceipt; receivedAt: number }>();
   const latest = React.useRef(evidence);
   const [ problem, setProblem ] = React.useState<string>();
   const receiptQuery = useApiQuery('general:paxeer_x_receipt', {
@@ -207,6 +207,9 @@ const ReceiptContent = ({ id, chainId }: { id: string; chainId?: string }) => {
         afterTitle={ titleAfter }
         isLoading={ isLoading }
       />
+      <Text color="text.secondary" mb={ 4 } data-archive-notice>
+        Kernel archive. This receipt and its verification status are frozen historical evidence.
+      </Text>
       <Flex flexDir="column" rowGap={{ base: 3, lg: 4 }}>
         <ScanSectionTabs
           items={ TABS }
@@ -226,7 +229,7 @@ const ReceiptContent = ({ id, chainId }: { id: string; chainId?: string }) => {
   );
 };
 
-const PaxeerXReceiptPageContent = () => {
+const PaxeerXReceipt = () => {
   const router = useRouter();
   const chain = useMultichainContext()?.chain;
   const id = getQueryParamString(router.query.id);
@@ -234,4 +237,4 @@ const PaxeerXReceiptPageContent = () => {
   return <ReceiptContent key={ `${ chain?.id ?? '' }:${ id }` } id={ id } chainId={ chain?.id }/>;
 };
 
-export default PaxeerXReceiptPageContent;
+export default PaxeerXReceipt;

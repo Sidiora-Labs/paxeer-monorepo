@@ -8,10 +8,11 @@ publish = false
 [dependencies]
 layerx-agent-api = { path = "../../crates/layerx-agent-api" }
 layerx-agentd = { path = "../../crates/layerx-agentd" }
-layerx-client = { path = "../../crates/layerx-client" }
-layerx-proof = { path = "../../crates/layerx-proof" }
 layerx-sdk = { path = "../../crates/layerx-sdk" }
 layerx-types = { path = "../../crates/layerx-types" }
-layerx-wire = { path = "../../crates/layerx-wire" }
+
+serde_json = "=1.0.151"
+ureq = { version = "=3.4.0", default-features = false, features = ["json", "rustls-no-provider", "_ring"] }
+url = "=2.5.8"
 
 [workspace]

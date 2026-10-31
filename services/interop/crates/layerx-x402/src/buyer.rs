@@ -751,7 +751,9 @@ mod tests {
             .map(word)
             .collect::<Result<Vec<_>, _>>()?;
         let recorded_topics = topics.concat();
-        topics[1..].rotate_right(1);
+        let words = crate::seller::tests::pay_exact_words(&unhex(&text(&case["rawTransaction"])?)?);
+        topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
+        topics[3] = crate::model::account_identifiers("agent:did:layerx:payee:main")?[1];
         let mut receipt = unhex(&text(&case["signedReceipt"])?)?;
         let positions: Vec<_> = receipt
             .windows(recorded_topics.len())
@@ -788,7 +790,7 @@ mod tests {
                             .try_into()
                             .map_err(|_| X402Error::EvidenceMismatch)?)
                     ),
-                    pay_to: text(&log["topics"][2])?,
+                    pay_to: format!("0x{}", hex(&topics[3])),
                     max_timeout_seconds: 90,
                     extra: Some(
                         json!({"layerx": {"account": "agent:did:layerx:payee:main", "currency": "LXP"}}),
@@ -797,12 +799,12 @@ mod tests {
                 payload: json!({}),
                 extensions: BTreeMap::new(),
             },
-            idempotency_key: word(&log["topics"][3])?,
+            idempotency_key: topics[1],
         };
         let response = SettlementResponse {
             success: true,
             error_reason: None,
-            payer: Some(hex(&word(&log["topics"][1])?)),
+            payer: Some(hex(&topics[2])),
             transaction: text(&case["receiptJson"]["txHash"])?,
             network: "eip155:125".to_owned(),
             amount: Some(amount),
@@ -878,7 +880,7 @@ mod tests {
             response.transaction = transaction;
             assert_eq!(
                 capture(&payment, &response, &batch),
-                Err(X402Error::EvidenceMismatch)
+                Err(X402Error::TransactionForm)
             );
         }
         Ok(())

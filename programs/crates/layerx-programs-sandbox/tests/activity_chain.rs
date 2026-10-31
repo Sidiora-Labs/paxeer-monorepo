@@ -161,10 +161,18 @@ fn evidence(
     submission: &SandboxSubmission,
     code: u32,
 ) -> Result<(chain::ChainFixture, SandboxReceiptEvidence), TestError> {
+    evidence_in_store(submission, code, "lxphost")
+}
+
+fn evidence_in_store(
+    submission: &SandboxSubmission,
+    code: u32,
+    store_name: &str,
+) -> Result<(chain::ChainFixture, SandboxReceiptEvidence), TestError> {
     let tx = submission.payload().to_vec();
     let tx_hash: [u8; 32] = Sha256::digest(&tx).into();
     let value = usage_value(submission, tx_hash);
-    state_evidence(submission, code, 1, value)
+    state_evidence(submission, tx, code, 1, value, store_name)
 }
 
 fn funding_evidence(
@@ -172,20 +180,29 @@ fn funding_evidence(
     code: u32,
     record: &Lease,
 ) -> Result<(chain::ChainFixture, SandboxReceiptEvidence), TestError> {
-    state_evidence(submission, code, 0, record.canonical_state_bytes()?)
+    state_evidence(
+        submission,
+        submission.payload().to_vec(),
+        code,
+        0,
+        record.canonical_state_bytes()?,
+        "lxphost",
+    )
 }
 
 fn state_evidence(
     submission: &SandboxSubmission,
+    tx: Vec<u8>,
     code: u32,
     record_kind: u8,
     value: Vec<u8>,
+    store_name: &str,
 ) -> Result<(chain::ChainFixture, SandboxReceiptEvidence), TestError> {
-    let tx = submission.payload().to_vec();
     let tx_hash: [u8; 32] = Sha256::digest(&tx).into();
     let key = sandbox_state_key(record_kind, submission.lease().bytes())?;
     let foreign_key = sandbox_state_key(record_kind, [99; 32])?;
-    let mut fixture = chain::ChainFixture::new(
+    let mut fixture = chain::ChainFixture::new_in_store(
+        store_name,
         "sandbox-chain-test",
         &[SEED],
         vec![(key.clone(), value.clone()), (foreign_key, value)],
@@ -410,6 +427,129 @@ fn sandbox_receipt_verifies_tx_result_and_usage_state() -> Result<(), TestError>
 }
 
 #[test]
+fn sandbox_receipt_refuses_kernel_signed_activity_bytes() -> Result<(), TestError> {
+    use layerx_types::{
+        activity::{Authority, EnvelopeBuilder, Signature, TimestampBound},
+        amount::Amount,
+        ids::{Did, IdempotencyKey},
+        payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload},
+    };
+    use layerx_wire::{
+        activity::{
+            decode_signed, encode_signed, encode_signed_envelope, encode_unsigned_envelope,
+        },
+        hash::{payload_hash_for, Domain},
+    };
+
+    let submission = submission()?;
+    let (fixture, valid) = evidence(&submission, 0)?;
+    let receipt =
+        SandboxSubmissionReceipt::verify(&fixture.verifier, &submission, valid.clone(), NOW)?;
+    assert_eq!(
+        receipt.activity_id(),
+        Sha256::digest(submission.payload()).as_slice()
+    );
+    receipt.authenticated_usage_receipt()?.receipt().verify()?;
+
+    let kind = ActivityType::from_u32(submission.activity_type()).map_err(|_| "activity type")?;
+    let registration = ModuleRegistration::new(ModuleId::Programs, &[kind])
+        .map_err(|_| "programs registration")?;
+    let registry = ModuleRegistry::new(&[registration]).map_err(|_| "module registry")?;
+    let payload = Payload::new(&registry, kind, submission.payload()).map_err(|_| "payload")?;
+    let payload_hash = payload_hash_for(&payload).map_err(|_| "payload hash")?;
+    let key = SigningKey::from_bytes(&SEED);
+    let actor = Did::new(b"did:layerx:sandbox-test").map_err(|_| "actor DID")?;
+    let unsigned = (|| {
+        let mut builder = EnvelopeBuilder::new();
+        builder.protocol_version(2)?;
+        builder.network_id(125)?;
+        builder.activity_type(kind)?;
+        builder.actor_did(actor)?;
+        builder.authority(Authority::owner(key.verifying_key().as_bytes())?)?;
+        builder.account_sequence(1)?;
+        builder.timestamp_bound(TimestampBound::new(0, NOW)?)?;
+        builder.idempotency_key(IdempotencyKey::new([1; 32]))?;
+        builder.fee_limit(Amount::from_u128(1))?;
+        builder.payload_hash(payload_hash)?;
+        builder.payload(payload)?;
+        builder.build()
+    })()
+    .map_err(|_| "unsigned envelope")?;
+    let unsigned_bytes = encode_unsigned_envelope(&unsigned).map_err(|_| "unsigned encoding")?;
+    let mut preimage = Sha256::new();
+    preimage.update(Domain::SignaturePreimage.tag());
+    preimage.update(&unsigned_bytes);
+    let preimage = preimage.finalize();
+    let signature = key.sign(&preimage);
+    key.verifying_key()
+        .verify_strict(&preimage, &signature)
+        .map_err(|_| "signature")?;
+    let signed = unsigned
+        .attach_signature(Signature::new(&signature.to_bytes()).map_err(|_| "signature bytes")?);
+    let legacy_tx = encode_signed_envelope(&signed).map_err(|_| "signed encoding")?;
+    let decoded = decode_signed(&legacy_tx, &registry).map_err(|_| "signed decoding")?;
+    assert_eq!(decoded.payload(), submission.payload());
+    assert_eq!(decoded.payload_hash(), payload_hash);
+    assert_eq!(decoded.activity_type(), kind);
+    assert_eq!(decoded.signature(), Some(signature.to_bytes().as_slice()));
+    assert_eq!(
+        encode_signed(&decoded).map_err(|_| "signed roundtrip")?,
+        legacy_tx
+    );
+
+    let mut replaced = valid;
+    replaced.tx = legacy_tx.clone();
+    assert_eq!(
+        SandboxSubmissionReceipt::verify(&fixture.verifier, &submission, replaced, NOW),
+        Err(SandboxActivityRefusal::InvalidReceipt)
+    );
+
+    let legacy_hash: [u8; 32] = Sha256::digest(&legacy_tx).into();
+    let value = usage_value(&submission, legacy_hash);
+    let (fixture, legacy) = state_evidence(&submission, legacy_tx, 0, 1, value, "lxphost")?;
+    let current = fixture
+        .verifier
+        .verify_head(&legacy.tx_proof.header, &legacy.tx_proof.commit)?;
+    let next = fixture
+        .verifier
+        .verify_head(&legacy.result_proof.header, &legacy.result_proof.commit)?;
+    assert_eq!(current.height().checked_add(1), Some(next.height()));
+    assert_eq!(
+        layerx_programs::verify_tx(&current, &legacy.tx, &legacy.tx_proof.proof)?,
+        legacy_hash
+    );
+    layerx_programs::verify_tx_result(&next, &legacy.tx_result, &legacy.result_proof.proof)?;
+    layerx_programs::verify_state(
+        &next,
+        "lxphost",
+        &sandbox_state_key(1, submission.lease().bytes())?,
+        legacy.commitment.value.as_deref().ok_or("usage value")?,
+        &legacy.usage_ops,
+    )?;
+    assert_eq!(
+        SandboxSubmissionReceipt::verify(&fixture.verifier, &submission, legacy, NOW),
+        Err(SandboxActivityRefusal::InvalidReceipt)
+    );
+    Ok(())
+}
+
+#[test]
+fn sandbox_receipt_verifies_only_against_mounted_lxphost_store() -> Result<(), TestError> {
+    let submission = submission()?;
+    let (fixture, evidence) = evidence_in_store(&submission, 0, "lxphost")?;
+    let receipt = SandboxSubmissionReceipt::verify(&fixture.verifier, &submission, evidence, NOW)?;
+    let expected_activity_id: [u8; 32] = Sha256::digest(submission.payload()).into();
+    assert_eq!(receipt.activity_id(), expected_activity_id);
+
+    let (fixture, evidence) = evidence_in_store(&submission, 0, "layerx")?;
+    assert_eq!(
+        SandboxSubmissionReceipt::verify(&fixture.verifier, &submission, evidence, NOW),
+        Err(SandboxActivityRefusal::InvalidReceipt)
+    );
+    Ok(())
+}
+
+#[test]
 fn sandbox_receipt_refuses_failed_tx_and_foreign_lease() -> Result<(), TestError> {
     let submission = submission()?;
     let (failed_fixture, failed) = evidence(&submission, 5)?;
@@ -426,7 +566,7 @@ fn sandbox_receipt_refuses_failed_tx_and_foreign_lease() -> Result<(), TestError
         .verify_head(&fixture.header, &fixture.commit)?;
     layerx_programs::verify_state(
         &head,
-        "layerx",
+        "lxphost",
         &foreign_key,
         foreign.commitment.value.as_deref().ok_or("usage value")?,
         &foreign.usage_ops,

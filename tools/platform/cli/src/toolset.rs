@@ -38,6 +38,16 @@ pub struct Runtime {
 }
 
 impl Runtime {
+    #[cfg(test)]
+    pub fn loopback(endpoint: &str, network_id: u32) -> Result<Runtime, String> {
+        Ok(Self {
+            client: Client::new(endpoint, None)?,
+            network_id,
+            environment: "test".to_owned(),
+            endpoint: endpoint.to_owned(),
+        })
+    }
+
     pub fn new(
         configuration: &Configuration,
         gateway_credential: &str,
@@ -70,11 +80,6 @@ impl Runtime {
         let asset = asset
             .map(|value| fixed_hex::<32>("asset", value))
             .transpose()?;
-        if mode == DeploymentMode::Full && (source.is_none() || asset.is_none()) {
-            return Err(
-                "payment mode requires the installed source account and asset binding".into(),
-            );
-        }
         if mode == DeploymentMode::ReadOnly && (source.is_some() || asset.is_some()) {
             return Err("read-only mode cannot carry a payment source binding".into());
         }
@@ -228,6 +233,23 @@ pub fn invoke(runtime: &Runtime, tool: ToolDefinition, arguments: &Value) -> Res
     }
 }
 
+pub fn invoke_task(
+    runtime: &Runtime,
+    tool: ToolDefinition,
+    arguments: &Value,
+) -> Result<Value, String> {
+    if tool.name != "activity.submit" {
+        return invoke(runtime, tool, arguments);
+    }
+    match submit_classified(runtime, arguments) {
+        Ok(value) => Ok(value),
+        Err(SubmitFailure::Indeterminate { tx_hash, detail }) => {
+            Ok(json!({"txHash": tx_hash, "rung": "unknown", "detail": detail}))
+        }
+        Err(SubmitFailure::Unsent(detail) | SubmitFailure::Refused(detail)) => Err(detail),
+    }
+}
+
 fn claim_faucet(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
     let did = text(arguments, "did")?;
     if did
@@ -257,30 +279,75 @@ fn claim_faucet(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
     }))
 }
 
+pub enum SubmitFailure {
+    Unsent(String),
+    Refused(String),
+    Indeterminate { tx_hash: String, detail: String },
+}
+
 fn submit(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
+    submit_classified(runtime, arguments).map_err(|failure| match failure {
+        SubmitFailure::Unsent(detail)
+        | SubmitFailure::Refused(detail)
+        | SubmitFailure::Indeterminate { detail, .. } => detail,
+    })
+}
+
+fn submit_classified(runtime: &Runtime, arguments: &Value) -> Result<Value, SubmitFailure> {
     let object = arguments
         .as_object()
         .filter(|object| object.len() == 1)
-        .ok_or("activity.submit requires only raw_transaction")?;
+        .ok_or_else(|| {
+            SubmitFailure::Unsent("activity.submit requires only raw_transaction".into())
+        })?;
     let raw = object
         .get("raw_transaction")
         .and_then(Value::as_str)
-        .ok_or("activity.submit requires a signed raw_transaction hex string")?;
-    let request = layerx_platform_cli::rpc::request("eth_sendRawTransaction", &json!([raw]))?;
+        .ok_or_else(|| {
+            SubmitFailure::Unsent(
+                "activity.submit requires a signed raw_transaction hex string".into(),
+            )
+        })?;
+    let request = layerx_platform_cli::rpc::request("eth_sendRawTransaction", &json!([raw]))
+        .map_err(SubmitFailure::Unsent)?;
     let bytes = hex_decode(
         "raw transaction",
         raw.strip_prefix("0x")
-            .ok_or("raw transaction requires 0x")?,
-    )?;
-    let (call, signature) = decode_signed(&bytes)
-        .map_err(|error| format!("invalid signed EIP-1559 transaction: {error}"))?;
+            .ok_or_else(|| SubmitFailure::Unsent("raw transaction requires 0x".into()))?,
+    )
+    .map_err(SubmitFailure::Unsent)?;
+    let (call, signature) = decode_signed(&bytes).map_err(|error| {
+        SubmitFailure::Unsent(format!("invalid signed EIP-1559 transaction: {error}"))
+    })?;
     recover_sender(&call, &signature)
-        .map_err(|error| format!("invalid EIP-1559 signature: {error}"))?;
+        .map_err(|error| SubmitFailure::Unsent(format!("invalid EIP-1559 signature: {error}")))?;
     if call.chain_id != u64::from(runtime.network_id) {
-        return Err("raw transaction chain id does not match the active environment".into());
+        return Err(SubmitFailure::Unsent(
+            "raw transaction chain id does not match the active environment".into(),
+        ));
     }
-    let response = runtime.client.post("/rpc", &request, None)?;
-    submission_result(&bytes, &response)
+    let tx_hash = format!("0x{}", hex_encode(&transaction_hash(&bytes)));
+    let response = runtime
+        .client
+        .post("/rpc", &request, None)
+        .map_err(|detail| SubmitFailure::Indeterminate {
+            tx_hash: tx_hash.clone(),
+            detail,
+        })?;
+    submission_result(&bytes, &response).map_err(|detail| {
+        if response.get("jsonrpc") == Some(&json!("2.0"))
+            && response.get("id") == Some(&json!(1))
+            && response.get("result").is_none()
+            && response.get("error").is_some_and(|error| {
+                error.get("code").and_then(Value::as_i64).is_some()
+                    && error.get("message").and_then(Value::as_str).is_some()
+            })
+        {
+            SubmitFailure::Refused(detail)
+        } else {
+            SubmitFailure::Indeterminate { tx_hash, detail }
+        }
+    })
 }
 
 fn submission_result(raw: &[u8], response: &Value) -> Result<Value, String> {
