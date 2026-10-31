@@ -14875,3 +14875,11 @@ symbol = "root"
 observed = "Attempt 5 (2f09eeb4d) builds and the qualification passes on the same revision (the re-signed fixture clears state_evidence_refused), and the attempt is refused because the tree holds sixty untracked files under qual-logs/hm2/: human_tls.rs:49 sets the fixture root to CARGO_MANIFEST_DIR/../../../../qual-logs/hm2 inside the repository, qual-logs is not ignored by git, and each run leaves its certificates, tokens, policy and state files there. The test's child processes read the root from LAYERX_HUMAN_TLS_ROOT (:448), so only the one path expression chooses the location."
 assumption = "The fixture root moves under CARGO_TARGET_TMPDIR, where the other hosted crates' integration tests already put theirs (decision 2168)."
 severity = "minor"
+
+[finding.18.670.1.8]
+task = "18.670.1"
+file = "tools/qualification/localnode/v6120-node.sh:712"
+symbol = "SEQUENCER"
+observed = "Attempt 8 (fd5d55aa7) runs the node with --sequencer and the chain now carries the test: the first FundingSettled log arrives after five seconds and the stall of attempt 7 is gone. TestEndToEnd then fails at e2e_test.go:486 with getMarkPriceDetails: execution reverted, which is viewMark (precompiles/perps/views.go:198) refusing market 11 because its mark price is zero. The script's collateral and price-feed setup (mint USDL to the test account, approve and deposit collateral, registerFeedKey, the background feeder, the wait for fresh BTC and PAX prices, then activate_merge) is one block guarded by SEQUENCER = 0 (tools/qualification/localnode/v6120-node.sh:712-757 in the attempt's script), so in sequencer mode no price is ever posted and the test account holds no collateral; the script's own TestLocalNodeV6120PerpsMarket (v6120_test.go:188-195) expects a fresh mark on market 11 from any started node."
+assumption = "The setup block runs in both modes and only activate_merge stays plain-mode, since the sequenced export is already past activation (decision 2169)."
+severity = "major"
