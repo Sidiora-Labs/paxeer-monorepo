@@ -5697,6 +5697,138 @@ value = "v6120-node.sh keeps the standby in app_state.sequencer.leaders and remo
 basis = "Attempt 18 of 12.35.4 (110c9d81f) correlates the standby's failed proposals with the primary's acknowledgement timeouts (finding.12.35.4.15); eighteen fixture attempts have not qualified the sequencer receipt test."
 affects = ["12.35.4"]
 
+[decision.2098]
+title = "The proof library drops the terminal binding test that reads the deleted v4 receipt vectors"
+value = "services/agent/crates/layerx-proof/src/program.rs joins 8.47.11's touches and loses mod terminal_binding_tests (:849-911)."
+basis = "Three attempts of 8.47.11 failed to compile the layerx-proof library tests on an include_str of a fixture task 8.47.6 deleted (finding.8.47.11.2)."
+affects = ["8.47.11"]
+
+[decision.2099]
+title = "The programs call-activity suite expects a sequence refusal for a replayed call"
+value = "tests/programs/test_call_activity.c:1439 and :1466 expect LXP_ERR_SEQUENCE_REUSED, the code lxp_admit_activity returns before it checks the idempotency key."
+basis = "Attempt 8 of 16.33.5 (50f498acb) fails only on the two replay expectations; the admission order at src/sequencer/lxp_admission.c:33-37 and task 16.94.1's state commitment test fix the expected code."
+affects = ["16.33.5"]
+
+[decision.2100]
+title = "The receipt authority drops the withdrawal activity re-verification the retired transport served"
+value = "verify_withdrawal_request (:858-957) and the withdrawal_evidence_unavailable refusal (:819-821) leave src/main.rs; authorized_batch_by_activity keeps binding the receipt to its batch."
+basis = "No JSON-RPC read or replica document carries the signed activity withdrawal::verify needs (finding.8.98.3.3); the gateway verifies the withdrawal at submission."
+affects = ["8.98.3"]
+
+[decision.2101]
+title = "The degraded-mode cap test runs on a Receipted cache value"
+value = "tests/degraded.rs drops committed_cache() and the certificate helpers; the cap test uses verified_cache() and asserts InsufficientEvidence for a Committed request."
+basis = "verify_certificate fails on the embedded settlement document for every caller and nothing else constructs a Committed cache value (finding.18.1205.1.2); decision 2085 is withdrawn."
+affects = ["18.1205.1"]
+
+[decision.2102]
+title = "Agent creation's Governance stages wait for a lifecycle transaction construct"
+value = "18.1272.1 keeps attempt 6's tree and runs no further attempt until a task gives the DidRegistration and RecoveryRegistration stages an EIP-1559 call that bind_call and create.rs admit."
+basis = "decode_method admits no Governance payload on any precompile address and production's LedgerSend lifecycle arm is unreachable (finding.18.1272.1.1); decision 2089 is withdrawn."
+affects = ["18.1272.1"]
+
+[decision.2103]
+title = "The reclaim test double derives its budget context accounts at protocol 3"
+value = "tests/agent_controls_rungs.rs derives owner, budget_account and source_account with account_id_for_protocol(.., 3) and drops its authority-reference refusal."
+basis = "bound_context pins the derivation to protocol 3 (finding.18.1188.2.4); a context derived at another protocol is refused as MalformedPayload."
+affects = ["18.1188.2"]
+
+[decision.2104]
+title = "The authority test support file drops its reader of the deleted v3 programs receipt"
+value = "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs joins the touches of 8.98.3 and 8.98.14; call_fixture (:171-195) and call_outcome_cannot_be_reclassified_as_state (:262-274) go, the two deploy-receipt tests stay."
+basis = "Both tasks build the authority crate with --tests and both stopped at the include of a fixture 8.47.5 removed (finding.8.98.14.2)."
+affects = ["8.98.3", "8.98.14"]
+
+[decision.2105]
+title = "The authority keeps its socket checkpoint reads until a task ports the human readers"
+value = "8.98.3 withdraws the checkpoint_for port of decisions 2075, 2083 and 2100's first half; it deletes verify_withdrawal_request and scans main.rs and trust.rs for client, head, caps and batch only."
+basis = "rpc SequencerBlock carries no canonical header or threshold report, and the human readers and budget_state.rs need both (finding.8.98.3.4); decisions 2057 and 2058 already defer the budget reads to 8.98.14."
+affects = ["8.98.3", "8.98.14"]
+
+[decision.2106]
+title = "The pipeline retirement scan skips the retirement tests that name the retired files on purpose"
+value = "pipeline_lock_lists_no_kernel_receipt_fixture skips kernel-fixtures-retired-*.test.py and otherwise walks sdk/platform/conformance as decision 2014 says."
+basis = "Attempts 1 to 3 of 8.45.4 failed on the two retirement tests whose assertions are the retired names."
+affects = ["8.45.4"]
+
+[decision.2107]
+title = "The native lifecycle fixture generator stops reading the deleted v3 executed receipt"
+value = "generate_native_lifecycle_fixtures.py joins 8.45.4's touches and loses its --stored-historical-v3 call on receipt-programs-executed-v3.json (:199-203)."
+basis = "8.47.6 deleted the fixture and the encoder fails to open it; 8.47.2 and 8.47.9, the file's previous owners, are done."
+affects = ["8.45.4"]
+
+[decision.2108]
+title = "The hand-written Go EVM metadata moves out of the generated catalogue file"
+value = "EVMOperationMetadata and AgentOperation::EVMMetadata live in sdk/platform/go/evm_metadata.go, a handwritten file of the pipeline lock; generated.go is again the generator's exact output."
+basis = "check_go compares the committed file with the rendered schemas byte for byte and the generator renders no EVM metadata; three tasks edited the generated file by hand."
+affects = ["8.45.4"]
+
+[decision.2109]
+title = "The local node test accepts the bare Comet status object"
+value = "test_merge_precompiles_served reads node_info from the optional result envelope or the top level."
+basis = "The node's Comet answers GET /status without the jsonrpc envelope, as the registry tool and the v6120 Go test already assume."
+affects = ["5.98.4"]
+
+[decision.2110]
+title = "The call activity binary stops opening the deleted v3 executed receipt"
+value = "tests/programs/test_call_activity.c loses the no-argument stored_historical_receipt call on receipt-programs-executed-v3.json (:3329-3331)."
+basis = "8.47.6 deleted the fixture; the retired-suite test runs the binary without arguments."
+affects = ["16.33.5"]
+
+[decision.2111]
+title = "The program-owned spend case follows the kernel's planning refusal code when that is what refuses it"
+value = "16.33.5 may change the :2895-2914 expectations from LXP_ERR_NON_CANONICAL to LXP_ERR_PROGRAM_REFUSED after reading the refusing kernel path, and stops otherwise."
+basis = "Attempt 9 failed on that case on a line the task never touched (finding.16.33.5.1)."
+affects = ["16.33.5"]
+
+[decision.2112]
+title = "The intent EVM test serves its agent in process and reads no node socket from the environment"
+value = "tests/intent_plan_evm.rs drops the LAYERX_AGENT_HUMAN_NODE_LNI branch and uses RealAgentLayer as decision 2071 states."
+basis = "Attempt 5 failed on an environment variable the qualification environment never sets (finding.10.0.3.2)."
+affects = ["10.0.3"]
+
+[decision.2113]
+title = "Generated platform SDK catalogues are rendered from the schemas, never edited in place"
+value = "A change a task needs inside a file whose header says DO NOT EDIT goes into the schema the generator reads, into the generator, or into a handwritten file beside the output; the reseal of 8.45.4 accepts every digest and handwritten-list change that --write makes to sdk/platform/pipeline.kvx, and its do_8 stop condition applies to sdk/platform/go/generated.go alone."
+basis = "Attempt 5 stopped on changes that were the reseal itself (finding.8.45.4.1)."
+affects = ["8.45.4"]
+
+[decision.2114]
+title = "The Go and JVM generators skip human operations the schema marks retired"
+value = "go_human_operations (sdk/platform/generators/src/main.rs:1261), the operations closure of generate_jvm_contract (:1504-1509) for the human plane, and the counter generate_jvm_conformance calls (:1634-1635) skip every [operation.*] section carrying retired = 'true' (services/human/schema/human-api/movement.kvx:144-192, identity.kvx:518-549), so the regenerated catalogues keep the shape 8.46.2 do_2 and 8.46.7 produced by hand and sdk/platform/conformance/jvm.kvx human_operations states the live count."
+basis = "The schema marks the binding, deposit, withdraw and exit operations retired but the generators read every operation section, so --write restores them (finding.8.45.4.1)."
+affects = ["8.45.4", "8.46.9"]
+
+[decision.2115]
+title = "Human API consumers name the committed rung checkpoint-finalised"
+value = "The Go and JVM human verification level enums carry exactly the live variants of journeys.kvx [type.VerificationLevel]: unverified, receipt-verified, checkpoint-finalised; block-committed stays the webhook word (decision.813) and is refused by the human SDKs together with paxeer-finalised and settlement-anchored. req.8520 ac_2, req.8521 ac_1, acceptance.8.520.2 and acceptance.8.521.1 are amended to this vocabulary."
+basis = "The human service emits checkpoint-finalised for the committed rung (finding.8.45.4.3); a consumer refusing that word rejects every committed journey."
+affects = ["8.45.4", "8.46.9"]
+
+[decision.2116]
+title = "intent.plan and intent.submit are human-service routes in every catalogue"
+value = "sdk/platform/conformance/operations.json intent.plan and intent.submit return to method POST, paths /v1/intents/plan and /v1/intents/submit, transport http and no per_leg key; the regenerated sdk/platform/go/generated.go renders their Metadata from the schema and no longer carries PerLeg or the hand-written HumanOperation.EVMMetadata (:374-380); the Swift and .NET catalogues are regenerated from operations.json; TestIntentOperationsArePerLegCalls becomes TestIntentOperationsUseTheHumanRoutes asserting the two routes, transport http, idempotency only on intent.submit and Metadata equal to the JSON entry. req.8517 ac_2 and acceptance.8.517.2 are amended; the per-leg EVM calls stay inside the IntentPlan result (req.8520 ac_1)."
+basis = "The Go, Swift and .NET intent entries cannot reach the human service as committed (finding.8.45.4.2)."
+affects = ["8.45.4"]
+
+[decision.2117]
+title = "faucet.claim leaves every platform SDK catalogue"
+value = "services/agent/schema/agent-api has no [operation.faucet.claim] since 9.1.5, so the regenerated Go catalogue drops AgentOperationFaucetClaim; operations.json loses its faucet.claim entry (the O28 group at :392-404) and the Swift and .NET catalogues are regenerated without the case; sdk/platform/go/agent_operation_envelope_test.go:498-500 sends the wire name 'faucet.claim' as a string; the Swift and .NET retired-faucet tests (AgentOperationEnvelopeTests.swift:181-190, AgentOperationEnvelopeTests.cs:198-210) are deleted because their TransportCall takes only a typed catalogue case, and the JVM probes keep the string-based refusal check."
+basis = "The Go count test (sdk/platform/go/operation_keys_test.go:100) holds operations.json and the generated constants to the same count, so the stale entry must leave both."
+affects = ["8.45.4"]
+
+[decision.2118]
+title = "The JVM generated contract returns to the generator's shape before the reseal"
+value = "Task 8.46.9 (JVM profile) removes the AgentOperationCatalog wrapper and the program transport map that 8.46.4 added inside GeneratedContract.java (:13-27, :85-93) so AGENT_OPERATIONS is again the plain Set the generator renders (sdk/platform/generators/src/main.rs:1486-1499), drops faucet.claim from it, reads program transports in GeneratedCatalogueProgramsTest from GeneratedSchema.programTransport and GeneratedSchema.AgentOperations, and moves the HumanVerificationLevel enum of GeneratedSchema.java:2579-2590 and its tests to decision 2115; 8.45.4 requires 8.46.9 and then accepts GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as --write renders them."
+basis = "GeneratedSchema.java is digest-tracked but not rendered, GeneratedContract.java is rendered; only the latter is rewritten by --write, and its JVM compile is proven by the mvn test in both gates."
+affects = ["8.45.4", "8.46.9"]
+
+[decision.2119]
+title = "8.45.4 qualifies on the sdk-all profile with the consumer tests in its gate"
+value = "8.45.4 builds the generator and the Go module, then verifies with the pipeline_reseal tests, the Go catalogue tests, generate_portable.py --check, the three JVM catalogue tests, swift build and dotnet build, so the regenerated producer and every SDK consumer are proven on one revision."
+basis = "The owner's quality ruling: every interface-changing task proves the producer, transport and consumer path."
+affects = ["8.45.4"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -18341,7 +18473,7 @@ ac_2 = "The pipeline lock lists no receipt-positive, receipt-refusals or receipt
 [req.8517]
 title = "Go catalogue and operations.json route program and intent operations to EVM calls"
 ac_1 = "No program operation in operations.json carries a /v1/programs route and each names its 0x101D selector or read method."
-ac_2 = "intent.plan and intent.submit are marked as per-leg EVM calls in operations.json and in the generated Go catalogue."
+ac_2 = "intent.plan and intent.submit are POST /v1/intents/plan and POST /v1/intents/submit over http in operations.json and in the generated Go catalogue (decision 2116); their per-leg EVM calls live in the IntentPlan result."
 
 [req.8518]
 title = "JVM generated schema routes program operations to 0x101D and prepares EIP-1559 transactions"
@@ -18356,11 +18488,11 @@ ac_2 = "Neither generated catalogue contains the text /v1/programs."
 [req.8520]
 title = "JVM generated schema builds per-leg intents, drops settlement evidence and the binding operations"
 ac_1 = "The generated intent plan result holds a list of per-leg EVM calls each with to, data and chainId."
-ac_2 = "The JVM human verification level enum has block-committed and no checkpoint-finalised, paxeer-finalised or settlement field on evidence."
+ac_2 = "The JVM human verification level enum has exactly unverified, receipt-verified and checkpoint-finalised (the live variants of the human schema, decision 2115), refuses block-committed, paxeer-finalised and settlement-anchored, and no settlement field remains on evidence."
 
 [req.8521]
 title = "Go catalogue and operations.json drop binding, deposit, exit, withdraw and settlement entries"
-ac_1 = "The Go human verification levels contain block-committed and none of checkpoint-finalised, paxeer-finalised or settlement-anchored."
+ac_1 = "The Go human verification levels are exactly unverified, receipt-verified and checkpoint-finalised, the live variants of the human schema (decision 2115); block-committed, paxeer-finalised and settlement-anchored are not valid."
 ac_2 = "No binding, deposit, exit or withdraw operation remains in operations.json or the generated Go catalogue."
 
 [req.8522]
@@ -67942,9 +68074,9 @@ qualification = "UNRUN"
 [acceptance.8.517.2]
 feature = "8"
 req = "8517.2"
-scenario = "Given operations.json and generated.go, when intent.plan and intent.submit are looked up, then both carry the per-leg EVM call transport and no two-domain endpoint."
+scenario = "Given operations.json and generated.go, when intent.plan and intent.submit are looked up, then both carry the human-service POST route over http and the generated Metadata equals the JSON entry."
 contract = "contracts/platform-sdk.md#operation-catalog"
-test = "sdk/platform/go/operation_catalog_test.go::TestIntentOperationsArePerLegCalls (planned)"
+test = "sdk/platform/go/operation_catalog_test.go::TestIntentOperationsUseTheHumanRoutes"
 qualification = "UNRUN"
 
 [acceptance.8.518.1]
@@ -67990,17 +68122,17 @@ qualification = "UNRUN"
 [acceptance.8.520.2]
 feature = "8"
 req = "8520.2"
-scenario = "Given the generated verification level enum and evidence record, when values and components are listed, then block-committed is present and the removed names are absent."
+scenario = "Given the generated verification level enum and evidence record, when values and components are listed, then unverified, receipt-verified and checkpoint-finalised are present and block-committed, paxeer-finalised and settlement-anchored are refused."
 contract = "contracts/platform-sdk.md#operation-catalog"
-test = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java::verificationLevelsUseBlockCommitted (planned)"
+test = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java::verificationLevelsFollowTheHumanSchema"
 qualification = "UNRUN"
 
 [acceptance.8.521.1]
 feature = "8"
 req = "8521.1"
-scenario = "Given the generated Go human verification level values, when they are enumerated, then block-committed is present and checkpoint-finalised, paxeer-finalised and settlement-anchored are absent."
+scenario = "Given the generated Go human verification level values, when they are enumerated, then unverified, receipt-verified and checkpoint-finalised are present and block-committed, paxeer-finalised and settlement-anchored are not valid."
 contract = "contracts/platform-sdk.md#operation-catalog"
-test = "sdk/platform/go/human_catalogue_test.go::TestHumanVerificationLevelsUseBlockCommitted (planned)"
+test = "sdk/platform/go/human_catalogue_test.go::TestHumanVerificationLevelsFollowTheHumanSchema"
 qualification = "UNRUN"
 
 [acceptance.8.521.2]
@@ -96510,7 +96642,7 @@ do_6 = "Decision 2080: attempt 4 (5d09c9378) removed Host.ReadPayerGrant, and ma
 
 [task.1.26.1]
 title = "Replace the single host mutex with a bounded pool of kernel nodes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["1.25.1", "1.17.4", "1.98.1", "1.23.5"]
@@ -96548,7 +96680,7 @@ do_9 = "Decision 2094: attempt 5 (2434dfc8e, the re-qualification of attempt 4) 
 
 [task.1.26.2]
 title = "Prove optimistic concurrent execution equals sequential execution through the host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["1.26.1", "1.23.2"]
@@ -96873,7 +97005,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.29.5]
 title = "Retire the web availability root of the batch header in lx_web_root.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["1.21.1", "1.0.3", "16.33.1", "16.33.2", "16.33.4"]
@@ -98045,7 +98177,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.39.2]
 title = "Check read bridge calls against concurrent executions on the node pool"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["1.26.1"]
@@ -122062,7 +122194,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.98.4]
 title = "Bring the merge precompile set live in the local node fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -122093,6 +122225,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Consumer-proof task: the test starts the real fixture, reads the real node over its JSON-RPC and asserts the code the wallet gateway's probe requires at every merge address; a mocked node or a stubbed eth_getCode is not a proof (decision.1990)."
 do_5 = "Decision 2061: the node serves precompiles as native handlers without account code (attempt 1: eth_getCode answers 0x at all twelve merge addresses while the native ledger accountId eth_call is served), so eth_getCode is not a readiness probe. require_merge_precompiles in tools/qualification/localnode/v6120-node.sh probes each MergeAddressTable address (precompiles/setup.go) with eth_call data 0xffffffff: every merge precompile rejects an unknown selector with LXP_PRECOMPILE_UNKNOWN_METHOD (precompiles/common/precompiles.go:277-283, precompiles/layerxledger/layerxledger.go:75-81, precompiles/layerxagent/common/common.go:194-196), so a JSON-RPC error means served and an empty 0x result means no handler is registered there; keep the native-ledger accountId positive call; the planned test asserts the same over RPC after start. Where the 0x0901-0x0908 handlers answer 0x, the fixture's upgrade or genesis configuration must register them (do_1-do_3); the gateway's own eth_getCode probe is task 12.13.7's (finding.5.98.4.1). Continue from attempt 2 (dfcaca56f) once the node builds again (task 1.12.4): apply this, build once and verify once."
 do_6 = "Decision 2096: attempt 5 (4fd96be14) fails at 0x0901 because the agent-function handlers at 0x0901-0x0908 check the merge upgrade activation before the selector and answer LXP_AGENT_NOT_ACTIVE (finding.5.98.4.2). require_merge_precompiles treats a JSON-RPC error whose message contains LXP_PRECOMPILE_UNKNOWN_METHOD or LXP_AGENT_NOT_ACTIVE as served; any other error text, an empty 0x result or a successful return fails the probe as before. The planned test asserts the same two accepted codes. Continue from attempt 5, build once and verify once."
+do_7 = "Decision 2109: attempt 6 (3ecc5b567) built and the verify stopped at test_merge_precompiles_served.py:85 with KeyError 'result': this node's Comet RPC answers GET /status with the bare status object (tools/hpx/registry/main.go:500-518 rpcGet documents and unwraps the optional jsonrpc envelope; tools/qualification/localnode/v6120_test.go:44-49 decodes the body straight into coretypes.ResultStatus). The test reads node_info from status['result'] when that key is present and from the top level otherwise, and still requires node_info.network == hyperpax_125-1."
 
 [task.5.98.3]
 title = "Seed the local node's dev genesis with the perps market, pricefeed and collateral state of the perps-data test"
@@ -139422,7 +139555,7 @@ title = "Pipeline lock reseals every regenerated, added and retired platform SDK
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.45.3", "8.46.2", "8.47.7", "8.41.5", "8.42.5", "8.43.5", "8.44.5", "9.97.3", "8.47.4", "8.47.5", "8.47.6"]
+requires = ["8.45.3", "8.46.2", "8.47.7", "8.41.5", "8.42.5", "8.43.5", "8.44.5", "9.97.3", "8.47.4", "8.47.5", "8.47.6", "8.46.9"]
 reqs = ["8516.1", "8516.2"]
 capabilities = ["8.45.4"]
 interfaces = ["interface.8.cfg-sdk-pipeline-files-platform-go", "interface.8.cfg-sdk-pipeline-handwritten-platform-go", "interface.8.cfg-sdk-pipeline-files-platform-jvm", "interface.8.cfg-sdk-pipeline-handwritten-platform-jvm", "interface.8.cfg-sdk-pipeline-files-platform-conformance", "interface.8.cfg-sdk-pipeline-handwritten-platform-conformance", "interface.8.cfg-sdk-pipeline-files-platform-swift", "interface.8.cfg-sdk-pipeline-files-platform-dotnet", "interface.8.cfg-sdk-pipeline-files-platform-portable-conformance"]
@@ -139432,13 +139565,13 @@ do_2 = "Add committed.go, verify/Committed.java, Committed.cs and Committed.swif
 do_3 = "Remove the kernel receipt fixtures, their generators and terminal-v4.test.py from the conformance handwritten list at sdk/platform/pipeline.kvx:346."
 do_4 = "Create sdk/platform/generators/tests/pipeline_reseal.rs (planned) running --check against the repository root."
 symbols = ["write_lock", "check"]
-touches = ["sdk/platform/pipeline.kvx", "sdk/platform/generators/tests/pipeline_reseal.rs"]
-tests = ["sdk/platform/generators/tests/pipeline_reseal.rs::pipeline_lock_matches_repository", "sdk/platform/generators/tests/pipeline_reseal.rs::pipeline_lock_lists_no_kernel_receipt_fixture"]
-planned_paths = ["sdk/platform/generators/tests/pipeline_reseal.rs"]
-build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen"
-verify_cmd = "cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test pipeline_reseal -- --exact pipeline_lock_matches_repository pipeline_lock_lists_no_kernel_receipt_fixture"
+touches = ["sdk/platform/pipeline.kvx", "sdk/platform/generators/tests/pipeline_reseal.rs", "sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py", "sdk/platform/go/generated.go", "sdk/platform/go/evm_metadata.go", "sdk/platform/generators/src/main.rs", "sdk/platform/conformance/operations.json", "sdk/platform/conformance/jvm.kvx", "sdk/platform/go/operation_catalog_test.go", "sdk/platform/go/human_catalogue_test.go", "sdk/platform/go/agent_operation_envelope_test.go", "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift", "sdk/platform/dotnet/Generated/OperationCatalog.cs", "sdk/platform/swift/Tests/LayerXSDKTests/AgentOperationEnvelopeTests.swift", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java"]
+tests = ["sdk/platform/generators/tests/pipeline_reseal.rs::pipeline_lock_matches_repository", "sdk/platform/generators/tests/pipeline_reseal.rs::pipeline_lock_lists_no_kernel_receipt_fixture", "sdk/platform/go/operation_catalog_test.go::TestIntentOperationsUseTheHumanRoutes", "sdk/platform/go/human_catalogue_test.go::TestHumanVerificationLevelsFollowTheHumanSchema"]
+planned_paths = ["sdk/platform/generators/tests/pipeline_reseal.rs", "sdk/platform/go/evm_metadata.go"]
+build_cmd = "cargo build --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen && go -C sdk/platform/go build ./..."
+verify_cmd = "cargo test --locked --manifest-path sdk/platform/generators/Cargo.toml -p layerx-platform-sdkgen --test pipeline_reseal -- --exact pipeline_lock_matches_repository pipeline_lock_lists_no_kernel_receipt_fixture && go -C sdk/platform/go test -count=1 . -run '^(TestIntentOperationsUseTheHumanRoutes|TestHumanVerificationLevelsFollowTheHumanSchema|TestHumanCatalogueHasNoRetiredJourneys|TestProgramOperationsHaveNoRestRoute|TestOperationsAreKeyedByContractId|TestPortableCataloguesMatchOperationsJson|TestPortableCataloguesHaveNoProgramsRoute)$' && python3 sdk/platform/generators/generate_portable.py --check . && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest='GeneratedCatalogueProgramsTest,GeneratedCatalogueJourneysTest,GeneratedCatalogueIntentsTest' -Dsurefire.failIfNoSpecifiedTests=true && swift build --package-path sdk/platform/swift && dotnet build sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj"
 gate_kind = "planned"
-sandbox_profile = "rust"
+sandbox_profile = "sdk-all"
 owner_role = "fm-platform"
 rollback = "Restore sdk/platform/pipeline.kvx from history."
 max_builds = 1
@@ -139450,6 +139583,15 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "pipeline_lock_lists_no_kernel_receipt_fixture also walks sdk/platform/conformance and asserts no file there names a retired receipt fixture or generator of tasks 8.47.4, 8.47.5 and 8.47.6 (decision.2014): the two retirement scans skip each other's files and this task, which requires all three, closes that gap."
+do_6 = "Decision 2106: attempts 1 to 3 (6ea483455, a244de9cd, 50538eed4) fail pipeline_lock_lists_no_kernel_receipt_fixture on sdk/platform/conformance/kernel-fixtures-retired-2.test.py:40, which names generate_program_receipt_fixture.c, and kernel-fixtures-retired-4.test.py:9, which names receipt-programs-positive-v3.json: those files are the retirement tests of 8.47.4, 8.47.5 and 8.47.6 and name the retired files in order to assert their absence. The walk of do_5 skips every file matching kernel-fixtures-retired-*.test.py and otherwise asserts as written."
+do_7 = "Decision 2107: the same scan is right about sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py:199-203, which runs the encoder with --stored-historical-v3 on receipt-programs-executed-v3.json, a fixture 8.47.6 deleted (the encoder's stored_historical_receipt at tests/programs/test_call_activity.c:2715 opens the path and fails). Delete that subprocess.run call; the file joins touches."
+do_8 = "Decision 2108: pipeline_lock_matches_repository fails because check_go (sdk/platform/generators/src/main.rs:1462-1473) regenerates sdk/platform/go/generated.go from the agent and human schemas and the committed file differs: type EVMOperationMetadata (generated.go:342-347) and func (operation AgentOperation) EVMMetadata() (:349 onward) were written by hand by 8.46.1 (35c3696c5), 8.46.2 (89145e0ce) and 18.1308.2 (ef56c7194) and no generator source renders them. Move both into sdk/platform/go/evm_metadata.go (planned, same package, byte-for-byte the current bodies, so sdk/platform/go/operation_catalog_test.go and portable_catalogue_test.go keep passing), list that file under [handwritten.platform-go] (sdk/platform/pipeline.kvx:258), then run --write (do_1) so generated.go is again exactly the generator's output. If --write changes generated.go beyond removing the two moved items, stop and record the differing lines."
+do_9 = "Decision 2113: attempt 5 (bf181d7df) mistook the reseal for the do_8 stop condition. The do_8 condition is about sdk/platform/go/generated.go only; every digest and handwritten-list change --write makes to sdk/platform/pipeline.kvx is do_1's reseal and is kept. The regenerated outputs it also rewrites are accepted once do_10 to do_14 are done, because the differences attempt 5 saw are hand edits inside DO NOT EDIT files (finding.8.45.4.1)."
+do_10 = "Decision 2114: in sdk/platform/generators/src/main.rs, go_human_operations (:1261), the operations closure of generate_jvm_contract (:1504-1509) for the human plane and the counter generate_jvm_conformance calls (:1634-1635) skip every [operation.*] section whose retired key is 'true' (services/human/schema/human-api/movement.kvx:144-192, identity.kvx:518-549); the regenerated Go catalogue then has 84 human operations, the same as operations.json, and sdk/platform/conformance/jvm.kvx states human_operations = 84 and agent_operations = 53."
+do_11 = "Decision 2115: the regenerated HumanVerificationLevel of sdk/platform/go/generated.go carries unverified, receipt-verified and checkpoint-finalised, the live variants of services/human/schema/human-api/journeys.kvx:26-27 (block-committed is the webhook word of decision.813 and does not belong to the human API). sdk/platform/go/human_catalogue_test.go:51-73 becomes TestHumanVerificationLevelsFollowTheHumanSchema: it expects those three constants and asserts that block-committed, paxeer-finalised, settlement-anchored and the empty string are not Valid()."
+do_12 = "Decision 2116: sdk/platform/conformance/operations.json:1442-1463: intent.plan becomes method POST, path /v1/intents/plan, transport http, idempotency false; intent.submit becomes method POST, path /v1/intents/submit, transport http, idempotency true; both lose the per_leg key. Run python3 sdk/platform/generators/generate_portable.py . to rewrite sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift and sdk/platform/dotnet/Generated/OperationCatalog.cs. The regenerated generated.go renders their Metadata from intent.kvx:66-85 (no PerLeg field, no HumanOperation.EVMMetadata). sdk/platform/go/operation_catalog_test.go:118-166 becomes TestIntentOperationsUseTheHumanRoutes: for each of the two JSON entries it asserts plane human, the method and path above, transport http, idempotency true only for intent.submit, and that Metadata() returns the same Method, Path, Request and Response; the EVMMetadata assertions at :143-148 and :165-167 are deleted."
+do_13 = "Decision 2117: delete the faucet.claim entry (the O28 group, sdk/platform/conformance/operations.json:392-404) and rerun generate_portable.py so the Swift and .NET catalogues lose their faucet case; sdk/platform/go/agent_operation_envelope_test.go:498 encodes Operation: 'faucet.claim' as a string literal instead of string(AgentOperationFaucetClaim); delete testSdkSwiftFaucetClaimIsRetiredUnavailableCapability (sdk/platform/swift/Tests/LayerXSDKTests/AgentOperationEnvelopeTests.swift:181-190) and RetiredFaucetClaimReturnsTerminalUnavailableCapability (sdk/platform/dotnet/tests/LayerX.Sdk.Tests/AgentOperationEnvelopeTests.cs:198-210). The regenerated Go agent catalogue has 53 operations, equal to the agent sections of services/agent/schema/agent-api."
+do_14 = "Decision 2118: this task requires 8.46.9, which first returns sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java to the generator's shape and moves the JVM verification enum to decision 2115. After do_10, run --write (do_1) and accept GeneratedContract.java and sdk/platform/conformance/jvm.kvx exactly as rendered; if the rendered GeneratedContract.java still differs from the 8.46.9 result, the difference is the generator's and the mvn test of the verify proves it compiles. Run the build and the verify once on the final revision."
 
 [task.8.46.1]
 title = "Go catalogue and operations.json route program and intent operations to EVM calls"
@@ -140926,7 +141068,7 @@ do_1 = "After task 8.11.3 removes the kernel socket from the receipt authority, 
 do_2 = "Change only import paths and call names, as wiring.J44.20 states; the behaviour of layerx-platform-authority (services/platform/hosted/authority/Cargo.toml:1) and every existing test of the crate stay unchanged."
 do_3 = "Write no_retired_layerx_client_module_paths_w2 in services/platform/hosted/authority/tests/retired_client_modules_w2.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains."
 symbols = ["no_retired_layerx_client_module_paths_w2"]
-touches = ["services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules_w2.rs", "services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/tests/chain_receipts.rs"]
+touches = ["services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules_w2.rs", "services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/tests/chain_receipts.rs", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs"]
 tests = ["services/platform/hosted/authority/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2"]
 planned_paths = ["services/platform/hosted/authority/tests/retired_client_modules_w2.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
@@ -140947,6 +141089,9 @@ do_4 = "Port the VerifiedCheckpoint and proof_bundle_with_history uses of servic
 do_5 = "This task requires 8.98.4, which ports human/budget_state.rs off Uds::connect; after do_4 ports checkpoint_for (src/main.rs:739-750) and verify_withdrawal_request (src/main.rs:916-941), delete Config.lni_socket and lni_gate (src/main.rs:94-95), the LAYERX_AUTHORITY_LNI_SOCKET block (src/main.rs:281-290, :337-338) and MAX_LNI_CONNECTIONS with the layerx_client::lni imports, so no_retired_layerx_client_module_paths_w2 finds no lni path in main.rs (decision.1987)."
 do_6 = "Decision 2075: attempt 3 (321642b79) changed two lines of src/main.rs and failed the scan on 'src/main.rs names retired path layerx_client::lni' (imports :8-10, MAX_LNI_CONNECTIONS :40, Config.lni_socket and lni_gate :94-95, the LAYERX_AUTHORITY_LNI_SOCKET block :288-291 and :338-339, the Uds::connect uses :687-688 and :878-883, :992). do_4 and do_5 are the task: checkpoint_for (:681) reads the committed checkpoint through layerx_client::rpc::evidence::checkpoint (src/rpc/evidence.rs:25) and verify_withdrawal_request (:858) the proof through rpc::evidence::proof_bundle_with_history (:46, ProofBundle :9), both over the configured PxEndpoint; then the lni imports, the constant, the two Config fields, the environment block and the connection gate leave src/main.rs. tests/human_tls.rs, tests/chain_receipts.rs and src/trust.rs keep their lni uses (finding.8.98.3.1). Continue from attempt 3, build once and verify once."
 do_7 = "Decision 2083: attempt 4 (b28010d09) changed one import line of src/main.rs and the scan failed again on src/main.rs naming layerx_client::lni. The task is the port of decision 2075 plus the removal of the lni transport plumbing it leaves dead: checkpoint_for (:681) reads the committed checkpoint through layerx_client::rpc::evidence::checkpoint (src/rpc/evidence.rs:25) and verify_withdrawal_request (:858) the proof through rpc::evidence::proof_bundle_with_history (:46), both over the configured PxEndpoint; the lni imports (:8-10), LNI_FRAME_BYTES (:41), Config.lni_socket and lni_gate (:94-95), the LAYERX_AUTHORITY_LNI_SOCKET block (:288-291, :338-339) and its USAGE line leave src/main.rs, and MAX_LNI_CONNECTIONS (:40) becomes MAX_READINESS_PERMITS with the same value for the readiness permit count at :992. src/trust.rs drops the lni schema and transport imports (:8-9), limits() (:32) and the FrameTransport-taking checkpoint fetch (:177) that only the removed path called; tests/chain_receipts.rs drops its lni_socket, lni_gate and LAYERX_AUTHORITY_LNI_SOCKET harness lines (:263-264, :372, :456, :641, :839-849, :905). trust.rs and tests/chain_receipts.rs join touches; the build compiles the test targets and verify also runs chain_receipts. If proof_bundle_with_history cannot answer the evidence verify_withdrawal_request needs, record one qualification entry and stop. Continue from attempt 4, build once and verify once."
+do_8 = "Decision 2100: attempt 5 stopped on decision 2083's condition. rpc::evidence::ProofBundle (src/rpc/evidence.rs:9-12) carries an account proof and the landing block, the replica document (BatchEvidence, src/lib.rs:97-106) carries the header, its signature, the receipt proof and the batch identity, and layerx-client's JSON-RPC surface has no read of a signed activity by activity id (sequencer.rs public methods; rpc::receipt::AuthenticatedReceipt returns the receipt only), so the signed_activity that layerx_proof::receipt::withdrawal::verify (receipt/withdrawal.rs:179-185) decodes cannot be obtained by the authority (finding.8.98.3.3). Delete verify_withdrawal_request (:858-957), its call and the withdrawal_evidence_unavailable refusal (:819-821) and the imports only it used; the receipt stays bound to its batch through authorized_batch_by_activity, and withdrawal semantics are verified at submission by the gateway (services/platform/hosted/gateway/src/main.rs:2903-2931 verify_withdrawal_submission over the submission's canonical activity). checkpoint_for ports to rpc::evidence::checkpoint as decision 2083 says and the rest of decision 2083 stands. Continue from attempt 4 (b28010d09), build once and verify once."
+do_9 = "Decision 2104: attempt 5 of 8.98.14 (00ead836d) and attempt 6 of 8.98.3 (6a83e2d41) fail the authority test build because tests/support/lifecycle_dispatch.rs:171-173 call_fixture includes the receipt-programs-positive-v3.json fixture that 8.47.5 deleted (finding.8.98.14.2). Whichever of 8.98.3 and 8.98.14 publishes first deletes call_fixture (:171-195) and its only consumer call_outcome_cannot_be_reclassified_as_state (:262-274); module_offset (:198) stays for malformed_state_module_version_and_signature_are_refused (:235) and the verify_outcome import for the deploy test at :214-217. If main already lacks call_fixture, this line is satisfied."
+do_10 = "Decision 2105: attempt 6 (6a83e2d41) ported checkpoint_for and checkpoint_header onto rpc::evidence::checkpoint and broke the human readers (finding.8.98.3.4): human/budget_state.rs:5, :77, :103 and :256 still read over the socket (decisions 2057, 2058, until 8.98.14), and human.rs:134, :579, :588, :1013, :1025, :1037 and human/dynamic.rs:141, :563, :570 consume VerifiedCheckpoint methods that rpc SequencerBlock (services/agent/crates/layerx-client/src/sequencer.rs:190-200) lacks. The checkpoint port of do_4, do_6 and do_7 is withdrawn: checkpoint_for, checkpoint_header, trust::limits, trust::checkpoint, LNI_FRAME_BYTES, MAX_LNI_CONNECTIONS, Config.lni_socket, Config.lni_gate and the LAYERX_AUTHORITY_LNI_SOCKET block stay as on main. The task deletes verify_withdrawal_request, its call, the withdrawal_evidence_unavailable refusal and the imports only it used (decision 2100), and no_retired_layerx_client_module_paths_w2 scans src/main.rs and src/trust.rs for layerx_client::client, ::head, ::caps and ::batch; lni, read and evidence join the list in the task that ports the human readers. Every existing authority test still passes."
 
 [task.8.98.4]
 title = "Migrate the authority callers of wiring.J44.20"
@@ -140991,7 +141136,7 @@ do_13 = "Decision 2057: layerx_client::read stays in services/platform/hosted/au
 
 [task.9.97.13]
 title = "Write tx_hash on every gateway history row and re-record the unified history web fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.97.12"]
@@ -141359,7 +141504,7 @@ do_2 = "Add no_kernel_custody_reads_in_core to services/platform/hosted/core/tes
 do_3 = "Remove the LAYERX_CORE_LNI_SOCKET read at services/platform/hosted/core/src/main.rs:349 and the variable at node/deployment.yaml:432 once no code path reads it (8.18.1 do_2 keeps it until this task); if a reader remains, stop and record it."
 do_4 = "Change nothing under services/agent and weaken no scan; layerx-platform-core and layerx-node-probe build and the retired_client_modules_w2 target passes both scans."
 symbols = ["no_kernel_custody_reads_in_core"]
-touches = ["services/platform/hosted/core/src/lib.rs", "services/platform/hosted/core/tests/retired_client_modules_w2.rs", "services/platform/hosted/core/src/main.rs", "node/deployment.yaml", "services/platform/hosted/node/tests/probe/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs"]
+touches = ["services/platform/hosted/core/src/lib.rs", "services/platform/hosted/core/tests/retired_client_modules_w2.rs", "services/platform/hosted/core/src/main.rs", "node/deployment.yaml", "services/platform/hosted/node/tests/probe/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs"]
 tests = ["services/platform/hosted/core/tests/retired_client_modules_w2.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --tests && cargo build --locked --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml -p layerx-node-probe && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
@@ -141380,6 +141525,7 @@ do_6 = "When custody_session and the custody reads no longer open an LNI connect
 do_7 = "When connect_client and its layerx_client::client import leave services/platform/hosted/core/src/main.rs, add 'client' to the retired_modules list of tests/retired_client_modules_w2.rs (decision.2024)."
 do_8 = "After porting the custody block and the authority budget reader (services/platform/hosted/authority/src/human/budget_state.rs, decision 2057), add 'read' to the retired_modules lists of services/platform/hosted/core/tests/retired_client_modules_w2.rs and services/platform/hosted/authority/tests/retired_client_modules.rs (decisions 2057 and 2058), so both tests then prove the port."
 do_9 = "Decision 2095: attempts 1 to 3 (f558a861c and 25e68910b among them) fail the build on the core test target no_kernel_disclosure_codec.rs, whose source! list (:16-17) includes services/platform/hosted/gateway/tests/local/funding.rs and withdrawal.rs, files task 8.19.5 deleted (finding.8.98.14.1). The test joins touches: delete those two source! entries and no other; then the task as declared. Continue from attempt 3, build once and verify once."
+do_10 = "Decision 2104: attempt 5 of 8.98.14 (00ead836d) and attempt 6 of 8.98.3 (6a83e2d41) fail the authority test build because tests/support/lifecycle_dispatch.rs:171-173 call_fixture includes the receipt-programs-positive-v3.json fixture that 8.47.5 deleted (finding.8.98.14.2). Whichever of 8.98.3 and 8.98.14 publishes first deletes call_fixture (:171-195) and its only consumer call_outcome_cannot_be_reclassified_as_state (:262-274); module_offset (:198) stays for malformed_state_module_version_and_signature_are_refused (:235) and the verify_outcome import for the deploy test at :214-217. If main already lacks call_fixture, this line is satisfied."
 
 [task.9.0.1]
 title = "Add Rung and RungStatus to the agent-api verify contract beside Level"
@@ -145566,7 +145712,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.12]
 title = "Read the receipt key of the TypeScript gateway tests from the sequencer receipt fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = []
@@ -146508,7 +146654,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.3]
 title = "Regenerate the receipt contract outputs after the resealed pipeline lock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.0.4", "8.0.4", "9.1.7", "18.1304.1", "9.97.6", "9.97.7", "9.97.8"]
@@ -146622,7 +146768,7 @@ do_13 = "Decision 2079: attempt 9 (eb382d822) builds and passes every declared t
 
 [task.9.97.11]
 title = "Re-point the x402 HTTP and grant-draw verifiers at the sequencer receipt verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.97.7"]
@@ -146919,6 +147065,7 @@ do_9 = "Issue #1190: the ordinal change of do_8 applies to the archive_defund fi
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_10 = "Decision 2071: attempt 2 (dca4574b0) wrote tests/intent_plan_evm.rs around a Fixture::open (:48-63 of that tree) that reads LAYERX_TEST_INTENT_FIXTURE_JSON, an environment variable nothing in the repository provides (finding.10.0.3.1), and edited tests/production_owner_tests.rs outside its touches. The test is self-contained: it opens ProductionComponents in a temp directory and serves the agent side in process the way tests/intent_submit.rs does with RealAgentLayer (:326, impl at :385, its directory at :860, new at :1112), reads no environment-named fixture, and drives intent.plan and intent.submit through the real Router (do_4); production_owner_tests.rs stays untouched. Continue from attempt 2, build once and verify once."
 do_11 = "Decision 2093: attempt 3 (5aa1f3bcb) fails both tests with 'LAYERX_HUMAN_AUTH_INDEX_KEY is required' (src/server/production_components.rs:406): Fixture::open (tests/intent_plan_evm.rs:82-145 of that tree) sets the store, custody and auth-index roots, the tenancy digest and the runtime clock socket, but none of the secrets and limits ProductionComponents reads. Set every variable tests/production_unhooked.rs:872-895 sets, with the same test values (LAYERX_HUMAN_AUTH_INDEX_KEY, LAYERX_HUMAN_STREAM_CURSOR_KEY, the RP id, name and origin, the ceremony, assertion, session, refresh and step-up TTLs, the auth rate attempts and window). Continue from attempt 3, build once and verify once."
+do_12 = "Decision 2112: attempt 5 (40dd6adae) fails both tests at tests/intent_plan_evm.rs:147 demanding LAYERX_AGENT_HUMAN_NODE_LNI, the authority endpoint, bearer, CA and LAYERX_HUMAN_AGENT_ACTOR from the environment (finding.10.0.3.2). The fixture reads no LAYERX_AGENT_* or LAYERX_TEST_* variable and starts no node or agent process: it serves the agent side in process with RealAgentLayer exactly as tests/intent_submit.rs:326-420 and :859 do (decision 2071), sets the ProductionComponents variables of do_11 itself, and drives intent.plan and intent.submit through the real Router; the environment-dependent branch at :147-183 is deleted. Continue from attempt 5, build once and verify once."
 
 [task.10.0.4]
 title = "Report retired operations from the client generator and pin the regenerated client"
@@ -147684,7 +147831,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.6.2]
 title = "Remove bridge mechanisms from send routing and executable shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.8.1", "10.8.2", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1"]
@@ -163507,7 +163654,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.98.1]
 title = "Program submissions carry their receipt authorities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["13.22.4", "13.0.4", "1.26.1", "18.1073.1", "18.1130.1"]
@@ -174516,7 +174663,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.33.5]
 title = "Delete the programs occupancy, balance-read and interface suites; drop batch signing from call activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.37.1", "16.2.4", "16.97.5", "16.11.17", "16.37.2"]
@@ -174555,6 +174702,9 @@ do_10 = "Continue from attempt 4 (a4317c95e): the build now names build/tests/pr
 do_11 = "Decision 2055: do_9's build_and_run_c_suite target is build/tests/programs_call_activity (Makefile:2775 builds it from tests/programs/test_call_activity.c and the programs fixture rules at :2825-2834 run it), the test this task's build already names; no rule builds lxp_test_maintenance_publication, so a planned test naming it cannot pass. Continue from attempt 5 (f9fd666ba): change the target, build once and verify once."
 do_12 = "Decision 2077: attempt 6 (912059ee1) builds, and build/tests/programs_call_activity exits 1 because tests/programs/test_call_activity.c:3020 and :3330 call stored_historical_receipt on sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json, a fixture task 8.47.5 (88faddb09) removed; tests/ci/test_receipt_fixture_readers.py:77 admits only the v4 receipt fixture. Delete those two cases from test_call_activity.c (the remaining cases cover the executed receipt through the v4 fixture). Continue from attempt 6, build once and verify once."
 do_13 = "Decision 2086: attempt 7 (351305ac9) deleted the two v3 cases, publish_artifact_fixture_batch, post_upgrade_batch_regression and the post-upgrade branch of deploy_and_upgrade_artifacts_case, changed the kernel to `static lxp_kernel kernel;`, and build/tests/programs_call_activity now exits -11 (segmentation fault) when tests/ci/retired_tests.py:75 build_and_run_c_suite runs it without arguments. Before the declared build, rebuild the binary once with the Makefile's knobs (EXTRA_CFLAGS :8, EXTRA_LDFLAGS :9, the pattern of :1183-1189: EXTRA_CFLAGS='-fsanitize=address -g' EXTRA_LDFLAGS='-fsanitize=address'), run it, and fix the case the first sanitizer frame names in tests/programs/test_call_activity.c (a case that still reaches state the deleted helpers set up, or the static kernel reused across cases without re-initialisation). Also delete the --stored-historical-v3 argv mode (:3017-3018) and stored_historical_receipt (:2405) since no caller remains. Then the declared build once and verify once."
+do_14 = "Decision 2099: attempt 8 (50f498acb) builds, and build/tests/programs_call_activity exits 1 ('Programs artifact fixture protocol=3 failed at line=1467'): replaying the accepted call with its original account_sequence expects LXP_ERR_IDEMPOTENT_REPLAY (tests/programs/test_call_activity.c:1439 in the dump_executed_v4 branch and :1466), but lxp_admit_activity (src/sequencer/lxp_admission.c:33-37) refuses a reused account sequence before it reads the idempotency key, so the kernel answers LXP_ERR_SEQUENCE_REUSED; task 16.94.1 (d1e505545) already moved tests/test_state_commitment_transition.c to that expectation and tests/ci/test_claims_and_replay_removed.py:35-50 pins it. Change both expectations to LXP_ERR_SEQUENCE_REUSED; the following case (:1469-1472, changed idempotency key, same sequence) keeps LXP_ERR_SEQUENCE_REUSED and the sequence-gap case after it stays. Continue from attempt 8, build once and verify once."
+do_15 = "Decision 2110: with no argument, test_call_activity.c:3329-3331 runs stored_historical_receipt on sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json, which 8.47.6 deleted, so the binary cannot pass as the retired-suite test runs it. Delete that call (the --stored-historical-v3 mode at :3327-3328 stays; 8.45.4 removes its last caller)."
+do_16 = "Decision 2111: attempt 9 (e3d2eda13) stopped at test_call_activity.c:2915 (finding.16.33.5.1): the program-owned spend activity at :2895-2914 expects LXP_ERR_NON_CANONICAL and the kernel answers LXP_ERR_PROGRAM_REFUSED. Read the kernel path that refuses this activity; when it is a program planning refusal of the spend itself (lxp_kernel.c:5335-5352 lists LXP_ERR_PROGRAM_REFUSED among the planning refusals) and not an encoding check, change both expectations of that case to LXP_ERR_PROGRAM_REFUSED and name the kernel line in the commit; when the kernel refuses on an encoding fault, stop and record the kernel line instead."
 
 [task.16.33.6]
 title = "Retire the replay fixture headers and the replay and certificate cases of the tools suite"
@@ -192179,6 +192329,7 @@ do_5 = "Attempt 2 (7014255e5) fails the three archive_fixture tests of tests/age
 do_6 = "Continue from attempt 5 (41203dd42): keep its raw_transaction and ordinal changes; run one of the two custody-failing archive_fixture tests with RUST_BACKTRACE=1 and record in the closing report the frame that passes canonical bytes to layerx-crypto signer.rs:207 and the test helper that built them (tests/agent_controls_rungs.rs or the included journey_faults.rs); make that helper hand the custody step the disclosed bytes raw_transaction builds, so the same bytes carry the disclosure end to end. For every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity record the refusal reason the agent-boundary double returns at transition 1 of jrn_reclaimbudget before changing it; a cause outside the two test files and production_components.rs:8239 is recorded in qualification.kvx and the task stops there (decision.2052). Build once and verify once."
 do_7 = "Decision 2065: the custody failure of attempt 6 (11a1a83b6) is the test double's, not production's (finding.18.1188.2.3): RealAgentLayer::prepare (tests/agent_controls_rungs.rs:1340-1400 of that tree) hands custody the kernel canonical bytes of layerx_agentd prepare_activity, and production custody (src/journeys/provider.rs:697, src/server/agent_runtime.rs:31-34 decode_unsigned_evm_transaction) accepts only an unsigned EIP-1559 call. Make prepare return as canonical bytes the unsigned type-2 encoding of the call that raw_transaction (:1118) builds for the same activity, with the bind_call disclosure of that call as the prepared disclosure, so the three archive_fixture cases pass custody on the production decoder; the out-of-scope claim of the attempt 6 closing report is withdrawn. Continue from attempt 6, build once and verify once."
 do_8 = "Decision 2091: attempt 7 (adc848588) passes 10 of 11 and every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity panics (:2288) at transition 1 of jrn_reclaimbudget with 'agent preparation for ActivityType(196616) refused: Disclosure(Decode(MalformedPayload))' out of RealAgentLayer::prepare (:1365-1409 of that tree), which calls prepare_activity for every activity. The activity is Budget ordinal 8 (defund): layerx-agentd routes Budget ordinals 2, 8 and 9 through prepare_budget_mutation_for_protocol(boundary, defaults, request, protocol_version, &BudgetStateContext) (src/prepare/mod.rs:780-788), and layerx-crypto native.rs budget_defund (:402-423) answers MalformedPayload when the amount is 0 or above context.balance and FieldMismatch when budget_id, owner (agent:{actor}:main), budget account (agent:{actor}:budget:{hex}), asset or source account differ from the context (:588 requires Some(context)). Record the RUST_BACKTRACE=1 frame of the refusal first; then make the test double route Budget ordinals 2, 8 and 9 through prepare_budget_mutation_for_protocol with a BudgetStateContext consistent with the fixture budget and a balance at least the defund amount. If production refuses a consistent context, record one qualification entry and stop. Continue from attempt 7, build once and verify once."
+do_9 = "Decision 2103: attempt 8 (378650fe1) routes Budget ordinals 2, 8 and 9 through prepare_budget_mutation_for_protocol with a BudgetStateContext and still fails 'agent preparation for ActivityType(196616) refused: Disclosure(Decode(MalformedPayload))'. The defund payload is the 50-byte form budget_defund (layerx-crypto src/disclosure/native.rs:402-415) decodes and amount 1 is within balance 1; bound_context (:339-363) derives the owner, budget and per-asset account ids with hash::account_id_for_protocol(&account, 3) (:218-220) and answers MalformedPayload when context.owner or context.budget_account differ, while the double (that tree's tests/agent_controls_rungs.rs:1424-1452) derives them with layerx_intents::canonical::PROTOCOL_VERSION (finding.18.1188.2.4). Derive the context's owner, budget_account and source_account with protocol 3 (layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION), remove the double's refusal of authority references other than custody-human-primary (:1419-1421), and keep the eprintln of the preparation error. Continue from attempt 8, build once and verify once."
 
 [task.18.1075.1]
 title = "Issue #1075: Receipt qualification accepts any manifest in the reviewed deployment history"
@@ -192697,7 +192848,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1205.1]
 title = "Issue #1205: Port the degraded-mode tests to rungs and the current metric labels"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1199.1", "18.1206.1", "18.1200.1", "18.1304.1"]
@@ -192728,6 +192879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "Attempt 4 (6c752f901) fails to build against a base older than 3b3c8b4b8 (task 18.1206.1), which ported tests/support/mod.rs:178 of services/agent/crates/layerx-agentd to attach_kernel_signature; on main the package's test targets compile. Re-qualify the attempt 4 candidate unchanged."
 do_6 = "Decision 2066: attempt 5 (ed17f9287) builds, but committed_cache() (tests/degraded.rs:86 of that tree) loads a checkpoint vector through layerx-proof settlement.rs:86 declared_domain, whose embedded contracts/config/checkpoint-settlement.json has carried only chain_id and offline_export since b284707f6 (finding.18.1205.1.1), a path decision.928 retires with task 6.59.7 (wave 39). Build the Committed value with CacheValue::from_receipt(core_bytes, &VerifiedReceipt, observed_head_sequence, observed_checkpoint) (src/cache.rs:31) from a VerifiedReceipt::verify of the receipt vector the way tests/cache.rs:49 verified_receipt() and tests/finality.rs:42 do, at VerificationLevel::CHECKPOINT_FINALISED; no test reads the settlement document. Continue from attempt 5, build once and verify once."
 do_7 = "Decision 2085 withdraws the from_receipt instruction of decision 2066: attempt 6 (3324a3782) built committed_cache() over CacheValue::from_receipt (src/cache.rs:31), whose level is evidence.level(), SEQUENCER_SIGNED for every verified receipt, so the asserts at tests/degraded.rs:142-143 (CHECKPOINT_FINALISED, Rung::Committed) fail. Build the Committed value with CacheValue::from_checkpoint(core_bytes, &ThresholdReport, observed_head_sequence, observed_checkpoint) (src/cache.rs:65); the ThresholdReport is the Ok of layerx_proof::checkpoint::verify_certificate(&certificate, &keys, &identifier, settlement_domain, None) (layerx-proof src/checkpoint.rs:462) over a certificate built the way layerx-proof tests/checkpoint.rs:172-190 fixture_with_settlement builds it: Checkpoint::new(header_bytes(), b'PROOF'.to_vec()), checkpoint_id(&checkpoint), three k256 SigningKeys whose attestations sign checkpoint_attestation_digest and whose GuarantorKey::new(id, public, true) form the key set, Certificate::new(checkpoint, attestations, 2, settlement_reference) and SettlementDomain::new(31_337, [0x55; 20]); copy the header_bytes (:26), key (:51) and attestation (:70) helpers into tests/degraded.rs (layerx-agentd already depends on k256, layerx-proof, layerx-wire and layerx-crypto). achieved 3 of required 2 is CHECKPOINT_FINALISED (tests/checkpoint.rs:203). Continue from attempt 6, build once and verify once."
+do_8 = "Decision 2101 withdraws decision 2085's verify_certificate instruction: attempt 7 (40be44b8b) built committed_cache() as decided and verify_certificate fails with Configuration(Json(MissingField('schema'))), because verify_certificate (layerx-proof src/checkpoint.rs:477-478) reads settlement::maximum_attestation_delay_ms() from the embedded contracts/config/checkpoint-settlement.json (src/settlement.rs:11-12, :66, :79), which since b284707f6 holds only chain_id and offline_export (decision 2066's finding); ThresholdReport (checkpoint.rs:280) has private fields and verify_certificate as its only constructor, Evidence has no public constructor, and inclusion evidence reaches at most StateProven, Rung::Receipted (layerx-types src/verify.rs:59-70). No Committed CacheValue is constructible until task 9.27.4 (wave 37) deletes the certificate verifier and the document (finding.18.1205.1.2). Delete committed_cache() and the copied certificate helpers (header_bytes, key, attestation, attestation_at); halted_emergency_and_data_unavailable_modes_propagate_and_cap_reads uses verified_cache() (tests/degraded.rs:59-80, Rung::Receipted): the Emergency case (maximum_rung Submitted) proves capping with held_rung Receipted and reported_rung Submitted, the Halted and DataUnavailable cases (maximum_rung Receipted) serve the value at Receipted, and a Rung::Committed request answers ReadError::InsufficientEvidence { requested: Committed, held: Receipted } (src/degraded.rs:189-193) in every case, which the test asserts instead of FinalityUnavailable. Continue from attempt 7, build once and verify once."
 
 [task.18.1206.1]
 title = "Issue #1206: Move the remaining kernel-envelope signing callers to attach_kernel_signature and verify_kernel_before_submit"
@@ -193773,7 +193925,7 @@ do_6 = "Attempt 5 kept do_1 to do_3 and did do_5 with the build green but left d
 
 [task.8.47.11]
 title = "Drop the layerx-wire and layerx-proof tests that include the removed kernel programs-module receipt vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = []
@@ -193785,7 +193937,7 @@ do_2 = "services/agent/crates/layerx-proof/src/receipt.rs mod programs_version_c
 do_3 = "No production line changes. Nothing else under services/agent includes a removed fixture (grep include_str over services/agent/crates for receipt-programs- and receipt-positive- before building)."
 do_4 = "Build compiles the wire test target and the proof library tests; verify runs the wire target and the proof module's tests."
 symbols = ["handover_sequencer_identity_matches_native_signed_header", "historical_and_maintained_identity_select_distinct_committed_ranges", "both_preimage_forms_reproduce_the_identifiers_the_native_source_pins", "the_committed_range_excludes_only_a_published_maintenance_sequence", "the_evidence_class_picks_the_selector_the_daemon_used", "module_and_guest_versions_are_independent", "the_guest_abi_range_is_the_kernel_headers_own", "the_module_version_ranges_are_the_kernel_headers_allocations", "state_commitment_protocol_selects_exactly_programs_module_four"]
-touches = ["services/agent/crates/layerx-wire/tests/maintenance_identity.rs", "services/agent/crates/layerx-proof/src/receipt.rs"]
+touches = ["services/agent/crates/layerx-wire/tests/maintenance_identity.rs", "services/agent/crates/layerx-proof/src/receipt.rs", "services/agent/crates/layerx-proof/src/program.rs"]
 tests = ["services/agent/crates/layerx-wire/tests/maintenance_identity.rs::handover_sequencer_identity_matches_native_signed_header", "services/agent/crates/layerx-wire/tests/maintenance_identity.rs::historical_and_maintained_identity_select_distinct_committed_ranges", "services/agent/crates/layerx-wire/tests/maintenance_identity.rs::both_preimage_forms_reproduce_the_identifiers_the_native_source_pins", "services/agent/crates/layerx-wire/tests/maintenance_identity.rs::the_committed_range_excludes_only_a_published_maintenance_sequence", "services/agent/crates/layerx-wire/tests/maintenance_identity.rs::the_evidence_class_picks_the_selector_the_daemon_used", "services/agent/crates/layerx-proof/src/receipt.rs::programs_version_contract::module_and_guest_versions_are_independent", "services/agent/crates/layerx-proof/src/receipt.rs::programs_version_contract::the_guest_abi_range_is_the_kernel_headers_own", "services/agent/crates/layerx-proof/src/receipt.rs::programs_version_contract::the_module_version_ranges_are_the_kernel_headers_allocations", "services/agent/crates/layerx-proof/src/receipt.rs::programs_version_contract::state_commitment_protocol_selects_exactly_programs_module_four"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-wire --test maintenance_identity && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --lib --no-run"
@@ -193801,6 +193953,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Decision 2098: attempts 1 to 3 (17cbdd8cb, 9940ca91d) fail the build of the layerx-proof library tests because src/program.rs:849-911 mod terminal_binding_tests includes sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json (:854), a fixture task 8.47.6 (d756f1d3b) deleted with the kernel programs terminal v4 vectors (finding.8.47.11.2). services/agent/crates/layerx-proof/src/program.rs joins touches: delete that module (its test successful_terminal_code_is_bound_to_the_signed_outcome and its bytes helper); nothing else in program.rs changes. After that the only includes of removed fixtures under services/agent/crates are the ones do_1 and do_2 remove (receipt-positive-v3.json and receipt-programs-positive-v1/v2/v3.json); layerx-agentd's native-program-call-v3.json include resolves to an existing file. Continue from attempt 3 (9940ca91d), build once and verify once."
 
 [task.10.13.9]
 title = "Prepare native send previews as unsigned EIP-1559 ledger transfer calls"
@@ -196175,6 +196328,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Decision 2074: attempt 4 (db8b2e34f) panics at tests/agent_create.rs:1002 with 'kernel creation disclosure: MalformedPayload' because the do_4 regression calls layerx_crypto::disclosure::bind (disclosure.rs:1337) on the kernel envelope bytes, and bind refuses an opaque module payload. The regression hands the kernel envelope bytes to verify_creation_call_disclosure beside a call disclosure and asserts that refusal; it never binds kernel bytes itself. Continue from attempt 4, build once and verify once."
 do_6 = "Decision 2089: attempt 5 (18134ca48) panics at tests/agent_create.rs:21:38 with 'canonical owner encoding: Refused(invalid signed lifecycle transaction)': the test's inline mod canonical_owner (:1-70) still signs kernel EnvelopeBuilder bytes, while production bound_activity (src/agents/create.rs:522-600) decode_signed's an EVM transaction (:534-536), recovers the sender, binds the call and reads the payload from the LedgerSend or PayBudgetCreate call data. Delete the inline module and include tests/support/canonical_owner.rs with #[path] as tests/agent_controls.rs does; its sign_transaction(payload, action_key, version, network) (:65-115) already builds and signs the budgetCreate call for the Budget module, so the BudgetCreation and BudgetFunding stages use it as is. Extend sign_transaction with an arm for the Governance module that builds the ledger send(bytes) call to 0x101a carrying the payload followed by the 6-byte scope (network id, protocol version), the form agent_controls_rungs.rs raw_transaction builds for (Asset, 5) and production reads from LedgerSend; the DidRegistration and RecoveryRegistration stages use that arm. tests/support/canonical_owner.rs joins touches; its signature does not change, so agent_controls.rs, agent_creation_rungs.rs and agent_controls_rungs.rs keep compiling. Continue from attempt 5, build once and verify once."
+do_7 = "Decision 2102 withdraws decision 2089's Governance arm: attempt 6 (570af0da6) built the ledger send(bytes) call carrying the Governance payload and bind_call refuses it with MalformedPayload, because decode_method (layerx-crypto src/disclosure/call.rs:315-320) admits send(bytes) to 0x101a only when decode_send (src/disclosure.rs:293) decodes an Asset send, decode_method handles only 0x101a, 0x101b and the bank send (:241, :349, :387), and the ledger precompile exposes no lifecycle method; production bound_activity's LedgerSend arm (src/agents/create.rs:562-579, task 10.97.1) is therefore unreachable, and no EIP-1559 transaction carries the DidRegistration or RecoveryRegistration payload of an agent creation (finding.18.1272.1.1). The test does not change on this instruction and no attempt runs until a task provides the lifecycle construct; the Budget stages keep sign_transaction as attempt 6 left them."
 
 [req.181272]
 title = "Agent creation admits a preparation whose disclosure is bind_call of its unsigned EIP-1559 call"
@@ -197464,3 +197618,54 @@ qualification = "UNRUN"
 
 
 
+
+
+[req.8546]
+title = "JVM generated contract returns to the generator's shape and the human verification levels follow the human schema"
+ac_1 = "GeneratedContract.java carries only what layerx-platform-sdkgen renders: AGENT_OPERATIONS is a plain Set of the 53 live agent operations without faucet.claim, no AgentOperationCatalog wrapper and no program transport map; GeneratedCatalogueProgramsTest reads program transports from GeneratedSchema."
+ac_2 = "GeneratedSchema.HumanModels.HumanVerificationLevel has exactly unverified, receipt-verified and checkpoint-finalised and refuses block-committed, paxeer-finalised and settlement-anchored."
+
+[task.8.46.9]
+title = "JVM generated contract returns to the generator's shape and the human verification levels follow the human schema"
+status = "pending"
+mode = "BUILD"
+wave = 17
+requires = ["8.46.4", "8.46.7"]
+reqs = ["8546.1", "8546.2"]
+do_1 = "Decision 2118: sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java returns to what generate_jvm_contract renders (sdk/platform/generators/src/main.rs:1501-1603): delete the AgentOperationCatalog class (:13-27) and the transport map argument (:85-93) that 8.46.4 added, so AGENT_OPERATIONS is `static final Set<String> AGENT_OPERATIONS = Set.of(...)` as render_jvm_set (:1486-1499) writes it, in the generator's order, without faucet.claim (services/agent/schema/agent-api has no [operation.faucet.claim] since 9.1.5); keep only the imports the header at :1529 writes. HUMAN_ROUTES stays as it is (it already omits the retired binding, deposit, withdraw and exit routes)."
+do_2 = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java:40-67: the program transports come from GeneratedSchema.programTransport(descriptor) and GeneratedSchema.AgentOperations.<NAME>_TRANSPORT (already asserted at :57-58); the AGENT_OPERATIONS assertions keep the name-set comparison (:40-41) and the Set immutability check (:67); the transport('program.unknown') assertion (:66) becomes an assertion that GeneratedSchema.AGENT has no program.unknown descriptor."
+do_3 = "Decision 2115: sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:2579-2590 HumanVerificationLevel becomes UNVERIFIED('unverified'), RECEIPT_VERIFIED('receipt-verified'), CHECKPOINT_FINALISED('checkpoint-finalised'), the live variants of services/human/schema/human-api/journeys.kvx:26-27; fromWire refuses every other word. GeneratedCatalogueJourneysTest.java:71-75 expects that set; GeneratedCatalogueIntentsTest.java:90-114 renames verificationLevelsUseBlockCommitted to verificationLevelsFollowTheHumanSchema, uses CHECKPOINT_FINALISED and the word checkpoint-finalised in the evidence fixture (:109), and lists block-committed, paxeer-finalised and settlement-anchored as the refused words (:102)."
+do_4 = "Nothing else in sdk/platform/jvm changes: ProgramsClient.java and the native prepare path keep their own transports, OperationCatalog.java is untouched, and sdk/platform/pipeline.kvx is resealed by 8.45.4, which requires this task."
+symbols = ["GeneratedContract", "GeneratedSchema.HumanModels.HumanVerificationLevel"]
+touches = ["sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueJourneysTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java::programOperationsNameLayerxprogramsCalls", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java::verificationLevelsFollowTheHumanSchema", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueJourneysTest.java::humanOperationsHaveNoRetiredJourneys"]
+planned_paths = []
+build_cmd = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
+verify_cmd = "mvn -q -f sdk/platform/jvm/pom.xml test -Dtest='GeneratedCatalogueProgramsTest,GeneratedCatalogueJourneysTest,GeneratedCatalogueIntentsTest' -Dsurefire.failIfNoSpecifiedTests=true"
+gate_kind = "planned"
+sandbox_profile = "jvm"
+owner_role = "fm-platform"
+rollback = "Restore GeneratedContract.java, GeneratedSchema.java and the three catalogue tests from history."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[acceptance.8.546.1]
+feature = "8"
+req = "8546.1"
+scenario = "Given GeneratedContract.java, when its agent operation set and program transports are read, then the set is a plain Set of the live agent operations without faucet.claim and every program transport comes from GeneratedSchema."
+contract = "contracts/platform-sdk.md#operation-catalog"
+test = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java::programOperationsNameLayerxprogramsCalls"
+qualification = "UNRUN"
+
+[acceptance.8.546.2]
+feature = "8"
+req = "8546.2"
+scenario = "Given the JVM human verification level enum, when its values are listed and the refused words are parsed, then unverified, receipt-verified and checkpoint-finalised are present and block-committed, paxeer-finalised and settlement-anchored are refused."
+contract = "contracts/platform-sdk.md#operation-catalog"
+test = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java::verificationLevelsFollowTheHumanSchema"
+qualification = "UNRUN"
