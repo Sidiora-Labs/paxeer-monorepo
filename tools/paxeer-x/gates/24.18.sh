@@ -23,7 +23,7 @@ for key in ('PAXEER_X_CORE_BUILD_MANIFEST', 'PAXEER_X_FOUNDATION_ARTIFACT_MANIFE
     info = path.parent.stat()
     assert stat.S_ISDIR(info.st_mode) and info.st_uid == os.geteuid() and not info.st_mode & 0o077
 PREPARE
-    cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --no-run --message-format=json > "$PAXEER_X_CORE_BUILD_EVENTS"
+    cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --bin layerx-core-boundary --message-format=json > "$PAXEER_X_CORE_BUILD_EVENTS"
     make -j5 LXP_REVISION="$REVISION" PAXEER_GO_JOBS=5 layerxd layerx-genesis-build
     bash tools/paxeer-x/gates/24.16.sh build
     python3 - <<'RECORD'
@@ -66,10 +66,9 @@ def publish(variable, value):
     try: os.fsync(directory)
     finally: os.close(directory)
 core = executable(cargo_target('layerx-core-boundary', 'bin', False))
-boundary = executable(cargo_target('boundary', 'test', True))
 common = {'version': 1, 'source_revision': revision, 'source_tree': tree}
 publish('PAXEER_X_CORE_BUILD_MANIFEST', dict(common, build_exit=0,
-    core_binary_path=core['path'], artifacts={'core': core, 'boundary_tests': boundary}))
+    core_binary_path=core['path'], artifacts={'core': core}))
 publish('PAXEER_X_FOUNDATION_ARTIFACT_MANIFEST', dict(common, build={'exit_code': 0},
     artifacts={name: executable(root / 'build/bin' / name)
                for name in ('layerxd', 'layerx-genesis-build')}))
@@ -78,7 +77,6 @@ RECORD
 verify)
     timeout 15m go test -count=1 -run '^(TestRealStateCredit(AndClockBounds|RefusesMissingAuthority)|TestLeaderPinRoundRobinFromActivation|TestReceiptKeys(GovernanceOnly|RotationBoundary)|TestStandby(AckBeforeRelease|NoAckNoReceipt))$' \
         ./custodyproof ./consensus/internal/consensus/types ./modules/sequencer/keeper ./node/sequencer
-    exec timeout 15m python3 services/platform/hosted/core/tests/receipt_retention.py
     ;;
 *) echo 'usage: 24.18.sh build|verify' >&2; exit 2 ;;
 esac

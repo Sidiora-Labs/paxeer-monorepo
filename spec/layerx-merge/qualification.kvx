@@ -13801,7 +13801,7 @@ task = "16.0.4"
 file = "Makefile"
 symbol = "LAYERXD_SOURCES"
 observed = "Commit 2c706707f (16.0.4) removed cmd/layerxd/lxp_daemon_finality_authority.c and lxp_daemon_batch_wal.c from LAYERXD_SOURCES (hunk @@ -1087,9 +1064,7 @@) though its do lines retire only test rules; lxp_daemon_handover_history.c, lxp_daemon_process.c, lxp_daemon_lni.c and lxp_daemon_authority_replica.c still call them, and 8.50.4 attempt 3 (9d22653b2) failed to link layerxd through tools/platform/emulator/build.rs with undefined references to lxp_daemon_batch_wal_body, lxp_daemon_batch_wal_destroy and lxp_daemon_batch_bind_prefix. make -n build test, the declared build, cannot see a link failure."
-assumption = "A source leaves the link list only with its last caller; task 16.0.5 (wave 1) restores both sources and adds a link test, and every pending gate that runs a real make build requires it."
+assumption = "The daemon is a retiring surface that no longer compiles on main (decision.2008); task 16.0.5 points the emulator build at build/liblayerx.a and no task relinks layerxd."
 severity = "high"
 
 [finding.16.2.4.1]
@@ -13899,3 +13899,51 @@ symbol = "lx_budget_grant_draws_read"
 observed = "Commit 2f2a42982 (1.12.2) removed lx_budget_pull_request and the pull payload but kept lx_budget_grant_draws_read (lx_budget.h:202-204, lx_budget_module.c:674), a reader of lxp_grant_state with no caller; 1.12.1 attempts 2 and 3 (5753840da, f84c9f9af) then failed the kernel archive build at lx_budget.h:204 after deleting the type."
 assumption = "The declaration goes with the type (decision.2003); 1.12.1 owns both files for that deletion."
 severity = "low"
+
+[finding.8.98.5.6]
+task = "8.98.5"
+file = "services/platform/hosted/core/tests/retired_client_modules_w2.rs"
+symbol = "no_retired_layerx_client_module_paths_w2"
+observed = "Attempt 7 (08fdcc5fa) built clean and the planned scan failed on main.rs:6-:9, the layerx_client::lni imports of connect_client and connect_raw, which do_7 keeps callable for 8.98.6; do_4 asked the scan to fail on every retired path."
+assumption = "The scan omits lni until 8.98.14 deletes the helpers (decision.2006)."
+severity = "medium"
+
+[finding.6.52.4.1]
+task = "6.52.4"
+file = "tests/bridge/retired/kernel_retirement.py"
+symbol = "assert_retired"
+observed = "Attempts 3 and 4 (88c78754c, 07dacd3ef) failed test_layer_x_custody_is_retired with one live reference, tools/ci/tests/test_makefile_wave4.py:61, where the done task 16.0.3 lists contracts/LayerXCustody.sol among the names make -n must not print."
+assumption = "Retirement assertions are skipped by the scan (decision.2007); 6.52.4 adds the skip set because it hits it first and 32 pending retirements share the helper."
+severity = "low"
+
+[finding.16.0.5.1]
+task = "16.0.5"
+file = "include/layerx/lxp_daemon.h"
+symbol = "lx_programs_state_feed_store"
+observed = "Attempt 1 (dfddb02a7) restored the two sources to LAYERXD_SOURCES and make -C . layerxd exited 2 compiling cmd/layerxd/main.o: lxp_daemon.h:382 and :554 name lx_programs_state_feed_store, deleted by b796da722 (task 1.15.2, whose gate built only the kernel archive)."
+assumption = "The daemon is not relinked (decision.2008); 16.0.5 moves the emulator onto the kernel archive and 1.18.3 deletes lxp_daemon.h."
+severity = "medium"
+
+[finding.8.5.3.2]
+task = "8.5.3"
+file = "services/platform/hosted/gateway/tests/degraded.rs"
+symbol = "px_getNetwork"
+observed = "Commit 1348dcd2f (8.5.3) changed px_getNetwork to network_result without a kernel field while tests/degraded.rs:616, :670, :798 and :907 still assert result.kernel == {available: false, reason: not_configured}; 8.5.3's verify ran one_source_reads only, so the four degraded tests have failed on main since. 8.3.1 attempt 3 (3b7d4e540) hit the first of them."
+assumption = "8.3.1 updates the four expectations (decision.2009) because degraded.rs is in its touches and its verify names one of the tests."
+severity = "medium"
+
+[finding.8.4.4.3]
+task = "8.4.4"
+file = "services/platform/hosted/gateway/tests/one_source_reads.rs"
+symbol = "CUSTODY_PRECOMPILE"
+observed = "Commit 5e4a8feff (8.4.4) deleted evm::CUSTODY_PRECOMPILE while tests/one_source_reads.rs:724 still names it; 8.4.4's verify ran the evm unit tests only, so the one_source_reads binary has not compiled on main since, and 8.16.7 attempts 2 and 3 (867c2edf0, aa5069587) failed their dependents compile on it."
+assumption = "Task 8.4.5 (wave 1) deletes the assertion; the eight pending tasks that build a gateway dependency require it (decision.2010)."
+severity = "high"
+
+[finding.16.9.4.2]
+task = "16.9.4"
+file = "tools/paxeer-x/tests/retired_callers_test.py"
+symbol = "self_test"
+observed = "Attempt 3 (99f6dbc45) failed its planned test on the first step, the checker's --self-test, which exited 2 at the 84th case ('documentation path exact refusal agent', refusal expected): no deleted tree of tools/paxeer-x/retired_callers.json lies under agent/ since 3422bafe2 moved them to services/agent/. The self-test has been failing on main since that move; three verify commands in the spec run it."
+assumption = "16.9.4 updates the case to services/agent (decision.2011) because the checker is in its touches."
+severity = "medium"

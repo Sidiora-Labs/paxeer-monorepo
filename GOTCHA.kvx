@@ -11636,3 +11636,33 @@ fix = "When a do line may delete a whole test file, the verify command lists onl
 title = "A retired type still named by a sibling module's header"
 symptom = "1.12.1 deleted lxp_grant_state and lx_budget.h:204 (a budget module reader with no caller) still declared a function on it, outside 1.12.1's touches."
 fix = "Before deleting a type, grep every header and source for its name and put each declaring file in the touches."
+
+[gotcha.2365]
+title = "A retirement assertion counted as a live reference"
+symptom = "6.52.4's path scan flagged tools/ci/tests/test_makefile_wave4.py:61, where a retired contract path appears only in a list asserting it is absent from make -n output."
+fix = "Give every retired-path scan a skip set for files that name retired paths to assert absence (makefile retirement tests, the deleted-tree catalogue); a match there is not a caller."
+
+[gotcha.2366]
+title = "A dependents compile fails on a sibling test a done task broke"
+symptom = "8.16.7 built its crate clean and the dependents compile failed on a gateway test that names a constant a done task deleted eleven waves earlier; the done task's gate ran only its unit tests."
+fix = "When a task deletes a pub item, its scan covers every test binary of the workspace that names it; when a dependents compile fails outside the task's touches, open a wave-1 repair task and gate the affected builds on it instead of widening the task."
+
+[gotcha.2367]
+title = "Relinking a retiring binary to satisfy a consumer"
+symptom = "16.0.5 was written to relink layerxd so make build would pass for the emulator; the daemon does not even compile on main after a type retirement, and it is scheduled for deletion."
+fix = "When a consumer's build runs an aggregate that links a retiring binary, point the consumer at the artifact it consumes; never restore a retiring surface to satisfy an aggregate."
+
+[gotcha.2368]
+title = "A producer shape change whose test readers live in another file"
+symptom = "8.5.3 changed px_getNetwork's result and verified its own one_source_reads test; four degraded.rs tests kept asserting the old kernel field and failed on main for a week until 8.3.1's verify named one."
+fix = "A task that changes a response shape greps the whole crate's tests for the old field names and lists each file in its touches; the proof_policy requires the consumers' assertions, not only the producer's."
+
+[gotcha.2369]
+title = "A self-test that hard-codes a path a tree move renamed"
+symptom = "The retired-callers self-test expected the path agent to overlap a deleted tree; after the agent workspace moved to services/agent, no tree lay under agent/ and the self-test has failed on main since."
+fix = "After a tree move, run every self-test that builds fixtures from repository paths and grep self-tests for the old prefix."
+
+[gotcha.2370]
+title = "A do line keeps helpers the task's own planned scan forbids"
+symptom = "8.98.5 do_7 kept the lni connect helpers for a later task while do_4 asked the planned scan to fail on every retired path, so attempt 7 could not pass."
+fix = "When a do line defers part of a retirement, the planned scan's list excludes that part explicitly and the deferring task's do lines add it back."

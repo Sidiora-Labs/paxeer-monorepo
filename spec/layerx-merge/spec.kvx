@@ -5145,6 +5145,42 @@ value = "When a task deletes a public type (here lxp_grant_state at include/laye
 basis = "Attempts 2 and 3 of 1.12.1 (5753840da, f84c9f9af) deleted the grant state types and make -C . build/liblayerx.a failed at include/layerx/lx_budget.h:204 'unknown type name lxp_grant_state': task 1.12.2 (2f2a42982) removed the budget pull request but left lx_budget_grant_draws_read declared against the type 1.12.1 retires, and lx_budget.h was outside 1.12.1's touches."
 affects = ["1.12.1"]
 
+[decision.2006]
+title = "The core boundary keeps its lni connect helpers until 8.98.14 ports their callers"
+value = "services/platform/hosted/core/src/main.rs keeps connect_client, connect_raw, connect_raw_with_deadline, lni_limits and the layerx_client::lni imports (:6-:9) while await_receipt (:724), program_idempotency_receipt (:975) and the readiness handshake still call them, as 8.98.5 do_7 states; the scan of 8.98.5 (retired_client_modules_w2.rs) therefore omits lni from its list. Task 8.98.6 does not scan main.rs; task 8.98.14, which ports the custody and probe reads, deletes the helpers and the lni imports when their last caller is ported and adds lni to the main.rs scan."
+basis = "Attempt 7 of 8.98.5 (08fdcc5fa) ported every other retired module and its own planned test failed with 'src/main.rs still names the retired wiring.J44.20 path layerx_client::lni' at main.rs:6-:9, the imports of the connect helpers do_7 tells the task to keep."
+affects = ["8.98.5", "8.98.6", "8.98.14"]
+
+[decision.2007]
+title = "The kernel retirement scan skips files that name retired paths only to assert their absence"
+value = "tests/bridge/retired/kernel_retirement.py gains RETIREMENT_ASSERTIONS, a frozenset of path patterns the reference scan skips beside RETIRED, docs/, spec/, *.md and GOTCHA.kvx: tools/ci/tests/test_makefile_*.py (their retired lists assert make -n output names no retired path) and tools/paxeer-x/retired_callers.json (the deleted-tree catalogue). A match in those files is an assertion of absence, not a caller."
+basis = "Attempts 3 and 4 of 6.52.4 (88c78754c, 07dacd3ef) deleted contracts/LayerXCustody.sol and assert_retired reported one live reference, tools/ci/tests/test_makefile_wave4.py:61, the retired list of a done task's test (16.0.3) that asserts the path is absent from make -n build test; the same list names contracts/CheckpointRegistry.sol and contracts/GuarantorBond.sol, which sibling retirements will hit."
+affects = ["6.52.4"]
+
+[decision.2008]
+title = "Consumers of the make build aggregate move to the kernel archive; the retiring daemon is not relinked"
+value = "layerxd is a retiring surface (tasks 5.50.1-5.50.7 delete its servers and binary, 1.18.3 deletes include/layerx/lxp_daemon.h, 16.9.4 records cmd/layerxd as a deleted tree) and it no longer compiles on main: commit b796da722 (task 1.15.2) deleted lx_programs_state_feed_store while lxp_daemon.h:382 and :554 still name it. No task restores the daemon. Task 16.0.5 instead points tools/platform/emulator/build.rs, the one real consumer of the make build aggregate, at build/liblayerx.a, the archive it links (build.rs:85-86 link-search build, link-lib static=layerx); Makefile and tools/ci/tests/test_makefile_wave5.py are unchanged and decision 1997's relink is withdrawn."
+basis = "Attempt 1 of 16.0.5 (dfddb02a7) restored the two daemon sources to LAYERXD_SOURCES and make -C . layerxd failed before linking at include/layerx/lxp_daemon.h:382 'unknown type name lx_programs_state_feed_store'; 8.50.4 attempt 3 (9d22653b2) had failed only because build.rs runs make build, which links layerxd."
+affects = ["16.0.5", "8.50.4", "16.0.4"]
+
+[decision.2009]
+title = "The degraded gateway tests assert the px_getNetwork shape of network_result"
+value = "Since commit 1348dcd2f (task 8.5.3) px_getNetwork answers network_result (services/platform/hosted/gateway/src/paxeer.rs:829-840): network_id, paxeer {chain_id, latest_block}, consensus (null when no consensus endpoint is configured) and reason consensus_unavailable; it has no kernel field. The four degraded tests that read result.kernel (tests/degraded.rs:616, :670, :798, :907) assert consensus null, reason consensus_unavailable and paxeer.chain_id 0x7d instead; 8.3.1 makes that change with its do_5 edits because degraded.rs is in its touches and its verify runs one of the four."
+basis = "Attempt 3 of 8.3.1 (3b7d4e540) passed lx_names_answer_method_not_found and lx_reads_switched_off and failed degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_kernel at degraded.rs:611 with left Null, right {available: false, reason: not_configured}: the result was {consensus: null, network_id: paxeer-degraded, paxeer: {chain_id: 0x7d, latest_block: 0x1a2b}, reason: consensus_unavailable}; the expectation is stale on main."
+affects = ["8.3.1"]
+
+[decision.2010]
+title = "A deleted public constant takes its test readers; the gateway one-source binary is repaired by 8.4.5"
+value = "Commit 5e4a8feff (task 8.4.4) deleted evm::CUSTODY_PRECOMPILE from services/platform/hosted/gateway/src/evm.rs while tests/one_source_reads.rs:724 (asset_chain_answer) still asserts the call target is not that address; the one_source_reads test binary has not compiled since, and every crate check that compiles the gateway's tests (the dependents compile of tasks on layerx-indexer, layerx-crypto, layerx-types, layerx-wire, layerx-programs-runtime and layerx-programs-registry) fails on it. New wave-1 task 8.4.5 deletes the assertion; the pending tasks whose build targets one of those crates require it."
+basis = "Attempts 2 and 3 of 8.16.7 (867c2edf0, aa5069587) built layerx-indexer clean and the dependents compile exited 101 with E0425 'cannot find value CUSTODY_PRECOMPILE in module evm' at hosted/gateway/tests/one_source_reads.rs:724, a file 8.16.7 does not own; no pending task owns it (8.5.1-8.5.3 are done)."
+affects = ["8.4.5", "8.16.7", "8.4.4"]
+
+[decision.2011]
+title = "The retired-callers self-test names services/agent, the tree the agent move produced"
+value = "tools/paxeer-x/tests/retired_callers_test.py's self-test case 'documentation path exact refusal agent' expects 'documentation path overlaps deleted tree: agent'; since commit 3422bafe2 moved the agent workspace to services/agent, every deleted tree of the catalogue under it reads services/agent/..., so the path agent overlaps nothing and validate_catalogue accepts it. The case names services/agent and expects 'documentation path overlaps deleted tree: services/agent'; task 16.9.4 makes that change because the checker is in its touches and its test runs the self-test first."
+basis = "Attempt 3 of 16.9.4 (99f6dbc45) ran python3 tools/paxeer-x/tests/retired_callers_test.py --self-test and it exited 2 after 83 passing cases with 'refusal: self-test failed: refusal expected' on the agent case; the checker and the catalogue carry no deleted tree under a bare agent/ prefix on main either, so the self-test has failed on main since 3422bafe2."
+affects = ["16.9.4"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -126248,7 +126284,7 @@ do_1 = "Delete contracts/LayerXCustody.sol with git rm (defined from contracts/L
 do_2 = "Write tests/bridge/retired/test_retired_layer_x_custody.py (planned) with test_layer_x_custody_is_retired calling assert_retired(['contracts/LayerXCustody.sol']) from tests/bridge/retired/kernel_retirement.py (planned)."
 do_3 = "The live references outside the retired set at HEAD are Makefile:1266, scripts/PaxeerBetaDeploy.s.sol:15, tests/solidity/ContractIntegration.t.sol:18; their owners remove them through the wiring requests listed on this task."
 symbols = ["test_layer_x_custody_is_retired"]
-touches = ["contracts/LayerXCustody.sol", "tests/bridge/retired/test_retired_layer_x_custody.py"]
+touches = ["contracts/LayerXCustody.sol", "tests/bridge/retired/test_retired_layer_x_custody.py", "tests/bridge/retired/kernel_retirement.py"]
 tests = ["tests/bridge/retired/test_retired_layer_x_custody.py::test_layer_x_custody_is_retired"]
 planned_paths = ["tests/bridge/retired/test_retired_layer_x_custody.py"]
 build_cmd = "python3 -m py_compile tests/bridge/retired/test_retired_layer_x_custody.py"
@@ -126266,6 +126302,8 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Add RETIREMENT_ASSERTIONS to tests/bridge/retired/kernel_retirement.py beside RETIRED (:12): the reference scan in assert_retired skips tools/paxeer-x/retired_callers.json and every tools/ci/tests/test_makefile_*.py (fnmatch on the tracked name) the way it skips docs/, spec/, *.md and GOTCHA.kvx; a retired path named there asserts absence (decision.2007). tests/bridge/retired/test_kernel_retirement_harness.py keeps passing."
+do_5 = "Continue from attempt 4 (07dacd3ef): keep the deletion and the test, add the skip set, build once and verify once."
 
 [task.6.52.5]
 title = "Retire contracts/WithdrawalClaims.sol"
@@ -133651,6 +133689,8 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Replace the four px_getNetwork expectations of services/platform/hosted/gateway/tests/degraded.rs (:616, :670, :798, :907, result.kernel == {available: false, reason: not_configured}) with the shape network_result produces since task 8.5.3 (decision.2009): result.consensus is null, result.reason is consensus_unavailable and result.paxeer.chain_id is 0x7d."
+do_7 = "Continue from attempt 3 (3b7d4e540): keep its rpc.rs, ws.rs, rpc_faucet.rs, openrpc.json and degraded.rs edits, apply the px_getNetwork expectation change, build once and verify once."
 
 [task.8.4.1]
 title = "Pin the merged construct addresses and the bank coin-list ABI in the EVM table"
@@ -133780,6 +133820,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "SELECTOR_GET_ASSET (src/evm.rs:75, 0x2cc3ce80) is the ledger getAsset(bytes32) selector (precompiles/layerxledger/abi_test.go:59) that custody_asset (src/paxeer.rs:664-686) sends to LEDGER_PRECOMPILE (decision.1985): keep it beside the ledger constants and delete only assetByPointer, nativeAssetId, latestFinalized, statusOf and checkpoint; drop the ('custody.getAsset', SELECTOR_GET_ASSET) rows at evm.rs:780 and :821 and the custody.getAsset case of services/platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json:64; paxeer.rs stays unchanged."
+
+[task.8.4.5]
+title = "Drop the custody precompile assertion from the gateway one-source reads test"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8043.1"]
+capabilities = ["8.4.4"]
+interfaces = []
+do_1 = "Delete the assertion at services/platform/hosted/gateway/tests/one_source_reads.rs:724, assert_ne!(to, evm::address_hex(&evm::CUSTODY_PRECOMPILE)), inside asset_chain_answer: commit 5e4a8feff (task 8.4.4) removed CUSTODY_PRECOMPILE from src/evm.rs with the custody construct, so the guard has no address to compare and the test binary has not compiled since (decision.2010). Keep the assert_eq! on LATEST_BLOCK that follows."
+do_2 = "Change nothing else; the build compiles the binary and the verify runs two of its tests, which is the proof that every crate check compiling the gateway's tests passes again."
+symbols = ["asset_chain_answer"]
+touches = ["services/platform/hosted/gateway/tests/one_source_reads.rs"]
+tests = ["services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_network_reports_the_consensus_head", "services/platform/hosted/gateway/tests/one_source_reads.rs::px_list_assets_joins_indexer_assets_with_chain_metadata"]
+planned_paths = []
+build_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test one_source_reads --no-run"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test one_source_reads -- --exact px_get_network_reports_the_consensus_head px_list_assets_joins_indexer_assets_with_chain_metadata"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert services/platform/hosted/gateway/tests/one_source_reads.rs to the parent revision."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+proof_policy = "Build-closure task: the declared verify compiles and runs the real one_source_reads binary against the gateway; no interface changes."
 
 [task.8.5.1]
 title = "Answer px_getAccount and px_getBalances from chain state alone"
@@ -134972,7 +135042,7 @@ title = "Retire the kernel relay source of the indexer"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.16.3", "8.16.4", "14.29.3", "16.7.3", "8.1.5", "18.1083.1", "18.1297.1"]
+requires = ["8.16.3", "8.16.4", "14.29.3", "16.7.3", "8.1.5", "18.1083.1", "18.1297.1", "8.4.5"]
 reqs = ["8187.1", "8187.2"]
 capabilities = ["8.16.7"]
 interfaces = ["interface.8.env-indexer-layerx-indexer-relay-url-j40", "interface.8.env-indexer-layerx-indexer-relay-ca-der-j40", "interface.8.env-indexer-layerx-indexer-start-batch-j40", "interface.8.env-indexer-layerx-indexer-batch-interval-ms-j40", "interface.8.env-indexer-layerx-indexer-challenge-window-seconds-j40", "interface.8.rs-indexer-layerx-indexer-store-stability-source-j40"]
@@ -135001,6 +135071,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_7 = "Continue from attempt 3 (aa5069587): keep its tree; the dependents compile failed only on hosted/gateway/tests/one_source_reads.rs:724, which task 8.4.5 repairs (decision.2010) and this task now requires. Build once and verify once on a base that carries 8.4.5."
 
 [task.8.17.1]
 title = "Delete the storage keeper crate"
@@ -135542,7 +135613,7 @@ title = "Drop the paxeer checkpoint verifier from the platform crates"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.0.3", "8.11.2", "8.16.4", "8.1.5", "18.1083.1", "18.1297.1"]
+requires = ["8.0.3", "8.11.2", "8.16.4", "8.1.5", "18.1083.1", "18.1297.1", "8.4.5"]
 reqs = ["8230.1"]
 capabilities = ["8.20.3"]
 interfaces = []
@@ -139109,7 +139180,7 @@ do_4 = "Continue from attempt 1 (fe10c7fe5): keep its deletions, scope the scan 
 
 [task.8.47.6]
 title = "Kernel program terminal v4 vectors, generator and terminal tests are removed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.41.5", "8.42.5", "8.43.5", "8.44.5", "16.97.6", "17.97.1"]
@@ -139565,6 +139636,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_6 = "Attempts 1 and 2 (e16f669b1, 71346e460 on 17dd9f358) implemented every do line, built and passed the three declared tests, and the graph check refused because symbols listed post_activity, which do_3 deletes; symbols now lists only request, call and program_events_page, the symbols that exist after the task. Continue from attempt 2; no code change is expected."
 do_7 = "Continue from attempt 3 (9d22653b2): the build failed only because tools/platform/emulator/build.rs:28-33 runs make build, which links layerxd, and the daemon no longer linked after 16.0.4; task 16.0.5 restores the link and 8.50.4 now requires it. Keep attempt 3's tree, build once and verify once."
+do_8 = "Task 16.0.5 now points tools/platform/emulator/build.rs at build/liblayerx.a instead of relinking the daemon (decision.2008); nothing else changes for this task."
 
 [task.8.51.1]
 title = "Emulator core stops calling the retired batch seal, batch sign and history functions"
@@ -140202,7 +140274,7 @@ interfaces = []
 do_1 = "Leave the custody read block of services/platform/hosted/core/src/lib.rs:405-602 as written: its protocol-3 module state, 32-byte LayerX account state and VerifiedEffectiveAsset have no rpc twin, its only consumers are tests/custody_asset_send.rs (deleted by 8.20.2) and the node probe (8.98.10), and 8.98.14 ports it onto the SequencerEndpoint at wave 33 (decision.1875). This task ports main.rs only and does not touch lib.rs."
 do_2 = "Replace the retired layerx_client module uses at services/platform/hosted/core/src/main.rs:7, :8, :9, :10 and 5 more (now :8-:16) with layerx_client::sequencer, layerx_client::px or layerx_client::rpc (wiring.J44.20)."
 do_3 = "Change only import paths and call names, as wiring.J44.20 states; the behaviour of layerx-platform-core (services/platform/hosted/core/Cargo.toml:1) and every existing test of the crate stay unchanged."
-do_4 = "Write no_retired_layerx_client_module_paths_w2 in services/platform/hosted/core/tests/retired_client_modules_w2.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains."
+do_4 = "Write no_retired_layerx_client_module_paths_w2 in services/platform/hosted/core/tests/retired_client_modules_w2.rs (planned): it reads each migrated file and src/main.rs with include_str! and fails when any retired path of wiring.J44.20 remains, except layerx_client::lni in src/main.rs; lni stays for the connect helpers do_7 keeps (decision.2006) and task 8.98.14 adds it to the scan when it deletes them."
 symbols = ["no_retired_layerx_client_module_paths_w2"]
 touches = ["services/platform/hosted/core/src/main.rs", "services/platform/hosted/core/tests/retired_client_modules_w2.rs"]
 tests = ["services/platform/hosted/core/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2"]
@@ -140224,6 +140296,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "After 8.20.1 has removed the submit, simulate and program routes, port the readiness read (main.rs:1376-1423) and the network head read to PxEndpoint::network() over a SequencerEndpoint built exactly as services/platform/ramps/toolkit/src/clients.rs:883-889 does, from two new variables read beside LAYERX_CORE_LNI_SOCKET at main.rs:349: LAYERX_CORE_SEQUENCER_ENDPOINT (URL) and LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER (path of the trust anchor file); both are required, and the readiness answer carries the PxNetworkHead fields in place of the client head (decision.1813)."
 do_6 = "Port lookup_receipt_selector and await_receipt (main.rs:627-735) to rpc::receipt::lookup(&SequencerEndpoint, tx_hash, LookupContext) where the funding receipt carries a transaction hash; where a lookup is by activity selector only, stop and record the gap in qualification.kvx rather than invent a key list. treasury_sequence (main.rs:2038-2050) reads the treasury nonce through rpc::account::account(&SequencerEndpoint, address, ReadContext) when the treasury is a 20-byte EVM account; if it is a 32-byte LayerX account, stop and record the gap, since the rpc surface serves no LayerX account state. The rpc surface is exactly: rpc::account::{account, account_with_history, balance, ReadContext, Requested}; rpc::module_state::{module_state, module_state_with_history, verify_module_evidence_with_history, ModuleReadContext, ModuleStateValue, VerifiedModuleEvidence}; rpc::evidence::{checkpoint, proof_bundle, proof_bundle_with_history, ProofBundle}; rpc::submit::{Submission, submit_signed, resubmit_unknown, retry_bytes, Unknown}; plus rpc::{batch, history, payments, receipt, stream, withdrawal}; every function takes a SequencerEndpoint, not a PxEndpoint."
 do_7 = "This task lands before 8.98.6, which requires it: main.rs gains the SequencerEndpoint of do_5 that public_reads.rs is then ported over (decision.1843); connect_client and connect_raw stay callable until 8.98.6 replaces their callers in public_reads.rs. The retired layerx_client modules still compile at this revision, so lib.rs, src/caps_reads.rs and the files 8.98.6 owns build unchanged; the retired-module scan of do_4 covers main.rs only, and 8.98.14 adds the lib.rs scan when it ports the custody block (decision.1875)."
+do_8 = "Continue from attempt 7 (08fdcc5fa): remove 'lni' from the retired_modules list of tests/retired_client_modules_w2.rs, change nothing else, build once with --locked and verify once."
 
 [task.8.98.6]
 title = "Migrate the core callers of wiring.J44.20"
@@ -140263,6 +140336,7 @@ do_8 = "Exclude tests/boundary.rs and tests/custody_asset_send.rs, which 8.20.2 
 do_9 = "Attempt 3 deleted src/caps_reads.rs (caps has no twin, decision.1813) but services/platform/hosted/core/src/main.rs:1 still declares mod caps_reads, so the layerx-core-boundary binary fails with E0583. Remove the declaration and every use of caps_reads from main.rs; main.rs joins the touches for those lines only, and 8.98.5 (which owns the rest of main.rs) now requires this task."
 do_10 = "Attempt 4 (bae0b02cf): src/public_reads.rs still uses payments::{SnapshotContext, AssetMetadata, get_asset, list_assets, estimate_fee}, evidence::{RootSelector, CheckpointSelector, ProofBundleSelector, VerifiedProofBundle}, head::HeadTracker and read::{ReadContext, Requested, did_accounts}. Port them over the PxEndpoint that 8.98.5 do_5 builds from LAYERX_CORE_SEQUENCER_ENDPOINT (this task requires 8.98.5): rpc::payments::list_assets(&endpoint) and get_asset(&endpoint, id) replace the transport calls and PxAssetEntry replaces AssetMetadata in asset_json; rpc::payments::estimate_fee over the SequencerEndpoint of the same URL and a CallRequest replaces estimate_fee; rpc::history::did_accounts(&endpoint) replaces read::did_accounts; endpoint.network()?.latest_committed_height replaces HeadTracker; rpc::evidence::checkpoint and proof_bundle at that height replace the selectors and VerifiedProofBundle; verification_label stays (decision.1813, decision.1843). The JSON shapes the handlers answer stay unchanged."
 do_11 = "With the public fee route port of do_10, drop the super::validate_submission_payload call of src/public_reads.rs:246 and delete validate_fee_payload, its validate_submission_payload alias, SubmissionValidationError and submission_decode_registry from src/main.rs, which 8.20.1 (b3959ad55) kept for this caller (decision.1988)."
+do_12 = "The scan of tests/retired_client_modules.rs covers src/public_reads.rs, src/withdrawal.rs and the absence of src/caps_reads.rs; it does not read src/main.rs, whose lni connect helpers stay until task 8.98.14 (decision.2006)."
 
 [task.8.98.7]
 title = "Migrate the local callers of wiring.J44.20 (wave 2)"
@@ -140536,6 +140610,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Port the probe custody steps of services/platform/hosted/node/tests/probe/src/main.rs onto the ported functions: custody_session (:368) stops opening an LNI connection and instead builds the SequencerEndpoint exactly as services/platform/ramps/toolkit/src/clients.rs:883-889 does from the probe's sequencer URL and trust anchor arguments (added where the probe lacks them); custody_effective_asset (:413) and its output lines are deleted with the caps cross-check; custody_preparation (:453), custody_asset_profile (:489) and the write-asset-send step (:546-562) call read_custody_profile, read_custody_asset and build_asset_send_with_identity_sequence over that endpoint, and the output lines tools/bringup/value-loop.sh:184 and :342 read stay unchanged. 8.98.10 then ports the remaining lni, client, head, read, batch and evidence paths of the probe over the same endpoint."
+do_6 = "When custody_session and the custody reads no longer open an LNI connection, delete connect_client, connect_raw, connect_raw_with_deadline and lni_limits from services/platform/hosted/core/src/main.rs with the layerx_client::lni imports at :6-:9, port or delete their remaining callers (await_receipt :724 and program_idempotency_receipt :975 read receipts by selector; where no transaction hash exists, record the gap in qualification.kvx as 8.98.5 do_6 says), and add lni to the main.rs list of tests/retired_client_modules_w2.rs (decision.2006)."
 
 [task.9.0.1]
 title = "Add Rung and RungStatus to the agent-api verify contract beside Level"
@@ -143939,7 +144014,7 @@ title = "Delete the checkpoint settlement document types from layerx-types"
 status = "pending"
 mode = "BUILD"
 wave = 38
-requires = ["9.27.4", "9.29.1", "9.12.6", "9.25.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "11.26.4", "18.1304.1"]
+requires = ["9.27.4", "9.29.1", "9.12.6", "9.25.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "11.26.4", "18.1304.1", "8.4.5"]
 reqs = ["9311.1"]
 capabilities = ["9.26.3"]
 interfaces = ["interface.9.rs-types-settlement-checkpoint-settlement-path", "interface.9.rs-types-settlement-declaredcheckpointsettlement", "interface.9.rs-types-settlement-settlementerror", "interface.9.rs-types-settlement-checkpoint-settlement-schema-j44", "interface.9.rs-types-settlement-declaredguarantor-j44", "interface.9.rs-types-settlement-declaredsettlementdomain-j44", "interface.9.rs-types-settlement-declaredfinalitypolicy-j44", "interface.9.rs-types-declaredcheckpointsettlement-parse-j70", "interface.9.rs-types-declaredcheckpointsettlement-protocol-version-j70", "interface.9.rs-types-declaredcheckpointsettlement-checkpoint-certificate-domain-j70", "interface.9.rs-types-declaredcheckpointsettlement-guarantor-attestation-domain-j70", "interface.9.rs-types-declaredcheckpointsettlement-header-encoding-prefix-j70", "interface.9.rs-types-declaredcheckpointsettlement-header-length-j70", "interface.9.rs-types-declaredcheckpointsettlement-finality-policy-j70", "interface.9.rs-types-declaredcheckpointsettlement-domain-j70"]
@@ -144296,7 +144371,7 @@ title = "Retire the kernel activity envelope and signing preimage from layerx-wi
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.30.1", "9.27.3", "9.27.5", "9.27.6", "9.1.5", "9.2.1", "9.2.2", "9.2.3", "9.2.4", "9.4.1", "9.5.5", "9.5.6", "9.5.7", "9.9.2", "9.9.3", "9.10.1", "9.10.2", "9.18.1", "9.18.2", "9.25.1", "9.25.2", "9.35.1", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "12.18.2", "13.4.6", "13.6.5", "13.8.2", "13.30.2", "18.1304.1"]
+requires = ["9.30.1", "9.27.3", "9.27.5", "9.27.6", "9.1.5", "9.2.1", "9.2.2", "9.2.3", "9.2.4", "9.4.1", "9.5.5", "9.5.6", "9.5.7", "9.9.2", "9.9.3", "9.10.1", "9.10.2", "9.18.1", "9.18.2", "9.25.1", "9.25.2", "9.35.1", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "12.18.2", "13.4.6", "13.6.5", "13.8.2", "13.30.2", "18.1304.1", "8.4.5"]
 reqs = ["9312.1", "9312.2", "9312.3"]
 capabilities = ["9.29.1"]
 interfaces = ["interface.9.rs-wire-activity-timestampbound", "interface.9.rs-wire-activity-activity", "interface.9.rs-wire-activity-decode-signed", "interface.9.rs-wire-activity-decode-unsigned", "interface.9.rs-wire-activity-encode-unsigned", "interface.9.rs-wire-activity-encode-unsigned-envelope", "interface.9.rs-wire-activity-encode-signed", "interface.9.rs-wire-activity-encode-signed-envelope", "interface.9.rs-wire-activity-signing-bytes", "interface.9.rs-wire-activity-signingbytes-j44", "interface.9.rs-wire-sign-signingpreimage-j44", "interface.9.rs-wire-hash-canonical-activity-j44", "interface.9.rs-wire-hash-canonical-payload-j44", "interface.9.rs-wire-hash-activity-id", "interface.9.rs-wire-hash-payload-hash", "interface.9.rs-wire-sign-preimage", "interface.9.rs-wire-sign-preimage-unsigned", "interface.9.rs-wire-activity-protocol-version-j70", "interface.9.rs-wire-activity-network-id-j70", "interface.9.rs-wire-activity-activity-type-j70", "interface.9.rs-wire-activity-actor-did-j70", "interface.9.rs-wire-activity-authority-j70", "interface.9.rs-wire-activity-account-sequence-j70", "interface.9.rs-wire-activity-timestamp-bound-j70", "interface.9.rs-wire-activity-idempotency-key-j70", "interface.9.rs-wire-activity-fee-limit-j70", "interface.9.rs-wire-activity-payload-j70", "interface.9.rs-wire-activity-payload-hash-j70", "interface.9.rs-wire-activity-signature-j70", "interface.9.rs-wire-signingpreimage-as-bytes-j70"]
@@ -145093,7 +145168,7 @@ title = "Remove the kernel activity codec from layerx-crypto"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["9.35.3", "9.31.2", "9.31.3", "9.2.2", "9.23.7", "8.94.3", "11.34.5", "12.95.1", "10.0.3", "10.98.7", "10.98.8", "10.98.9", "10.98.10", "10.98.11", "10.98.12", "10.98.13", "10.98.14", "9.23.6", "18.1115.1", "18.1304.1"]
+requires = ["9.35.3", "9.31.2", "9.31.3", "9.2.2", "9.23.7", "8.94.3", "11.34.5", "12.95.1", "10.0.3", "10.98.7", "10.98.8", "10.98.9", "10.98.10", "10.98.11", "10.98.12", "10.98.13", "10.98.14", "9.23.6", "18.1115.1", "18.1304.1", "8.4.5"]
 reqs = ["9341.1"]
 capabilities = ["9.35.1"]
 interfaces = ["interface.9.rs-crypto-onboarding-onboardingconsent", "interface.9.rs-crypto-onboarding-sponsoredregistration", "interface.9.rs-crypto-rotation-ownerrotationstate", "interface.9.rs-crypto-rotation-ownerrotationconsent", "interface.9.rs-crypto-rotation-ownerrotationcommit", "interface.9.rs-crypto-rotation-ownerrotation", "interface.9.rs-crypto-disclosure-bind", "interface.9.rs-crypto-disclosure-bind-budget-mutation", "interface.9.rs-crypto-send-encode-send-envelope", "interface.9.rs-crypto-send-envelopeoptions", "interface.9.rs-crypto-signer-sign-disclosed", "interface.9.rs-crypto-send-encode-payment-envelope", "interface.9.rs-crypto-disclosure-disclosure", "interface.9.rs-crypto-signer-keystoresigner", "interface.9.rs-crypto-signaturemessage-new-j70", "interface.9.rs-crypto-signaturemessage-digest-j70", "interface.9.rs-crypto-verifyerror-result-code-j70", "interface.9.rs-crypto-onboardingconsent-payload-j70", "interface.9.rs-crypto-onboardingconsent-decode-payload-j70", "interface.9.rs-crypto-sponsoredregistration-from-signed-consent-j70", "interface.9.rs-crypto-sponsoredregistration-decode-j70", "interface.9.rs-crypto-sponsoredregistration-payload-j70", "interface.9.rs-crypto-sponsoredregistration-signed-consent-j70", "interface.9.rs-crypto-sponsoredregistration-validate-outer-j70", "interface.9.rs-crypto-ownerrotationstate-decode-j70", "interface.9.rs-crypto-ownerrotationconsent-payload-j70", "interface.9.rs-crypto-ownerrotationconsent-decode-j70", "interface.9.rs-crypto-ownerrotationcommit-from-signed-consent-j70", "interface.9.rs-crypto-ownerrotationcommit-decode-j70", "interface.9.rs-crypto-ownerrotationcommit-payload-j70", "interface.9.rs-crypto-ownerrotation-owner-j70", "interface.9.rs-crypto-ownerrotation-payload-j70", "interface.9.rs-crypto-ownerrotation-decode-j70", "interface.9.rs-crypto-ownerrotation-from-activity-j70"]
@@ -158324,7 +158399,7 @@ title = "Gate domain 13 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 34
-requires = ["13.0.1", "13.0.2", "13.0.3", "13.0.4", "13.4.6", "13.7.5", "13.8.1", "13.8.2", "13.9.1", "13.9.2", "13.9.3", "13.9.4", "13.9.5", "13.9.6", "13.9.7", "13.34.1", "13.34.2", "13.34.10"]
+requires = ["13.0.1", "13.0.2", "13.0.3", "13.0.4", "13.4.6", "13.7.5", "13.8.1", "13.8.2", "13.9.1", "13.9.2", "13.9.3", "13.9.4", "13.9.5", "13.9.6", "13.9.7", "13.34.1", "13.34.2", "13.34.10", "8.4.5"]
 reqs = ["13999.1"]
 capabilities = ["13.0.9"]
 interfaces = []
@@ -159985,7 +160060,7 @@ title = "Remove the batch-keyed native receipt authority V1"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["13.0.4", "1.17.4"]
+requires = ["13.0.4", "1.17.4", "8.4.5"]
 reqs = ["13056.1"]
 capabilities = ["13.7.5"]
 interfaces = ["interface.13.rs-rt-ffi-call-raw-native-receipt-authority-v1-bytes", "interface.13.rs-rt-ffi-call-rawnativereceiptauthorityv1", "interface.13.rs-rt-ffi-call-rawnativereceiptauthorityv1-canonical-bytes"]
@@ -160056,7 +160131,7 @@ title = "Retire the protocol adapter crate and the kernel proof and wire depende
 status = "pending"
 mode = "BUILD"
 wave = 33
-requires = ["13.4.6", "13.6.5", "13.6.6", "13.6.7", "13.7.5", "13.9.6", "13.9.7", "13.9.1", "8.96.4", "9.94.1", "10.96.1"]
+requires = ["13.4.6", "13.6.5", "13.6.6", "13.6.7", "13.7.5", "13.9.6", "13.9.7", "13.9.1", "8.96.4", "9.94.1", "10.96.1", "8.4.5"]
 reqs = ["13058.1"]
 capabilities = ["13.8.2"]
 interfaces = ["interface.13.cfg-programs-cargo-workspace-members", "interface.13.rs-pad-ffi-camount", "interface.13.rs-pad-ffi-cproof", "interface.13.rs-pad-ffi-cbinding", "interface.13.rs-pad-ffi-caccount", "interface.13.rs-pad-ffi-cvalueaccountview", "interface.13.rs-pad-ffi-caccountstatehead", "interface.13.rs-pad-ffi-cwinddownview", "interface.13.rs-pad-ffi-cexitroute", "interface.13.rs-pad-ffi-chistory", "interface.13.rs-pad-ffi-protocoladaptererror", "interface.13.rs-pad-ffi-protocolprogramstateread", "interface.13.rs-pad-ffi-protocolprogramstateread-account-profile2", "interface.13.rs-pad-ffi-protocolprogramstateread-account-snapshot", "interface.13.rs-pad-ffi-protocolprogramstateread-balances", "interface.13.rs-pad-ffi-protocolprogramstateread-canonical-encode", "interface.13.rs-pad-ffi-protocolprogramstateread-history", "interface.13.rs-pad-ffi-protocolprogramstateread-into-balances", "interface.13.rs-pad-ffi-protocolprogramstateread-program", "interface.13.rs-pad-ffi-protocolprogramstateread-restore-verified", "interface.13.rs-pad-ffi-protocolprogramstateread-restore-verified-profile2", "interface.13.rs-pad-ffi-protocolprogramstateread-routes", "interface.13.rs-pad-ffi-read-program-state", "interface.13.c-pad-lxp-programs-value-account-iter", "interface.13.c-pad-lxp-programs-account-state-head-read", "interface.13.c-pad-lxp-programs-wind-down-read", "interface.13.c-pad-lxp-programs-exit-route-iter", "interface.13.c-pad-lxp-programs-wind-down-history-iter"]
@@ -164926,7 +165001,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.23.3]
 title = "Retire the live anchors and receipts routes and answer 404 under /paxeer-x"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["14.23.2", "14.32.1", "8.6.1", "16.96.7", "17.97.2"]
@@ -169717,7 +169792,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 
 [task.16.0.5]
-title = "Relink layerxd with the batch WAL and finality authority sources until their callers retire"
+title = "Build the emulator against the kernel archive instead of the retiring daemon aggregate"
 status = "pending"
 mode = "BUILD"
 wave = 1
@@ -169726,19 +169801,19 @@ reqs = ["16015.1", "16015.2", "16972.1", "16972.2", "16972.3", "16972.4", "16972
 capabilities = ["16.0.4"]
 interfaces = []
 fulfils = []
-do_1 = "Add cmd/layerxd/lxp_daemon_finality_authority.c and cmd/layerxd/lxp_daemon_batch_wal.c back to LAYERXD_SOURCES (Makefile:1057-1073). Task 16.0.4 (2c706707f) dropped them while retiring the finality-authority and batch-WAL test rules, but lxp_daemon_lni.c, lxp_daemon_handover_history.c (:27, :120-:140), lxp_daemon_process.c (:171, :268, :2954-:4151) and lxp_daemon_authority_replica.c still call lxp_daemon_batch_wal_* and the finality authority functions, so build/bin/layerxd and lxp_test_guarantor_runtime no longer link (8.50.4 attempt 3, 9d22653b2: undefined reference to lxp_daemon_batch_wal_body). The two sources leave with their callers when tasks 5.50.1, 5.50.2 and 5.50.4 delete them."
-do_2 = "Drop lxp_daemon_batch_wal and lxp_daemon_finality_authority from the retired-name list at tools/ci/tests/test_makefile_wave5.py:64-75, which asserts no make -n line names them; the test rules 16.0.4 retired (the test binaries and their run targets) stay retired and the test still asserts those."
-do_3 = "Create tools/ci/tests/test_layerxd_links.py (planned) with LayerxdLinksTest.test_layerxd_links_without_undefined_daemon_symbols: run make -C . layerxd, assert exit 0 and that nm --undefined-only build/bin/layerxd prints no symbol starting with lxp_daemon_."
-symbols = ["LayerxdLinksTest", "test_layerxd_links_without_undefined_daemon_symbols"]
-touches = ["Makefile", "tools/ci/tests/test_makefile_wave5.py", "tools/ci/tests/test_layerxd_links.py"]
-tests = ["tools/ci/tests/test_layerxd_links.py::LayerxdLinksTest.test_layerxd_links_without_undefined_daemon_symbols", "tools/ci/tests/test_makefile_wave5.py::MakefileWaveFiveTest.test_retired_targets_have_no_rule"]
-planned_paths = ["tools/ci/tests/test_layerxd_links.py"]
-build_cmd = "make -C . layerxd"
-verify_cmd = "python3 -m unittest tools.ci.tests.test_layerxd_links.LayerxdLinksTest.test_layerxd_links_without_undefined_daemon_symbols tools.ci.tests.test_makefile_wave5.MakefileWaveFiveTest.test_retired_targets_have_no_rule"
+do_1 = "Change tools/platform/emulator/build.rs:33 so the make invocation builds build/liblayerx.a (the archive build.rs links at :85-:86) instead of the build aggregate, which links the retiring layerxd, layerx-genesis-build and layerx-handover binaries (Makefile:1101, :1118); the daemon no longer compiles (lxp_daemon.h:382 names the deleted lx_programs_state_feed_store, decision.2008) and nothing the emulator links comes from it. Leave Makefile and tools/ci/tests/test_makefile_wave5.py unchanged."
+do_2 = "Create tools/ci/tests/test_emulator_build_target.py (planned) with EmulatorBuildTargetTest.test_emulator_builds_the_kernel_archive_without_the_daemon: read tools/platform/emulator/build.rs and assert its make arguments name build/liblayerx.a and not the bare build target, then run make -C . build/liblayerx.a from the repository root and assert exit 0 and that build/liblayerx.a exists."
+do_3 = "Change nothing else: the emulator crate (tools/platform/emulator/Cargo.toml) keeps its link lines, and tasks whose gates build the emulator (8.50.4) run on the archive from then on."
+symbols = ["EmulatorBuildTargetTest", "test_emulator_builds_the_kernel_archive_without_the_daemon"]
+touches = ["tools/platform/emulator/build.rs", "tools/ci/tests/test_emulator_build_target.py"]
+tests = ["tools/ci/tests/test_emulator_build_target.py::EmulatorBuildTargetTest.test_emulator_builds_the_kernel_archive_without_the_daemon"]
+planned_paths = ["tools/ci/tests/test_emulator_build_target.py"]
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "python3 -m unittest tools.ci.tests.test_emulator_build_target.EmulatorBuildTargetTest.test_emulator_builds_the_kernel_archive_without_the_daemon"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-tools-ops"
-rollback = "Revert Makefile and tools/ci/tests/test_makefile_wave5.py to the parent revision and delete tools/ci/tests/test_layerxd_links.py."
+rollback = "Revert tools/platform/emulator/build.rs to the parent revision and delete tools/ci/tests/test_emulator_build_target.py."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -169746,7 +169821,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-proof_policy = "Build-closure task: the declared test links the real daemon binary through make and asserts nm reports no undefined lxp_daemon_ symbol; no transport is involved."
+proof_policy = "Build-closure task: the declared test builds the real kernel archive through make and reads the real build script; no transport is involved."
 
 [task.16.0.9]
 title = "Gate domain 16 completion on its retired surfaces and planned paths"
@@ -171216,6 +171291,8 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Change the 'complete component catalogue' check at tools/paxeer-x/tests/retired_callers_test.py:391-394 to collect --component names from every spec line naming retired_callers_test.py and to require them to be a subset of the catalogue components, naming any missing component (decision.1996); keep the other self-test checks (:395-416) and, if one of them fails on catalogue data this task adds, repair the data, not the check."
 do_6 = "Continue from attempt 1 (8d77d2b6b): keep its catalogue edits and test, add the self-test change, build once and verify once."
+do_7 = "Change the self-test case at tools/paxeer-x/tests/retired_callers_test.py:830-834 from the path agent to services/agent, expecting 'documentation path overlaps deleted tree: services/agent' (decision.2011): commit 3422bafe2 moved the deleted trees under services/agent and the bare agent path no longer overlaps any of them."
+do_8 = "Continue from attempt 3 (99f6dbc45): keep its catalogue, checker and test edits, fix the self-test case, build once and verify once."
 
 [task.16.10.1]
 title = "Read the service catalogue from the layerx-merge spec in the release and native custody producers"
@@ -174282,7 +174359,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.96.5]
 title = "Remove the gates and path lists that run the deleted reset recovery, core kernel and gateway harness tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "8.0.4"]
@@ -191937,7 +192014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1228.1]
 title = "Issue #1228: Port the session-key revocation tests to GrantRevokedOnChain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1199.1", "18.1172.2", "10.2.8", "18.1206.1", "10.2.9", "18.1297.1", "18.1304.1", "18.1204.2", "18.1228.2"]
