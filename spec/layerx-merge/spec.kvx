@@ -134345,7 +134345,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.13.2]
 title = "Retire the checkpoint and anchor finality words of webhook events"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.13.1", "8.0.4", "8.46.2", "8.1.6", "18.1083.1", "18.1297.1"]
@@ -175939,7 +175939,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.97.1]
 title = "Retire the relay-archive docs page and rewrite the SDK terminal verification docs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.0.1", "8.0.4"]
