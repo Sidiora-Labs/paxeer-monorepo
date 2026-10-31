@@ -14,30 +14,72 @@ pub(super) struct Record {
     pub revoked: bool,
 }
 
-fn field<const N: usize>(bytes: &[u8], offset: usize) -> Result<[u8; N], ()> {
+pub(super) fn word(bytes: &[u8], index: usize) -> Result<[u8; 32], ()> {
+    let start = index.checked_mul(32).ok_or(())?;
     bytes
-        .get(offset..offset + N)
+        .get(start..start.checked_add(32).ok_or(())?)
         .ok_or(())?
         .try_into()
         .map_err(|_| ())
 }
 
+pub(super) fn number(bytes: &[u8], index: usize, width: usize) -> Result<u128, ()> {
+    let word = word(bytes, index)?;
+    if width > 16 || word[..32 - width].iter().any(|byte| *byte != 0) {
+        return Err(());
+    }
+    Ok(u128::from_be_bytes(word[16..].try_into().map_err(|_| ())?))
+}
+
 impl Record {
-    pub fn decode(bytes: &[u8]) -> Result<Self, ()> {
-        if bytes.len() < 278
-            || bytes[0] != 0
-            || !matches!(bytes[1], 1 | 2)
-            || bytes[275] > 1
-            || bytes[276] > 1
-            || bytes[277] > 16
-        {
+    pub fn from_call(id: [u8; 32], bytes: &[u8]) -> Result<Self, ()> {
+        if bytes.len() < 20 * 32 || bytes.len() % 32 != 0 || number(bytes, 0, 8)? != 32 {
             return Err(());
         }
-        let delegates = usize::from(bytes[277]);
-        let source_offset = 278 + delegates * 32;
-        let has_source = bytes[1] == 2;
-        if bytes.len() != source_offset + if has_source { 32 } else { 0 }
-            || bytes[278..source_offset]
+        let tuple = &bytes[32..];
+        if number(tuple, 16, 8)? != 18 * 32 {
+            return Err(());
+        }
+        let count = usize::try_from(number(tuple, 18, 8)?).map_err(|_| ())?;
+        if count > 16 || bytes.len() != (20 + count) * 32 {
+            return Err(());
+        }
+        for index in 4..=8 {
+            number(tuple, index, 16)?;
+        }
+        for index in 9..=12 {
+            number(tuple, index, 8)?;
+        }
+        let rollover = number(tuple, 13, 1)?;
+        let closed = number(tuple, 14, 1)?;
+        let revoked = number(tuple, 15, 1)?;
+        if closed > 1 || revoked > 1 {
+            return Err(());
+        }
+        let owner = word(tuple, 0)?;
+        let source = word(tuple, 17)?;
+        let record = Self {
+            id,
+            owner,
+            account: word(tuple, 1)?,
+            asset: word(tuple, 2)?,
+            source: (source != [0; 32] && source != owner).then_some(source),
+            limit: number(tuple, 4, 16)?,
+            spent: number(tuple, 7, 16)?,
+            period_start: u64::try_from(number(tuple, 10, 8)?).map_err(|_| ())?,
+            expiry: u64::try_from(number(tuple, 11, 8)?).map_err(|_| ())?,
+            revocation: u64::try_from(number(tuple, 12, 8)?).map_err(|_| ())?,
+            closed: closed == 1,
+            revoked: revoked == 1,
+        };
+        if id == [0; 32]
+            || owner == [0; 32]
+            || record.limit == 0
+            || number(tuple, 9, 8)? == 0
+            || record.expiry <= record.period_start
+            || !matches!(rollover, 1 | 2)
+            || (rollover == 1 && number(tuple, 6, 16)? != 0)
+            || tuple[19 * 32..]
                 .chunks_exact(32)
                 .collect::<Vec<_>>()
                 .windows(2)
@@ -45,49 +87,7 @@ impl Record {
         {
             return Err(());
         }
-        let record = Self {
-            id: field(bytes, 2)?,
-            owner: field(bytes, 34)?,
-            account: field(bytes, 66)?,
-            asset: field(bytes, 98)?,
-            source: if has_source {
-                Some(field(bytes, source_offset)?)
-            } else {
-                None
-            },
-            limit: u128::from_be_bytes(field(bytes, 162)?),
-            spent: u128::from_be_bytes(field(bytes, 210)?),
-            period_start: u64::from_be_bytes(field(bytes, 250)?),
-            expiry: u64::from_be_bytes(field(bytes, 258)?),
-            revocation: u64::from_be_bytes(field(bytes, 266)?),
-            closed: bytes[275] == 1,
-            revoked: bytes[276] == 1,
-        };
-        let period = u64::from_be_bytes(field(bytes, 242)?);
-        let carry_cap = u128::from_be_bytes(field(bytes, 194)?);
-        if record.id == [0; 32]
-            || record.source == Some([0; 32])
-            || record.limit == 0
-            || period == 0
-            || record.expiry <= record.period_start
-            || !matches!(bytes[274], 1 | 2)
-            || (bytes[274] == 1 && carry_cap != 0)
-        {
-            return Err(());
-        }
         Ok(record)
-    }
-
-    pub fn remaining(&self, balance: u128, timestamp_ms: u64, frozen: bool) -> u128 {
-        if self.closed
-            || self.revoked
-            || frozen
-            || timestamp_ms >= self.expiry
-            || timestamp_ms < self.period_start
-        {
-            return 0;
-        }
-        self.limit.saturating_sub(self.spent).min(balance)
     }
 }
 
@@ -102,32 +102,54 @@ mod tests {
         )))
         .unwrap_or_else(|error| panic!("native vectors: {error}"));
         ["v1", "v2"].map(|key| {
-            crate::hex::decode(
+            let native = crate::hex::decode(
                 value[key]
                     .as_str()
                     .unwrap_or_else(|| panic!("{key}"))
                     .strip_prefix("0x")
-                    .unwrap_or_else(|| panic!("hex prefix")),
+                    .unwrap_or_else(|| panic!("prefix")),
             )
-            .unwrap_or_else(|_| panic!("canonical native hex"))
+            .unwrap_or_else(|_| panic!("hex"));
+            let mut words = vec![[0_u8; 32]; 22];
+            words[0][31] = 32;
+            for (index, offset) in [(1, 34), (2, 66), (3, 98), (4, 130)] {
+                words[index].copy_from_slice(&native[offset..offset + 32]);
+            }
+            for (index, offset) in [(5, 162), (6, 178), (7, 194), (8, 210), (9, 226)] {
+                words[index][16..].copy_from_slice(&native[offset..offset + 16]);
+            }
+            for (index, offset) in [(10, 242), (11, 250), (12, 258), (13, 266)] {
+                words[index][24..].copy_from_slice(&native[offset..offset + 8]);
+            }
+            for (index, offset) in [(14, 274), (15, 275), (16, 276)] {
+                words[index][31] = native[offset];
+            }
+            words[17][30..].copy_from_slice(&576_u16.to_be_bytes());
+            if key == "v2" {
+                words[18].copy_from_slice(&native[342..374]);
+            }
+            words[19][31] = 2;
+            words[20].copy_from_slice(&native[278..310]);
+            words[21].copy_from_slice(&native[310..342]);
+            words.concat()
         })
     }
 
     #[test]
     fn actual_native_versions_bind_source_revocation_and_remaining() {
         for (index, bytes) in vectors().iter().enumerate() {
-            let record = Record::decode(bytes).unwrap_or_else(|()| panic!("native record"));
+            let record =
+                Record::from_call([1; 32], bytes).unwrap_or_else(|()| panic!("native record"));
             assert_eq!(record.id, [1; 32]);
             assert_eq!(record.owner, [2; 32]);
             assert_eq!(record.account, [3; 32]);
             assert_eq!(record.asset, [4; 32]);
             assert_eq!(record.source, (index == 1).then_some([8; 32]));
             assert_eq!(record.revocation, 31);
-            assert_eq!(record.remaining(500, 1000, false), 77);
-            assert_eq!(record.remaining(50, 8999, false), 50);
-            assert_eq!(record.remaining(500, 9000, false), 0);
-            assert_eq!(record.remaining(500, 999, false), 0);
-            assert_eq!(record.remaining(500, 1000, true), 0);
+            assert_eq!(record.limit, 100);
+            assert_eq!(record.spent, 23);
+            assert_eq!(record.period_start, 1000);
+            assert_eq!(record.expiry, 9000);
         }
     }
 
@@ -135,42 +157,57 @@ mod tests {
     fn native_record_decoder_refuses_noncanonical_encodings() {
         for bytes in vectors() {
             for end in 0..bytes.len() {
-                assert!(Record::decode(&bytes[..end]).is_err(), "truncation {end}");
+                assert!(
+                    Record::from_call([1; 32], &bytes[..end]).is_err(),
+                    "truncation {end}"
+                );
             }
             let mut trailing = bytes.clone();
             trailing.push(0);
-            assert!(Record::decode(&trailing).is_err());
+            assert!(Record::from_call([1; 32], &trailing).is_err());
             for (offset, value) in [
-                (0, 1),
-                (1, 3),
-                (274, 0),
-                (274, 3),
-                (275, 2),
-                (276, 2),
-                (277, 17),
+                (31, 64),
+                (14 * 32 + 31, 0),
+                (14 * 32 + 31, 3),
+                (15 * 32 + 31, 2),
+                (16 * 32 + 31, 2),
+                (19 * 32 + 31, 17),
+                (5 * 32, 1),
+                (10 * 32, 1),
             ] {
                 let mut changed = bytes.clone();
                 changed[offset] = value;
-                assert!(Record::decode(&changed).is_err(), "field {offset}");
+                assert!(
+                    Record::from_call([1; 32], &changed).is_err(),
+                    "field {offset}"
+                );
             }
-            for (offset, length) in [(2, 32), (162, 16), (242, 8), (258, 8)] {
+            for (offset, length) in [(32, 32), (5 * 32, 32), (10 * 32, 32), (12 * 32, 32)] {
                 let mut changed = bytes.clone();
                 changed[offset..offset + length].fill(0);
-                assert!(Record::decode(&changed).is_err(), "zero field {offset}");
+                assert!(
+                    Record::from_call([1; 32], &changed).is_err(),
+                    "zero field {offset}"
+                );
             }
             let mut duplicate = bytes.clone();
-            duplicate.copy_within(278..310, 310);
-            assert!(Record::decode(&duplicate).is_err());
+            duplicate.copy_within(20 * 32..21 * 32, 21 * 32);
+            assert!(Record::from_call([1; 32], &duplicate).is_err());
             let mut unsorted = bytes.clone();
-            unsorted[278..310].fill(9);
-            assert!(Record::decode(&unsorted).is_err());
+            unsorted[20 * 32..21 * 32].fill(9);
+            assert!(Record::from_call([1; 32], &unsorted).is_err());
             let mut carry = bytes.clone();
-            carry[209] = 1;
-            assert!(Record::decode(&carry).is_err());
-            if bytes[1] == 2 {
-                let mut source = bytes.clone();
-                source[342..374].fill(0);
-                assert!(Record::decode(&source).is_err());
+            carry[8 * 32 - 1] = 1;
+            assert!(Record::from_call([1; 32], &carry).is_err());
+            for source in [[0; 32], [2; 32]] {
+                let mut changed = bytes.clone();
+                changed[18 * 32..19 * 32].copy_from_slice(&source);
+                assert_eq!(
+                    Record::from_call([1; 32], &changed)
+                        .unwrap_or_else(|_| panic!("source"))
+                        .source,
+                    None
+                );
             }
         }
     }
@@ -178,16 +215,21 @@ mod tests {
     #[test]
     fn exhausted_closed_and_revoked_budgets_never_report_spendable_value() {
         let [_, bytes] = vectors();
-        let mut record = Record::decode(&bytes).unwrap_or_else(|()| panic!("native record"));
-        record.spent = record.limit;
-        assert_eq!(record.remaining(u128::MAX, 2000, false), 0);
-        record.spent = u128::MAX;
-        assert_eq!(record.remaining(u128::MAX, 2000, false), 0);
-        record.spent = 0;
-        record.closed = true;
-        assert_eq!(record.remaining(u128::MAX, 2000, false), 0);
-        record.closed = false;
-        record.revoked = true;
-        assert_eq!(record.remaining(u128::MAX, 2000, false), 0);
+        for (word, field) in [(15, "closed"), (16, "revoked")] {
+            let mut changed = bytes.clone();
+            changed[word * 32 + 31] = 1;
+            let record = Record::from_call([1; 32], &changed).unwrap_or_else(|_| panic!("flags"));
+            assert_eq!(record.closed, field == "closed");
+            assert_eq!(record.revoked, field == "revoked");
+        }
+        let mut exhausted = bytes;
+        exhausted[8 * 32..9 * 32].fill(0xff);
+        exhausted[8 * 32..8 * 32 + 16].fill(0);
+        assert_eq!(
+            Record::from_call([1; 32], &exhausted)
+                .unwrap_or_else(|_| panic!("spent"))
+                .spent,
+            u128::MAX
+        );
     }
 }
