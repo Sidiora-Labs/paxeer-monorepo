@@ -11941,3 +11941,8 @@ fix = "grep the crate for every variant path including cfg(test) modules, add ea
 title = "Deleting a test source breaks scan tests that include it from another crate"
 symptom = "8.98.14 attempts 1 to 3 failed to compile layerx-platform-core's test targets because no_kernel_disclosure_codec.rs includes two gateway test files task 8.19.5 deleted."
 fix = "A task that deletes a source file greps the repository for its path in include_str, source! and read_to_string calls and removes or re-points every reader in the same change."
+
+[gotcha.2426]
+title = "Agent-function precompiles refuse on activation before reading the selector"
+symptom = "5.98.4 attempt 5 probed 0x0901 with an unknown selector and got LXP_AGENT_NOT_ACTIVE, not LXP_PRECOMPILE_UNKNOWN_METHOD."
+fix = "A readiness probe over 0x0901-0x0908 accepts the activation refusal as served; read the handler's first checks before fixing an expected error code."
