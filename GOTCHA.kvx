@@ -12061,3 +12061,8 @@ fix = "Before a generator reverts a hand edit, build every package in the module
 title = "The journey boundary and the socket are two different agent seams"
 symptom = "A router-level test was told to reuse the journey-level in-process agent of a sibling test; the Router reaches the agent only through a Unix socket, so the attempt started a real agent that needed a node."
 fix = "Name the seam a test exercises: a journey test injects the boundary trait, a router test serves the socket in process with the crate's existing peer pattern."
+
+[gotcha.2450]
+title = "A Makefile target is not a graph symbol"
+symptom = "A task listed its new phony Makefile target among its symbols; build and all three tests passed and the done check still failed because the code graph indexes functions and types, not make targets."
+fix = "List functions, types and tests under symbols; a Makefile target is proven by the build command or a test that runs it."
