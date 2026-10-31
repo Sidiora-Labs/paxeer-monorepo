@@ -94883,7 +94883,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.12.3]
 title = "Lower LXP_QUAL_ACTIVITY_TYPE_COUNT and drop the retired fault simulator declarations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["1.12.1", "1.12.2", "16.2.1", "16.97.1"]
@@ -140716,7 +140716,7 @@ do_5 = "This task requires 8.98.4, which ports human/budget_state.rs off Uds::co
 
 [task.8.98.4]
 title = "Migrate the authority callers of wiring.J44.20"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.2", "9.1.8", "8.11.2", "8.11.3", "8.20.3", "8.19.7", "18.1083.1", "18.1297.1"]
@@ -140757,7 +140757,7 @@ do_13 = "Decision 2057: layerx_client::read stays in services/platform/hosted/au
 
 [task.8.98.5]
 title = "Migrate the core callers of wiring.J44.20 (wave 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["8.0.2", "18.1083.1", "8.20.1", "18.1297.1"]
@@ -162884,7 +162884,7 @@ do_4 = "Attempt 4 (4a355f551 on cd54b1083) fails the committed_answer and differ
 
 [task.13.34.1]
 title = "Retarget the parallel differential off the layerxd WAL, DA body and batch signing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["13.0.3", "16.2.4"]
@@ -175187,7 +175187,7 @@ do_10 = "Attempt 7 (420a6872b) deleted web_genesis_checks, and build/tests/lxp_t
 
 [task.16.97.2]
 title = "Gate the deletion of the arbiter authority, web intake, layerxd and bridge credit suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["16.33.4", "16.34.2", "5.0.4", "6.0.4"]
