@@ -12186,3 +12186,33 @@ fix = "Give every exports entry a default condition (Node 24 can require an ES m
 title = "A fresh perps node emits its first FundingSettled only at the first whole hour after its first block, and end-block failures surface as Cosmos events"
 symptom = "An end-to-end test waited six minutes for FundingSettled on a freshly started node and passed or failed depending on where its window fell against the wall-clock hour; the perps funding step records the first hour it sees and emits nothing, and a market whose end-block step fails is skipped with a perps_endblock_error event that eth_getLogs never shows."
 fix = "Give a local genesis perps market states whose last_index_hour is one hour before genesis so the first block settles, and read /block_results for perps_endblock_error before concluding that a settlement is late."
+
+[gotcha.2474]
+title = "An exports map with only types and import conditions breaks every bundler and CommonJS consumer"
+symptom = "A webpack build and a CommonJS loader both failed to resolve a package subpath whose exports entry declared only types and import; the ESM consumers passed, so the defect surfaced only in aggregate builds."
+fix = "Give every exports entry a default (or require) condition beside import, and make aggregate gate tests print the failing step's log tail so the owning module is visible from the test output."
+
+[gotcha.2475]
+title = "The root Foundry project does not build as a whole, so new contracts need their own profile"
+symptom = "forge build --root . under the default profile failed on retired kernel contracts whose libraries no longer exist and on tests importing an unpopulated contracts/lib; the new contracts themselves were fine."
+fix = "Build and test new Solidity work under a dedicated [profile.<name>] in foundry.toml (its own src, test, out and cache_path) and prefix the commands with FOUNDRY_PROFILE=<name>."
+
+[gotcha.2476]
+title = "Every declared touch path must exist and change, and the xweb kind admissions live under types/"
+symptom = "A task declared modules/xweb/observation.go and modules/xweb/genesis.go; the files live in modules/xweb/types, so the done check refused the otherwise passing attempt for two unchanged paths."
+fix = "Check each touch path exists on main before committing a task block, and expect the done check to refuse any declared path that no commit changed."
+
+[gotcha.2477]
+title = "pnpm install inside the repository resolves the root workspace unless told otherwise"
+symptom = "pnpm --dir <package> install for a package outside pnpm-workspace.yaml still found the repository workspace file and tried to install all twenty members, one of which depends on a registry package that does not exist."
+fix = "Pass --ignore-workspace to pnpm install for packages that are not workspace members, and keep their file: dependencies on sibling packages."
+
+[gotcha.2478]
+title = "A pinned receipt key is selected by the receipt's context_hash, so kernel-era signed fixtures cannot be pinned"
+symptom = "A server-launching test pinned the fixture's sequencer id as a receipt key; the authority refused every state record as state_evidence_refused because the signed receipt's context_hash was another value, and a zero key id is refused outright."
+fix = "Derive test receipts from the committed fixture at run time: write the key id into context_hash, re-encode unsigned, re-sign the receipt digest and the batch header digest with the test key, and pin that key."
+
+[gotcha.2479]
+title = "The wallet already consumes a name indexer in the explorer name-service shape"
+symptom = "A name system planned without an indexer would have left the wallet's My Names tab and the explorer's name display empty: apps/wallet/src/lib/pns.ts and apps/explorer/configs/app/apis.ts both read the explorer name-service API, and the wallet proxy pointed at a literal origin serving nothing."
+fix = "When a feature replaces a hosted dependency, grep the consumers for the API shape they already speak and serve that shape; commit one answer vector that the producer test and the consumer test both assert against."

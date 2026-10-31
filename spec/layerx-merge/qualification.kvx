@@ -14763,3 +14763,51 @@ symbol = "SettleFunding"
 observed = "Attempt 6 (03685946f) builds, clamps the log walk to the node's earliest block and waits six minutes for the first FundingSettled log, then fails: no log appeared although the wait (about 21:00:49Z to 21:06:49Z) started after a whole hour while the node's first block was around 20:58Z. SettleFunding (funding.go:171-184) records the hour of the first block it sees and emits nothing, so a fresh node's first FundingSettled can only appear at the first whole hour of block time after its first block, and the local genesis deletes app_state.perps (tools/qualification/localnode/v6120-node.sh:394) so every market starts with LastIndexHour 0. Attempt 5 passed the same wait because its window happened to straddle a whole hour. Attempt 6 straddled one too and still saw no log, so a second cause remains on the node: a market whose price, premium or funding step fails is skipped for the block and the failure is a perps_endblock_error Cosmos event (endblock.go:124-133), and a failed receipt write drops the whole pass (endblock.go:111-115); none of that reaches eth_getLogs, and the attempt did not read the block results."
 assumption = "The local node's genesis carries perps market states whose last index hour is one hour before genesis, so the first block settles funding deterministically, and the attempt reads the block results of the first settlement block to name any end-block failure (decision 2154)."
 severity = "major"
+
+[finding.17.5.1.14]
+task = "17.5.1"
+file = "scripts/gates/wave-0.sh"
+symbol = "workspace-build"
+observed = "Attempt 16 (e378dbed1) runs the real gate; step 1 (make -n build test) exits 0 and step 2 (make workspace-build) exits 2 in human-build (Makefile:38-41) when apps/web's next build cannot resolve '@sidiora/layerx-sdk/browser' imported by sdk/wallet/src/modules/index.ts through src/app/exchange/exchange-client.tsx: the SDK package.json exports map at services/agent/sdk/typescript/package.json:13 declares only types and import conditions, which the webpack build and Node's CommonJS loader both refuse. Decision 2153 already assigns that fix (default conditions) to task 12.35.2; the gate test carries no defect of its own."
+assumption = "17.5.1 requires 12.35.2 and re-runs the unchanged gate on a revision that carries it (decision 2155)."
+severity = "major"
+
+[finding.19.1.1.1]
+task = "19.1.1"
+file = "foundry.toml:2"
+symbol = "profile.default"
+observed = "Attempts 1 to 3 (3018063d3 and its relaunches) write all six files and fail forge build --root . before any test runs: the root Foundry project (src = contracts) compiles contracts/CheckpointRegistry.sol, contracts/EmergencyExit.sol and contracts/storage/WithdrawalNullifierRegistry.sol, whose imports of contracts/libraries/*.sol, contracts/security/LayerXComponent.sol, contracts/crypto/Ed25519.sol and contracts/interfaces/IGuarantorEligibility.sol do not exist on main, and tests/solidity/SidioraProxyGovernance.t.sol, PaxeerBetaDeploy.t.sol and PaxeerBetaDeploymentValidator.t.sol, which import contracts/lib/openzeppelin-contracts that only contracts/bootstrap-libs.sh populates. The whole-project build is broken independently of this task; the names contracts import only contracts/security/Governed.sol."
+assumption = "The name contracts build and test under a Foundry profile of their own, and the name tasks' commands use it (decision 2156)."
+severity = "major"
+
+[finding.19.4.2.1]
+task = "19.4.2"
+file = "modules/xweb/types/observation.go:33"
+symbol = "KindFetch"
+observed = "Attempt 1 (afde1c7b6) adds KindStorageReceipt, the payload codec, the keeper admission and both tests, and both tests pass; the done check refuses because the touches modules/xweb/observation.go and modules/xweb/genesis.go name files that do not exist (the kind admissions are at modules/xweb/types/observation.go:33 and modules/xweb/types/genesis.go:125) and were therefore not changed. Every declared touch must change, so the task cannot close with those paths."
+assumption = "The two touches become modules/xweb/types/observation.go and modules/xweb/types/genesis.go, which admit the new kind (decision 2157)."
+severity = "minor"
+
+[finding.19.3.1.1]
+task = "19.3.1"
+file = "pnpm-workspace.yaml:1"
+symbol = "packages"
+observed = "Attempt 1 (26892f709) writes the publisher, the verifier, the CLI and the three tests, and fails the build command: pnpm --dir tools/names install detects the repository's pnpm-workspace.yaml (Scope: all 20 workspace projects) and installs every listed package, and sdk/integrations/express depends on @sidiora/layerx-sdk 0.1.0 from the public registry, which answers 404. tools/names is not a workspace member and depends on sdk/names by file: path only."
+assumption = "The install commands of the name packages run with --ignore-workspace so each package installs in isolation (decision 2158)."
+severity = "minor"
+
+[finding.8.98.15.4]
+task = "8.98.15"
+file = "services/platform/hosted/authority/src/trust.rs:143"
+symbol = "replica"
+observed = "Attempt 4 (72c479b34) builds, prints the refusal as decision 2152 asked, and the three server-launching human_tls tests fail with 503 state_evidence_refused from human.rs:405: trust::replica (trust.rs:139-144) selects the pinned receipt key whose sequencer_id equals the receipt's context_hash, the attempt's receipt-keys.json pins keyId = the fixture's sequencer_id_hex, and the fixture receipt (tests/fixtures/real-program-deploy-receipt.json, signed before 354282d35 introduced the rule) carries a different context_hash, which the attempt reports as zero; chain_receipt.rs:72 refuses a zero key id, so the fixture cannot be pinned as it stands. The tests had not launched the server at all since main.rs:283-287 began requiring LAYERX_AUTHORITY_CHAIN_RPC_URL and LAYERX_AUTHORITY_RECEIPT_KEYS_FILE, which the test on main never sets."
+assumption = "The test re-signs its fixture at run time with a key whose id is written into the receipt's context_hash, the way tests/chain_receipts.rs already does (decision 2159)."
+severity = "major"
+
+[finding.19.0.1.1]
+task = "19.0.1"
+file = "apps/wallet/src/server/wallet-read-proxy.ts:28"
+symbol = "PNS_ORIGIN"
+observed = "The wallet already consumes a name indexer: apps/wallet/src/lib/pns.ts:180-253 calls the explorer name-service API shape (addresses:lookup, domains/<name>, domains/<name>/events, addresses/<address>, domains:lookup) under NEXT_PUBLIC_PNS_API_BASE, the five proxy routes under apps/wallet/src/app/api/pns forward to a literal hosted origin at apps/wallet/src/server/wallet-read-proxy.ts:28 that serves nothing for chain 125, and apps/explorer/configs/app/apis.ts:64 reads the same API shape from NEXT_PUBLIC_NAME_SERVICE_API_HOST; decision 2150 left the indexer out of scope, so the My Names tab and the explorer's name display would stay empty after the contracts deploy."
+assumption = "The hosted indexer gains a names module serving that API shape, and the wallet proxy points at it through configuration (decision 2160)."
+severity = "major"
