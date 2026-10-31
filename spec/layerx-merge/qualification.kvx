@@ -14411,3 +14411,43 @@ symbol = "standby_power"
 observed = "Attempt 18 (110c9d81f) adds the standby to genesis as a second bonded validator with a third of the power and as the second sequencer leader; the standby's consensus then proposes every fourth height and fails with 'sequencer: no sealed layer' (standby.log 12:57:28.868, 12:57:40.903, ...), and the primary's replication reads time out on the standby listener at those same seconds ('standby did not acknowledge: read tcp ...->127.0.0.1:55013: i/o timeout', node.log 12:57:28.247, 12:57:40.495, ...); the transfer then fails with 'method handler crashed' from eth_sendRawTransaction and node.log carries no 'RPC method ... crashed' line."
 assumption = "A standby leader that is also a proposer blocks its own replication acknowledgement while it is asked to seal; whether a standby may hold validator power is the node runtime owners' question. The handler crash is logged by core/deps/geth/rpc/service.go:200 at error level only if that logger reaches node.log."
 severity = "owner"
+
+[finding.8.47.11.2]
+task = "8.47.11"
+file = "services/agent/crates/layerx-proof/src/program.rs:854"
+symbol = "terminal_binding_tests"
+observed = "Attempts 1 to 3 of 8.47.11 (17cbdd8cb, 9940ca91d among them) fail the layerx-proof library test build: mod terminal_binding_tests includes sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json, which task 8.47.6 (d756f1d3b) deleted with the kernel programs terminal v4 vectors."
+assumption = "The module's single test binds a terminal code to a signed outcome recorded in that fixture; without the vectors it has no input, and removing it belongs to the task that makes the proof library tests build again, 8.47.11."
+severity = "cross-task"
+
+[finding.8.98.3.3]
+task = "8.98.3"
+file = "services/platform/hosted/authority/src/main.rs:858"
+symbol = "verify_withdrawal_request"
+observed = "Attempt 5 of 8.98.3 stopped on decision 2083's condition: rpc::evidence::ProofBundle (layerx-client src/rpc/evidence.rs:9-12) carries an account proof and the landing block, the replica document (BatchEvidence, authority src/lib.rs:97-106) carries the header, its signature, the receipt proof and the batch identity, and layerx-client's JSON-RPC surface has no read of a signed activity by activity id, so the signed_activity argument of layerx_proof::receipt::withdrawal::verify (receipt/withdrawal.rs:179-185) cannot be obtained by the authority."
+assumption = "The receipt authority stops re-verifying a withdrawal receipt against its signed activity; the receipt stays bound to its batch through authorized_batch_by_activity and the gateway verifies withdrawal semantics at submission (gateway src/main.rs:2903-2931). Whether the replica document should carry the canonical activity so the authority can verify it again is the platform owners' question."
+severity = "owner"
+
+[finding.18.1205.1.2]
+task = "18.1205.1"
+file = "services/agent/crates/layerx-proof/src/checkpoint.rs:477"
+symbol = "verify_certificate"
+observed = "Attempt 7 of 18.1205.1 (40be44b8b) built the Committed cache value through verify_certificate as decision 2085 says and it fails with Configuration(Json(MissingField('schema'))): verify_certificate reads settlement::maximum_attestation_delay_ms() from the embedded contracts/config/checkpoint-settlement.json (src/settlement.rs:11-12, :66, :79), which since b284707f6 holds only chain_id and offline_export; ThresholdReport (:280) has private fields and verify_certificate as its only constructor, and inclusion evidence reaches at most StateProven (Rung::Receipted)."
+assumption = "No code path on main produces a CHECKPOINT_FINALISED (Committed) cache value until task 9.27.4 (wave 37) deletes the certificate verifier and the document; the degraded-mode test proves capping with a Receipted value. How the Committed rung is reached afterwards is the proof owners' question."
+severity = "owner"
+
+[finding.18.1272.1.1]
+task = "18.1272.1"
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs:315"
+symbol = "decode_method"
+observed = "Attempt 6 of 18.1272.1 (570af0da6) built the ledger send(bytes) call carrying the Governance payload and bind_call refuses it with MalformedPayload: decode_method admits send(bytes) to 0x101a only when decode_send (src/disclosure.rs:293) decodes an Asset send, handles only 0x101a, 0x101b and the bank send (:241, :349, :387), and the ledger precompile exposes no lifecycle method, so production bound_activity's LedgerSend arm (human-service src/agents/create.rs:562-579, task 10.97.1) is unreachable and no EIP-1559 transaction carries the DidRegistration or RecoveryRegistration payload of an agent creation."
+assumption = "Which call carries a lifecycle registration (a ledger method, the layerxauth precompile, or another construct) is the owners' decision for the agent creation path; the test cannot drive the two Governance stages until a task provides it."
+severity = "owner"
+
+[finding.18.1188.2.4]
+task = "18.1188.2"
+file = "services/agent/crates/layerx-crypto/src/disclosure/native.rs:220"
+symbol = "account_id"
+observed = "Attempt 8 of 18.1188.2 (378650fe1) routed the budget defund through prepare_budget_mutation_for_protocol with a context whose owner and budget accounts were derived with layerx_intents::canonical::PROTOCOL_VERSION, and bound_context (:339-363) answered MalformedPayload: it derives the owner, budget and per-asset account ids with hash::account_id_for_protocol(&account, 3) whatever protocol version the preparation runs at."
+assumption = "The context binding pins the account derivation to protocol 3 while prepare_budget_mutation_for_protocol takes the caller's protocol version; whether the derivation should follow the preparation's protocol is the crypto owners' question. The test double derives with 3."
+severity = "owner"

@@ -11946,3 +11946,33 @@ fix = "A task that deletes a source file greps the repository for its path in in
 title = "Agent-function precompiles refuse on activation before reading the selector"
 symptom = "5.98.4 attempt 5 probed 0x0901 with an unknown selector and got LXP_AGENT_NOT_ACTIVE, not LXP_PRECOMPILE_UNKNOWN_METHOD."
 fix = "A readiness probe over 0x0901-0x0908 accepts the activation refusal as served; read the handler's first checks before fixing an expected error code."
+
+[gotcha.2427]
+title = "A deleted conformance fixture breaks cfg(test) modules in sibling crates"
+symptom = "8.47.11 attempts 1 to 3 failed to build layerx-proof's library tests because program.rs:854 includes receipt-programs-executed-v4.json, deleted by 8.47.6."
+fix = "Before building a crate's tests after fixture deletions, grep include_str over the crate for every removed fixture name and remove or re-point each reader; do_3's grep covered only receipt-programs- and receipt-positive-."
+
+[gotcha.2428]
+title = "Admission refuses a reused account sequence before the idempotency replay check"
+symptom = "16.33.5 attempt 8 expected LXP_ERR_IDEMPOTENT_REPLAY for a replayed call and the kernel answered LXP_ERR_SEQUENCE_REUSED."
+fix = "A replay that reuses the account sequence is a sequence refusal (lxp_admission.c:33-37); only a fresh sequence with a known idempotency key reaches LXP_ERR_IDEMPOTENT_REPLAY."
+
+[gotcha.2429]
+title = "JSON-RPC evidence carries no signed activity bytes"
+symptom = "8.98.3 attempt 5 could not port the withdrawal re-verification: ProofBundle, the replica document and the receipt reads carry headers, proofs and receipts, never the canonical signed activity."
+fix = "A port from the retired node interface to JSON-RPC lists every byte string the old call returned and checks each has a JSON-RPC source before the task is specified; a check that needs the signed activity moves to the submission path."
+
+[gotcha.2430]
+title = "The embedded checkpoint settlement document fails every certificate verification"
+symptom = "18.1205.1 attempt 7 called verify_certificate and got Configuration(Json(MissingField('schema'))) from the embedded checkpoint-settlement.json."
+fix = "Until 9.27.4 lands, no test can hold a CHECKPOINT_FINALISED value; use inclusion evidence (Receipted) and assert the rung checks that are reachable."
+
+[gotcha.2431]
+title = "The ledger send(bytes) construct admits only Asset send payloads"
+symptom = "18.1272.1 attempt 6 wrapped a Governance lifecycle payload in send(bytes) to 0x101a and bind_call answered MalformedPayload from decode_send."
+fix = "Before specifying a transaction form for a payload, read decode_method's arm for the target address and selector and confirm the payload decoder it calls accepts that module."
+
+[gotcha.2432]
+title = "Budget context binding derives account ids at protocol 3 regardless of the preparation protocol"
+symptom = "18.1188.2 attempt 8 derived the context accounts at layerx_intents::canonical::PROTOCOL_VERSION and bound_context answered MalformedPayload."
+fix = "Build a BudgetStateContext with account_id_for_protocol(.., 3), the derivation native.rs:220 uses; a mismatch surfaces as MalformedPayload, not FieldMismatch."
