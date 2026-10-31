@@ -95408,7 +95408,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.17.4]
 title = "Key verified receipt authority by block height and emit the 151-byte V2 record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["1.0.4", "16.2.1", "16.97.2"]
