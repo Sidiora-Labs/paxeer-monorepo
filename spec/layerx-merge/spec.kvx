@@ -148335,7 +148335,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.17.2]
 title = "Retire wallet-binding and emergency-exit audit kinds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.8.3", "10.9.1", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1"]
