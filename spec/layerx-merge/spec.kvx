@@ -135217,7 +135217,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.20.1]
 title = "Retire the activity and program routes of the core boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "8.10.2", "18.1083.1", "18.1297.1"]
@@ -136230,7 +136230,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.27.2]
 title = "Pay through the Python public RPC example with a raw EIP-1559 transaction and receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.27.1", "9.96.1"]
