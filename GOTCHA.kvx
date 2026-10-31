@@ -12066,3 +12066,13 @@ fix = "Name the seam a test exercises: a journey test injects the boundary trait
 title = "A Makefile target is not a graph symbol"
 symptom = "A task listed its new phony Makefile target among its symbols; build and all three tests passed and the done check still failed because the code graph indexes functions and types, not make targets."
 fix = "List functions, types and tests under symbols; a Makefile target is proven by the build command or a test that runs it."
+
+[gotcha.2451]
+title = "The agent JSON surface carries no native send preview"
+symptom = "A test posted a native_send_preview_v1 variant through handle_rpc and got 400 envelope.malformed: the prepare operation of the JSON surface routes only native_effect_v1, native_registration_v1, native_send_v1 and native_send_submit_v1; previews travel as human frames (operation 63) written by the human service."
+fix = "Prove a native send preview through serve_one with the frame the human service writes (agent_runtime.rs native_send_preview), not through the JSON surface."
+
+[gotcha.2452]
+title = "The served-precompile probe is an eth_call with selector 0xffffffff"
+symptom = "Gateway tests expected an eth_getCode probe for a served precompile and saw none, and a route's eth_call count came out one too high: since the node serves precompiles natively without account code, ensureServed probes with eth_call data 0xffffffff once per process per key."
+fix = "Assert the probe as that eth_call and exclude it from per-route eth_call counts; eth_getCode at a native precompile answers 0x."

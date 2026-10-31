@@ -14571,3 +14571,19 @@ symbol = "HumanOperationMetadata.PerLeg"
 observed = "Attempt 6 (a82f26174) reseals the pipeline and the generated catalogues as decisions 2113-2119 ask; go -C sdk/platform/go build ./... then fails at cmd/conformance/main.go:426 because the regenerated HumanOperationMetadata no longer carries the PerLeg field that 8.46.1 added by hand, and main.go is outside the touches."
 assumption = "After the reseal every one of the 84 human-plane operations in operations.json has the http transport (intent.plan and intent.submit are POST /v1/intents/plan and /v1/intents/submit with golden request vectors under services/human/schema/human-api/golden), so the eth_-prefixed branch at main.go:424-428 has no operation left to check."
 severity = "cross_task"
+
+[finding.10.13.9.2]
+task = "10.13.9"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc.rs:809"
+symbol = "handle_rpc"
+observed = "Attempt 5 (d994bc887) builds, passes the commitment refusal case, and stops at tests/native_send_preview_evm.rs:1059 with status 400 reason envelope.malformed: the prepare operation of the JSON surface routes only the variants native_effect_v1, native_registration_v1, native_send_v1 and native_send_submit_v1 (src/agent_rpc_dispatch.rs:508-550), so no JSON request reaches native_send_preview_v1 and the handle_rpc path that do_4 and decision 2124 named does not exist."
+assumption = "The real transport of a native send preview is the human frame: the human service writes operation 63 (NATIVE_SEND_PREVIEW_V1, human.rs:116) field by field (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4794-4843) and exchanges it over the socket, and the daemon reads it in decode_operation (src/human.rs:2481-2520) inside serve_one (src/human.rs:1754), which also encodes the answer (encode_response, :1787)."
+severity = "cross_task"
+
+[finding.12.13.2.3]
+task = "12.13.2"
+file = "services/wallet/gateway/src/precompiles.ts:60"
+symbol = "ensureServed"
+observed = "Attempts 6 of 12.13.2 (91c1a17d3), 12.13.3 (d45816d07) and 12.13.4 (3836a0732) reach the served precompiles over the node fixture and fail only their probe assertions: agent-precompiles-scheduler.test.ts:367 expects an eth_getCode record and sees none, agent-precompiles-streams.test.ts:334-336 expects one eth_getCode probe and sees zero, agent-precompiles-eip712.test.ts:254 expects one eth_call on the domain-separator route and sees two."
+assumption = "Since decision 2061 (task 5.98.4) the node serves precompiles as native handlers without account code, so ensureServed (src/precompiles.ts:60-71) probes with eth_call to the address with data 0xffffffff once per process per key, accepting non-empty data or an error whose message contains LXP_PRECOMPILE_UNKNOWN_METHOD, and never issues eth_getCode; the second eth_call on the first eip712 route is that probe."
+severity = "cross_task"
