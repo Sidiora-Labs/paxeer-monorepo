@@ -14291,3 +14291,67 @@ symbol = "signed_receipt"
 observed = "Since 6de397283 (task 8.47.4) the layerx-sdk test targets do not compile: four test files include the removed sdk/platform/conformance/fixtures/receipt-positive-v2.json, and services/agent/sdk/typescript/test/px.test.ts:577-590 reads it too."
 assumption = "The fixture was removed without its consumers; 9.97.6 repairs the Rust tests and task 9.97.12 the TypeScript test."
 severity = "cross-task"
+
+[finding.18.1188.2.3]
+task = "18.1188.2"
+file = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1340-1400"
+symbol = "RealAgentLayer::prepare"
+observed = "Attempt 6 (11a1a83b6) fails three archive_fixture cases with Disclosure(Decode(MalformedPayload)): the test's RealAgentLayer::prepare hands the custody step the kernel canonical bytes of prepare_activity, while production custody (src/journeys/provider.rs:697 through src/server/agent_runtime.rs:31-34) decodes only an unsigned EIP-1559 call."
+assumption = "The test double, not production, is the producer that drifted; the same file already builds the EIP-1559 call in raw_transaction (:1118) and tests/support/canonical_owner.rs signs one at :65."
+severity = "task"
+
+[finding.18.1205.1.1]
+task = "18.1205.1"
+file = "contracts/config/checkpoint-settlement.json"
+symbol = "declared_domain"
+observed = "Attempt 5 (ed17f9287) fails: tests/degraded.rs committed_cache() (:86) calls layerx-proof settlement.rs:86 declared_domain, which parses the embedded contracts/config/checkpoint-settlement.json; since b284707f6 that document holds only chain_id and offline_export, so every declared-domain read fails."
+assumption = "decision.928 retires the declared-domain path (task 6.59.7, wave 39); a test needing a Committed cache value builds it from a verified receipt, not from the settlement document."
+severity = "cross-task"
+
+[finding.8.14.2.1]
+task = "8.14.2"
+file = "services/platform/hosted/paxeer/deployment.yaml:21"
+symbol = "LAYERX_PAXEER_ANCHOR_GENESIS_FILE"
+observed = "Attempt 4 (aa1b8ece1) fails test_retired_kernel_scripts: the hosted scan still finds the anchor genesis in services/platform/hosted/paxeer/deployment.yaml (env :21, volumeMount :27, configMap :60) and services/platform/hosted/paxeer/init-chain.sh (comment :28, ANCHOR_GENESIS variable :63 and its guarded blocks :150-156, :175-176, :272-284)."
+assumption = "Only task 5.98.1 (done) touched those files, so the anchor genesis wiring is this task's to remove."
+severity = "task"
+
+[finding.10.0.3.1]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:48-63"
+symbol = "Fixture::open"
+observed = "Attempt 2 (dca4574b0) builds, but the planned test's Fixture::open reads the environment variable LAYERX_TEST_INTENT_FIXTURE_JSON, which no file in the repository defines or writes, so every case skips or fails before reaching the Router."
+assumption = "A planned test is self-contained (decision.1884): it opens ProductionComponents in a temp directory and serves its own agent layer in process the way tests/intent_submit.rs does."
+severity = "task"
+
+[finding.10.13.8.3]
+task = "10.13.8"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs:6029"
+symbol = "native_send_preview"
+observed = "Attempt 2 of 10.13.8 could not read a nonce or fee from the native send preview: native_send_preview (:5966, legacy call at :6029) and native_send_owner_preview_on_surface (:6242, :6306) still prepare through prepare::legacy::prepare_activity_for_protocol (src/prepare/mod.rs:763), so canonical_bytes is a kernel envelope that decode_unsigned_evm_transaction (layerx-human-kms attestor.rs:1371, used at agent_runtime.rs:32) refuses."
+assumption = "10.13.5 ported only the human-service side of the preview; the daemon producer is ported by new task 10.13.9, which 10.13.8 now requires."
+severity = "cross-task"
+
+[finding.8.98.3.1]
+task = "8.98.3"
+file = "services/platform/hosted/authority/tests/human_tls.rs"
+symbol = "layerx_client::lni"
+observed = "After 8.98.3 removes the lni connection from src/main.rs, services/platform/hosted/authority/tests/human_tls.rs, tests/chain_receipts.rs and src/trust.rs still name layerx_client::lni paths, which the retired-module scan of 8.98.3 does not cover."
+assumption = "Those three files belong to the authority tasks that own them (8.98.7, 8.98.8 among the blocked set) or to a follow-up; recorded so the scan widening is not mistaken for a 8.98.3 regression."
+severity = "cross-task"
+
+[finding.9.97.12.1]
+task = "9.97.12"
+file = "services/agent/sdk/typescript/test/px.test.ts:1244-1300"
+symbol = "historyGateway"
+observed = "Attempt 4 (bb2914d8f) passes receipt_keys_shape, and node then reports asynchronous activity after the test ended: the module-level history gateway block (createServer :1244, listen :1267, top-level awaits :1276-1299) runs outside any test and throws 'Incomplete history document' (src/history.ts:398) under a filtered run."
+assumption = "The block predates this task and fails on main for every run of the file; this task wraps it so a filtered run exits clean, and the history document failure stays recorded here."
+severity = "cross-task"
+
+[finding.1.12.4.1]
+task = "1.12.4"
+file = "modules/layerxledger/keeper/grants.go"
+symbol = "GetPayerGrant"
+observed = "After Host.ReadPayerGrant leaves, the ledger precompile's grant lifecycle has no store behind it: keeper/grants.go still issues grants through kernel activities 0x00010007 and 0x00010008 that task 1.12.1 retired, include/layerx/lx_asset.h:27 still declares LX_ASSET_GRANT_ISSUE, and twelve test files call Draw or getPayerGrant."
+assumption = "Whether the payer grant lifecycle is re-homed on the ledger module's own store or retired with its ABI methods is an owner ruling for the ledger precompile; 1.12.4 keeps the ABI and makes the reads answer types.ErrNoPayerGrant."
+severity = "owner"
