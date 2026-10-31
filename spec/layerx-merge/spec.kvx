@@ -133785,7 +133785,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.3.1]
 title = "Answer -32601 for every lx_ JSON-RPC name on HTTP and WebSocket"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "8.2.1", "8.2.2", "16.9.3", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1"]
@@ -135336,7 +135336,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.19.2]
 title = "Delete the kernel node regression drivers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "8.19.3", "16.96.5"]
@@ -135475,7 +135475,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "Delete services/platform/hosted/gateway/tests/retired_client_modules.rs and services/platform/hosted/gateway/tests/retired_client_modules_w2.rs together with the funding and registry_runtime modules they scan."
 [task.8.19.6]
 title = "Delete the kernel node tests of the agent boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "8.8.4", "16.0.4"]
@@ -158066,7 +158066,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.4]
 title = "Read kernel state and the chain account document in the account hooks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.25.4", "12.31.1", "18.1053.1"]
