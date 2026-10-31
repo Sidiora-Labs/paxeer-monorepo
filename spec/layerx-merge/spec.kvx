@@ -133384,7 +133384,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.4.3]
 title = "Probe the ledger and authority surfaces in px_getCapabilities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.4.2", "6.0.3", "2.92.1", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1", "8.12.3", "8.12.4"]
