@@ -94692,7 +94692,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.12.1]
 title = "Retire kernel RECEIVE, GRANT_ISSUE and GRANT_REVOKE and the ledger grant store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["1.12.2", "1.11.1", "1.30.1", "1.0.4", "16.2.1", "16.97.1"]
@@ -137419,7 +137419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.32.1]
 title = "Retire the relay archive JSON-RPC and HTTP serving runtime"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.1", "16.2.4", "16.96.3"]
@@ -146085,7 +146085,7 @@ do_5 = "Attempts 3 and 4 (28f485ddd on 17dd9f358, feb420d28 on d9595e251) regene
 
 [task.9.97.8]
 title = "Retire the kernel receipt verification from the TypeScript SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.92.1", "9.34.2"]
