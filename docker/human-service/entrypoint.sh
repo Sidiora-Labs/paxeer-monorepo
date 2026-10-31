@@ -12,7 +12,7 @@ case "$role" in
         esac
         ;;
     onboarding-bootstrap) private=/run/human-private/components ;;
-    components|identity|security|movement|agent|kms|onboarding-signer) private=/run/human-private/$role ;;
+    components|identity|security|agent|kms|onboarding-signer) private=/run/human-private/$role ;;
     *) printf 'unknown Human role\n' >&2; exit 64 ;;
 esac
 python3 - "$private" <<'PY_PRIVATE'
@@ -234,12 +234,6 @@ except (OSError, ValueError):
 PY_SECURITY_MATERIAL
         copy_material trust-history
         exec /usr/local/bin/layerx-runtime-clock --runtime-dir "$private" -- /usr/local/bin/layerx-human-security-provider "$@"
-        ;;
-    movement)
-        for name in ca.der kms-executor.der kms-executor-key.der custody.profile; do
-            copy_material "$name"
-        done
-        exec /usr/local/bin/layerx-runtime-clock --runtime-dir "$private" -- /usr/local/bin/layerx-human-movement-provider "$@"
         ;;
     service) exec /usr/local/bin/layerx-runtime-clock --runtime-dir "$private" -- /usr/local/bin/layerx-human-service "$@" ;;
     *) printf 'unknown Human role\n' >&2; exit 64 ;;

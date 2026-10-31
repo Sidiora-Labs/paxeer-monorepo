@@ -15,7 +15,7 @@ DECLARED=['programs/crates/layerx-programs-runtime/src/replay_record.rs','progra
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 def sources():
-    names=subprocess.run(['git','ls-files','-z','--','src','include','cmd/layerxd','programs','Makefile','tests/programs/test_call_activity.c','tests/daemon/lxp_test_arbiter_admission.c','tests/bridge/files.h','contracts/config'],cwd=ROOT,check=True,capture_output=True).stdout.split(b'\0')
+    names=subprocess.run(['git','ls-files','-z','--','src','include','programs','Makefile','tests/programs/test_call_activity.c','tests/daemon/lxp_test_arbiter_admission.c','tests/bridge/files.h','contracts/config'],cwd=ROOT,check=True,capture_output=True).stdout.split(b'\0')
     paths={os.fsdecode(p) for p in names if p}|set(DECLARED)
     return {p:sha(ROOT/p) for p in sorted(paths) if Path(p).suffix in {'.c','.h','.rs','.toml','.lock','.json','.inc','.py','.mk'} or p=='Makefile'}
 def execute(command,log,environment=None):

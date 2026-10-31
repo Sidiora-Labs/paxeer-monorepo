@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from hashlib import sha256
 from typing import Literal, Protocol, cast
 
+from .account_derivation import keccak256
 from .generated.receipt import (
     PROGRAM_OUTCOME_TAGS,
     PROGRAMS_MODULE_ID,
@@ -355,6 +356,90 @@ class ReceiptVerification:
     receipt: ProtocolReceipt
     canonical_bytes: bytes
     receipt_digest: bytes
+
+
+@dataclass(frozen=True)
+class ReceiptKey:
+    key_id: bytes
+    public_key: bytes
+    first_height: int
+    last_height: int
+
+
+SequencerReceiptRefusal = Literal[
+    "unpinned_key", "key_out_of_range", "bad_signature", "hash_mismatch"
+]
+
+
+class SequencerReceiptVerificationError(PlatformSdkError):
+    __slots__ = ("check",)
+
+    def __init__(self, check: SequencerReceiptRefusal) -> None:
+        super().__init__(SdkErrorCode.VERIFICATION_FAILURE, "never")
+        self.check = check
+
+
+@dataclass(frozen=True)
+class SequencerReceiptVerification(ReceiptVerification):
+    height: int
+
+
+def verify_sequencer_receipt(
+    signed_receipt: bytes,
+    raw_transaction: bytes,
+    receipt_keys: tuple[ReceiptKey, ...] | list[ReceiptKey],
+) -> SequencerReceiptVerification:
+    from cryptography.exceptions import InvalidSignature
+    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+
+    canonical_bytes = bytes(signed_receipt)
+    transaction_hash = keccak256(bytes(raw_transaction))
+    try:
+        receipt, unsigned_bytes = _decode_protocol_receipt(canonical_bytes)
+    except PlatformSdkError as error:
+        raise SequencerReceiptVerificationError("bad_signature") from error
+    if (
+        receipt.protocol_version != 2
+        or receipt.module_version != 1
+        or receipt.parameter_version != 0
+        or receipt.program_outcome is not None
+        or any(receipt.batch_id[:24])
+    ):
+        raise SequencerReceiptVerificationError("bad_signature")
+    height = int.from_bytes(receipt.batch_id[24:], "big")
+    pinned = [key for key in receipt_keys if _equal(key.key_id, receipt.context_hash)]
+    if not pinned:
+        raise SequencerReceiptVerificationError("unpinned_key")
+    active = [
+        key
+        for key in pinned
+        if type(key.first_height) is int
+        and type(key.last_height) is int
+        and 0 <= key.first_height <= height <= key.last_height <= 0xFFFF_FFFF_FFFF_FFFF
+    ]
+    if not active:
+        raise SequencerReceiptVerificationError("key_out_of_range")
+    receipt_digest = _digest(_RECEIPT_DOMAIN, unsigned_bytes)
+    valid = False
+    for key in active:
+        try:
+            Ed25519PublicKey.from_public_bytes(key.public_key).verify(
+                receipt.sequencer_signature, receipt_digest
+            )
+        except (InvalidSignature, ValueError):
+            continue
+        valid = True
+    if not valid:
+        raise SequencerReceiptVerificationError("bad_signature")
+    if not _equal(receipt.activity_id, transaction_hash):
+        raise SequencerReceiptVerificationError("hash_mismatch")
+    return SequencerReceiptVerification(
+        level="sequencer-signed",
+        receipt=receipt,
+        canonical_bytes=canonical_bytes,
+        receipt_digest=receipt_digest,
+        height=height,
+    )
 
 
 @dataclass(frozen=True)

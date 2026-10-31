@@ -138,21 +138,37 @@ def abi_signature(entry):
 
 def gen_precompiles():
     out = [HEADER, "# Precompile ABIs\n\n",
-           "Source: `precompiles/<name>/*abi*.json` and `precompiles/<name>/abi/abi.json`, "
-           "the address constants in `precompiles/<name>/*.go` and the "
-           "Solidity interfaces in `contracts/src/precompiles/`.\n"]
+           "Source: `precompiles/<name>/*abi*.json`, `precompiles/<name>/abi/*.json` and "
+           "the `abiJSON` constants in `precompiles/layerxagent/*/*.go`, "
+           "the address constants in each package or its `modules/<name>/types/*.go`, and the "
+           "Solidity interfaces in `contracts/src/precompiles/`. "
+           "Addresses list the package's fixed addresses, shared across its ABI rows; "
+           "the spot share ABI describes dynamically allocated share-token pointers.\n"]
     addr_re = re.compile(r'(\w*Address)\s*=\s*"(0x[0-9a-fA-F]{40})"')
     rows = []
     sections = []
     precompiles = ROOT / "precompiles"
-    abi_paths = set(precompiles.glob("*/*abi*.json")) | set(precompiles.glob("*/abi/abi.json"))
+    abi_paths = set(precompiles.glob("*/*abi*.json")) | set(precompiles.glob("*/abi/*.json"))
+    abis = []
     for abi_path in sorted(abi_paths):
         pkg = abi_path.parent.parent if abi_path.parent.name == "abi" else abi_path.parent
-        addresses = sorted({a for src in go_sources(pkg) for _, a in addr_re.findall(read(src))})
-        entries = json.loads(read(abi_path))
-        rows.append([pkg.name, f"`{rel(abi_path)}`", ", ".join(f"`{a}`" for a in addresses) or "-",
+        abis.append((pkg, rel(abi_path), abi_path.name, json.loads(read(abi_path))))
+    for src in sorted((precompiles / "layerxagent").glob("*/*.go")):
+        if src.name.endswith("_test.go"):
+            continue
+        for raw in re.findall(r"\babiJSON\s*=\s*`([^`]*)`", read(src)):
+            abis.append((src.parent, f"{rel(src)}:abiJSON", "abiJSON", json.loads(raw)))
+    for pkg, source, abi_name, entries in abis:
+        package_text = "\n".join(read(src) for src in go_sources(pkg))
+        addresses = sorted({a for _, a in addr_re.findall(package_text)})
+        if not addresses:
+            references = set(re.findall(r"\btypes\.(\w*Address)\b", package_text))
+            addresses = sorted({a for src in go_sources(ROOT / "modules" / pkg.name / "types")
+                                for constant, a in addr_re.findall(read(src)) if constant in references})
+        name = pkg.relative_to(precompiles).as_posix()
+        rows.append([name, f"`{source}`", ", ".join(f"`{a}`" for a in addresses) or "-",
                      sum(1 for e in entries if e.get("type") == "function")])
-        sec = [f"\n## {pkg.name} (`{abi_path.name}`)\n\n"]
+        sec = [f"\n## {name} (`{abi_name}`)\n\n"]
         if addresses:
             sec.append("Address: " + ", ".join(f"`{a}`" for a in addresses) + "\n\n")
         for kind in ("function", "event", "error"):

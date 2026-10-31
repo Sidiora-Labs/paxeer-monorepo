@@ -1,5 +1,6 @@
 use super::{public_reads, rpc, Config, Endpoint};
 use layerx_platform_gateway::http::OutboundRequest;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
@@ -64,6 +65,32 @@ fn consensus(config: &Config, method: &str, id: &Value, params: Value) -> Option
         .get("result")
         .filter(|result| result.is_object())
         .cloned()
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub(super) struct ConsensusHead {
+    #[serde(rename(deserialize = "latest_block_height"))]
+    latest_height: String,
+    latest_block_hash: String,
+    latest_app_hash: String,
+    catching_up: bool,
+}
+
+impl ConsensusHead {
+    pub(super) fn from_status(status: &Value) -> Option<Self> {
+        let head: Self = serde_json::from_value(status.get("sync_info")?.clone()).ok()?;
+        decimal(&Value::String(head.latest_height.clone()))?;
+        for hash in [&head.latest_block_hash, &head.latest_app_hash] {
+            if hash.len() % 2 != 0 || !hash.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+                return None;
+            }
+        }
+        Some(head)
+    }
+}
+
+pub(super) fn consensus_head(config: &Config, id: &Value) -> Option<ConsensusHead> {
+    ConsensusHead::from_status(&consensus(config, "status", id, json!({}))?)
 }
 
 #[allow(non_snake_case)]

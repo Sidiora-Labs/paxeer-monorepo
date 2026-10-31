@@ -4,7 +4,9 @@ from dataclasses import dataclass, field
 from re import fullmatch
 from typing import Awaitable, Callable, Generic, Literal, Mapping, Protocol, TypeVar
 
-from layerx_sdk import AuthorizedReceiptBatch, LocalSignatureVerifier, ReceiptVerification
+from layerx_sdk import LocalSignatureVerifier
+from layerx_sdk.px import PxReceiptKeyEntry
+from layerx_sdk.verifier import SequencerReceiptVerification
 
 from .protocol import (
     PAYMENT_REQUIRED_HEADER,
@@ -19,14 +21,13 @@ from .protocol import (
     SettlementResponse,
     canonical_json,
     constant_time_equal,
-    constant_time_equal_text,
+    decode_base64,
+    decode_payment_payload_header,
     encode_base64,
     encode_payment_required_header,
     encode_settlement_header,
-    decode_base64,
-    decode_payment_payload_header,
     match_requirements,
-    merkle_leaf_digest,
+    parse_hex32,
     parse_layerx_evidence,
     parse_payment_required,
     payment_idempotency_key,
@@ -59,8 +60,9 @@ class SettlementRefused:
 
 @dataclass(frozen=True)
 class SettlementSettled:
-    canonical_receipt: bytes
-    authorized_batch: AuthorizedReceiptBatch
+    raw_transaction: bytes
+    signed_receipt: bytes
+    receipt_key: PxReceiptKeyEntry
     kind: Literal["settled"] = "settled"
 
 
@@ -71,24 +73,26 @@ class SellerPaymentAuthority(Protocol):
     async def settle(self, request: SellerSettlementRequest) -> SellerSettlementOutcome: ...
 
 
-class AuthorizedBatchResolver(Protocol):
-    async def resolve(self, canonical_receipt: bytes) -> AuthorizedReceiptBatch: ...
+AuthorizedBatchResolver = tuple[PxReceiptKeyEntry, ...]
+StaticAuthorizedBatches = tuple[PxReceiptKeyEntry, ...]
 
 
 @dataclass(frozen=True)
 class ProposedFulfillment:
     idempotency_key: str
     request_digest: str
-    canonical_receipt: bytes
-    authorized_batch: AuthorizedReceiptBatch
+    raw_transaction: bytes
+    signed_receipt: bytes
+    receipt_key: PxReceiptKeyEntry
 
 
 @dataclass(frozen=True)
 class StoredFulfillment(Generic[T]):
     idempotency_key: str
     request_digest: str
-    canonical_receipt: bytes
-    authorized_batch: AuthorizedReceiptBatch
+    raw_transaction: bytes
+    signed_receipt: bytes
+    receipt_key: PxReceiptKeyEntry
     resource: T
 
 
@@ -127,7 +131,7 @@ class RefusedDecision:
 class ReleasedDecision(Generic[T]):
     settlement: SettlementResponse
     headers: Mapping[str, str]
-    verification: ReceiptVerification
+    verification: SequencerReceiptVerification
     resource: T
     status: Literal[200] = 200
     kind: Literal["released"] = "released"
@@ -137,31 +141,31 @@ SellerDecision = PaymentRequiredDecision | PendingDecision | RefusedDecision | R
 
 
 class ReceiptPayloadAuthority:
-    __slots__ = ("_authorized_batches",)
+    __slots__ = ("_receipt_keys",)
 
-    def __init__(self, authorized_batches: AuthorizedBatchResolver) -> None:
-        self._authorized_batches = authorized_batches
+    def __init__(self, receipt_keys: tuple[PxReceiptKeyEntry, ...]) -> None:
+        if not isinstance(receipt_keys, tuple) or not receipt_keys:
+            raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
+        self._receipt_keys = receipt_keys
 
     async def settle(self, request: SellerSettlementRequest) -> SellerSettlementOutcome:
         evidence = parse_layerx_evidence(request.payload.payload)
-        canonical_receipt = decode_base64(evidence.receipt, MiddlewareErrorCode.INVALID_PAYMENT_PAYLOAD)
-        digest = merkle_leaf_digest(canonical_receipt)
-        if not constant_time_equal_text(evidence.receipt_digest, digest.hex()):
+        pinned = next((key for key in self._receipt_keys if key == evidence.receipt_key), None)
+        if pinned is None:
             raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
-        authorized_batch = await self._authorized_batches.resolve(canonical_receipt)
-        return SettlementSettled(canonical_receipt=canonical_receipt, authorized_batch=authorized_batch)
-
-
-class StaticAuthorizedBatches:
-    __slots__ = ("_batch",)
-
-    def __init__(self, batch: AuthorizedReceiptBatch) -> None:
-        self._batch = batch
-
-    async def resolve(self, canonical_receipt: bytes) -> AuthorizedReceiptBatch:
-        if len(canonical_receipt) == 0:
+        code = MiddlewareErrorCode.INVALID_PAYMENT_PAYLOAD
+        raw_transaction = decode_base64(evidence.raw_transaction, code)
+        signed_receipt = decode_base64(evidence.signed_receipt, code)
+        verified = verify_payment_receipt(
+            signed_receipt, raw_transaction, (pinned,), request.requirements
+        )
+        if not constant_time_equal(parse_hex32(evidence.receipt_digest), verified.receipt_digest):
             raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
-        return self._batch
+        return SettlementSettled(
+            raw_transaction=raw_transaction,
+            signed_receipt=signed_receipt,
+            receipt_key=pinned,
+        )
 
 
 class SellerMiddleware(Generic[T]):
@@ -221,35 +225,42 @@ class SellerMiddleware(Generic[T]):
         proposed = ProposedFulfillment(
             idempotency_key=idempotency_key,
             request_digest=request_digest,
-            canonical_receipt=outcome.canonical_receipt,
-            authorized_batch=outcome.authorized_batch,
+            raw_transaction=outcome.raw_transaction,
+            signed_receipt=outcome.signed_receipt,
+            receipt_key=outcome.receipt_key,
         )
         verification = verify_payment_receipt(
-            proposed.canonical_receipt,
-            proposed.authorized_batch,
+            proposed.signed_receipt,
+            proposed.raw_transaction,
+            (proposed.receipt_key,),
             requirements,
-            self._signatures,
         )
         stored = await self._fulfillments.fulfill(proposed, release)
-        if stored.idempotency_key != idempotency_key or stored.request_digest != request_digest:
+        if (
+            stored.idempotency_key != idempotency_key
+            or stored.request_digest != request_digest
+            or stored.receipt_key != proposed.receipt_key
+        ):
             raise MiddlewareError(MiddlewareErrorCode.FULFILLMENT_CONFLICT)
         stored_verification = verify_payment_receipt(
-            stored.canonical_receipt,
-            stored.authorized_batch,
+            stored.signed_receipt,
+            stored.raw_transaction,
+            (proposed.receipt_key,),
             requirements,
-            self._signatures,
         )
         if not constant_time_equal(verification.receipt_digest, stored_verification.receipt_digest):
             raise MiddlewareError(MiddlewareErrorCode.FULFILLMENT_CONFLICT)
-        receipt_digest = merkle_leaf_digest(stored.canonical_receipt).hex()
+        receipt_digest = stored_verification.receipt_digest.hex()
         evidence = LayerXReceiptEvidence(
-            receipt=encode_base64(stored.canonical_receipt),
+            raw_transaction=encode_base64(stored.raw_transaction),
+            signed_receipt=encode_base64(stored.signed_receipt),
             receipt_digest=receipt_digest,
+            receipt_key=stored.receipt_key,
         )
         settlement = SettlementResponse(
             success=True,
             payer=stored_verification.receipt.from_account.hex(),
-            transaction=f"lxp:{receipt_digest}",
+            transaction="0x" + stored_verification.receipt.activity_id.hex(),
             network=requirements.network,
             amount=requirements.amount,
             extensions={"layerx": layerx_evidence_wire(evidence)},
@@ -265,7 +276,14 @@ class SellerMiddleware(Generic[T]):
 
 def layerx_evidence_wire(evidence: LayerXReceiptEvidence) -> JsonValue:
     return {
-        "receipt": evidence.receipt,
+        "rawTransaction": evidence.raw_transaction,
+        "signedReceipt": evidence.signed_receipt,
+        "receiptKey": {
+            "keyId": evidence.receipt_key.key_id,
+            "publicKey": evidence.receipt_key.public_key,
+            "firstHeight": evidence.receipt_key.first_height,
+            "lastHeight": evidence.receipt_key.last_height,
+        },
         "receiptDigest": evidence.receipt_digest,
         "verificationLevel": evidence.verification_level,
     }

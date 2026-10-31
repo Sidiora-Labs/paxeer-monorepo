@@ -200,6 +200,10 @@ func (p Precompile) Run(evm *vm.EVM, caller common.Address, callingContract comm
 	defer func() {
 		HandlePrecompileError(err, evm, operation)
 		if err != nil {
+			if errors.Is(err, vm.ErrExecutionReverted) && len(bz) > 0 {
+				err = vm.ErrExecutionReverted
+				return
+			}
 			if p.reasons && !retiredCall {
 				bz = revertData(err, p.lxp)
 			}

@@ -402,6 +402,60 @@ mod tests {
     const HOST: &str = "api-mainnet-beta.paxeer.network";
     const ORIGIN: &str = "https://api-mainnet-beta.paxeer.network";
     #[test]
+    fn explorer_refuses_the_retired_anchor_view() {
+        assert!(selected("GET", "/api/v2/paxeer-x/anchors").is_none());
+        let request = IncomingRequest {
+            method: "GET".into(),
+            path: format!("{PREFIX}/api/v2/paxeer-x/anchors"),
+            headers: [("host".into(), HOST.into())].into(),
+            body: Vec::new(),
+        };
+        assert_eq!(http_route(&request).status, 404);
+        for path in [
+            "/api/v2/paxeer-x/archive/anchors",
+            "/api/v2/paxeer-x/capabilities",
+        ] {
+            assert!(selected("GET", path).is_some(), "{path}");
+        }
+    }
+    #[test]
+    fn explorer_proxies_archive_receipt_views() {
+        assert_eq!(ui_proxy::beta_public().host, HOST);
+        for (path, template) in [
+            (
+                "/api/v2/paxeer-x/archive/receipts",
+                "/api/v2/paxeer-x/archive/receipts",
+            ),
+            (
+                "/api/v2/paxeer-x/archive/receipts/receipt-123",
+                "/api/v2/paxeer-x/archive/receipts/{id}",
+            ),
+        ] {
+            let route = selected("GET", path).expect("archive receipt route is admitted");
+            assert_eq!(route.path, template);
+            let request = IncomingRequest {
+                method: "GET".into(),
+                path: format!("{PREFIX}{path}"),
+                headers: [("host".into(), HOST.into())].into(),
+                body: Vec::new(),
+            };
+            assert!(admitted_headers(&request, route).is_ok(), "{path}");
+        }
+        for path in [
+            "/api/v2/paxeer-x/receipts",
+            "/api/v2/paxeer-x/receipts/receipt-123",
+        ] {
+            assert!(selected("GET", path).is_none(), "{path}");
+            let request = IncomingRequest {
+                method: "GET".into(),
+                path: format!("{PREFIX}{path}"),
+                headers: [("host".into(), HOST.into())].into(),
+                body: Vec::new(),
+            };
+            assert_eq!(http_route(&request).status, 404, "{path}");
+        }
+    }
+    #[test]
     fn explorer_query_and_finite_routes() {
         assert_eq!(ROUTES.len(), 141);
         assert!(selected("GET", "/api/v2/addresses/0xabc/transactions").is_some());
@@ -560,7 +614,7 @@ static ROUTES: &[Route] = &[
     },
     Route {
         method: "GET",
-        path: "/api/v2/paxeer-x/receipts",
+        path: "/api/v2/paxeer-x/archive/receipts",
         session_csrf: false,
     },
     Route {
@@ -940,7 +994,7 @@ static ROUTES: &[Route] = &[
     },
     Route {
         method: "GET",
-        path: "/api/v2/paxeer-x/receipts/{id}",
+        path: "/api/v2/paxeer-x/archive/receipts/{id}",
         session_csrf: false,
     },
     Route {
@@ -980,7 +1034,7 @@ static ROUTES: &[Route] = &[
     },
     Route {
         method: "GET",
-        path: "/api/v2/paxeer-x/anchors",
+        path: "/api/v2/paxeer-x/archive/anchors",
         session_csrf: false,
     },
     Route {
