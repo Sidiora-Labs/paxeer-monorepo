@@ -134378,7 +134378,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.14.1]
 title = "Refuse custody store proofs at the paxeer Comet boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "6.0.3", "18.1083.1", "18.1297.1"]
@@ -134599,7 +134599,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.16.3]
 title = "Drop the kernel verify, custody and anchor precompiles from the indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.16.6", "8.0.4", "6.0.3", "8.1.5", "18.1083.1", "18.1297.1"]
@@ -134631,7 +134631,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.16.4]
 title = "Retire kernel checkpoint settlement verification in the indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.16.2", "8.0.4", "8.1.5", "18.1083.1", "18.1297.1"]
@@ -134922,7 +134922,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.19.3]
 title = "Stop the platform make targets from building kernel binaries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4"]
@@ -139613,7 +139613,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.96.1]
 title = "Remove the bridge withdrawal compile from the gateway local withdrawal test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "10.0.4", "8.1.5", "18.1067.1", "18.1083.1", "18.1297.1"]
@@ -145181,7 +145181,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.96.1]
 title = "Add ReceiptKey and verify_sequencer_receipt to the Python SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.0.4", "8.0.4"]
