@@ -133659,7 +133659,7 @@ do_7 = "Attempts 5 (ac2e91fba on a628abcf2) and 6 (d1e010855 on f038ebb3f) built
 
 [task.8.4.4]
 title = "Remove the custody and anchor constructs from the EVM table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.5.3", "8.5.2", "8.1.5", "18.1083.1", "18.1297.1"]
@@ -139469,7 +139469,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.51.1]
 title = "Emulator core stops calling the retired batch seal, batch sign and history functions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.0.4", "16.0.2", "18.1121.1", "18.1297.1"]
@@ -156594,7 +156594,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.12.24.6]
 title = "Retire the joined endpoint reads and their decoders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["12.24.5", "12.34.7", "12.34.8", "12.34.9"]
