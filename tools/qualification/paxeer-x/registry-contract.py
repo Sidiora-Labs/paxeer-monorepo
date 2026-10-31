@@ -461,7 +461,6 @@ def discovery_artifacts(candidate_digest):
         'tools/qualification/paxeer-x/registry-contract.py',
         'cmd/layerxd/lxp_daemon_protocol.c',
         'services/platform/hosted/agent-boundary/src/main.rs',
-        'services/platform/hosted/agent-boundary/tests/real_node/native_interfaces.rs',
     }
     require(set(document['source_files']) == paths, 'exact discovery source inventory')
     for relative, expected in document['source_files'].items():
