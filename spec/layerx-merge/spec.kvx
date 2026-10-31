@@ -6129,6 +6129,36 @@ value = "In tools/qualification/localnode/v6120-node.sh the collateral and price
 basis = "Finding 18.670.1.8: a node that carries transactions but has no price and no collateral is still not the network the perps test is about; the setup was gated by mode for no reason the sequenced chain still has."
 affects = ["18.670.1"]
 
+[decision.2170]
+title = "The intent journey is read as a Journey: one stage per leg carrying tx_hash and nonce, and schema refusals are logged"
+value = "journey.get and journey.list answer an EVM intent journey as [type.Journey]: journey_id; kind move; state from the JourneyState vocabulary (processing while legs are submitted, done once every leg is receipted, refused on a refused leg, still-checking when the receipt read is absent) with state_copy_key journey.state.<state>; stages holding one JourneyStage per leg in leg order with stage_id stg_<journey_id>_<index>, copy_key journey.stage.<submitted|confirmed|refused>, the leg's state, evidence (one EvidenceRef per stage: evidence_id evd_ followed by the tx hash hex without 0x, class submission-record and verification unverified while only submitted, class layerx-receipt and verification receipt-verified once receipted) and two new optional fields declared in journeys.kvx [type.JourneyStage]: tx_hash of a new scalar TransactionHash declared in v1.kvx beside EvidenceId as a 0x-prefixed 32-byte hex string, and nonce in the integer form IntentLeg.nonce already uses; the journey-level evidence is the union of the stage evidence; started_at and updated_at are rfc3339 strings stored on the row at submit and refreshed on every advance (crate::time::rfc3339). The row keeps plan_digest, legs and raw_transaction for its own advance path, but the read renders the Journey shape from it and raw_transaction never leaves the store. The same renderer feeds journey.list through journey_list_with's additional rows. The baseline manifest is refreshed with cargo run --manifest-path services/human/tools/schema-check/Cargo.toml --locked -- --write-baseline services/human/schema/human-api. finish_response writes one eprintln line naming the operation, the trace id and the SchemaError before answering upstream-degraded, so a schema refusal is never silent again."
+basis = "Finding 10.0.3.10: the handler's result was refused by the response encoder, not by the chain; the schema is the contract the wallet reads, so the intent journey must speak it rather than a private legs shape. Logging the refusal costs one line and turns the next such failure into a one-attempt fix."
+affects = ["10.0.3"]
+
+[decision.2172]
+title = "Pending-block RPC reads on the send path wait for the next open block instead of panicking"
+value = "rpc/utils.go declares ErrLayerNotOpen (the executor's sentinel moves here and node/sequencer/executor.go:28 aliases it, so errors.Is keeps working), the retriable JSON-RPC error ErrPendingBlockClosed (no block is open; retry, mapped like ErrPendingServedBySequencer to -32000) and PendingOpenWait = 2 seconds. WatermarkManager gains PendingContext(ctx) (sdk.Context, error): without a pending source it answers ErrPendingServedBySequencer; otherwise it calls the source's Snapshot and, while the error is ErrLayerNotOpen, retries every millisecond until a block opens, the caller's context ends or PendingOpenWait elapses, then answers ErrPendingBlockClosed; the bound is a field with a test setter. rpc/tx.go:380 and :454 and rpc/send.go:342 use PendingContext and propagate its error (pendingNonce returns the nonce and an error, its caller at :440 forwards it); simulate.go:333 and state.go:108 are reached only after ResolveHeight's resolvePending check and stay as they are. node/app.go RPCContextProvider(PendingCtxHeight) performs the same bounded wait on ErrLayerNotOpen before it panics, so the panic now means a block failed to open for two seconds. No script or client retries on method handler crashed; the handler answers the typed error."
+basis = "Finding 18.670.1.9: with blocks of about one hundred milliseconds the seal-to-open window is hit by any busy client, and a crashed handler hides a liveness bound behind a generic error. Waiting inside the RPC for the next open block keeps eth_sendRawTransaction and pending nonce reads deterministic for the wallet and the perps-data probe."
+affects = ["5.98.5", "18.670.1", "12.35.2"]
+
+[decision.2171]
+title = "The wallet browser harness follows the product base path /wallet"
+value = "In apps/wallet/playwright.config.ts the embedded server is created as next with dev, hostname 127.0.0.1, port 3099 and webpack true only (no conf override of basePath); webServer.url and use.baseURL are http://127.0.0.1:3099/wallet/ (trailing slash kept); the three navigations in apps/wallet/tests/e2e/send.spec.ts become relative: page.goto('./?screen=send') at :24 and :104 and page.goto('./') at :143, because a leading slash resolves against the origin and leaves the base path. The extension-URL navigations are unchanged."
+basis = "Finding 12.35.2.5: the product owns its base path and the harness must reach the app where it is served; a relative goto composes with the base URL under standard URL resolution, an absolute one does not."
+affects = ["12.35.2"]
+
+[decision.2173]
+title = "eth_getProof proves each storage slot through the root multistore to the app hash"
+value = "StateAPI gains a root field of type storetypes.Queryable, passed by NewStateAPI's new last parameter and supplied in rpc/server.go (:289 and :498) from app.CommitMultiStore(); GetProof queries root with Path /<evm store key>/key, Data the formatted key, the block height and Prove true, so every StorageProof carries the ics23:iavl op and the ics23:simple op in that order and verifies with rootmulti.DefaultProofRuntime().VerifyValue against the block's app hash; a nil root answers an error naming the missing proof root. findQueryableKVStore stays for callers that need the inner store. The test call sites in rpc/state_test.go, rpc/height_availability_test.go, rpc/resolution_pending_test.go and rpc/pending_simulate_test.go pass the test application's CommitMultiStore() where GetProof is exercised and nil elsewhere; TestGetProof keeps asserting Ops[0] is ics23:iavl."
+basis = "Finding 19.2.2.1: a proof that stops at the store root cannot be checked by a client holding only a signed header, which is the whole point of the name-system proof path (requirement 19003)."
+affects = ["19.2.2"]
+
+[decision.2174]
+title = "The reverse name is indexed from the resolver's NameChanged on the sender's reverse node; four ABIs are bound"
+value = "The reverse registrar emits nothing, so abis/names.json binds four contracts (registry, registrar, controller, resolver) and LAYERX_INDEXER_NAMES_REVERSE is still read and validated but binds no ABI. decode maps a resolver NameChanged whose node equals keccak256(ADDR_REVERSE_NODE || keccak256(lower-case hex of the transaction sender without 0x)), computed as PaxReverseRegistrar.node does with ADDR_REVERSE_NODE = namehash(addr.reverse), to the action reverse_name_set with data name; any other NameChanged stays name_changed. The fixture's block 3 reverse step is that resolver log on the sender's reverse node. names_abi_topics_match_the_interface parses the event declarations of contracts/names/IPaxNames.sol, contracts/names/PaxBaseRegistrar.sol and contracts/names/PaxPublicResolver.sol (the files that declare the bound events), canonicalises each signature and asserts keccak256 of it equals the topic the ABI yields. The Unit initializer in explorer.rs node_unit() (:508-520) gains name_events: Vec::new()."
+basis = "Finding 19.7.1.1: the spec named an event the contracts never had; indexing follows the logs the contracts emit, and the reverse node is a pure function of the sender address so the derivation is exact."
+affects = ["19.7.1", "19.7.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -6156,7 +6186,7 @@ completion_task = "4.0.9"
 [feature.5]
 name = "node-runtime"
 scope = "Node runtime: node/, modules/sequencer/, modules/store/, storage/, engine/, consensus/, wasm-runtime/, cmd/, daemon/, admin/, go.mod, go.sum, tests/chain, tests/daemon, occ_tests/; application assembly, upgrade plans, the sequencer runtime, receipts, WAL and standby, proposal validation and node persistence."
-requirements = ["5001", "5002", "5003", "5004", "5005", "5006", "5007", "5008", "5009", "5010", "5011", "5012", "5013", "5014", "5015", "5016", "5017", "5018", "5019", "5020", "5021", "5022", "5023", "5024", "5025", "5026", "5027", "5028", "5029", "5030", "5031", "5032", "5033", "5034", "5035", "5036", "5037", "5038", "5039", "5040", "5041", "5042", "5043", "5044", "5045", "5046", "5047", "5048", "5049", "5050", "5051", "5052", "5053", "5054", "5055", "5056", "5057", "5058", "5059", "5060", "5061", "5062", "5063", "5064", "5065", "5066", "5067", "5068", "5069", "5070", "5071", "5072", "5073", "5074", "5075", "5076", "5077", "5078", "5079", "5080", "5241", "5242", "5243", "5244", "5245", "5246", "5247", "5248", "5249", "5250", "5251", "5252", "5253", "5254", "5255", "5256", "5257", "5258", "5259", "5260", "5261", "5262", "5263", "5264", "5265", "5266", "5267", "5268", "5269", "5270", "5271", "5272", "5273", "5274", "5275", "5481", "5482", "5483", "5484", "5485", "5486", "5487", "5488", "5489", "5490", "5491", "5492", "5493", "5494", "5495", "5496", "5497", "5498", "5499", "5500", "5501", "5502", "5503", "5504", "5505", "5506", "5507", "5508", "5509", "5510", "5511", "5512", "5513", "5514", "5515", "5516", "5517", "5518", "5519", "5520", "5521", "5522", "5523", "5524", "5525", "5526", "5527", "5528", "5529", "5530", "5531", "5532", "5533", "5534", "5535", "5536", "5537", "5538", "5539", "5540", "5541", "5542", "5543", "5544", "5545", "5546", "5961", "5962", "5963", "5964", "5965", "5966", "5967", "5969", "5970", "5971", "5972", "5973", "5974", "5975", "5999", "5081"]
+requirements = ["5001", "5002", "5003", "5004", "5005", "5006", "5007", "5008", "5009", "5010", "5011", "5012", "5013", "5014", "5015", "5016", "5017", "5018", "5019", "5020", "5021", "5022", "5023", "5024", "5025", "5026", "5027", "5028", "5029", "5030", "5031", "5032", "5033", "5034", "5035", "5036", "5037", "5038", "5039", "5040", "5041", "5042", "5043", "5044", "5045", "5046", "5047", "5048", "5049", "5050", "5051", "5052", "5053", "5054", "5055", "5056", "5057", "5058", "5059", "5060", "5061", "5062", "5063", "5064", "5065", "5066", "5067", "5068", "5069", "5070", "5071", "5072", "5073", "5074", "5075", "5076", "5077", "5078", "5079", "5080", "5241", "5242", "5243", "5244", "5245", "5246", "5247", "5248", "5249", "5250", "5251", "5252", "5253", "5254", "5255", "5256", "5257", "5258", "5259", "5260", "5261", "5262", "5263", "5264", "5265", "5266", "5267", "5268", "5269", "5270", "5271", "5272", "5273", "5274", "5275", "5481", "5482", "5483", "5484", "5485", "5486", "5487", "5488", "5489", "5490", "5491", "5492", "5493", "5494", "5495", "5496", "5497", "5498", "5499", "5500", "5501", "5502", "5503", "5504", "5505", "5506", "5507", "5508", "5509", "5510", "5511", "5512", "5513", "5514", "5515", "5516", "5517", "5518", "5519", "5520", "5521", "5522", "5523", "5524", "5525", "5526", "5527", "5528", "5529", "5530", "5531", "5532", "5533", "5534", "5535", "5536", "5537", "5538", "5539", "5540", "5541", "5542", "5543", "5544", "5545", "5546", "5961", "5962", "5963", "5964", "5965", "5966", "5967", "5969", "5970", "5971", "5972", "5973", "5974", "5975", "5999", "5081", "5983"]
 completion_task = "5.0.9"
 
 [feature.6]
@@ -33066,6 +33096,15 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.5.98.5]
+title = "Wait for the next open block on the RPC send path instead of panicking"
+reqs = ["5983.1"]
+touches = ["rpc/utils.go", "rpc/watermark_manager.go", "rpc/tx.go", "rpc/send.go", "node/app.go", "node/sequencer/executor.go", "rpc/pending_context_test.go", "node/rpc_pending_snapshot_test.go"]
+tests = ["rpc/pending_context_test.go::TestPendingContextWaitsForTheOpenBlock", "rpc/pending_context_test.go::TestPendingContextRefusesWhenNoBlockOpens", "rpc/pending_context_test.go::TestPendingNonceWaitsForTheOpenBlock", "node/rpc_pending_snapshot_test.go::TestRPCContextProviderWaitsForTheNextOpenBlock"]
+verification_contract = "go test -count=1 ./rpc/ -run '^(TestPendingContextWaitsForTheOpenBlock|TestPendingContextRefusesWhenNoBlockOpens|TestPendingNonceWaitsForTheOpenBlock)$' && go test -count=1 ./node/ -run '^(TestRPCContextProviderWaitsForTheNextOpenBlock)$'"
+do_1 = "Decision 2172: in rpc/utils.go declare ErrLayerNotOpen (moved from node/sequencer/executor.go:28, which becomes an alias so sequencer.ErrLayerNotOpen stays the same value), ErrPendingBlockClosed (an ErrEVMNotSupported with message no block is open; retry) and PendingOpenWait = 2 * time.Second. In rpc/watermark_manager.go add PendingContext(ctx context.Context) (sdk.Context, error) on WatermarkManager: ErrPendingServedBySequencer without a pending source; otherwise call pending.Snapshot() and, while errors.Is(err, ErrLayerNotOpen), sleep one millisecond and retry until success, ctx.Done() or the bound (field pendingOpenWait, default PendingOpenWait, SetPendingOpenWait for tests) elapses, then return ErrPendingBlockClosed. Replace t.ctxProvider(PendingCtxHeight) at rpc/tx.go:380 and :454 and s.ctxProvider(PendingCtxHeight) at rpc/send.go:342 with PendingContext, propagating the error (pendingNonce returns (*hexutil.Uint64, error); its caller at :440 forwards it)."
+symbols = ["ErrPendingBlockClosed", "PendingOpenWait", "PendingContext", "TestPendingContextWaitsForTheOpenBlock", "TestPendingContextRefusesWhenNoBlockOpens", "TestPendingNonceWaitsForTheOpenBlock", "TestRPCContextProviderWaitsForTheNextOpenBlock"]
+
 [capability.19.7.3]
 title = "Point the wallet's name proxy at the configured indexer and prove the wallet parses its answers"
 reqs = ["19010.3"]
@@ -57377,6 +57416,10 @@ qualification = "UNRUN"
 title = "Local node env file names the Comet RPC"
 ac_1 = "tools/qualification/localnode/v6120-node.sh writes PERPS_DATA_TEST_COMET=http://127.0.0.1:<comet rpc port> (the RPC_PORT of its NODE address, v6120-node.sh:324) into the env file named by --env-out beside LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL (v6120-node.sh:419-424), and GET /status on that address reports network hyperpax_125-1."
 ac_2 = "The local node's dev genesis carries perps market 11 (BTC-PERP, oracle symbol BTC) with a fresh mark from the fed pricefeed, the USDL collateral token at 0x85FcD13735F4309833A503EE804ea32395851479 with a funded test key and a perps collateral account for it, and the spot WETH asset the PECOR precompile answers, so the perps-data end-to-end test runs against it."
+
+[req.5983]
+title = "Send-path pending reads survive the seal-to-open window"
+ac_1 = "eth_sendRawTransaction, the pending nonce read and the receipt check on a node holding the open block wait for the next block to open (bounded by two seconds) or answer the retriable error ErrPendingBlockClosed; they never crash the handler while the executor is between Seal and Open."
 
 [acceptance.5.982.1]
 feature = "5"
@@ -115604,7 +115647,7 @@ title = "Gate domain 5 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["5.0.1", "5.0.2", "5.0.3", "5.0.4", "5.7.1", "5.41.3", "5.42.3", "5.47.4", "5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.1", "5.52.2", "5.52.3", "5.52.4", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.7", "5.54.8", "5.54.9", "5.54.10", "5.54.11", "5.55.5", "5.62.6", "5.64.16", "5.69.1", "5.97.1", "5.97.3", "8.47.7", "5.7.3"]
+requires = ["5.0.1", "5.0.2", "5.0.3", "5.0.4", "5.7.1", "5.41.3", "5.42.3", "5.47.4", "5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.1", "5.52.2", "5.52.3", "5.52.4", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.7", "5.54.8", "5.54.9", "5.54.10", "5.54.11", "5.55.5", "5.62.6", "5.64.16", "5.69.1", "5.97.1", "5.97.3", "8.47.7", "5.7.3", "5.98.5"]
 reqs = ["5999.1"]
 capabilities = ["5.0.9"]
 interfaces = []
@@ -116258,7 +116301,7 @@ do_1 = "Write services/platform/hosted/indexer/src/names.rs (planned): NamesConf
 do_2 = "In src/store.rs add name_events(chain, position, height, tx_hash, log_index, node, action, from_address, timestamp, data json, PRIMARY KEY(tx_hash, log_index)) and names(node PRIMARY KEY, label, name, owner, registrant, resolver, resolved_address, contenthash, registered_at, expires_at, token_id) to SCHEMA; Unit (store.rs:317) gains name_events: Vec<NameEventRow>; commit and commit_backfill write them, rollback deletes rows above the fork position like events, and rebuild_names(nodes) replays each touched node's events in (height, log_index) order into names after every commit and rollback; decode_block (src/paxeer.rs) fills unit.name_events from decoded logs whose emitter is one of the five addresses."
 do_3 = "Write services/platform/hosted/indexer/tests/names_ingest.rs (planned) on the local JSON-RPC double tests/ingest.rs uses, serving services/platform/hosted/indexer/fixtures/names_blocks.json (planned): block 1 registers alice.pax (registrar NameRegistered, controller NameRegistered, registry NewOwner, resolver AddrChanged and ContenthashChanged with the 36-byte Paxeer form), block 2 renews it and transfers the token, block 3 sets a text record and a reverse name. names_ingest_builds_the_view_and_events asserts the names row (owner after transfer, expires_at after renewal, contenthash, resolved_address) and the seven name_events rows in order; names_rollback_replays_the_view asserts that rolling back to block 1 restores the pre-transfer owner and removes the later events; names_abi_topics_match_the_interface parses the event lines of contracts/names/IPaxNames.sol, canonicalises each signature and asserts keccak256 of it equals the topic the ABI yields."
 symbols = ["NamesConfig", "names_abi", "NameEventRow", "rebuild_names", "names_ingest_builds_the_view_and_events", "names_rollback_replays_the_view", "names_abi_topics_match_the_interface"]
-touches = ["services/platform/hosted/indexer/src/names.rs", "services/platform/hosted/indexer/src/lib.rs", "services/platform/hosted/indexer/src/main.rs", "services/platform/hosted/indexer/src/store.rs", "services/platform/hosted/indexer/src/paxeer.rs", "services/platform/hosted/indexer/abis/names.json", "services/platform/hosted/indexer/fixtures/names_blocks.json", "services/platform/hosted/indexer/tests/names_ingest.rs"]
+touches = ["services/platform/hosted/indexer/src/names.rs", "services/platform/hosted/indexer/src/lib.rs", "services/platform/hosted/indexer/src/main.rs", "services/platform/hosted/indexer/src/store.rs", "services/platform/hosted/indexer/src/paxeer.rs", "services/platform/hosted/indexer/abis/names.json", "services/platform/hosted/indexer/fixtures/names_blocks.json", "services/platform/hosted/indexer/tests/names_ingest.rs", "services/platform/hosted/indexer/src/explorer.rs"]
 tests = ["services/platform/hosted/indexer/tests/names_ingest.rs::names_ingest_builds_the_view_and_events", "services/platform/hosted/indexer/tests/names_ingest.rs::names_rollback_replays_the_view", "services/platform/hosted/indexer/tests/names_ingest.rs::names_abi_topics_match_the_interface"]
 planned_paths = ["services/platform/hosted/indexer/src/names.rs", "services/platform/hosted/indexer/abis/names.json", "services/platform/hosted/indexer/fixtures/names_blocks.json", "services/platform/hosted/indexer/tests/names_ingest.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --tests"
@@ -116274,6 +116317,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2174: continue from attempt 2 (c0d3314e1). Add name_events: Vec::new() to the Unit initializer in services/platform/hosted/indexer/src/explorer.rs node_unit() (:508-520); bind four ABIs and derive reverse_name_set from the resolver's NameChanged on keccak256(ADDR_REVERSE_NODE || keccak256(lower-case sender hex)); make the fixture's block 3 reverse step that log and the topic test read IPaxNames.sol, PaxBaseRegistrar.sol and PaxPublicResolver.sol. Build once and verify once."
 
 [task.19.4.3]
 title = "Attest storage receipts: fetch the object by digest from the bucket and refuse a mismatch"
@@ -116364,6 +116408,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.5.98.5]
+title = "Wait for the next open block on the RPC send path instead of panicking"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["5.98.3"]
+reqs = ["5983.1"]
+capabilities = ["5.98.5"]
+interfaces = []
+do_1 = "Decision 2172: in rpc/utils.go declare ErrLayerNotOpen (moved from node/sequencer/executor.go:28, which becomes an alias so sequencer.ErrLayerNotOpen stays the same value), ErrPendingBlockClosed (an ErrEVMNotSupported with message no block is open; retry) and PendingOpenWait = 2 * time.Second. In rpc/watermark_manager.go add PendingContext(ctx context.Context) (sdk.Context, error) on WatermarkManager: ErrPendingServedBySequencer without a pending source; otherwise call pending.Snapshot() and, while errors.Is(err, ErrLayerNotOpen), sleep one millisecond and retry until success, ctx.Done() or the bound (field pendingOpenWait, default PendingOpenWait, SetPendingOpenWait for tests) elapses, then return ErrPendingBlockClosed. Replace t.ctxProvider(PendingCtxHeight) at rpc/tx.go:380 and :454 and s.ctxProvider(PendingCtxHeight) at rpc/send.go:342 with PendingContext, propagating the error (pendingNonce returns (*hexutil.Uint64, error); its caller at :440 forwards it)."
+do_2 = "In node/app.go RPCContextProvider (:3424-3430) replace the direct PendingSnapshot call for PendingCtxHeight with a bounded wait: retry PendingSnapshot every millisecond while errors.Is(err, evmrpc.ErrLayerNotOpen) for up to evmrpc.PendingOpenWait, then panic with the last error as before. Nothing else in the provider changes."
+do_3 = "Write rpc/pending_context_test.go (planned) in package evmrpc_test with a fake PendingSnapshot whose open flag the test flips: TestPendingContextWaitsForTheOpenBlock starts closed, opens after 20 milliseconds and asserts PendingContext returns the snapshot context; TestPendingContextRefusesWhenNoBlockOpens sets the bound to 50 milliseconds, stays closed and asserts ErrPendingBlockClosed; TestPendingNonceWaitsForTheOpenBlock calls GetTransactionCount(address, pending) through TransactionAPI with the same fake and asserts the nonce once the block opens. Add TestRPCContextProviderWaitsForTheNextOpenBlock to node/rpc_pending_snapshot_test.go: SetOpenBlock(exec), Open, Seal, reopen at the next height from a goroutine after 50 milliseconds, and assert RPCContextProvider(PendingCtxHeight) returns a context at the new height without panicking."
+symbols = ["ErrPendingBlockClosed", "PendingOpenWait", "PendingContext", "TestPendingContextWaitsForTheOpenBlock", "TestPendingContextRefusesWhenNoBlockOpens", "TestPendingNonceWaitsForTheOpenBlock", "TestRPCContextProviderWaitsForTheNextOpenBlock"]
+touches = ["rpc/utils.go", "rpc/watermark_manager.go", "rpc/tx.go", "rpc/send.go", "node/app.go", "node/sequencer/executor.go", "rpc/pending_context_test.go", "node/rpc_pending_snapshot_test.go"]
+tests = ["rpc/pending_context_test.go::TestPendingContextWaitsForTheOpenBlock", "rpc/pending_context_test.go::TestPendingContextRefusesWhenNoBlockOpens", "rpc/pending_context_test.go::TestPendingNonceWaitsForTheOpenBlock", "node/rpc_pending_snapshot_test.go::TestRPCContextProviderWaitsForTheNextOpenBlock"]
+planned_paths = ["rpc/pending_context_test.go"]
+build_cmd = "go build ./rpc/... ./node/..."
+verify_cmd = "go test -count=1 ./rpc/ -run '^(TestPendingContextWaitsForTheOpenBlock|TestPendingContextRefusesWhenNoBlockOpens|TestPendingNonceWaitsForTheOpenBlock)$' && go test -count=1 ./node/ -run '^(TestRPCContextProviderWaitsForTheNextOpenBlock)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Restore the direct provider calls, move ErrLayerNotOpen back to the executor and delete the new test file and test; the send path panics in the window again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.19.6.1]
 title = "Write the .pax DNS answerer backed by the registry and resolver"
@@ -116466,7 +116540,7 @@ do_1 = "Write rpc/names_proof_test.go (planned) in package evmrpc_test beside rp
 do_2 = "Vector: when NAMES_WRITE_VECTOR=1 the test writes tests/vectors/names/storage_proof_v1.json (planned) as {'version':1, 'height': h, 'app_hash': '0x..', 'store': 'evm', 'address': '0x..', 'slot': '0x..', 'key': '0x03..', 'value': '0x..', 'node': '0x..', 'name': 'example.pax', 'proof_ops': [{'type': 'ics23:iavl', 'key': '0x..', 'data': '0x..'}, {'type': 'ics23:simple', 'key': '0x..', 'data': '0x..'}]} with each op's protobuf data as hex so a TypeScript verifier needs only the ics23 CommitmentProof codec; otherwise it reads the committed vector, re-verifies the stored ops against the stored app hash with VerifyValue, and asserts the stored slot equals the slot it derived in this run (the live proof itself is not compared byte for byte because app hashes depend on the test genesis)."
 do_3 = "Run once with NAMES_WRITE_VECTOR=1 during implementation, commit the vector, and gate in compare mode with the declared verify command."
 symbols = ["TestNamesContenthashProofVerifiesAgainstTheAppHash"]
-touches = ["rpc/names_proof_test.go", "tests/vectors/names/storage_proof_v1.json"]
+touches = ["rpc/names_proof_test.go", "tests/vectors/names/storage_proof_v1.json", "rpc/state.go", "rpc/server.go", "rpc/state_test.go", "rpc/height_availability_test.go", "rpc/resolution_pending_test.go", "rpc/pending_simulate_test.go"]
 tests = ["rpc/names_proof_test.go::TestNamesContenthashProofVerifiesAgainstTheAppHash"]
 planned_paths = ["rpc/names_proof_test.go", "tests/vectors/names/storage_proof_v1.json"]
 build_cmd = "go build ./rpc/... ./modules/evm/... ./sdk/store/rootmulti/..."
@@ -116482,6 +116556,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2173: continue from attempt 1 (325c5464b). Add the root storetypes.Queryable parameter to NewStateAPI, pass app.CommitMultiStore() at rpc/server.go:289 and :498, and make GetProof query root at /<evm store key>/key with Prove so each StorageProof carries the iavl and simple ops; update the four test call sites named in the decision; keep names_proof_test.go asserting that the live proof verifies against commit.Hash (:217) and that the flipped value is refused. Write the vector once with NAMES_WRITE_VECTOR=1, commit it, build once and verify once in compare mode."
 
 [task.12.35.10]
 title = "Acknowledge replicated groups on WAL durability so a pending commit cannot time the primary out"
@@ -148291,7 +148366,7 @@ do_2 = "`execute_intent_plan` (services/human/crates/layerx-human-service/src/se
 do_3 = "Read the native send purpose signature at services/human/crates/layerx-human-service/src/server/production_components.rs:8875 through `sign_native_send_purpose` (services/human/crates/layerx-human-kms/src/attestor.rs:1100), which stays."
 do_4 = "Create services/human/crates/layerx-human-service/tests/intent_plan_evm.rs (planned) driving intent.plan and intent.submit through a real `Router` over `ProductionComponents` opened in a temp directory."
 symbols = ["start_kernel_journey", "execute_intent_plan", "intent_plan_json", "sign_send_now"]
-touches = ["services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs", "services/human/crates/layerx-human-service/src/custody/evm.rs", "services/human/crates/layerx-human-service/tests/agent_controls.rs", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs", "services/human/crates/layerx-human-service/src/custody/mod.rs", "services/human/schema/human-api/intent.kvx", "services/human/schema/human-api/baseline.kvx"]
+touches = ["services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs", "services/human/crates/layerx-human-service/src/custody/evm.rs", "services/human/crates/layerx-human-service/tests/agent_controls.rs", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs", "services/human/crates/layerx-human-service/src/custody/mod.rs", "services/human/schema/human-api/intent.kvx", "services/human/schema/human-api/baseline.kvx", "services/human/schema/human-api/journeys.kvx", "services/human/schema/human-api/v1.kvx", "services/human/crates/layerx-human-service/src/server/http.rs", "services/human/crates/layerx-human-service/src/server/production_reads.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/intent_plan_evm.rs::intent_plan_answers_eip1559_legs", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs::intent_submit_records_each_leg_tx_hash"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/intent_plan_evm.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
@@ -148324,6 +148399,7 @@ do_16 = "Decision 2139: continue from attempt 9 (0de777956), keeping the wallet 
 do_17 = "Decision 2142: continue from attempt 10 (bd2ffdb5f), keeping the gateway double's joined-shape answer and the diagnostics in the assertion text. Add intent_observation_key(plan_digest, session_id) next to plan_intent in production_components.rs returning RowKey::new of intent-observation-<hex of sha256(plan_digest || sha256(session_id.as_bytes()))>, and use it at both the plan write (:4489-4493 on main) and the submit read (:4517-4528), keeping the existing error mappings. Change nothing else in production. If a 503 remains, the next emitters in order are scope.put at :4499 (unavailable) and the submit path's intent_failure mapping; print the failing step in the assertion text and bisect from there. Build once and verify once."
 do_18 = "Decision 2147: continue from attempt 11 (3240d5abd), keeping the observation key helper, the SerialClock and the gateway double. Add the optional list decision 2147 spells out to [type.IntentLeg] in services/human/schema/human-api/intent.kvx, then regenerate services/human/schema/human-api/baseline.kvx with the refresh command recorded in its [manifest] so the conformance test's additions-beyond-baseline count stays zero. Task 9.99.2, which this task now requires, restores the human service build on main; rebase onto a main that carries it. Change no production Rust. If a 503 remains, the schema refusal text names the undeclared key or the mistyped value; print the response body in the assertion text and bisect from there. Build once and verify once."
 do_19 = "Decision 2163: continue from attempt 12 (1e3033129), keeping the schema fields, the baseline, the observation key helper and the gateway double. Teach the node double eth_getTransactionReceipt and eth_getBlockByNumber for the hashes it accepted, install a stderr log subscriber in the fixture, and add the two logging lines in the intent arm of the journey read (production_components.rs:1393-1412) before the upstream_degraded mappings; change nothing else in production. Build once and verify once; if a 503 remains, the logged advance error names the step; record it in the finding and stop."
+do_20 = "Decision 2170: continue from attempt 13 (0590a29db base). Declare TransactionHash in v1.kvx and the optional tx_hash and nonce fields on [type.JourneyStage] in journeys.kvx; render the intent journey row as a Journey (kind move, journey.state.<state> copy key, one stage per leg with stg_<journey_id>_<index>, journey.stage.<submitted|confirmed|refused>, EvidenceRef per stage, started_at and updated_at stored on the row) in the journey.get branch of production_components.rs and in journey_list_with's additional rows, never emitting raw_transaction; add the eprintln line in finish_response (http.rs:582-586) naming operation, trace and SchemaError; change intent_submit_records_each_leg_tx_hash (tests/intent_plan_evm.rs:1224-1300) to assert journey stages[i].tx_hash and stages[i].nonce, the absence of raw_transaction, and the stored record through fixture.journey_record; refresh the baseline manifest with the declared command. Build once and verify once; if a 503 remains, the stderr line now names the field the encoder refused."
 
 [task.10.0.4]
 title = "Report retired operations from the client generator and pin the regenerated client"
@@ -160503,7 +160579,7 @@ title = "Assert the receipted rung of a sent transfer in the send end-to-end tes
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["12.35.1", "12.22.5", "12.35.4"]
+requires = ["12.35.1", "12.22.5", "12.35.4", "5.98.5"]
 reqs = ["12294.1"]
 capabilities = ["12.35.2"]
 interfaces = []
@@ -160532,6 +160608,7 @@ do_5 = "The new test signs its one-wei transfer with WALLET_TRANSFER_TRUTH_SEQUE
 do_6 = "Decision 2137: the hold is lifted; qualify against the in-tree node exactly as verify_cmd states, with the primary-only --sequencer mode decision 2134 gives v6120-node.sh. Build once, verify once."
 do_7 = "Decision 2153: continue from attempt 3 (021b681bd), whose new test is complete. Add a default condition beside import for . and ./browser in services/agent/sdk/typescript/package.json; set stdout: 'pipe' and timeout: 600_000 on webServer in apps/wallet/playwright.wallet-app.config.ts; commit the apps/wallet/next-env.d.ts that next dev regenerates. Build once (the list must now show the send.spec.ts tests) and verify once; if the readiness probe still times out, record the dev server's first response (status and body head) and the module it names, fix that module when it is in apps/wallet, sdk/wallet or the SDK, and otherwise stop with the finding."
 do_8 = "Decision 2161: continue from attempt 4 (1d21cfab8). In apps/wallet/playwright.wallet-app.config.ts pass conf: { ...config, basePath: '' } to next() instead of mutating the imported config, keep stdout piped and the 600 second timeout, and let the build command install chromium before the listing. Build once and verify once; if the launch reports missing shared libraries, rerun the install with --with-deps once and record it; if the probe still times out, record the dev server's first response status and body head in the finding."
+do_9 = "Decision 2171: continue from attempt 5 (85b99a037). Drop the conf basePath override, set webServer.url and use.baseURL to http://127.0.0.1:3099/wallet/, and make the three send.spec.ts navigations relative (./?screen=send, ./?screen=send, ./). This task now requires 5.98.5 for the node send path; start after it is published. Build once and verify once."
 
 [task.12.35.3]
 title = "Assert the committed rung needs a matching explorer answer in the send e2e test"
@@ -179165,7 +179242,7 @@ title = "Issue #670: Keep the restarted perps data gateway and socket alive thro
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["5.98.2", "5.98.3"]
+requires = ["5.98.2", "5.98.3", "5.98.5"]
 reqs = ["18670.1"]
 capabilities = []
 interfaces = []
@@ -179198,6 +179275,7 @@ do_9 = "Decision 2137: the hold is lifted; qualify against the in-tree node exac
 do_10 = "Decision 2154: continue from attempt 6 (03685946f), keeping the earliest-block clamp and the funding wait. First, with the node running, fetch /block_results for the first block past a whole hour and record every perps_endblock_error event and the FundingSettled logs of the synthetic perps receipt in the finding. Then add the app_state.perps object to the genesis build in tools/qualification/localnode/v6120-node.sh after :394 (default params, markets 0 and 11 copied field for field from the v6.12.0 hook's market list, market_states with last_index_hour = floor(genesis_time/3600) - 1) so the first block settles funding, and keep validate-genesis passing. Change nothing in modules/perps. Build once and verify once."
 do_11 = "Decision 2162: continue from attempt 7 (7c753e924), keeping the genesis perps state, the environment lines for PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET and the funding wait. Run the verify command as now declared, with --sequencer; change nothing in the test for the mode. If the withdraw receipt is still missing, record the node's last ten proposal log lines in the finding and stop."
 do_12 = "Decision 2169: continue from attempt 8 (fd5d55aa7), keeping the sequencer start and the genesis perps state. In tools/qualification/localnode/v6120-node.sh move the SEQUENCER = 0 guard so that only activate_merge is plain-mode and the mint, approve, deposit, registerFeedKey, feeder and fresh-price wait run in both modes. Change nothing in the test. Build once and verify once; if the fresh-price wait fails under --sequencer, record the feeder log tail in the finding and stop."
+do_13 = "Continue from attempt 9 (8766345ee), keeping its script changes (the setup block before activate_merge, decision 2169). The method handler crashed answer on the first send is the node defect of finding 18.670.1.9, fixed by 5.98.5, which this task now requires; do not add retries on that error to the script. Once 5.98.5 is published, rebuild with the declared build command and run the verify command once."
 
 [req.18670]
 title = "Keep the restarted perps data gateway alive through the post-restart end-to-end checks"
@@ -180464,7 +180542,7 @@ ac_1 = "GuarantorBond.syncCustodiedValue (contracts/GuarantorBond.sol:153) calle
 
 [req.19010]
 title = "Names are indexed from the chain and served in the explorer name-service API shape the wallet and explorer already consume"
-ac_1 = "The hosted indexer decodes the .pax registry, registrar, controller, resolver and reverse-registrar events from the configured addresses into an append-only name_events table and a names view rebuilt per node, rolls them back with the unit on a fork, and pins every ABI topic to the event declarations of contracts/names/IPaxNames.sol."
+ac_1 = "The hosted indexer decodes the .pax registry, registrar, controller and resolver events from the configured addresses into an append-only name_events table and a names view rebuilt per node (the reverse name arrives as the resolver's NameChanged on the sender's reverse node), rolls them back with the unit on a fork, and pins every ABI topic to the event declarations of contracts/names/IPaxNames.sol, PaxBaseRegistrar.sol and PaxPublicResolver.sol."
 ac_2 = "GET /api/v1/addresses:lookup, /api/v1/domains/<name>, /api/v1/domains/<name>/events, /api/v1/addresses/<address> and /api/v1/domains:lookup answer the explorer name-service shape (items, domain with id, name, owner, resolved_address, registration_date, expiry_date, tokens, protocol tld_list [pax]; events with transaction_hash, timestamp, from_address, action) exactly as the committed vector tests/vectors/names/indexer_api_v1.json records for the ingest fixture."
 ac_3 = "The wallet read proxy forwards its five name routes to the origin PNS_API_ORIGIN names and answers 503 name_service_not_configured when it is unset, and the wallet's name fetch helpers parse the committed vector into their declared record types."
 
@@ -184916,6 +184994,14 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.5.98.5]
+feature = "19"
+req = "5983.1"
+scenario = "Given a node whose executor is between Seal and Open, when eth_sendRawTransaction or a pending nonce read arrives, then the handler waits for the next open block and answers normally, and when no block opens within the bound it answers the retriable error ErrPendingBlockClosed instead of method handler crashed"
+contract = "rpc/README.md#pending"
+test = "rpc/pending_context_test.go::TestPendingContextWaitsForTheOpenBlock (planned)"
 qualification = "UNRUN"
 
 [acceptance.19.7.3]
@@ -198012,6 +198098,7 @@ do_8 = "Decision 2135: continue from attempt 6 (570af0da6). Replace the ledger s
 do_9 = "Decision 2146: continue from attempt 7 (fd5a06e21), whose files are complete; the AuthLifecycle arm of bound_activity is added by task 9.99.2, which this task now requires, so do not edit create.rs. Rebase onto a main that carries 9.99.2, then build once and verify once."
 do_10 = "Decision 2165: continue from attempt 8 (1eebb5ac8). Add the eight named binding assertions to assert_outcome in services/human/crates/layerx-human-service/tests/support/canonical_owner.rs before bound_activity, run the test, and fix the differing binding in the test's owner construction; change nothing in src/. Build once and verify once; if the differing comparison is a production rule, record it in the finding with the two values and stop."
 do_11 = "Decision 2167: continue from attempt 9 (921694364), keeping the eight named assertions. In services/human/crates/layerx-human-service/src/agents/create.rs bound_activity, compute the expected idempotency word per construct method: self.action_key for every method, except that a PayBudgetCreate disclosure is accepted with its budget id word (the payload comparison at :1262 pins it); make the refusal name the binding that differed. Mirror the rule in assert_outcome. Change nothing else in src/. Build once and verify once; if another stage now fails its named assertion, record the field and the two values in the finding and stop."
+do_12 = "Continue from attempt 10 (1fec77f4a). services/human/crates/layerx-human-service/src/agents/create.rs is in this task's touches: change bound_activity (:540-560) as decision 2167 states, comparing disclosure.idempotency_key with self.action_key for every construct method except PayBudgetCreate, whose disclosure word is the budget id (payload bytes 2..34) already pinned by the callers' payload comparison (:1262 and the sibling sites); the refusal text keeps naming the binding, and assert_outcome in canonical_owner.rs mirrors the same rule. Keep the attempt-10 changes to agent_creation.rs and the two test files. Finding 18.1272.1.5 records that the previous attempt skipped this file. Build once and verify once."
 
 [req.181272]
 title = "Agent creation admits a preparation whose disclosure is bind_call of its unsigned EIP-1559 call"
