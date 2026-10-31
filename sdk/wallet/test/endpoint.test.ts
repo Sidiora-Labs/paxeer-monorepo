@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, test } from 'vitest';
 import {
   EndpointClient,
   HumanClient,
@@ -10,24 +10,39 @@ import {
   KernelAvailability,
   KernelClient,
   kernelUnavailableFrom,
-  type CompletionAsset,
   type PlanIntentRequest,
   type SubmitPlanRequest,
 } from '../src/index.js';
 
-type Exchange = { request: { method: string; params: unknown[] }; response: Record<string, unknown> };
-type Golden = { method?: string; path?: string; headers?: Record<string, string>; body?: unknown; status?: number };
+type Exchange = {
+  request: { method: string; params: unknown[] };
+  response: Record<string, unknown>;
+};
+type Golden = {
+  method?: string;
+  path?: string;
+  headers?: Record<string, string>;
+  body?: unknown;
+  status?: number;
+};
 
 const fixtureDir = new URL('./fixtures/endpoint/', import.meta.url);
 const goldenDir = new URL('../../../services/human/schema/human-api/golden/', import.meta.url);
-const scenarios = ['available', 'kernel-unreachable', 'no-finalised-checkpoint', 'kernel-not-configured'] as const;
+const scenarios = [
+  'available',
+  'kernel-unreachable',
+  'no-finalised-checkpoint',
+  'kernel-not-configured',
+] as const;
 type Scenario = (typeof scenarios)[number];
 
 function json<T>(dir: URL, name: string): T {
   return JSON.parse(readFileSync(new URL(name, dir), 'utf8')) as T;
 }
 
-const recorded = Object.fromEntries(scenarios.map((s) => [s, json<Exchange[]>(fixtureDir, `${s}.json`)])) as Record<Scenario, Exchange[]>;
+const recorded = Object.fromEntries(
+  scenarios.map((s) => [s, json<Exchange[]>(fixtureDir, `${s}.json`)])
+) as Record<Scenario, Exchange[]>;
 const golden = (name: string): Golden => json<Golden>(goldenDir, `${name}.json`);
 
 const owner = `0x${'11'.repeat(20)}` as const;
@@ -43,7 +58,9 @@ let base: string;
 function answer(scenario: Scenario, call: unknown): unknown {
   const request = call as { id: unknown; method: string; params: unknown[] };
   const exchange = recorded[scenario].find(
-    (entry) => entry.request.method === request.method && JSON.stringify(entry.request.params) === JSON.stringify(request.params),
+    (entry) =>
+      entry.request.method === request.method &&
+      JSON.stringify(entry.request.params) === JSON.stringify(request.params)
   );
   if (exchange === undefined) {
     unmatched.push(`${scenario} ${request.method} ${JSON.stringify(request.params)}`);
@@ -52,7 +69,12 @@ function answer(scenario: Scenario, call: unknown): unknown {
   return { jsonrpc: '2.0', id: request.id, ...exchange.response };
 }
 
-function reply(res: ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}): void {
+function reply(
+  res: ServerResponse,
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {}
+): void {
   res.writeHead(status, { 'content-type': 'application/json', ...headers });
   res.end(JSON.stringify(body));
 }
@@ -76,11 +98,17 @@ function humanRoute(req: IncomingMessage, path: string, body: unknown, res: Serv
     return;
   }
   if (req.method === 'GET' && path.startsWith('/v1/journeys/')) {
-    const recordedAnswer = golden(path === journey.path ? 'journey.get.response' : 'journey.get.failure');
+    const recordedAnswer = golden(
+      path === journey.path ? 'journey.get.response' : 'journey.get.failure'
+    );
     reply(res, recordedAnswer.status ?? 500, recordedAnswer.body);
     return;
   }
-  reply(res, 404, { ok: false, error: { code: 'not-found', copy_key: 'error.request.not-found', retry: 'final' }, trace: 'trc_route' });
+  reply(res, 404, {
+    ok: false,
+    error: { code: 'not-found', copy_key: 'error.request.not-found', retry: 'final' },
+    trace: 'trc_route',
+  });
 }
 
 function handle(req: IncomingMessage, res: ServerResponse): void {
@@ -121,7 +149,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+  await new Promise<void>((resolve, reject) =>
+    server.close((err) => (err ? reject(err) : resolve()))
+  );
 });
 
 beforeEach(() => {
@@ -137,7 +167,25 @@ function methodsSeen(scenario: string): string[] {
   return seen.filter((entry) => entry.scenario === scenario).flatMap((entry) => entry.methods);
 }
 
+function endpoint_client_exposes_no_joined_read(): void {
+  const client = new EndpointClient();
+  for (const name of ['getAccount', 'listAssets', 'getBalances', 'getUnifiedHistory'] as const) {
+    expect(Reflect.get(client, name)).toBeUndefined();
+    expect(name in client).toBe(false);
+  }
+  for (const name of [
+    'getChainAccount',
+    'getBankBalances',
+    'listBankAssets',
+    'getChainHistory',
+  ] as const) {
+    expect(client[name]).toBeTypeOf('function');
+  }
+}
+
 describe('EndpointClient', () => {
+  test(endpoint_client_exposes_no_joined_read, endpoint_client_exposes_no_joined_read);
+
   it('endpoint_batches_mixed_calls_in_one_request_with_per_call_errors', async () => {
     const outcomes = await endpoint('available').batch([
       { method: 'eth_blockNumber', params: [] },
@@ -147,15 +195,26 @@ describe('EndpointClient', () => {
     ]);
     expect(seen).toHaveLength(1);
     expect(seen[0]?.batch).toBe(true);
-    expect(seen[0]?.methods).toEqual(['eth_blockNumber', 'px_getCapabilities', 'lx_getReceipt', 'px_resolveAccount']);
+    expect(seen[0]?.methods).toEqual([
+      'eth_blockNumber',
+      'px_getCapabilities',
+      'lx_getReceipt',
+      'px_resolveAccount',
+    ]);
     expect(outcomes[0]).toEqual({ ok: true, result: '0x1a2b3c' });
     expect(outcomes[1]?.ok).toBe(true);
-    expect(outcomes[2]).toEqual({ ok: false, error: { code: -32001, message: 'Read unavailable' } });
-    expect(outcomes[3]).toMatchObject({ ok: true, result: { evm_address: owner, layerx_did: did, bound: true } });
+    expect(outcomes[2]).toEqual({
+      ok: false,
+      error: { code: -32001, message: 'Read unavailable' },
+    });
+    expect(outcomes[3]).toMatchObject({
+      ok: true,
+      result: { evm_address: owner, layerx_did: did, bound: true },
+    });
     expect(unmatched).toEqual([]);
   });
 
-  it('endpoint_reads_resolved_account_joined_account_assets_and_capabilities', async () => {
+  it('endpoint_chain_reads_reject_retired_joined_account_and_assets_payloads', async () => {
     const client = endpoint('available');
     const resolved = await client.resolveAccount(owner);
     expect(resolved).toEqual({
@@ -165,47 +224,45 @@ describe('EndpointClient', () => {
       layerx_account: mainAccount,
       bound: true,
     });
-    const joined = await client.getAccount(owner);
-    expect(joined.paxeer).toEqual({ address: owner, balance: '0xde0b6b3a7640000', nonce: '0x3' });
-    expect(joined.layerx?.next_sequence).toBe('8');
-    const assets = await client.listAssets();
-    expect(assets.joined_limit).toBe(16);
-    expect(assets.assets.map((asset) => asset.paxeer?.pointer ?? null)).toEqual([`0x${'22'.repeat(20)}`, null]);
+    await expect(client.getChainAccount(owner)).rejects.toThrow(
+      'malformed chain account paxeer height'
+    );
+    await expect(client.listBankAssets()).rejects.toThrow('malformed bank asset page height');
     const capabilities = await client.getCapabilities();
-    expect(capabilities).toEqual({ exchange: true, bridge: false, launchpad: true, probed_at: 86400, rpc_height: '1715004' });
+    expect(capabilities).toEqual({
+      exchange: true,
+      bridge: false,
+      launchpad: true,
+      probed_at: 86400,
+      rpc_height: '1715004',
+    });
     expect(unmatched).toEqual([]);
   });
 
-  it('endpoint_completes_unmapped_assets_through_eth_getBalance_and_balanceOf', async () => {
-    const extra: CompletionAsset[] = [
-      { kind: 'native', symbol: 'PAX', decimals: 18 },
-      { kind: 'erc20', address: `0x${'33'.repeat(20)}`, symbol: 'USDL', decimals: 6 },
-      { kind: 'erc20', address: `0x${'22'.repeat(20)}`, symbol: 'LXP', decimals: 6 },
-      { kind: 'erc20', address: `0x${'44'.repeat(20)}` },
-    ];
-    const balances = await endpoint('available').getBalances(owner, extra);
-    expect(seen.map((entry) => entry.methods)).toEqual([
-      ['px_getBalances', 'px_listAssets'],
-      ['eth_getBalance', 'eth_call', 'eth_call'],
-    ]);
-    expect(seen.every((entry) => entry.batch)).toBe(true);
-    expect(balances.joined_limit).toBe(16);
-    expect(balances.join_limit_reached).toBe(false);
-    expect(balances.balances.map((row) => row.paxeer?.amount ?? null)).toEqual(['125000', null]);
-    expect(balances.completed).toEqual([
-      { asset: extra[0], source: 'eth_getBalance', amount: '1000000000000000000', error: null },
-      { asset: extra[1], source: 'erc20_balanceOf', amount: '1000000', error: null },
-      { asset: extra[3], source: 'erc20_balanceOf', amount: null, error: { code: -32000, message: 'execution reverted' } },
+  it('endpoint_bank_balances_reject_retired_joined_rows_without_completion_reads', async () => {
+    await expect(endpoint('available').getBankBalances(owner)).rejects.toThrow(
+      'malformed bank balances height'
+    );
+    expect(seen).toEqual([
+      { scenario: 'available', path: '/rpc', methods: ['px_getBalances'], batch: false },
     ]);
     expect(unmatched).toEqual([]);
   });
 
-  it('endpoint_pages_unified_history_by_cursor_to_exhaustion', async () => {
+  it('endpoint_pages_chain_history_by_cursor_to_exhaustion', async () => {
     const client = endpoint('available');
     const ids: string[] = [];
-    for await (const item of client.history(owner, { limit: 2 })) ids.push(item.id);
-    expect(ids).toEqual(['5', '4', '3', '2', '1']);
-    expect(methodsSeen('available')).toEqual(['px_getUnifiedHistory', 'px_getUnifiedHistory', 'px_getUnifiedHistory']);
+    for await (const item of client.history(owner, { limit: 2 })) {
+      expect(item).not.toHaveProperty('chain');
+      expect(item).not.toHaveProperty('side');
+      ids.push(item.id);
+    }
+    expect(ids).toEqual(['5', '3', '1']);
+    expect(methodsSeen('available')).toEqual([
+      'px_getUnifiedHistory',
+      'px_getUnifiedHistory',
+      'px_getUnifiedHistory',
+    ]);
     const pages: (string | null)[] = [];
     for await (const page of client.historyPages(owner, { limit: 2 })) pages.push(page.next_cursor);
     expect(pages).toEqual(['4', '2', null]);
@@ -221,7 +278,10 @@ describe('EndpointClient', () => {
     };
     for (const scenario of scenarios) {
       const network = await endpoint(scenario).getNetwork();
-      expect(network.kernel).toEqual({ available: scenario === 'available', reason: reasons[scenario] });
+      expect(network.kernel).toEqual({
+        available: scenario === 'available',
+        reason: reasons[scenario],
+      });
       expect(network.paxeer.chain_id).toBe('0x7d');
     }
     expect(unmatched).toEqual([]);
@@ -233,11 +293,23 @@ describe('KernelClient', () => {
     const client = endpoint('available');
     const kernel = new KernelClient(client, new KernelAvailability(client, { ttlMs: 60_000 }));
     const account = await kernel.getAccount(mainAccount);
-    expect(account).toMatchObject({ available: true, result: { next_sequence: '8', frozen: false } });
+    expect(account).toMatchObject({
+      available: true,
+      result: { next_sequence: '8', frozen: false },
+    });
     expect(await kernel.getBalances(did)).toMatchObject({ available: true, result: { did } });
-    expect(await kernel.getSequence(mainAccount)).toMatchObject({ available: true, result: { next_sequence: '8' } });
-    expect(await kernel.getReceipt('ab'.repeat(32))).toMatchObject({ available: true, result: { result_code: 0 } });
-    expect(await kernel.getActivityStatus('ab'.repeat(32))).toMatchObject({ available: true, result: { result_code: 0 } });
+    expect(await kernel.getSequence(mainAccount)).toMatchObject({
+      available: true,
+      result: { next_sequence: '8' },
+    });
+    expect(await kernel.getReceipt('ab'.repeat(32))).toMatchObject({
+      available: true,
+      result: { result_code: 0 },
+    });
+    expect(await kernel.getActivityStatus('ab'.repeat(32))).toMatchObject({
+      available: true,
+      result: { result_code: 0 },
+    });
     expect(methodsSeen('available')).toEqual([
       'px_getNetwork',
       'lx_getAccount',
@@ -246,7 +318,10 @@ describe('KernelClient', () => {
       'lx_getReceipt',
       'lx_getActivityStatus',
     ]);
-    await expect(kernel.getReceipt('cd'.repeat(32))).rejects.toMatchObject({ name: 'JsonRpcError', code: -32001 });
+    await expect(kernel.getReceipt('cd'.repeat(32))).rejects.toMatchObject({
+      name: 'JsonRpcError',
+      code: -32001,
+    });
     expect(unmatched).toEqual([]);
   });
 
@@ -292,22 +367,30 @@ describe('KernelClient', () => {
     expect(methodsSeen('available')).toEqual(['px_getNetwork', 'px_getNetwork']);
   });
 
-  it('endpoint_joined_balances_surface_the_typed_kernel_unavailable_error', async () => {
+  it('endpoint_bank_balances_surface_the_typed_kernel_unavailable_error', async () => {
     const error = await endpoint('kernel-unreachable')
-      .getBalances(owner)
+      .getBankBalances(owner)
       .then(
         () => null,
-        (err: unknown) => err,
+        (err: unknown) => err
       );
     expect(error).toBeInstanceOf(JsonRpcError);
-    expect(kernelUnavailableFrom(error)).toEqual({ available: false, reason: 'unreachable', backend: 'public_core' });
+    expect(kernelUnavailableFrom(error)).toEqual({
+      available: false,
+      reason: 'unreachable',
+      backend: 'public_core',
+    });
   });
 });
 
 describe('HumanClient', () => {
   function human(scenario: Scenario): HumanClient {
     const client = endpoint(scenario);
-    return new HumanClient({ url: `${base}/human`, kernel: new KernelAvailability(client), authorization: () => 'session-token' });
+    return new HumanClient({
+      url: `${base}/human`,
+      kernel: new KernelAvailability(client),
+      authorization: () => 'session-token',
+    });
   }
 
   it('endpoint_human_client_plans_submits_and_reads_the_journey_from_goldens', async () => {
@@ -321,7 +404,7 @@ describe('HumanClient', () => {
     const submitGolden = golden('intent.submit.request');
     const submitted = await client.submitPlan(
       submitGolden.body as SubmitPlanRequest,
-      submitGolden.headers?.['Idempotency-Key'] as string,
+      submitGolden.headers?.['Idempotency-Key'] as string
     );
     expect(submitted).toEqual({
       available: true,
@@ -341,7 +424,7 @@ describe('HumanClient', () => {
     const submitGolden = golden('intent.submit.request');
     const result = await human('kernel-unreachable').submitPlan(
       submitGolden.body as SubmitPlanRequest,
-      submitGolden.headers?.['Idempotency-Key'] as string,
+      submitGolden.headers?.['Idempotency-Key'] as string
     );
     expect(result).toEqual({ available: false, reason: 'unreachable', backend: null });
     expect(seen.filter((entry) => entry.scenario === 'human')).toEqual([]);
@@ -352,10 +435,18 @@ describe('HumanClient', () => {
       .getJourney('jrn_unknown')
       .then(
         () => null,
-        (err: unknown) => err,
+        (err: unknown) => err
       );
     expect(error).toBeInstanceOf(HumanServiceError);
-    const failure = golden('journey.get.failure').body as { error: { code: string; copy_key: string }; trace: string };
-    expect(error).toMatchObject({ status: 404, code: failure.error.code, copyKey: failure.error.copy_key, trace: failure.trace });
+    const failure = golden('journey.get.failure').body as {
+      error: { code: string; copy_key: string };
+      trace: string;
+    };
+    expect(error).toMatchObject({
+      status: 404,
+      code: failure.error.code,
+      copyKey: failure.error.copy_key,
+      trace: failure.trace,
+    });
   });
 });

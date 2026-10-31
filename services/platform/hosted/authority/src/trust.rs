@@ -14,7 +14,7 @@ use std::env;
 use std::path::Path;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub(super) struct Trust {
     history: Mutex<SequencerHistory>,
@@ -217,3 +217,15 @@ pub(super) fn checkpoint(
 #[cfg(test)]
 #[path = "../tests/support/handover_trust.rs"]
 mod tests;
+
+pub(super) fn chain_endpoint(
+    url: &str,
+    timeout: Duration,
+) -> layerx_paxeer_verifier::EndpointConfig {
+    layerx_paxeer_verifier::EndpointConfig {
+        url: url.to_owned(),
+        request_timeout: timeout,
+        transport: layerx_paxeer_verifier::EndpointTransport::LocalEmulator,
+        expected_chain_id: 125,
+    }
+}
