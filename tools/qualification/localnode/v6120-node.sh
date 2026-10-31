@@ -7,6 +7,7 @@ BASE=$(realpath -m "${TMPDIR:-/tmp}/lx-localnode")
 ENV_OUT=$BASE/localnode.env
 GATEWAY=http://127.0.0.1:0
 NODE_HOME=
+SEQUENCER=0
 SUCCESS=0
 FAILED_COMMAND=
 USDL=0x85FcD13735F4309833A503EE804ea32395851479
@@ -22,7 +23,11 @@ stop_node() {
     local dir pid role command attempt
     dir=$(realpath -e "$1")
     [[ "$dir" == "$BASE"/node.* ]] && [ -f "$dir/.localnode" ] || fail "not a disposable localnode home: $dir"
-    for role in feeder node; do
+    shift
+    if [ "$#" = 0 ]; then
+        set -- feeder node standby bootstrap-peer
+    fi
+    for role in "$@"; do
         [ -f "$dir/$role.pid" ] || continue
         pid=$(cat "$dir/$role.pid")
         [[ "$pid" =~ ^[1-9][0-9]*$ ]] || fail "invalid $role pid"
@@ -187,7 +192,9 @@ feed_loop() {
         jq -n --arg feeder "$TEST_ACCOUNT" --arg sequence "$((height))" --arg timestamp "$timestamp" \
             '{body:{messages:[{"@type":"/paxprotocol.paxchain.pricefeed.MsgSubmitPrices",
               feeder:$feeder,observations:[{market_id:"0",sequence:$sequence,index_price:"60000000000000000000000",
-              mark_price:"60000000000000000000000",source_timestamp_ms:$timestamp}]}],
+              mark_price:"60000000000000000000000",source_timestamp_ms:$timestamp},
+              {market_id:"11",sequence:$sequence,index_price:"1000000000000000000",
+              mark_price:"1000000000000000000",source_timestamp_ms:$timestamp}]}],
               memo:"",timeout_height:"0",extension_options:[],non_critical_extension_options:[]},
               auth_info:{signer_infos:[],fee:{amount:[],gas_limit:"2000000",payer:"",granter:""}},signatures:[]}' \
             > "$NODE_HOME/observation.json"
@@ -209,13 +216,59 @@ feed_loop() {
     fail "node exited"
 }
 
+sequencer_evidence() {
+    local role port status_file log
+    for role in node bootstrap-peer; do
+        if [ "$role" = node ]; then
+            port=${RPC_PORT:-}
+        else
+            port=${BOOTSTRAP_RPC_PORT:-}
+        fi
+        [ -n "$port" ] || continue
+        status_file=$NODE_HOME/$role-status.json
+        printf '\n--- %s /status; evidence: %s ---\n' "$role" "$status_file" >&2
+        if curl --silent --show-error --max-time 3 \
+            "http://127.0.0.1:$port/status" > "$status_file"; then
+            cat "$status_file" >&2
+        else
+            printf 'v6120-node: %s /status request failed; response follows\n' "$role" >&2
+            cat "$status_file" >&2
+        fi
+        printf '\n' >&2
+    done
+    for log in node bootstrap-peer; do
+        [ -f "$NODE_HOME/$log.log" ] || continue
+        printf '\n--- sequencer failures; full log retained: %s ---\n' "$NODE_HOME/$log.log" >&2
+        grep -Ein -A 40 'crashed|panic' "$NODE_HOME/$log.log" >&2 || :
+        if grep -Ein 'sequencer|replicat|commit failed for application|panic recovered in commit listener|standby stopped|refused|no ack|fenced|method handler crashed|panic|goroutine ' \
+            "$NODE_HOME/$log.log" >&2; then
+            :
+        else
+            printf 'v6120-node: no matching sequencer failure lines in %s\n' "$log.log" >&2
+        fi
+    done
+    for role in node; do
+        port=${PRIMARY_PROFILE_PORT:-}
+        [ -n "$port" ] || continue
+        log=$NODE_HOME/$role-goroutines.txt
+        if curl --fail --silent --show-error --max-time 3 \
+            "http://127.0.0.1:$port/debug/pprof/goroutine?debug=2" > "$log"; then
+            printf '\n--- %s goroutines; evidence: %s ---\n' "$role" "$log" >&2
+            cat "$log" >&2
+        fi
+    done
+}
+
 cleanup() {
     local status=$1 command=$2 log
     if [ "$SUCCESS" = 0 ]; then
         printf 'v6120-node: failed (exit %s): %s; evidence: %s\n' \
             "$status" "${FAILED_COMMAND:-$command}" "${NODE_HOME:-$BASE}" >&2
         if [ "${FEEDER_PROCESS:-0}" = 0 ]; then
-            for log in init validate-genesis node feeder; do
+            if [ "$SEQUENCER" = 1 ] && [ -n "$NODE_HOME" ]; then
+                sequencer_evidence
+            fi
+            for log in init validate-genesis bootstrap bootstrap-peer node feeder; do
                 if [ -n "$NODE_HOME" ] && [ -f "$NODE_HOME/$log.log" ]; then
                     printf '\n--- %s ---\n' "$NODE_HOME/$log.log" >&2
                     tail -n 40 "$NODE_HOME/$log.log" >&2
@@ -243,6 +296,7 @@ fi
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
+        --sequencer) SEQUENCER=1; shift ;;
         --env-out) [ "$#" -ge 2 ] || fail '--env-out requires a file'; ENV_OUT=$2; shift 2 ;;
         --gateway-url) [ "$#" -ge 2 ] || fail '--gateway-url requires a URL'; GATEWAY=$2; shift 2 ;;
         --stop) [ "$#" = 2 ] || fail '--stop requires a home'; stop_node "$2"; SUCCESS=1; exit ;;
@@ -275,6 +329,10 @@ NODE_HOME=$(mktemp -d "$BASE/node.XXXXXXXX")
 touch "$NODE_HOME/.localnode"
 "$PAXD" init local-v6120 --chain-id "$CHAIN" --home "$NODE_HOME" > "$NODE_HOME/init.log" 2>&1
 cp "$NODE_HOME/config/genesis.json" "$NODE_HOME/init-genesis.json"
+if [ "$SEQUENCER" = 1 ]; then
+    BOOTSTRAP_HOME=$NODE_HOME/bootstrap-peer
+    "$PAXD" init local-v6120-bootstrap --chain-id "$CHAIN" --mode full --home "$BOOTSTRAP_HOME" >> "$NODE_HOME/init.log" 2>&1
+fi
 
 NAMES=(deployer test validator)
 ETH_ADDRESSES=()
@@ -302,7 +360,7 @@ GENESIS=$NODE_HOME/config/genesis.json
 CONSENSUS=$(jq -ce '.consensus_params' "$GENESIS")
 jq --arg kept "$KEPT" --arg operator "$VALIDATOR" --arg old "$OLD_ACCOUNT" --arg account "${ACCOUNTS[2]}" \
     --arg cons "$CONS" --argjson pv "$PV" --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-    --argjson consensus "$CONSENSUS" '
+    --argjson consensus "$CONSENSUS" --argjson sequencer "$SEQUENCER" '
     def set_pool($address; $amount):
         .app_state.bank.balances = ([.app_state.bank.balances[] | select(.address != $address)]
           + if $amount == 0 then [] else [{address:$address,coins:[{denom:"uhpx",amount:($amount|tostring)}]}] end);
@@ -311,7 +369,8 @@ jq --arg kept "$KEPT" --arg operator "$VALIDATOR" --arg old "$OLD_ACCOUNT" --arg
     | .chain_id = "hyperpax_125-1" | .genesis_time = $now
     | .app_state.staking.validators |= map(if .operator_address == $operator then
         .consensus_pubkey.key = $pv.pub_key.value | .jailed = false | .status = "BOND_STATUS_BONDED"
-        | .tokens = (([1000000000, (.tokens|tonumber)] | max)|tostring)
+        | .tokens = ((([1000000000, (.tokens|tonumber)] | max)
+          * if $sequencer == 1 then 3 else 1 end)|tostring)
         else .jailed = true | .status = "BOND_STATUS_UNBONDED" end)
     | (.app_state.staking.validators[] | select(.operator_address == $operator) | .tokens|tonumber) as $tokens
     | (($tokens / 1000000)|floor|tostring) as $power
@@ -396,6 +455,61 @@ bank['supply'] = [{'denom': denom, 'amount': str(amount)} for denom, amount in s
 with open(path, 'w') as handle:
     json.dump(genesis, handle)
 PY
+if [ "$SEQUENCER" = 1 ]; then
+    for home in "$NODE_HOME"; do
+        "$PAXD" sequencer gen-receipt-key --output "$home/config/receipt-key.hex" \
+            > "$home/receipt-public.json"
+        chmod 600 "$home/config/receipt-key.hex"
+        public=$(jq -er '.public_key' "$home/receipt-public.json")
+        "$PAXD" add-genesis-receipt-key --home "$NODE_HOME" --public-key "$public" \
+            --first-height 1 --last-height 9223372036854775807 >> "$NODE_HOME/init.log" 2>&1
+    done
+    for home in "$NODE_HOME"; do
+        public=$(python3 - "$home/config/priv_validator_key.json" <<'PYKEY'
+import base64
+import json
+import sys
+with open(sys.argv[1]) as handle:
+    print(base64.b64decode(json.load(handle)['pub_key']['value'], validate=True).hex())
+PYKEY
+        )
+        "$PAXD" add-genesis-sequencer-leader --home "$NODE_HOME" --pubkey "$public" >> "$NODE_HOME/init.log" 2>&1
+    done
+    jq '.app_state.sequencer.activation_height = ((.initial_height | tonumber) + 2)' \
+        "$GENESIS" > "$GENESIS.tmp"
+    mv "$GENESIS.tmp" "$GENESIS"
+    python3 - "$GENESIS" "$NODE_HOME/config/priv_validator_key.json" <<'PYIDENTITY'
+import base64
+import hashlib
+import json
+import sys
+
+with open(sys.argv[1]) as handle:
+    genesis = json.load(handle)
+with open(sys.argv[2]) as handle:
+    primary = json.load(handle)
+staking = genesis['app_state']['staking']
+primary_validator = next(v for v in staking['validators'] if v['status'] == 'BOND_STATUS_BONDED')
+primary_power = int(genesis['validators'][0]['power'])
+public = primary['pub_key']['value']
+address = hashlib.sha256(base64.b64decode(public, validate=True)).hexdigest().upper()[:40]
+validators = genesis['validators']
+bonded = [v for v in staking['validators']
+          if v['status'] == 'BOND_STATUS_BONDED' and not v['jailed']]
+if (primary['address'] != address
+        or len(validators) != 1 or len(bonded) != 1
+        or validators[0]['address'] != address
+        or validators[0]['pub_key'] != primary['pub_key']
+        or bonded[0]['consensus_pubkey']['key'] != public
+        or staking['last_validator_powers'] != [
+            {'address': primary_validator['operator_address'], 'power': str(primary_power)}]
+        or int(staking['last_total_power']) != primary_power
+        or genesis['app_state']['sequencer']['leaders'] != [public]):
+    raise SystemExit('sequencer committee and leaders must contain only the primary')
+with open(sys.argv[1], 'w') as handle:
+    json.dump(genesis, handle)
+PYIDENTITY
+fi
 jq --slurpfile init "$NODE_HOME/init-genesis.json" '
     reduce ["layerxledger", "layerxauth", "layerxpay", "layerxagent"][] as $module (.;
       if .app_state[$module] == null then
@@ -409,11 +523,15 @@ mv "$GENESIS.tmp" "$GENESIS"
 jq --slurpfile init "$NODE_HOME/init-genesis.json" '
     .app_state = ($init[0].app_state + .app_state)
 ' "$GENESIS" > "$NODE_HOME/validation-genesis.json"
+if [ "$SEQUENCER" = 1 ]; then
+    cp "$GENESIS" "$BOOTSTRAP_HOME/config/genesis.json"
+fi
 "$PAXD" validate-genesis "$NODE_HOME/validation-genesis.json" --home "$NODE_HOME" > "$NODE_HOME/validate-genesis.log" 2>&1
 
-read -r RPC_PORT P2P_PORT EVM_PORT GRPC_PORT WEB_PORT < <(python3 - <<'PY'
+read -r RPC_PORT P2P_PORT EVM_PORT GRPC_PORT WEB_PORT BOOTSTRAP_RPC_PORT BOOTSTRAP_P2P_PORT BOOTSTRAP_EVM_PORT BOOTSTRAP_GRPC_PORT BOOTSTRAP_WEB_PORT PRIMARY_PROFILE_PORT < <(python3 - "$SEQUENCER" <<'PY'
 import socket
-listeners = [socket.socket() for _ in range(5)]
+import sys
+listeners = [socket.socket() for _ in range(11 if sys.argv[1] == "1" else 5)]
 for listener in listeners:
     listener.bind(('127.0.0.1', 0))
 print(*(listener.getsockname()[1] for listener in listeners))
@@ -445,29 +563,89 @@ with open(path, 'w') as handle:
     handle.writelines(lines)
 PY
 }
-CONFIG=$NODE_HOME/config/config.toml
-APP=$NODE_HOME/config/app.toml
-set_toml "$CONFIG" '' mode '"validator"'
-set_toml "$CONFIG" rpc laddr "\"$NODE\""
-set_toml "$CONFIG" rpc pprof-laddr '""'
-set_toml "$CONFIG" p2p laddr "\"tcp://127.0.0.1:$P2P_PORT\""
-for setting in external-address bootstrap-peers persistent-peers; do
-    set_toml "$CONFIG" p2p "$setting" '""'
-done
-set_toml "$CONFIG" p2p pex false
-set_toml "$CONFIG" instrumentation prometheus false
-set_toml "$APP" api enable false
-set_toml "$APP" grpc address "\"127.0.0.1:$GRPC_PORT\""
-set_toml "$APP" grpc-web enable false
-set_toml "$APP" grpc-web address "\"127.0.0.1:$WEB_PORT\""
-set_toml "$APP" evm http_enabled true
-set_toml "$APP" evm http_address '"127.0.0.1"'
-set_toml "$APP" evm http_port "$EVM_PORT"
-set_toml "$APP" evm ws_enabled false
-set_toml "$APP" evm enable_test_api false
+configure_node() {
+    local home=$1 rpc_port=$2 p2p_port=$3 evm_port=$4 grpc_port=$5 web_port=$6 mode=$7
+    local CONFIG=$home/config/config.toml APP=$home/config/app.toml
+    set_toml "$CONFIG" '' mode "\"$mode\""
+    set_toml "$CONFIG" rpc laddr "\"tcp://127.0.0.1:$rpc_port\""
+    set_toml "$CONFIG" rpc pprof-laddr '""'
+    set_toml "$CONFIG" p2p laddr "\"tcp://127.0.0.1:$p2p_port\""
+    for setting in external-address bootstrap-peers persistent-peers; do
+        set_toml "$CONFIG" p2p "$setting" '""'
+    done
+    set_toml "$CONFIG" p2p pex false
+    set_toml "$CONFIG" instrumentation prometheus false
+    set_toml "$APP" api enable false
+    set_toml "$APP" grpc enable true
+    set_toml "$APP" grpc address "\"127.0.0.1:$grpc_port\""
+    set_toml "$APP" grpc-web enable false
+    set_toml "$APP" grpc-web address "\"127.0.0.1:$web_port\""
+    set_toml "$APP" evm http_enabled true
+    set_toml "$APP" evm http_address '"127.0.0.1"'
+    set_toml "$APP" evm http_port "$evm_port"
+    set_toml "$APP" evm ws_enabled false
+    set_toml "$APP" evm enable_test_api false
+    if [ "$SEQUENCER" = 1 ]; then
+        set_toml "$APP" state-commit sc-async-commit-buffer 0
+    fi
+}
+configure_node "$NODE_HOME" "$RPC_PORT" "$P2P_PORT" "$EVM_PORT" "$GRPC_PORT" "$WEB_PORT" validator
 HEIGHT=$(jq -er '.initial_height | tonumber | select(. > 0)' "$GENESIS")
 jq -n --argjson height "$HEIGHT" '{name:"v6.12.0",height:$height}' > "$NODE_HOME/data/upgrade-info.json"
-nohup "$PAXD" start --home "$NODE_HOME" > "$NODE_HOME/node.log" 2>&1 < /dev/null &
+SEQUENCER_ARGS=()
+if [ "$SEQUENCER" = 1 ]; then
+    BOOTSTRAP_HEIGHT=$((HEIGHT + 1))
+    configure_node "$BOOTSTRAP_HOME" "$BOOTSTRAP_RPC_PORT" "$BOOTSTRAP_P2P_PORT" \
+        "$BOOTSTRAP_EVM_PORT" "$BOOTSTRAP_GRPC_PORT" "$BOOTSTRAP_WEB_PORT" full
+    set_toml "$BOOTSTRAP_HOME/config/app.toml" grpc enable false
+    primary_id=$("$PAXD" tendermint show-node-id --home "$NODE_HOME")
+    bootstrap_id=$("$PAXD" tendermint show-node-id --home "$BOOTSTRAP_HOME")
+    for home in "$NODE_HOME" "$BOOTSTRAP_HOME"; do
+        set_toml "$home/config/config.toml" p2p allow-duplicate-ip true
+    done
+    set_toml "$NODE_HOME/config/config.toml" p2p persistent-peers \
+        "\"$bootstrap_id@127.0.0.1:$BOOTSTRAP_P2P_PORT\""
+    set_toml "$BOOTSTRAP_HOME/config/config.toml" p2p persistent-peers \
+        "\"$primary_id@127.0.0.1:$P2P_PORT\""
+    for home in "$BOOTSTRAP_HOME"; do
+        cp "$NODE_HOME/data/upgrade-info.json" "$home/data/upgrade-info.json"
+    done
+    nohup "$PAXD" start --home "$BOOTSTRAP_HOME" --halt-height "$BOOTSTRAP_HEIGHT" \
+        > "$NODE_HOME/bootstrap-peer.log" 2>&1 < /dev/null &
+    echo "$!" > "$NODE_HOME/bootstrap-peer.pid"
+    nohup "$PAXD" start --home "$NODE_HOME" --halt-height "$BOOTSTRAP_HEIGHT" \
+        > "$NODE_HOME/bootstrap.log" 2>&1 < /dev/null &
+    bootstrap_pid=$!
+    echo "$bootstrap_pid" > "$NODE_HOME/node.pid"
+    deadline=$((SECONDS + 120))
+    while kill -0 "$bootstrap_pid" 2>/dev/null; do
+        (( SECONDS < deadline )) || fail "bootstrap halt timed out: $NODE_HOME/bootstrap.log"
+        sleep 0.2
+    done
+    bootstrap_status=0
+    wait "$bootstrap_pid" || bootstrap_status=$?
+    case "$bootstrap_status" in
+        0|130|143) ;;
+        *) fail "bootstrap failed (exit $bootstrap_status): $NODE_HOME/bootstrap.log" ;;
+    esac
+    grep -Eq "halting node per configuration.*height=$BOOTSTRAP_HEIGHT time=0$" "$NODE_HOME/bootstrap.log" \
+        || fail "bootstrap did not reach its halt height: $NODE_HOME/bootstrap.log"
+    stop_node "$NODE_HOME" bootstrap-peer
+    cp -a "$NODE_HOME/data/." "$BOOTSTRAP_HOME/data/"
+    for home in "$NODE_HOME" "$BOOTSTRAP_HOME"; do
+        set_toml "$home/config/config.toml" consensus.sequencer enable true
+    done
+    set_toml "$NODE_HOME/config/config.toml" rpc pprof-laddr "\"127.0.0.1:$PRIMARY_PROFILE_PORT\""
+    nohup "$PAXD" start --home "$BOOTSTRAP_HOME" >> "$NODE_HOME/bootstrap-peer.log" 2>&1 < /dev/null &
+    echo "$!" > "$NODE_HOME/bootstrap-peer.pid"
+    export PAX_LOG_LEVEL=info PAX_LOG_OUTPUT=stderr
+    SEQUENCER_ARGS=(--log_level info --sequencer.enable --sequencer.mode sequential
+        --sequencer.replication-timeout 10s --sequencer.lease-duration 30s
+        --sequencer.nonce-queue-max-per-sender 16 --sequencer.nonce-queue-max-total 128)
+    SEQUENCER_ARGS+=(--sequencer.role primary --sequencer.wal-dir "$NODE_HOME/sequencer-wal"
+        --sequencer.receipt-key-file "$NODE_HOME/config/receipt-key.hex")
+fi
+nohup "$PAXD" start --home "$NODE_HOME" "${SEQUENCER_ARGS[@]}" > "$NODE_HOME/node.log" 2>&1 < /dev/null &
 echo "$!" > "$NODE_HOME/node.pid"
 deadline=$((SECONDS + 120))
 while :; do
@@ -483,9 +661,47 @@ while :; do
     (( SECONDS < deadline )) || fail "upgrade readiness timed out: $NODE_HOME/node.log"
     sleep 0.5
 done
-printf -v MINT_DATA '40c10f19000000000000000000000000%s%064x' "${ETH_ADDRESSES[1]#0x}" 1000000000000
-evm_call deployer "$USDL" "$MINT_DATA"
-PUBKEY=$(python3 - "$NODE_HOME/test.json" <<'PYKEY'
+if [ "$SEQUENCER" = 1 ]; then
+    deadline=$((SECONDS + 120))
+    while :; do
+        for role in node bootstrap-peer; do
+            kill -0 "$(cat "$NODE_HOME/$role.pid")" 2>/dev/null || fail "$role exited: $NODE_HOME/$role.log"
+        done
+        if curl --fail --silent --show-error --max-time 3 "http://127.0.0.1:$RPC_PORT/status" \
+            | jq -e '.sync_info.catching_up == false' >/dev/null; then
+            break
+        fi
+        (( SECONDS < deadline )) || fail 'sequencer primary did not leave block sync'
+        sleep 0.2
+    done
+    curl --fail --silent --show-error --max-time 3 \
+        "http://127.0.0.1:$RPC_PORT/validators?per_page=100" > "$NODE_HOME/committee.json"
+    python3 - "$GENESIS" "$NODE_HOME/committee.json" <<'PYCOMMITTEE'
+import json
+import sys
+
+with open(sys.argv[1]) as handle:
+    expected = json.load(handle)['validators']
+with open(sys.argv[2]) as handle:
+    result = json.load(handle)
+actual = result['validators']
+if (len(expected) != 1 or int(result['total']) != 1 or len(actual) != 1
+        or [(v['address'], v['pub_key'], int(v['voting_power'])) for v in actual]
+        != [(v['address'], v['pub_key'], int(v['power'])) for v in expected]):
+    raise SystemExit('primary RPC committee must contain only the bonded primary sequencer leader')
+PYCOMMITTEE
+    stop_node "$NODE_HOME" bootstrap-peer
+fi
+if [ "$SEQUENCER" = 0 ]; then
+    printf -v MINT_DATA '40c10f19000000000000000000000000%s%064x' "${ETH_ADDRESSES[1]#0x}" 1000000000000
+    evm_call deployer "$USDL" "$MINT_DATA"
+    PERPS=0x0000000000000000000000000000000000001015
+    COLLATERAL_AMOUNT=1000000000
+    printf -v APPROVE_DATA '095ea7b3000000000000000000000000%s%064x' "${PERPS#0x}" "$COLLATERAL_AMOUNT"
+    evm_call test "$USDL" "$APPROVE_DATA"
+    printf -v DEPOSIT_DATA '47e7ef24000000000000000000000000%s%064x' "${USDL#0x}" "$COLLATERAL_AMOUNT"
+    evm_call test "$PERPS" "$DEPOSIT_DATA"
+    PUBKEY=$(python3 - "$NODE_HOME/test.json" <<'PYKEY'
 import base64
 import json
 import sys
@@ -493,33 +709,42 @@ with open(sys.argv[1]) as handle:
     public_key = json.loads(json.load(handle)['pubkey'])
 print(base64.b64decode(public_key['key'], validate=True).hex())
 PYKEY
-)
-# registerFeedKey(bytes): selector, dynamic offset, byte count, compressed pubkey.
-SELECTOR=0x5d6617d9
-printf -v REGISTER_DATA '%s%064x%064x%-128s' "${SELECTOR#0x}" 32 33 "$PUBKEY"
-REGISTER_DATA=${REGISTER_DATA// /0}
-evm_call validator 0x0000000000000000000000000000000000001020 "$REGISTER_DATA"
-"$PAXD" q pricefeed feed-key "$VALIDATOR" --node "$NODE" -o json > "$NODE_HOME/feed-key.json"
-[ "$(jq -r '.feed_account' "$NODE_HOME/feed-key.json")" = "$TEST_ACCOUNT" ] || fail 'feed account registration mismatch'
-{
-    printf 'PAXD=%q\nNODE=%q\nEVM=%q\nTEST_ACCOUNT=%q\n' "$PAXD" "$NODE" "$EVM" "$TEST_ACCOUNT"
-} > "$NODE_HOME/process.env"
-nohup bash "${BASH_SOURCE[0]}" --feed "$NODE_HOME" > "$NODE_HOME/feeder.log" 2>&1 < /dev/null &
-echo "$!" > "$NODE_HOME/feeder.pid"
-deadline=$((SECONDS + 30))
-while :; do
-    kill -0 "$(cat "$NODE_HOME/feeder.pid")" 2>/dev/null || fail "feeder exited: $NODE_HOME/feeder.log"
-    if price=$("$PAXD" q pricefeed price 0 --node "$NODE" -o json 2>/dev/null) \
-        && jq -e '.fresh == true and .index == "60000000000000000000000"' <<< "$price" >/dev/null; then
-        break
-    fi
-    (( SECONDS < deadline )) || fail "BTC price did not become fresh: $NODE_HOME/feeder.log"
-    sleep 0.2
-done
-activate_merge
+    )
+    # registerFeedKey(bytes): selector, dynamic offset, byte count, compressed pubkey.
+    SELECTOR=0x5d6617d9
+    printf -v REGISTER_DATA '%s%064x%064x%-128s' "${SELECTOR#0x}" 32 33 "$PUBKEY"
+    REGISTER_DATA=${REGISTER_DATA// /0}
+    evm_call validator 0x0000000000000000000000000000000000001020 "$REGISTER_DATA"
+    "$PAXD" q pricefeed feed-key "$VALIDATOR" --node "$NODE" -o json > "$NODE_HOME/feed-key.json"
+    [ "$(jq -r '.feed_account' "$NODE_HOME/feed-key.json")" = "$TEST_ACCOUNT" ] || fail 'feed account registration mismatch'
+    {
+        printf 'PAXD=%q\nNODE=%q\nEVM=%q\nTEST_ACCOUNT=%q\n' "$PAXD" "$NODE" "$EVM" "$TEST_ACCOUNT"
+    } > "$NODE_HOME/process.env"
+    nohup bash "${BASH_SOURCE[0]}" --feed "$NODE_HOME" > "$NODE_HOME/feeder.log" 2>&1 < /dev/null &
+    echo "$!" > "$NODE_HOME/feeder.pid"
+    deadline=$((SECONDS + 30))
+    while :; do
+        kill -0 "$(cat "$NODE_HOME/feeder.pid")" 2>/dev/null || fail "feeder exited: $NODE_HOME/feeder.log"
+        if price=$("$PAXD" q pricefeed price 0 --node "$NODE" -o json 2>/dev/null) \
+            && jq -e '.fresh == true and .index == "60000000000000000000000"' <<< "$price" >/dev/null \
+            && price=$("$PAXD" q pricefeed price 11 --node "$NODE" -o json 2>/dev/null) \
+            && jq -e '.fresh == true and .index == "1000000000000000000"' <<< "$price" >/dev/null; then
+            break
+        fi
+        (( SECONDS < deadline )) || fail "BTC and PAX prices did not become fresh: $NODE_HOME/feeder.log"
+        sleep 0.2
+    done
+    activate_merge
+fi
 {
     printf 'LOCAL_NODE_RPC=%q\n' "$EVM"
+    printf 'LOCAL_NODE_HOME=%q\n' "$NODE_HOME"
     printf 'LOCAL_NODE_KEY=%q\n' "0x$KEY"
+    if [ "$SEQUENCER" = 1 ]; then
+        printf 'LOCAL_NODE_SEQUENCER_RPC=%q\n' "$EVM"
+        printf 'LOCAL_NODE_ADDRESS=%q\n' "${ETH_ADDRESSES[1]}"
+        printf 'LOCAL_NODE_PROFILE_RPC=%q\n' "http://127.0.0.1:$PRIMARY_PROFILE_PORT"
+    fi
     printf 'PERPS_DATA_TEST_RPC=%q\n' "$EVM"
     printf 'PERPS_DATA_TEST_COMET=%q\n' "http://127.0.0.1:$RPC_PORT"
     printf 'NEXT_PUBLIC_PERPS_GATEWAY_URL=%q\n' "$GATEWAY"
