@@ -231,7 +231,7 @@ export function KernelPlan({
         throw new Error('the kernel answered a malformed account sequence');
       const bindings = legBindings(
         planned,
-        document.value,
+        document.value.account,
         sequence,
         { notBefore: Math.floor(now() / 1000), notAfter: deadline },
         {

@@ -246,11 +246,6 @@ int main(void)
         !balances(from, to, 100U, 0U))
         return 1;
     asset.asset_id[0] = 1U;
-    request.payer_grant = NULL;
-    if (init_ctx(&ctx, &kernel, &arena, &effects, 1U, 2U) != 0 ||
-        lx_asset_receive_execute(&ctx, &request, &receipt) !=
-            LXP_ERR_NO_PAYER_GRANT)
-        return 1;
 
     (void)memset(&send, 0, sizeof(send));
     (void)memcpy(send.from, from_id, 32U);

@@ -21,6 +21,7 @@ layerx-crypto = { path = "../../../../services/agent/crates/layerx-crypto" }
 layerx-indexer = { path = "../indexer" }
 layerx-types = { path = "../../../../services/agent/crates/layerx-types" }
 layerx-wire = { path = "../../../../services/agent/crates/layerx-wire" }
+# Retained for program head and interface validation in src/main.rs.
 layerx-programs-runtime = { path = "../../../../programs/crates/layerx-programs-runtime" }
 layerx-programs = { package = "layerx-programs-registry", path = "../../../../programs/crates/layerx-programs-registry" }
 native-tls.workspace = true
