@@ -5943,6 +5943,66 @@ value = "Task 16.24.6 (tighten the seven tools/loadtest/profiles bounds to relea
 basis = "Sir's ruling: supersede it in this feature."
 affects = ["16.24.6"]
 
+[decision.2139]
+title = "The intent EVM fixture's gateway double answers px_getBalances in the declared joined shape with the queried wallet's bound DID and account"
+value = "In tests/intent_plan_evm.rs the px_getBalances arm looks the queried address up in state.identities (the subject -> (identity key, wallet) map) and answers: account = {evm_address: 0x<wallet>, pax_address: null, layerx_did: did:layerx:<hex of the 32-byte identity key>, layerx_account: <hex of the 32-byte identity key>, bound: true} for a known wallet and {evm_address: 0x<wallet>, pax_address: null, layerx_did: null, layerx_account: null, bound: false} for an unknown one; balances = [{asset_id: <hex of ASSET>, denom: alxp, custody: null, paxeer: {denom: alxp, amount: <the fixture's funded amount as a decimal string>}, layerx: {asset_id: <hex of ASSET>, balance: <the same amount>}}]; joined_limit = 16 as a JSON integer. That is the shape decode_account_balances (services/human/crates/layerx-network-gateway/src/lib.rs:976-1010), decode_identities (:895-910) and retain_lookup (:243-257) admit, and the shape the crate's own test balances_decode_the_declared_nested_join_shape (:1108-1135) fixes. The production mapping of gateway errors to upstream_degraded (production_components.rs:4631) and retain_lookup stay as they are. The assertion text at :981 keeps printing the served-request lists."
+basis = "Finding 10.0.3.6: the double declared the wallet bound without the DID and account a bound answer carries, and the real gateway client refuses exactly that. The fixture must report what the real gateway reports, never a shorter shape the service happens to tolerate."
+affects = ["10.0.3"]
+
+[decision.2140]
+title = "The hosted-core custody reads move onto the custody and anchor precompiles over eth_call, and the receipt waits onto the receipt JSON-RPC twin"
+value = "Custody registry. read_custody_profile(sequencer: &SequencerEndpoint, network_id: u32, committed_height: u64, asset: [u8; 32]) in services/platform/hosted/core/src/lib.rs reads getAsset(asset) on the custody precompile (address 0x...1013) with SequencerEndpoint::call_at(committed_height, &address, &calldata) (services/agent/crates/layerx-client/src/sequencer.rs:415); the calldata is the four-byte selector of the canonical signature getAsset(bytes32), computed with layerx_crypto::evm_transaction::transaction_hash as rpc/module_state.rs:3 does, followed by the asset word, the way rpc::account::balance builds balanceOf (services/agent/crates/layerx-client/src/rpc/account.rs:54-70). The return data is the ABI encoding of one tuple with a dynamic member: word 0 is the tuple offset (32), then ten head words (assetId bytes32, denom string offset, pointer address, enabled bool, paused bool, minimumDeposit, custodyCap, custodied, released, pending as uint256) and the denom length word plus padded bytes at the denom offset counted from the tuple start. The asset is registered when assetId equals the requested asset, enabled is true, paused is false and denom is non-empty. The same height then answers latestFinalized() on the anchor precompile (address 0x...1014): exists must be true; checkpoint(batchNumber) (tuple: batchNumber, checkpointId, headerDigest, epoch, firstSequence, lastSequence, previousStateRoot, stateRoot, receiptRoot, dataAvailabilityRoot, sequencerId, timestampMs, status, signers, availabilityMask, openChallenges, submittedHeight, finalizedHeight) must carry status 2 (CheckpointFinal, modules/layerxanchor/types/state.go:79), finalizedHeight at most committed_height and a non-zero stateRoot. RegisteredCustodyAsset keeps asset, network_id, state_root (that stateRoot) and trusted_height (that batchNumber), gains denom, pointer, custody_cap and custodied, and profile() returns the raw getAsset return data (Vec<u8>), which the probe still writes to --profile-output. account_name is unchanged. The LXBR1 marker, the 223-byte profile, the LXLT1 trust record, the PAX/SID/USDC/USDL sweep, validate_custody_profile, custody_key, custody_u64, custody_policy and custody_read are removed. Authenticated asset. read_custody_asset(sequencer, network: &PxEndpoint, network_id, committed_height, asset, source_did) calls read_custody_profile, resolves the source account with rpc::history::did_accounts(network, source_did) and the entry's evm_address exactly as the sequence route does (public_reads.rs:348-358 of attempt 8), sets account_sequence = sequencer.pending_nonce(&evm_address), keeps source_account = account_id_for_protocol(account_name(source_did), 3) and trusted_height = registered.trusted_height(), and refuses when the DID has no bound evm_address. The account proof read and the second custody root comparison go. Receipt waits. In main.rs connect_raw, connect_raw_with_deadline, lookup_receipt_bytes, lookup_receipt_selector and receipt_facts-over-socket are replaced by await_receipt(config, tx_hash: [u8; 32], deadline) built on rpc::receipt::lookup_authenticated(&config.sequencer, tx_hash, LookupContext { receipt_keys: &config.sequencer.receipt_keys()? }) (services/agent/crates/layerx-client/src/rpc/receipt.rs:126): Lookup::Verified(receipt) yields ReceiptFacts { activity_id: receipt.activity_id(), global_sequence: receipt.global_sequence(), result_code: receipt.result_code() as i32, canonical: receipt.canonical_bytes().to_vec(), batch_id: rpc::evidence::checkpoint(&config.sequencer, receipt.height())?.hash, state_root: the anchor precompile's checkpoint(receipt.height()).stateRoot when that batch exists there, otherwise 32 zero bytes }; Lookup::Absent is retried every 250 ms until the deadline (Duration::ZERO means one try) and then answers receipt_unavailable. The activity id of the receipt route (:867) and of the funding intent (:2062) is the transaction hash. The authorised-key comparison at :2058 becomes receipt.execution().signing_key == intent.sequencer_key. receipt_facts(bytes, sequencer_key) for archived and idempotency receipts keeps verifying through layerx_proof::receipt::verify_outcome and layerx_wire only. The lni imports at :4-7, Config.lni_socket (:73) and LAYERX_CORE_LNI_SOCKET (:321) are removed. Probe. In services/platform/hosted/node/tests/probe/src/main.rs the custody-asset-profile and write-asset-send steps take --rpc URL and --trust-anchor PATH (a DER certificate, read the way main.rs:323-331 reads LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER) in place of --socket, build CustodySession { sequencer: SequencerEndpoint::new(url, &[&der]), network: PxEndpoint::new(url, &[&der]), network_id, committed_height: sequencer.block_number()? } and call the two library reads above; custody_preparation becomes the triple (sequencer.block_number(), pending_nonce of the actor's bound evm_address from did_accounts, the anchor's latestFinalized batch number) captured before and after the reads, which must be equal or the step answers 'refresh required'; the usage text at :31 follows. In tools/bringup/value-loop.sh the write-asset-send branch (:141) passes --rpc '$rpc' --trust-anchor '$trust_anchor' from two new variables beside lni= (:28) that read LAYERX_NODE_RPC and LAYERX_NODE_TRUST_ANCHOR_DER and stop with a clear message when either is unset on the explicit-asset path. The other probe steps keep their socket wiring; they are outside this task. Decision 2133 stands for the public reads; its custody sentence is replaced by this decision."
+basis = "Finding 8.98.14.5: the kernel custody records have no slot twin and the node's custody and anchor precompiles are the only custody state the sequencer endpoint serves, so the real path is eth_call against them; the receipt JSON-RPC twin already authenticates receipts against the receipt key set, so the socket wait has a direct replacement."
+affects = ["8.98.14"]
+
+[decision.2141]
+title = "The layerxauth gas and surface pins move to ten with recordLifecycle"
+value = "precompiles/layerxauth/gas_test.go and precompiles/layerxauth/surface_test.go join the touches of task 2.96.1. gas_test.go's expected list gains the row {'recordLifecycle', true, 36680} so the table has ten rows; surface_test.go's three require.Len pins at :28-30 become 10 and the frozen signature list, if the test keeps one, gains function recordLifecycle(bytes payload, bytes32 idempotencyKey) returns(uint64 globalSequence). The two tests already run under the task's verify command."
+basis = "Finding 2.96.1.1: the surface-freezing tests are the product's own guard that a new method is deliberate; the task that adds the method owns their update."
+affects = ["2.96.1"]
+
+[decision.2142]
+title = "The intent observation row key is one digest of the plan digest and the session digest"
+value = "In services/human/crates/layerx-human-service/src/server/production_components.rs plan_intent (:4489-4492 on main) and submit_intent (:4517-4527) build the Cache row key as intent-observation-<hex of sha256(plan_digest || sha256(session_id))> with hex_bytes, 83 characters, where plan_digest is the 32-byte plan digest and the inner digest is the one both sites already compute over the session id bytes; the two sites share one helper fn intent_observation_key(plan_digest: &[u8; 32], session_id: &str) -> Result<RowKey, StoreError>. The error mappings at :4493 (upstream_degraded) and :4528 (invalid_request(plan_digest)) stay; the memo keeps plan_digest and submit_intent keeps comparing it at :4535. Decision 2139's no-production-change bound is lifted for exactly this change; the fixture, the gateway double and the assertion text stay as attempt 10 left them."
+basis = "Finding 10.0.3.7: the key exceeded the store's own identifier limit by construction, so every plan ever written through this handler was refused as upstream-degraded; the fixture reproduced the real path and found it, which is the test's job. A digest key keeps uniqueness per plan and session without widening the store limit."
+affects = ["10.0.3"]
+
+[decision.2143]
+title = "The standalone primary's send-path panic is fixed and made visible by a node task; the sequencer receipt qualification waits for it and reruns unchanged"
+value = "Task 12.35.11 (req.5087) makes recordMetricsWithError log a recovered panic's value and stack through the evmrpc logger before re-raising it, exports SequencerOption.SendConfig so a test can hold the production send configuration, adds TestStandalonePrimaryReceiptsTransferThroughSendAPI on a started standalone Node, and fixes the panic the test exposes. Task 12.35.4 requires 12.35.11 and continues from attempt 20 (a82d45b6d) without further changes to the script or the test; if the transfer still fails, the node log now carries the panic and stack to quote in the finding."
+basis = "Finding 12.35.4.17 and Sir's quality ruling: an interface-changing task proves the real producer -> transport -> consumer path, and the standalone primary's path from eth_sendRawTransaction to a recorded receipt had no in-process test, so its first exercise was the local-node qualification with the panic hidden. The logging fix is the smallest change that makes any future handler crash diagnosable from node.log."
+affects = ["12.35.4", "12.35.11"]
+
+[decision.2144]
+title = "The authority budget reader is cut from 8.98.14 and ported by task 8.98.15"
+value = "Task 8.98.14 keeps only its core and probe scope: verify_cmd is the core scan of retired_client_modules_w2.rs, build_cmd drops the authority crate, and services/platform/hosted/authority/src/human/budget_state.rs and services/platform/hosted/authority/tests/retired_client_modules.rs leave its touches. Decision 2057 stands: the authority keeps layerx_client::read until its budget reader is ported, and the authority retired list gains 'read' only in task 8.98.15; the authority half of do_8 and decision 2058's authority sentence are superseded. 8.98.15 (req.8954, wave 34, requires 8.98.14 and 8.98.4) ports services/platform/hosted/authority/src/human/budget_state.rs and the subject check in src/human/dynamic.rs onto SequencerEndpoint and PxEndpoint over LAYERX_AUTHORITY_CHAIN_RPC_URL."
+basis = "Finding 8.98.14.6: the attempt's core work is complete and qualified by its own scans; failing it on a port of another crate's reader, one the task text described in a single clause, would spend further attempts on a design the task never spelled out."
+affects = ["8.98.14", "8.98.15"]
+
+[decision.2145]
+title = "The authority budget reader reads budgets from the layerxpay precompile, identities from px_getAccount and finality from the anchor precompile"
+value = "Task 8.98.15 (req.8954) ports services/platform/hosted/authority/src/human/budget_state.rs as its do-lines spell out: SequencerEndpoint and PxEndpoint over LAYERX_AUTHORITY_CHAIN_RPC_URL; getBudget(bytes32) and budgetRemaining(bytes32) on the layerxpay precompile at the committed height in place of module 3 records; px_getAccount's layerx join in place of the module 7 identity record and the authority-key comparison; latestFinalized and checkpoint on the anchor precompile in place of the verified LNI checkpoint; export schema layerx.human.budget-proof.v2 whose proofs are the raw return data of those calls. The authority's remaining LNI readers in main.rs and trust.rs are outside the task."
+basis = "The kernel budget and identity records have no node twin (gotcha 2460), the node keeps budgets in the layerxpay precompile and identities behind px_getAccount, and the export's consumers need the reads they can replay against the node rather than kernel proofs the node cannot produce. This is an owner ruling made to keep the port moving; the schema change is the part most worth Sir's review."
+affects = ["8.98.15"]
+
+[decision.2146]
+title = "The AuthLifecycle arm of bound_activity lands through task 9.99.2, and the human-service tasks that build against it require it"
+value = "Task 9.99.2 (req.8955, wave 19, requires 9.99.1) adds Some(layerx_crypto::disclosure::call::ConstructMethod::AuthLifecycle { payload, .. }) => (payload, layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION) to the bound_activity match in services/human/crates/layerx-human-service/src/agents/create.rs after the PayBudgetCreate arm and proves it by building the layerx-human-service library and all of its test targets; its verify command is that build because the variant's behaviour is already fixed by the layerx-crypto disclosure tests and the arm's consumer test is 18.1272.1's agent_create. Tasks 18.1272.1 and 10.0.3 require 9.99.2 and neither edits create.rs; the create.rs sentence of decision 2135 moves to 9.99.2 and 18.1272.1's do_8 is read without it. A task that adds a variant to layerx_crypto::disclosure::call::ConstructMethod must from now on build layerx-human-service in its build command, since bound_activity matches that enum exhaustively."
+basis = "Finding 18.1272.1.2: the variant landed without its consumer because 9.99.1's gates built one crate, and two tasks would otherwise carry the same hunk under their own tags, which the done check refuses for whichever lands second. One task owns the arm; the others wait on it."
+affects = ["9.99.2", "18.1272.1", "10.0.3", "9.99.1"]
+
+[decision.2147]
+title = "The intent plan's EVM leg fields are declared on IntentLeg as an additive optional list, and the schema baseline is refreshed with them"
+value = "In services/human/schema/human-api/intent.kvx the [type.IntentLeg] block gains optional = ['to:EvmAddress','value:Amount','calldata:string','nonce:integer','chain_id:integer','gas_limit:integer','max_fee_per_gas:Amount','max_priority_fee_per_gas:Amount'], matching what intent_plan_json emits and what intent_plan_answers_eip1559_legs asserts: EvmAddress (identity.kvx:82) is the 0x string, Amount (v1.kvx:37) the decimal string, calldata the 0x hex string, and nonce, chain_id and gas_limit JSON integers as IntentLegBinding.account_sequence already carries the nonce under decision 1003; EvmChainId and EvmNonce are decimal-string scalars and are not used here. The frozen baseline services/human/schema/human-api/baseline.kvx is regenerated with the refresh command it records (cargo run --manifest-path services/human/tools/schema-check/Cargo.toml --locked -- --write-baseline services/human/schema/human-api), which adds the entry intent.kvx:type.IntentLeg.optional and leaves the required list unchanged; the additive_only compatibility of the module is kept. The two schema files join 10.0.3's touches and the schema-check conformance test joins its verify command. intent_plan_json and the component server's response check are not changed."
+basis = "Finding 10.0.3.8: the service refuses its own plan because the declaration never followed the emitter; the response check is correct and stays, and the declaration is what was missing. Declaring the fields as optional keeps non-EVM legs valid and the module additive within major 1."
+affects = ["10.0.3"]
+
+[decision.2148]
+title = "The rpc send-sequencer harness stores the production Block.MaxGasWanted before its first block"
+value = "In rpc/send_sequencer_test.go newSendSeqHarness, before the funding FinalizeBlock and Commit, reads params := a.GetConsensusParams(tw.Ctx), sets params.Block.MaxGasWanted = 50_000_000 (the production genesis value) and stores it with a.StoreConsensusParams(tw.Ctx, params), the pattern of node/genesis_sequenced_test.go:51-53; the 100000-gas send of TestSendSequencerUsesExecutedGas and the 21000-gas sends then pass admission. rpc/send_sequencer_test.go joins 12.35.11's touches. The admission check in node/sequencer/limits.go is correct and stays; no production code changes for this."
+basis = "Finding 12.35.11.1: the sequencer's own admission check correctly refuses a block cap of zero, and the harness never set one; the node tests that do set it pass. Fixing the harness proves the send path under the real admission rule rather than bypassing it."
+affects = ["12.35.11"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -15692,9 +15752,17 @@ ac_1 = "Accepter.Accept (node/sequencer/accepter.go, planned) returns the signed
 ac_2 = "After a Release failure every Accept returns ErrReplicationHalted."
 ac_3 = "Accept records one sequencer_receipt_latency_seconds sample per receipted send."
 
+[req.5087]
+title = "A standalone primary receipts a signed transfer through the raw-transaction send path"
+ac_1 = "A sequencer Node started with an empty standby address accepts a signed one-wei transfer submitted through SendAPI.SendRawTransaction (rpc/send.go:165) over the production SendConfig (accepter, pending feed and receipt log feed), returns the transaction hash without error and records a verifiable signed receipt in its receipt source; a panic recovered in any evmrpc handler is written to the node log with its value and stack before the JSON-RPC server reports 'method handler crashed'."
+
 [req.5086]
 title = "The call decoder discloses the layerxauth lifecycle call"
 ac_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) returns ConstructMethod::AuthLifecycle { payload } for recordLifecycle(bytes,bytes32) to 0x...101C carrying a governance payload of ordinal 1 or 3, fields() discloses it as a Governance activity of that ordinal, and any other payload is refused with MalformedPayload."
+
+[req.8955]
+title = "The agent creation lifecycle binding accepts a disclosed layerxauth recordLifecycle transaction"
+ac_1 = "Given a lifecycle transaction whose disclosure decodes to ConstructMethod::AuthLifecycle, bound_activity in services/human/crates/layerx-human-service/src/agents/create.rs answers the disclosed payload with layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as its protocol version, the layerx-human-service library and every one of its test targets compile against the layerx-crypto disclosure decoder on main, and no other construct method changes its binding."
 
 [req.5085]
 title = "The layerxauth precompile records DID and recovery registrations through the kernel"
@@ -18772,6 +18840,10 @@ ac_1 = "Every row of px_getHistory and px_getUnifiedHistory carries tx_hash equa
 title = "Migrate the core callers of wiring.J44.20 (wave 2)"
 ac_1 = "After the migration no file of core listed by task 8.98.5 names a retired path of wiring.J44.20, and layerx-platform-core builds against the layerx_client and layerx_crypto of wave 2; the first caller is services/platform/hosted/core/src/main.rs:8."
 ac_2 = "services/platform/hosted/core/src/lib.rs reads custody profiles and assets only through layerx_client::rpc over a SequencerEndpoint (read_custody_profile, read_custody_asset and custody_read at :428-520 take &SequencerEndpoint with a ModuleReadContext or ReadContext, and no FrameTransport, read::ReadContext, lni, evidence or caps path remains), keeps validate_custody_profile, validate_custody_metadata and custody_policy as written, carries no retired layerx_client module path, and nothing under services/platform/hosted/core or node/deployment.yaml reads LAYERX_CORE_LNI_SOCKET (decision.1875)."
+
+[req.8954]
+title = "The authority budget reader reads budgets, identities and finality from the node's JSON-RPC"
+ac_1 = "services/platform/hosted/authority/src/human/budget_state.rs opens no LNI session: Session::open builds a SequencerEndpoint and a PxEndpoint over LAYERX_AUTHORITY_CHAIN_RPC_URL, reads the budget with getBudget(bytes32) and budgetRemaining(bytes32) on the layerxpay precompile at the committed height, resolves the owner's identity with px_getAccount, takes finality from the anchor precompile's latestFinalized and checkpoint views, and the budget-state and budget-proof routes answer from those reads; the file names no layerx_client::read, ::evidence, ::head, ::handover or ::lni path, and services/platform/hosted/authority/tests/retired_client_modules.rs lists 'read'."
 
 [req.8946]
 title = "Migrate the core callers of wiring.J44.20"
@@ -32846,6 +32918,15 @@ verification_contract = "go test -count=1 ./node/sequencer/ -run '^(TestAccepter
 do_1 = "Create node/sequencer/accepter.go (planned) with type Accepter implementing evmrpc.SequencerAccepter (rpc/send.go:124): Accept calls Receipter.Accept (node/sequencer/receipt.go:325), then Replicator.Release (node/sequencer/standby.go:214) with a wal.Accept entry (node/sequencer/wal/wal.go:114), and returns the receipt only after Release returns AckOK."
 symbols = ["Accepter", "ErrReplicationHalted", "NewAccepter"]
 
+[capability.12.35.11]
+title = "Log recovered RPC handler panics with their stack and prove the standalone primary receipts a signed transfer through the send path"
+reqs = ["5087.1"]
+touches = ["rpc/utils.go", "rpc/server.go", "rpc/send.go", "node/sequencer/accepter.go", "node/sequencer/standby.go", "node/sequencer/node_start.go", "node/sequencer/standalone_primary_test.go"]
+tests = ["node/sequencer/standalone_primary_test.go::TestStandalonePrimaryReceiptsTransferThroughSendAPI", "node/sequencer/standalone_primary_test.go::TestNodeStartsPrimaryWithoutStandbyAddress"]
+verification_contract = "go test -count=1 ./node/sequencer/ -run '^(TestStandalonePrimaryReceiptsTransferThroughSendAPI|TestNodeStartsPrimaryWithoutStandbyAddress)$'"
+do_1 = "Finding 12.35.4.17: attempt 20 of 12.35.4 fails its one-wei transfer with 'method handler crashed' and the node log carries nothing of the panic. In rpc/utils.go recordMetricsWithError (:474-488) logs the panic before re-raising it: logger.Error('rpc handler panicked', 'method', apiMethod, 'panic', fmt.Sprint(panicValue), 'stack', string(debug.Stack())) through the package logger (rpc/filter.go:35; runtime/debug is already imported at rpc/utils.go:11), so every evmrpc method using the helper leaves the stack in the node log."
+symbols = ["recordMetricsWithError", "SequencerOption", "SendAPI", "Accepter", "Replicator"]
+
 [capability.9.99.1]
 title = "Disclose the layerxauth recordLifecycle call as a Governance activity in the call decoder"
 reqs = ["5086.1"]
@@ -32854,6 +32935,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.9.99.2]
+title = "Match the AuthLifecycle disclosure method in the agent creation lifecycle binding"
+reqs = ["8955.1"]
+touches = ["services/human/crates/layerx-human-service/src/agents/create.rs"]
+tests = []
+verification_contract = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets"
+do_1 = "In services/human/crates/layerx-human-service/src/agents/create.rs add the arm Some(layerx_crypto::disclosure::call::ConstructMethod::AuthLifecycle { payload, .. }) => (payload, layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION) to the bound_activity match on disclosure.construct_method() (:558-612 on main) directly after the PayBudgetCreate arm (:580), leaving the LedgerSend arm, the grouped canonical_payload arm and the None refusal exactly as they are; idempotency_key is not read here because the disclosure's signing digest already binds it (decision 2146). Change nothing else. Build once and verify once."
+symbols = ["bound_activity", "ConstructMethod"]
 
 [capability.2.96.1]
 title = "Add recordLifecycle to the layerxauth precompile so DID and recovery registrations execute through the kernel"
@@ -39871,6 +39961,15 @@ tests = ["services/platform/hosted/authority/tests/retired_client_modules.rs::no
 verification_contract = "contracts/agent-rust-api.md#client"
 do_1 = "Replace the retired layerx_client module uses at services/platform/hosted/authority/src/human.rs:134, :1020, :1037 with layerx_client::sequencer, layerx_client::px or layerx_client::rpc (wiring.J44.20)."
 symbols = ["no_retired_layerx_client_module_paths"]
+
+[capability.8.98.15]
+title = "Port the authority budget reader onto the node's JSON-RPC and retire its LNI session"
+reqs = ["8954.1"]
+touches = ["services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/tests/human_tls.rs", "services/platform/hosted/authority/tests/budget_proof_exports.rs"]
+tests = ["services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/tests/human_tls.rs", "services/platform/hosted/authority/tests/budget_proof_exports.rs"]
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test retired_client_modules --test human_tls --test budget_proof_exports"
+do_1 = "Decision 2145. Session (services/platform/hosted/authority/src/human/budget_state.rs:60-110) replaces the Uds connection and handshake with sequencer: SequencerEndpoint::new(&config.chain_rpc_url, &[]) and network: PxEndpoint::new over the same URL (services/agent/crates/layerx-client/src/sequencer.rs:252, px.rs:103; a plain http URL takes no anchors); Config (src/main.rs:88-103) gains chain_rpc_url: String from the LAYERX_AUTHORITY_CHAIN_RPC_URL main.rs:283 already reads, and keeps lni_socket and lni_gate for the readers in main.rs:688 and trust.rs, which are outside this task. committed_height = sequencer.block_number(); the anchor precompile (0x...1014) answers latestFinalized() (exists must be true) and checkpoint(batchNumber), whose status must be 2, finalizedHeight at most committed_height and stateRoot non-zero (modules/layerxanchor/types/state.go:79). The session fields the export used (head.chain_sequence, head.sealed_batch, head.finalised_checkpoint, canonical_header, checkpoint_bytes, context_bytes, set_version, interface_version, sequencer_authorization) become committed_height, batchNumber, the checkpointId word, and the raw return data of the checkpoint call."
+symbols = ["Session", "Record", "read_dynamic", "export_dynamic"]
 
 [capability.8.98.5]
 title = "Migrate the core callers of wiring.J44.20 (wave 2)"
@@ -115499,9 +115598,40 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.12.35.11]
+title = "Log recovered RPC handler panics with their stack and prove the standalone primary receipts a signed transfer through the send path"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["5.5.4", "12.35.9"]
+reqs = ["5087.1"]
+capabilities = ["12.35.11"]
+interfaces = []
+do_1 = "Finding 12.35.4.17: attempt 20 of 12.35.4 fails its one-wei transfer with 'method handler crashed' and the node log carries nothing of the panic. In rpc/utils.go recordMetricsWithError (:474-488) logs the panic before re-raising it: logger.Error('rpc handler panicked', 'method', apiMethod, 'panic', fmt.Sprint(panicValue), 'stack', string(debug.Stack())) through the package logger (rpc/filter.go:35; runtime/debug is already imported at rpc/utils.go:11), so every evmrpc method using the helper leaves the stack in the node log."
+do_2 = "In rpc/server.go export a thin wrapper func (o SequencerOption) SendConfig(config evmrpcconfig.Config) (*SendConfig, error) over sendConfig(config, nil) (:71), so a test can build the production SendConfig (accepter, pending feed, receipt log feed) from evmrpc.NewSequencerOption(n.Accepter, n.ReceiptLogFeed) the way node_start.go:124 wires it. Add TestStandalonePrimaryReceiptsTransferThroughSendAPI to node/sequencer/standalone_primary_test.go: newNodeHarness (node_test.go:124) with a funded sender, NewNode with an empty StandbyAddress, n.Start(ctx), a SendAPI built as rpc/send_sequencer_test.go:172-190 builds one but with that SendConfig, a signed one-wei legacy transfer from the sender (the sendSeqTransfer shape at send_sequencer_test.go:200-215, chain id from the keeper), api.SendRawTransaction(ctx, raw) returning the transaction hash and no error, n.ReceiptSource.SequencerSend(hash) answering a send whose receipt verifies under the receipt key (verify.ReceiptSignature) with the sender's nonce, and the pending feed emitting the hash. The test must fail with the handler's panic and stack when the path panics."
+do_3 = "Fix the panic inside the touches. Check in order: recordReceiptLogs (rpc/send.go:316-345) reading s.keeper.GetTransientReceipt at s.ctxProvider(PendingCtxHeight) on a node whose open block is set by n.App.SetOpenBlock; Accepter.send (node/sequencer/accepter.go:70-96) calling a.r.evm.GetTransientReceipt with acc.ReceiptContext and evmReturnData(acc.Result.Data) for a plain transfer; the standalone Release path of Replicator (node/sequencer/standby.go) returning an Ack the Accepter dereferences; and the pending feed. Keep TestSendSequencerReturnsAfterReceipt and TestSendSequencerUsesExecutedGas (rpc/send_sequencer_test.go) passing. If the fix needs a file outside the touches, stop and record the finding with the logged stack. One build, one verify."
+symbols = ["recordMetricsWithError", "SequencerOption", "SendAPI", "Accepter", "Replicator", "TestStandalonePrimaryReceiptsTransferThroughSendAPI"]
+touches = ["rpc/utils.go", "rpc/server.go", "rpc/send.go", "node/sequencer/accepter.go", "node/sequencer/standby.go", "node/sequencer/node_start.go", "node/sequencer/standalone_primary_test.go", "rpc/send_sequencer_test.go"]
+tests = ["node/sequencer/standalone_primary_test.go::TestStandalonePrimaryReceiptsTransferThroughSendAPI", "node/sequencer/standalone_primary_test.go::TestNodeStartsPrimaryWithoutStandbyAddress", "rpc/send_sequencer_test.go::TestSendSequencerReturnsAfterReceipt", "rpc/send_sequencer_test.go::TestSendSequencerUsesExecutedGas"]
+planned_paths = []
+build_cmd = "go build ./rpc/... ./node/sequencer/..."
+verify_cmd = "go test -count=1 ./node/sequencer/ -run '^(TestStandalonePrimaryReceiptsTransferThroughSendAPI|TestNodeStartsPrimaryWithoutStandbyAddress)$' && go test -count=1 ./rpc/ -run '^(TestSendSequencerReturnsAfterReceipt|TestSendSequencerUsesExecutedGas)$'"
+gate_kind = "existing"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the files in touches; recovered handler panics are again reported without their stack and the standalone send path is again untested in process."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2148: continue from attempt 1 (8f77fc1b2), which is complete apart from the harness. In newSendSeqHarness store consensus params with Block.MaxGasWanted = 50_000_000 before the first FinalizeBlock, the way node/genesis_sequenced_test.go:51-53 does. Change nothing else. Build once and verify once; if an rpc test still fails, its message now names the send path, so record the exact assertion in the finding."
+
 [task.9.99.1]
 title = "Disclose the layerxauth recordLifecycle call as a Governance activity in the call decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["2.96.1"]
@@ -115529,9 +115659,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.99.2]
+title = "Match the AuthLifecycle disclosure method in the agent creation lifecycle binding"
+status = "pending"
+mode = "BUILD"
+wave = 19
+requires = ["9.99.1"]
+reqs = ["8955.1"]
+capabilities = ["9.99.2"]
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-service/src/agents/create.rs add the arm Some(layerx_crypto::disclosure::call::ConstructMethod::AuthLifecycle { payload, .. }) => (payload, layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION) to the bound_activity match on disclosure.construct_method() (:558-612 on main) directly after the PayBudgetCreate arm (:580), leaving the LedgerSend arm, the grouped canonical_payload arm and the None refusal exactly as they are; idempotency_key is not read here because the disclosure's signing digest already binds it (decision 2146). Change nothing else. Build once and verify once."
+symbols = ["bound_activity", "ConstructMethod"]
+touches = ["services/human/crates/layerx-human-service/src/agents/create.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
+verify_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the file in touches; the human service library fails to build against the disclosure decoder again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.2.96.1]
 title = "Add recordLifecycle to the layerxauth precompile so DID and recovery registrations execute through the kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = []
@@ -115542,7 +115700,7 @@ do_1 = "The layerxauth keeper already executes any 0x71-tagged governance payloa
 do_2 = "Add recordLifecycle(bytes payload, bytes32 idempotencyKey) returns (uint64 globalSequence), nonpayable, to precompiles/layerxauth/abi.json; register authHandlers['recordLifecycle'] in precompiles/layerxauth/lifecycle.go (planned) following grantCapability (precompiles/layerxauth/grants.go:70-80): resolve the arguments, call p.keeper.RecordLifecycle, return the receipt's GlobalSequence ABI-packed, RevertError on failure; add the GasTable row {Write: true, Surcharge: 36680} (precompiles/layerxauth/gas.go); extend TestAuthABIMethods (precompiles/layerxauth/abi_test.go:12) with the method's name, signature, selector, mutability, inputs and outputs and TestAuthSurfaceFrozen (surface_test.go:14) and TestAuthGasTable (gas_test.go:10) with the new row."
 do_3 = "Add TestPrecompileRecordLifecycleRegistersDid to precompiles/layerxauth/lifecycle_test.go (planned) on the harness of precompiles/layerxauth/harness_test.go: bind a caller address to an owner DID the way grants_test.go:177 does, encode an ordinal-1 variant-0 payload (0x71, 1, 0, 2 then the 64 payload bytes the kernel decoder expects for a new DID identity key), call recordLifecycle through Execute, assert a non-zero global sequence and that the host's ReadIdentitySequence for the registered DID succeeds afterwards; then call recordLifecycle with an ordinal-5 payload and assert the ErrNonCanonical revert. If the kernel refuses the registration because the actor differs from the registered DID, record the kernel result code as a finding and keep the ordinal-3 and refusal assertions. One build, one verify."
 symbols = ["RecordLifecycle", "recordLifecycle", "GasTable", "TestPrecompileRecordLifecycleRegistersDid"]
-touches = ["precompiles/layerxauth/abi.json", "precompiles/layerxauth/abi_test.go", "precompiles/layerxauth/gas.go", "precompiles/layerxauth/lifecycle.go", "precompiles/layerxauth/lifecycle_test.go", "modules/layerxauth/keeper/lifecycle.go"]
+touches = ["precompiles/layerxauth/abi.json", "precompiles/layerxauth/abi_test.go", "precompiles/layerxauth/gas.go", "precompiles/layerxauth/lifecycle.go", "precompiles/layerxauth/lifecycle_test.go", "modules/layerxauth/keeper/lifecycle.go", "precompiles/layerxauth/gas_test.go", "precompiles/layerxauth/surface_test.go"]
 tests = ["precompiles/layerxauth/lifecycle_test.go::TestPrecompileRecordLifecycleRegistersDid", "precompiles/layerxauth/abi_test.go::TestAuthABIMethods", "precompiles/layerxauth/gas_test.go::TestAuthGasTable", "precompiles/layerxauth/surface_test.go::TestAuthSurfaceFrozen"]
 planned_paths = ["precompiles/layerxauth/lifecycle.go", "precompiles/layerxauth/lifecycle_test.go", "modules/layerxauth/keeper/lifecycle.go"]
 build_cmd = "CGO_ENABLED=1 go build ./precompiles/layerxauth/... ./modules/layerxauth/..."
@@ -115558,10 +115716,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
 [task.12.35.10]
 title = "Acknowledge replicated groups on WAL durability so a pending commit cannot time the primary out"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.5.4", "12.35.5", "12.35.8"]
@@ -115591,7 +115750,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.35.9]
 title = "Run the sequencer primary without a standby when no standby address is configured"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.5.4", "12.35.8"]
@@ -141792,11 +141951,11 @@ do_2 = "Add no_kernel_custody_reads_in_core to services/platform/hosted/core/tes
 do_3 = "Remove the LAYERX_CORE_LNI_SOCKET read at services/platform/hosted/core/src/main.rs:349 and the variable at node/deployment.yaml:432 once no code path reads it (8.18.1 do_2 keeps it until this task); if a reader remains, stop and record it."
 do_4 = "Change nothing under services/agent and weaken no scan; layerx-platform-core and layerx-node-probe build and the retired_client_modules_w2 target passes both scans."
 symbols = ["no_kernel_custody_reads_in_core"]
-touches = ["services/platform/hosted/core/src/lib.rs", "services/platform/hosted/core/tests/retired_client_modules_w2.rs", "services/platform/hosted/core/src/main.rs", "node/deployment.yaml", "services/platform/hosted/node/tests/probe/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs", "services/platform/hosted/core/src/public_reads.rs"]
+touches = ["services/platform/hosted/core/src/lib.rs", "services/platform/hosted/core/tests/retired_client_modules_w2.rs", "services/platform/hosted/core/src/main.rs", "services/platform/hosted/node/tests/probe/src/main.rs", "services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs", "services/platform/hosted/core/src/public_reads.rs", "tools/bringup/value-loop.sh"]
 tests = ["services/platform/hosted/core/tests/retired_client_modules_w2.rs"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --tests && cargo build --locked --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml -p layerx-node-probe && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
-verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --test retired_client_modules_w2 && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test retired_client_modules"
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --tests && cargo build --locked --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml -p layerx-node-probe"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --test retired_client_modules_w2"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -141816,6 +141975,39 @@ do_9 = "Decision 2095: attempts 1 to 3 (f558a861c and 25e68910b among them) fail
 do_10 = "Decision 2104: attempt 5 of 8.98.14 (00ead836d) and attempt 6 of 8.98.3 (6a83e2d41) fail the authority test build because tests/support/lifecycle_dispatch.rs:171-173 call_fixture includes the receipt-programs-positive-v3.json fixture that 8.47.5 deleted (finding.8.98.14.2). Whichever of 8.98.3 and 8.98.14 publishes first deletes call_fixture (:171-195) and its only consumer call_outcome_cannot_be_reclassified_as_state (:262-274); module_offset (:198) stays for malformed_state_module_version_and_signature_are_refused (:235) and the verify_outcome import for the deploy test at :214-217. If main already lacks call_fixture, this line is satisfied."
 do_11 = "Decision 2125: held for the owner's ruling. When it lands, continue from attempt 7 (a41a80ed3): the custody profile record read and the three services/platform/hosted/core/src/public_reads.rs reads move to the ruled rpc surface, and only then do the FrameTransport parameters at lib.rs:451, :511 and :575 go."
 do_12 = "Decision 2133: the owner's ruling do_11 waited for has landed. Continue from attempt 7 (a41a80ed3): move node_info, sequence and receipt_event (services/platform/hosted/core/src/public_reads.rs:289, :335, :448) to the twins the decision lists, point custody_read (services/platform/hosted/core/src/lib.rs:588) at rpc::module_state::module_state with verify_module_evidence unchanged, give read_custody_profile and read_custody_asset the (&SequencerEndpoint, network_id, &PxNetworkHead, ...) signatures and update the two probe callers (probe main.rs:493, :550); only then remove the FrameTransport parameters at lib.rs:451, :511 and :575 and the connect_raw, lookup_receipt_selector and receipt_facts helpers. Keep the response keys the decision names so tests/retired_client_modules_w2.rs and the authority retired_client_modules test pass as declared. Build once, verify once."
+do_13 = "Decision 2140: continue from attempt 8 (f2cf54eb5), keeping its public_reads.rs port and the receipt key lookup. In lib.rs replace read_custody_profile, read_custody_asset and custody_read with the eth_call reads decision 2140 spells out (getAsset on 0x...1013, latestFinalized and checkpoint on 0x...1014, selectors by keccak of the canonical signatures, ABI tuple decoding as described), remove the kernel record helpers, and take the sequencer endpoint, network endpoint, network id and committed height instead of the FrameTransport and ReadContext. In main.rs replace the socket receipt wait with await_receipt over rpc::receipt::lookup_authenticated, remove the lni imports and LAYERX_CORE_LNI_SOCKET, and keep receipt_facts on layerx_proof and layerx_wire. Port the two probe custody steps to --rpc and --trust-anchor, and update the write-asset-send branch of tools/bringup/value-loop.sh. Add a lib.rs unit test that pins the three selectors and decodes a hand-built getAsset return tuple with a non-empty denom. Build once and verify once; if either scan still names a retired path, record the exact line in the finding and stop."
+do_14 = "Decision 2144: continue from attempt 9 (10566c3cc), which is complete for this task's scope. Revert the one-line 'read' addition to services/platform/hosted/authority/tests/retired_client_modules.rs so the authority is untouched, keep everything else of attempt 9, and verify with the core scan only. The authority budget reader is task 8.98.15."
+do_15 = "Finding 8.98.14.7: continue from attempt 10 (f38f93171); the code is complete and both scans pass. The touches no longer list node/deployment.yaml, so no file outside attempt 10's changes is expected. Rebase, build once and verify once."
+
+[task.8.98.15]
+title = "Port the authority budget reader onto the node's JSON-RPC and retire its LNI session"
+status = "pending"
+mode = "BUILD"
+wave = 34
+requires = ["8.98.14", "8.98.4"]
+reqs = ["8954.1"]
+capabilities = ["8.98.15"]
+interfaces = []
+do_1 = "Decision 2145. Session (services/platform/hosted/authority/src/human/budget_state.rs:60-110) replaces the Uds connection and handshake with sequencer: SequencerEndpoint::new(&config.chain_rpc_url, &[]) and network: PxEndpoint::new over the same URL (services/agent/crates/layerx-client/src/sequencer.rs:252, px.rs:103; a plain http URL takes no anchors); Config (src/main.rs:88-103) gains chain_rpc_url: String from the LAYERX_AUTHORITY_CHAIN_RPC_URL main.rs:283 already reads, and keeps lni_socket and lni_gate for the readers in main.rs:688 and trust.rs, which are outside this task. committed_height = sequencer.block_number(); the anchor precompile (0x...1014) answers latestFinalized() (exists must be true) and checkpoint(batchNumber), whose status must be 2, finalizedHeight at most committed_height and stateRoot non-zero (modules/layerxanchor/types/state.go:79). The session fields the export used (head.chain_sequence, head.sealed_batch, head.finalised_checkpoint, canonical_header, checkpoint_bytes, context_bytes, set_version, interface_version, sequencer_authorization) become committed_height, batchNumber, the checkpointId word, and the raw return data of the checkpoint call."
+do_2 = "Budget. module(3, key) and Record::decode are replaced by getBudget(budget_id) and budgetRemaining(budget_id) on the layerxpay precompile (address 0x...101B, precompiles/layerxpay/layerxpay.go:28) through SequencerEndpoint::call_at(committed_height, ...) with selectors computed as rpc/module_state.rs:3 computes them; the return of getBudget is one tuple (offset word, then owner, budgetAccount, assetId, purposeHash as bytes32, perPeriodLimit, configuredPeriodLimit, carryCap, spentThisPeriod, carried as uint128 words, periodLengthMs, periodStartMs, expiryMs, revocationSequence as uint64 words, rolloverPolicy, closed, revoked, the delegates offset and sourceAccount, with the bytes32[] at its offset). Record keeps its fields: id = budget_id, owner, account = budgetAccount, asset = assetId, source = Some(sourceAccount) unless zero or equal to owner, limit = perPeriodLimit, spent = spentThisPeriod, period_start = periodStartMs, expiry = expiryMs, revocation = revocationSequence, closed, revoked; a zero owner means the budget does not exist and answers the refusal the missing module record answers today; remaining comes from budgetRemaining instead of Record::remaining. Identity. identity(did) and dynamic.rs current() (:115-140) drop the LXGI1 record decode and the authority_key comparison, which have no node twin, and instead require network.account(did) (px_getAccount, services/agent/crates/layerx-client/src/px.rs:107) to answer a layerx join whose accounts array holds an entry with a bound evm_address and a layerx_account equal to the record's owner (current(): equal to subject.account_id); the account checks of current() that the join answers (kind, frozen, asset) are kept from the join's fields and those with no field are dropped and listed in the finding. accounts() reads the owner, budget and source balances of record.asset from network.balances(hex account) (px_getBalances) in place of session.account."
+do_3 = "Export. read_dynamic and export_dynamic (services/platform/hosted/authority/src/human/budget_state.rs:468-491) answer schema layerx.human.budget-proof.v2: budget_state keeps its keys with remaining from budgetRemaining, accounts and identity_key stay, head becomes {batch_number, committed_height, checkpoint_id}, finality becomes {batch_number, checkpoint_id, state_root, finalized_height, status}, and proofs becomes {budget_call, remaining_call, checkpoint_call, account_join} holding the hex raw return data of the three calls and the px_getAccount answer; lni_interface_version goes. services/platform/hosted/authority/tests/retired_client_modules.rs adds 'read' to its retired list (its only remaining user is this file). The test support module in tests/support that answers the authority's node reads gains eth_blockNumber, eth_call (getBudget, budgetRemaining, latestFinalized, checkpoint by selector), px_getAccount and px_getBalances arms, and services/platform/hosted/authority/tests/human_tls.rs budget-state and budget-proof cases (:407, :503) and services/platform/hosted/authority/tests/budget_proof_exports.rs move to the v2 keys; the corpus test stays gated on its environment variable. One build, one verify; a node answer the design above does not cover is a finding, not a workaround."
+symbols = ["Session", "Record", "identity_key", "read_dynamic", "export_dynamic"]
+touches = ["services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/src/human/budget_state/record.rs", "services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/tests/human_tls.rs", "services/platform/hosted/authority/tests/budget_proof_exports.rs", "services/platform/hosted/authority/tests/support/human_unit.rs", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs"]
+tests = ["services/platform/hosted/authority/tests/retired_client_modules.rs", "services/platform/hosted/authority/tests/human_tls.rs", "services/platform/hosted/authority/tests/budget_proof_exports.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test retired_client_modules --test human_tls --test budget_proof_exports"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the files in touches; the authority budget reader again opens an LNI session for module reads."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.9.0.1]
 title = "Add Rung and RungStatus to the agent-api verify contract beside Level"
@@ -147321,7 +147513,7 @@ title = "Integrate intent plan, submit and send signing with EIP-1559 transactio
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.20.3", "10.11.5", "10.15.4", "10.7.1", "9.1.8", "18.1119.1", "18.1186.1", "10.2.8", "18.1297.1"]
+requires = ["10.20.3", "10.11.5", "10.15.4", "10.7.1", "9.1.8", "18.1119.1", "18.1186.1", "10.2.8", "18.1297.1", "9.99.2"]
 reqs = ["10040.1", "10040.2"]
 capabilities = ["10.7.2"]
 interfaces = ["interface.10.rs-human-service-journeys-intent-submit-start-kernel-journey"]
@@ -147330,11 +147522,11 @@ do_2 = "`execute_intent_plan` (services/human/crates/layerx-human-service/src/se
 do_3 = "Read the native send purpose signature at services/human/crates/layerx-human-service/src/server/production_components.rs:8875 through `sign_native_send_purpose` (services/human/crates/layerx-human-kms/src/attestor.rs:1100), which stays."
 do_4 = "Create services/human/crates/layerx-human-service/tests/intent_plan_evm.rs (planned) driving intent.plan and intent.submit through a real `Router` over `ProductionComponents` opened in a temp directory."
 symbols = ["start_kernel_journey", "execute_intent_plan", "intent_plan_json", "sign_send_now"]
-touches = ["services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs", "services/human/crates/layerx-human-service/src/custody/evm.rs", "services/human/crates/layerx-human-service/tests/agent_controls.rs", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs", "services/human/crates/layerx-human-service/src/custody/mod.rs"]
+touches = ["services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs", "services/human/crates/layerx-human-service/src/custody/evm.rs", "services/human/crates/layerx-human-service/tests/agent_controls.rs", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs", "services/human/crates/layerx-human-service/src/custody/mod.rs", "services/human/schema/human-api/intent.kvx", "services/human/schema/human-api/baseline.kvx"]
 tests = ["services/human/crates/layerx-human-service/tests/intent_plan_evm.rs::intent_plan_answers_eip1559_legs", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs::intent_submit_records_each_leg_tx_hash"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/intent_plan_evm.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test intent_plan_evm -- --exact intent_plan_answers_eip1559_legs intent_submit_records_each_leg_tx_hash"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test intent_plan_evm -- --exact intent_plan_answers_eip1559_legs intent_submit_records_each_leg_tx_hash && cargo test --locked --manifest-path services/human/tools/schema-check/Cargo.toml --test conformance"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -147359,6 +147551,9 @@ do_12 = "Decision 2112: attempt 5 (40dd6adae) fails both tests at tests/intent_p
 do_13 = "Decision 2126: continue from attempt 6 (b4ad3a357). In services/human/crates/layerx-human-service/tests/intent_plan_evm.rs replace RealAgentLayer::start (:125-265 of that tree, LAYERX_AGENT_HUMAN_NODE_LNI, the authority endpoint, bearer and CA) with an in-process peer bound to the LAYERX_HUMAN_AGENT_SOCKET path the fixture sets, built as tests/agent_runtime_eip1559.rs:174-249 Peer::serve builds it: a UnixListener thread, read_frame and layerx_agentd::human::decode_request in, encode_response and write_frame out, one match arm per HumanRequest variant the intent.plan and intent.submit paths send (Subject, Registry, Prepare, Submit, Track, Head and whatever execute_intent_plan at src/server/production_components.rs:4449 and the submit path ask for; an unexpected variant panics with its name), answering with the receipt and signed-leg logic of tests/intent_submit.rs RealAgentLayer. Keep the attempt 6 changes to production_components.rs, custody/evm.rs and intent_submit.rs. Build once and verify once."
 do_14 = "Decision 2130: continue from attempt 7 (12846c417). Both tests fail inside Fixture::open (tests/intent_plan_evm.rs:740-775 of that tree), not in the plan or submit routes. Rewrite the per-subject block of bootstrap as decision 2130 orders: generate_key(wallet-<subject>, secp256k1, subject, '') on the attestor support and derive the address with layerx_crypto::secp256k1::evm_address; compute the primary key id from keystore.binding(..)?.digest() (make Keystore::binding pub at src/custody/mod.rs:944, a visibility change only); approve_generate(&key_id, 'ed25519', subject); kms.create_owned_key(&keystore, &principal, &key, subject, &wallet_address) with the wallet address as the account instead of 0x..a1; approve_sign(&key_id, &public); kms.admit_assertion; assert_eq!(keystore.evm_wallet(&principal, &key)?, wallet_address). Add approve_generate(&mut self, key_id: &str, curve: &str, owner: &str) and approve_sign(&mut self, key_id: &str, public_key: &[u8]) to services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs by splitting the inventory bookkeeping of generate_key (:649-653 and :735-740) exactly as 18.1151.1 do_4 specifies, with generate_key calling both and every other test of that file unchanged. Change no attestor code and no policy. If a test still fails, include the attestor support's logs() and kms.last_refusal_code() in the failure text so the refusing check is named. Keep every attempt 7 change to production_components.rs, custody/evm.rs, intent_submit.rs and agent_controls.rs. Build once and verify once."
 do_15 = "Decision 2132: continue from attempt 8 (1ba15e3ad), keeping the wallet bootstrap, the movement listener and every attempt 7 change. Add the served-request recording and the poison-tolerant ENVIRONMENT guard to tests/intent_plan_evm.rs as decision 2132 (1) specifies, then bisect the plan route's 403 along the emitters decision 2132 (2) lists, correcting the daemon, node or gateway double so it reports what the real peers report; do not relax a production check. Build once and verify once."
+do_16 = "Decision 2139: continue from attempt 9 (0de777956), keeping the wallet bootstrap, the served-request recording, the durable onboarding bootstrap and the trace-envelope handling. Rewrite the px_getBalances arm of the gateway double (tests/intent_plan_evm.rs:506-509 of that tree) to the shape decision 2139 spells out: look the queried 0x address up in state.identities, answer the bound identity with layerx_did and layerx_account for a known wallet and bound false otherwise, give every balances row asset_id, denom, custody, paxeer and layerx, and send joined_limit as a JSON integer. Change no production code. If the plan route still answers 503, the next emitter in call order after get_balances is intent_node().bound_address at :4624; print the gateway double's last answer in the assertion text and bisect from there. Build once and verify once."
+do_17 = "Decision 2142: continue from attempt 10 (bd2ffdb5f), keeping the gateway double's joined-shape answer and the diagnostics in the assertion text. Add intent_observation_key(plan_digest, session_id) next to plan_intent in production_components.rs returning RowKey::new of intent-observation-<hex of sha256(plan_digest || sha256(session_id.as_bytes()))>, and use it at both the plan write (:4489-4493 on main) and the submit read (:4517-4528), keeping the existing error mappings. Change nothing else in production. If a 503 remains, the next emitters in order are scope.put at :4499 (unavailable) and the submit path's intent_failure mapping; print the failing step in the assertion text and bisect from there. Build once and verify once."
+do_18 = "Decision 2147: continue from attempt 11 (3240d5abd), keeping the observation key helper, the SerialClock and the gateway double. Add the optional list decision 2147 spells out to [type.IntentLeg] in services/human/schema/human-api/intent.kvx, then regenerate services/human/schema/human-api/baseline.kvx with the refresh command recorded in its [manifest] so the conformance test's additions-beyond-baseline count stays zero. Task 9.99.2, which this task now requires, restores the human service build on main; rebase onto a main that carries it. Change no production Rust. If a 503 remains, the schema refusal text names the undeclared key or the mistyped value; print the response body in the assertion text and bisect from there. Build once and verify once."
 
 [task.10.0.4]
 title = "Report retired operations from the client generator and pin the regenerated client"
@@ -159569,7 +159764,7 @@ title = "Start the in-tree node as a sequencer primary with a standby for local 
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["5.98.2", "18.1299.1", "18.1307.1", "12.35.5", "12.35.6", "12.35.7", "12.35.8", "12.35.9"]
+requires = ["5.98.2", "18.1299.1", "18.1307.1", "12.35.5", "12.35.6", "12.35.7", "12.35.8", "12.35.9", "12.35.11"]
 reqs = ["12035.3"]
 capabilities = []
 interfaces = []
@@ -159609,6 +159804,7 @@ do_16 = "tools/qualification/localnode/v6120-node.sh writes LOCAL_NODE_HOME=%q o
 do_17 = "Continue from attempt 16 (63dda2164): the test now fails at v6120_test.go:243 with ErrNoAck from node/sequencer/standby.go:42 on the send path. Make sequencer_evidence and the failing test's Cleanup print the standby's node.log replication and sequencer lines as well as the primary's; confirm the standby address the primary dials (--sequencer.standby-address) is the replication listener the standby's configuration opens; record in the closing report whether the standby received the group and why it did not acknowledge within --sequencer.replication-timeout, and fix the fixture accordingly (decision.2053); a cause in node/sequencer is recorded in qualification.kvx with file and line and the task stops. Build once and verify once."
 do_18 = "Decision 2097: attempt 18 (110c9d81f) fails with 'send one-wei transfer: method handler crashed' (v6120_test.go:286); the standby proposes every fourth height and fails with 'no sealed layer' at the same seconds the primary's acknowledgement reads time out (finding.12.35.4.15). Keep the standby as the second sequencer leader but out of the validator set: no bonded validator entry, no power and no genesis.validators entry for it (v6120-node.sh:428-441 and the identity check :478-491 follow), so consensus never asks it to seal. The test prints every node.log and standby.log line containing 'crashed' or 'panic' with the forty lines after it, and the standby and node start with the rpc logger at error level reaching their logs. If the acknowledgement timeouts persist with a non-proposing standby, or the sequencer module refuses a leader outside the validator set, record one qualification entry naming the node/sequencer file and line and stop; no further fixture-only attempt follows. Continue from attempt 18, build once and verify once."
 do_19 = "Decision 2134: continue from attempt 19 (ef91a499c). --sequencer now starts the primary alone: delete the standby home initialisation (v6120-node.sh:249-251 of that tree), make the genesis leaders list [primary] and drop the standby identity check (:401-434), drop --sequencer.standby-address from SEQUENCER_ARGS (:569-572) and leave --sequencer.replication-timeout and --sequencer.lease-duration, delete the standby start (:573-577), the replication-listener check (:598-629) and the standby readiness and env lines (:645-660, :678 onward) including LOCAL_NODE_STANDBY_RPC and LOCAL_NODE_STANDBY_PROFILE_RPC; the primary runs with the empty standby address task 12.35.9 admits. In v6120_test.go remove the standby endpoint requirement and dial (:212-219, :243-250 of that tree) and the standby.log and standby-goroutines.txt collection (:150, :186); keep the crashed/panic log printing of do_18. If the primary refuses to start without a standby address, 12.35.9 is not at this task's base: stop and record the finding. Build once, verify once."
+do_20 = "Decision 2143: continue from attempt 20 (a82d45b6d) once task 12.35.11 is at this task's base; change nothing in v6120-node.sh or v6120_test.go beyond what attempt 20 holds. Build once and verify once. If 'method handler crashed' recurs, node.log now carries the 'rpc handler panicked' line with the stack: quote it in the finding and stop."
 
 [task.12.95.1]
 title = "Generate the attestor kernel vectors from the ledger call builders"
@@ -196608,7 +196804,7 @@ title = "Issue #1272: Admit call-sourced disclosures in the agent creation prepa
 status = "pending"
 mode = "BUILD"
 wave = 20
-requires = ["10.13.5", "2.96.1", "9.99.1"]
+requires = ["10.13.5", "2.96.1", "9.99.1", "9.99.2"]
 reqs = ["181272.1"]
 capabilities = []
 interfaces = []
@@ -196637,6 +196833,7 @@ do_5 = "Decision 2074: attempt 4 (db8b2e34f) panics at tests/agent_create.rs:100
 do_6 = "Decision 2089: attempt 5 (18134ca48) panics at tests/agent_create.rs:21:38 with 'canonical owner encoding: Refused(invalid signed lifecycle transaction)': the test's inline mod canonical_owner (:1-70) still signs kernel EnvelopeBuilder bytes, while production bound_activity (src/agents/create.rs:522-600) decode_signed's an EVM transaction (:534-536), recovers the sender, binds the call and reads the payload from the LedgerSend or PayBudgetCreate call data. Delete the inline module and include tests/support/canonical_owner.rs with #[path] as tests/agent_controls.rs does; its sign_transaction(payload, action_key, version, network) (:65-115) already builds and signs the budgetCreate call for the Budget module, so the BudgetCreation and BudgetFunding stages use it as is. Extend sign_transaction with an arm for the Governance module that builds the ledger send(bytes) call to 0x101a carrying the payload followed by the 6-byte scope (network id, protocol version), the form agent_controls_rungs.rs raw_transaction builds for (Asset, 5) and production reads from LedgerSend; the DidRegistration and RecoveryRegistration stages use that arm. tests/support/canonical_owner.rs joins touches; its signature does not change, so agent_controls.rs, agent_creation_rungs.rs and agent_controls_rungs.rs keep compiling. Continue from attempt 5, build once and verify once."
 do_7 = "Decision 2102 withdraws decision 2089's Governance arm: attempt 6 (570af0da6) built the ledger send(bytes) call carrying the Governance payload and bind_call refuses it with MalformedPayload, because decode_method (layerx-crypto src/disclosure/call.rs:315-320) admits send(bytes) to 0x101a only when decode_send (src/disclosure.rs:293) decodes an Asset send, decode_method handles only 0x101a, 0x101b and the bank send (:241, :349, :387), and the ledger precompile exposes no lifecycle method; production bound_activity's LedgerSend arm (src/agents/create.rs:562-579, task 10.97.1) is therefore unreachable, and no EIP-1559 transaction carries the DidRegistration or RecoveryRegistration payload of an agent creation (finding.18.1272.1.1). The test does not change on this instruction and no attempt runs until a task provides the lifecycle construct; the Budget stages keep sign_transaction as attempt 6 left them."
 do_8 = "Decision 2135: continue from attempt 6 (570af0da6). Replace the ledger send(bytes) construction of the Governance arm in prepare_lifecycle_intent (src/server/agent_creation.rs:578 of that tree) and in sign_transaction of tests/support/canonical_owner.rs (:79-83 of that tree) with a call to 0x000000000000000000000000000000000000101C, calldata = the recordLifecycle(bytes,bytes32) selector, the compiled Governance payload as the dynamic bytes argument and the intent's idempotency key as the bytes32 argument; add the ConstructMethod::AuthLifecycle arm to bound_activity (services/human/crates/layerx-human-service/src/agents/create.rs:562-579) answering (payload, layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION); keep the KeyRotation, EvmPayoutBinding and budget arms as attempt 6 left them. If decode_method has no AuthLifecycle variant at this task's base, 9.99.1 is missing: stop and record the finding. Build once, verify once."
+do_9 = "Decision 2146: continue from attempt 7 (fd5a06e21), whose files are complete; the AuthLifecycle arm of bound_activity is added by task 9.99.2, which this task now requires, so do not edit create.rs. Rebase onto a main that carries 9.99.2, then build once and verify once."
 
 [req.181272]
 title = "Agent creation admits a preparation whose disclosure is bind_call of its unsigned EIP-1559 call"
