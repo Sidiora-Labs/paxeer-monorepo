@@ -71,6 +71,10 @@ func NewSequencerOption(accepter SequencerAccepter, feed *ReceiptLogFeed) Sequen
 	}
 }
 
+func (o SequencerOption) SendConfig(config evmrpcconfig.Config) (*SendConfig, error) {
+	return o.sendConfig(config, nil)
+}
+
 // sendConfig configures the sequencer, forwarding or mempool send path of a server.
 func (o *SequencerOption) sendConfig(config evmrpcconfig.Config, forward *SequencerForwardOption) (*SendConfig, error) {
 	if o != nil && forward != nil {
