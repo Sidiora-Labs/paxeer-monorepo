@@ -164926,7 +164926,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.23.3]
 title = "Retire the live anchors and receipts routes and answer 404 under /paxeer-x"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["14.23.2", "14.32.1", "8.6.1", "16.96.7", "17.97.2"]
