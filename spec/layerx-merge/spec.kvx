@@ -170351,7 +170351,7 @@ do_5 = "Continue from attempt 3 (62e527d10): keep its Dockerfile edits and test,
 
 [task.16.3.6]
 title = "Remove the movement role and provider binary from the human service image"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["16.0.4", "10.0.4"]
