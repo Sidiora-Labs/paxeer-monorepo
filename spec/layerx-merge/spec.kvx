@@ -125166,7 +125166,7 @@ do_4 = "At 8b60a0084 the v7.0 handler panicked 'missing merge constructors or ac
 
 [task.6.34.1]
 title = "Return LXP_MODULE_DISABLED from an unwired layerxAnchor and drop the keeper AnchorReader"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.32.2", "6.0.3", "5.7.1", "5.7.2", "5.7.5"]
