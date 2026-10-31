@@ -1,28 +1,21 @@
 mod caps_reads;
 mod chain_fund;
-mod program_accounts;
-mod program_lifecycle;
 mod public_reads;
-mod withdrawal;
 
 use layerx_client::client::{Client, ClientConfig, ReconnectPolicy};
 use layerx_client::lni::handshake::{perform, Handshake, HandshakeConfig};
-use layerx_client::lni::program_read::{ProgramReadError, ProgramReadResult};
 use layerx_client::lni::refusal::decode_core_refusal;
 use layerx_client::lni::schema::{decode_envelope, encode_envelope, Capability, Envelope, Version};
-use layerx_client::lni::simulate::SimulateError;
 use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
 use layerx_client::read::ReadError;
-use layerx_client::submit::{Submission, SubmitError};
 use layerx_platform_core::{
-    asset_registry, build_send_with_signer, did_for_public_key, fixed_hex, hex_decode, hex_encode,
-    main_account, SendError, SendRequest, SocketSigner, TreasurySigner as _,
+    asset_registry, did_for_public_key, fixed_hex, hex_decode, hex_encode, main_account, SendError,
+    SocketSigner, TreasurySigner as _,
 };
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::{verify_outcome, AuthorizedBatch};
 use layerx_proof::state::decode_account_value;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_types::program_call::NativeProgramCall;
 use layerx_types::verify::VerificationLevel;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::server::WebPkiClientVerifier;
@@ -131,12 +124,6 @@ struct FundingCommand {
     did: String,
     public_key: String,
     amount: u64,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ActivityBody {
-    activity: String,
 }
 
 #[derive(Deserialize, serde::Serialize)]
@@ -695,17 +682,6 @@ fn receipt_facts(bytes: &[u8], sequencer_key: [u8; 32]) -> Result<ReceiptFacts, 
         protocol.resulting_state_root(),
         sequencer_key,
     );
-    if protocol.module_id() == 9 && protocol.operation() == 0 {
-        program_lifecycle::verify_receipt(bytes, &authorised, protocol.activity_id())?;
-        return Ok(ReceiptFacts {
-            activity_id: protocol.activity_id(),
-            batch_id: protocol.batch_id(),
-            global_sequence: protocol.global_sequence(),
-            result_code: protocol.result_code(),
-            state_root: protocol.resulting_state_root(),
-            canonical: bytes.to_vec(),
-        });
-    }
     let verified = verify_outcome(bytes, &authorised)
         .map_err(|error| format!("receipt verification failed: {error:?}"))?;
     let receipt = verified
@@ -810,8 +786,10 @@ fn submission_decode_registry() -> Result<ModuleRegistry, String> {
     registry_with_asset_ordinals(&ordinals)
 }
 
+use validate_fee_payload as validate_submission_payload;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum SubmissionValidationError {
+enum FeePayloadValidationError {
     AssetOrdinalReserved,
     InvalidAssetActivity,
     InvalidProgramCall,
@@ -819,7 +797,7 @@ enum SubmissionValidationError {
     InvalidProgramLifecycle,
 }
 
-impl SubmissionValidationError {
+impl FeePayloadValidationError {
     fn response(self) -> Response {
         match self {
             Self::AssetOrdinalReserved => refusal(422, "asset_ordinal_reserved", None),
@@ -833,468 +811,122 @@ impl SubmissionValidationError {
     }
 }
 
-fn validate_submission_payload(
+fn validate_fee_payload(
     canonical: &[u8],
     activity: &layerx_wire::activity::Activity,
     registry: &ModuleRegistry,
-) -> Result<(), SubmissionValidationError> {
+) -> Result<(), FeePayloadValidationError> {
     let module = activity.activity_type().module();
     let ordinal = activity.activity_type().ordinal();
     if module == ModuleId::Asset {
         if ordinal == 9 {
-            return Err(SubmissionValidationError::AssetOrdinalReserved);
+            return Err(FeePayloadValidationError::AssetOrdinalReserved);
         }
         let unsigned = layerx_wire::activity::encode_unsigned(activity)
-            .map_err(|_| SubmissionValidationError::InvalidAssetActivity)?;
+            .map_err(|_| FeePayloadValidationError::InvalidAssetActivity)?;
         layerx_crypto::disclosure::bind(&unsigned, registry)
             .map(|_| ())
-            .map_err(|_| SubmissionValidationError::InvalidAssetActivity)?;
+            .map_err(|_| FeePayloadValidationError::InvalidAssetActivity)?;
     } else if module == ModuleId::Programs {
         if ordinal == 3 {
-            NativeProgramCall::decode(activity.payload())
-                .map_err(|_| SubmissionValidationError::InvalidProgramCall)?;
+            layerx_types::program_call::NativeProgramCall::decode(activity.payload())
+                .map_err(|_| FeePayloadValidationError::InvalidProgramCall)?;
         } else if matches!(ordinal, 5 | 6) {
             let unsigned = layerx_wire::activity::encode_unsigned(activity)
-                .map_err(|_| SubmissionValidationError::InvalidProgramAccountOperation)?;
+                .map_err(|_| FeePayloadValidationError::InvalidProgramAccountOperation)?;
             layerx_crypto::disclosure::bind(&unsigned, registry)
-                .map_err(|_| SubmissionValidationError::InvalidProgramAccountOperation)?;
-            program_accounts::validate(ordinal, activity.payload())
-                .map_err(|()| SubmissionValidationError::InvalidProgramAccountOperation)?;
+                .map_err(|_| FeePayloadValidationError::InvalidProgramAccountOperation)?;
+            validate_fee_program_account(ordinal, activity.payload())
+                .map_err(|()| FeePayloadValidationError::InvalidProgramAccountOperation)?;
         } else {
-            program_lifecycle::validate(canonical, registry, ordinal)
-                .map_err(|_| SubmissionValidationError::InvalidProgramLifecycle)?;
+            validate_fee_program_lifecycle(canonical, registry, ordinal)
+                .map_err(|_| FeePayloadValidationError::InvalidProgramLifecycle)?;
         }
     }
     Ok(())
 }
 
-fn submit_activity(
-    config: &Config,
+fn validate_fee_program_account(ordinal: u16, payload: &[u8]) -> Result<(), ()> {
+    if payload.len() < 32 || payload[..32] == [0; 32] {
+        return Err(());
+    }
+    match ordinal {
+        5 => {
+            let count = payload.get(32..34).ok_or(())?;
+            let count = usize::from(u16::from_be_bytes([count[0], count[1]]));
+            if count == 0 || count > 256 || payload.len() != 34 + count * 112 {
+                return Err(());
+            }
+        }
+        6 => {
+            if payload.get(32..37) != Some(b"LXPA1") || payload.get(37..69).ok_or(())? == [0; 32] {
+                return Err(());
+            }
+            let length: [u8; 4] = payload.get(69..73).ok_or(())?.try_into().map_err(|_| ())?;
+            let length = u32::from_be_bytes(length);
+            if length > 128 || payload.len() != 73 + usize::try_from(length).map_err(|_| ())? {
+                return Err(());
+            }
+        }
+        _ => return Err(()),
+    }
+    Ok(())
+}
+
+fn validate_fee_lifecycle_payload(ordinal: u16, payload: &[u8]) -> Result<[u8; 32], String> {
+    let invalid = |_| "invalid canonical program lifecycle payload".to_owned();
+    let (program_id, encoded) = match ordinal {
+        1 => {
+            let value = layerx_types::program_lifecycle::NativeProgramDeploy::decode(payload)
+                .map_err(invalid)?;
+            if <[u8; 32]>::from(Sha256::digest(value.wasm)) != value.new_hash {
+                return Err("program Wasm hash mismatch".to_owned());
+            }
+            (value.program_id.bytes(), value.encode().map_err(invalid)?)
+        }
+        2 => {
+            let value = layerx_types::program_lifecycle::NativeProgramUpgrade::decode(payload)
+                .map_err(invalid)?;
+            if <[u8; 32]>::from(Sha256::digest(value.wasm)) != value.new_hash {
+                return Err("program Wasm hash mismatch".to_owned());
+            }
+            (value.program_id.bytes(), value.encode().map_err(invalid)?)
+        }
+        7 => {
+            let value = layerx_types::program_lifecycle::NativeProgramWindDown::decode(payload)
+                .map_err(invalid)?;
+            (value.program_id.bytes(), value.encode().map_err(invalid)?)
+        }
+        _ => return Err("unsupported program lifecycle ordinal".to_owned()),
+    };
+    if encoded != payload {
+        return Err("noncanonical program lifecycle payload".to_owned());
+    }
+    Ok(program_id)
+}
+
+fn validate_fee_program_lifecycle(
     canonical: &[u8],
-    program_ordinal: Option<u16>,
-) -> Result<Response, Response> {
-    let total_started = Instant::now();
-    let validate_started = Instant::now();
-    let decode_registry =
-        submission_decode_registry().map_err(|_| refusal(503, "registry_unavailable", Some(5)))?;
-    let activity = layerx_wire::activity::decode_signed(canonical, &decode_registry)
-        .map_err(|_| refusal(400, "invalid_activity", None))?;
-    if let Some(ordinal) = program_ordinal {
-        if activity.activity_type().module() != ModuleId::Programs
-            || activity.activity_type().ordinal() != ordinal
-            || activity.protocol_version() != 3
-        {
-            return Err(refusal(400, "program_route_mismatch", None));
-        }
-    }
-    let registry = if activity.activity_type().module() == ModuleId::Asset
-        && activity.activity_type().ordinal() == 9
-    {
-        withdrawal::registry(config, &activity)?
-    } else {
-        validate_submission_payload(canonical, &activity, &decode_registry)
-            .map_err(SubmissionValidationError::response)?;
-        submission_registry().map_err(|_| refusal(503, "registry_unavailable", Some(5)))?
-    };
-    pay_timing("core.submit.validate", validate_started);
-    let signer = signer_key(activity.authority())
-        .ok_or_else(|| refusal(400, "authority_unsupported", None))?;
-    let connect_started = Instant::now();
-    let mut client = connect_client(config).map_err(|error| {
-        eprintln!("layerx-core-boundary: {error}");
-        refusal(503, "node_unavailable", Some(5))
-    })?;
-    pay_timing("core.submit.connect_handshake", connect_started);
-    let admission_started = Instant::now();
-    let submission = client
-        .submit_signed(&registry, signer, 1, 1, canonical)
-        .map_err(|error| match error {
-            SubmitError::CoreRefusal { class, result } => {
-                eprintln!(
-                    "layerx-core-boundary: submission refused class {class} result {}",
-                    result.raw()
-                );
-                refusal(422, "submission_refused", None)
-            }
-            SubmitError::UnavailableCapability => refusal(503, "capability_unavailable", Some(30)),
-            SubmitError::Disconnected => refusal(503, "node_unavailable", Some(5)),
-            _ => refusal(400, "invalid_activity", None),
-        })?;
-    pay_timing("core.submit.admission", admission_started);
-    drop(client);
-    let activity_id = match submission {
-        Submission::Acknowledged(acknowledgement) => acknowledgement.activity_id(),
-        Submission::Unknown(unknown) => unknown.activity_id(),
-    };
-    let receipt_started = Instant::now();
-    let result = match await_receipt(config, activity_id, config.receipt_deadline) {
-        Ok(Some(facts)) => {
-            if program_ordinal.is_some_and(|ordinal| matches!(ordinal, 1 | 2 | 7)) {
-                Ok(success(&serde_json::json!({
-                    "state": if facts.result_code == 0 { "completed" } else { "refused" },
-                    "activity_id": hex_encode(&facts.activity_id), "receipt": hex_encode(&facts.canonical),
-                    "terminal_payload": "", "call_graph": "",
-                })))
-            } else {
-                Ok(success(&receipt_result(&facts)))
-            }
-        }
-        Ok(None) => Ok(json_response(
-            202,
-            &serde_json::json!({
-                "ok": true,
-                "result": { "state": "pending", "activity_id": hex_encode(&activity_id) },
-                "trace": next_trace(),
-            }),
-        )),
-        Err(error) => {
-            eprintln!("layerx-core-boundary: {error}");
-            Err(refusal(503, "receipt_unavailable", Some(5)))
-        }
-    };
-    pay_timing("core.submit.receipt", receipt_started);
-    pay_timing("core.submit.total", total_started);
-    result
-}
-
-fn simulate_activity(config: &Config, canonical: &[u8]) -> Result<Response, Response> {
-    let registry =
-        submission_registry().map_err(|_| refusal(503, "registry_unavailable", Some(5)))?;
-    let activity = layerx_wire::activity::decode_signed(canonical, &registry)
-        .map_err(|_| refusal(400, "invalid_activity", None))?;
-    if activity.activity_type().module() != ModuleId::Programs
-        || activity.activity_type().ordinal() != 3
-    {
-        return Err(refusal(400, "not_program_call", None));
-    }
-    let call = NativeProgramCall::decode(activity.payload())
-        .map_err(|_| refusal(400, "invalid_program_call", None))?;
-    let expected_activity_id = layerx_wire::hash::activity_id(&activity)
-        .map_err(|_| refusal(400, "invalid_activity", None))?;
-    let mut client = connect_client(config).map_err(|error| {
-        eprintln!("layerx-core-boundary: {error}");
-        refusal(503, "node_unavailable", Some(5))
-    })?;
-    let sequencer_key = client.handshake().node().authorised_sequencer_key;
-    let simulation = client
-        .simulate(&registry, canonical, 1)
-        .map_err(|error| match error {
-            SimulateError::CoreRefusal { class, result } => {
-                eprintln!(
-                    "layerx-core-boundary: simulation refused class {class} result {}",
-                    result.raw()
-                );
-                if class == 3 {
-                    refusal(503, "capability_unavailable", Some(30))
-                } else {
-                    refusal(422, "simulation_refused", None)
-                }
-            }
-            SimulateError::UnavailableCapability | SimulateError::InterfaceVersion(_) => {
-                refusal(503, "capability_unavailable", Some(30))
-            }
-            SimulateError::Disconnected | SimulateError::Transport(_) => {
-                refusal(503, "node_unavailable", Some(5))
-            }
-            SimulateError::MalformedRequest => refusal(400, "invalid_activity", None),
-            other => {
-                eprintln!("layerx-core-boundary: simulation unverifiable: {other:?}");
-                refusal(503, "node_unavailable", Some(5))
-            }
-        })?;
-    drop(client);
-    if simulation.execution.activity_id != expected_activity_id {
-        return Err(refusal(503, "node_unavailable", Some(5)));
-    }
-    let receipt = layerx_proof::receipt::verify_sequencer_signature(
-        &simulation.execution.receipt,
-        sequencer_key,
-    )
-    .map_err(|_| refusal(503, "node_unavailable", Some(5)))?;
-    let protocol = receipt
-        .protocol()
-        .ok_or_else(|| refusal(503, "node_unavailable", Some(5)))?;
-    let state = if protocol.result_code() == 0 {
-        "simulated"
-    } else {
-        "refused"
-    };
-    Ok(success(&serde_json::json!({
-        "committed": false,
-        "execution": {
-            "state": state,
-            "activity_id": hex_encode(&simulation.execution.activity_id),
-            "program_id": hex_encode(&call.callee().bytes()),
-            "result_code": protocol.result_code(),
-            "receipt": hex_encode(&simulation.execution.receipt),
-            "terminal_payload": hex_encode(&simulation.execution.terminal_payload),
-            "call_graph": hex_encode(&simulation.execution.call_graph),
-        },
-        "simulation_evidence": {
-            "boundary_id": hex_encode(&simulation.evidence.boundary_id),
-            "activity_id": hex_encode(&simulation.evidence.activity_id),
-            "previous_state_root": hex_encode(&simulation.evidence.previous_state_root),
-            "hypothetical_state_root": hex_encode(&simulation.evidence.hypothetical_state_root),
-            "observed_sequence": simulation.evidence.observed_sequence.to_string(),
-            "observed_at": simulation.evidence.observed_at.to_string(),
-            "committed": false,
-            "public_key": hex_encode(&simulation.evidence.public_key),
-            "signature": hex_encode(&simulation.evidence.signature),
-        }
-    })))
-}
-
-struct ProgramReadFreshness {
-    minimum_sequence: u64,
-    expected_state_root: Option<[u8; 32]>,
-}
-
-fn program_read_freshness(request: &Request) -> Result<ProgramReadFreshness, Response> {
-    let minimum_sequence =
-        request
-            .headers
-            .get("layerx-minimum-sequence")
-            .map_or(Ok(0), |value| {
-                if value.is_empty()
-                    || (value.len() > 1 && value.starts_with('0'))
-                    || !value.bytes().all(|byte| byte.is_ascii_digit())
-                {
-                    return Err(refusal(400, "invalid_minimum_sequence", None));
-                }
-                value
-                    .parse::<u64>()
-                    .map_err(|_| refusal(400, "invalid_minimum_sequence", None))
-            })?;
-    let expected_state_root = request
-        .headers
-        .get("layerx-expected-state-root")
-        .map(|value| {
-            if value.bytes().any(|byte| byte.is_ascii_uppercase()) {
-                return Err(refusal(400, "invalid_expected_state_root", None));
-            }
-            fixed_hex::<32>("expected state root", value)
-                .ok()
-                .filter(|root| *root != [0; 32])
-                .ok_or_else(|| refusal(400, "invalid_expected_state_root", None))
-        })
-        .transpose()?;
-    Ok(ProgramReadFreshness {
-        minimum_sequence,
-        expected_state_root,
-    })
-}
-
-fn program_read_response(
-    result: &ProgramReadResult,
-    program_id: [u8; 32],
-    result_code: i32,
-) -> Response {
-    success(&serde_json::json!({
-        "committed": false,
-        "read_only": true,
-        "execution": {
-            "state": if result_code == 0 { "read" } else { "refused" },
-            "activity_id": hex_encode(&result.execution.activity_id),
-            "program_id": hex_encode(&program_id),
-            "result_code": result_code,
-            "receipt": hex_encode(&result.execution.receipt),
-            "receipt_kind": "hypothetical",
-            "terminal_payload": hex_encode(&result.execution.terminal_payload),
-            "call_graph": hex_encode(&result.execution.call_graph),
-        },
-        "simulation_evidence": {
-            "boundary_id": hex_encode(&result.evidence.boundary_id),
-            "activity_id": hex_encode(&result.evidence.activity_id),
-            "previous_state_root": hex_encode(&result.evidence.previous_state_root),
-            "hypothetical_state_root": hex_encode(&result.evidence.hypothetical_state_root),
-            "observed_sequence": result.evidence.observed_sequence.to_string(),
-            "observed_at": result.evidence.observed_at.to_string(),
-            "committed": false,
-            "public_key": hex_encode(&result.evidence.public_key),
-            "signature": hex_encode(&result.evidence.signature),
-        },
-        "snapshot": {
-            "minimum_sequence": result.snapshot.minimum_sequence.to_string(),
-            "observed_sequence": result.snapshot.observed_sequence.to_string(),
-            "state_root": hex_encode(&result.snapshot.state_root),
-            "verification": "sequencer_signed_snapshot",
-        }
-    }))
-}
-
-fn program_read_activity(
-    config: &Config,
-    canonical: &[u8],
-    freshness: ProgramReadFreshness,
-) -> Result<Response, Response> {
-    let registry =
-        submission_registry().map_err(|_| refusal(503, "registry_unavailable", Some(5)))?;
-    let activity = layerx_wire::activity::decode_signed(canonical, &registry)
-        .map_err(|_| refusal(400, "invalid_activity", None))?;
-    if activity.activity_type().module() != ModuleId::Programs
-        || activity.activity_type().ordinal() != 3
-    {
-        return Err(refusal(400, "not_program_call", None));
-    }
-    let call = NativeProgramCall::decode(activity.payload())
-        .map_err(|_| refusal(400, "invalid_program_call", None))?;
-    let expected_activity_id = layerx_wire::hash::activity_id(&activity)
-        .map_err(|_| refusal(400, "invalid_activity", None))?;
-    let mut client = connect_client(config).map_err(|error| {
-        eprintln!("layerx-core-boundary: {error}");
-        refusal(503, "node_unavailable", Some(5))
-    })?;
-    let sequencer_key = client.handshake().node().authorised_sequencer_key;
-    let result = client
-        .read_program(
-            &registry,
-            canonical,
-            1,
-            freshness.minimum_sequence,
-            freshness.expected_state_root,
-        )
-        .map_err(|error| match error {
-            ProgramReadError::SnapshotStale => refusal(409, "snapshot_stale", Some(1)),
-            ProgramReadError::SnapshotMismatch => refusal(409, "snapshot_mismatch", None),
-            ProgramReadError::CoreRefusal { class, result } => {
-                eprintln!(
-                    "layerx-core-boundary: program read refused class {class} result {}",
-                    result.raw()
-                );
-                if class == 3 {
-                    refusal(503, "capability_unavailable", Some(30))
-                } else {
-                    refusal(422, "program_read_refused", None)
-                }
-            }
-            ProgramReadError::UnavailableCapability | ProgramReadError::InterfaceVersion(_) => {
-                refusal(503, "capability_unavailable", Some(30))
-            }
-            ProgramReadError::CanonicalActivity | ProgramReadError::MalformedRequest => {
-                refusal(400, "invalid_activity", None)
-            }
-            ProgramReadError::Disconnected | ProgramReadError::Transport(_) => {
-                refusal(503, "node_unavailable", Some(5))
-            }
-            other => {
-                eprintln!("layerx-core-boundary: program read unverifiable: {other:?}");
-                refusal(503, "node_unavailable", Some(5))
-            }
-        })?;
-    drop(client);
-    if result.execution.activity_id != expected_activity_id {
-        return Err(refusal(503, "node_unavailable", Some(5)));
-    }
-    let receipt =
-        layerx_proof::receipt::verify_sequencer_signature(&result.execution.receipt, sequencer_key)
-            .map_err(|_| refusal(503, "node_unavailable", Some(5)))?;
-    let protocol = receipt
-        .protocol()
-        .ok_or_else(|| refusal(503, "node_unavailable", Some(5)))?;
-    Ok(program_read_response(
-        &result,
-        call.callee().bytes(),
-        protocol.result_code(),
-    ))
-}
-
-fn program_read_route(config: &Config, request: &Request) -> Response {
-    let freshness = match program_read_freshness(request) {
-        Ok(freshness) => freshness,
-        Err(response) => return response,
-    };
-    let canonical = match request.headers.get("content-type").map(String::as_str) {
-        Some("application/octet-stream") => request.body.clone(),
-        Some("application/json") => {
-            let Ok(body) = serde_json::from_slice::<ActivityBody>(&request.body) else {
-                return refusal(400, "invalid_argument", None);
-            };
-            match hex_decode(&body.activity) {
-                Ok(bytes) => bytes,
-                Err(_) => return refusal(400, "invalid_argument", None),
-            }
-        }
-        _ => return refusal(400, "content_type_required", None),
-    };
-    if canonical.is_empty() || canonical.len() > LNI_FRAME_BYTES {
-        return refusal(400, "invalid_argument", None);
-    }
-    match program_read_activity(config, &canonical, freshness) {
-        Ok(response) | Err(response) => response,
-    }
-}
-
-fn simulate_route(config: &Config, request: &Request) -> Response {
-    let canonical = match request.headers.get("content-type").map(String::as_str) {
-        Some("application/octet-stream") => request.body.clone(),
-        Some("application/json") => {
-            let Ok(body) = serde_json::from_slice::<ActivityBody>(&request.body) else {
-                return refusal(400, "invalid_argument", None);
-            };
-            match hex_decode(&body.activity) {
-                Ok(bytes) => bytes,
-                Err(_) => return refusal(400, "invalid_argument", None),
-            }
-        }
-        _ => return refusal(400, "content_type_required", None),
-    };
-    if canonical.is_empty() || canonical.len() > LNI_FRAME_BYTES {
-        return refusal(400, "invalid_argument", None);
-    }
-    match simulate_activity(config, &canonical) {
-        Ok(response) | Err(response) => response,
-    }
-}
-
-fn activities_route(config: &Config, request: &Request) -> Response {
-    let total_started = Instant::now();
-    let decode_started = Instant::now();
-    let ordinal = program_lifecycle::ordinal(&request.path)
-        .or_else(|| (request.path == "/v1/programs/call").then_some(3));
-    if program_lifecycle::ordinal(&request.path).is_some()
-        && request.headers.get("content-type").map(String::as_str)
-            != Some("application/octet-stream")
-    {
-        return refusal(415, "activity_content_type_required", None);
-    }
-    let canonical = match request.headers.get("content-type").map(String::as_str) {
-        Some("application/octet-stream") => request.body.clone(),
-        Some("application/json") => {
-            let Ok(body) = serde_json::from_slice::<ActivityBody>(&request.body) else {
-                return refusal(400, "invalid_argument", None);
-            };
-            match hex_decode(&body.activity) {
-                Ok(bytes) => bytes,
-                Err(_) => return refusal(400, "invalid_argument", None),
-            }
-        }
-        _ => return refusal(400, "content_type_required", None),
-    };
+    registry: &ModuleRegistry,
+    expected_ordinal: u16,
+) -> Result<[u8; 32], String> {
     if canonical.is_empty() || canonical.len() > 1_048_576 {
-        return refusal(400, "invalid_argument", None);
+        return Err("signed program activity exceeds its bound".to_owned());
     }
-    if ordinal.is_some() {
-        let Some(key) = request.headers.get("idempotency-key") else {
-            return refusal(400, "idempotency_key_required", None);
-        };
-        let Ok(registry) = submission_registry() else {
-            return refusal(503, "registry_unavailable", Some(5));
-        };
-        let Ok(activity) = layerx_wire::activity::decode_signed(&canonical, &registry) else {
-            return refusal(400, "invalid_activity", None);
-        };
-        if key != &hex_encode(&activity.idempotency_key()) {
-            return refusal(409, "protocol_idempotency_mismatch", None);
-        }
+    let activity = layerx_wire::activity::decode_signed(canonical, registry)
+        .map_err(|_| "invalid signed program activity".to_owned())?;
+    if layerx_wire::activity::encode_signed(&activity)
+        .map_err(|_| "invalid canonical program activity".to_owned())?
+        != canonical
+    {
+        return Err("noncanonical signed program activity".to_owned());
     }
-    pay_timing("core.activity.decode", decode_started);
-    let submit_started = Instant::now();
-    let response = match submit_activity(config, &canonical, ordinal) {
-        Ok(response) | Err(response) => response,
-    };
-    pay_timing("core.activity.submit", submit_started);
-    pay_timing("core.activity.total", total_started);
-    response
+    let expected = ActivityType::new(ModuleId::Programs, expected_ordinal)
+        .map_err(|_| "invalid program ordinal".to_owned())?;
+    if activity.protocol_version() != 3 || activity.activity_type() != expected {
+        return Err("program activity does not match route and protocol".to_owned());
+    }
+    validate_fee_lifecycle_payload(expected_ordinal, activity.payload())
 }
 
 fn receipt_route(config: &Config, activity_hex: &str) -> Response {
@@ -1658,49 +1290,6 @@ fn protocol_route(config: &Config, request: &Request) -> Response {
         ("GET", "/livez") => json_response(200, &serde_json::json!({ "live": true })),
         ("GET", "/readyz") => readiness(config),
         ("GET", "/v1/sequencer") => sequencer_route(config),
-        (
-            "POST",
-            "/v1/activities"
-            | "/v1/programs/call"
-            | "/v1/programs/deploy"
-            | "/v1/programs/upgrade"
-            | "/v1/programs/wind-down",
-        ) => {
-            if let Some(ordinal) = program_lifecycle::ordinal(path) {
-                if request.headers.get("content-type").map(String::as_str)
-                    != Some("application/octet-stream")
-                {
-                    return refusal(415, "activity_content_type_required", None);
-                }
-                let Some(key) = request.headers.get("idempotency-key") else {
-                    return refusal(400, "idempotency_key_required", None);
-                };
-                let Ok(registry) = submission_registry() else {
-                    return refusal(503, "registry_unavailable", Some(5));
-                };
-                let Ok(activity) = layerx_wire::activity::decode_signed(&request.body, &registry)
-                else {
-                    return refusal(400, "invalid_activity", None);
-                };
-                if activity.activity_type().module() != ModuleId::Programs
-                    || activity.activity_type().ordinal() != ordinal
-                    || activity.protocol_version() != 3
-                {
-                    return refusal(400, "program_route_mismatch", None);
-                }
-                if program_lifecycle::validate(&request.body, &registry, ordinal).is_err() {
-                    return refusal(400, "invalid_program_lifecycle", None);
-                }
-                if key != &hex_encode(&activity.idempotency_key()) {
-                    return refusal(409, "protocol_idempotency_mismatch", None);
-                }
-            }
-            stateful(config, "activities", request, || {
-                activities_route(config, request)
-            })
-        }
-        ("POST", "/v1/programs/read") => program_read_route(config, request),
-        ("POST", "/v1/programs/simulate") => simulate_route(config, request),
         ("GET", "/v1/state") => wrapped_relay_route(
             config,
             &Request {
@@ -1714,20 +1303,9 @@ fn protocol_route(config: &Config, request: &Request) -> Response {
         ("GET", other) if other.starts_with("/v1/receipts/") => {
             receipt_route(config, &other["/v1/receipts/".len()..])
         }
-        (
-            _,
-            "/livez"
-            | "/readyz"
-            | "/v1/sequencer"
-            | "/v1/activities"
-            | "/v1/programs/call"
-            | "/v1/programs/deploy"
-            | "/v1/programs/upgrade"
-            | "/v1/programs/wind-down"
-            | "/v1/programs/read"
-            | "/v1/programs/simulate"
-            | "/v1/state",
-        ) => refusal(405, "method_not_allowed", None),
+        (_, "/livez" | "/readyz" | "/v1/sequencer" | "/v1/state") => {
+            refusal(405, "method_not_allowed", None)
+        }
         _ => refusal(404, "not_found", None),
     }
 }
@@ -1889,12 +1467,11 @@ fn stateful(
     }
     match prior {
         Ok(Some(entry)) if entry.request_digest == digest => {
-            if (entry.status == 202 && program_lifecycle::ordinal(&request.path).is_some())
-                || (matches!(scope, "fund" | "reset")
-                    && (entry.status == 202
-                        || entry.status == 409
-                        || entry.status >= 500
-                        || entry.retry_after.is_some()))
+            if matches!(scope, "fund" | "reset")
+                && (entry.status == 202
+                    || entry.status == 409
+                    || entry.status >= 500
+                    || entry.retry_after.is_some())
             {
                 if journal_write(&path, &entry).is_err() {
                     return refusal(503, "journal_unavailable", Some(5));
@@ -3033,248 +2610,6 @@ fn main() {
     if let Err(error) = config().and_then(platform_core) {
         eprintln!("layerx-core-boundary: {error}");
         std::process::exit(2);
-    }
-}
-
-#[cfg(test)]
-mod admission_tests {
-    use super::{
-        submission_decode_registry, submission_registry, validate_submission_payload,
-        SubmissionValidationError, ASSET_SUBMISSION_ORDINALS, PROGRAM_SUBMISSION_ORDINALS,
-    };
-    use ed25519_dalek::{Signer, SigningKey};
-    use layerx_platform_core::{build_send, treasury_did, SendRequest};
-    use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBound};
-    use layerx_types::amount::Amount;
-    use layerx_types::ids::{Did, IdempotencyKey};
-    use layerx_types::payload::{ActivityType, ModuleId, Payload};
-
-    const ACTOR: &str = "did:layerx:alice";
-    const ASSET_FIXTURES: [(u16, &str); 7] = [
-        (
-            1,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-1.hex"),
-        ),
-        (
-            4,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-4.hex"),
-        ),
-        (
-            6,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-6.hex"),
-        ),
-        (
-            7,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-7.hex"),
-        ),
-        (
-            8,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-8.hex"),
-        ),
-        (
-            10,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-10.hex"),
-        ),
-        (
-            11,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-11.hex"),
-        ),
-    ];
-    const PROGRAM_PAYMENT_FIXTURES: [(u16, &str); 2] = [
-        (
-            5,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/9-5.hex"),
-        ),
-        (
-            6,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/9-6.hex"),
-        ),
-    ];
-
-    fn required<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
-        result.unwrap_or_else(|error| panic!("{error:?}"))
-    }
-
-    fn hex(value: &str) -> Vec<u8> {
-        value
-            .trim()
-            .as_bytes()
-            .chunks_exact(2)
-            .map(|pair| {
-                let digits = std::str::from_utf8(pair).unwrap_or_else(|error| panic!("{error}"));
-                u8::from_str_radix(digits, 16).unwrap_or_else(|error| panic!("{error}"))
-            })
-            .collect()
-    }
-
-    fn signed(module: ModuleId, ordinal: u16, payload_bytes: &[u8], actor: &str) -> Vec<u8> {
-        let key = SigningKey::from_bytes(&[42; 32]);
-        let registry = required(submission_decode_registry());
-        let activity_type = required(ActivityType::new(module, ordinal));
-        let payload = required(Payload::new(&registry, activity_type, payload_bytes));
-        let payload_hash = required(layerx_wire::hash::payload_hash_for(&payload));
-        let mut builder = EnvelopeBuilder::new();
-        required(
-            builder
-                .protocol_version(layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION)
-                .and_then(|value| value.network_id(17))
-                .and_then(|value| value.activity_type(activity_type))
-                .and_then(|value| value.actor_did(required(Did::new(actor.as_bytes()))))
-                .and_then(|value| {
-                    value.authority(required(Authority::owner(&key.verifying_key().to_bytes())))
-                })
-                .and_then(|value| value.account_sequence(7))
-                .and_then(|value| value.timestamp_bound(required(TimestampBound::new(1, u64::MAX))))
-                .and_then(|value| value.idempotency_key(IdempotencyKey::new([0x71; 32])))
-                .and_then(|value| value.fee_limit(Amount::from_u128(1_000_000)))
-                .and_then(|value| value.payload_hash(payload_hash))
-                .and_then(|value| value.payload(payload)),
-        );
-        let unsigned = required(builder.build());
-        let preimage = required(layerx_wire::sign::preimage_unsigned(&unsigned));
-        let signature = key.sign(preimage.as_bytes()).to_bytes();
-        required(layerx_wire::activity::encode_signed_envelope(
-            &unsigned.attach_signature(required(Signature::new(&signature))),
-        ))
-    }
-
-    fn validate(canonical: &[u8]) -> Result<(), SubmissionValidationError> {
-        let registry = required(submission_decode_registry());
-        let activity = required(layerx_wire::activity::decode_signed(canonical, &registry));
-        validate_submission_payload(canonical, &activity, &registry)
-    }
-
-    #[test]
-    fn submission_registry_declares_only_executable_asset_and_program_types() {
-        let registry = required(submission_registry());
-        for ordinal in ASSET_SUBMISSION_ORDINALS {
-            assert!(registry.declares(required(ActivityType::new(ModuleId::Asset, ordinal))));
-        }
-        for ordinal in PROGRAM_SUBMISSION_ORDINALS {
-            assert!(registry.declares(required(ActivityType::new(ModuleId::Programs, ordinal))));
-        }
-        for ordinal in [9, 12] {
-            assert!(!registry.declares(required(ActivityType::new(ModuleId::Asset, ordinal))));
-        }
-    }
-
-    #[test]
-    fn every_native_asset_payload_is_strictly_admitted_and_malformed_bytes_are_refused() {
-        for (ordinal, fixture) in ASSET_FIXTURES {
-            let payload = hex(fixture);
-            let canonical = signed(ModuleId::Asset, ordinal, &payload, ACTOR);
-            assert_eq!(validate(&canonical), Ok(()), "Asset ordinal {ordinal}");
-            let malformed = signed(
-                ModuleId::Asset,
-                ordinal,
-                &payload[..payload.len() - 1],
-                ACTOR,
-            );
-            assert_eq!(
-                validate(&malformed),
-                Err(SubmissionValidationError::InvalidAssetActivity),
-                "Asset ordinal {ordinal} malformed body"
-            );
-        }
-
-        let source_seed = [9; 32];
-        let source_did = treasury_did(&source_seed);
-        let send = required(build_send(
-            &source_seed,
-            &SendRequest {
-                network_id: 17,
-                source_did: source_did.clone(),
-                destination_did: treasury_did(&[10; 32]),
-                asset: [3; 32],
-                amount: 1,
-                account_sequence: 7,
-                idempotency_key: [0x71; 32],
-                not_before_ms: 1,
-                expires_at_ms: u64::MAX,
-                fee_limit: 1_000_000,
-            },
-        ));
-        assert_eq!(validate(&send.canonical), Ok(()), "Asset ordinal 5");
-        let registry = required(submission_decode_registry());
-        let activity = required(layerx_wire::activity::decode_signed(
-            &send.canonical,
-            &registry,
-        ));
-        let malformed_payload = &activity.payload()[..activity.payload().len() - 1];
-        let malformed = signed(ModuleId::Asset, 5, malformed_payload, &source_did);
-        assert_eq!(
-            validate(&malformed),
-            Err(SubmissionValidationError::InvalidAssetActivity)
-        );
-    }
-
-    #[test]
-    fn asset_pause_and_unpause_are_admitted_and_malformed_bodies_are_refused() {
-        let registry = required(submission_registry());
-        let mut payload = vec![0x00, 0x01];
-        payload.extend_from_slice(&[7; 32]);
-        for ordinal in [2u16, 3u16] {
-            assert!(registry.declares(required(ActivityType::new(ModuleId::Asset, ordinal))));
-            assert_eq!(
-                validate(&signed(ModuleId::Asset, ordinal, &payload, ACTOR)),
-                Ok(()),
-                "Asset ordinal {ordinal}"
-            );
-            assert_eq!(
-                validate(&signed(
-                    ModuleId::Asset,
-                    ordinal,
-                    &payload[..payload.len() - 1],
-                    ACTOR,
-                )),
-                Err(SubmissionValidationError::InvalidAssetActivity),
-                "Asset ordinal {ordinal} truncated body"
-            );
-            let mut unsupported_version = payload.clone();
-            unsupported_version[1] = 2;
-            assert_eq!(
-                validate(&signed(
-                    ModuleId::Asset,
-                    ordinal,
-                    &unsupported_version,
-                    ACTOR
-                )),
-                Err(SubmissionValidationError::InvalidAssetActivity),
-                "Asset ordinal {ordinal} unsupported payload version"
-            );
-            let mut zero_asset = payload.clone();
-            zero_asset[2..].fill(0);
-            assert_eq!(
-                validate(&signed(ModuleId::Asset, ordinal, &zero_asset, ACTOR)),
-                Err(SubmissionValidationError::InvalidAssetActivity),
-                "Asset ordinal {ordinal} zero asset id"
-            );
-        }
-    }
-
-    #[test]
-    fn reserved_asset_ordinal_and_program_payment_malformations_are_typed() {
-        let reserved = signed(ModuleId::Asset, 9, &[], ACTOR);
-        assert_eq!(
-            validate(&reserved),
-            Err(SubmissionValidationError::AssetOrdinalReserved)
-        );
-        for (ordinal, fixture) in PROGRAM_PAYMENT_FIXTURES {
-            let payload = hex(fixture);
-            assert_eq!(
-                validate(&signed(ModuleId::Programs, ordinal, &payload, ACTOR)),
-                Ok(())
-            );
-            assert_eq!(
-                validate(&signed(
-                    ModuleId::Programs,
-                    ordinal,
-                    &payload[..payload.len() - 1],
-                    ACTOR,
-                )),
-                Err(SubmissionValidationError::InvalidProgramAccountOperation)
-            );
-        }
     }
 }
 

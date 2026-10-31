@@ -1,3 +1,5 @@
+import { fileURLToPath } from "node:url";
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
@@ -11,6 +13,26 @@ const nextConfig = {
     extensionAlias: {
       ".js": [".js", ".ts", ".tsx"],
     },
+  },
+  webpack(config) {
+    config.module.rules.push({
+      include: fileURLToPath(new URL("./src/api/wallet.ts", import.meta.url)),
+      resolve: {
+        alias: {
+          "./gateway.ts$": fileURLToPath(new URL("./src/app/exchange/actions.ts", import.meta.url)),
+        },
+      },
+    });
+    config.module.rules.push({
+      include: fileURLToPath(new URL("../../sdk/wallet/src", import.meta.url)),
+      resolve: {
+        modules: [
+          fileURLToPath(new URL("./node_modules", import.meta.url)),
+          ...config.resolve.modules,
+        ],
+      },
+    });
+    return config;
   },
   async rewrites() {
     const service = process.env.LAYERX_HUMAN_SERVICE_URL;
