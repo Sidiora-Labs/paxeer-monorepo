@@ -61,7 +61,6 @@ def inputs():
             "Makefile",
             "src",
             "include",
-            "cmd/layerxd",
             "modules/sequencer",
             "node/sequencer",
             "rpc",
@@ -72,7 +71,6 @@ def inputs():
             "services/agent/Cargo.lock",
             "services/agent/crates/layerx-client",
             "services/agent/crates/layerx-proof",
-            "services/agent/crates/layerx-wire",
             "services/agent/crates/layerx-types",
             "services/agent/crates/layerx-crypto",
             "programs/Cargo.toml",
@@ -139,7 +137,7 @@ def build(arguments, evidence):
     source = inputs()
     native_make = evidence / "build-native.mk"
     native_make.write_text(""".PHONY: paxeer-x-replay-catalogue-build
-paxeer-x-replay-catalogue-build: layerxd $(BUILD_DIR)/tests/lxp_test_replay_catalogue
+paxeer-x-replay-catalogue-build: $(BUILD_DIR)/tests/lxp_test_replay_catalogue
 $(BUILD_DIR)/tests/lxp_test_replay_catalogue: tests/daemon/lxp_test_replay_catalogue.c tests/programs/test_call_activity.c $(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 \t@mkdir -p $(@D)
 \t$(CC) $(CPPFLAGS) $(CFLAGS) -Icmd/layerxd $< $(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) -lssl -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
@@ -171,7 +169,6 @@ $(BUILD_DIR)/tests/lxp_test_replay_catalogue: tests/daemon/lxp_test_replay_catal
     arguments.native = (
         "/root/lx-target/arbiter-prestate/native/tests/lxp_test_replay_catalogue"
     )
-    arguments.daemon = "/root/lx-target/arbiter-prestate/native/bin/layerxd"
     command = [
         *shlex.split(arguments.cargo),
         "test",
@@ -231,7 +228,6 @@ $(BUILD_DIR)/tests/lxp_test_replay_catalogue: tests/daemon/lxp_test_replay_catal
             "revision": revision,
             "inputs": source,
             "native": artifact(arguments.native),
-            "daemon": artifact(arguments.daemon),
             "rust": artifact(executables.pop()),
         },
     )
@@ -257,7 +253,6 @@ def qualify(evidence):
     ):
         raise RuntimeError("declared artifacts do not bind current source")
     native, rust = checked(manifest["native"]), checked(manifest["rust"])
-    checked(manifest["daemon"])
     fixture = Path(tempfile.mkdtemp(prefix="lxp-arbiter-transport-"))
     os.chown(fixture, 0, 65534)
     fixture.chmod(0o750)
@@ -386,7 +381,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", action="store_true")
     parser.add_argument("--native")
-    parser.add_argument("--daemon")
     parser.add_argument("--cargo", default="cargo")
     arguments = parser.parse_args()
     evidence = evidence_directory()

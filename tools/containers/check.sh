@@ -42,7 +42,6 @@ platform-faucet|docker/platform-faucet/Dockerfile|services/platform/hosted/fauce
 platform-gateway|docker/platform-gateway/Dockerfile|services/platform/hosted/gateway/Dockerfile|.
 platform-identity|docker/platform-identity/Dockerfile|services/platform/hosted/identity/Dockerfile|.
 platform-internal|docker/platform-internal/Dockerfile|services/platform/hosted/internal/Dockerfile|.
-platform-node|docker/platform-node/Dockerfile|services/platform/hosted/node/Dockerfile|.
 paxeer|docker/paxeer/Dockerfile|services/platform/hosted/paxeer/Dockerfile|.
 paxeer|docker/paxeer/Dockerfile.paxd|services/platform/hosted/paxeer/Dockerfile.paxd|.
 paxeer|docker/paxeer/Dockerfile.paxd-node|services/platform/hosted/paxeer/Dockerfile.paxd-node|.
@@ -75,7 +74,6 @@ IGNORES='
 layerx|docker/layerx/Dockerfile.dockerignore|Dockerfile.dockerignore
 wallet-pwa|docker/wallet-pwa/Dockerfile.dockerignore|apps/wallet/.dockerignore
 web|docker/web/Dockerfile.dockerignore|apps/web/Dockerfile.dockerignore
-platform-node|docker/platform-node/Dockerfile.dockerignore|services/platform/hosted/node/Dockerfile.dockerignore
 explorer-frontend|docker/explorer-frontend/Dockerfile.dockerignore|apps/explorer/.dockerignore
 explorer-sig-provider|docker/explorer-sig-provider/Dockerfile.dockerignore|services/explorer/services/sig-provider/.dockerignore
 explorer-smart-contract-verifier|docker/explorer-smart-contract-verifier/Dockerfile.dockerignore|services/explorer/services/smart-contract-verifier/.dockerignore

@@ -284,32 +284,6 @@ lxp_result lx_budget_delegate_spend_decode(
     return LXP_OK;
 }
 
-lxp_result lx_budget_pull_decode(const uint8_t *bytes, size_t length,
-                                 lx_budget_pull_payload *payload)
-{
-    lx_budget_pull_payload value;
-    lx_budget_delegate_spend_payload spend;
-    lxp_result status;
-    if (bytes == NULL || payload == NULL ||
-        length != (size_t)LX_BUDGET_PULL_PAYLOAD_BYTES)
-        return LXP_ERR_NON_CANONICAL;
-    status = lx_budget_delegate_spend_decode(
-        bytes, (size_t)LX_BUDGET_DELEGATE_SPEND_PAYLOAD_BYTES, &spend);
-    if (status != LXP_OK) return status;
-    (void)memset(&value, 0, sizeof(value));
-    value.encoding_version = spend.encoding_version;
-    (void)memcpy(value.budget_id, spend.budget_id, 32U);
-    (void)memcpy(value.recipient, spend.recipient, 32U);
-    value.amount = spend.amount;
-    (void)memcpy(value.idempotency_key, spend.idempotency_key, 32U);
-    status = lxp_payer_grant_decode(
-        bytes + LX_BUDGET_DELEGATE_SPEND_PAYLOAD_BYTES,
-        length - (size_t)LX_BUDGET_DELEGATE_SPEND_PAYLOAD_BYTES, &value.grant);
-    if (status != LXP_OK) return status;
-    *payload = value;
-    return LXP_OK;
-}
-
 lxp_result lx_budget_close_decode(const uint8_t *bytes, size_t length,
                                   lx_budget_close_payload *payload)
 {

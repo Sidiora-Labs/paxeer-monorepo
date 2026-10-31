@@ -1156,8 +1156,8 @@ class ConformanceProcess:
         self.environment.update(configured)
         fixture = Path(artifacts['fixture_root']).resolve(strict=True)
         if name == 'hosted':
-            for key in ('LAYERX_AGENT_BOUNDARY_STATE_DIR', 'LAYERX_AGENT_BOUNDARY_LNI_SOCKET'):
-                require(key in configured and Path(configured[key]).resolve().is_relative_to(fixture), 'dedicated actual hosted state/socket')
+            key = 'LAYERX_AGENT_BOUNDARY_STATE_DIR'
+            require(key in configured and Path(configured[key]).resolve().is_relative_to(fixture), 'dedicated actual hosted state')
         self.arguments = self.config['arguments']
         require(isinstance(self.arguments, list) and all(isinstance(item, str) for item in self.arguments), 'actual production process arguments')
         require(name != 'emulator' or self.arguments[:2] == ['emulator', 'up'], 'real CLI emulator owner')

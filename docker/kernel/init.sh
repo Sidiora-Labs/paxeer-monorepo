@@ -1006,16 +1006,6 @@ registry_bearer() {
 registry_bearer LAYERX_REGISTRY_NODE_AUTHORIZATION registry-component
 registry_bearer LAYERX_REGISTRY_RECEIPT_AUTHORITY_AUTHORIZATION registry-authority
 
-# checkpoint_authority: the guarantor-checkpoint-authority init container.
-checkpoint_authority() {
-	local source=$keys/checkpoint-authority/key.pem target=$layerx/guarantor-submitter/checkpoint-authority.pem
-	[ -e "$target" ] || install -o 4021 -g 4020 -m 0600 "$source" "$target"
-	cmp -s "$source" "$target" || {
-		log "the volume holds a different checkpoint authority key than $source"
-		return 1
-	}
-}
-
 # publication_policy: the publication-policy init container.
 publication_policy() {
 	install -d -o 4020 -g 4020 -m 0700 "$run/publication"

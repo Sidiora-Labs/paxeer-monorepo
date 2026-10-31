@@ -11576,3 +11576,63 @@ fix = "symbols lists only the symbols that exist after the task; a deleted symbo
 title = "Regenerating a contract's outputs breaks the consumers the contract rewrite left behind"
 symptom = "8.45.1 rewrote the receipt contract and 9.97.3 regenerated its Rust, TypeScript and Python outputs; the SDK verifiers, programs modules and web search and x402 clients still implemented the kernel receipt path over names the new contract no longer defines, and no task owned their port."
 fix = "When a contract is rewritten, list every consumer of the generated names and give each a retirement or port task that the regeneration task requires (decision.1992)."
+
+[gotcha.2353]
+title = "A build command that checks the file the task deletes"
+symptom = "16.8.1's build_cmd was bash -n on tools/paxeer-x/gates/2.2.sh while do_1 deletes that file; two attempts exited 127 at build and never verified."
+fix = "When a do line deletes a file, the build and verify commands must name only files that remain; point them at the surviving sibling."
+
+[gotcha.2354]
+title = "A scan path wider than the task's touches catches sibling work"
+symptom = "16.6.1 scanned --path scripts for retired callers and failed on scripts/ci/solidity-state-surface.sh, which 16.5.3 owned and had not yet published."
+fix = "Either narrow the scan path to the task's own files or add the owner of every other file under the path to requires."
+
+[gotcha.2355]
+title = "A self-test that reads the spec text goes stale with the spec"
+symptom = "retired_callers_test.py --self-test required its component set to equal the --component names in spec verify_cmd lines; after the scans moved into unittest files no verify_cmd named the tool and the self-test failed for every caller."
+fix = "A tool's self-test must not depend on how the spec phrases its gates; check inclusion over every spec line, or drop the coupling."
+
+[gotcha.2356]
+title = "An operator renderer that reaches ssh and the live gateway cannot run as a gate"
+symptom = "16.7.4's test ran xweb-config.sh render serve, which lists names over ssh through the private host map and prices through the gateway; the gate exited 2 on the unset host map."
+fix = "Give the renderer overridable inputs (names variable, endpoint variable) and prove the consumer path against a loopback fixture in the record shape the contract test asserts."
+
+[gotcha.2357]
+title = "A continuation note on file relaunches a parked task at once"
+symptom = "Tasks 12.34.4, 9.97.6, 8.19.6, 16.3.1 and 16.3.2 were relaunched within a minute of parking, each time from a stale note written before the spec change had synced; the holds placed afterwards found them claimed."
+fix = "Hold the task first, land and sync the spec change, then write the continuation note and release; never write a note for a task whose packet would still carry the old touches."
+
+[gotcha.2358]
+title = "A Makefile rule retirement that drops sources from the link list"
+symptom = "16.0.4 removed lxp_daemon_finality_authority.c and lxp_daemon_batch_wal.c from LAYERXD_SOURCES while retiring their test rules; the daemon's other sources still call them and layerxd no longer links, which make -n build test cannot show."
+fix = "A source leaves a link list only with its last caller; when a task retires test rules, its build must link the binaries those rules exercised."
+
+[gotcha.2359]
+title = "An app-wide typecheck as the build gate of a shared hook change"
+symptom = "12.34.4 changed one hook's return type with two consumer components outside its touches; the declared build (the whole wallet typecheck) failed three attempts on those consumers."
+fix = "A task that changes a shared hook's shape owns every consumer the build compiles; list them in touches before the first attempt."
+
+[gotcha.2360]
+title = "A cargo test skip filter with a module prefix"
+symptom = "18.1228.1 skipped archive_fixture::<case> and the same cases failed at the top level of another test binary."
+fix = "cargo test --skip matches a substring; skip the bare case name so every binary that carries the case skips it."
+
+[gotcha.2361]
+title = "A no-argument container layout aggregate as a task gate"
+symptom = "16.3.1's test ran tools/containers/check.sh with no arguments and failed on six Dockerfiles outside docker/ that other owners hold."
+fix = "Gate on the explicit service and on the absence of the retired paths; the repo-wide layout aggregate is not a task-level gate."
+
+[gotcha.2362]
+title = "An included makefile defines a target the root test treats as retired"
+symptom = "16.2.4 retired platform-hosted-topology-check from the root Makefile and make -n still answered it from services/platform/Makefile.inc:199."
+fix = "Before listing a target as retired, run make -n <target> and read which included file still defines it; an included module's own check stays."
+
+[gotcha.2363]
+title = "A verify command that names a test binary the task empties"
+symptom = "9.97.6 deleted receipt_keys.rs and receipt_fixture.rs as its do line allowed and the verify command still passed --test receipt_keys: 'no test target named receipt_keys'."
+fix = "When a do line may delete a whole test file, the verify command lists only the binaries that survive."
+
+[gotcha.2364]
+title = "A retired type still named by a sibling module's header"
+symptom = "1.12.1 deleted lxp_grant_state and lx_budget.h:204 (a budget module reader with no caller) still declared a function on it, outside 1.12.1's touches."
+fix = "Before deleting a type, grep every header and source for its name and put each declaring file in the touches."
