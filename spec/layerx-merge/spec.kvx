@@ -96361,7 +96361,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.12.4]
 title = "Remove the host payer grant read that the retired kernel grant store backed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["1.12.1"]
@@ -135277,7 +135277,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.14.2]
 title = "Remove the anchor genesis and guarantor registration of the paxeer deployment"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["8.0.4", "6.0.3", "8.7.4"]
@@ -135869,7 +135869,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.8.19.5]
 title = "Delete the kernel lifecycle test of the gateway local harness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["8.0.4", "8.7.4", "16.96.5", "9.97.2"]
@@ -146425,7 +146425,7 @@ do_11 = "Continue from attempt 6 (88abb50ab): apply decision.2044 to test/web-se
 
 [task.9.97.7]
 title = "Retire the kernel receipt verification from the Python SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.96.1", "9.97.9", "9.97.10"]
@@ -146561,7 +146561,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.97.6]
 title = "Retire the kernel receipt verification from layerx-sdk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["9.32.4", "11.26.6", "9.35.2", "8.47.10"]
@@ -192663,7 +192663,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1221.1]
 title = "Issue #1221: Encode the receipt lookup's achieved evidence as a write rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1199.1", "18.1206.1", "18.1200.1", "18.1304.1"]

@@ -10,16 +10,10 @@ from .generated.receipt import ReceiptFailureCode
 from .production import PlatformSdkError, SdkErrorCode
 from .revert import decode_revert_reason
 from .verifier import (
-    CheckpointVerificationInput,
-    LocalSignatureVerifier,
     MerkleProof,
     ReceiptKey,
-    ReceiptVerification,
     ReceiptVerificationError,
-    SequencerAuthorization,
     SequencerReceiptVerification,
-    verify_batch_inclusion,
-    verify_checkpoint,
 )
 
 PaymentCommitment = Literal["executed", "batched", "finalised"]
@@ -27,9 +21,11 @@ PAYMENT_RECEIPT_PROTOCOL_VERSIONS = (2, 3)
 
 
 @dataclass(frozen=True)
-class PaymentCheckpointEvidence:
-    verification: CheckpointVerificationInput
-    required_guarantors: int
+class _SequencerAuthorization:
+    sequencer_id: bytes
+    public_key: bytes
+    first_batch_number: int
+    last_batch_number: int
 
 
 @dataclass(frozen=True)
@@ -37,9 +33,8 @@ class PaymentCommitmentEvidence:
     network_id: int
     canonical_header: bytes
     header_signature: bytes
-    authorization: SequencerAuthorization
+    authorization: _SequencerAuthorization
     proof: MerkleProof
-    checkpoint: PaymentCheckpointEvidence | None = None
 
 
 def _failure() -> NoReturn:
@@ -105,58 +100,6 @@ def payment_purpose(extra: object = None, *, required: bool = False) -> str | No
     ):
         _failure()
     return purpose
-
-
-def verify_payment_commitment_evidence(
-    verified: ReceiptVerification,
-    sequencer_public_key: bytes,
-    commitment: PaymentCommitment,
-    evidence: PaymentCommitmentEvidence,
-    signatures: LocalSignatureVerifier,
-) -> None:
-    if commitment == "executed":
-        return
-    if commitment not in ("batched", "finalised"):
-        _failure()
-    version = verified.receipt.protocol_version
-    if (
-        version not in (2, 3)
-        or type(evidence.network_id) is not int
-        or not 0 < evidence.network_id <= 0xFFFF_FFFF
-        or evidence.authorization.public_key != sequencer_public_key
-    ):
-        _failure()
-    inclusion = verify_batch_inclusion(
-        "receipt",
-        verified.canonical_bytes,
-        evidence.proof,
-        evidence.canonical_header,
-        evidence.header_signature,
-        evidence.authorization,
-        signatures,
-        protocol_version=version,
-    )
-    if (
-        inclusion.header.network_id != evidence.network_id
-        or not inclusion.header.first_sequence
-        <= verified.receipt.global_sequence
-        <= inclusion.header.last_sequence
-    ):
-        _failure()
-    if commitment == "batched":
-        return
-    checkpoint = evidence.checkpoint
-    if (
-        checkpoint is None
-        or type(checkpoint.required_guarantors) is not int
-        or checkpoint.required_guarantors <= 0
-        or checkpoint.verification.certificate.threshold
-        != checkpoint.required_guarantors
-        or checkpoint.verification.certificate.canonical_header
-        != evidence.canonical_header
-    ):
-        _failure()
-    verify_checkpoint(checkpoint.verification, signatures, protocol_version=version)
 
 
 def verify_sequencer_receipt(
