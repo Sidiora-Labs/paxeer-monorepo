@@ -1,8 +1,10 @@
+use ed25519_dalek::Signer;
 use layerx_agentd::human::HumanPeer;
 use layerx_agentd::human_runtime::{HumanAuthorityBoundary, RemoteHumanAuthority};
 use layerx_platform_authority::{hex, receipt_locator};
 use layerx_types::ids::Did;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -46,7 +48,7 @@ impl Drop for Server {
 }
 
 fn prepare_root() -> PathBuf {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../../qual-logs/hm2");
+    let root = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("hm2");
     must(fs::create_dir_all(&root));
     let mut nonce = [0_u8; 8];
     must(getrandom::fill(&mut nonce));
@@ -164,16 +166,93 @@ fn prepare_tls(root: &Path) {
     );
 }
 
-fn seed(root: &Path) {
-    let state = root.join("state");
-    let fixture: Value = must(serde_json::from_str(include_str!(
+fn signed_fixture() -> Value {
+    let mut fixture: Value = must(serde_json::from_str(include_str!(
         "fixtures/real-program-deploy-receipt.json"
     )));
+    let signer = ed25519_dalek::SigningKey::from_bytes(&[0x51; 32]);
+    let public_key = signer.verifying_key().to_bytes();
+    let key_id: [u8; 32] = Sha256::digest(public_key).into();
+    assert_ne!(key_id, [0; 32]);
+    let mut receipt = must(hex::decode(fixture["receipt_hex"].as_str().unwrap()));
+    let decoded = must(layerx_wire::receipt::decode(&receipt));
+    let protocol = decoded.protocol().unwrap();
+    let mut context = layerx_wire::encode::Encoder::new(44);
+    must(context.bytes(&protocol.context_hash(), 32));
+    must(context.u64(protocol.timestamp()));
+    let context = context.finish();
+    let offset = receipt
+        .windows(context.len())
+        .position(|bytes| bytes == context)
+        .unwrap()
+        + 4;
+    receipt[offset..offset + 32].copy_from_slice(&key_id);
+    let decoded = must(layerx_wire::receipt::decode(&receipt));
+    assert_eq!(decoded.protocol().unwrap().context_hash(), key_id);
+    let unsigned = must(layerx_wire::receipt::encode_unsigned(&decoded));
+    let signature = signer.sign(&must(layerx_wire::hash::receipt_digest(&unsigned)));
+    let offset = receipt.len() - 64;
+    receipt[offset..].copy_from_slice(&signature.to_bytes());
+
+    let mut header = must(hex::decode(fixture["header_hex"].as_str().unwrap()));
+    let decoded = must(layerx_wire::receipt::decode_batch_header(&header));
+    for (old, new) in [
+        (decoded.sequencer_id(), key_id),
+        (
+            decoded.receipt_merkle_root(),
+            must(layerx_wire::hash::merkle_leaf(&receipt)),
+        ),
+    ] {
+        let offset = header.windows(32).position(|word| word == old).unwrap();
+        header[offset..offset + 32].copy_from_slice(&new);
+    }
+    let signature = signer.sign(&must(layerx_wire::hash::batch_header_digest(&header)));
+    fixture["receipt_hex"] = json!(hex::encode(&receipt));
+    fixture["header_hex"] = json!(hex::encode(&header));
+    fixture["header_signature_hex"] = json!(hex::encode(&signature.to_bytes()));
+    fixture["sequencer_id_hex"] = json!(hex::encode(&key_id));
+    fixture["sequencer_public_key_hex"] = json!(hex::encode(&public_key));
+    fixture
+}
+
+fn seed(root: &Path) {
+    let state = root.join("state");
+    let fixture = signed_fixture();
     let text = |key: &str| {
         fixture[key]
             .as_str()
             .unwrap_or_else(|| panic!("fixture field {key}"))
     };
+    let encode_key = |bytes: &[u8]| {
+        const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut output = String::new();
+        for chunk in bytes.chunks(3) {
+            let a = chunk[0];
+            let b = chunk.get(1).copied().unwrap_or(0);
+            let c = chunk.get(2).copied().unwrap_or(0);
+            output.push(char::from(ALPHABET[usize::from(a >> 2)]));
+            output.push(char::from(ALPHABET[usize::from(((a & 3) << 4) | (b >> 4))]));
+            output.push(if chunk.len() > 1 {
+                char::from(ALPHABET[usize::from(((b & 15) << 2) | (c >> 6))])
+            } else {
+                '='
+            });
+            output.push(if chunk.len() > 2 {
+                char::from(ALPHABET[usize::from(c & 63)])
+            } else {
+                '='
+            });
+        }
+        output
+    };
+    write(
+        &root.join("receipt-keys.json"),
+        &must(serde_json::to_vec(&json!([{
+            "keyId":encode_key(&must(hex::decode(text("sequencer_id_hex")))),
+            "publicKey":encode_key(&must(hex::decode(text("sequencer_public_key_hex")))),
+            "firstHeight":1,"lastHeight":100
+        }]))),
+    );
     let receipt = must(hex::decode(text("receipt_hex")));
     let locator = must(receipt_locator(&receipt));
     let activity = hex::encode(&locator.activity_id);
@@ -219,10 +298,12 @@ fn seed(root: &Path) {
 }
 
 fn launch(root: PathBuf) -> (Server, std::net::SocketAddr) {
+    launch_at(root, "http://127.0.0.1:1")
+}
+
+fn launch_at(root: PathBuf, chain_rpc_url: &str) -> (Server, std::net::SocketAddr) {
     let state = root.join("state");
-    let fixture: Value = must(serde_json::from_str(include_str!(
-        "fixtures/real-program-deploy-receipt.json"
-    )));
+    let fixture = signed_fixture();
     let text = |key: &str| {
         fixture[key]
             .as_str()
@@ -247,6 +328,11 @@ fn launch(root: PathBuf) -> (Server, std::net::SocketAddr) {
             )
             .env("LAYERX_AUTHORITY_REPLICA_ID", hex::encode(&[9; 32]))
             .env("LAYERX_AUTHORITY_LNI_SOCKET", root.join("absent.sock"))
+            .env("LAYERX_AUTHORITY_CHAIN_RPC_URL", chain_rpc_url)
+            .env(
+                "LAYERX_AUTHORITY_RECEIPT_KEYS_FILE",
+                root.join("receipt-keys.json"),
+            )
             .env("LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID", "7332")
             .env("LAYERX_AUTHORITY_NETWORK_ID", "human-authority-test")
             .env("LAYERX_AUTHORITY_SEQUENCER_ID", text("sequencer_id_hex"))
@@ -324,12 +410,14 @@ fn real_tls_client_and_durable_refusals() {
     );
     assert!(
         result.status.success(),
-        "real client failed; see {}/client.log",
-        server.root.display()
+        "real client failed; see {}/client.log\n{}\nserver.log (last twenty lines):\n{}",
+        server.root.display(),
+        must(fs::read_to_string(server.root.join("client.log"))),
+        server_tail(&server.root)
     );
 }
 
-fn wire_status(root: &Path, path: &str) -> u16 {
+fn wire_status(root: &Path, path: &str) -> (u16, String) {
     wire_status_at(
         root,
         &must(std::env::var("LAYERX_HUMAN_TLS_CHILD")),
@@ -338,7 +426,7 @@ fn wire_status(root: &Path, path: &str) -> u16 {
     )
 }
 
-fn wire_status_at(root: &Path, address: &str, path: &str, token: &str) -> u16 {
+fn wire_status_at(root: &Path, address: &str, path: &str, token: &str) -> (u16, String) {
     let certificate = must(native_tls::Certificate::from_pem(&must(fs::read(
         root.join("ca.pem"),
     ))));
@@ -353,13 +441,49 @@ fn wire_status_at(root: &Path, address: &str, path: &str, token: &str) -> u16 {
     must(write!(tls, "GET {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\nConnection: close\r\n\r\n"));
     let mut response = String::new();
     must(tls.read_to_string(&mut response));
-    must(
+    let status = must(
         response
             .split_whitespace()
             .nth(1)
             .unwrap_or_else(|| panic!("status absent"))
             .parse(),
-    )
+    );
+    let body = response
+        .split_once("\r\n\r\n")
+        .unwrap_or_else(|| panic!("HTTP body absent: {response}"))
+        .1
+        .to_owned();
+    (status, body)
+}
+
+fn server_tail(root: &Path) -> String {
+    let log = fs::read_to_string(root.join("server.log"))
+        .unwrap_or_else(|error| format!("server.log unavailable: {error}"));
+    let lines = log.lines().collect::<Vec<_>>();
+    lines[lines.len().saturating_sub(20)..].join("\n")
+}
+
+fn assert_wire_status(root: &Path, response: (u16, String), expected: u16) {
+    assert_eq!(
+        response.0,
+        expected,
+        "body: {}\nserver.log (last twenty lines):\n{}",
+        response.1,
+        server_tail(root)
+    );
+}
+
+fn client_result<T, E: std::fmt::Debug>(
+    root: &Path,
+    address: &str,
+    path: &str,
+    result: Result<T, E>,
+) -> T {
+    result.unwrap_or_else(|error| {
+        let (status, body) = wire_status_at(root, address, path,
+            "human-test-token-0000000000000000000000");
+        panic!("client refused {path}: {error:?}; status: {status}; body: {body}\nserver.log (last twenty lines):\n{}", server_tail(root));
+    })
 }
 
 #[test]
@@ -376,9 +500,7 @@ fn real_server_wire_statuses_remain_distinct() {
             "human-test-token-0000000000000000000000",
         )
     };
-    let fixture: Value = must(serde_json::from_str(include_str!(
-        "fixtures/real-program-deploy-receipt.json"
-    )));
+    let fixture = signed_fixture();
     let receipt = must(hex::decode(
         fixture["receipt_hex"]
             .as_str()
@@ -386,60 +508,98 @@ fn real_server_wire_statuses_remain_distinct() {
     ));
     let activity = hex::encode(&must(receipt_locator(&receipt)).activity_id);
     let base = "tenant=tenant%20space&principal=principal";
-    assert_eq!(status(&format!("/v1/agent/registry?{base}")), 200);
-    assert_eq!(
+    assert_wire_status(
+        &server.root,
+        status(&format!("/v1/agent/registry?{base}")),
+        200,
+    );
+    assert_wire_status(
+        &server.root,
         status(&format!(
             "/v1/agent/authorized-batch?{base}&activity_id={activity}"
         )),
-        200
+        200,
     );
-    assert_eq!(status(&format!("/v1/agent/core-clock?{base}")), 503);
-    assert_eq!(status(&format!("/v1/agent/balance-context?{base}")), 503);
-    assert_eq!(
+    assert_wire_status(
+        &server.root,
+        status(&format!("/v1/agent/core-clock?{base}")),
+        503,
+    );
+    assert_wire_status(
+        &server.root,
+        status(&format!("/v1/agent/balance-context?{base}")),
+        503,
+    );
+    assert_wire_status(
+        &server.root,
         status(&format!(
             "/v1/agent/identity?{base}&did=did%3Alayerx%3Atest"
         )),
-        503
+        503,
     );
-    assert_eq!(status(&format!("/v1/agent/capability-scope?{base}&did=did%3Alayerx%3Atest&authority={}&action_key={}&capability_id={}", hex::encode(&[5;32]), hex::encode(&[6;32]), hex::encode(&[7;32]))), 403);
-    assert_eq!(
+    assert_wire_status(&server.root,status(&format!("/v1/agent/capability-scope?{base}&did=did%3Alayerx%3Atest&authority={}&action_key={}&capability_id={}", hex::encode(&[5;32]), hex::encode(&[6;32]), hex::encode(&[7;32]))), 403);
+    assert_wire_status(
+        &server.root,
         status(&format!(
             "/v1/agent/budget-state?{base}&budget_id={}",
             hex::encode(&[4; 32])
         )),
-        503
+        503,
     );
-    assert_eq!(
+    assert_wire_status(
+        &server.root,
+        status(&format!(
+            "/v1/agent/budget-proof?{base}&budget_id={}",
+            hex::encode(&[4; 32])
+        )),
+        503,
+    );
+    assert_wire_status(
+        &server.root,
         status(&format!(
             "/v1/agent/key-policy?{base}&did=did%3Alayerx%3Atest&recovery=false"
         )),
-        503
+        503,
     );
-    assert_eq!(
+    assert_wire_status(
+        &server.root,
         status("/v1/agent/registry?tenant=other&principal=principal"),
-        403
+        403,
     );
-    assert_eq!(
+    assert_wire_status(
+        &server.root,
         wire_status_at(
             &server.root,
             &address,
             &format!("/v1/agent/registry?{base}"),
-            "service-test-token-00000000000000000000"
+            "service-test-token-00000000000000000000",
         ),
-        401
+        401,
     );
     must(fs::rename(
         server.root.join("policy.json"),
         server.root.join("policy.hidden"),
     ));
-    assert_eq!(status(&format!("/v1/agent/registry?{base}")), 503);
+    assert_wire_status(
+        &server.root,
+        status(&format!("/v1/agent/registry?{base}")),
+        503,
+    );
     must(fs::rename(
         server.root.join("policy.hidden"),
         server.root.join("policy.json"),
     ));
-    assert_eq!(status(&format!("/v1/agent/registry?{base}")), 200);
+    assert_wire_status(
+        &server.root,
+        status(&format!("/v1/agent/registry?{base}")),
+        200,
+    );
     write(&server.root.join("policy.json"), br#"{"principals":[]}"#);
-    assert_eq!(status(&format!("/v1/agent/registry?{base}")), 503);
+    assert_wire_status(
+        &server.root,
+        status(&format!("/v1/agent/registry?{base}")),
+        503,
+    );
 }
 
 fn drive_client() {
@@ -459,22 +619,27 @@ fn drive_client() {
         tenant: "tenant space".to_owned(),
         principal: "principal".to_owned(),
     };
-    must(client.registry(&peer));
-    assert_eq!(
+    client_result(
+        &root,
+        &must(std::env::var("LAYERX_HUMAN_TLS_CHILD")),
+        "/v1/agent/registry?tenant=tenant%20space&principal=principal",
+        client.registry(&peer),
+    );
+    assert_wire_status(
+        &root,
         wire_status(
             &root,
-            "/v1/agent/core-clock?tenant=tenant%20space&principal=principal"
+            "/v1/agent/core-clock?tenant=tenant%20space&principal=principal",
         ),
-        503
+        503,
     );
-    assert_eq!(
+    assert_wire_status(
+        &root,
         wire_status(&root, "/v1/agent/registry?tenant=other&principal=principal"),
-        403
+        403,
     );
-    assert_eq!(wire_status(&root, &format!("/v1/agent/capability-scope?tenant=tenant%20space&principal=principal&did=did%3Alayerx%3Atest&authority={}&action_key={}&capability_id={}", hex::encode(&[5;32]), hex::encode(&[6;32]), hex::encode(&[7;32]))), 403);
-    let fixture: Value = must(serde_json::from_str(include_str!(
-        "fixtures/real-program-deploy-receipt.json"
-    )));
+    assert_wire_status(&root,wire_status(&root, &format!("/v1/agent/capability-scope?tenant=tenant%20space&principal=principal&did=did%3Alayerx%3Atest&authority={}&action_key={}&capability_id={}", hex::encode(&[5;32]), hex::encode(&[6;32]), hex::encode(&[7;32]))), 403);
+    let fixture = signed_fixture();
     let receipt = must(hex::decode(
         fixture["receipt_hex"]
             .as_str()
@@ -482,7 +647,9 @@ fn drive_client() {
     ));
     let locator = must(receipt_locator(&receipt));
     assert_eq!(
-        must(client.authorized_batch(&peer, locator.activity_id)).batch_id(),
+        client_result(&root, &must(std::env::var("LAYERX_HUMAN_TLS_CHILD")),
+            &format!("/v1/agent/authorized-batch?tenant=tenant%20space&principal=principal&activity_id={}", hex::encode(&locator.activity_id)),
+            client.authorized_batch(&peer, locator.activity_id)).batch_id(),
         locator.batch_id
     );
     assert!(matches!(
@@ -518,18 +685,24 @@ fn drive_client() {
         root.join("policy.hidden"),
     ));
     assert!(client.registry(&peer).is_err());
-    assert_eq!(
+    assert_wire_status(
+        &root,
         wire_status(
             &root,
-            "/v1/agent/registry?tenant=tenant%20space&principal=principal"
+            "/v1/agent/registry?tenant=tenant%20space&principal=principal",
         ),
-        503
+        503,
     );
     must(fs::rename(
         root.join("policy.hidden"),
         root.join("policy.json"),
     ));
-    must(client.registry(&peer));
+    client_result(
+        &root,
+        &must(std::env::var("LAYERX_HUMAN_TLS_CHILD")),
+        "/v1/agent/registry?tenant=tenant%20space&principal=principal",
+        client.registry(&peer),
+    );
     write(&root.join("policy.json"), br#"{"principals":[]}"#);
     assert!(client.registry(&peer).is_err());
 }
@@ -560,15 +733,17 @@ fn real_client_balance_context_uses_registry_and_verified_header() {
         tenant: "tenant space".to_owned(),
         principal: "principal".to_owned(),
     };
-    let (account, asset, currency, observed_at, age, maximum_age, authorization) =
-        must(client.balance_context(&peer));
+    let (account, asset, currency, observed_at, age, maximum_age, authorization) = client_result(
+        &server.root,
+        &address.to_string(),
+        "/v1/agent/balance-context?tenant=tenant%20space&principal=principal",
+        client.balance_context(&peer),
+    );
     assert_eq!(account, [1; 32]);
     assert_eq!(asset, [2; 32]);
     assert_eq!(currency, "USD");
     assert!(age <= maximum_age);
-    let fixture: Value = must(serde_json::from_str(include_str!(
-        "fixtures/real-program-deploy-receipt.json"
-    )));
+    let fixture = signed_fixture();
     let header = must(layerx_wire::receipt::decode_batch_header(&must(
         hex::decode(
             fixture["header_hex"]
@@ -587,4 +762,180 @@ fn real_client_balance_context_uses_registry_and_verified_header() {
     );
     assert!(client.registry(&peer).is_err());
     assert!(client.balance_context(&peer).is_err());
+}
+
+fn wire_json(root: &Path, address: &str, path: &str) -> Value {
+    let response = wire_status_at(
+        root,
+        address,
+        path,
+        "human-test-token-0000000000000000000000",
+    );
+    let value = serde_json::from_str(&response.1);
+    assert_wire_status(root, response, 200);
+    must(value)
+}
+
+#[test]
+fn real_node_budget_state_and_v2_export_cross_tls_without_lni() {
+    let Some(corpus) = std::env::var_os("PAXEER_X_BUDGET_PROOF_CORPUS") else {
+        return;
+    };
+    let corpus: Value = must(serde_json::from_slice(&must(fs::read(corpus))));
+    let cases = corpus["cases"]
+        .as_array()
+        .unwrap_or_else(|| panic!("real node cases"));
+    assert!(!cases.is_empty());
+    for case in cases {
+        let exchanges = case["rpc_exchanges"]
+            .as_array()
+            .unwrap_or_else(|| panic!("genuine captured node exchanges"))
+            .clone();
+        assert!(!exchanges.is_empty());
+        let node = NodeReads::captured(exchanges);
+        let expected: Value = must(serde_json::from_slice(&must(fs::read(
+            case["response"]
+                .as_str()
+                .unwrap_or_else(|| panic!("response path")),
+        ))));
+        let root = prepare_root();
+        seed(&root);
+        let mut policy: Value = must(serde_json::from_slice(&must(fs::read(
+            root.join("policy.json"),
+        ))));
+        policy["principals"][0]["account_id"] = case["owner_account"].clone();
+        policy["principals"][0]["asset_id"] = case["asset_id"].clone();
+        policy["principals"][0]["budgets"] = json!([case["budget_id"]]);
+        policy["principals"][0]["identities"][0]["did"] = case["owner_did"].clone();
+        policy["principals"][0]["maximum_age_seconds"] = expected["maximum_age_seconds"].clone();
+        write(
+            &root.join("policy.json"),
+            &must(serde_json::to_vec(&policy)),
+        );
+        let (server, address) = launch_at(root, &node.url);
+        let query = format!(
+            "tenant=tenant%20space&principal=principal&budget_id={}",
+            case["budget_id"]
+                .as_str()
+                .unwrap_or_else(|| panic!("budget id"))
+        );
+        let state = wire_json(
+            &server.root,
+            &address.to_string(),
+            &format!("/v1/agent/budget-state?{query}"),
+        );
+        let export = wire_json(
+            &server.root,
+            &address.to_string(),
+            &format!("/v1/agent/budget-proof?{query}"),
+        );
+        assert_eq!(state, expected["budget_state"]);
+        assert_eq!(export["budget_state"], state);
+        assert_eq!(export["schema"], "layerx.human.budget-proof.v2");
+        for field in ["head", "finality", "proofs", "accounts", "identity_key"] {
+            assert_eq!(export[field], expected[field], "{field}");
+        }
+        assert!(export.get("lni_interface_version").is_none());
+        assert!(!server.root.join("absent.sock").exists());
+    }
+}
+
+pub(crate) struct NodeReads {
+    pub(crate) url: String,
+    stopped: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    worker: Option<std::thread::JoinHandle<()>>,
+}
+
+impl NodeReads {
+    pub(crate) fn captured(exchanges: Vec<serde_json::Value>) -> Self {
+        use std::io::{BufRead as _, Read as _, Write as _};
+        let listener = must(std::net::TcpListener::bind("127.0.0.1:0"));
+        must(listener.set_nonblocking(true));
+        let url = format!("http://{}/evm", must(listener.local_addr()));
+        let stopped = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let stop = std::sync::Arc::clone(&stopped);
+        let worker = std::thread::spawn(move || {
+            while !stop.load(std::sync::atomic::Ordering::Acquire) {
+                let (stream, _) = match listener.accept() {
+                    Ok(connection) => connection,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        std::thread::sleep(std::time::Duration::from_millis(2));
+                        continue;
+                    }
+                    Err(error) => panic!("captured node listener: {error}"),
+                };
+                must(stream.set_read_timeout(Some(std::time::Duration::from_secs(5))));
+                let mut reader = std::io::BufReader::new(stream);
+                let mut length = None;
+                loop {
+                    let mut line = String::new();
+                    assert_ne!(must(reader.read_line(&mut line)), 0);
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                        length = Some(must(value.trim().parse::<usize>()));
+                    }
+                }
+                let length = length.unwrap_or_else(|| panic!("request length"));
+                assert!(length <= 16_384);
+                let mut bytes = vec![0; length];
+                must(reader.read_exact(&mut bytes));
+                let request: serde_json::Value = must(serde_json::from_slice(&bytes));
+                let method = request["method"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("RPC method"));
+                match method {
+                    "eth_chainId" | "eth_blockNumber" | "px_getAccount" | "px_getBalances" => {}
+                    "eth_call" => {
+                        let call = request["params"][0]["data"]
+                            .as_str()
+                            .unwrap_or_else(|| panic!("call data"));
+                        let allowed = [
+                            "getBudget(bytes32)",
+                            "budgetRemaining(bytes32)",
+                            "latestFinalized()",
+                            "checkpoint(uint64)",
+                        ];
+                        assert!(
+                            allowed.iter().any(|signature| {
+                                let selector = layerx_crypto::evm_transaction::transaction_hash(
+                                    signature.as_bytes(),
+                                );
+                                call.starts_with(&format!("0x{}", hex::encode(&selector[..4])))
+                            }),
+                            "undeclared node view {call}"
+                        );
+                    }
+                    _ => panic!("undeclared node method {method}"),
+                }
+                let captured = exchanges
+                    .iter()
+                    .find(|row| {
+                        row["method"] == request["method"] && row["params"] == request["params"]
+                    })
+                    .unwrap_or_else(|| panic!("genuine node capture missing {request}"));
+                let answer = serde_json::json!({"jsonrpc":"2.0","id":request["id"],"result":captured["result"]}).to_string();
+                let mut stream = reader.into_inner();
+                must(write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}",answer.len()));
+            }
+        });
+        Self {
+            url,
+            stopped,
+            worker: Some(worker),
+        }
+    }
+}
+
+impl Drop for NodeReads {
+    fn drop(&mut self) {
+        self.stopped
+            .store(true, std::sync::atomic::Ordering::Release);
+        if let Some(worker) = self.worker.take() {
+            worker
+                .join()
+                .unwrap_or_else(|_| panic!("captured node reader failed"));
+        }
+    }
 }
