@@ -115567,7 +115567,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.35.10]
 title = "Acknowledge replicated groups on WAL durability so a pending commit cannot time the primary out"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.5.4", "12.35.5", "12.35.8"]
@@ -115597,7 +115597,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.35.9]
 title = "Run the sequencer primary without a standby when no standby address is configured"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.5.4", "12.35.8"]
