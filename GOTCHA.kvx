@@ -12346,3 +12346,33 @@ fix = "Mask the task's own status line in the comparison hash when the specifica
 title = "A native envelope binder has no call-name port to an EVM call binder"
 symptom = "A migration task ordered call-name ports of every binder use, but two sites bind unsigned native kernel envelopes, which the EVM call binder cannot take; two attempts failed the retirement scan on them"
 fix = "When a retired function has no same-shape replacement, retire its callers with the task that deletes their file and order the deletion of the definition behind them"
+
+[gotcha.2506]
+title = "A consumer task cannot precede the producer whose fields it reads"
+symptom = "10.95.1 read AccountBalances.height and AssetBalance.amount while 10.24.1, which adds them, required 10.95.1; neither order built."
+fix = "Point the requirement from consumer to producer and let the producer port the single dependent call site in the same change."
+
+[gotcha.2507]
+title = "A test fixture built on a deleted module falls with the module"
+symptom = "intent_submit.rs still imported layerx_human_service::binding after 10.9.1 deleted it, so a later task could not port the signatures inside that fixture."
+fix = "Delete the fixture and the cases' binding steps; decide what the product still reads and write that record directly."
+
+[gotcha.2508]
+title = "A journey identifier in a test must carry the jrn_ prefix"
+symptom = "JourneyId::new('move-bank-send') refused with InvalidIdentifier kind journey and both tests panicked before asserting anything."
+fix = "Use jrn_-prefixed lowercase identifiers (notify/event.rs:73), as the other tests do."
+
+[gotcha.2509]
+title = "A fixture loop that logs only on failure leaves an empty log when its parent times out"
+symptom = "feeder.log was empty after the 30 second price wait killed the feeder, so the first failing step was invisible."
+fix = "Log every iteration before and after the broadcast and size the wait to the first commit and aggregate."
+
+[gotcha.2510]
+title = "A test-support server for a retired protocol is deleted, not re-encoded"
+symptom = "The evidence node spoke LNI frames; the retired-module scan refused lni paths while a do-line asked to keep the handshake."
+fix = "Delete it with its tests once its consumer moved to the real RPC; keep the journal types the consumer still uses."
+
+[gotcha.2511]
+title = "A retirement scan for a package name fails while sibling tasks still delete the package's other files"
+symptom = "10.27.2's test scanned for layerx-explorer-index and found the package's own sources and the tests of 10.27.4, 10.27.5 and 10.27.7."
+fix = "Scan for the deleted files' names and the symbol they exercised; order the tasks whose scans hit each other's files with requires."
