@@ -6243,6 +6243,12 @@ value = "In production_components.rs the Protocol Send leg resolves its bank den
 basis = "Finding 10.24.1.1: AssetBalance no longer carries an asset id; the asset table of 10.24.2 (98bfc53ee) is the only chain source joining asset ids to bank denominations."
 affects = ["10.24.4", "10.24.1"]
 
+[decision.2189]
+title = "A human-api schema edit lands together with the regenerated web client"
+value = "Any change under services/human/schema/human-api is complete only when apps/web/src/api/generated matches a fresh run of the client generator (make human-gen-api), so the api-gen drift test and make human-build stay green on main."
+basis = "Finding 10.0.3.12: 63aee3813 (10.0.3) extended the schema and left the committed client at the minor-10 shape of 14.0.3 (b60ec74e8); the drift test exists exactly to catch this and did."
+affects = ["14.0.5", "17.5.5", "17.5.7"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -33187,6 +33193,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.14.0.5]
+title = "Regenerate the web human-api client after the EIP-1559 schema additions"
+reqs = ["14054.1"]
+touches = ["apps/web/src/api/generated/index.ts", "apps/web/src/api/generated/conformance.ts"]
+tests = ["services/human/tools/api-gen/tests/generation.rs::committed_client_matches_regeneration", "apps/web/e2e/api-schema-version.test.ts::generated_client_reports_schema_minor_10", "apps/web/e2e/api-schema-version.test.ts::generated_client_has_no_binding_operations"]
+verification_contract = "cargo run --locked --manifest-path services/human/tools/api-gen/Cargo.toml -- --check services/human/schema/human-api apps/web/src/api/generated && cargo test --locked --manifest-path services/human/tools/api-gen/Cargo.toml -p layerx-human-api-gen --test generation -- --exact committed_client_matches_regeneration && node --test --test-name-pattern '^(generated_client_reports_schema_minor_10|generated_client_has_no_binding_operations)$' apps/web/e2e/api-schema-version.test.ts"
+do_1 = "Decision 2189: run the client generator once over the committed schema (cargo run --locked --manifest-path services/human/tools/api-gen/Cargo.toml -- services/human/schema/human-api apps/web/src/api/generated, the make human-gen-api recipe) and commit the regenerated apps/web/src/api/generated/index.ts and apps/web/src/api/generated/conformance.ts unchanged by hand; the output gains the optional to, value, calldata, nonce, chain_id, gas_limit, max_fee_per_gas and max_priority_fee_per_gas fields of IntentLeg, tx_hash and nonce on JourneyStage and the TransactionHash scalar that 63aee3813 added to the schema, and keeps schemaVersion minor 10."
+symbols = ["schemaVersion", "IntentLeg", "JourneyStage", "TransactionHash"]
 
 [capability.10.24.4]
 title = "Resolve the send leg's bank denomination through the asset table"
@@ -109876,6 +109891,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.14.0.5]
+title = "Regenerate the web human-api client after the EIP-1559 schema additions"
+status = "pending"
+mode = "BUILD"
+wave = 23
+requires = ["10.0.3", "14.0.3", "10.0.4"]
+reqs = ["14054.1"]
+capabilities = ["14.0.5"]
+interfaces = []
+do_1 = "Decision 2189: run the client generator once over the committed schema (cargo run --locked --manifest-path services/human/tools/api-gen/Cargo.toml -- services/human/schema/human-api apps/web/src/api/generated, the make human-gen-api recipe) and commit the regenerated apps/web/src/api/generated/index.ts and apps/web/src/api/generated/conformance.ts unchanged by hand; the output gains the optional to, value, calldata, nonce, chain_id, gas_limit, max_fee_per_gas and max_priority_fee_per_gas fields of IntentLeg, tx_hash and nonce on JourneyStage and the TransactionHash scalar that 63aee3813 added to the schema, and keeps schemaVersion minor 10."
+do_2 = "Prove the regeneration from both sides: the generator's --check run over the committed output exits 0, the api-gen test committed_client_matches_regeneration (services/human/tools/api-gen/tests/generation.rs:315) passes, and the web tests generated_client_reports_schema_minor_10 and generated_client_has_no_binding_operations (apps/web/e2e/api-schema-version.test.ts) still pass; npm --prefix apps/web run typecheck compiles the regenerated client with its callers."
+do_3 = "Change nothing under services/human/schema/human-api or services/human/tools/api-gen; when the --check run disagrees with the fresh output, record the disagreement as a finding against the generator instead of editing the generated files."
+symbols = ["schemaVersion", "IntentLeg", "JourneyStage", "TransactionHash"]
+touches = ["apps/web/src/api/generated/index.ts", "apps/web/src/api/generated/conformance.ts"]
+tests = ["services/human/tools/api-gen/tests/generation.rs::committed_client_matches_regeneration", "apps/web/e2e/api-schema-version.test.ts::generated_client_reports_schema_minor_10", "apps/web/e2e/api-schema-version.test.ts::generated_client_has_no_binding_operations"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/tools/api-gen/Cargo.toml -p layerx-human-api-gen && npm --prefix apps/web run typecheck"
+verify_cmd = "cargo run --locked --manifest-path services/human/tools/api-gen/Cargo.toml -- --check services/human/schema/human-api apps/web/src/api/generated && cargo test --locked --manifest-path services/human/tools/api-gen/Cargo.toml -p layerx-human-api-gen --test generation -- --exact committed_client_matches_regeneration && node --test --test-name-pattern '^(generated_client_reports_schema_minor_10|generated_client_has_no_binding_operations)$' apps/web/e2e/api-schema-version.test.ts"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-web"
+rollback = "Restore the two generated files from b60ec74e8; the drift test stays red until the client is regenerated."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.4.0.1]
 title = "List the served precompile versions v6.10 and v6.12.0 in the versions file"
 status = "done"
@@ -178644,7 +178689,7 @@ title = "Run the wave 4 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["17.5.8", "17.0.3", "1.0.3", "2.0.3", "3.0.3", "4.0.3", "5.0.3", "6.0.3", "7.0.3", "8.0.3", "9.0.3", "10.0.3", "11.0.3", "12.0.3", "13.0.3", "14.0.3", "15.0.3", "16.0.3", "16.1.5", "18.1121.1", "10.24.4"]
+requires = ["17.5.8", "17.0.3", "1.0.3", "2.0.3", "3.0.3", "4.0.3", "5.0.3", "6.0.3", "7.0.3", "8.0.3", "9.0.3", "10.0.3", "11.0.3", "12.0.3", "13.0.3", "14.0.3", "15.0.3", "16.0.3", "16.1.5", "18.1121.1", "10.24.4", "14.0.5"]
 reqs = ["17058.1"]
 capabilities = ["17.5.5"]
 interfaces = []
@@ -178670,6 +178715,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 17.5.5.1: the gate is an aggregate over the merged tree; continue from attempt 1 (2cd0c587f) unchanged once 10.24.4 (now required) is on main, and when make human-build still fails on committed_client_matches_regeneration, record the regenerated-versus-committed diff as a finding instead of repairing the client here."
+do_5 = "Finding 10.0.3.12: attempt 2 (cd8fe082d) built and reached make human-build, which failed only on the committed client drift; task 14.0.5 (now required) regenerates the client, so continue from attempt 2 unchanged on a main that carries 10.24.4 and 14.0.5."
 
 [task.17.5.6]
 title = "Run the wave 5 aggregate gate once on the merged wave revision"
@@ -178706,8 +178752,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
-wave = 31
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1"]
+wave = 48
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1", "14.0.5"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
