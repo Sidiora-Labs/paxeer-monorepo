@@ -15547,3 +15547,43 @@ symbol = "probes the chain for code before serving a linked agent precompile"
 observed = "Attempt 6 passed the receipt test under the TAP reporter and then failed the gateway test with 'spawn anvil ENOENT': the test spawned an external anvil process behind a proxy to answer eth_getCode, a binary the qualification environment does not provide and that do_2 never asked for."
 assumption = "do_2 specifies eth_getCode answering 0x for 0x0902 and then runtime code; an in-process node:http double answers that."
 severity = "minor"
+
+[finding.1.12.5.2]
+task = "1.12.5"
+file = "modules/layerxledger/keeper/issuer_binding_test.go:67"
+symbol = "TestRegisterBindsTokenfactoryDenom"
+observed = "Attempt 3 built and failed verify on the one test the task does not touch: TestRegisterBindsTokenfactoryDenom expects the recorded create call to carry hex.EncodeToString(args.AssetID[:]) as the subdenom, while issuer_binding.go:47 has encoded the asset id as the 43-digit zero-padded base-62 text since ebfccf28b (task 6.22.8, finding 6.22.8), whose verify ran only the tokenfactory test; the ledger keeper package has carried the stale expectation on main since 2026-10-27 and this task's whole-package verify is the first gate to run it."
+assumption = "The base-62 subdenom is the implementation on record; the expectation follows it and the whole-package verify stays."
+severity = "minor"
+
+[finding.9.25.3.4]
+task = "9.25.3"
+file = "services/platform/tests/support/tls_boundary.rs:187"
+symbol = "simulation_tls_checks_the_actual_server_identity"
+observed = "Attempt 9 (6b133f2e8) built all four crates with no dependent-crate regression and verify failed only on ops::program::simulation_tls_checks_the_actual_server_identity, which the ops::program filter includes and which panics 'build the real Paxeer TLS boundary first' because the layerx-paxeer-boundary binary is not built (tls_boundary.rs:177-187); the port changes nothing that check exercises, the same precondition finding 9.1.7.3 met for layerx-sdk."
+assumption = "As 9.1.7 does, the build command also builds layerx-platform-paxeer-boundary and the verify names the binary through LAYERX_PAXEER_BOUNDARY_BIN, so the TLS identity check runs for real."
+severity = "minor"
+
+[finding.10.6.4.2]
+task = "10.6.4"
+file = "services/human/crates/layerx-human-service/tests/evidence_node.rs:419"
+symbol = "AdmissionRecord"
+observed = "Attempt 3 (base fc8c837a9) failed its build gate before touching anything of its own: cargo build --tests of layerx-human-service stops at tests/evidence_node.rs, which still reads AdmissionRecord.activity and .activity_id (finding 10.25.4.2), and cargo reports only the first failing test target, so the three further targets archive, native_onboarding_rungs and native_send_producer that 14.0.6 attempt 8 met were invisible to this attempt."
+assumption = "Every task whose build gate compiles the crate's test targets waits on one port task, 10.6.5, instead of each porting the same files."
+severity = "blocker"
+
+[finding.14.0.6.4]
+task = "14.0.6"
+file = "services/human/crates/layerx-human-service/tests/native_send_producer.rs:565"
+symbol = "load_access"
+observed = "Attempt 8 (8ce7d0acd) ported evidence_node.rs per do_5 and then failed the build on three test targets outside its touches: native_send_producer.rs:565, :572, :680 and :733 call load_access with three arguments after a5c762631 (task 10.13.8) added the &mut AgentRuntime parameter (src/server/native_send.rs:481); native_onboarding_rungs.rs:252 calls owner_activity::attach_signature in the four-argument Ed25519 form after 335bb6dfd (task 10.98.14) made it the EIP-1559 form (layerx-intents/src/owner_activity.rs:178) and kept the Ed25519 form as attach_native_signature (:110), as do layerx-intents/tests/owner_bootstrap.rs:93 and :121; and the archive target, which includes reclaim.rs and through it journey_faults.rs textually (archive.rs:1, reclaim.rs:4), imports PrincipalScope and Table twice since 886bdaf0f added them to journey_faults.rs:40 while archive.rs:31 already had them."
+assumption = "Four done producers changed a signature without compiling the consumers' test targets; 10.6.5 ports the consumers and 14.0.6 waits on it."
+severity = "blocker"
+
+[finding.8.98.16.1]
+task = "8.98.16"
+file = "services/platform/hosted/authority/src/trust.rs:27"
+symbol = "binds_header"
+observed = "The published CommittedCheckpoint::binds_header (1fe095a0b) binds an evidence header to the committed anchor checkpoint by batch number, last sequence and the two state roots but ignores the checkpoint view's headerDigest word (precompiles/layerxanchor/layerxanchor.go:74, word 2), which the view carries for exactly this binding and which identity_evidence_binds_to_the_committed_anchor_checkpoint already fills from batch_header_digest."
+assumption = "8.90.1, which continues in the same crate, adds the digest comparison; the four field checks stay."
+severity = "minor"
