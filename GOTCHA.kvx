@@ -12336,3 +12336,13 @@ fix = "A task that adds a variant to a public enum puts every exhaustive match i
 title = "Deleting a crate must carry its workspace manifest and lockfile"
 symptom = "A deletion task's touches named only the crate's files, so the workspace manifest kept the member and every cargo command in the human workspace failed with a missing manifest"
 fix = "Grep the workspace Cargo.toml members and the Cargo.lock package list for a crate before deleting it and put both in touches"
+
+[gotcha.2504]
+title = "A task that edits the specification document cannot be compared by raw tree after its done record"
+symptom = "A task whose touches include the specification document verified, then the done record rewrote the task's own status line inside that allowed file, so the measured candidate never matched the verified one and two attempts failed with the same unmet check"
+fix = "Mask the task's own status line in the comparison hash when the specification document is an allowed path; the published commit keeps the real content"
+
+[gotcha.2505]
+title = "A native envelope binder has no call-name port to an EVM call binder"
+symptom = "A migration task ordered call-name ports of every binder use, but two sites bind unsigned native kernel envelopes, which the EVM call binder cannot take; two attempts failed the retirement scan on them"
+fix = "When a retired function has no same-shape replacement, retire its callers with the task that deletes their file and order the deletion of the definition behind them"
