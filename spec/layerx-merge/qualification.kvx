@@ -14723,3 +14723,211 @@ symbol = "subject"
 observed = "The attempt reports that the subject check it replaced compared four fields of the module 7 identity record that the node join does not carry one-for-one: the raw identity bytes, the authority key, the canonical account name and the record's chain sequence against the head. Decision 2145 replaces that record with px_getAccount's layerx join deliberately: the join's layerx_did and layerx_account bound to the subject's EVM address is the node's statement of identity, the committed height and the anchor's finality replace the sequence-against-head staleness check, and an unbound subject answers subject_not_bound."
 assumption = "The four legacy comparisons have no node twin by design; the bound join plus finality is the equivalent, and the attempt's refusal paths (subject_not_bound, subject_checkpoint_stale) are the ones decision 2145 asks for."
 severity = "minor"
+
+[finding.19.4.1.1]
+task = "19.4.1"
+file = "apps/wallet/src/lib/pns.ts:11"
+symbol = "PNS_CONTRACTS"
+observed = "The wallet's name library hard-codes three contract addresses (controller 0xed04f296..., public resolver 0x0f7b8437..., reverse registrar 0x967e8e45...) and the widget drives commit, register, renew, transfer and setName against them, but eth_getCode for all three on chain 125 (block 41447835) returns no code, and no name-service contract source exists in the repository; every write the widget offers fails on chain."
+assumption = "Feature 19 writes the contract set in-tree with the exact controller ABI the wallet encodes (19.1.1 to 19.1.3) and 19.4.1 repoints the wallet at environment-configured addresses with a not-configured state instead of literal addresses without code."
+severity = "major"
+
+[finding.9.99.2.2]
+task = "9.99.2"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "ConstructMethod::AuthLifecycle"
+observed = "Attempts 3 and 4 (5d6f04258) build the AuthLifecycle arm and then fail the verify command with cargo exit 101: no test target named intent_plan_evm in layerx-human-service, because tests/intent_plan_evm.rs is a planned path of task 10.0.3 and is not on main."
+assumption = "The verify command and the capability's verification contract compile the library and the agent_create target only (decision 2151); 10.0.3 keeps its own gate."
+severity = "minor"
+
+[finding.8.98.15.3]
+task = "8.98.15"
+file = "services/platform/hosted/authority/tests/human_tls.rs:429"
+symbol = "real_server_wire_statuses_remain_distinct"
+observed = "Attempt 3 (9699103b6) builds and passes retired_client_modules, budget_proof_exports (5 tests) and the corpus-driven human_tls test, but the three human_tls tests that launch the authority with the unreachable chain URL http://127.0.0.1:1 fail at their first registry read: /v1/agent/registry answers 503 where 200 is expected (:429), the real client reports Refused (:15) and the child client run fails (:364). The registry handler (src/human.rs:545, registry(&human.registry_path)) reads only the module registry file, so the refusal code in the response body (policy_unavailable, module_registry_unavailable, module_registry_invalid, human_authority_unconfigured or state_unavailable) is the diagnosis the attempt did not capture; the suite had not run on main since the authority began requiring LAYERX_AUTHORITY_CHAIN_RPC_URL and LAYERX_AUTHORITY_RECEIPT_KEYS_FILE (src/main.rs:283-287) without the test setting them. Separately, prepare_root (:49) creates every test root under qual-logs/hm2 inside the repository, and the qualification harness lists those files as changes outside the task's scope."
+assumption = "The attempt prints the refusal body and server.log tail on every status assertion, fixes the cause the code names without replacing the unreachable chain URL in those three tests, and /qual-logs/ joins .cgignore (decision 2152)."
+severity = "major"
+
+[finding.12.35.2.3]
+task = "12.35.2"
+file = "services/agent/sdk/typescript/package.json:13"
+symbol = "exports"
+observed = "Attempt 3 (021b681bd) lists zero tests: Playwright loads apps/wallet/e2e/send.spec.ts as CommonJS (apps/wallet/package.json declares no module type), follows its import of ../../../sdk/wallet/src to the SDK import in sdk/wallet/src/modules/index.ts:10, and Node refuses require of @sidiora/layerx-sdk/browser because the exports map at services/agent/sdk/typescript/package.json:13-22 declares only types and import conditions for . and ./browser (ERR_PACKAGE_PATH_NOT_EXPORTED, printed as Package subpath './browser' is not defined by exports). Vitest resolves the import condition itself, which is why the vitest gates of 12.35.1 passed over the same files. The verify then waits 180 seconds for http://127.0.0.1:3099 and times out; the config pipes only the dev server's stderr (five warnings are visible, no banner) and Playwright accepts only 2xx, 3xx and 400-403 answers, so a page that compiles with an error answers 500 and never counts as ready, and the attempt captured neither the banner nor the response. next dev also rewrote the tracked apps/wallet/next-env.d.ts, which the scope check reports as a change outside the task."
+assumption = "The SDK export map gains a default condition for both entries so CommonJS consumers resolve it (Node 24 loads the ES module through require); the Playwright config pipes stdout, waits up to 600 seconds and the attempt records the first response of the dev server; next-env.d.ts joins the touches (decision 2153)."
+severity = "major"
+
+[finding.18.670.1.6]
+task = "18.670.1"
+file = "modules/perps/keeper/funding.go:171"
+symbol = "SettleFunding"
+observed = "Attempt 6 (03685946f) builds, clamps the log walk to the node's earliest block and waits six minutes for the first FundingSettled log, then fails: no log appeared although the wait (about 21:00:49Z to 21:06:49Z) started after a whole hour while the node's first block was around 20:58Z. SettleFunding (funding.go:171-184) records the hour of the first block it sees and emits nothing, so a fresh node's first FundingSettled can only appear at the first whole hour of block time after its first block, and the local genesis deletes app_state.perps (tools/qualification/localnode/v6120-node.sh:394) so every market starts with LastIndexHour 0. Attempt 5 passed the same wait because its window happened to straddle a whole hour. Attempt 6 straddled one too and still saw no log, so a second cause remains on the node: a market whose price, premium or funding step fails is skipped for the block and the failure is a perps_endblock_error Cosmos event (endblock.go:124-133), and a failed receipt write drops the whole pass (endblock.go:111-115); none of that reaches eth_getLogs, and the attempt did not read the block results."
+assumption = "The local node's genesis carries perps market states whose last index hour is one hour before genesis, so the first block settles funding deterministically, and the attempt reads the block results of the first settlement block to name any end-block failure (decision 2154)."
+severity = "major"
+
+[finding.17.5.1.14]
+task = "17.5.1"
+file = "scripts/gates/wave-0.sh"
+symbol = "workspace-build"
+observed = "Attempt 16 (e378dbed1) runs the real gate; step 1 (make -n build test) exits 0 and step 2 (make workspace-build) exits 2 in human-build (Makefile:38-41) when apps/web's next build cannot resolve '@sidiora/layerx-sdk/browser' imported by sdk/wallet/src/modules/index.ts through src/app/exchange/exchange-client.tsx: the SDK package.json exports map at services/agent/sdk/typescript/package.json:13 declares only types and import conditions, which the webpack build and Node's CommonJS loader both refuse. Decision 2153 already assigns that fix (default conditions) to task 12.35.2; the gate test carries no defect of its own."
+assumption = "17.5.1 requires 12.35.2 and re-runs the unchanged gate on a revision that carries it (decision 2155)."
+severity = "major"
+
+[finding.19.1.1.1]
+task = "19.1.1"
+file = "foundry.toml:2"
+symbol = "profile.default"
+observed = "Attempts 1 to 3 (3018063d3 and its relaunches) write all six files and fail forge build --root . before any test runs: the root Foundry project (src = contracts) compiles contracts/CheckpointRegistry.sol, contracts/EmergencyExit.sol and contracts/storage/WithdrawalNullifierRegistry.sol, whose imports of contracts/libraries/*.sol, contracts/security/LayerXComponent.sol, contracts/crypto/Ed25519.sol and contracts/interfaces/IGuarantorEligibility.sol do not exist on main, and tests/solidity/SidioraProxyGovernance.t.sol, PaxeerBetaDeploy.t.sol and PaxeerBetaDeploymentValidator.t.sol, which import contracts/lib/openzeppelin-contracts that only contracts/bootstrap-libs.sh populates. The whole-project build is broken independently of this task; the names contracts import only contracts/security/Governed.sol."
+assumption = "The name contracts build and test under a Foundry profile of their own, and the name tasks' commands use it (decision 2156)."
+severity = "major"
+
+[finding.19.4.2.1]
+task = "19.4.2"
+file = "modules/xweb/types/observation.go:33"
+symbol = "KindFetch"
+observed = "Attempt 1 (afde1c7b6) adds KindStorageReceipt, the payload codec, the keeper admission and both tests, and both tests pass; the done check refuses because the touches modules/xweb/observation.go and modules/xweb/genesis.go name files that do not exist (the kind admissions are at modules/xweb/types/observation.go:33 and modules/xweb/types/genesis.go:125) and were therefore not changed. Every declared touch must change, so the task cannot close with those paths."
+assumption = "The two touches become modules/xweb/types/observation.go and modules/xweb/types/genesis.go, which admit the new kind (decision 2157)."
+severity = "minor"
+
+[finding.19.3.1.1]
+task = "19.3.1"
+file = "pnpm-workspace.yaml:1"
+symbol = "packages"
+observed = "Attempt 1 (26892f709) writes the publisher, the verifier, the CLI and the three tests, and fails the build command: pnpm --dir tools/names install detects the repository's pnpm-workspace.yaml (Scope: all 20 workspace projects) and installs every listed package, and sdk/integrations/express depends on @sidiora/layerx-sdk 0.1.0 from the public registry, which answers 404. tools/names is not a workspace member and depends on sdk/names by file: path only."
+assumption = "The install commands of the name packages run with --ignore-workspace so each package installs in isolation (decision 2158)."
+severity = "minor"
+
+[finding.8.98.15.4]
+task = "8.98.15"
+file = "services/platform/hosted/authority/src/trust.rs:143"
+symbol = "replica"
+observed = "Attempt 4 (72c479b34) builds, prints the refusal as decision 2152 asked, and the three server-launching human_tls tests fail with 503 state_evidence_refused from human.rs:405: trust::replica (trust.rs:139-144) selects the pinned receipt key whose sequencer_id equals the receipt's context_hash, the attempt's receipt-keys.json pins keyId = the fixture's sequencer_id_hex, and the fixture receipt (tests/fixtures/real-program-deploy-receipt.json, signed before 354282d35 introduced the rule) carries a different context_hash, which the attempt reports as zero; chain_receipt.rs:72 refuses a zero key id, so the fixture cannot be pinned as it stands. The tests had not launched the server at all since main.rs:283-287 began requiring LAYERX_AUTHORITY_CHAIN_RPC_URL and LAYERX_AUTHORITY_RECEIPT_KEYS_FILE, which the test on main never sets."
+assumption = "The test re-signs its fixture at run time with a key whose id is written into the receipt's context_hash, the way tests/chain_receipts.rs already does (decision 2159)."
+severity = "major"
+
+[finding.19.0.1.1]
+task = "19.0.1"
+file = "apps/wallet/src/server/wallet-read-proxy.ts:28"
+symbol = "PNS_ORIGIN"
+observed = "The wallet already consumes a name indexer: apps/wallet/src/lib/pns.ts:180-253 calls the explorer name-service API shape (addresses:lookup, domains/<name>, domains/<name>/events, addresses/<address>, domains:lookup) under NEXT_PUBLIC_PNS_API_BASE, the five proxy routes under apps/wallet/src/app/api/pns forward to a literal hosted origin at apps/wallet/src/server/wallet-read-proxy.ts:28 that serves nothing for chain 125, and apps/explorer/configs/app/apis.ts:64 reads the same API shape from NEXT_PUBLIC_NAME_SERVICE_API_HOST; decision 2150 left the indexer out of scope, so the My Names tab and the explorer's name display would stay empty after the contracts deploy."
+assumption = "The hosted indexer gains a names module serving that API shape, and the wallet proxy points at it through configuration (decision 2160)."
+severity = "major"
+
+[finding.12.35.2.4]
+task = "12.35.2"
+file = "apps/wallet/playwright.wallet-app.config.ts:8"
+symbol = "walletServer"
+observed = "Attempt 4 (1d21cfab8) builds and lists the tests; the verify waits the full 600 seconds because the embedded Next server answers GET / and GET /index.html with 404: the server script sets basePath to the empty string on the imported config object, but next() without a conf option reads apps/wallet/next.config.mjs itself, so the product basePath /wallet stays in force and the readiness probe on the root never sees a page. The second run then fails at browserType.launch because the gate environment has no Playwright browser (Executable doesn't exist under ~/.cache/ms-playwright; the message asks for pnpm exec playwright install)."
+assumption = "The server script passes the config with basePath cleared as next()'s conf option, and the build command installs the chromium browser before listing the tests (decision 2161)."
+severity = "major"
+
+[finding.18.670.1.7]
+task = "18.670.1"
+file = "node/app.go:1651"
+symbol = "ProcessProposalHandler"
+observed = "Attempt 7 (7c753e924) builds, the first block of the new node emits FundingSettled for markets 0 and 11 with no perps_endblock_error (the genesis perps state of decision 2154 works), and TestEndToEnd then fails at e2e_test.go:494 with no receipt for the withdraw transaction: the node log shows every proposal from height 34742429 rejected with 'sequenced proposal tx 0 is not a sequence batch' and consensus prevoting nil through round 26. The v6120 export is past the sequencer activation height, so app.Sequenced is true and ProcessProposal requires tx 0 to be a sequence batch; a node started without --sequencer proposes plain transactions and can never include one. Decision 2137 kept this task on the plain start; the chain it starts cannot carry the test's transactions."
+assumption = "The verify command starts v6120-node.sh with --sequencer (the primary-only mode of decision 2134) and the test keeps reading PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET from the written environment (decision 2162)."
+severity = "major"
+
+[finding.10.0.3.9]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:1406"
+symbol = "upstream_degraded"
+observed = "Attempt 12 (1e3033129) builds and passes the plan test; intent_submit_records_each_leg_tx_hash submits (the node double served eth_sendRawTransaction after the balance reads) and the following GET /v1/journeys/<id> answers 503 upstream-degraded. The intent arm of the journey read (services/human/crates/layerx-human-service/src/server/production_components.rs:1393-1412) loads the journey and advances it through poll_once_ready, mapping both the poll error and the advance error to upstream_degraded with the error discarded (:1406-1407), so the response says nothing about which step of the advance failed. The node double's served list ends with eth_sendRawTransaction and eth_chainId: the advance's next read is the receipt of the sent transaction, and the double answers no eth_getTransactionReceipt or eth_getBlockByNumber."
+assumption = "The node double answers the receipt and block reads for the hash it accepted, and the intent arm logs the advance error with the journey id before mapping it (decision 2163)."
+severity = "major"
+
+[finding.10.6.3.1]
+task = "10.6.3"
+file = "services/human/crates/layerx-human-service/src/journeys/router.rs:1507"
+symbol = "base_shapes"
+observed = "Attempt 5 (8dcaba4fa) builds with the removals applied; intent_legs_reusing_a_nonce_are_refused fails at intent_nonces.rs:61 with NoRoute { source: PaxeerWallet, destination: Human }: since task 10.6.2 (ec7c4dc54) base_shapes refuses every intent with a PaxeerWallet endpoint and every remaining internal route yields exactly one shape (services/human/crates/layerx-human-service/src/journeys/router.rs:1515-1545), while top-ups are a record on the single leg, so plan() can no longer produce the two-leg custody deposit the test needs to make leg 1 reuse leg 0's nonce. UnifiedPlan exposes no constructor to the tests (seal is private)."
+assumption = "The two-leg test goes with the route it depended on; the pending-nonce test stays (decision 2164)."
+severity = "minor"
+
+[finding.18.1272.1.3]
+task = "18.1272.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:555"
+symbol = "bound_activity"
+observed = "Attempt 8 (1eebb5ac8) builds on a main that carries 9.99.2; creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths panics in services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:20 with Refused('lifecycle transaction binding differs') raised by assert_outcome's call to ProtocolEvidence::bound_activity. That refusal is one string for eight comparisons (activity type, actor, authority word, chain id, non-zero network, idempotency key, transaction hash against activity_id and against tx_hash; create.rs:543-556), so the output does not say which binding the test's EVM-form owner (sign_transaction for the receipt() stages, prepare_call for the budget creation stage) gets wrong."
+assumption = "assert_outcome compares the eight bindings itself with named assertions before calling bound_activity, and the next attempt fixes the one that differs on the test side (decision 2165)."
+severity = "major"
+
+[finding.19.1.1.2]
+task = "19.1.1"
+file = "tests/solidity/names/PaxRegistrarController.t.sol:9"
+symbol = "LayerXTimelock"
+observed = "Attempt 5 (cc5753c65) adds [profile.names] and testOnlyPaxNamesAreRegistrable, and the names build still fails: the controller test imports contracts/governance/LayerXTimelock.sol to act as the Governed authority, and that file imports contracts/security/LayerXComponent.sol and contracts/libraries/Error.sol, both retired earlier in this feature (tasks 6.80.3 and 6.57.9); the timelock itself is retired by task 6.55.1. The names profile therefore compiles the one governance source that cannot compile on main."
+assumption = "The names tests use a plain governance address and never import contracts/governance (decision 2166)."
+severity = "major"
+
+[finding.18.1272.1.4]
+task = "18.1272.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:550"
+symbol = "bound_activity"
+observed = "Attempt 9 (921694364) adds the eight named binding assertions; the budget-creation stage fails exactly one: 'lifecycle idempotency_key action_key binding'. bind_call takes budgetCreate's idempotency word from payload[2..34] (layerx-crypto src/disclosure/call.rs:555-556), and the compiled BudgetCreate payload carries BudgetId::new(agent_id) there (services/human/crates/layerx-human-service/src/agents/create.rs:1463-1464); budgetCreate has no idempotency word of its own, unlike budgetFund, which carries IdempotencyKey::new(action_key) (:1486). So for the budget-creation stage disclosure.idempotency_key is the budget id, bound_activity's comparison against action_key (:550) can never hold, and the stage is unreachable on any owner path. The dedup the comparison stands for is already made by every caller: evidence.action_key is compared with the action key (:1260) and the whole compiled payload, budget id included, with the bound payload (:1262)."
+assumption = "bound_activity binds the idempotency word against action_key for every method except PayBudgetCreate, whose word is the budget id pinned by the payload comparison; the test's named assertion mirrors the rule (decision 2167)."
+severity = "major"
+
+[finding.8.98.15.5]
+task = "8.98.15"
+file = "services/platform/hosted/authority/tests/human_tls.rs:49"
+symbol = "root"
+observed = "Attempt 5 (2f09eeb4d) builds and the qualification passes on the same revision (the re-signed fixture clears state_evidence_refused), and the attempt is refused because the tree holds sixty untracked files under qual-logs/hm2/: human_tls.rs:49 sets the fixture root to CARGO_MANIFEST_DIR/../../../../qual-logs/hm2 inside the repository, qual-logs is not ignored by git, and each run leaves its certificates, tokens, policy and state files there. The test's child processes read the root from LAYERX_HUMAN_TLS_ROOT (:448), so only the one path expression chooses the location."
+assumption = "The fixture root moves under CARGO_TARGET_TMPDIR, where the other hosted crates' integration tests already put theirs (decision 2168)."
+severity = "minor"
+
+[finding.18.670.1.8]
+task = "18.670.1"
+file = "tools/qualification/localnode/v6120-node.sh:712"
+symbol = "SEQUENCER"
+observed = "Attempt 8 (fd5d55aa7) runs the node with --sequencer and the chain now carries the test: the first FundingSettled log arrives after five seconds and the stall of attempt 7 is gone. TestEndToEnd then fails at e2e_test.go:486 with getMarkPriceDetails: execution reverted, which is viewMark (precompiles/perps/views.go:198) refusing market 11 because its mark price is zero. The script's collateral and price-feed setup (mint USDL to the test account, approve and deposit collateral, registerFeedKey, the background feeder, the wait for fresh BTC and PAX prices, then activate_merge) is one block guarded by SEQUENCER = 0 (tools/qualification/localnode/v6120-node.sh:712-757 in the attempt's script), so in sequencer mode no price is ever posted and the test account holds no collateral; the script's own TestLocalNodeV6120PerpsMarket (v6120_test.go:188-195) expects a fresh mark on market 11 from any started node."
+assumption = "The setup block runs in both modes and only activate_merge stays plain-mode, since the sequenced export is already past activation (decision 2169)."
+severity = "major"
+
+[finding.10.0.3.10]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/src/server/http.rs:582-586"
+symbol = "finish_response"
+observed = "Attempt 13 (base 0590a29db) builds; intent_plan_answers_eip1559_legs passes and only intent_submit_records_each_leg_tx_hash fails, with journey.get answering 503 upstream-degraded. The cause is not the advance path: finish_response at services/human/crates/layerx-human-service/src/server/http.rs:582-586 validates every handler result against the operation's response type (schema.rs:358 encode_response) and answers upstream-degraded when the result does not fit, writing no diagnostic. [operation.journey.get] answers Journey (journeys.kvx:63-68), whose required fields are journey_id, kind, state, state_copy_key, stages, evidence, started_at and updated_at, while the intent journey row the attempt returns (intent_submit.rs start_kernel_journey, services/human/crates/layerx-human-service/src/server/production_components.rs journey.get branch) carries journey_id, plan_digest, state processing, state_copy_key status.processing and a legs array, so the encoder refuses it on every read. The same mechanism explains why the plan test began passing once decision 2147 declared the optional IntentLeg fields."
+assumption = "The intent journey read must answer the declared Journey shape, with the per-leg tx hash and nonce carried on the stages as new optional JourneyStage fields (decision 2170); the service writes one stderr line for every schema refusal so the next one is self-describing."
+severity = "major"
+
+[finding.18.1272.1.5]
+task = "18.1272.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:555"
+symbol = "bound_activity"
+observed = "Attempt 10 (1fec77f4a) changed agent_creation.rs, tests/agent_create.rs and tests/support/canonical_owner.rs but not services/human/crates/layerx-human-service/src/agents/create.rs, stating the scope excludes it; the task's touches have carried create.rs since decision 2167 (7e3501a03). The test then panicked at canonical_owner.rs:20 with canonical owner encoding: Refused(lifecycle transaction binding differs), raised by bound_activity at :555 because the PayBudgetCreate disclosure word is the budget id and not the action key, exactly the comparison decision 2167 directs to change."
+assumption = "The next attempt makes the create.rs change decision 2167 describes; the fixture's panic is the product refusal it reproduces, not a test defect."
+severity = "major"
+
+[finding.18.670.1.9]
+task = "18.670.1"
+file = "node/app.go:3424-3430"
+symbol = "RPCContextProvider"
+observed = "Attempt 9 (8766345ee) builds and the node starts in --sequencer mode; the first eth_sendRawTransaction (the USDL mint of the setup block) answered Error: method handler crashed, and the node log shows rpc handler panicked logger=evmrpc method=eth_sendRawTransaction panic=sequencer: no block is open. RPCContextProvider panics when PendingSnapshot fails for PendingCtxHeight; rpc/tx.go:380 and :454 and rpc/send.go:342 call it unconditionally on the send path, and the executor's open layer is nil between Seal (executor.go:296) and the driver's Open after commit (driver.go:93), so a send landing in that window crashes the handler instead of waiting a few milliseconds for the next block."
+assumption = "A node defect, not a script defect: fixed by the new task 5.98.5 (decision 2172); 18.670.1 and 12.35.2 require it and keep their own changes."
+severity = "major"
+
+[finding.12.35.2.5]
+task = "12.35.2"
+file = "apps/wallet/playwright.config.ts"
+symbol = "webServer"
+observed = "Attempt 5 (85b99a037) builds with the browser installed, then the readiness probe of http://127.0.0.1:3099 saw only GET / 404 and GET /index.html 404 for 600 seconds. apps/wallet/next.config.mjs:15 sets basePath /wallet and the Next development server ignores the basePath override the harness passes in conf, so the app served under /wallet while the probe and every page.goto('/...') asked for the root."
+assumption = "The harness follows the product base path (decision 2171); the send path also depends on the node fix of 5.98.5, which the task now requires."
+severity = "major"
+
+[finding.19.2.2.1]
+task = "19.2.2"
+file = "rpc/state.go:150-176"
+symbol = "GetProof"
+observed = "Attempt 1 (325c5464b) builds, writes the vector and verifies the committed two-op proof against the stored app hash; the test then fails at names_proof_test.go:217 because the live eth_getProof answer does not verify against the commit hash (calculated root hash is invalid). GetProof queries the evm KV store itself (findQueryableKVStore, path /key), so each StorageProof carries only the ics23:iavl op from key to the evm store root and never the ics23:simple op from the store root to the app hash; the root multistore query at /evm/key yields both ops. The previous attempt declared rpc/state.go out of scope."
+assumption = "Acceptance 19003.1 requires the eth_getProof answer itself to verify against the app hash, so GetProof queries the root multistore (decision 2173); rpc/state.go, rpc/server.go and the test files that build a StateAPI join the touches."
+severity = "major"
+
+[finding.19.7.1.1]
+task = "19.7.1"
+file = "services/platform/hosted/indexer/src/explorer.rs:510"
+symbol = "node_unit"
+observed = "Attempts 1 (772aa50a7) and 2 (c0d3314e1) fail the build with error E0063 missing field name_events in initializer of store::Unit at services/platform/hosted/indexer/src/explorer.rs:510: the new Unit field is right, but explorer.rs builds a Unit in its test helper node_unit() and was outside the touches, so both attempts stopped. Attempt 2 also notes that no ReverseClaimed event exists: contracts/names/PaxReverseRegistrar.sol declares no events; setName writes the name through PaxPublicResolver.setName, which emits NameChanged(reverseNode, name), and the registrar's Transfer, NameRegistered and NameRenewed are declared in PaxBaseRegistrar.sol, not in IPaxNames.sol."
+assumption = "explorer.rs joins the touches and the reverse name is derived from the resolver's NameChanged on the sender's reverse node (decision 2174); the topic test reads the three files that declare the bound events."
+severity = "major"
