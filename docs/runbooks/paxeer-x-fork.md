@@ -371,7 +371,7 @@ Lagging or stalled nodes are not upgraded in place:
 
 - [ ] Section 0 table complete and checked by a second person; no key in two homes.
 - [ ] Proposal passed; `paxd q upgrade plan` shows `$UPGRADE_NAME` at the height announced.
-- [ ] Rehearsal passed on the release binary (`rehearsal-result.env` new_bin_sha256 equals section 3).
+- [ ] Rehearsal passed: the section 4 pytest selector exited 0 on the merged release revision, and that revision is the section 3 Source commit.
 - [ ] `sha256sum "$PAXD_BIN.$UPGRADE_NAME"` matches section 3 on every validator and full node host.
 - [ ] Validators holding more than two thirds of the voting power, plus margin, confirmed with the
       new binary staged and operators on call before H.
