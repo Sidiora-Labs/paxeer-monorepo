@@ -16563,3 +16563,19 @@ symbol = "ChainProofError"
 observed = "Attempt 2 (d90cd5486) repointed the three consumer crates, unified RootSelector in rpc/evidence.rs with the re-export of finding 9.25.17.1, deleted the kernel-transport-only items with their tests and built; the --tests build then stopped in layerx-agentd-host at host-tests/serve_routes.rs:91, :94 and :96, where ? converts ChainProofError, which derives only Debug (chain_proof.rs:82). Finding 9.25.19.2 placed that impl in task 9.25.19, and finding 9.25.19.3 then sequenced 9.25.19 after this task, so neither task's --tests build can pass until the impl lands with the first of the two."
 assumption = "The Display and std::error::Error impls for ChainProofError land with this task; 9.25.19 keeps a single impl and continues otherwise unchanged."
 severity = "major"
+
+[finding.10.96.1.2]
+task = "10.96.1"
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2128"
+symbol = "receipt_keys"
+observed = "Attempt 3 (65c195624) implemented the four declared files and the build of layerx-human-service then failed with unresolved import layerx_paxeer_client, because two files outside the touches still name the crate the task removes from the manifest: services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2128-2131, where AgentRuntime::receipt_keys(endpoint: &layerx_paxeer_client::EndpointConfig) issues px_getReceiptKeys through raw_call and has no caller (production_reads.rs:538 and production_components.rs:5961 read receipt keys through HumanNode, backed by SequencerEndpoint::receipt_keys at services/agent/crates/layerx-client/src/sequencer.rs:546), and services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:83, where TransactionHash::from_hex parses a leg's tx_hash. No pending task touches either site for that purpose; 10.1.2 edits only the manifest list in src/lib.rs."
+assumption = "The two files join this task's touches: the uncalled receipt_keys method is deleted and the test parses the hash locally; the verify also compiles the intent_plan_evm test target so the crate's tests build."
+severity = "major"
+
+[finding.10.92.1.5]
+task = "10.92.1"
+file = "services/human/crates/layerx-human-service/src/server/production_reads.rs:330"
+symbol = "verification"
+observed = "Attempt 5 (540b80d97) built, rewrote the test over the production fixture as finding 10.92.1.4 asked, drove the real submission route to a receipted and to a committed leg, and both GETs of /v1/evidence/{id} were refused by the response schema with 503 upstream-degraded: response.result.verification is not a declared VerificationLevel variant. EvidenceMaterial.verification (journeys.kvx:51) is a VerificationLevel whose variants are unverified, receipt-verified and checkpoint-finalised with rung_mapping receipted:receipt-verified and committed:checkpoint-finalised (journeys.kvx:25-28); do_1, do_4 and ac_2 of req.10961 named the Rung values receipted and committed as the verification value, which the attempt wrote faithfully, and the test also asserted a rung field that EvidenceMaterial does not declare."
+assumption = "verification carries the VerificationLevel the rung maps to; EvidenceMaterial gains the optional rung field AccountBalance already has, serving the Rung name; the task text and ac_2 are corrected and the attempt continues."
+severity = "major"

@@ -5,7 +5,13 @@ use crate::rpc::payments::{self, CallRequest, FeeEstimate};
 use crate::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 
-pub type WithdrawalConfigurationError = crate::withdrawal::WithdrawalConfigurationError;
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum WithdrawalConfigurationError {
+    Unsupported,
+    Unavailable,
+    InvalidActivity,
+    AssetUnavailable,
+}
 
 fn estimate_fee(
     endpoint: &SequencerEndpoint,
