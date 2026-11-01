@@ -115,8 +115,8 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
         HistoryPage {
             items,
             next_cursor: Some(next.to_owned()),
-            indexed_height: 43981,
-            chain_height: 44000,
+            indexed_height: Some(43981),
+            chain_height: Some(44000),
         }
     );
     let last = history(&endpoint, account, page.next_cursor.as_deref(), None).must();
@@ -125,8 +125,8 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
         HistoryPage {
             items: vec![],
             next_cursor: None,
-            indexed_height: 43982,
-            chain_height: 44001,
+            indexed_height: Some(43982),
+            chain_height: Some(44001),
         }
     );
     for _ in 0..3 {
