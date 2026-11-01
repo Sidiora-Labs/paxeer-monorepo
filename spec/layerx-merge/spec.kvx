@@ -6183,6 +6183,12 @@ value = "sdk/names builds with pnpm --dir sdk/names install --ignore-workspace -
 basis = "Finding 19.2.3.1: the root workspace lists packages whose dependencies are unpublished, so a leaf install must not resolve them; eth_getProof answers for the height the caller names, so naming it is how the client learns it."
 affects = ["19.2.3"]
 
+[decision.2179]
+title = "The gateway path test drops the include of the retired relay archive runtime"
+value = "services/platform/hosted/gateway/tests/unified_service_paths.rs loses the ARCHIVE constant (:20) and the two assert!(ARCHIVE.contains(..)) lines (:187-188) of archive_sync_readiness_reaches_the_actual_sync_predicate; the test keeps its catalogue assertions (service, upstream, authentication, source) because tools/paxeer-x/route-catalogue.json still carries those values and the gateway still routes /v1/sync/readiness (src/lib.rs:851). Nothing else in the file changes."
+basis = "Finding 8.7.5.1: 8.32.1 deleted runtime.py with a pytest gate that never compiled the gateway tests, so include_str! of the deleted file breaks every build of the gateway test target; 8.7.5 is the task whose gate already compiles that target, so it carries the one-line repair rather than opening another task on the same file set."
+affects = ["8.7.5", "19.7.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -116321,7 +116327,7 @@ interfaces = []
 do_1 = "Decision 2176: in services/platform/hosted/gateway/tests/browser_profiles.rs native_program_and_name_reads_use_exact_public_owner_routes (:281) delete the three assert_eq! blocks on production_route for /v1/programs/registry, /v1/programs/registry/<id> and /v1/programs/registry/<id>/interface and the for loop over the nine POST program paths (:334-355); keep every assertion before :334. Remove any import the deletion leaves unused so the test target compiles without warnings; touch nothing under src."
 do_2 = "cargo test --locked -p layerx-platform-gateway --test browser_profiles passes and cargo check --locked --all-targets -p layerx-platform-gateway is clean."
 symbols = ["native_program_and_name_reads_use_exact_public_owner_routes"]
-touches = ["services/platform/hosted/gateway/tests/browser_profiles.rs"]
+touches = ["services/platform/hosted/gateway/tests/browser_profiles.rs", "services/platform/hosted/gateway/tests/unified_service_paths.rs"]
 tests = ["services/platform/hosted/gateway/tests/browser_profiles.rs::native_program_and_name_reads_use_exact_public_owner_routes"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --tests"
@@ -116337,6 +116343,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2179: continue from attempt 1 (124e0cfad), keeping its services/platform/hosted/gateway/tests/browser_profiles.rs change. In services/platform/hosted/gateway/tests/unified_service_paths.rs delete the ARCHIVE constant (:20, the include_str! of services/platform/relay_archive/runtime.py, which 8.32.1 removed) and the two assert!(ARCHIVE.contains(..)) lines in archive_sync_readiness_reaches_the_actual_sync_predicate (:187-188); keep the four catalogue assertions and the two unified_service_route checks of that test and every other test in the file. The build_cmd then compiles every gateway test target; run the verify_cmd as declared."
 
 [task.9.99.3]
 title = "Disclose the layerxpay budgetFund call as a Budget ordinal-2 activity in the call decoder"
