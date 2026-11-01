@@ -6381,6 +6381,12 @@ value = "onboarding/native.rs (layerx-human-service) accepts a ProtocolEvidence 
 basis = "Task 10.97.1 (c4739fc6c) ported agents/create.rs run_protocol to the EVM owner form, which compares the action key, the network id, the bound payload, the result code and the stage and never the record's key or DID, and tests/support/canonical_owner.rs:146-152 builds the evidence of every ported test with actor = the recovered sender and owner_public_key = twelve zero bytes and the sender (layerx-crypto disclosure/call.rs:473 sets actor = authority = sender). Attempt 10 of task 10.6.5 (5141249e7) applied that port to the onboarding tests and native_onboarding_completes_only_at_committed failed at tests/native_onboarding_rungs.rs:320 with EvidenceConflict from accept_bootstrap_owner, because the onboarding consumer kept the native comparisons (finding 10.6.5.9). The payload names the record's DID and primary key and the transaction signature binds the sender to it, so the identity binding the comparisons provided is carried by the signed transaction; the producer-and-consumer defect class."
 affects = ["10.6.5"]
 
+[decision.2212]
+title = "A sequencer leader admits the consensus mempool into its open layer before sealing"
+value = "At a height the sequencer source sequences, CreateProposalBlock (consensus/internal/state/execution.go:267) first reaps the consensus mempool with the ReapLimits of the plain branch (:282-285) and remove set, hands the reaped transactions in reap order to the new SequencerSource.Admit(ctx, height, txs), and seals afterwards. The primary's ConsensusSource runs each through the Accepter the EVM send path uses (node/sequencer/accepter.go:37), so an admitted transaction gets its receipt, its replication record and its receipt-source entry exactly like a sent one and leaves in the sealed slice in seq order, while a refused one is gone from the mempool and logged with its code. broadcast_tx_sync, broadcast_tx_commit and the mempool gossip of follower nodes keep their meaning, and decision 527 stands: a pinned height never waits for the mempool."
+basis = "Blocks at sequenced heights carry only the sealed slice (InjectSequenceBatch, consensus/internal/state/execution.go:53), and the sealed slice is fed only by eth_sendRawTransaction (rpc/send.go:183 into Accepter.Accept), so a Cosmos transaction broadcast to the consensus RPC is accepted by CheckTx into the mempool and never proposed: the local node fixture's price feed (MsgSubmitPrices through paxd tx broadcast, tools/qualification/localnode/v6120-node.sh:204) waited thirty seconds for a hash that never committed in attempts 14 and 15 of 18.670.1 while the node committed three hundred further blocks, and governance votes, staking and the validators' price submissions (tools/release/rehearsal/programme.py:1255) use the same path. Accept already executes Cosmos transactions (node/sequencer/fee.go:18, node/sequencer/mixed_load_test.go:119); only the entry from the mempool was missing. The producer-and-consumer defect class."
+affects = ["5.98.8", "18.670.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -16144,6 +16150,10 @@ ac_1 = "verify_native_budget_proof accepts an export whose finality block hash a
 title = "The budget proof v2 fixture's owner DID decodes in layerx-client"
 ac_1 = "Every layerx_did in tests/vectors/budget-proof-v2/node-answers.json is did:layerx: followed by 64 lowercase hexadecimal characters, the generator test asserts it, and the regenerated fixture equals the generator's output byte for byte."
 
+[req.92515]
+title = "Every test target of layerx-agentd compiles against the rewritten budget proof module"
+ac_1 = "cargo build --locked -p layerx-agentd --tests succeeds, tests/budget_mutations_layerxpay.rs no longer names CommittedBudgetProofTrust, and the budget proof v2 verification, tampering and owner refusal are covered by the lib tests of budget_proof.rs."
+
 [req.92511]
 title = "EVM storage slots are proven as ICS23 witnesses through the app root"
 ac_1 = "verify_storage_witness accepts the node's eth_getProof answer for a slot under the block's stateRoot and refuses a changed value, a changed key, a foreign store root and a foreign app hash."
@@ -16601,9 +16611,13 @@ ac_2 = "At a pinned height voteTimeout (consensus/internal/consensus/state.go:27
 ac_3 = "Below the pin activation, or with enable false, the three functions keep the consensus-param and unsafe-override behaviour of consensus/internal/consensus/state.go:2739-2773."
 
 [req.5266]
-title = "The sequencer leader proposes without consensus mempool transactions"
-ac_1 = "enterNewRound (consensus/internal/consensus/state.go:983) skips the waitForTxs branch at consensus/internal/consensus/state.go:1057 when the leader pin applies at the height, because sequenced transactions never enter the consensus mempool."
+title = "The sequencer leader never waits for consensus mempool transactions"
+ac_1 = "enterNewRound (consensus/internal/consensus/state.go:983) skips the waitForTxs branch at consensus/internal/consensus/state.go:1057 when the leader pin applies at the height: mempool transactions are admitted into the open layer at propose time (req.5091) and never awaited."
 ac_2 = "Below the pin activation the waitForTxs rule of consensus/internal/consensus/state.go:1057 is unchanged."
+
+[req.5091]
+title = "Transactions broadcast to the consensus RPC commit at sequenced heights"
+ac_1 = "A transaction CheckTx accepted into the leader's consensus mempool is admitted into the open layer at the next proposal and committed in that block with its hash unchanged, or dropped from the mempool with its refusal code logged; the block still carries the sequence batch at tx 0 and the slice in seq order."
 
 [req.5267]
 title = "The leader never proposes a sealed block validators must refuse"
@@ -33389,6 +33403,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.5.98.8]
+title = "Admit the consensus mempool into the sequencer's open layer at each proposal"
+reqs = ["5091.1"]
+touches = ["consensus/types/sequencer.go", "consensus/internal/state/execution.go", "consensus/internal/state/sequencer_proposal_test.go", "node/sequencer/consensus_source.go", "node/sequencer/node.go", "node/sequencer/consensus_source_admit_test.go"]
+tests = ["consensus/internal/state/sequencer_proposal_test.go::TestSequencerProposalAdmitsMempoolTransactions", "consensus/internal/state/sequencer_proposal_test.go::TestSequencerProposalAdmitErrorFailsProposal", "node/sequencer/consensus_source_admit_test.go::TestConsensusSourceAdmitsCosmosTransaction", "node/sequencer/consensus_source_admit_test.go::TestConsensusSourceAdmitRefusalLeavesTheLayer"]
+verification_contract = "go test -count=1 ./consensus/internal/state/ -run '^TestSequencerProposal' && go test -count=1 ./node/sequencer/ -run '^(TestConsensusSourceAdmitsCosmosTransaction|TestConsensusSourceAdmitRefusalLeavesTheLayer|TestStandalonePrimaryReceiptsTransferThroughSendAPI)$'"
+do_1 = "Decision 2212. In consensus/types/sequencer.go add Admit(ctx context.Context, height int64, txs Txs) (admitted int, err error) to SequencerSource with a doc comment: it runs the reaped mempool transactions in order through the leader's accept path at the open height; a refusal of one transaction is not an error; err is returned only when the accept path can take no more transactions (layer not open, lease fenced, replication halted), and CreateProposalBlock then fails the proposal exactly as a Seal error does."
+symbols = ["SequencerSource.Admit", "CreateProposalBlock", "ConsensusSource.Admit", "ConsensusSource.SetAccepter", "TestSequencerProposalAdmitsMempoolTransactions", "TestConsensusSourceAdmitsCosmosTransaction"]
+
+[capability.9.25.15]
+title = "Port the layerxpay budget mutation test off the budget proof trust that 9.25.10 replaced"
+reqs = ["92515.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering", "services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs::budget_create_prepares_create_budget_calldata"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test budget_mutations_layerxpay 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --exact budget::budget_proof::tests::budget_proof_v2_node_answers_fixture_is_current budget::budget_proof::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 2 passed'"
+do_1 = "Task 9.25.10 (9f2f0adf8) rewrote services/agent/crates/layerx-agentd/src/budget/budget_proof.rs: CommittedBudgetProofTrust, which carried a tenant, a principal, an owner account and a decoded ProtocolBudgetState, is gone, and verify_budget_proof now takes a BudgetProofVerifier, whose implementation BudgetProofTrust (:20-31) re-executes the getBudget call against a ServedCheckpoint and a node endpoint. services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs:2 still imports CommittedBudgetProofTrust and the test budget_proof_v2_carries_the_committed_height (:212-290) builds one, so every --tests build of layerx-agentd fails at that import (9.25.11 attempt 3). Delete that test function and the budget_proof import line it alone used (BudgetProofError and verify_budget_proof are used nowhere else in the file; check with grep before removing them); budget_create_prepares_create_budget_calldata (:93) and everything else in the file stay."
+symbols = ["budget_proof_v2_carries_the_committed_height", "CommittedBudgetProofTrust", "BudgetProofTrust", "budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
 
 [capability.17.5.13]
 title = "Install the Python SDK from its services/agent path in make platform-sample-install"
@@ -110571,7 +110603,7 @@ title = "Decode and verify the node's eth_getProof ICS23 storage witness in laye
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.8"]
+requires = ["9.25.8", "9.25.15"]
 reqs = ["92511.1"]
 capabilities = ["9.25.11"]
 interfaces = []
@@ -110599,6 +110631,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 9.25.11.1 and decision 2207: continue from attempt 1 (3d00000a8) keeping storage_witness.rs, the vector, the generator test, the ported module_state.rs, rpc/evidence.rs, proof_bundle.rs and the three client tests. In sequencer.rs restore AccountProof, StorageProof, account_proof and decode_account_proof exactly as 7c9d46e36 has them, with one doc comment on AccountProof naming task 9.25.13 as the task that retires them; the pub type StorageProof re-export of module_state.rs:12 stays deleted. Port services/agent/crates/layerx-agentd/tests/proof_bundle_v2.rs onto the new AccountState: its node double answers eth_getProof for the vector's address and slot with the ops of programs/tests/vectors/ics23-evm-storage-app-hash.json and the checkpoint under test carries that vector's height and app_hash; the AccountProof at :46 and :129-134 and every balance, nonce, code_hash and storage_hash expectation leave; the tampering cases become a flipped storage value and a foreign app hash, each refused with its own error, and the refusal-before-eth_getProof case at :350 stays. A shape the vector cannot express is a finding naming the field and the owning task, not a local fixture. The verify gate adds the proof bundle test target. Build once, verify once."
 do_7 = "Finding 9.25.11.2 and decision 2209: continue from attempt 2 (61529eece) keeping every file of it, rebased onto main (task 9.25.5 changed protocol_evidence.rs and read/checkpoint.rs outside the lines named here). In read/checkpoint.rs replace the AccountProof import at :6 with StorageWitness from layerx_client::sequencer, declare ProofBundleRequest.account_proof (:460) as Option<&'a [StorageWitness]> and ServedProofBundle.account_proof (:483) as Option<super::proof_bundle_owner::AccountState>, so read/proof_bundle.rs:127-278 compiles as attempt 2 wrote it. In protocol_evidence.rs port verified_program_record (:1903): its last parameter is calldata: &[u8] in place of key; after the existing header and height checks it acquires crate::read::ServedCheckpoint::acquire_at_committed_block(node, height), mapping CheckpointReadError::Rpc to Unavailable and every other variant to Refused, and calls layerx_client::rpc::module_state::module_state(node, calldata, ModuleReadContext { precompile (eighteen zero bytes then 0x10, 0x1d, as :1943 builds it), committed_height: height, block_hash: checkpoint.block_hash, app_hash: checkpoint.app_hash }), mapping ModuleReadError::Rpc to Unavailable and the other variants to Refused; the evidence().level() and state_root() comparisons at :1961-1962 leave together with the AccountEvidencePolicy and RootSelector construction, the re-read of block_number and the block at :1963-1968 stays, and the result is VerifiedStateEvidence { canonical_state: value.canonical_bytes().to_vec(), level: VerificationLevel::STATE_PROVEN, observed_head_sequence: height }. verified_program_owner (:1882) passes the calldata of getProgramOwner(bytes32), the first four bytes of the keccak of the signature then the program id as read/program_node.rs programs_call builds it, and decodes the 32-byte result as the owner, Refused when the result is not 32 bytes or is zero; program_owner_key and decode_program_owner are deleted with their four tests at :1992-2034 and the record helper of that tests module. budget/execution_state.rs:189 compiles unchanged because it passes a byte slice; task 9.25.6 ports it (decision 2209) and this task does not touch it. Keep the build and verify commands; build once, verify once."
+do_8 = "Finding 9.25.11.3: continue from attempt 3 (99b0818b8) unchanged once task 9.25.15 is on main, so the --tests build of layerx-agentd compiles; rebase onto main, change nothing, build once and verify once."
 
 [task.17.5.12]
 title = "Build the agent TypeScript SDK before the web build and give its exports a default condition"
@@ -117188,11 +117221,42 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.25.15]
+title = "Port the layerxpay budget mutation test off the budget proof trust that 9.25.10 replaced"
+status = "pending"
+mode = "BUILD"
+wave = 36
+requires = []
+reqs = ["92515.1"]
+capabilities = ["9.25.15"]
+interfaces = []
+do_1 = "Task 9.25.10 (9f2f0adf8) rewrote services/agent/crates/layerx-agentd/src/budget/budget_proof.rs: CommittedBudgetProofTrust, which carried a tenant, a principal, an owner account and a decoded ProtocolBudgetState, is gone, and verify_budget_proof now takes a BudgetProofVerifier, whose implementation BudgetProofTrust (:20-31) re-executes the getBudget call against a ServedCheckpoint and a node endpoint. services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs:2 still imports CommittedBudgetProofTrust and the test budget_proof_v2_carries_the_committed_height (:212-290) builds one, so every --tests build of layerx-agentd fails at that import (9.25.11 attempt 3). Delete that test function and the budget_proof import line it alone used (BudgetProofError and verify_budget_proof are used nowhere else in the file; check with grep before removing them); budget_create_prepares_create_budget_calldata (:93) and everything else in the file stay."
+do_2 = "The deleted test's coverage lives in the lib tests of services/agent/crates/layerx-agentd/src/budget/budget_proof.rs: budget_proof_v2_node_answers_fixture_is_current (:593) and budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering (:776). Read the second test's refusal cases: if no case yet verifies the fixture export with a BudgetProofTrust whose owner is a different DID and asserts Err(BudgetProofError::Refused), add that case to the test (the owner comparison the deleted test asserted); otherwise change nothing in the lib."
+do_3 = "The build gate compiles every test target of layerx-agentd, which is what 9.25.11 and every later agent task builds; the verify gate runs the remaining test of the file and the two lib tests."
+symbols = ["BudgetProofTrust", "budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
+touches = ["services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering", "services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs::budget_create_prepares_create_budget_calldata"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test budget_mutations_layerxpay 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --exact budget::budget_proof::tests::budget_proof_v2_node_answers_fixture_is_current budget::budget_proof::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 2 passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore tests/budget_mutations_layerxpay.rs from b6d91116d; the layerx-agentd test targets fail to compile again and 9.25.11 stays blocked."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 9.25.15.1: continue from attempt 1 (145aa044047) unchanged; the symbol list no longer names the import and the test this task deletes. Rebase onto main, change nothing, build once and verify once."
+
 [task.17.5.13]
 title = "Install the Python SDK from its services/agent path in make platform-sample-install"
 status = "pending"
 mode = "BUILD"
-wave = 29
+wave = 18
 requires = []
 reqs = ["17513.1"]
 capabilities = ["17.5.13"]
@@ -117200,12 +117264,12 @@ interfaces = []
 do_1 = "In services/platform/Makefile.inc:41 the pip install line of platform-sample-install still names $(CURDIR)/agent/sdk/python; 3422bafe2 moved the SDK to services/agent/sdk/python and rewrote :112, :277 and :350 but not this $(CURDIR)-prefixed path, so the recipe fails before anything is installed and platform-sample-dependencies-ready then reports that layerx-sdk has no metadata (17.5.5 attempt 13). Change the path to $(CURDIR)/services/agent/sdk/python; the $(CURDIR)/sdk/integrations/fastapi argument stays."
 do_2 = "Confirm no other recipe of services/platform/Makefile.inc or the root Makefile names a root-anchored agent/ path: grep for '$(CURDIR)/agent/' and for ' agent/' not preceded by services/, and fix any hit the same way, naming it in the done record."
 do_3 = "The verify gate runs the pip line of the recipe with its two paths against a throwaway target directory (python3 -m pip install --no-index --no-deps --no-build-isolation --target build/platform-python-check) and checks the two package versions exactly as platform-sample-dependencies-ready does, so the recipe's install step is exercised without the Swift and dotnet toolchains; the wave 4 aggregate of task 17.5.5 reaches platform-sample-dependencies-ready and is the consumer gate."
-symbols = ["platform-sample-install", "platform-sample-dependencies-ready"]
+symbols = []
 touches = ["services/platform/Makefile.inc"]
 tests = []
 planned_paths = []
 build_cmd = "make -n platform-sample-install 2>/dev/null | grep -q -- /services/agent/sdk/python && test $(grep -cE '\(CURDIR\)/agent/' services/platform/Makefile.inc) -eq 0"
-verify_cmd = "rm -rf build/platform-python-check && python3 -m pip install -q --no-index --no-deps --no-build-isolation --target build/platform-python-check $PWD/services/agent/sdk/python $PWD/sdk/integrations/fastapi && PYTHONPATH=build/platform-python-check python3 -c 'import importlib.metadata as m; print(m.version(\"layerx-sdk\"), m.version(\"layerx-fastapi\"))' | grep -qx '0.1.0 0.1.0' && rm -rf build/platform-python-check"
+verify_cmd = "rm -rf build/platform-python-check && python3 -m pip install -q --no-index --no-deps --no-build-isolation --target build/platform-python-check $PWD/services/agent/sdk/python $PWD/sdk/integrations/fastapi && PYTHONPATH=build/platform-python-check python3 -c 'import sys, importlib.metadata as m; print(*map(m.version, sys.argv[1:]))' layerx-sdk layerx-fastapi | grep -qx '0.1.0 0.1.0' && rm -rf build/platform-python-check"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -117217,10 +117281,12 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 17.5.13.1: continue from attempt 2 (3931793285b) unchanged; the verify command now passes the two package names as arguments to a python3 -c that holds only single quotes. Build once, verify once."
+do_5 = "Finding 17.5.13.2: continue from attempt 3 (99cc5fb56) unchanged; the task no longer declares make targets as symbols. Rebase onto main, change nothing, build once and verify once."
 
 [task.9.25.14]
 title = "Give the budget proof v2 fixture an owner DID the client decoder accepts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["9.25.10"]
@@ -117280,7 +117346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.25.12]
 title = "Verify the authority's committed budget proof v2 export in the daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["9.25.10", "8.98.18"]
@@ -117309,7 +117375,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.98.18]
 title = "Bind the authority's human budget proof v2 to the committed block and commit its fixture export"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["8.98.17", "9.25.10", "9.25.14"]
@@ -117469,7 +117535,7 @@ do_7 = "Finding 9.25.9.1: continue from attempt 1 (717e1bb48) unchanged: the thi
 
 [task.10.6.5]
 title = "Port the layerx-human-service and layerx-intents test targets to the current producer signatures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = []
@@ -117636,7 +117702,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.6.4]
 title = "Route wallet bank transfers through the denom's ERC20 native pointer and decode them in bind_call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.6.2", "10.6.5"]
@@ -117833,7 +117899,7 @@ interfaces = []
 do_1 = "Task 10.0.3 (63aee3813) changed start_kernel_journey in services/human/crates/layerx-human-service/src/journeys/intent_submit.rs to the six-argument EIP-1559 form (scope, plan, request, expectation, journey_id, &[EvmAction]) returning IntentSubmission and removed AttestorKms::authorize_kernel_send, while tests/intent_submit.rs:918, :977, :1096, :1166, :1517 and :1755 (and the drive at :952) still call the KernelStart form and read .status(), so the crate's test targets do not compile on main. Port each call site to the form production uses at production_components.rs:4582: sign the plan's legs through Keystore::authorize_send_transaction into EvmAction values, call start_kernel_journey with the journey id and the signed legs, and assert on the returned IntentSubmission state and on the recorded legs' tx_hash as tests/intent_plan_evm.rs:1278 does. A case that exercises only the kernel-native profile, which no production path calls, is deleted rather than ported, with a one-line comment naming this task."
 do_2 = "Leave tests/wallet_identity_e2e.rs to task 18.1151.1 do_12. The build gate compiles every test target of layerx-human-service so a remaining caller of the old form fails this task; the verify gate runs the ported test file."
 symbols = ["start_kernel_journey", "IntentSubmission", "EvmAction", "authorize_send_transaction"]
-touches = ["services/human/crates/layerx-human-service/tests/intent_submit.rs", "services/human/crates/layerx-human-service/tests/retired_crypto_codec_w3.rs"]
+touches = ["services/human/crates/layerx-human-service/tests/intent_submit.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/intent_submit.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
@@ -117853,6 +117919,7 @@ do_3 = "Finding 14.0.6.2: the retired journeys are not a port target. In tests/i
 do_4 = "Finding 14.0.6.3: delete services/human/crates/layerx-human-service/tests/retired_crypto_codec_w3.rs, whose only subject tests/binding.rs was deleted by task 10.9.1 (2772a218f), so that cargo build --locked -p layerx-human-service --tests compiles every remaining test target; this is the one edit outside tests/intent_submit.rs this task makes."
 do_5 = "Finding 10.8.1.1: delete services/human/crates/layerx-human-service/tests/journey_family_projections.rs, whose only test imports the deleted DepositJourney, ExitJourney and WithdrawalJourney and asserts a four-family inventory of which three families are retired. Finding 10.25.4.2: in tests/evidence_node.rs replace the .activity_id reads at :465 and :470 with .tx_hash compared with first_hash (the Keccak of first computed at :413) and the .activity reads at :419, :466 and :471 with .raw_transaction compared with first; node.queue and AdmissionJournal::contains take the transaction hash, so :473 asserts contains(&first_hash). Continue from attempt 7 with do_3 and do_4 kept; these two files are the only further edits, and the build gate must now compile every test target of the crate."
 do_6 = "Finding 14.0.6.4: the two files of do_5 (journey_family_projections.rs and evidence_node.rs) and the three targets attempt 8 met belong to task 10.6.5 (now required); this task no longer edits them and its touches are intent_submit.rs and retired_crypto_codec_w3.rs only. Continue from attempt 8 (8ce7d0acd) keeping its intent_submit.rs port, do_3 and do_4, once 10.6.5 is on main."
+do_7 = "Finding 14.0.6.5: continue from attempt 11 (e8ce6786a) unchanged; do_4 was carried out by task 10.6.5 and the file is no longer in the touches. Rebase onto main, change nothing, build once and verify once."
 
 [task.9.25.3]
 title = "Port the agent daemon's remaining layerx_client::Client holders to SequencerEndpoint and PxEndpoint"
@@ -118162,6 +118229,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.5.98.8]
+title = "Admit the consensus mempool into the sequencer's open layer at each proposal"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["5.98.7"]
+reqs = ["5091.1"]
+capabilities = ["5.98.8"]
+interfaces = []
+do_1 = "Decision 2212. In consensus/types/sequencer.go add Admit(ctx context.Context, height int64, txs Txs) (admitted int, err error) to SequencerSource with a doc comment: it runs the reaped mempool transactions in order through the leader's accept path at the open height; a refusal of one transaction is not an error; err is returned only when the accept path can take no more transactions (layer not open, lease fenced, replication halted), and CreateProposalBlock then fails the proposal exactly as a Seal error does."
+do_2 = "In consensus/internal/state/execution.go CreateProposalBlock, before Seal in the sequenced branch (:267-279): reap with blockExec.mempool.ReapTxs using the ReapLimits of the plain branch (:282-285) and remove true, call Admit(ctx, height, reaped) when the reaped slice is not empty, log at info the reaped and admitted counts, and keep Seal, InjectSequenceBatch and the open-time check unchanged. The doc comment at :234-240 states the new order: reap and admit, then seal."
+do_3 = "In node/sequencer/consensus_source.go give ConsensusSource an accept function installed by a new SetAccepter method, which node/sequencer/node.go calls with n.Accepter right after :147. ConsensusSource.Admit returns 0, nil without accepting when the source already holds a pending sealed batch for the height (a proposal retry; the layer is closed) and otherwise calls the Accepter's Accept (node/sequencer/accepter.go:37) for each transaction in order: ErrLayerNotOpen, ErrLeaseFenced and ErrReplicationHalted end the loop and are returned; any other error is a refusal logged at info with the sha256 hash of the bytes and the error text, and the loop continues. Admit holds no lock across the loop that would block a concurrent eth_sendRawTransaction for longer than one Accept."
+do_4 = "In consensus/internal/state/sequencer_proposal_test.go the fake sealedSource (:27-45) records every Admit call (height and transactions) and can be told to return an error. Add TestSequencerProposalAdmitsMempoolTransactions: two transactions enter the fixture mempool through addToMempool (:103) at a sequenced height; after propose the source saw both in reap order, the mempool size is 0 and the block equals the batch plus the fake's sealed slice. Add TestSequencerProposalAdmitErrorFailsProposal: Admit returns an error and CreateProposalBlock returns it with a nil block and no Seal call. Rewrite TestSequencerProposalLeavesMempoolUpdate (:200) for the new rule: the gossiped transaction is admitted at propose and leaves the mempool, so after apply the mempool is empty and nothing is rechecked; TestSequencerProposalIgnoresMempoolOrder (:182) also asserts the high-priority transaction was handed to Admit; TestSequencerProposalBelowActivationReaps (:304) is unchanged."
+do_5 = "Write node/sequencer/consensus_source_admit_test.go on the node harness (newNodeHarness, node/sequencer/node_test.go:124) with a node started as the standalone primary test starts it (node/sequencer/standalone_primary_test.go:30-58) and a state that sequences the open height as node_test.go:118-139 arranges it, sealing through n.ConsensusSource.Seal as node/sequencer/commit_release_test.go:187 does. TestConsensusSourceAdmitsCosmosTransaction signs a bank send from the funded signer with signCosmos (node/sequencer/executor_test.go:143), calls n.ConsensusSource.Admit at the open height with that one transaction and gets admitted 1, err nil; Seal then returns a sealed block whose Txs carry the bytes unchanged behind the batch, and n.ReceiptSource.SequencerSend (node/sequencer/receipt_source.go:98) serves a send for the sha256 hash of the bytes. TestConsensusSourceAdmitRefusalLeavesTheLayer admits a bank send with a wrong account sequence beside a good one in one call: admitted 1, err nil, and the sealed slice carries only the good one."
+do_6 = "The build gate compiles consensus, node and rpc and vets the two changed packages; the verify gate runs every TestSequencerProposal test of consensus/internal/state, the two new node tests and the standalone primary test. The local node fixture of task 18.670.1 under --sequencer is the consumer gate: its price feed broadcasts commit within the thirty-second wait of tools/qualification/localnode/v6120-node.sh:211."
+symbols = ["SequencerSource.Admit", "CreateProposalBlock", "ConsensusSource.Admit", "ConsensusSource.SetAccepter", "TestSequencerProposalAdmitsMempoolTransactions", "TestConsensusSourceAdmitsCosmosTransaction"]
+touches = ["consensus/types/sequencer.go", "consensus/internal/state/execution.go", "consensus/internal/state/sequencer_proposal_test.go", "node/sequencer/consensus_source.go", "node/sequencer/node.go", "node/sequencer/consensus_source_admit_test.go"]
+tests = ["consensus/internal/state/sequencer_proposal_test.go::TestSequencerProposalAdmitsMempoolTransactions", "consensus/internal/state/sequencer_proposal_test.go::TestSequencerProposalAdmitErrorFailsProposal", "node/sequencer/consensus_source_admit_test.go::TestConsensusSourceAdmitsCosmosTransaction", "node/sequencer/consensus_source_admit_test.go::TestConsensusSourceAdmitRefusalLeavesTheLayer"]
+planned_paths = ["node/sequencer/consensus_source_admit_test.go"]
+build_cmd = "go build ./consensus/... ./node/... ./rpc/... && go vet ./consensus/internal/state/ ./node/sequencer/"
+verify_cmd = "go test -count=1 ./consensus/internal/state/ -run '^TestSequencerProposal' && go test -count=1 ./node/sequencer/ -run '^(TestConsensusSourceAdmitsCosmosTransaction|TestConsensusSourceAdmitRefusalLeavesTheLayer|TestStandalonePrimaryReceiptsTransferThroughSendAPI)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Restore the six files from 712c7ea58; transactions broadcast to the consensus RPC never commit at sequenced heights again and 18.670.1 cannot pass under --sequencer."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.5.5.22]
 title = "Retain committed sends in the receipt source so pax_sequencerReceipt answers the committed rung"
@@ -151092,6 +151192,7 @@ do_6 = "Finding 10.6.1.2: continue from attempt 2 (4428c4d24); the fixture's Jou
 do_7 = "A -32000 refusal 'receipted but its logs are not recorded' from the node (attempt 3, move_money_bank_send.rs:330) is the send-path race that task 5.98.7 (now required) removes, not a fault of the move plan; do not retry or mask it in the test."
 do_8 = "Finding 10.24.1.1: layerx-human-service does not build on main between 684838ce3 and task 10.24.4 (now required); an attempt that stops on production_components.rs:4648 continues unchanged once 10.24.4 is on main."
 do_9 = "Finding 10.6.1.3 and decision 2197: continue from attempt 6 (c12d43f86) once 10.6.4 is merged. In move_leg_completes_from_its_receipt register the denom's native pointer as fixture setup when none exists (pointer precompile 0x100B addNativePointer(denom) signed by the node key, then pointerview 0x100A getNativePointer(denom) through call_pending), carry the pointer in live_request, and keep the assertions: each leg's receipt reaches Rung::Receipted with execution.success true, each recipient's balance grows by the leg amount, and the persisted plan completes from the two receipts after the recovery reload."
+do_10 = "Finding 10.6.1.4: continue from attempt 7 (f3b8d7be0) with the do_9 steps now that task 10.6.4 is on main; rebase onto main, build once and verify once. If move_leg_completes_from_its_receipt still reverts, record the revert string and the node evidence lines of the leg in the finding and stop."
 
 [task.10.6.2]
 title = "Remove bridge mechanisms from send routing and executable shapes"
@@ -162585,8 +162686,8 @@ symbols = ["send_reaches_committed_only_with_a_matching_explorer_answer"]
 touches = ["apps/wallet/e2e/send.spec.ts"]
 tests = ["apps/wallet/e2e/send.spec.ts::send_reaches_committed_only_with_a_matching_explorer_answer"]
 planned_paths = []
-build_cmd = "pnpm --dir apps/wallet run typecheck"
-verify_cmd = "pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts -g 'send_reaches_committed_only_with_a_matching_explorer_answer$'"
+build_cmd = "make -f chain.mk install && pnpm --dir apps/wallet run typecheck && pnpm --dir apps/wallet exec playwright install chromium"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --sequencer --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && WALLET_TRANSFER_TRUTH_ANVIL_URL=$LOCAL_NODE_SEQUENCER_RPC WALLET_TRANSFER_TRUTH_SENDER=$LOCAL_NODE_ADDRESS WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL=$LOCAL_NODE_SEQUENCER_RPC WALLET_TRANSFER_TRUTH_SEQUENCER_KEY=$LOCAL_NODE_KEY pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts -g 'send_reaches_committed_only_with_a_matching_explorer_answer$'"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-wallet"
@@ -162598,6 +162699,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 12.35.3.1: continue from attempt 1 (6920ab6ad) keeping the rewrites of do_1 to do_3. In send_reaches_committed_only_with_a_matching_explorer_answer drop the three environment requirements, the readExplorerStatus call against a real explorer and the otherHash transaction: the page.route handler for **/api/v2/transactions/*/status fulfils every request itself with a JSON document of the shape explorerAnswers.committed in apps/wallet/src/account/StatusLadder.test.tsx carries (rung committed, the requested hash, a block_number), built from the sent transfer's node receipt once readSequencerReceipt reports rung committed with a block: in the first phase block_number is the receipt block plus one and the test asserts li[data-rung=committed] keeps data-reached false after at least one served answer; in the second phase block_number equals the receipt block and the test asserts the committed step is reached with data-source explorer. Record the served answers and assert both phases answered at least once. WRONG_RPC and the manifest stay as the other tests use them; the test needs nothing beyond the fixture manifest and the node RPC the other send tests read. Build once, verify once."
+do_5 = "Finding 12.35.3.2: continue from attempt 2 (2981acb82) unchanged; the build command now builds the node binary and the verify command starts the local node fixture under --sequencer and sets the four WALLET_TRANSFER_TRUTH lines of 12.35.2 before the committed test. Build once, verify once."
 
 [task.12.35.4]
 title = "Start the in-tree node as a sequencer primary with a standby for local qualification"
@@ -180130,7 +180233,7 @@ title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5", "9.12.11", "10.99.1", "17.5.10", "12.35.2"]
+requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5", "9.12.11", "10.99.1", "17.5.10", "12.35.2", "17.5.13"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
 interfaces = []
@@ -180145,7 +180248,7 @@ planned_paths = ["spec/layerx-merge/programme/tests/test_wave_0_gate.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_wave_0_gate.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_wave_0_gate.py::test_wave_0_gate_passes -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "sdk-all"
 owner_role = "fm-programme"
 rollback = "None needed; the gate run writes evidence only, and a failed wave is re-run after its repair."
 max_builds = 1
@@ -180165,6 +180268,7 @@ do_10 = "Attempt 13 (ee7d7eaf0, base de9686155) carries the attempt 9 test uncha
 do_11 = "Attempt 14 (befea813e on c833996dd) fails test_wave_0_gate_passes because make human-build runs npm run build in apps/web and tsup (apps/web/package.json devDependency, 8.5.1 in apps/web/package-lock.json) is not installed: apps/web is not a member of the root npm workspace, so the root install never provides its tools. The gate environment now installs apps/web before the test; nothing in the test file changes for this failure and the attempt 14 content is re-qualified unchanged."
 do_12 = "Attempt 15 (682092ffd on 29f8a5dc1) fails in the web app build: next build stops on apps/web/src/app/exchange/exchange-client.tsx importing the server-only ../../api/gateway and on the packages sdk/wallet/src imports that apps/web/package.json does not declare. Task 17.5.10 owns that repair and this task requires it; re-run the gate unchanged on a base that carries 17.5.10."
 do_13 = "Decision 2155: attempt 16 (e378dbed1) fails in step 2, make workspace-build, on apps/web's next build resolving '@sidiora/layerx-sdk/browser' (the exports-condition defect decision 2153 assigns to 12.35.2). Continue from attempt 16 on a base that carries 12.35.2, keep the gate script and the test's structure, and make the failure message of test_wave_0_gate_passes name the failing step and quote the last forty lines of its log. Build once and verify once; if step 2 still fails, record the first error line of the step log in the finding and stop."
+do_14 = "Finding 17.5.1.15: continue from attempt 17 (96271000a) unchanged once task 17.5.13 is on main; the qualification environment now carries the Maven, Swift and dotnet toolchains and installs the platform sample dependencies before the gate, so platform-sample-dependencies-ready passes. Rebase onto main, change nothing, build once and verify once; if step 2 stops in a later target, record the target, its Makefile line and the owning task as a new finding."
 
 [task.17.5.2]
 title = "Run the wave 1 aggregate gate once on the merged wave revision"
@@ -180186,7 +180290,7 @@ planned_paths = ["spec/layerx-merge/programme/tests/test_wave_1_gate.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_wave_1_gate.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_wave_1_gate.py::test_wave_1_gate_passes -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "sdk-all"
 owner_role = "fm-programme"
 rollback = "None needed; the gate run writes evidence only, and a failed wave is re-run after its repair."
 max_builds = 1
@@ -180223,7 +180327,7 @@ planned_paths = ["spec/layerx-merge/programme/tests/test_wave_2_gate.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_wave_2_gate.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_wave_2_gate.py::test_wave_2_gate_passes -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "sdk-all"
 owner_role = "fm-programme"
 rollback = "None needed; the gate run writes evidence only, and a failed wave is re-run after its repair."
 max_builds = 1
@@ -180258,7 +180362,7 @@ planned_paths = ["spec/layerx-merge/programme/tests/test_wave_3_gate.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_wave_3_gate.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_wave_3_gate.py::test_wave_3_gate_passes -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "sdk-all"
 owner_role = "fm-programme"
 rollback = "None needed; the gate run writes evidence only, and a failed wave is re-run after its repair."
 max_builds = 1
@@ -180331,7 +180435,7 @@ planned_paths = ["spec/layerx-merge/programme/tests/test_wave_5_gate.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_wave_5_gate.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_wave_5_gate.py::test_wave_5_gate_passes -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "sdk-all"
 owner_role = "fm-programme"
 rollback = "None needed; the gate run writes evidence only, and a failed wave is re-run after its repair."
 max_builds = 1
@@ -180362,7 +180466,7 @@ planned_paths = ["spec/layerx-merge/programme/tests/test_wave_6_gate.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_wave_6_gate.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_wave_6_gate.py::test_wave_6_gate_passes -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "sdk-all"
 owner_role = "fm-programme"
 rollback = "None needed; the gate run writes evidence only, and a failed wave is re-run after its repair."
 max_builds = 1
@@ -181212,7 +181316,7 @@ title = "Issue #670: Keep the restarted perps data gateway and socket alive thro
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["5.98.2", "5.98.3", "5.98.5", "5.98.7"]
+requires = ["5.98.2", "5.98.3", "5.98.5", "5.98.7", "5.98.8"]
 reqs = ["18670.1"]
 capabilities = []
 interfaces = []
@@ -181249,6 +181353,7 @@ do_13 = "Continue from attempt 9 (8766345ee), keeping its script changes (the se
 do_14 = "Decision 2180: continue from attempt 10 (1e16b9165), keeping the restart lifetime fix and the genesis market setup. In tools/qualification/localnode/v6120-node.sh evm_call capture the paxd tx evm call-contract stdout and stderr together and, while that output contains 'no block is open' and the function's 60-second deadline has not passed, sleep 0.2 and send the call again with the same nonce; any other failure fails as before. Run the build_cmd and verify_cmd as declared."
 do_15 = "Finding 18.670.1.11: continue from attempt 11 (d96dda6ec). In tools/qualification/localnode/v6120-node.sh the feed loop writes one line to feeder.log per iteration before and after each broadcast (height, transaction hash, broadcast code, commit height and code), the fresh-price wait rises from 30 to 90 seconds, and on timeout the failure prints the pricefeed price 0 and price 11 queries, the pricefeed params and the latest block time. Build once, verify once."
 do_16 = "Finding 18.670.1.12: attempt 12 (e1ba002bf) failed in the fixture's setup sends on the receipt-height refusal of rpc/send.go:360, which task 5.98.7 (now required) removes; continue from attempt 12, keeping the restart-lifetime fix and the feeder diagnostics, on a main that carries 5.98.7."
+do_17 = "Finding 18.670.1.13, decision 2212: continue from attempt 15 (1ee69fb2b) unchanged once task 5.98.8 is on main; rebase onto main, change nothing in the script or the test, build once and verify once. If the feed loop still fails, record the first feeder.log line pair and the node.log lines of the height it names in the finding, and stop."
 
 [req.18670]
 title = "Keep the restarted perps data gateway alive through the post-restart end-to-end checks"

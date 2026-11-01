@@ -28,7 +28,7 @@ use layerx_human_service::custody::{
     SessionKeyProvisioner, SessionLeaseState, SessionPolicy, SessionTarget, SuspensionEvidence,
 };
 use layerx_human_service::notify::AgentId;
-use layerx_human_service::store::{EvidenceRef, PrincipalScope, RowKey, Table};
+use layerx_human_service::store::{EvidenceRef, RowKey};
 use layerx_types::verify::VerificationLevel;
 use serde_json::{json, Value};
 

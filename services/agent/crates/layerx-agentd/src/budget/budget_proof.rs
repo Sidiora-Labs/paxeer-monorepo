@@ -724,60 +724,14 @@ mod tests {
             }
         }
     }
-    fn fixture_export(answers: &Value) -> Value {
-        let rows = answers.as_array().expect("fixture rows");
-        let block = &rows[1]["result"];
-        let hash = block["hash"]
-            .as_str()
-            .expect("block hash")
-            .trim_start_matches("0x");
-        let root = block["stateRoot"]
-            .as_str()
-            .expect("state root")
-            .trim_start_matches("0x");
-        let budget = rows[4]["result"]
-            .as_str()
-            .expect("budget result")
-            .trim_start_matches("0x");
-        let remaining = rows[5]["result"]
-            .as_str()
-            .expect("remaining result")
-            .trim_start_matches("0x");
-        let join = &rows[6]["result"];
-        let mut identity = b"LXP/v1/did-id\0".to_vec();
-        identity.extend_from_slice(&(OWNER.len() as u16).to_be_bytes());
-        identity.extend_from_slice(OWNER.as_bytes());
-        let mut evidence = Sha256::new();
-        evidence.update(b"layerx-human/rpc-budget-evidence/v2\0");
-        evidence.update(bytes(hash).expect("hash"));
-        for material in [
-            bytes(budget).expect("budget"),
-            bytes(remaining).expect("remaining"),
-            serde_json::to_vec(join).expect("join"),
-        ] {
-            evidence.update((material.len() as u64).to_be_bytes());
-            evidence.update(material);
-        }
-        let call = |index: usize| {
-            json!({"to":rows[index]["params"][0]["to"].as_str().expect("to").trim_start_matches("0x"),
-            "data":rows[index]["params"][0]["data"].as_str().expect("data").trim_start_matches("0x"),
-            "result":rows[index]["result"].as_str().expect("result").trim_start_matches("0x"), "height":HEIGHT})
-        };
-        json!({"schema":"layerx.human.budget-proof.v2", "tenant":"tenant", "principal":"operator", "protocol_version":3, "network_id":125, "maximum_age_seconds":60,
-            "head":{"committed_height":HEIGHT,"block_hash":hash},
-            "budget_state":{"budget_id":hex::encode(&budget_id()), "asset":hex::encode(&[4;32]), "revocation_sequence":1, "observed_head_sequence":HEIGHT,
-                "verification":4, "evidence_digest":hex::encode(&evidence.finalize()), "receipt_digest":hex::encode(&Sha256::digest(bytes(budget).expect("budget"))),
-                "checkpoint_digest":hash, "age_sequences":0,"maximum_age_sequences":2,"remaining":"77", "closed":false,"revoked":false,"canonical_core_bytes":budget},
-            "accounts":{"owner":hex::encode(&[2;32]),"budget":hex::encode(&[3;32]),"source":hex::encode(&[2;32])},
-            "identity_key":hex::encode(&Sha256::digest(identity)), "proofs":{"budget_call":call(4),"remaining_call":call(5),"account_join":join},
-            "finality":{"height":HEIGHT,"block_hash":hash,"app_hash":root}})
-    }
     #[test]
     fn budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering() {
         let answers: Value =
             serde_json::from_slice(&std::fs::read(fixture_path()).expect("answers"))
                 .expect("fixture JSON");
-        let document = fixture_export(&answers);
+        let export = std::fs::read(fixture_path().with_file_name("export.json"))
+            .expect("authority's committed export from task 8.98.18");
+        let document: Value = serde_json::from_slice(&export).expect("authority export JSON");
         let replay = Replay::new(answers);
         let hash = id(document["head"]["block_hash"].as_str().expect("hash")).expect("block hash");
         assert_eq!(
@@ -811,7 +765,9 @@ mod tests {
                 trust,
             )
         };
-        let verified = verify(&document, &trust).expect("valid v2 proof");
+        let verified = verify_native_budget_proof(&export, budget_id(), &trust)
+            .expect("authority's committed v2 proof must verify without adjustment");
+        assert_eq!(verified.canonical_export_bytes(), export.as_slice());
         assert_eq!(verified.remaining(), 77);
         assert_eq!(verified.committed_height(), HEIGHT);
         assert_eq!(verified.checkpoint_digest(), checkpoint.block_hash);

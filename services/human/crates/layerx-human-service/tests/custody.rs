@@ -597,7 +597,7 @@ fn step_up_and_disclosure_mismatches_are_typed_and_every_decision_is_audited() {
 
     let fresh = StepUpEvidence::new(
         "ceremony-fresh",
-        Operation::EmergencyExit,
+        Operation::WalletRebinding,
         original.disclosure_digest.0,
         90,
         110,
@@ -607,7 +607,7 @@ fn step_up_and_disclosure_mismatches_are_typed_and_every_decision_is_audited() {
         &fixture.alice,
         &key,
         &fixture.trace,
-        SignAuthorization::new(Operation::EmergencyExit, Some(&fresh)),
+        SignAuthorization::new(Operation::WalletRebinding, Some(&fresh)),
         &original.canonical_bytes,
         &original.disclosure,
         100,
@@ -617,7 +617,7 @@ fn step_up_and_disclosure_mismatches_are_typed_and_every_decision_is_audited() {
         &fixture.alice,
         &key,
         &fixture.trace,
-        SignAuthorization::new(Operation::EmergencyExit, Some(&fresh)),
+        SignAuthorization::new(Operation::WalletRebinding, Some(&fresh)),
         &original.canonical_bytes,
         &original.disclosure,
         101,
