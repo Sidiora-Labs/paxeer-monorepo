@@ -19,7 +19,7 @@ import (
 
 func TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	app := testkeeper.EVMTestApp
-	ctx, _ := app.NewContext(false, tmtypes.Header{}).WithBlockHeight(7).WithBlockTime(genesisTime).CacheContext()
+	ctx := custodyTestContext(t, app.NewContext(false, tmtypes.Header{}).WithBlockHeight(7).WithBlockTime(genesisTime))
 	fixture, err := testvectors.Load()
 	require.NoError(t, err)
 	vector := fixture["withdrawal"][0]
