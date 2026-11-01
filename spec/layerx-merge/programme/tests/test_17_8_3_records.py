@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 
 from programme.decisions import Decision, load_index
@@ -10,9 +11,16 @@ HEAD_BASIS_REVISION = "7fd177486f7544342d1b9a7a97f6fc8053f99396"
 # The task's exact path scope places the renderer here rather than decisions.py.
 HEAD_BASES = {
     12: (
-        "The carried admission limit is 16 signers (spec/layerx-merge/spec.kvx:117). "
-        "The observation's NetworkID comes from the EVM chain id "
-        "(modules/xweb/keeper/fulfil.go:72)."
+        "Origin-2 observations admit at most ObservationMaxSignatures = 16 "
+        "signatures (modules/xweb/types/observation.go:11), which "
+        "verifyProgramSignatures applies to the attestor set and to the "
+        "signature list (modules/xweb/keeper/program_fulfil.go:41, :47); the "
+        "attestor set is capped at MaxAttestorSetSize = 16 "
+        "(modules/xweb/types/state.go:213), while MaxAttestors = 64 "
+        "(modules/xweb/types/keys.go:21) bounds only origin-1 fulfil signatures "
+        "(modules/xweb/keeper/fulfil.go:21). The observation's NetworkID must "
+        "equal the KernelNetworkId xweb param "
+        "(modules/xweb/keeper/program_fulfil.go:124, modules/xweb/types/state.go:106)."
     ),
     13: (
         "The reference guest crates are declared in "
@@ -128,6 +136,32 @@ def render_record(entry: Decision) -> str:
         "",
     ]
     return "\n".join(lines)
+
+
+def test_d12_basis_cites_the_enforcing_code() -> None:
+    basis = HEAD_BASES[12]
+    assert "spec/layerx-merge/spec.kvx" not in basis
+    declarations = (
+        ("modules/xweb/types/observation.go", 11, "ObservationMaxSignatures = 16"),
+        ("modules/xweb/types/state.go", 213, "const MaxAttestorSetSize = 16"),
+        ("modules/xweb/types/keys.go", 21, "MaxAttestors = 64"),
+    )
+    for path, line_number, declaration in declarations:
+        assert f"{path}:{line_number}" in basis
+        assert declaration.removeprefix("const ") in basis
+        source = subprocess.check_output(
+            ["git", "show", f"HEAD:{path}"], cwd=ROOT, text=True
+        )
+        assert " ".join(source.splitlines()[line_number - 1].split()) == declaration
+
+    assert "modules/xweb/keeper/program_fulfil.go:41, :47" in basis
+    assert (
+        "bounds only origin-1 fulfil signatures (modules/xweb/keeper/fulfil.go:21)"
+        in basis
+    )
+    assert "NetworkID must equal the KernelNetworkId xweb param" in basis
+    assert "modules/xweb/keeper/program_fulfil.go:124" in basis
+    assert "modules/xweb/types/state.go:106" in basis
 
 
 def test_records_12_to_22_match_index() -> None:

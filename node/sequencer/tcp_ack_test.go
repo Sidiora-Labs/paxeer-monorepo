@@ -140,7 +140,7 @@ func TestReceiptOverTCPWaitsForStandbyAck(t *testing.T) {
 	defer deadline.Stop()
 	go func() {
 		receipt, err := primary.Accepter.Accept(txBytes)
-		returned <- outcome{receipt, err, time.Now()}
+		returned <- outcome{receipt.Receipt, err, time.Now()}
 	}()
 	select {
 	case reply := <-held:

@@ -2,7 +2,7 @@ use layerx_crypto::signer::{LocalSigner, Signer as _, SigningRequest};
 use layerx_crypto::SignatureMessage;
 use layerx_intents::canonical::Domain;
 use layerx_intents::owner_activity::{
-    attach_signature, unsigned_native, verify, OwnerEnvelopeContext,
+    attach_native_signature, unsigned_native, verify, OwnerEnvelopeContext,
 };
 use layerx_intents::NativeOwnerBootstrap;
 use layerx_types::activity::TimestampBound;
@@ -90,7 +90,7 @@ fn native_owner_bootstrap_is_disclosed_signed_and_bound_to_every_envelope_field(
             }
             Poll::Pending => panic!("local signer did not finish"),
         };
-        let envelope = attach_signature(
+        let envelope = attach_native_signature(
             &unsigned,
             *signature.as_bytes(),
             signer.public_key(),
@@ -118,7 +118,9 @@ fn native_owner_bootstrap_is_disclosed_signed_and_bound_to_every_envelope_field(
                 "changed canonical byte {offset}"
             );
         }
-        assert!(attach_signature(&unsigned, *signature.as_bytes(), pending, &registry).is_err());
+        assert!(
+            attach_native_signature(&unsigned, *signature.as_bytes(), pending, &registry).is_err()
+        );
     }
 }
 

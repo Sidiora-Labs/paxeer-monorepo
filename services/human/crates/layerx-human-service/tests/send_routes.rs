@@ -43,8 +43,7 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
     )
     .expect("sender address");
     let to = [4; 20];
-    let mut bank = [0; 20];
-    bank[18..].copy_from_slice(&0x1001_u16.to_be_bytes());
+    let pointer = [6; 20];
     for (pending_nonce, amount, denom) in [
         (0, 1, "upax"),
         (1, 50, "upax"),
@@ -62,6 +61,7 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
                 from: EvmAddress::new(from),
                 to: EvmAddress::new(to),
                 route: send_route(pending_nonce),
+                pointer: EvmAddress::new(pointer),
                 denom: denom.to_owned(),
                 chain_id: 125,
                 max_priority_fee_per_gas: 2,
@@ -84,7 +84,7 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
         assert!(route.legs().is_empty());
         assert_eq!(route.bank_transfers().len(), 1);
         let call = &route.bank_transfers()[0];
-        assert_eq!(call.to, bank);
+        assert_eq!(call.to, pointer);
         assert_eq!(call.nonce, pending_nonce);
         assert_eq!(call.chain_id, 125);
         assert_eq!(call.max_priority_fee_per_gas, 2);
@@ -92,17 +92,20 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
         assert_eq!(call.gas_limit, 100_000);
         assert_eq!(
             &call.data[..4],
-            &Keccak256::digest(b"send(address,address,string,uint256)")[..4]
+            &Keccak256::digest(b"transfer(address,uint256)")[..4]
         );
         let mut amount_word = [0; 32];
         amount_word[16..].copy_from_slice(&amount.to_be_bytes());
-        let disclosure = bind_call(call, from).expect("real bank calldata consumer");
+        assert_eq!(call.data.len(), 68);
+        assert_eq!(&call.data[4..16], &[0; 12]);
+        assert_eq!(&call.data[16..36], &to);
+        assert_eq!(&call.data[36..68], &amount_word);
+        let disclosure = bind_call(call, from).expect("real pointer calldata consumer");
         assert_eq!(
             disclosure.construct_method().expect("bank ABI"),
-            Some(ConstructMethod::BankSend {
-                from,
+            Some(ConstructMethod::PointerTransfer {
+                pointer,
                 to,
-                denom: denom.to_owned(),
                 amount: amount_word,
             })
         );
@@ -119,6 +122,20 @@ fn send_to_an_evm_address_resolves_to_a_bank_transfer() {
             transaction.signing_hash()
         );
 
+        let mut no_pointer = request.clone();
+        if let Relationship::BankTransfer { pointer, .. } = &mut no_pointer.relationship {
+            *pointer = EvmAddress::new([0; 20]);
+        } else {
+            panic!("bank transfer relationship");
+        }
+        assert!(matches!(
+            RouteResolver::resolve(&no_pointer),
+            Err(RouteError::Unavailable { .. })
+        ));
+        assert!(matches!(
+            RouteRequest::canonical_decode(&no_pointer.canonical_encode()),
+            Err(RouteError::Unavailable { .. })
+        ));
         let mut zero = request.clone();
         zero.amount = Amount::ZERO;
         assert!(matches!(

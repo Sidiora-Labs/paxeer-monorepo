@@ -193,6 +193,13 @@ impl NetworkObservation {
         })
     }
 
+    #[must_use]
+    pub fn balance(&self, denom: &str) -> Option<Amount> {
+        self.balances
+            .asset(denom)
+            .map(|row| Amount::from_u128(row.amount))
+    }
+
     /// The bound Paxeer wallet the custody context is built around.
     #[must_use]
     pub const fn wallet(&self) -> EvmAddress {
