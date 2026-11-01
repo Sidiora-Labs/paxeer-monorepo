@@ -16355,3 +16355,19 @@ symbol = "start"
 observed = "Attempt 3 (14b815ee9) builds and passes two of the three attestor tests; attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum fails because all five daemons exit at start with attestor: pinned custody producer authority: custody authority unavailable or refused: the test's private start function (:506-635) sets no ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, ATTESTOR_AUTHORITY_ISSUER, ATTESTOR_AUTHORITY_TENANT, ATTESTOR_INVENTORY_PUBLIC_KEY_FILE or ATTESTOR_INVENTORY_FILE, while the daemon refuses to start without them (cmd/attestor/main.go:204-218, internal/auth/agent/authority.go:231-235, internal/server/authority.go:49-51) and the shared support tests/support/attestor_cluster.rs provides all five (:479, :545-554, :678-690)."
 assumption = "The quorum test configures its daemons the way the shared support does; the daemon and the shared support stay unchanged."
 severity = "major"
+
+[finding.10.2.4.5]
+task = "10.2.4"
+file = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:488"
+symbol = "AgentPreparation"
+observed = "Attempt 7 (234bcda46) ports tests/receipt_material_rungs.rs and tests/native_onboarding_rungs.rs as do_11 asked, but the crate-wide test build still fails in tests/wallet_identity_e2e.rs: the AgentPreparation literal at :488 lacks pending_nonce and the ReceiptMaterial literal at :701 lacks inclusion_height, receipt_key and signed_receipt; the grep do_11 asked for named ReceiptMaterial, AgentPreparationContext::new and AgentStageOutcome::Executed but not literals of AgentPreparation itself."
+assumption = "Every construction of the widened producer types across the crate's tests is ported in this task; the production shapes stay as attempt 5 made them."
+severity = "major"
+
+[finding.6.96.3.2]
+task = "6.96.3"
+file = "modules/layerxcustody/keeper/claims.go:230"
+symbol = "VerifyWithdrawal"
+observed = "Attempt 3 (5bfe3cc9e) passes the two deposit-root tests and its trace prints the merge-plan done height 0 and Keeper.Retired false at both probe points, so finding 6.96.3.1 does not apply; TestWithdrawalReadsAnchorFinalizedCheckpoint fails at anchor_reader_test.go:124 because Keeper.VerifyWithdrawal has returned types.ErrModuleRetired unconditionally since 8fe2607dd (task 6.96.2, do_2) and FinaliseWithdrawal reaches it through withdrawalClaim (claims.go:235), so the test's ErrNotFinalized, NoError, CLAIM_STATUS_PAID and ErrNotAuthorized expectations on the withdrawal path cannot hold at main."
+assumption = "The custody withdrawal path is retired for good; the anchor reader test keeps proving the anchor-side finalized read and asserts the retirement on every withdrawal call."
+severity = "major"

@@ -12831,3 +12831,13 @@ fix = "When a public type changes shape, grep every tests/ file of its crate for
 title = "A private copy of a daemon test setup falls behind the daemon's mandatory inputs"
 symptom = "One integration test keeps its own copy of the daemon start sequence while a shared support module carries the maintained one; the daemon gains mandatory inputs, the shared tests keep passing and the private copy's daemons exit at start."
 fix = "Compare the private setup's environment against the shared support's before ruling on a daemon start failure, and prefer building through the shared support."
+
+[gotcha.2603]
+title = "A port instruction that names helper symbols misses literals of a widened type"
+symptom = "A ruling asks the implementer to grep for three named constructors; a fourth type the same change widened has struct literals in another test file and the crate-wide build fails once more."
+fix = "When a producer type gains fields, name every widened type in the grep instruction, not only the helpers that construct it."
+
+[gotcha.2604]
+title = "A finding blames test state when the production path is retired unconditionally"
+symptom = "A test expected a finalisation error and got the retirement error; the first ruling asked for the retirement flag to be traced, while the production function returns the retirement error regardless of the flag since an earlier task."
+fix = "Read the production function the failing call reaches before ruling on state; an unconditional retirement makes the test's path assertions stale, not the state."
