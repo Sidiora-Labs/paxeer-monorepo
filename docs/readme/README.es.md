@@ -36,7 +36,7 @@
 
 Paxeer X Network es una sola red con dos dominios de ejecución: la cadena Paxeer X (`paxd`, Go, ID de cadena EVM 125) y el kernel LayerX (`layerxd`, C17), el dominio de ejecución y contabilidad determinista para agentes autónomos. Sitio oficial: [paxeer.network](https://paxeer.network/). Documentación: [docs.paxeer.app](https://docs.paxeer.app/).
 
-La cadena Paxeer X ejecuta la EVM sobre consenso Tendermint y contiene los módulos `layerxcustody`, `layerxexchange`, `layerxbridge` y `launchpad`, a los que los contratos acceden mediante los precompilados en `0x1013`, `0x1015`, `0x1016` y `0x1017`. El kernel LayerX ejecuta y contabiliza la actividad de los agentes de forma determinista y devuelve un recibo firmado por cada actividad; sus checkpoints se liquidan en la cadena mediante el precompilado `layerxAnchor` en `0x1014`.
+La cadena Paxeer X ejecuta la EVM sobre consenso Tendermint y contiene los módulos `layerxcustody`, `layerxexchange`, `layerxbridge` y `launchpad`. Los contratos acceden a los módulos nativos mediante los precompilados `layerxCustody` (`0x1013`), `perps` (`0x1015`), `layerxBridge` (`0x1016`) y `launchpad` (`0x1017`). El conjunto v6.12.0 construido en `node/app.go`, que se sirve una vez activada esa actualización, da prioridad a `perps` en `0x1015` sobre `layerxExchange`. El kernel LayerX ejecuta y contabiliza la actividad de los agentes de forma determinista y devuelve un recibo firmado por cada actividad; sus checkpoints se liquidan en la cadena mediante el precompilado `layerxAnchor` en `0x1014`.
 
 Este repositorio es el monorepo de Sidiora Labs para Paxeer X Network: la cadena Paxeer X y el kernel LayerX en un solo repositorio. Tenerlos juntos mantiene el kernel, la cadena, los contratos y las superficies para desarrolladores auditables en un solo lugar. Cada subsistema conserva su propio límite de compilación, publicación, despliegue y confianza. La especificación que lo rige es [`spec/paxeer-x/spec.kvx`](../../spec/paxeer-x/spec.kvx), renderizada como [`spec/paxeer-x/design.md`](../../spec/paxeer-x/design.md); las notas de versión están en [`CHANGELOG.md`](../../CHANGELOG.md).
 
@@ -50,7 +50,7 @@ Los desarrolladores del kernel empiezan por la documentación alojada en [docs.p
 
 ## Compilar desde el código fuente
 
-El nodo de la cadena Paxeer X está escrito en Go 1.25.6 (`go.mod`). El kernel LayerX es C17 (`-std=c17` en el `Makefile` raíz). Los workspaces de agent, human y platform usan Rust 1.91.1 (`rust-toolchain.toml`). Los contratos de liquidación del kernel en `contracts/` usan Solidity 0.8.27 (`foundry.toml`). La calificación de replay necesita GCC 13, Clang 18, Docker, un runner amd64 con musl y un compilador cruzado AArch64 junto con QEMU; consulte [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
+El nodo de la cadena Paxeer X está escrito en Go 1.25.8 (`go.mod`). El kernel LayerX es C17 (`-std=c17` en el `Makefile` raíz). Los workspaces de agent, human y platform usan Rust 1.91.1 (`rust-toolchain.toml`). Los contratos de liquidación del kernel en `contracts/` usan Solidity 0.8.27 (`foundry.toml`). La calificación de replay necesita GCC 13, Clang 18, Docker, un runner amd64 con musl y un compilador cruzado AArch64 junto con QEMU; consulte [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
 
 Targets del kernel LayerX:
 
@@ -167,7 +167,7 @@ flowchart TB
     occ("OCC parallel executor")
     pAnchor{{"layerxAnchor<br/>0x1014"}}
     pCustody{{"layerxCustody<br/>0x1013"}}
-    pExch{{"layerxExchange<br/>0x1015"}}
+    pExch{{"perps<br/>0x1015"}}
     pBridge{{"layerxBridge<br/>0x1016"}}
     pLaunch{{"launchpad<br/>0x1017"}}
     mCustody["layerxcustody module"]

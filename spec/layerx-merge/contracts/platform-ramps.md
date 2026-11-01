@@ -125,6 +125,7 @@ No interface block names this anchor; the citing criteria and rules below define
 | <code>acceptance.8.279.2</code> | test | services/platform/tests/test_ramp_dependencies.py::test_dependency_policy_bans_paxeer_client (planned) |
 | <code>acceptance.8.279.2</code> | qualification | UNRUN |
 | <code>req.8279</code> | ac_2 | services/platform/tools/dependency-policy.sh refuses a metadata document whose packages include layerx-paxeer-client. |
+| <code>decision.1798</code> | supersedes | req.8279 ac_2 and acceptance.8.279.2 read as req.181078 ac_1: the policy exits 0 on the live workspace and exits 1 only when a ramp crate reaches layerx-paxeer-client, layerx-intents, rusqlite or libsqlite3-sys. |
 | <code>capability.8.31.2</code> | title | Drop the Paxeer client and kernel intent compiler from the ramp crates |
 | <code>capability.8.31.2</code> | reqs | 8279.1<br>8279.2 |
 

@@ -10,19 +10,20 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 |---|---|---|---|---|
 | 1 | asset | 1 | 11 | `src/modules/asset/lx_asset_registry.c` |
 | 2 | escrow | 1 | 7 | `src/modules/escrow/lx_escrow_module.c` |
-| 3 | budget | 1 | 9 | `src/modules/budget/lx_budget_module.c` |
-| 4 | stream | 1 | 7 | `src/modules/stream/lx_stream_open.c` |
+| 3 | budget | 1 | 11 | `src/modules/budget/lx_budget_module.c` |
+| 4 | stream | 1 | 8 | `src/modules/stream/lx_stream_open.c` |
 | 5 | service | 1 | 13 | `src/modules/service/lx_service_module.c` |
 | 6 | perps | 1 | 11 | `src/modules/perps/lx_perps_dispatch.c` |
 | 6 | perps | 2 | 11 | `src/modules/perps/lx_perps_dispatch.c` |
 | 6 | perps | 3 | 12 | `src/modules/perps/lx_perps_dispatch.c` |
 | 7 | governance | 1 | 2 | `src/modules/governance/lxp_governance.c` |
-| 7 | governance | 1 | 3 | `src/modules/governance/lxp_governance.c` |
 | 8 | bridge | 1 | 1 | `src/modules/bridge/lxp_bridge_credit.c` |
 | 9 | programs | 1 | 5 | `src/modules/programs/registration.c` |
-| 9 | programs | 2 | 8 | `src/modules/programs/registration.c` |
-| 9 | programs | 3 | 9 | `src/modules/programs/registration.c` |
+| 9 | programs | 2 | 7 | `src/modules/programs/registration.c` |
+| 9 | programs | 3 | 8 | `src/modules/programs/registration.c` |
+| 9 | programs | 4 | 9 | `src/modules/programs/registration.c` |
 | 9 | programs | 4 | 10 | `src/modules/programs/registration.c` |
+| 9 | programs | 5 | 10 | `src/modules/programs/registration.c` |
 | 10 | spot | 1 | 5 | `src/modules/spot/lx_spot_dispatch.c` |
 | 11 | web | 1 | 2 | `src/modules/web/lx_web_module.c` |
 
@@ -67,6 +68,8 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 | `LX_BUDGET_CLOSE` | `0x00030007` |
 | `LX_BUDGET_DEFUND` | `0x00030008` |
 | `LX_BUDGET_REVOKE` | `0x00030009` |
+| `LX_BUDGET_DELEGATE_SPEND` | `0x0003000a` |
+| `LX_BUDGET_PULL` | `0x0003000b` |
 
 ## stream (`LXP_MODULE_STREAM` = 4)
 
@@ -79,6 +82,7 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 | `LX_STREAM_PAUSE` | `0x00040005` |
 | `LX_STREAM_RESUME` | `0x00040006` |
 | `LX_STREAM_CLOSE` | `0x00040007` |
+| `LX_STREAM_RATE_CHANGE` | `0x00040008` |
 
 ## service (`LXP_MODULE_SERVICE` = 5)
 
@@ -154,14 +158,6 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 | `LXP_GOVERNANCE_MIGRATION_BUDGET` | `0x0007000a` |
 | `LXP_GOVERNANCE_PROGRAMS_FEE` | `0x0007000b` |
 
-## governance (`LXP_MODULE_GOVERNANCE` = 7)
-
-| Activity type | Value |
-|---|---|
-| `LXP_GOVERNANCE_HANDOVER` | `0x00070009` |
-| `LXP_GOVERNANCE_MIGRATION_BUDGET` | `0x0007000a` |
-| `LXP_GOVERNANCE_PROGRAMS_FEE` | `0x0007000b` |
-
 ## bridge (`LXP_MODULE_BRIDGE` = 8)
 
 | Activity type | Value |
@@ -189,7 +185,6 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 | `LX_PROGRAMS_TRANSFER` | `0x00090005` |
 | `LX_PROGRAMS_ACCOUNT` | `0x00090006` |
 | `LX_PROGRAMS_WIND_DOWN` | `0x00090007` |
-| `LX_PROGRAMS_FEE_GOVERNANCE` | `0x00090008` |
 
 ## programs (`LXP_MODULE_PROGRAMS` = 9)
 
@@ -202,7 +197,6 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 | `LX_PROGRAMS_TRANSFER` | `0x00090005` |
 | `LX_PROGRAMS_ACCOUNT` | `0x00090006` |
 | `LX_PROGRAMS_WIND_DOWN` | `0x00090007` |
-| `LX_PROGRAMS_FEE_GOVERNANCE` | `0x00090008` |
 | `LX_PROGRAMS_SANDBOX` | `0x00090009` |
 
 ## programs (`LXP_MODULE_PROGRAMS` = 9)
@@ -216,9 +210,38 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 | `LX_PROGRAMS_TRANSFER` | `0x00090005` |
 | `LX_PROGRAMS_ACCOUNT` | `0x00090006` |
 | `LX_PROGRAMS_WIND_DOWN` | `0x00090007` |
-| `LX_PROGRAMS_FEE_GOVERNANCE` | `0x00090008` |
 | `LX_PROGRAMS_SANDBOX` | `0x00090009` |
 | `LX_PROGRAMS_SANDBOX_DESTROY` | `0x0009000A` |
+
+## programs (`LXP_MODULE_PROGRAMS` = 9)
+
+| Activity type | Value |
+|---|---|
+| `LX_PROGRAMS_DEPLOY` | `0x00090001` |
+| `LX_PROGRAMS_UPGRADE` | `0x00090002` |
+| `LX_PROGRAMS_CALL` | `0x00090003` |
+| `LX_PROGRAMS_REGISTRY` | `0x00090004` |
+| `LX_PROGRAMS_TRANSFER` | `0x00090005` |
+| `LX_PROGRAMS_ACCOUNT` | `0x00090006` |
+| `LX_PROGRAMS_WIND_DOWN` | `0x00090007` |
+| `LX_PROGRAMS_SANDBOX` | `0x00090009` |
+| `LX_PROGRAMS_SANDBOX_DESTROY` | `0x0009000A` |
+| `LX_PROGRAMS_STORAGE_RETIREMENT` | `0x0009000B` |
+
+## programs (`LXP_MODULE_PROGRAMS` = 9)
+
+| Activity type | Value |
+|---|---|
+| `LX_PROGRAMS_DEPLOY` | `0x00090001` |
+| `LX_PROGRAMS_UPGRADE` | `0x00090002` |
+| `LX_PROGRAMS_CALL` | `0x00090003` |
+| `LX_PROGRAMS_REGISTRY` | `0x00090004` |
+| `LX_PROGRAMS_TRANSFER` | `0x00090005` |
+| `LX_PROGRAMS_ACCOUNT` | `0x00090006` |
+| `LX_PROGRAMS_WIND_DOWN` | `0x00090007` |
+| `LX_PROGRAMS_SANDBOX` | `0x00090009` |
+| `LX_PROGRAMS_SANDBOX_DESTROY` | `0x0009000A` |
+| `LX_PROGRAMS_STORAGE_RETIREMENT` | `0x0009000B` |
 
 ## spot (`LXP_MODULE_SPOT` = 10)
 

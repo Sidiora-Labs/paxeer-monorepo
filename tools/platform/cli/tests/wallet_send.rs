@@ -1,5 +1,9 @@
+use layerx_crypto::account_derivation::{derive_from_seed, DerivedAccount};
+use layerx_crypto::payments::{bind_call, ledger_payment_call, CallOptions};
 use layerx_platform_cli::wallet_send::{Authorization, Send};
-use layerx_platform_cli::wallet_signing::SigningFacts;
+use layerx_platform_cli::wallet_signing::{EvmSigningKey, PreparedPayment, SigningFacts};
+use std::io::Write as _;
+use std::os::unix::fs::OpenOptionsExt as _;
 use std::path::Path;
 use std::process::Command;
 
@@ -29,9 +33,13 @@ fn vector() -> Send {
 }
 
 fn resign(send: &mut Send) -> Result<(), String> {
+    resign_with_seed(send, &[6; 32])
+}
+
+fn resign_with_seed(send: &mut Send, seed: &[u8; 32]) -> Result<(), String> {
     use ed25519_dalek::Signer as _;
     use sha2::Digest as _;
-    let key = ed25519_dalek::SigningKey::from_bytes(&[6; 32]);
+    let key = ed25519_dalek::SigningKey::from_bytes(seed);
     send.authorization.public_key = key.verifying_key().to_bytes();
     let mut hash = sha2::Sha256::new();
     hash.update(layerx_wire::hash::Domain::SignaturePreimage.tag());
@@ -80,81 +88,110 @@ fn native_send_and_authorization_bytes_match() -> Result<(), Box<dyn std::error:
     Ok(())
 }
 
+fn evm_key(account: &DerivedAccount) -> Result<EvmSigningKey, String> {
+    let directory = tempfile::tempdir().map_err(|e| e.to_string())?;
+    let path = directory.path().join("wallet.json");
+    let hex = |bytes: &[u8]| bytes.iter().map(|b| format!("{b:02x}")).collect::<String>();
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(&path)
+        .map_err(|e| e.to_string())?;
+    let export = serde_json::json!({
+        "evm_address": format!("0x{}", hex(&account.evm_address())),
+        "evm_private_key": hex(account.evm_secret().ok_or("EVM key missing")?),
+        "layerx_seed": hex(account.layerx_seed()), "did": account.did(), "index": 0,
+    });
+    file.write_all(export.to_string().as_bytes())
+        .map_err(|e| e.to_string())?;
+    let public_key = ed25519_dalek::SigningKey::from_bytes(account.layerx_seed())
+        .verifying_key()
+        .to_bytes();
+    EvmSigningKey::read(&path, &account.did(), public_key)
+}
+
 #[test]
 fn envelope_and_payload_sequences_are_independent() -> Result<(), String> {
-    let send = vector();
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+    let mut send = vector();
+    let account = derive_from_seed(&[6; 64], 0).map_err(|e| format!("{e:?}"))?;
+    resign_with_seed(&mut send, account.layerx_seed())?;
+    let key = evm_key(&account)?;
+    let actor = account.did();
     let facts = SigningFacts {
-        actor: "did:layerx:alice",
+        actor: &actor,
         public_key: send.authorization.public_key,
         network_id: 402,
         identity_next_sequence: 17,
         not_before_ms: 1000,
         expires_at_ms: 2000,
-        fee_limit: 10,
+        fee_limit: 42000,
         idempotency_key: [4; 32],
     };
-    let prepared = send.prepare(&facts)?;
-    let kind = layerx_types::payload::ActivityType::new(layerx_types::payload::ModuleId::Asset, 5)
-        .map_err(|e| format!("{e:?}"))?;
-    let registry = layerx_types::payload::ModuleRegistry::new(&[
-        layerx_types::payload::ModuleRegistration::new(
-            layerx_types::payload::ModuleId::Asset,
-            &[kind],
-        )
-        .map_err(|e| format!("{e:?}"))?,
-    ])
-    .map_err(|e| format!("{e:?}"))?;
-    let decoded = layerx_wire::activity::decode_unsigned(prepared.canonical_unsigned(), &registry)
-        .map_err(|e| format!("{e:?}"))?;
-    assert_eq!(decoded.account_sequence(), 17);
-    assert_eq!(decoded.payload(), send.encode()?);
+    let options = CallOptions {
+        from: key.address(),
+        chain_id: 125,
+        nonce: 17,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 21000,
+    };
+    let prepared = send.prepare(&facts, &options)?;
+    let payload = send.encode()?;
+    let shared = ledger_payment_call(&payload, &options).map_err(|e| format!("{e:?}"))?;
+    assert_eq!(prepared.call(), &shared.call);
+    let mut expected = vec![0x2b, 0xb1, 0xae, 0x7c];
+    let mut offset = [0; 32];
+    offset[31] = 32;
+    expected.extend_from_slice(&offset);
+    let mut length = [0; 32];
+    length[16..].copy_from_slice(&(payload.len() as u128).to_be_bytes());
+    expected.extend_from_slice(&length);
+    expected.extend_from_slice(&payload);
+    expected.resize(68 + payload.len().div_ceil(32) * 32, 0);
+    assert_eq!(prepared.call().data, expected);
+    assert_eq!(prepared.call().nonce, 17);
+    assert_eq!(&prepared.call().to[18..], &[0x10, 0x1a]);
     let disclosure = prepared.confirmation();
-    assert_eq!(disclosure["envelope_sequence"], 17);
+    assert_eq!(disclosure["nonce"], "17");
     assert_eq!(
-        disclosure["payment"]["payload_sequence"],
+        disclosure["source_account_sequence"],
         send.source_next_sequence.to_string()
     );
-    assert_eq!(disclosure["payment"], send.disclosure());
-    let signer = layerx_crypto::signer::LocalSigner::new([6; 32]);
-    let (canonical, id) = prepared.sign_with_id(&signer)?;
-    let decoded = layerx_wire::activity::decode_signed(&canonical, &registry)
-        .map_err(|e| format!("{e:?}"))?;
+    assert_eq!(disclosure["amounts"][0]["value"], send.amount.to_string());
+    assert_eq!(disclosure["fee_limit"], "42000");
+    let call = prepared.call().clone();
+    let (canonical, id) = prepared.sign_with_id(&key)?;
+    let (decoded, signature) = decode_signed(&canonical).map_err(|e| format!("{e:?}"))?;
+    assert_eq!(decoded, call);
+    assert_eq!(transaction_hash(&canonical), id);
     assert_eq!(
-        layerx_wire::hash::activity_id(&decoded).map_err(|e| format!("{e:?}"))?,
-        id
+        recover_sender(&decoded, &signature).map_err(|e| format!("{e:?}"))?,
+        key.address()
     );
-    assert_eq!(decoded.account_sequence(), 17);
-    let digest = layerx_wire::sign::preimage(&decoded).map_err(|e| format!("{e:?}"))?;
-    let signature = decoded
-        .signature()
-        .ok_or("missing signature")?
-        .try_into()
-        .map_err(|e| format!("{e:?}"))?;
-    layerx_crypto::ed25519::verify_digest(
-        &send.authorization.public_key,
-        &signature,
-        digest.as_bytes(),
-    )
-    .map_err(|e| format!("{e:?}"))?;
-    let shared =
-        layerx_platform_cli::wallet_signing::PreparedPayment::from_send(&send.encode()?, &facts)?;
     assert_eq!(
-        shared.confirmation()["source_account_sequence"],
+        bind_call(&decoded, key.address()).map_err(|e| format!("{e:?}"))?,
+        shared.disclosure
+    );
+    let prepared = PreparedPayment::from_send(&payload, &facts, &options)?;
+    assert_eq!(prepared.call(), &call);
+    assert_eq!(
+        prepared.confirmation()["source_account_sequence"],
         send.source_next_sequence.to_string()
     );
-    assert_eq!(shared.confirmation()["envelope_sequence"], 17);
+    assert_eq!(prepared.confirmation()["nonce"], "17");
     let mut changed = send.clone();
     changed.source_next_sequence = u64::MAX;
     assert!(changed.encode().is_err());
-    resign(&mut changed)?;
-    assert_ne!(send.encode()?, changed.encode()?);
-    assert_eq!(
-        changed.prepare(&facts)?.confirmation()["envelope_sequence"],
-        17
-    );
+    resign_with_seed(&mut changed, account.layerx_seed())?;
+    assert_ne!(payload, changed.encode()?);
+    assert_eq!(changed.prepare(&facts, &options)?.call().nonce, 17);
     let mut wrong_actor = facts;
     wrong_actor.public_key = [8; 32];
-    assert!(send.prepare(&wrong_actor).is_err());
+    assert!(send.prepare(&wrong_actor, &options).is_err());
+    let other = derive_from_seed(&[8; 64], 0).map_err(|e| format!("{e:?}"))?;
+    assert!(prepared.sign(&evm_key(&other)?).is_err());
     Ok(())
 }
 

@@ -1,18 +1,15 @@
 use super::{
-    checked, encoded_disclosure, facts, registry, request, setup_envelope, signing_request, Host,
-    Result,
+    checked, construct_signing_call, encoded_disclosure, evm_signing_request, facts, registry,
+    request, setup_envelope, Host, Result,
 };
 use layerx_crypto::disclosure::{
     bind, DisclosedNativeBudgetCreate, DisclosedNativeOperation, Disclosure, DisclosureError,
 };
-use layerx_crypto::onboarding::{OnboardingConsent, SponsoredRegistration};
+use layerx_crypto::onboarding::OnboardingConsent;
 use layerx_intents::canonical as hash;
-use layerx_intents::canonical::{
-    signed_envelope_bytes as encode_signed_envelope,
-    unsigned_envelope_bytes as encode_unsigned_envelope,
-};
+use layerx_intents::canonical::unsigned_envelope_bytes as encode_unsigned_envelope;
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Signature, UnsignedEnvelope};
+use layerx_types::activity::UnsignedEnvelope;
 use layerx_types::ids::Did;
 use layerx_types::payload::{ActivityType, ModuleId, Payload};
 
@@ -74,7 +71,16 @@ pub(super) fn mutated_native(disclosure: &Disclosure) -> Vec<Disclosure> {
         Some(DisclosedNativeOperation::IdentityRegistration(_)) => 2,
         Some(DisclosedNativeOperation::BudgetCreate(_)) => mutations.len(),
         Some(DisclosedNativeOperation::RecoveryPolicy(_)) => 4,
-        Some(DisclosedNativeOperation::OwnerRotation(_)) | None => 0,
+        Some(DisclosedNativeOperation::OwnerRotation(_))
+        | Some(DisclosedNativeOperation::ProgramDeploy(_))
+        | Some(DisclosedNativeOperation::ProgramUpgrade(_))
+        | Some(DisclosedNativeOperation::ProgramCall(_))
+        | Some(DisclosedNativeOperation::ProgramWindDown(_))
+        | Some(DisclosedNativeOperation::LegacyProgramCall(_))
+        | Some(DisclosedNativeOperation::BudgetFund(_))
+        | Some(DisclosedNativeOperation::BudgetDefund(_))
+        | Some(DisclosedNativeOperation::BudgetRevoke(_))
+        | None => 0,
     };
     (0..count)
         .map(|field| {
@@ -94,6 +100,16 @@ pub(super) fn mutated_native(disclosure: &Disclosure) -> Vec<Disclosure> {
                 Some(DisclosedNativeOperation::OwnerRotation(_)) => {
                     panic!("unexpected rotation disclosure")
                 }
+                Some(DisclosedNativeOperation::ProgramDeploy(_))
+                | Some(DisclosedNativeOperation::ProgramUpgrade(_))
+                | Some(DisclosedNativeOperation::ProgramCall(_))
+                | Some(DisclosedNativeOperation::ProgramWindDown(_))
+                | Some(DisclosedNativeOperation::LegacyProgramCall(_))
+                | Some(DisclosedNativeOperation::BudgetFund(_))
+                | Some(DisclosedNativeOperation::BudgetDefund(_))
+                | Some(DisclosedNativeOperation::BudgetRevoke(_)) => {
+                    panic!("unexpected native disclosure with zero mutations")
+                }
                 None => panic!("missing native disclosure"),
             }
             changed
@@ -109,7 +125,13 @@ fn sign_setup(
     let canonical = checked(encode_unsigned_envelope(envelope))?;
     let disclosure = checked(bind(&canonical, &registry()?))?;
     let encoded = encoded_disclosure(&disclosure)?;
-    let (request, digest) = signing_request(binding, handle, &canonical, &encoded)?;
+    let (canonical, call_disclosure) = construct_signing_call(&canonical)?;
+    let (request, digest) = evm_signing_request(
+        binding,
+        handle,
+        &canonical,
+        &encoded_disclosure(&call_disclosure)?,
+    )?;
     let response = host.call(&request)?;
     assert_eq!(response[7], 0);
     assert_eq!(response.len(), 72);
@@ -124,7 +146,8 @@ fn sign_setup(
         );
         assert_eq!(
             host.call(
-                &signing_request(binding, handle, &canonical, &encoded_disclosure(&changed)?)?.0
+                &evm_signing_request(binding, handle, &canonical, &encoded_disclosure(&changed)?)?
+                    .0
             )?[7],
             1
         );
@@ -135,7 +158,7 @@ fn sign_setup(
         let last = changed.len() - 1;
         changed[last] ^= 1;
         assert_eq!(
-            host.call(&signing_request(binding, handle, &canonical, &changed)?.0)?[7],
+            host.call(&evm_signing_request(binding, handle, &canonical, &changed)?.0)?[7],
             1
         );
     }
@@ -146,13 +169,9 @@ fn sign_setup(
 fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() -> Result<()> {
     let mut host = Host::new()?;
     let target_binding = [75; 32];
-    let sponsor_binding = [76; 32];
     let (target_handle, target_public) =
         facts(&host.call(&request(1, target_binding, &[], None)?)?)?;
-    let (sponsor_handle, sponsor_public) =
-        facts(&host.call(&request(1, sponsor_binding, &[], None)?)?)?;
     let target = (target_binding, target_handle.as_slice(), target_public);
-    let sponsor = (sponsor_binding, sponsor_handle.as_slice(), sponsor_public);
     let consent = OnboardingConsent {
         sponsor: checked(hash::did_id_for_protocol(
             &checked(Did::new(b"did:layerx:sponsor"))?,
@@ -166,28 +185,16 @@ fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() 
     };
     let target_envelope = setup_envelope(
         target_public,
-        77,
+        125,
         payload(ModuleId::Governance, 1, &checked(consent.payload())?)?,
         (b"did:layerx:alice", 0, 0),
     )?;
     let signature = sign_setup(&host, target, &target_envelope)?;
-    let signed = checked(encode_signed_envelope(
-        &target_envelope
-            .clone()
-            .attach_signature(checked(Signature::new(&signature))?),
-    ))?;
-    let registration = checked(SponsoredRegistration::from_signed_consent(&signed))?;
-    let sponsor_envelope = setup_envelope(
-        sponsor_public,
-        77,
-        payload(ModuleId::Governance, 1, &checked(registration.payload())?)?,
-        (b"did:layerx:sponsor", 7, 2),
-    )?;
     let mut target_operations = vec![target_envelope];
     for extended in [false, true] {
         target_operations.push(setup_envelope(
             target_public,
-            77,
+            125,
             payload(ModuleId::Governance, 3, &recovery(extended)?)?,
             (b"did:layerx:alice", 7, 1),
         )?);
@@ -195,7 +202,7 @@ fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() 
     for version in [1, 2] {
         target_operations.push(setup_envelope(
             target_public,
-            77,
+            125,
             payload(ModuleId::Budget, 1, &native_budget(version)?)?,
             (b"did:layerx:alice", 7, 1),
         )?);
@@ -206,7 +213,7 @@ fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() 
     )?;
     target_operations.push(setup_envelope(
         target_public,
-        77,
+        125,
         payload(ModuleId::Asset, 4, &opening)?,
         (b"did:layerx:alice", 7, 1),
     )?);
@@ -216,10 +223,11 @@ fn native_creation_disclosures_sign_through_real_kms_before_and_after_restart() 
             host.stop();
             host.start()?;
         }
-        let mut signatures = vec![sign_setup(&host, sponsor, &sponsor_envelope)?];
+        let mut signatures = Vec::new();
         for envelope in &target_operations {
             signatures.push(sign_setup(&host, target, envelope)?);
         }
+        assert_eq!(signatures[0], signature);
         if pass == 0 {
             first = signatures;
         } else {
@@ -263,7 +271,7 @@ fn native_setup_refuses_wrong_accounts_limits_and_payload_shapes() -> Result<()>
         for bytes in corruptions {
             let envelope = setup_envelope(
                 public,
-                77,
+                125,
                 payload(ModuleId::Budget, 1, &bytes)?,
                 (b"did:layerx:alice", 7, 1),
             )?;
@@ -275,7 +283,7 @@ fn native_setup_refuses_wrong_accounts_limits_and_payload_shapes() -> Result<()>
         bytes[start..start + length].fill(0);
         let envelope = setup_envelope(
             public,
-            77,
+            125,
             payload(ModuleId::Governance, 3, &bytes)?,
             (b"did:layerx:alice", 7, 1),
         )?;
@@ -295,7 +303,7 @@ fn native_setup_refuses_wrong_accounts_limits_and_payload_shapes() -> Result<()>
     for (sequence, fee) in [(1, 0), (0, 1)] {
         let envelope = setup_envelope(
             public,
-            77,
+            125,
             payload(ModuleId::Governance, 1, &checked(consent.payload())?)?,
             (b"did:layerx:alice", sequence, fee),
         )?;

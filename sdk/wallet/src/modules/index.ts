@@ -1,5 +1,6 @@
 import {
   abiEventTopic,
+  precompileTransactionRequest,
   sendPrecompileCall,
   type DecodedPrecompileEvent,
   type Eip1193Requester,
@@ -7,6 +8,10 @@ import {
   type PrecompileEventSpec,
   type PrecompileLog,
 } from '@sidiora/layerx-sdk/browser';
+
+import { decodeSequencerReceipt, waitForSequencerReceipt } from '../receipt.js';
+import { isRecord } from '../rpc.js';
+import type { SequencerReceiptAnswer } from '../types.js';
 
 export type ModuleProvider = Eip1193Requester;
 export type ModuleTransaction = PrecompileCall;
@@ -56,6 +61,29 @@ export function retargetEvents(specs: readonly PrecompileEventSpec[], address: s
 
 export function sendModuleTransaction(provider: ModuleProvider, from: string, tx: ModuleTransaction): Promise<string> {
   return sendPrecompileCall(provider, moduleAddress(from, 'from'), tx);
+}
+
+export async function sendModuleTransactionReceipted(
+  provider: ModuleProvider,
+  from: string,
+  tx: ModuleTransaction,
+): Promise<SequencerReceiptAnswer> {
+  const request = precompileTransactionRequest(moduleAddress(from, 'from'), tx);
+  let value: unknown;
+  try {
+    value = await provider.request({ ...request, method: 'paxeer_sendTransactionReceipted' });
+  } catch (error) {
+    if (!isRecord(error) || error.code !== 4200) throw error;
+    const hash = await sendModuleTransaction(provider, from, tx);
+    return waitForSequencerReceipt(
+      (method, params) => provider.request({ method, params }),
+      hash,
+      { rung: 'receipted' },
+    );
+  }
+  const answer = decodeSequencerReceipt(value);
+  if (answer.rung === 'submitted') throw new ModuleError('invalid_answer', 'paxeer_sendTransactionReceipted');
+  return answer;
 }
 
 export async function ethCall(provider: ModuleProvider, to: string, data: string): Promise<string> {

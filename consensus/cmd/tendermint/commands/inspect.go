@@ -28,6 +28,10 @@ func MakeInspectCommand(conf *config.Config) *cobra.Command {
 	RPC calls to debug issues of inconsistent state.
 	`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if conf.AutobahnConfigFile != "" {
+				return ErrAutobahnOfflineStore
+			}
+
 			ctx, cancel := signal.NotifyContext(cmd.Context(), syscall.SIGTERM, syscall.SIGINT)
 			defer cancel()
 

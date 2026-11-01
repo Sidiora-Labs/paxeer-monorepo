@@ -14,11 +14,10 @@ use layerx_agentd::prepare::PreparationLifecycle;
 use layerx_agentd::session::{
     open, OpenRequest, SessionCredential, SessionId, SessionRecord, SessionRegistry,
 };
-use layerx_agentd::session_control::{SessionControl, SessionControlError};
+use layerx_agentd::session_control::SessionControl;
 use layerx_agentd::store::{Store, TenantId};
-use layerx_agentd::tenant::{AuthorizationError, Operation, Surface};
 use layerx_mcp::server::{
-    catalogue, InvocationOutcome, Server, ServerError, ToolKind, FAUCET_REQUEST,
+    catalogue, tool_operation, InvocationOutcome, Server, ServerError, ToolKind, FAUCET_REQUEST,
     REQUIRED_DAEMON_GATES,
 };
 use layerx_types::ids::Did;
@@ -142,7 +141,7 @@ fn control(
     )
 }
 
-fn bind(root: &Path, scopes: &[&str]) -> Server {
+pub(crate) fn bind(root: &Path, scopes: &[&str]) -> Server {
     let (session, capability) = records(scopes);
     let (control, credential) = control(root, &session, &capability);
     Server::bind(control, credential, capability.id, 50, root)
@@ -150,7 +149,7 @@ fn bind(root: &Path, scopes: &[&str]) -> Server {
 }
 
 #[test]
-fn the_faucet_tool_is_served_through_the_daemon_path_under_its_own_scope() {
+fn the_faucet_tool_is_served_without_an_agent_operation_under_its_own_scope() {
     let root = directory("served");
     let mut server = bind(&root, &[FAUCET_REQUEST.required_scope]);
     assert_eq!(server.tools(), [FAUCET_REQUEST]);
@@ -161,6 +160,8 @@ fn the_faucet_tool_is_served_through_the_daemon_path_under_its_own_scope() {
     assert_eq!(tool.kind, ToolKind::Write);
     assert_eq!(tool.required_scope, "write:faucet:claim");
     assert_ne!(tool.mutation, "none");
+    assert!(tool.mutation.contains("px_requestFunds"));
+    assert_eq!(tool_operation(tool.name), None);
     assert!(catalogue().contains(&FAUCET_REQUEST));
     let declaration = server.capability_declaration();
     assert_eq!(declaration.write_tools, 1);
@@ -256,39 +257,5 @@ fn the_daemon_refuses_a_faucet_claim_the_session_no_longer_authorizes() {
     );
     assert!(!ran.get());
     assert_eq!(server.audit_entries(), 1);
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn the_faucet_scope_authorizes_only_the_faucet_operation_at_the_agentd_boundary() {
-    let root = directory("boundary");
-    let (session, capability) = records(&[FAUCET_REQUEST.required_scope]);
-    let (control, credential) = control(&root, &session, &capability);
-    let permit = control
-        .authorize(&credential, Operation::FaucetClaim, Surface::Mcp, 50, None)
-        .unwrap_or_else(|error| panic!("faucet authorization: {error:?}"));
-    assert_eq!(permit.credential(), credential);
-    assert_eq!(permit.principal().surface, Surface::Mcp);
-    for operation in [
-        Operation::Submit,
-        Operation::Sign,
-        Operation::Prepare,
-        Operation::Track,
-        Operation::Wait,
-        Operation::BudgetFund,
-        Operation::ReadBalance,
-    ] {
-        let refused = control.authorize(&credential, operation, Surface::Mcp, 50, None);
-        assert!(
-            matches!(
-                refused,
-                Err(SessionControlError::Authorization(
-                    AuthorizationError::ScopeDenied
-                ))
-            ),
-            "{} was authorized by the faucet scope",
-            operation.name()
-        );
-    }
     let _ = fs::remove_dir_all(root);
 }

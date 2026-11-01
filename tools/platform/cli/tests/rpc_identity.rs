@@ -66,8 +66,8 @@ fn faucet_parameters_match_the_gateway_did_and_signer_bounds() -> Result<(), Str
     let maximum = format!("did:layerx:{}", "a".repeat(244));
     for did in ["did:layerx:alice-1._:wallet".to_owned(), maximum.clone()] {
         assert_eq!(
-            request("lx_requestFunds", &json!([did, key]))?,
-            json!({"jsonrpc":"2.0","id":1,"method":"lx_requestFunds","params":[did,key]})
+            request("px_requestFunds", &json!([did, key]))?,
+            json!({"jsonrpc":"2.0","id":1,"method":"px_requestFunds","params":[did,key]})
         );
     }
     for did in [
@@ -83,7 +83,7 @@ fn faucet_parameters_match_the_gateway_did_and_signer_bounds() -> Result<(), Str
         format!("{maximum}a"),
         format!("did:layerx:{}", "a".repeat(502)),
     ] {
-        assert!(request("lx_requestFunds", &json!([did, key])).is_err());
+        assert!(request("px_requestFunds", &json!([did, key])).is_err());
     }
     for args in [
         json!([]),
@@ -97,7 +97,7 @@ fn faucet_parameters_match_the_gateway_did_and_signer_bounds() -> Result<(), Str
         json!(["did:layerx:alice", "gg".repeat(32)]),
         json!(["did:layerx:alice", 1]),
     ] {
-        assert!(request("lx_requestFunds", &args).is_err());
+        assert!(request("px_requestFunds", &args).is_err());
     }
     Ok(())
 }
@@ -111,12 +111,20 @@ fn identity_sessions_and_gateway_credentials_are_distinct() -> Result<(), String
     assert!(RpcClient::new_session("https://example.com", token()).is_err());
     assert!(RpcClient::new_session("http://example.com/rpc", token()).is_err());
     assert!(session
-        .subscribe(&json!(["receipts"]), std::time::Duration::from_secs(1))
+        .subscribe(
+            &json!(["logs", {"address":"0x000000000000000000000000000000000000101d"}]),
+            std::time::Duration::from_secs(1)
+        )
         .err()
         .ok_or("identity session authorized a gateway subscription")?
         .starts_with("gateway_credential_required:"));
-    assert!(session.call("lx_subscribe", &json!(["receipts"])).is_err());
-    assert!(session.call("lx_unsubscribe", &json!(["1"])).is_err());
+    assert!(session
+        .call(
+            "eth_subscribe",
+            &json!(["logs", {"address":"0x000000000000000000000000000000000000101d"}])
+        )
+        .is_err());
+    assert!(session.call("eth_unsubscribe", &json!(["1"])).is_err());
     let credential = Zeroizing::new(format!("key:lxp_live_{}", "a".repeat(64)));
     for client in [
         RpcClient::new(url, None)?,
@@ -124,7 +132,7 @@ fn identity_sessions_and_gateway_credentials_are_distinct() -> Result<(), String
     ] {
         assert!(client
             .call(
-                "lx_requestFunds",
+                "px_requestFunds",
                 &json!(["did:layerx:alice", registration()?.0])
             )
             .err()
@@ -136,7 +144,7 @@ fn identity_sessions_and_gateway_credentials_are_distinct() -> Result<(), String
 
 #[test]
 fn identity_rpc_responses_remain_bound_and_preserve_all_refusal_fields() -> Result<(), String> {
-    for method in ["px_register", "lx_requestFunds"] {
+    for method in ["px_register", "px_requestFunds"] {
         let result = json!({"state":"upstream-record"});
         assert_eq!(
             decode_response(method, &json!({"jsonrpc":"2.0","id":1,"result":result}))?,

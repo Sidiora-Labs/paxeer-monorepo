@@ -27,6 +27,18 @@ export interface Params {
     max_dynamic_base_fee_downward_adjustment: string;
     target_gas_used_per_block: number;
     maximum_fee_per_gas: string;
+    registerPointerDisabled: boolean;
+    paxSstoreSetGasEip2200: number;
+    allowedFeeDenoms: AllowedFeeDenom[];
+    maxFeeTokenSpread: string;
+    feeTokenEnabled: boolean;
+    feeTokenDistribution: boolean;
+    maxFeeTokenRateAge: number;
+}
+export interface AllowedFeeDenom {
+    denom: string;
+    rate: string;
+    rateUpdateHeight: number;
 }
 export interface ParamsPreV580 {
     /**

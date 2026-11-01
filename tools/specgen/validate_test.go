@@ -74,8 +74,8 @@ func TestRepositorySpecIsValidAndCurrent(t *testing.T) {
 		t.Fatal(err)
 	}
 	active := wf.Str("meta", "active_feature")
-	if active != "paxeer-x" {
-		t.Fatalf("active feature = %q, want paxeer-x", active)
+	if active != "layerx-merge" {
+		t.Fatalf("active feature = %q, want layerx-merge", active)
 	}
 	w := &writer{check: true}
 	if err := run(repo, w); err != nil {

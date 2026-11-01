@@ -113,7 +113,10 @@ defmodule BlockScoutWeb.API.V2.MainPageController do
         |> render(:transactions, %{transactions: recent_transactions |> maybe_preload_metadata()})
 
       updates ->
-        page = PriceUpdateList.merge(recent_transactions, updates, :desc, paging_options.page_size)
+        update_limit = paging_options.page_size - min(length(recent_transactions), 3)
+
+        page =
+          PriceUpdateList.merge(recent_transactions, Enum.take(updates, update_limit), :desc, paging_options.page_size)
 
         conn
         |> put_status(200)

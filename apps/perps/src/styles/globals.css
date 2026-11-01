@@ -1198,12 +1198,6 @@ a {
   outline: none;
 }
 
-*:focus-visible {
-  outline: none;
-  ring-color: hsl(var(--ring));
-  ring-offset-color: hsl(var(--background));
-}
-
 .font-mono {
   font-family: "Paxeer Sans Rounded", sans-serif !important;
 }

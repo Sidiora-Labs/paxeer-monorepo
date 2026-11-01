@@ -1,5 +1,12 @@
-#[path = "../../layerx-programs-registry/tests/support/mod.rs"]
-pub mod protocol_support;
+#[path = "../../layerx-programs-registry/tests/support/chain.rs"]
+mod chain;
+
+use ed25519_dalek::{Signer, SigningKey};
+use layerx_programs::chain_proof::{
+    decode::decode_commitment_proof, header::ChainHeader, validators::TrustedValidator,
+    vote::vote_sign_bytes,
+};
+use sha2::{Digest, Sha256};
 
 use layerx_programs_runtime::test_support::{
     code_section, func_body, function_section, module, raw_section, type_section, unsigned_leb,
@@ -19,6 +26,7 @@ use layerx_programs_sandbox::snapshot::{RestoreRequest, RestoredSandbox};
 
 const ENTRYPOINT: &[u8] = b"sandbox_transition";
 const CALL_PREFIX: usize = 106;
+const VALIDATOR_SEEDS: [[u8; 32]; 3] = [[1; 32], [2; 32], [3; 32]];
 
 fn candidate(id: u8, tenant: u8, opened: u64, expiry: u64) -> Lease {
     Lease::request(
@@ -104,38 +112,117 @@ fn call_payload(host: ProgramId, transition: LeaseTransition) -> Vec<u8> {
     payload
 }
 
-fn evidence(
+fn proven_transition(
     lease: &Lease,
     mut transition: LeaseTransition,
-    batch: u64,
-) -> (LeaseTransition, TransitionEvidence) {
-    let fixture = protocol_support::programs_call_fixture(
-        &call_payload(lease.host_program(), transition),
-        batch,
-        protocol_support::NOW,
-    );
-    let verifier = protocol_support::verifier_for_fixture(&fixture, batch, batch, None, 1_000);
-    let proof = &fixture.proof.state;
-    let head = verifier
-        .verify_current_protocol_head(
-            &proof.receipt,
-            &proof.receipt_proof,
-            &proof.header,
-            &proof.header_signature,
-            protocol_support::NOW,
+    block_height: u64,
+) -> (LeaseTransition, Vec<u8>, chain::ChainFixture) {
+    transition.activity_id = Sha256::digest(call_payload(lease.host_program(), transition)).into();
+    let mut canonical = lease
+        .canonical_state_bytes()
+        .unwrap_or_else(|error| panic!("lease state: {error}"));
+    // The fixed fields precede the state tag and the length-prefixed receipt history.
+    let state_offset =
+        b"LayerX/programs/sandbox/lease-state/v3\0".len() + 8 * 32 + 16 + 18 * 8 + 4 + 7 * 8 + 16;
+    canonical[state_offset] = transition.to as u8;
+    canonical[state_offset + 1] = u8::try_from(lease.history().len() + 1)
+        .unwrap_or_else(|error| panic!("history length: {error}"));
+    let history_end = state_offset + 2 + lease.history().len() * (3 + 3 * 32 + 8);
+    let mut receipt = vec![
+        transition.activity as u8,
+        transition.from as u8,
+        transition.to as u8,
+    ];
+    receipt.extend_from_slice(&transition.activity_id);
+    receipt.extend_from_slice(&transition.usage_observation_digest);
+    let mut digest = Sha256::new();
+    digest.update(lease.id().bytes());
+    digest.update(&receipt);
+    digest.update(block_height.to_be_bytes());
+    receipt.extend_from_slice(&digest.finalize());
+    receipt.extend_from_slice(&block_height.to_be_bytes());
+    canonical.splice(history_end..history_end, receipt);
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let mut fixture = chain::ChainFixture::new_in_store(
+        "lxphost",
+        "paxeer-lease-chain",
+        &VALIDATOR_SEEDS,
+        vec![(key, canonical.clone())],
+    )
+    .unwrap_or_else(|error| panic!("chain: {error:?}"));
+    assert!(block_height > 0, "state height must be positive");
+    fixture.header.height = i64::try_from(block_height)
+        .ok()
+        .and_then(|height| height.checked_add(1))
+        .unwrap_or_else(|| panic!("block height overflow"));
+    fixture.commit.height = fixture.header.height;
+    fixture.commit.block_id.hash = fixture
+        .header
+        .hash()
+        .unwrap_or_else(|error| panic!("header hash: {error:?}"))
+        .to_vec();
+    let keys = VALIDATOR_SEEDS.map(|seed| SigningKey::from_bytes(&seed));
+    for signature in &mut fixture.commit.signatures {
+        let key = keys
+            .iter()
+            .find(|key| {
+                TrustedValidator::new(key.verifying_key().to_bytes(), 1)
+                    .address
+                    .as_slice()
+                    == signature.validator_address
+            })
+            .unwrap_or_else(|| panic!("validator signing key absent"));
+        let bytes = vote_sign_bytes(
+            &fixture.header.chain_id,
+            fixture.commit.height,
+            fixture.commit.round,
+            Some(&fixture.commit.block_id),
+            signature.timestamp,
         )
-        .unwrap_or_else(|error| panic!("head: {error}"));
-    transition.activity_id = head.activity_id();
+        .unwrap_or_else(|error| panic!("vote sign bytes: {error:?}"));
+        signature.signature = key.sign(&bytes).to_bytes().to_vec();
+    }
+    (transition, canonical, fixture)
+}
+
+fn evidence(
+    lease: &Lease,
+    transition: LeaseTransition,
+    block_height: u64,
+) -> (LeaseTransition, TransitionEvidence) {
+    let (transition, canonical, fixture) = proven_transition(lease, transition, block_height);
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let commitment = decode_commitment_proof(
+        &fixture
+            .encode_key(&key)
+            .unwrap_or_else(|error| panic!("encode lease commitment: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("decode lease commitment: {error:?}"));
+    assert_eq!(commitment.store_name, "lxphost");
+    assert_eq!(commitment.key, key);
+    assert_eq!(commitment.value.as_deref(), Some(canonical.as_slice()));
+    let header = ChainHeader::decode(&commitment.signed_header)
+        .unwrap_or_else(|error| panic!("decode header: {error:?}"));
+    let head = fixture
+        .verifier
+        .verify_head(&header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("head: {error:?}"));
     let call_evidence = TransitionEvidence::verify_call(
         &head,
         lease,
         transition,
         &AuthorizationContext::new(lease.tenant(), CapabilitySet::empty()),
-        &fixture.proof.activity,
-        &fixture.proof.activity_proof,
-        &proof.header,
+        commitment
+            .value
+            .as_deref()
+            .unwrap_or_else(|| panic!("lease commitment value absent")),
+        &commitment.proof_ops,
     )
     .unwrap_or_else(|error| panic!("evidence: {error}"));
+    assert_eq!(call_evidence.state_height(), block_height);
+    assert_eq!(call_evidence.tx_hash(), transition.activity_id);
     (transition, call_evidence)
 }
 
@@ -155,7 +242,7 @@ fn advance(mut lease: Lease, edges: &[(LeaseActivity, LeaseState, LeaseState, u6
     let mut book = layerx_programs_sandbox::LeaseBook::new();
     book.insert_requested(lease, request, proof)
         .unwrap_or_else(|error| panic!("request: {error}"));
-    for &(activity, from, to, batch) in edges {
+    for &(activity, from, to, block_height) in edges {
         lease = book
             .get(request.lease)
             .unwrap_or_else(|| panic!("lease"))
@@ -169,7 +256,7 @@ fn advance(mut lease: Lease, edges: &[(LeaseActivity, LeaseState, LeaseState, u6
             activity_id: [0; 32],
             usage_observation_digest: [0; 32],
         };
-        let (transition, proof) = evidence(&lease, transition, batch);
+        let (transition, proof) = evidence(&lease, transition, block_height);
         book.transition(lease.id(), transition, proof)
             .unwrap_or_else(|error| panic!("advance: {error}"));
     }
@@ -182,7 +269,7 @@ fn advance_existing(
     mut lease: Lease,
     edges: &[(LeaseActivity, LeaseState, LeaseState, u64)],
 ) -> Lease {
-    for &(activity, from, to, batch) in edges {
+    for &(activity, from, to, block_height) in edges {
         let transition = LeaseTransition {
             lease: lease.id(),
             tenant: lease.tenant(),
@@ -192,7 +279,7 @@ fn advance_existing(
             activity_id: [0; 32],
             usage_observation_digest: [0; 32],
         };
-        let (transition, proof) = evidence(&lease, transition, batch);
+        let (transition, proof) = evidence(&lease, transition, block_height);
         lease
             .transition(transition, proof)
             .unwrap_or_else(|error| panic!("advance existing: {error}"));
@@ -232,7 +319,7 @@ fn funded(id: u8, tenant: u8) -> Lease {
     )
 }
 
-fn activation(lease: &Lease, batch: u64) -> (LeaseTransition, TransitionEvidence) {
+fn activation(lease: &Lease, block_height: u64) -> (LeaseTransition, TransitionEvidence) {
     evidence(
         lease,
         LeaseTransition {
@@ -244,7 +331,7 @@ fn activation(lease: &Lease, batch: u64) -> (LeaseTransition, TransitionEvidence
             activity_id: [0; 32],
             usage_observation_digest: [0; 32],
         },
-        batch,
+        block_height,
     )
 }
 
@@ -335,7 +422,7 @@ fn running_instance(
 fn snapshot_transition(
     lease: &Lease,
     digest: [u8; 32],
-    batch: u64,
+    block_height: u64,
 ) -> (LeaseTransition, TransitionEvidence) {
     evidence(
         lease,
@@ -348,7 +435,7 @@ fn snapshot_transition(
             activity_id: [0; 32],
             usage_observation_digest: digest,
         },
-        batch,
+        block_height,
     )
 }
 

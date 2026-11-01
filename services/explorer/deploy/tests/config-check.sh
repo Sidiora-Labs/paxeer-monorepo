@@ -35,6 +35,7 @@ expect "$preset" NEXT_PUBLIC_NETWORK_NAME 'Paxeer X Network'
 expect "$preset" NEXT_PUBLIC_FOOTER_LINKS \
   https://raw.githubusercontent.com/Sidiora-Labs/Paxeer-X-Network/main/apps/explorer/configs/paxeer-x/footer.json
 expect "$backend" PAXEER_X_CAPABILITIES_ENABLED false
+expect "$backend" PAXEER_X_PRICE_FEED_RETENTION_DAYS 30
 
 case "$(value "$preset" NEXT_PUBLIC_OG_DESCRIPTION)" in
   *'Paxeer X Network'*) ;;

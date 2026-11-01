@@ -1019,8 +1019,18 @@ func phase4Budget(p Phase4Plan, a *phase4Artifacts) error {
 	}
 	return a.append("budget.ndjson", map[string]any{"inputSha256": p.BudgetSHA256, "candidate": p.Candidate, "topology": p.Topology, "modeledWithContingencyMinor": cost.String(), "approvedMinor": approved.String(), "currency": budget.Currency, "quoteCount": len(budget.Quotes)})
 }
+
+var phase4RequiredSources = []string{
+	"services/launchpad/stats-workers/internal/holdings/phase4_measurement.go",
+	"services/launchpad/stats-workers/internal/holdings/phase4_measurement_test.go",
+	"services/launchpad/stats-workers/internal/httpapi/pool_holders.go",
+	"services/launchpad/stats-workers/internal/holdings/ingestion.go",
+	"services/launchpad/stats-workers/internal/holdings/postgres.go",
+	"sdk/launchpad/packages/sdk/src/operations.gen.ts",
+}
+
 func phase4SourceBindings(ctx context.Context, p Phase4Plan) error {
-	for _, required := range []string{"services/launchpad/stats-workers/internal/holdings/phase4_measurement.go", "services/launchpad/stats-workers/internal/holdings/phase4_measurement_test.go", "services/launchpad/stats-workers/internal/httpapi/pool_holders.go", "services/launchpad/stats-workers/internal/holdings/ingestion.go", "services/launchpad/stats-workers/internal/holdings/postgres.go", "launchpad/spec/production-system/spec.kvx"} {
+	for _, required := range phase4RequiredSources {
 		if p.Sources[required] == "" {
 			return errors.New("measurement/production/spec source missing from candidate binding")
 		}

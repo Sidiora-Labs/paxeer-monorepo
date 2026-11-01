@@ -1,68 +1,4 @@
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
-export const App = {
-    $type: "tendermint.version.App",
-    encode(message, writer = new BinaryWriter()) {
-        if (message.protocol !== 0) {
-            writer.uint32(8).uint64(message.protocol);
-        }
-        if (message.software !== "") {
-            writer.uint32(18).string(message.software);
-        }
-        return writer;
-    },
-    decode(input, length) {
-        const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-        const end = length === undefined ? reader.len : reader.pos + length;
-        const message = createBaseApp();
-        while (reader.pos < end) {
-            const tag = reader.uint32();
-            switch (tag >>> 3) {
-                case 1:
-                    if (tag !== 8) {
-                        break;
-                    }
-                    message.protocol = longToNumber(reader.uint64());
-                    continue;
-                case 2:
-                    if (tag !== 18) {
-                        break;
-                    }
-                    message.software = reader.string();
-                    continue;
-            }
-            if ((tag & 7) === 4 || tag === 0) {
-                break;
-            }
-            reader.skip(tag & 7);
-        }
-        return message;
-    },
-    fromJSON(object) {
-        return {
-            protocol: isSet(object.protocol) ? globalThis.Number(object.protocol) : 0,
-            software: isSet(object.software) ? globalThis.String(object.software) : ""
-        };
-    },
-    toJSON(message) {
-        const obj = {};
-        if (message.protocol !== 0) {
-            obj.protocol = Math.round(message.protocol);
-        }
-        if (message.software !== "") {
-            obj.software = message.software;
-        }
-        return obj;
-    },
-    create(base) {
-        return App.fromPartial(base ?? {});
-    },
-    fromPartial(object) {
-        const message = createBaseApp();
-        message.protocol = object.protocol ?? 0;
-        message.software = object.software ?? "";
-        return message;
-    }
-};
 export const Consensus = {
     $type: "tendermint.version.Consensus",
     encode(message, writer = new BinaryWriter()) {
@@ -127,9 +63,6 @@ export const Consensus = {
         return message;
     }
 };
-function createBaseApp() {
-    return { protocol: 0, software: "" };
-}
 function createBaseConsensus() {
     return { block: 0, app: 0 };
 }
@@ -147,15 +80,9 @@ function isSet(value) {
     return value !== null && value !== undefined;
 }
 export const registry = [
-    ["/tendermint.version.App", App],
     ["/tendermint.version.Consensus", Consensus]
 ];
 export const aminoConverters = {
-    "/tendermint.version.App": {
-        aminoType: "tendermint.version.App",
-        toAmino: (message) => ({ ...message }),
-        fromAmino: (object) => ({ ...object })
-    },
     "/tendermint.version.Consensus": {
         aminoType: "tendermint.version.Consensus",
         toAmino: (message) => ({ ...message }),

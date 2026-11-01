@@ -1,5 +1,9 @@
 import { createHash } from "node:crypto";
 
+import { precompileWriteCall, type PrecompileCall } from "../exchange.js";
+
+export const LAYERX_LEDGER_PRECOMPILE = "0x000000000000000000000000000000000000101a";
+
 export interface PayerGrant {
   readonly grant_id: string;
   readonly from: string;
@@ -143,6 +147,20 @@ export function encodeAssetRegister(issuerDidId32: string, registration: AssetRe
     new Uint8Array([name.length]), name, tail, new Uint8Array([registration.custody_ref.length]), registration.custody_ref.slice());
 }
 
+export function registerAssetCall(issuerDidId32: string, registration: AssetRegistration): PrecompileCall {
+  const payload = encodeAssetRegister(issuerDidId32, registration);
+  return precompileWriteCall(
+    LAYERX_LEDGER_PRECOMPILE,
+    "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)",
+    { types: ["bytes32", "bytes32", "string", "string", "uint8", "uint128", "uint8", "bytes"], payable: false },
+    [
+      `0x${Buffer.from(payload.subarray(2, 34)).toString("hex")}`, `0x${registration.salt}`,
+      registration.symbol, registration.name, BigInt(registration.decimals), BigInt(registration.supply_cap),
+      BigInt(registration.issuer_kind), `0x${Buffer.from(registration.custody_ref).toString("hex")}`,
+    ],
+  );
+}
+
 function exact(value: unknown, keys: readonly string[]): void {
   const input = record(value);
   if (Object.keys(input).length !== keys.length || keys.some((key) => !Object.hasOwn(input, key))) throw new Error("invalid-receive");
@@ -151,6 +169,13 @@ function exact(value: unknown, keys: readonly string[]): void {
 export function encodeGrant(grant: PayerGrant): Uint8Array {
   exact(grant, GRANT.map(([key]) => key));
   return encode(grant, GRANT);
+}
+
+export function issueGrantCall(grant: PayerGrant): PrecompileCall {
+  return precompileWriteCall(
+    LAYERX_LEDGER_PRECOMPILE, "issueGrant(bytes)", { types: ["bytes"], payable: false },
+    [`0x${Buffer.from(encodeGrant(grant)).toString("hex")}`],
+  );
 }
 
 export function grantAuthorizationMessage(grant: PayerGrant): Uint8Array {
@@ -190,6 +215,13 @@ export function decodeReceive(bytes: Uint8Array): Receive {
 
 export function encodeAccountOpen(asset: string): Uint8Array {
   return concatenate(new Uint8Array([0, 1]), encode({ asset }, [["asset", "hex", 32]]));
+}
+
+export function openAccountCall(asset: string): PrecompileCall {
+  return precompileWriteCall(
+    LAYERX_LEDGER_PRECOMPILE, "openAccount(bytes32)", { types: ["bytes32"], payable: false },
+    [`0x${Buffer.from(hexBytes(asset)).toString("hex")}`],
+  );
 }
 
 export function encodeGrantRevoke(grant_id: string, revocation_sequence: string): Uint8Array {

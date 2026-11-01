@@ -1,13 +1,15 @@
 //! Finalized, monotonic projection of the F07 reputation section.
 //!
 //! A projection advances only on a whole `ProgramRead` capture bound to a
-//! threshold checkpoint certificate for the same root and batch height. The
+//! verified block commit for the same root, block hash and height. The
 //! accepted height, state commitment and reputation root persist per market;
 //! a lower height never replaces them and two roots at one height halt the
 //! market until an operator resolves the evidence conflict.
 
 use std::path::Path;
 
+use crate::ai_market::{verify_block_commit, BlockCommitProof, FinalityAuthority};
+use layerx_committed_proof::ProofError;
 use layerx_programs_ai_market::{
     errors::{
         ApplicationError, ARITHMETIC, F07_BINDING_MISMATCH, F07_EPOCH_NOT_SEALED,
@@ -15,6 +17,7 @@ use layerx_programs_ai_market::{
     },
     queries::{
         bind_snapshot, FinalityEvidence, QueryError, ReadProof, StateCapture, BINDING_MAX_BYTES,
+        FINALIZED_RANK,
     },
     reputation::{
         CompletedHistory, HistoryLookupError, ReputationCurrent, ReputationState, CURRENT_BYTES,
@@ -25,8 +28,6 @@ use layerx_programs_ai_market::{
     types::{ChainDomain, Digest32, MarketId, Presence, ProgramId, WorkerId},
     MAX_STATE_BYTES,
 };
-use layerx_proof::checkpoint::{verify_declared_certificate, Certificate, CheckpointError};
-use layerx_proof::settlement::declared_domain;
 use rusqlite::{params, Connection, OptionalExtension as _, TransactionBehavior};
 
 /// Executing heights after `last_observed_height` at which quality turns stale.
@@ -69,8 +70,8 @@ pub enum ReputationError {
     Refused(ApplicationError),
     /// The chunked `ProgramRead` capture was inconsistent or incomplete.
     Capture(QueryError),
-    /// The checkpoint certificate failed threshold verification.
-    Certificate(CheckpointError),
+    /// The block commit failed consensus verification.
+    Commit(ProofError),
     /// The finalized height precedes a height the projected state commits to.
     InvalidProof {
         finalized_height: u64,
@@ -157,12 +158,11 @@ pub enum Admission {
     AlreadyAccepted { height: u64 },
 }
 
-/// One `ProgramRead` capture with the checkpoint evidence claimed for its root.
+/// One `ProgramRead` capture with the block commit evidence claimed for its root.
 pub struct FinalizedRead<'a> {
     pub proof: ReadProof,
     pub chunks: &'a [Vec<u8>],
-    pub certificate: &'a Certificate,
-    pub registered_checkpoint_id: [u8; 32],
+    pub commit: BlockCommitProof<'a>,
     pub publication_time_ms: u64,
 }
 
@@ -185,7 +185,7 @@ pub struct HistoryView {
 
 pub struct ReputationProjector {
     connection: Connection,
-    domain: String,
+    authority: FinalityAuthority,
     chain: ChainDomain,
     program: ProgramId,
 }
@@ -366,35 +366,36 @@ fn load_archive(
 
 impl ReputationProjector {
     /// Opens (or recovers) the durable projection at `path` for one program's markets,
-    /// verifying certificates against the declared settlement `domain`.
+    /// verifying block commits against the configured `authority`.
     ///
     /// # Errors
-    /// `Certificate(Configuration)` for an undeclared domain; `Store` when the store fails.
+    /// `Commit(InvalidValidatorSet)` for an empty chain id or validator set; `Store` when the store fails.
     pub fn open(
         path: &Path,
-        domain: &str,
+        authority: FinalityAuthority,
         chain: ChainDomain,
         program: ProgramId,
     ) -> Result<Self, ReputationError> {
-        declared_domain(domain)
-            .map_err(|error| ReputationError::Certificate(CheckpointError::Configuration(error)))?;
+        if authority.chain_id.is_empty() || authority.validators.is_empty() {
+            return Err(ReputationError::Commit(ProofError::InvalidValidatorSet));
+        }
         let connection = Connection::open(path)?;
         connection.pragma_update(None, "journal_mode", "WAL")?;
         connection.pragma_update(None, "synchronous", "FULL")?;
         connection.execute_batch(SCHEMA)?;
         Ok(Self {
             connection,
-            domain: domain.to_owned(),
+            authority,
             chain,
             program,
         })
     }
 
-    /// Admits one certified capture, advancing the market's projection monotonically.
+    /// Admits one committed capture, advancing the market's projection monotonically.
     ///
     /// # Errors
-    /// `Refused(WRONG_DOMAIN)` for another chain or program; `Certificate` for a certificate
-    /// that fails threshold verification; `Refused(F07_BINDING_MISMATCH)` when the certified
+    /// `Refused(WRONG_DOMAIN)` for another chain or program; `Commit` for a block commit
+    /// that fails consensus verification; `Refused(F07_BINDING_MISMATCH)` when the certified
     /// root or batch differs from the read; `Capture` or `Refused` for an inconsistent capture,
     /// state or F07 section; `InvalidProof` when the state commits to a later height;
     /// `StaleProof` below the accepted height; `Conflict` for another root at the accepted
@@ -403,22 +404,18 @@ impl ReputationProjector {
         if read.proof.chain != self.chain || read.proof.program != self.program {
             return Err(ReputationError::Refused(WRONG_DOMAIN));
         }
-        let report = verify_declared_certificate(
-            read.certificate,
-            &self.domain,
-            &read.registered_checkpoint_id,
-            None,
-        )
-        .map_err(ReputationError::Certificate)?;
-        if report.resulting_state_root() != read.proof.native_state_root.bytes()
-            || report.batch_number() != read.proof.execution_height
+        let verified =
+            verify_block_commit(&read.commit, &self.authority).map_err(ReputationError::Commit)?;
+        if verified.chain_id != self.authority.chain_id {
+            return Err(ReputationError::Refused(WRONG_DOMAIN));
+        }
+        if verified.app_hash != read.proof.native_state_root.bytes()
+            || verified.height != read.proof.execution_height
+            || verified.block_hash != read.proof.block_hash.bytes()
         {
             return Err(ReputationError::Refused(F07_BINDING_MISMATCH));
         }
-        let checkpoint_id = report
-            .evidence()
-            .checkpoint_id()
-            .ok_or(ReputationError::Refused(F07_FINALITY_UNAVAILABLE))?;
+        let checkpoint_id = verified.store_proof_digest;
         let mut buffer = vec![0; MAX_STATE_BYTES];
         let mut capture = StateCapture::new(&mut buffer);
         for chunk in read.chunks {
@@ -430,9 +427,11 @@ impl ReputationProjector {
             &facts,
             &FinalityEvidence {
                 native_state_root: read.proof.native_state_root,
-                checkpoint: Digest32::new(checkpoint_id)?,
-                settlement: Presence::Absent,
-                rank: report.level().wire_rank(),
+                block_height: verified.height,
+                block_hash: read.proof.block_hash,
+                app_hash: Digest32::new(verified.app_hash)?,
+                store_proof_digest: Digest32::new(checkpoint_id)?,
+                rank: FINALIZED_RANK,
             },
             read.publication_time_ms,
         )?;

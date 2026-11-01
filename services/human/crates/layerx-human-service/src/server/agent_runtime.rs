@@ -2,6 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::frame::{ConnectionGate, FrameTransport, Uds};
 use layerx_agent_api::idempotency::IdempotentMutation;
 use layerx_agent_api::prepare::{PreparationRef, PrepareRequest};
 use layerx_agent_api::submit::SubmitRequest;
@@ -9,9 +10,7 @@ use layerx_agent_api::track::{
     EvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackRequest, TrackedSubmission,
     Transition,
 };
-use layerx_agent_api::verify::Level;
 use layerx_agent_api::TimestampSeconds;
-use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
 use layerx_crypto::disclosure;
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_sdk::Call;
@@ -22,26 +21,78 @@ use layerx_types::verify::VerificationLevel;
 use sha2::Digest as _;
 use zeroize::Zeroizing;
 
-use crate::journeys::DepositAgentBoundary;
+use crate::journeys::ReceiptMaterial;
 use crate::journeys::{
     AgentBoundary, AgentBoundaryError, AgentObservation, AgentPreparation, ReceiptLookup,
-    ReceiptMaterial,
 };
 
+pub type TransactionType2 = layerx_crypto::evm_transaction::Eip1559Call;
+
+pub fn decode_unsigned(bytes: &[u8]) -> Result<TransactionType2, AgentBoundaryError> {
+    layerx_human_kms::attestor::decode_unsigned_evm_transaction(bytes)
+        .map_err(|_| AgentBoundaryError::CorruptResponse)
+}
+
+pub(crate) fn validate_call(
+    call: &TransactionType2,
+    activity_type: ActivityType,
+    payload: &[u8],
+    nonce: u64,
+    fee_limit: u128,
+) -> Result<(), AgentBoundaryError> {
+    use layerx_crypto::disclosure::call::{encode_payment_call, ledger_selector};
+    let mut target = [0; 20];
+    target[18] = 0x10;
+    let data = match (activity_type.module(), activity_type.ordinal()) {
+        (ModuleId::Budget, 8) if payload.len() == 50 && payload[..2] == [0, 1] => {
+            target[19] = 0x1b;
+            let mut data = ledger_selector("budgetDefund(bytes32,uint128)").to_vec();
+            data.extend_from_slice(&payload[2..34]);
+            data.extend_from_slice(&[0; 16]);
+            data.extend_from_slice(&payload[34..]);
+            data
+        }
+        (ModuleId::Asset, 5) => {
+            target[19] = 0x1a;
+            layerx_agentd::prepare::PrecompileCall::ledger_transfer(payload.to_vec())
+                .encode()
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+        }
+        (ModuleId::Asset, ordinal) => {
+            target[19] = 0x1a;
+            let payment =
+                layerx_crypto::payments::Payment::decode(ModuleId::Asset, ordinal, payload, &[])
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+            encode_payment_call(&payment, &[]).map_err(|_| AgentBoundaryError::CorruptResponse)?
+        }
+        _ => return Err(AgentBoundaryError::Refused),
+    };
+    if call.nonce != nonce
+        || call.to != target
+        || call.data != data
+        || call.gas_limit == 0
+        || call.max_priority_fee_per_gas > call.max_fee_per_gas
+        || u128::from(call.gas_limit).checked_mul(call.max_fee_per_gas) != Some(fee_limit)
+    {
+        return Err(AgentBoundaryError::CorruptResponse);
+    }
+    Ok(())
+}
+
 const MAGIC: &[u8; 8] = b"LXHAGT01";
-const TRACED_MAGIC: &[u8; 8] = b"LXHAGT02";
+const LXHAGT02: &[u8; 8] = b"LXHAGT02";
 
 thread_local! {
     static REQUEST_TRACE: std::cell::RefCell<Option<crate::trace::TraceId>> = const { std::cell::RefCell::new(None) };
 }
 
-pub(crate) struct TraceContext {
+pub struct TraceContext {
     previous: Option<crate::trace::TraceId>,
     local: std::marker::PhantomData<std::rc::Rc<()>>,
 }
 
 impl TraceContext {
-    pub(crate) fn enter(trace: &str) -> Result<Self, AgentBoundaryError> {
+    pub fn enter(trace: &str) -> Result<Self, AgentBoundaryError> {
         let trace = crate::trace::TraceId::parse(trace).map_err(|_| AgentBoundaryError::Refused)?;
         let previous = REQUEST_TRACE.with(|current| current.replace(Some(trace)));
         Ok(Self {
@@ -120,8 +171,9 @@ const MAX_TRANSITIONS: usize = 64;
 pub struct AgentRuntime {
     endpoint: PathBuf,
     gate: ConnectionGate,
-    limits: Limits,
+    limits: crate::frame::Limits,
     registry: ModuleRegistry,
+    transaction_sender: Option<[u8; 20]>,
     subject: Option<Subject>,
     native_journey: Option<(super::native_send::HumanOwnerNativeContextV1, u64)>,
 }
@@ -164,6 +216,7 @@ impl AgentRuntime {
             limits: self.limits,
             registry: self.registry.clone(),
             native_journey: None,
+            transaction_sender: None,
             subject: Some(Subject {
                 principal: principal.as_str().to_owned(),
                 owner: owner.clone(),
@@ -293,9 +346,9 @@ impl NativeProgramApprovalMaterial {
         facts: &NativeProgramApprovalFacts,
         registry: &ModuleRegistry,
     ) -> Result<(), AgentBoundaryError> {
-        let activity =
-            layerx_wire::activity::decode_unsigned(&self.canonical_unsigned_bytes, registry)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let transaction = decode_unsigned(&self.canonical_unsigned_bytes)?;
+        let mut target = [0; 20];
+        target[18..].copy_from_slice(&[0x10, 0x1d]);
         if self.approval_id != facts.approval_id
             || self.held_digest != facts.held_digest
             || self.owner != facts.owner
@@ -303,25 +356,39 @@ impl NativeProgramApprovalMaterial {
                 != self.approval_id
             || <[u8; 32]>::from(sha2::Sha256::digest(&self.immutable_carrier_bytes))
                 != self.held_digest
-            || activity.protocol_version() != 3
-            || activity.activity_type().module() != ModuleId::Programs
-            || layerx_wire::activity::encode_unsigned(&activity)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+            || transaction.to != target
+            || facts.activity_module != ModuleId::Programs as u16
+            || layerx_human_kms::attestor::unsigned_evm_transaction(&transaction)
                 != self.canonical_unsigned_bytes
-            || activity.activity_type().module() as u16 != facts.activity_module
-            || activity.activity_type().ordinal() != facts.activity_ordinal
-            || activity.actor_did() != facts.actor.as_bytes()
-            || activity.payload() != facts.canonical_payload_bytes
-            || activity.timestamp_bound().not_after != facts.activity_expires_at_unix_milliseconds
+            || transaction.data != facts.canonical_payload_bytes
+            || self.actor != facts.actor
+            || self.activity_ordinal != facts.activity_ordinal
+            || self.canonical_payload_bytes != transaction.data
+            || self.activity_expires_at_unix_milliseconds
+                != facts.activity_expires_at_unix_milliseconds
+            || u128::from(transaction.gas_limit).checked_mul(transaction.max_fee_per_gas)
+                != Some(self.fee_limit)
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
+        validate_native_program_payload(facts.activity_ordinal, &transaction.data)?;
+        let _ = registry;
         let carrier: serde_json::Value = serde_json::from_slice(&self.immutable_carrier_bytes)
             .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        if carrier
-            .get("created_at_sequence")
-            .and_then(serde_json::Value::as_u64)
-            != Some(facts.created_at_sequence)
+        if !program_carrier_bytes(&carrier, "actor", facts.actor.as_bytes())
+            || !program_carrier_bytes(&carrier, "canonical_bytes", &self.canonical_unsigned_bytes)
+            || carrier
+                .get("activity_module")
+                .and_then(serde_json::Value::as_u64)
+                != Some(u64::from(facts.activity_module))
+            || carrier
+                .get("activity_ordinal")
+                .and_then(serde_json::Value::as_u64)
+                != Some(u64::from(facts.activity_ordinal))
+            || carrier
+                .get("created_at_sequence")
+                .and_then(serde_json::Value::as_u64)
+                != Some(facts.created_at_sequence)
             || carrier
                 .get("budget_expiry_sequence")
                 .and_then(serde_json::Value::as_u64)
@@ -445,10 +512,7 @@ impl NativeProgramApprovalMaterial {
                 }
             }
             match kind {
-                3 if destination.is_none()
-                    && maximum_amount == activity.fee_limit()
-                    && fee.is_none() =>
-                {
+                3 if destination.is_none() && maximum_amount == self.fee_limit && fee.is_none() => {
                     fee = Some(asset)
                 }
                 1 | 2 if destination.is_some() => limits.push(NativeProgramLimit {
@@ -472,7 +536,7 @@ impl NativeProgramApprovalMaterial {
             NativeProgramApprovalSemantics::AuthorizedLimits(limits)
         };
         if fee != facts.fee_asset
-            || fee.is_some() != (activity.fee_limit() != 0)
+            || fee.is_some() != (self.fee_limit != 0)
             || semantics != facts.semantics
         {
             return Err(AgentBoundaryError::CorruptResponse);
@@ -491,7 +555,7 @@ pub struct NativeProgramApprovalBudget {
     pub observed_at_sequence: u64,
     pub remaining: u128,
     pub terminal: bool,
-    pub verification: Level,
+    pub verification: Rung,
     pub evidence_digest: [u8; 32],
     pub receipt_digest: [u8; 32],
     pub checkpoint_digest: [u8; 32],
@@ -555,7 +619,7 @@ pub struct NativeEffectBudgetRow {
     pub budget_id: [u8; 32],
     pub source_account: [u8; 32],
     pub remaining: u128,
-    pub verification: Level,
+    pub verification: Rung,
     pub evidence_digest: [u8; 32],
     pub receipt_digest: [u8; 32],
     pub checkpoint_digest: [u8; 32],
@@ -606,7 +670,7 @@ pub struct VerifiedBalance {
     pub observed_at: String,
     pub age_seconds: u64,
     pub amount: u128,
-    pub verification: u8,
+    pub verification: Option<Rung>,
     pub global_sequence: u64,
     pub batch_number: u64,
     pub observed_head_sequence: u64,
@@ -849,7 +913,7 @@ pub struct AgentBudgetProof {
     pub source_account: [u8; 32],
     pub observed_head_sequence: u64,
     pub remaining: u128,
-    pub verification: Level,
+    pub verification: Rung,
     pub evidence_digest: [u8; 32],
     pub receipt_digest: [u8; 32],
     pub checkpoint_digest: [u8; 32],
@@ -1081,7 +1145,7 @@ impl AgentRuntime {
     pub fn capability_install(
         &mut self,
         request: &AgentCapabilityInstall,
-    ) -> Result<([u8; 32], u64, u8, [u8; 32]), AgentBoundaryError> {
+    ) -> Result<([u8; 32], u64, Rung, [u8; 32]), AgentBoundaryError> {
         if request.action_key == [0; 32]
             || request.activity_types.is_empty()
             || request.counterparties.is_empty()
@@ -1126,17 +1190,14 @@ impl AgentRuntime {
         let mut reader = self.exchange(&writer.finish())?;
         let object_id = reader.fixed()?;
         let observed_sequence = reader.u64()?;
-        let verification = reader.u8()?;
+        let rung = decode_rung(reader.u8()?)?;
         let receipt_digest = reader.fixed()?;
-        if object_id != request.capability_id
-            || observed_sequence == 0
-            || !(2..=5).contains(&verification)
-            || receipt_digest == [0; 32]
+        if object_id != request.capability_id || observed_sequence == 0 || receipt_digest == [0; 32]
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
         reader.finish()?;
-        Ok((object_id, observed_sequence, verification, receipt_digest))
+        Ok((object_id, observed_sequence, rung, receipt_digest))
     }
     /// # Errors
     /// Returns a boundary refusal for invalid request fields, an unavailable transport, or a malformed response.
@@ -1285,7 +1346,10 @@ impl AgentRuntime {
             source_account: reader.fixed()?,
             observed_head_sequence: reader.u64()?,
             remaining: reader.u128()?,
-            verification: decode_level(reader.u8()?)?,
+            verification: match decode_rung(reader.u8()?)? {
+                Rung::Committed => Rung::Committed,
+                _ => return Err(AgentBoundaryError::CorruptResponse),
+            },
             evidence_digest: reader.fixed()?,
             receipt_digest: reader.fixed()?,
             checkpoint_digest: reader.fixed()?,
@@ -1304,10 +1368,7 @@ impl AgentRuntime {
             || value.asset == [0; 32]
             || value.source_account == [0; 32]
             || value.observed_head_sequence == 0
-            || !matches!(
-                value.verification,
-                Level::CheckpointFinalised | Level::SettlementAnchored
-            )
+            || value.verification != Rung::Committed
             || value.evidence_digest == [0; 32]
             || value.receipt_digest == [0; 32]
             || value.checkpoint_digest == [0; 32]
@@ -1785,13 +1846,22 @@ impl AgentRuntime {
         actor: &layerx_agent_api::identity::AgentDid,
         authority: &layerx_agent_api::identity::AuthorityRef,
     ) -> Result<u64, AgentBoundaryError> {
+        self.pending_nonce(actor, authority)
+    }
+
+    pub fn pending_nonce(
+        &mut self,
+        actor: &layerx_agent_api::identity::AgentDid,
+        authority: &layerx_agent_api::identity::AuthorityRef,
+    ) -> Result<u64, AgentBoundaryError> {
         let mut writer = Writer::new(ACCOUNT_SEQUENCE);
         writer.text(actor.as_str())?;
         writer.text(authority.as_str())?;
         let mut reader = self.exchange(&writer.finish())?;
-        let sequence = reader.u64()?;
+        let pending_nonce = reader.u64()?;
+        decode_rung(reader.u8()?)?;
         reader.finish()?;
-        Ok(sequence)
+        Ok(pending_nonce)
     }
     /// # Errors
     /// Refuses unauthenticated state or a canonical account not bound to the requested ID.
@@ -1803,16 +1873,12 @@ impl AgentRuntime {
         writer.fixed(&account_id);
         let mut reader = self.exchange(&writer.finish())?;
         let observed: [u8; 32] = reader.fixed()?;
-        let level = reader.u8()?;
+        let rung = decode_rung(reader.u8()?)?;
         let bytes = reader.bytes()?;
         let proof = reader.bytes()?;
-        let sequence = reader.u64()?;
+        let height = reader.u64()?;
         reader.finish()?;
-        if observed != account_id
-            || level < layerx_types::verify::VerificationLevel::STATE_PROVEN.wire_rank()
-            || proof.is_empty()
-            || sequence == 0
-        {
+        if observed != account_id || rung != Rung::Committed || proof.is_empty() || height == 0 {
             return Err(AgentBoundaryError::CorruptResponse);
         }
         layerx_proof::state::decode_account_value(account_id, &bytes)
@@ -1889,36 +1955,101 @@ impl AgentRuntime {
     /// Refuses unavailable or unauthenticated balance evidence.
     pub fn balance(&mut self) -> Result<VerifiedBalance, AgentBoundaryError> {
         let mut reader = self.exchange(&Writer::new(BALANCE).finish())?;
-        let value = VerifiedBalance {
-            account: reader.fixed()?,
-            asset: reader.fixed()?,
-            currency: reader.text()?,
-            observed_at: reader.text()?,
-            age_seconds: reader.u64()?,
-            amount: reader.u128()?,
-            verification: reader.u8()?,
-            global_sequence: reader.u64()?,
-            batch_number: reader.u64()?,
-            observed_head_sequence: reader.u64()?,
-            observed_checkpoint: reader.fixed()?,
-            canonical_bytes: reader.bytes()?,
-            proof_material: reader.bytes()?,
+        let response = reader.bytes()?;
+        reader.finish()?;
+        let json: serde_json::Value =
+            serde_json::from_slice(&response).map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let text = |pointer: &str| {
+            json.pointer(pointer)
+                .and_then(serde_json::Value::as_str)
+                .ok_or(AgentBoundaryError::CorruptResponse)
         };
-        if !matches!(value.verification, 4 | 5)
-            || value.account == [0; 32]
-            || value.asset == [0; 32]
-            || value.currency.is_empty()
-            || value.observed_at.is_empty()
-            || value.canonical_bytes.is_empty()
-            || value.proof_material.is_empty()
-            || self.subject.as_ref().is_some_and(|subject| {
-                value.account != subject.account_id || value.asset != subject.asset_id
-            })
+        let decimal = |pointer: &str| -> Result<u64, AgentBoundaryError> {
+            let raw = text(pointer)?;
+            let number = raw
+                .parse::<u64>()
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+            if number.to_string() != raw {
+                return Err(AgentBoundaryError::CorruptResponse);
+            }
+            Ok(number)
+        };
+        let verification = match json.get("achieved_verification_level") {
+            Some(serde_json::Value::Null) => None,
+            Some(serde_json::Value::String(name)) => {
+                Some(Rung::from_name(name).ok_or(AgentBoundaryError::CorruptResponse)?)
+            }
+            _ => return Err(AgentBoundaryError::CorruptResponse),
+        };
+        let account = decode_hex32(text("/value/account")?)
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let asset =
+            decode_hex32(text("/value/asset")?).map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let amount_text = text("/value/amount")?;
+        let amount = amount_text
+            .parse::<u128>()
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let canonical_text = text("/value/canonical_state")?;
+        if canonical_text.is_empty()
+            || canonical_text.len() % 2 != 0
+            || !canonical_text
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
-        reader.finish()?;
-        Ok(value)
+        let canonical_bytes = canonical_text
+            .as_bytes()
+            .chunks_exact(2)
+            .map(|pair| {
+                let digit = |b: u8| if b <= b'9' { b - b'0' } else { b - b'a' + 10 };
+                digit(pair[0]) * 16 + digit(pair[1])
+            })
+            .collect();
+        let height = decimal("/value/height")?;
+        let chain_head = decimal("/freshness/chain_head")?;
+        let value_height = decimal("/freshness/value_height")?;
+        let relative = text("/freshness/relative_to")?;
+        let expected_relative = if value_height > chain_head {
+            "pending".to_owned()
+        } else {
+            value_height.to_string()
+        };
+        if account == [0; 32]
+            || asset == [0; 32]
+            || amount.to_string() != amount_text
+            || height != value_height
+            || relative != expected_relative
+            || self
+                .subject
+                .as_ref()
+                .is_some_and(|subject| account != subject.account_id || asset != subject.asset_id)
+        {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        let policy = self.native_fee_policy()?;
+        if policy.asset_id != asset {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_err(|_| AgentBoundaryError::Unavailable)?
+            .as_secs();
+        Ok(VerifiedBalance {
+            account,
+            asset,
+            currency: policy.currency,
+            observed_at: crate::time::rfc3339(now),
+            age_seconds: 0,
+            amount,
+            verification,
+            global_sequence: value_height,
+            batch_number: 0,
+            observed_head_sequence: chain_head,
+            observed_checkpoint: [0; 32],
+            canonical_bytes,
+            proof_material: response,
+        })
     }
 
     /// # Errors
@@ -1959,7 +2090,7 @@ impl AgentRuntime {
     /// # Errors
     /// Returns a boundary refusal for invalid request fields, an unavailable transport, or a malformed response.
     pub fn probe(&self) -> Result<(), AgentBoundaryError> {
-        let mut runtime = Self::connect(&self.endpoint, self.limits)?;
+        let mut runtime = Self::connect_peer(&self.endpoint, self.limits)?;
         let head = runtime.head()?;
         if head.finalised_checkpoint == [0; 32] {
             return Err(AgentBoundaryError::CorruptResponse);
@@ -1967,11 +2098,98 @@ impl AgentRuntime {
         Ok(())
     }
 
+    pub fn receipt_keys(
+        endpoint: &layerx_paxeer_client::EndpointConfig,
+    ) -> Result<Vec<layerx_client::sequencer::ReceiptKeyEntry>, AgentBoundaryError> {
+        use layerx_paxeer_client::{raw_call, Json};
+        let value = raw_call(endpoint, "px_getReceiptKeys", &[])
+            .map_err(|_| AgentBoundaryError::Unavailable)?;
+        let Json::Array(rows) = value else {
+            return Err(AgentBoundaryError::CorruptResponse);
+        };
+        let mut seen = std::collections::BTreeSet::new();
+        let mut keys = Vec::new();
+        for row in rows {
+            let Json::Object(fields) = &row else {
+                return Err(AgentBoundaryError::CorruptResponse);
+            };
+            if fields.len() != 4
+                || fields.iter().any(|(name, _)| {
+                    !matches!(
+                        name.as_str(),
+                        "keyId" | "publicKey" | "firstHeight" | "lastHeight"
+                    )
+                })
+            {
+                return Err(AgentBoundaryError::CorruptResponse);
+            }
+            let fixed = |name: &str| -> Result<[u8; 32], AgentBoundaryError> {
+                let text = row
+                    .member(name)
+                    .and_then(Json::as_text)
+                    .and_then(|s| s.strip_prefix("0x"))
+                    .ok_or(AgentBoundaryError::CorruptResponse)?;
+                if text.len() != 64 || !text.bytes().all(|b| b.is_ascii_hexdigit()) {
+                    return Err(AgentBoundaryError::CorruptResponse);
+                }
+                let mut bytes = [0; 32];
+                for (index, byte) in bytes.iter_mut().enumerate() {
+                    *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
+                        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+                }
+                Ok(bytes)
+            };
+            let height = |name: &str| -> Result<u64, AgentBoundaryError> {
+                let text = row
+                    .member(name)
+                    .and_then(Json::as_text)
+                    .and_then(|s| s.strip_prefix("0x"))
+                    .ok_or(AgentBoundaryError::CorruptResponse)?;
+                if text.is_empty()
+                    || text.len() > 16
+                    || !text.bytes().all(|byte| byte.is_ascii_hexdigit())
+                    || (text.len() > 1 && text.starts_with('0'))
+                {
+                    return Err(AgentBoundaryError::CorruptResponse);
+                }
+                u64::from_str_radix(text, 16).map_err(|_| AgentBoundaryError::CorruptResponse)
+            };
+            let key = layerx_client::sequencer::ReceiptKeyEntry {
+                key_id: fixed("keyId")?,
+                public_key: fixed("publicKey")?,
+                first_height: height("firstHeight")?,
+                last_height: height("lastHeight")?,
+            };
+            if key.key_id == [0; 32]
+                || key.public_key == [0; 32]
+                || key.first_height > key.last_height
+                || !seen.insert(key.key_id)
+            {
+                return Err(AgentBoundaryError::CorruptResponse);
+            }
+            keys.push(key);
+        }
+        if keys.is_empty() {
+            return Err(AgentBoundaryError::Unavailable);
+        }
+        Ok(keys)
+    }
+
     /// Connects to the authenticated agent peer and adopts only its
     /// core-negotiated module registry.
     /// # Errors
     /// Returns a boundary refusal for invalid request fields, an unavailable transport, or a malformed response.
-    pub fn connect(endpoint: impl AsRef<Path>, limits: Limits) -> Result<Self, AgentBoundaryError> {
+    pub fn connect(
+        endpoint: impl AsRef<Path>,
+        limits: crate::frame::Limits,
+    ) -> Result<Self, AgentBoundaryError> {
+        Self::connect_peer(endpoint, limits)
+    }
+
+    fn connect_peer(
+        endpoint: impl AsRef<Path>,
+        limits: crate::frame::Limits,
+    ) -> Result<Self, AgentBoundaryError> {
         let empty = ModuleRegistry::new(&[]).map_err(|_| AgentBoundaryError::Refused)?;
         let mut runtime = Self::new(endpoint, limits, empty)?;
         let mut reader = runtime.exchange(&Writer::new(REGISTRY).finish())?;
@@ -2014,7 +2232,7 @@ impl AgentRuntime {
     /// Refuses invalid connection limits or an empty endpoint.
     pub fn new(
         endpoint: impl AsRef<Path>,
-        limits: Limits,
+        limits: crate::frame::Limits,
         registry: ModuleRegistry,
     ) -> Result<Self, AgentBoundaryError> {
         let endpoint = endpoint.as_ref();
@@ -2029,6 +2247,7 @@ impl AgentRuntime {
             registry,
             subject: None,
             native_journey: None,
+            transaction_sender: None,
         })
     }
 
@@ -2037,7 +2256,7 @@ impl AgentRuntime {
         let trace = REQUEST_TRACE.with(|current| current.borrow().clone());
         let request = if let Some(trace) = &trace {
             let mut envelope = Zeroizing::new(Vec::with_capacity(48 + request.len()));
-            envelope.extend_from_slice(TRACED_MAGIC);
+            envelope.extend_from_slice(LXHAGT02);
             envelope.extend_from_slice(trace.as_str().as_bytes());
             envelope.extend_from_slice(
                 &u32::try_from(request.len())
@@ -2062,7 +2281,7 @@ impl AgentRuntime {
             .map_err(|_| AgentBoundaryError::Unavailable)?;
         let mut reader = Reader::new(response);
         if let Some(trace) = trace {
-            if reader.fixed::<8>()? != *TRACED_MAGIC
+            if reader.fixed::<8>()? != *LXHAGT02
                 || reader.fixed::<36>()?.as_slice() != trace.as_str().as_bytes()
             {
                 return Err(AgentBoundaryError::CorruptResponse);
@@ -2374,35 +2593,46 @@ impl AgentRuntime {
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
-        let activity =
-            layerx_wire::activity::decode_unsigned(&canonical_unsigned_bytes, &self.registry)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        if activity.protocol_version() != 3
-            || activity.activity_type().module() != ModuleId::Programs
-            || layerx_wire::activity::encode_unsigned(&activity)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?
+        let transaction = decode_unsigned(&canonical_unsigned_bytes)?;
+        let mut target = [0; 20];
+        target[18..].copy_from_slice(&[0x10, 0x1d]);
+        if transaction.to != target
+            || layerx_human_kms::attestor::unsigned_evm_transaction(&transaction)
                 != canonical_unsigned_bytes
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
-        validate_native_program_payload(activity.activity_type().ordinal(), activity.payload())?;
         let carrier: serde_json::Value = serde_json::from_slice(&immutable_carrier_bytes)
             .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         let subject = self.subject.as_ref().ok_or(AgentBoundaryError::Refused)?;
+        let activity_ordinal = carrier
+            .get("activity_ordinal")
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|value| u16::try_from(value).ok())
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
+        validate_native_program_payload(activity_ordinal, &transaction.data)?;
+        let actor_bytes: Vec<u8> = carrier
+            .get("actor")
+            .and_then(serde_json::Value::as_array)
+            .filter(|bytes| !bytes.is_empty() && bytes.len() <= MAX_TEXT)
+            .ok_or(AgentBoundaryError::CorruptResponse)?
+            .iter()
+            .map(|value| {
+                value
+                    .as_u64()
+                    .and_then(|byte| u8::try_from(byte).ok())
+                    .ok_or(AgentBoundaryError::CorruptResponse)
+            })
+            .collect::<Result<_, _>>()?;
         if carrier.get("principal").and_then(serde_json::Value::as_str)
             != Some(subject.principal.as_str())
             || carrier
                 .get("activity_module")
                 .and_then(serde_json::Value::as_u64)
                 != Some(9)
-            || carrier
-                .get("activity_ordinal")
-                .and_then(serde_json::Value::as_u64)
-                != Some(u64::from(activity.activity_type().ordinal()))
             || !program_carrier_bytes(&carrier, "preparation", &approval_id)
             || !program_carrier_bytes(&carrier, "canonical_bytes", &canonical_unsigned_bytes)
             || !program_carrier_bytes(&carrier, "program_budget", &canonical_budget_bytes)
-            || !program_carrier_bytes(&carrier, "actor", activity.actor_did())
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
@@ -2422,12 +2652,16 @@ impl AgentRuntime {
         if !allocation_body.starts_with(b"LXPB\x02") || allocation_digest != expected {
             return Err(AgentBoundaryError::CorruptResponse);
         }
-        let actor = String::from_utf8(activity.actor_did().to_vec())
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        let activity_ordinal = activity.activity_type().ordinal();
-        let canonical_payload_bytes = activity.payload().to_vec();
-        let fee_limit = activity.fee_limit();
-        let activity_expires_at_unix_milliseconds = activity.timestamp_bound().not_after;
+        let actor =
+            String::from_utf8(actor_bytes).map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let canonical_payload_bytes = transaction.data;
+        let fee_limit = u128::from(transaction.gas_limit)
+            .checked_mul(transaction.max_fee_per_gas)
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
+        let activity_expires_at_unix_milliseconds = carrier
+            .get("envelope_not_after")
+            .and_then(serde_json::Value::as_u64)
+            .ok_or(AgentBoundaryError::CorruptResponse)?;
         Ok(NativeProgramApprovalMaterial {
             approval_id,
             held_digest,
@@ -2476,8 +2710,7 @@ impl AgentRuntime {
             _ => return Err(AgentBoundaryError::CorruptResponse),
         };
         let verification = match reader.u8()? {
-            4 => Level::CheckpointFinalised,
-            5 => Level::SettlementAnchored,
+            2 => Rung::Committed,
             _ => return Err(AgentBoundaryError::CorruptResponse),
         };
         let evidence_digest = reader.fixed()?;
@@ -2827,8 +3060,7 @@ impl AgentRuntime {
             let source_account = reader.fixed()?;
             let remaining = reader.u128()?;
             let verification = match reader.u8()? {
-                4 => Level::CheckpointFinalised,
-                5 => Level::SettlementAnchored,
+                2 => Rung::Committed,
                 _ => return Err(AgentBoundaryError::CorruptResponse),
             };
             let evidence_digest = reader.fixed()?;
@@ -3850,6 +4082,18 @@ fn decision(
 }
 
 impl AgentBoundary for AgentRuntime {
+    fn bind_transaction_sender(&mut self, sender: [u8; 20]) -> Result<(), AgentBoundaryError> {
+        if sender == [0; 20]
+            || self
+                .transaction_sender
+                .is_some_and(|current| current != sender)
+        {
+            return Err(AgentBoundaryError::Refused);
+        }
+        self.transaction_sender = Some(sender);
+        Ok(())
+    }
+
     fn native_journey_preview(
         &mut self,
         call: &Call<IdempotentMutation<PrepareRequest>>,
@@ -3920,8 +4164,22 @@ impl AgentBoundary for AgentRuntime {
         let mut reader = self.exchange(&writer.finish())?;
         let preparation_ref =
             PreparationRef::new(reader.text()?).map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        let unsigned_canonical_bytes = reader.bytes()?;
-        let signing_preimage = reader.bytes()?;
+        if reader.u8()? != 2 {
+            return Err(AgentBoundaryError::CorruptResponse);
+        }
+        let transaction = TransactionType2 {
+            chain_id: reader.u64()?,
+            nonce: reader.u64()?,
+            max_priority_fee_per_gas: reader.u128()?,
+            max_fee_per_gas: reader.u128()?,
+            gas_limit: reader.u64()?,
+            to: reader.fixed()?,
+            data: reader.bytes()?,
+        };
+        let unsigned_canonical_bytes =
+            layerx_human_kms::attestor::unsigned_evm_transaction(&transaction);
+        let transaction = decode_unsigned(&unsigned_canonical_bytes)?;
+        let signing_preimage = transaction.signing_hash().to_vec();
         let activity_type = ActivityType::from_u32(reader.u32()?)
             .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         let actor = layerx_agent_api::identity::AgentDid::new(reader.text()?)
@@ -3937,15 +4195,31 @@ impl AgentBoundary for AgentRuntime {
         let idempotency_key = reader.fixed::<32>()?;
         reader.finish()?;
 
-        let disclosure = disclosure::bind(&unsigned_canonical_bytes, &self.registry)
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        if disclosure
-            .reencode()
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?
-            != unsigned_canonical_bytes
+        validate_call(
+            &transaction,
+            activity_type,
+            &payload,
+            account_sequence,
+            fee_limit,
+        )?;
+        if actor != request.actor
+            || authority != request.authority
+            || account_sequence != request.account_sequence.0
+            || not_before != request.timestamp_bound.not_before.0
+            || not_after != request.timestamp_bound.not_after.0
+            || fee_limit != request.fee_limit.0
+            || activity_type.value() != request.protocol_activity_type
+            || payload != request.payload.as_bytes()
+            || payload_hash != request.payload_hash
+            || idempotency_key != decode_hex32(request.idempotency_key.as_str())?
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
+        let disclosure = disclosure::call::bind_call(
+            &transaction,
+            self.transaction_sender.ok_or(AgentBoundaryError::Refused)?,
+        )
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         Ok(AgentPreparation {
             preparation_ref,
             unsigned_canonical_bytes,
@@ -3975,7 +4249,13 @@ impl AgentBoundary for AgentRuntime {
         let mutation = call.request();
         let mut writer = Self::encode_mutation_header(SUBMIT, mutation);
         writer.text(mutation.operation.preparation_ref.as_str())?;
-        writer.bytes(mutation.operation.signature.as_bytes())?;
+        let signature: &[u8; 65] = mutation
+            .operation
+            .signature
+            .as_bytes()
+            .try_into()
+            .map_err(|_| AgentBoundaryError::Refused)?;
+        writer.bytes(signature)?;
         writer.fixed(&signer_public_key);
         match mutation.operation.approval_release_ref {
             Some(reference) => {
@@ -4015,19 +4295,6 @@ impl AgentBoundary for AgentRuntime {
     }
 }
 
-impl DepositAgentBoundary for AgentRuntime {
-    fn credit_receipt(
-        &mut self,
-        action_key: [u8; 32],
-        activity_id: [u8; 32],
-    ) -> Result<ReceiptMaterial, AgentBoundaryError> {
-        match self.receipt_by_idempotency_key(action_key, activity_id)? {
-            ReceiptLookup::Found(material) => Ok(material),
-            ReceiptLookup::Absent => Err(AgentBoundaryError::Unavailable),
-        }
-    }
-}
-
 impl crate::approvals::ApprovalBoundary for AgentRuntime {
     fn approval(
         &mut self,
@@ -4054,13 +4321,13 @@ impl crate::approvals::ApprovalBoundary for AgentRuntime {
         let decode=|reader:&mut Reader| -> Result<crate::approvals::VerifiedBudgetAfter,AgentBoundaryError> {
             if reader.u16()?!=2 || reader.fixed::<32>()?!=hold.approval_id
                 || reader.fixed::<32>()?!=hold.canonical_bytes_digest {return Err(AgentBoundaryError::CorruptResponse)};
-            let remaining=reader.u128()?;let level=match reader.u8()? {
-                4=>Level::CheckpointFinalised,5=>Level::SettlementAnchored,
+            let remaining=reader.u128()?;let rung=match decode_rung(reader.u8()?)? {
+                Rung::Committed=>Rung::Committed,
                 _=>return Err(AgentBoundaryError::CorruptResponse)};
             let evidence_digest=reader.fixed()?;let observed_at_sequence=reader.u64()?;let asset=reader.fixed::<32>()?;
             if evidence_digest==[0;32] || asset==[0;32] || observed_at_sequence!=at_sequence {
                 return Err(AgentBoundaryError::CorruptResponse)};
-            reader.finish()?;Ok(crate::approvals::VerifiedBudgetAfter{remaining,level,evidence_digest,observed_at_sequence})
+            reader.finish()?;Ok(crate::approvals::VerifiedBudgetAfter{remaining,rung,evidence_digest,observed_at_sequence})
         };
         decode(&mut reader).map_err(map_approval_error)
     }
@@ -4209,19 +4476,8 @@ fn decode_state_without_data(value: u8) -> Result<SubmissionState, AgentBoundary
 fn decode_rung(value: u8) -> Result<Rung, AgentBoundaryError> {
     match value {
         0 => Ok(Rung::Submitted),
-        1..=5 => Ok(Rung::Receipted),
-        _ => Err(AgentBoundaryError::CorruptResponse),
-    }
-}
-
-fn decode_level(value: u8) -> Result<Level, AgentBoundaryError> {
-    match value {
-        0 => Ok(Level::Unverified),
-        1 => Ok(Level::SequencerSigned),
-        2 => Ok(Level::BatchIncluded),
-        3 => Ok(Level::StateProven),
-        4 => Ok(Level::CheckpointFinalised),
-        5 => Ok(Level::SettlementAnchored),
+        1 => Ok(Rung::Receipted),
+        2 => Ok(Rung::Committed),
         _ => Err(AgentBoundaryError::CorruptResponse),
     }
 }
@@ -4253,10 +4509,18 @@ fn decode_receipt(reader: &mut Reader) -> Result<ReceiptMaterial, AgentBoundaryE
         5 => VerificationLevel::SETTLEMENT_ANCHORED,
         _ => return Err(AgentBoundaryError::CorruptResponse),
     };
+    let tx_hash = reader.fixed::<32>()?;
+    let receipt_hash = reader.fixed::<32>()?;
+    let block_height = reader.u64()?;
+    let rung = decode_rung(reader.u8()?)?;
     Ok(ReceiptMaterial {
         canonical_bytes,
         authorised_batch,
         verification_level,
+        tx_hash,
+        receipt_hash,
+        block_height,
+        rung,
     })
 }
 
@@ -4394,7 +4658,7 @@ mod subject_tests {
             .unwrap_or_else(|_| panic!("registry"));
         AgentRuntime::new(
             "/tmp/lxp-subject-wire.sock",
-            Limits {
+            crate::frame::Limits {
                 maximum_frame_bytes: MAX_BYTES,
                 maximum_connections: 2,
                 maximum_streams: 1,
@@ -4491,6 +4755,10 @@ impl AgentRuntime {
         if kind != 2 || authority != session.grant_id {
             return Err(AgentBoundaryError::CorruptResponse);
         }
+        let generation = reader.u64()?;
+        let head_sequence = reader.u64()?;
+        let protocol_time_ms = reader.u64()?;
+        let pending_nonce = reader.u64()?;
         let value = super::native_send::NativeSendOwnerCoordinatesV1 {
             actor,
             authority: format!(
@@ -4500,10 +4768,10 @@ impl AgentRuntime {
                     .map(|byte| format!("{byte:02x}"))
                     .collect::<String>()
             ),
-            generation: reader.u64()?,
-            head_sequence: reader.u64()?,
-            protocol_time_ms: reader.u64()?,
-            account_sequence: reader.u64()?,
+            generation,
+            head_sequence,
+            protocol_time_ms,
+            account_sequence: pending_nonce,
             expiry_sequence: reader.u64()?,
             expiry_ms: reader.u64()?,
             owner_public_key: reader.fixed()?,
@@ -4562,7 +4830,12 @@ impl AgentRuntime {
         writer.bytes(&grant.session_scope)?;
         writer.u64(grant.expires_at_ms);
         writer.fixed(&grant.owner_public_key);
-        writer.fixed(&grant.signature);
+        let signature: &[u8; 64] = grant
+            .signature
+            .as_slice()
+            .try_into()
+            .map_err(|_| AgentBoundaryError::Refused)?;
+        writer.fixed(signature);
         let mut reader = self.exchange_secret(&writer.finish_secret())?;
         let canonical_bytes = reader.bytes()?;
         let signing_preimage = reader.bytes()?;
@@ -4570,7 +4843,11 @@ impl AgentRuntime {
             &reader.bytes()?,
         )
         .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let transaction = decode_unsigned(&canonical_bytes)?;
         let value = super::native_send::NativeSendPreviewV1 {
+            nonce: transaction.nonce,
+            max_fee_per_gas: transaction.max_fee_per_gas,
+            max_priority_fee_per_gas: transaction.max_priority_fee_per_gas,
             canonical_bytes,
             signing_preimage,
             purpose,
@@ -4604,7 +4881,8 @@ impl AgentRuntime {
             || value.revocation_sequence == 0
             || value.revocation_sequence > value.head_sequence
             || value.protocol_time_ms >= purpose_expires_ms
-            || value.signing_preimage.is_empty()
+            || value.nonce != request.account_sequence.0
+            || value.signing_preimage != transaction.signing_hash()
         {
             return Err(AgentBoundaryError::CorruptResponse);
         }
@@ -4739,33 +5017,25 @@ impl AgentRuntime {
         canonical: Vec<u8>,
         preimage: Vec<u8>,
     ) -> Result<AgentPreparation, AgentBoundaryError> {
-        let activity = layerx_wire::activity::decode_unsigned(&canonical, &self.registry)
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        let actual_preimage = layerx_wire::sign::preimage(&activity)
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        if activity.activity_type().value() != request.protocol_activity_type
-            || activity.actor_did() != request.actor.as_str().as_bytes()
-            || activity.account_sequence() != request.account_sequence.0
-            || activity.timestamp_bound().not_before != request.timestamp_bound.not_before.0
-            || activity.timestamp_bound().not_after != request.timestamp_bound.not_after.0
-            || activity.fee_limit() != request.fee_limit.0
-            || activity.payload() != request.payload.as_bytes()
-            || activity.payload_hash() != request.payload_hash
-            || activity.idempotency_key() != decode_hex32(request.idempotency_key.as_str())?
-            || actual_preimage.as_bytes().as_slice() != preimage.as_slice()
-        {
+        let transaction = decode_unsigned(&canonical)?;
+        let activity_type = ActivityType::from_u32(request.protocol_activity_type)
+            .map_err(|_| AgentBoundaryError::Refused)?;
+        validate_call(
+            &transaction,
+            activity_type,
+            request.payload.as_bytes(),
+            request.account_sequence.0,
+            request.fee_limit.0,
+        )?;
+        if preimage != transaction.signing_hash() {
             return Err(AgentBoundaryError::CorruptResponse);
         }
         let id: [u8; 32] = sha2::Sha256::digest(&canonical).into();
-        let disclosure = disclosure::bind(&canonical, &self.registry)
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        if disclosure
-            .reencode()
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?
-            != canonical
-        {
-            return Err(AgentBoundaryError::CorruptResponse);
-        }
+        let disclosure = disclosure::call::bind_call(
+            &transaction,
+            self.transaction_sender.ok_or(AgentBoundaryError::Refused)?,
+        )
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         let hex: String = id.iter().map(|byte| format!("{byte:02x}")).collect();
         let idempotency_key = decode_hex32(request.idempotency_key.as_str())?;
         Ok(AgentPreparation {
@@ -4874,25 +5144,19 @@ impl AgentRuntime {
                 {
                     return Err(AgentBoundaryError::CorruptResponse);
                 }
-                let activity = layerx_wire::activity::decode_unsigned(
-                    &material.canonical_unsigned_bytes,
-                    &self.registry,
-                )
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-                if activity.protocol_version() != statement.protocol_version
-                    || activity.network_id() != statement.network_id
-                    || layerx_agent_api::identity::NativeActivity::from(activity.activity_type())
-                        != statement.activity
-                    || activity.idempotency_key() != statement.idempotency_key
+                let transaction = decode_unsigned(&material.canonical_unsigned_bytes)?;
+                if u32::try_from(transaction.chain_id).ok() != Some(statement.network_id)
+                    || statement.activity.module != 1
+                    || statement.activity.ordinal != 5
+                    || statement.idempotency_key != decode_hex32(request.idempotency_key.as_str())?
                 {
                     return Err(AgentBoundaryError::CorruptResponse);
                 }
-                let preimage = layerx_wire::sign::preimage(&activity)
-                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+                let preimage = transaction.signing_hash().to_vec();
                 let preparation = self.native_journey_preparation(
                     request,
                     material.canonical_unsigned_bytes,
-                    preimage.as_bytes().to_vec(),
+                    preimage,
                 )?;
                 return Ok(crate::journeys::NativeJourneyAdmission {
                     preparation,
@@ -4917,7 +5181,8 @@ impl AgentRuntime {
             .ok_or(AgentBoundaryError::Refused)?;
         if preview.purpose != purpose.purpose
             || purpose.owner_public_key != preview.owner_public_key
-            || purpose.signature == [0; 64]
+            || purpose.signature.len() != 65
+            || purpose.signature.as_slice() == [0; 65]
         {
             return Err(AgentBoundaryError::Refused);
         }
@@ -5086,7 +5351,12 @@ impl AgentRuntime {
         writer.bytes(&grant.session_scope)?;
         writer.u64(grant.expires_at_ms);
         writer.fixed(&grant.owner_public_key);
-        writer.fixed(&grant.signature);
+        let signature: &[u8; 65] = grant
+            .signature
+            .as_slice()
+            .try_into()
+            .map_err(|_| AgentBoundaryError::Refused)?;
+        writer.fixed(signature);
         let mut reader = self.exchange_secret(&writer.finish_secret())?;
         if reader.u16()? != 1 {
             return Err(AgentBoundaryError::CorruptResponse);
@@ -5107,17 +5377,17 @@ impl AgentRuntime {
         };
         reader.finish()?;
         let canonical_digest: [u8; 32] = sha2::Sha256::digest(&value.canonical_bytes).into();
-        let activity =
-            layerx_wire::activity::decode_unsigned(&value.canonical_bytes, &self.registry)
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        let transaction = decode_unsigned(&value.canonical_bytes)?;
         if value.purpose.owner_did.as_str() != session.owner
             || value.purpose.owner_public_key != session.owner_public_key
             || value.purpose.economic_action != session.session_id
             || value.purpose.idempotency_key != decode_hex32(request.idempotency_key.as_str())?
             || value.purpose.activity.module != 1
             || value.purpose.activity.ordinal != 5
-            || value.purpose.protocol_version != activity.protocol_version()
-            || value.purpose.network_id != activity.network_id()
+            || value.purpose.network_id
+                != u32::try_from(transaction.chain_id)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?
+            || value.signing_preimage != transaction.signing_hash()
             || value.purpose.tenant.as_str() != session.tenant
             || value.purpose.agent_did.as_str() != session.owner
             || value

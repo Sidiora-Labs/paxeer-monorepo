@@ -13,7 +13,6 @@ use std::os::unix::fs::MetadataExt;
 use std::path::{Component, Path, PathBuf};
 
 use layerx_types::verify::VerificationLevel;
-use layerx_wire::limits::protocol_version_uses_occupancy;
 
 use crate::store::TenantId;
 
@@ -36,8 +35,8 @@ pub const SECURITY_RELEVANT_SETTINGS: [RequiredSetting; 8] = [
         environment_key: "LAYERX_NODE_ENDPOINT",
     },
     RequiredSetting {
-        file_key: "expected_protocol_version",
-        environment_key: "LAYERX_EXPECTED_PROTOCOL_VERSION",
+        file_key: "expected_chain_id",
+        environment_key: "LAYERX_EXPECTED_CHAIN_ID",
     },
     RequiredSetting {
         file_key: "tenants",
@@ -56,8 +55,8 @@ pub const SECURITY_RELEVANT_SETTINGS: [RequiredSetting; 8] = [
         environment_key: "LAYERX_VERIFICATION_DEFAULTS",
     },
     RequiredSetting {
-        file_key: "sequencer_authority_source",
-        environment_key: "LAYERX_SEQUENCER_AUTHORITY_SOURCE",
+        file_key: "receipt_key_source",
+        environment_key: "LAYERX_RECEIPT_KEY_SOURCE",
     },
 ];
 
@@ -65,15 +64,21 @@ pub const PRECEDENCE: &str =
     "exact LAYERX_* environment values override the explicitly named configuration file";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ReceiptKeySource {
+    NodeRpc,
+    PinnedFile(PathBuf),
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StartupConfig {
     pub network_id: u32,
-    pub node_endpoint: PathBuf,
-    pub expected_protocol_version: u16,
+    pub node_endpoint: String,
+    pub expected_chain_id: u64,
     pub tenants: BTreeSet<TenantId>,
     pub policy_sources: BTreeMap<TenantId, PathBuf>,
     pub signer_configurations: BTreeMap<TenantId, PathBuf>,
     pub verification_defaults: BTreeMap<TenantId, VerificationLevel>,
-    pub sequencer_authority_source: PathBuf,
+    pub receipt_key_source: ReceiptKeySource,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -82,6 +87,8 @@ pub enum RejectionReason {
     Empty,
     Duplicate,
     Unknown,
+    Invalid,
+    Retired,
     InvalidInteger,
     UnsupportedProtocol,
     InvalidTenant,
@@ -101,6 +108,8 @@ impl Display for RejectionReason {
             Self::Empty => "must not be empty",
             Self::Duplicate => "was declared more than once",
             Self::Unknown => "is not a recognised startup setting",
+            Self::Invalid => "is not a valid HTTP or HTTPS JSON-RPC URL",
+            Self::Retired => "is retired and must be removed",
             Self::InvalidInteger => "is not a valid non-zero integer",
             Self::UnsupportedProtocol => "is not supported by the compiled wire codec",
             Self::InvalidTenant => "contains an invalid or duplicate tenant",
@@ -163,6 +172,7 @@ pub fn load(
         .map_err(|_| error("configuration_file", RejectionReason::InvalidEncoding))?;
     let mut values = parse_file(source)?;
     for (name, value) in environment {
+        reject_retired_setting(name)?;
         if let Some(setting) = SECURITY_RELEVANT_SETTINGS
             .iter()
             .find(|setting| setting.environment_key == name)
@@ -276,6 +286,7 @@ fn same_file_snapshot(left: &Metadata, right: &Metadata) -> bool {
 /// default.
 pub fn validate(values: &BTreeMap<String, String>) -> Result<StartupConfig, ConfigError> {
     for key in values.keys() {
+        reject_retired_setting(key)?;
         if !SECURITY_RELEVANT_SETTINGS
             .iter()
             .any(|setting| setting.file_key == key)
@@ -293,14 +304,8 @@ pub fn validate(values: &BTreeMap<String, String>) -> Result<StartupConfig, Conf
     }
 
     let network_id = parse_nonzero::<u32>(values, "network_id")?;
-    let expected_protocol_version = parse_nonzero::<u16>(values, "expected_protocol_version")?;
-    if !protocol_version_uses_occupancy(expected_protocol_version) {
-        return Err(error(
-            "expected_protocol_version",
-            RejectionReason::UnsupportedProtocol,
-        ));
-    }
-    let node_endpoint = parse_path(required(values, "node_endpoint")?, "node_endpoint")?;
+    let expected_chain_id = parse_nonzero::<u64>(values, "expected_chain_id")?;
+    let node_endpoint = parse_node_endpoint(required(values, "node_endpoint")?)?;
     let tenants = parse_tenants(required(values, "tenants")?)?;
     let policy_sources = parse_tenant_paths(
         required(values, "policy_sources")?,
@@ -314,19 +319,19 @@ pub fn validate(values: &BTreeMap<String, String>) -> Result<StartupConfig, Conf
     )?;
     let verification_defaults =
         parse_verification_defaults(required(values, "verification_defaults")?, &tenants)?;
-    let sequencer_authority_source = parse_path(
-        required(values, "sequencer_authority_source")?,
-        "sequencer_authority_source",
-    )?;
+    let receipt_key_source = match required(values, "receipt_key_source")? {
+        "px_getReceiptKeys" => ReceiptKeySource::NodeRpc,
+        value => ReceiptKeySource::PinnedFile(parse_path(value, "receipt_key_source")?),
+    };
     Ok(StartupConfig {
         network_id,
         node_endpoint,
-        expected_protocol_version,
+        expected_chain_id,
         tenants,
         policy_sources,
         signer_configurations,
         verification_defaults,
-        sequencer_authority_source,
+        receipt_key_source,
     })
 }
 
@@ -344,6 +349,7 @@ fn parse_file(source: &str) -> Result<BTreeMap<String, String>, ConfigError> {
             .split_once('=')
             .ok_or_else(|| error("configuration_file", RejectionReason::Unknown))?;
         let key = key.trim();
+        reject_retired_setting(key)?;
         if !SECURITY_RELEVANT_SETTINGS
             .iter()
             .any(|setting| setting.file_key == key)
@@ -358,6 +364,35 @@ fn parse_file(source: &str) -> Result<BTreeMap<String, String>, ConfigError> {
         }
     }
     Ok(values)
+}
+
+fn reject_retired_setting(setting: &str) -> Result<(), ConfigError> {
+    if matches!(
+        setting,
+        "expected_protocol_version" | "LAYERX_EXPECTED_PROTOCOL_VERSION"
+    ) {
+        Err(error(setting, RejectionReason::Retired))
+    } else {
+        Ok(())
+    }
+}
+
+fn parse_node_endpoint(value: &str) -> Result<String, ConfigError> {
+    let invalid = || error("node_endpoint", RejectionReason::Invalid);
+    let uri: ureq::http::Uri = value.parse().map_err(|_| invalid())?;
+    if !matches!(uri.scheme_str(), Some("http" | "https"))
+        || uri.host().is_none_or(str::is_empty)
+        || uri
+            .authority()
+            .is_some_and(|authority| authority.as_str().contains('@'))
+        || value.contains('#')
+        || value
+            .bytes()
+            .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
+    {
+        return Err(invalid());
+    }
+    Ok(value.to_owned())
 }
 
 fn required<'a>(
@@ -717,10 +752,13 @@ pub(crate) fn load_native_effect_policy(
     }
     let bytes = read_protected_source(path, 2 * 1024 * 1024)
         .map_err(|_| error("native_effect_policy_sources", RejectionReason::Unprotected))?;
-    let source: Source = serde_json::from_slice(&bytes)
-        .map_err(|_| error("native_effect_policy_sources", RejectionReason::InvalidEncoding))?;
-    if source.version != "layerx.native-effect-policy-source.v1"
-        || source.tenant != tenant.as_str()
+    let source: Source = serde_json::from_slice(&bytes).map_err(|_| {
+        error(
+            "native_effect_policy_sources",
+            RejectionReason::InvalidEncoding,
+        )
+    })?;
+    if source.version != "layerx.native-effect-policy-source.v1" || source.tenant != tenant.as_str()
     {
         return Err(error(
             "native_effect_policy_sources",
@@ -728,7 +766,12 @@ pub(crate) fn load_native_effect_policy(
         ));
     }
     let policy = crate::policy::native_program::NativeEffectPolicy::load(source.policy.as_bytes())
-        .map_err(|_| error("native_effect_policy_sources", RejectionReason::InvalidEncoding))?;
+        .map_err(|_| {
+            error(
+                "native_effect_policy_sources",
+                RejectionReason::InvalidEncoding,
+            )
+        })?;
     Ok(VerifiedNativeEffectPolicy {
         tenant: tenant.clone(),
         policy,

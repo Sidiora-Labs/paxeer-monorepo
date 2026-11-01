@@ -1,0 +1,131 @@
+From 81450a0f77f7c745dd48d9feb82ee59163c223eb Mon Sep 17 00:00:00 2001
+From: Buddy <buddy@users.noreply.github.com>
+Date: Wed, 28 Oct 2026 22:01:22 -0400
+Subject: [PATCH 2/2] Keep refused price observations off live market topics
+ (#1173)
+
+Implemented with focused regression coverage; runtime qualification blocked by unavailable Docker builder.
+---
+ .../lib/block_scout_web/notifier.ex           |  4 +-
+ .../views/api/v2/paxeer_x/feed_view.ex        |  1 +
+ .../v2/paxeer_x_feed_channel_test.exs         | 48 +++++++++++++++++++
+ .../api/v2/paxeer_x/feed_controller_test.exs  |  3 ++
+ 4 files changed, 55 insertions(+), 1 deletion(-)
+
+diff --git a/services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex b/services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex
+index 4f8aefd..a7588f6 100644
+--- a/services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex
++++ b/services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex
+@@ -696,7 +696,9 @@ defmodule BlockScoutWeb.Notifier do
+         FeedView.prepare_update(update, symbols, block_height)
+       )
+ 
+-      Enum.each(update.observations, fn observation ->
++      update.observations
++      |> Enum.filter(&(update.status == 1 and &1.accepted))
++      |> Enum.each(fn observation ->
+         Endpoint.broadcast(
+           "paxeer_x_feed:market:#{observation.market_id}",
+           "new_update",
+diff --git a/services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/feed_view.ex b/services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/feed_view.ex
+index 0589d15..a3c8118 100644
+--- a/services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/feed_view.ex
++++ b/services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/feed_view.ex
+@@ -84,6 +84,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedView do
+     %{
+       "market_id" => observation.market_id,
+       "symbol" => Map.get(symbols, observation.market_id),
++      "accepted" => observation.accepted,
+       "index_price" => integer_string(observation.index_price),
+       "mark_price" => integer_string(observation.mark_price),
+       "source_timestamp_ms" => observation.source_timestamp_ms,
+diff --git a/services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs b/services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs
+index 9b8b2b6..5e17a61 100644
+--- a/services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs
++++ b/services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs
+@@ -31,6 +31,54 @@ defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
+     :ok
+   end
+ 
++  test "a refused observation moves no market price on the live topics" do
++    block = insert(:block, number: 20)
++
++    [successful, failed] =
++      store(block, [
++        submission(0, [Map.put(observation(0, 5), :accepted, false), observation(2, 7)]),
++        submission(1, [observation(0, 6)]) |> Map.put(:status, 0)
++      ])
++
++    Enum.each(
++      ~w(paxeer_x_feed:new_update paxeer_x_feed:market:0 paxeer_x_feed:market:2),
++      &@endpoint.subscribe/1
++    )
++
++    Notifier.handle_event({:chain_event, :paxeer_x_price_updates, :realtime, [20]})
++
++    assert_receive %Broadcast{
++      topic: "paxeer_x_feed:new_update",
++      event: "new_update",
++      payload: %{
++        "hash" => ^successful,
++        "status" => "ok",
++        "price_update" => %{
++          "observations" => [
++            %{"market_id" => 0, "accepted" => false},
++            %{"market_id" => 2, "accepted" => true}
++          ]
++        }
++      }
++    }
++
++    assert_receive %Broadcast{
++      topic: "paxeer_x_feed:new_update",
++      event: "new_update",
++      payload: %{"hash" => ^failed, "status" => "error"}
++    }
++
++    assert_receive %Broadcast{
++      topic: "paxeer_x_feed:market:2",
++      event: "new_update",
++      payload: %{"update_hash" => ^successful}
++    }
++
++    refute_receive %Broadcast{topic: "paxeer_x_feed:market:2"}
++    refute_receive %Broadcast{topic: "paxeer_x_feed:market:0"}
++    refute_receive %Broadcast{topic: "paxeer_x_feed:new_update"}
++  end
++
+   test "a backfilled height is not pushed as a new block" do
+     block = insert(:block, number: 20)
+     insert(:block, number: 31)
+diff --git a/services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs b/services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs
+index 7108dee..1938646 100644
+--- a/services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs
++++ b/services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs
+@@ -89,6 +89,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
+                    %{
+                      "market_id" => 0,
+                      "symbol" => "BTC-USD",
++                     "accepted" => true,
+                      "index_price" => price(5),
+                      "mark_price" => price(6),
+                      "source_timestamp_ms" => 1_792_636_042_005,
+@@ -97,6 +98,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
+                    %{
+                      "market_id" => 2,
+                      "symbol" => "SOL-USD",
++                     "accepted" => true,
+                      "index_price" => price(7),
+                      "mark_price" => price(8),
+                      "source_timestamp_ms" => 1_792_636_042_007,
+@@ -167,6 +169,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedControllerTest do
+       assert response["hash"] == hash
+       assert response["index"] == 2
+       assert response["price_update"]["observation_count"] == 1
++      assert [%{"accepted" => true}] = response["price_update"]["observations"]
+     end
+ 
+     test "answers 404 for an unknown hash", %{conn: conn} do
+-- 
+2.52.0
+

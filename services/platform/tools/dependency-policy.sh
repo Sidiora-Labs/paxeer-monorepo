@@ -6,16 +6,55 @@ metadata_file=$(mktemp)
 license_file=$(mktemp)
 trap 'rm -f -- "$metadata_file" "$license_file"' EXIT HUP INT TERM
 
-cargo metadata --manifest-path "$repo_root/services/platform/Cargo.toml" \
-    --locked --format-version 1 >"$metadata_file"
-cargo metadata --manifest-path "$repo_root/tools/platform/Cargo.toml" \
-    --locked --format-version 1 >>"$metadata_file"
-cargo metadata --manifest-path "$repo_root/sdk/platform/generators/Cargo.toml" \
-    --locked --format-version 1 >>"$metadata_file"
+case "$#" in
+    0)
+        cargo metadata --manifest-path "$repo_root/services/platform/Cargo.toml" \
+            --locked --format-version 1 >"$metadata_file"
+        cargo metadata --manifest-path "$repo_root/tools/platform/Cargo.toml" \
+            --locked --format-version 1 >>"$metadata_file"
+        cargo metadata --manifest-path "$repo_root/sdk/platform/generators/Cargo.toml" \
+            --locked --format-version 1 >>"$metadata_file"
+        ;;
+    1)
+        cat -- "$1" >"$metadata_file"
+        ;;
+    *)
+        echo "usage: dependency-policy.sh [metadata.json]" >&2
+        exit 2
+        ;;
+esac
 
-banned='^(bindgen|libsqlite3-sys|rusqlite|sqlx-sqlite|layerx-core|layerx-protocol-core|ctor|inventory)$'
-if jq -r '.packages[].name' "$metadata_file" | grep -Eq "$banned"; then
-    echo "platform dependency policy: forbidden boundary or global-initialisation crate" >&2
+banned='^(bindgen|sqlx-sqlite|layerx-core|layerx-protocol-core|ctor|inventory)$'
+banned_packages=$(jq -r --arg banned "$banned" \
+    '[.packages[].name | select(test($banned))] | join("\n")' "$metadata_file")
+if [ -n "$banned_packages" ]; then
+    printf 'platform dependency policy: forbidden boundary or global-initialisation crate\n%s\n' "$banned_packages" >&2
+    exit 1
+fi
+
+forbidden_ramp_dependencies=$(jq -r '
+    def reachable($nodes):
+        {pending: ., seen: {}}
+        | until(.pending | length == 0;
+            .pending[0] as $id
+            | .pending = .pending[1:]
+            | if .seen[$id] then .
+              else .seen[$id] = true | .pending += $nodes[$id].dependencies
+              end)
+        | .seen | keys[];
+    INDEX(.packages[]; .id) as $packages
+    | INDEX(.resolve.nodes[]; .id) as $nodes
+    | .packages[]
+    | select(.name == "layerx-ramp-toolkit" or .name == "layerx-reference-ramp")
+    | .name as $ramp
+    | [.id] | reachable($nodes)
+    | $packages[.].name
+    | select(. == "layerx-paxeer-client" or . == "layerx-intents"
+        or . == "rusqlite" or . == "libsqlite3-sys")
+    | "\($ramp) depends on \(.)"
+' "$metadata_file")
+if [ -n "$forbidden_ramp_dependencies" ]; then
+    printf 'platform dependency policy: forbidden ramp dependency\n%s\n' "$forbidden_ramp_dependencies" >&2
     exit 1
 fi
 

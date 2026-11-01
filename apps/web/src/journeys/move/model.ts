@@ -42,7 +42,6 @@ const REFUSAL_CODES = [
 const RECEIPT_VERIFICATIONS = [
   "receipt-verified",
   "checkpoint-finalised",
-  "paxeer-finalised",
 ] as const;
 
 function copyMessageOr(key: string, fallbackKey: string): string {
@@ -387,9 +386,6 @@ export async function commitMove(
 export function verifiedOutcomeEvidence(item: EvidenceRef): boolean {
   if (item.class === "layerx-receipt") {
     return (RECEIPT_VERIFICATIONS as readonly string[]).includes(item.verification);
-  }
-  if (item.class === "paxeer-finality") {
-    return item.verification === "paxeer-finalised";
   }
   return false;
 }

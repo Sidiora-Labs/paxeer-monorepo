@@ -19,6 +19,45 @@ JAVA_KEYWORDS = {
     "permits", "yield", "var",
 }
 
+PROGRAM_CALLS = {
+    "program.activity": ("eth_getLogs", ["ProgramCallOutcome"]),
+    "program.call": ("eth_sendRawTransaction", ["call"]),
+    "program.deploy": ("eth_sendRawTransaction", ["deploy"]),
+    "program.discover": ("eth_call", ["getProgram"]),
+    "program.interface": ("eth_call", ["getInterface"]),
+    "program.receipt": ("eth_getLogs", ["ProgramCallOutcome"]),
+    "program.simulate": ("eth_call", ["simulateCall"]),
+    "program.upgrade": ("eth_sendRawTransaction", ["upgrade"]),
+    "program.wind-down": (
+        "eth_sendRawTransaction", ["setExitRoute", "deprecate", "tombstone", "exitValue"]
+    ),
+}
+TRANSACTION_FIELDS = ["chainId:u64", "nonce:u64", "gas:u64", "to:utf8", "data:lowercase_hex"]
+
+
+def agent_plane(repo: Path) -> Plane:
+    plane = Plane("Agent", sections(repo / "services/agent/schema/agent-api"))
+    plane.models["NativePrepareResultV1"] = {"fields": TRANSACTION_FIELDS}
+    plane.models["McpNativeWriteV1"]["preparation"] = "NativePrepareResultV1"
+    plane.values["operation.prepare"] = {
+        **plane.values["operation.prepare"], "response": "NativePrepareResultV1"
+    }
+    return plane
+
+
+def program_transports(repo: Path) -> dict[str, tuple[str, list[str]]]:
+    abi = json.loads((repo / "precompiles/layerxprograms/abi.json").read_text(encoding="utf-8"))
+    signatures = {}
+    for entry in abi:
+        if entry["type"] not in {"function", "event"}:
+            continue
+        parameters = ",".join(parameter["type"] for parameter in entry["inputs"])
+        signatures[entry["name"]] = f'layerxprograms.{entry["name"]}({parameters})'
+    return {
+        operation: (rpc, [signatures[call] for call in calls])
+        for operation, (rpc, calls) in PROGRAM_CALLS.items()
+    }
+
 
 def sections(root: Path) -> dict[str, dict[str, object]]:
     result: dict[str, dict[str, object]] = {}
@@ -75,7 +114,7 @@ class Plane:
         self.models = {
             key.split(".", 1)[1]: entries
             for key, entries in values.items()
-            if key.startswith(("type.", "record."))
+            if key.startswith(("type.", "record.")) and entries.get("retired") != "true"
         }
         self.scalars = {
             key.split(".", 1)[1]: entries
@@ -143,7 +182,7 @@ def operation_specs(plane: Plane) -> list[dict[str, object]]:
     mutations = {key.split(".", 1)[1] for key in plane.values if key.startswith("mutation.")}
     result = []
     for section, entries in sorted(plane.values.items()):
-        if not section.startswith("operation."):
+        if not section.startswith("operation.") or entries.get("retired") == "true":
             continue
         wire = section.split(".", 1)[1]
         request_model = entries.get("request") if isinstance(entries.get("request"), str) else None
@@ -302,12 +341,19 @@ def render_operations(plane: Plane, specs: list[dict[str, object]]) -> list[str]
             f"new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.{plane.name.upper()}, \"{spec['wire']}\", "
             f"{str(spec['idempotency']).lower()}, {request}.class, {response}.class);"
         )
+        if plane.name == "Agent" and str(spec["wire"]).startswith("program."):
+            if spec["wire"] not in PROGRAM_CALLS:
+                raise SystemExit(f"missing layerxprograms transport for {spec['wire']}")
+            lines.append(
+                f"        public static final ProgramTransport {constant_name(spec['wire'])}_TRANSPORT = "
+                f"GeneratedContract.AGENT_OPERATIONS.transport(\"{spec['wire']}\");"
+            )
     lines.append("    }")
     return lines
 
 
 def generate(repo: Path) -> str:
-    agent = Plane("Agent", sections(repo / "services/agent/schema/agent-api"))
+    agent = agent_plane(repo)
     human = Plane("Human", sections(repo / "services/human/schema/human-api"))
     output = [
         "// Code generated from the LayerX Agent API and Human API schemas. DO NOT EDIT.",
@@ -323,6 +369,18 @@ def generate(repo: Path) -> str:
         "import java.math.BigInteger;", "import java.util.List;", "import java.util.Map;",
         "import java.util.Objects;", "import java.util.Set;", "", "public final class GeneratedSchema {",
         "    private GeneratedSchema() {}",
+        "    public record ProgramTransport(String rpcMethod, String to, List<String> calls) {",
+        "        public ProgramTransport {",
+        "            Objects.requireNonNull(rpcMethod, \"rpcMethod\");",
+        "            Objects.requireNonNull(to, \"to\");",
+        "            calls = List.copyOf(Objects.requireNonNull(calls, \"calls\"));",
+        "        }",
+        "    }",
+        "    public static ProgramTransport programTransport(SchemaTypes.Operation operation) {",
+        "        Objects.requireNonNull(operation, \"operation\");",
+        "        if (operation.plane() != OperationCatalog.Plane.AGENT) throw PlatformSdkException.invalidArgument();",
+        "        return GeneratedContract.AGENT_OPERATIONS.transport(operation.wireName());",
+        "    }",
     ]
     output.extend(render_models(agent))
     output.extend(render_models(human))
@@ -341,23 +399,117 @@ def generate(repo: Path) -> str:
     return "\n".join(output)
 
 
+def generate_contract(repo: Path) -> str:
+    agent = agent_plane(repo)
+    human = Plane("Human", sections(repo / "services/human/schema/human-api"))
+    agent_specs = operation_specs(agent)
+    transports = program_transports(repo)
+    programs = {str(spec["wire"]) for spec in agent_specs if str(spec["wire"]).startswith("program.")}
+    if programs != transports.keys():
+        raise SystemExit("program operations and layerxprograms transports differ")
+    output = [
+        "// Code generated from the LayerX Agent API and Human API schemas. DO NOT EDIT.",
+        "", "package com.sidiora.layerx.sdk;", "",
+        "import java.util.AbstractSet;", "import java.util.Iterator;",
+        "import java.util.List;", "import java.util.Map;", "import java.util.Set;", "",
+        "final class GeneratedContract {", "    private GeneratedContract() {}",
+        "    static final class AgentOperationCatalog extends AbstractSet<String> {",
+        "        private final Set<String> names;",
+        "        private final Map<String, GeneratedSchema.ProgramTransport> transports;",
+        "        AgentOperationCatalog(Set<String> names, Map<String, GeneratedSchema.ProgramTransport> transports) {",
+        "            this.names = Set.copyOf(names);",
+        "            this.transports = Map.copyOf(transports);",
+        "        }",
+        "        @Override public Iterator<String> iterator() { return names.iterator(); }",
+        "        @Override public int size() { return names.size(); }",
+        "        @Override public boolean contains(Object name) { return names.contains(name); }",
+        "        GeneratedSchema.ProgramTransport transport(String name) {",
+        "            GeneratedSchema.ProgramTransport transport = transports.get(name);",
+        "            if (transport == null) throw PlatformSdkException.invalidArgument();",
+        "            return transport;",
+        "        }",
+        "    }",
+        "    static final AgentOperationCatalog AGENT_OPERATIONS = new AgentOperationCatalog(Set.of(",
+    ]
+    for index, spec in enumerate(agent_specs):
+        suffix = "), Map.ofEntries(" if index + 1 == len(agent_specs) else ","
+        output.append(f'        "{spec["wire"]}"{suffix}')
+    for index, (operation, (rpc, calls)) in enumerate(transports.items()):
+        arguments = ", ".join(json.dumps(call) for call in calls)
+        suffix = "));" if index + 1 == len(transports) else ","
+        output.append(
+            f'        Map.entry("{operation}", new GeneratedSchema.ProgramTransport("{rpc}", '
+            f'"0x000000000000000000000000000000000000101d", List.of({arguments}))){suffix}'
+        )
+    sets = {
+        "AGENT_IDEMPOTENT": [str(spec["wire"]) for spec in agent_specs if spec["idempotency"]],
+        "AGENT_ERROR_CLASSES": string_list(agent.values["type.ErrorClass"]["variants"]),
+        "AGENT_RETRIABILITY": string_list(agent.values["type.Retriability"]["variants"]),
+        "HUMAN_ERROR_CODES": string_list(human.values["type.ErrorCode"]["variants"]),
+        "HUMAN_RETRIABILITY": string_list(human.values["type.Retriability"]["variants"]),
+    }
+    for name, values in sets.items():
+        output.append(f"    static final Set<String> {name} = Set.of(")
+        for index, value in enumerate(values):
+            suffix = ");" if index + 1 == len(values) else ","
+            output.append(f"        {json.dumps(value)}{suffix}")
+    output.append("    static final Map<String, OperationCatalog.Route> HUMAN_ROUTES = Map.ofEntries(")
+    human_specs = operation_specs(human)
+    for index, spec in enumerate(human_specs):
+        wire = str(spec["wire"])
+        entries = human.values[f"operation.{wire}"]
+        path = str(entries["path"])
+        parameters = ", ".join(json.dumps(value) for value in re.findall(r"\{([^}]+)\}", path))
+        idempotency = str(bool(entries.get("idempotency"))).lower()
+        bodyless = str(entries.get("request") == "Empty").lower()
+        suffix = ");" if index + 1 == len(human_specs) else ","
+        output.append(
+            f'        Map.entry("{wire}", new OperationCatalog.Route({json.dumps(entries["method"])}, '
+            f'{json.dumps(path)}, List.of({parameters}), {idempotency}, {bodyless})){suffix}'
+        )
+    output.extend(["}", ""])
+    return "\n".join(output)
+
+
+def retain_human_schema(expected: str, current: str) -> str:
+    for start, end in [
+        ("    public static final class HumanModels {", "    public static final class AgentOperations {"),
+        ("    public static final class HumanOperations {", "    public static final Map<String, SchemaTypes.TypedOperation<?, ?>> AGENT ="),
+    ]:
+        expected = (expected[:expected.index(start)] + current[current.index(start):current.index(end)]
+                    + expected[expected.index(end):])
+    return expected
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("repo", nargs="?", default=".")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--stdout", action="store_true")
+    parser.add_argument("--agent-only", action="store_true")
     arguments = parser.parse_args()
     repo = Path(arguments.repo).resolve()
     destination = repo / "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
     expected = generate(repo)
+    contract = destination.parent / "GeneratedContract.java"
+    expected_contract = generate_contract(repo)
+    if arguments.agent_only:
+        expected = retain_human_schema(expected, destination.read_text(encoding="utf-8"))
+        human_start = "    static final Set<String> HUMAN_ERROR_CODES ="
+        current_contract = contract.read_text(encoding="utf-8")
+        expected_contract = (expected_contract[:expected_contract.index(human_start)]
+                             + current_contract[current_contract.index(human_start):])
     if arguments.stdout:
         print(expected, end="")
         return 0
     if arguments.check:
         if not destination.is_file() or destination.read_text(encoding="utf-8") != expected:
             raise SystemExit("generated JVM schema is stale; run make platform-sdk-generate")
+        if not contract.is_file() or contract.read_text(encoding="utf-8") != expected_contract:
+            raise SystemExit("generated JVM contract is stale; run generate_jvm.py")
         return 0
     destination.write_text(expected, encoding="utf-8")
+    contract.write_text(expected_contract, encoding="utf-8")
     return 0
 
 

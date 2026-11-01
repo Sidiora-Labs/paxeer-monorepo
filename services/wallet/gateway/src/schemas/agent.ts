@@ -110,7 +110,7 @@ export const IdempotencyKey = z
   .max(128)
   .regex(/^[A-Za-z0-9_.:-]+$/, 'idempotency_key may only contain [A-Za-z0-9_.:-]');
 
-/** Solidity method signature, e.g. "depositUSDL(uint256,bytes32)". */
+/** Solidity method signature, e.g. "transfer(address,uint256)". */
 export const MethodSignature = z
   .string()
   .min(3)

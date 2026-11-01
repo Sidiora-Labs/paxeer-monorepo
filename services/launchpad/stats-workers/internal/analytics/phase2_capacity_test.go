@@ -473,6 +473,23 @@ func phase4CaptureProcesses(plan phase4Plan) (map[string]map[string]string, map[
 	return processes, cgroups, host, nil
 }
 
+var phase4CandidateSources = []string{
+	"services/launchpad/stats-workers/internal/analytics/phase2_capacity_test.go",
+	"services/launchpad/stats-workers/internal/analytics/projector.go",
+	"services/launchpad/stats-workers/internal/analytics/reactions.go",
+	"services/launchpad/stats-workers/internal/analytics/reads.go",
+	"services/launchpad/stats-workers/internal/analytics/snapshot.go",
+	"services/launchpad/stats-workers/internal/risk/versioned.go",
+	"services/launchpad/stats-workers/internal/risk/model-v1.json",
+	"services/launchpad/stats-workers/internal/app/app.go",
+	"services/launchpad/stats-workers/internal/httpapi/pressure.go",
+	"services/launchpad/stats-workers/internal/httpapi/reactions.go",
+	"sdk/launchpad/shared/delivery/store.go",
+	"sdk/launchpad/shared/delivery/natsdriver/driver.go",
+	"sdk/launchpad/shared/accounting/validate.go",
+	"sdk/launchpad/packages/sdk/src/operations.gen.ts",
+}
+
 func phase4BindCandidate(binding phase4File) error {
 	raw, err := phase4ReadBound(binding, 16<<20)
 	if err != nil {
@@ -554,7 +571,7 @@ func phase4BindCandidate(binding phase4File) error {
 	if !builds["stats"] {
 		return errors.New("actual stats binary build provenance missing")
 	}
-	for _, path := range []string{"services/launchpad/stats-workers/internal/analytics/phase2_capacity_test.go", "services/launchpad/stats-workers/internal/analytics/projector.go", "services/launchpad/stats-workers/internal/analytics/reactions.go", "services/launchpad/stats-workers/internal/analytics/reads.go", "services/launchpad/stats-workers/internal/analytics/snapshot.go", "services/launchpad/stats-workers/internal/risk/versioned.go", "services/launchpad/stats-workers/internal/risk/model-v1.json", "services/launchpad/stats-workers/internal/app/app.go", "services/launchpad/stats-workers/internal/httpapi/pressure.go", "services/launchpad/stats-workers/internal/httpapi/reactions.go", "sdk/launchpad/shared/delivery/store.go", "sdk/launchpad/shared/delivery/natsdriver/driver.go", "sdk/launchpad/shared/accounting/validate.go", "launchpad/spec/production-system/spec.kvx"} {
+	for _, path := range phase4CandidateSources {
 		if manifest.SourceSHA256[path] == "" {
 			return errors.New("unbound candidate dependency: " + path)
 		}

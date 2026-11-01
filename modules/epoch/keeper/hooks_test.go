@@ -21,6 +21,19 @@ func (h *mockEpochHooks) BeforeEpochStart(_ sdk.Context, _ types.Epoch) {
 	h.beforeEpochStartCalled = true
 }
 
+func TestNilHooksAreNoop(t *testing.T) {
+	k := Keeper{}
+	ctx := sdk.Context{}
+	epoch := types.Epoch{}
+
+	require.NotPanics(t, func() {
+		k.AfterEpochEnd(ctx, epoch)
+	})
+	require.NotPanics(t, func() {
+		k.BeforeEpochStart(ctx, epoch)
+	})
+}
+
 func TestKeeperHooks(t *testing.T) {
 	k := Keeper{}
 	hooks := &mockEpochHooks{}

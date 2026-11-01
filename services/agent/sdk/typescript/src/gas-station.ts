@@ -657,6 +657,50 @@ export interface GasSubmissionTransaction {
   readonly transactionHash: string;
 }
 
+export interface SponsoredGasSubmission {
+  readonly transactionHash: string;
+  readonly rung: "submitted";
+}
+
+export interface SponsoredGasBatchStatus {
+  readonly transactionHash: string;
+  readonly rung: "submitted" | "receipted" | "committed";
+}
+
+export async function requestSponsoredGasBatchStatus(
+  transactionHash: string,
+  request: (args: {
+    readonly method: string;
+    readonly params: readonly unknown[];
+  }) => Promise<unknown>,
+): Promise<GasResult<SponsoredGasBatchStatus | null>> {
+  try {
+    const hash = wireHash(transactionHash, "transactionHash");
+    const payload = await request({
+      method: "pax_sequencerReceipt",
+      params: [hash],
+    });
+    if (payload === null) return { ok: true, value: null };
+    return result(() => {
+      const receipt = record(payload);
+      if (wireHash(receipt.txHash, "txHash") !== hash)
+        throw new Refusal("invalid_response", "txHash");
+      const rung = receipt.rung;
+      if (rung !== "submitted" && rung !== "receipted" && rung !== "committed")
+        throw new Refusal("invalid_response", "rung");
+      return { transactionHash: hash, rung };
+    });
+  } catch (error) {
+    return {
+      ok: false,
+      refusal:
+        error instanceof Refusal
+          ? { code: error.code, field: error.field }
+          : { code: "unavailable", field: "pax_sequencerReceipt" },
+    };
+  }
+}
+
 export type GasSubmissionOutcome =
   | { readonly outcome: "consumed" }
   | {
@@ -897,7 +941,7 @@ export async function submitSponsoredGasBatch(
     readonly signal?: AbortSignal;
     readonly fetch?: typeof fetch;
   } = {},
-): Promise<GasResult<string>> {
+): Promise<GasResult<SponsoredGasSubmission>> {
   const prepared = result(() => {
     validateConfig(config);
     if (authorization.chainId !== config.chainId)
@@ -992,9 +1036,13 @@ export async function submitSponsoredGasBatch(
       refusal: { code: "invalid_response", field: "submit" },
     };
   }
-  return result(() =>
-    wireHash(record(payload).transactionHash, "transactionHash"),
-  );
+  return result(() => ({
+    transactionHash: wireHash(
+      record(payload).transactionHash,
+      "transactionHash",
+    ),
+    rung: "submitted",
+  }));
 }
 
 export interface SponsoredConsent {
@@ -1071,7 +1119,7 @@ export async function discoverSponsoredNonce(
       BigInt(chain) !== config.chainId
     )
       throw new Refusal("chain_mismatch", "chainId");
-    const block = "latest";
+    const block = "pending";
     const code = await request({
       method: "eth_getCode",
       params: [target, block],
@@ -1191,6 +1239,20 @@ export async function readNativeFeePreference(
       (await options.request({ method: "eth_chainId", params: [] })) !== "0x7d"
     )
       return inactive("chain_mismatch");
+    const precompile = "0x0000000000000000000000000000000000001018";
+    const currentDenom = nativeString(
+      await options.request({
+        method: "eth_call",
+        params: [
+          {
+            to: precompile,
+            data: encodeAbiCall("getFeeDenom", ["address"], [target]),
+          },
+          "pending",
+        ],
+      }),
+      1,
+    );
     const head = record(
       await options.request({
         method: "eth_getBlockByNumber",
@@ -1353,20 +1415,6 @@ export async function readNativeFeePreference(
       !units.some((unit) => unit.denom === "SID" && unit.exponent === 6)
     )
       return inactive("sid_metadata_mismatch");
-    const precompile = "0x0000000000000000000000000000000000001018";
-    const currentDenom = nativeString(
-      await options.request({
-        method: "eth_call",
-        params: [
-          {
-            to: precompile,
-            data: encodeAbiCall("getFeeDenom", ["address"], [target]),
-          },
-          block,
-        ],
-      }),
-      1,
-    );
     const call = {
       to: precompile,
       data: encodeAbiCall("setFeeDenom", ["string"], [denom]),

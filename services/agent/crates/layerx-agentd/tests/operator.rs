@@ -14,21 +14,21 @@ use layerx_agentd::outbox::{Outbox, SubmissionState};
 use layerx_agentd::store::{ObjectKind, Store, TenantKey};
 use layerx_types::verify::VerificationLevel;
 
-use support::{directory, tenant, verified_submission};
+use support::{directory, signed_transaction, tenant};
 
 fn context(id: u8) -> OperatorContext {
     OperatorContext::new("operator:incident-response", [id; 32])
         .unwrap_or_else(|error| panic!("operator context: {error:?}"))
 }
 
-fn enqueue_unknown(store: &mut Store, outbox: &mut Outbox, id: u8) {
-    outbox
-        .enqueue(store, tenant(), [id; 32], verified_submission(id))
+fn enqueue_unknown(store: &mut Store, outbox: &mut Outbox, id: u8) -> [u8; 32] {
+    let hash = outbox
+        .enqueue(store, tenant(), signed_transaction(id))
         .unwrap_or_else(|error| panic!("enqueue: {error:?}"));
     outbox
         .transition(
             store,
-            [id; 32],
+            hash,
             SubmissionState::Submitted,
             "real boundary accepted bytes",
             None,
@@ -37,12 +37,13 @@ fn enqueue_unknown(store: &mut Store, outbox: &mut Outbox, id: u8) {
     outbox
         .transition(
             store,
-            [id; 32],
+            hash,
             SubmissionState::Unknown,
             "acknowledgement was not observed",
             None,
         )
         .unwrap_or_else(|error| panic!("unknown: {error:?}"));
+    hash
 }
 
 #[test]
@@ -94,12 +95,12 @@ fn inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal(
     let root = directory("operator-actions");
     let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let mut outbox = Outbox::default();
-    enqueue_unknown(&mut store, &mut outbox, 1);
+    let hash = enqueue_unknown(&mut store, &mut outbox, 1);
     let mut surface =
         Surface::open(&root, &tenant()).unwrap_or_else(|error| panic!("surface: {error:?}"));
 
     let status = surface
-        .inspect_unknown(&context(1), &outbox, [1; 32])
+        .inspect_unknown(&context(1), &outbox, hash)
         .unwrap_or_else(|error| panic!("inspect unknown: {error:?}"));
     assert_eq!(status.state, SubmissionState::Unknown);
 
@@ -122,7 +123,7 @@ fn inspections_and_unavailable_budget_reconciliation_are_audited_before_refusal(
             &mut local,
             &protocol,
             &receipts,
-            &support::evidence_verifier(),
+            &support::pinned_evidence_verifier(),
         ),
         Err(layerx_agentd::admin::AdminError::BudgetReconciliation(
             ReconcileError::ProtocolStateSchemaUnavailable
@@ -155,7 +156,7 @@ fn adversarial_admin_edits_are_refused_audited_and_change_no_protected_value() {
     let root = directory("operator-adversarial");
     let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     let mut outbox = Outbox::default();
-    enqueue_unknown(&mut store, &mut outbox, 7);
+    let hash = enqueue_unknown(&mut store, &mut outbox, 7);
     let receipt_key = TenantKey::new(tenant(), ObjectKind::Receipt, b"recorded-receipt".to_vec())
         .unwrap_or_else(|error| panic!("receipt key: {error}"));
     let level_key = TenantKey::new(
@@ -188,7 +189,7 @@ fn adversarial_admin_edits_are_refused_audited_and_change_no_protected_value() {
         let result = surface.dispatch(
             &context(u8::try_from(index + 1).unwrap_or(1)),
             OperatorCommand::AttemptProtectedMutation {
-                target: [7; 32],
+                target: hash,
                 mutation,
             },
         );
@@ -200,7 +201,7 @@ fn adversarial_admin_edits_are_refused_audited_and_change_no_protected_value() {
 
     assert_eq!(
         outbox
-            .status([7; 32])
+            .status(hash)
             .unwrap_or_else(|| panic!("unknown missing"))
             .state,
         SubmissionState::Unknown

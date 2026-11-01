@@ -4,9 +4,9 @@ use std::sync::Arc;
 use std::task::{Context, Poll, Wake};
 
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::send::{send_context_hash, SendDebit};
+use layerx_crypto::payments::{send_context_hash, CallOptions, SendDebit};
 use layerx_crypto::signer::Signer as _;
-use layerx_platform_cli::wallet_signing::{PreparedPayment, SigningFacts};
+use layerx_platform_cli::wallet_signing::{EvmSigningKey, PreparedPayment, SigningFacts};
 use serde::Deserialize;
 use serde_json::json;
 use zeroize::Zeroizing;
@@ -139,10 +139,37 @@ fn run() -> Result<(), String> {
         fee_limit: 1_000_000_000_000,
         idempotency_key,
     };
+    let key_file = std::env::var_os("LAYERX_HOSTED_SEND_EVM_KEY_FILE")
+        .ok_or("LAYERX_HOSTED_SEND_EVM_KEY_FILE is required")?;
+    let evm_key = EvmSigningKey::read(
+        std::path::Path::new(&key_file),
+        &request.actor,
+        signer.public_key(),
+    )?;
+    let gas_limit = std::env::var("LAYERX_HOSTED_SEND_GAS_LIMIT")
+        .map_err(|_| "LAYERX_HOSTED_SEND_GAS_LIMIT is required")?
+        .parse()
+        .map_err(|_| "invalid gas limit")?;
+    let max_fee_per_gas = std::env::var("LAYERX_HOSTED_SEND_MAX_FEE_PER_GAS")
+        .map_err(|_| "LAYERX_HOSTED_SEND_MAX_FEE_PER_GAS is required")?
+        .parse()
+        .map_err(|_| "invalid maximum fee per gas")?;
+    let max_priority_fee_per_gas = std::env::var("LAYERX_HOSTED_SEND_MAX_PRIORITY_FEE_PER_GAS")
+        .map_err(|_| "LAYERX_HOSTED_SEND_MAX_PRIORITY_FEE_PER_GAS is required")?
+        .parse()
+        .map_err(|_| "invalid maximum priority fee per gas")?;
+    let options = CallOptions {
+        from: evm_key.address(),
+        chain_id: 125,
+        nonce: request.identity_sequence,
+        gas_limit,
+        max_fee_per_gas,
+        max_priority_fee_per_gas,
+    };
     let (canonical, activity) =
-        PreparedPayment::from_send(&payload, &facts)?.sign_with_id(&signer)?;
+        PreparedPayment::from_send(&payload, &facts, &options)?.sign_with_id(&evm_key)?;
     let output = json!({"canonical": hex(&canonical), "activity_id": hex(&activity)});
-    writeln!(std::io::stdout(), "{output}").map_err(|_| "cannot write signed activity".into())
+    writeln!(std::io::stdout(), "{output}").map_err(|_| "cannot write signed transaction".into())
 }
 
 fn main() {

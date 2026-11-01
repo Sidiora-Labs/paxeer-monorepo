@@ -14,7 +14,7 @@ import {
   type PrecompileCall,
 } from "../../api/sdk";
 import { sendWalletPrecompileCall, walletFeePreference, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
-import { windowWalletProvider } from "../../journeys/custody/handoff";
+import { windowWalletProvider } from "../../api/provider";
 import { SegmentedControl } from "../../kit/collection";
 import { KitButton } from "../../kit/control";
 import { ExplorerPanel } from "../../kit/explorer";
@@ -24,12 +24,12 @@ import { WEI_DECIMALS, parseUnits } from "../_markets/format";
 import { ChoiceField } from "../_markets/select";
 import { SendOutcome } from "../_markets/send-outcome";
 import { SPONSORED_APPROVE_UNSUPPORTED } from "../launchpad/launchpad-client";
-import { preflightPerpsWrite } from "./actions";
+import { preflightPerpsWrite, resolvePerpsAccount } from "./actions";
 
 export type PerpsCollateral = Readonly<{ token: string; decimals: number; symbol: string }>;
 type Choice = Readonly<{ id: string; label: string }>;
 
-// 0x1015 pulls deposit and openPosition collateral by transferFrom, so a
+// 0x1015 pulls deposit collateral by transferFrom, so a
 // short allowance gets one approve for the exact amount, mined first. The
 // write is then run against the precompile so its revert reason is shown
 // before the wallet opens.
@@ -69,6 +69,13 @@ export async function sendPerpsWrite(
   return sendWalletPrecompileCall(from, () => call);
 }
 
+function word(id: string): string {
+  if (!/^(0|[1-9][0-9]*)$/u.test(id)) throw new Error("Enter a decimal id.");
+  const value = BigInt(id);
+  if (value >= 1n << 256n) throw new Error("The id exceeds 32 bytes.");
+  return `0x${value.toString(16).padStart(64, "0")}`;
+}
+
 export function ExchangeActions({
   account,
   collateral,
@@ -87,7 +94,7 @@ export function ExchangeActions({
   const [approving, setApproving] = useState(false);
   const [marketId, setMarketId] = useState(markets[0]?.id ?? "");
   const [side, setSide] = useState("long");
-  const [collateralText, setCollateralText] = useState("");
+  const [sizeText, setSizeText] = useState("");
   const [leverageText, setLeverageText] = useState("");
   const [openOutcome, setOpenOutcome] = useState<PrecompileSendOutcome | undefined>(undefined);
   const [positionId, setPositionId] = useState(positions[0]?.id ?? "");
@@ -97,22 +104,34 @@ export function ExchangeActions({
   const [marginText, setMarginText] = useState("");
   const [marginOutcome, setMarginOutcome] = useState<PrecompileSendOutcome | undefined>(undefined);
 
-  const amount = parseUnits(collateralText, collateral.decimals);
+  const size = parseUnits(sizeText, WEI_DECIMALS);
   const leverage = parseUnits(leverageText, WEI_DECIMALS);
   const margin = parseUnits(marginText, collateral.decimals);
   const walletReason = account === undefined ? "Connect a wallet first." : undefined;
 
-  const send = (call: PrecompileCall, pull: bigint, record: (outcome: PrecompileSendOutcome) => void) => {
+  const send = (build: () => PrecompileCall | Promise<PrecompileCall>, pull: bigint, record: (outcome: PrecompileSendOutcome) => void) => {
     if (account === undefined) {
       return;
     }
     startTransition(async () => {
-      const outcome = await sendPerpsWrite(account, collateral, pull, call, setApproving);
-      record(outcome);
-      if (outcome.outcome === "sent") {
-        router.refresh();
+      try {
+        const call = await build();
+        const outcome = await sendPerpsWrite(account, collateral, pull, call, setApproving);
+        record(outcome);
+        if (outcome.outcome === "sent") {
+          router.refresh();
+        }
+      } catch (error) {
+        record(walletSendFailure(error));
       }
     });
+  };
+
+  const resolveAccountId = async () => {
+    if (account === undefined) throw new Error("Connect a wallet first.");
+    const resolved = await resolvePerpsAccount(account);
+    if (resolved.layerxAccount === null) throw new Error("The account has no LayerX main account.");
+    return `0x${resolved.layerxAccount}`;
   };
 
   return (
@@ -139,11 +158,11 @@ export function ExchangeActions({
             ]}
           />
           <TextField
-            label={`Collateral (${collateral.symbol})`}
+            label="Size"
             inputMode="decimal"
-            value={collateralText}
+            value={sizeText}
             onChange={(event) => {
-              setCollateralText(event.target.value);
+              setSizeText(event.target.value);
             }}
           />
           <TextField
@@ -154,33 +173,29 @@ export function ExchangeActions({
               setLeverageText(event.target.value);
             }}
           />
-          <p className="text-xs text-muted-foreground">
-            {approving
-              ? `Approving the exact ${collateral.symbol} amount for the perps venue.`
-              : `If the perps venue allowance is short, one approve for the exact ${collateral.symbol} amount is sent first.`}
-          </p>
           <KitButton
             loading={pending}
             onClick={() => {
-              if (amount === undefined || leverage === undefined) {
+              if (size === undefined || leverage === undefined) {
                 return;
               }
               send(
-                perpsOpenPositionCall({
-                  marketId: BigInt(marketId),
-                  collateralToken: collateral.token,
-                  collateralAmount: amount,
-                  leverage,
-                  isLong: side === "long",
-                }),
-                amount,
+                async () =>
+                  perpsOpenPositionCall({
+                    marketId: word(marketId),
+                    accountId: await resolveAccountId(),
+                    side: side === "long" ? 1 : 2,
+                    size,
+                    leverage,
+                  }),
+                0n,
                 setOpenOutcome,
               );
             }}
             {...availability(
               walletReason,
-              (marketId === "" || amount === undefined || amount === 0n || leverage === undefined || leverage === 0n) &&
-                "Choose a market and enter collateral and leverage.",
+              (marketId === "" || size === undefined || size === 0n || leverage === undefined || leverage === 0n) &&
+                "Choose a market and enter size and leverage.",
             )}
           >
             Open position
@@ -207,7 +222,7 @@ export function ExchangeActions({
             variant="destructive"
             loading={pending}
             onClick={() => {
-              send(perpsClosePositionCall(BigInt(positionId)), 0n, setCloseOutcome);
+              send(() => perpsClosePositionCall(BigInt(positionId)), 0n, setCloseOutcome);
             }}
             {...availability(walletReason, positionId === "" && "Choose a position.")}
           >
@@ -232,7 +247,7 @@ export function ExchangeActions({
             variant="destructive"
             loading={pending}
             onClick={() => {
-              send(perpsCancelOrderCall(BigInt(orderId)), 0n, setCancelOutcome);
+              send(async () => perpsCancelOrderCall(word(orderId), await resolveAccountId()), 0n, setCancelOutcome);
             }}
             {...availability(walletReason, orderId === "" && "Choose an order.")}
           >
@@ -251,13 +266,18 @@ export function ExchangeActions({
               setMarginText(event.target.value);
             }}
           />
+          <p className="text-xs text-muted-foreground">
+            {approving
+              ? `Approving the exact ${collateral.symbol} amount for the perps venue.`
+              : `If the deposit allowance is short, one approve for the exact ${collateral.symbol} amount is sent first.`}
+          </p>
           <KitButton
             loading={pending}
             onClick={() => {
               if (margin === undefined) {
                 return;
               }
-              send(perpsDepositCall(collateral.token, margin), margin, setMarginOutcome);
+              send(() => perpsDepositCall(collateral.token, margin), margin, setMarginOutcome);
             }}
             {...availability(walletReason, (margin === undefined || margin === 0n) && "Enter an amount.")}
           >
@@ -270,7 +290,7 @@ export function ExchangeActions({
               if (margin === undefined) {
                 return;
               }
-              send(perpsWithdrawCall(collateral.token, margin), 0n, setMarginOutcome);
+              send(() => perpsWithdrawCall(collateral.token, margin), 0n, setMarginOutcome);
             }}
             {...availability(walletReason, (margin === undefined || margin === 0n) && "Enter an amount.")}
           >

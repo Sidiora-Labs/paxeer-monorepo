@@ -17,7 +17,7 @@ use std::fmt::{Display, Formatter, Write as _};
 
 use layerx_agent_api::prepare::Disclosure;
 use layerx_agent_api::track::TrackedSubmission;
-use layerx_agent_api::verify::Level;
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 use crate::audit::{AuditChain, AuditError};
@@ -132,7 +132,7 @@ pub struct AgentApprovalRecord {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct VerifiedBudgetAfter {
     pub remaining: u128,
-    pub level: Level,
+    pub rung: Rung,
     pub evidence_digest: [u8; 32],
     pub observed_at_sequence: u64,
 }
@@ -455,7 +455,7 @@ fn build_item(
         return Err(InboxError::UnsupportedDisclosure);
     }
     let budget_after = agent.verified_budget_after(record, sequence)?;
-    if budget_after.level == Level::Unverified
+    if budget_after.rung < Rung::Committed
         || budget_after.evidence_digest == [0; 32]
         || budget_after.observed_at_sequence > sequence
     {

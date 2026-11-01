@@ -1005,3 +1005,137 @@ fn maintained_hash_batch_id_verifies_with_single_and_two_key_lists() -> TestResu
     );
     Ok(())
 }
+
+impl Gateway {
+    fn start_pinned(kernel: &Kernel, keys: Option<&Value>) -> Self {
+        let port = free_port();
+        let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-gateway"));
+        command
+            .env_clear()
+            .env("PATH", std::env::var_os("PATH").unwrap_or_default())
+            .env("LAYERX_GATEWAY_LISTEN", format!("127.0.0.1:{port}"))
+            .env("LAYERX_GATEWAY_LISTENER", "plain")
+            .env(
+                "LAYERX_GATEWAY_OUTBOUND_CA_DER",
+                kernel.directory.join("server.der"),
+            )
+            .env("LAYERX_GATEWAY_NETWORK_ID", "receipt-keys")
+            .env(
+                "LAYERX_GATEWAY_LXP_WIRE_VERSION",
+                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION.to_string(),
+            )
+            .env("LAYERX_GATEWAY_PROTOCOL_NETWORK_ID", "7")
+            .env(
+                "LAYERX_GATEWAY_REDIS_URL",
+                format!("rediss://localhost:{}", kernel.redis_port),
+            )
+            .env(
+                "LAYERX_GATEWAY_REDIS_USERNAME_FILE",
+                kernel.file("public-redis-user", "gateway"),
+            )
+            .env(
+                "LAYERX_GATEWAY_REDIS_PASSWORD_FILE",
+                kernel.file("public-redis-password", "gateway-secret"),
+            );
+        if let Some(keys) = keys {
+            command.env(
+                "LAYERX_GATEWAY_RECEIPT_KEYS_FILE",
+                kernel.file("public-receipt-keys.json", &keys.to_string()),
+            );
+        }
+        let child = command
+            .stdout(Stdio::null())
+            .stderr(Stdio::inherit())
+            .spawn()
+            .unwrap_or_else(|error| panic!("gateway must start: {error}"));
+        let mut gateway = Self { child, port };
+        for _ in 0..200 {
+            if let Ok(Some(status)) = gateway.child.try_wait() {
+                panic!("gateway refused start-up: {status}");
+            }
+            if gateway
+                .get("/livez", None)
+                .is_ok_and(|(status, _)| status == 200)
+            {
+                return gateway;
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+        panic!("gateway did not become live")
+    }
+
+    fn receipt_keys(&self, params: Value) -> Result<Value, String> {
+        let call =
+            json!({"jsonrpc": "2.0", "id": 81, "method": "px_getReceiptKeys", "params": params});
+        let body = call.to_string();
+        let mut stream =
+            TcpStream::connect(("127.0.0.1", self.port)).map_err(|error| error.to_string())?;
+        stream
+            .set_read_timeout(Some(Duration::from_secs(30)))
+            .map_err(|error| error.to_string())?;
+        write!(stream, "POST /rpc HTTP/1.1\r\nHost: localhost\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
+            .map_err(|error| error.to_string())?;
+        let mut answer = Vec::new();
+        stream
+            .read_to_end(&mut answer)
+            .map_err(|error| error.to_string())?;
+        let header_end = answer
+            .windows(4)
+            .position(|window| window == b"\r\n\r\n")
+            .ok_or("response has no header terminator")?;
+        assert!(String::from_utf8_lossy(&answer[..header_end]).starts_with("HTTP/1.1 200 "));
+        let answer: Value =
+            serde_json::from_slice(&answer[header_end + 4..]).map_err(|error| error.to_string())?;
+        assert_eq!(answer["jsonrpc"], "2.0");
+        assert_eq!(answer["id"], 81);
+        Ok(answer)
+    }
+}
+
+#[test]
+fn receipt_keys_method_answers_the_pinned_list() -> TestResult {
+    let kernel = Kernel::start();
+    let primary = SigningKey::from_bytes(&[61; 32]);
+    let standby = SigningKey::from_bytes(&[62; 32]);
+    let entries = [
+        ([1; 32], primary.verifying_key().to_bytes(), 1, 100),
+        ([2; 32], standby.verifying_key().to_bytes(), 101, u64::MAX),
+    ];
+    let configured = json!(entries
+        .iter()
+        .map(|(id, public_key, first, last)| pinned_entry(*id, *public_key, *first, *last))
+        .collect::<Vec<_>>());
+    let expected = json!({"keys": entries.iter().map(|(id, public_key, first, last)| json!({
+        "keyId": format!("0x{}", hex(id)), "publicKey": format!("0x{}", hex(public_key)),
+        "firstHeight": first, "lastHeight": last,
+    })).collect::<Vec<_>>()});
+    let list = ReceiptKeyList::from_config(&configured.to_string())?;
+    assert_eq!(list.entries().len(), 2);
+    for (authorization, (id, public_key, first, last)) in list.entries().iter().zip(entries) {
+        assert_eq!(authorization.sequencer_id(), id);
+        assert_eq!(authorization.public_key(), public_key);
+        assert_eq!(authorization.first_batch_number(), first);
+        assert_eq!(authorization.last_batch_number(), last);
+    }
+    let gateway = Gateway::start_pinned(&kernel, Some(&configured));
+    let answer = gateway.receipt_keys(json!([]))?;
+    assert_eq!(answer["result"], expected, "{answer}");
+    assert!(answer.get("error").is_none());
+    fs::write(kernel.directory.join("public-receipt-keys.json"), "[]")?;
+    assert_eq!(gateway.receipt_keys(json!([]))?["result"], expected);
+    for params in [json!(["5"]), json!({}), json!(null)] {
+        let answer = gateway.receipt_keys(params)?;
+        assert_eq!(answer["error"]["code"], -32602, "{answer}");
+        assert!(answer.get("result").is_none());
+    }
+    drop(gateway);
+    let gateway = Gateway::start_pinned(&kernel, None);
+    let answer = gateway.receipt_keys(json!([]))?;
+    assert_eq!(answer["error"]["code"], -32003, "{answer}");
+    assert_eq!(
+        answer["error"]["data"]["code"], "receipt_keys_unavailable",
+        "{answer}"
+    );
+    assert!(answer.get("result").is_none());
+    Ok(())
+}

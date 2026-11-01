@@ -9,7 +9,6 @@ import (
 	"math/rand"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/client/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -67,9 +66,7 @@ func (AppModuleBasic) RegisterRESTRoutes(_ client.Context, _ *mux.Router) {}
 // the layerxCustody precompile views.
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {}
 
-// GetTxCmd returns the custody proposal submit command: only governance sends
-// the module's authority-gated messages.
-func (AppModuleBasic) GetTxCmd() *cobra.Command { return cli.GetTxCmd() }
+func (AppModuleBasic) GetTxCmd() *cobra.Command { return nil }
 
 func (AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
 
@@ -92,6 +89,9 @@ func (AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier { return
 
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+	if err := cfg.RegisterMigration(types.ModuleName, 1, keeper.NewMigrator(am.keeper).Migrate1to2); err != nil {
+		panic(fmt.Sprintf("failed to register x/%s migration 1 to 2: %v", types.ModuleName, err))
+	}
 }
 
 func (am AppModule) RegisterInvariants(registry sdk.InvariantRegistry) {
@@ -118,7 +118,7 @@ func (am AppModule) ExportGenesisStream(ctx sdk.Context, cdc codec.JSONCodec) <-
 	return ch
 }
 
-func (AppModule) ConsensusVersion() uint64 { return 1 }
+func (AppModule) ConsensusVersion() uint64 { return 2 }
 
 func (am AppModule) GenerateGenesisState(simState *module.SimulationState) {
 	simState.GenState[types.ModuleName] = simState.Cdc.MustMarshalJSON(types.DefaultGenesis())

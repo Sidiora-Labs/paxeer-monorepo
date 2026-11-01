@@ -244,6 +244,24 @@ pub(super) fn route(request: &IncomingRequest) -> Option<OutgoingResponse> {
     Some(http_route(request))
 }
 
+pub(super) fn filter_capabilities_response(
+    path: &str,
+    answer: &mut OutgoingResponse,
+) -> Result<(), &'static str> {
+    if path != "/api/v2/paxeer-x/capabilities" || answer.body.is_empty() {
+        return Ok(());
+    }
+    let mut capabilities: serde_json::Map<String, serde_json::Value> =
+        serde_json::from_slice(&answer.body).map_err(|_| "explorer_capabilities_refused")?;
+    capabilities.remove("custody");
+    capabilities.remove("anchor");
+    answer.body = serde_json::to_vec(&capabilities).map_err(|_| "explorer_capabilities_refused")?;
+    answer
+        .headers
+        .retain(|(name, _)| !matches!(name.as_str(), "etag" | "x-content-sha256"));
+    Ok(())
+}
+
 fn http_route(request: &IncomingRequest) -> OutgoingResponse {
     let Ok((path, _)) = split_target(&request.path) else {
         return response(400, "explorer_target_refused", None);
@@ -323,6 +341,9 @@ fn http_route(request: &IncomingRequest) -> OutgoingResponse {
             output.headers.push((name, value));
         }
     }
+    if let Err(reason) = filter_capabilities_response(route.path, &mut output) {
+        return response(502, reason, None);
+    }
     output
 }
 
@@ -380,6 +401,60 @@ mod tests {
     use super::*;
     const HOST: &str = "api-mainnet-beta.paxeer.network";
     const ORIGIN: &str = "https://api-mainnet-beta.paxeer.network";
+    #[test]
+    fn explorer_refuses_the_retired_anchor_view() {
+        assert!(selected("GET", "/api/v2/paxeer-x/anchors").is_none());
+        let request = IncomingRequest {
+            method: "GET".into(),
+            path: format!("{PREFIX}/api/v2/paxeer-x/anchors"),
+            headers: [("host".into(), HOST.into())].into(),
+            body: Vec::new(),
+        };
+        assert_eq!(http_route(&request).status, 404);
+        for path in [
+            "/api/v2/paxeer-x/archive/anchors",
+            "/api/v2/paxeer-x/capabilities",
+        ] {
+            assert!(selected("GET", path).is_some(), "{path}");
+        }
+    }
+    #[test]
+    fn explorer_proxies_archive_receipt_views() {
+        assert_eq!(ui_proxy::beta_public().host, HOST);
+        for (path, template) in [
+            (
+                "/api/v2/paxeer-x/archive/receipts",
+                "/api/v2/paxeer-x/archive/receipts",
+            ),
+            (
+                "/api/v2/paxeer-x/archive/receipts/receipt-123",
+                "/api/v2/paxeer-x/archive/receipts/{id}",
+            ),
+        ] {
+            let route = selected("GET", path).expect("archive receipt route is admitted");
+            assert_eq!(route.path, template);
+            let request = IncomingRequest {
+                method: "GET".into(),
+                path: format!("{PREFIX}{path}"),
+                headers: [("host".into(), HOST.into())].into(),
+                body: Vec::new(),
+            };
+            assert!(admitted_headers(&request, route).is_ok(), "{path}");
+        }
+        for path in [
+            "/api/v2/paxeer-x/receipts",
+            "/api/v2/paxeer-x/receipts/receipt-123",
+        ] {
+            assert!(selected("GET", path).is_none(), "{path}");
+            let request = IncomingRequest {
+                method: "GET".into(),
+                path: format!("{PREFIX}{path}"),
+                headers: [("host".into(), HOST.into())].into(),
+                body: Vec::new(),
+            };
+            assert_eq!(http_route(&request).status, 404, "{path}");
+        }
+    }
     #[test]
     fn explorer_query_and_finite_routes() {
         assert_eq!(ROUTES.len(), 141);
@@ -539,7 +614,7 @@ static ROUTES: &[Route] = &[
     },
     Route {
         method: "GET",
-        path: "/api/v2/paxeer-x/receipts",
+        path: "/api/v2/paxeer-x/archive/receipts",
         session_csrf: false,
     },
     Route {
@@ -919,7 +994,7 @@ static ROUTES: &[Route] = &[
     },
     Route {
         method: "GET",
-        path: "/api/v2/paxeer-x/receipts/{id}",
+        path: "/api/v2/paxeer-x/archive/receipts/{id}",
         session_csrf: false,
     },
     Route {
@@ -959,7 +1034,7 @@ static ROUTES: &[Route] = &[
     },
     Route {
         method: "GET",
-        path: "/api/v2/paxeer-x/anchors",
+        path: "/api/v2/paxeer-x/archive/anchors",
         session_csrf: false,
     },
     Route {

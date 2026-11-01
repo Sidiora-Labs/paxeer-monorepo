@@ -9,6 +9,12 @@
 #include <stdio.h>
 #include <string.h>
 
+extern int EVP_DigestSign(
+    EVP_MD_CTX *context, unsigned char *signature, size_t *signature_length,
+    const unsigned char *digest, size_t digest_length);
+extern lxp_result lxp_batch_header_hash(
+    const lxp_batch_header *header, lxp_arena *arena, uint8_t digest[32]);
+
 enum {
     EXPLORER_FIXTURE_VERSION = 1,
     EXPLORER_PROOF_VERSION = 1,
@@ -23,6 +29,29 @@ static int public_key_for(
     size_t length = 32U;
     int ok = key != NULL && EVP_PKEY_get_raw_public_key(
         key, public_key, &length) == 1 && length == 32U;
+    EVP_PKEY_free(key);
+    return ok ? 0 : 1;
+}
+
+static int sign_batch_header(
+    const lxp_batch_header *header, const uint8_t private_key[32],
+    uint8_t signature[64], lxp_arena *arena)
+{
+    EVP_PKEY *key;
+    EVP_MD_CTX *context;
+    uint8_t digest[32];
+    size_t signature_length = 64U;
+    int ok;
+
+    if (lxp_batch_header_hash(header, arena, digest) != LXP_OK) return 1;
+    key = EVP_PKEY_new_raw_private_key(
+        EVP_PKEY_ED25519, NULL, private_key, 32U);
+    context = EVP_MD_CTX_new();
+    ok = key != NULL && context != NULL &&
+        EVP_DigestSignInit(context, NULL, NULL, NULL, key) == 1 &&
+        EVP_DigestSign(context, signature, &signature_length, digest,
+                       sizeof(digest)) == 1 && signature_length == 64U;
+    EVP_MD_CTX_free(context);
     EVP_PKEY_free(key);
     return ok ? 0 : 1;
 }
@@ -194,9 +223,8 @@ int main(void)
     header.oracle_root[0] = 16U;
     header.timestamp_ms = 1000U;
     (void)memcpy(header.sequencer_id, authorization.sequencer_id, 32U);
-    if (lxp_batch_sign(
-            &header, sequencer_private_key, &authorization,
-            header_signature, &arena) != LXP_OK ||
+    if (sign_batch_header(
+            &header, sequencer_private_key, header_signature, &arena) != 0 ||
         lxp_batch_verify_signature(
             &header, header_signature, sizeof(header_signature),
             &authorization, &arena) != LXP_OK)

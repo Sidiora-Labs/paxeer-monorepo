@@ -7,7 +7,6 @@ use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::track::{
     EvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackedSubmission,
 };
-use layerx_agent_api::verify::Level;
 use layerx_agentd::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope};
 use layerx_agentd::capability::{Capability, CapabilityDimensions, CapabilityId, RateCeiling};
 use layerx_agentd::identity::{
@@ -141,7 +140,7 @@ fn receipt() -> VerifiedReceipt {
             .unwrap_or_else(|error| panic!("receipt ref: {error:?}")),
         canonical_receipt: CanonicalBytes::new(b"exact-core-receipt".to_vec())
             .unwrap_or_else(|error| panic!("receipt bytes: {error:?}")),
-        verification_level: Level::BatchIncluded,
+        rung: Rung::Receipted,
         evidence_ids: vec![[4; 32]],
     }
 }
@@ -189,7 +188,11 @@ fn unknown_is_never_reported_as_success_and_late_receipt_resolves_through_track(
     .unwrap_or_else(|error| panic!("unknown: {error:?}"));
     assert!(matches!(
         unknown,
-        WriteOutcome::Unknown { age_ms: 4_000, .. }
+        WriteOutcome::Unknown {
+            age_ms: 4_000,
+            rung: Rung::Receipted,
+            ..
+        }
     ));
 
     let executed = track(
@@ -210,7 +213,13 @@ fn unknown_is_never_reported_as_success_and_late_receipt_resolves_through_track(
         9_000,
     )
     .unwrap_or_else(|error| panic!("late receipt: {error:?}"));
-    assert!(matches!(executed, WriteOutcome::Executed { .. }));
+    assert!(matches!(
+        executed,
+        WriteOutcome::Executed {
+            rung: Rung::Receipted,
+            ..
+        }
+    ));
     assert_eq!(server.audit_entries(), 4);
     let _ = fs::remove_dir_all(root);
 }
@@ -273,13 +282,13 @@ fn executed_without_matching_verified_receipt_is_never_success() {
         Err(WriteToolError::SuccessWithoutVerifiedReceipt)
     ));
 
-    for (rung, level) in [
-        (Rung::Receipted, Level::Unverified),
-        (Rung::Submitted, Level::Unverified),
-        (Rung::Submitted, Level::BatchIncluded),
-        (Rung::Committed, Level::BatchIncluded),
-        (Rung::Receipted, Level::CheckpointFinalised),
-        (Rung::Receipted, Level::SettlementAnchored),
+    for (rung, receipt_rung) in [
+        (Rung::Receipted, Rung::Submitted),
+        (Rung::Submitted, Rung::Submitted),
+        (Rung::Submitted, Rung::Receipted),
+        (Rung::Committed, Rung::Receipted),
+        (Rung::Receipted, Rung::Committed),
+        (Rung::Committed, Rung::Submitted),
     ] {
         let result = execute(
             &mut server,
@@ -295,7 +304,7 @@ fn executed_without_matching_verified_receipt_is_never_success() {
                     rung,
                 )),
                 receipt: Some(VerifiedReceipt {
-                    verification_level: level,
+                    rung: receipt_rung,
                     ..receipt()
                 }),
             },
@@ -303,8 +312,55 @@ fn executed_without_matching_verified_receipt_is_never_success() {
         );
         assert!(
             matches!(result, Err(WriteToolError::SuccessWithoutVerifiedReceipt)),
-            "{rung:?} with {level:?}: {result:?}"
+            "{rung:?} with receipt {receipt_rung:?}: {result:?}"
         );
+    }
+    let _ = fs::remove_dir_all(root);
+}
+
+#[test]
+fn receipt_rung() {
+    let root = directory("receipt-rung");
+    let (mut server, _control, _tenant) = server(&root);
+    for rung in [Rung::Receipted, Rung::Committed] {
+        let receipt_ref = receipt().receipt_ref;
+        let state = if rung == Rung::Committed {
+            SubmissionState::Committed { receipt_ref }
+        } else {
+            SubmissionState::Executed { receipt_ref }
+        };
+        let outcome = track(
+            &mut server,
+            50,
+            b"submission-1".to_vec(),
+            |_| WriteTranscript {
+                stages: vec![WriteStage::Track],
+                submission: Ok(submission(state, rung)),
+                receipt: Some(VerifiedReceipt { rung, ..receipt() }),
+            },
+            0,
+        )
+        .expect("matching daemon and receipt rungs");
+        assert!(matches!(
+            outcome,
+            WriteOutcome::Executed { rung: found, receipt, .. }
+                if found == rung && receipt.rung == rung
+        ));
+    }
+    for rung in [Rung::Submitted, Rung::Receipted, Rung::Committed] {
+        let outcome = track(
+            &mut server,
+            50,
+            b"submission-1".to_vec(),
+            |_| WriteTranscript {
+                stages: vec![WriteStage::Track],
+                submission: Ok(submission(SubmissionState::Submitted, rung)),
+                receipt: None,
+            },
+            0,
+        )
+        .expect("pending daemon rung");
+        assert!(matches!(outcome, WriteOutcome::Pending { rung: found, .. } if found == rung));
     }
     let _ = fs::remove_dir_all(root);
 }

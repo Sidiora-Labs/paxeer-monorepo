@@ -41,7 +41,7 @@ func (h HTTP) ServiceHandler(authority sharedauth.RequestIdentityAuthority) http
 			next.ServeHTTP(w, r)
 			return
 		}
-		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/v1/me/deletion-requests/") && r.Header.Get("X-Recovery-Receipt") != "" {
+		if r.Method == http.MethodGet && (strings.HasPrefix(r.URL.Path, "/v1/me/deletion-requests/") || strings.HasPrefix(r.URL.Path, "/v2/me/deletion-requests/")) && r.Header.Get("X-Recovery-Receipt") != "" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -74,6 +74,14 @@ func (h HTTP) registerOwnerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /v1/me/exports/{jobId}", h.exportGet)
 	mux.HandleFunc("POST /v1/me/deletion-requests", h.deletionPost)
 	mux.HandleFunc("GET /v1/me/deletion-requests/{jobId}", h.deletionGet)
+	mux.HandleFunc("GET /v2/me/preferences", h.preferencesV2Get)
+	mux.HandleFunc("PATCH /v2/me/preferences", h.preferencesV2Patch)
+	mux.HandleFunc("PUT /v2/me/devices/{deviceId}", h.deviceV2Put)
+	mux.HandleFunc("DELETE /v2/me/devices/{deviceId}", h.deviceV2Delete)
+	mux.HandleFunc("POST /v2/me/exports", h.exportV2Post)
+	mux.HandleFunc("GET /v2/me/exports/{jobId}", h.exportV2Get)
+	mux.HandleFunc("POST /v2/me/deletion-requests", h.deletionV2Post)
+	mux.HandleFunc("GET /v2/me/deletion-requests/{jobId}", h.deletionV2Get)
 	mux.Handle("GET /v2/me/exports/{jobId}/download", h.DownloadHandler())
 }
 func (h HTTP) preferencesGet(w http.ResponseWriter, r *http.Request) {
@@ -278,6 +286,32 @@ func (c *captureWriter) Write(b []byte) (int, error) {
 	c.Body = append(c.Body, b...)
 	return len(b), nil
 }
+
+func ownerAction(method, path string) string {
+	if method == http.MethodGet || method == http.MethodHead {
+		return ""
+	}
+	switch {
+	case strings.HasPrefix(path, "/v1/profiles/"), strings.HasPrefix(path, "/v2/profiles/"), strings.HasPrefix(path, "/v3/profiles/"):
+		return "profile.update"
+	case path == "/v1/me/preferences", path == "/v2/me/preferences", path == "/v3/me/preferences":
+		return "preferences.update"
+	case strings.HasPrefix(path, "/v1/me/watchlist/"), strings.HasPrefix(path, "/v2/me/watchlist/"):
+		if method == http.MethodDelete {
+			return "watchlist.remove"
+		}
+		return "watchlist.update"
+	case strings.HasPrefix(path, "/v1/me/devices/"), strings.HasPrefix(path, "/v2/me/devices/"):
+		if method == http.MethodDelete {
+			return "device.revoke"
+		}
+		return "device.register"
+	case path == "/v1/me/exports", path == "/v2/me/exports":
+		return "account.export"
+	}
+	return ""
+}
+
 func (h HTTP) GatewayHandler(assertions sharedauth.ServiceAssertionVerifier, resolver sharedauth.PostgresIdentityResolver, operations sharedauth.OperationAuthorizer) http.Handler {
 	next := h.Handler()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -288,7 +322,7 @@ func (h HTTP) GatewayHandler(assertions sharedauth.ServiceAssertionVerifier, res
 			next.ServeHTTP(w, r)
 			return
 		}
-		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/v1/me/deletion-requests/") && r.Header.Get("X-Recovery-Receipt") != "" {
+		if r.Method == http.MethodGet && (strings.HasPrefix(r.URL.Path, "/v1/me/deletion-requests/") || strings.HasPrefix(r.URL.Path, "/v2/me/deletion-requests/")) && r.Header.Get("X-Recovery-Receipt") != "" {
 			if h.Runtime == nil || h.Runtime.RecoveryGatewayVerifier == nil || h.Runtime.RecoveryGatewayVerifier.Authenticate(r, nil) != nil {
 				WriteError(w, ErrDenied, requestID(r))
 				return
@@ -318,7 +352,7 @@ func (h HTTP) GatewayHandler(assertions sharedauth.ServiceAssertionVerifier, res
 			WriteError(w, ErrDenied, requestID(r))
 			return
 		}
-		if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/v1/me/deletion-requests/") && r.Header.Get("X-Recovery-Receipt") != "" {
+		if r.Method == http.MethodGet && (strings.HasPrefix(r.URL.Path, "/v1/me/deletion-requests/") || strings.HasPrefix(r.URL.Path, "/v2/me/deletion-requests/")) && r.Header.Get("X-Recovery-Receipt") != "" {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -353,29 +387,11 @@ func (h HTTP) GatewayHandler(assertions sharedauth.ServiceAssertionVerifier, res
 			next.ServeHTTP(w, r)
 			return
 		}
-		if r.URL.Path == "/v1/me/deletion-requests" {
+		if r.URL.Path == "/v1/me/deletion-requests" || r.URL.Path == "/v2/me/deletion-requests" {
 			next.ServeHTTP(w, r)
 			return
 		}
-		action := ""
-		switch {
-		case (strings.HasPrefix(r.URL.Path, "/v1/profiles/") || strings.HasPrefix(r.URL.Path, "/v3/profiles/")):
-			action = "profile.update"
-		case r.URL.Path == "/v1/me/preferences" || r.URL.Path == "/v3/me/preferences":
-			action = "preferences.update"
-		case strings.HasPrefix(r.URL.Path, "/v1/me/watchlist/"):
-			action = "watchlist.update"
-			if r.Method == http.MethodDelete {
-				action = "watchlist.remove"
-			}
-		case strings.HasPrefix(r.URL.Path, "/v1/me/devices/"):
-			action = "device.register"
-			if r.Method == http.MethodDelete {
-				action = "device.revoke"
-			}
-		case r.URL.Path == "/v1/me/exports":
-			action = "account.export"
-		}
+		action := ownerAction(r.Method, r.URL.Path)
 		if action == "" {
 			WriteError(w, ErrDenied, requestID(r))
 			return

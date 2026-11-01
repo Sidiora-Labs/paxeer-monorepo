@@ -2,6 +2,8 @@ import { Box, Flex } from '@chakra-ui/react';
 import React from 'react';
 
 import type { SocketMessage } from 'lib/socket/types';
+import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
+import type { Transaction } from 'types/api/transaction';
 
 import { route } from 'nextjs-routes';
 
@@ -28,7 +30,7 @@ const LatestTxs = () => {
   const txsCount = isMobile ? 4 : 6;
   const { data, isPlaceholderData, isError } = useApiQuery('general:homepage_txs', {
     queryOptions: {
-      placeholderData: Array(txsCount).fill(TX),
+      placeholderData: Array<Transaction | PriceUpdateItem>(txsCount).fill(TX),
     },
   });
 

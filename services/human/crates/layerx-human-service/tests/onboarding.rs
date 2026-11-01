@@ -6,7 +6,6 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::agent_api_schema_v1;
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_agent_api::track::{EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef};
-use layerx_agent_api::verify::Level;
 use layerx_agent_api::{SubmissionState, SubmissionState as AgentSubmissionState};
 use layerx_human_service::audit::{verify_export, AuditChain, IdentityEvent};
 use layerx_human_service::custody::{EnvelopeKms, Keystore};
@@ -23,6 +22,7 @@ use layerx_sdk::{Client as AgentClient, Operation};
 use layerx_types::ids::Did;
 use layerx_types::intent::{ApprovalThreshold, RecoveryRoot};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 use support::{directory, install_and_open, principal, retention_uniform, tenancy};
@@ -234,9 +234,9 @@ fn tracked(
         Vec::new()
     };
     let rung = if evidence.is_empty() {
-        layerx_types::rung::Rung::Submitted
+        Rung::Submitted
     } else {
-        layerx_types::rung::Rung::Receipted
+        Rung::Receipted
     };
     layerx_agent_api::track::TrackedSubmission {
         submission_ref: SubmissionRef::new(submission)

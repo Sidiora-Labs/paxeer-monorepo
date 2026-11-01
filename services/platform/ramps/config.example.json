@@ -118,15 +118,24 @@
     "status_path": "/layerx-ramp-v1/settlements"
   },
   "layerx": {
-    "gateway_endpoint": "https://gateway.layerx-platform.svc.cluster.local",
+    "rpc_endpoint": "https://sequencer.layerx-platform.svc.cluster.local",
+    "rpc_trust_anchor_der": "/run/secrets/paxeer-rpc-ca.der",
+    "chain_id": 125,
+    "operator_address": "0xREPLACE_40_HEX_OPERATOR_ADDRESS",
+    "receipt_keys": [
+      {
+        "keyId": "0xREPLACE_64_HEX_RECEIPT_KEY_ID",
+        "publicKey": "0xREPLACE_64_HEX_ED25519_PUBLIC_KEY",
+        "firstHeight": 1,
+        "lastHeight": 1000000
+      }
+    ],
+    "max_fee_per_gas": 2000000000,
+    "max_priority_fee_per_gas": 1000000000,
+    "gas_limit_cap": 1000000,
     "signer_endpoint": "https://kms-boundary.layerx-ramps.svc.cluster.local",
-    "gateway_key_file": "/run/secrets/gateway-key",
     "signer_token_file": "/run/secrets/kms-token",
-    "actor_did": "did:layerx:market-maker-eu-1",
-    "protocol_version": 1,
-    "network_id": 1,
-    "fee_limit": 1000,
-    "signer_public_key": "REPLACE_64_HEX_ED25519_PUBLIC_KEY"
+    "actor_did": "did:layerx:market-maker-eu-1"
   },
   "paxeer": {
     "custody_endpoint": "https://paxeer-custody.layerx-ramps.svc.cluster.local",
@@ -137,16 +146,7 @@
     "wallet_address": "REPLACE_OPERATOR_WALLET",
     "vault_id": "REPLACE_OPERATOR_VAULT",
     "signer_key_handle": "kms://market-maker-eu-1/paxeer",
-    "rpc_endpoints": [
-      "https://paxeer-rpc-a.internal:8545",
-      "https://paxeer-rpc-b.internal:8545"
-    ],
-    "rpc_trust_anchor_der": "/run/secrets/paxeer-rpc-ca.der",
-    "rpc_chain_id": 0,
-    "rpc_minimum_agreement": 2,
-    "required_confirmations": 12,
-    "poll_cadence_seconds": 5,
-    "delayed_after_polls": 12
+    "poll_cadence_seconds": 5
   },
   "provider_callback_public_key": "REPLACE_64_HEX_ED25519_PUBLIC_KEY",
   "operator_control_token_file": "/run/secrets/operator-control-token"

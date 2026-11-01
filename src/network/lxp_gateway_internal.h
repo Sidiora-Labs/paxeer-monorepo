@@ -80,12 +80,6 @@ lxp_result lxp_gateway_registry_enter(
     lx_account_registry *accounts);
 lxp_result lxp_gateway_registry_leave(
     lxp_gateway_invoice_registry *registry);
-#ifdef LXP_TESTING
-lxp_result lxp_gateway_grant_present_test_locked(
-    const lxp_payer_grant *grant,
-    lx_account_registry *accounts,
-    lxp_grant_store *store);
-#endif
 
 lxp_result lxp_gateway_kv_init(lxp_gateway_kv *kv);
 void lxp_gateway_kv_release(lxp_gateway_kv *kv);

@@ -10,6 +10,7 @@ fn vectors() -> Value {
     serde_json::from_slice(&std::fs::read(path).expect("native vectors readable"))
         .expect("native JSON")
 }
+
 fn bytes(v: &Value, name: &str) -> Vec<u8> {
     let s = v[name].as_str().expect("native field");
     assert_eq!(s.len() % 2, 0);

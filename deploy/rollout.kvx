@@ -189,14 +189,6 @@ railway_service = "indexer"
 health = "/healthz"
 order = 11
 
-[service.explorer-index]
-target = "box"
-image = "kernel"
-box_role = "explorer-index"
-box_unit = "layerx-explorer-index.service"
-health = "tcp:9457"
-order = 12
-
 [service.search-front]
 target = "railway"
 image = "search-front"

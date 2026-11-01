@@ -1,4 +1,5 @@
 import type { AllowList, Metadata } from "../cosmos/bank/v1beta1/bank";
+import type { PageRequest, PageResponse } from "../cosmos/base/query/v1beta1/pagination";
 import type { DenomAuthorityMetadata } from "./authorityMetadata";
 import type { Params } from "./params";
 export type QueryParamsRequest = {};
@@ -14,9 +15,11 @@ export interface QueryDenomAuthorityMetadataResponse {
 }
 export interface QueryDenomsFromCreatorRequest {
     creator: string;
+    pagination?: PageRequest;
 }
 export interface QueryDenomsFromCreatorResponse {
     denoms: string[];
+    pagination?: PageResponse;
 }
 export interface QueryDenomMetadataRequest {
     /** denom is the coin denom to query the metadata for. */

@@ -739,7 +739,6 @@ dependencies = [
  "layerx-identity-binding",
  "layerx-intents",
  "layerx-paxeer-verifier",
- "layerx-programs-protocol-adapter",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
@@ -771,6 +770,7 @@ dependencies = [
  "rustls",
  "serde_json",
  "sha2",
+ "tungstenite",
  "ureq",
 ]
 
@@ -825,8 +825,6 @@ dependencies = [
  "base64",
  "ed25519-dalek",
  "k256",
- "layerx-agent-api",
- "layerx-client",
  "layerx-crypto",
  "layerx-proof",
  "layerx-wire",
@@ -876,21 +874,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "layerx-programs-protocol-adapter"
-version = "0.1.0"
-dependencies = [
- "layerx-programs-registry",
-]
-
-[[package]]
 name = "layerx-programs-registry"
 version = "0.1.0"
 dependencies = [
+ "curve25519-dalek",
+ "ed25519-dalek",
  "layerx-program-sdk",
  "layerx-programs-runtime",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
+ "sha2",
 ]
 
 [[package]]

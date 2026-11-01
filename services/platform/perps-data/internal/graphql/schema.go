@@ -10,12 +10,16 @@ type Resolver struct {
 	DB *sql.DB
 }
 
+type Query = Resolver
+
 func NewSchema(db *sql.DB) (*graphql.Schema, error) {
-	return graphql.ParseSchema(SDL, &Resolver{DB: db},
+	return graphql.ParseSchema(SDL, &Query{DB: db},
 		graphql.UseFieldResolvers(), graphql.MaxDepth(10), graphql.MaxParallelism(20))
 }
 
 const SDL = `scalar BigDecimal
+
+scalar BigInt
 
 scalar DateTime
 
@@ -23,12 +27,28 @@ type Market {
   marketId: Int!
   name: String!
   symbol: String!
+  oracleSymbol: String!
+  szDecimals: Int
+  pxDecimals: Int
+  tickSize: BigInt
+  lotSize: BigInt
+  tierClass: Int
+  oiCapUsd: BigInt
   maxLeverage: BigDecimal!
   enabled: Boolean!
   createdAt: DateTime
+  marginTiers: [MarginTier!]!
   latestPrice: LatestPrice
   poolState: PoolState
   fundingRate: FundingRate
+}
+
+type MarginTier {
+  tier: Int!
+  lowerBoundUsd: BigInt!
+  maxLeverage: BigInt!
+  maintenanceBps: BigInt!
+  deductionUsd: BigInt!
 }
 
 type Position {
@@ -320,6 +340,7 @@ type VaultBalanceRecord {
   tokenAddress: String!
   vaultType: Int!
   vaultTypeName: String
+  "For vaultType 0, the aggregate collateral held by the perps module across all accounts, in USDL."
   newBalance: BigDecimal!
   delta: BigDecimal!
   isIncrease: Boolean!
@@ -662,21 +683,6 @@ type Query {
     offset: Int
   ): [SpotOrderFill!]!
 
-  spotBatchClearings(
-    marketId: String
-    limit: Int
-    offset: Int
-  ): [SpotBatchClearing!]!
-
-  spotEpochSettlements(limit: Int, offset: Int): [SpotEpochSettlement!]!
-
-  spotFastSettlements(
-    userAddress: String
-    tokenAddress: String
-    limit: Int
-    offset: Int
-  ): [SpotFastSettlement!]!
-
   spotCollateralMovements(
     userAddress: String
     tokenAddress: String
@@ -684,29 +690,6 @@ type Query {
     limit: Int
     offset: Int
   ): [SpotCollateralMovement!]!
-
-  spotMarketModeChanges(
-    marketId: String
-    limit: Int
-    offset: Int
-  ): [SpotMarketModeChange!]!
-
-  spotPofqUpdates(
-    entityAddress: String
-    isVault: Boolean
-    limit: Int
-    offset: Int
-  ): [SpotPofqUpdate!]!
-
-  spotPLVs(isRegistered: Boolean, limit: Int, offset: Int): [SpotPLV!]!
-
-  spotKeeperCycles(limit: Int, offset: Int): [SpotKeeperCycle!]!
-
-  spotBatchClearFailures(
-    marketId: String
-    limit: Int
-    offset: Int
-  ): [SpotBatchClearFailure!]!
 }
 
 type SpotMarket {
@@ -760,104 +743,12 @@ type SpotOrderFill {
   blockTimestamp: DateTime!
 }
 
-type SpotBatchClearing {
-  id: Int!
-  marketId: String!
-  clearingOffsetBps: Int!
-  clearingPrice: BigDecimal!
-  matchedVolume: BigDecimal!
-  numBuysFilled: Int!
-  numSellsFilled: Int!
-  blockNumber: Int!
-  txHash: String!
-  logIndex: Int!
-  blockTimestamp: DateTime!
-}
-
-type SpotEpochSettlement {
-  epochNumber: BigDecimal!
-  usersProcessed: Int!
-  onchainBlock: Int!
-  blockNumber: Int!
-  txHash: String!
-  logIndex: Int!
-  blockTimestamp: DateTime!
-}
-
-type SpotFastSettlement {
-  id: Int!
-  userAddress: String!
-  tokenAddress: String!
-  amount: BigDecimal!
-  fee: BigDecimal!
-  blockNumber: Int!
-  txHash: String!
-  logIndex: Int!
-  blockTimestamp: DateTime!
-}
-
 type SpotCollateralMovement {
   id: Int!
   eventType: String!
   userAddress: String!
   tokenAddress: String!
   amount: BigDecimal!
-  blockNumber: Int!
-  txHash: String!
-  logIndex: Int!
-  blockTimestamp: DateTime!
-}
-
-type SpotMarketModeChange {
-  id: Int!
-  marketId: String!
-  oldMode: Int!
-  newMode: Int!
-  batchModeUntilBlock: BigDecimal!
-  blockNumber: Int!
-  txHash: String!
-  logIndex: Int!
-  blockTimestamp: DateTime!
-}
-
-type SpotPofqUpdate {
-  id: Int!
-  entityAddress: String!
-  newScore: BigDecimal!
-  newWeight: BigDecimal!
-  isVault: Boolean!
-  blockNumber: Int!
-  txHash: String!
-  logIndex: Int!
-  blockTimestamp: DateTime!
-}
-
-type SpotPLV {
-  vaultAddress: String!
-  isRegistered: Boolean!
-  registeredAt: DateTime
-  registeredBlock: Int
-  registeredTxHash: String
-  deregisteredAt: DateTime
-  deregisteredBlock: Int
-  deregisteredTxHash: String
-}
-
-type SpotKeeperCycle {
-  id: Int!
-  onchainTimestamp: Int!
-  marketsEvaluated: Int!
-  batchesCleared: Int!
-  epochSettled: Boolean!
-  blockNumber: Int!
-  txHash: String!
-  blockTimestamp: DateTime!
-}
-
-type SpotBatchClearFailure {
-  id: Int!
-  marketId: String!
-  reason: String!
   blockNumber: Int!
   txHash: String!
   logIndex: Int!

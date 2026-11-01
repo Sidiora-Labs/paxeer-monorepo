@@ -1099,9 +1099,6 @@ fn review_text(
             Mechanism::Send => "send the money to the recipient",
             Mechanism::BudgetDefund => "return the money from the agent's budget",
             Mechanism::ReceiveUnderPayerGrant => "receive the authorised payment",
-            Mechanism::BridgeDepositCredit | Mechanism::BridgeWithdrawRequest => {
-                "cross the wallet boundary"
-            }
         })
         .collect::<Vec<_>>()
         .join(", then ");
@@ -1188,8 +1185,6 @@ const fn mechanism_code(value: Mechanism) -> u8 {
         Mechanism::Send => 3,
         Mechanism::BudgetDefund => 4,
         Mechanism::ReceiveUnderPayerGrant => 5,
-        Mechanism::BridgeDepositCredit => 6,
-        Mechanism::BridgeWithdrawRequest => 7,
     }
 }
 

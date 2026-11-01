@@ -12,60 +12,31 @@ interface IFeeAccumulator {
     error WrongStrategy();
     error AlreadyClaimed();
     error AirdropNotTriggered();
+    error AirdropClaimWindowOpen();
+    error AirdropClaimWindowClosed();
     error InsufficientSurplus();
     error UnsupportedSnapshotToken();
 
     // --- Events ---
-    event FeeRecorded(
-        address indexed pool,
-        uint256 feeAmount,
-        uint256 protocolCut,
-        uint256 poolCut
-    );
+    event FeeRecorded(address indexed pool, uint256 feeAmount, uint256 protocolCut, uint256 poolCut);
 
-    event FeesClaimed(
-        address indexed pool,
-        address indexed recipient,
-        uint256 amount
-    );
+    event FeesClaimed(address indexed pool, address indexed recipient, uint256 amount);
 
-    event FeesBurned(
-        address indexed pool,
-        uint256 amount
-    );
+    event FeesBurned(address indexed pool, uint256 amount);
 
-    event AirdropTriggered(
-        address indexed pool,
-        uint256 totalAmount,
-        uint256 epoch
-    );
+    event AirdropTriggered(address indexed pool, uint256 totalAmount, uint256 epoch);
 
-    event AirdropClaimed(
-        address indexed pool,
-        address indexed holder,
-        uint256 amount,
-        uint256 epoch
-    );
+    event AirdropClaimed(address indexed pool, address indexed holder, uint256 amount, uint256 epoch);
 
-    event LpRewardsSent(
-        address indexed pool,
-        uint256 amount
-    );
+    event AirdropExpired(address indexed pool, uint256 indexed epoch, uint256 amount);
 
-    event ProtocolFeeSwept(
-        uint256 amount
-    );
+    event LpRewardsSent(address indexed pool, uint256 amount);
 
-    event OpticalSurplusRecorded(
-        address indexed pool,
-        uint256 amount
-    );
+    event ProtocolFeeSwept(uint256 amount);
 
-    event OpticalSurplusClaimed(
-        address indexed pool,
-        address indexed recipient,
-        uint256 amount
-    );
+    event OpticalSurplusRecorded(address indexed pool, uint256 amount);
+
+    event OpticalSurplusClaimed(address indexed pool, address indexed recipient, uint256 amount);
 
     // --- Functions ---
 
@@ -97,6 +68,7 @@ interface IFeeAccumulator {
     /// @return amount The amount of USDL claimed
     function claimAirdrop(address pool, address holder) external returns (uint256 amount);
     function claimAirdropEpoch(address pool, address holder, uint256 epoch) external returns (uint256 amount);
+    function sweepExpiredAirdrop(address pool, uint256 epoch) external returns (uint256 amount);
 
     /// @notice Send accumulated fees to pool as LP rewards (LP_REWARDS strategy, FeesRouter-only)
     /// @param pool The pool address

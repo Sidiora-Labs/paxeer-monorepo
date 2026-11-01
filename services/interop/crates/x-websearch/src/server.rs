@@ -324,6 +324,7 @@ impl RouteTable {
 
     /// Sets the handler of
     /// `GET /program-attestations/<program id>/<request id>`.
+    /// The EVM program relay registers its local program exchange here.
     ///
     /// # Errors
     /// Refuses a table whose program exchange route already has a handler.
@@ -360,6 +361,8 @@ impl RouteTable {
             .unwrap_or_else(|_| Response::error(500, "internal_error"))
     }
 
+    /// Serves `/content` before checking serving eligibility; search and fetch
+    /// require serving eligibility.
     #[must_use]
     pub fn dispatch(&self, request: &Request) -> Response {
         if request.route == Route::Health && request.path == "/readyz" {
@@ -375,6 +378,13 @@ impl RouteTable {
                     .unwrap_or_else(|_| Response::error(500, "internal_error"));
             }
             return Response::json(200, b"{\"status\":\"ok\"}".to_vec());
+        }
+        if request.route == Route::Content {
+            let Some(handler) = self.handlers.get(&Route::Content) else {
+                return Response::error(503, "route_unavailable");
+            };
+            return catch_unwind(AssertUnwindSafe(|| handler(request)))
+                .unwrap_or_else(|_| Response::error(500, "internal_error"));
         }
         if !self.is_serving_eligible() {
             return Response::error(503, "service_not_ready");

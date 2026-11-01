@@ -192,14 +192,17 @@ class ReleasePolicy(unittest.TestCase):
                 verified_executable(path, trusted)
 
     def test_workflow_publication_bypass_removed(self):
-        text = (Path(__file__).resolve().parents[4] / 'launchpad/.github/workflows/ci.yml').read_text()
-        self.assertNotIn('!cancelled()', text)
-        self.assertNotIn('packages: write', text)
-        self.assertNotIn('docker push', text)
-        self.assertIn('needs: [verify, contracts, frontend, policy]', text)
+        text = (Path(__file__).resolve().parents[4] / '.github/workflows/offchain-images.yml').read_text()
+        images = text.split('\n  images:\n', 1)[1].split('\n  digests:\n', 1)[0]
+        digests = text.split('\n  digests:\n', 1)[1]
+        self.assertIn('    needs: [plan]\n', images)
+        self.assertNotRegex(images, r'(?m)^    if:')
+        self.assertIn('image: ${{ fromJSON(needs.plan.outputs.images) }}', images)
+        self.assertIn('    needs: [plan, images]\n', digests)
+        self.assertIn("    if: ${{ !cancelled() && needs.plan.result == 'success' }}\n", digests)
         for line in text.splitlines():
             if 'uses:' in line:
-                self.assertRegex(line, '@[0-9a-f]{40} #')
+                self.assertRegex(line, r'@[0-9a-f]{40} # v[0-9]+(?:\.[0-9]+)*$')
     def test_actual_signing_authority_rotation_revokes_old_key(self):
         with tempfile.TemporaryDirectory() as temporary:
             directory = Path(temporary)

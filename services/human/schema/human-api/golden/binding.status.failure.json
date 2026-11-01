@@ -1,9 +1,9 @@
 {
-  "status": 401,
+  "status": 410,
   "body": {
     "ok": false,
     "error": {
-      "code": "session-expired",
+      "code": "operation-retired",
       "copy_key": "error.session.expired",
       "retry": "structural"
     },

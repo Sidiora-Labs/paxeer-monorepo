@@ -2,6 +2,7 @@
 // as decimal strings and must never pass through a float.
 
 export interface PriceObservation {
+  accepted: boolean;
   market_id: number;
   symbol: string | null;
   index_price: string;
@@ -38,6 +39,7 @@ export interface PriceUpdateItem {
 }
 
 export interface FeedMarketLatest {
+  index: number;
   index_price: string;
   mark_price: string;
   source_timestamp_ms: number;
@@ -62,6 +64,7 @@ export interface FeedMarketsResponse {
 export interface MarketUpdate {
   update_hash: string;
   block_number: number;
+  index: number;
   timestamp: string;
   index_price: string;
   mark_price: string;

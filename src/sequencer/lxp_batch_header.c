@@ -1,4 +1,5 @@
 #include "layerx/lxp_batch.h"
+#include "layerx/lxp_crypto.h"
 #include "layerx/lxp_hash.h"
 
 #include <string.h>
@@ -137,4 +138,34 @@ lxp_result lxp_batch_header_hash(const lxp_batch_header *header,
     if (status != LXP_OK) return status;
     return lxp_hash_domain(LXP_DOMAIN_BATCH_HEADER, encoded.bytes,
                            encoded.length, digest);
+}
+
+static int authorization_matches(
+    const lxp_batch_header *header,
+    const lxp_sequencer_authorization *authorization)
+{
+    return authorization != NULL && authorization->authorized == 1U &&
+           header->batch_number >= authorization->first_batch_number &&
+           header->batch_number <= authorization->last_batch_number &&
+           lxp_ct_memcmp(header->sequencer_id,
+                         authorization->sequencer_id, 32U) == 0;
+}
+
+lxp_result lxp_batch_verify_signature(
+    const lxp_batch_header *header, const uint8_t *signature,
+    size_t signature_length,
+    const lxp_sequencer_authorization *authorization, lxp_arena *arena)
+{
+    uint8_t digest[32];
+    lxp_result status;
+    if (header == NULL || signature == NULL || signature_length != 64U ||
+        arena == NULL) return LXP_ERR_BAD_SIGNATURE;
+    if (!authorization_matches(header, authorization))
+        return LXP_ERR_AUTH_SCOPE;
+    status = lxp_batch_header_hash(header, arena, digest);
+    if (status == LXP_OK)
+        status = lxp_ed25519_verify_raw(authorization->public_key, signature,
+                                        digest, sizeof(digest));
+    lxp_secure_zero(digest, sizeof(digest));
+    return status;
 }

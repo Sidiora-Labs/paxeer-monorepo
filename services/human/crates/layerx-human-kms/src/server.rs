@@ -74,8 +74,12 @@ fn connection(
     let observed: [u8; 32] = Sha256::digest(leaf.as_ref()).into();
     let service = layerx_crypto::ct::eq_fixed(&observed, &config.client_pin);
     let executor = config
-        .evm_client_pin
-        .is_some_and(|pin| layerx_crypto::ct::eq_fixed(&observed, &pin));
+        .attestor_evm_client_certificate
+        .as_ref()
+        .is_some_and(|certificate| {
+            let pin: [u8; 32] = Sha256::digest(certificate.as_ref()).into();
+            layerx_crypto::ct::eq_fixed(&observed, &pin)
+        });
     if !service && !executor {
         return Err(Error::Refused);
     }
@@ -133,8 +137,9 @@ fn write_response(writer: &mut impl Write, payload: &[u8]) -> Result<()> {
         .map_err(|_| Error::Unavailable)
 }
 fn validate_sign(request: &Request<'_>, config: &Config, now: u64) -> Result<Option<[u8; 32]>> {
+    let network = u32::try_from(config.chain.chain_id).map_err(|_| Error::Refused)?;
     if request.operation == 13 {
-        return if config.protocol == 3 && request.network == config.network && request.class == 1 {
+        return if request.network == network && request.class == 1 {
             Ok(None)
         } else {
             Err(Error::Refused)
@@ -142,38 +147,39 @@ fn validate_sign(request: &Request<'_>, config: &Config, now: u64) -> Result<Opt
     }
     if request.operation == 11 {
         let value = serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
-        return crate::send::digest(
-            &value,
-            request.binding,
-            config.network,
-            config.protocol,
-            now,
-        )
-        .map(Some);
+        return crate::send::digest(&value, request.binding, network, 3, now).map(Some);
     }
-    if request.operation != 5 {
+    if request.kind != Operation::Sign {
         return Ok(None);
     }
-    let activity =
-        layerx_intents::canonical::decode_unsigned_activity(request.canonical, &config.registry)
-            .map_err(|_| Error::Refused)?;
-    if activity.network_id() != config.network
-        || activity.protocol_version() != config.protocol
-        || request.network != config.network
-    {
-        return Err(Error::Refused);
-    }
-    let disclosure = layerx_crypto::disclosure::bind(request.canonical, &config.registry)
+    sign(request, config, network)
+}
+
+fn sign(request: &Request<'_>, config: &Config, network: u32) -> Result<Option<[u8; 32]>> {
+    let call = crate::attestor::decode_unsigned_evm_transaction(request.canonical)
         .map_err(|_| Error::Refused)?;
-    if disclosure.reencode().map_err(|_| Error::Refused)? != request.canonical
-        || wire::disclosure(&disclosure)? != request.disclosure
-    {
+    if call.chain_id != config.chain.chain_id || request.network != network {
         return Err(Error::Refused);
     }
-    let mut hash = Sha256::new();
-    hash.update(b"LXP/v1/signature-preimage\0");
-    hash.update(request.canonical);
-    let digest: [u8; 32] = hash.finalize().into();
+    let actor_length = request.disclosure.get(5..9).ok_or(Error::Refused)?;
+    if actor_length != 20_u32.to_be_bytes() {
+        return Err(Error::Refused);
+    }
+    let sender = request
+        .disclosure
+        .get(9..29)
+        .ok_or(Error::Refused)?
+        .try_into()
+        .map_err(|_| Error::Refused)?;
+    let disclosure =
+        layerx_crypto::disclosure::call::bind_call(&call, sender).map_err(|_| Error::Refused)?;
+    if wire::disclosure(&disclosure)? != request.disclosure {
+        return Err(Error::Refused);
+    }
+    let digest: [u8; 32] = sha3::Keccak256::digest(request.canonical).into();
+    if !layerx_crypto::ct::eq_fixed(&digest, &call.signing_hash()) {
+        return Err(Error::Refused);
+    }
     if !layerx_crypto::ct::eq_fixed(&digest, &request.digest) {
         return Err(Error::Integrity);
     }

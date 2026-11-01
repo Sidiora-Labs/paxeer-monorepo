@@ -35,9 +35,15 @@
           },
           "evm_path": "m/44'/60'/0'/0/0",
           "layerx_path": "m/44'/19544'/0'/0'",
-          "evm_address": "0x9858EfFD232B4033E47d90003D41EC34EcaEda94",
+          "evm_address": "0x9858effd232b4033e47d90003d41ec34ecaeda94",
           "layerx_public_key": "0e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9",
-          "did": "did:layerx:0e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9"
+          "did": "did:layerx:0e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9",
+          "resolution": {
+            "to": "0x0000000000000000000000000000000000001004",
+            "chainId": 125,
+            "data": "0xc413bad30e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9",
+            "result": "0x0000000000000000000000009858effd232b4033e47d90003d41ec34ecaeda94"
+          }
         },
         {
           "index": 1,
@@ -56,9 +62,15 @@
           },
           "evm_path": "m/44'/60'/0'/0/1",
           "layerx_path": "m/44'/19544'/1'/0'",
-          "evm_address": "0x6Fac4D18c912343BF86fa7049364Dd4E424Ab9C0",
+          "evm_address": "0x6fac4d18c912343bf86fa7049364dd4e424ab9c0",
           "layerx_public_key": "aa92353b9469d1f56b28426dfa72ce3f3fabc7a5c41ee61a51f63bcbd98b942a",
-          "did": "did:layerx:aa92353b9469d1f56b28426dfa72ce3f3fabc7a5c41ee61a51f63bcbd98b942a"
+          "did": "did:layerx:aa92353b9469d1f56b28426dfa72ce3f3fabc7a5c41ee61a51f63bcbd98b942a",
+          "resolution": {
+            "to": "0x0000000000000000000000000000000000001004",
+            "chainId": 125,
+            "data": "0xc413bad3aa92353b9469d1f56b28426dfa72ce3f3fabc7a5c41ee61a51f63bcbd98b942a",
+            "result": "0x0000000000000000000000006fac4d18c912343bf86fa7049364dd4e424ab9c0"
+          }
         }
       ]
     },
@@ -85,9 +97,15 @@
           },
           "evm_path": "m/44'/60'/0'/0/0",
           "layerx_path": "m/44'/19544'/0'/0'",
-          "evm_address": "0x6006ef1944FB519A746d00cDAf715Cbd27a5a008",
+          "evm_address": "0x6006ef1944fb519a746d00cdaf715cbd27a5a008",
           "layerx_public_key": "8020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba",
-          "did": "did:layerx:8020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba"
+          "did": "did:layerx:8020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba",
+          "resolution": {
+            "to": "0x0000000000000000000000000000000000001004",
+            "chainId": 125,
+            "data": "0xc413bad38020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba",
+            "result": "0x0000000000000000000000006006ef1944fb519a746d00cdaf715cbd27a5a008"
+          }
         },
         {
           "index": 1,
@@ -106,9 +124,15 @@
           },
           "evm_path": "m/44'/60'/0'/0/1",
           "layerx_path": "m/44'/19544'/1'/0'",
-          "evm_address": "0xA5Cd5A7a353DAD72643512f25F395eC1857Bc1CA",
+          "evm_address": "0xa5cd5a7a353dad72643512f25f395ec1857bc1ca",
           "layerx_public_key": "f4b28c8bd83c578c1a3b6243c773925511e74eb351384a499ec75f5c02bb838e",
-          "did": "did:layerx:f4b28c8bd83c578c1a3b6243c773925511e74eb351384a499ec75f5c02bb838e"
+          "did": "did:layerx:f4b28c8bd83c578c1a3b6243c773925511e74eb351384a499ec75f5c02bb838e",
+          "resolution": {
+            "to": "0x0000000000000000000000000000000000001004",
+            "chainId": 125,
+            "data": "0xc413bad3f4b28c8bd83c578c1a3b6243c773925511e74eb351384a499ec75f5c02bb838e",
+            "result": "0x000000000000000000000000a5cd5a7a353dad72643512f25f395ec1857bc1ca"
+          }
         }
       ]
     }
@@ -116,7 +140,7 @@
   "wallet_signature": {
     "label": "Hardhat/Anvil default account 0 private key; public, test only, never fund",
     "private_key": "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    "evm_address": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+    "evm_address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
     "vectors": [
       {
         "index": 0,
@@ -180,7 +204,14 @@
           "055c83c7e3b985ef57d7cd7b4f27655660a60596d5d89530712f0bdeb556fd396101612c40b46b117d951af4a9096466651371a57fd006e1f2308efe6febc0a601"
         ],
         "layerx_public_key": "a4b827a1dde86a5ba3c209ee9e8827aed3b62a822bf7ace0f29d24f1e78e7d4f",
-        "did": "did:layerx:a4b827a1dde86a5ba3c209ee9e8827aed3b62a822bf7ace0f29d24f1e78e7d4f"
+        "did": "did:layerx:a4b827a1dde86a5ba3c209ee9e8827aed3b62a822bf7ace0f29d24f1e78e7d4f",
+        "evm_address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "resolution": {
+          "to": "0x0000000000000000000000000000000000001004",
+          "chainId": 125,
+          "data": "0xc413bad3a4b827a1dde86a5ba3c209ee9e8827aed3b62a822bf7ace0f29d24f1e78e7d4f",
+          "result": "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+        }
       },
       {
         "index": 1,
@@ -244,8 +275,16 @@
           "a146a3654ccf29af3988d4f64e37f04f597d0b72fea5bde8ab28454f3984d83131aec103b9df15d8d9ee8f0e367666c5581477c6ef6a0432c126721743e9aae900"
         ],
         "layerx_public_key": "1357c9f8949c28208dea838a96363e35d3b6437ee31c78c3634acf09b4aa0ff1",
-        "did": "did:layerx:1357c9f8949c28208dea838a96363e35d3b6437ee31c78c3634acf09b4aa0ff1"
+        "did": "did:layerx:1357c9f8949c28208dea838a96363e35d3b6437ee31c78c3634acf09b4aa0ff1",
+        "evm_address": "0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266",
+        "resolution": {
+          "to": "0x0000000000000000000000000000000000001004",
+          "chainId": 125,
+          "data": "0xc413bad31357c9f8949c28208dea838a96363e35d3b6437ee31c78c3634acf09b4aa0ff1",
+          "result": "0x000000000000000000000000f39fd6e51aad88f6f4ce6ab8827279cfffb92266"
+        }
       }
     ]
-  }
+  },
+  "resolution_provenance": "Expected getEvmAddrByLayerX ABI answers for the published key/address bindings; no live-chain execution claim. Historical derivation and signed bind bytes are retained."
 }

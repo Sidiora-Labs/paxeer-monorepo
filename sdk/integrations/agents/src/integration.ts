@@ -48,7 +48,7 @@ export function createAgentIntegration(options: AgentIntegrationOptions): LayerX
   const receipts = options.receipts;
   const middleware = new AgentMiddleware({
     client,
-    protocolVersion: config.protocolVersion,
+    receiptKeys: config.receiptKeys,
     ...(options.budgets === undefined ? {} : { budgets: options.budgets }),
     ...(options.preparationBudgets === undefined ? {} : { preparationBudgets: options.preparationBudgets }),
     signer: options.signer,

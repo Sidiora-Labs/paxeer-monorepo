@@ -3,16 +3,14 @@ use std::collections::BTreeSet;
 use layerx_agent_api::identity::{ContractError, PolicyVersion};
 use layerx_agent_api::policy::{PolicyDecisionReason, PolicyDryRunResult, PolicyOutcome};
 use layerx_agent_api::prepare::CanonicalBytes;
-use layerx_agent_api::read::{
-    BatchRef, CheckpointRef, FeeProjection, FeeProjectionRequest, Freshness, RelativeTo,
-};
-use layerx_agent_api::{Amount, Sequence};
+use layerx_agent_api::read::{FeeProjection, FeeProjectionRequest, Freshness, RelativeTo};
+use layerx_agent_api::Amount;
 use layerx_agentd::capability::{Capability, CapabilityDimensions, CapabilityId, RateCeiling};
 use layerx_agentd::identity::ProtocolAuthority;
 use layerx_agentd::policy::{
-    dry_run_request_id, dry_run_with_context, DecisionReason, EvaluationMode, Explanation,
-    Outcome, PolicyDryRunRefusal, PolicyRegistry, PolicyRequest, PolicySet, Rule,
-    RuleConstraints, RuleEffect, VerifiedPolicyContext,
+    dry_run_request_id, dry_run_with_context, DecisionReason, EvaluationMode, Explanation, Outcome,
+    PolicyDryRunRefusal, PolicyRegistry, PolicyRequest, PolicySet, Rule, RuleConstraints,
+    RuleEffect, VerifiedPolicyContext,
 };
 use layerx_agentd::session::{OpenRequest, SessionId, SessionRecord};
 use layerx_agentd::store::TenantId;
@@ -21,6 +19,7 @@ use layerx_client::evidence::{
     EvidenceError, ProgramStateSelector, MAX_PROGRAM_STATE_BUNDLE_BYTES, PROGRAM_STATE_DOMAIN,
     PROGRAM_STATE_REQUEST_BYTES,
 };
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_sdk::rpc::{RpcClient, RpcError};
 use layerx_types::ids::Did;
 
@@ -38,15 +37,14 @@ fn meter(canonical_bytes: u64) -> FeeProjectionRequest {
     }
 }
 
-fn freshness(chain_head: u64, value_sequence: u64) -> Freshness {
-    let batch = BatchRef::new("batch-42").unwrap_or_else(|error| panic!("batch: {error:?}"));
+fn freshness(chain_head: u64, value_height: u64) -> Freshness {
     Freshness {
-        chain_head: Sequence(chain_head),
-        latest_sealed_batch: batch.clone(),
-        latest_finalised_checkpoint: CheckpointRef::new("checkpoint-3")
-            .unwrap_or_else(|error| panic!("checkpoint: {error:?}")),
-        value_sequence: Sequence(value_sequence),
-        relative_to: RelativeTo::Batch(batch),
+        chain_head,
+        value_height,
+        relative_to: RelativeTo::Block {
+            height: value_height,
+            hash: ROOT,
+        },
     }
 }
 
@@ -57,7 +55,9 @@ fn projection() -> FeeProjection {
         fee: Amount(u128::MAX - 7),
         canonical_schedule: CanonicalBytes::new(vec![0, 1, 2, 3])
             .unwrap_or_else(|error| panic!("schedule: {error:?}")),
-        snapshot_sequence: Sequence(42),
+        snapshot_height: 42,
+        gas_units: 17,
+        denom: "upax".to_owned(),
         snapshot_state_root: ROOT,
     }
 }
@@ -74,7 +74,7 @@ fn contract_selector_bytes(version: u16, kind: u8, program: [u8; 32], sequence: 
 }
 
 #[test]
-fn meter_zero_is_a_valid_lni_meter_while_empty_encoded_activity_stays_refused() {
+fn meter_zero_is_a_valid_lni_meter_while_empty_encoded_transaction_stays_refused() {
     let zero = meter(0)
         .validate()
         .unwrap_or_else(|error| panic!("zero meter: {error:?}"));
@@ -86,9 +86,20 @@ fn meter_zero_is_a_valid_lni_meter_while_empty_encoded_activity_stays_refused() 
 
     let rpc = RpcClient::connect("http://127.0.0.1:1", None)
         .unwrap_or_else(|error| panic!("loopback rpc: {error:?}"));
-    assert!(matches!(rpc.estimate_fee(&[]), Err(RpcError::InvalidRequest)));
     assert!(matches!(
-        rpc.estimate_fee(&vec![0; 524_289]),
+        rpc.send_raw_transaction(&[]),
+        Err(RpcError::InvalidRequest)
+    ));
+    assert!(matches!(
+        rpc.estimate_fee(&Eip1559Call {
+            chain_id: 125,
+            nonce: 0,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 21_000,
+            to: [1; 20],
+            data: vec![0; 524_289],
+        }),
         Err(RpcError::InvalidRequest)
     ));
 }
@@ -115,18 +126,27 @@ fn meter_bound_is_the_native_inclusive_limit_and_is_never_clamped() {
 #[test]
 fn fee_projection_is_a_typed_projection_bound_to_its_own_snapshot() {
     let result = projection()
-        .into_projection("native fee schedule at the captured head", freshness(42, 42))
+        .into_projection(
+            "native fee schedule at the captured head",
+            freshness(42, 42),
+        )
         .unwrap_or_else(|error| panic!("projection: {error:?}"));
     assert_eq!(result.projected.fee, Amount(u128::MAX - 7));
     assert_eq!(result.projected.parameter_version, 7);
-    assert_eq!(result.projected.canonical_schedule.as_bytes(), &[0, 1, 2, 3]);
+    assert_eq!(result.projected.snapshot_height, 42);
+    assert_eq!(result.projected.gas_units, 17);
+    assert_eq!(result.projected.denom, "upax");
+    assert_eq!(
+        result.projected.canonical_schedule.as_bytes(),
+        &[0, 1, 2, 3]
+    );
     assert_eq!(result.projected.snapshot_state_root, ROOT);
     assert_eq!(result.observed_freshness, freshness(42, 42));
     assert_eq!(result.rationale, "native fee schedule at the captured head");
 
-    for (chain_head, value_sequence) in [(41, 42), (42, 41), (43, 43), (41, 41)] {
+    for (chain_head, value_height) in [(41, 42), (42, 41), (43, 43), (41, 41)] {
         assert!(matches!(
-            projection().into_projection("stale", freshness(chain_head, value_sequence)),
+            projection().into_projection("stale", freshness(chain_head, value_height)),
             Err(ContractError::Mismatch(_))
         ));
     }
@@ -308,7 +328,9 @@ fn policy_dry_run_stays_a_local_policy_decision_and_never_a_fee_estimate() {
     assert_eq!(result.decision.reason, DecisionReason::InvalidContext);
     assert_eq!(result.explanation.mode, EvaluationMode::DryRun);
     assert_eq!(
-        registry.audit_entry(request_id).map(|entry| &entry.decision),
+        registry
+            .audit_entry(request_id)
+            .map(|entry| &entry.decision),
         Some(&result.decision)
     );
 
@@ -316,10 +338,20 @@ fn policy_dry_run_stays_a_local_policy_decision_and_never_a_fee_estimate() {
     let text = String::from_utf8(bytes.clone()).unwrap_or_else(|error| panic!("utf8: {error}"));
     assert!(text.contains("mode=7:dry_run\n"));
     assert!(text.contains("reason=15:invalid_context\n"));
-    for absent in ["fee", "parameter_version", "schedule", "observed_sequence", "state_root", "freshness"] {
+    for absent in [
+        "fee",
+        "parameter_version",
+        "schedule",
+        "observed_sequence",
+        "state_root",
+        "freshness",
+    ] {
         assert!(!text.contains(absent), "{absent} in policy explanation");
     }
-    assert_eq!(Explanation::from_machine_bytes(&bytes), Ok(result.explanation.clone()));
+    assert_eq!(
+        Explanation::from_machine_bytes(&bytes),
+        Ok(result.explanation.clone())
+    );
     let mut trailing = bytes.clone();
     trailing.push(b'\n');
     assert!(Explanation::from_machine_bytes(&trailing).is_err());

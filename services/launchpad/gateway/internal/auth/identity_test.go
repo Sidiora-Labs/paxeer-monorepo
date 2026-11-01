@@ -79,11 +79,21 @@ func fixtureIdentity(t *testing.T) *identityFixture {
 		}
 		admin.Close()
 	})
-	sql, e := os.ReadFile(filepath.Join("../../../../../launchpad/spec/production-system/handoffs/L33/schema-proposal.sql"))
+	sql, e := os.ReadFile(filepath.Join("..", "devidentity", "migrations", "00001_identity.sql"))
 	if e != nil {
 		t.Fatal(e)
 	}
-	if _, e = pool.Exec(ctx, string(sql)); e != nil {
+	migration := string(sql)
+	baseStart := strings.Index(migration, "CREATE TABLE identity_accounts(")
+	baseEnd := strings.Index(migration, "CREATE TABLE identity_reauth(")
+	immutableStart := strings.Index(migration, "CREATE FUNCTION identity_verified_at_immutable()")
+	immutableEnd := strings.Index(migration, "-- +goose Down")
+	if baseStart < 0 || baseEnd <= baseStart || immutableStart <= baseEnd || immutableEnd <= immutableStart {
+		t.Fatal("identity migration base schema or immutable timestamp section missing")
+	}
+	baseDDL := migration[baseStart:baseEnd]
+	immutableDDL := strings.ReplaceAll(migration[immutableStart:immutableEnd], "-- +goose StatementEnd\n", "")
+	if _, e = pool.Exec(ctx, baseDDL+immutableDDL); e != nil {
 		t.Fatal(e)
 	}
 	key, e := crypto.GenerateKey()

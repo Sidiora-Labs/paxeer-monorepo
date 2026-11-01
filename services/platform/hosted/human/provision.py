@@ -322,7 +322,7 @@ def account_requests(work_dir):
 def owner_policy():
     path = Path(__file__).with_name('beta-owner-policy.json')
     value = json.loads(path.read_text(), object_pairs_hook=strict_pairs)
-    fields(value, 'core-clock-horizon maximum_age_seconds maximum_age_sequences limit activities_source budgets movement', path, 'owner policy')
+    fields(value, 'core-clock-horizon maximum_age_seconds maximum_age_sequences limit activities_source budgets', path, 'owner policy')
     for name in ('core-clock-horizon', 'maximum_age_seconds', 'maximum_age_sequences'):
         uint(value[name], 64, path, name, 1)
     fields(value['limit'], 'scope scope_id_source id name ceiling', path, 'limit')
@@ -335,9 +335,6 @@ def owner_policy():
     require(len(set(value['budgets'])) == len(value['budgets']), path, 'duplicate budgets')
     for budget in value['budgets']:
         h32(budget, path, 'budget')
-    fields(value['movement'], 'PAXEER_CONFIRMATIONS CHECKPOINT_INTERVAL_SECONDS PAXEER_BLOCK_SECONDS REMINDER_INTERVAL_SECONDS', path, 'movement intervals')
-    for key, interval in value['movement'].items():
-        uint(interval, 64, path, key, 1)
     return value
 
 
@@ -825,7 +822,7 @@ def assemble(work_dir, registry_path, asset, journal_path):
         'principal-policy.json': principal_policy(binding, registration, asset, policy,
                                                   inputs / 'owner-registration.json'),
         'recovery-policy.json': recovery, 'purpose-catalog.json': catalog,
-        'movement-policy.json': dict(movement, **policy['movement'])}
+        'movement-policy.json': movement}
     if onboarding is not None:
         files['components.json'].update(ONBOARDING_SPONSOR_PRINCIPAL=onboarding['sponsor_principal'],
             ONBOARDING_INITIAL_FUNDING=onboarding['initial_funding'])

@@ -82,52 +82,6 @@ lxp_result lx_checkpoint_registry_destroy(lx_checkpoint_registry **registry)
     return LXP_OK;
 }
 
-lxp_result lx_checkpoint_registry_register_deposit_root(
-    lx_checkpoint_registry *registry,
-    const lx_paxeer_deposit_root_registration *registration)
-{
-    uint8_t message[sizeof("LX:PAXEER:DEPOSIT:ROOT:v1") - 1U +
-                    32U * 4U + 4U + 2U];
-    size_t message_length;
-    size_t i;
-    lxp_result status;
-    if (registry == NULL || registration == NULL ||
-        registry->count > LX_CHECKPOINT_CAPACITY ||
-        registry->network_id != registration->network_id ||
-        registry->protocol_version != registration->protocol_version)
-        return LXP_ERR_DEPOSIT_PROOF_NOT_FINAL;
-    for (i = 0U; i < registry->count; ++i)
-        if (lxp_ct_memcmp(registry->checkpoints[i].checkpoint_id,
-                          registration->checkpoint_id, 32U) == 0)
-            return LXP_ERR_SEQUENCE_REUSED;
-    if (registry->count == LX_CHECKPOINT_CAPACITY)
-        return LXP_ERR_ARENA_EXHAUSTED;
-    status = lx_paxeer_deposit_root_message(
-        registration, message, sizeof(message), &message_length);
-    if (status == LXP_OK)
-        status = lxp_ed25519_verify_raw(
-            registry->paxeer_checkpoint_authority, registration->signature,
-            message, message_length);
-    if (status != LXP_OK) return LXP_ERR_DEPOSIT_PROOF_NOT_FINAL;
-    (void)memset(&registry->checkpoints[registry->count], 0,
-                 sizeof(registry->checkpoints[0]));
-    (void)memcpy(registry->checkpoints[registry->count].checkpoint_id,
-                 registration->checkpoint_id, 32U);
-    (void)memcpy(registry->checkpoints[registry->count].state_root,
-                 registration->checkpoint_state_root, 32U);
-    (void)memcpy(registry->checkpoints[registry->count].deposit_root,
-                 registration->deposit_root, 32U);
-    (void)memcpy(registry->checkpoints[registry->count].custody_reference,
-                 registration->custody_reference, 32U);
-    registry->checkpoints[registry->count].network_id =
-        registration->network_id;
-    registry->checkpoints[registry->count].protocol_version =
-        registration->protocol_version;
-    registry->checkpoints[registry->count].finalized = true;
-    ++registry->count;
-    return LXP_OK;
-}
-
 lxp_result lx_paxeer_deposit_leaf_hash(const lx_deposit_proof *proof,
                                        uint8_t leaf_hash[32])
 {

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -19,7 +20,7 @@ func RegisterPoolTransactions(r chi.Router, st *store.Store) {
 // filtered by side (type=buy|sell|all). Ports the TS pool-transactions route.
 func poolTransactions(st *store.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		poolAddress := chi.URLParam(r, "poolAddress")
+		poolAddress := strings.ToLower(chi.URLParam(r, "poolAddress"))
 		q := r.URL.Query()
 		limit := parseIntDefault(q.Get("limit"), 50)
 		offset := parseIntDefault(q.Get("offset"), 0)

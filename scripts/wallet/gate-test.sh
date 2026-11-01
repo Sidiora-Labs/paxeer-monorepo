@@ -16,9 +16,9 @@ Runs the test suites of the wallet tree in order: the Go modules
 services/wallet/attestor and services/wallet/ceremony, the pnpm workspace
 services/wallet, the app apps/wallet, the Rust crates
 layerx-human-kms, layerx-human-identity-provider and layerx-human-service
-in the human workspace, and layerx-platform-gateway in the platform
+in the services/human workspace, and layerx-platform-gateway in the services/platform
 workspace. A target whose directory or manifest does not exist is reported
-as absent and is never counted as passed.
+as absent and fails the gate.
 
   --check   validate this script's syntax, the required tooling
             (go, pnpm, cargo, timeout) and print the target list with
@@ -37,7 +37,7 @@ Environment:
                               with an optional fourth field naming a file inside
                               the directory that must exist
 
-Exit status is non-zero when any target that ran failed or the budget ran out.
+Exit status is non-zero when any target is absent, failed or the budget ran out.
 EOF
 }
 
@@ -47,8 +47,8 @@ builtin_targets() {
     go-ceremony services/wallet/ceremony 'go test ./...' go.mod \
     pnpm-wallet services/wallet 'pnpm -r --no-bail test' pnpm-workspace.yaml \
     pnpm-app apps/wallet 'pnpm exec vitest run' package.json \
-    rust-human human 'cargo test --no-fail-fast -p layerx-human-kms -p layerx-human-identity-provider -p layerx-human-service' Cargo.toml \
-    rust-platform platform 'cargo test --no-fail-fast -p layerx-platform-gateway' hosted/gateway/Cargo.toml
+    rust-human services/human 'cargo test --no-fail-fast -p layerx-human-kms -p layerx-human-identity-provider -p layerx-human-service' Cargo.toml \
+    rust-platform services/platform 'cargo test --no-fail-fast -p layerx-platform-gateway' hosted/gateway/Cargo.toml
 }
 
 LABELS=()
@@ -228,7 +228,7 @@ run_gate() {
   done
   print_table
   print_summary "$ran" "$passed" "$failed" "$absent"
-  if [[ "$failed" -gt 0 ]]; then
+  if [[ "$failed" -gt 0 || "$absent" -gt 0 ]]; then
     exit 1
   fi
   exit 0

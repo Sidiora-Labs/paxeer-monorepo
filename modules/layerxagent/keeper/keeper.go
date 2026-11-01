@@ -11,6 +11,8 @@ import (
 
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
+	layerxgovtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/types"
 	agentcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/prefix"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -19,8 +21,8 @@ import (
 )
 
 const (
-	ModuleName = "layerxagent"
-	StoreKey   = ModuleName
+	ModuleName = types.ModuleName
+	StoreKey   = types.StoreKey
 )
 
 // Store prefixes: due (block BE, id BE), creator index (creator, id BE), job
@@ -44,40 +46,10 @@ const (
 
 // Params bound the scheduler. The per-block job cap, the per-job gas limit
 // cap and the JobFailed reason cap are set at activation rehearsal.
-type Params struct {
-	MaxJobsPerCreator  uint64 `json:"max_jobs_per_creator"`
-	MaxScheduleHorizon uint64 `json:"max_schedule_horizon"`
-	MinDepositFactor   uint64 `json:"min_deposit_factor"`
-	MaxJobsPerBlock    uint64 `json:"max_jobs_per_block"`
-	MaxJobGasLimit     uint64 `json:"max_job_gas_limit"`
-	MaxReasonBytes     uint64 `json:"max_reason_bytes"`
-}
+type Params = types.Params
 
 func DefaultParams() Params {
-	return Params{
-		MaxJobsPerCreator:  DefaultMaxJobsPerCreator,
-		MaxScheduleHorizon: DefaultMaxScheduleHorizon,
-		MinDepositFactor:   DefaultMinDepositFactor,
-		MaxJobsPerBlock:    DefaultMaxJobsPerBlock,
-		MaxJobGasLimit:     DefaultMaxJobGasLimit,
-		MaxReasonBytes:     DefaultMaxReasonBytes,
-	}
-}
-
-func (p Params) Validate() error {
-	for _, field := range []struct {
-		name  string
-		value uint64
-	}{
-		{"max jobs per creator", p.MaxJobsPerCreator}, {"max schedule horizon", p.MaxScheduleHorizon},
-		{"min deposit factor", p.MinDepositFactor}, {"max jobs per block", p.MaxJobsPerBlock},
-		{"max job gas limit", p.MaxJobGasLimit}, {"max reason bytes", p.MaxReasonBytes},
-	} {
-		if field.value == 0 {
-			return fmt.Errorf("layerxagent params: %s must be positive", field.name)
-		}
-	}
-	return nil
+	return types.DefaultParams()
 }
 
 // Job is one scheduled call. Deposit is in wei and is held by the module
@@ -128,7 +100,7 @@ func (k Keeper) GetParams(ctx sdk.Context) Params {
 	if encoded == nil {
 		return DefaultParams()
 	}
-	var params Params
+	params := DefaultParams()
 	if err := json.Unmarshal(encoded, &params); err != nil {
 		panic(fmt.Errorf("layerxagent params: %w", err))
 	}
@@ -259,14 +231,21 @@ func (k Keeper) transfer(ctx sdk.Context, from, to sdk.AccAddress, amount sdk.In
 	return k.evm.BankKeeper().SendCoinsAndWei(ctx, from, to, coins, wei)
 }
 
-// Schedule validates a job for creator in the order target, gas limit, past
-// block, horizon, creator cap and deposit, escrows deposit from payer into
-// the module account and stores the job under the next id.
+// Schedule checks the pause, then validates a job for creator in the order
+// target, call data, gas limit, past block, horizon, creator cap and deposit,
+// escrows deposit from payer into the module account and stores the job under
+// the next id.
 func (k Keeper) Schedule(ctx sdk.Context, payer sdk.AccAddress, creator, target common.Address, callData []byte,
 	executeAtBlock, gasLimit uint64, deposit *big.Int) (uint64, error) {
 	params := k.GetParams(ctx)
+	if err := layerxgovtypes.CheckPauseScope(types.ModuleName, params.Paused, "schedule"); err != nil {
+		return 0, err
+	}
 	if target == (common.Address{}) {
 		return 0, fmt.Errorf("%w: zero target", agentcommon.ErrSchedulerInvalidTarget)
+	}
+	if uint64(len(callData)) > params.MaxCallDataBytes {
+		return 0, fmt.Errorf("%w: call data bytes %d, cap %d", agentcommon.ErrSchedulerCallDataTooLarge, len(callData), params.MaxCallDataBytes)
 	}
 	if gasLimit == 0 || gasLimit > params.MaxJobGasLimit {
 		return 0, fmt.Errorf("%w: gas limit %d, cap %d", agentcommon.ErrSchedulerInvalidGasLimit, gasLimit, params.MaxJobGasLimit)
@@ -329,6 +308,10 @@ func (k Keeper) Cancel(ctx sdk.Context, caller common.Address, id uint64) (sdk.I
 
 // Reschedule moves the caller's job to newBlock under the schedule bounds.
 func (k Keeper) Reschedule(ctx sdk.Context, caller common.Address, id, newBlock uint64) error {
+	params := k.GetParams(ctx)
+	if err := layerxgovtypes.CheckPauseScope(types.ModuleName, params.Paused, "reschedule"); err != nil {
+		return err
+	}
 	job, err := k.ownedJob(ctx, caller, id)
 	if err != nil {
 		return err
@@ -337,7 +320,7 @@ func (k Keeper) Reschedule(ctx sdk.Context, caller common.Address, id, newBlock 
 	if newBlock <= height {
 		return fmt.Errorf("%w: block %d at height %d", agentcommon.ErrSchedulerPastBlock, newBlock, height)
 	}
-	if horizon := k.GetParams(ctx).MaxScheduleHorizon; newBlock-height > horizon {
+	if horizon := params.MaxScheduleHorizon; newBlock-height > horizon {
 		return fmt.Errorf("%w: block %d beyond height %d + %d", agentcommon.ErrSchedulerHorizonExceeded, newBlock, height, horizon)
 	}
 	job.ExecuteAtBlock = newBlock

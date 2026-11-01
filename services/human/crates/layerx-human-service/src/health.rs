@@ -1,5 +1,3 @@
-use layerx_paxeer_client::{BoundaryHealth, BoundaryStatus};
-
 use crate::custody::{Availability, CustodyStatus, KeyReferenceIntegrity, RotationState};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -13,14 +11,12 @@ pub enum ComponentHealth {
 pub enum HealthComponent {
     HumanService,
     AgentLayer,
-    Paxeer,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ServiceHealth {
     pub human_service: ComponentHealth,
     pub agent_layer: ComponentHealth,
-    pub paxeer: BoundaryStatus,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -124,9 +120,6 @@ impl ServiceHealth {
         }
         if matches!(self.agent_layer, ComponentHealth::Unavailable { .. }) {
             unavailable.push(HealthComponent::AgentLayer);
-        }
-        if self.paxeer.health == BoundaryHealth::Unavailable {
-            unavailable.push(HealthComponent::Paxeer);
         }
         ServiceReadiness {
             ready: unavailable.is_empty(),

@@ -1,6 +1,7 @@
 import type { GeneratedType } from "@cosmjs/proto-signing";
 import type { AddressAssociation as AddressAssociation_type, Code as Code_type, ContractState as ContractState_type, GenesisState as GenesisState_type, Nonce as Nonce_type, Serialized as Serialized_type } from "../../types/evm";
 import type { MessageFns } from "../common";
+import type { Params } from "./params";
 export interface AddressAssociation extends AddressAssociation_type {
 }
 export interface Code extends Code_type {
@@ -11,7 +12,8 @@ export interface Nonce extends Nonce_type {
 }
 export interface Serialized extends Serialized_type {
 }
-export interface GenesisState extends GenesisState_type {
+export interface GenesisState extends Omit<GenesisState_type, "params"> {
+    params?: Params;
 }
 export declare const AddressAssociation: MessageFns<AddressAssociation, "paxprotocol.paxchain.evm.AddressAssociation">;
 export declare const Code: MessageFns<Code, "paxprotocol.paxchain.evm.Code">;
@@ -83,7 +85,7 @@ export declare const aminoConverters: {
     "/paxprotocol.paxchain.evm.GenesisState": {
         aminoType: string;
         toAmino: (message: GenesisState) => {
-            params?: import("../../types/evm").Params;
+            params?: Params;
             address_associations: AddressAssociation_type[];
             codes: Code_type[];
             states: ContractState_type[];
@@ -91,7 +93,7 @@ export declare const aminoConverters: {
             serialized: Serialized_type[];
         };
         fromAmino: (object: GenesisState) => {
-            params?: import("../../types/evm").Params;
+            params?: Params;
             address_associations: AddressAssociation_type[];
             codes: Code_type[];
             states: ContractState_type[];

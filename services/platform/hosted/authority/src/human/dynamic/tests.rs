@@ -13,7 +13,7 @@ fn genuine_sponsored_activity_binds_owner_target_network_and_every_original_byte
     let activity =
         signed(bytes, &registry, 77).unwrap_or_else(|_| panic!("original KMS signature"));
     let owner = std::str::from_utf8(activity.actor_did()).unwrap_or_else(|_| panic!("owner"));
-    let registration = layerx_crypto::onboarding::SponsoredRegistration::decode(activity.payload())
+    let registration = layerx_crypto::payments::SponsoredRegistration::decode(activity.payload())
         .unwrap_or_else(|_| panic!("signed consent"));
     let target = std::str::from_utf8(registration.consent.target.as_bytes())
         .unwrap_or_else(|_| panic!("target"));

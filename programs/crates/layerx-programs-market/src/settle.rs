@@ -1,6 +1,6 @@
 use layerx_program_sdk::{AccountId, Amount, Field, ProgramError, Reason};
 
-use crate::{ComputeLease, LeaseStatus, Offer, VerificationModel};
+use crate::{ComputeLease, LeaseStatus, Offer};
 
 #[cfg(target_arch = "wasm32")]
 use layerx_program_sdk::{
@@ -377,25 +377,18 @@ pub fn commit_usage(
     ))
 }
 
-/// Commits usage outside the sandbox billing path. A fraud-provable lease is refused here: its
-/// claim must go through the sandbox profile and billing rows that a challenge reads, or the
-/// claim could never be challenged.
+/// Refuses usage outside the sandbox billing path, which cannot be challenged.
 ///
 /// # Errors
-/// Returns an error for a fraud-provable offer or lease, or for anything `commit_usage` refuses.
+/// Always returns a malformed call input error.
 pub fn commit_direct_usage(
-    offer: Offer<'_>,
-    lease: &ComputeLease<'_>,
-    commitment: ProviderCommitment,
-    principal: AccountId,
-    height: u64,
+    _offer: Offer<'_>,
+    _lease: &ComputeLease<'_>,
+    _commitment: ProviderCommitment,
+    _principal: AccountId,
+    _height: u64,
 ) -> Result<(UsageClaim, ChallengeWindow), ProgramError> {
-    if lease.verification == VerificationModel::FraudProvable
-        || offer.verification == VerificationModel::FraudProvable
-    {
-        return Err(malformed());
-    }
-    commit_usage(offer, lease, commitment, principal, height)
+    Err(malformed())
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -662,7 +655,9 @@ fn malformed() -> ProgramError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{expire, open, register, OpenLease, RegisterOffer, SettlementRecord};
+    use crate::{
+        expire, open, register, OpenLease, RegisterOffer, SettlementRecord, VerificationModel,
+    };
 
     fn account(byte: u8) -> AccountId {
         AccountId::new([byte; 32]).unwrap_or_else(|error| panic!("settlement fixture: {error}"))
@@ -750,11 +745,34 @@ mod tests {
         };
         assert_eq!(
             commit_direct_usage(bonded_offer, &bonded_lease, commitment(), account(1), 20),
-            commit_usage(bonded_offer, &bonded_lease, commitment(), account(1), 20)
+            Err(malformed())
         );
-        assert!(
-            commit_direct_usage(bonded_offer, &bonded_lease, commitment(), account(1), 20).is_ok()
-        );
+    }
+
+    #[test]
+    fn unchallengeable_verification_direct_usage_is_refused() {
+        let (offer, lease) = fixture();
+        let models = [
+            VerificationModel::Bonded,
+            VerificationModel::Attested,
+            VerificationModel::FraudProvable,
+        ];
+        for offer_verification in models {
+            for lease_verification in models {
+                let offer = Offer {
+                    verification: offer_verification,
+                    ..offer
+                };
+                let lease = ComputeLease {
+                    verification: lease_verification,
+                    ..lease
+                };
+                assert_eq!(
+                    commit_direct_usage(offer, &lease, commitment(), account(1), 20),
+                    Err(malformed())
+                );
+            }
+        }
     }
 
     #[test]

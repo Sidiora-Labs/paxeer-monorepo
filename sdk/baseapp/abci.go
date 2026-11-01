@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -257,6 +258,14 @@ func (app *BaseApp) SetProcessProposalStateToCommit() {
 
 func (app *BaseApp) SetDeliverStateToCommit() {
 	app.stateToCommit = app.deliverState
+}
+
+func (app *BaseApp) SetSealedStateToCommit(ctx sdk.Context, ms sdk.CacheMultiStore) error {
+	if ms == nil {
+		return errors.New("cannot commit a nil sealed multistore")
+	}
+	app.stateToCommit = &state{ms: ms, ctx: ctx.WithMultiStore(ms), mtx: &sync.RWMutex{}}
+	return nil
 }
 
 // Commit implements the ABCI interface. It will commit all state that exists in
@@ -635,6 +644,9 @@ func (app *BaseApp) handleQueryGRPC(handler GRPCQueryHandler, req abci.RequestQu
 }
 
 func gRPCErrorToSDKError(err error) error {
+	if codespace, _, _ := sdkerrors.ABCIInfo(err, false); codespace != sdkerrors.UndefinedCodespace {
+		return err
+	}
 	status, ok := grpcstatus.FromError(err)
 	if !ok {
 		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())

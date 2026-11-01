@@ -5,6 +5,9 @@ export const DenomAuthorityMetadata = {
         if (message.admin !== "") {
             writer.uint32(10).string(message.admin);
         }
+        if (message.issuerDid !== "") {
+            writer.uint32(18).string(message.issuerDid);
+        }
         return writer;
     },
     decode(input, length) {
@@ -20,6 +23,12 @@ export const DenomAuthorityMetadata = {
                     }
                     message.admin = reader.string();
                     continue;
+                case 2:
+                    if (tag !== 18) {
+                        break;
+                    }
+                    message.issuerDid = reader.string();
+                    continue;
             }
             if ((tag & 7) === 4 || tag === 0) {
                 break;
@@ -29,12 +38,18 @@ export const DenomAuthorityMetadata = {
         return message;
     },
     fromJSON(object) {
-        return { admin: isSet(object.admin) ? globalThis.String(object.admin) : "" };
+        return {
+            admin: isSet(object.admin) ? globalThis.String(object.admin) : "",
+            issuerDid: isSet(object.issuerDid) ? globalThis.String(object.issuerDid) : ""
+        };
     },
     toJSON(message) {
         const obj = {};
         if (message.admin !== "") {
             obj.admin = message.admin;
+        }
+        if (message.issuerDid !== "") {
+            obj.issuerDid = message.issuerDid;
         }
         return obj;
     },
@@ -44,11 +59,12 @@ export const DenomAuthorityMetadata = {
     fromPartial(object) {
         const message = createBaseDenomAuthorityMetadata();
         message.admin = object.admin ?? "";
+        message.issuerDid = object.issuerDid ?? "";
         return message;
     }
 };
 function createBaseDenomAuthorityMetadata() {
-    return { admin: "" };
+    return { admin: "", issuerDid: "" };
 }
 function isSet(value) {
     return value !== null && value !== undefined;

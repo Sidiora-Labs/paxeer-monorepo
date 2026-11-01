@@ -2,7 +2,8 @@
 //! session authorization ordering ahead of any owner effect.
 
 use layerx_agent_api::error::{ApiError, ErrorClass, ReasonCode, RequestId, Retriability};
-use layerx_agent_api::verify::{Level, VerificationStatus};
+use layerx_agent_api::verify::Rung;
+use layerx_agent_api::verify::RungStatus as VerificationStatus;
 use serde::Deserialize;
 
 use crate::agent_rpc_dispatch::{
@@ -20,7 +21,7 @@ use crate::tenant::{self, surface_for, AuthorizationError, ObjectOwner, Operatio
 
 pub const ENVELOPE_VERSION: u8 = 1;
 pub const MAX_BODY_BYTES: usize = 1_048_576;
-const BOOTSTRAP_OPERATIONS: &[Operation] = &[Operation::AgentRegister, Operation::SessionOpen];
+const BOOTSTRAP_OPERATIONS: &[Operation] = &[];
 const RETIRED_OPERATIONS: &[&str] = &["faucet.claim"];
 
 #[derive(Deserialize)]
@@ -115,6 +116,71 @@ fn parse_hex32(value: &str) -> Option<[u8; 32]> {
         *slot = u8::from_str_radix(&value[index * 2..index * 2 + 2], 16).ok()?;
     }
     Some(out)
+}
+
+/// Resolves a catalogue operation to the owner dispatcher or its declared refusal.
+///
+/// # Errors
+/// Returns the retired-capability or bootstrap-artifact refusal for gated operations.
+pub fn dispatch_target(
+    operation: Operation,
+    request_id: RequestId,
+) -> Result<Operation, Rejection> {
+    match operation {
+        Operation::AgentRegister
+        | Operation::SessionOpen
+        | Operation::ApprovalApprove
+        | Operation::ApprovalGet
+        | Operation::ApprovalList
+        | Operation::ApprovalReject
+        | Operation::AvailabilityFetch
+        | Operation::BudgetCreate
+        | Operation::BudgetFund
+        | Operation::BudgetList
+        | Operation::BudgetReconciliation
+        | Operation::BudgetRevoke
+        | Operation::BudgetState
+        | Operation::CapabilityAttenuate
+        | Operation::CapabilityCreate
+        | Operation::CapabilityList
+        | Operation::CapabilityRevoke
+        | Operation::ExportOffline
+        | Operation::McpInvoke
+        | Operation::PolicyDryRun
+        | Operation::Prepare
+        | Operation::ProgramActivity
+        | Operation::ProgramCall
+        | Operation::ProgramDeploy
+        | Operation::ProgramDiscover
+        | Operation::ProgramInterface
+        | Operation::ProgramReceipt
+        | Operation::ProgramSimulate
+        | Operation::ProgramUpgrade
+        | Operation::ProgramWindDown
+        | Operation::Project
+        | Operation::ReadAccount
+        | Operation::ReadBalance
+        | Operation::ReadBatch
+        | Operation::ReadCheckpoint
+        | Operation::ReadHistory
+        | Operation::ReadModuleState
+        | Operation::ReadProofBundle
+        | Operation::SessionClose
+        | Operation::SessionList
+        | Operation::SessionRefresh
+        | Operation::Sign
+        | Operation::Submit
+        | Operation::SubscriptionAcknowledge
+        | Operation::SubscriptionCreate
+        | Operation::SubscriptionDelete
+        | Operation::SubscriptionHealth
+        | Operation::SubscriptionList
+        | Operation::SubscriptionPause
+        | Operation::SubscriptionResume
+        | Operation::TenantReadiness
+        | Operation::Track
+        | Operation::Wait => Ok(operation),
+    }
 }
 
 fn lookup(name: &str) -> Option<Operation> {
@@ -396,7 +462,12 @@ pub fn http_status(rejection: &Rejection) -> u16 {
         }
         ErrorClass::IdempotencyConflict => 409,
         ErrorClass::UnavailableCapability => 503,
-        _ => 500,
+        ErrorClass::TransportFailure
+        | ErrorClass::Deadline
+        | ErrorClass::CoreRejection
+        | ErrorClass::VerificationFailure
+        | ErrorClass::RateLimit
+        | ErrorClass::InternalFault => 500,
     }
 }
 
@@ -432,36 +503,20 @@ pub fn refusal(status: u16, class: ErrorClass, reason: &'static str) -> AgentRpc
     }
 }
 
-const fn level_name(level: Level) -> &'static str {
-    match level {
-        Level::Unverified => "Unverified",
-        Level::SequencerSigned => "SequencerSigned",
-        Level::BatchIncluded => "BatchIncluded",
-        Level::StateProven => "StateProven",
-        Level::CheckpointFinalised => "CheckpointFinalised",
-        Level::SettlementAnchored => "SettlementAnchored",
-    }
+const fn level_name(level: Rung) -> &'static str {
+    level.name()
 }
 
-const LEVELS: [(&str, Level); 12] = [
-    ("Unverified", Level::Unverified),
-    ("SequencerSigned", Level::SequencerSigned),
-    ("BatchIncluded", Level::BatchIncluded),
-    ("StateProven", Level::StateProven),
-    ("CheckpointFinalised", Level::CheckpointFinalised),
-    ("SettlementAnchored", Level::SettlementAnchored),
-    ("unverified", Level::Unverified),
-    ("sequencer-signed", Level::SequencerSigned),
-    ("batch-included", Level::BatchIncluded),
-    ("state-proven", Level::StateProven),
-    ("checkpoint-finalised", Level::CheckpointFinalised),
-    ("settlement-anchored", Level::SettlementAnchored),
+const LEVELS: [(&str, Rung); 3] = [
+    ("submitted", Rung::Submitted),
+    ("receipted", Rung::Receipted),
+    ("committed", Rung::Committed),
 ];
 
 /// `None` when the request declares no level; `Some(None)` when the declared level is not a
 /// level name.
-fn requested_level(request: &serde_json::Map<String, serde_json::Value>) -> Option<Option<Level>> {
-    let value = request.get("requested_verification_level")?;
+fn requested_level(request: &serde_json::Map<String, serde_json::Value>) -> Option<Option<Rung>> {
+    let value = request.get("requested_rung")?;
     Some(value.as_str().and_then(|name| {
         LEVELS
             .into_iter()
@@ -472,18 +527,18 @@ fn requested_level(request: &serde_json::Map<String, serde_json::Value>) -> Opti
 fn verification_json(
     request_id: RequestId,
     status: Option<&VerificationStatus>,
-    requested: Option<Option<Level>>,
+    requested: Option<Option<Rung>>,
 ) -> Result<serde_json::Value, Rejection> {
     let Some(status) = status else {
         return match requested {
             None => Ok(serde_json::json!({
                 "state": "achieved",
-                "level": level_name(Level::Unverified),
+                "rung": level_name(Rung::Submitted),
             })),
-            Some(Some(requested)) if requested > Level::Unverified => Ok(serde_json::json!({
+            Some(Some(requested)) if requested > Rung::Submitted => Ok(serde_json::json!({
                 "state": "unverified",
                 "requested": level_name(requested),
-                "achieved": level_name(Level::Unverified),
+                "achieved": level_name(Rung::Submitted),
                 "reason": "owner_payload_carries_no_level",
             })),
             Some(_) => Err(Rejection::new(
@@ -496,9 +551,9 @@ fn verification_json(
     match status {
         VerificationStatus::Achieved(level) => Ok(serde_json::json!({
             "state": "achieved",
-            "level": level_name(*level),
+            "rung": level_name(*level),
         })),
-        VerificationStatus::Unverified {
+        VerificationStatus::Below {
             requested,
             achieved,
             reason,
@@ -534,7 +589,7 @@ fn rejected(rejection: &Rejection) -> AgentRpcResponse {
 pub fn success_body(
     request_id: RequestId,
     dispatched: &Dispatched,
-    requested: Option<Option<Level>>,
+    requested: Option<Option<Rung>>,
 ) -> Result<AgentRpcResponse, Rejection> {
     let verification_status =
         verification_json(request_id, dispatched.verification.as_ref(), requested)?;
@@ -692,7 +747,7 @@ fn authorized_on_surface<A: HumanAuthorityBoundary>(
 
 fn respond(
     request_id: RequestId,
-    requested: Option<Option<Level>>,
+    requested: Option<Option<Rung>>,
     result: Result<Dispatched, Rejection>,
 ) -> AgentRpcResponse {
     match result.and_then(|dispatched| success_body(request_id, &dispatched, requested)) {
@@ -736,6 +791,14 @@ fn idempotency_refusal(request_id: RequestId, error: IdempotencyError) -> Reject
     }
 }
 
+/// Answers the binary contract-version exchange using the generated schema.
+///
+/// # Errors
+/// Returns `ProtocolIncompatibility` for malformed frames or an unsupported contract major.
+pub fn version_exchange(body: &[u8]) -> Result<[u8; 23], Rejection> {
+    crate::agent_rpc_wire::version_exchange(body)
+}
+
 /// Serves one agent RPC request body through the shared owner: decode (retired operations are
 /// refused there), degraded refusal, session authorization with the permit held through the
 /// owner effect, durable idempotency for every dispatched mutation outside the prepare and
@@ -747,18 +810,24 @@ pub fn handle_rpc<A: HumanAuthorityBoundary>(
     owner: &SharedAgentOwner<A>,
     body: &[u8],
 ) -> AgentRpcResponse {
+    if body.first() == Some(&0) {
+        return match version_exchange(body) {
+            Ok(answer) => AgentRpcResponse {
+                status: 200,
+                body: answer.to_vec(),
+            },
+            Err(rejection) => rejected(&rejection),
+        };
+    }
     let envelope = match decode(body) {
         Ok(envelope) => envelope,
         Err(rejection) => return rejected(&rejection),
     };
     let request_id = envelope.request_id;
-    if BOOTSTRAP_OPERATIONS.contains(&envelope.operation) {
-        return rejected(&Rejection::new(
-            ErrorClass::PolicyRefusal,
-            request_id,
-            "refused_pending_bootstrap_artifact",
-        ));
-    }
+    let operation = match dispatch_target(envelope.operation, request_id) {
+        Ok(operation) => operation,
+        Err(rejection) => return rejected(&rejection),
+    };
     let (permit, core_sequence, bound, control) = match envelope.credential {
         Some(_) => match authorized(owner, &envelope) {
             Ok(authorized) => authorized,
@@ -781,13 +850,13 @@ pub fn handle_rpc<A: HumanAuthorityBoundary>(
         idempotency_key: envelope.idempotency_key,
         peer: context_peer.peer().clone(),
     };
-    let journey = matches!(envelope.operation, Operation::Prepare | Operation::Submit);
+    let journey = matches!(operation, Operation::Prepare | Operation::Submit);
     let Some(key) = envelope.idempotency_key.filter(|_| !journey) else {
         let result = dispatch_operation(
             owner,
             &permit,
             &context_peer,
-            envelope.operation,
+            operation,
             &envelope.request,
             &context,
         );
@@ -796,18 +865,17 @@ pub fn handle_rpc<A: HumanAuthorityBoundary>(
         drop(permit);
         return response;
     };
-    let request_bytes =
-        match canonical_request_bytes(envelope.operation, &envelope.request, request_id) {
-            Ok(Some(bytes)) => bytes,
-            Ok(None) => {
-                return rejected(&Rejection::new(
-                    ErrorClass::UnavailableCapability,
-                    request_id,
-                    "idempotency.unsupported_operation",
-                ));
-            }
-            Err(rejection) => return rejected(&rejection),
-        };
+    let request_bytes = match canonical_request_bytes(operation, &envelope.request, request_id) {
+        Ok(Some(bytes)) => bytes,
+        Ok(None) => {
+            return rejected(&Rejection::new(
+                ErrorClass::UnavailableCapability,
+                request_id,
+                "idempotency.unsupported_operation",
+            ));
+        }
+        Err(rejection) => return rejected(&rejection),
+    };
     let store = match owner.idempotency(&permit.principal().tenant) {
         Ok(store) => store,
         Err(_) => return rejected(&owner_unavailable(request_id)),
@@ -826,7 +894,7 @@ pub fn handle_rpc<A: HumanAuthorityBoundary>(
             owner,
             &permit,
             &context_peer,
-            envelope.operation,
+            operation,
             &envelope.request,
             &context,
         )
@@ -999,7 +1067,7 @@ pub fn handle_human_native_send_prepare<A: HumanAuthorityBoundary>(
 fn level_request(name: &str) -> serde_json::Map<String, serde_json::Value> {
     let mut request = serde_json::Map::new();
     request.insert(
-        String::from("requested_verification_level"),
+        String::from("requested_rung"),
         serde_json::Value::String(String::from(name)),
     );
     request
@@ -1007,29 +1075,25 @@ fn level_request(name: &str) -> serde_json::Map<String, serde_json::Value> {
 
 #[test]
 fn requested_level_accepts_each_declared_kebab_case_spelling() {
-    for (name, level) in [
-        ("unverified", Level::Unverified),
-        ("sequencer-signed", Level::SequencerSigned),
-        ("batch-included", Level::BatchIncluded),
-        ("state-proven", Level::StateProven),
-        ("checkpoint-finalised", Level::CheckpointFinalised),
-        ("settlement-anchored", Level::SettlementAnchored),
-    ] {
-        assert_eq!(requested_level(&level_request(name)), Some(Some(level)));
+    for rung in [Rung::Submitted, Rung::Receipted, Rung::Committed] {
+        assert_eq!(
+            requested_level(&level_request(rung.name())),
+            Some(Some(rung))
+        );
     }
 }
 
 #[test]
-fn requested_level_keeps_each_camel_case_spelling() {
-    for (name, level) in [
-        ("Unverified", Level::Unverified),
-        ("SequencerSigned", Level::SequencerSigned),
-        ("BatchIncluded", Level::BatchIncluded),
-        ("StateProven", Level::StateProven),
-        ("CheckpointFinalised", Level::CheckpointFinalised),
-        ("SettlementAnchored", Level::SettlementAnchored),
+fn requested_level_refuses_retired_camel_case_spellings() {
+    for name in [
+        "Unverified",
+        "SequencerSigned",
+        "BatchIncluded",
+        "StateProven",
+        "CheckpointFinalised",
+        "SettlementAnchored",
     ] {
-        assert_eq!(requested_level(&level_request(name)), Some(Some(level)));
+        assert_eq!(requested_level(&level_request(name)), Some(None));
     }
 }
 
@@ -1057,8 +1121,8 @@ fn requested_level_refuses_an_unknown_spelling() {
 #[test]
 fn requested_level_parses_the_program_activity_default() {
     assert_eq!(
-        requested_level(&level_request("sequencer-signed")),
-        Some(Some(Level::SequencerSigned))
+        requested_level(&level_request("submitted")),
+        Some(Some(Rung::Submitted))
     );
 }
 
@@ -1201,17 +1265,23 @@ pub struct McpOwnerEnvironment {
 }
 
 pub fn mcp_owner_environment<A: HumanAuthorityBoundary>(
-    owner: &SharedAgentOwner<A>, request_id: RequestId,
+    owner: &SharedAgentOwner<A>,
+    request_id: RequestId,
     credential: &SessionCredential,
 ) -> Result<McpOwnerEnvironment, Rejection> {
     let envelope = Envelope {
-        request_id, operation:Operation::ReadModuleState, idempotency_key:None,
-        request:serde_json::Map::new(), credential:Some(credential.clone()),
+        request_id,
+        operation: Operation::ReadModuleState,
+        idempotency_key: None,
+        request: serde_json::Map::new(),
+        credential: Some(credential.clone()),
     };
     let (permit, _, bound, control) = authorized_on_surface(owner, &envelope, Surface::Mcp)?;
     let context = agent_rpc_peer::from_resolved(&control, &permit, bound)
         .map_err(|error| authorization_rejection(request_id, &error))?;
-    owner.lock().and_then(|mut guard| guard.rpc_mcp_owner_environment(&context))
+    owner
+        .lock()
+        .and_then(|mut guard| guard.rpc_mcp_owner_environment(&context))
         .map_err(|error| crate::agent_rpc_dispatch::owner_error(request_id, error))
 }
 
@@ -1303,4 +1373,20 @@ pub fn decode_mcp_local_grant_config(
 
 pub fn mcp_control_refusal(request_id: RequestId, error: &SessionControlError) -> AgentRpcResponse {
     rejected(&authorization_rejection(request_id, error))
+}
+
+#[test]
+fn idempotent_replay_keeps_protocol_rejection_distinct_from_conflict() {
+    let error = ApiError::idempotent_replay(RequestId(302));
+    assert_eq!(error.class, ErrorClass::CoreRejection);
+    assert_eq!(
+        error.protocol_result_code.map(|code| code.raw()),
+        Some(-302)
+    );
+    assert_eq!(error.retriability, Retriability::Terminal);
+    assert_eq!(error.reason.as_str(), "idempotent_replay");
+    assert_ne!(error.class, ErrorClass::IdempotencyConflict);
+    let response = mcp_api_refusal(&error);
+    let value: serde_json::Value = serde_json::from_slice(&response.body).expect("error envelope");
+    assert_eq!(value["protocol_result_code"], -302);
 }

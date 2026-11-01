@@ -9,21 +9,20 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use layerx_client::lni::framing::{read_frame, write_frame};
-use layerx_client::lni::transport::Limits;
+use crate::frame::{read_frame, write_frame, Limits};
 use rustix::net::sockopt::socket_peercred;
-use rustix::net::{RecvFlags, recv};
+use rustix::net::{recv, RecvFlags};
 use zeroize::Zeroize;
 
 use crate::store::{AgentTenantId, PrincipalId};
 
 use super::backend::{
-    ApiFailure, BearerCredentials, HumanApiComponents, PrincipalContext, ScopedRequest,
-    SessionCredentials, component_owner,
+    component_owner, ApiFailure, BearerCredentials, HumanApiComponents, PrincipalContext,
+    ScopedRequest, SessionCredentials,
 };
 use super::component_protocol::{
-    ComponentRequest, WirePrincipal, authorized_request_digest, encode_authorized, encode_backend,
-    encode_failure, encode_readiness, json_digest, parse_digest, validate_execute,
+    authorized_request_digest, encode_authorized, encode_backend, encode_failure, encode_readiness,
+    json_digest, parse_digest, validate_execute, ComponentRequest, WirePrincipal,
 };
 use super::schema::ApiSchema;
 
@@ -343,6 +342,9 @@ impl Dispatcher {
                     .schema
                     .operation(operation)
                     .ok_or_else(ApiFailure::not_found)?;
+                if operation.retired() {
+                    return Err(ApiFailure::operation_retired());
+                }
                 validate_execute(operation, path_parameters, idempotency_key.as_deref())?;
                 let request_digest = parse_digest(request_digest, "request_digest")?;
                 let disclosure_digest = parse_digest(disclosure_digest, "disclosure_digest")?;
@@ -393,6 +395,9 @@ impl Dispatcher {
                     .schema
                     .operation(operation)
                     .ok_or_else(ApiFailure::not_found)?;
+                if operation.retired() {
+                    return Err(ApiFailure::operation_retired());
+                }
                 validate_execute(operation, path_parameters, idempotency_key.as_deref())?;
                 let request_digest = parse_digest(request_digest, "request_digest")?;
                 let disclosure_digest = parse_digest(disclosure_digest, "disclosure_digest")?;
@@ -439,6 +444,9 @@ impl Dispatcher {
                     .schema
                     .operation(operation)
                     .ok_or_else(ApiFailure::not_found)?;
+                if operation.retired() {
+                    return Err(ApiFailure::operation_retired());
+                }
                 let owner = component_owner(&operation.name)?;
                 if component != owner {
                     return Err(ApiFailure::forbidden());
@@ -506,6 +514,9 @@ impl Dispatcher {
             .schema
             .operation(operation)
             .ok_or_else(ApiFailure::not_found)?;
+        if operation.retired() {
+            return Err(ApiFailure::operation_retired());
+        }
         if operation.name != "stream.next" || component != component_owner(&operation.name)? {
             return Err(ApiFailure::forbidden());
         }
@@ -911,15 +922,14 @@ mod tests {
     use std::io::{Read as _, Write as _};
 
     use super::{
-        ComponentServerError, DeadlineStream, Duration, Instant, UnixStream,
-        reject_buffered_second_frame,
+        reject_buffered_second_frame, ComponentServerError, DeadlineStream, Duration, Instant,
+        UnixStream,
     };
-    use layerx_client::lni::framing::{read_frame, write_frame};
-    use layerx_client::lni::transport::{FrameViolation, TransportError};
+    use crate::frame::{read_frame, write_frame, FrameViolation, TransportError};
 
     #[test]
-    fn second_frame_probe_is_nonblocking_and_does_not_consume_bytes()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn second_frame_probe_is_nonblocking_and_does_not_consume_bytes(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let (server, mut client) = UnixStream::pair()?;
         reject_buffered_second_frame(&server)?;
 
@@ -970,8 +980,8 @@ mod tests {
     }
 
     #[test]
-    fn component_deadline_does_not_restart_after_partial_frame()
-    -> Result<(), Box<dyn std::error::Error>> {
+    fn component_deadline_does_not_restart_after_partial_frame(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let (mut server, mut client) = UnixStream::pair()?;
         client.write_all(&[0])?;
         let sender = std::thread::spawn(move || {

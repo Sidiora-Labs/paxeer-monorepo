@@ -56,6 +56,9 @@ func (k *Keeper) GetDepositRoot(ctx sdk.Context, checkpointID [32]byte) (types.D
 // bound into the commitment, not checked against the root.
 func (k *Keeper) RegisterDepositRoot(ctx sdk.Context, proposer sdk.AccAddress, registration, signature []byte,
 	leafOrdering [][32]byte) (types.DepositRootRegistration, error) {
+	if k.Retired(ctx) {
+		return types.DepositRootRegistration{}, sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	offset := len(depositRootDomain)
 	if len(registration) != offset+134 || len(signature) != 64 || len(leafOrdering) == 0 ||
 		len(leafOrdering) > MaxDepositRootLeaves || !bytes.Equal(registration[:offset], depositRootDomain) {

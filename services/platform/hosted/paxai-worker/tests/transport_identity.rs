@@ -2,7 +2,7 @@
 //! discovery from a finalized capture of a really opened market, the pinned TLS transport and
 //! the worker binary.
 use ed25519_dalek::{Signer, SigningKey};
-use layerx_client::head::Head;
+use layerx_client::px::{PxNetworkHead, PxPaxeerHead};
 use layerx_paxai_worker::{
     auth::{
         acknowledgment_digest, admit, decode_acknowledgment, decode_service, encode_service,
@@ -910,7 +910,7 @@ fn capture(state: &[u8], at: u64) -> Checked<(Vec<u8>, CaptureFacts)> {
         native_state_root: Digest32::new(ROOT)?,
         observed_sequence: 77,
         execution_height: at,
-        batch_id: Digest32::new([0xBB; 32])?,
+        block_hash: Digest32::new([0xBB; 32])?,
     };
     let mut out = vec![0; CHUNK_RESPONSE_MAX];
     let n = read_state_chunk(state, &chunk_payload(0, None, 0), &mut out)?;
@@ -974,8 +974,10 @@ impl View {
         let (_, owner, _) = identities()?;
         let finality = FinalityEvidence {
             native_state_root: Digest32::new(ROOT)?,
-            checkpoint: Digest32::new([0xC1; 32])?,
-            settlement: Presence::Present(Digest32::new([0xD3; 32])?),
+            block_height: self.at,
+            block_hash: Digest32::new([0xBB; 32])?,
+            app_hash: Digest32::new([0xC1; 32])?,
+            store_proof_digest: Digest32::new([0xD3; 32])?,
             rank: knobs.rank,
         };
         FinalizedAuthority::bind(
@@ -983,10 +985,14 @@ impl View {
                 state: &self.bytes,
                 facts: &self.facts,
                 finality: &finality,
-                head: Head {
-                    chain_sequence: 77,
-                    sealed_batch: knobs.sealed,
-                    finalised_checkpoint: [0xC1; 32],
+                head: PxNetworkHead {
+                    network_id: "paxeer".to_owned(),
+                    paxeer: PxPaxeerHead {
+                        chain_id: 125,
+                        latest_block: knobs.sealed,
+                    },
+                    layerx: None,
+                    latest_committed_height: knobs.sealed,
                 },
                 owner: IdentityEvidence {
                     principal: owner,

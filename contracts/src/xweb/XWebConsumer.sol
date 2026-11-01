@@ -17,11 +17,16 @@ contract XWebConsumer is IXWebConsumer {
     error NotXWeb(address caller);
     error UnknownRequest(uint64 requestId);
     error AlreadyAnswered(uint64 requestId);
+    error NotRefundable(uint64 requestId);
+    error RefundTransferFailed(uint64 requestId);
 
     event Asked(uint64 indexed requestId, uint8 kind, bytes payload, uint64 callbackGas);
     event Answered(uint64 indexed requestId, bytes32 contentDigest, uint32 fullLength, bytes response);
+    event Refunded(uint64 indexed requestId, address indexed payer, uint256 amount);
 
     mapping(uint64 => bool) public issued;
+    mapping(uint64 => address) public payer;
+    mapping(uint64 => uint256) public paid;
     mapping(uint64 => Answer) private answers;
 
     /// Requests kind (1 fetch, 2 search) of payload, forwarding msg.value as
@@ -29,7 +34,22 @@ contract XWebConsumer is IXWebConsumer {
     function ask(uint8 kind, bytes calldata payload, uint64 callbackGas) external payable returns (uint64 requestId) {
         requestId = XWEB_CONTRACT.request{value: msg.value}(kind, payload, callbackGas);
         issued[requestId] = true;
+        payer[requestId] = msg.sender;
+        paid[requestId] = msg.value;
         emit Asked(requestId, kind, payload, callbackGas);
+    }
+
+    function refund(uint64 requestId) external {
+        address recipient = payer[requestId];
+        if (recipient == address(0)) revert NotRefundable(requestId);
+        uint256 amount = paid[requestId];
+        delete payer[requestId];
+        delete paid[requestId];
+
+        XWEB_CONTRACT.refund(requestId);
+        (bool success,) = payable(recipient).call{value: amount}("");
+        if (!success) revert RefundTransferFailed(requestId);
+        emit Refunded(requestId, recipient, amount);
     }
 
     function onXWebResponse(uint64 requestId, bytes32 contentDigest, uint32 fullLength, bytes calldata response)

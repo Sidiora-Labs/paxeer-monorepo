@@ -321,6 +321,41 @@ func TestSequencerProposalBelowActivationReaps(t *testing.T) {
 	require.Equal(t, []int64{activation}, f.source.sealCalls)
 }
 
+func TestSequencerProposalRefusesStaleOpenTime(t *testing.T) {
+	const height = 1001
+	last := time.UnixMilli(1700000000000).UTC()
+	for _, tc := range []struct {
+		name   string
+		offset time.Duration
+	}{
+		{name: "before last block", offset: -time.Nanosecond},
+		{name: "equal to last block", offset: 0},
+		{name: "after last block", offset: time.Nanosecond},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newSequencerFixture(t, height, height)
+			f.state.LastBlockTime = last
+			open := last.Add(tc.offset)
+			batch := sequenceBatch(height, 1, 1)
+			slice := receipted(1, 1)
+			f.source.sealed[height] = sm.SealedBlock{Batch: batch, Txs: slice, OpenTime: open}
+
+			block, err := f.propose(t, height)
+			require.Equal(t, []int64{height}, f.source.sealCalls)
+			if tc.offset <= 0 {
+				require.ErrorIs(t, err, sm.ErrOpenTimeNotAfterLastBlock)
+				require.EqualError(t, err, fmt.Sprintf("sealed block open time is not after the last block time: open %v, last %v", open, last))
+				require.Nil(t, block)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, block)
+			require.True(t, block.Time.Equal(open))
+			require.Equal(t, types.Txs{batch, slice[0]}, block.Txs)
+		})
+	}
+}
+
 func TestSequencerProposalRefusesIncompleteSeal(t *testing.T) {
 	const height = 1001
 	open := time.UnixMilli(1700000000000)

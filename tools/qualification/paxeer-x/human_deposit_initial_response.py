@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import hashlib
 import importlib.util
 import json
@@ -13,6 +14,9 @@ import time
 from datetime import datetime, timezone
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
+from candidate import SERVICE_CATALOGUE
+
 spec = importlib.util.spec_from_file_location(
     'human_boundary', ROOT / 'tools/qualification/paxeer-x/human-api-boundary.py')
 B = importlib.util.module_from_spec(spec)
@@ -238,7 +242,8 @@ def assert_record(rows, projection, request):
 
 def main():
     global GATE_REPORT, GATE_DIRECTORY
-    B.require(len(sys.argv) == 1, 'no arguments accepted')
+    parser = argparse.ArgumentParser(description='Qualify the human deposit initial response.')
+    parser.parse_args()
     os.umask(0o077)
     candidate_path = os.environ.get('PAXEER_X_CANDIDATE_MANIFEST')
     fixture_path = os.environ.get('PAXEER_X_HUMAN_DEPOSIT_INITIAL_MANIFEST')
@@ -247,7 +252,7 @@ def main():
     sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
     from candidate import catalogue, load_private, validate
     candidate = load_private(candidate_path)
-    validate(candidate, catalogue(ROOT / 'spec/paxeer-x/spec.kvx'))
+    validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
     revision, source = B.identity()
     B.require(candidate['source']['revision'] == revision and not candidate['source']['dirty'],
               'genuine clean candidate revision required')

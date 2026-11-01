@@ -68,7 +68,9 @@ impl PaymentPlane for MockSellerPlane {
     ) -> Result<PlanePaymentOutcome, X402Error> {
         Ok(std::mem::replace(
             &mut self.outcome,
-            PlanePaymentOutcome::Pending,
+            PlanePaymentOutcome::Pending {
+                transaction_hash: [0x61; 32],
+            },
         ))
     }
 }
@@ -176,7 +178,9 @@ fn buyer_and_seller_complete_payment_flow_over_http() {
     let principal =
         PrincipalId::new("test-merchant").unwrap_or_else(|error| panic!("test input: {error:?}"));
     let mut seller_plane = MockSellerPlane {
-        outcome: PlanePaymentOutcome::Pending,
+        outcome: PlanePaymentOutcome::Pending {
+            transaction_hash: [0x61; 32],
+        },
     };
 
     let outcome = seller
@@ -190,7 +194,7 @@ fn buyer_and_seller_complete_payment_flow_over_http() {
         )
         .unwrap_or_else(|error| panic!("settlement processed: {error:?}"));
 
-    assert!(matches!(outcome, SellerOutcome::Pending));
+    assert!(matches!(outcome, SellerOutcome::Pending { .. }));
 }
 
 #[test]
@@ -250,7 +254,9 @@ fn seller_validates_buyer_payment_matches_issued_requirements() {
     let principal =
         PrincipalId::new("test-merchant").unwrap_or_else(|error| panic!("test input: {error:?}"));
     let mut plane = MockSellerPlane {
-        outcome: PlanePaymentOutcome::Pending,
+        outcome: PlanePaymentOutcome::Pending {
+            transaction_hash: [0x61; 32],
+        },
     };
     let trace = TraceId::mint([0xab; 16]);
 
@@ -335,7 +341,9 @@ fn seller_refuses_payment_when_extension_missing() {
     let principal =
         PrincipalId::new("test-merchant").unwrap_or_else(|error| panic!("test input: {error:?}"));
     let mut plane = MockSellerPlane {
-        outcome: PlanePaymentOutcome::Pending,
+        outcome: PlanePaymentOutcome::Pending {
+            transaction_hash: [0x61; 32],
+        },
     };
     let trace = TraceId::mint([0xab; 16]);
 
@@ -491,7 +499,9 @@ fn seller_outcome_types_distinguish_pending_refused_and_settled() {
         PrincipalId::new("test-merchant").unwrap_or_else(|error| panic!("test input: {error:?}"));
 
     let mut pending_plane = MockSellerPlane {
-        outcome: PlanePaymentOutcome::Pending,
+        outcome: PlanePaymentOutcome::Pending {
+            transaction_hash: [0x61; 32],
+        },
     };
     let pending_outcome = seller
         .settle(
@@ -503,7 +513,7 @@ fn seller_outcome_types_distinguish_pending_refused_and_settled() {
             0,
         )
         .unwrap_or_else(|error| panic!("pending processed: {error:?}"));
-    assert!(matches!(pending_outcome, SellerOutcome::Pending));
+    assert!(matches!(pending_outcome, SellerOutcome::Pending { .. }));
 
     let mut refused_plane = MockSellerPlane {
         outcome: PlanePaymentOutcome::Refused {

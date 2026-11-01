@@ -21,7 +21,7 @@ if [ ! -d "$COVER_DIR" ]; then
 fi
 
 fail=0
-shopt -s nullglob
+shopt -s nullglob dotglob
 profiles=("$COVER_DIR"/*.out)
 if [ ${#profiles[@]} -eq 0 ]; then
 	echo "coverage-gate: no coverage profiles found in $COVER_DIR" >&2

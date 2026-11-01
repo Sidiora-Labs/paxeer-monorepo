@@ -17,34 +17,51 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
-// EndBlocker runs the jobs due at the block height in (block, id) order, at
-// most MaxJobsPerBlock of them; the rest stay due and roll to the next
-// height. Each job runs as its creator in a cached context under its own gas
+// EndBlocker runs due jobs and returns their outcome event encoding errors.
+func (k Keeper) EndBlocker(ctx sdk.Context) error {
+	_, err := k.RunDue(ctx)
+	return err
+}
+
+// RunDue admits jobs due at the block height in (block, id) order within
+// MaxJobsPerBlock and the sum of GasLimit bounded by MaxBlockGas; the rest
+// stay due and roll to the next height. It returns the actual gas used.
+// Each job runs as its creator in a cached context under its own gas
 // limit; gasUsed x baseFee of its deposit goes to the fee collector whether
 // it succeeds or fails and the rest returns to the creator. Nothing a job
 // does halts the block; the returned error joins the encoding failures of
-// outcome events, reported after every due job has run and settled.
-func (k Keeper) EndBlocker(ctx sdk.Context) error {
+// outcome events, reported after every admitted job has run and settled.
+func (k Keeper) RunDue(ctx sdk.Context) (gasUsed uint64, err error) {
 	if ctx.BlockHeight() < 0 || k.Active(ctx) != nil {
-		return nil
+		return 0, nil
 	}
 	params := k.GetParams(ctx)
+	if params.Paused {
+		return 0, nil
+	}
 	var due []Job
+	var reserved uint64
 	k.IterateDue(ctx, uint64(ctx.BlockHeight()), func(job Job) bool {
+		if uint64(len(due)) >= params.MaxJobsPerBlock || job.GasLimit > params.MaxBlockGas-reserved {
+			return true
+		}
+		reserved += job.GasLimit
 		due = append(due, job)
 		return uint64(len(due)) >= params.MaxJobsPerBlock
 	})
 	baseFee := k.baseFee(ctx)
 	var errs []error
 	for _, job := range due {
-		if err := k.runJob(ctx, job, baseFee, params.MaxReasonBytes); err != nil {
+		used, err := k.runJob(ctx, job, baseFee, params.MaxReasonBytes)
+		gasUsed += used
+		if err != nil {
 			errs = append(errs, fmt.Errorf("job %d: %w", job.ID, err))
 		}
 	}
-	return errors.Join(errs...)
+	return gasUsed, errors.Join(errs...)
 }
 
-func (k Keeper) runJob(ctx sdk.Context, job Job, baseFee *big.Int, reasonCap uint64) error {
+func (k Keeper) runJob(ctx sdk.Context, job Job, baseFee *big.Int, reasonCap uint64) (uint64, error) {
 	k.DeleteJob(ctx, job)
 	gasUsed, reasons := k.execute(ctx, job, baseFee)
 
@@ -65,14 +82,14 @@ func (k Keeper) runJob(ctx sdk.Context, job Job, baseFee *big.Int, reasonCap uin
 	// No transaction receipt exists at end block, so job outcomes are Cosmos
 	// typed events rather than EVM logs.
 	if len(reasons) == 0 {
-		return ctx.EventManager().EmitTypedEvent(&types.EventJobExecuted{
+		return gasUsed, ctx.EventManager().EmitTypedEvent(&types.EventJobExecuted{
 			JobId:   job.ID,
 			Creator: job.Creator.Hex(),
 			GasUsed: gasUsed,
 			Refund:  refund.String(),
 		})
 	}
-	return ctx.EventManager().EmitTypedEvent(&types.EventJobFailed{
+	return gasUsed, ctx.EventManager().EmitTypedEvent(&types.EventJobFailed{
 		JobId:   job.ID,
 		Creator: job.Creator.Hex(),
 		Reason:  truncate(strings.Join(reasons, "; "), reasonCap),

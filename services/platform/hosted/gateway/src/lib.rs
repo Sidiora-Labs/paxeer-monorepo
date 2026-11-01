@@ -10,7 +10,32 @@ pub mod explorer_target;
 pub mod http;
 pub mod store;
 
-use layerx_crypto::disclosure::{bind as bind_disclosure, AmountRole, CounterpartyRole};
+pub const ROUTER_METHODS: [&str; 17] = [
+    "pax_sequencerReceipt",
+    "px_getAccount",
+    "px_getBalances",
+    "px_getCapabilities",
+    "px_getCommit",
+    "px_getHistory",
+    "px_getNetwork",
+    "px_getReceiptKeys",
+    "px_getRouteCatalogue",
+    "px_getSequenceBatch",
+    "px_getUnifiedHistory",
+    "px_getValidators",
+    "px_listAssets",
+    "px_listHolderRecords",
+    "px_register",
+    "px_requestFunds",
+    "px_resolveAccount",
+];
+
+#[must_use]
+pub fn router_method(name: &str) -> bool {
+    !name.starts_with("lx_")
+        && (ROUTER_METHODS.binary_search(&name).is_ok() || evm::is_evm_namespace(name))
+}
+
 use layerx_crypto::{ed25519, SignatureMessage};
 use layerx_proof::program::{
     verify_authorized_program_execution_with_payers, verify_program_execution_with_payers,
@@ -352,56 +377,6 @@ pub struct VerifiedSubmission {
     activity_id: [u8; 32],
     idempotency_key: [u8; 32],
     activity_type: ActivityType,
-    transfer: Option<VerifiedTransfer>,
-}
-
-/// Exact 402LXP transfer facts decoded from a canonically signed submission.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct VerifiedTransfer {
-    payer: [u8; 32],
-    recipient: [u8; 32],
-    asset: [u8; 32],
-    amount: u128,
-    not_before: u64,
-    not_after: u64,
-    expires_at: u64,
-}
-
-impl VerifiedTransfer {
-    #[must_use]
-    pub const fn payer(self) -> [u8; 32] {
-        self.payer
-    }
-
-    #[must_use]
-    pub const fn recipient(self) -> [u8; 32] {
-        self.recipient
-    }
-
-    #[must_use]
-    pub const fn asset(self) -> [u8; 32] {
-        self.asset
-    }
-
-    #[must_use]
-    pub const fn amount(self) -> u128 {
-        self.amount
-    }
-
-    #[must_use]
-    pub const fn not_before(self) -> u64 {
-        self.not_before
-    }
-
-    #[must_use]
-    pub const fn not_after(self) -> u64 {
-        self.not_after
-    }
-
-    #[must_use]
-    pub const fn expires_at(self) -> u64 {
-        self.expires_at
-    }
 }
 
 impl VerifiedSubmission {
@@ -419,49 +394,6 @@ impl VerifiedSubmission {
     pub const fn activity_type(self) -> ActivityType {
         self.activity_type
     }
-
-    #[must_use]
-    pub const fn transfer(self) -> Option<VerifiedTransfer> {
-        self.transfer
-    }
-}
-
-fn verified_transfer(
-    unsigned: &[u8],
-    registry: &ModuleRegistry,
-    activity_type: ActivityType,
-) -> Result<Option<VerifiedTransfer>, GatewayError> {
-    if activity_type.module() != ModuleId::Asset || !matches!(activity_type.ordinal(), 5 | 6) {
-        return Ok(None);
-    }
-    let disclosure =
-        bind_disclosure(unsigned, registry).map_err(|_| GatewayError::InvalidRequest)?;
-    let mut payer = None;
-    let mut recipient = None;
-    for counterparty in disclosure.counterparties {
-        let target = match counterparty.role {
-            CounterpartyRole::Payer => &mut payer,
-            CounterpartyRole::Recipient => &mut recipient,
-        };
-        if target.replace(counterparty.account).is_some() {
-            return Err(GatewayError::InvalidRequest);
-        }
-    }
-    let mut amount = None;
-    for disclosed in disclosure.amounts {
-        if disclosed.role == AmountRole::Transfer && amount.replace(disclosed.value).is_some() {
-            return Err(GatewayError::InvalidRequest);
-        }
-    }
-    Ok(Some(VerifiedTransfer {
-        payer: payer.ok_or(GatewayError::InvalidRequest)?,
-        recipient: recipient.ok_or(GatewayError::InvalidRequest)?,
-        asset: disclosure.asset,
-        amount: amount.ok_or(GatewayError::InvalidRequest)?,
-        not_before: disclosure.expiry.not_before,
-        not_after: disclosure.expiry.not_after,
-        expires_at: disclosure.expiry.payload_expires_at,
-    }))
 }
 
 /// Refuses a submitted activity unless its bytes are canonical, its module was
@@ -497,12 +429,10 @@ pub fn verify_submission(
     )
     .map_err(|_| GatewayError::InvalidRequest)?;
     ed25519::verify(signer_public_key, &signature, message).map_err(|_| GatewayError::Forbidden)?;
-    let transfer = verified_transfer(&unsigned, registry, activity.activity_type())?;
     Ok(VerifiedSubmission {
         activity_id: activity_id(&activity).map_err(|_| GatewayError::InvalidRequest)?,
         idempotency_key: activity.idempotency_key(),
         activity_type: activity.activity_type(),
-        transfer,
     })
 }
 
@@ -824,42 +754,9 @@ fn program_failure_json(failure: ProgramCallFailure) -> serde_json::Value {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ProductionRoute<'a> {
-    Activity,
     Settle,
     State,
     Receipt(&'a str),
-    ProgramCatalog,
-    ProgramRegistry(&'a str),
-    ProgramInterface(&'a str),
-    ProgramSource(&'a str),
-    ProgramSimulation,
-    ProgramRead,
-    ProgramCall,
-    ProgramDeploy,
-    ProgramUpgrade,
-    ProgramWindDown,
-    ProgramActivity(&'a str),
-    ProgramReceiptByIdempotency(&'a str),
-}
-
-const PLATFORM_GATEWAY_PROGRAM_ROUTES: [&str; 12] = [
-    "POST /v1/programs/call",
-    "POST /v1/programs/simulate",
-    "POST /v1/programs/read",
-    "POST /v1/programs/deploy",
-    "POST /v1/programs/upgrade",
-    "POST /v1/programs/wind-down",
-    "POST /v1/programs/registry/{program_id}/source",
-    "GET /v1/programs/registry",
-    "GET /v1/programs/registry/{program_id}",
-    "GET /v1/programs/registry/{program_id}/interface",
-    "GET /v1/programs/activities/{activity_id}",
-    "GET /v1/programs/receipts/by-idempotency/{idempotency_key}",
-];
-
-#[must_use]
-pub const fn platform_gateway_program_routes() -> &'static [&'static str; 12] {
-    &PLATFORM_GATEWAY_PROGRAM_ROUTES
 }
 
 fn canonical_program_id(value: &str) -> bool {
@@ -867,41 +764,6 @@ fn canonical_program_id(value: &str) -> bool {
         && value
             .bytes()
             .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum NativeExplorerPublicRoute {
-    Program(layerx_programs_runtime::ProgramId),
-    Resolve(layerx_programs_runtime::ProgramId),
-}
-
-pub fn native_explorer_public_route(
-    method: &str,
-    target: &str,
-) -> Option<NativeExplorerPublicRoute> {
-    if method != "GET" {
-        return None;
-    }
-    let (path, query) = http::split_target(target).ok()?;
-    let remainder = path.strip_prefix("/v1/programs/")?;
-    let (identifier, resolve) = match remainder.strip_suffix("/reads/resolve") {
-        Some(identifier) => (identifier, true),
-        None if query.is_none() => (remainder, false),
-        None => return None,
-    };
-    if !canonical_program_id(identifier) {
-        return None;
-    }
-    let mut bytes = [0; 32];
-    for (index, byte) in bytes.iter_mut().enumerate() {
-        *byte = u8::from_str_radix(&identifier[index * 2..index * 2 + 2], 16).ok()?;
-    }
-    let program = layerx_programs_runtime::ProgramId::new(bytes).ok()?;
-    Some(if resolve {
-        NativeExplorerPublicRoute::Resolve(program)
-    } else {
-        NativeExplorerPublicRoute::Program(program)
-    })
 }
 
 /// Parses the exact production route set shared with the emulator. Emulator
@@ -914,72 +776,8 @@ pub fn production_route<'a>(
     path: &'a str,
 ) -> Result<ProductionRoute<'a>, GatewayError> {
     match (method, path) {
-        ("POST", "/v1/activities") => Ok(ProductionRoute::Activity),
         ("POST", "/v1/settle") => Ok(ProductionRoute::Settle),
-        ("POST", "/v1/programs/simulate") => Ok(ProductionRoute::ProgramSimulation),
-        ("POST", "/v1/programs/read") => Ok(ProductionRoute::ProgramRead),
-        ("POST", "/v1/programs/call") => Ok(ProductionRoute::ProgramCall),
-        ("POST", "/v1/programs/deploy") => Ok(ProductionRoute::ProgramDeploy),
-        ("POST", "/v1/programs/upgrade") => Ok(ProductionRoute::ProgramUpgrade),
-        ("POST", "/v1/programs/wind-down") => Ok(ProductionRoute::ProgramWindDown),
-        ("POST", path) if path.starts_with("/v1/programs/registry/") => {
-            let id = path
-                .strip_prefix("/v1/programs/registry/")
-                .and_then(|remainder| remainder.strip_suffix("/source"))
-                .ok_or(GatewayError::InvalidRoute)?;
-            if canonical_program_id(id) {
-                Ok(ProductionRoute::ProgramSource(id))
-            } else {
-                Err(GatewayError::InvalidRoute)
-            }
-        }
         ("GET", "/v1/state") => Ok(ProductionRoute::State),
-        ("GET", path) if path.starts_with("/v1/programs/activities/") => {
-            let id = path
-                .strip_prefix("/v1/programs/activities/")
-                .ok_or(GatewayError::InvalidRoute)?;
-            if id.len() == 64
-                && id
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-            {
-                Ok(ProductionRoute::ProgramActivity(id))
-            } else {
-                Err(GatewayError::InvalidRoute)
-            }
-        }
-        ("GET", path) if path.starts_with("/v1/programs/receipts/by-idempotency/") => {
-            let id = path
-                .strip_prefix("/v1/programs/receipts/by-idempotency/")
-                .ok_or(GatewayError::InvalidRoute)?;
-            if id.len() == 64
-                && id
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-            {
-                Ok(ProductionRoute::ProgramReceiptByIdempotency(id))
-            } else {
-                Err(GatewayError::InvalidRoute)
-            }
-        }
-        ("GET", "/v1/programs/registry") => Ok(ProductionRoute::ProgramCatalog),
-        ("GET", path) if path.starts_with("/v1/programs/registry/") => {
-            let remainder = path
-                .strip_prefix("/v1/programs/registry/")
-                .ok_or(GatewayError::InvalidRoute)?;
-            let (id, interface) = remainder
-                .strip_suffix("/interface")
-                .map_or((remainder, false), |id| (id, true));
-            if canonical_program_id(id) {
-                if interface {
-                    Ok(ProductionRoute::ProgramInterface(id))
-                } else {
-                    Ok(ProductionRoute::ProgramRegistry(id))
-                }
-            } else {
-                Err(GatewayError::InvalidRoute)
-            }
-        }
         ("GET", path) => {
             let id = path
                 .strip_prefix("/v1/receipts/")
@@ -1308,6 +1106,10 @@ struct ReceiptKeyEntry {
 }
 
 impl ReceiptKeyList {
+    pub fn entries(&self) -> &[SequencerAuthorization] {
+        &self.0
+    }
+
     pub fn from_config(document: &str) -> Result<Self, &'static str> {
         if document.len() > 256 * 1024 {
             return Err("receipt key list");
@@ -1588,9 +1390,66 @@ pub fn configured_sequencer(
 #[cfg(test)]
 mod tests {
     use super::{
-        platform_gateway_program_routes, production_route, IssuedKey, ProductionRoute,
-        ReceiptKeyList,
+        production_route, router_method, GatewayError, IssuedKey, ProductionRoute, ReceiptKeyList,
+        ROUTER_METHODS,
     };
+
+    #[test]
+    fn router_methods_are_sorted_unique_and_namespaced() {
+        assert_eq!(ROUTER_METHODS.len(), 17);
+        for pair in ROUTER_METHODS.windows(2) {
+            assert!(pair[0].as_bytes() < pair[1].as_bytes(), "{pair:?}");
+        }
+        for name in ROUTER_METHODS {
+            assert!(
+                name.starts_with("px_") || name.starts_with("pax_"),
+                "{name}"
+            );
+            assert!(router_method(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn router_method_refuses_every_lx_name() {
+        for name in [
+            "lx_requestFunds",
+            "lx_sendActivity",
+            "lx_getAccount",
+            "lx_getBalance",
+            "lx_getBalances",
+            "lx_getSequence",
+            "lx_estimateFee",
+            "lx_getProgramEvents",
+            "lx_getReceipt",
+            "lx_getActivityStatus",
+            "lx_getBatchHeader",
+            "lx_getCheckpoint",
+            "lx_getProof",
+            "lx_listAssets",
+            "lx_getAsset",
+            "lx_getNodeInfo",
+            "lx_subscribe",
+            "lx_unsubscribe",
+            "lx_getWalletCaps",
+            "lx_",
+            "lx_unknown",
+            "lx_eth_chainId",
+        ] {
+            assert!(!router_method(name), "{name}");
+        }
+        for name in [
+            "eth_chainId",
+            "eth_sign",
+            "net_version",
+            "web3_clientVersion",
+            "px_getBalances",
+        ] {
+            assert!(router_method(name), "{name}");
+        }
+        for name in ["", "px_unknown", "pax_unknown", "getBalances"] {
+            assert!(!router_method(name), "{name}");
+        }
+    }
 
     #[test]
     fn receipt_keys_list_loads() -> Result<(), Box<dyn std::error::Error>> {
@@ -1626,93 +1485,74 @@ mod tests {
     }
 
     #[test]
-    fn production_program_routes_are_exact_and_bounded() {
-        assert_eq!(
-            platform_gateway_program_routes(),
-            &[
-                "POST /v1/programs/call",
-                "POST /v1/programs/simulate",
-                "POST /v1/programs/read",
-                "POST /v1/programs/deploy",
-                "POST /v1/programs/upgrade",
-                "POST /v1/programs/wind-down",
-                "POST /v1/programs/registry/{program_id}/source",
-                "GET /v1/programs/registry",
-                "GET /v1/programs/registry/{program_id}",
-                "GET /v1/programs/registry/{program_id}/interface",
-                "GET /v1/programs/activities/{activity_id}",
-                "GET /v1/programs/receipts/by-idempotency/{idempotency_key}",
-            ]
-        );
+    fn production_route_refuses_every_program_and_activity_route() {
         let identifier = "a".repeat(64);
-        for (path, expected) in [
-            ("/v1/programs/read", ProductionRoute::ProgramRead),
-            ("/v1/programs/deploy", ProductionRoute::ProgramDeploy),
-            ("/v1/programs/upgrade", ProductionRoute::ProgramUpgrade),
-            ("/v1/programs/wind-down", ProductionRoute::ProgramWindDown),
-        ] {
-            assert_eq!(production_route("POST", path), Ok(expected));
-            assert!(production_route("GET", path).is_err());
-            assert!(production_route("PUT", path).is_err());
-            assert!(production_route("POST", &format!("{path}/")).is_err());
+        let retired = [
+            "/v1/activities".to_owned(),
+            "/v1/programs".to_owned(),
+            "/v1/programs/call".to_owned(),
+            "/v1/programs/simulate".to_owned(),
+            "/v1/programs/read".to_owned(),
+            "/v1/programs/deploy".to_owned(),
+            "/v1/programs/upgrade".to_owned(),
+            "/v1/programs/wind-down".to_owned(),
+            "/v1/programs/registry".to_owned(),
+            format!("/v1/programs/registry/{identifier}"),
+            format!("/v1/programs/registry/{identifier}/interface"),
+            format!("/v1/programs/registry/{identifier}/source"),
+            format!("/v1/programs/activities/{identifier}"),
+            format!("/v1/programs/receipts/by-idempotency/{identifier}"),
+            "/v1/programs/activities/aa".to_owned(),
+            "/v1/programs/activities/../state".to_owned(),
+            format!("/v1/programs/activities/{}", "A".repeat(64)),
+            format!("/v1/programs/registry/{}/source", "A".repeat(64)),
+            "/v1/programs/registry/aa/source".to_owned(),
+            "/v1/programs/registry/../source".to_owned(),
+            "/v1/programs/unknown".to_owned(),
+        ];
+        for path in retired {
+            for method in ["POST", "GET", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"] {
+                for target in [
+                    path.clone(),
+                    format!("{path}/"),
+                    format!("{path}?limit=1"),
+                    format!("{path}/extra"),
+                ] {
+                    assert_eq!(
+                        production_route(method, &target),
+                        Err(GatewayError::InvalidRoute),
+                        "{method} {target}"
+                    );
+                }
+            }
         }
-        assert!(matches!(
-            production_route("POST", "/v1/programs/call"),
-            Ok(ProductionRoute::ProgramCall)
-        ));
-        assert!(matches!(
-            production_route("POST", "/v1/programs/simulate"),
-            Ok(ProductionRoute::ProgramSimulation)
-        ));
-        let discovery = format!("/v1/programs/registry/{identifier}");
-        assert!(matches!(
-            production_route("GET", &discovery),
-            Ok(ProductionRoute::ProgramRegistry(value)) if value == identifier
-        ));
-        let interface = format!("/v1/programs/registry/{identifier}/interface");
-        assert!(matches!(
-            production_route("GET", &interface),
-            Ok(ProductionRoute::ProgramInterface(value)) if value == identifier
-        ));
-        let activity = format!("/v1/programs/activities/{identifier}");
-        assert!(matches!(
-            production_route("GET", &activity),
-            Ok(ProductionRoute::ProgramActivity(value)) if value == identifier
-        ));
-        let receipt = format!("/v1/programs/receipts/by-idempotency/{identifier}");
-        assert!(matches!(
-            production_route("GET", &receipt),
-            Ok(ProductionRoute::ProgramReceiptByIdempotency(value)) if value == identifier
-        ));
-        assert!(production_route("GET", "/v1/programs/activities/aa").is_err());
-        assert!(production_route("GET", "/v1/programs/activities/../state").is_err());
-        assert!(production_route(
-            "GET",
-            &format!("/v1/programs/activities/{}", "A".repeat(64))
-        )
-        .is_err());
-        let source = format!("/v1/programs/registry/{identifier}/source");
-        assert!(matches!(
-            production_route("POST", &source),
-            Ok(ProductionRoute::ProgramSource(value)) if value == identifier
-        ));
-        assert!(production_route("GET", &source).is_err());
-        assert!(production_route("PUT", &source).is_err());
-        assert!(production_route("POST", &discovery).is_err());
-        assert!(production_route("POST", &interface).is_err());
-        assert!(production_route(
-            "POST",
-            &format!("/v1/programs/registry/{}/source", "A".repeat(64))
-        )
-        .is_err());
-        assert!(production_route("POST", "/v1/programs/registry/aa/source").is_err());
-        assert!(production_route("POST", "/v1/programs/registry/../source").is_err());
         assert_eq!(
-            production_route("GET", "/v1/programs/registry"),
-            Ok(ProductionRoute::ProgramCatalog)
+            production_route("POST", "/v1/settle"),
+            Ok(ProductionRoute::Settle)
         );
-        assert!(production_route("POST", "/v1/programs/registry").is_err());
-        assert!(production_route("GET", "/v1/programs/registry/").is_err());
+        assert_eq!(
+            production_route("GET", "/v1/state"),
+            Ok(ProductionRoute::State)
+        );
+        for identifier in [identifier, "A".repeat(64)] {
+            assert_eq!(
+                production_route("GET", &format!("/v1/receipts/{identifier}")),
+                Ok(ProductionRoute::Receipt(&identifier))
+            );
+        }
+        for (method, path) in [
+            ("GET", "/v1/settle"),
+            ("POST", "/v1/settle/"),
+            ("POST", "/v1/state"),
+            ("GET", "/v1/state/"),
+            ("GET", "/v1/receipts/aa"),
+            ("GET", "/v1/receipts/../state"),
+        ] {
+            assert_eq!(
+                production_route(method, path),
+                Err(GatewayError::InvalidRoute)
+            );
+        }
     }
 }
 

@@ -153,6 +153,7 @@ export interface OpenPositionInput {
   leverage: bigint;
   quote: OpenQuote;
   timeInForce?: typeof TimeInForce.IOC | typeof TimeInForce.FOK;
+  reduceOnly?: boolean;
   takeProfitPrice?: bigint;
   stopLossPrice?: bigint;
 }
@@ -175,7 +176,7 @@ export function buildOpenPosition(input: OpenPositionInput) {
     triggerPrice: 0n,
     acceptablePrice: acceptablePrice(input.quote.entryPrice, input.isLong, "open"),
     collateralAmount: input.collateralAmount,
-    reduceOnly: false,
+    reduceOnly: input.reduceOnly ?? false,
     takeProfitPrice,
     stopLossPrice,
     deadline: marketDeadline(),
@@ -382,6 +383,22 @@ export function buildWithdrawAll(accountState: Pick<AccountState, "withdrawable"
 }
 
 /* ── reads ──────────────────────────────────────────────────────── */
+
+export function buildGetMarketConfig(marketId: bigint) {
+  return call("getMarketConfig", [marketId] as const);
+}
+
+export function buildGetMarginTiers(marketId: bigint) {
+  return call("getMarginTiers", [marketId] as const);
+}
+
+export function buildGetMarkPriceDetails(marketId: bigint) {
+  return call("getMarkPriceDetails", [marketId] as const);
+}
+
+export function buildGetFeeTier(account: Address) {
+  return call("getFeeTier", [requireAccount(account)] as const);
+}
 
 export function buildGetAccount(account: Address) {
   return call("getAccount", [requireAccount(account)] as const);

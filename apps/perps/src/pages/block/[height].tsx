@@ -1,1 +1,1 @@
-export { default } from "@/page-modules/block-detail";
+export { default, getServerSideProps } from "@/page-modules/block-detail";

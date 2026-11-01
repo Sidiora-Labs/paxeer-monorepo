@@ -136,6 +136,24 @@ func (a *nativeInventoryAuthority) publish(t *testing.T) {
 
 func nativeInventory(t *testing.T, c *testCluster, keyID string, pub []byte) *nativeInventoryAuthority {
 	t.Helper()
+	if c.importInventory != nil {
+		c.importMu.Lock()
+		defer c.importMu.Unlock()
+		key := InventoryKey{KeyID: keyID, Epoch: 0, Curve: "ed25519", PublicKey: hex.EncodeToString(pub), Owner: testOwner, Operations: []string{"sign"}}
+		replaced := false
+		for i := range c.importInventory.keys {
+			if c.importInventory.keys[i].KeyID == keyID {
+				c.importInventory.keys[i] = key
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			c.importInventory.keys = append(c.importInventory.keys, key)
+		}
+		c.importInventory.publish(t)
+		return c.importInventory
+	}
 	dir := t.TempDir()
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {

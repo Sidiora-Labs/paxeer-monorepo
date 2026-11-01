@@ -21,7 +21,8 @@ message MsgAggregateExchangeRateVote {
   option (gogoproto.equal) = false;
   option (gogoproto.goproto_getters) = false;
 
-  // 1 reserved from old field `salt`
+  reserved 1;
+  reserved "salt";
   string exchange_rates = 2 [(gogoproto.moretags) = "yaml:\"exchange_rates\""];
   string feeder = 3 [(gogoproto.moretags) = "yaml:\"feeder\""];
   string validator = 4 [(gogoproto.moretags) = "yaml:\"validator\""];

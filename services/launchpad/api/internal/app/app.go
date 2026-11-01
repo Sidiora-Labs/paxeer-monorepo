@@ -399,6 +399,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 			app.Close()
 			return nil, err
 		}
+		registerUnservedOperations(router, admission, productionUnservedOperations)
 	}
 	if metrics != nil {
 		router.Handle("/metrics", metrics)
@@ -613,6 +614,13 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 		p, err := identity.AuthenticateRequest(r.Context(), r)
 		return p.AccountID, err
 	}
+	wallet := func(r *http.Request) (string, error) {
+		if identity == nil {
+			return "", sharedauth.ErrScopeDenied
+		}
+		p, err := identity.AuthenticateRequest(r.Context(), r)
+		return p.Wallet, err
+	}
 	if a.cfg.DiscoveryRuntimeFile != "" || a.cfg.DiscoveryRuntimeDocument != "" {
 		var document discoveryRuntimeDocument
 		if err := config.ReadBoundDocument(a.cfg.DiscoveryRuntimeFile, a.cfg.DiscoveryRuntimeSHA256, &document); err != nil {
@@ -628,6 +636,12 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 			handler := rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(runtime.Handler()))
 			router.Handle("/v2/discovery/*", handler)
 			router.Handle("/v2/discovery/notifications", handler)
+			router.Handle("/v2/squads", handler)
+			router.Handle("/v2/squads/*", handler)
+			router.Handle("/v2/me/notifications", handler)
+			router.Handle("/v2/me/notifications/*", handler)
+			router.Handle("/v2/me/alerts", handler)
+			router.Handle("/v2/me/alerts/*", handler)
 			checks["discovery_notifications"] = runtime.Ready
 			return nil
 		}
@@ -635,10 +649,16 @@ func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity
 	}
 	ds := discovery.Store{DB: a.sqlDB}
 	ns := notifications.Store{DB: a.sqlDB}
-	discoveryHTTP := discovery.HTTP{Store: ds, Callouts: discovery.CalloutService{Store: ds}, Authenticate: authenticate}
+	discoveryHTTP := discovery.HTTP{Store: ds, Callouts: discovery.CalloutService{Store: ds}, Authenticate: authenticate, Wallet: wallet}
 	notificationsHTTP := notifications.HTTP{Store: ns, Discovery: ds, Authenticate: authenticate}
 	router.Handle("/v2/discovery/notifications", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))
 	router.Handle("/v2/discovery/notifications/*", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))
+	router.Handle("/v2/me/notifications", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))
+	router.Handle("/v2/me/notifications/*", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(notificationsHTTP.Handler())))
+	router.Handle("/v2/squads", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(discoveryHTTP.Handler())))
+	router.Handle("/v2/squads/*", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(discoveryHTTP.Handler())))
+	router.Handle("/v2/me/alerts", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(discoveryHTTP.Handler())))
+	router.Handle("/v2/me/alerts/*", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(discoveryHTTP.Handler())))
 	router.Handle("/v2/discovery/*", rest.ResponseMetadata(admission.Middleware(rest.AdmissionAggregate)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/v2/discovery/feed") || r.URL.Path == "/v2/discovery/leaderboards" || strings.HasPrefix(r.URL.Path, "/v2/discovery/callouts") {
 			// The discovery runtime is not configured in this deployment.

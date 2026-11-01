@@ -15,7 +15,6 @@ import {
   type ApprovalGetRequest,
   type ApprovalListRequest,
   type ApprovalRejectRequest,
-  type CheckpointAttestation,
   type Operation,
   type SubmissionState,
   type VerifiedRead,
@@ -62,27 +61,6 @@ export async function verifyTypeScriptPackage(): Promise<void> {
   assert(retainedAsync!.every((byte) => byte === 0), "async secret view survived callback");
   secret.destroy();
 
-  const attestation: CheckpointAttestation = {
-    protocolVersion: 2,
-    networkId: 17,
-    paxeerChainId: 777n,
-    settlementContract: new Uint8Array(20).fill(1),
-    epoch: 9n,
-    checkpointId: new Uint8Array(32),
-    checkpointHash: new Uint8Array(32),
-    guarantorId: new Uint8Array(32),
-    batchNumber: 12n,
-    dataAvailabilityRoot: new Uint8Array(32),
-    replayed: true,
-    dataPossessed: true,
-    availabilityClassMask: 0x1f,
-    attestedAtMs: 1n,
-    signer: new Uint8Array(20).fill(2),
-    signature: new Uint8Array(64),
-    signatureV: 27,
-  };
-  assert(attestation.paxeerChainId === 777n, "Paxeer attestation binding changed");
-
   const read: VerifiedRead<bigint> = {
     value: 10n,
     achievedVerificationLevel: Rung.Receipted,
@@ -99,10 +77,12 @@ export async function verifyTypeScriptPackage(): Promise<void> {
     "below-requested read accepted",
   );
 
-  const unknown: SubmissionState = { kind: "Unknown" };
-  const futureFailure: SubmissionState = { kind: "Failed", protocolResultCode: -77777 };
-  assert(unknown.kind === "Unknown", "unknown collapsed");
-  assert(futureFailure.protocolResultCode === -77777, "protocol code changed");
+  const submitted: SubmissionState = { kind: "Submitted", txHash: "0x1234" };
+  const reverted: SubmissionState = { kind: "Reverted", revertReason: "execution reverted" };
+  assert(submitted.kind === "Submitted", "submitted collapsed");
+  assert(submitted.txHash === "0x1234", "transaction hash changed");
+  assert(reverted.kind === "Reverted", "reverted collapsed");
+  assert(reverted.revertReason === "execution reverted", "revert reason changed");
 
   assert(APPROVAL_CONTRACT_INTRODUCED === "1.1", "approval introduction minor changed");
   assert(APPROVAL_ENFORCEMENT_NOTICE.includes("confers no protocol authority"), "approval authority overstated");

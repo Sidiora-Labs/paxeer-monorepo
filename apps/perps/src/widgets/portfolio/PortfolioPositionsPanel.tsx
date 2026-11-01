@@ -1,10 +1,22 @@
 "use client";
 
+import { useQueries } from "@tanstack/react-query";
+import { buildGetMarginTiers } from "@/core/perps/calls";
+import { getPublicClient } from "@/core/viem/clients";
 import { useMemo } from "react";
 import { cn } from "@/ui/utils/cn";
 import { fmtUsdCompact as fmtUsd, weiToNumber } from "@/ui/utils/format";
-import { coinLogoUrl, PERPS_MARKETS } from "@/core/perps/config";
-import { computePositionPnl, formatWadFixed, markPriceWad, parsePositionRow, pctWad, wadToDecimal } from "@/core/perps/pnlHelpers";
+import { coinLogoUrl } from "@/core/perps/config";
+import {
+  computePositionPnl,
+  formatWadFixed,
+  markPriceWad,
+  parsePositionRow,
+  pctWad,
+  wadToDecimal,
+} from "@/core/perps/pnlHelpers";
+import { marketLabel } from "@/core/perps/marketLabel";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { SectionCard, EmptyState, ConnectGate } from "./PortfolioPrimitives";
 
@@ -30,12 +42,12 @@ interface PositionRow {
   id: string;
   symbol: string;
   side: "long" | "short";
-  size: bigint;          // 18-dec USD
-  leverage: bigint;      // 18-dec
-  entryPrice: bigint;    // 18-dec USD
-  markPrice: number;     // ticker value, display only
+  size: bigint; // 18-dec USD
+  leverage: bigint; // 18-dec
+  entryPrice: bigint; // 18-dec USD
+  markPrice: number; // ticker value, display only
   unrealizedPnl: bigint; // 18-dec USD
-  pnlPct: bigint;        // 18-dec percent of indexed collateral
+  pnlPct: bigint; // 18-dec percent of indexed collateral
 }
 
 export function PortfolioPositionsPanel({
@@ -45,16 +57,37 @@ export function PortfolioPositionsPanel({
   onConnect,
 }: PortfolioPositionsPanelProps) {
   const { tickers } = useRealtimePrices();
+  const { catalog } = usePerpsMarkets();
+  const labels = useMemo(
+    () =>
+      catalog.map((market) => ({
+        ...market,
+        marketId: BigInt(market.marketId),
+      })),
+    [catalog],
+  );
+  const tierQueries = useQueries({
+    queries: positions.map((pos) => ({
+      queryKey: ["perps", "marginTiers", Number(pos.marketId)],
+      queryFn: () =>
+        getPublicClient().readContract(
+          buildGetMarginTiers(BigInt(pos.marketId)),
+        ),
+      staleTime: 60_000,
+    })),
+  });
 
   const rows = useMemo<PositionRow[]>(() => {
-    return positions.map((pos) => {
-      const sym =
-        PERPS_MARKETS.find((m) => m.marketId === Number(pos.marketId))?.symbol ??
-        `MKT-${pos.marketId}`;
+    return positions.map((pos, index) => {
+      const sym = marketLabel(BigInt(pos.marketId), labels);
       const parsed = parsePositionRow(pos, sym);
       const markPrice = tickers[sym]?.mark_price ?? 0;
       const mark = markPriceWad(markPrice);
-      const pnlData = mark > 0n ? computePositionPnl(parsed, mark) : null;
+      const tiers = tierQueries[index].data;
+      const pnlData =
+        mark > 0n && tiers?.length
+          ? computePositionPnl(parsed, mark, tiers)
+          : null;
       return {
         id: String(pos.positionId),
         symbol: sym,
@@ -64,10 +97,12 @@ export function PortfolioPositionsPanel({
         entryPrice: parsed.entryPrice,
         markPrice,
         unrealizedPnl: pnlData?.unrealizedPnl ?? 0n,
-        pnlPct: pnlData ? pctWad(pnlData.unrealizedPnl, parsed.collateralUsd) : 0n,
+        pnlPct: pnlData
+          ? pctWad(pnlData.unrealizedPnl, parsed.collateralUsd)
+          : 0n,
       };
     });
-  }, [positions, tickers]);
+  }, [positions, tickers, tierQueries, labels]);
 
   if (!isConnected) {
     return (
@@ -97,6 +132,23 @@ export function PortfolioPositionsPanel({
     );
   }
 
+  if (tierQueries.some((query) => query.isError || query.data?.length === 0)) {
+    return (
+      <SectionCard title="Open positions">
+        <div role="alert">
+          Market margin tiers unavailable. Please try again.
+        </div>
+      </SectionCard>
+    );
+  }
+  if (tierQueries.some((query) => !query.data)) {
+    return (
+      <SectionCard title="Open positions">
+        <div role="status">Loading market margin tiers…</div>
+      </SectionCard>
+    );
+  }
+
   return (
     <SectionCard title="Open positions" count={rows.length}>
       <div className="rounded-[var(--radius-md)] bg-surface-0 border border-white/[0.04] overflow-hidden">
@@ -104,8 +156,7 @@ export function PortfolioPositionsPanel({
         <div
           className="hidden md:grid items-center px-4 py-2.5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground border-b border-white/[0.04]"
           style={{
-            gridTemplateColumns:
-              "minmax(140px,1.2fr) 90px 1fr 1fr 1fr 1.2fr",
+            gridTemplateColumns: "minmax(140px,1.2fr) 90px 1fr 1fr 1fr 1.2fr",
           }}
         >
           <span>Market</span>
@@ -146,7 +197,8 @@ function PositionRowItem({ row: r }: { row: PositionRow }) {
             {r.symbol}
           </div>
           <div className="text-[10px] font-mono text-muted-foreground md:hidden">
-            {r.side === "long" ? "Long" : "Short"} · {formatWadFixed(r.leverage, 1)}x
+            {r.side === "long" ? "Long" : "Short"} ·{" "}
+            {formatWadFixed(r.leverage, 1)}x
           </div>
         </div>
       </div>
@@ -166,7 +218,10 @@ function PositionRowItem({ row: r }: { row: PositionRow }) {
         {fmtUsd(wadToDecimal(r.size))}
       </span>
       <span className="hidden md:block text-right font-mono tabular-nums text-xs">
-        ${weiToNumber(r.entryPrice).toLocaleString("en-US", { maximumFractionDigits: 4 })}
+        $
+        {weiToNumber(r.entryPrice).toLocaleString("en-US", {
+          maximumFractionDigits: 4,
+        })}
       </span>
       <span className="hidden md:block text-right font-mono tabular-nums text-xs text-muted-foreground">
         {r.markPrice > 0

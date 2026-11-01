@@ -21,9 +21,10 @@ fn main() -> ExitCode {
     if checking {
         arguments.next();
     }
-    let root = arguments
-        .next()
-        .map_or_else(|| PathBuf::from("services/human/schema/human-api"), PathBuf::from);
+    let root = arguments.next().map_or_else(
+        || PathBuf::from("services/human/schema/human-api"),
+        PathBuf::from,
+    );
     let out_dir = arguments.next().map_or_else(
         || PathBuf::from("apps/web/src/api/generated"),
         PathBuf::from,
@@ -32,10 +33,11 @@ fn main() -> ExitCode {
         match human_api_drift_gate(&root, &out_dir) {
             Ok(generated) => {
                 println!(
-                    "human-api client is fresh: {} file(s), {} operations, {} types",
+                    "human-api client is fresh: {} file(s), {} operations, {} types, {} retired operations",
                     generated.files.len(),
                     generated.operations,
-                    generated.types
+                    generated.types,
+                    generated.retired()
                 );
                 ExitCode::SUCCESS
             }
@@ -48,10 +50,11 @@ fn main() -> ExitCode {
         match write_client(&root, &out_dir) {
             Ok(generated) => {
                 println!(
-                    "generated {} file(s) covering {} operations and {} types into {}",
+                    "generated {} file(s) covering {} operations and {} types, skipping {} retired operations, into {}",
                     generated.files.len(),
                     generated.operations,
                     generated.types,
+                    generated.retired(),
                     out_dir.display()
                 );
                 ExitCode::SUCCESS

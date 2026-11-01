@@ -1,6 +1,6 @@
 module github.com/Sidiora-Labs/Paxeer-X-Network
 
-go 1.25.6
+go 1.25.8
 
 require (
 	cosmossdk.io/errors v1.0.2
@@ -294,7 +294,6 @@ replace (
 	// Latest goleveldb is broken, we have to stick to this version
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 	github.com/tendermint/tm-db => github.com/paxeer-network/pax-db-backend v0.0.4-pax.1
-	golang.org/x/crypto => golang.org/x/crypto v0.31.0
 	// The earliest version supporting reflection needed by cosmos; see:
 	//   - https://github.com/grpc/grpc-go/releases/tag/v1.57.0
 	google.golang.org/grpc => google.golang.org/grpc v1.57.1

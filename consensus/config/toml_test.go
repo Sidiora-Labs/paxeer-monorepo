@@ -5,7 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -55,6 +57,29 @@ func TestEnsureTestRoot(t *testing.T) {
 	baseConfig := DefaultBaseConfig()
 	pvConfig := DefaultPrivValidatorConfig()
 	ensureFiles(t, rootDir, defaultDataDir, baseConfig.Genesis, pvConfig.Key, pvConfig.State)
+}
+
+func TestConfigTemplateRoundTripsSequencer(t *testing.T) {
+	rootDir := t.TempDir()
+	EnsureRoot(rootDir)
+	cfg := DefaultConfig()
+	cfg.Consensus.Sequencer = SequencerConfig{
+		Enable:              true,
+		TimeoutPropose:      2 * time.Second,
+		TimeoutProposeDelta: 250 * time.Millisecond,
+		TimeoutVote:         30 * time.Millisecond,
+		TimeoutCommit:       40 * time.Millisecond,
+	}
+	require.NoError(t, WriteConfigFile(rootDir, cfg))
+
+	v := viper.New()
+	v.SetConfigFile(filepath.Join(rootDir, defaultConfigFilePath))
+	require.NoError(t, v.ReadInConfig())
+
+	got := DefaultConfig()
+	require.NoError(t, v.Unmarshal(got))
+	require.Equal(t, cfg.Consensus.Sequencer, got.Consensus.Sequencer)
+	require.NoError(t, got.ValidateBasic())
 }
 
 func checkConfig(t *testing.T, configFile string) {

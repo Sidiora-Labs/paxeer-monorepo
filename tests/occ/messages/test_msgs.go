@@ -18,29 +18,6 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
 )
 
-const instantiateMsg = `{"whitelist": ["pax1h9yjz89tl0dl6zu65dpxcqnxfhq60wxxknccgp"],
-    "use_whitelist":false,"admin":"pax1h9yjz89tl0dl6zu65dpxcqnxfhq60wxxknccgp",
-	"limit_order_fee":{"decimal":"0.0001","negative":false},
-	"market_order_fee":{"decimal":"0.0001","negative":false},
-	"liquidation_order_fee":{"decimal":"0.0001","negative":false},
-	"margin_ratio":{"decimal":"0.0625","negative":false},
-	"max_leverage":{"decimal":"4","negative":false},
-	"default_base":"USDC",
-	"native_token":"USDC","denoms": ["PAX","ATOM","USDC","SOL","ETH","OSMO","AVAX","BTC"],
-	"full_denom_mapping": [["uhpx","PAX","0.000001"],["uatom","ATOM","0.000001"],["uusdc","USDC","0.000001"]],
-	"funding_payment_lookback":3600,"spot_market_contract":"pax1h9yjz89tl0dl6zu65dpxcqnxfhq60wxxknccgp",
-	"supported_collateral_denoms": ["USDC"],
-	"supported_multicollateral_denoms": ["ATOM"],
-	"oracle_denom_mapping": [["uhpx","PAX","1"],["uatom","ATOM","1"],["uusdc","USDC","1"],["ueth","ETH","1"]],
-	"multicollateral_whitelist": ["pax1h9yjz89tl0dl6zu65dpxcqnxfhq60wxxknccgp"],
-	"multicollateral_whitelist_enable": true,
-	"funding_payment_pairs": [["USDC","ETH"]],
-	"default_margin_ratios":{
-		"initial":"0.3",
-		"partial":"0.25",
-		"maintenance":"0.06"
-	}}`
-
 func WasmInstantiate(tCtx *utils.TestContext, count int) []*utils.TestMessage {
 	var msgs []*utils.TestMessage
 	for i := 0; i < count; i++ {
@@ -50,7 +27,7 @@ func WasmInstantiate(tCtx *utils.TestContext, count int) []*utils.TestMessage {
 				Admin:  tCtx.TestAccounts[1].AccountAddress.String(),
 				CodeID: tCtx.CodeID,
 				Label:  fmt.Sprintf("test-%d", i),
-				Msg:    []byte(instantiateMsg),
+				Msg:    utils.CW20InstantiateMsg(tCtx),
 				Funds:  utils.Funds(100000),
 			},
 			Type: "WasmInstantitate",

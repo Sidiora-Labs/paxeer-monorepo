@@ -161,21 +161,23 @@ layerx --rpc "$RPC_URL" --gateway-credential beta wallet receipt "$ACTIVITY_ID" 
 
 ### Fee estimates and live notifications
 
-Estimate fees using already encoded canonical activity bytes, or read one live
-notification:
+Estimate fees for an unsigned EIP-1559 transaction, or read one live
+notification. For fee estimation, set `FROM_ADDRESS` to the sender's EVM
+address and `UNSIGNED_TX_HEX` to the unsigned transaction hex:
 
 ```bash
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet estimate-fee "$CANONICAL_HEX"
+layerx --rpc "$RPC_URL" --gateway-credential beta wallet estimate-fee --from "$FROM_ADDRESS" "$UNSIGNED_TX_HEX"
 layerx --rpc "$RPC_URL" --gateway-credential beta wallet watch receipts
 layerx --rpc "$RPC_URL" --gateway-credential beta wallet watch checkpoints
 layerx --rpc "$RPC_URL" --gateway-credential beta wallet watch account --account-id "$ACCOUNT_ID"
 ```
 
-Fee estimation forwards to the native fee schedule and preserves unavailable
-errors. Each watch reads one notification over the authenticated WebSocket at
-`/rpc/ws` and exits; `--timeout-seconds` is bounded to 1–300 seconds and
-defaults to 60. Notifications are marked `verified: false`; they establish no
-commitment. Use `wallet receipt` with your receipt policy to verify commitment.
+Fee estimation uses `eth_estimateGas` at `pending` and `eth_gasPrice`, multiplying
+the gas estimate by the gas price. Each watch reads one notification over the
+authenticated WebSocket at `/rpc/ws` and exits; `--timeout-seconds` is bounded to
+1–300 seconds and defaults to 60. Notifications are marked `verified: false`;
+they establish no commitment. Use `wallet receipt` with your receipt policy to
+verify commitment.
 On timeout, closure or feed loss, reconcile using RPC reads before starting
 another watch.
 

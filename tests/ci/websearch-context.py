@@ -19,7 +19,6 @@ IGNORE = DOCKERFILE + ".dockerignore"
 EXTRA = {
     "include/layerx/lxp_result.h", "include/layerx/programs.h",
     "services/agent/deny.toml", "services/agent/unsafe-allowlist.toml",
-    "contracts/config/checkpoint-settlement.json",
     "services/interop/specs/vendor/x402/x402-specification-v2.md",
     "services/interop/Cargo.lock", "rust-toolchain.toml",
 }

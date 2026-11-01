@@ -175,12 +175,12 @@ Checks before a ported program is admitted:
 
 ### SPL tokens, LXT-20, and native Assets
 
-The LXT-20 reference is an ABI-v2 WASM program with seven request methods. It
-is not in this tree: neither `programs/sdk/rust/src/lxt20.rs` nor
-`programs/fixtures/pay5` is present here, so the interface, registry inputs,
-and signed native deploy and call receipts described below cannot be replayed
-from this checkout. `programs/porting/solana/MIGRATION.md` is 363 lines here
-and carries no LXT-20 section. The replay, once those artifacts land, is:
+The LXT-20 reference is an ABI-v2 WASM program with seven request methods. The
+request codecs are in `programs/sdk/rust/src/lxt20.rs`, and the interface, registry
+inputs, and signed native deploy and call receipts are in
+`programs/fixtures/pay5`. Both paths are in this tree.
+`programs/porting/solana/MIGRATION.md` carries its LXT-20 section at line 365.
+Replay the isolated native token and merchant settlements with:
 
 ```sh
 python3 programs/fixtures/pay5/run_native_roundtrip.py
@@ -331,11 +331,11 @@ Same pipeline shape as Solana, with EVM names
 
 `programs/sdk/rust/src/lxt20.rs` defines seven canonical request encodings, and
 `programs/sdk/rust/examples/token-lxt20` implements them over registered
-program-derived backing accounts. Neither path is in this tree, and
-`programs/porting/evm/MIGRATION.md` is 328 lines here with no LXT-20 section.
-Runtime tests cover the methods, allowances, and refusal rollback. The same isolated native replay
-shown in the Solana section checks the committed token and merchant artifacts;
-it does not certify a live deployment
+program-derived backing accounts. Both paths are in this tree.
+`programs/porting/evm/MIGRATION.md` has its LXT-20 section at line 330.
+Runtime tests cover the methods, allowances, and refusal rollback. The same
+isolated native replay shown in the Solana section checks the committed token
+and merchant artifacts; it does not certify a live deployment
 (`programs/porting/evm/MIGRATION.md`, LXT-20 section).
 
 | ERC-20 flow | LayerX mapping |

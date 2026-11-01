@@ -15,7 +15,6 @@ use layerx_agent_api::prepare::{
 use layerx_agent_api::track::{
     EvidenceRef as AgentEvidenceRef, SubmissionRef, SubmissionState, TrackedSubmission,
 };
-use layerx_agent_api::verify::Level;
 use layerx_agent_api::{Amount, TimestampSeconds};
 use layerx_agentd::approval::{
     ApprovalExpiry, ApprovalOutcome as AgentOutcome, ApprovalService, ApprovalSubmissionQueue,
@@ -40,6 +39,7 @@ use layerx_human_service::auth::{
 use layerx_human_service::store::PrincipalScope;
 use layerx_human_service::trace::TraceId;
 use layerx_types::ids::Did;
+use layerx_types::rung::Rung;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
@@ -416,7 +416,7 @@ impl ApprovalBoundary for AgentdDecisions<'_> {
     ) -> Result<VerifiedBudgetAfter, ApprovalBoundaryError> {
         Ok(VerifiedBudgetAfter {
             remaining: 975,
-            level: Level::StateProven,
+            rung: Rung::Committed,
             evidence_digest: [9; 32],
             observed_at_sequence: at_sequence,
         })

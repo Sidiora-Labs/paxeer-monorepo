@@ -232,8 +232,10 @@ fn binding(b: &layerx_indexer::ai_market::SnapshotBinding) -> Value {
         "config": b.config.get().to_string(),
         "policy": hex0x(b.policy.as_bytes()),
         "roster": present(b.roster, |r| json!(hex0x(r.as_bytes()))),
-        "checkpoint": hex0x(b.checkpoint.as_bytes()),
-        "settlement": present(b.settlement, |s| json!(hex0x(s.as_bytes()))),
+        "block_height": b.block_height.to_string(),
+        "block_hash": hex0x(b.block_hash.as_bytes()),
+        "app_hash": hex0x(b.app_hash.as_bytes()),
+        "store_proof_digest": hex0x(b.store_proof_digest.as_bytes()),
         "rank": b.rank,
         "publication_time_ms": b.publication_time_ms.to_string(),
     })

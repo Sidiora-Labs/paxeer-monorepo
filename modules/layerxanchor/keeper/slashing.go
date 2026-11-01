@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
@@ -96,37 +94,7 @@ func (k Keeper) slash(ctx sdk.Context, params types.Params, guarantor types.Guar
 	return record, nil
 }
 
-// SubmitEquivocation slashes a guarantor on two self-verifying attestations
-// that name different checkpoints for one batch. No arbiter is involved:
-// anyone may report, and the two signatures are the whole proof. A guarantor
-// already ejected by a slash is not slashed again, as GuarantorBond refuses a
-// second equivocation after ejection.
+// SubmitEquivocation refuses the retired guarantor equivocation path.
 func (k Keeper) SubmitEquivocation(ctx sdk.Context, reporter sdk.AccAddress, evidenceA, evidenceB []byte) (types.SlashRecord, error) {
-	params := k.GetParams(ctx)
-	first, err := codec.DecodeGuarantorAttestation(evidenceA)
-	if err != nil {
-		return types.SlashRecord{}, types.ErrEvidence.Wrap(err.Error())
-	}
-	second, err := codec.DecodeGuarantorAttestation(evidenceB)
-	if err != nil {
-		return types.SlashRecord{}, types.ErrEvidence.Wrap(err.Error())
-	}
-	if err := verify.GuarantorEquivocation(first, second, k.domain(params)); err != nil {
-		return types.SlashRecord{}, types.ErrEvidence.Wrap(err.Error())
-	}
-	if params.NetworkID != 0 && first.NetworkID != params.NetworkID {
-		return types.SlashRecord{}, types.ErrEvidence.Wrap("network identifier")
-	}
-	guarantor, ok := k.GetGuarantor(ctx, first.GuarantorID)
-	if !ok {
-		return types.SlashRecord{}, types.ErrGuarantorUnknown
-	}
-	if guarantor.Signer != types.Address20(first.Signer) {
-		return types.SlashRecord{}, types.ErrEvidence.Wrap("statements are not signed by the guarantor's signer")
-	}
-	if guarantor.Status == types.GuarantorEjected {
-		return types.SlashRecord{}, types.ErrAlreadySlashed
-	}
-	return k.slash(ctx, params, guarantor, types.SlashEquivocation, first.BatchNumber, params.SlashFractionEquivocation,
-		reporter, first.CheckpointHash, second.CheckpointHash)
+	return types.SlashRecord{}, types.ErrModuleRetired.Wrap("SubmitEquivocation")
 }

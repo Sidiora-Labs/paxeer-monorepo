@@ -195,6 +195,45 @@ func (f *stopFixture) assertEscrow(token common.Address, expected string) {
 	require.Equal(f.t, expected, escrow.Amount.String())
 }
 
+func TestStopActiveIndexCostIndependentOfBookSize(t *testing.T) {
+	type costs struct {
+		count, lookup uint64
+	}
+	measure := func(size uint64) costs {
+		f := newStopFixture(t)
+		f.params.MaxActiveOrdersPerUser = 1000
+		f.setParams()
+		var first uint64
+		for i := uint64(0); i < size; i++ {
+			id, err := f.k.PlaceStopLimit(f.ctx, f.user, f.stable, f.base, sdk.NewInt(100_000_000), stopTestPrice(55), stopTestPrice(50), 0, types.OrderTypeStopLimitSell)
+			require.NoError(t, err)
+			if i == 0 {
+				first = id
+			}
+		}
+		meter := sdk.NewInfiniteGasMeterWithMultiplier(f.ctx)
+		ctx := f.ctx.WithGasMeter(meter)
+		count, err := f.k.GetActiveStopLimitOrderCount(ctx)
+		used := costs{count: meter.GasConsumed()}
+		require.NoError(t, err)
+		require.Equal(t, size, count)
+		before := meter.GasConsumed()
+		id, err := f.k.ActiveStopLimitOrderIDs(ctx, 0)
+		used.lookup = meter.GasConsumed() - before
+		require.NoError(t, err)
+		require.Equal(t, first, id)
+		id, err = f.k.ActiveStopLimitOrderIDs(ctx, size-1)
+		require.NoError(t, err)
+		require.Equal(t, first+size-1, id)
+		require.Positive(t, used.count)
+		require.Positive(t, used.lookup)
+		return used
+	}
+	small, large := measure(10), measure(1000)
+	require.Equal(t, small.count, large.count, "active stop-limit count gas")
+	require.Equal(t, small.lookup, large.lookup, "active stop-limit lookup gas")
+}
+
 func TestStopLimitActivatesThenFills(t *testing.T) {
 	f := newStopFixture(t)
 	before := f.baseBalance()

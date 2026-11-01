@@ -146,6 +146,12 @@ type MockClient struct {
 	latestOverride int64
 }
 
+type ResultNetInfo = coretypes.ResultNetInfo
+
+func (c *MockClient) NetInfo(context.Context) (*coretypes.ResultNetInfo, error) {
+	return &ResultNetInfo{Listening: true, NPeers: 3}, nil
+}
+
 func (*MockClient) EvmNextPendingNonce(common.Address) uint64 {
 	return 0
 }
@@ -666,6 +672,7 @@ func init() {
 	}
 	// Start good http server
 	goodConfig := evmrpcconfig.DefaultConfig
+	goodConfig.IPRateLimitRPS = 0
 	goodConfig.HTTPPort = TestPort
 	goodConfig.WSPort = TestWSPort
 	goodConfig.FilterTimeout = 500 * time.Millisecond
@@ -1041,6 +1048,7 @@ func setupLogs() {
 		TxHashHex: block2SyntheticTx.Hash().Hex(),
 	})
 	EVMKeeper.MockReceipt(CtxMultiTx, multiTxBlockTx1.Hash(), &types.Receipt{
+		Status:           uint32(ethtypes.ReceiptStatusSuccessful),
 		BlockNumber:      MockHeight2,
 		TransactionIndex: 1, // start at 1 bc 0 is the non-evm tx
 		TxHashHex:        multiTxBlockTx1.Hash().Hex(),

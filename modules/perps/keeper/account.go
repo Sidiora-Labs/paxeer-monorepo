@@ -13,9 +13,6 @@ import (
 var (
 	accountFixedOne   = big.NewInt(1_000_000_000_000_000_000)
 	accountUsdPerUsdl = big.NewInt(1_000_000_000_000)
-	// accountNotionalFloorDivisor makes the withdrawal floor 10 percent of
-	// the position notional at mark.
-	accountNotionalFloorDivisor = big.NewInt(10)
 )
 
 // GetAccount returns the stored account, ErrNoAccount when the address never
@@ -201,9 +198,9 @@ func (k *Keeper) EmergencyWithdraw(ctx sdk.Context, address common.Address) (uin
 	return amount, append(events, collateralEvent(types.EventCollateralWithdrawn, address, amount, account.Collateral)), nil
 }
 
-// Withdrawable is equity - max(initial margin of positions and orders, 10
-// percent of the position notional at mark), floored at 0, in USDL units
-// rounded down (contracts/perps-parameters.md section 2).
+// Withdrawable is equity - max(initial margin of positions and orders, the
+// configured withdrawal floor on position notional at mark), floored at 0,
+// in USDL units rounded down (contracts/perps-parameters.md section 2).
 func (k *Keeper) Withdrawable(ctx sdk.Context, address common.Address) (uint256.Int, error) {
 	if _, err := k.GetAccount(ctx, address); err != nil {
 		return uint256.Int{}, err
@@ -228,7 +225,12 @@ func (k *Keeper) Withdrawable(ctx sdk.Context, address common.Address) (uint256.
 		}
 		notional.Add(notional, value.ToBig())
 	}
-	required := accountCeilDiv(notional, accountNotionalFloorDivisor)
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return uint256.Int{}, err
+	}
+	floor := new(big.Int).Mul(notional, new(big.Int).SetUint64(params.WithdrawFloorPpm))
+	required := accountCeilDiv(floor, ppmScale)
 	if initial := margin.InitialMargin.BigInt(); initial.Cmp(required) > 0 {
 		required = initial
 	}

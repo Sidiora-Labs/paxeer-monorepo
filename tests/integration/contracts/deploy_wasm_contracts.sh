@@ -33,8 +33,8 @@ sleep 5
 for i in {11..20}
 do
     echo "Storing second set contract #$i..."
-    contract_id=$(store_wasm tests/integration/contracts/saturn.wasm) || exit 1
-    instantiate_wasm "$contract_id" '{}' dex --no-admin >/dev/null || exit 1
+    contract_id=$(store_wasm contracts/wasm/cw20_base.wasm) || exit 1
+    instantiate_wasm "$contract_id" '{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}' dex --no-admin >/dev/null || exit 1
     echo "Got contract id $contract_id for iteration $i"
 done
 
@@ -47,8 +47,8 @@ sleep 5
 for i in {21..30}
 do
     echo "Storing third set contract #$i..."
-    contract_id=$(store_wasm tests/integration/contracts/venus.wasm) || exit 1
-    instantiate_wasm "$contract_id" '{}' dex --no-admin >/dev/null || exit 1
+    contract_id=$(store_wasm contracts/wasm/cw20_base.wasm) || exit 1
+    instantiate_wasm "$contract_id" '{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}' dex --no-admin >/dev/null || exit 1
     echo "Got contract id $contract_id for iteration $i"
 done
 

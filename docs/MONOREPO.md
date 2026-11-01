@@ -35,7 +35,7 @@ This repository is the Paxeer X Network monorepo: the Paxeer X chain node (`paxd
 | `sdk/platform`, `sdk/integrations` | Platform SDKs (Go, JVM, .NET, Swift) and framework integrations |
 | `sdk/launchpad` | Launchpad protocol, shared libraries and client packages |
 | `sdk/chainflow` | Chainflow client libraries for Go, Python, Rust and TypeScript |
-| `sdk/js` | JavaScript SDK snapshot with its `VENDOR.kvx` pin record |
+| `sdk/js` | First-party `@pax-js/cosmos` package, edited in place and aligned to the protos of this repository |
 | `sdk/wallet` | Wallet SDK (`@paxeer/wallet`), a member of the `services/wallet` pnpm workspace |
 | `core/deps` | Pinned snapshots of the upstream libraries the node builds from, each with a `VENDOR.kvx` pin record |
 | `tests/` | Kernel C tests, `tests/fuzz`, `tests/integration`, `tests/occ`, `tests/testutil`, `tests/fixtures`, Solidity and vector suites |
@@ -59,7 +59,7 @@ This repository is the Paxeer X Network monorepo: the Paxeer X chain node (`paxd
 ## Build boundaries
 
 - **LayerX kernel**: C17 (`-std=c17` in the root `Makefile`). `make build`, `make test`, `make test-contracts`, `make ci`. Qualified with `make ci`, `make qualify-replay`, `make qualify-arith`, `make qualify-faults` and `make qualify-fuzz`. Replay qualification needs GCC 13, Clang 18, Docker, an amd64 musl runner, and an AArch64 cross-compiler plus QEMU; see [`QUALIFICATION.md`](QUALIFICATION.md).
-- **Paxeer X node**: Go 1.25.6 (`go.mod`), built through `chain.mk`: `make paxeer-build`, `make paxeer-lint`, `make paxeer-test`, `make paxeer-ci`.
+- **Paxeer X node**: Go 1.25.8 (`go.mod`), built through `chain.mk`: `make paxeer-build`, `make paxeer-lint`, `make paxeer-test`, `make paxeer-ci`.
 - **Workspaces**: Rust 1.91.1 (`rust-toolchain.toml`), Solidity 0.8.27 (`foundry.toml`), and the npm workspaces in `package.json`. `make workspace-build` builds them all; `make monorepo-ci` runs build, test and lint across them and does not replace either subsystem's own qualification.
 - `make ci` runs `public-audit`, kernel tests, a two-build archive comparison, consensus symbol checks and sanitizer suites. `scripts/ci/layout-check.sh` and `scripts/ci/vendor-verify.sh` check the layout and the vendored snapshots.
 

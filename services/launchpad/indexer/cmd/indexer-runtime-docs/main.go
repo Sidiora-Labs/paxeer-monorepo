@@ -40,6 +40,11 @@ func main() {
 	}
 }
 
+func inputPaths(repo string) (reviewed, artifact string) {
+	return filepath.Join(repo, "sdk", "launchpad", "protocol", "catalog", "reviewed.json"),
+		filepath.Join(repo, "contracts", "launchpad", "artifacts", "contracts", "core", "SidioraERC20.sol", "SidioraERC20.json")
+}
+
 func run() error {
 	repo := flag.String("repo", ".", "repository root")
 	start := flag.Uint64("start-height", 0, "first block the fleet ingests (anchor = start-height-1)")
@@ -57,11 +62,12 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	reviewed, err := os.ReadFile(filepath.Join(*repo, "protocol", "catalog", "reviewed.json"))
+	reviewedPath, artifactPath := inputPaths(*repo)
+	reviewed, err := os.ReadFile(reviewedPath)
 	if err != nil {
 		return err
 	}
-	artifact, err := os.ReadFile(filepath.Join(*repo, "contracts", "artifacts", "contracts", "core", "SidioraERC20.sol", "SidioraERC20.json"))
+	artifact, err := os.ReadFile(artifactPath)
 	if err != nil {
 		return err
 	}

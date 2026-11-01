@@ -9,7 +9,7 @@ use layerx_indexer::backfill::Backfill;
 use layerx_indexer::config::{BackfillConfig, Config};
 use layerx_indexer::explorer::ExplorerApi;
 use layerx_indexer::follow::StepOutcome;
-use layerx_indexer::layerx::LayerXIngester;
+use layerx_indexer::names::{names_abi, NamesConfig};
 use layerx_indexer::paxeer::PaxeerIngester;
 use layerx_indexer::paxscan::PaxscanDatabase;
 use layerx_indexer::store::Store;
@@ -64,14 +64,16 @@ where
 }
 
 fn load_registry(config: &Config) -> Result<AbiRegistry, IndexError> {
-    let registry = config
+    let mut registry = config
         .abi_dir
         .as_deref()
         .map_or_else(|| Ok(AbiRegistry::default()), AbiRegistry::load_dir)?;
-    eprintln!(
-        "layerx-indexer loaded {} precompile ABIs",
-        registry.abis().len()
-    );
+    if let Some(names) = NamesConfig::from_env()? {
+        for abi in names_abi(&names)? {
+            registry.insert(abi);
+        }
+    }
+    eprintln!("layerx-indexer loaded {} ABIs", registry.abis().len());
     Ok(registry)
 }
 
@@ -148,14 +150,6 @@ fn run() -> Result<(), IndexError> {
                 },
             ),
         };
-    if let Some(source) = config.layerx.clone() {
-        let ingester = LayerXIngester::new(source.relay, source.policy, source.start_batch);
-        readiness.sources.push("layerx");
-        store.start_source("layerx")?;
-        follow("layerx", Arc::clone(&store), config.poll, move |store| {
-            ingester.step(store)
-        });
-    }
     if let Some(source) = config.paxeer.clone() {
         if source.comet.is_some() {
             readiness.sources.push("comet");

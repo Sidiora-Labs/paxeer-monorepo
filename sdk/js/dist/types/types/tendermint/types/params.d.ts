@@ -19,6 +19,8 @@ export interface BlockParams {
      * Note: must be greater or equal to -1
      */
     max_gas: number;
+    minTxsInBlock: number;
+    maxGasWanted: number;
 }
 export interface EvidenceParams {
     /**

@@ -1131,7 +1131,7 @@ lxp_result gp_runtime_open(gp_runtime **output, const char *configuration,
         runtime->asset_runtime = (lx_asset_runtime){
             &runtime->accounts,   runtime->asset_registry.assets, runtime->asset_count,
             runtime->assets,      runtime->asset_count,           runtime->network_id,
-            runtime->protocol_version};
+            runtime->protocol_version, false};
         status = lxp_kernel_bind_module_runtime(&runtime->kernel, LXP_MODULE_ASSET,
                                                 &runtime->asset_runtime);
     }

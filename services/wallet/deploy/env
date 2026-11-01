@@ -151,14 +151,11 @@ AGENT_DEFAULT_MAX_TX_VALUE_WEI - default per-transaction native value cap for ag
 AGENT_DEFAULT_MAX_DAILY_VALUE_WEI - default rolling daily native value cap for agent wallets
 AGENT_DEFAULT_RATE_LIMIT_PER_MINUTE - default signing requests per agent per minute
 AGENT_DEFAULT_MAX_APPROVE_WEI - default cap on ERC-20 approval amounts for agent wallets
-LAYERX_VAULT_ADDRESS - LayerX custody vault contract targeted by agent deposit actions
-LAYER_X_DB_URI - read-only connection string of the LayerX sequencer database
 ACTION_CONFIRMATIONS - block confirmations before an agent action transaction is final
 ACTION_RECEIPT_TIMEOUT_MS - maximum wait for one agent action receipt
 ACTION_WORKER_INTERVAL_MS - tick interval of the agent action worker
 ACTION_RECONCILE_INTERVAL_MS - sweep interval of the agent action reconciler
 ACTION_FEE_BUMP_PERCENT - fee increase applied when replacing a stuck agent action transaction
-LAYERX_SYNC_INTERVAL_MS - interval of the LayerX mirror sync worker
 NEXT_PUBLIC_PAXEER_WALLET_API - wallet gateway base URL used by the demo
 NEXT_PUBLIC_SUPABASE_URL - Supabase project URL used by the demo for sign-in
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY - Supabase publishable key used by the demo for sign-in
@@ -177,8 +174,7 @@ CHECK_LIVE_HUMAN_DESTINATION - kernel account the golden intent of scripts/walle
 ATTESTOR_ENDPOINTS - comma-separated https base URLs of the five attestor nodes the gateway signs through
 ATTESTOR_CLIENT_CERT_FILE - path to the gateway's mutual TLS client certificate presented to the attestors
 ATTESTOR_CLIENT_KEY_FILE - path to the private key of the gateway's mutual TLS client certificate
-SPONSOR_PRIVATE_KEY - platform secret holding the account setup sponsor key, written to the file named by SPONSOR_PRIVATE_KEY_FILE
-SPONSOR_PRIVATE_KEY_FILE - path to the 64-hex private key of the account that tops up binding gas for new unified accounts
+WALLET_GAS_STATION_URL - gas station base URL required for provisioning and backfill; without it, both refuse with gas_station_unconfigured
 ACCOUNT_SETUP_GAS_CAP_WEI - largest binding gas top-up in wei the sponsor pays for one account
 ATTESTOR_CA_FILE - path to the CA bundle that authenticates the attestor nodes
 ATTESTOR_CLIENT_CERT - platform secret holding the gateway's attestor client certificate, written to the file named by ATTESTOR_CLIENT_CERT_FILE
@@ -187,7 +183,8 @@ ATTESTOR_CA - platform secret holding the CA bundle that authenticates the attes
 ATTESTOR_QUORUM - number of healthy attestors a signing session needs, defaulting to 3
 ATTESTOR_HEALTH_INTERVAL_MS - interval between attestor health probes in milliseconds, defaulting to 5000
 ATTESTOR_TIMEOUT_MS - timeout of one attestor request in milliseconds, defaulting to 15000
-RPC_URLS - comma-separated chain RPC URLs of the gateway's RPC pool, defaulting to the sixteen public mainnet hosts; set as a Fly secret of the wallet gateway app to the router URL followed by the serving RPC names
+RPC_URLS - comma-separated chain RPC URLs of the gateway's RPC pool, defaulting to the single router URL https://api-mainnet-beta.paxeer.network; set as a Fly secret of the wallet gateway app to the router URL followed by the serving RPC names
+SEQUENCER_RPC_URL - write endpoint of the gateway, defaulting to the first RPC_URLS entry
 RPC_LAG_THRESHOLD_BLOCKS - blocks an RPC endpoint may trail the best head before it leaves the pool, defaulting to 20
 RPC_HEALTH_INTERVAL_MS - interval between RPC pool health checks in milliseconds, defaulting to 5000
 RPC_TIMEOUT_MS - timeout of one RPC request in milliseconds, defaulting to 8000
@@ -197,7 +194,6 @@ AGENT_JWT_SECRET - platform secret signing the read-scoped agent token; unset di
 AGENT_TOKEN_TTL_SECONDS - lifetime of the read-scoped agent token in seconds
 AGENT_CHALLENGE_TTL_SECONDS - lifetime of an agent authentication challenge in seconds
 AGENT_REQUEST_MAX_TTL_SECONDS - furthest expiry in seconds an agent request signature or claim counter-signature may carry, default 300
-LAYERX_USDL_ADDRESS - USDL token address used by the kernel deposit action
 LAYERX_USDL_DECIMALS - USDL token decimals used when the token does not report them
 FUNDED_TREASURY_PRIVATE_KEY - removed with the funded lane; must not be set anywhere
 FUNDED_USDL_ADDRESS - removed; replaced by LAYERX_USDL_ADDRESS

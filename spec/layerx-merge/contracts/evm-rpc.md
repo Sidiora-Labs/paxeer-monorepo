@@ -307,7 +307,7 @@ Contract context <code>contract_context.7.ws-transport</code>:
 | gas | No gas is charged by the rpc layer; eth_call and eth_estimateGas simulate with the block gas limit. |
 | activation | Takes effect when the node binary carrying the change starts; no upgrade height. |
 | invariants | For a method served on both transports the answers are equal for equal parameters. |
-| pause | evm.http_enabled and evm.ws_enabled switch the transports off; evm.deny_list refuses single methods. |
+| pause | evm.http_enabled and evm.ws_enabled switch the transports off; evm.deny_list refuses each denied member of a batch on both transports. |
 
 ## config-enable-parallelized-block-trace
 

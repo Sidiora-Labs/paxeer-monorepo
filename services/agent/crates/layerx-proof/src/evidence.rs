@@ -1,6 +1,6 @@
 //! Identifiers for the exact bytes and commitments supporting a level.
 
-use layerx_types::verify::VerificationLevel;
+use layerx_types::{rung::Rung, verify::VerificationLevel};
 
 use crate::level::Achieved;
 
@@ -25,6 +25,11 @@ impl Evidence {
             checkpoint_id: None,
             settlement_reference: None,
         }
+    }
+
+    pub(crate) const fn with_pinned_receipt_keys(mut self) -> Self {
+        self.achieved = Achieved::pinned_sequencer_signed();
+        self
     }
 
     pub(crate) const fn batch(header_digest: [u8; 32], proof_root: [u8; 32]) -> Self {
@@ -75,6 +80,11 @@ impl Evidence {
     #[must_use]
     pub const fn level(&self) -> VerificationLevel {
         self.achieved.level()
+    }
+
+    #[must_use]
+    pub const fn rung(&self) -> Rung {
+        self.achieved.rung()
     }
 
     /// Returns the signed receipt digest when receipt verification produced it.

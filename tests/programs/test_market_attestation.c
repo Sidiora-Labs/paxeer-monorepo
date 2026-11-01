@@ -104,6 +104,7 @@ typedef struct fixture {
     lxp_activity last_activity;
     uint8_t last_payload[LXP_MAX_ACTIVITY_BYTES], last_signature[64];
     unsigned failures;
+    unsigned fraudprovable_leases;
     unsigned verified_receipts, verified_roots, refusal_checks;
     bool refusal_changed_state;
 } fixture;
@@ -159,6 +160,8 @@ static void amount(uint8_t *out, size_t *n, uint64_t value)
     integer(out, n, value);
 }
 
+static int advance_batch(fixture *f);
+
 static int initialize(fixture *f)
 {
     uint8_t treasury_id[32];
@@ -168,7 +171,7 @@ static int initialize(fixture *f)
     lx_programs_fee_genesis_parameters genesis = {0};
     size_t i;
     f->parameters = 1U;
-    f->height = 10U;
+    f->height = 1U;
     (void)memset(f->program, 0x71, 32U);
     if (lx_account_registry_init(&f->accounts) != LXP_OK) return 1;
     for (i = 0U; i < 3U; ++i) {
@@ -196,7 +199,7 @@ static int initialize(fixture *f)
         lxp_state_store_bind_accounts(&f->state, &f->accounts) != LXP_OK ||
         lxp_kernel_create(&f->kernel, &f->state, &f->journal, &f->parameters, 0U) != LXP_OK ||
         install_metering_v1(&f->kernel) != LXP_OK ||
-        lxp_kernel_register_module(&f->kernel, programs_module_registration_v4()) != LXP_OK)
+        lxp_kernel_register_module(&f->kernel, programs_module_registration_v5()) != LXP_OK)
         return 1;
     (void)memcpy(f->asset.asset_id, asset_id, 32U);
     f->asset.registered = true;
@@ -217,16 +220,19 @@ static int initialize(fixture *f)
     genesis.maximum_change_numerator = 1U;
     genesis.maximum_change_denominator = 1U;
     genesis.minimum_fee_units_per_occupancy_byte_batch = 1U;
-    genesis.maximum_fee_units_per_occupancy_byte_batch = 10U;
+    genesis.maximum_fee_units_per_occupancy_byte_batch = 1U;
     if (lxp_programs_fee_genesis_append(&manifest, &genesis) != LXP_OK ||
         lxp_programs_fee_genesis_materialize(&manifest, &f->kernel) != LXP_OK) return 1;
     f->fees.version = 1U;
     f->fees.multiplier_basis_points = 10000U;
-    return lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_PROGRAMS, &f->runtime) != LXP_OK ||
+    if (lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_PROGRAMS, &f->runtime) != LXP_OK ||
         lxp_programs_bind_fee_transaction(&f->kernel) != LXP_OK ||
         lxp_kernel_set_capabilities(&f->kernel, NULL, lxp_kernel_canonical_ledger_apply) != LXP_OK ||
         lxp_state_root(&f->kernel, f->kernel.current_state_root) != LXP_OK ||
-        lxp_arena_init(&f->arena, f->arena_bytes, sizeof(f->arena_bytes)) != LXP_OK;
+        lxp_arena_init(&f->arena, f->arena_bytes, sizeof(f->arena_bytes)) != LXP_OK) return 1;
+    while (f->height < 10U)
+        if (advance_batch(f) != 0) return 1;
+    return 0;
 }
 
 static lxp_result execute(fixture *f, unsigned actor, uint32_t type,
@@ -268,7 +274,7 @@ static lxp_result execute(fixture *f, unsigned actor, uint32_t type,
     execution.batch_timestamp_ms = 10U;
     execution.maximum_timestamp_window = 100U;
     execution.global_sequence = f->state.next_sequence;
-    execution.recorded_module_version = LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION;
+    execution.recorded_module_version = LX_PROGRAMS_GUEST_ABI_V5_VERSION;
     execution.recorded_metering_schedule_version = 1U;
     execution.recorded_fee_schedule_version = 1U;
     execution.parameter_version = 1U;
@@ -321,7 +327,7 @@ static size_t call_payload(fixture *f, uint8_t *out, const uint8_t *data, size_t
                            const uint8_t *destination)
 {
     static const uint8_t access[] = "LayerX/programs/access-declaration/v1\0";
-    static const uint64_t budget[7] = {100000000U,16777216U,1048576U,1048576U,64U,1048576U,4096U};
+    static const uint64_t budget[7] = {1000000U,16777216U,1048576U,1048576U,64U,1048576U,4096U};
     uint8_t capabilities[256];
     size_t c = 2U, n = 0U, i;
     write_u16(capabilities, destination == NULL && !f->expiry_grant ? 3U : 4U);
@@ -333,7 +339,7 @@ static size_t call_payload(fixture *f, uint8_t *out, const uint8_t *data, size_t
         amount(capabilities, &c, 1000U);
     }
     if (f->expiry_grant) {
-        uint8_t seed[2] = {'e', 2U}, source[32];
+        uint8_t seed[2] = {'e', 3U}, source[32];
         if (lxp_programs_account_derive(f->program, seed, sizeof(seed), source) != LXP_OK) return 0U;
         capabilities[c++] = 9U;
         bytes(capabilities, &c, f->program, 32U);
@@ -378,6 +384,68 @@ static bool business_root(const fixture *f, uint8_t root[32])
     return false;
 }
 
+static uint32_t read_u32(const uint8_t *value)
+{
+    return ((uint32_t)value[0] << 24U) | ((uint32_t)value[1] << 16U) |
+        ((uint32_t)value[2] << 8U) | value[3];
+}
+
+static lxp_byte_span terminal_detail(const fixture *f)
+{
+    static const uint8_t domain[] = "LXP/programs/terminal-applied-legs/v1";
+    lxp_byte_span terminal = f->receipt.program_outcome.terminal_payload;
+    lxp_byte_span invalid = {0};
+    size_t offset = sizeof(domain) + 4U;
+    uint32_t length, legs;
+    if (terminal.length < sizeof(domain) + 8U ||
+        memcmp(terminal.bytes, domain, sizeof(domain)) != 0) return invalid;
+    length = read_u32(terminal.bytes + sizeof(domain));
+    if (length > terminal.length - offset - 4U) return invalid;
+    legs = read_u32(terminal.bytes + offset + length);
+    if (legs != terminal.length - offset - length - 4U) return invalid;
+    terminal.bytes += offset;
+    terminal.length = length;
+    return terminal;
+}
+
+static bool guest_output(lxp_byte_span detail, int32_t *code)
+{
+    static const uint8_t domain[] = "LXP/program-execution/v5";
+    static const uint8_t output_header[] = {0U, 0U, 0U, 0U, 0U, 0U, 0U, 1U, 1U};
+    size_t offset = sizeof(domain) + 2U + 4U + 4U;
+    uint32_t value;
+    if (detail.length < offset + sizeof(output_header) + 4U ||
+        memcmp(detail.bytes, domain, sizeof(domain)) != 0 ||
+        memcmp(detail.bytes + offset, output_header, sizeof(output_header)) != 0)
+        return false;
+    value = read_u32(detail.bytes + offset + sizeof(output_header));
+    *code = (int32_t)(value <= INT32_MAX ? (int64_t)value : (int64_t)value - 4294967296LL);
+    return true;
+}
+
+static void print_terminal_failure(const fixture *f)
+{
+    static const uint8_t callback[] = "LXP/programs/callback-failure/v1";
+    lxp_byte_span detail = terminal_detail(f);
+    int32_t code;
+    size_t i;
+    if (guest_output(detail, &code))
+        (void)fprintf(stderr, "market guest output code=%d\n", (int)code);
+    for (i = 0U; i + sizeof(callback) + 5U <= detail.length; ++i) {
+        if (memcmp(detail.bytes + i, callback, sizeof(callback)) == 0) {
+            uint32_t status = read_u32(detail.bytes + i + sizeof(callback) + 1U);
+            int64_t signed_status = status <= INT32_MAX ? (int64_t)status :
+                (int64_t)status - 4294967296LL;
+            (void)fprintf(stderr, "market callback stage=%u status=%lld\n",
+                (unsigned)detail.bytes[i + sizeof(callback)], (long long)signed_status);
+        }
+    }
+    (void)fprintf(stderr, "market terminal detail:");
+    for (i = 0U; i < detail.length; ++i)
+        (void)fprintf(stderr, "%02x", detail.bytes[i]);
+    (void)fprintf(stderr, "\n");
+}
+
 static int invoke(fixture *f, const char *name, unsigned actor, const uint8_t *data,
                    size_t length, const uint8_t *destination, bool success)
 {
@@ -399,8 +467,71 @@ static int invoke(fixture *f, const char *name, unsigned actor, const uint8_t *d
             refused = false;
         }
     }
+    if (success ? !accepted : !refused) {
+        (void)fprintf(stderr,
+            "market op %u actor %u (%s): status=%d result=%d outcome=%u terminal=%u "
+            "cpu=%llu memory=%llu reads=%llu writes=%llu\n",
+            length > 1U ? data[1] : 0U, actor, name == NULL ? "fixture" : name,
+            (int)status, (int)f->receipt.result_code,
+            (unsigned)f->receipt.program_outcome.present,
+            (unsigned)f->receipt.program_outcome.terminal_kind,
+            (unsigned long long)f->receipt.program_outcome.cpu_fuel,
+            (unsigned long long)f->receipt.program_outcome.memory_bytes,
+            (unsigned long long)f->receipt.program_outcome.storage_read_bytes,
+            (unsigned long long)f->receipt.program_outcome.storage_write_bytes);
+        if (f->receipt.program_outcome.present &&
+            f->receipt.program_outcome.terminal_kind == LXP_PROGRAM_TERMINAL_FAILURE)
+            print_terminal_failure(f);
+    }
     return report(f, name, success ? accepted : refused,
                   status == LXP_OK ? f->receipt.result_code : status);
+}
+
+static int fixture_step(const char *step, lxp_result status)
+{
+    if (status == LXP_OK) return 0;
+    (void)fprintf(stderr, "%s failed: %d\n", step, (int)status);
+    return 1;
+}
+
+static int advance_batch(fixture *f)
+{
+    lxp_programs_occupancy_receipt receipt;
+    lxp_byte_span encoded;
+    if (fixture_step("batch arena reset", lxp_arena_reset(&f->arena, 0U)) ||
+        fixture_step("batch occupancy finalize", lxp_programs_finalize_occupancy_batch_selected(
+            &f->kernel, LXP_PROTOCOL_VERSION_STATE_COMMITMENT, 1U, f->height, 10U,
+            f->state.next_sequence, 1U, &f->arena, &receipt, &encoded)) ||
+        fixture_step("batch state root", lxp_state_root(&f->kernel, f->kernel.current_state_root)))
+        return 1;
+    ++f->height;
+    return 0;
+}
+
+static int initialize_account_profile(fixture *f)
+{
+    lxp_module_ctx ctx;
+    uint8_t key[64], profile[33] = {2U};
+    size_t key_length = lxp_programs_account_profile_key(f->program, key);
+    if (key_length == 0U ||
+        fixture_step("profile arena reset", lxp_arena_reset(&f->arena, 0U)) ||
+        fixture_step("profile journal open", lxp_state_journal_open(
+            &f->state, f->state.next_sequence, &f->journal)) ||
+        fixture_step("profile context init", lxp_module_ctx_init(
+            &ctx, &f->kernel, LXP_MODULE_PROGRAMS, 10U, f->kernel.epoch,
+            f->state.next_sequence, 100000U, &f->arena, true))) return 1;
+    ctx.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+    return fixture_step("profile owner read", lxp_programs_account_owner_read(
+               &ctx, f->program, profile+1U)) ||
+        memcmp(profile+1U, f->principals[0], 32U) != 0 ||
+        fixture_step("profile initialize", lxp_ctx_kv_put(
+            &ctx, key, key_length, profile, sizeof(profile))) ||
+        fixture_step("profile guest validate", lxp_programs_account_guest_validate(
+            &ctx, f->program, LX_PROGRAMS_GUEST_ABI_V5_VERSION)) ||
+        fixture_step("profile prepare commit", lxp_module_ctx_prepare_commit(&ctx)) ||
+        fixture_step("profile journal commit", lxp_state_journal_commit(&f->journal)) ||
+        fixture_step("profile context commit", lxp_module_ctx_commit(&ctx)) ||
+        fixture_step("profile state root", lxp_state_root(&f->kernel, f->kernel.current_state_root));
 }
 
 static int register_account(fixture *f, const uint8_t *seed, size_t length, uint8_t id[32])
@@ -409,21 +540,27 @@ static int register_account(fixture *f, const uint8_t *seed, size_t length, uint
     lxp_effect_buffer effects;
     lx_account *account;
     bool created;
-    if (lxp_programs_account_derive(f->program, seed, length, id) != LXP_OK ||
-        lxp_arena_reset(&f->arena, 0U) != LXP_OK ||
-        lxp_state_journal_open(&f->state, f->state.next_sequence, &f->journal) != LXP_OK ||
-        lxp_module_ctx_init(&ctx, &f->kernel, LXP_MODULE_PROGRAMS, 10U, 0U,
-                            f->state.next_sequence, 100000U, &f->arena, true) != LXP_OK)
+    if (fixture_step("account derive", lxp_programs_account_derive(f->program, seed, length, id)) ||
+        fixture_step("account arena reset", lxp_arena_reset(&f->arena, 0U)) ||
+        fixture_step("account journal open", lxp_state_journal_open(
+            &f->state, f->state.next_sequence, &f->journal)) ||
+        fixture_step("account context init", lxp_module_ctx_init(
+            &ctx, &f->kernel, LXP_MODULE_PROGRAMS, 10U, 0U,
+            f->state.next_sequence, 100000U, &f->arena, true)))
         return 1;
     ctx.protocol_version = LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
-    return lxp_effect_buffer_init(&effects) != LXP_OK ||
-        lxp_module_ctx_bind_effects(&ctx, &effects) != LXP_OK ||
-        lxp_programs_account_register(&ctx, f->program, seed, length, asset_id,
-                                      &account, &created) != LXP_OK || !created ||
-        lxp_module_ctx_prepare_commit(&ctx) != LXP_OK ||
-        lxp_state_journal_commit(&f->journal) != LXP_OK ||
-        lxp_module_ctx_commit(&ctx) != LXP_OK ||
-        lxp_state_root(&f->kernel, f->kernel.current_state_root) != LXP_OK;
+    if (fixture_step("account effects init", lxp_effect_buffer_init(&effects)) ||
+        fixture_step("account effects bind", lxp_module_ctx_bind_effects(&ctx, &effects)) ||
+        fixture_step("account register", lxp_programs_account_register(
+            &ctx, f->program, seed, length, asset_id, &account, &created))) return 1;
+    if (!created) {
+        (void)fprintf(stderr, "account register failed: account already exists\n");
+        return 1;
+    }
+    return fixture_step("account prepare commit", lxp_module_ctx_prepare_commit(&ctx)) ||
+        fixture_step("account journal commit", lxp_state_journal_commit(&f->journal)) ||
+        fixture_step("account context commit", lxp_module_ctx_commit(&ctx)) ||
+        fixture_step("account state root", lxp_state_root(&f->kernel, f->kernel.current_state_root));
 }
 static size_t request_start(uint8_t *out, uint8_t operation)
 {
@@ -459,6 +596,15 @@ static int provision_lease_instance(fixture *f, uint8_t model, uint8_t instance,
     integer(data, &n, 1000U);
     data[n++] = model;
     (void)snprintf(name, sizeof(name), model == 2U ? "register-offer" : "register-offer-model-%u", model);
+    if (model != 3U) {
+        int32_t code;
+        int refused = invoke(f, NULL, 0U, data, n, stake, false) == 0;
+        bool invalid = guest_output(terminal_detail(f), &code) && code == -2;
+        if (!invalid) print_terminal_failure(f);
+        return report(f, name, refused && invalid &&
+                      f->receipt.result_code == LXP_ERR_PROGRAM_REFUSED,
+                      invalid ? -2 : f->receipt.result_code);
+    }
     if (invoke(f, instance == model ? name : NULL, 0U, data, n, stake, true) != 0) return 1;
     n = request_start(data, 2U);
     bytes(data, &n, lease, 32U);
@@ -477,7 +623,9 @@ static int provision_lease_instance(fixture *f, uint8_t model, uint8_t instance,
 
 static int provision_lease(fixture *f, uint8_t model, uint8_t lease[32])
 {
-    return provision_lease_instance(f, model, model, lease);
+    uint8_t instance = model;
+    if (model == 3U && f->fraudprovable_leases++ != 0U) instance = 5U;
+    return provision_lease_instance(f, model, instance, lease);
 }
 
 static size_t configure_request(uint8_t *data, const uint8_t lease[32])
@@ -611,6 +759,137 @@ static int require_lease_model(fixture *f, const uint8_t lease[32], uint8_t mode
         cell.value_length < 3U || cell.value[0] != 1U || cell.value[2] != model;
 }
 
+static int require_no_claim(fixture *f, const uint8_t lease[32])
+{
+    static const uint8_t prefix[] = "lx.market.claim/";
+    uint8_t key[sizeof(prefix)-1U+32U], ns[33];
+    read_cell cell = {0};
+    lxp_module_ctx ctx;
+    (void)memcpy(key, prefix, sizeof(prefix)-1U);
+    (void)memcpy(key+sizeof(prefix)-1U, lease, 32U);
+    (void)memcpy(ns, f->program, 32U); ns[32] = 1U;
+    cell.key = key; cell.key_length = sizeof(key);
+    return lxp_arena_reset(&f->arena, 0U) != LXP_OK ||
+        lxp_module_ctx_init(&ctx, &f->kernel, LXP_MODULE_PROGRAMS, 10U, 0U,
+                            f->state.next_sequence, 1000000U, &f->arena, false) != LXP_OK ||
+        lxp_programs_storage_import(&ctx, ns, sizeof(ns), capture_cell, &cell) != LXP_OK ||
+        cell.found;
+}
+
+static size_t profile_request(fixture *f, uint8_t *data, const uint8_t lease[32],
+                              const uint8_t root[32], uint8_t digest[32])
+{
+    static const uint8_t domain[] = "LXP/market-sandbox-profile/v1";
+    static const uint8_t namespace_domain[] = "LayerX/programs/sandbox/namespace/v1";
+    uint8_t key[48], sandbox[32], id[32], namespace[32], preimage[128];
+    uint8_t entrypoint[64] = {'m', 'a', 'i', 'n'};
+    read_cell cell;
+    size_t n = request_start(data, 13U), k = 0U, i;
+    (void)memcpy(key, "lx.market.lease/", 16U);
+    (void)memcpy(key+16U, lease, 32U);
+    if (read_shared(f, key, sizeof(key), &cell) != 0 || cell.value_length < 67U)
+        return 0U;
+    (void)memset(sandbox, 0x72, sizeof(sandbox));
+    (void)memset(id, 0x61, sizeof(id)); id[31] = lease[31];
+    bytes(preimage, &k, namespace_domain, sizeof(namespace_domain));
+    bytes(preimage, &k, sandbox, sizeof(sandbox));
+    bytes(preimage, &k, lease, 32U);
+    if (lxp_hash_sha256(preimage, k, namespace) != LXP_OK) return 0U;
+    bytes(data, &n, domain, sizeof(domain));
+    write_u16(data+n, 1U); n += 2U;
+    write_u32(data+n, 7U); n += 4U;
+    bytes(data, &n, f->program, 32U);
+    bytes(data, &n, sandbox, 32U);
+    bytes(data, &n, cell.value+35U, 32U);
+    bytes(data, &n, lease, 32U);
+    bytes(data, &n, id, 32U);
+    bytes(data, &n, f->principals[0], 32U);
+    bytes(data, &n, f->principals[1], 32U);
+    bytes(data, &n, sandbox, 32U);
+    bytes(data, &n, root, 32U);
+    bytes(data, &n, root, 32U);
+    bytes(data, &n, namespace, 32U);
+    bytes(data, &n, root, 32U);
+    bytes(data, &n, root, 32U);
+    bytes(data, &n, entrypoint, sizeof(entrypoint));
+    data[n++] = 4U;
+    write_u16(data+n, 1U); n += 2U;
+    write_u16(data+n, 4U); n += 2U;
+    write_u32(data+n, 1U); n += 4U;
+    write_u32(data+n, 1U); n += 4U;
+    for (i = 0U; i < 8U; ++i) integer(data, &n, 1U);
+    amount(data, &n, 10U);
+    integer(data, &n, f->height);
+    integer(data, &n, f->height+1U);
+    integer(data, &n, f->height+21U);
+    write_u32(data+n, 2U); n += 4U;
+    write_u32(data+n, 1024U); n += 4U;
+    data[n++] = 0U; data[n++] = 2U; data[n++] = 1U; data[n++] = 2U;
+    return lxp_hash_sha256(data+2U, n-2U, digest) == LXP_OK ? n : 0U;
+}
+
+static size_t billing_request(uint8_t *data, const uint8_t lease[32],
+                              const uint8_t profile_digest[32])
+{
+    static const uint8_t domain[] = "LXP/market-sandbox-billing/v1";
+    uint8_t trace[32], state[32], output[32];
+    size_t n = request_start(data, 14U), i;
+    (void)memset(trace, 0x64, sizeof(trace));
+    (void)memset(state, 0x63, sizeof(state));
+    (void)memset(output, 0x62, sizeof(output));
+    bytes(data, &n, lease, 32U);
+    bytes(data, &n, domain, sizeof(domain));
+    write_u16(data+n, 1U); n += 2U;
+    bytes(data, &n, profile_digest, 32U);
+    bytes(data, &n, trace, 32U);
+    bytes(data, &n, state, 32U);
+    bytes(data, &n, output, 32U);
+    for (i = 0U; i < 6U; ++i) integer(data, &n, 1U);
+    amount(data, &n, 1U);
+    amount(data, &n, 1U);
+    integer(data, &n, 20U);
+    write_u32(data+n, 2U); n += 4U;
+    return n;
+}
+
+static int billing_commit(fixture *f, const char *name, const uint8_t lease[32],
+                           const uint8_t root[32], const uint8_t *data, size_t length)
+{
+    static const uint8_t claim_prefix[] = "lx.market.claim/";
+    static const uint8_t billing_prefix[] = "lx.market.arbitration-billing/";
+    uint8_t key[sizeof(billing_prefix)-1U+32U];
+    uint8_t expected[290], id[32], output[32], state[32];
+    size_t n = 0U, i;
+    read_cell claim, billing;
+    (void)memset(id, 0x61, sizeof(id)); id[31] = lease[31];
+    (void)memset(output, 0x62, sizeof(output));
+    (void)memset(state, 0x63, sizeof(state));
+    expected[n++] = 1U; expected[n++] = 1U;
+    bytes(expected, &n, id, 32U);
+    bytes(expected, &n, lease, 32U);
+    bytes(expected, &n, f->principals[0], 32U);
+    bytes(expected, &n, root, 32U);
+    bytes(expected, &n, output, 32U);
+    bytes(expected, &n, state, 32U);
+    for (i = 0U; i < 6U; ++i) integer(expected, &n, 1U);
+    amount(expected, &n, 1U);
+    amount(expected, &n, 1U);
+    integer(expected, &n, f->height);
+    integer(expected, &n, f->height+20U);
+    int accepted = invoke(f, NULL, 0U, data, length, NULL, true) == 0;
+    lxp_result code = f->receipt.result_code;
+    (void)memcpy(key, claim_prefix, sizeof(claim_prefix)-1U);
+    (void)memcpy(key+sizeof(claim_prefix)-1U, lease, 32U);
+    accepted = accepted && read_shared(f, key, sizeof(claim_prefix)-1U+32U, &claim) == 0 &&
+        claim.value_length == n && memcmp(claim.value, expected, n) == 0;
+    (void)memcpy(key, billing_prefix, sizeof(billing_prefix)-1U);
+    (void)memcpy(key+sizeof(billing_prefix)-1U, lease, 32U);
+    accepted = accepted && read_shared(f, key, sizeof(key), &billing) == 0 &&
+        billing.value_length == length-34U &&
+        memcmp(billing.value, data+34U, billing.value_length) == 0;
+    return report(f, name, accepted, code);
+}
+
 static int settlement_root(fixture *f, const uint8_t lease[32], uint8_t root[32])
 {
     static const uint8_t committed_domain[] = "LXP/market-committed-set/v1";
@@ -677,6 +956,7 @@ static int restore(fixture *source, fixture *restored)
     if (!failed) {
         restored->identities = source->identities;
         restored->height = source->height;
+        restored->fraudprovable_leases = source->fraudprovable_leases;
         failed = lxp_snapshot_load(memory, snapshot.length, &manifest, &restored->kernel) != LXP_OK ||
             lxp_state_root(&restored->kernel, loaded) != LXP_OK || memcmp(root, loaded, 32U) != 0 ||
             lxp_snapshot_verify_root(&restored->kernel, &manifest) != LXP_OK;
@@ -689,7 +969,7 @@ static int distinct_lease_root(fixture *f, uint8_t root[32])
     uint8_t lease[32], data[1024];
     size_t n;
     unsigned ordinal;
-    if (provision_lease_instance(f, 2U, 4U, lease) != 0) return 1;
+    if (provision_lease_instance(f, 3U, 4U, lease) != 0) return 1;
     n = configure_request(data, lease);
     if (invoke(f, NULL, 1U, data, n, NULL, true) != 0) return 1;
     for (ordinal = 1U; ordinal <= 2U; ++ordinal) {
@@ -702,7 +982,7 @@ static int distinct_lease_root(fixture *f, uint8_t root[32])
         n = attestation_request(f, data, lease, (uint8_t)ordinal, 0U);
         if (invoke(f, NULL, 0U, data, n, NULL, true) != 0) return 1;
     }
-    return require_lease_model(f, lease, 2U) != 0 || settlement_root(f, lease, root) != 0;
+    return require_lease_model(f, lease, 3U) != 0 || settlement_root(f, lease, root) != 0;
 }
 
 static int native_input_bound(fixture *f, const uint8_t lease[32])
@@ -830,7 +1110,8 @@ static int admission_cases(fixture *f, const uint8_t lease[32])
             memcmp(f->kernel.current_state_root, restored->kernel.current_state_root, 32U) == 0;
         (void)report(f, "deterministic-admission", matched, result);
     }
-    restored->height = 901U;
+    while (restored->height < 901U)
+        if (advance_batch(restored) != 0) return 1;
     restored->expiry_grant = true;
     n = request_start(data, 4U); bytes(data, &n, lease, 32U);
     if (invoke(restored, "expire-funded-lease", 1U, data, n, NULL, true) == 0) {
@@ -859,7 +1140,7 @@ static int admission_cases(fixture *f, const uint8_t lease[32])
     (void)invoke(f, "partial-admission-settlement-refused", 0U, data, n, NULL, false);
     n = attestation_request(f, data, lease, 2U, 0U);
     if (invoke(f, "second-attester-accepted", 0U, data, n, NULL, true) != 0) return 1;
-    if (require_lease_model(f, lease, 2U) != 0 || settlement_root(f, lease, root) != 0)
+    if (require_lease_model(f, lease, 3U) != 0 || settlement_root(f, lease, root) != 0)
         return report(f, "evidence-attested", false, LXP_FATAL_INVARIANT);
     (void)report(f, "evidence-attested", true, LXP_OK);
     restored = calloc(1U, sizeof(*restored));
@@ -885,7 +1166,11 @@ static int admission_cases(fixture *f, const uint8_t lease[32])
         (void)invoke(f, "usage-swapped-root-refused", 0U, data, n, NULL, false);
     }
     n = usage_request(data, lease, root);
-    return invoke(f, "usage-exact-root-accepted", 0U, data, n, NULL, true);
+    {
+        int refused = invoke(f, NULL, 0U, data, n, NULL, false) == 0;
+        return report(f, "usage-direct-refused", refused && require_no_claim(f, lease) == 0,
+                      f->receipt.result_code);
+    }
 }
 
 static int model_cases(fixture *f, uint8_t model)
@@ -917,6 +1202,19 @@ static int model_cases(fixture *f, uint8_t model)
     if (require_lease_model(f, lease, model) != 0 || settlement_root(f, lease, root) != 0)
         return report(f, positive, false, LXP_FATAL_INVARIANT);
     n = usage_request(data, lease, root);
+    if (model == 3U) {
+        uint8_t digest[32];
+        int refused = invoke(f, NULL, 0U, data, n, NULL, false) == 0;
+        lxp_result code = f->receipt.result_code;
+        if (report(f, "fraudprovable-direct-usage-refused",
+                   refused && require_no_claim(f, lease) == 0, code) != 0) return 1;
+        n = profile_request(f, data, lease, root, digest);
+        if (n == 0U || invoke(f, "fraudprovable-profile-accepted", 1U,
+                              data, n, NULL, true) != 0) return 1;
+        if (advance_batch(f) != 0) return 1;
+        n = billing_request(data, lease, digest);
+        return billing_commit(f, positive, lease, root, data, n);
+    }
     return invoke(f, positive, 0U, data, n, NULL, true);
 }
 
@@ -955,7 +1253,7 @@ static int empty_settlement_root(fixture *f, const uint8_t lease[32], uint8_t ro
 }
 
 static int read_empty_plan(fixture *f, const uint8_t lease[32], const uint8_t root[32],
-                           read_cell *cell)
+                           uint64_t sealed_height, read_cell *cell)
 {
     static const uint8_t prefix[] = "lx.market.attesters/";
     uint8_t key[sizeof(prefix)-1U+32U], expected[512], zero[32] = {0};
@@ -967,7 +1265,7 @@ static int read_empty_plan(fixture *f, const uint8_t lease[32], const uint8_t ro
     bytes(expected, &n, f->principals[1], 32U);
     integer(expected, &n, 1U);
     expected[n++] = 1U;
-    integer(expected, &n, f->height);
+    integer(expected, &n, sealed_height);
     write_u32(expected+n, 0U); n += 4U;
     write_u32(expected+n, 0U); n += 4U;
     for (unsigned index = 0U; index < 4U; ++index) bytes(expected, &n, zero, 32U);
@@ -987,6 +1285,7 @@ static int empty_plan_cases(fixture *source, uint8_t model)
     uint8_t lease[32], other_lease[32], data[1024];
     uint8_t root[32], other_root[32], zero[32] = {0};
     read_cell frozen, after;
+    uint64_t sealed_height = source->height;
     size_t n;
     int failed = 1;
     if (f == NULL || restore(source, f) != 0) goto done;
@@ -1003,7 +1302,7 @@ static int empty_plan_cases(fixture *source, uint8_t model)
     if (empty_case(f, model, "frozen-state-valid",
         empty_settlement_root(f, lease, root) == 0 &&
         require_lease_model(f, lease, model) == 0 &&
-        read_empty_plan(f, lease, root, &frozen) == 0, LXP_OK) != 0) goto done;
+        read_empty_plan(f, lease, root, sealed_height, &frozen) == 0, LXP_OK) != 0) goto done;
     (void)empty_invoke(f, model, "reseal-refused", 1U, data, n, false);
     n = input_fields(data, request_start(data, 7U), lease, 1U);
     (void)empty_invoke(f, model, "late-input-refused", 1U, data, n, false);
@@ -1020,24 +1319,50 @@ static int empty_plan_cases(fixture *source, uint8_t model)
     n = request_start(data, 8U); bytes(data, &n, other_lease, 32U);
     if (invoke(f, NULL, 1U, data, n, NULL, true) != 0 ||
         empty_settlement_root(f, other_lease, other_root) != 0 ||
-        read_empty_plan(f, other_lease, other_root, &after) != 0 ||
+        read_empty_plan(f, other_lease, other_root, sealed_height, &after) != 0 ||
         memcmp(root, other_root, 32U) == 0) goto done;
     n = usage_request(data, lease, other_root);
     (void)empty_invoke(f, model, "swapped-root-usage-refused", 0U, data, n, false);
     restored = calloc(1U, sizeof(*restored));
     if (restored == NULL) goto done;
     if (empty_case(f, model, "restored-state-root-equal", restore(f, restored) == 0 &&
-        read_empty_plan(restored, lease, root, &after) == 0 &&
+        read_empty_plan(restored, lease, root, sealed_height, &after) == 0 &&
         frozen.value_length == after.value_length &&
         memcmp(frozen.value, after.value, frozen.value_length) == 0, LXP_OK) != 0) goto done;
     n = usage_request(data, lease, root);
-    (void)empty_invoke(restored, model, "restored-usage-exact-root-accepted", 0U, data, n, true);
-    (void)empty_invoke(f, model, "usage-exact-root-accepted", 0U, data, n, true);
+    if (model == 3U) {
+        uint8_t digest[32], restored_digest[32];
+        int refused = invoke(restored, NULL, 0U, data, n, NULL, false) == 0;
+        lxp_result code = restored->receipt.result_code;
+        if (empty_case(restored, model, "restored-usage-direct-refused",
+                       refused && require_no_claim(restored, lease) == 0, code) != 0) goto done;
+        refused = invoke(f, NULL, 0U, data, n, NULL, false) == 0;
+        code = f->receipt.result_code;
+        if (empty_case(f, model, "usage-direct-refused",
+                       refused && require_no_claim(f, lease) == 0, code) != 0) goto done;
+        n = profile_request(restored, data, lease, root, restored_digest);
+        if (n == 0U || empty_invoke(restored, model, "restored-profile-accepted",
+                                    1U, data, n, true) != 0) goto done;
+        n = profile_request(f, data, lease, root, digest);
+        if (n == 0U || empty_invoke(f, model, "profile-accepted", 1U, data, n, true) != 0)
+            goto done;
+        if (advance_batch(restored) != 0 || advance_batch(f) != 0) goto done;
+        n = billing_request(data, lease, restored_digest);
+        if (billing_commit(restored, "empty-fraudprovable-restored-billing-accepted",
+                           lease, root, data, n) != 0)
+            goto done;
+        n = billing_request(data, lease, digest);
+        if (billing_commit(f, "empty-fraudprovable-billing-accepted", lease, root, data, n) != 0)
+            goto done;
+    } else {
+        (void)empty_invoke(restored, model, "restored-usage-exact-root-accepted", 0U, data, n, true);
+        (void)empty_invoke(f, model, "usage-exact-root-accepted", 0U, data, n, true);
+    }
     (void)empty_case(f, model, "input-state-unchanged-after-refusals",
-        read_empty_plan(f, lease, root, &after) == 0 &&
+        read_empty_plan(f, lease, root, sealed_height, &after) == 0 &&
         frozen.value_length == after.value_length &&
         memcmp(frozen.value, after.value, frozen.value_length) == 0 &&
-        read_empty_plan(restored, lease, root, &after) == 0 &&
+        read_empty_plan(restored, lease, root, sealed_height, &after) == 0 &&
         frozen.value_length == after.value_length &&
         memcmp(frozen.value, after.value, frozen.value_length) == 0 &&
         memcmp(f->kernel.current_state_root, restored->kernel.current_state_root, 32U) == 0 &&
@@ -1066,7 +1391,7 @@ done:
     return failed;
 }
 
-int main(int argc, char **argv)
+static int test_market_attestation(int argc, char **argv)
 {
     fixture *f;
     FILE *artifact;
@@ -1098,11 +1423,12 @@ int main(int argc, char **argv)
     status = execute(f, 0U, LX_PROGRAMS_DEPLOY, payload, length+104U, false);
     if (report(f, "native-deploy", status == LXP_OK && f->receipt.result_code == LXP_OK,
                status == LXP_OK ? f->receipt.result_code : status) == 0) {
-        for (uint8_t model = 1U; model <= 3U; ++model)
-            failed |= empty_plan_cases(f, model);
-        failed |= provision_lease(f, 2U, lease);
+        if (initialize_account_profile(f) != 0) return 2;
+        failed |= empty_plan_cases(f, 3U);
+        failed |= provision_lease(f, 3U, lease);
         if (!failed) failed |= admission_cases(f, lease);
-        failed |= model_cases(f, 1U);
+        failed |= provision_lease(f, 1U, lease);
+        failed |= provision_lease(f, 2U, lease);
         failed |= model_cases(f, 3U);
     }
     (void)report(f, "signed-native-receipts-verified", f->verified_receipts > 0U &&
@@ -1116,4 +1442,10 @@ int main(int argc, char **argv)
     if (lxp_state_store_destroy(&f->state) != LXP_OK) failed = 1;
     free(f); free(payload); free(wasm);
     return failed ? 1 : 0;
+}
+
+int main(int argc, char **argv)
+{
+    (void)setvbuf(stdout, NULL, _IOLBF, 0);
+    return test_market_attestation(argc, argv);
 }

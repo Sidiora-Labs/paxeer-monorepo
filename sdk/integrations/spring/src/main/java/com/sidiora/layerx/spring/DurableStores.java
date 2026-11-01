@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigInteger;
+import com.sidiora.layerx.sdk.PlatformSdkException;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
@@ -75,7 +77,7 @@ public final class DurableStores {
                 LayerXResource resource = release.release();
                 Fulfillments.StoredFulfillment stored = new Fulfillments.StoredFulfillment(
                     proposed.idempotencyKey(), proposed.requestDigest(), proposed.canonicalReceipt(),
-                    proposed.authorizedBatch(), resource);
+                    proposed.receiptKey(), proposed.transactionHash(), resource);
                 writeAtomic(directory, path, encode(stored));
                 return stored;
             });
@@ -168,21 +170,27 @@ public final class DurableStores {
         String idempotencyKey = text(stored, "idempotencyKey", 256);
         String requestDigest = text(stored, "requestDigest", 256);
         byte[] receipt = bytes(stored, "canonicalReceipt", 1_048_576);
-        JsonNode batchNode = object(stored, "authorizedBatch");
-        LocalVerifier.AuthorizedReceiptBatch batch = new LocalVerifier.AuthorizedReceiptBatch(
-            exactBytes(batchNode, "batchId", 32), exactBytes(batchNode, "asset", 32),
-            exactBytes(batchNode, "previousStateRoot", 32), exactBytes(batchNode, "resultingStateRoot", 32),
-            exactBytes(batchNode, "sequencerPublicKey", 32));
+        JsonNode keyNode = object(stored, "receiptKey");
+        LocalVerifier.ReceiptKey key;
+        try {
+            key = new LocalVerifier.ReceiptKey(exactBytes(keyNode, "keyId", 32),
+                exactBytes(keyNode, "publicKey", 32), height(keyNode, "firstHeight"),
+                height(keyNode, "lastHeight"));
+        } catch (PlatformSdkException error) {
+            throw new IOException("durable receipt key is invalid", error);
+        }
+        byte[] transactionHash = exactBytes(stored, "transactionHash", 32);
         JsonNode resourceNode = object(stored, "resource");
         LayerXResource resource = new LayerXResource(text(resourceNode, "contentType", 1024),
             bytes(resourceNode, "body", 2 * 1024 * 1024));
         if (!idempotencyKey.equals(proposed.idempotencyKey())
                 || !requestDigest.equals(proposed.requestDigest())
                 || !Arrays.equals(receipt, proposed.canonicalReceipt())
-                || !same(batch, proposed.authorizedBatch())) {
+                || !SellerMiddleware.sameKey(key, proposed.receiptKey())
+                || !Arrays.equals(transactionHash, proposed.transactionHash())) {
             throw MiddlewareException.of(MiddlewareException.Code.FULFILLMENT_CONFLICT);
         }
-        return new Fulfillments.StoredFulfillment(idempotencyKey, requestDigest, receipt, batch, resource);
+        return new Fulfillments.StoredFulfillment(idempotencyKey, requestDigest, receipt, key, transactionHash, resource);
     }
 
     private static byte[] encode(Fulfillments.StoredFulfillment stored) throws IOException {
@@ -190,12 +198,12 @@ public final class DurableStores {
         root.put("idempotencyKey", stored.idempotencyKey());
         root.put("requestDigest", stored.requestDigest());
         root.put("canonicalReceipt", Base64.getEncoder().encodeToString(stored.canonicalReceipt()));
-        ObjectNode batch = root.putObject("authorizedBatch");
-        batch.put("batchId", Base64.getEncoder().encodeToString(stored.authorizedBatch().batchId()));
-        batch.put("asset", Base64.getEncoder().encodeToString(stored.authorizedBatch().asset()));
-        batch.put("previousStateRoot", Base64.getEncoder().encodeToString(stored.authorizedBatch().previousStateRoot()));
-        batch.put("resultingStateRoot", Base64.getEncoder().encodeToString(stored.authorizedBatch().resultingStateRoot()));
-        batch.put("sequencerPublicKey", Base64.getEncoder().encodeToString(stored.authorizedBatch().sequencerPublicKey()));
+        ObjectNode key = root.putObject("receiptKey");
+        key.put("keyId", Base64.getEncoder().encodeToString(stored.receiptKey().keyId()));
+        key.put("publicKey", Base64.getEncoder().encodeToString(stored.receiptKey().publicKey()));
+        key.put("firstHeight", stored.receiptKey().firstHeight().toString());
+        key.put("lastHeight", stored.receiptKey().lastHeight().toString());
+        root.put("transactionHash", Base64.getEncoder().encodeToString(stored.transactionHash()));
         ObjectNode resource = root.putObject("resource");
         resource.put("contentType", stored.resource().contentType());
         resource.put("body", Base64.getEncoder().encodeToString(stored.resource().body()));
@@ -521,12 +529,14 @@ public final class DurableStores {
         return value.longValue();
     }
 
-    private static boolean same(LocalVerifier.AuthorizedReceiptBatch left,
-                                LocalVerifier.AuthorizedReceiptBatch right) {
-        return Arrays.equals(left.batchId(), right.batchId()) && Arrays.equals(left.asset(), right.asset())
-            && Arrays.equals(left.previousStateRoot(), right.previousStateRoot())
-            && Arrays.equals(left.resultingStateRoot(), right.resultingStateRoot())
-            && Arrays.equals(left.sequencerPublicKey(), right.sequencerPublicKey());
+    private static BigInteger height(JsonNode root, String name) throws IOException {
+        String value = text(root, name, 20);
+        if (!value.matches("0|[1-9][0-9]{0,19}")) {
+            throw new IOException("durable record height is invalid: " + name);
+        }
+        BigInteger height = new BigInteger(value);
+        if (height.bitLength() > 64) throw new IOException("durable record height is invalid: " + name);
+        return height;
     }
 
     private static byte[] sha256(byte[] value) throws IOException {

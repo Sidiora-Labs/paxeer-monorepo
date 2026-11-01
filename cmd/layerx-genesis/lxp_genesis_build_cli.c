@@ -5,7 +5,6 @@
 #include "layerx/lxp_crypto.h"
 #include "layerx/lx_asset.h"
 #include "layerx/lxp_fee.h"
-#include "layerx/lxp_handover.h"
 #include "layerx/lxp_protocol.h"
 
 #include <fcntl.h>
@@ -373,7 +372,7 @@ lxp_result lxp_genesis_deployment_descriptor_encode(
 
 static lxp_result build_artifacts(
     const char *request_path, const char *signer_key_path,
-    const char *output_directory, const char *profile_path, const char *registry_path)
+    const char *output_directory)
 {
     static const char manifest_name[] = "genesis.manifest";
     static const char snapshot_name[] = "00000000000000000000.lxs";
@@ -382,17 +381,10 @@ static lxp_result build_artifacts(
     static const char request_name[] = "paxeer-registration-request.lxrr";
     static const char descriptor_name[] =
         "paxeer-deployment-descriptor.lxgd";
-    static const char handover_trust_name[] = "genesis-handover-trust.lxt";
     uint8_t registration_request[LXP_GENESIS_REGISTRATION_REQUEST_BYTES];
     uint8_t deployment_descriptor[LXP_GENESIS_DEPLOYMENT_DESCRIPTOR_BYTES];
     uint8_t asset_id[32];
     uint8_t *request_bytes = NULL;
-    uint8_t *profile_bytes = NULL;
-    size_t profile_length = 0U;
-    lxp_bridge_profile profile;
-    lxp_bridge_profile profiles[4];
-    uint8_t *registry_bytes = NULL;
-    size_t registry_length = 0U;
     uint8_t *signer_key = NULL;
     uint8_t *arena_bytes = NULL;
     size_t request_length = 0U;
@@ -404,16 +396,12 @@ static lxp_result build_artifacts(
     lxp_snapshot_manifest_record snapshot_manifest;
     lxp_byte_span encoded_manifest;
     lxp_byte_span snapshot;
-    lxp_byte_span handover_trust = {NULL, 0U};
-    bool handover_enabled = false;
-    uint8_t governance_public_key[32];
     lxp_arena arena;
     char manifest_path[4096];
     char snapshot_path[4096];
     char snapshot_temporary_path[4096];
     char registration_request_path[4096];
     char deployment_descriptor_path[4096];
-    char handover_trust_path[4096];
     int directory_descriptor = -1;
     bool directory_created = false;
     lxp_result status;
@@ -422,20 +410,6 @@ static lxp_result build_artifacts(
         return LXP_ERR_NON_CANONICAL;
     status = read_regular_file(request_path, GENESIS_BUILD_REQUEST_MAX_BYTES,
                                false, &request_bytes, &request_length);
-    if (status == LXP_OK && profile_path != NULL)
-        status = read_regular_file(profile_path, LXP_BRIDGE_PROFILE_BYTES, false,
-                                    &profile_bytes, &profile_length);
-    if (status == LXP_OK && profile_path != NULL) {
-        if (profile_length != sizeof(profile.bytes)) status = LXP_ERR_NON_CANONICAL;
-        else {
-            (void)memcpy(profile.bytes, profile_bytes, sizeof(profile.bytes));
-            status = lxp_bridge_profile_validate(&profile);
-        }
-    }
-    if (status == LXP_OK && registry_path != NULL)
-        status = read_regular_file(registry_path, 901U, false, &registry_bytes, &registry_length);
-    if (status == LXP_OK && registry_path != NULL)
-        status = lxp_bridge_registry_decode(registry_bytes, registry_length, profiles);
     if (status == LXP_OK)
         status = read_regular_file(signer_key_path, 32U, true,
                                    &signer_key, &signer_key_length);
@@ -453,17 +427,9 @@ static lxp_result build_artifacts(
     if (status == LXP_OK)
         status = lxp_arena_init(&arena, arena_bytes,
                                 GENESIS_BUILD_ARENA_BYTES);
-    if (status == LXP_OK && profile_path == NULL && registry_path == NULL)
+    if (status == LXP_OK)
         status = lxp_genesis_build_fresh_empty(
             draft, asset_id, &metering, &fees, signer_key, &arena, manifest,
-            &snapshot_manifest, &encoded_manifest, &snapshot);
-    if (status == LXP_OK && profile_path != NULL)
-        status = lxp_genesis_build_fresh_custody(
-            draft, asset_id, &metering, &fees, &profile, signer_key, &arena, manifest,
-            &snapshot_manifest, &encoded_manifest, &snapshot);
-    if (status == LXP_OK && registry_path != NULL)
-        status = lxp_genesis_build_fresh_custody_registry(
-            draft, asset_id, &metering, &fees, profiles, signer_key, &arena, manifest,
             &snapshot_manifest, &encoded_manifest, &snapshot);
     if (status == LXP_OK)
         status = lxp_genesis_registration_request_encode(
@@ -471,11 +437,6 @@ static lxp_result build_artifacts(
     if (status == LXP_OK)
         status = lxp_genesis_deployment_descriptor_encode(
             manifest, &arena, deployment_descriptor);
-    if (status == LXP_OK)
-        status = lxp_handover_genesis_authority(manifest, governance_public_key,
-            &handover_enabled);
-    if (status == LXP_OK && handover_enabled)
-        status = lxp_genesis_handover_trust_build(manifest, &arena, &handover_trust);
     if (status == LXP_OK)
         status = join_path(manifest_path, sizeof(manifest_path),
                            output_directory, manifest_name);
@@ -494,9 +455,6 @@ static lxp_result build_artifacts(
         status = join_path(deployment_descriptor_path,
                            sizeof(deployment_descriptor_path),
                            output_directory, descriptor_name);
-    if (status == LXP_OK)
-        status = join_path(handover_trust_path, sizeof(handover_trust_path),
-            output_directory, handover_trust_name);
     if (status == LXP_OK && mkdir(output_directory, 0700) != 0)
         status = LXP_ERR_IO;
     else if (status == LXP_OK)
@@ -516,9 +474,6 @@ static lxp_result build_artifacts(
         status = write_exclusive(deployment_descriptor_path,
                                  deployment_descriptor,
                                  sizeof(deployment_descriptor));
-    if (status == LXP_OK && handover_enabled)
-        status = write_exclusive(handover_trust_path, handover_trust.bytes,
-            handover_trust.length);
     if (status == LXP_OK) {
         directory_descriptor = open(output_directory,
                                     O_RDONLY | O_DIRECTORY | O_CLOEXEC |
@@ -530,7 +485,6 @@ static lxp_result build_artifacts(
         status == LXP_OK)
         status = LXP_ERR_IO;
     if (status != LXP_OK && directory_created) {
-        (void)unlink(handover_trust_path);
         (void)unlink(deployment_descriptor_path);
         (void)unlink(registration_request_path);
         (void)unlink(snapshot_temporary_path);
@@ -557,9 +511,6 @@ static lxp_result build_artifacts(
     free(draft);
     free(manifest);
     free(arena_bytes);
-    free(profile_bytes);
-    free(registry_bytes);
-    lxp_secure_zero(profiles, sizeof(profiles));
     return status;
 }
 
@@ -567,7 +518,7 @@ lxp_result lxp_genesis_build_artifacts(
     const char *request_path, const char *signer_key_path,
     const char *output_directory)
 {
-    return build_artifacts(request_path, signer_key_path, output_directory, NULL, NULL);
+    return build_artifacts(request_path, signer_key_path, output_directory);
 }
 
 static lxp_result migrate_asset_v2(const char *input_path, const char *salt_path,
@@ -726,12 +677,8 @@ int lxp_genesis_builder_cli_main(int argc, char **argv)
         strcmp(argv[1], "--migrate-snapshot-issuance") == 0)
         return migrate_snapshot_issuance(
             argv[2], argv[3], argv[4], argv[5]) == LXP_OK ? 0 : 1;
-    if (argv == NULL || (argc != 4 && argc != 6) ||
-        (argc == 6 && strcmp(argv[4], "--custody-profile") != 0 &&
-                      strcmp(argv[4], "--custody-registry") != 0))
+    if (argv == NULL || argc != 4)
         return 2;
-    const char *profile_path = argc == 6 && strcmp(argv[4], "--custody-profile") == 0 ? argv[5] : NULL;
-    const char *registry_path = argc == 6 && strcmp(argv[4], "--custody-registry") == 0 ? argv[5] : NULL;
-    return build_artifacts(argv[1], argv[2], argv[3], profile_path, registry_path) == LXP_OK ?
+    return build_artifacts(argv[1], argv[2], argv[3]) == LXP_OK ?
         0 : 1;
 }
