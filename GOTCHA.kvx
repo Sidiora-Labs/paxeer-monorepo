@@ -12461,3 +12461,13 @@ fix = "when ruling on an interface change, enumerate every caller of the changed
 title = "A verify command that selects tests by name passes with zero matches"
 symptom = "27 acceptance tests named by done tasks were never written: go test -run, cargo test -- --exact, swift test --filter, node --test-name-pattern and vitest -t all exit 0 when nothing matches, or when one alternative of a regex matches, so the gates passed and the parity check found the names missing weeks later (finding 17.4.5.2)."
 fix = "pin the pass to the named test in the verify command (tee the output and grep '--- PASS: Name ' for go, 'test result: ok. N passed' for cargo, 'Executed N tests, with 0 failures' for swift, '# pass N' for node --test, 'Tests N passed' for vitest), or use a runner that refuses an unknown selector; never let a single alternation cover several names."
+
+[gotcha.2529]
+title = "A wallet-signed bank 0x1001 send executes with success false"
+symptom = "move_leg_completes_from_its_receipt submitted send(address,address,string,uint256) to bank 0x1001 from the node key and the receipt reported execution.success false: pointerSend (precompiles/bank/bank.go:306) refuses any caller but the denom's ERC20 native pointer, so no externally signed transaction can call send."
+fix = "route wallet moves of a denom through its ERC20 native pointer (pointerview 0x100A getNativePointer, then transfer(address,uint256) to the pointer) as decision 2197 rules, and prove every executable call shape against the real chain before asserting it in a route test."
+
+[gotcha.2530]
+title = "A verify command written with single quotes inside a single-quoted node -e argument never runs"
+symptom = "17.5.12 attempts 1 and 2 failed at node -e 'require.resolve('@sidiora/...')': the shell closed the quote at the inner one and node parsed an unquoted module id (SyntaxError: Invalid or unexpected token)."
+fix = "quote a node -e program with double quotes in the spec string (escaped as \' in the kvx value) and keep single quotes inside it, as the merchant-shop build command does."
