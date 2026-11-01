@@ -12631,3 +12631,8 @@ fix = "decision 2212 admits the mempool into the open layer at each proposal (ta
 title = "A derived test task must carry the fixture prelude of the test it chains"
 symptom = "a playwright test that calls its sibling test first failed on the sibling's environment requirement because the new task's verify command ran playwright alone"
 fix = "copy the sibling task's build and verify prelude and change only the -g pattern"
+
+[gotcha.2563]
+title = "Wave aggregate gates need the full SDK toolchain environment"
+symptom = "a wave gate task ran in the mixed-language environment, whose image has no Maven, Swift or dotnet, and make workspace-build stopped in platform-sample-dependencies-ready with 'run make platform-sample-install first' after every earlier target had passed"
+fix = "every task whose gate runs make workspace-build, workspace-test or a platform-* target takes the sdk-all environment profile, which installs the platform sample dependencies before the gate"

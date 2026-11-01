@@ -15939,3 +15939,11 @@ symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload
 observed = "Attempt 2 (2981acb82, base 712c7ea58) implemented do_4, type-checked, and the verify gate failed at send.spec.ts:718: the committed test first runs the receipted send of 12.35.2 (:621), which needs WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL and WALLET_TRANSFER_TRUTH_SEQUENCER_KEY, and this task's verify command ran playwright alone, without the local node fixture and the four environment lines the verify command of 12.35.2 sets; the test file is correct."
 assumption = "This task's build and verify commands take the fixture prelude and environment lines of 12.35.2 with their own -g pattern."
 severity = "minor"
+
+[finding.17.5.1.15]
+task = "17.5.1"
+file = "services/platform/Makefile.inc:59"
+symbol = "platform-sample-dependencies-ready"
+observed = "Attempt 17 (96271000a, base 0585894e1) carries the attempt 16 test, passes step 1, and in step 2 (make workspace-build) build, agent-build and human-build pass for the first time, including the web build that attempts 15 and 16 stopped at; platform-build-all (Makefile.inc:104) then stops in platform-sample-dependencies-ready because the Python environment of platform-sample-install does not exist: the qualification environment of this task carried no Maven, Swift or dotnet toolchain, so make platform-sample-install, which the environment runs before a wave gate when those toolchains are present, was skipped, and the recipe itself still fails at its pip path until task 17.5.13 is on main. The gate script and the test are unchanged and correct."
+assumption = "The task runs in the environment profile that carries the JVM, Swift and dotnet toolchains, as the wave 4 gate (17.5.5) already does, and requires 17.5.13 (moved to wave 18); the wave 1 to 3 and 5 to 6 gates take the same profile since every wave script runs make workspace-build."
+severity = "major"
