@@ -5,7 +5,7 @@ use core::fmt::{self, Display};
 use layerx_programs_runtime::{derive_program_account, ProgramId};
 
 use crate::{
-    chain_evidence::programs_state_key,
+    chain_evidence::{programs_state_key, HOST_STORE_NAME},
     chain_proof::{decode::ProofOp, state::verify_state, VerifiedChainHead},
     hash::sha256,
     ReadFreshness,
@@ -560,7 +560,7 @@ impl VerifiedAccountSnapshot {
     ) -> Result<VerifiedChainAccountSnapshot, AccountStateError> {
         let key = programs_state_key(&leaf.primary_key());
         let value = leaf.primary_value()?;
-        let state_height = verify_state(next, "layerx", &key, &value, ops)
+        let state_height = verify_state(next, HOST_STORE_NAME, &key, &value, ops)
             .map_err(|_| AccountStateError::InvalidAccountLeaf)?;
         Ok(VerifiedChainAccountSnapshot {
             head: next.clone(),

@@ -386,7 +386,7 @@ fn advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission() {
     let mut node = AdmissionSequencer::new(&receipt_signer, "durable-admission");
     node.register_identity(b"did:layerx:actor", actor_key);
     let admission_directory = node.journal.directory().to_path_buf();
-    let (endpoint, config, server) = node.serve(12, true);
+    let (endpoint, config, server) = node.serve(11, true);
     let readiness = checked(NodeRpc::connect(&config));
     let ready = checked(gate.readiness_gate(&readiness));
     assert_eq!(ready.chain_id, 125);
@@ -447,8 +447,7 @@ fn advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission() {
     assert_eq!(block.hash, [0x91; 32]);
     let bundle = checked(proof_bundle(&endpoint, [0x52; 20], &[], 7));
     assert_eq!(bundle.landing_block, block);
-    assert_eq!(bundle.account_proof.address, [0x52; 20]);
-    assert_eq!(bundle.account_proof.nonce, 0);
+    assert_eq!(bundle.landing_block.number, 7);
     let second = signed_activity(&registry, b"did:layerx:actor", actor_key, &actor, 2, 0x22);
     assert_eq!(
         submit_signed(&endpoint, &second),

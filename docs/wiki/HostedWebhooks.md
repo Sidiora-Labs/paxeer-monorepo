@@ -231,10 +231,9 @@ Displayed levels:
 | --- | --- |
 | `Unverified` | `unverified` |
 | `ReceiptVerified` | `receipt-verified` |
-| `CheckpointFinalised` | `checkpoint-finalised` |
-| `PaxeerFinalised` | `paxeer-finalised` |
+| `BlockCommitted` | `block-committed` |
 
-(`services/platform/hosted/webhooks/src/events.rs:18-40`). A fact above
+(`services/platform/hosted/webhooks/src/events.rs:18-48`). A fact above
 `unverified` must carry a 64-hex receipt digest
 (`services/platform/hosted/webhooks/src/events.rs:77-81, 353-361, 426-437`).
 
