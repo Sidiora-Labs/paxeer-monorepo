@@ -12451,3 +12451,43 @@ fix = "hold the lower-wave consumers by operator hold until the fix publishes, a
 title = "A port ruling must name the committed source of every field of the deleted type"
 symptom = "9.24.5 asked to carry every prestate check onto a balance read and three attempts stopped without a build: the deleted prestate carried eight kinds of fact and the balance read carried two."
 fix = "before ruling a port, list the accessors the consumers call on the deleted type (grep the accessor names and count the call sites) and name the committed source for each one, including the check that has none and is dropped on record."
+
+[gotcha.2527]
+title = "The touches list is the edit scope; an unlisted consumer blocks qualification"
+symptom = "5.98.7 attempt 9 met a type error in a test file the task did not list, asked whether it could edit the file and stopped without a build; the previous ruling had listed the callers go vet had named so far, not every caller in the tree."
+fix = "when ruling on an interface change, enumerate every caller of the changed symbol across the tree with one search (not the ones the compiler has reported so far) and add each consumer file to touches in the same batch, so the implementation never meets an unlisted file."
+
+[gotcha.2528]
+title = "A verify command that selects tests by name passes with zero matches"
+symptom = "27 acceptance tests named by done tasks were never written: go test -run, cargo test -- --exact, swift test --filter, node --test-name-pattern and vitest -t all exit 0 when nothing matches, or when one alternative of a regex matches, so the gates passed and the parity check found the names missing weeks later (finding 17.4.5.2)."
+fix = "pin the pass to the named test in the verify command (tee the output and grep '--- PASS: Name ' for go, 'test result: ok. N passed' for cargo, 'Executed N tests, with 0 failures' for swift, '# pass N' for node --test, 'Tests N passed' for vitest), or use a runner that refuses an unknown selector; never let a single alternation cover several names."
+
+[gotcha.2529]
+title = "A wallet-signed bank 0x1001 send executes with success false"
+symptom = "move_leg_completes_from_its_receipt submitted send(address,address,string,uint256) to bank 0x1001 from the node key and the receipt reported execution.success false: pointerSend (precompiles/bank/bank.go:306) refuses any caller but the denom's ERC20 native pointer, so no externally signed transaction can call send."
+fix = "route wallet moves of a denom through its ERC20 native pointer (pointerview 0x100A getNativePointer, then transfer(address,uint256) to the pointer) as decision 2197 rules, and prove every executable call shape against the real chain before asserting it in a route test."
+
+[gotcha.2530]
+title = "A verify command written with single quotes inside a single-quoted node -e argument never runs"
+symptom = "17.5.12 attempts 1 and 2 failed at node -e 'require.resolve('@sidiora/...')': the shell closed the quote at the inner one and node parsed an unquoted module id (SyntaxError: Invalid or unexpected token)."
+fix = "quote a node -e program with double quotes in the spec string (escaped as \' in the kvx value) and keep single quotes inside it, as the merchant-shop build command does."
+
+[gotcha.2531]
+title = "A double quote inside a spec command is written out as a single quote"
+symptom = "The build gate of 18.90.1 (grep -q 'test 'reject an anchors page that lost a field'') and the verify gate of 17.5.12 (node -e 'require.resolve('@sidiora/layerx-sdk/browser', ...)') lost their inner double quotes when the spec was written, the shell split the commands at the inner quotes and both attempts failed on a command that never ran as intended."
+fix = "Write commands that need no nested quoting: pass values to node -e as arguments read from process.argv, and match quoted test titles with grep -E and a single-character wildcard in place of each quote."
+
+[gotcha.2532]
+title = "A task's symbols list is checked against the code graph after verify passes"
+symptom = "8.90.2, 8.90.3, 9.90.2 and 17.5.12 passed their verify commands and were still not marked done: the completion check resolves every symbols entry in the code graph and failed on test names a ruling had renamed in the tests list but not in symbols (testAgentEnvelopeEncodesVersionTwo, verifyReceipt_reports_the_submitted_rung_under_an_authority_key) and on Makefile target names (agent-sdk-ts-build, human-build), which are not functions."
+fix = "when a ruling renames or deletes a tests entry, rewrite symbols in the same batch; list only functions, methods, classes and test functions that exist after the task (Go Test functions, Swift test methods, pytest functions, Rust test functions, TypeScript functions) and never Makefile targets, file names or test titles with spaces; an empty symbols list is valid."
+
+[gotcha.2533]
+title = "node --test prints the spec reporter in the gate, so grep for '# pass 1' never matches"
+symptom = "9.90.2 attempt 3 ran its receipt test under node --test, the test passed and the gate still failed: in the qualification environment node chose the spec reporter (pass 1 with an info glyph) while the verify command grepped for the TAP line '# pass 1' (decision 2194's node form)."
+fix = "pass --test-reporter=tap to node --test whenever the verify command greps '# pass N'; the decision 2194 node form reads node --test --test-reporter=tap."
+
+[gotcha.2534]
+title = "A cargo --tests build gate shows one broken test target per attempt"
+symptom = "10.6.4 attempt 3 saw only tests/evidence_node.rs fail to compile; 14.0.6 attempt 8 fixed that file and then met three more broken targets (archive, native_onboarding_rungs, native_send_producer) the first log never showed, because cargo stops scheduling targets after the first compile error"
+fix = "when a crate's test targets are broken on main, enumerate them once with cargo build --tests --keep-going and give the whole port to one task that the consumers require, instead of letting each consumer discover the next target"

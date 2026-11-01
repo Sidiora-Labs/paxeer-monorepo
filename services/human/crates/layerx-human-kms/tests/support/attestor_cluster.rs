@@ -623,6 +623,58 @@ impl Cluster {
         self.wait_ready()
     }
 
+    pub fn provision_kms_evm(&mut self, directory: &Path) -> Result<()> {
+        let owner = "provider-wallet-owner";
+        let public: [u8; 32] = self
+            .generate_key(
+                "provider-native",
+                "ed25519",
+                owner,
+                "0x1111111111111111111111111111111111111111",
+            )?
+            .try_into()
+            .map_err(|_| "Ed25519 key length")?;
+        let evm_public = self.generate_key("provider-evm", "secp256k1", owner, "")?;
+        let group = k256::ecdsa::VerifyingKey::from_sec1_bytes(&evm_public)?;
+        let point = group.to_encoded_point(false);
+        let address: [u8; 20] = sha3::Keccak256::digest(&point.as_bytes()[1..])[12..].try_into()?;
+        assert_ne!(address, [0; 20]);
+        for (name, bytes) in [
+            ("attestor-ca.der", self.pki.certificate_der("node-ca")?),
+            ("attestor-client.der", self.pki.certificate_der("gateway")?),
+            ("attestor-client.pk8", self.pki.key_der("gateway")?),
+            ("evm-assertion.jwt", self.tokens.mint(owner)?.into_bytes()),
+        ] {
+            let path = directory.join(name);
+            fs::write(&path, bytes)?;
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        }
+        let nodes: Vec<_> = self
+            .nodes
+            .iter()
+            .map(|(id, address)| json!({"id": id, "address": address}))
+            .collect();
+        let path = directory.join("attestor.json");
+        fs::write(
+            &path,
+            serde_json::to_vec(&json!({
+                "nodes": nodes,
+                "trust_anchors": [directory.join("attestor-ca.der")],
+                "client_certificate_chain": [directory.join("attestor-client.der")],
+                "client_private_key_pkcs8": directory.join("attestor-client.pk8"),
+                "key_id": "provider-native",
+                "public_key": public,
+                "evm_key_id": "provider-evm",
+                "evm_address": address,
+                "signers": SIGNERS,
+                "network_id": 125,
+                "timeout_seconds": 60,
+            }))?,
+        )?;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        Ok(())
+    }
+
     fn publish_inventory(&mut self) -> Result<()> {
         self.inventory_sequence += 1;
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();

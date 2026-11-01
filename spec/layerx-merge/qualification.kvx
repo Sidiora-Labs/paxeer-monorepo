@@ -15363,3 +15363,227 @@ symbol = "AcceptedSend"
 observed = "Attempt 7 (051f9cda5) ported crash_replay_test.go and go vet reported the next caller, node_start_test.go:158; vet prints one type error per package run, so each attempt has fixed one site and met the next: Accepter.Accept now returns evmrpc.AcceptedSend and the tests still pass the result where []byte is expected at node_start_test.go:158 and :229, node_stop_test.go:35, :74 (stopReceiptResult), commit_release_test.go:185 and tcp_ack_test.go:143 (outcome), and compare it with nil at node_stop_test.go:33, :118 and :152, which a struct value never is."
 assumption = "One attempt ports every site named here and runs go vet ./node/sequencer/ itself until it is silent before the gate."
 severity = "minor"
+
+[finding.5.98.7.5]
+task = "5.98.7"
+file = "node/sequencer/standalone_primary_test.go:243"
+symbol = "AcceptedSend"
+observed = "Attempt 9 (bf14392bc) ported every site do_8 named and go vet then reported node/sequencer/standalone_primary_test.go:243, which passes the evmrpc.AcceptedSend result of Accepter.Accept to verify.ReceiptSignature; the file was not in the task's touches list, so the attempt stopped and reported the blocker instead of editing it. handover_test.go:217 and :237 also compare the AcceptedSend returned by the fenced Accepter with require.Nil, which a struct value never satisfies at run time; both files are consumers of the interface the task changed."
+assumption = "Both files join the touches list, attempt 10 ports the three sites and runs go vet ./node/sequencer/ until silent; a search of the tree for every Accepter.Accept caller shows no other site that treats the result as bytes or nil (daemon/committed-fixture/vector_v1.go:144 and daemon/paxd/cmd/new_app_test.go:144 discard it)."
+severity = "minor"
+
+[finding.9.25.3.1]
+task = "9.25.3"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs:5456"
+symbol = "SequencerEndpoint"
+observed = "The first attempt (bd650e080) swapped the layerx_client::Client holders for SequencerEndpoint but left the Client accessor calls in place, so the build failed with E0599 on SequencerEndpoint for head (16 sites), handshake (14), native_fee_policy (11), caps_discovery (6), proof_bundle (3), module_state (2), checkpoint_evidence (2), lookup_authenticated_receipt (2) and one each of account, batch_header, reconnect and session_fee_state; decision 1813 names the twin of each read but not the head, handshake, caps and native fee policy accessors the daemon derives its checks from."
+assumption = "Decision 2193 maps each accessor to the committed source the daemon already uses elsewhere (HumanNode in human_node.rs, the rpc modules, the layerx_wire protocol constants) and names the two reads that have no twin; do_5 applies it and widens the edit scope to read/history.rs and human_node.rs."
+severity = "major"
+
+[finding.17.5.5.2]
+task = "17.5.5"
+file = "Makefile:1641"
+symbol = "human-build"
+observed = "Attempt 7 (ddd24c396) failed the wave-4 aggregate at human-build: apps/web's next build reports Module not found: Can't resolve '@sidiora/layerx-sdk/browser' from sdk/wallet/src/modules/web-data.ts, launchpad.ts, bridge.ts, fee-choice.ts and fee-token.ts, because services/agent/sdk/typescript/package.json exports './browser' from ./dist/src/browser.js, dist/ is ignored by git and built only by that package's npm test or build script, and no step of human-build (Makefile:1637-1641) builds it before $(HUMAN_NPM) run build; the exports map also carries only types and import conditions, so a CommonJS consumer cannot resolve the package at all."
+assumption = "The wave-4 gate is right to fail; task 17.5.12 makes human-build build the agent TypeScript SDK first and gives the exports map a default condition, and 17.5.5 requires it."
+severity = "major"
+
+[finding.14.0.6.2]
+task = "14.0.6"
+file = "services/human/crates/layerx-human-service/tests/intent_submit.rs:34"
+symbol = "start_deposit_journey"
+observed = "Attempt 3 (b3ab062e9 on 7abd15e75) kept the EIP-1559 port and stopped with the crate's --tests build red inside the ported file itself: tests/intent_submit.rs:34-45 imports claim_receipt, start_deposit_forward_journey, start_deposit_journey, start_withdrawal_intent, DepositAgentPlan, DepositForwardJourney, DepositForwardStage, DepositPlan, IntentWithdrawalJourney, IntentWithdrawalStage, SettlementConfig, WithdrawalAgentPlan, WithdrawalJourney and WithdrawalPlan, which task 10.20.3 (ad92aa7fc) deleted from the journeys module, and uses Mechanism::BridgeDepositCredit and Mechanism::BridgeWithdrawRequest (:155, :160, :1012, :1022), which task 10.6.2 (ec7c4dc54) removed; the attempt also reported duplicate PrincipalScope and Table imports at tests/journey_faults.rs:31 and :40, but line 31 does not exist at the base revision and was the attempt's own edit."
+assumption = "The deposit, withdrawal and bridge journeys have no production path left after 10.6.2 and 10.20.3, so the tests that exist only to exercise them are deleted rather than ported and the two mixed tests keep their kernel-send legs; do_3 lists them."
+severity = "major"
+
+[finding.17.4.5.2]
+task = "17.4.5"
+file = "spec/layerx-merge/programme/parity.py:243"
+symbol = "uncovered"
+observed = "Attempt 2 (8aeb2ac23) reported 136 stale acceptance selectors; read against main they fall into five classes: 76 dotted unittest names (Class.method) whose class and method both exist in the file, 4 ExUnit and vitest titles composed of a describe title and a test title, 15 document checks whose path is a Markdown file, Dockerfile or README and whose label after :: names a check rather than a test, 14 acceptances whose owning tasks (the tasks whose reqs carry the acceptance req) are still pending, and 27 named tests absent from an existing file at that revision although their owning tasks are done: their verify commands selected the test by name (go test -run, cargo test -- --exact, swift test --filter, node --test-name-pattern, vitest -t) and every one of those runners exits 0 when nothing matches or when one alternative of the pattern matches, so 2.3.4, 2.6.4, 2.11.4, 5.5.6, 5.41.3, 18.814.1, 8.11.3, 8.13.1, 8.16.2, 8.41.4, 8.44.4, 18.1264.1, 9.0.1, 10.7.1, 9.34.2, 18.800.1, 18.804.1 and 16.9.4 passed with the named test absent. One of the 27 (8.274.1, reference_ramp_refuses_retired_paxeer_rpc_fields) has since been written on main. Six of them contradict the tree rather than lack a test: 13.264.2 names a revert that 13.25.2 do_7 ruled idempotent, 9.52.2 names the pay precompile 0x101B that 18.1240.1 moved to layerxledger 0x101A, 9.1.2 maps a Level type that no longer exists in layerx-agent-api, 18.974.1 names checkpoint_evidence_level_follows_the_finality_rung where the file has the rung spelling, 18.1043.1 names rpc/http_ws_parity_test.go where the test lives in core/deps/geth/rpc/deny_list_batch_test.go, and 5.483.1 asserts the anchor store key is unmounted while 5.7.5 keeps it mounted until the v7.0 plan deletes it."
+assumption = "Decision 2194 fixes the selector grammar and the planned-owner rule the check applies, decision 2195 corrects the six selectors to the implemented behaviour, and eight tasks write the 20 absent tests with verify commands that fail on an unmatched selector; 17.4.5 requires them."
+severity = "major"
+
+[finding.17.5.12.1]
+task = "17.5.12"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "verify_cmd"
+observed = "Attempts 1 (1f1790812) and 2 (0a93e54b1) built the SDK and passed both Makefile tests, then the verify command failed before the web build: its node -e expression was written with single quotes inside a single-quoted argument, so the shell passed require.resolve(@sidiora/layerx-sdk/browser, ...) unquoted and node reported SyntaxError: Invalid or unexpected token."
+assumption = "The spec is corrected to a double-quoted node -e argument; the implementation of attempt 2 is complete and is re-qualified unchanged."
+severity = "minor"
+
+[finding.14.0.6.3]
+task = "14.0.6"
+file = "services/human/crates/layerx-human-service/tests/retired_crypto_codec_w3.rs:1"
+symbol = "no_retired_layerx_crypto_codec_paths_w3"
+observed = "Attempt 4 (13d318972) ported intent_submit.rs and then failed the build gate on another test target: retired_crypto_codec_w3.rs (written by 10.98.9) reads tests/binding.rs with #[path] and include_str!, and task 10.9.1 (2772a218f) deleted tests/binding.rs, so cargo build --tests of layerx-human-service fails on main for every task that builds the crate's tests."
+assumption = "The test's only subject is gone; 14.0.6 deletes the test target and acceptance 10.949.1 records the deletion as its check."
+severity = "major"
+
+[finding.9.25.3.2]
+task = "9.25.3"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs:422"
+symbol = "simulate"
+observed = "Attempt 3 (fc7dd9382) applied decision 2193 and still failed the dependent-crate check with 68 errors in layerx-agentd; attempt 4 (effaec3e6) stopped at the same list. Beyond the accessors decision 2193 maps, the retained paths call Client methods with no SequencerEndpoint counterpart: ops/program.rs simulate (:422, through raw_program_simulation over layerx_client::lni::Simulation), program_state_bundle (:1055) and submit_signed (:1220 and :1294, five arguments); human_runtime.rs authenticated_native_policy_usage (:14148) and authenticated_policy_usage (:14421) read sequence-addressed history through a seven-argument history() whose items carry global_sequence, kind, canonical_bytes and proof_material from layerx_client::read::{HistoryKind, HistoryProof}, while SequencerEndpoint::history(account, cursor, limit) returns px_getHistory pages of JSON items with next_cursor; and :14530 dereferences a [u8; 32]."
+assumption = "Decision 2196 rules the program transports and the policy-usage reads Unavailable in this task and hands their EVM ports to tasks 9.25.4 and 9.25.5; the verify command pins its pass to at least one test."
+severity = "major"
+
+[finding.10.6.1.3]
+task = "10.6.1"
+file = "precompiles/bank/bank.go:306"
+symbol = "pointerSend"
+observed = "Attempt 6 (c12d43f86) planned two bank legs, signed them with the node key, submitted them to the real node and read Receipted receipts whose execution.success was false. The four-argument send(address,address,string,uint256) the resolver builds for Relationship::BankTransfer (services/human/crates/layerx-human-service/src/journeys/resolver.rs:858-883) is served by precompiles/bank/bank.go:228 through pointerSend (:306-316), which refuses every caller except the denom's ERC20 native pointer (GetERC20NativePointer); a wallet-signed transaction is never that caller, so the bank transfer shape that 10.6.2 asserts in send_routes.rs cannot execute on the chain."
+assumption = "Decision 2197 routes wallet bank transfers through the denom's ERC20 native pointer; task 10.6.4 ports the resolver and bind_call and 10.6.1 requires it."
+severity = "major"
+
+[finding.1.12.4.2]
+task = "1.12.4"
+file = "modules/layerxledger/keeper/pause_test.go:237"
+symbol = "GetPayerGrant"
+observed = "984636931 deleted Keeper.GetPayerGrant (views.go) and Host.ReadPayerGrant (modules/lxphost/read.go) with the retired kernel grant store, but the ledger keeper test package still reads them at draw_test.go:78, :111 and :146, grants_test.go:117, :139, :144, :159, :169, :190 and :204, pause_test.go:237, retire_test.go:190 and views_test.go:177, :179, :184, :203 and :219; the task's build gate was go build, which skips _test.go files, so go vet and go test of modules/layerxledger/keeper have failed on main since then and 2.90.1 attempt 1 (94b92ebe6) failed in its build gate on pause_test.go:237."
+assumption = "No grant state read survives, so task 1.12.5 ports the five test files to prove grant effects through the ledger behaviour (draw results, result codes and balances) and 2.90.1 requires it."
+severity = "major"
+
+[finding.8.41.4.1]
+task = "8.41.4"
+file = "sdk/platform/go/http.go:356"
+symbol = "agentEnvelopeVersion"
+observed = "Acceptances 8.484.1 and 8.484.2 demand an envelope version 2 and a version-1 refusal, but the daemon serves version 1 (v1.kvx:113-115, decision 901), 18.1230.1 (e177601db) set agentEnvelopeVersion back to 1 and made decodeAgentEnvelopeResponse ignore any version field; 8.90.2 attempt 1 (57e6fe12a) wrote TestAgentEnvelopeEncodesVersionTwo and it failed on the literal 1."
+assumption = "Decision 2198 corrects both acceptances to the version-1 envelope and the schema-field refusal."
+severity = "minor"
+
+[finding.8.44.4.1]
+task = "8.44.4"
+file = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift:436"
+symbol = "version"
+observed = "Acceptances 8.502.1 and 8.502.2 demand an envelope version 2 and a version-1 refusal, but Transport.swift sends version 1 since 18.1255.1 and refuses responses by their schema fields; 8.90.3 attempt 1 (b3f38bbd7) wrote testAgentEnvelopeEncodesVersionTwo and it failed on the integer 1 while the existing testAgentEnvelopeEncodesVersionOne already proves the served version."
+assumption = "Decision 2198 corrects both acceptances to the version-1 envelope and the schema-field refusal."
+severity = "minor"
+
+[finding.9.34.2.1]
+task = "9.34.2"
+file = "services/agent/sdk/typescript/test/receipt-fixture.test.ts:1"
+symbol = "verifyReceipt"
+observed = "Acceptance 9.372.1 names verifyReceipt and a Rung.Submitted result, but 9.97.8 (9192a4c02) deleted verifyReceipt with the kernel receipt stack and receipt-fixture.test.ts covers the native program call codec only; the SDK's receipt verification is verifySequencerReceipt under pinned keys, proven by sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key; 9.90.2 attempt 1 (04fe64eb6) failed in the SDK build on the missing export."
+assumption = "Decision 2198 points the acceptance at the pinned-key sequencer receipt test; 9.90.2 writes no receipt test."
+severity = "minor"
+
+[finding.8.16.2.1]
+task = "8.16.2"
+file = "services/platform/hosted/indexer/src/config.rs:37"
+symbol = "Config"
+observed = "Acceptance 8.182.2 describes relay and EVM endpoints parsing into two sources, but Config carries a PaxeerSource (EVM endpoint, Comet endpoint, finality depth) and an explorer endpoint and no relay source; 8.90.1 attempt 1 (647e605ad) wrote environment_builds_both_sources reading config.relay and the test build failed with E0609."
+assumption = "Decision 2198 points the acceptance at the existing environment_builds_evm_and_comet_sources (config.rs:445), which parses the EVM and Comet endpoints with a 30 second window into the Paxeer source at finality depth 0."
+severity = "minor"
+
+[finding.16.9.4.4]
+task = "16.9.4"
+file = "tools/paxeer-x/retired_callers.json:73"
+symbol = "guarantor-runtime"
+observed = "Acceptance 16.44.1 runs the scanner with --deleted for the catalogue's deleted trees and 16.966.4 asserts the bridge credit suites are absent, but cmd/layerxd, cmd/layerx-guarantor, tests/daemon, tests/bridge/test_credit.c and tests/bridge/sign_credit.c still exist on main (their deletions are 5.50.7 at wave 42, 5.51.1 and 5.51.4 at wave 37, 5.54.9 at wave 34 and 1.19.3 at wave 46); 16.90.1 attempt 1 (0dacda199) failed both tests on the present paths."
+assumption = "16.90.1 moves to wave 47 and requires the five deletion tasks; the two acceptances stay as written."
+severity = "minor"
+
+[finding.8.98.3.6]
+task = "8.98.3"
+file = "services/platform/hosted/authority/src/main.rs:289"
+symbol = "checkpoint_for"
+observed = "main.rs:289-294 still exits with 'LAYERX_AUTHORITY_LNI_SOCKET is required', Config keeps lni_socket and lni_gate (:95-96, :339-340), checkpoint_for (:683) still connects through Uds::connect and the handshake, and MAX_LNI_CONNECTIONS, LNI_FRAME_BYTES and trust::limits survive; decision 2105 withdrew the port of these readers from 8.98.3 until a task ported the human readers, 8.98.14 and 8.98.15 ported budget_state.rs over the chain endpoint and no task was left owning the socket deletion, so 8.90.1 attempts 3 and 4 failed authority_starts_without_an_lni_socket at startup while acceptance 8.113.1 demands a start with no socket."
+assumption = "Task 8.98.16 ports checkpoint_header and checkpoint_for to the committed anchor checkpoint read 8.98.15 established and deletes the socket configuration; 8.90.1 requires it."
+severity = "major"
+
+[finding.10.8.1.1]
+task = "10.8.1"
+file = "services/human/crates/layerx-human-service/tests/journey_family_projections.rs:8"
+symbol = "DepositJourney"
+observed = "10.8.1 (10d2325a7) and 10.20.3 deleted DepositJourney, ExitJourney and WithdrawalJourney from journeys/ without compiling the crate's test targets; tests/journey_family_projections.rs:8 still imports them, so cargo build --tests of layerx-human-service fails on main (14.0.6 attempts 6 and 7, E0432). Its single test genuine_journey_family_owners_survive_reopen asserts the family set {native, deposit, withdrawal, exit}, three of which are retired."
+assumption = "The test's subject is retired; 14.0.6 deletes the file."
+severity = "major"
+
+[finding.10.25.4.2]
+task = "10.25.4"
+file = "services/human/crates/layerx-human-service/tests/evidence_node.rs:419"
+symbol = "AdmissionRecord"
+observed = "10.25.4 (410498417) changed layerx-human-test-support's AdmissionRecord from {activity_id, activity} to {tx_hash, raw_transaction} and AdmissionJournal::contains to take a transaction hash, adding tests/evidence_node_transactions.rs, but did not port layerx-human-service's tests/evidence_node.rs (:419, :465, :466, :470, :471), so cargo build --tests fails with E0609 (14.0.6 attempt 7)."
+assumption = "14.0.6 ports the five field reads: activity_id becomes tx_hash compared with first_hash, activity becomes raw_transaction compared with first."
+severity = "major"
+
+[finding.10.6.4.1]
+task = "10.6.4"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:596"
+symbol = "construct_method"
+observed = "Attempts 1 and 2 added ConstructMethod::PointerTransfer (decision 2197) and failed the build with E0004 at agents/create.rs:596: the match over disclosure.construct_method() is exhaustive and lists every variant by name; the task's touches did not include the file."
+assumption = "The lifecycle transaction of an agent creation is never a pointer transfer, so the new arm refuses."
+severity = "minor"
+
+[finding.1.12.5.1]
+task = "1.12.5"
+file = "modules/layerxledger/keeper/draw_test.go:53"
+symbol = "newDrawFixture"
+observed = "Attempts 1 and 2 ported the GetPayerGrant and ReadPayerGrant reads as do_1 and do_2 say and the package still fails: 1.12.4 (984636931) retired the issue-grant and revoke-grant activities 0x00010007 and 0x00010008 (host.Execute answers LXP_ERR_UNKNOWN_ACTIVITY) and made Keeper.Draw return types.ErrNoPayerGrant unconditionally, so TestDrawWithinGrant, TestIssuePayerGrant, TestRevokePayerGrant, TestLedgerPauseKeepsRevokeAndViews (:206-241), TestLedgerModuleStoreHasNoKernelKV (:173-192) and TestLedgerViews (:133-134) fail at the grant step they still execute."
+assumption = "There is no payer grant to issue, draw or revoke; the tests whose only subject is the grant lifecycle go, the others drop their grant steps."
+severity = "major"
+
+[finding.9.25.3.3]
+task = "9.25.3"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs:189"
+symbol = "caps_discovery"
+observed = "Attempts 5 and 6 (dd41e646e and its identical successor) ended with the same 28 E0599 errors: human_runtime.rs and budget/program_sources.rs call caps_discovery (seven sites), native_fee_policy (thirteen), account (one), head (two), checkpoint_evidence (two), batch_header (one) and module_state (two) on SequencerEndpoint, which offers none of them; decisions 2192, 2193 and 2196 covered the other accessors only. rpc::module_state needs a SignedHeader whose batch number is signed by the handshake key, which the EVM chain never issues, and VerifiedCaps, NativeFeePolicy and the batch-header expiry clock have no committed source yet."
+assumption = "Decision 2199: the 28 sites answer Unavailable in 9.25.3 and three port tasks at wave 36 give each read its committed source."
+severity = "major"
+
+[finding.12.35.2.10]
+task = "12.35.2"
+file = "apps/wallet/e2e/send.spec.ts:701"
+symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+observed = "Attempt 12 reaches the gas-price poll of the new test and fails at rpcAt with 'eth_gasPrice: pending block unavailable: sequencer: no block is open': the node answers eth_gasPrice from the open block (rpc/watermark_manager.go:103 wraps rpc/utils.go:54 ErrLayerNotOpen as 'pending block unavailable') and the poll's catch only keeps polling on the wording 'pending base fee unavailable: sequencer: no block is open', so the first idle-chain answer ends the test instead of being retried as tools/qualification/localnode/v6120_test.go:218 retries both wordings."
+assumption = "Between blocks the node has no open block and the test must poll until one opens; the catch matches the shared suffix."
+severity = "minor"
+
+[finding.9.90.2.1]
+task = "9.90.2"
+file = "services/wallet/gateway/test/precompiles.test.ts:365"
+symbol = "probes the chain for code before serving a linked agent precompile"
+observed = "Attempt 6 passed the receipt test under the TAP reporter and then failed the gateway test with 'spawn anvil ENOENT': the test spawned an external anvil process behind a proxy to answer eth_getCode, a binary the qualification environment does not provide and that do_2 never asked for."
+assumption = "do_2 specifies eth_getCode answering 0x for 0x0902 and then runtime code; an in-process node:http double answers that."
+severity = "minor"
+
+[finding.1.12.5.2]
+task = "1.12.5"
+file = "modules/layerxledger/keeper/issuer_binding_test.go:67"
+symbol = "TestRegisterBindsTokenfactoryDenom"
+observed = "Attempt 3 built and failed verify on the one test the task does not touch: TestRegisterBindsTokenfactoryDenom expects the recorded create call to carry hex.EncodeToString(args.AssetID[:]) as the subdenom, while issuer_binding.go:47 has encoded the asset id as the 43-digit zero-padded base-62 text since ebfccf28b (task 6.22.8, finding 6.22.8), whose verify ran only the tokenfactory test; the ledger keeper package has carried the stale expectation on main since 2026-10-27 and this task's whole-package verify is the first gate to run it."
+assumption = "The base-62 subdenom is the implementation on record; the expectation follows it and the whole-package verify stays."
+severity = "minor"
+
+[finding.9.25.3.4]
+task = "9.25.3"
+file = "services/platform/tests/support/tls_boundary.rs:187"
+symbol = "simulation_tls_checks_the_actual_server_identity"
+observed = "Attempt 9 (6b133f2e8) built all four crates with no dependent-crate regression and verify failed only on ops::program::simulation_tls_checks_the_actual_server_identity, which the ops::program filter includes and which panics 'build the real Paxeer TLS boundary first' because the layerx-paxeer-boundary binary is not built (tls_boundary.rs:177-187); the port changes nothing that check exercises, the same precondition finding 9.1.7.3 met for layerx-sdk."
+assumption = "As 9.1.7 does, the build command also builds layerx-platform-paxeer-boundary and the verify names the binary through LAYERX_PAXEER_BOUNDARY_BIN, so the TLS identity check runs for real."
+severity = "minor"
+
+[finding.10.6.4.2]
+task = "10.6.4"
+file = "services/human/crates/layerx-human-service/tests/evidence_node.rs:419"
+symbol = "AdmissionRecord"
+observed = "Attempt 3 (base fc8c837a9) failed its build gate before touching anything of its own: cargo build --tests of layerx-human-service stops at tests/evidence_node.rs, which still reads AdmissionRecord.activity and .activity_id (finding 10.25.4.2), and cargo reports only the first failing test target, so the three further targets archive, native_onboarding_rungs and native_send_producer that 14.0.6 attempt 8 met were invisible to this attempt."
+assumption = "Every task whose build gate compiles the crate's test targets waits on one port task, 10.6.5, instead of each porting the same files."
+severity = "blocker"
+
+[finding.14.0.6.4]
+task = "14.0.6"
+file = "services/human/crates/layerx-human-service/tests/native_send_producer.rs:565"
+symbol = "load_access"
+observed = "Attempt 8 (8ce7d0acd) ported evidence_node.rs per do_5 and then failed the build on three test targets outside its touches: native_send_producer.rs:565, :572, :680 and :733 call load_access with three arguments after a5c762631 (task 10.13.8) added the &mut AgentRuntime parameter (src/server/native_send.rs:481); native_onboarding_rungs.rs:252 calls owner_activity::attach_signature in the four-argument Ed25519 form after 335bb6dfd (task 10.98.14) made it the EIP-1559 form (layerx-intents/src/owner_activity.rs:178) and kept the Ed25519 form as attach_native_signature (:110), as do layerx-intents/tests/owner_bootstrap.rs:93 and :121; and the archive target, which includes reclaim.rs and through it journey_faults.rs textually (archive.rs:1, reclaim.rs:4), imports PrincipalScope and Table twice since 886bdaf0f added them to journey_faults.rs:40 while archive.rs:31 already had them."
+assumption = "Four done producers changed a signature without compiling the consumers' test targets; 10.6.5 ports the consumers and 14.0.6 waits on it."
+severity = "blocker"
+
+[finding.8.98.16.1]
+task = "8.98.16"
+file = "services/platform/hosted/authority/src/trust.rs:27"
+symbol = "binds_header"
+observed = "The published CommittedCheckpoint::binds_header (1fe095a0b) binds an evidence header to the committed anchor checkpoint by batch number, last sequence and the two state roots but ignores the checkpoint view's headerDigest word (precompiles/layerxanchor/layerxanchor.go:74, word 2), which the view carries for exactly this binding and which identity_evidence_binds_to_the_committed_anchor_checkpoint already fills from batch_header_digest."
+assumption = "8.90.1, which continues in the same crate, adds the digest comparison; the four field checks stay."
+severity = "minor"
