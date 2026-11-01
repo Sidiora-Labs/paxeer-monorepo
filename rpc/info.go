@@ -379,8 +379,8 @@ type PendingBaseFee interface {
 }
 
 // pendingBaseFee returns the base fee of the open block and its height on the
-// sequencer and standby. It returns a nil fee on every other node, which reports
-// committed values.
+// sequencer and standby. It returns a nil fee while no block is open and on every
+// other node, which reports committed values.
 func (i *InfoAPI) pendingBaseFee() (*big.Int, int64, error) {
 	if i.watermarks == nil || i.watermarks.pending == nil {
 		return nil, 0, nil
@@ -391,10 +391,16 @@ func (i *InfoAPI) pendingBaseFee() (*big.Int, int64, error) {
 	}
 	height, err := i.watermarks.resolvePending()
 	if err != nil {
+		if errors.Is(err, ErrLayerNotOpen) {
+			return nil, 0, nil
+		}
 		return nil, 0, err
 	}
 	baseFee, err := source.BaseFeePerGas()
 	if err != nil {
+		if errors.Is(err, ErrLayerNotOpen) {
+			return nil, 0, nil
+		}
 		return nil, 0, fmt.Errorf("pending base fee unavailable: %w", err)
 	}
 	return baseFee.TruncateInt().BigInt(), height, nil
