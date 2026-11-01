@@ -117838,7 +117838,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1430.1]
 title = "Issue #1430: Answer a submitted-but-unreceipted program.receipt lookup as not ready instead of verification.inconsistent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.17"]
