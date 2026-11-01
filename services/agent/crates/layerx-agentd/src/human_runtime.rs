@@ -14926,14 +14926,15 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         let height = endpoint
             .block_number()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let proof = endpoint
-            .account_proof(&address, &[], height)
+        let balance = endpoint
+            .balance_at(&address, height)
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let nonce = endpoint
+            .nonce_at(&address, height)
             .map_err(|_| HumanOperationError::Unavailable)?;
         let canonical = serde_json::to_vec(&serde_json::json!({
-            "address": rpc_hex(&proof.address), "balance": rpc_hex(&proof.balance),
-            "nonce": proof.nonce.to_string(), "codeHash": rpc_hex(&proof.code_hash),
-            "storageHash": rpc_hex(&proof.storage_hash),
-            "accountProof": proof.account_proof.iter().map(|p| rpc_hex(p)).collect::<Vec<_>>()
+            "address": rpc_hex(&address), "balance": rpc_hex(&balance),
+            "nonce": nonce.to_string()
         }))
         .map_err(|_| HumanOperationError::Refused)?;
         read_json_response(ordinary_read(
@@ -15285,13 +15286,21 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         let mut key = module_id.to_be_bytes().to_vec();
         key.extend_from_slice(request.selector.key.as_bytes());
         let slot = layerx_crypto::evm_transaction::transaction_hash(&key);
-        let proof = endpoint
-            .account_proof(&precompile, &[slot], height)
+        let witnesses = endpoint
+            .storage_witness(&precompile, &[slot], height)
             .map_err(|_| HumanOperationError::Unavailable)?;
-        if proof.address != precompile || proof.storage.len() != 1 || proof.storage[0].key != slot {
+        let [witness] = witnesses.as_slice() else {
+            return Err(HumanOperationError::Refused);
+        };
+        if witness.address != precompile || witness.slot != slot {
             return Err(HumanOperationError::Refused);
         }
-        let canonical = proof.storage[0].value;
+        let app_hash = endpoint
+            .state_root(height)
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        layerx_client::storage_witness::verify_storage_witness(witness, app_hash)
+            .map_err(|_| HumanOperationError::Refused)?;
+        let canonical = witness.value;
         read_json_response(ordinary_read(
             serde_json::json!({"canonical": layerx_programs::hex::encode(&canonical),
             "height": height.to_string()}),
