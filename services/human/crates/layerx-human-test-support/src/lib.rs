@@ -2,7 +2,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
 use std::net::TcpListener;
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::thread::{self, JoinHandle};
@@ -14,7 +13,6 @@ use layerx_agentd::config::{ReceiptKeySource, StartupConfig};
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_agentd::protocol_evidence::{EvidenceAuthority, RawStateEvidence};
 use layerx_agentd::store::TenantId;
-use layerx_client::lni::transport::{self, ConnectionGate, Limits};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::send::SendDebit;
 use layerx_crypto::signer::Signer as _;
@@ -32,8 +30,6 @@ use sha2::{Digest as _, Sha256};
 
 pub mod evidence_node;
 pub mod receive;
-
-use evidence_node::{EvidenceNode, FRAME_BYTES};
 
 pub const EVIDENCE_NETWORK_ID: u32 = 42;
 const EVIDENCE_CHAIN_ID: u64 = 125;
@@ -268,51 +264,6 @@ pub fn connect_readiness_node(receipt_signer: &SigningKey) -> (NodeRpc, JoinHand
     let node = NodeRpc::connect(&config)
         .unwrap_or_else(|error| panic!("connect readiness node: {error:?}"));
     (node, server)
-}
-
-/// # Panics
-/// Panics if the queue capacity is zero or the admission journal cannot open.
-#[must_use]
-pub fn evidence_node(
-    receipt_signer: &SigningKey,
-    label: &str,
-    queue_capacity: usize,
-) -> EvidenceNode {
-    EvidenceNode::new(
-        receipt_signer.verifying_key().to_bytes(),
-        EVIDENCE_NETWORK_ID,
-        evidence_registry(),
-        &directory(label),
-        queue_capacity,
-    )
-}
-
-/// # Panics
-/// Panics if binding the Unix socket fails. The returned worker can panic on protocol or I/O failure.
-#[must_use]
-pub fn serve_evidence_node(node: EvidenceNode, label: &str) -> (PathBuf, JoinHandle<EvidenceNode>) {
-    let socket_path = directory(label).with_extension("sock");
-    let listener = UnixListener::bind(&socket_path)
-        .unwrap_or_else(|error| panic!("bind evidence node: {error}"));
-    (socket_path, node.serve(listener))
-}
-
-/// # Panics
-/// Panics if connecting to the evidence socket fails.
-#[must_use]
-pub fn connect_evidence_node(socket_path: &Path) -> transport::Uds {
-    transport::Uds::connect(
-        socket_path,
-        &ConnectionGate::new(1),
-        Limits {
-            maximum_frame_bytes: FRAME_BYTES,
-            maximum_connections: 1,
-            maximum_streams: 1,
-            maximum_queued_bytes: FRAME_BYTES,
-            deadline: Duration::from_secs(2),
-        },
-    )
-    .unwrap_or_else(|error| panic!("connect evidence node: {error:?}"))
 }
 
 /// # Panics
