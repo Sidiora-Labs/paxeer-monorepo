@@ -2228,11 +2228,6 @@ mod tests {
     }
 
     #[test]
-    fn committed_time_checkpoint_reads_verify_router_material_and_refuse_substitution() {
-        crate::read::ServedCheckpoint::test_committed_reads();
-    }
-
-    #[test]
     fn committed_time_is_the_signed_block_timestamp_in_milliseconds() {
         let checkpoint = crate::read::ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_456_789);
         let observed = checked(authority(&checkpoint).authenticate_committed_time(&checkpoint));

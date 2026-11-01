@@ -3,6 +3,9 @@
 #[path = "reconcile.rs"]
 mod accounting;
 pub mod budget_proof;
+pub use budget_proof::{
+    budget_proof_committed_head, verify_budget_proof, BudgetProofTrust, VerifiedBudgetProof,
+};
 mod create;
 mod daemon;
 #[path = "divergence.rs"]
