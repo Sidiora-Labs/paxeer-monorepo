@@ -18,6 +18,7 @@ pub mod codec;
 pub mod config;
 pub mod explorer;
 pub mod follow;
+pub mod names;
 pub mod paxeer;
 pub mod paxscan;
 pub mod store;
