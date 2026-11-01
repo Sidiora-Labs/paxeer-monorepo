@@ -14,11 +14,11 @@ use layerx_agentd::policy::{
 };
 use layerx_agentd::session::{OpenRequest, SessionId, SessionRecord};
 use layerx_agentd::store::TenantId;
-use layerx_client::client::MAX_FEE_METER_CANONICAL_BYTES;
 use layerx_client::evidence::{
     EvidenceError, ProgramStateSelector, MAX_PROGRAM_STATE_BUNDLE_BYTES, PROGRAM_STATE_DOMAIN,
     PROGRAM_STATE_REQUEST_BYTES,
 };
+use layerx_client::fee::MAX_FEE_METER_CANONICAL_BYTES;
 use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_sdk::rpc::{RpcClient, RpcError};
 use layerx_types::ids::Did;
