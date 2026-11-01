@@ -117483,7 +117483,7 @@ do_5 = "Attempt 2 (4ff6e342c) failed only because --check reports services/agent
 
 [task.9.25.16]
 title = "Refresh the Cargo lock files that pin layerx-client after it gained base64 and the programs registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189256,7 +189256,7 @@ qualification = "UNRUN"
 
 [task.18.813.1]
 title = "Issue #813: Accept a deposit-root registration on the deposit root authority's signature, not on the checkpoint submitter"
-status = "superseded"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
