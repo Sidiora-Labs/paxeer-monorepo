@@ -214,8 +214,8 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
         HistoryPage {
             items,
             next_cursor: Some(next.to_owned()),
-            indexed_height: 43982,
-            chain_height: 44000,
+            indexed_height: Some(43982),
+            chain_height: Some(44000),
         }
     );
     assert_eq!(
@@ -223,8 +223,8 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
         HistoryPage {
             items: vec![],
             next_cursor: None,
-            indexed_height: 0,
-            chain_height: 0,
+            indexed_height: Some(0),
+            chain_height: Some(0),
         }
     );
     for _ in 0..malformed_count {

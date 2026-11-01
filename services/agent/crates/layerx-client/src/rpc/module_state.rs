@@ -1,4 +1,4 @@
-//! Module records are evaluated by eth_call at the checkpoint's committed height.
+//! Module records are evaluated by eth_call at the authenticated checkpoint's committed height.
 
 use crate::sequencer::{SequencerEndpoint, SequencerError};
 
