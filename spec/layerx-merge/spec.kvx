@@ -179884,7 +179884,7 @@ qualification = "UNRUN"
 
 [task.18.983.1]
 title = "Issue #983: Update the reclaim integration test fixture to the nonce field of the reclaim agent context"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["9.1.8", "18.1119.1", "18.1142.1", "18.1149.1", "10.2.8", "18.1297.1"]
