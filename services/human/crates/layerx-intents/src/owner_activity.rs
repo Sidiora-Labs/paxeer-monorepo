@@ -1,3 +1,4 @@
+use layerx_crypto::disclosure::call::bind_call;
 use layerx_crypto::{ed25519, SignatureMessage};
 use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBound};
 use layerx_types::amount::Amount;
@@ -179,8 +180,7 @@ pub fn attach_signature(
     signature: [u8; 65],
     from: [u8; 20],
 ) -> Result<Vec<u8>, OwnerActivityError> {
-    layerx_crypto::disclosure::call::bind_call(call, from)
-        .map_err(|_| OwnerActivityError::Binding)?;
+    bind_call(call, from).map_err(|_| OwnerActivityError::Binding)?;
     let signature = layerx_crypto::signer::AgentSignature::new(signature)
         .map_err(|_| OwnerActivityError::Signature)?;
     let recovered = layerx_crypto::evm_transaction::recover_sender(call, &signature)

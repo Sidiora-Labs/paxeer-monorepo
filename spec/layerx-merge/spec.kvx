@@ -6201,6 +6201,12 @@ value = "10.27.1 removes the crates/layerx-explorer-index line from services/hum
 basis = "Finding 10.27.1.1: a workspace member that no longer exists fails every cargo command in that workspace, so the deletion cannot qualify, or merge safely, without the manifest and lock; this is decision 1849 applied to a whole crate."
 affects = ["10.27.1"]
 
+[decision.2182]
+title = "The native owner-envelope binders retire with the envelope instead of being ported, and the codec deletion follows them"
+value = "services/human/crates/layerx-intents/src/owner_activity.rs keeps layerx_crypto::disclosure::bind in unsigned_native (:68) and services/human/crates/layerx-intents/tests/native_session.rs keeps its import (:3) and call (:104) until 10.21.4 deletes owner_activity.rs and 10.21.6 deletes tests/native_session.rs; the no_retired_layerx_crypto_codec_paths test of 10.98.14 scans those two files for the other six wiring.J44.25 paths only. 9.35.1, which deletes bind, moves to wave 35 and requires 10.21.4 and 10.21.6, so bind has no caller left when it goes; 9.29.1 (wave 36) keeps its place."
+basis = "Finding 10.98.14.1: bind binds a canonical native envelope and bind_call binds an EVM call, so no call-name port of the native sites exists (10.98.14 do_6 forbids behaviour changes), and decision 1849 puts the deletion of callers with the task that deletes the definition; the envelope's own retirement (decision 1023) already owns those two files, so ordering the codec deletion behind it is the one consistent sequence."
+affects = ["10.98.14", "9.35.1", "10.21.4", "10.21.6"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -116403,7 +116409,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.7.2]
 title = "Serve the .pax names in the explorer name-service API shape and commit the answer vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["19.7.1"]
@@ -116433,7 +116439,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.7.1]
 title = "Index the .pax name events into the hosted indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["19.1.2", "8.7.5"]
@@ -116555,7 +116561,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.5.98.6]
 title = "Wait for the next open layer on eth_sendRawTransaction before refusing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.98.5"]
@@ -147614,8 +147620,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Remove the kernel activity codec from layerx-crypto"
 status = "pending"
 mode = "BUILD"
-wave = 24
-requires = ["9.35.3", "9.31.2", "9.31.3", "9.2.2", "9.23.7", "8.94.3", "11.34.5", "12.95.1", "10.0.3", "10.98.7", "10.98.8", "10.98.9", "10.98.10", "10.98.11", "10.98.12", "10.98.13", "10.98.14", "9.23.6", "18.1115.1", "18.1304.1", "8.4.5"]
+wave = 35
+requires = ["9.35.3", "9.31.2", "9.31.3", "9.2.2", "9.23.7", "8.94.3", "11.34.5", "12.95.1", "10.0.3", "10.98.7", "10.98.8", "10.98.9", "10.98.10", "10.98.11", "10.98.12", "10.98.13", "10.98.14", "9.23.6", "18.1115.1", "18.1304.1", "8.4.5", "10.21.4", "10.21.6"]
 reqs = ["9341.1"]
 capabilities = ["9.35.1"]
 interfaces = ["interface.9.rs-crypto-onboarding-onboardingconsent", "interface.9.rs-crypto-onboarding-sponsoredregistration", "interface.9.rs-crypto-rotation-ownerrotationstate", "interface.9.rs-crypto-rotation-ownerrotationconsent", "interface.9.rs-crypto-rotation-ownerrotationcommit", "interface.9.rs-crypto-rotation-ownerrotation", "interface.9.rs-crypto-disclosure-bind", "interface.9.rs-crypto-disclosure-bind-budget-mutation", "interface.9.rs-crypto-send-encode-send-envelope", "interface.9.rs-crypto-send-envelopeoptions", "interface.9.rs-crypto-signer-sign-disclosed", "interface.9.rs-crypto-send-encode-payment-envelope", "interface.9.rs-crypto-disclosure-disclosure", "interface.9.rs-crypto-signer-keystoresigner", "interface.9.rs-crypto-signaturemessage-new-j70", "interface.9.rs-crypto-signaturemessage-digest-j70", "interface.9.rs-crypto-verifyerror-result-code-j70", "interface.9.rs-crypto-onboardingconsent-payload-j70", "interface.9.rs-crypto-onboardingconsent-decode-payload-j70", "interface.9.rs-crypto-sponsoredregistration-from-signed-consent-j70", "interface.9.rs-crypto-sponsoredregistration-decode-j70", "interface.9.rs-crypto-sponsoredregistration-payload-j70", "interface.9.rs-crypto-sponsoredregistration-signed-consent-j70", "interface.9.rs-crypto-sponsoredregistration-validate-outer-j70", "interface.9.rs-crypto-ownerrotationstate-decode-j70", "interface.9.rs-crypto-ownerrotationconsent-payload-j70", "interface.9.rs-crypto-ownerrotationconsent-decode-j70", "interface.9.rs-crypto-ownerrotationcommit-from-signed-consent-j70", "interface.9.rs-crypto-ownerrotationcommit-decode-j70", "interface.9.rs-crypto-ownerrotationcommit-payload-j70", "interface.9.rs-crypto-ownerrotation-owner-j70", "interface.9.rs-crypto-ownerrotation-payload-j70", "interface.9.rs-crypto-ownerrotation-decode-j70", "interface.9.rs-crypto-ownerrotation-from-activity-j70"]
@@ -149338,6 +149344,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_5 = "Finding 10.6.1.1: continue from attempt 1 (6333ecb03), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
 
 [task.10.6.2]
 title = "Remove bridge mechanisms from send routing and executable shapes"
@@ -151759,7 +151766,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.27.1]
 title = "Delete the explorer index manifest and binary entry point"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["10.0.3", "10.25.5", "16.96.3", "14.29.3", "16.0.4", "9.1.8", "18.1119.1", "18.1297.1"]
@@ -152183,6 +152190,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 10.95.1.1: continue from attempt 1 (8aabe4ba8), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
 
 [task.10.96.1]
 title = "Remove the Paxeer client and explorer index from the human workspace at wave 5"
@@ -152681,6 +152689,7 @@ do_14 = "Port the custody modules (src/custody/gateway.rs, provider.rs, signer.r
 do_15 = "Task 10.98.7 do_8 ports src/custody/provider.rs, src/custody/signer.rs and src/custody/gateway.rs to the 65-byte custody signing boundary and lands first (now required); in this task those three files are read by the gate only, and do_2, do_3, do_4 and do_14 apply to src/agents/create_native.rs alone."
 do_16 = "Task 10.98.13 deletes IntentKind::{NativeOnboarding, NativeOnboardingConsent, NativeOwnerRotation} and the nine construction sites in src/agents/create_native.rs, src/server/agent_creation_native.rs, src/server/production_onboarding.rs and src/server/production_rotation.rs with the code that only fed them (decision.1849); this task requires it, keeps them deleted, and applies do_1, do_6, do_7 and do_9 to what remains of those files."
 do_17 = "The attach and verify calls at services/human/crates/layerx-human-service/tests/custody.rs:342 and :344 were ported to the kernel signing pair by 18.1172.2 (decision.1864); do_10 applies to the codec uses it names and nothing else in that file."
+do_18 = "Finding 10.98.10.1: continue from attempt 1 (c6b3c7c55), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
 
 [task.10.98.11]
 title = "Migrate the layerx-human-service callers of wiring.J44.25 (part 2)"
@@ -152719,6 +152728,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Port services/human/crates/layerx-human-service/tests/intent_submit.rs to sign_disclosed_call; the other listed tests are scan-only (decision.1813)."
+do_11 = "Finding 10.98.11.1: continue from attempt 1 (0b05afad3), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
 
 [task.10.98.12]
 title = "Migrate the layerx-human-test-support callers of wiring.J44.25"
@@ -152791,7 +152801,7 @@ do_8 = "Attempt 5 deleted the three IntentKind variants and the build of the dep
 
 [task.10.98.14]
 title = "Migrate the layerx-intents callers of wiring.J44.25"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.3", "9.1.7", "9.1.8", "18.1119.1", "10.98.7", "18.1297.1"]
@@ -152823,8 +152833,9 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-do_8 = "Port services/human/crates/layerx-intents/src/owner_activity.rs and tests/native_session.rs to bind_call; the remaining listed files are scan-only (decision.1813)."
-do_9 = "Task 10.98.7 lands the 65-byte attach of services/human/crates/layerx-intents/src/owner_activity.rs (decision.1849); do_8 ports the remaining owner_activity.rs paths and tests/native_session.rs on top of it."
+do_8 = "Port nothing further in services/human/crates/layerx-intents/src/owner_activity.rs and services/human/crates/layerx-intents/tests/native_session.rs: their layerx_crypto::disclosure::bind sites (services/human/crates/layerx-intents/src/owner_activity.rs:68 in unsigned_native; services/human/crates/layerx-intents/tests/native_session.rs:3 and :104) bind native kernel envelopes and retire whole with 10.21.4 and 10.21.6 (decision.2182); the remaining listed files are scan-only (decision.1813)."
+do_9 = "Task 10.98.7 lands the 65-byte attach of services/human/crates/layerx-intents/src/owner_activity.rs (decision.1849); do_8 leaves the native bind sites of owner_activity.rs and tests/native_session.rs in place for 10.21.4 and 10.21.6 (decision.2182)."
+do_10 = "Decision 2182: continue from attempt 2 (3c6d89022), keeping its ports of canonical.rs, vectors/send.rs and tests/compile.rs and its move of services/human/crates/layerx-intents/tests/native_session.rs:151, :159 and :168 to attach_native_signature (attach_signature took the EVM form in 10.98.7). In services/human/crates/layerx-intents/tests/retired_crypto_codec.rs scan owner_activity.rs and tests/native_session.rs for every wiring.J44.25 path except layerx_crypto::disclosure::bind (a whole-word match, so bind_budget_mutation still counts) and scan the other three files for all seven; the test passes on that tree without further source change."
 
 [task.10.98.15]
 title = "Rewrite the layerx-human-service node-fixture tests against the sequencer RPC"
@@ -177462,6 +177473,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Finding 17.0.3.1: attempts 1 and 2 verified at one candidate and were measured at another because the done record rewrites this task's status line in spec/layerx-merge/spec.kvx; the qualification environment now masks that line when comparing candidates. Re-qualify the same candidate (918e6f0c8) without further change."
 
 [task.17.0.4]
 title = "Regenerate the system precompile reference with the v6.12.0 venues"
@@ -193073,6 +193085,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Qualify with the whole reclaim test target; all five tests must pass."
 do_6 = "Move the reclaim fixture registry to the defund ordinal 18.1188.1 compiles: ModuleRegistration for ModuleId::Budget registers ActivityType::new(ModuleId::Budget, 8) and payload tag 0x4207 maps to ActivityType::new(ModuleId::Budget, 8) at services/human/crates/layerx-human-service/tests/journey_faults.rs:90 and :107 and at the same registry copy in services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1075 and :1092; the payload tag 0x4207 itself stays."
+do_7 = "Finding 18.1149.1.3: continue from attempt 3 (b0a6132d4), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
 
 [task.18.680.1]
 title = "Issue #680: Let the variable helper accept a multi-line value for a name ending in _PEM while keeping it masked"
