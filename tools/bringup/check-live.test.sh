@@ -780,7 +780,8 @@ CHECK_LIVE_TEST_TIMEOUT=1 expect check_live_hosts_timeout "$work/hosts-hang.env"
 # fixture app's volume, and the Railway rows through the railway stand-in.
 # The tomls of the fixture apps the later checks read get an app line.
 fx="$work/repo"
-mkdir -p "$fx/tools/bringup"
+mkdir -p "$fx/tools/bringup" "$fx/deploy"
+cp "$root/deploy/rollout.kvx" "$fx/deploy/"
 cp "$root/tools/bringup/check-live.sh" "$root/tools/bringup/ca.sh" "$root/tools/bringup/human-state-preserve.sh" "$root/tools/bringup/railway-names.env" "$fx/tools/bringup/"
 ca="$fx/tools/bringup/ca.sh"
 mkdir -p "$fx/tools/qualification/paxeer-x"
@@ -994,6 +995,267 @@ else
 	cat "$CHECK_LIVE_TEST_CALLS"
 	failures=$((failures + 1))
 fi
+
+# The indexer cases put the archive node behind up-rpc-7, so its public name
+# is api7; a local openssl s_server serves a fixture chain for that name and
+# archive.paxeer.network ending at its own fixture ISRG Root X1; a copy of bash
+# named layerx-indexer carries the indexer environment and a real SQLite
+# database with the cursor tables; and a curl wrapper ahead on PATH answers
+# the indexer's .internal /healthz to the internal CA the ca cases left on its
+# volume, the /comet location and the router's history methods.
+indexer=indexer
+ix="$work/indexer"
+mkdir -p "$ix/bin" "$ix/state" "$ix/chain"
+# Keep this group independent of the later internal-service fixtures, so a
+# failure in those fixtures cannot prevent the rollout regression from running.
+openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -days 30 -subj "/O=Internet Security Research Group/CN=ISRG Root X1" \
+	-addext 'basicConstraints=critical,CA:TRUE' -addext 'keyUsage=critical,keyCertSign,cRLSign' \
+	-keyout "$ix/chain/root-X1.key" -out "$ix/chain/root-X1.pem" 2>/dev/null
+openssl x509 -in "$ix/chain/root-X1.pem" -outform DER -out "$ix/chain/root-X1.der"
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj "/O=Fixture/CN=Fixture Indexer E1" -keyout "$ix/chain/inter.key" -out "$ix/chain/inter.csr" 2>/dev/null
+printf 'basicConstraints=critical,CA:TRUE,pathlen:0\nkeyUsage=critical,keyCertSign,cRLSign\n' >"$ix/chain/inter.ext"
+openssl x509 -req -in "$ix/chain/inter.csr" -CA "$ix/chain/root-X1.pem" -CAkey "$ix/chain/root-X1.key" -CAcreateserial -days 30 -extfile "$ix/chain/inter.ext" -out "$ix/chain/inter.pem" 2>/dev/null
+sed 's/^RPC_HOSTS=.*/RPC_HOSTS="up-rpc-1 up-rpc-2 up-rpc-3"/; s/^ARCHIVE_HOST=.*/ARCHIVE_HOST=up-rpc-7/' "$work/hosts-good.env" >"$work/hosts-indexer.env"
+openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj "/CN=api7.mainnet-beta.paxeer.network" -keyout "$ix/chain/archive.key" -out "$ix/chain/archive.csr" 2>/dev/null
+printf 'subjectAltName=DNS:api7.mainnet-beta.paxeer.network,DNS:archive.paxeer.network\nextendedKeyUsage=serverAuth\n' >"$ix/chain/archive.ext"
+openssl x509 -req -in "$ix/chain/archive.csr" -CA "$ix/chain/inter.pem" -CAkey "$ix/chain/inter.key" -CAcreateserial -days 30 -extfile "$ix/chain/archive.ext" -out "$ix/chain/archive.pem" 2>/dev/null
+archive_port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')"
+openssl s_server -quiet -accept "127.0.0.1:$archive_port" -cert "$ix/chain/archive.pem" -key "$ix/chain/archive.key" -cert_chain "$ix/chain/inter.pem" </dev/null >/dev/null 2>&1 &
+internal_pids="$internal_pids $!"
+for _ in $(seq 50); do
+	(: <"/dev/tcp/127.0.0.1/$archive_port") 2>/dev/null && break
+	sleep 0.1
+done
+cat >"$ix/bin/curl" <<'SH'
+#!/usr/bin/env bash
+set -eu
+url=""
+out=/dev/stdout
+wout=""
+data=""
+cacert=""
+for arg in "$@"; do
+	case "$arg" in
+	https://*) url="$arg" ;;
+	esac
+done
+args=("$@")
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+	-o) out="$2" ;;
+	-w) wout="$2" ;;
+	--data) data="$2" ;;
+	--cacert) cacert="$2" ;;
+	esac
+	shift
+done
+reply() {
+	printf '%s' "$2" >"$out"
+	[ -z "$wout" ] || printf '%b' "${wout//%\{http_code\}/$1}"
+	exit 0
+}
+if [ -n "$data" ]; then
+	python3 -c 'import json, sys; print(json.loads(sys.argv[1])["method"])' "$data" >>"$CHECK_LIVE_TEST_INDEXER_METHODS"
+fi
+case "$url" in
+https://*.internal:8095/healthz)
+	[ "${CHECK_LIVE_TEST_INDEXER_HEALTH:-up}" = up ] || exit 7
+	grep -q 'BEGIN CERTIFICATE' "$cacert" || exit 77
+	reply 200 '{"status":"ok"}'
+	;;
+https://api7.mainnet-beta.paxeer.network/comet)
+	[ -n "$data" ] || reply "${CHECK_LIVE_TEST_COMET_GET:-403}" '<html>403 Forbidden</html>'
+	reply 200 '{"jsonrpc":"2.0","id":1,"result":{"sync_info":{"earliest_block_height":"25000000"}}}'
+	;;
+https://api-mainnet-beta.paxeer.network/rpc)
+	method="$(python3 -c 'import json, sys; r = json.loads(sys.argv[1]); print(r["method"], r["params"][0])' "$data")"
+	case "$method" in
+	"px_getUnifiedHistory 0x00000000000000000000000000000000000000aa")
+		reply 200 '{"jsonrpc":"2.0","id":1,"result":{"items":[{"id":"1"},{"id":"2"}],"next_cursor":null,"account":"0x00000000000000000000000000000000000000aa","accounts":[{"side":"layerx","account":"'"$CHECK_LIVE_TEST_LAYERX"'"},{"side":"paxeer","account":"0x00000000000000000000000000000000000000aa"}]}}'
+		;;
+	"px_getHistory 0x00000000000000000000000000000000000000aa")
+		reply 200 '{"jsonrpc":"2.0","id":1,"result":{"items":[{"id":"1"}],"next_cursor":null}}'
+		;;
+	esac
+	reply 200 '{"jsonrpc":"2.0","id":1,"error":{"code":-32001,"message":"History unavailable","data":{"code":"indexer_unavailable"}}}'
+	;;
+esac
+exec "$CHECK_LIVE_TEST_OUTER_CURL" "${args[@]}"
+SH
+chmod +x "$ix/bin/curl"
+ln -s "$work/bin/ssh" "$ix/bin/ssh"
+ln -s "$(command -v python3)" "$ix/bin/python3"
+mkdir -p "$ix/tls"
+rv indexer INDEXER_TLS_CA >"$ix/tls/ca.pem"
+export CHECK_LIVE_TEST_INDEXER_TLS="$ix/tls"
+cat >"$ix/bin/railway" <<'SH'
+#!/usr/bin/env bash
+set -euo pipefail
+printf 'railway %s\n' "$*" >>"$CHECK_LIVE_TEST_CALLS"
+sub="$1"
+shift
+[ "$1" = --service ] && [ "$2" = indexer ] || exit 98
+shift 2
+[ "$1" = --environment ] && [ "$2" = beta ] || exit 98
+shift 2
+case "$sub" in
+status)
+	[ "$#" -eq 1 ] && [ "$1" = --json ] || exit 98
+	python3 -c '
+import json, os
+instance = {"serviceName": "indexer", "serviceId": "indexer-id", "environmentId": "beta-id",
+            "latestDeployment": {"status": "SUCCESS", "meta": {"serviceManifest": {"deploy": {"multiRegionConfig": {"europe-west4": {"numReplicas": 1}}}}, "volumeMounts": [{"mountPath": "/data"}]}},
+            "domains": {"serviceDomains": [], "customDomains": []}}
+if os.environ.get("CHECK_LIVE_TEST_INDEXER_PUBLIC") == "1":
+    instance["domains"]["serviceDomains"] = [{"domain": "indexer.example.test"}]
+print(json.dumps({"environments": {"edges": [{"node": {"id": "beta-id", "name": "beta", "serviceInstances": {"edges": [{"node": instance}]}}}]}}))'
+	;;
+ssh)
+	[ "$#" -eq 2 ] && [ "$1" = -- ] || exit 98
+	command="${2//\/data\/tls\/indexer/$CHECK_LIVE_TEST_INDEXER_TLS}"
+	exec bash -c "$command"
+	;;
+*) exit 98 ;;
+esac
+SH
+chmod +x "$ix/bin/railway"
+indexer_path="$ix/bin:/usr/bin:/bin"
+rm "$fx/services/platform/hosted/indexer/fly.toml"
+
+export CHECK_LIVE_TEST_OUTER_CURL="$work/bin/curl"
+export CHECK_LIVE_TEST_INDEXER_METHODS="$ix/methods.log"
+export CHECK_LIVE_TEST_LAYERX=1111111111111111111111111111111111111111111111111111111111111111
+export CHECK_LIVE_INDEXER_CONNECT="127.0.0.1:$archive_port"
+export CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[{"path":"/data","volume":"vol_fixture"}]}}]'
+sqlite3 "$ix/state/indexer.sqlite" "CREATE TABLE cursors(chain TEXT PRIMARY KEY, position INTEGER NOT NULL, hash TEXT NOT NULL, finalized_position INTEGER, finalized_boundary INTEGER, updated_at INTEGER NOT NULL);
+CREATE TABLE backfill_cursors(chain TEXT PRIMARY KEY, position INTEGER NOT NULL, hash TEXT NOT NULL, updated_at INTEGER NOT NULL);
+INSERT INTO backfill_cursors VALUES('paxeer', 26400000, '0xaa', 0);
+INSERT INTO cursors VALUES('paxeer', 26400120, '0xbb', 26400100, 0, 0);"
+echo 26400000 >"$ix/state/cutover-height"
+cp "$(command -v bash)" "$ix/layerx-indexer"
+
+LAYERX_RAILWAY_BIN="$ix/bin/railway" PATH="$indexer_path" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_indexer_account_unset "$work/hosts-indexer.env" 2 indexer -- \
+	"check-live: CHECK_LIVE_INDEXER_ACCOUNT must be a 0x EVM address with indexed history"
+export CHECK_LIVE_INDEXER_ACCOUNT=0x00000000000000000000000000000000000000aa
+LAYERX_RAILWAY_BIN="$ix/bin/railway" PATH="$indexer_path" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_indexer_nothing_running "$work/hosts-indexer.env" 1 indexer -- \
+	"pass public-domains service=$indexer count=0" \
+	"pass deployment service=$indexer status=SUCCESS replicas=1 regions=europe-west4 volume=/data" \
+	"pass archive-name name=api7.mainnet-beta.paxeer.network" \
+	"fail indexer app=$indexer process=none" \
+	"check-live: 1 check(s) failed"
+
+LAYERX_INDEXER_DB="$ix/state/indexer.sqlite" LAYERX_INDEXER_LISTEN='[::]:8095' LAYERX_INDEXER_START_BLOCK=25000000 \
+	LAYERX_INDEXER_EVM_URL=https://api7.mainnet-beta.paxeer.network LAYERX_INDEXER_EVM_CA_DER="$ix/chain/root-X1.der" \
+	LAYERX_INDEXER_COMET_URL=https://api7.mainnet-beta.paxeer.network/comet LAYERX_INDEXER_COMET_CA_DER="$ix/chain/root-X1.der" \
+	LAYERX_INDEXER_RELAY_URL=https://archive.paxeer.network LAYERX_INDEXER_RELAY_CA_DER="$ix/chain/root-X1.der" \
+	"$ix/layerx-indexer" -c 'sleep 600; wait' &
+internal_pids="$internal_pids $!"
+: >"$CHECK_LIVE_TEST_STDIN"
+
+expect_indexer_history() {
+	local name="$1"
+	: >"$CHECK_LIVE_TEST_INDEXER_METHODS"
+	expect "$@" >"$ix/expect.log"
+	if ! grep -qFx lx_getHistory "$CHECK_LIVE_TEST_INDEXER_METHODS" &&
+		[ "$(cat "$CHECK_LIVE_TEST_INDEXER_METHODS")" = $'status\npx_getUnifiedHistory\npx_getHistory' ]; then
+		cat "$ix/expect.log"
+	else
+		sed '/^ok   /d' "$ix/expect.log"
+		echo "FAIL $name: want status and the two px_ history methods, with no lx_getHistory request"
+		cat "$CHECK_LIVE_TEST_INDEXER_METHODS"
+		failures=$((failures + 1))
+	fi
+}
+
+check_live_indexer_passing() {
+	LAYERX_RAILWAY_BIN="$ix/bin/railway" PATH="$indexer_path" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect_indexer_history check_live_indexer_passing "$work/hosts-indexer.env" 0 indexer -- \
+		"pass public-domains service=$indexer count=0" \
+		"pass deployment service=$indexer status=SUCCESS replicas=1 regions=europe-west4 volume=/data" \
+		"pass archive-name name=api7.mainnet-beta.paxeer.network" \
+		"pass listener url=https://$indexer.railway.internal:8095/healthz listen=[::]:8095 tls=internal-ca http=200" \
+		"pass upstream-ca side=evm url=https://api7.mainnet-beta.paxeer.network root=X1 verifies=yes" \
+		"pass upstream-ca side=comet url=https://api7.mainnet-beta.paxeer.network/comet root=X1 verifies=yes" \
+		"pass upstream-ca side=relay url=https://archive.paxeer.network root=X1 verifies=yes" \
+		"pass comet-location url=https://api7.mainnet-beta.paxeer.network/comet post=200 get=403 earliest=25000000" \
+		"pass start-block block=25000000 earliest=25000000" \
+		"pass backfill chain=paxeer cutover=26400000 backfill=26400000 live=26400120" \
+		"pass history method=px_getUnifiedHistory account=0x00000000000000000000000000000000000000aa items=2" \
+		"pass history method=px_getHistory account=0x00000000000000000000000000000000000000aa items=1" \
+		"check-live: all checks passed"
+}
+check_live_indexer_passing
+if [ "$(grep -c "^railway ssh --service indexer --environment beta -- sh -c .*tls=/data/tls/indexer app=indexer limit=5 sh -s" "$CHECK_LIVE_TEST_CALLS")" -eq 1 ] &&
+	! grep -q 'PRIVATE KEY' "$CHECK_LIVE_TEST_STDIN"; then
+	echo "ok   check_live_indexer_reads_the_machine_once"
+else
+	echo "FAIL check_live_indexer_reads_the_machine_once: want one sh -s call on $indexer with the indexer identity path and no key on the console input"
+	cat "$CHECK_LIVE_TEST_CALLS"
+	failures=$((failures + 1))
+fi
+
+check_live_indexer_reads_railway() {
+	local output missing status=0 missing_status=0
+	: >"$CHECK_LIVE_TEST_CALLS"
+	if PATH="$indexer_path" command -v flyctl >/dev/null 2>&1; then
+		echo "FAIL check_live_indexer_reads_railway: flyctl is on the test PATH"
+		failures=$((failures + 1))
+		return
+	fi
+	output="$(BRINGUP_HOSTS_FILE="$work/hosts-indexer.env" CHECK_LIVE_TIMEOUT=5 LAYERX_RAILWAY_BIN="$ix/bin/railway" PATH="$indexer_path" "$fx_checker" indexer 2>&1)" || status=$?
+	# Removing only the rollout row must prevent any CLI call. This proves
+	# the successful probe above resolved the table rather than a fixed name.
+	cp "$fx/deploy/rollout.kvx" "$ix/rollout.kvx"
+	python3 - "$fx/deploy/rollout.kvx" <<'PY'
+import re, sys
+path = sys.argv[1]
+with open(path) as source:
+    manifest = source.read()
+with open(path, "w") as target:
+    target.write(re.sub(r"(?ms)^\[service\.indexer\]\n.*?(?=^\[|\Z)", "", manifest))
+PY
+	cp "$CHECK_LIVE_TEST_CALLS" "$ix/railway-calls"
+	: >"$CHECK_LIVE_TEST_CALLS"
+	missing="$(BRINGUP_HOSTS_FILE="$work/hosts-indexer.env" CHECK_LIVE_TIMEOUT=5 LAYERX_RAILWAY_BIN="$ix/bin/railway" PATH="$indexer_path" "$fx_checker" indexer 2>&1)" || missing_status=$?
+	mv "$ix/rollout.kvx" "$fx/deploy/rollout.kvx"
+	if [ "$status" -eq 0 ] &&
+		[ ! -e "$fx/services/platform/hosted/indexer/fly.toml" ] &&
+		! grep -q 'toml=absent' <<<"$output" &&
+		grep -qFx 'pass public-domains service=indexer count=0' <<<"$output" &&
+		grep -qFx 'pass deployment service=indexer status=SUCCESS replicas=1 regions=europe-west4 volume=/data' <<<"$output" &&
+		[ "$(grep -c '^railway ssh --service indexer --environment beta -- ' "$ix/railway-calls")" -eq 1 ] &&
+		[ "$(grep -c '^railway status --service indexer --environment beta --json$' "$ix/railway-calls")" -eq 2 ] &&
+		[ "$missing_status" -eq 1 ] &&
+		grep -qFx 'fail indexer rollout=absent' <<<"$missing" &&
+		[ ! -s "$CHECK_LIVE_TEST_CALLS" ]; then
+		echo "ok   check_live_indexer_reads_railway"
+	else
+		echo "FAIL check_live_indexer_reads_railway: want rollout service indexer, successful probes and one Railway ssh call without flyctl; exit=$status"
+		printf '%s\n' "$output"
+		printf 'missing row: exit=%s\n%s\n' "$missing_status" "$missing"
+		cat "$ix/railway-calls"
+		cat "$CHECK_LIVE_TEST_CALLS"
+		failures=$((failures + 1))
+	fi
+}
+check_live_indexer_reads_railway
+
+sqlite3 "$ix/state/indexer.sqlite" "UPDATE backfill_cursors SET position = 26399000 WHERE chain = 'paxeer';"
+export CHECK_LIVE_TEST_INDEXER_PUBLIC=1
+check_live_indexer_failing() {
+	CHECK_LIVE_TEST_INDEXER_HEALTH=down CHECK_LIVE_TEST_COMET_GET=200 CHECK_LIVE_INDEXER_ACCOUNT=0x00000000000000000000000000000000000000bb \
+		LAYERX_RAILWAY_BIN="$ix/bin/railway" PATH="$indexer_path" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect_indexer_history check_live_indexer_failing "$work/hosts-indexer.env" 1 indexer -- \
+		"fail public-domains service=$indexer count=1" \
+		"fail listener app=$indexer listen=[::]:8095 curl=7 http=" \
+		"pass upstream-ca side=relay url=https://archive.paxeer.network root=X1 verifies=yes" \
+		"fail comet-location url=https://api7.mainnet-beta.paxeer.network/comet post=200 get=200 earliest=25000000" \
+		"pass start-block block=25000000 earliest=25000000" \
+		"fail backfill chain=paxeer cutover=26400000 backfill=26399000 live=26400120" \
+		"fail history method=px_getUnifiedHistory account=0x00000000000000000000000000000000000000bb http=200 answer=error indexer_unavailable" \
+		"fail history method=px_getHistory account=0x00000000000000000000000000000000000000bb http=200 answer=error indexer_unavailable" \
+		"check-live: 6 check(s) failed"
+}
+check_live_indexer_failing
+unset CHECK_LIVE_TEST_INDEXER_PUBLIC CHECK_LIVE_TEST_IPS CHECK_LIVE_TEST_MACHINES CHECK_LIVE_INDEXER_ACCOUNT CHECK_LIVE_INDEXER_CONNECT CHECK_LIVE_TEST_OUTER_CURL CHECK_LIVE_TEST_LAYERX CHECK_LIVE_TEST_INDEXER_METHODS
 
 # Seven ways a certificate fails: absent on the box, signed by another CA,
 # short of its SANs, inside thirty days of expiry, its box unassigned in the
@@ -2277,172 +2539,6 @@ CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_ramp_down "$work/hosts-g
 unset CHECK_LIVE_TEST_DOWN CHECK_LIVE_TEST_DNS CHECK_LIVE_TEST_DIFFER CHECK_LIVE_TEST_MACHINES
 unset LAYERX_RAMP_CUSTOMER_TOKEN LAYERX_RAMP_OPERATOR_URL LAYERX_RAMP_OPERATOR_TOKEN LAYERX_RAMP_ON_QUOTE_ID
 unset LAYERX_RAMP_OFF_QUOTE_ID LAYERX_RAMP_OFF_GRANT_JSON LAYERX_RAMP_ON_ACCOUNT_SEQUENCE LAYERX_RAMP_OFF_RECEIVER_SEQUENCE
-
-# The indexer cases put the archive node behind up-rpc-7, so its public name
-# is api7; a local openssl s_server serves a fixture chain for that name and
-# archive.paxeer.network ending at the fixture ISRG Root X1; a copy of sleep
-# named layerx-indexer carries the indexer environment and a real SQLite
-# database with the cursor tables; and a curl wrapper ahead on PATH answers
-# the indexer's .internal /healthz to the internal CA the ca cases left on its
-# volume, the /comet location and the router's history methods.
-indexer="$(fx_app services/platform/hosted/indexer/fly.toml)"
-ix="$work/indexer"
-mkdir -p "$ix/bin" "$ix/state"
-sed 's/^RPC_HOSTS=.*/RPC_HOSTS="up-rpc-1 up-rpc-2 up-rpc-3"/; s/^ARCHIVE_HOST=.*/ARCHIVE_HOST=up-rpc-7/' "$work/hosts-good.env" >"$work/hosts-indexer.env"
-openssl req -new -newkey ec -pkeyopt ec_paramgen_curve:P-256 -nodes -subj "/CN=api7.mainnet-beta.paxeer.network" -keyout "$chain/archive.key" -out "$chain/archive.csr" 2>/dev/null
-printf 'subjectAltName=DNS:api7.mainnet-beta.paxeer.network,DNS:archive.paxeer.network\nextendedKeyUsage=serverAuth\n' >"$chain/archive.ext"
-openssl x509 -req -in "$chain/archive.csr" -CA "$chain/inter.pem" -CAkey "$chain/inter.key" -CAcreateserial -days 30 -extfile "$chain/archive.ext" -out "$chain/archive.pem" 2>/dev/null
-archive_port="$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')"
-openssl s_server -quiet -accept "127.0.0.1:$archive_port" -cert "$chain/archive.pem" -key "$chain/archive.key" -cert_chain "$chain/inter.pem" </dev/null >/dev/null 2>&1 &
-internal_pids="$internal_pids $!"
-for _ in $(seq 50); do
-	(: <"/dev/tcp/127.0.0.1/$archive_port") 2>/dev/null && break
-	sleep 0.1
-done
-cat >"$ix/bin/curl" <<'SH'
-#!/usr/bin/env bash
-set -eu
-url=""
-out=/dev/stdout
-wout=""
-data=""
-cacert=""
-for arg in "$@"; do
-	case "$arg" in
-	https://*) url="$arg" ;;
-	esac
-done
-args=("$@")
-while [ "$#" -gt 0 ]; do
-	case "$1" in
-	-o) out="$2" ;;
-	-w) wout="$2" ;;
-	--data) data="$2" ;;
-	--cacert) cacert="$2" ;;
-	esac
-	shift
-done
-reply() {
-	printf '%s' "$2" >"$out"
-	[ -z "$wout" ] || printf '%b' "${wout//%\{http_code\}/$1}"
-	exit 0
-}
-if [ -n "$data" ]; then
-	python3 -c 'import json, sys; print(json.loads(sys.argv[1])["method"])' "$data" >>"$CHECK_LIVE_TEST_INDEXER_METHODS"
-fi
-case "$url" in
-https://*.internal:8095/healthz)
-	[ "${CHECK_LIVE_TEST_INDEXER_HEALTH:-up}" = up ] || exit 7
-	grep -q 'BEGIN CERTIFICATE' "$cacert" || exit 77
-	reply 200 '{"status":"ok"}'
-	;;
-https://api7.mainnet-beta.paxeer.network/comet)
-	[ -n "$data" ] || reply "${CHECK_LIVE_TEST_COMET_GET:-403}" '<html>403 Forbidden</html>'
-	reply 200 '{"jsonrpc":"2.0","id":1,"result":{"sync_info":{"earliest_block_height":"25000000"}}}'
-	;;
-https://api-mainnet-beta.paxeer.network/rpc)
-	method="$(python3 -c 'import json, sys; r = json.loads(sys.argv[1]); print(r["method"], r["params"][0])' "$data")"
-	case "$method" in
-	"px_getUnifiedHistory 0x00000000000000000000000000000000000000aa")
-		reply 200 '{"jsonrpc":"2.0","id":1,"result":{"items":[{"id":"1"},{"id":"2"}],"next_cursor":null,"account":"0x00000000000000000000000000000000000000aa","accounts":[{"side":"layerx","account":"'"$CHECK_LIVE_TEST_LAYERX"'"},{"side":"paxeer","account":"0x00000000000000000000000000000000000000aa"}]}}'
-		;;
-	"px_getHistory 0x00000000000000000000000000000000000000aa")
-		reply 200 '{"jsonrpc":"2.0","id":1,"result":{"items":[{"id":"1"}],"next_cursor":null}}'
-		;;
-	esac
-	reply 200 '{"jsonrpc":"2.0","id":1,"error":{"code":-32001,"message":"History unavailable","data":{"code":"indexer_unavailable"}}}'
-	;;
-esac
-exec "$CHECK_LIVE_TEST_OUTER_CURL" "${args[@]}"
-SH
-chmod +x "$ix/bin/curl"
-export CHECK_LIVE_TEST_OUTER_CURL="$work/bin/curl"
-export CHECK_LIVE_TEST_INDEXER_METHODS="$ix/methods.log"
-export CHECK_LIVE_TEST_LAYERX=1111111111111111111111111111111111111111111111111111111111111111
-export CHECK_LIVE_INDEXER_CONNECT="127.0.0.1:$archive_port"
-export CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[{"path":"/data","volume":"vol_fixture"}]}}]'
-sqlite3 "$ix/state/indexer.sqlite" "CREATE TABLE cursors(chain TEXT PRIMARY KEY, position INTEGER NOT NULL, hash TEXT NOT NULL, finalized_position INTEGER, finalized_boundary INTEGER, updated_at INTEGER NOT NULL);
-CREATE TABLE backfill_cursors(chain TEXT PRIMARY KEY, position INTEGER NOT NULL, hash TEXT NOT NULL, updated_at INTEGER NOT NULL);
-INSERT INTO backfill_cursors VALUES('paxeer', 26400000, '0xaa', 0);
-INSERT INTO cursors VALUES('paxeer', 26400120, '0xbb', 26400100, 0, 0);"
-echo 26400000 >"$ix/state/cutover-height"
-cp "$(command -v bash)" "$ix/layerx-indexer"
-
-PATH="$ix/bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_indexer_account_unset "$work/hosts-indexer.env" 2 indexer -- \
-	"check-live: CHECK_LIVE_INDEXER_ACCOUNT must be a 0x EVM address with indexed history"
-export CHECK_LIVE_INDEXER_ACCOUNT=0x00000000000000000000000000000000000000aa
-PATH="$ix/bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_indexer_nothing_running "$work/hosts-indexer.env" 1 indexer -- \
-	"pass public-ips app=$indexer count=0" \
-	"pass machines app=$indexer machines=1 started=1 volume=/data" \
-	"pass archive-name name=api7.mainnet-beta.paxeer.network" \
-	"fail indexer app=$indexer process=none" \
-	"check-live: 1 check(s) failed"
-
-LAYERX_INDEXER_DB="$ix/state/indexer.sqlite" LAYERX_INDEXER_LISTEN='[::]:8095' LAYERX_INDEXER_START_BLOCK=25000000 \
-	LAYERX_INDEXER_EVM_URL=https://api7.mainnet-beta.paxeer.network LAYERX_INDEXER_EVM_CA_DER="$chain/root-X1.der" \
-	LAYERX_INDEXER_COMET_URL=https://api7.mainnet-beta.paxeer.network/comet LAYERX_INDEXER_COMET_CA_DER="$chain/root-X1.der" \
-	"$ix/layerx-indexer" -c 'sleep 600; wait' &
-internal_pids="$internal_pids $!"
-: >"$CHECK_LIVE_TEST_STDIN"
-
-expect_indexer_history() {
-	local name="$1"
-	: >"$CHECK_LIVE_TEST_INDEXER_METHODS"
-	expect "$@" >"$ix/expect.log"
-	if ! grep -qFx lx_getHistory "$CHECK_LIVE_TEST_INDEXER_METHODS" &&
-		[ "$(cat "$CHECK_LIVE_TEST_INDEXER_METHODS")" = $'status\npx_getUnifiedHistory\npx_getHistory' ]; then
-		cat "$ix/expect.log"
-	else
-		sed '/^ok   /d' "$ix/expect.log"
-		echo "FAIL $name: want status and the two px_ history methods, with no lx_getHistory request"
-		cat "$CHECK_LIVE_TEST_INDEXER_METHODS"
-		failures=$((failures + 1))
-	fi
-}
-
-check_live_indexer_passing() {
-	PATH="$ix/bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect_indexer_history check_live_indexer_passing "$work/hosts-indexer.env" 0 indexer -- \
-		"pass public-ips app=$indexer count=0" \
-		"pass machines app=$indexer machines=1 started=1 volume=/data" \
-		"pass archive-name name=api7.mainnet-beta.paxeer.network" \
-		"pass listener url=https://$indexer.internal:8095/healthz listen=[::]:8095 tls=internal-ca http=200" \
-		"pass upstream-ca side=evm url=https://api7.mainnet-beta.paxeer.network root=X1 verifies=yes" \
-		"pass upstream-ca side=comet url=https://api7.mainnet-beta.paxeer.network/comet root=X1 verifies=yes" \
-		"pass upstream-ca side=relay url=https://archive.paxeer.network root=X1 verifies=yes" \
-		"pass comet-location url=https://api7.mainnet-beta.paxeer.network/comet post=200 get=403 earliest=25000000" \
-		"pass start-block block=25000000 earliest=25000000" \
-		"pass backfill chain=paxeer cutover=26400000 backfill=26400000 live=26400120" \
-		"pass history method=px_getUnifiedHistory account=0x00000000000000000000000000000000000000aa items=2" \
-		"pass history method=px_getHistory account=0x00000000000000000000000000000000000000aa items=1" \
-		"check-live: all checks passed"
-}
-check_live_indexer_passing
-if [ "$(grep -c "^$indexer app ssh console sh -c 'tls=/data/tls/indexer app=$indexer limit=5 sh -s'$" "$CHECK_LIVE_TEST_CALLS")" -eq 1 ] &&
-	! grep -q 'PRIVATE KEY' "$CHECK_LIVE_TEST_STDIN"; then
-	echo "ok   check_live_indexer_reads_the_machine_once"
-else
-	echo "FAIL check_live_indexer_reads_the_machine_once: want one sh -s call on $indexer with the indexer identity path and no key on the console input"
-	cat "$CHECK_LIVE_TEST_CALLS"
-	failures=$((failures + 1))
-fi
-
-sqlite3 "$ix/state/indexer.sqlite" "UPDATE backfill_cursors SET position = 26399000 WHERE chain = 'paxeer';"
-export CHECK_LIVE_TEST_IPS='[{"Type":"v6"}]'
-check_live_indexer_failing() {
-	CHECK_LIVE_TEST_INDEXER_HEALTH=down CHECK_LIVE_TEST_COMET_GET=200 CHECK_LIVE_INDEXER_ACCOUNT=0x00000000000000000000000000000000000000bb \
-		PATH="$ix/bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect_indexer_history check_live_indexer_failing "$work/hosts-indexer.env" 1 indexer -- \
-		"fail public-ips app=$indexer count=1" \
-		"fail listener app=$indexer listen=[::]:8095 curl=7 http=" \
-		"pass upstream-ca side=relay url=https://archive.paxeer.network root=X1 verifies=yes" \
-		"fail comet-location url=https://api7.mainnet-beta.paxeer.network/comet post=200 get=200 earliest=25000000" \
-		"pass start-block block=25000000 earliest=25000000" \
-		"fail backfill chain=paxeer cutover=26400000 backfill=26399000 live=26400120" \
-		"fail history method=px_getUnifiedHistory account=0x00000000000000000000000000000000000000bb http=200 answer=error indexer_unavailable" \
-		"fail history method=px_getHistory account=0x00000000000000000000000000000000000000bb http=200 answer=error indexer_unavailable" \
-		"check-live: 6 check(s) failed"
-}
-check_live_indexer_failing
-unset CHECK_LIVE_TEST_IPS CHECK_LIVE_TEST_MACHINES CHECK_LIVE_INDEXER_ACCOUNT CHECK_LIVE_INDEXER_CONNECT CHECK_LIVE_TEST_OUTER_CURL CHECK_LIVE_TEST_LAYERX CHECK_LIVE_TEST_INDEXER_METHODS
 
 # The developers cases put a curl stand-in for the three developer names in
 # front of the one above: /healthz answers ready unless the name is in
