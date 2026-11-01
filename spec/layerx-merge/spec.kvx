@@ -108572,7 +108572,7 @@ do_5 = "The five indexer proxy routes live under apps/wallet/src/app/api/pns (no
 
 [task.19.3.2]
 title = "Write the host shell that serves a published .pax site from its proof-verified manifest on an isolated per-name origin"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["19.2.3", "19.3.1"]
