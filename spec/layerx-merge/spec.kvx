@@ -151036,7 +151036,7 @@ do_5 = "Decision 2183: this task no longer requires 10.95.1 and ports the consum
 
 [task.10.24.2]
 title = "Decode px_listAssets as chain asset metadata without custody rows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.24.1", "8.0.3", "18.1119.1", "18.1297.1"]
@@ -177969,7 +177969,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.2.5]
 title = "Regenerate the retirement narrative from the inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.2.4", "17.0.3"]
@@ -178300,7 +178300,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.4.4]
 title = "Regenerate the parity narrative from the parity rows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.4.3", "17.0.3"]
@@ -179237,7 +179237,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.11.1]
 title = "Point the fork runbook rehearsal section at the programme rehearsal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.3.3", "17.0.3"]
