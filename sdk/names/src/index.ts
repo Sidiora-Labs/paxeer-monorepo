@@ -7,6 +7,7 @@ export { resolveContent, tendermintHeaders, type HeaderSource } from './resolve.
 export {
   HeaderError,
   headerHash,
+  validatorSetHash,
   voteSignBytes,
   verifyCommit,
   verifiedTendermintHeaders,
