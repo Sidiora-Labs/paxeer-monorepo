@@ -15139,3 +15139,11 @@ symbol = "JourneyId"
 observed = "Attempt 2 (4428c4d24) built, and both move_money_bank_send tests panicked at tests/move_money_bank_send.rs:79 with InvalidIdentifier kind journey, because JourneyId::new accepts only a jrn_-prefixed lowercase identifier and the fixture passed move-bank-send."
 assumption = "A jrn_ identifier passes and the tests run; nothing else changes."
 severity = "minor"
+
+[finding.10.27.2.1]
+task = "10.27.2"
+file = "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_config_tests.rs:40"
+symbol = "human_sources_containing"
+observed = "Attempts 1 and 2 (27e792250, 81ee2f825) deleted both configuration tests and built, but the new retirement test scans the human sources for the package name layerx-explorer-index and fails on the package's own src/lib.rs, src/reads.rs and the unified tests, which tasks 10.27.4, 10.27.5 and 10.27.7 delete."
+assumption = "The acceptance of this task is the two files; scanning for their names and the deleted binary's launch instead of the package name passes while the sibling deletions land."
+severity = "minor"

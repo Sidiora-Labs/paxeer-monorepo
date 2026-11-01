@@ -302,29 +302,6 @@ pub struct AccountJoin {
     pub evidence: Evidence,
 }
 
-/// The custody precompile's record for one asset.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CustodyAsset {
-    /// The `LayerX` asset identifier.
-    pub asset_id: [u8; 32],
-    /// The bank denomination custody mints against.
-    pub denom: String,
-    /// Whether deposits are accepted.
-    pub enabled: bool,
-    /// Whether the asset is paused.
-    pub paused: bool,
-    /// The smallest accepted deposit.
-    pub minimum_deposit: u128,
-    /// The ceiling on total custodied value.
-    pub custody_cap: u128,
-    /// The amount currently custodied.
-    pub custodied: u128,
-    /// The amount already released.
-    pub released: u128,
-    /// The amount queued for release.
-    pub pending: u128,
-}
-
 /// One bank coin as `px_getBalances` reports it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssetBalance {
@@ -355,20 +332,30 @@ impl AccountBalances {
     }
 }
 
-/// One entry of the joined asset map from `px_listAssets`.
+/// One chain asset from `px_listAssets`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssetEntry {
-    /// The `LayerX` asset identifier.
-    pub asset_id: [u8; 32],
-    /// The `LayerX` public core asset record.
-    pub layerx: Option<Value>,
-    /// The custody precompile's record, absent when the asset is not custodied.
-    pub paxeer: Option<CustodyAsset>,
+    /// The indexer's asset identifier, including bank denomination identifiers.
+    pub asset_id: String,
+    /// The bank denomination, absent for assets without one.
+    pub denom: Option<String>,
+    /// The indexer's asset kind.
+    pub kind: String,
+    /// The chain name, absent when the metadata read failed.
+    pub name: Option<String>,
+    /// The chain symbol, absent when the metadata read failed.
+    pub symbol: Option<String>,
+    /// The chain decimal precision, absent when the metadata read failed.
+    pub decimals: Option<u8>,
+    /// The chain supply, absent when the metadata read failed.
+    pub supply: Option<u128>,
 }
 
-/// The bounded joined asset map.
+/// The bounded chain asset table at one height.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssetTable {
+    /// The block height at which the chain metadata was read.
+    pub height: u64,
     /// One entry per joined asset, in the gateway's own order.
     pub assets: Vec<AssetEntry>,
     /// The number of assets the gateway joins per answer.
@@ -906,33 +893,12 @@ pub fn decode_account(result: &Value) -> Result<AccountJoin, GatewayError> {
     })
 }
 
-fn object_or_null(value: &Value) -> Result<Option<Value>, GatewayError> {
+fn asset_metadata_text(value: &Value) -> Result<Option<String>, GatewayError> {
     match value {
         Value::Null => Ok(None),
-        document if document.is_object() => Ok(Some(document.clone())),
+        Value::String(text) => Ok(Some(text.clone())),
         _ => Err(GatewayError::MalformedAnswer),
     }
-}
-
-fn decode_custody_asset(value: &Value) -> Result<Option<CustodyAsset>, GatewayError> {
-    let Some(document) = object_or_null(value)? else {
-        return Ok(None);
-    };
-    Ok(Some(CustodyAsset {
-        asset_id: digest(
-            document["asset_id"]
-                .as_str()
-                .ok_or(GatewayError::MalformedAnswer)?,
-        )?,
-        denom: required_text(&document["denom"], DENOM_LIMIT)?,
-        enabled: boolean(&document["enabled"])?,
-        paused: boolean(&document["paused"])?,
-        minimum_deposit: quantity(&document["minimum_deposit"])?,
-        custody_cap: quantity(&document["custody_cap"])?,
-        custodied: quantity(&document["custodied"])?,
-        released: quantity(&document["released"])?,
-        pending: quantity(&document["pending"])?,
-    }))
 }
 
 /// Decodes the `px_getBalances` result.
@@ -977,16 +943,28 @@ pub fn decode_assets(result: &Value) -> Result<AssetTable, GatewayError> {
     let mut assets = Vec::with_capacity(rows.len());
     for row in rows {
         assets.push(AssetEntry {
-            asset_id: digest(
-                row["asset_id"]
-                    .as_str()
-                    .ok_or(GatewayError::MalformedAnswer)?,
-            )?,
-            layerx: object_or_null(&row["layerx"])?,
-            paxeer: decode_custody_asset(&row["paxeer"])?,
+            asset_id: row["asset_id"]
+                .as_str()
+                .filter(|text| !text.is_empty())
+                .ok_or(GatewayError::MalformedAnswer)?
+                .to_owned(),
+            denom: optional_text(&row["denom"], DENOM_LIMIT)?,
+            kind: row["kind"]
+                .as_str()
+                .filter(|text| !text.is_empty())
+                .ok_or(GatewayError::MalformedAnswer)?
+                .to_owned(),
+            name: asset_metadata_text(&row["name"])?,
+            symbol: asset_metadata_text(&row["symbol"])?,
+            decimals: optional_quantity(&row["decimals"])?
+                .map(u8::try_from)
+                .transpose()
+                .map_err(|_| GatewayError::MalformedAnswer)?,
+            supply: optional_quantity(&row["supply"])?,
         });
     }
     Ok(AssetTable {
+        height: counted(&result["height"])?,
         assets,
         joined_limit: counted(&result["joined_limit"])?,
         evidence: Evidence::GatewayReported,

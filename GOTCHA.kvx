@@ -12371,3 +12371,8 @@ fix = "Log every iteration before and after the broadcast and size the wait to t
 title = "A test-support server for a retired protocol is deleted, not re-encoded"
 symptom = "The evidence node spoke LNI frames; the retired-module scan refused lni paths while a do-line asked to keep the handshake."
 fix = "Delete it with its tests once its consumer moved to the real RPC; keep the journal types the consumer still uses."
+
+[gotcha.2511]
+title = "A retirement scan for a package name fails while sibling tasks still delete the package's other files"
+symptom = "10.27.2's test scanned for layerx-explorer-index and found the package's own sources and the tests of 10.27.4, 10.27.5 and 10.27.7."
+fix = "Scan for the deleted files' names and the symbol they exercised; order the tasks whose scans hit each other's files with requires."
