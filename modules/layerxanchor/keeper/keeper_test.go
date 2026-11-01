@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	proofcodec "github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
@@ -343,4 +344,37 @@ func TestMsgUpdateParamsRefusals(t *testing.T) {
 	_, err := keeper.NewMsgServerImpl(k).UpdateParams(sdk.WrapSDKContext(ctx), nil)
 	require.Error(t, err)
 	require.Equal(t, before, k.GetParams(ctx))
+}
+
+func TestSubmitCheckpointIsRetired(t *testing.T) {
+	s := newSuite(t, func(params *types.Params) {
+		params.ChallengeWindowSeconds = 50
+	})
+	t.Cleanup(func() { require.NoError(t, s.app.Close()) })
+	var err error
+	s.fixture, err = testvectors.LoadAnchor()
+	require.NoError(t, err)
+	s.bondAll()
+	raw, err := s.vector("checkpoints", "batch_1_quorum").Bytes("certificate")
+	require.NoError(t, err)
+	certificate, err := proofcodec.DecodeCheckpointCertificate(raw)
+	require.NoError(t, err)
+	require.Empty(t, s.k.GetCheckpoints(s.ctx))
+
+	first, err := s.submit("batch_1_quorum")
+	require.ErrorIs(t, err, types.ErrModuleRetired)
+	require.Equal(t, types.Checkpoint{}, first)
+	stored, found := s.k.GetCheckpoint(s.ctx, certificate.Header.BatchNumber)
+	require.False(t, found)
+	require.Equal(t, types.Checkpoint{}, stored)
+	require.Empty(t, s.k.GetCheckpoints(s.ctx))
+
+	s.advance(30)
+	resubmitted, err := s.submit("batch_1_quorum")
+	require.ErrorIs(t, err, types.ErrModuleRetired)
+	require.Equal(t, types.Checkpoint{}, resubmitted)
+	stored, found = s.k.GetCheckpoint(s.ctx, certificate.Header.BatchNumber)
+	require.False(t, found)
+	require.Equal(t, types.Checkpoint{}, stored)
+	require.Empty(t, s.k.GetCheckpoints(s.ctx))
 }

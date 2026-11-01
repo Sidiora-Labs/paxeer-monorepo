@@ -924,10 +924,12 @@ dependencies = [
 name = "layerx-client"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "ed25519-dalek",
  "layerx-crypto",
  "layerx-paxeer-verifier",
  "layerx-programs-ai-market",
+ "layerx-programs-registry",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",

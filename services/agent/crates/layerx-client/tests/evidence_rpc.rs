@@ -4,9 +4,7 @@ use std::net::TcpListener;
 use std::time::Duration;
 
 use layerx_client::rpc::evidence::{self, EvidenceError, ProofBundle, Rung};
-use layerx_client::sequencer::{
-    AccountProof, RpcRefusal, SequencerEndpoint, SequencerError, StorageProof,
-};
+use layerx_client::sequencer::{RpcRefusal, SequencerEndpoint, SequencerError};
 use serde_json::{json, Value};
 
 type SequencerBlock = layerx_client::sequencer::SequencerBlock;
@@ -37,15 +35,6 @@ fn proof_bundle_reads_eth_get_proof_and_the_landing_block() {
     let height = 0x1234;
     let address = [0x12; 20];
     let slots = [[0x34; 32]];
-    let proof = json!({
-        "address": hex(&address),
-        "balance": "0x1234",
-        "nonce": "0x7",
-        "codeHash": hex(&[0x56; 32]),
-        "storageHash": hex(&[0x78; 32]),
-        "accountProof": ["0xf843", "0xaabbcc"],
-        "storageProof": [{"key": hex(&slots[0]), "value": "0xab", "proof": ["0xc0", "0x0102"]}]
-    });
     let block = json!({
         "number": "0x1234",
         "hash": hex(&[0x9a; 32]),
@@ -55,14 +44,11 @@ fn proof_bundle_reads_eth_get_proof_and_the_landing_block() {
         "receiptsRoot": hex(&[0xf0; 32]),
         "transactions": []
     });
-    let proof_params = json!([hex(&address), [hex(&slots[0])], "0x1234"]);
     let block_params = json!(["0x1234", true]);
-    let mut other_address = proof.clone();
-    other_address["address"] = json!(hex(&[0x13; 20]));
     let mut other_height = block.clone();
     other_height["number"] = json!("0x1235");
-    let mut malformed_proof = proof.clone();
-    malformed_proof["accountProof"][0] = json!("0xgg");
+    let mut malformed_block = block.clone();
+    malformed_block["hash"] = json!("0xgg");
     let refusal = RpcRefusal {
         code: -32000,
         message: "historical state unavailable".to_owned(),
@@ -73,11 +59,6 @@ fn proof_bundle_reads_eth_get_proof_and_the_landing_block() {
     }});
     let exchanges = vec![
         (
-            "eth_getProof",
-            proof_params.clone(),
-            json!({"result": proof}),
-        ),
-        (
             "eth_getBlockByNumber",
             block_params.clone(),
             json!({"result": block}),
@@ -86,11 +67,6 @@ fn proof_bundle_reads_eth_get_proof_and_the_landing_block() {
             "eth_getBlockByNumber",
             block_params.clone(),
             json!({"result": block}),
-        ),
-        (
-            "eth_getProof",
-            proof_params.clone(),
-            json!({"result": proof}),
         ),
         (
             "eth_getBlockByNumber",
@@ -98,27 +74,15 @@ fn proof_bundle_reads_eth_get_proof_and_the_landing_block() {
             json!({"result": null}),
         ),
         (
-            "eth_getProof",
-            proof_params.clone(),
-            json!({"result": proof}),
-        ),
-        (
             "eth_getBlockByNumber",
             block_params.clone(),
             json!({"result": other_height}),
         ),
         (
-            "eth_getProof",
-            proof_params.clone(),
-            json!({"result": other_address}),
+            "eth_getBlockByNumber",
+            block_params.clone(),
+            json!({"result": malformed_block}),
         ),
-        (
-            "eth_getProof",
-            proof_params.clone(),
-            json!({"result": malformed_proof}),
-        ),
-        ("eth_getProof", proof_params.clone(), error_response.clone()),
-        ("eth_getProof", proof_params, json!({"result": proof})),
         ("eth_getBlockByNumber", block_params, error_response),
     ];
     let exchanges: Vec<_> = (0..bundle_reads.len())
@@ -161,10 +125,6 @@ fn proof_bundle_reads_eth_get_proof_and_the_landing_block() {
         requests
     });
     let endpoint = SequencerEndpoint::new(&url, &[]).must();
-    let mut balance = [0; 32];
-    balance[30..].copy_from_slice(&[0x12, 0x34]);
-    let mut storage_value = [0; 32];
-    storage_value[31] = 0xab;
     let expected_block = SequencerBlock {
         number: height,
         hash: [0x9a; 32],
@@ -175,19 +135,6 @@ fn proof_bundle_reads_eth_get_proof_and_the_landing_block() {
         transactions: vec![],
     };
     let expected_bundle = ProofBundle {
-        account_proof: AccountProof {
-            address,
-            balance,
-            nonce: 7,
-            code_hash: [0x56; 32],
-            storage_hash: [0x78; 32],
-            account_proof: vec![vec![0xf8, 0x43], vec![0xaa, 0xbb, 0xcc]],
-            storage: vec![StorageProof {
-                key: slots[0],
-                value: storage_value,
-                proof: vec![vec![0xc0], vec![1, 2]],
-            }],
-        },
         landing_block: expected_block.clone(),
     };
     for bundle_read in bundle_reads {
@@ -203,18 +150,16 @@ fn proof_bundle_reads_eth_get_proof_and_the_landing_block() {
             bundle_read(&endpoint, address, &slots, height),
             Err(EvidenceError::Rpc(SequencerError::Unavailable))
         );
-        for _ in 0..3 {
+        for _ in 0..2 {
             assert_eq!(
                 bundle_read(&endpoint, address, &slots, height),
                 Err(EvidenceError::Rpc(SequencerError::Malformed))
             );
         }
-        for _ in 0..2 {
-            assert_eq!(
-                bundle_read(&endpoint, address, &slots, height),
-                Err(EvidenceError::Rpc(SequencerError::Rpc(refusal.clone())))
-            );
-        }
+        assert_eq!(
+            bundle_read(&endpoint, address, &slots, height),
+            Err(EvidenceError::Rpc(SequencerError::Rpc(refusal.clone())))
+        );
     }
     assert_eq!(server.join().must(), expected_requests);
 }
