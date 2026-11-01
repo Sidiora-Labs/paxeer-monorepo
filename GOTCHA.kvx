@@ -12316,3 +12316,58 @@ fix = "Install leaf packages that keep their own lockfile with --ignore-workspac
 title = "Deleting a file must carry every include_str! of it"
 symptom = "A Python-gated task deleted services/platform/relay_archive/runtime.py while a Rust integration test still include_str!-ed it, so every later build of the gateway test target failed with 'couldn't read' on an unrelated task"
 fix = "Before deleting a file, grep the repository for its path (include_str!, include_bytes!, fixtures) and put every referrer in touches; a deletion's gate must compile the crates that embed the file"
+
+[gotcha.2500]
+title = "A build command fix must sweep every task that shares the command"
+symptom = "Decision 2178 repaired the names SDK install command on one task while a sibling task kept the old command and failed on the identical root-workspace resolution one attempt later"
+fix = "When a ruling changes a build_cmd or verify_cmd, grep the spec for every task carrying the same command and change them in the same batch"
+
+[gotcha.2501]
+title = "A pending-window fix must cover the send itself"
+symptom = "The RPC send path waited for an open block on its nonce read and receipt record but handed the transaction to Accept unguarded, so a fixture's first call during a sealed layer failed with the raw sequencer error"
+fix = "When a wait is added for a closed window, list every call on the handler path that touches the open layer, including the final hand-off, and guard each one"
+
+[gotcha.2502]
+title = "Adding an enum variant must carry the exhaustive matches of dependent crates"
+symptom = "A decoder task added ConstructMethod::PayBudgetFund with a layerx-crypto-only gate while the human service matched the enum exhaustively, so every human workspace build failed until the consumer task landed its arms half an hour later"
+fix = "A task that adds a variant to a public enum puts every exhaustive match in dependent crates in touches, or the consumer task that adds them merges in the same step"
+
+[gotcha.2503]
+title = "Deleting a crate must carry its workspace manifest and lockfile"
+symptom = "A deletion task's touches named only the crate's files, so the workspace manifest kept the member and every cargo command in the human workspace failed with a missing manifest"
+fix = "Grep the workspace Cargo.toml members and the Cargo.lock package list for a crate before deleting it and put both in touches"
+
+[gotcha.2504]
+title = "A task that edits the specification document cannot be compared by raw tree after its done record"
+symptom = "A task whose touches include the specification document verified, then the done record rewrote the task's own status line inside that allowed file, so the measured candidate never matched the verified one and two attempts failed with the same unmet check"
+fix = "Mask the task's own status line in the comparison hash when the specification document is an allowed path; the published commit keeps the real content"
+
+[gotcha.2505]
+title = "A native envelope binder has no call-name port to an EVM call binder"
+symptom = "A migration task ordered call-name ports of every binder use, but two sites bind unsigned native kernel envelopes, which the EVM call binder cannot take; two attempts failed the retirement scan on them"
+fix = "When a retired function has no same-shape replacement, retire its callers with the task that deletes their file and order the deletion of the definition behind them"
+
+[gotcha.2506]
+title = "A consumer task cannot precede the producer whose fields it reads"
+symptom = "10.95.1 read AccountBalances.height and AssetBalance.amount while 10.24.1, which adds them, required 10.95.1; neither order built."
+fix = "Point the requirement from consumer to producer and let the producer port the single dependent call site in the same change."
+
+[gotcha.2507]
+title = "A test fixture built on a deleted module falls with the module"
+symptom = "intent_submit.rs still imported layerx_human_service::binding after 10.9.1 deleted it, so a later task could not port the signatures inside that fixture."
+fix = "Delete the fixture and the cases' binding steps; decide what the product still reads and write that record directly."
+
+[gotcha.2508]
+title = "A journey identifier in a test must carry the jrn_ prefix"
+symptom = "JourneyId::new('move-bank-send') refused with InvalidIdentifier kind journey and both tests panicked before asserting anything."
+fix = "Use jrn_-prefixed lowercase identifiers (notify/event.rs:73), as the other tests do."
+
+[gotcha.2509]
+title = "A fixture loop that logs only on failure leaves an empty log when its parent times out"
+symptom = "feeder.log was empty after the 30 second price wait killed the feeder, so the first failing step was invisible."
+fix = "Log every iteration before and after the broadcast and size the wait to the first commit and aggregate."
+
+[gotcha.2510]
+title = "A test-support server for a retired protocol is deleted, not re-encoded"
+symptom = "The evidence node spoke LNI frames; the retired-module scan refused lni paths while a do-line asked to keep the handshake."
+fix = "Delete it with its tests once its consumer moved to the real RPC; keep the journal types the consumer still uses."

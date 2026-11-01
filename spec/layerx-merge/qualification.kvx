@@ -14979,3 +14979,163 @@ symbol = "archive_sync_readiness_reaches_the_actual_sync_predicate"
 observed = "Attempt 1 (124e0cfad) removed the retired route assertions from services/platform/hosted/gateway/tests/browser_profiles.rs as specified, but the build_cmd (cargo build --tests of layerx-platform-gateway) fails compiling the test target unified_service_paths: services/platform/hosted/gateway/tests/unified_service_paths.rs:20 declares const ARCHIVE = include_str!('../../../../../services/platform/relay_archive/runtime.py') and task 8.32.1 (10ba36017) deleted that file; :187-188 assert two substrings of ARCHIVE (the /v1/sync/readiness branch and the readiness() call) and :185 still expects the catalogue entry's source to be services/platform/relay_archive/runtime.py, which tools/paxeer-x/route-catalogue.json still records for every archive route."
 assumption = "8.7.5 also drops the include and the two ARCHIVE assertions (decision 2179) so the gateway test target compiles; the catalogue's stale archive source strings are a documentation defect left for the task that retires or re-homes the archive routes."
 severity = "major"
+
+[finding.19.5.2.1]
+task = "19.5.2"
+file = "sdk/names/package.json"
+symbol = "verifyCommit"
+observed = "Attempt 1 (f1f1f4592) wrote header.ts, the two tests and the lockfile, but the build_cmd (pnpm --dir sdk/names install --no-frozen-lockfile) walked up to the root workspace and failed on sdk/integrations/next's unpublished @sidiora/layerx-sdk dependency (ERR_PNPM_FETCH_404), the failure decision 2178 already ruled for 19.2.3; tsc and vitest never ran."
+assumption = "19.5.2 takes the same --ignore-workspace build_cmd as 19.2.3 and continues from attempt 1; no other open task installs sdk/names without it."
+severity = "major"
+
+[finding.18.670.1.10]
+task = "18.670.1"
+file = "rpc/send.go:295"
+symbol = "acceptOnSequencer"
+observed = "Attempt 10 (1e16b9165) builds, but the fixture setup in tools/qualification/localnode/v6120-node.sh evm_call failed its first paxd tx evm call-contract with the node answering 'sequencer: no block is open': the CLI sends through eth_sendRawTransaction (modules/evm/client/cli/tx.go:704) and acceptOnSequencer hands the bytes to Sequencer.Accept (rpc/send.go:295) with no wait for an open layer, so a send that lands between Seal and the Open in Driver.OnCommit is refused with the raw ErrLayerNotOpen; the pending-context wait of 5.98.5 guards only the nonce read (rpc/tx.go) and the receipt record (rpc/send.go:344)."
+assumption = "Decision 2180: 5.98.6 makes acceptOnSequencer wait for the open layer and retry once; the fixture retries its setup call on that answer so 18.670.1 qualifies without waiting for 5.98.6."
+severity = "major"
+
+[finding.12.35.2.6]
+task = "12.35.2"
+file = "apps/wallet/e2e/send.spec.ts:120"
+symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+observed = "Attempt 6 (a0a6913a3) is the first whose /wallet/ routing lets the web server start and the browser launch; the single run failed before any test code ran because the qualification environment's Chromium headless shell could not load libglib-2.0.so.0 (browserType.launch exit 127), an environment defect rather than a product one."
+assumption = "The qualification environment installs Chromium's shared libraries whenever a gate runs Playwright; attempt 6's changes stand and are continued as they are."
+severity = "minor"
+
+[finding.10.25.4.1]
+task = "10.25.4"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "bound_activity"
+observed = "Attempt 1 (eb7705180) implemented the task, but its build of layerx-human-test-support failed compiling layerx-human-service: the match at services/human/crates/layerx-human-service/src/agents/create.rs:558 was non-exhaustive for Some(ConstructMethod::PayBudgetFund), the variant 9.99.3 added with a layerx-crypto-only gate; 18.1272.1 (merged at ef19f3b1b) added the two arms minutes after the attempt started."
+assumption = "A main that carries 18.1272.1 compiles; the attempt's own work continues on a rebased tree."
+severity = "minor"
+
+[finding.10.98.12.1]
+task = "10.98.12"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "bound_activity"
+observed = "Attempt 1 (fe8ff0a0a) implemented the task, but its build of layerx-human-test-support failed compiling layerx-human-service: the match at services/human/crates/layerx-human-service/src/agents/create.rs:558 was non-exhaustive for Some(ConstructMethod::PayBudgetFund), the variant 9.99.3 added with a layerx-crypto-only gate; 18.1272.1 (merged at ef19f3b1b) added the two arms minutes after the attempt started."
+assumption = "A main that carries 18.1272.1 compiles; the attempt's own work continues on a rebased tree."
+severity = "minor"
+
+[finding.10.27.1.1]
+task = "10.27.1"
+file = "services/human/Cargo.toml:12"
+symbol = "members"
+observed = "Attempt 1 (ef9779700) deleted the three explorer-index files and wrote the regression test, but cargo refuses the workspace: services/human/Cargo.toml:12 still lists crates/layerx-explorer-index as a member and services/human/Cargo.lock:963 still records the package, neither of which the task's touches allow."
+assumption = "Decision 2181: the task removes the member entry and refreshes the lock so the --locked build runs."
+severity = "major"
+
+[finding.17.0.3.1]
+task = "17.0.3"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "status"
+observed = "Attempts 1 (dd4e95308) and 2 (918e6f0c8) built and passed cg spec done, yet neither qualified: the done record rewrites this task's own status line inside spec/layerx-merge/spec.kvx, a file this task touches, so the candidate measured after the record differs from the one verified and the same-candidate check fails on every attempt."
+assumption = "The qualification environment now compares candidates with this task's status line masked; the implementation needs no change."
+severity = "minor"
+
+[finding.10.98.14.1]
+task = "10.98.14"
+file = "services/human/crates/layerx-intents/src/owner_activity.rs:68"
+symbol = "unsigned_native"
+observed = "Attempts 1 (c7d979981) and 2 (3c6d89022) ported canonical.rs, vectors/send.rs and tests/compile.rs and built, but no_retired_layerx_crypto_codec_paths still finds layerx_crypto::disclosure::bind at services/human/crates/layerx-intents/src/owner_activity.rs:68 (unsigned_native) and services/human/crates/layerx-intents/tests/native_session.rs:3 and :104: both bind an unsigned native kernel envelope to read its disclosure, which bind_call (an EVM call binder taking an Eip1559Call and a 20-byte sender) cannot express. Attempt 2 also had to move services/human/crates/layerx-intents/tests/native_session.rs:151, :159 and :168 from attach_signature to attach_native_signature because 10.98.7 retyped attach_signature to the EVM form without carrying this test."
+assumption = "Decision 2182: the two native call sites retire with their files in 10.21.4 and 10.21.6, which 9.35.1 now follows; 10.98.14 excludes them from its scan."
+severity = "major"
+
+[finding.10.6.1.1]
+task = "10.6.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "bound_activity"
+observed = "Attempt 1 (6333ecb03) implemented the task on a base (b50c63bc2) without the PayBudgetFund arms of services/human/crates/layerx-human-service/src/agents/create.rs:555 and :624, so the build of layerx-human-service failed on the non-exhaustive match at :558 and verification never ran; main has carried 18.1272.1 (merge ef19f3b1b) since."
+assumption = "A fresh attempt on current main builds; the attempt's own work continues on a rebased tree."
+severity = "minor"
+
+[finding.10.95.1.1]
+task = "10.95.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "bound_activity"
+observed = "Attempt 1 (8aabe4ba8) implemented the task on a base (b50c63bc2) without the PayBudgetFund arms of services/human/crates/layerx-human-service/src/agents/create.rs:555 and :624, so the build of layerx-human-service failed on the non-exhaustive match at :558 and verification never ran; main has carried 18.1272.1 (merge ef19f3b1b) since."
+assumption = "A fresh attempt on current main builds; the attempt's own work continues on a rebased tree."
+severity = "minor"
+
+[finding.10.98.10.1]
+task = "10.98.10"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "bound_activity"
+observed = "Attempt 1 (c6b3c7c55) implemented the task on a base (b50c63bc2) without the PayBudgetFund arms of services/human/crates/layerx-human-service/src/agents/create.rs:555 and :624, so the build of layerx-human-service failed on the non-exhaustive match at :558 and verification never ran; main has carried 18.1272.1 (merge ef19f3b1b) since."
+assumption = "A fresh attempt on current main builds; the attempt's own work continues on a rebased tree."
+severity = "minor"
+
+[finding.10.98.11.1]
+task = "10.98.11"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "bound_activity"
+observed = "Attempt 1 (0b05afad3) implemented the task on a base (b50c63bc2) without the PayBudgetFund arms of services/human/crates/layerx-human-service/src/agents/create.rs:555 and :624, so the build of layerx-human-service failed on the non-exhaustive match at :558 and verification never ran; main has carried 18.1272.1 (merge ef19f3b1b) since."
+assumption = "A fresh attempt on current main builds; the attempt's own work continues on a rebased tree."
+severity = "minor"
+
+[finding.18.1149.1.3]
+task = "18.1149.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "bound_activity"
+observed = "Attempt 3 (b0a6132d4) implemented the task on a base (b50c63bc2) without the PayBudgetFund arms of services/human/crates/layerx-human-service/src/agents/create.rs:555 and :624, so the build of layerx-human-service failed on the non-exhaustive match at :558 and verification never ran; main has carried 18.1272.1 (merge ef19f3b1b) since."
+assumption = "A fresh attempt on current main builds; the attempt's own work continues on a rebased tree."
+severity = "minor"
+
+[finding.18.670.1.11]
+task = "18.670.1"
+file = "tools/qualification/localnode/v6120-node.sh:726"
+symbol = "feed_loop"
+observed = "Attempt 11 (d96dda6ec) built, the node produced a block every 80 ms, and the fixture failed after 30 seconds with 'BTC and PAX prices did not become fresh' while feeder.log stayed empty, so no observation broadcast was ever recorded."
+assumption = "The feeder was still inside its first sign, broadcast or 30 second commit poll when the parent gave up; the loop writes nothing until it fails and the wait is too short for the first observation to commit and aggregate."
+severity = "minor"
+
+[finding.10.95.1.2]
+task = "10.95.1"
+file = "services/human/crates/layerx-network-gateway/src/lib.rs:340"
+symbol = "AssetBalance"
+observed = "Attempt 2 (4b6acfd3b) reads AccountBalances.height and AssetBalance.amount in journeys/observed.rs, fields that only task 10.24.1 adds, while 10.24.1 required this task, so the build cannot pass in either order."
+assumption = "The requirement edge points the wrong way; with it swapped (decision.2183) both tasks land."
+severity = "minor"
+
+[finding.10.98.6.2]
+task = "10.98.6"
+file = "services/human/crates/layerx-human-test-support/src/evidence_node.rs:9"
+symbol = "encode_node_info"
+observed = "Attempt 3 (07ed8f68e) kept the LNI handshake as do_5 asked and the retired-module test refused layerx_client::lni in src/evidence_node.rs; do_5 contradicts do_3."
+assumption = "Nothing speaks to the evidence node over LNI any more (decision.2185); deleting the server and its two tests clears the scan."
+severity = "minor"
+
+[finding.10.98.10.2]
+task = "10.98.10"
+file = "services/human/crates/layerx-human-service/src/server/production_owner.rs:68"
+symbol = "OwnerRotationState"
+observed = "Attempt 2 (7bc7cb27e) left OwnerRotationState::decode at src/server/production_owner.rs:68 and src/server/production_rotation.rs:163, and the codec scan refused layerx_crypto::rotation there."
+assumption = "Moving the record parser in-crate (decision.2186) clears the scan without an exemption."
+severity = "minor"
+
+[finding.10.98.11.2]
+task = "10.98.11"
+file = "services/human/crates/layerx-human-service/tests/intent_submit.rs:28"
+symbol = "BindingJourney"
+observed = "Attempt 2 (e9e7ae8b4) could not port intent_submit.rs:729 and :755 to sign_disclosed_call: the file still imports layerx_human_service::binding, deleted by 10.9.1 (2772a218f), and signs 0x7104 payout-binding payloads that disclosure::call does not carry."
+assumption = "The fixture falls with the module (decision.2184); the remaining tests keep their intent-submit assertions."
+severity = "minor"
+
+[finding.12.35.2.7]
+task = "12.35.2"
+file = "apps/wallet/src/components/onboarding/Onboarding.tsx:126"
+symbol = "injected"
+observed = "Attempt 7 (6d37fd989) ran all ten send tests with Chromium present; the new test timed out at send.spec.ts:622 waiting for the onboarding button of the announced 'Local sequencer signer' provider, which Onboarding.tsx:126 renders from wallet.injected only once ShellWidget.tsx:165 reaches Onboarding."
+assumption = "Either the shell never left its loading or connecting state at './' or the announcement did not reach wallet.injected; the test must say which before it fails."
+severity = "minor"
+
+[finding.10.6.1.2]
+task = "10.6.1"
+file = "services/human/crates/layerx-human-service/src/notify/event.rs:73"
+symbol = "JourneyId"
+observed = "Attempt 2 (4428c4d24) built, and both move_money_bank_send tests panicked at tests/move_money_bank_send.rs:79 with InvalidIdentifier kind journey, because JourneyId::new accepts only a jrn_-prefixed lowercase identifier and the fixture passed move-bank-send."
+assumption = "A jrn_ identifier passes and the tests run; nothing else changes."
+severity = "minor"
