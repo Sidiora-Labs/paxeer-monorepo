@@ -197,41 +197,48 @@ fn read_account_decodes_a_served_gateway_page() {
     overflow["txIndex"] = json!(u64::from(u32::MAX) + 1);
     let mut string_position = rows[0].clone();
     string_position["blockHeight"] = json!("100");
-    for (result, expected, head) in [
+    for (result, expected, head, cursor) in [
         (
             page(descending, None, Some(150)),
             HistoryReadError::Cursor,
             "0xa0",
+            None,
         ),
         (
             page(vec![rows[0].clone(), rows[0].clone()], None, Some(150)),
             HistoryReadError::Cursor,
             "0xa0",
+            Some(positions[0]),
         ),
         (
             page(rows.clone(), None, Some(150)),
             HistoryReadError::Oversized,
             "0xa0",
+            None,
         ),
         (
             page(vec![overflow], None, Some(150)),
             HistoryReadError::Malformed,
             "0xa0",
+            None,
         ),
         (
             page(vec![string_position], None, Some(150)),
             HistoryReadError::Malformed,
             "0xa0",
+            None,
         ),
         (
             page(vec![row(position(99, 0, 0), "before")], None, Some(150)),
             HistoryReadError::Cursor,
             "0xa0",
+            None,
         ),
         (
             page(vec![row(position(151, 0, 0), "unindexed")], None, Some(150)),
             HistoryReadError::Cursor,
             "0xa0",
+            None,
         ),
         (
             page(
@@ -241,24 +248,243 @@ fn read_account_decodes_a_served_gateway_page() {
             ),
             HistoryReadError::Cursor,
             "0x64",
+            None,
         ),
         (
             page(vec![rows[0].clone()], Some(positions[1]), Some(150)),
             HistoryReadError::Cursor,
             "0xa0",
+            None,
         ),
     ] {
         let (endpoint, server) = serve(vec![
             (
                 "px_getHistory",
-                json!([account, null, 2]),
+                json!([account, cursor.map(|cursor| cursor.to_hex()), 2]),
                 json!({"result": result}),
             ),
             ("eth_blockNumber", json!([]), json!({"result": head})),
         ]);
         assert_eq!(
-            HistoryPage::read_account(&endpoint, account, 100, 160, None, limits()),
+            HistoryPage::read_account(&endpoint, account, 100, 160, cursor, limits()),
             Err(expected)
+        );
+        server.join().unwrap();
+    }
+}
+
+#[test]
+fn read_account_accepts_a_self_transfer_pair_that_closes_the_page() {
+    let account = "0x1111111111111111111111111111111111111111";
+    let shared = position(100, 1, 2);
+    let rows = vec![row(shared, "debit"), row(shared, "credit")];
+    let result = page(rows.clone(), Some(shared), Some(150));
+    let (endpoint, server) = serve(vec![
+        (
+            "px_getHistory",
+            json!([account, null, 1]),
+            json!({"result": result}),
+        ),
+        ("eth_blockNumber", json!([]), json!({"result": "0xa0"})),
+    ]);
+    let read = HistoryPage::read_account(
+        &endpoint,
+        account,
+        100,
+        160,
+        None,
+        HistoryLimits {
+            maximum_items: 1,
+            ..limits()
+        },
+    )
+    .unwrap();
+    assert_eq!(read.items.len(), 2);
+    assert_eq!(read.next_cursor, Some(shared));
+    for (item, row) in read.items.iter().zip(&rows) {
+        assert_eq!(item.position, shared);
+        assert_eq!(item.canonical, serde_json::to_vec(row).unwrap());
+    }
+    server.join().unwrap();
+}
+
+#[test]
+fn read_account_accepts_equal_positions_within_the_limit() {
+    let account = "0x1111111111111111111111111111111111111111";
+    let shared = position(100, 1, 2);
+    let rows = vec![row(shared, "debit"), row(shared, "credit")];
+    let (endpoint, server) = serve(vec![
+        (
+            "px_getHistory",
+            json!([account, null, 2]),
+            json!({"result": page(rows.clone(), None, Some(150))}),
+        ),
+        ("eth_blockNumber", json!([]), json!({"result": "0xa0"})),
+    ]);
+    let read = HistoryPage::read_account(&endpoint, account, 100, 160, None, limits()).unwrap();
+    assert_eq!(read.items.len(), 2);
+    assert_eq!(read.next_cursor, None);
+    for (item, row) in read.items.iter().zip(&rows) {
+        assert_eq!(item.position, shared);
+        assert_eq!(item.canonical, serde_json::to_vec(row).unwrap());
+    }
+    server.join().unwrap();
+}
+
+#[test]
+fn read_account_continues_after_a_shared_position_group() {
+    let account = "0x1111111111111111111111111111111111111111";
+    let before = position(100, 0, 0);
+    let shared = position(100, 1, 2);
+    let after = position(100, 1, 3);
+    let rows = vec![
+        row(before, "before"),
+        row(shared, "first"),
+        row(shared, "second"),
+        row(shared, "third"),
+    ];
+    let later = row(after, "after");
+    let (endpoint, server) = serve(vec![
+        (
+            "px_getHistory",
+            json!([account, null, 2]),
+            json!({"result": page(rows.clone(), Some(shared), Some(150))}),
+        ),
+        ("eth_blockNumber", json!([]), json!({"result": "0xa0"})),
+        (
+            "px_getHistory",
+            json!([account, shared.to_hex(), 2]),
+            json!({"result": page(vec![later.clone()], None, Some(150))}),
+        ),
+        ("eth_blockNumber", json!([]), json!({"result": "0xa0"})),
+    ]);
+    let first = HistoryPage::read_account(&endpoint, account, 100, 160, None, limits()).unwrap();
+    assert_eq!(first.items.len(), rows.len());
+    assert_eq!(first.next_cursor, Some(shared));
+    for (item, row) in first.items.iter().zip(&rows) {
+        assert_eq!(item.canonical, serde_json::to_vec(row).unwrap());
+    }
+    assert_eq!(first.items.last().unwrap().position, shared);
+    let next = HistoryPage::read_account(&endpoint, account, 100, 160, first.next_cursor, limits())
+        .unwrap();
+    assert_eq!(next.items.len(), 1);
+    assert_eq!(next.items[0].position, after);
+    assert_eq!(next.items[0].canonical, serde_json::to_vec(&later).unwrap());
+    assert!(next.items.iter().all(|item| item.position > shared));
+    assert_eq!(next.next_cursor, None);
+    server.join().unwrap();
+}
+
+#[test]
+fn read_account_refuses_a_descending_row() {
+    let account = "0x1111111111111111111111111111111111111111";
+    for (earlier, later) in [
+        (position(100, 0, 0), position(101, 0, 0)),
+        (position(100, 0, 0), position(100, 1, 0)),
+        (position(100, 1, 0), position(100, 1, 1)),
+    ] {
+        let (endpoint, server) = serve(vec![
+            (
+                "px_getHistory",
+                json!([account, null, 2]),
+                json!({"result": page(vec![row(later, "later"), row(earlier, "earlier")], None, Some(150))}),
+            ),
+            ("eth_blockNumber", json!([]), json!({"result": "0xa0"})),
+        ]);
+        assert_eq!(
+            HistoryPage::read_account(&endpoint, account, 100, 160, None, limits()),
+            Err(HistoryReadError::Cursor),
+        );
+        server.join().unwrap();
+    }
+}
+
+#[test]
+fn read_account_refuses_overflow_at_a_later_position() {
+    let account = "0x1111111111111111111111111111111111111111";
+    let before = position(100, 0, 0);
+    let boundary = position(100, 1, 2);
+    for later in [
+        position(101, 0, 0),
+        position(100, 2, 0),
+        position(100, 1, 3),
+    ] {
+        for include_shared_overflow in [false, true] {
+            let mut rows = vec![row(before, "before"), row(boundary, "boundary")];
+            if include_shared_overflow {
+                rows.push(row(boundary, "shared"));
+            }
+            rows.push(row(later, "later"));
+            let (endpoint, server) = serve(vec![
+                (
+                    "px_getHistory",
+                    json!([account, null, 2]),
+                    json!({"result": page(rows, Some(later), Some(150))}),
+                ),
+                ("eth_blockNumber", json!([]), json!({"result": "0xa0"})),
+            ]);
+            assert_eq!(
+                HistoryPage::read_account(&endpoint, account, 100, 160, None, limits()),
+                Err(HistoryReadError::Oversized),
+            );
+            server.join().unwrap();
+        }
+    }
+}
+
+#[test]
+fn read_account_preserves_response_and_cursor_bounds() {
+    let account = "0x1111111111111111111111111111111111111111";
+    let shared = position(100, 1, 2);
+    let rows = vec![row(shared, "debit"), row(shared, "credit")];
+    let result = page(rows, Some(shared), Some(150));
+    let response_bytes = serde_json::to_vec(&result).unwrap().len();
+    let mut malformed = result.clone();
+    malformed["next_cursor"] = json!("not-a-cursor");
+    let mut uppercase = result.clone();
+    uppercase["next_cursor"] = json!("000000000000006A0000000100000002");
+    for (result, byte_limit, expected, fetch_head) in [
+        (
+            result.clone(),
+            response_bytes - 1,
+            HistoryReadError::Oversized,
+            true,
+        ),
+        (
+            malformed,
+            limits().maximum_response_bytes,
+            HistoryReadError::Sequencer(SequencerError::Malformed),
+            false,
+        ),
+        (
+            uppercase,
+            limits().maximum_response_bytes,
+            HistoryReadError::Sequencer(SequencerError::Malformed),
+            false,
+        ),
+    ] {
+        let mut exchanges = vec![(
+            "px_getHistory",
+            json!([account, null, 1]),
+            json!({"result": result}),
+        )];
+        if fetch_head {
+            exchanges.push(("eth_blockNumber", json!([]), json!({"result": "0xa0"})));
+        }
+        let (endpoint, server) = serve(exchanges);
+        assert_eq!(
+            HistoryPage::read_account(
+                &endpoint,
+                account,
+                100,
+                160,
+                None,
+                HistoryLimits {
+                    maximum_items: 1,
+                    maximum_response_bytes: byte_limit
+                },
+            ),
+            Err(expected),
         );
         server.join().unwrap();
     }
