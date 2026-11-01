@@ -110255,7 +110255,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.5.12]
 title = "Build the agent TypeScript SDK before the web build and give its exports a default condition"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["17.5.10"]
@@ -116933,7 +116933,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.98.16]
 title = "Retire the receipt authority's kernel socket and read checkpoints from the committed anchor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["8.98.15", "8.98.3", "8.11.3"]
