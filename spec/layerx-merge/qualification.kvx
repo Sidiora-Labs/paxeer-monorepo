@@ -16123,3 +16123,59 @@ symbol = "platform-sdk-check"
 observed = "Attempt 19 (7dce00fca) kept the earlier test unchanged, built, and the wave 0 aggregate stopped in platform-sdk-check: the sdkgen drift gate reports the platform-sdkgen generator root changed after the last generation, because d57ae5e20 (task 8.46.11) edited sdk/platform/generators/generate_jvm.py and regenerated the JVM schema without resealing sdk/platform/pipeline.kvx."
 assumption = "Task 8.46.12 reseals the lock; this task requires it and continues unchanged."
 severity = "major"
+
+[finding.18.1214.1.1]
+task = "18.1214.1"
+file = "services/interop/Cargo.lock:1"
+symbol = "layerx-client"
+observed = "Attempt 1 (f-series, base d90e6b826) edited only services/interop/crates/layerx-migrate and its build stopped before compiling: cargo refused with the lock file services/interop/Cargo.lock needs to be updated but --locked was passed, because 021ce67fb (task 9.25.11) added base64 and layerx-programs-registry to layerx-client's manifest without refreshing the lock."
+assumption = "Task 9.25.16 refreshes the 17 lock files that pin layerx-client; every open task whose gate runs cargo --locked in one of those workspaces now requires it and continues from its last attempt once the refresh lands."
+severity = "major"
+
+[finding.18.1408.1.1]
+task = "18.1408.1"
+file = "spec/layerx-merge/programme/data/parity.kvx:157"
+symbol = "construct.existing-web-search-sidecar-and-402lxp-payment"
+observed = "Attempt 1 (f428d6ca4) repointed the Kernel replay corpus row and its new test passed, but test_every_row_has_exact_selectors failed on a_request_record_decodes_only_in_its_canonical_form: the Web search sidecar row still selects eight tests of services/interop/crates/x-websearch/tests/kernel.rs, deleted by 79aec7611 (task 11.36.1), and the Mirror row selects mirror_checkpoint_identity_and_freshness_follow_the_shared_vectors of layerx-mirror/tests/checkpoint_vectors.rs, deleted by edd77cf4a (task 11.26.4); the failure predates this task."
+assumption = "The same task lists those nine retired selectors as dropped, points the Web search sidecar row at six tests that still exist in its surviving source files, and points the Mirror row at five existing mirror tests, so the selector test passes for every row at HEAD."
+severity = "major"
+
+[finding.18.1337.1.1]
+task = "18.1337.1"
+file = "tests/wallet/check-live.test.sh:48"
+symbol = "check_live_passing_endpoint"
+observed = "Attempt 1 (0e8c737b4) rewrote both px_getNetwork judges and their fixtures and the build passed, then every case of bash tests/wallet/check-live.test.sh failed with fail px_getAccount Method not found: the fixture still serves lx_getAccount (:48, :74, :357, :371) while scripts/wallet/check-live.sh has probed px_getAccount since c66a0c1c6 (task 16.5.4), so the suite is red on main before this task; f4a558a33 (task 18.1360.1) has since rewritten that probe and judge without touching the bash fixture."
+assumption = "This task ports the fixture to the landed px_getAccount probe and judge in the same change as its px_getNetwork work, and requires 18.1360.1 so it rebases onto the judge it serves."
+severity = "major"
+
+[finding.18.1312.1.1]
+task = "18.1312.1"
+file = "modules/layerxpay/keeper/budget_pull_test.go:85"
+symbol = "TestBudgetPullWithPayerGrant"
+observed = "Attempt 1 (9fc6234b1) added the agent stream metadata genesis handling and its two tests and built, then go test ./modules/layerxpay/keeper/ failed with [build failed]: budget_pull_test.go:85 and :181 call h.host.ReadPayerGrant, which 7fbf93cdd (task 1.12.4) removed from lxphost.Host, so no test in the package can run at main."
+assumption = "Task 2.24.7 ports budget_pull_test.go off the retired read; this task requires it and continues from attempt 1 unchanged."
+severity = "major"
+
+[finding.18.1325.1.1]
+task = "18.1325.1"
+file = "precompiles/layerxanchor/retire_read_gate_test.go:106"
+symbol = "TestReadsRevertFromStoreDelete"
+observed = "Attempt 1 (base 64679b4d6) fails before the new assertions: h.submit(batch_1_quorum) at :106 (unchanged since deeff8f13) reverts with execution reverted because Keeper.SubmitCheckpoint has refused with ErrModuleRetired since afcc3485c (task 6.96.1, modules/layerxanchor/keeper/checkpoints.go:58); the test was red at main before this task touched it."
+assumption = "Attempt 2 (published) resolved it inside the task; recorded so the retirement of the checkpoint path is traceable to this consumer."
+severity = "minor"
+
+[finding.18.1326.1.1]
+task = "18.1326.1"
+file = "node/sequencer_seams_test.go:47"
+symbol = "seamsSequencerSource"
+observed = "Attempt 1 (1033f1b9c) and 18.1425.1 attempt 1 fail with FAIL github.com/Sidiora-Labs/Paxeer-X-Network/node [build failed]: node/sequencer_seams_test.go:47 passes *seamsSequencerSource to app.SetSequencerSource but the type lacks Admit, which 88e4603c6 (task 5.98.8) added to consensus/types.SequencerSource (consensus/types/sequencer.go:18); every test of package node has failed to compile at main since that merge."
+assumption = "Task 5.98.9 ports the fixture; 18.1326.1 and 18.1425.1 require it and continue unchanged."
+severity = "major"
+
+[finding.2.24.7.1]
+task = "2.24.7"
+file = "modules/layerxpay/keeper/budget_pull_test.go:84"
+symbol = "TestBudgetPullWithPayerGrant"
+observed = "Attempt 1 (0445b0874) removed the two retired reads as told; the test then fails at the grant issue: HostExecute of activity 0x00010007 answers LXP_ERR_UNKNOWN_ACTIVITY (execute_test.go:44), so no payer grant can be issued and budgetPull has no kernel type to reach."
+assumption = "Decision 2226 retires budgetPull on the Go side; this task implements it."
+severity = "owner"

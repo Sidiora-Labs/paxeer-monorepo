@@ -422,10 +422,7 @@ func beforeCosmos(tx sdk.Tx, in *ReceiptInput) error {
 }
 
 func (r *Receipter) after(etx *ethtypes.Transaction, in *ReceiptInput) error {
-	ctx, err := r.exec.Snapshot()
-	if err != nil {
-		return err
-	}
+	ctx := in.Accepted.ReceiptContext
 	acc := in.Accepted
 	if etx == nil {
 		if acc.Result.GasUsed < 0 {
