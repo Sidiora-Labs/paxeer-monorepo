@@ -118916,7 +118916,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.96.3]
 title = "Port the custody keeper tests off the retired checkpoint submission"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.96.1"]
