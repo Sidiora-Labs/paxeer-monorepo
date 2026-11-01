@@ -118617,7 +118617,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.24.7]
 title = "Retire budgetPull of the pay precompile with the payer grants"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189301,7 +189301,7 @@ qualification = "UNRUN"
 
 [task.18.821.1]
 title = "Issue #821: Resolve the live checks of rolled-out services from the rollout table instead of deleted Fly tomls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
