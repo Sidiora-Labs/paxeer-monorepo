@@ -899,74 +899,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .ok_or(HumanOperationError::Unavailable)
     }
 }
-mod native_receipt;
 mod subject;
-struct RetainedNativeOwner {
-    canonical: Vec<u8>,
-    activity: layerx_wire::activity::Activity,
-    owner: [u8; 32],
-}
-
-impl RetainedNativeOwner {
-    fn decode(
-        canonical: Vec<u8>,
-        registry: &ModuleRegistry,
-        chain_id: u64,
-        action: [u8; 32],
-        identifier: [u8; 32],
-    ) -> Result<Option<Self>, HumanOperationError> {
-        if canonical.first() == Some(&2) {
-            let (transaction, _) = layerx_crypto::evm_transaction::decode_signed(&canonical)
-                .map_err(|_| HumanOperationError::Refused)?;
-            if transaction.chain_id != chain_id
-                || layerx_crypto::evm_transaction::transaction_hash(&canonical) != identifier
-                || action != identifier
-            {
-                return Err(HumanOperationError::Refused);
-            }
-            return Ok(None);
-        }
-        let activity = layerx_wire::activity::decode_signed(&canonical, registry)
-            .map_err(|_| HumanOperationError::Refused)?;
-        if layerx_wire::activity::encode_signed(&activity)
-            .map_err(|_| HumanOperationError::Refused)?
-            != canonical
-            || layerx_wire::hash::activity_id(&activity)
-                .map_err(|_| HumanOperationError::Refused)?
-                != identifier
-            || activity.idempotency_key() != action
-            || u64::from(activity.network_id()) != chain_id
-        {
-            return Err(HumanOperationError::Refused);
-        }
-        if activity.protocol_version() != 3
-            || !(2..=7).contains(&(activity.activity_type().module() as u16))
-        {
-            return Ok(None);
-        }
-        let owner = activity
-            .authority()
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?;
-        Ok(Some(Self {
-            canonical,
-            activity,
-            owner,
-        }))
-    }
-
-    fn context(&self) -> layerx_proof::receipt::NativeOwnerOutcomeContext<'_> {
-        layerx_proof::receipt::NativeOwnerOutcomeContext {
-            canonical_activity: &self.canonical,
-            actor: self.activity.actor_did(),
-            action_key: self.activity.idempotency_key(),
-            activity_type: self.activity.activity_type(),
-            owner_public_key: self.owner,
-            network_id: self.activity.network_id(),
-        }
-    }
-}
-
 fn human_receipt_node_error(error: crate::node_rpc::NodeRpcError) -> HumanOperationError {
     match error {
         crate::node_rpc::NodeRpcError::Unavailable => HumanOperationError::Unavailable,
@@ -12884,7 +12817,6 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         &mut self,
         raw: &crate::protocol_evidence::RawReceiptEvidence,
         authority: &AuthorizedBatch,
-        native: Option<&layerx_proof::receipt::NativeOwnerOutcomeContext<'_>>,
     ) -> Result<crate::protocol_evidence::VerifiedReceiptEvidence, HumanOperationError> {
         let header = layerx_wire::receipt::decode_batch_header(raw.canonical_header())
             .map_err(|_| HumanOperationError::Refused)?;
@@ -12899,12 +12831,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             return Err(HumanOperationError::Refused);
         }
         if header.protocol_version() == 3 && header.first_sequence() < header.last_sequence() {
-            return self.maintained_terminal_receipt(&raw, authority, &header, native);
-        }
-        if let Some(expected) = native {
-            return crate::protocol_evidence::VerifiedReceiptEvidence::verify_authorized_native_owner(
-                &raw, authority, expected, None,
-            ).map_err(|_| HumanOperationError::Refused);
+            return self.maintained_terminal_receipt(&raw, authority, &header);
         }
         let terminal = crate::protocol_evidence::VerifiedReceiptEvidence::verify_authorized(
             &raw,
@@ -12921,7 +12848,6 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         raw: &crate::protocol_evidence::RawReceiptEvidence,
         authority: &AuthorizedBatch,
         header: &layerx_wire::receipt::BatchHeader,
-        native: Option<&layerx_proof::receipt::NativeOwnerOutcomeContext<'_>>,
     ) -> Result<crate::protocol_evidence::VerifiedReceiptEvidence, HumanOperationError> {
         let keys = self
             .chain
@@ -12960,11 +12886,6 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             maintenance_proof: &proof.proof,
             authorization: &authorization,
         };
-        if let Some(expected) = native {
-            return crate::protocol_evidence::VerifiedReceiptEvidence::verify_authorized_native_owner(
-                raw, authority, expected, Some((&evidence, &receipts)),
-            ).map_err(|_| HumanOperationError::Refused);
-        }
         crate::protocol_evidence::VerifiedReceiptEvidence::verify_authorized_maintained(
             raw,
             authority,
@@ -13142,18 +13063,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         {
             return Err(HumanOperationError::Refused);
         }
-        let original = self.retained_activity(peer, idempotency_key)?;
-        let registry = self.authority.registry(peer).map_err(map_core)?;
         self.authority.authorize_subject(peer)?;
         let chain_id = self.chain.chain_id().map_err(human_receipt_node_error)?;
-        let retained = RetainedNativeOwner::decode(
-            original,
-            &registry,
-            chain_id,
-            idempotency_key,
-            expected_activity_id,
-        )?;
-        let native = retained.as_ref().map(RetainedNativeOwner::context);
         let config = read_rpc_config()?;
         if config.chain_id != chain_id {
             return Err(HumanOperationError::Refused);
@@ -13228,7 +13139,6 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     tenant,
                     served,
                     &authority,
-                    native.as_ref(),
                     settlement,
                 )?;
                 self.last_verified_receipt = Some((
@@ -13313,7 +13223,6 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         tenant: TenantId,
         served: crate::receipt::ServedReceipt,
         authority: &AuthorizedBatch,
-        native: Option<&layerx_proof::receipt::NativeOwnerOutcomeContext<'_>>,
         settlement: Option<&NativeProgramSettlementContext<'_>>,
     ) -> Result<crate::receipt::ServedReceipt, HumanOperationError> {
         let native_preparation = {
@@ -13396,13 +13305,17 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .transpose()
             .map_err(rpc_commit_error)?
             .flatten();
-        if native_preparation.is_some() || capability_preparation.is_some() || native.is_some() {
+        let receipt = layerx_wire::receipt::decode(&served.canonical_bytes)
+            .map_err(|_| HumanOperationError::Refused)?;
+        let protocol = receipt.protocol().ok_or(HumanOperationError::Refused)?;
+        let native_owner = (2..=7).contains(&protocol.module_id()) && protocol.operation() == 0;
+        if native_preparation.is_some() || capability_preparation.is_some() || native_owner {
             let raw_evidence = human_receipt_history_evidence(
                 self.chain.as_mut(),
                 execution.height,
                 &execution.receipt,
             )?;
-            let terminal = self.terminal_receipt_evidence(&raw_evidence, authority, native)?;
+            let terminal = self.terminal_receipt_evidence(&raw_evidence, authority)?;
             let program_state_policy = if native_preparation.is_some() {
                 Some(self.budget_read_parts(peer)?)
             } else {
