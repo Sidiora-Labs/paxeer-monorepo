@@ -18,7 +18,6 @@ admin
 api
 tools/benchmark
 daemon
-!daemon/layerx-custody-proof
 docker
 !docker/human-service/entrypoint.sh
 !docker/kernel/init.sh

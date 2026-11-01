@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
+import shlex
 from pathlib import Path
 import subprocess
 import sys
-import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
 EVIDENCE = Path(
@@ -26,18 +25,11 @@ DECLARED = (
     "src/modules/programs/call.c",
     "src/protocol/lxp_receipt.c",
     "src/protocol/lxp_module_ctx.c",
-    "cmd/layerxd/lxp_daemon_protocol.c",
     "programs/crates/layerx-programs-runtime/src/ffi_call.rs",
     "programs/crates/layerx-programs-runtime/src/lib.rs",
     "tests/daemon/lxp_test_arbiter_native_authority.c",
     "tools/paxeer-x/build/104.35.35.mk",
     "tools/qualification/paxeer-x/arbiter-native-authority.py",
-    "include/layerx/lxp_daemon.h",
-    "tests/daemon/lxp_test_module_maintenance.c",
-    "tests/daemon/program-admission.sh",
-    "tests/daemon/withdraw-custody.py",
-    "tests/daemon/handover-chain.py",
-    "tests/daemon/custody_chain.py",
 )
 MARKER = (
     "ARBITER_NATIVE_AUTHORITY real-signed-owner-index-call-frame-247-reopen-refusal"
@@ -74,7 +66,6 @@ def sources():
             "--",
             "src",
             "include",
-            "cmd/layerxd",
             "programs",
             "Makefile",
             "go.mod",
@@ -192,36 +183,23 @@ def exported_inputs(directory):
     return outputs
 
 
-def custody_artifacts():
-    path = os.environ.get("LAYERX_CUSTODY_ARTIFACT_MANIFEST")
-    if not path:
-        raise RuntimeError(
-            "protected current-source LAYERX_CUSTODY_ARTIFACT_MANIFEST required"
-        )
-    module_path = ROOT / "tests/daemon/custody_chain.py"
-    spec = importlib.util.spec_from_file_location(
-        "native_authority_custody", module_path
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError("actual custody manifest reader unavailable")
-    module = importlib.util.module_from_spec(spec)
-    sys.path.insert(0, str(ROOT / "tests/daemon"))
-    spec.loader.exec_module(module)
-    module.artifact_manifest(path)
-    return {"path": str(Path(path).resolve(strict=True)), "sha256": sha(path)}
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", action="store_true")
+    parser.add_argument("--state", type=Path, help="prepared native state directory")
+    parser.add_argument("--captures", type=Path, help="genuine native CALL captures")
+    parser.add_argument("--target-receipt", type=Path, help="native target receipt record")
     args = parser.parse_args()
+    if not args.build and any(
+        value is None for value in (args.state, args.captures, args.target_receipt)
+    ):
+        parser.error("verification requires --state, --captures and --target-receipt")
     EVIDENCE.mkdir(mode=0o700, parents=True, exist_ok=True)
     if EVIDENCE.stat().st_mode & 0o077:
         raise RuntimeError("private native authority evidence required")
     environment = dict(os.environ)
     environment["PATH"] = "/root/.cargo/bin:" + environment.get("PATH", "")
     environment["CARGO_BUILD_JOBS"] = "4"
-    custody = custody_artifacts()
     if args.build:
         inputs = sources()
         execute(
@@ -238,7 +216,7 @@ def main():
                 "PROGRAMS_TARGET_DIR=" + str(TARGET / "rust"),
                 "PROGRAMS_RUNTIME_LIB="
                 + str(TARGET / "rust/debug/liblayerx_programs_sandbox.a"),
-                "paxeer-x-arbiter-native-authority-build",
+                str(TARGET / "native/tests/lxp_test_arbiter_native_authority"),
             ],
             EVIDENCE / "build.log",
             environment,
@@ -265,18 +243,6 @@ def main():
                     "inputs": inputs,
                     "binary": {"path": str(binary), "sha256": sha(binary)},
                     "archive": {"path": str(archive), "sha256": sha(archive)},
-                    "custody": custody,
-                    "provisioning_binaries": {
-                        name: {
-                            "path": str(TARGET / "native" / name),
-                            "sha256": sha(TARGET / "native" / name),
-                        }
-                        for name in (
-                            "bin/layerxd",
-                            "bin/layerx-genesis-build",
-                            "tests/lxp_test_module_maintenance",
-                        )
-                    },
                 },
                 indent=2,
             )
@@ -285,29 +251,21 @@ def main():
     manifest = json.loads((EVIDENCE / "artifacts.json").read_text())
     if manifest["inputs"] != sources():
         raise RuntimeError("native authority source mismatch")
-    if custody != manifest["custody"]:
-        raise RuntimeError("protected custody artifact manifest changed")
-    for item in [
-        manifest["binary"],
-        manifest["archive"],
-        *manifest["provisioning_binaries"].values(),
-    ]:
+    for item in (manifest["binary"], manifest["archive"]):
         if sha(item["path"]) != item["sha256"]:
             raise RuntimeError("native authority artifact changed")
-    directory = Path(tempfile.mkdtemp(prefix="native-", dir=EVIDENCE))
-    environment["LAYERX_NATIVE_AUTHORITY_FIXTURE_BIN"] = manifest["binary"]["path"]
-    environment["LAYERX_NATIVE_AUTHORITY_OUTPUT"] = str(directory)
+    state = args.state.resolve(strict=True)
+    directory = args.captures.resolve(strict=True)
+    target_receipt = args.target_receipt.resolve(strict=True)
+    if not state.is_dir() or not directory.is_dir():
+        raise RuntimeError("prepared native state and capture directories required")
+    target_digest = sha(target_receipt)
+    environment["LAYERX_NATIVE_AUTHORITY_TARGET_RECEIPT"] = str(target_receipt)
     output = execute(
         [
-            sys.executable,
-            "tests/daemon/withdraw-custody.py",
-            str(TARGET / "native"),
-            "--handover",
-            "--native-arbiter",
-            "--network-id",
-            "7",
-            "--artifact-manifest",
-            custody["path"],
+            manifest["binary"]["path"],
+            str(state),
+            str(directory),
         ],
         EVIDENCE / "verify.log",
         environment,
@@ -316,16 +274,23 @@ def main():
     if MARKER not in output:
         raise RuntimeError("genuine native authority corpus marker missing")
     outputs = exported_inputs(directory)
-    if manifest["inputs"] != sources():
-        raise RuntimeError("native authority source changed during verify")
+    if manifest["inputs"] != sources() or sha(target_receipt) != target_digest:
+        raise RuntimeError("native authority inputs changed during verify")
     (EVIDENCE / "result.json").write_text(
         json.dumps(
             {
                 "revision": manifest["revision"],
-                "command": "timeout 10m python3 tools/qualification/paxeer-x/arbiter-native-authority.py",
+                "command": shlex.join(
+                    [sys.executable, str(Path(__file__).resolve()), *sys.argv[1:]]
+                ),
                 "exit": 0,
                 "log": str(EVIDENCE / "verify.log"),
                 "fixture": str(directory),
+                "state": str(state),
+                "target_receipt": {
+                    "path": str(target_receipt),
+                    "sha256": target_digest,
+                },
                 "outputs": outputs,
             },
             indent=2,

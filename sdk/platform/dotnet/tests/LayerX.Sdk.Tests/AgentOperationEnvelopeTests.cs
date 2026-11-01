@@ -196,20 +196,6 @@ public sealed class AgentOperationEnvelopeTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task RetiredFaucetClaimReturnsTerminalUnavailableCapability()
-    {
-        using var input = Load();
-        using var key = new LayerXKeyCredential(input.KeyId, input.KeySecret);
-        using var credential = Credential(input, input.Generation);
-        using var transport = Transport(input, credential, key);
-        var error = await Assert.ThrowsAsync<PlatformSdkException>(() =>
-            transport.SendEnvelopeAsync(new TransportCall(PlatformOperation.AgentFaucetClaim, JsonValue.EmptyObject, NoPathParameters, null)));
-        Assert.Equal(SdkErrorCode.UnavailableCapability, error.Code);
-        Assert.Equal(RetryClass.Never, error.Retry);
-        Assert.False(string.IsNullOrEmpty(error.RequestId));
-    }
-
-    [Fact]
     public async Task WrongGenerationIsRefusedByTheDaemonSessionAuthority()
     {
         using var input = Load();

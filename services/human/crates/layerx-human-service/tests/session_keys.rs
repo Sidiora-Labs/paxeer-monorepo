@@ -13,15 +13,18 @@ use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
 };
 use layerx_agentd::prepare::{
-    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
+    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError, EvmPrepared,
     PreparationDefaults, PrepareRequest, Prepared,
 };
 use layerx_agentd::session::{
     close, invalidate_on_revocation, open, InvalidationReason, OpenRequest, RevocationEvent,
     SessionId, SessionRegistry, Token,
 };
-use layerx_agentd::sign::{self_sign, ProvisionedSessionKey, SigningError, SigningMode};
+use layerx_agentd::sign::{
+    self_sign, ProvisionedSessionKey, SigningError, SigningMode, SigningPreparation,
+};
 use layerx_agentd::store::{Store, TenantId};
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::session::IssuedSessionKey;
 use layerx_crypto::signer::Signer as _;
@@ -133,6 +136,7 @@ impl CorePreparationBoundary for PreparationBoundary {
 struct InstalledSession {
     issued: IssuedSessionKey,
     signer: ProvisionedSessionKey,
+    actor_address: [u8; 20],
     debit_signer: LocalSigner,
     token: Token,
     current_revocation_sequence: u64,
@@ -243,6 +247,24 @@ impl AgentLayer {
             &installed.debit_signer,
             self.now,
         );
+        let call = Eip1559Call {
+            chain_id: u64::from(NETWORK_ID),
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 7,
+            gas_limit: 100_000,
+            to: [0x1a; 20],
+            data: prepared.canonical_bytes.clone(),
+        };
+        let prepared = SigningPreparation {
+            transaction: EvmPrepared {
+                signing_hash: call.signing_hash(),
+                call,
+                observed_head_height: 90,
+            },
+            actor_address: installed.actor_address,
+            authorization: prepared,
+        };
         ready(self_sign(
             Some(&installed.signer),
             &prepared,
@@ -335,6 +357,12 @@ impl AgentSessionContract for AgentLayer {
         let seed = secret.into_seed();
         let signer = ProvisionedSessionKey::new(seed, issued.clone())
             .map_err(|_| AgentContractError::Refused("session secret does not match grant"))?;
+        let key = k256::ecdsa::SigningKey::from_slice(&seed)
+            .map_err(|_| AgentContractError::Refused("invalid session signing key"))?;
+        let actor_address = layerx_crypto::secp256k1::evm_address(
+            key.verifying_key().to_encoded_point(false).as_bytes(),
+        )
+        .map_err(|_| AgentContractError::Refused("invalid session signing address"))?;
         let authorities = self
             .installed
             .keys()
@@ -387,6 +415,7 @@ impl AgentSessionContract for AgentLayer {
                 current_revocation_sequence: issued.revocation_sequence,
                 issued,
                 signer,
+                actor_address,
                 debit_signer: LocalSigner::new(seed),
                 token,
             },
@@ -451,7 +480,7 @@ impl AgentSessionContract for AgentLayer {
         let event = RevocationEvent {
             did: self.did.clone(),
             authority: Some(ProtocolAuthority::SessionKey(target.grant_id)),
-            reason: InvalidationReason::SessionKeyRevoked,
+            reason: InvalidationReason::GrantRevokedOnChain,
             observed_sequence: self.core_sequence.saturating_add(1),
         };
         invalidate_on_revocation(&mut self.store, &mut self.registry, &mut [], &event)

@@ -3,6 +3,7 @@ package layerxauth
 import pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 
 var GasTable = pcommon.GasTable{
+	"recordLifecycle":       {Write: true, Surcharge: 36680},
 	"grantSession":          {Write: true, Surcharge: 36680},
 	"grantSessionSuccessor": {Write: true, Surcharge: 38600},
 	"grantCapability":       {Write: true, Surcharge: 34760},

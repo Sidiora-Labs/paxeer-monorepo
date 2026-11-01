@@ -324,10 +324,6 @@ impl Boundary {
                 "LAYERX_AGENT_BOUNDARY_NODE_BEARER_TOKEN_FILE",
                 directory.join("node"),
             )
-            .env(
-                "LAYERX_AGENT_BOUNDARY_LNI_SOCKET",
-                directory.join("absent-kernel.sock"),
-            )
             .env("LAYERX_AGENT_BOUNDARY_NODE_URL", "http://127.0.0.1:1")
             .env("LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL", url)
             .env(
@@ -542,4 +538,45 @@ fn deployment_proof_reads_the_deployment_receipt() {
     let (status, body) = boundary.get(&path, "registry-token");
     assert_eq!(status, 503);
     assert_eq!(body["error"]["code"], "node_unavailable");
+}
+
+#[test]
+fn boundary_starts_without_an_lni_socket() {
+    let signer = SigningKey::from_bytes(&[8; 32]);
+    let (view, bytes) = signed_receipt(TX_HASH, &signer);
+    let (url, server) = chain_listener(vec![view.clone(), view]);
+    let boundary = Boundary::start(&url, 199);
+    assert_eq!(
+        boundary.get("/livez", "gateway-token"),
+        (200, json!({"status": "live", "service": "agent-boundary"}))
+    );
+    let expected = json!({"activity_id": &hex(&TX_HASH)[2..], "receipt": &hex(&bytes)[2..]});
+    assert_eq!(
+        boundary.get(&format!("/v1/receipts/{}", hex(&TX_HASH)), "gateway-token"),
+        (200, json!({"result": expected.clone()}))
+    );
+    assert_eq!(
+        boundary.get(
+            &format!("/internal/v1/receipts/{}", hex(&TX_HASH)),
+            "registry-token"
+        ),
+        (200, expected)
+    );
+    must(server.join());
+    let head = format!("/internal/v1/programs/{}/head-attestation", "01".repeat(32));
+    for path in [head.clone(), format!("{head}?staleness_ms=60000")] {
+        for token in ["registry-token", "gateway-token", "webhook-token"] {
+            assert_eq!(
+                boundary.get(&path, token),
+                (
+                    404,
+                    json!({"error": {"code": "not_found", "retry": "never"}})
+                ),
+                "{path} with {token}"
+            );
+        }
+    }
+    assert!(must(fs::read_dir(boundary.directory.join("state/journal")))
+        .next()
+        .is_none());
 }

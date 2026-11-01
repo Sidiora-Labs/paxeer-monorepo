@@ -280,6 +280,7 @@ defmodule BlockScoutWeb.Routers.ApiRouter do
       get("/feed/markets/:market_id/updates", V2.PaxeerX.FeedController, :market_updates)
       get("/feed/updates", V2.PaxeerX.FeedController, :updates)
       get("/feed/updates/:hash", V2.PaxeerX.FeedController, :update)
+      get("/*path", V2.FallbackController, {:not_found, nil})
     end
 
     scope "/main-page" do

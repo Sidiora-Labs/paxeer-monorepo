@@ -10,7 +10,6 @@
 #include "layerx/programs.h"
 #include "layerx/lxp_activity.h"
 #include "layerx/lxp_authority.h"
-#include "layerx/lxp_batch.h"
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_genesis.h"
 #include "layerx/lxp_hash.h"
@@ -135,7 +134,6 @@ struct platform_emulator {
     lxp_verified_receipt_index verified_receipts;
     uint8_t latest_receipt_digest[32];
     platform_emulator_retained_head head;
-    lxp_log head_log;
     platform_emulator_balance_snapshot *program_balances;
 };
 
@@ -370,21 +368,28 @@ static lxp_result native_genesis(platform_emulator *emulator)
     return status;
 }
 
-static lxp_result temporary_log(lxp_log *log)
+static lxp_result emulator_head_digest(platform_emulator *emulator,
+    const lxp_receipt *receipt, const lxp_programs_occupancy_receipt *occupancy,
+    const lxp_batch_roots *roots, const lxp_sequencer_authorization *authorization,
+    lxp_batch_header *header, uint8_t digest[32])
 {
-    char path[] = "/tmp/layerx-emulator-log-XXXXXX";
-    int descriptor = mkstemp(path);
-    lxp_result status;
-    if (descriptor < 0) return LXP_ERR_IO;
-    if (ftruncate(descriptor, 16 * 1024 * 1024) != 0) {
-        (void)close(descriptor);
-        (void)unlink(path);
-        return LXP_ERR_IO;
-    }
-    status = lxp_log_open(log, path);
-    if (close(descriptor) != 0 && status == LXP_OK) status = LXP_ERR_IO;
-    if (unlink(path) != 0 && status == LXP_OK) status = LXP_ERR_IO;
-    return status;
+    (void)memset(header, 0, sizeof(*header));
+    header->protocol_version = emulator->protocol_version;
+    header->network_id = emulator->network_id;
+    header->epoch = emulator->kernel.epoch;
+    header->batch_number = occupancy->batch_number;
+    header->first_sequence = receipt->global_sequence;
+    header->last_sequence = occupancy->global_sequence;
+    header->timestamp_ms = receipt->timestamp;
+    (void)memcpy(header->previous_state_root, receipt->previous_state_root, 32U);
+    (void)memcpy(header->resulting_state_root, occupancy->resulting_state_root, 32U);
+    (void)memcpy(header->activity_merkle_root, roots->activity_merkle_root, 32U);
+    (void)memcpy(header->receipt_merkle_root, roots->receipt_merkle_root, 32U);
+    (void)memcpy(header->event_merkle_root, roots->event_merkle_root, 32U);
+    (void)memcpy(header->data_availability_root, roots->data_availability_root, 32U);
+    (void)memcpy(header->oracle_root, roots->oracle_root, 32U);
+    (void)memcpy(header->sequencer_id, authorization->sequencer_id, 32U);
+    return lxp_batch_header_hash(header, &emulator->arena, digest);
 }
 
 static lxp_result seal_maintenance_head(platform_emulator *emulator,
@@ -394,7 +399,6 @@ static lxp_result seal_maintenance_head(platform_emulator *emulator,
 {
     lxp_batch_root_inputs inputs = {0};
     lxp_batch_roots roots;
-    lxp_batch_seal_input input = {0};
     lxp_batch_header header;
     lxp_sequencer_authorization authorization;
     lxp_byte_span receipts[2] = {activity_receipt, maintenance};
@@ -402,7 +406,10 @@ static lxp_result seal_maintenance_head(platform_emulator *emulator,
     lxp_byte_span availability[3] = {activity, activity_receipt, maintenance};
     lxp_byte_span encoded;
     lxp_codec_writer writer;
-    uint8_t leaves[2][32], proof_root[32];
+    uint8_t leaves[2][32], proof_root[32], digest[32];
+    EVP_PKEY *key = NULL;
+    EVP_MD_CTX *context = NULL;
+    size_t signature_length = 64U;
     platform_emulator_retained_head *head = calloc(1U, sizeof(*head));
     lxp_result status;
     if (head == NULL) return LXP_ERR_ARENA_EXHAUSTED;
@@ -429,20 +436,22 @@ static lxp_result seal_maintenance_head(platform_emulator *emulator,
         lxp_ct_memcmp(occupancy->previous_state_root, receipt->resulting_state_root, 32U) != 0 ||
         lxp_ct_memcmp(occupancy->resulting_state_root, emulator->kernel.current_state_root, 32U) != 0))
         status = LXP_ERR_CONTEXT_MISMATCH;
-    input.protocol_version = emulator->protocol_version; input.network_id = emulator->network_id;
-    input.epoch = emulator->kernel.epoch; input.batch_number = occupancy->batch_number;
-    input.first_sequence = receipt->global_sequence; input.last_sequence = occupancy->global_sequence;
-    input.timestamp_ms = receipt->timestamp;
-    (void)memcpy(input.previous_state_root, receipt->previous_state_root, 32U);
-    (void)memcpy(input.resulting_state_root, occupancy->resulting_state_root, 32U);
-    (void)memcpy(input.sequencer_id, authorization.sequencer_id, 32U);
-    if (status == LXP_OK && emulator->head_log.descriptor < 0)
-        status = temporary_log(&emulator->head_log);
     if (status == LXP_OK)
-        status = lxp_batch_seal(&header, &input, &roots, &emulator->head_log, &emulator->arena);
-    if (status == LXP_OK)
-        status = lxp_batch_sign(&header, emulator->sequencer_private_key,
-            &authorization, head->signature, &emulator->arena);
+        status = emulator_head_digest(emulator, receipt, occupancy, &roots,
+            &authorization, &header, digest);
+    if (status == LXP_OK) {
+        key = EVP_PKEY_new_raw_private_key(EVP_PKEY_ED25519, NULL,
+            emulator->sequencer_private_key, 32U);
+        context = EVP_MD_CTX_new();
+        if (key == NULL || context == NULL ||
+            EVP_DigestSignInit(context, NULL, NULL, NULL, key) != 1 ||
+            EVP_DigestSign(context, head->signature, &signature_length,
+                digest, sizeof(digest)) != 1 || signature_length != 64U)
+            status = LXP_ERR_BAD_SIGNATURE;
+    }
+    EVP_MD_CTX_free(context);
+    EVP_PKEY_free(key);
+    lxp_secure_zero(digest, sizeof(digest));
     if (status == LXP_OK)
         status = lxp_batch_header_encode(&header, &emulator->arena, &encoded);
     if (status == LXP_OK && encoded.length != sizeof(head->header)) status = LXP_FATAL_INVARIANT;
@@ -929,7 +938,6 @@ platform_emulator *platform_emulator_create_for_protocol(
         lxp_ct_is_zero(sequencer_seed, 32U)) return NULL;
     emulator = calloc(1U, sizeof(*emulator));
     if (emulator == NULL) return NULL;
-    emulator->head_log.descriptor = -1;
     emulator->arena_bytes = malloc(PLATFORM_EMULATOR_ARENA_BYTES);
     emulator->snapshot_bytes = malloc(PLATFORM_EMULATOR_SNAPSHOT_BYTES);
     emulator->program_balances = calloc(1024U,
@@ -1052,7 +1060,6 @@ platform_emulator *platform_emulator_create_for_protocol(
 void platform_emulator_destroy(platform_emulator *emulator)
 {
     if (emulator == NULL) return;
-    if (emulator->head_log.descriptor >= 0) (void)lxp_log_close(&emulator->head_log);
     if (emulator->state_initialized) {
         (void)lxp_state_store_destroy(&emulator->state);
         lx_account_registry_release(&emulator->accounts);

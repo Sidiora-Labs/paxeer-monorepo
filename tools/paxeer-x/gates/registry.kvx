@@ -7,14 +7,8 @@ gate = "tools/paxeer-x/gates/0.3.sh"
 [task.0.4]
 gate = "tools/paxeer-x/gates/0.4.sh"
 
-[task.0.5]
-gate = "tools/paxeer-x/gates/0.5.sh"
-
 [task.0.6]
 gate = "tools/paxeer-x/gates/0.6.sh"
-
-[task.2.2]
-gate = "tools/paxeer-x/gates/2.2.sh"
 
 [task.3.2]
 gate = "tools/paxeer-x/gates/3.2.sh"

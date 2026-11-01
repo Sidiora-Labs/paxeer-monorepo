@@ -6,7 +6,6 @@
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_fee.h"
 #include "layerx/lxp_hash.h"
-#include "layerx/lxp_replica.h"
 
 #include <limits.h>
 #include <string.h>
@@ -1238,46 +1237,4 @@ lxp_result lxp_programs_occupancy_receipt_decode(
          lxp_ct_is_zero(receipt->transfer_set_root, 32U)))
         return LXP_ERR_NON_CANONICAL;
     return receipt_validate_fields(receipt);
-}
-
-lxp_result lxp_programs_replay_finalize(
-    void *context, const lxp_batch_header *header, uint32_t parameter_version,
-    uint64_t system_sequence, const uint8_t previous_state_root[32],
-    lxp_arena *arena, lxp_replay_activity_output *output)
-{
-    lxp_kernel *kernel = (lxp_kernel *)context;
-    lxp_programs_occupancy_receipt receipt;
-    lxp_byte_span encoded;
-    lxp_result status;
-    if (kernel == NULL || header == NULL || previous_state_root == NULL ||
-        arena == NULL || output == NULL ||
-        !lxp_protocol_version_uses_occupancy(header->protocol_version))
-        return LXP_ERR_NON_CANONICAL;
-    if (lxp_ct_memcmp(kernel->current_state_root,
-                      previous_state_root, 32U) != 0)
-        return LXP_ERR_ROOT_MISMATCH;
-    status = finalize_occupancy_batch(
-        kernel, header->protocol_version, 0U, header->batch_number, header->timestamp_ms,
-        system_sequence, parameter_version, arena, &receipt, &encoded, NULL, NULL);
-    if (status != LXP_OK) return status;
-    (void)memset(output, 0, sizeof(*output));
-    output->result_code = LXP_OK;
-    output->fee_charged = receipt.paid_fee_units;
-    output->effects = receipt.settlement_evidence;
-    output->canonical_receipt = encoded;
-    (void)memcpy(output->resulting_state_root,
-                 receipt.resulting_state_root, 32U);
-    return LXP_OK;
-}
-
-lxp_result lxp_programs_replay_engine_bind(lxp_replay_engine *engine,
-                                           lxp_kernel *kernel)
-{
-    lxp_result status;
-    if (engine == NULL || kernel == NULL || engine->batch_finalize != NULL)
-        return LXP_ERR_NON_CANONICAL;
-    status = lxp_replay_engine_bind_kernel(engine, kernel);
-    if (status != LXP_OK) return status;
-    return lxp_replay_engine_register_batch_finalizer(
-        engine, lxp_programs_replay_finalize, kernel);
 }

@@ -1,41 +1,26 @@
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_human_service::journeys::{
     authority_label, plan, verify_bindings, BalanceEntry, BindingExpectation, Constraints,
-    CustodyContext, Endpoint, ExecutableShape, FeeSchedule, IntentLegBinding, LegMechanism,
-    Mechanism, ObservedState, SubmitPlanRequest, SubmitRefusal, UnifiedIntent, UnifiedPlan,
+    Endpoint, ExecutableShape, FeeSchedule, IntentLegBinding, LegMechanism, Mechanism,
+    ObservedState, SubmitPlanRequest, SubmitRefusal, UnifiedIntent, UnifiedPlan,
 };
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
 use layerx_types::ids::AssetId;
-use layerx_types::intent::{EvmAddress, TimestampSeconds};
+use layerx_types::intent::TimestampSeconds;
 use serde_json::{json, Value};
 
-fn nonce_plan(deposit: bool) -> UnifiedPlan {
+fn nonce_plan(_: bool) -> UnifiedPlan {
     let home_account = AccountId::parse("agent:did:layerx:human:main").unwrap();
     let home = Endpoint::human(home_account.clone()).unwrap();
     let asset = AssetId::new([0x33; 32]);
-    let custody = deposit.then(|| {
-        CustodyContext::new(
-            EvmAddress::new([0x55; 20]),
-            AccountId::parse("system:treasury").unwrap(),
-            AccountId::parse("system:paxeer-withdrawals").unwrap(),
-        )
-        .unwrap()
-    });
-    let source = if deposit {
-        Endpoint::PaxeerWallet
-    } else {
-        home.clone()
-    };
-    let destination = if deposit {
-        home
-    } else {
-        Endpoint::agent(AccountId::parse("agent:did:layerx:worker:main").unwrap()).unwrap()
-    };
+    let source = home;
+    let destination =
+        Endpoint::agent(AccountId::parse("agent:did:layerx:worker:main").unwrap()).unwrap();
     let observed = ObservedState::new(
         TimestampSeconds::from_u64(1_000),
         home_account,
-        custody,
+        None,
         vec![BalanceEntry::new(
             source.clone(),
             asset,
@@ -43,12 +28,7 @@ fn nonce_plan(deposit: bool) -> UnifiedPlan {
         )],
         Vec::new(),
         Vec::new(),
-        FeeSchedule::new(vec![
-            (LegMechanism::Protocol(Mechanism::Send), 2),
-            (LegMechanism::PaxeerCustodyDeposit, 4),
-            (LegMechanism::Protocol(Mechanism::BridgeDepositCredit), 3),
-        ])
-        .unwrap(),
+        FeeSchedule::new(vec![(LegMechanism::Protocol(Mechanism::Send), 2)]).unwrap(),
     )
     .unwrap();
     let intent = UnifiedIntent::new(
@@ -137,33 +117,5 @@ fn intent_leg_binding_matches_the_pending_nonce() {
         Err(SubmitRefusal::Malformed {
             field: "account_sequence"
         })
-    );
-}
-
-#[test]
-fn intent_legs_reusing_a_nonce_are_refused() {
-    let plan = nonce_plan(true);
-    assert_eq!(plan.executable_shape(), ExecutableShape::CustodyDeposit);
-    assert_eq!(plan.legs().len(), 2);
-    let expectation = pending_expectation(42);
-    let mut request = bound_request(&plan, 42);
-    assert_eq!(request.bindings[0].actor, request.bindings[1].actor);
-    assert_eq!(
-        request.bindings[0].account_sequence,
-        request.bindings[1].account_sequence
-    );
-    assert_ne!(
-        request.bindings[0].action_key,
-        request.bindings[1].action_key
-    );
-    assert_eq!(
-        verify_bindings(&plan, &request, &expectation),
-        Err(SubmitRefusal::StaleSequence { index: 1 })
-    );
-
-    request.bindings[1].account_sequence = 43;
-    assert_eq!(
-        verify_bindings(&plan, &request, &expectation),
-        Err(SubmitRefusal::StaleSequence { index: 1 })
     );
 }

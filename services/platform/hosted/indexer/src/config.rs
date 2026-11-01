@@ -15,27 +15,11 @@ use crate::store::AssetRow;
 use crate::transport::{Endpoint, Security};
 use crate::IndexError;
 
-/// The LayerX anchor's `ChallengeWindowSeconds` genesis default.
-pub const ANCHOR_DEFAULT_CHALLENGE_WINDOW_SECONDS: u64 = 0;
-
 const DEFAULT_LISTEN: &str = "127.0.0.1:8095";
-const DEFAULT_BATCH_INTERVAL_MS: u64 = 1_000;
 const DEFAULT_POLL_MS: u64 = 1_000;
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
 const DEFAULT_MAX_UNITS_PER_STEP: u64 = 64;
 const DEFAULT_BACKFILL_RANGE_BLOCKS: u64 = 1_000;
-
-/// The number of units a reorganisation may still reach: every unit whose
-/// age is inside the challenge window stays reversible, and at least the
-/// newest unit always is.
-#[must_use]
-pub fn finality_depth_from_challenge_window(window_seconds: u64, unit_interval_ms: u64) -> u64 {
-    let interval = unit_interval_ms.max(1);
-    window_seconds
-        .saturating_mul(1_000)
-        .div_ceil(interval)
-        .max(1)
-}
 
 /// Where the Paxeer half reads from.
 #[derive(Clone, Debug)]
@@ -48,14 +32,6 @@ pub struct PaxeerSource {
     pub policy: FollowPolicy,
 }
 
-/// Where the LayerX half reads from.
-#[derive(Clone, Debug)]
-pub struct LayerXSource {
-    pub relay: Endpoint,
-    pub start_batch: Option<u64>,
-    pub policy: FollowPolicy,
-}
-
 /// The whole service configuration.
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -63,7 +39,6 @@ pub struct Config {
     pub listen: SocketAddr,
     pub tls: bool,
     pub abi_dir: Option<PathBuf>,
-    pub layerx: Option<LayerXSource>,
     pub paxeer: Option<PaxeerSource>,
     pub pointers: Vec<AssetRow>,
     pub poll: Duration,
@@ -245,7 +220,6 @@ impl Config {
     where
         F: Fn(&str) -> Option<String>,
     {
-        crate::settlement::validate_configuration(lookup)?;
         let database = lookup("LAYERX_INDEXER_DB")
             .map(PathBuf::from)
             .ok_or_else(|| IndexError::Config("LAYERX_INDEXER_DB is required".to_owned()))?;
@@ -272,11 +246,6 @@ impl Config {
                 };
             Endpoint::parse(&url, security, timeout).map(Some)
         };
-        let window = number(
-            lookup,
-            "LAYERX_INDEXER_CHALLENGE_WINDOW_SECONDS",
-            ANCHOR_DEFAULT_CHALLENGE_WINDOW_SECONDS,
-        )?;
         let fixed_depth = optional_number(lookup, "LAYERX_INDEXER_FINALITY_DEPTH")?;
         let max_units_per_step = number(
             lookup,
@@ -288,22 +257,6 @@ impl Config {
             finality_depth: fixed_depth.unwrap_or(default_depth),
             max_units_per_step,
         };
-        let layerx = endpoint("LAYERX_INDEXER_RELAY_URL", "LAYERX_INDEXER_RELAY_CA_DER")?
-            .map(|relay| -> Result<LayerXSource, IndexError> {
-                Ok(LayerXSource {
-                    relay,
-                    start_batch: optional_number(lookup, "LAYERX_INDEXER_START_BATCH")?,
-                    policy: policy(finality_depth_from_challenge_window(
-                        window,
-                        number(
-                            lookup,
-                            "LAYERX_INDEXER_BATCH_INTERVAL_MS",
-                            DEFAULT_BATCH_INTERVAL_MS,
-                        )?,
-                    )),
-                })
-            })
-            .transpose()?;
         let encoding = match lookup("LAYERX_INDEXER_COMET_ATTRIBUTES").as_deref() {
             None | Some("base64") => AttributeEncoding::Base64,
             Some("plain") => AttributeEncoding::Plain,
@@ -336,17 +289,14 @@ impl Config {
                     .to_owned(),
             ));
         }
-        if layerx.is_none() && paxeer.is_none() {
-            return Err(IndexError::Config(
-                "set LAYERX_INDEXER_RELAY_URL, LAYERX_INDEXER_EVM_URL or both".to_owned(),
-            ));
+        if paxeer.is_none() {
+            return Err(IndexError::Config("set LAYERX_INDEXER_EVM_URL".to_owned()));
         }
         Ok(Self {
             database,
             listen,
             tls: lookup("LAYERX_INDEXER_TLS_CERT_DER").is_some(),
             abi_dir: lookup("LAYERX_INDEXER_ABI_DIR").map(PathBuf::from),
-            layerx,
             paxeer,
             pointers: parse_pointers(&lookup("LAYERX_INDEXER_POINTERS").unwrap_or_default())?,
             poll: Duration::from_millis(
@@ -363,11 +313,90 @@ mod tests {
     use std::collections::BTreeMap;
 
     #[test]
-    fn finality_depth_follows_the_challenge_window() {
-        assert_eq!(finality_depth_from_challenge_window(0, 1_000), 1);
-        assert_eq!(finality_depth_from_challenge_window(60, 400), 150);
-        assert_eq!(finality_depth_from_challenge_window(61, 1_000), 61);
-        assert_eq!(finality_depth_from_challenge_window(1, 3_000), 1);
+    fn settlement_variables_are_not_read() {
+        let settlement_values = [
+            ("LAYERX_INDEXER_SETTLEMENT_POLICY", "invalid\0policy"),
+            ("LAYERX_INDEXER_GENESIS_TRUST", "invalid\0trust"),
+            ("LAYERX_INDEXER_INITIAL_SEQUENCER_KEY", "not-32-byte-hex"),
+            ("LAYERX_INDEXER_LNI_SOCKET", ""),
+        ];
+        let mut values: BTreeMap<&str, &str> = [
+            ("LAYERX_INDEXER_DB", "/tmp/indexer.sqlite"),
+            ("LAYERX_INDEXER_EVM_URL", "http://127.0.0.1:8545"),
+        ]
+        .into_iter()
+        .collect();
+        values.extend(settlement_values);
+        let reads = std::cell::RefCell::new(Vec::new());
+        let config = Config::from_lookup(&|name: &str| {
+            reads.borrow_mut().push(name.to_owned());
+            values.get(name).map(|value| (*value).to_owned())
+        })
+        .expect("EVM configuration ignores malformed settlement variables");
+
+        assert_eq!(config.database, PathBuf::from("/tmp/indexer.sqlite"));
+        let paxeer = config.paxeer.expect("EVM source");
+        assert!(paxeer.comet.is_none());
+        assert_eq!(paxeer.start_block, 1);
+        assert_eq!(paxeer.policy.finality_depth, 0);
+        for (name, _) in settlement_values {
+            assert!(
+                !reads.borrow().iter().any(|read| read == name),
+                "retired settlement variable was read: {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn relay_variables_are_not_read() {
+        let relay_values = [
+            ("LAYERX_INDEXER_RELAY_URL", "invalid\0relay"),
+            ("LAYERX_INDEXER_RELAY_CA_DER", "invalid\0certificate"),
+            ("LAYERX_INDEXER_START_BATCH", "not-a-batch"),
+            ("LAYERX_INDEXER_BATCH_INTERVAL_MS", "not-an-interval"),
+            ("LAYERX_INDEXER_CHALLENGE_WINDOW_SECONDS", "not-a-window"),
+        ];
+        let mut values: BTreeMap<&str, &str> = [
+            ("LAYERX_INDEXER_DB", "/tmp/indexer.sqlite"),
+            ("LAYERX_INDEXER_RELAY_URL", "http://127.0.0.1:7000"),
+        ]
+        .into_iter()
+        .collect();
+        let reads = std::cell::RefCell::new(Vec::new());
+        let lookup = |name: &str| {
+            reads.borrow_mut().push(name.to_owned());
+            values.get(name).map(|value| (*value).to_owned())
+        };
+        match Config::from_lookup(&lookup) {
+            Err(IndexError::Config(message)) => assert_eq!(message, "set LAYERX_INDEXER_EVM_URL"),
+            other => panic!("relay-only configuration must require an EVM source: {other:?}"),
+        }
+        for (name, _) in relay_values {
+            assert!(
+                !reads.borrow().iter().any(|read| read == name),
+                "retired relay variable was read: {name}"
+            );
+        }
+
+        values.insert("LAYERX_INDEXER_EVM_URL", "http://127.0.0.1:8545");
+        values.extend(relay_values);
+        reads.borrow_mut().clear();
+        let config = Config::from_lookup(&|name: &str| {
+            reads.borrow_mut().push(name.to_owned());
+            values.get(name).map(|value| (*value).to_owned())
+        })
+        .expect("EVM configuration ignores malformed relay, batch and window variables");
+        assert_eq!(config.database, PathBuf::from("/tmp/indexer.sqlite"));
+        let paxeer = config.paxeer.expect("EVM source");
+        assert!(paxeer.comet.is_none());
+        assert_eq!(paxeer.start_block, 1);
+        assert_eq!(paxeer.policy.finality_depth, 0);
+        for (name, _) in relay_values {
+            assert!(
+                !reads.borrow().iter().any(|read| read == name),
+                "retired relay variable was read: {name}"
+            );
+        }
     }
 
     #[test]
@@ -407,18 +436,13 @@ mod tests {
                         if fixed_depth.is_some() { 3 } else { 0 }
                     );
                     assert_eq!(paxeer.policy.max_units_per_step, 7);
-                    let layerx = config.layerx.unwrap_or_else(|| panic!("layerx source"));
-                    if fixed_depth.is_some() {
-                        assert_eq!(layerx.policy.finality_depth, 3);
-                    }
-                    assert_eq!(layerx.policy.max_units_per_step, 7);
                 }
             }
         }
     }
 
     #[test]
-    fn environment_builds_both_sources() {
+    fn environment_builds_evm_and_comet_sources() {
         let values: BTreeMap<&str, &str> = [
             ("LAYERX_INDEXER_DB", "/tmp/indexer.sqlite"),
             ("LAYERX_INDEXER_RELAY_URL", "http://127.0.0.1:7000"),
@@ -439,8 +463,6 @@ mod tests {
         let paxeer = config.paxeer.unwrap_or_else(|| panic!("paxeer source"));
         assert_eq!(paxeer.policy.finality_depth, 0);
         assert!(paxeer.comet.is_some());
-        let layerx = config.layerx.unwrap_or_else(|| panic!("layerx source"));
-        assert_eq!(layerx.policy.finality_depth, 30);
         assert_eq!(config.pointers.len(), 1);
         assert_eq!(
             config.pointers[0].address.as_deref(),

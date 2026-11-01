@@ -13,8 +13,6 @@ fn platform_names_no_kernel_disclosure_or_send_codec() {
         source!("services/platform/hosted/authority/src/human/dynamic/tests.rs"),
         source!("services/platform/hosted/core/src/lib.rs"),
         source!("services/platform/hosted/gateway/src/lib.rs"),
-        source!("services/platform/hosted/gateway/tests/local/funding.rs"),
-        source!("services/platform/hosted/gateway/tests/local/withdrawal.rs"),
         source!("tools/platform/cli/examples/hosted-send.rs"),
         source!("tools/platform/cli/src/wallet.rs"),
         source!("tools/platform/cli/src/wallet_send.rs"),

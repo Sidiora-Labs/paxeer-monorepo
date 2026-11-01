@@ -1,7 +1,8 @@
 import { gasStation, GasStationError, ModuleError, type GasSubmissionStore, type SponsoredSubmissionEvidence } from "@paxeer/wallet";
 import { sidioraAccountDid, sidioraStationMetadata } from "./gas-station.ts";
 import { windowWalletProvider } from "./provider.ts";
-import { ethTransactionReceipt, type GatewayReceipt } from "./gateway.ts";
+import { gatewayTransactionReceipt } from "./gateway-actions.ts";
+import type { GatewayReceipt } from "./gateway.ts";
 import { copyEntry } from "../../copy/runtime.ts";
 import { parseFeeAmount } from "../auth/native-fee-budget.ts";
 import {
@@ -96,7 +97,7 @@ export async function sendWalletPrecompileCall(
     transactionHash = await sendPrecompileCall(wallet, from, build());
     for (let attempt = 0; attempt < RECEIPT_POLL_LIMIT; attempt += 1) {
       if (attempt > 0) await sleep(RECEIPT_POLL_INTERVAL_MS);
-      const receipt = await ethTransactionReceipt(transactionHash);
+      const receipt = await gatewayTransactionReceipt(transactionHash);
       if (receipt !== undefined) {
         return { outcome: receipt.status === "success" ? "sent" : "reverted", transactionHash, receipt };
       }
@@ -182,7 +183,7 @@ async function statusOutcome(report: SponsoredSubmissionEvidence): Promise<Preco
   if (report.status === "cancelled") return { outcome: "rejected" };
   if (report.tx_hash === null) return { outcome: report.status === "reverted" ? "rejected" : "unavailable" };
   try {
-    const receipt = await ethTransactionReceipt(report.tx_hash);
+    const receipt = await gatewayTransactionReceipt(report.tx_hash);
     if (receipt === undefined) {
       return { outcome: report.status === "reverted" ? "unconfirmed" : "sent", transactionHash: report.tx_hash };
     }
@@ -272,7 +273,7 @@ export async function sendWalletSponsoredBatch(quoted: SidioraGasQuote, consentI
     });
     const report = await module.resume(snapshot.batch, snapshot.relayerSignature);
     if (report.status !== "pending") storage.removeItem(key);
-    const receipt = await ethTransactionReceipt(transactionHash);
+    const receipt = await gatewayTransactionReceipt(transactionHash);
     return receipt === undefined ? { outcome: "sent", transactionHash }
       : { outcome: receipt.status === "success" ? "sent" : "reverted", transactionHash, receipt };
   } catch (error) {

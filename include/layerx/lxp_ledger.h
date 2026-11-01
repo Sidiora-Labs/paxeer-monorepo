@@ -78,7 +78,6 @@ enum {
     LXP_SEND_STORE_CAPACITY = 64,
     LXP_SEND_HISTORY_RECORD_BYTES = 161,
     LXP_SEND_HISTORY_INITIAL_CAPACITY = 64,
-    LXP_GRANT_STORE_CAPACITY = 64,
     LXP_REASON_PAYMENT = 1,
     LXP_REASON_DEPOSIT = 2,
     LXP_REASON_WITHDRAWAL = 3,
@@ -195,66 +194,6 @@ typedef struct lxp_send_environment {
     struct lxp_transfer_allowance *allowance;
     bool binding_authority;
 } lxp_send_environment;
-
-typedef struct lxp_payer_grant {
-    uint8_t grant_id[32];
-    uint8_t from[32];
-    uint8_t recipient[32];
-    uint8_t asset[32];
-    lxp_u128 per_draw_maximum;
-    lxp_u128 allowance;
-    bool recurring;
-    uint64_t window_length;
-    uint64_t expiration;
-    uint8_t purpose_hash[32];
-    bool has_reference;
-    uint8_t reference_hash[32];
-    uint64_t revocation_sequence;
-    uint8_t public_key[32];
-    uint8_t signature[64];
-} lxp_payer_grant;
-
-typedef struct lxp_receive {
-    uint8_t from[32];
-    uint8_t to[32];
-    uint8_t asset[32];
-    lxp_u128 amount;
-    uint8_t grant_id[32];
-    uint64_t receiver_sequence;
-    uint8_t idempotency_key[32];
-    uint8_t context_hash[32];
-    lxp_send_authorization receiver_authorization;
-    lxp_payer_grant payer_grant;
-} lxp_receive;
-
-typedef struct lxp_grant_state {
-    lxp_payer_grant grant;
-    lxp_u128 drawn_total;
-    lxp_u128 drawn_this_period;
-    uint64_t window_start;
-    uint64_t revoked_at_sequence;
-    bool revoked;
-    bool invoice_settled;
-} lxp_grant_state;
-
-typedef struct lxp_grant_store {
-    lxp_grant_state grants[LXP_GRANT_STORE_CAPACITY];
-    size_t count;
-} lxp_grant_store;
-
-typedef struct lxp_receive_environment {
-    lx_account_registry *accounts;
-    const struct lxp_transfer_asset_state *assets;
-    size_t asset_count;
-    lxp_grant_store *grants;
-    lxp_send_store *idempotency;
-    uint64_t batch_timestamp;
-    uint64_t global_sequence;
-    uint32_t network_id;
-    uint16_t protocol_version;
-    struct lxp_transfer_allowance *allowance;
-    bool binding_authority;
-} lxp_receive_environment;
 
 typedef struct lx_account_index_entry {
     uint8_t id[LX_ACCOUNT_ID_BYTES];
@@ -392,32 +331,5 @@ lxp_result lxp_send_store_admit(lxp_send_store *store);
 lxp_result lxp_send_store_append(lxp_send_store *store,
                                  const lxp_send_store_record *record);
 lxp_result lxp_send_store_total(const lxp_send_store *store, size_t *total);
-/* Canonical grant_issue (asset ordinal 7) payload. */
-lxp_result lxp_payer_grant_encode(const lxp_payer_grant *grant,
-                                  uint8_t *bytes, size_t capacity, size_t *length);
-lxp_result lxp_payer_grant_decode(const uint8_t *bytes, size_t length,
-                                  lxp_payer_grant *grant);
-lxp_result lxp_grant_authorization_message(const lxp_payer_grant *grant,
-                                           uint8_t *bytes, size_t capacity,
-                                           size_t *length);
-lxp_result lxp_receive_authorization_message(const lxp_receive *receive,
-                                             uint8_t *bytes, size_t capacity,
-                                             size_t *length);
-lxp_result lxp_receive_encode(const lxp_receive *receive, uint8_t *bytes,
-                              size_t capacity, size_t *length);
-lxp_result lxp_receive_decode(const uint8_t *bytes, size_t length,
-                              lxp_receive *receive);
-lxp_result lxp_verify_payer_grant(const lxp_payer_grant *grant,
-                                  const lx_account *from);
-lxp_result lxp_grant_store_put(lxp_grant_store *store,
-                               const lxp_payer_grant *grant,
-                               const lx_account *from);
-lxp_result lxp_grant_draw_record(lxp_grant_state *state, lxp_u128 amount,
-                                 uint64_t batch_timestamp);
-lxp_result lxp_grant_revoke(lxp_grant_store *store, const uint8_t grant_id[32],
-                            uint64_t global_sequence);
-lxp_result lxp_receive_execute(const lxp_receive *receive,
-                               lxp_receive_environment *environment,
-                               lxp_send_receipt_projection *receipt);
 
 #endif

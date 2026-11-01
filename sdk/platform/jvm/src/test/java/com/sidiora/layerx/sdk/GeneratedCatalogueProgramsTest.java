@@ -37,6 +37,9 @@ public final class GeneratedCatalogueProgramsTest {
             "program.interface", "eth_call",
             "program.receipt", "eth_getLogs",
             "program.simulate", "eth_call");
+        assertEquals(53, GeneratedContract.AGENT_OPERATIONS.size());
+        assertFalse(GeneratedContract.AGENT_OPERATIONS.contains("faucet.claim"));
+        assertEquals(GeneratedContract.AGENT_OPERATIONS, GeneratedSchema.AGENT.keySet());
         assertEquals(calls.keySet(), GeneratedContract.AGENT_OPERATIONS.stream()
             .filter(name -> name.startsWith("program.")).collect(Collectors.toSet()));
         assertEquals(calls.keySet(), GeneratedSchema.AGENT.keySet().stream()
@@ -45,7 +48,7 @@ public final class GeneratedCatalogueProgramsTest {
         for (var entry : calls.entrySet()) {
             String name = entry.getKey();
             var descriptor = GeneratedSchema.AGENT.get(name);
-            var transport = GeneratedContract.AGENT_OPERATIONS.transport(name);
+            var transport = GeneratedSchema.programTransport(descriptor);
             assertEquals(PROGRAMS, transport.to(), name);
             assertEquals(reads.getOrDefault(name, "eth_sendRawTransaction"), transport.rpcMethod(), name);
             assertEquals(entry.getValue(), transport.calls().stream()
@@ -63,7 +66,11 @@ public final class GeneratedCatalogueProgramsTest {
             GeneratedSchema.AgentOperations.PROGRAM_CALL_TRANSPORT.calls());
         assertEquals(List.of("layerxprograms.getProgram(bytes32)"),
             GeneratedSchema.AgentOperations.PROGRAM_DISCOVER_TRANSPORT.calls());
-        assertThrows(PlatformSdkException.class, () -> GeneratedContract.AGENT_OPERATIONS.transport("program.unknown"));
+        assertFalse(GeneratedSchema.AGENT.containsKey("program.unknown"));
+        assertThrows(PlatformSdkException.class,
+            () -> GeneratedSchema.programTransport(GeneratedSchema.AgentOperations.PREPARE));
+        assertThrows(PlatformSdkException.class,
+            () -> GeneratedSchema.programTransport(GeneratedSchema.HumanOperations.JOURNEY_GET));
         assertThrows(UnsupportedOperationException.class, () -> GeneratedContract.AGENT_OPERATIONS.remove("program.call"));
     }
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import hashlib
 import json
 import os
@@ -66,7 +67,9 @@ def inside(path, directory):
 
 
 def main():
-    require(not sys.argv[1:], 'unsupported native Send gate arguments')
+    parser = argparse.ArgumentParser(
+        description='Qualify the native Send profile against a genuine protected fixture.')
+    parser.parse_args()
     fixture_path = os.environ.get('PAXEER_X_NATIVE_SEND_PROFILE_FIXTURE')
     require(fixture_path,
             'missing genuine protected PAXEER_X_NATIVE_SEND_PROFILE_FIXTURE: issuer-signed Send purpose, '
@@ -120,7 +123,7 @@ def main():
             'restart PID must be the genuine isolated owner daemon')
     require(Path(f'/proc/{pid}/cmdline').read_bytes() == b''.join(arg.encode() + b'\x00' for arg in argv),
             'running disposable daemon argv does not match owner admission')
-    for key in ('retained_store', 'human_socket', 'lni_socket'):
+    for key in ('retained_store', 'human_socket'):
         require(inside(fixture[key], state), 'daemon socket and state paths must remain isolated')
     restart_log = Path(daemon['restart_log'])
     require(inside(restart_log, state) and not restart_log.is_symlink(), 'private disposable restart log required')

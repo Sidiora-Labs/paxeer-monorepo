@@ -9,9 +9,10 @@ usage() {
 	cat <<'EOF'
 usage: tools/bringup/xweb-config.sh prices | render serve|attestor <directory> | inventory | register
 
-The x-websearch configs of the bring-up. Reads the host map from
-BRINGUP_HOSTS_FILE for the serving RPC names and never prints it; prints no
-key and writes none: each key is generated on its own host.
+The x-websearch configs of the bring-up. Rendering uses the space-separated
+XWEB_SERVE_NAMES when set; otherwise it reads the serving RPC names from
+BRINGUP_HOSTS_FILE through search-front.sh names. Never prints the host map
+or a key and writes no key: each key is generated on its own host.
 
 prices    prints one "<symbol> <asset id> <price>" line for SID, PAX, USDC and
           USDL, the price in the asset's base units for one request at the
@@ -19,8 +20,8 @@ prices    prints one "<symbol> <asset id> <price>" line for SID, PAX, USDC and
           1/13440, SID that PAX amount times XWEB_SID_PER_PAX, USDC and USDL
           1/1000 of their unit, each rounded up to a whole base unit of the
           asset's decimals. Every asset id and its decimals must match the
-          record the gateway's lx_getAsset reports: that symbol, those
-          decimals, not paused, an authenticated committed snapshot.
+          matching record the gateway's px_listAssets reports: that symbol,
+          those decimals, not paused, an authenticated committed snapshot.
 
 inventory prints, one line each, the read-backs the paid search and web
           attestation settle through, and one "input <NAME> absent" line for
@@ -31,7 +32,7 @@ inventory prints, one line each, the read-backs the paid search and web
             payer    XWEB_PAYER_ACCOUNT's balance of XWEB_PAYER_ASSET against
                      XWEB_PAYER_MIN_BALANCE
             kernel-did attestor-<N>  XWEB_ATTESTOR_<N>_RECEIVER_DID registered
-                     (lx_getAccount), the submitter and payout DID
+                     (px_getAccount), the submitter and payout DID
             signer attestor-<N>  XWEB_ATTESTOR_<N>_SIGNER a member of the
                      precompile's getAttestors, the set holding exactly the
                      four, the threshold XWEB_ATTESTOR_THRESHOLD and a majority
@@ -48,7 +49,7 @@ register  registers the Ed25519 key of XWEB_REGISTER_KEY_FILE (32 hex bytes
 
 render serve <directory>
           writes <directory>/<apiN name>.json for every serving RPC name that
-          tools/bringup/search-front.sh names lists: listen 127.0.0.1:8482,
+          XWEB_SERVE_NAMES or search-front.sh names lists: listen 127.0.0.1:8482,
           gateway.endpoint the router's /rpc with the kernel's sequencer id
           and public key, the four assets with their prices, evm the node's
           loopback JSON-RPC on chain 125, kernel_network_id 125, peers the
@@ -166,17 +167,23 @@ for i, sym in enumerate(("SID", "PAX", "USDC", "USDL")):
         fail(f"XWEB_ASSET_ID_{sym} is malformed")
     if not re.fullmatch(r"[0-9]|[1-3][0-9]", decimals) or int(decimals) > 38:
         fail(f"XWEB_DECIMALS_{sym} is malformed")
-    result, error = rpc(gateway, "lx_getAsset", [asset])
+    result, error = rpc(gateway, "px_listAssets", [])
     if error:
-        fail(f"lx_getAsset {sym} {error}", 1)
+        fail(f"px_listAssets {sym} {error}", 1)
     try:
-        record = result["asset"]
-        committed = result["verification"] == "authenticated_committed_snapshot"
+        records = result["assets"]
+        if not isinstance(records, list) or any(not isinstance(entry, dict) for entry in records):
+            fail(f"px_listAssets {sym} answer is malformed", 1)
+        matches = [entry for entry in records if entry.get("asset_id") == asset]
+        if len(matches) != 1:
+            fail(f"px_listAssets {sym} must contain exactly one record of that id", 1)
+        record = matches[0]["layerx"]
+        committed = record["verification"] == "authenticated_committed_snapshot"
         registered = (record["asset_id"], record["symbol"], record["decimals"], record["paused"])
     except (KeyError, TypeError):
-        fail(f"lx_getAsset {sym} answer is malformed", 1)
+        fail(f"px_listAssets {sym} answer is malformed", 1)
     if not committed or registered[0] != asset:
-        fail(f"lx_getAsset {sym} is not an authenticated committed record of that id", 1)
+        fail(f"px_listAssets {sym} is not an authenticated committed record of that id", 1)
     if registered[1] != sym:
         fail(f"XWEB_ASSET_ID_{sym} is the registered asset {registered[1]}")
     if type(registered[2]) is not int or registered[2] != int(decimals):
@@ -200,8 +207,12 @@ xweb_render_serve() {
 	xweb_need XWEB_SEQUENCER_PUBLIC_KEY
 	xweb_need XWEB_SEEDS
 	prices="$(xweb_prices)"
-	listing="$("$(dirname "${BASH_SOURCE[0]}")/search-front.sh" names)" || return 1
-	mapfile -t names < <(sed -n 's/^serve //p' <<<"$listing")
+	if [ "${XWEB_SERVE_NAMES+x}" = x ]; then
+		read -r -a names <<<"$XWEB_SERVE_NAMES"
+	else
+		listing="$("$(dirname "${BASH_SOURCE[0]}")/search-front.sh" names)" || return 1
+		mapfile -t names < <(sed -n 's/^serve //p' <<<"$listing")
+	fi
 	if [ "${#names[@]}" -eq 0 ]; then
 		echo "xweb-config: no serving RPC name" >&2
 		return 1
@@ -259,8 +270,12 @@ xweb_render_attestor() {
 		dids+=("${!did}")
 	done
 	prices="$(xweb_prices)"
-	listing="$("$(dirname "${BASH_SOURCE[0]}")/search-front.sh" names)" || return 1
-	mapfile -t names < <(sed -n 's/^serve //p' <<<"$listing")
+	if [ "${XWEB_SERVE_NAMES+x}" = x ]; then
+		read -r -a names <<<"$XWEB_SERVE_NAMES"
+	else
+		listing="$("$(dirname "${BASH_SOURCE[0]}")/search-front.sh" names)" || return 1
+		mapfile -t names < <(sed -n 's/^serve //p' <<<"$listing")
+	fi
 	if [ "${#names[@]}" -eq 0 ]; then
 		echo "xweb-config: no serving RPC name" >&2
 		return 1
@@ -397,14 +412,19 @@ account = need("XWEB_PAYER_ACCOUNT", r"[0-9a-f]{64}")
 payer_sym = need("XWEB_PAYER_ASSET", r"SID|PAX|USDC|USDL")
 minimum = need("XWEB_PAYER_MIN_BALANCE", r"[1-9][0-9]{0,37}")
 def balance_line(label, account, sym, minimum):
-    result, error = rpc(gateway, "lx_getBalance", [account])
     want = next((asset for asset, (name, _) in priced.items() if name == sym), None)
-    if error or not isinstance(result, dict):
+    if want is None:
+        line(False, "%s account=%s balance=asset-unavailable" % (label, account))
+        return
+    result, error = rpc(gateway, "eth_call", [{
+        "to": "0x" + "00" * 18 + "101a",
+        "data": "0xb1ffc03e" + account + want,
+    }, "pending"])
+    if error or not isinstance(result, str) or not re.fullmatch(r"0x[0-9a-fA-F]{64}", result) or int(result, 16) >= 1 << 128:
         line(False, "%s account=%s balance=%s" % (label, account, error or "malformed"))
         return
-    balance = str(result.get("balance", ""))
-    ok = re.fullmatch(r"0|[1-9][0-9]*", balance) is not None and (want is None or result.get("asset_id") == want)
-    ok = ok and minimum is not None and int(balance) >= int(minimum)
+    balance = str(int(result, 16))
+    ok = minimum is not None and int(balance) >= int(minimum)
     line(ok, "%s account=%s asset=%s balance=%s minimum=%s" % (label, account, sym, balance or "none", minimum or "absent"))
 if account and payer_sym and minimum:
     balance_line("payer", account, payer_sym, minimum)
@@ -412,10 +432,10 @@ fee_sym = need("XWEB_KERNEL_FEE_ASSET", r"SID|PAX|USDC|USDL")
 for n in range(1, 5):
     did = need("XWEB_ATTESTOR_%d_RECEIVER_DID" % n, r"did:[a-z0-9._:-]+")
     if did:
-        result, error = rpc(gateway, "lx_getSequence", [did, "identity"])
-        sequence = (result or {}).get("next_sequence") if isinstance(result, dict) else None
-        line(error is None and isinstance(sequence, str) and re.fullmatch(r"0|[1-9][0-9]*", sequence) is not None,
-             "kernel-did attestor-%d did=%s next_sequence=%s" % (n, did, sequence if isinstance(sequence, str) else error or "none"))
+        result, error = rpc(gateway, "px_getAccount", [did])
+        registered = result.get("account") if isinstance(result, dict) else None
+        ok = error is None and isinstance(registered, dict) and registered.get("layerx_did") == did and registered.get("bound") is True
+        line(ok, "kernel-did attestor-%d did=%s registered=%s" % (n, did, "yes" if ok else error or "no"))
     payout = need("XWEB_ATTESTOR_%d_PAYOUT_ACCOUNT" % n, r"[0-9a-f]{64}")
     if payout and fee_sym:
         balance_line("payout attestor-%d" % n, payout, fee_sym, "0")
@@ -558,7 +578,9 @@ render)
 			usage >&2
 			exit 2
 		}
-		load_hosts
+		if [ "${XWEB_SERVE_NAMES+x}" != x ]; then
+			load_hosts
+		fi
 		xweb_render_attestor "$3"
 		;;
 	serve)
@@ -566,7 +588,9 @@ render)
 			usage >&2
 			exit 2
 		}
-		load_hosts
+		if [ "${XWEB_SERVE_NAMES+x}" != x ]; then
+			load_hosts
+		fi
 		xweb_render_serve "$3"
 		;;
 	*)

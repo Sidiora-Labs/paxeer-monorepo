@@ -378,10 +378,13 @@ func seqVecPayExactCall(t *testing.T, pay seqVecPayExact) []byte {
 	return append(selector, args...)
 }
 
-func seqVecLedgerPay() seqVecPayExact {
+func seqVecLedgerPay(t *testing.T) seqVecPayExact {
+	t.Helper()
+	to, err := codec.DeriveAccountID([]byte("agent:did:layerx:payee:main"))
+	require.NoError(t, err)
 	return seqVecPayExact{
 		from:      crypto.Keccak256Hash([]byte("vector payer account")),
-		to:        crypto.Keccak256Hash([]byte("vector payee account")),
+		to:        common.Hash(to),
 		asset:     crypto.Keccak256Hash([]byte("vector ledger asset")),
 		reference: crypto.Keccak256Hash([]byte("vector payment reference")),
 		amount:    big.NewInt(1_000_000),
@@ -392,21 +395,21 @@ func seqVecLedgerPay() seqVecPayExact {
 // seqVecLedgerPayment is a layerxledger payExact with its PaymentExact log.
 func seqVecLedgerPayment(t *testing.T, nonce uint64) seqVecTx {
 	t.Helper()
-	pay := seqVecLedgerPay()
+	pay := seqVecLedgerPay(t)
 	data, err := seqVecArgs(t, "bytes32", "uint128").Pack([32]byte(pay.asset), pay.amount)
 	require.NoError(t, err)
 	topic := crypto.Keccak256Hash([]byte("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"))
 	return seqVecTx{
 		nonce: nonce, to: seqVecLedger, value: new(big.Int), data: seqVecPayExactCall(t, pay),
 		gasLimit: 90_000, gasUsed: 61_340, status: uint32(ethtypes.ReceiptStatusSuccessful),
-		logs: []*evmtypes.Log{seqVecLog(seqVecLedger, data, topic, pay.from, pay.to, pay.reference)},
+		logs: []*evmtypes.Log{seqVecLog(seqVecLedger, data, topic, pay.reference, pay.from, pay.to)},
 	}
 }
 
 // seqVecLedgerRevert is a layerxledger payExact refused with LXP_INSUFFICIENT_BALANCE.
 func seqVecLedgerRevert(t *testing.T, nonce uint64) seqVecTx {
 	t.Helper()
-	pay := seqVecLedgerPay()
+	pay := seqVecLedgerPay(t)
 	pay.amount = new(big.Int).Lsh(big.NewInt(1), 100)
 	pay.reference = crypto.Keccak256Hash([]byte("vector unfunded payment reference"))
 	return seqVecTx{
@@ -690,6 +693,47 @@ func TestSequencerReceiptVectors(t *testing.T) {
 	stored, err := os.ReadFile(seqVecFixture)
 	require.NoError(t, err, "run %s to write the fixture", seqVecCommand)
 	require.Equal(t, string(stored), string(rendered), "the fixture differs from the node signer output; run %s", seqVecCommand)
+	t.Run("conformance-copies", TestVectorFilesV1ToV3MatchSequencerReceiptFixture)
+}
+
+func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
+	var source struct {
+		Cases []json.RawMessage `json:"cases"`
+	}
+	stored, err := os.ReadFile(seqVecFixture)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(stored, &source))
+	require.Len(t, source.Cases, 11)
+	for _, group := range []struct {
+		name, vector string
+		count        int
+	}{
+		{"vector-v1-receipted-positive", "V1", 4},
+		{"vector-v2-receipted-revert", "V2", 1},
+		{"vector-v3-receipt-refusals", "V3", 6},
+	} {
+		t.Run(group.vector, func(t *testing.T) {
+			var expected []json.RawMessage
+			for _, raw := range source.Cases {
+				var c seqVecCase
+				require.NoError(t, json.Unmarshal(raw, &c))
+				if c.Vector == group.vector {
+					expected = append(expected, raw)
+				}
+			}
+			var copy struct {
+				Name  string            `json:"name"`
+				Cases []json.RawMessage `json:"cases"`
+			}
+			stored, err := os.ReadFile(filepath.Join(filepath.Dir(seqVecFixture), group.name+".json"))
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(stored, &copy))
+			require.Equal(t, group.name, copy.Name)
+			require.Len(t, expected, group.count)
+			require.Len(t, copy.Cases, group.count)
+			require.Equal(t, expected, copy.Cases, "conformance cases must be byte-identical to the source")
+		})
+	}
 }
 
 // seqVecAssertCases checks every V1 and V2 case through R1-R6 and its decoded fields, and every V3
@@ -758,6 +802,14 @@ func seqVecAssertFields(t *testing.T, c seqVecCase) {
 		require.Len(t, result.Logs, 1, c.ID)
 		require.Equal(t, crypto.Keccak256Hash([]byte(topic)), result.Logs[0].Topics[0], c.ID)
 		require.Equal(t, *tx.To(), result.Logs[0].Address, c.ID)
+		if c.ID == "V1-layerxledger-pay-exact" {
+			require.Len(t, tx.Data(), 4+6*32, c.ID)
+			require.Len(t, result.Logs[0].Topics, 4, c.ID)
+			for index, word := range []int{5, 0, 1} {
+				require.Equal(t, common.BytesToHash(tx.Data()[4+word*32:4+(word+1)*32]), result.Logs[0].Topics[index+1], c.ID)
+			}
+			require.Equal(t, common.HexToHash("0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4"), result.Logs[0].Topics[3], c.ID)
+		}
 	case "V2":
 		require.Equal(t, uint64(0), uint64(result.Status), c.ID)
 		require.Equal(t, int32(1), decoded.ResultCode)

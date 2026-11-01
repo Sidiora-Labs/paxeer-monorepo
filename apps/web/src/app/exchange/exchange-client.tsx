@@ -15,7 +15,6 @@ import {
 } from "../../api/sdk";
 import { sendWalletPrecompileCall, walletFeePreference, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
 import { windowWalletProvider } from "../../api/provider";
-import { pxResolveAccount } from "../../api/gateway";
 import { SegmentedControl } from "../../kit/collection";
 import { KitButton } from "../../kit/control";
 import { ExplorerPanel } from "../../kit/explorer";
@@ -25,7 +24,7 @@ import { WEI_DECIMALS, parseUnits } from "../_markets/format";
 import { ChoiceField } from "../_markets/select";
 import { SendOutcome } from "../_markets/send-outcome";
 import { SPONSORED_APPROVE_UNSUPPORTED } from "../launchpad/launchpad-client";
-import { preflightPerpsWrite } from "./actions";
+import { preflightPerpsWrite, resolvePerpsAccount } from "./actions";
 
 export type PerpsCollateral = Readonly<{ token: string; decimals: number; symbol: string }>;
 type Choice = Readonly<{ id: string; label: string }>;
@@ -130,7 +129,7 @@ export function ExchangeActions({
 
   const resolveAccountId = async () => {
     if (account === undefined) throw new Error("Connect a wallet first.");
-    const resolved = await pxResolveAccount(account);
+    const resolved = await resolvePerpsAccount(account);
     if (resolved.layerxAccount === null) throw new Error("The account has no LayerX main account.");
     return `0x${resolved.layerxAccount}`;
   };
