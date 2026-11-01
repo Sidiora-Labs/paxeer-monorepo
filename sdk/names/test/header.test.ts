@@ -1,13 +1,15 @@
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
+import { ed25519 } from '@noble/curves/ed25519.js';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js';
 import { expect, test } from 'vitest';
 import {
   HeaderError,
-  ProofError,
   headerHash,
   resolveContent,
+  validatorSetHash,
   verifiedTendermintHeaders,
   verifyCommit,
   voteSignBytes,
@@ -35,6 +37,8 @@ const validatorVector: { validators: Validator[]; total_power: number } = JSON.p
   readFileSync(new URL('../../../tests/vectors/names/validators_v1.json', import.meta.url), 'utf8')
 );
 const storageVector: {
+  height: number;
+  app_hash: string;
   name: string;
   address: string;
   value: string;
@@ -53,6 +57,45 @@ function vectorCommit(): TendermintCommit {
     block_id: vector.block_id,
     signatures: vector.signatures,
   });
+}
+
+function signedStorageHeader() {
+  const keys = Array.from({ length: 4 }, (_, index) => {
+    const seed = sha256(utf8ToBytes(`names-storage-validator-${index}`));
+    return { seed, publicKey: ed25519.getPublicKey(seed) };
+  });
+  const validators: Validator[] = keys.map(({ publicKey }) => ({
+    pub_key: Buffer.from(publicKey).toString('base64'),
+    voting_power: 10,
+  }));
+  const validatorsHash = bytesToHex(validatorSetHash(validators)).toUpperCase();
+  const header: TendermintHeader = {
+    ...structuredClone(vector.header),
+    height: String(storageVector.height + 1),
+    app_hash: storageVector.app_hash.replace(/^0x/, '').toUpperCase(),
+    validators_hash: validatorsHash,
+    next_validators_hash: validatorsHash,
+  };
+  const commit = {
+    height: header.height,
+    round: vector.round,
+    block_id: { ...vector.block_id, hash: bytesToHex(headerHash(header)).toUpperCase() },
+    signatures: keys.map(({ publicKey }) => ({
+      block_id_flag: 2,
+      validator_address: bytesToHex(sha256(publicKey).slice(0, 20)).toUpperCase(),
+      timestamp: header.time,
+      signature: '',
+    })),
+  } satisfies TendermintCommit;
+  commit.signatures.forEach((signature, index) => {
+    signature.signature = Buffer.from(
+      ed25519.sign(
+        voteSignBytes({ chainId: header.chain_id, commit, signature }),
+        keys[index]!.seed
+      )
+    ).toString('base64');
+  });
+  return { header, commit, validators };
 }
 
 function header_commit_verifies_against_the_consensus_vector_and_refuses_a_forged_app_hash() {
@@ -140,8 +183,10 @@ function header_commit_verifies_against_the_consensus_vector_and_refuses_a_forge
 async function resolve_content_uses_only_verified_headers() {
   const requestedHeaders: string[] = [];
   const proofRequests: unknown[] = [];
-  let servedHeader = structuredClone(vector.header);
-  let servedCommit = vectorCommit();
+  const signed = signedStorageHeader();
+  const headerHeight = BigInt(storageVector.height) + 1n;
+  let servedHeader = structuredClone(signed.header);
+  let servedCommit = structuredClone(signed.commit);
   const server = createServer(async (request, response) => {
     response.setHeader('content-type', 'application/json');
     if (request.method === 'GET') {
@@ -154,7 +199,10 @@ async function resolve_content_uses_only_verified_headers() {
               commit: {
                 height: servedCommit.height,
                 round: servedCommit.round,
-                block_id: { hash: vector.block_id.hash, parts: vector.block_id.part_set_header },
+                block_id: {
+                  hash: servedCommit.block_id.hash,
+                  parts: servedCommit.block_id.part_set_header,
+                },
                 signatures: servedCommit.signatures,
               },
             },
@@ -166,6 +214,16 @@ async function resolve_content_uses_only_verified_headers() {
     const chunks: Buffer[] = [];
     for await (const chunk of request) chunks.push(Buffer.from(chunk));
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if (body.method === 'eth_blockNumber') {
+      response.end(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: body.id,
+          result: `0x${storageVector.height.toString(16)}`,
+        })
+      );
+      return;
+    }
     proofRequests.push(body);
     response.end(
       JSON.stringify({
@@ -173,7 +231,7 @@ async function resolve_content_uses_only_verified_headers() {
         id: body.id,
         result: {
           address: storageVector.address,
-          height: String(vector.height - 1),
+          height: String(storageVector.height),
           hexValues: [storageVector.value.slice(2)],
           storageProof: [
             {
@@ -194,18 +252,25 @@ async function resolve_content_uses_only_verified_headers() {
     const address = server.address();
     if (address === null || typeof address === 'string') throw new Error('Missing HTTP address');
     const rpcUrl = `http://127.0.0.1:${address.port}`;
-    const headers = verifiedTendermintHeaders(rpcUrl, { validators: validatorVector.validators });
-    await expect(headers.appHashAt(BigInt(vector.height))).resolves.toEqual(
-      hexToBytes(vector.header.app_hash)
+    const headers = verifiedTendermintHeaders(rpcUrl, { validators: signed.validators });
+    await expect(headers.appHashAt(headerHeight)).resolves.toEqual(
+      hexToBytes(signed.header.app_hash)
     );
     const options = { rpcUrl, resolver: storageVector.address, headers };
-    await expect(resolveContent(storageVector.name, options)).rejects.toThrow(ProofError);
-    await expect(resolveContent(storageVector.name, options)).rejects.toThrow('ics23:simple');
+    await expect(resolveContent(storageVector.name, options)).resolves.toEqual({
+      digest: storageVector.value,
+      height: BigInt(storageVector.height),
+      verified: true,
+    });
     expect(proofRequests[0]).toMatchObject({
       method: 'eth_getProof',
-      params: [storageVector.address, expect.any(Array), 'latest'],
+      params: [
+        storageVector.address,
+        expect.any(Array),
+        `0x${storageVector.height.toString(16)}`,
+      ],
     });
-    expect(requestedHeaders).toEqual(Array(3).fill(`/commit?height=${vector.height}`));
+    expect(requestedHeaders).toEqual(Array(2).fill(`/commit?height=${headerHeight}`));
 
     const signatures = servedCommit.signatures.map((signature, index) => {
       if (index !== 3) return signature;
@@ -222,13 +287,13 @@ async function resolve_content_uses_only_verified_headers() {
     await expect(resolution).rejects.toThrow(HeaderError);
     await expect(resolution).rejects.toThrow('Invalid commit signature');
     expect(returnedDigest).toBe(false);
-    expect(requestedHeaders.at(-1)).toBe(`/commit?height=${vector.height}`);
+    expect(requestedHeaders.at(-1)).toBe(`/commit?height=${headerHeight}`);
 
-    servedCommit = vectorCommit();
-    servedHeader = { ...vector.header, app_hash: '00'.repeat(32) };
+    servedCommit = structuredClone(signed.commit);
+    servedHeader = { ...signed.header, app_hash: '00'.repeat(32) };
     await expect(resolveContent(storageVector.name, options)).rejects.toThrow(HeaderError);
-    servedHeader = { ...vector.header, height: String(vector.height + 1) };
-    await expect(headers.appHashAt(BigInt(vector.height))).rejects.toThrow('wrong header height');
+    servedHeader = { ...signed.header, height: String(headerHeight + 1n) };
+    await expect(headers.appHashAt(headerHeight)).rejects.toThrow('wrong header height');
   } finally {
     const closed = new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve()))

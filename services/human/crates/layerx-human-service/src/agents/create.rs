@@ -478,6 +478,31 @@ pub struct ProtocolEvidence {
 
 impl ProtocolEvidence {
     /// # Errors
+    /// Refuses malformed lifecycle methods or budget identifiers.
+    pub fn creation_idempotency_key(
+        disclosure: &layerx_crypto::disclosure::Disclosure,
+        action_key: [u8; 32],
+    ) -> Result<[u8; 32], AgentFailure> {
+        Ok(
+            match disclosure
+                .construct_method()
+                .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction method"))?
+            {
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate {
+                    payload,
+                }) => payload
+                    .get(2..34)
+                    .and_then(|word| word.try_into().ok())
+                    .ok_or(AgentFailure::Refused("invalid lifecycle budget id"))?,
+                Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetFund {
+                    ..
+                }) => [0; 32],
+                _ => action_key,
+            },
+        )
+    }
+
+    /// # Errors
     /// Refuses signed transaction or native receipt authority mismatches.
     pub fn verify_outcome(
         &self,
@@ -542,19 +567,8 @@ impl ProtocolEvidence {
         authority[12..].copy_from_slice(&sender);
         let transaction_hash =
             layerx_crypto::evm_transaction::transaction_hash(&self.signed_activity);
-        let expected_idempotency_key = match disclosure
-            .construct_method()
-            .map_err(|_| AgentFailure::Refused("invalid lifecycle transaction method"))?
-        {
-            Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { payload }) => {
-                payload
-                    .get(2..34)
-                    .and_then(|word| word.try_into().ok())
-                    .ok_or(AgentFailure::Refused("invalid lifecycle budget id"))?
-            }
-            Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetFund { .. }) => [0; 32],
-            _ => self.action_key,
-        };
+        let expected_idempotency_key =
+            Self::creation_idempotency_key(&disclosure, self.action_key)?;
         for (differs, binding) in [
             (
                 disclosure.activity_type != expected,

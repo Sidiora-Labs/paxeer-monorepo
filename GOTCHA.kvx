@@ -12786,3 +12786,43 @@ fix = "Build the native libraries (make paxd-native-libs) first in the build ste
 title = "Hard-coding a store name in a proof verifier"
 symptom = "A verifier names the chain store with a literal that the node never registered; the fixture tests pass because the fixture opens a store under the same literal, and the live proof fails to verify."
 fix = "Name the store through one constant shared by the verifiers and the fixture and check it against the node's registered store keys."
+
+[gotcha.2594]
+title = "Placing a scope path under the module directory instead of its file"
+symptom = "A task lists a reader under chain_evidence/ because its sibling verifiers live there; the file sits one level up beside chain_evidence.rs, the attempt treats it as out of scope and the literal it was meant to remove survives."
+fix = "Resolve every scope path with ls before writing it; name files, not the module that uses them."
+
+[gotcha.2595]
+title = "Handing a daemon every registered activity type"
+symptom = "A test derives the daemon's admitted activity types from the whole registry; the daemon admits one type by design and exits at start, so every request of the test fails before the first assertion."
+fix = "Pass the daemon exactly the type it admits and assert the list before starting it."
+
+[gotcha.2596]
+title = "Looking for a signed receipt in a fixture that never recorded one"
+symptom = "A test expects a recorded receipt for an event the fixture never captured; the receipt is sequencer-signed and its logs are authenticated, so no hand-written recording can replace it."
+fix = "Sign the receipt in the test with a key the configuration trusts, as the client receipt tests do."
+
+[gotcha.2597]
+title = "Judging a retired test by the absence of its file"
+symptom = "A rule accepts a dropped test selector only when its file is gone; a file that kept other tests still exists and the retired function is refused although nothing declares it."
+fix = "Accept the selector when the file is absent or no longer declares the function."
+
+[gotcha.2598]
+title = "Serving pending-only simulation reads between blocks"
+symptom = "The proposer resolves untagged estimates and calls to the open block; between a seal and the next open there is none and clients see pending block unavailable."
+fix = "Fall back to the latest committed state when the open-layer error is returned, as the gas price read does."
+
+[gotcha.2599]
+title = "Porting one test consumer of a changed producer type and leaving its siblings"
+symptom = "A task changes a struct and a constructor, ports the one test file its text names and runs the crate-wide test build; two sibling test targets of the same crate still build the old shape and the build fails after the port."
+fix = "Before building, grep the crate's tests for every use of each changed symbol and port them all in the same attempt."
+
+[gotcha.2600]
+title = "Build step that regenerates a committed vector"
+symptom = "A task's build command runs a producer test in writing mode; the test rewrites the committed vector file, the verification then runs on a candidate the build never saw and the attempt ends with build_on_verified unmet although every step passed."
+fix = "Generate and commit the vector once before the build; build and verify run the producer in checking mode and never write a tracked file."
+
+[gotcha.2601]
+title = "A struct field changed to Option and the test targets of a sibling crate kept the plain value"
+symptom = "A done task changes two public struct fields to Option<u64> and ports the test file its text names; two other test targets of the same crate still build integer literals and every later task whose build compiles the crate's tests fails before touching its own work."
+fix = "When a public type changes shape, grep every tests/ file of its crate for constructions of that type and port them in the same task."

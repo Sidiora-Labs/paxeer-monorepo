@@ -4,13 +4,125 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math/big"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/kv"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPayGenesisKeepsAgentStreamMetadata(t *testing.T) {
+	for _, kind := range []string{"native", "pointer"} {
+		t.Run(kind, func(t *testing.T) {
+			h, _, token := newAgentStreamHarness(t, kind)
+			payer, payee := h.actors[0].address, h.actors[1].address
+			start := uint64(payHarnessTimeMs / 1000)
+			id, err := h.keeper.OpenAgentStream(h.ctx, payer, payee, token, big.NewInt(2), start, start+100, big.NewInt(50))
+			require.NoError(t, err)
+			before, found, err := h.keeper.AgentStreamView(h.ctx, id)
+			require.NoError(t, err)
+			require.True(t, found)
+			exported := h.keeper.ExportGenesis(h.ctx)
+			require.NoError(t, exported.Validate())
+			var streamID [32]byte
+			id.FillBytes(streamID[:])
+			metadataKey := agentStreamMetadataKey(streamID)
+			metadataValue := append(append(append([]byte{}, payer.Bytes()...), payee.Bytes()...), token.Bytes()...)
+			require.Equal(t, []kv.Pair{{Key: metadataKey, Value: metadataValue}}, exported.AgentStreamMetadata)
+
+			cloned := h.keeper.ExportGenesis(h.ctx)
+			cloned.AgentStreamMetadata[0].Key[0] ^= 0xff
+			cloned.AgentStreamMetadata[0].Value[0] ^= 0xff
+			require.Equal(t, metadataValue, h.ctx.KVStore(h.storeKey).Get(metadataKey))
+			require.Equal(t, exported, h.keeper.ExportGenesis(h.ctx))
+
+			h.ctx.KVStore(h.storeKey).Delete(metadataKey)
+			_, _, err = h.keeper.AgentStreamView(h.ctx, id)
+			require.Error(t, err)
+			removed := 0
+			for _, record := range exported.KernelRecords {
+				if bytes.HasPrefix(record.Key, types.StreamKVPrefix) {
+					h.ctx.KVStore(h.hostKey).Delete(record.Key)
+					removed++
+				}
+			}
+			require.Positive(t, removed)
+			_, found, err = h.keeper.AgentStreamView(h.ctx, id)
+			require.NoError(t, err)
+			require.False(t, found)
+			require.NoError(t, h.keeper.InitGenesis(h.ctx, *exported))
+			require.Equal(t, exported, h.keeper.ExportGenesis(h.ctx))
+			require.Equal(t, metadataValue, h.ctx.KVStore(h.storeKey).Get(metadataKey))
+			after, found, err := h.keeper.AgentStreamView(h.ctx, id)
+			require.NoError(t, err)
+			require.True(t, found)
+			require.Equal(t, before, after)
+			require.Equal(t, payer, after.Payer)
+			require.Equal(t, payee, after.Payee)
+			require.Equal(t, token, after.Token)
+
+			h.ctx = h.ctx.WithBlockHeight(2).WithBlockTime(time.UnixMilli(payHarnessTimeMs + 5000))
+			paid, err := h.keeper.SettleAgentStream(h.ctx, payee, id)
+			require.NoError(t, err)
+			require.Equal(t, big.NewInt(10), paid)
+			after, found, err = h.keeper.AgentStreamView(h.ctx, id)
+			require.NoError(t, err)
+			require.True(t, found)
+			require.Equal(t, paid, after.Settled)
+		})
+	}
+}
+
+func TestPayGenesisRefusesMalformedAgentStreamMetadata(t *testing.T) {
+	key := append([]byte(types.AgentStreamMetadataPrefix), make([]byte, 32)...)
+	key[len(key)-1] = 1
+	value := bytes.Repeat([]byte{1}, 60)
+	valid := kv.Pair{Key: key, Value: value}
+	gs := types.DefaultGenesis()
+	require.NoError(t, gs.Validate())
+	gs.AgentStreamMetadata = []kv.Pair{valid}
+	require.NoError(t, gs.Validate())
+	wrongPrefix := bytes.Clone(key)
+	wrongPrefix[0] ^= 0xff
+	h := newPayHarness(t)
+	for _, tc := range []struct {
+		name    string
+		records []kv.Pair
+	}{
+		{"short_value", []kv.Pair{{Key: key, Value: value[:59]}}},
+		{"long_value", []kv.Pair{{Key: key, Value: append(bytes.Clone(value), 1)}}},
+		{"short_key", []kv.Pair{{Key: key[:len(key)-1], Value: value}}},
+		{"long_key", []kv.Pair{{Key: append(bytes.Clone(key), 1), Value: value}}},
+		{"wrong_prefix", []kv.Pair{{Key: wrongPrefix, Value: value}}},
+		{"zero_id", []kv.Pair{{Key: append([]byte(types.AgentStreamMetadataPrefix), make([]byte, 32)...), Value: value}}},
+		{"duplicate_key", []kv.Pair{valid, {Key: bytes.Clone(key), Value: make([]byte, 60)}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			invalid := *types.DefaultGenesis()
+			invalid.AgentStreamMetadata = tc.records
+			require.ErrorIs(t, invalid.Validate(), types.ErrInvalidGenesis)
+			moduleBefore := payStoreSnapshot(h.ctx, h.storeKey)
+			hostBefore := payStoreSnapshot(h.ctx, h.hostKey)
+			require.ErrorIs(t, h.keeper.InitGenesis(h.ctx, invalid), types.ErrInvalidGenesis)
+			require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
+			require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
+		})
+	}
+	t.Run("record_limit", func(t *testing.T) {
+		bounded := *types.DefaultGenesis()
+		for i := 1; i <= types.MaxKernelRecords+1; i++ {
+			nextKey := bytes.Clone(key)
+			binary.BigEndian.PutUint64(nextKey[len(nextKey)-8:], uint64(i))
+			bounded.AgentStreamMetadata = append(bounded.AgentStreamMetadata, kv.Pair{Key: nextKey, Value: bytes.Clone(value)})
+		}
+		require.ErrorIs(t, bounded.Validate(), types.ErrInvalidGenesis)
+		bounded.AgentStreamMetadata = bounded.AgentStreamMetadata[:types.MaxKernelRecords]
+		require.NoError(t, bounded.Validate())
+	})
+}
 
 func TestPayGenesisRoundTrip(t *testing.T) {
 	t.Run("default", func(t *testing.T) {
