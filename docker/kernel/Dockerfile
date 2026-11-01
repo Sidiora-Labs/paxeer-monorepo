@@ -24,7 +24,7 @@ RUN CARGO_TARGET_DIR=/src/.lane-target cargo build --locked --manifest-path serv
         --package layerx-mirror-signer --bin layerx-mirror-signer
 RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-human-kms --bins
 RUN cargo build --locked --release --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd -p layerx-mcp --bin layerx-mcp
-RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider -p layerx-human-security-provider -p layerx-human-movement-provider --bins
+RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider -p layerx-human-security-provider --bins
 RUN cargo build --locked --release --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml
 
 FROM build AS native-manifest
@@ -366,7 +366,7 @@ COPY --from=build /src/.lane-target/release/layerx-mirror-publisher /src/.lane-t
 COPY --from=build /src/services/human/target/release/layerx-human-service /src/services/human/target/release/layerx-human-components \
      /src/services/human/target/release/layerx-human-onboarding /src/services/human/target/release/layerx-human-kms \
      /src/services/human/target/release/layerx-human-identity-provider \
-     /src/services/human/target/release/layerx-human-security-provider /src/services/human/target/release/layerx-human-movement-provider \
+     /src/services/human/target/release/layerx-human-security-provider \
      /src/services/agent/target/release/layerx-agentd /src/services/agent/target/release/layerx-mcp /usr/local/bin/
 COPY services/platform/hosted/human/provision.py services/platform/hosted/human/owner_native.py services/platform/hosted/human/owner_kms.py \
      services/platform/hosted/human/onboarding_socket.py services/platform/hosted/human/onboarding_bootstrap.py \
