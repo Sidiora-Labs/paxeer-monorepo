@@ -118213,7 +118213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.25.13]
 title = "Retire the client's eth_getProof account proof and port its last readers to the storage witness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["9.25.11", "9.25.10", "9.25.2", "9.25.6", "9.25.16", "9.25.17"]
