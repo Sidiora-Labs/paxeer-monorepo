@@ -15683,3 +15683,131 @@ symbol = "generate_jvm"
 observed = "Attempt 10 (d82dce494, base 21c2ab6ee) built, and the wave 4 aggregate failed in platform-sdk-check at services/platform/Makefile.inc:233: generate_jvm.py --check reports 'generated JVM schema is stale'. The generator reads services/agent/schema/agent-api and precompiles/layerxprograms/abi.json, neither changed since b574c9f9f, and splices the human sections from the committed file, so the committed GeneratedSchema.java differs from the generator's own output: b574c9f9f (task 8.46.9) edited GeneratedSchema.java and GeneratedContract.java by hand under a gate of mvn tests only, never the --check; the test of this task is unchanged and correct."
 assumption = "Task 8.46.10 (req.8548) regenerates both files from the generator and carries the required shape into it; this task requires it and continues unchanged."
 severity = "major"
+
+[finding.9.25.8.1]
+task = "9.25.8"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs:873"
+symbol = "BudgetProofTrust"
+observed = "Attempt 2 (97a7384c6, base ffa589f28) implemented ServedCheckpoint acquisition in read/checkpoint.rs (acquire_at_committed_block, from_comet_json, the comet header decoders and their tests) and the committed-time path of protocol_evidence.rs, and the build failed with E0308 at human_runtime.rs:873 and :9541: both budget proof sites now construct a BudgetProofTrust whose checkpoint field is the LNI VerifiedCheckpoint of layerx_client::evidence (budget_proof.rs:20-31), and a ServedCheckpoint cannot be passed there; the checkpoint material itself is still posted as raw px_getCommit JSON although the node answers no px_ method (decision %d)."
+assumption = "The budget proof verifier is rewritten by task 9.25.10 (decision 2205); this task keeps both sites at their Unavailable returns and acquires its header, commit and validators through new layerx-client accessors."
+severity = "major"
+
+[finding.9.25.7.1]
+task = "9.25.7"
+file = "services/agent/crates/layerx-agentd/src/budget/fee_policy.rs:216"
+symbol = "native_fee_policy"
+observed = "Attempt 3 (7765f48f5, base ffa589f28) implemented budget/fee_policy.rs with its four tests and the program_sources.rs port, and the build failed with E0609 at fee_policy.rs:132 and :216: SequencerBlock (layerx-client sequencer.rs:190) has no app_hash field, since decode_block reads only hash, number, parentHash, receiptsRoot, timestamp, transactions and transactionsRoot, while the committed block's stateRoot (rpc/block.go:713) is the app hash the fee policy must bind to."
+assumption = "The state root comes from the client's state_root(height) accessor of task 9.25.8 (decision 2203) and the daemon preview test against anvil, which 9.25.9 cannot pass while the fee policy is unavailable, becomes this task's consumer gate."
+severity = "major"
+
+[finding.9.25.9.1]
+task = "9.25.9"
+file = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:1"
+symbol = "native_send_preview_is_an_unsigned_ledger_transfer_call"
+observed = "Attempt 1 (717e1bb48, base 5b446cd27) passed the build, the dependent-crate check and the SDK shape test, and native_send_preview_is_an_unsigned_ledger_transfer_call failed because the daemon's fee policy still returns Unavailable: the placeholder of 9.25.3 that task 9.25.7 replaces, so the second verify segment of this task could only pass once another pending task is on main."
+assumption = "The preview test is the consumer gate of 9.25.7 (finding 9.25.7.1); this task keeps its port of the test file and verifies the SDK shape test alone."
+severity = "minor"
+
+[finding.9.25.6.1]
+task = "9.25.6"
+file = "services/agent/crates/layerx-agentd/src/read/committed.rs:1"
+symbol = "CommittedReads"
+observed = "Attempt 1 (base ffa589f28) designed CommittedReads over the client's AccountProof and the LNI proof bundle: the node answers eth_getProof as an ICS23 witness (decision 2204) and no px_getProofBundle exists, and the precompile module records the committed capabilities and budget state come from are not EVM storage, so no account proof can carry them."
+assumption = "Committed reads are eth_call at the committed height, bound to the ServedCheckpoint of decision 2203; EVM storage slots are read through the storage witness of task 9.25.11."
+severity = "major"
+
+[finding.9.25.5.1]
+task = "9.25.5"
+file = "services/agent/crates/layerx-agentd/src/read/history.rs:100"
+symbol = "HistoryItem"
+observed = "Attempt 1 (base ffa589f28) designed the policy usage window over px_getHistory items carrying a proof and a px_getProofBundle call: the router answers px_getHistory from the indexer's read API with items {canonical, cursor, height, kind, logIndex, txIndex} oldest first and no per-item proof, and px_getProofBundle is not among the router's seventeen methods (gateway rpc.rs:284)."
+assumption = "Each history item is proven through its transaction: eth_getTransactionReceipt at its hash, pax_sequencerReceipt at the committed rung (task 5.5.22, decision 2202), the block hash of eth_getBlockByNumber at its height and the ServedCheckpoint of the window's head height (decision 2203)."
+severity = "major"
+
+[finding.5.5.22.1]
+task = "5.5.22"
+file = "node/sequencer/receipt_source_test.go:82"
+symbol = "TestReceiptSourceRecordsAcceptedSend"
+observed = "Attempt 1 (91c7466a1, base ca708dbd0) implemented retention and ordered eviction, built, and the two new tests and TestReceiptSourceUnknownHashNil passed while TestReceiptSourceRecordsAcceptedSend failed at receipt_source_test.go:82: after Committed(vectorHeight) the unchanged test requires SequencerSend(hash) to be nil, and at :92 requires that a late Record of a committed hash stays nil, both assertions of the deletion rule decision 2202 retired; do_2 of this task wrongly said the test keeps passing unchanged."
+assumption = "The two assertions follow the retention rule and nothing else in the test changes."
+severity = "minor"
+
+[finding.2.90.1.3]
+task = "2.90.1"
+file = "modules/layerxanchor/keeper/keeper_test.go:348"
+symbol = "TestResubmittedCheckpointKeepsChallengeWindow"
+observed = "Attempt 6 (c182f35a2, base 5b446cd27) passed the four other tests and TestResubmittedCheckpointKeepsChallengeWindow failed at keeper_test.go:358: SubmitCheckpoint returns ErrModuleRetired (LXP_MODULE_DISABLED: layerxanchor retired, keeper/checkpoints.go:58) since afcc3485c (task 6.96.1) and the anchor store was deleted, so no checkpoint can be submitted, resubmitted or finalized and acceptance 18.814.1 describes a behaviour the chain no longer has."
+assumption = "The acceptance and the test prove the retirement instead: SubmitCheckpoint answers ErrModuleRetired and writes no record."
+severity = "major"
+
+[finding.10.6.5.4]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:1088"
+symbol = "start_kernel_journey"
+observed = "Attempt 5 (068452fa2, base 5b446cd27) ported the nine declared files and the build stopped on two further targets: tests/retired_crypto_codec_w3.rs includes tests/binding.rs by path and include_str, a file 2772a218f (task 10.9.1) deleted, so the test has no input left; and the wallet identity end-to-end test calls the custody method authorize_kernel_send (:264) and the five-argument KernelStart form of start_kernel_journey (:1088) that 63aee3813 (task 10.0.3) replaced with start_kernel_journey(scope, plan, request, expectation, journey_id, &[EvmAction]) returning an IntentSubmission, and drives the returned value as a JourneyEngine (:1103, :1131, :1173); tests/intent_submit.rs:918 calls the same retired form and was not reached by the build. 10.0.3 was gated without --tests, so the crate's test targets broke unnoticed."
+assumption = "The codec test is deleted with its input, and both kernel tests are ported to the EIP-1559 path 63aee3813 established; no src file changes."
+severity = "major"
+
+[finding.17.5.5.4]
+task = "17.5.5"
+file = "sdk/platform/pipeline.kvx:11"
+symbol = "platform-sdk-check"
+observed = "Attempt 11 (1c4e6df2a, base 5b868c74f) built and the wave 4 aggregate failed in platform-sdk-check at services/platform/Makefile.inc:234, where sdkgen --check reports that the human API schema (sdk/platform/pipeline.kvx source human-api, services/human/schema/human-api) changed after the lock was sealed: 63aee3813 (task 10.0.3) edited the schema on 2026-11-01 and c11d15c58 (task 8.45.4) sealed the lock on 2026-10-31, and no task regenerated the outputs or resealed the lock since; the JVM check of finding 17.5.5.3 passed and the test of this task is unchanged and correct."
+assumption = "Task 8.45.5 (req.84505) regenerates the outputs and reseals the lock; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.10.6.5.5]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/intent_submit.rs:1000"
+symbol = "intent_submit_custody_deposit_creates_a_deposit_journey_past_getting_ready"
+observed = "Attempt 6 (d0bc7723f, base 771f7e17b) kept the nine ports and the build reached tests/intent_submit.rs first, with 22 errors: besides the six retired five-argument start_kernel_journey calls and the three status() calls of finding 10.6.5.4, the file names Mechanism::BridgeDepositCredit and Mechanism::BridgeWithdrawRequest, which ec7c4dc54 (task 10.6.2) removed from the resolver's Mechanism (resolver.rs:582 keeps BudgetCreate, BudgetFund, Send, BudgetDefund and ReceiveUnderPayerGrant), and start_deposit_journey, start_deposit_forward_journey, start_withdrawal_intent, IntentSubmission::from_deposit, from_deposit_forward and from_withdrawal, which ad92aa7fc (task 10.20.3) unhooked and no src file defines; those tests describe journeys the service no longer has."
+assumption = "The tests of retired journeys and mechanisms are deleted with their helpers, and the kernel send and refusal tests are ported as do_10 says."
+severity = "major"
+
+[finding.8.45.5.1]
+task = "8.45.5"
+file = "sdk/platform/generators/src/main.rs:1627"
+symbol = "write_jvm_contract"
+observed = "Attempt 1 (18b732a35, base 4505ff22b) ran make platform-sdk-generate, resealed sdk/platform/pipeline.kvx (schema and generator digests, two handwritten TypeScript declarations) and built; platform-sdk-check failed at services/platform/Makefile.inc:233 in generate_jvm.py --check with 'generated JVM contract is stale': sdkgen --write (main.rs:2070 write_jvm_contract) ran after generate_jvm.py and rewrote sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java with its own header line, so the Python generator's check no longer matched; the lock tests were not reached. Both generators render the same contract body and differ only in the header comment."
+assumption = "Decision 2206 makes generate_jvm.py the only generator of the contract; this task deletes the Rust rendering and regenerates once more."
+severity = "major"
+
+[finding.5.5.22.2]
+task = "5.5.22"
+file = "node/sequencer/receipt_source_test.go:92"
+symbol = "TestReceiptSourceRecordsAcceptedSend"
+observed = "Attempt 3 (ddd3719c1, base 4505ff22b) implemented do_5 as written: receipt_source.go retains committed sends and evicts the oldest committed one when the source is full, as do_1 requires, and TestReceiptSourceRecordsAcceptedSend fails at :92 because Record(lastHash, last) at :87 fills the two-slot source whose only committed send is the first one and evicts it before the late record that do_5 said must leave it unchanged; the assertions do_5 kept after Committed(vectorHeight + 3) and on the zero-value source still require nil for sends the retention rule keeps."
+assumption = "The tail of the test from :87 is rewritten to the values the retention and eviction rules produce; receipt_source.go does not change."
+severity = "major"
+
+[finding.9.25.8.2]
+task = "9.25.8"
+file = "services/agent/crates/layerx-agentd/src/read/mod.rs:8"
+symbol = "checkpoint_impl"
+observed = "Attempt 3 (cd428e283, base abd223e8b) added the three client accessors, the committed-block acquisition and seven checkpoint tests against a TcpListener JSON-RPC double, and the verify filter read::checkpoint::tests of do_3 selects no test because read/checkpoint.rs is declared as module read::checkpoint_impl (read/mod.rs:8); the attempt made the seven test functions pub(super) and ran their bodies from one committed_time test so the filter would reach them, and its first verification failed three captured-batch tests whose fixture pinned network 125 while the captured header carries 77, which cd428e283 repairs by pinning header.network_id(), but the rerun was refused by the repair budget."
+assumption = "The verify filter names read::checkpoint_impl::tests and the wrapper is deleted; the repaired fixture passes."
+severity = "major"
+
+[finding.10.6.5.6]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/native_send_producer.rs:555"
+symbol = "genuine_human_owner_session_consent_preview_and_reopen"
+observed = "Attempt 7 (6b961c625, base 4505ff22b) ported the twelve test files, every test target of both crates built, the evidence node test passed, and the second verify segment failed before any assertion: genuine_human_owner_session_consent_preview_and_reopen reads PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, the protected release-gate fixture of decision 1806 that finding 10.4.3.2 already recorded as absent from every qualification run, so the three segments after it never ran."
+assumption = "The verify gate drops that segment, build_cmd keeps compiling the target, and the intent_submit target the task ports takes its place."
+severity = "major"
+
+[finding.10.6.5.7]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/intent_submit.rs:858"
+symbol = "JourneyEngine::load"
+observed = "The kernel send test attempt 7 ported per do_10 loads the started journey with JourneyEngine::load, which scans only keys prefixed journey- (src/journeys/engine.rs:38, :803) and decodes the engine's record, while start_kernel_journey persists a flat record under RowKey intent-evm-<journey_id> (src/journeys/intent_submit.rs:303-333) that only ProductionComponents::advance_evm_intent (production_components.rs:8838) and the journey.get and list routes read; the ported test therefore panics 'persisted kernel journey missing' and the three refusal tests assert emptiness of a loader nothing feeds, and the verify gate of this task never ran the target, so the port was never exercised."
+assumption = "do_10 is corrected: the kernel test reads the intent-evm row and the replay rule; the engine-driving steps are deleted; the intent_submit target joins the verify gate."
+severity = "major"
+
+[finding.8.45.5.2]
+task = "8.45.5"
+file = "services/platform/Makefile.inc:231"
+symbol = "platform-sdk-check"
+observed = "Attempt 3 (4ccbabda0, base de1dbe1b8) deleted the Rust rendering of GeneratedContract.java, regenerated the outputs and resealed the lock; the build passed, make platform-sdk-check passed and both pipeline_reseal tests passed, and the qualification was refused only by two graph checks: the declared symbols platform-sdk-generate and platform-sdk-check are Makefile targets, which the code graph never indexes, so they can never be found."
+assumption = "The task's symbols name only pipeline_lock_matches_repository; the attempt continues unchanged."
+severity = "minor"
