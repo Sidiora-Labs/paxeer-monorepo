@@ -1801,7 +1801,7 @@ CHECK_LIVE_GATEWAY_TOKEN="$CHECK_LIVE_TEST_WALLET_TOKEN" CHECK_LIVE_TEST_PROGRAM
 	"pass served_by http=200 x-served-by=paxeer-wallet-gateway" \
 	"pass readiness http=200 x-served-by=paxeer-wallet-gateway ready=true" \
 	"pass readiness http=200 ready=true attestors=up(5/3) nonce_store=up rpc_pool=up(2) identity_provider=up(1)" \
-	"pass me http=200 binding_state=bound address=set did=set main_account_id=set kernel=available" \
+	"pass me http=200 binding_state=bound address=set did=set main_account_id=set kernel="available \
 	"pass machines started=2 regions=ams,iad app=$gateway" \
 	"check-live: all checks passed"
 if grep -qx 'walletfx curl' "$CHECK_LIVE_TEST_CALLS" &&
@@ -2590,7 +2590,7 @@ unset CHECK_LIVE_TEST_BIN CHECK_LIVE_TEST_DEV_BEARER CHECK_LIVE_DEVELOPERS_RECEI
 mkdir -p "$CHECK_LIVE_TEST_FLY/$endpoint" "$work/router-good" "$work/router-bad"
 router_ready='{"status":"degraded","backends":{"durable_store":{"state":"ready","reason":"ready"},"event_producer":{"state":"unavailable","reason":"not_configured"},"paxeer_chain":{"state":"ready","reason":"ready"},"core_agent_boundary":{"state":"ready","reason":"ready"},"independent_receipt_authority":{"state":"ready","reason":"ready"},"program_registry":{"state":"ready","reason":"ready"}}}'
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":"0x7d"}' >"$work/router-good/eth_chainId"
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"chain_id":"0x7d","kernel":{"available":true,"reason":null}}}' >"$work/router-good/px_getNetwork"
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"network_id":"local","paxeer":{"chain_id":"0x7d","latest_block":"0x10"},"consensus":{"latest_height":"9","catching_up":false}}}' >"$work/router-good/px_getNetwork"
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"account":"fixture","sequence":"0"}}' >"$work/router-good/lx_getAccount"
 printf '200\n%s\n' "$router_ready" >"$work/router-good/readyz-m-ams-1"
 printf '200\n%s\n' "$router_ready" >"$work/router-good/readyz-m-fra-1"
@@ -2607,7 +2607,7 @@ python3 "$root/tools/qualification/paxeer-x/registry-router-bootstrap.py" --chec
 CHECK_LIVE_STAGE_DIR="$work/stages-passed" CHECK_LIVE_TEST_ROUTER="$work/router-good" CHECK_LIVE_ROUTER_ACCOUNT="$(printf 'ab%.0s' $(seq 32))" CHECK_LIVE_TEST_PROGRAM="$fx_checker" \
 	expect check_live_router_passing "$work/hosts-good.env" 0 router -- \
 	"pass eth_chainId result=0x7d" \
-	"pass px_getNetwork kernel.available=true reason=none" \
+	"pass px_getNetwork consensus.latest_height=9 catching_up=false" \
 	"pass lx_getAccount read=answered" \
 	"pass machines started=3 regions=ams,fra app=$endpoint" \
 	"pass readyz app=$endpoint region=ams http=200 durable_store=ready configured=5/5" \
@@ -2616,14 +2616,14 @@ CHECK_LIVE_STAGE_DIR="$work/stages-passed" CHECK_LIVE_TEST_ROUTER="$work/router-
 	"check-live: all checks passed"
 
 printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":"0x1"}' >"$work/router-bad/eth_chainId"
-printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"kernel":{"available":false,"reason":"core_unavailable"}}}' >"$work/router-bad/px_getNetwork"
+printf '%s\n' '{"jsonrpc":"2.0","id":1,"result":{"network_id":"local","paxeer":{"chain_id":"0x7d","latest_block":"0x10"},"consensus":null,"reason":"consensus_unavailable"}}' >"$work/router-bad/px_getNetwork"
 printf '503\n%s\n' '{"status":"degraded","backends":{"durable_store":{"state":"unavailable","reason":"unreachable"},"core_agent_boundary":{"state":"ready","reason":"ready"},"program_registry":{"state":"unavailable","reason":"not_configured"}}}' >"$work/router-bad/readyz-m-ams-1"
 printf '%s\n' '{"ready":true,"components":{"rpc_pool":{"state":"up","healthy":1,"endpoints":[{"url":"https://api1.mainnet-beta.paxeer.network","state":"healthy"}]}}}' >"$work/router-bad/wallet-readyz"
 printf '%s\n' '[{"id":"m-ams-1","region":"ams","state":"started"},{"id":"m-ams-2","region":"ams","state":"started"}]' >"$CHECK_LIVE_TEST_FLY/$endpoint/machines.json"
 CHECK_LIVE_STAGE_DIR="$work/stages-passed" CHECK_LIVE_TEST_ROUTER="$work/router-bad" CHECK_LIVE_TEST_PROGRAM="$fx_checker" \
 	expect check_live_router_failing "$work/hosts-good.env" 1 router -- \
 	"fail eth_chainId result=0x1" \
-	"fail px_getNetwork kernel.available=false reason=core_unavailable" \
+	"fail px_getNetwork consensus=null reason=consensus_unavailable" \
 	"fail lx_getAccount account=unset" \
 	"fail machines started=2 regions=ams app=$endpoint" \
 	"fail readyz app=$endpoint region=ams http=503 durable_store=unavailable configured=1/2 unready=durable_store" \

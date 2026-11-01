@@ -12736,3 +12736,28 @@ fix = "symbols hold only identifiers the code graph can resolve (functions, type
 title = "Deleting a test file without updating its parity row"
 symptom = "retirement tasks deleted x-websearch kernel.rs and the mirror checkpoint vector test while spec/layerx-merge/programme/data/parity.kvx still selected those tests, so test_every_row_has_exact_selectors failed for every later task that touched the parity data"
 fix = "a task that deletes a test file named by a parity row moves that selector into the row's dropped list and regenerates docs/parity-inventory.md in the same change"
+
+[gotcha.2584]
+title = "Markdown and prose test selectors in a task's symbol list"
+symptom = "documentation tasks named their check as docs/<page>.md::<title> in tests and repeated the title in symbols; the graph check reported the title as not defined after every verify command had passed, and a Swift method written with its argument labels failed the same way"
+fix = "a documentation or shell-only check keeps symbols empty or names real shell functions; a Swift symbol is its bare method name without argument labels"
+
+[gotcha.2585]
+title = "Renaming a probe without porting the fixture that serves it"
+symptom = "the wallet live check switched its account probe to px_getAccount while the bash fixture suite kept answering lx_getAccount, so the suite failed with Method not found for every case and the next task touching it inherited a red gate"
+fix = "a task that renames a request method lists every fixture and test double that answers it in touches and runs their suite in verify, proving the producer and consumer agree in the same change"
+
+[gotcha.2586]
+title = "Running a kernel case-table test binary without a case name"
+symptom = "A verify command runs a build/tests/kernel/codec binary with no argument; tests/codec/lxp_kernel_case.h:28 prints No case named and exits 2 although every case would pass."
+fix = "Name the case (or cases) on the command line, as the task's tests list spells them after the double colon."
+
+[gotcha.2587]
+title = "Adding a file under the generated markdown root without declaring it"
+symptom = "A task adds a handwritten test under services/agent/sdk/typescript/test/ and the drift gate of the platform generators (--check) fails for the next task as an untracked file in the generated markdown root."
+fix = "Declare every handwritten file added under the generated root in sdk/platform/pipeline.kvx [handwritten.<target>] in the same task."
+
+[gotcha.2588]
+title = "Serving a method whose kernel activity type was retired"
+symptom = "A keeper method still encodes and submits an activity the kernel no longer registers; the kernel answers LXP_ERR_UNKNOWN_ACTIVITY at run time and the test that drives the method fails far from the retirement that caused it."
+fix = "When a kernel type is retired, retire or re-point every host, keeper and precompile method that encodes it in the same decision, and assert the refusal in a test."
