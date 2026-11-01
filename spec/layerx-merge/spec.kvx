@@ -151159,7 +151159,7 @@ do_5 = "native_onboarding_uses_the_pending_nonce drives the agent runtime throug
 
 [task.10.6.1]
 title = "Plan and execute Move money as bank 0x1001 sends completed from receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.6.2", "10.0.3", "9.1.8", "18.1119.1", "10.2.8", "10.2.9", "18.1297.1", "5.98.7", "10.24.4", "10.6.4"]
