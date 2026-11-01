@@ -116343,7 +116343,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.7.5]
 title = "Remove the retired program route assertions from the gateway browser profile test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = []
@@ -151159,7 +151159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.25.4]
 title = "Admit signed EIP-1559 transactions in the test evidence node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["10.25.3", "10.0.3", "9.0.4", "9.1.8", "18.1119.1", "18.1297.1"]
@@ -152722,7 +152722,7 @@ do_10 = "Port services/human/crates/layerx-human-service/tests/intent_submit.rs 
 
 [task.10.98.12]
 title = "Migrate the layerx-human-test-support callers of wiring.J44.25"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.3", "9.1.8", "18.1119.1", "18.1297.1"]
