@@ -15323,3 +15323,27 @@ symbol = "VerifiedAdmissionPrestate"
 observed = "9671c613b also deleted layerx_client::evidence::VerifiedAdmissionPrestate and verify_arbiter_admission_v3, the only layerx-client items programs/crates/layerx-programs-arbiter uses (market.rs:4 and :155, authority.rs:3, :104, :113, :122 and :834, step.rs:183, :284, :468 and :496, tests/authority_from_prestate.rs:3, tests/verified_step.rs:132 and :224 and the market fixture test), so the programs workspace build (make programs-build, cargo build --locked --workspace) fails on main and every target through paxd-native-libs with it; the wave-4 gate of 17.5.5 attempt 6 (caa07f0ce) failed there."
 assumption = "The arbiter owns its admission evidence from now on and proves it under the block app hash by ICS23 as 13.30.3 to 13.30.5 did for receipts, replay metadata, module blobs and market namespaces; task 13.30.6 makes the port and decision 2191 records it."
 severity = "major"
+
+[finding.9.24.5.1]
+task = "9.24.5"
+file = "services/agent/crates/layerx-agentd/src/budget/program_lifecycle_settlement.rs:78"
+symbol = "VerifiedNativeExecutionPrestate"
+observed = "Attempts 1 (ee7d38af9), 2 (656ea2fa9) and 3 stopped at the build gate with the twelve prestate references still in place because do_1 asks for every prestate check to be carried onto ProgramBalanceRead<CommittedProgramBalanceFreshness>, which carries lifecycle, per-account amounts with frozen None (read/program_node.rs:750) and a height, while the deleted prestate carried network_id, activity_id, receipt_digest, execution_sequence, state_root, the program records read under the program, program-owner, wind-down, program-account and interface keys, the canonical account set scanned by principal_fee_account (:747) and the fee policy consumed by read_retained_native_effect_debit_settlement_inner (program_settlement.rs:403)."
+assumption = "Every one of those facts has a committed source the daemon already reads with proof: the Committed rung of the receipt read (layerx-client sequencer.rs:160-171) for the block, read_committed_program_balances for amounts at a height, Client::module_state verified by EvidenceAuthority::verify_state (protocol_evidence.rs:1861-1899) for program records and VerifiedCaps::all_accounts for the account set; decision 2192 maps each field and do_4 carries the mapping."
+severity = "major"
+
+[finding.14.0.6.1]
+task = "14.0.6"
+file = "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs:255"
+symbol = "VerifiedNativeExecutionPrestate"
+observed = "Attempt 1 failed the build gate with the twelve layerx-agentd errors of finding 9.24.3.3 (the deleted prestate types and Client prestate methods); nothing in services/human caused it."
+assumption = "14.0.6 reruns unchanged once 9.24.5 publishes; a task may not require a higher-wave task, so the wait is recorded here."
+severity = "minor"
+
+[finding.5.98.7.3]
+task = "5.98.7"
+file = "node/sequencer/crash_replay_test.go:59"
+symbol = "AcceptedSend"
+observed = "Attempt 6 (7b81d2948) spent both build runs before its last edit: the second go vet still reported crash_replay_test.go:59 passing the Accept result to bytes.Clone, while the committed tree already passes receipt.Receipt at :56 and :59 and names no other Accept result as bytes."
+assumption = "The committed tree of attempt 6 passes go build and go vet unchanged; the next attempt continues from it and runs the gates."
+severity = "minor"
