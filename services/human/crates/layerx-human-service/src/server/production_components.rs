@@ -4642,15 +4642,13 @@ impl ProductionComponents {
                         let balances = gateway
                             .get_balances(layerx_network_gateway::AccountIdentifier::Evm(wallet))
                             .map_err(|_| ApiFailure::upstream_degraded())?;
-                        let denom = balances
-                            .balances
-                            .iter()
-                            .find(|row| row.asset_id == leg.asset().bytes())
-                            .and_then(|row| row.denom.as_deref())
-                            .ok_or_else(ApiFailure::forbidden)?;
+                        let assets = gateway
+                            .list_assets()
+                            .map_err(|_| ApiFailure::upstream_degraded())?;
+                        let denom = send_leg_denom(&assets, &balances, leg.asset())?;
                         (
                             precompile(0x1001),
-                            bank_send_calldata(wallet, recipient, denom, leg.amount().value()),
+                            bank_send_calldata(wallet, recipient, &denom, leg.amount().value()),
                         )
                     }
                     crate::journeys::LegMechanism::Protocol(
@@ -8647,6 +8645,22 @@ fn budget_defund_calldata(budget: [u8; 32], amount: u128) -> Vec<u8> {
     ]
     .concat()
 }
+fn send_leg_denom(
+    assets: &layerx_network_gateway::AssetTable,
+    balances: &layerx_network_gateway::AccountBalances,
+    asset: AssetId,
+) -> Result<String, ApiFailure> {
+    let asset_id = format!("0x{}", hex_bytes(&asset.bytes()));
+    let denom = assets
+        .assets
+        .iter()
+        .find(|entry| entry.asset_id == asset_id)
+        .and_then(|entry| entry.denom.as_ref())
+        .ok_or_else(ApiFailure::forbidden)?;
+    balances.asset(denom).ok_or_else(ApiFailure::forbidden)?;
+    Ok(denom.clone())
+}
+
 fn bank_send_calldata(from: [u8; 20], to: [u8; 20], denom: &str, amount: u128) -> Vec<u8> {
     let mut source = [0; 32];
     source[12..].copy_from_slice(&from);
@@ -8936,5 +8950,81 @@ impl ProductionComponents {
             )
             .map_err(|_| ApiFailure::unavailable())?;
         Ok(complete || refused)
+    }
+}
+
+#[cfg(test)]
+mod send_leg_denom_tests {
+    use super::{send_leg_denom, ApiFailure, AssetId};
+    use layerx_network_gateway::{
+        AccountBalances, AssetBalance, AssetEntry, AssetTable, Evidence, ResolvedIdentities,
+    };
+
+    fn asset_and_balances() -> (AssetTable, AccountBalances) {
+        (
+            AssetTable {
+                height: 16,
+                assets: vec![AssetEntry {
+                    asset_id: format!("0x{}", "ab".repeat(32)),
+                    denom: Some("ulxp".to_owned()),
+                    kind: "layerx".to_owned(),
+                    name: None,
+                    symbol: None,
+                    decimals: None,
+                    supply: None,
+                }],
+                joined_limit: 16,
+                evidence: Evidence::GatewayReported,
+            },
+            AccountBalances {
+                account: ResolvedIdentities {
+                    lookup_selector: None,
+                    evm_address: Some([0x11; 20]),
+                    pax_address: None,
+                    layerx_did: None,
+                    layerx_account: None,
+                    bound: false,
+                    evidence: Evidence::GatewayReported,
+                },
+                height: 16,
+                balances: vec![AssetBalance {
+                    denom: "ulxp".to_owned(),
+                    amount: 100,
+                }],
+                evidence: Evidence::GatewayReported,
+            },
+        )
+    }
+
+    #[test]
+    fn send_leg_denom_resolves_through_the_asset_table() {
+        let (assets, balances) = asset_and_balances();
+        assert_eq!(
+            send_leg_denom(&assets, &balances, AssetId::new([0xab; 32])),
+            Ok("ulxp".to_owned())
+        );
+    }
+
+    #[test]
+    fn send_leg_denom_refuses_an_asset_without_denom_or_balance() {
+        let (mut assets, mut balances) = asset_and_balances();
+        let asset = AssetId::new([0xab; 32]);
+        assert_eq!(
+            send_leg_denom(&assets, &balances, AssetId::new([0xcd; 32])),
+            Err(ApiFailure::forbidden())
+        );
+
+        assets.assets[0].denom = None;
+        assert_eq!(
+            send_leg_denom(&assets, &balances, asset),
+            Err(ApiFailure::forbidden())
+        );
+
+        assets.assets[0].denom = Some("ulxp".to_owned());
+        balances.balances[0].denom = "uother".to_owned();
+        assert_eq!(
+            send_leg_denom(&assets, &balances, asset),
+            Err(ApiFailure::forbidden())
+        );
     }
 }
