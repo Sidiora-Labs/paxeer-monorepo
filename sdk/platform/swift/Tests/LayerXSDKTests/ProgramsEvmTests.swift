@@ -264,6 +264,32 @@ final class ProgramsEvmTests: XCTestCase {
       .array([.string("0x" + lifecycle.activityID.map { String(format: "%02x", $0) }.joined())]))
   }
 
+  func testProgramReceiptCarriesIdempotencyResult() async throws {
+    let key = try IdempotencyKey(String(repeating: "77", count: 32))
+    let hash = Data(repeating: 0x88, count: 32)
+    let server = try RPCFixtureServer(results: ["eth_getTransactionByHash": .null])
+    defer { server.stop() }
+    let submission = try await client(server).receipt(
+      idempotencyKey: key, expectedActivityID: hash, verificationLevel: "pending")
+    XCTAssertEqual(submission.state, "unknown")
+    XCTAssertEqual(submission.idempotencyKey, key.rawValue)
+    XCTAssertEqual(submission.transactionHash, hash)
+    XCTAssertNil(submission.sequencerReceipt)
+    let requests = try server.requests()
+    XCTAssertEqual(requests.count, 1)
+    XCTAssertEqual(requests.first?["method"], .string("eth_getTransactionByHash"))
+    XCTAssertEqual(
+      requests.first?["params"],
+      .array([.string("0x" + hash.map { String(format: "%02x", $0) }.joined())]))
+    XCTAssertFalse(
+      requests.contains { request in
+        guard case .array(let params)? = request["params"] else { return false }
+        return params.contains {
+          $0.objectValue?["data"]?.stringValue?.hasPrefix("0x2eda9f2b") == true
+        }
+      })
+  }
+
   func testProgramActivityVerifiesSequencerReceipt() async throws {
     let root = URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent().deletingLastPathComponent()
