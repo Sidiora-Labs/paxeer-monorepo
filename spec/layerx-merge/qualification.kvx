@@ -15603,3 +15603,147 @@ symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload
 observed = "Attempt 13 (dcddfd4f1) got past the idle-chain wordings and transaction discovery and failed at :746 expecting data-truth 'pending': the heading rendered 'submitted' twice and then 'included', because the node commits blocks on its own and had included the transfer before the page first looked, so the pending state the anvil-driven test at :95 holds by withholding blocks never exists here."
 assumption = "The transient assertions before the receipt give way to a membership check; everything from the receipt poll onward stays."
 severity = "minor"
+
+[finding.10.6.5.1]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/spend.rs:280"
+symbol = "raw_receipt_evidence"
+observed = "Attempt 1 (c3e36d484) ported the six declared test files and enumerated the remaining broken targets of layerx-human-service with --keep-going: one remains, tests/spend.rs, whose call at :280 still passes an AuthorizedBatch as the second argument of support::raw_receipt_evidence, while 351e3da14 (task 10.25.2) changed that helper (layerx-human-test-support/src/lib.rs:374) to take the pinned receipt key and the previous and resulting state roots, as tests/move_money.rs:523, journey_faults.rs:921 and agent_controls_rungs.rs:1780 already pass them; spend.rs was outside the task's touches, so the attempt left it and the build gate stopped there with verification never run."
+assumption = "spend.rs joins the touches and its call takes the three values the other callers pass; no src file changes."
+severity = "major"
+
+[finding.10.6.5.2]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:629"
+symbol = "load_access"
+observed = "Attempt 2 (base 0b189cb1e) ported the seven declared test files and the build gate then stopped at tests/native_journey_approval.rs:629 and :776, where load_access is still called with three arguments while task 10.13.8 made it take (scope, &mut AgentRuntime, capability_id, now) (src/native_send.rs:481), the same producer change do_4 ported in tests/native_send_producer.rs; the file was outside the touches so the attempt left it and verification never ran."
+assumption = "native_journey_approval.rs joins the touches and its two calls pass the runtime the way do_4 did; no src file changes."
+severity = "major"
+
+[finding.12.35.2.12]
+task = "12.35.2"
+file = "apps/wallet/e2e/send.spec.ts:777"
+symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+observed = "Attempt 14 (base 0b189cb1e) failed both verify runs on the five-second default expect.poll timeout: the first at the eth_gasPrice poll (:714), which tolerates both idle-chain wordings but carries no timeout of its own, the second at :777, where the receipt rung poll read undefined for five seconds and the assertions at :779-780 then require the literal rung 'receipted' together with a blockHash; the node commits blocks on its own and answers px_getSequencerReceipt with the rung 'committed' once the block is in (rpc/sequencer_receipt.go:34-38), and only committed answers carry blockNumber and blockHash (:305), so 'receipted' is a rung the node may already have passed and a receipt at that rung never has the hash the test demands."
+assumption = "Every poll of the test takes a 60 second timeout, the receipt poll waits for an answer carrying blockHash with its rung receipted or committed, and the saved step stays receipted:<blockHash> because the page records the sequencer receipt under the receipted rung (StatusLadder.tsx:85 filters committed receipt steps)."
+severity = "minor"
+
+[finding.2.90.1.1]
+task = "2.90.1"
+file = "modules/layerxledger/keeper/execute_test.go:268"
+symbol = "TestExecuteIdempotentReplay"
+observed = "Attempt 3 (base d4f0a794f) wrote the five tests and the first failed at execute_test.go:268: the second openAccount by the same actor with key K returned LXP_CONTEXT_MISMATCH, not ErrIdempotentReplay, because Keeper.execute (execute.go:33-62) reads the actor's next identity sequence for every call and the kernel admits on the sequence (src/sequencer/lxp_admission.c:33-37) with no idempotency lookup since task 1.2.1 (decision.101), and the host's 0x04 receipt rows and ReadIdempotentReceipt went with task 1.25.2 (decision.1718); acceptances 2.20.2 and 2.35.1 and req.2020 ac_2 and req.2035 ac_1 still describe that table."
+assumption = "The two acceptances are restated on the actor-sequence replay guard, as decisions 1795 and 1810 restated 2.14.5 and 13.34.4; the test names and the verify command stay."
+severity = "major"
+
+[finding.9.25.4.1]
+task = "9.25.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs:238"
+symbol = "simulation_tls_checks_the_actual_server_identity"
+observed = "Attempts 1 and 2 (bases 7438bbd0a and ffa589f28) built, passed the dependent-crate check and then failed the verify in simulation_tls_checks_the_actual_server_identity at services/platform/tests/support/tls_boundary.rs:187 ('build the real Paxeer TLS boundary first'): the test needs the layerx-paxeer-boundary binary of services/platform/hosted/paxeer at LAYERX_PAXEER_BOUNDARY_BIN, which task 9.25.3 (do_8) builds in its build command and names in its verify command, while this task's commands inherited neither."
+assumption = "9.25.4 takes 9.25.3's gate form; the implementation is unchanged."
+severity = "minor"
+
+[finding.10.6.5.3]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/custody.rs:600"
+symbol = "EmergencyExit"
+observed = "Attempt 4 (6d056d649) ported the seven declared test files and the build gate stopped at a ninth target: tests/custody.rs:600, :610 and :620 still name custody::Operation::EmergencyExit, the variant a39f1dd90 (task 10.17.1) deleted from src/custody/signer.rs after 10.8.3 deleted the exit journey; cargo build --tests stops at the first broken target, so the file stayed hidden behind the eight that attempts 2 to 4 surfaced one at a time."
+assumption = "custody.rs joins the touches; the fresh and replayed step-up segment signs under Operation::WalletRebinding, the variant the expired segment at :591 already uses, so the test keeps proving StepUpExpired, an accepted fresh step-up and StepUpReplayed; no src file changes."
+severity = "major"
+
+[finding.9.25.2.2]
+task = "9.25.2"
+file = "services/agent/crates/layerx-client/src/read.rs:349"
+symbol = "*_with_history"
+observed = "Attempt 4 (base ffa589f28) deleted the seven modules do_1 to do_5 name and added src/fee.rs, and the build then failed with unresolved imports of the deleted modules in src/batch.rs:199, src/evidence/module_state.rs:74 and :92, src/read.rs:349, :386, :406, :460, :662 and :730, src/read/module.rs:2 and :25, src/receipt.rs:12, src/rpc/account.rs:5 and src/rpc/module_state.rs:9, the files do_7 names but the touches do not, so the attempt could not edit them; tests/receipt_rpc.rs:8 imports ReconnectPolicy from the deleted client module and layerx-agentd/tests/fee_projection_program_state.rs:17 imports MAX_FEE_METER_CANONICAL_BYTES from it; and outside the task the SDK (src/lib.rs:38 and :286, src/rpc_verification.rs:137 to :387, tests/sdk.rs:12 to :40), nine daemon test and example files and the authority's src/trust.rs:2 and :77 still name Client, ClientConfig or handover::SequencerHistory, against do_7's premise that no other crate names them."
+assumption = "The seven source files and the two test files join the touches; the consumer ports are tasks 9.25.9 (agent) and 8.98.17 (authority), which this task now requires (decisions 2200 and 2201)."
+severity = "major"
+
+[finding.2.90.1.2]
+task = "2.90.1"
+file = "node/abci.go:334"
+symbol = "commitListener"
+observed = "Attempt 5 (a772c6010, base 21c2ab6ee) passed the build gate and the two restated replay tests, and verification stopped at TestCommitSurvivesPanickingListener (node/commit_listener_test.go:122): Commit returned 'commit listener at height 1 panicked: commit listener failed', because commitListener (node/abci.go:331-340) recovers a listener panic and returns it as an error, while req 5045 ac_2 and acceptance 5.45.2 require that a panicking listener does not fail Commit; node/abci.go was outside the touches."
+assumption = "node/abci.go joins the touches: a recovered panic is logged at error level with the height and the panic value and Commit returns no error, since the store commit and the height advance precede the listener call; a listener returning an error keeps failing Commit as TestCommitReturnsListenerFailure proves."
+severity = "major"
+
+[finding.12.35.2.13]
+task = "12.35.2"
+file = "node/sequencer/receipt_source.go:98"
+symbol = "Committed"
+observed = "Attempt 15 (93abe9eb4, base 21c2ab6ee) implemented do_16, built, and the receipt poll at send.spec.ts:788 read null from pax_sequencerReceipt for the full sixty seconds after the transfer was included: ReceiptSource.Committed deletes every send at or below the committed height in the commit listener (node/sequencer/node_start.go:138), and the node commits the block within seconds, so the record the poll waits for is gone before the first read and the committed rung of rpc/sequencer_receipt.go:293-306 is never answered; the test file is correct against the receipt contract and no file of this task can change that."
+assumption = "Task 5.5.22 (decision 2202) retains committed sends; the test then reads rung committed with a block hash, which do_16 already accepts, and the page keeps Receipted because the committed rung needs an explorer answer (req.12295)."
+severity = "major"
+
+[finding.17.5.5.3]
+task = "17.5.5"
+file = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:1"
+symbol = "generate_jvm"
+observed = "Attempt 10 (d82dce494, base 21c2ab6ee) built, and the wave 4 aggregate failed in platform-sdk-check at services/platform/Makefile.inc:233: generate_jvm.py --check reports 'generated JVM schema is stale'. The generator reads services/agent/schema/agent-api and precompiles/layerxprograms/abi.json, neither changed since b574c9f9f, and splices the human sections from the committed file, so the committed GeneratedSchema.java differs from the generator's own output: b574c9f9f (task 8.46.9) edited GeneratedSchema.java and GeneratedContract.java by hand under a gate of mvn tests only, never the --check; the test of this task is unchanged and correct."
+assumption = "Task 8.46.10 (req.8548) regenerates both files from the generator and carries the required shape into it; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.9.25.8.1]
+task = "9.25.8"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs:873"
+symbol = "BudgetProofTrust"
+observed = "Attempt 2 (97a7384c6, base ffa589f28) implemented ServedCheckpoint acquisition in read/checkpoint.rs (acquire_at_committed_block, from_comet_json, the comet header decoders and their tests) and the committed-time path of protocol_evidence.rs, and the build failed with E0308 at human_runtime.rs:873 and :9541: both budget proof sites now construct a BudgetProofTrust whose checkpoint field is the LNI VerifiedCheckpoint of layerx_client::evidence (budget_proof.rs:20-31), and a ServedCheckpoint cannot be passed there; the checkpoint material itself is still posted as raw px_getCommit JSON although the node answers no px_ method (decision %d)."
+assumption = "The budget proof verifier is rewritten by task 9.25.10 (decision 2205); this task keeps both sites at their Unavailable returns and acquires its header, commit and validators through new layerx-client accessors."
+severity = "major"
+
+[finding.9.25.7.1]
+task = "9.25.7"
+file = "services/agent/crates/layerx-agentd/src/budget/fee_policy.rs:216"
+symbol = "native_fee_policy"
+observed = "Attempt 3 (7765f48f5, base ffa589f28) implemented budget/fee_policy.rs with its four tests and the program_sources.rs port, and the build failed with E0609 at fee_policy.rs:132 and :216: SequencerBlock (layerx-client sequencer.rs:190) has no app_hash field, since decode_block reads only hash, number, parentHash, receiptsRoot, timestamp, transactions and transactionsRoot, while the committed block's stateRoot (rpc/block.go:713) is the app hash the fee policy must bind to."
+assumption = "The state root comes from the client's state_root(height) accessor of task 9.25.8 (decision 2203) and the daemon preview test against anvil, which 9.25.9 cannot pass while the fee policy is unavailable, becomes this task's consumer gate."
+severity = "major"
+
+[finding.9.25.9.1]
+task = "9.25.9"
+file = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:1"
+symbol = "native_send_preview_is_an_unsigned_ledger_transfer_call"
+observed = "Attempt 1 (717e1bb48, base 5b446cd27) passed the build, the dependent-crate check and the SDK shape test, and native_send_preview_is_an_unsigned_ledger_transfer_call failed because the daemon's fee policy still returns Unavailable: the placeholder of 9.25.3 that task 9.25.7 replaces, so the second verify segment of this task could only pass once another pending task is on main."
+assumption = "The preview test is the consumer gate of 9.25.7 (finding 9.25.7.1); this task keeps its port of the test file and verifies the SDK shape test alone."
+severity = "minor"
+
+[finding.9.25.6.1]
+task = "9.25.6"
+file = "services/agent/crates/layerx-agentd/src/read/committed.rs:1"
+symbol = "CommittedReads"
+observed = "Attempt 1 (base ffa589f28) designed CommittedReads over the client's AccountProof and the LNI proof bundle: the node answers eth_getProof as an ICS23 witness (decision 2204) and no px_getProofBundle exists, and the precompile module records the committed capabilities and budget state come from are not EVM storage, so no account proof can carry them."
+assumption = "Committed reads are eth_call at the committed height, bound to the ServedCheckpoint of decision 2203; EVM storage slots are read through the storage witness of task 9.25.11."
+severity = "major"
+
+[finding.9.25.5.1]
+task = "9.25.5"
+file = "services/agent/crates/layerx-agentd/src/read/history.rs:100"
+symbol = "HistoryItem"
+observed = "Attempt 1 (base ffa589f28) designed the policy usage window over px_getHistory items carrying a proof and a px_getProofBundle call: the router answers px_getHistory from the indexer's read API with items {canonical, cursor, height, kind, logIndex, txIndex} oldest first and no per-item proof, and px_getProofBundle is not among the router's seventeen methods (gateway rpc.rs:284)."
+assumption = "Each history item is proven through its transaction: eth_getTransactionReceipt at its hash, pax_sequencerReceipt at the committed rung (task 5.5.22, decision 2202), the block hash of eth_getBlockByNumber at its height and the ServedCheckpoint of the window's head height (decision 2203)."
+severity = "major"
+
+[finding.5.5.22.1]
+task = "5.5.22"
+file = "node/sequencer/receipt_source_test.go:82"
+symbol = "TestReceiptSourceRecordsAcceptedSend"
+observed = "Attempt 1 (91c7466a1, base ca708dbd0) implemented retention and ordered eviction, built, and the two new tests and TestReceiptSourceUnknownHashNil passed while TestReceiptSourceRecordsAcceptedSend failed at receipt_source_test.go:82: after Committed(vectorHeight) the unchanged test requires SequencerSend(hash) to be nil, and at :92 requires that a late Record of a committed hash stays nil, both assertions of the deletion rule decision 2202 retired; do_2 of this task wrongly said the test keeps passing unchanged."
+assumption = "The two assertions follow the retention rule and nothing else in the test changes."
+severity = "minor"
+
+[finding.2.90.1.3]
+task = "2.90.1"
+file = "modules/layerxanchor/keeper/keeper_test.go:348"
+symbol = "TestResubmittedCheckpointKeepsChallengeWindow"
+observed = "Attempt 6 (c182f35a2, base 5b446cd27) passed the four other tests and TestResubmittedCheckpointKeepsChallengeWindow failed at keeper_test.go:358: SubmitCheckpoint returns ErrModuleRetired (LXP_MODULE_DISABLED: layerxanchor retired, keeper/checkpoints.go:58) since afcc3485c (task 6.96.1) and the anchor store was deleted, so no checkpoint can be submitted, resubmitted or finalized and acceptance 18.814.1 describes a behaviour the chain no longer has."
+assumption = "The acceptance and the test prove the retirement instead: SubmitCheckpoint answers ErrModuleRetired and writes no record."
+severity = "major"
+
+[finding.10.6.5.4]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:1088"
+symbol = "start_kernel_journey"
+observed = "Attempt 5 (068452fa2, base 5b446cd27) ported the nine declared files and the build stopped on two further targets: tests/retired_crypto_codec_w3.rs includes tests/binding.rs by path and include_str, a file 2772a218f (task 10.9.1) deleted, so the test has no input left; and the wallet identity end-to-end test calls the custody method authorize_kernel_send (:264) and the five-argument KernelStart form of start_kernel_journey (:1088) that 63aee3813 (task 10.0.3) replaced with start_kernel_journey(scope, plan, request, expectation, journey_id, &[EvmAction]) returning an IntentSubmission, and drives the returned value as a JourneyEngine (:1103, :1131, :1173); tests/intent_submit.rs:918 calls the same retired form and was not reached by the build. 10.0.3 was gated without --tests, so the crate's test targets broke unnoticed."
+assumption = "The codec test is deleted with its input, and both kernel tests are ported to the EIP-1559 path 63aee3813 established; no src file changes."
+severity = "major"

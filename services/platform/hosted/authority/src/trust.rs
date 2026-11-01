@@ -1,15 +1,7 @@
-use super::{protected, Config, PROTOCOL_VERSION};
-use layerx_client::handover::SequencerHistory;
+use super::Config;
 use layerx_platform_authority::{parse_replica_evidence, BatchEvidence, EvidenceRefusal};
 use layerx_proof::inclusion::SequencerAuthorization;
-use std::env;
-use std::path::Path;
-use std::sync::Mutex;
 use std::time::Duration;
-
-pub(super) struct Trust {
-    history: Mutex<SequencerHistory>,
-}
 
 pub(crate) struct CommittedCheckpoint {
     pub batch_number: u64,
@@ -36,68 +28,10 @@ impl CommittedCheckpoint {
     }
 }
 
-impl Trust {
-    pub(super) fn load(
-        network: u32,
-        sequencer_id: [u8; 32],
-        initial_key: [u8; 32],
-    ) -> Result<Option<Self>, String> {
-        let genesis = env::var_os("LAYERX_AUTHORITY_GENESIS_TRUST");
-        let finality = env::var_os("LAYERX_AUTHORITY_HANDOVER_FINALITY");
-        match (genesis, finality) {
-            (None, None) => Ok(None),
-            (Some(genesis), Some(finality)) => Self::from_paths(
-                Path::new(&genesis),
-                Path::new(&finality),
-                network,
-                sequencer_id,
-                initial_key,
-            )
-            .map(Some)
-            .map_err(|()| "invalid protected Authority genesis or finality policy".to_owned()),
-            _ => Err(
-                "Authority genesis trust and handover finality must both be configured".to_owned(),
-            ),
-        }
-    }
-
-    fn from_paths(
-        genesis: &Path,
-        finality: &Path,
-        network: u32,
-        sequencer_id: [u8; 32],
-        initial_key: [u8; 32],
-    ) -> Result<Self, ()> {
-        let artifact = protected::read(
-            genesis,
-            u64::try_from(layerx_wire::handover::GENESIS_TRUST_MAX_BYTES).map_err(|_| ())?,
-        )?;
-        let policy_bytes = protected::read(finality, 1_048_576)?;
-        let policy =
-            layerx_client::handover::decode_finality_policy(&policy_bytes).map_err(|_| ())?;
-        if policy.protocol_version != PROTOCOL_VERSION
-            || policy.network_id != network
-            || layerx_wire::handover::sequencer_id(&initial_key).map_err(|_| ())? != sequencer_id
-        {
-            return Err(());
-        }
-        let history = SequencerHistory::from_genesis_artifact(
-            &artifact,
-            network,
-            policy.canonical_genesis_root,
-            initial_key,
-        )
-        .map_err(|_| ())?;
-        Ok(Self {
-            history: Mutex::new(history),
-        })
-    }
-}
-
 pub(super) fn snapshot(
     config: &Config,
     claimed_key: [u8; 32],
-) -> Result<Option<SequencerHistory>, ()> {
+) -> Result<Vec<SequencerAuthorization>, ()> {
     if !config
         .chain_receipts
         .pinned_keys()
@@ -109,13 +43,24 @@ pub(super) fn snapshot(
     current(config)
 }
 
-pub(super) fn current(config: &Config) -> Result<Option<SequencerHistory>, ()> {
-    SequencerHistory::from_pinned_keys(
-        config.protocol_network_id,
-        config.chain_receipts.pinned_keys(),
-    )
-    .map(Some)
-    .map_err(|_| ())
+pub(super) fn current(config: &Config) -> Result<Vec<SequencerAuthorization>, ()> {
+    let keys = config.chain_receipts.pinned_keys();
+    if config.protocol_network_id == 0 || keys.is_empty() {
+        return Err(());
+    }
+    for (index, key) in keys.iter().enumerate() {
+        if key.sequencer_id() == [0; 32]
+            || key.sequencer_id()
+                != layerx_wire::handover::sequencer_id(&key.public_key()).map_err(|_| ())?
+            || key.first_batch_number() > key.last_batch_number()
+            || keys[..index]
+                .iter()
+                .any(|prior| prior.sequencer_id() == key.sequencer_id())
+        {
+            return Err(());
+        }
+    }
+    Ok(keys.to_vec())
 }
 
 pub(super) fn replica(
@@ -123,23 +68,27 @@ pub(super) fn replica(
     receipt: &[u8],
     document: &[u8],
 ) -> Result<(BatchEvidence, SequencerAuthorization), EvidenceRefusal> {
-    let history = current(config).map_err(|()| EvidenceRefusal::SequencerKey)?;
+    let keys = current(config).map_err(|()| EvidenceRefusal::SequencerKey)?;
     let decoded =
         layerx_wire::receipt::decode(receipt).map_err(|_| EvidenceRefusal::ReceiptDecode)?;
     let receipt = decoded.protocol().ok_or(EvidenceRefusal::ReceiptShape)?;
-    let authorization = config
-        .chain_receipts
-        .pinned_keys()
+    let authorization = keys
         .iter()
         .find(|key| key.sequencer_id() == receipt.context_hash())
         .copied()
         .ok_or(EvidenceRefusal::SequencerKey)?;
     let evidence = parse_replica_evidence(document, config.replica_id, authorization.public_key())?;
-    if let Some(history) = &history {
-        history
-            .verify_header(&evidence.header, &evidence.header_signature)
-            .map_err(|_| EvidenceRefusal::SequencerKey)?;
+    let header = layerx_wire::receipt::decode_batch_header(&evidence.header)
+        .map_err(|_| EvidenceRefusal::SequencerKey)?;
+    if header.network_id() != config.protocol_network_id {
+        return Err(EvidenceRefusal::SequencerKey);
     }
+    layerx_proof::inclusion::verify_header(
+        &evidence.header,
+        &evidence.header_signature,
+        &authorization,
+    )
+    .map_err(|_| EvidenceRefusal::SequencerKey)?;
     Ok((evidence, authorization))
 }
 
@@ -148,24 +97,23 @@ pub(super) fn authorization(
     canonical: &[u8],
     signature: &[u8; 64],
 ) -> Result<SequencerAuthorization, ()> {
-    let Some(history) = current(config)? else {
-        return Ok(config.authorization);
-    };
-    let header = history
-        .verify_header(canonical, signature)
-        .map_err(|_| ())?;
-    config
-        .chain_receipts
-        .pinned_keys()
+    let keys = current(config)?;
+    let header = layerx_wire::receipt::decode_batch_header(canonical).map_err(|_| ())?;
+    if header.network_id() != config.protocol_network_id {
+        return Err(());
+    }
+    let key = keys
         .iter()
-        .find(|key| key.sequencer_id() == header.header().sequencer_id())
+        .find(|key| {
+            key.sequencer_id() == header.sequencer_id()
+                && (key.first_batch_number()..=key.last_batch_number())
+                    .contains(&header.batch_number())
+        })
         .copied()
-        .ok_or(())
+        .ok_or(())?;
+    layerx_proof::inclusion::verify_header(canonical, signature, &key).map_err(|_| ())?;
+    Ok(key)
 }
-
-#[cfg(test)]
-#[path = "../tests/support/handover_trust.rs"]
-mod tests;
 
 pub(super) fn chain_endpoint(
     url: &str,

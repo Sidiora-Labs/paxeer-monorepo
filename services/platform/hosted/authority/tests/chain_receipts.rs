@@ -275,7 +275,6 @@ impl ReceiptHarness {
                 pin["lastHeight"].as_u64().unwrap(),
             ),
             sequencer_public_key: public_key,
-            trust: None,
         };
         Self {
             directory,
@@ -567,7 +566,6 @@ fn receipt_signed_by_an_unpinned_key_is_refused() {
 
 #[test]
 fn trust_snapshot_is_the_pinned_key_list() {
-    use layerx_client::handover::SequencerHistory;
     use std::os::unix::net::UnixListener;
 
     let document = receipt_vectors();
@@ -585,7 +583,7 @@ fn trust_snapshot_is_the_pinned_key_list() {
     for (index, seed) in [0x51, 0x52, 0x53].into_iter().enumerate() {
         let signer = ed25519_dalek::SigningKey::from_bytes(&[seed; 32]);
         let public_key = signer.verifying_key().to_bytes();
-        let key_id = [seed + 0x30; 32];
+        let key_id = must(layerx_wire::handover::sequencer_id(&public_key));
         let pin = serde_json::json!({"pinnedKey": {
             "keyId": format!("0x{}", hex::encode(&key_id)),
             "publicKey": format!("0x{}", hex::encode(&public_key)),
@@ -649,26 +647,24 @@ fn trust_snapshot_is_the_pinned_key_list() {
         .iter()
         .any(|key| key.public_key() == harness.config.sequencer_public_key));
     assert_eq!(harness.config.chain_receipts.pinned_keys(), expected_keys);
-    let expected = must(SequencerHistory::from_pinned_keys(125, &expected_keys));
+    let expected = expected_keys.clone();
     for (index, (header, signature)) in headers.iter().enumerate() {
         if index < 8 {
-            assert!(expected.verify_header(header, signature).is_ok());
-            assert!(trust::authorization(&harness.config, header, signature).is_ok());
-            assert!(expected.verify_header(header, &[0; 64]).is_err());
+            assert_eq!(
+                must(trust::authorization(&harness.config, header, signature)),
+                expected[index / 4]
+            );
+            assert!(trust::authorization(&harness.config, header, &[0; 64]).is_err());
         } else {
-            assert!(expected.verify_header(header, signature).is_err());
             assert!(trust::authorization(&harness.config, header, signature).is_err());
         }
     }
     let unpinned = cases.split_off(8);
-    assert_eq!(
-        must(trust::current(&harness.config)),
-        Some(expected.clone())
-    );
+    assert_eq!(must(trust::current(&harness.config)), expected.clone());
     for key in &expected_keys {
         assert_eq!(
             must(trust::snapshot(&harness.config, key.public_key())),
-            Some(expected.clone())
+            expected.clone()
         );
     }
     for claimed in [[0; 32], harness.config.sequencer_public_key] {
@@ -733,85 +729,136 @@ fn trust_snapshot_is_the_pinned_key_list() {
             29,
         ),
     ];
-    let ranged = must(SequencerHistory::from_pinned_keys(125, &ranged_keys));
-    for (number, key) in [
-        (10, ranged_keys[0]),
-        (19, ranged_keys[0]),
-        (20, ranged_keys[1]),
-        (29, ranged_keys[1]),
-    ] {
-        assert_eq!(must(ranged.authorization_for_batch(number)), key);
-        assert_eq!(must(ranged.authorization_for_sequence(number)), key);
+    let keys_file = harness.directory.join("receipt-keys.json");
+    let chain_url = format!("http://{}/evm", harness.config.replica_address);
+    let load_keys = |keys: &[SequencerAuthorization]| {
+        let entries: Vec<_> = keys
+            .iter()
+            .map(|key| {
+                serde_json::json!({
+                    "keyId": base64(&key.sequencer_id()),
+                    "publicKey": base64(&key.public_key()),
+                    "firstHeight": key.first_batch_number(),
+                    "lastHeight": key.last_batch_number(),
+                })
+            })
+            .collect();
+        must(fs::write(&keys_file, serde_json::to_vec(&entries).unwrap()));
+        ChainReceipts::load(&chain_url, &keys_file)
+    };
+    harness.config.chain_receipts = must(load_keys(&ranged_keys));
+    let ranged = ranged_keys.to_vec();
+    assert_eq!(must(trust::current(&harness.config)), ranged);
+    for key in &ranged {
         assert_eq!(
-            must(ranged.sequence_interval_end(number)),
-            key.last_batch_number()
+            must(trust::snapshot(&harness.config, key.public_key())),
+            ranged
         );
     }
-    for number in [0, 9, 30, u64::MAX] {
-        assert!(ranged.authorization_for_batch(number).is_err());
-        assert!(ranged.authorization_for_sequence(number).is_err());
-        assert!(ranged.sequence_interval_end(number).is_err());
+    for (index, seed) in [0x51, 0x52, 0x53].into_iter().enumerate() {
+        let signer = ed25519_dalek::SigningKey::from_bytes(&[seed; 32]);
+        for number in [0, 9, 10, 19, 20, 29, 30, u64::MAX] {
+            for network in [125_u32, 126] {
+                let mut header = headers[index * 4].0.clone();
+                header[9..13].copy_from_slice(&network.to_be_bytes());
+                header[23..31].copy_from_slice(&number.to_be_bytes());
+                let signature = signer
+                    .sign(&must(layerx_wire::hash::batch_header_digest(&header)))
+                    .to_bytes();
+                let result = trust::authorization(&harness.config, &header, &signature);
+                if index < 2
+                    && network == 125
+                    && (ranged[index].first_batch_number()..=ranged[index].last_batch_number())
+                        .contains(&number)
+                {
+                    assert_eq!(must(result), ranged[index]);
+                    assert!(trust::authorization(&harness.config, &header, &[0; 64]).is_err());
+                    assert!(trust::authorization(
+                        &harness.config,
+                        &header[..header.len() - 1],
+                        &signature
+                    )
+                    .is_err());
+                } else {
+                    assert!(
+                        result.is_err(),
+                        "key {index}, batch {number}, network {network}"
+                    );
+                }
+            }
+        }
     }
-    assert!(expected.authorization_for_batch(1).is_err());
-    assert!(expected.authorization_for_sequence(1).is_err());
+    harness.config.chain_receipts = must(load_keys(&expected));
 
-    let keys_file = harness.directory.join("receipt-keys.json");
     let rotated = serde_json::json!([{
-        "keyId": base64(&[0x77; 32]), "publicKey": base64(&initial_key),
+        "keyId": base64(&expected_keys[0].sequencer_id()), "publicKey": base64(&initial_key),
         "firstHeight": 0, "lastHeight": u64::MAX,
     }]);
     must(fs::write(&keys_file, rotated.to_string()));
     assert_eq!(
         must(trust::current(&harness.config)),
-        Some(expected.clone()),
+        expected.clone(),
         "editing the file must not rotate the running authority"
     );
     harness.config.chain_receipts = must(ChainReceipts::load(
         &format!("http://{}/evm", harness.config.replica_address),
         &keys_file,
     ));
-    assert_ne!(must(trust::current(&harness.config)), Some(expected));
+    assert_ne!(must(trust::current(&harness.config)), expected);
     assert!(trust::snapshot(&harness.config, expected_keys[1].public_key()).is_err());
 
-    assert!(SequencerHistory::from_pinned_keys(0, &expected_keys).is_err());
-    assert!(SequencerHistory::from_pinned_keys(125, &[]).is_err());
-    assert!(
-        SequencerHistory::from_pinned_keys(125, &[expected_keys[0], expected_keys[0]]).is_err()
-    );
+    harness.config.protocol_network_id = 0;
+    assert!(trust::current(&harness.config).is_err());
+    assert!(trust::snapshot(&harness.config, initial_key).is_err());
+    assert!(trust::authorization(&harness.config, &headers[0].0, &headers[0].1).is_err());
+    harness.config.protocol_network_id = 125;
+    let mut invalid_lists = vec![
+        Vec::new(),
+        vec![expected_keys[0], expected_keys[0]],
+        vec![SequencerAuthorization::new(
+            [0; 32],
+            initial_key,
+            0,
+            u64::MAX,
+        )],
+        vec![SequencerAuthorization::new(
+            expected_keys[0].sequencer_id(),
+            initial_key,
+            2,
+            1,
+        )],
+        vec![SequencerAuthorization::new(
+            [1; 32],
+            initial_key,
+            0,
+            u64::MAX,
+        )],
+    ];
     for public_key in [[0; 32], [0xff; 32], {
         let mut identity = [0; 32];
         identity[0] = 1;
         identity
     }] {
-        assert!(SequencerHistory::from_pinned_keys(
-            125,
-            &[SequencerAuthorization::new(
-                [1; 32],
-                public_key,
-                0,
-                u64::MAX
-            ),]
-        )
-        .is_err());
+        invalid_lists.push(vec![SequencerAuthorization::new(
+            [1; 32],
+            public_key,
+            0,
+            u64::MAX,
+        )]);
     }
-    for key in [
-        SequencerAuthorization::new([0; 32], initial_key, 0, u64::MAX),
-        SequencerAuthorization::new([1; 32], initial_key, 2, 1),
-    ] {
-        assert!(SequencerHistory::from_pinned_keys(125, &[key]).is_err());
+    for keys in invalid_lists {
+        let result = match load_keys(&keys) {
+            Ok(chain_receipts) => {
+                harness.config.chain_receipts = chain_receipts;
+                trust::current(&harness.config)
+            }
+            Err(_) => Err(()),
+        };
+        assert!(
+            result.is_err(),
+            "invalid pinned key list was admitted: {keys:?}"
+        );
     }
-    let artifact = include_bytes!("fixtures/real-handover-genesis.lxt");
-    let genesis = must(layerx_wire::handover::decode_genesis_trust(artifact));
-    let native = must(SequencerHistory::from_genesis_artifact(
-        artifact,
-        genesis.network_id,
-        genesis.canonical_state_root,
-        genesis.initial_sequencer_key,
-    ));
-    assert!(native.verified_head().is_none());
-    assert!(native.authorization_for_batch(1).is_err());
-    assert!(native.authorization_for_sequence(1).is_err());
-    assert!(native.signed_authority().intervals().is_empty());
     let error = kernel.accept().unwrap_err();
     assert_eq!(
         error.kind(),

@@ -27,7 +27,7 @@ use sha2::{Digest, Sha256};
 
 use crate::config::{read_protected_source, ProtectedSourceError, ReceiptKeySource, StartupConfig};
 use crate::human::HumanOperationError;
-use layerx_client::Client;
+use layerx_client::sequencer::SequencerEndpoint;
 mod native_owner;
 
 const MAX_AUTHORITY_SOURCE_BYTES: usize = 65_536;
@@ -1858,11 +1858,12 @@ pub(crate) fn decode_program_owner(value: &[u8]) -> Result<[u8; 32], HumanOperat
 }
 
 pub(crate) fn verified_program_owner(
-    node: &mut Client,
+    node: &mut SequencerEndpoint,
     verifier: &EvidenceAuthority,
     sequencer_key: [u8; 32],
     correlation_id: u64,
     authorization: SequencerAuthorization,
+    signed_header: &layerx_client::evidence::SignedHeader,
     program_id: &[u8; 32],
 ) -> Result<[u8; 32], HumanOperationError> {
     let verified = verified_program_record(
@@ -1871,40 +1872,87 @@ pub(crate) fn verified_program_owner(
         sequencer_key,
         correlation_id,
         authorization,
+        signed_header,
         &program_owner_key(program_id),
     )?;
     decode_program_owner(verified.canonical_state())
 }
 
 pub(crate) fn verified_program_record(
-    node: &mut Client,
+    node: &mut SequencerEndpoint,
     verifier: &EvidenceAuthority,
     sequencer_key: [u8; 32],
-    correlation_id: u64,
+    _correlation_id: u64,
     authorization: SequencerAuthorization,
+    signed_header: &layerx_client::evidence::SignedHeader,
     key: &[u8],
 ) -> Result<VerifiedStateEvidence, HumanOperationError> {
     let module_id = ModuleId::Programs as u16;
-    let value = node
-        .module_state(
-            module_id,
-            key,
-            VerificationLevel::STATE_PROVEN,
-            correlation_id,
-            authorization,
-        )
+    let (header, trusted_authorization) = verifier
+        .verifier
+        .authorization_for(&signed_header.canonical_bytes)
         .map_err(|_| HumanOperationError::Refused)?;
-    let evidence = RawStateEvidence::module_witness(
-        value.canonical_bytes().to_vec(),
+    let height = node
+        .block_number()
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    if header.batch_number() != height
+        || header.last_sequence() != height
+        || trusted_authorization.public_key() != sequencer_key
+        || authorization.public_key() != sequencer_key
+        || authorization.sequencer_id() != header.sequencer_id()
+        || !(authorization.first_batch_number()..=authorization.last_batch_number())
+            .contains(&height)
+        || !verifier
+            .verifier
+            .accepts_handshake_key(height, sequencer_key)
+        || node
+            .chain_id()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            != u64::from(header.network_id())
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    let block = layerx_client::rpc::evidence::checkpoint(node, height)
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    if block.number != height || block.hash == [0; 32] {
+        return Err(HumanOperationError::Refused);
+    }
+    let mut precompile = [0; 20];
+    precompile[18..].copy_from_slice(&[0x10, 0x1d]);
+    let value = layerx_client::rpc::module_state::module_state(
+        node,
         module_id,
-        key.to_vec(),
-        value.proof_material().to_vec(),
-        RootSelector::Latest,
-        sequencer_key,
-    );
-    verifier
-        .verify_state(&evidence)
-        .map_err(|_| HumanOperationError::Refused)
+        key,
+        layerx_client::rpc::module_state::ModuleReadContext {
+            precompile,
+            committed_height: height,
+            signed_header,
+            policy: AccountEvidencePolicy {
+                expected_protocol_version: verifier.verifier.expected_protocol_version,
+                expected_network_id: verifier.verifier.expected_network_id,
+                handshake_sequencer_key: sequencer_key,
+                root_selector: RootSelector::Batch(height),
+            },
+        },
+    )
+    .map_err(|_| HumanOperationError::Refused)?;
+    if value.evidence().level() < VerificationLevel::STATE_PROVEN
+        || value.evidence().state_root() != header.resulting_state_root()
+        || node
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            != height
+        || layerx_client::rpc::evidence::checkpoint(node, height)
+            .map_err(|_| HumanOperationError::Unavailable)?
+            != block
+    {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(VerifiedStateEvidence {
+        canonical_state: value.canonical_bytes().to_vec(),
+        level: value.evidence().level(),
+        observed_head_sequence: height,
+    })
 }
 
 #[cfg(test)]
