@@ -121,7 +121,6 @@ See `docs/MONOREPO.md` for build boundaries, workflow naming, and tag convention
 - [Hosted gateway](HostedGateway.md)
 - [Hosted webhooks](HostedWebhooks.md)
 - [Hosted dashboard](HostedDashboard.md)
-- [Relay and archive node](RelayArchive.md)
 - [Hosted registry](HostedRegistry.md)
 - [Registry deployment journal](RegistryDeploymentJournal.md)
 - [Hosted Human](HostedHuman.md)
