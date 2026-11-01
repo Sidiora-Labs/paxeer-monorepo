@@ -233,8 +233,9 @@ func (blockExec *BlockExecutor) SetSequencerSource(src SequencerSource) {
 
 // CreateProposalBlock calls state.MakeBlock with evidence from the evpool
 // and txs from the mempool, or, at a height the sequencer source sequences,
-// with the sealed slice behind its sequence batch and the open time as the
-// header time. The max bytes must be big enough to fit the commit.
+// by reaping and admitting mempool transactions, then sealing the slice behind
+// its sequence batch with the open time as the header time. The max bytes must
+// be big enough to fit the commit.
 // Up to 1/10th of the block space is allcoated for maximum sized evidence.
 // The rest is given to txs, up to the max gas.
 //
@@ -265,6 +266,18 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	maxDataBytes := types.MaxDataBytes(maxBytes, evSize, state.Validators.Size())
 
 	if blockExec.sequencer != nil && blockExec.sequencer.Sequenced(height) {
+		reaped, _ := blockExec.mempool.ReapTxs(mempool.ReapLimits{
+			MaxBytes:        utils.Some(maxDataBytes),
+			MaxGasWanted:    utils.Some(maxGasWanted),
+			MaxGasEstimated: utils.Some(maxGas),
+		}, true)
+		if len(reaped) > 0 {
+			admitted, err := blockExec.sequencer.Admit(ctx, height, reaped)
+			logger.Info("admitted consensus mempool transactions", "height", height, "reaped", len(reaped), "admitted", admitted)
+			if err != nil {
+				return nil, fmt.Errorf("admit height %d: %w", height, err)
+			}
+		}
 		sealed, err := blockExec.sequencer.Seal(ctx, height)
 		if err != nil {
 			return nil, fmt.Errorf("seal height %d: %w", height, err)
