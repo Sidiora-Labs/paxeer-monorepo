@@ -291,8 +291,19 @@ func (s *SendAPI) acceptOnSequencer(ctx context.Context, tx *ethtypes.Transactio
 	}
 	feed := s.sendConfig.pendingTxs
 	feed.receiptMu.Lock()
-	defer feed.receiptMu.Unlock()
 	receipt, err := s.sendConfig.Sequencer.Accept(txbz)
+	if errors.Is(err, ErrLayerNotOpen) {
+		feed.receiptMu.Unlock()
+		if _, err := s.watermarks.PendingContext(ctx); err != nil {
+			return err
+		}
+		feed.receiptMu.Lock()
+		receipt, err = s.sendConfig.Sequencer.Accept(txbz)
+		if errors.Is(err, ErrLayerNotOpen) {
+			err = ErrPendingBlockClosed
+		}
+	}
+	defer feed.receiptMu.Unlock()
 	if err != nil {
 		var coded *sdkerrors.Error
 		if errors.As(err, &coded) {

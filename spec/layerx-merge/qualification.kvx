@@ -14931,3 +14931,99 @@ symbol = "node_unit"
 observed = "Attempts 1 (772aa50a7) and 2 (c0d3314e1) fail the build with error E0063 missing field name_events in initializer of store::Unit at services/platform/hosted/indexer/src/explorer.rs:510: the new Unit field is right, but explorer.rs builds a Unit in its test helper node_unit() and was outside the touches, so both attempts stopped. Attempt 2 also notes that no ReverseClaimed event exists: contracts/names/PaxReverseRegistrar.sol declares no events; setName writes the name through PaxPublicResolver.setName, which emits NameChanged(reverseNode, name), and the registrar's Transfer, NameRegistered and NameRenewed are declared in PaxBaseRegistrar.sol, not in IPaxNames.sol."
 assumption = "explorer.rs joins the touches and the reverse name is derived from the resolver's NameChanged on the sender's reverse node (decision 2174); the topic test reads the three files that declare the bound events."
 severity = "major"
+
+[finding.18.1272.1.6]
+task = "18.1272.1"
+file = "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:75"
+symbol = "sign_transaction"
+observed = "Attempt 11 (d510483fb) builds and passes the budget creation binding; the test now panics at canonical_owner.rs:75 (ordinal 2 != 1) because the BudgetFunding stage compiles a Budget ordinal-2 BudgetFund payload (services/human/crates/layerx-intents/src/compile.rs:487-492: u16 header 1, 32-byte budget id, big-endian u128 amount) and the fixture's Budget arm only knows budgetCreate. The call decoder (services/agent/crates/layerx-crypto/src/disclosure/call.rs:353-388) decodes budgetCreate and budgetDefund on 0x101b but not the precompile's budgetFund(bytes32 budgetId, uint128 amount) (precompiles/layerxpay/budget.go), so bound_activity could not bind a funding transaction either."
+assumption = "The decoder gains ConstructMethod::PayBudgetFund in a new layerx-crypto task that 18.1272.1 requires (decision 2175) and the human service binds funding by budget id and amount; the idempotency key of a funding call is derived on chain from the transaction hash and the call ordinal (precompiles/layerxpay/layerxpay.go:203), so the disclosed key for PayBudgetFund stays zero and the binding does not compare it with action_key."
+severity = "major"
+
+[finding.19.7.1.2]
+task = "19.7.1"
+file = "services/platform/hosted/gateway/tests/browser_profiles.rs:334-355"
+symbol = "native_program_and_name_reads_use_exact_public_owner_routes"
+observed = "Attempt 5 (3ace71db0) builds the indexer with the name_events field fixed, but the dependent-crate check (cargo check --all-targets of the platform dashboard, gateway, registry and webhooks crates) fails with nine errors in services/platform/hosted/gateway/tests/browser_profiles.rs:334-355, which still asserts ProductionRoute::ProgramCatalog, ProgramRegistry, ProgramInterface, ProgramCall, ProgramSimulation, ProgramRead, ProgramDeploy, ProgramUpgrade and ProgramWindDown after task 8.7.3 (1d0a8a3d6) removed those variants; the break is on main and independent of the indexer."
+assumption = "A gateway task removes the retired assertions (decision 2176) and 19.7.1 requires it so its dependent-crate check can pass."
+severity = "major"
+
+[finding.5.98.5.1]
+task = "5.98.5"
+file = "rpc/pending_context_test.go:65"
+symbol = "TestPendingContextWaitsForTheOpenBlock"
+observed = "Attempt 1 (8b2b6e84f) implements decision 2172 as written (PendingContext on the WatermarkManager, the send path and pending nonce through it, the bounded provider wait). TestPendingNonceWaitsForTheOpenBlock first failed with gas wanted 21000 exceeds Block.MaxGasWanted 0 and passed once the test raised the block gas params before opening the executor; the remaining failure is require.Same on want.MultiStore() and got.MultiStore() (both arguments must be pointers): the context's MultiStore is an interface value, not a pointer."
+assumption = "Decision 2177: the test compares the block header and height, not store identity."
+severity = "minor"
+
+[finding.10.0.3.11]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs:1066"
+symbol = "request"
+observed = "Attempt 14's verified revision d3935c9a9 builds; intent_plan_answers_eip1559_legs passes and intent_submit_records_each_leg_tx_hash fails only at its last step: GET /v1/journeys answers 401 because the journey list is a browser-session read and the fixture sent only the bearer. The attempt's final revision 24e4b0228 opens a passkey browser session in the fixture (:995-1006) and sends its __Host-layerx_access cookie with the bearer on every request (:1098) but had no repair run left."
+assumption = "Continue from 24e4b0228 and run the gate; no spec change."
+severity = "minor"
+
+[finding.19.2.3.1]
+task = "19.2.3"
+file = "sdk/names/package.json"
+symbol = "resolveContent"
+observed = "Attempt 1 (f0687b8eb) wrote the verifier, slots, resolver and tests, but the build command pnpm --dir sdk/names install --no-frozen-lockfile resolved all 20 projects of the root pnpm-workspace.yaml and failed with ERR_PNPM_FETCH_404 for @sidiora/layerx-sdk 0.1.0, a dependency of sdk/integrations/next that is not on the registry; adding @confio/ics23 forced the re-resolution that 19.2.1 avoided with an unchanged lockfile. The attempt also read a proven height from the eth_getProof response, which rpc/state.go:119-122 does not carry (do_1 misstated it)."
+assumption = "Decision 2178: sdk/names installs standalone with --ignore-workspace, and the resolver pins the height itself by reading eth_blockNumber and passing that block number to eth_getProof."
+severity = "major"
+
+[finding.8.7.5.1]
+task = "8.7.5"
+file = "services/platform/hosted/gateway/tests/unified_service_paths.rs:20"
+symbol = "archive_sync_readiness_reaches_the_actual_sync_predicate"
+observed = "Attempt 1 (124e0cfad) removed the retired route assertions from services/platform/hosted/gateway/tests/browser_profiles.rs as specified, but the build_cmd (cargo build --tests of layerx-platform-gateway) fails compiling the test target unified_service_paths: services/platform/hosted/gateway/tests/unified_service_paths.rs:20 declares const ARCHIVE = include_str!('../../../../../services/platform/relay_archive/runtime.py') and task 8.32.1 (10ba36017) deleted that file; :187-188 assert two substrings of ARCHIVE (the /v1/sync/readiness branch and the readiness() call) and :185 still expects the catalogue entry's source to be services/platform/relay_archive/runtime.py, which tools/paxeer-x/route-catalogue.json still records for every archive route."
+assumption = "8.7.5 also drops the include and the two ARCHIVE assertions (decision 2179) so the gateway test target compiles; the catalogue's stale archive source strings are a documentation defect left for the task that retires or re-homes the archive routes."
+severity = "major"
+
+[finding.19.5.2.1]
+task = "19.5.2"
+file = "sdk/names/package.json"
+symbol = "verifyCommit"
+observed = "Attempt 1 (f1f1f4592) wrote header.ts, the two tests and the lockfile, but the build_cmd (pnpm --dir sdk/names install --no-frozen-lockfile) walked up to the root workspace and failed on sdk/integrations/next's unpublished @sidiora/layerx-sdk dependency (ERR_PNPM_FETCH_404), the failure decision 2178 already ruled for 19.2.3; tsc and vitest never ran."
+assumption = "19.5.2 takes the same --ignore-workspace build_cmd as 19.2.3 and continues from attempt 1; no other open task installs sdk/names without it."
+severity = "major"
+
+[finding.18.670.1.10]
+task = "18.670.1"
+file = "rpc/send.go:295"
+symbol = "acceptOnSequencer"
+observed = "Attempt 10 (1e16b9165) builds, but the fixture setup in tools/qualification/localnode/v6120-node.sh evm_call failed its first paxd tx evm call-contract with the node answering 'sequencer: no block is open': the CLI sends through eth_sendRawTransaction (modules/evm/client/cli/tx.go:704) and acceptOnSequencer hands the bytes to Sequencer.Accept (rpc/send.go:295) with no wait for an open layer, so a send that lands between Seal and the Open in Driver.OnCommit is refused with the raw ErrLayerNotOpen; the pending-context wait of 5.98.5 guards only the nonce read (rpc/tx.go) and the receipt record (rpc/send.go:344)."
+assumption = "Decision 2180: 5.98.6 makes acceptOnSequencer wait for the open layer and retry once; the fixture retries its setup call on that answer so 18.670.1 qualifies without waiting for 5.98.6."
+severity = "major"
+
+[finding.12.35.2.6]
+task = "12.35.2"
+file = "apps/wallet/e2e/send.spec.ts:120"
+symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+observed = "Attempt 6 (a0a6913a3) is the first whose /wallet/ routing lets the web server start and the browser launch; the single run failed before any test code ran because the qualification environment's Chromium headless shell could not load libglib-2.0.so.0 (browserType.launch exit 127), an environment defect rather than a product one."
+assumption = "The qualification environment installs Chromium's shared libraries whenever a gate runs Playwright; attempt 6's changes stand and are continued as they are."
+severity = "minor"
+
+[finding.10.25.4.1]
+task = "10.25.4"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "bound_activity"
+observed = "Attempt 1 (eb7705180) implemented the task, but its build of layerx-human-test-support failed compiling layerx-human-service: the match at services/human/crates/layerx-human-service/src/agents/create.rs:558 was non-exhaustive for Some(ConstructMethod::PayBudgetFund), the variant 9.99.3 added with a layerx-crypto-only gate; 18.1272.1 (merged at ef19f3b1b) added the two arms minutes after the attempt started."
+assumption = "A main that carries 18.1272.1 compiles; the attempt's own work continues on a rebased tree."
+severity = "minor"
+
+[finding.10.98.12.1]
+task = "10.98.12"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "bound_activity"
+observed = "Attempt 1 (fe8ff0a0a) implemented the task, but its build of layerx-human-test-support failed compiling layerx-human-service: the match at services/human/crates/layerx-human-service/src/agents/create.rs:558 was non-exhaustive for Some(ConstructMethod::PayBudgetFund), the variant 9.99.3 added with a layerx-crypto-only gate; 18.1272.1 (merged at ef19f3b1b) added the two arms minutes after the attempt started."
+assumption = "A main that carries 18.1272.1 compiles; the attempt's own work continues on a rebased tree."
+severity = "minor"
+
+[finding.10.27.1.1]
+task = "10.27.1"
+file = "services/human/Cargo.toml:12"
+symbol = "members"
+observed = "Attempt 1 (ef9779700) deleted the three explorer-index files and wrote the regression test, but cargo refuses the workspace: services/human/Cargo.toml:12 still lists crates/layerx-explorer-index as a member and services/human/Cargo.lock:963 still records the package, neither of which the task's touches allow."
+assumption = "Decision 2181: the task removes the member entry and refreshes the lock so the --locked build runs."
+severity = "major"

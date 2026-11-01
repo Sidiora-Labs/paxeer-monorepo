@@ -639,6 +639,25 @@ impl Cluster {
         Ok(())
     }
 
+    pub fn approve_generate(&mut self, key_id: &str, curve: &str, owner: &str) -> Result<()> {
+        self.inventory_keys.push(json!({
+            "key_id": key_id, "epoch": 0, "curve": curve, "public_key": "",
+            "owner": owner, "operations": ["generate"],
+        }));
+        self.publish_inventory()
+    }
+
+    pub fn approve_sign(&mut self, key_id: &str, public_key: &[u8]) -> Result<()> {
+        let entry = self
+            .inventory_keys
+            .iter_mut()
+            .find(|entry| entry["key_id"] == key_id)
+            .ok_or("missing inventory key")?;
+        entry["public_key"] = json!(hex(public_key));
+        entry["operations"] = json!(["sign"]);
+        self.publish_inventory()
+    }
+
     pub fn generate_key(
         &mut self,
         key_id: &str,
@@ -646,11 +665,7 @@ impl Cluster {
         owner: &str,
         account: &str,
     ) -> Result<Vec<u8>> {
-        self.inventory_keys.push(json!({
-            "key_id": key_id, "epoch": 0, "curve": curve, "public_key": "",
-            "owner": owner, "operations": ["generate"],
-        }));
-        self.publish_inventory()?;
+        self.approve_generate(key_id, curve, owner)?;
         let trusted =
             ureq::tls::Certificate::from_der(&self.pki.certificate_der("node-ca")?).to_owned();
         let certificate =
@@ -731,13 +746,7 @@ impl Cluster {
         }
         let public = public.ok_or("no key generation responses")?;
         assert_eq!(public.len(), if curve == "secp256k1" { 65 } else { 32 });
-        let entry = self
-            .inventory_keys
-            .last_mut()
-            .ok_or("missing inventory key")?;
-        entry["public_key"] = json!(hex(&public));
-        entry["operations"] = json!(["sign"]);
-        self.publish_inventory()?;
+        self.approve_sign(key_id, &public)?;
         Ok(public)
     }
 
