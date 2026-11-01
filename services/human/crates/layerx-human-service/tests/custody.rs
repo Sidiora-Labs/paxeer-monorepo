@@ -659,7 +659,7 @@ fn step_up_and_disclosure_mismatches_are_typed_and_every_decision_is_audited() {
     assert!(audits.iter().any(|event| matches!(
         event,
         AuditEvent::SigningDecision {
-            operation: SigningOperation::EmergencyExit,
+            operation: SigningOperation::EvmPayoutBinding,
             step_up: AuditStepUpEvidence::Fresh { ceremony_digest },
             outcome: Decision::Granted,
             ..
