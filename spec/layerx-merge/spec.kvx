@@ -154116,7 +154116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.21.3]
 title = "Retire the bridge, payout-binding and custody-credit intent kinds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["10.21.2", "10.6.2", "10.20.5", "10.9.1", "10.8.2", "10.12.2", "10.26.7", "10.26.8", "10.26.15", "8.96.1", "10.96.2", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154712,7 +154712,7 @@ do_7 = "Finding 10.1.2.2: continue from attempt 2 (7392b9390) rebased onto main 
 
 [task.10.26.6]
 title = "Delete the Paxeer client state proof module and vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2", "10.26.14"]
@@ -154927,7 +154927,7 @@ do_8 = "Finding 10.1.2.2: continue from attempt 2 (1816045fb) rebased onto main 
 
 [task.10.26.12]
 title = "Delete the Paxeer client debit wire codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2", "10.26.8", "10.26.10", "10.26.13"]
