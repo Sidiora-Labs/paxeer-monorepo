@@ -10,7 +10,7 @@ use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, IdempotencyKey};
 use layerx_types::intent::{BudgetId, Sequence};
-use layerx_types::payload::ModuleRegistry;
+use layerx_types::payload::{ModuleId, ModuleRegistry};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
@@ -281,6 +281,12 @@ impl Reclaim {
             _ => request.agent.actor.clone(),
         };
         let compiled = compile(leg.intent(), registry)?;
+        if matches!(request.mechanism, ReclaimMechanism::BudgetDefund { .. })
+            && (compiled.activity_type().module() != ModuleId::Budget
+                || compiled.activity_type().ordinal() != 8)
+        {
+            return Err(ReclaimError::RouteWidened);
+        }
         let digest = request_digest(request, compiled.payload_hash());
         let row = record_row(request.idempotency_key)?;
         let record = if let Some(existing) = scope.get(Table::Journeys, &row) {
