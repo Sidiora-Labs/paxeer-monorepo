@@ -117571,7 +117571,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.10]
 title = "Port the human-service evidence test off the retired account proof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
