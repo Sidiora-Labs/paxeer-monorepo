@@ -15251,3 +15251,11 @@ symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload
 observed = "Attempt 9 (a68e1a226): the diagnostics show the document at http://127.0.0.1:3099/wallet/ answered 200 with an empty response text and an empty body innerText, no page error, no console error, the init script announced its provider twice, and the dev server printed no compile or request line for the route; no task has yet qualified any test under apps/wallet/playwright.wallet-app.config.ts, so whether the wallet shell renders at all under that config is unproven."
 assumption = "Two causes remain: the dev server never served the app route (a config fault, fixed in the config), or the shell rendered and the test's init script or route interception emptied it (fixed in the test); the next attempt separates them before changing anything."
 severity = "major"
+
+[finding.5.98.7.1]
+task = "5.98.7"
+file = "node/sequencer/failover_rehearsal_test.go:193"
+symbol = "Accept"
+observed = "Attempt 1 (e5ed55475): go build ./rpc/... ./node/... and the four rpc tests passed, but go test ./node/sequencer/ could not compile: node/sequencer/failover_rehearsal_test.go:193 stores the Accepter's result in an outcome field typed []byte and node/sequencer/receipt_latency_test.go:118 assigns it into a [][]byte, both written for the former byte-slice receipt; neither file was in touches, so the attempt left them."
+assumption = "Both callers read .Receipt from the AcceptedSend value; go build compiles no _test.go file, so the build gate also runs go vet over the two packages whose tests call Accept."
+severity = "major"
