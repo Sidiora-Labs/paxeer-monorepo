@@ -15387,3 +15387,11 @@ symbol = "human-build"
 observed = "Attempt 7 (ddd24c396) failed the wave-4 aggregate at human-build: apps/web's next build reports Module not found: Can't resolve '@sidiora/layerx-sdk/browser' from sdk/wallet/src/modules/web-data.ts, launchpad.ts, bridge.ts, fee-choice.ts and fee-token.ts, because services/agent/sdk/typescript/package.json exports './browser' from ./dist/src/browser.js, dist/ is ignored by git and built only by that package's npm test or build script, and no step of human-build (Makefile:1637-1641) builds it before $(HUMAN_NPM) run build; the exports map also carries only types and import conditions, so a CommonJS consumer cannot resolve the package at all."
 assumption = "The wave-4 gate is right to fail; task 17.5.12 makes human-build build the agent TypeScript SDK first and gives the exports map a default condition, and 17.5.5 requires it."
 severity = "major"
+
+[finding.14.0.6.2]
+task = "14.0.6"
+file = "services/human/crates/layerx-human-service/tests/intent_submit.rs:34"
+symbol = "start_deposit_journey"
+observed = "Attempt 3 (b3ab062e9 on 7abd15e75) kept the EIP-1559 port and stopped with the crate's --tests build red inside the ported file itself: tests/intent_submit.rs:34-45 imports claim_receipt, start_deposit_forward_journey, start_deposit_journey, start_withdrawal_intent, DepositAgentPlan, DepositForwardJourney, DepositForwardStage, DepositPlan, IntentWithdrawalJourney, IntentWithdrawalStage, SettlementConfig, WithdrawalAgentPlan, WithdrawalJourney and WithdrawalPlan, which task 10.20.3 (ad92aa7fc) deleted from the journeys module, and uses Mechanism::BridgeDepositCredit and Mechanism::BridgeWithdrawRequest (:155, :160, :1012, :1022), which task 10.6.2 (ec7c4dc54) removed; the attempt also reported duplicate PrincipalScope and Table imports at tests/journey_faults.rs:31 and :40, but line 31 does not exist at the base revision and was the attempt's own edit."
+assumption = "The deposit, withdrawal and bridge journeys have no production path left after 10.6.2 and 10.20.3, so the tests that exist only to exercise them are deleted rather than ported and the two mixed tests keep their kernel-send legs; do_3 lists them."
+severity = "major"
