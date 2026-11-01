@@ -118103,7 +118103,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.1.5]
 title = "Match the boundary check's private node paths as path tokens, not identifier fragments"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -194680,7 +194680,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.60.6]
 title = "Drop the Makefile's test-owner-movement-proof target"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
