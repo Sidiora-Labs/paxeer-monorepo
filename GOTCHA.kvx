@@ -13006,3 +13006,8 @@ fix = "Put a name under symbols only when a touched source file defines it; for 
 title = "Retiring a public verifier must sweep its callers in every workspace, not only the producer's"
 symptom = "A retirement deleted a proof verifier and ported the callers inside its own workspace; a service in another workspace still called the verifier at two sites, so that whole workspace stopped compiling and seventeen implemented tasks failed at their first build after rebasing."
 fix = "Before a do deletes a pub item, git grep its name across the repository and list every calling file in the task's touches or make a same-wave task the deletion requires port the other workspaces first; the verify of the deleting task compiles each workspace that named the item."
+
+[gotcha.2638]
+title = "An acceptance that asserts no reference remains must require every task that deletes a referencing file"
+symptom = "A module deletion whose acceptance test scans the workspace for the module name failed because a sibling deletion task in the same wave still owned the one remaining importer; the scan is only satisfiable after that sibling lands."
+fix = "When a do or acceptance scans for a retired name across sources, git grep the name at authoring time and add every task that deletes or ports a hit to the task's requires, or move the scan to the last deletion of the series."

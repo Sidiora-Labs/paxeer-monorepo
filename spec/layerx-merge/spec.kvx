@@ -151959,7 +151959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.1.2]
 title = "Trim the human workspace manifest and gate the retired workspace members"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.10.1", "10.10.2", "10.20.5", "10.96.1", "10.26.1", "10.27.1", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154570,7 +154570,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.26.2]
 title = "Delete the Paxeer client JSON-RPC transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154714,7 +154714,7 @@ title = "Delete the Paxeer client state proof module and vectors"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2", "10.26.14"]
 reqs = ["10260.1"]
 capabilities = ["10.26.6"]
 interfaces = ["interface.10.rs-paxeer-client-state-proof-account-path", "interface.10.rs-paxeer-client-state-proof-state-proof-error", "interface.10.rs-paxeer-client-state-proof-state-witness"]
@@ -154744,6 +154744,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_7 = "Finding 10.1.2.1: continue from attempt 1 (3cd678589) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 do_8 = "Finding 10.1.2.2: continue from attempt 2 (02b4f941a) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_9 = "Finding 10.26.6.1: continue from attempt 3 (a275ad8a9), whose build passed, rebased onto main once task 10.26.14 is on it, keeping the tree unchanged; tests/exit.rs is then gone and the declared build and verify run as written."
 
 [task.10.26.7]
 title = "Delete the Paxeer client deposit proof builder"
@@ -154888,7 +154889,7 @@ do_9 = "Finding 10.1.2.2: continue from attempt 2 (37bbe23b7) rebased onto main 
 
 [task.10.26.11]
 title = "Delete the Paxeer client withdrawal boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -155029,7 +155030,7 @@ do_7 = "Finding 10.1.2.2: continue from attempt 2 (e8f1a7db5) rebased onto main 
 
 [task.10.26.15]
 title = "Delete the Paxeer client native custody profile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
