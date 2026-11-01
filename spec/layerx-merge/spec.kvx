@@ -195257,7 +195257,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1151.1]
 title = "Issue #1151: Start the wallet identity end-to-end attestor nodes with the asset send type alone"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["18.1147.1", "10.0.3", "18.1172.1", "10.2.8", "10.2.9", "18.1297.1", "10.24.4", "14.0.6"]
