@@ -11,17 +11,17 @@ pub mod handover;
 pub mod head;
 pub mod lni;
 pub mod paxeer_binding;
+pub mod px;
 pub mod read;
 pub mod receipt;
 pub mod resolver;
+pub mod rpc;
 #[cfg(target_os = "linux")]
 pub mod runtime_clock;
 pub mod sequencer;
-pub mod rpc;
-pub mod px;
-pub mod subscription;
 pub mod stream;
 pub mod submit;
+pub mod subscription;
 
 pub use client::Client;
 
@@ -30,8 +30,5 @@ pub mod payments;
 pub mod withdrawal;
 
 pub mod caps;
-pub mod execution_prestate;
 
-pub mod arbiter_admission;
-pub mod arbiter_prestate;
 pub mod ai_market;

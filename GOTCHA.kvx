@@ -12421,3 +12421,33 @@ fix = "treat components without deleted_trees as outside the inventory's domain.
 title = "A schema edit without a regenerated client fails the api-gen drift test on every later main"
 symptom = "10.0.3 (63aee3813) extended services/human/schema/human-api and left apps/web/src/api/generated at its earlier shape; make human-build was red until 14.0.5."
 fix = "a task that touches the human-api schema regenerates the client in the same change, or the spec names the web task that does and sequences the aggregate gates behind it."
+
+[gotcha.2521]
+title = "A browser test that sees an empty document must prove the server serves the app before touching the test"
+symptom = "12.35.2 spent attempts 7 to 9 refining diagnostics while no test had ever rendered the wallet shell under the app config."
+fix = "fetch the page from the test process, run the simplest existing test under the same config, and only then decide whether the config or the test is at fault."
+
+[gotcha.2522]
+title = "go build compiles no _test.go file, so a changed Accept signature passed the build and broke the consumer package's tests"
+symptom = "5.98.7 attempt 1 changed SequencerAccepter.Accept to return AcceptedSend; go build ./rpc/... ./node/... passed and go test ./node/sequencer/ failed to compile on two test callers outside touches."
+fix = "a task that changes a signature test files call adds go vet over those packages to its build gate and names the calling test files in touches."
+
+[gotcha.2523]
+title = "A do-line that names the callers to delete must be written from the file, not from memory"
+symptom = "9.24.3 do_4 named seven facade methods; the client had twelve that referenced the deleted modules, so attempt 3 still failed with sixteen errors."
+fix = "enumerate by the module or type reference (grep the file for crate::<module> and the evidence types) and cite each method with its line."
+
+[gotcha.2524]
+title = "A deletion task's gate must compile the crates that import the deleted items"
+symptom = "9.24.3 passed cargo build -p layerx-client --test sequencer and left layerx-agentd with thirteen errors on main; every agent and human workspace build failed afterwards on a break none of them touched."
+fix = "give every task that deletes or renames a library item a build gate that compiles the dependent crates (decision 2190), and when an attempt fails on such a break, author the port task rather than rerunning the consumer."
+
+[gotcha.2525]
+title = "A fix at a higher wave than its broken consumers cannot be expressed as a requires"
+symptom = "the agent daemon fix 9.24.5 sits at wave 35 while the human tasks that fail on the break sit at wave 19; a task may not require a higher-wave task."
+fix = "hold the lower-wave consumers by operator hold until the fix publishes, and write the dependency into the consumers' do-lines instead of their requires."
+
+[gotcha.2526]
+title = "A port ruling must name the committed source of every field of the deleted type"
+symptom = "9.24.5 asked to carry every prestate check onto a balance read and three attempts stopped without a build: the deleted prestate carried eight kinds of fact and the balance read carried two."
+fix = "before ruling a port, list the accessors the consumers call on the deleted type (grep the accessor names and count the call sites) and name the committed source for each one, including the check that has none and is dropped on record."
