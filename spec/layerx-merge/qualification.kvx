@@ -16043,3 +16043,11 @@ symbol = "TestEvmStorageAppHashVector"
 observed = "Attempt 4 (e55bda128, base aa0b6ab87 with task 9.25.15 on main) implemented do_8; the first build at 8b6baabe0 failed because services/agent/Cargo.lock needed updating under --locked, the repaired build at b5f65c74e passed with the dependent-crate check, and the verify failed at :89 because the committed programs/tests/vectors/ics23-evm-storage-app-hash.json carried by attempt 3 (app_hash 00af3d2e..., store_root 6bf38b70...) no longer equals the generator's output on the current main (app_hash a10d2e72..., store_root 4a516195...): the IAVL leaf-version encoding of the store changed, so roots and proof bytes differ while address, slot and value are unchanged. The final commit regenerated the vector with LXP_WRITE_VECTORS=1 and the Rust test reads that file through include_str (tests/storage_witness.rs:61), but the repair budget was spent, so the regenerated tree was never verified."
 assumption = "The regenerated vector is the generator's output on the current main and both tests consume it; the attempt continues unchanged, build once and verify once."
 severity = "minor"
+
+[finding.8.46.11.1]
+task = "8.46.11"
+file = "sdk/platform/generators/generate_jvm.py:78"
+symbol = "human_plane"
+observed = "Attempt 1 (52df694ac, base c63ef6a23) built after one repair (the Android relay test compiled against a sample-profile class) and the install failed at GeneratedCatalogueJourneysTest.humanOperationsHaveNoRetiredJourneys:60 with 63 of 64 JVM tests passing: the attempt added OPERATION_RETIRED to SchemaErrors.HumanCode so that GoldenVectorTest's parity with GeneratedContract.HUMAN_ERROR_CODES holds, but the journeys test asserts the same set equals GeneratedSchema.HumanModels.ErrorCode, which lacks operation-retired because generate_jvm.py:75-79 appends it to the retired variants of the enum while :511 builds the contract set from the raw schema entries; the two generated sets have disagreed since bb6dde223 (task 8.46.10) carried the hand-made shape of b574c9f9f into the generator, and the Spring and Android suites never ran."
+assumption = "Decision 2215: the generator stops retiring operation-retired, GeneratedSchema.java is regenerated, both tests agree on the schema's live codes, and the install proceeds to the Spring and Android suites."
+severity = "major"

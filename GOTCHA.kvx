@@ -12686,3 +12686,8 @@ fix = "an integration test builds its fixture in-process from doubles the crate'
 title = "A committed app-hash vector goes stale when main changes the store encoding"
 symptom = "a task carried its generated ICS23 storage vector across a rebase, main had changed the IAVL leaf-version encoding so app_hash, store_root and the proof bytes differed, the compare-mode test failed with 'regenerate with LXP_WRITE_VECTORS=1' and the regeneration consumed the last repair cycle"
 fix = "after a rebase of a task that commits a generated vector, regenerate it with its writer switch before the build and commit the result with the rebase, so the first verify runs against the current store"
+
+[gotcha.2574]
+title = "A generator that filters one rendering of a schema set but not another breaks parity tests"
+symptom = "generate_jvm.py appended operation-retired to the retired variants used for the human ErrorCode enum but built the contract set HUMAN_ERROR_CODES from the raw schema, so GoldenVectorTest (parity with the contract set) and GeneratedCatalogueJourneysTest (parity with the enum) demanded different SchemaErrors.HumanCode sets and no edit of the hand-kept enum could satisfy both"
+fix = "every rendering of one schema set in a generator reads the same filtered model; when two generated views of a set disagree, fix the generator and regenerate, never the hand-kept mirror"
