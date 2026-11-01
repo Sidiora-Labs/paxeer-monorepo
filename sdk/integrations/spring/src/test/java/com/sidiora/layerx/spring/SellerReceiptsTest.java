@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public final class SellerReceiptsTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
-    @TempDir
+    @TempDir(factory = ReceiptKeysConfigTest.OwnerStorage.class)
     Path storageDirectory;
 
     private static JsonNode vector() throws Exception {

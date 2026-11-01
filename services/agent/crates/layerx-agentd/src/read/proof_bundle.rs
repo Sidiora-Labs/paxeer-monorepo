@@ -5,7 +5,13 @@ use layerx_agent_api::verify::Rung;
 use layerx_types::payload::ModuleRegistry;
 
 use layerx_agent_api::proof::MAX_PROOF_BUNDLE_BYTES;
-use layerx_client::sequencer::{AccountProof, SequencerEndpoint};
+use layerx_client::sequencer::{SequencerEndpoint, StorageWitness};
+use layerx_client::storage_witness::{verify_storage_witness, StorageWitnessError};
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AccountState {
+    pub storage: Vec<([u8; 32], [u8; 32])>,
+}
 use layerx_crypto::evm_transaction::transaction_hash as keccak256;
 use sha2::{Digest as _, Sha256};
 
@@ -115,8 +121,12 @@ pub(crate) fn acquire_at_committed_block(
         _ => None,
     };
     if let Some(account) = account {
+        let requested = request
+            .account_proof
+            .ok_or(CheckpointReadError::InvalidProof)?;
+        let slots: Vec<_> = requested.iter().map(|witness| witness.slot).collect();
         let proof = endpoint
-            .account_proof(&account, &[], request.header.height)
+            .storage_witness(&account, &slots, request.header.height)
             .map_err(CheckpointReadError::Rpc)?;
         verify_bundle(&ProofBundleRequest {
             account_proof: Some(&proof),
@@ -206,12 +216,14 @@ pub(crate) fn verify_bundle(
             .into_iter()
             .flat_map(|commit| commit.votes.iter().map(|_| 128)),
     )
-    .chain(
-        request
-            .account_proof
-            .into_iter()
-            .flat_map(|proof| proof.account_proof.iter().map(Vec::len)),
-    ) {
+    .chain(request.account_proof.into_iter().flat_map(|proofs| {
+        proofs.iter().flat_map(|witness| {
+            witness
+                .ops
+                .iter()
+                .map(|op| op.key.len() + op.data.len() + op.op_type.len())
+        })
+    })) {
         size = size
             .checked_add(length)
             .ok_or(CheckpointReadError::Arithmetic)?;
@@ -242,11 +254,11 @@ pub(crate) fn verify_bundle(
             let proof = request
                 .account_proof
                 .ok_or(CheckpointReadError::InvalidProof)?;
-            if checkpoint.is_none() {
-                return Err(CheckpointReadError::NotCommitted);
-            }
-            verify_account(proof, account, request.header.app_hash)?;
-            (Some(proof.clone()), Some(request.header.app_hash))
+            let checkpoint = checkpoint
+                .as_ref()
+                .ok_or(CheckpointReadError::NotCommitted)?;
+            let state = verify_account(proof, account, checkpoint)?;
+            (Some(state), Some(request.header.app_hash))
         } else {
             if request.account_proof.is_some() {
                 return Err(CheckpointReadError::TargetMismatch);
@@ -310,25 +322,24 @@ fn verify_receipt(
 }
 
 fn verify_account(
-    proof: &AccountProof,
+    witnesses: &[StorageWitness],
     account: [u8; 20],
-    root: [u8; 32],
-) -> Result<(), CheckpointReadError> {
-    if proof.address != account || !proof.storage.is_empty() {
-        return Err(CheckpointReadError::TargetMismatch);
+    checkpoint: &ServedCheckpoint,
+) -> Result<AccountState, CheckpointReadError> {
+    let mut storage = Vec::with_capacity(witnesses.len());
+    for witness in witnesses {
+        if witness.address != account || storage.iter().any(|(slot, _)| *slot == witness.slot) {
+            return Err(CheckpointReadError::TargetMismatch);
+        }
+        verify_storage_witness(witness, checkpoint.app_hash).map_err(|error| match error {
+            StorageWitnessError::StoreRoot | StorageWitnessError::AppHash => {
+                CheckpointReadError::RootMismatch
+            }
+            _ => CheckpointReadError::InvalidProof,
+        })?;
+        storage.push((witness.slot, witness.value));
     }
-    let value = trie_value(root, &keccak256(&account), &proof.account_proof)?
-        .ok_or(CheckpointReadError::InvalidProof)?;
-    let fields = list_items(&value)?;
-    if fields.len() != 4
-        || word(fields[0].bytes()?)? != u64_word(proof.nonce)
-        || word(fields[1].bytes()?)? != proof.balance
-        || fields[2].bytes()? != proof.storage_hash
-        || fields[3].bytes()? != proof.code_hash
-    {
-        return Err(CheckpointReadError::InvalidProof);
-    }
-    Ok(())
+    Ok(AccountState { storage })
 }
 
 fn u64_word(value: u64) -> [u8; 32] {

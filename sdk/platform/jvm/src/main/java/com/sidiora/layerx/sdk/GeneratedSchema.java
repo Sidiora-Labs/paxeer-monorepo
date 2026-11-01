@@ -1369,7 +1369,8 @@ public final class GeneratedSchema {
             NOT_SUPPRESSIBLE("not-suppressible"),
             SUPPORT_UNAVAILABLE("support-unavailable"),
             SUPPORT_CONVERSATION_UNKNOWN("support-conversation-unknown"),
-            SUPPORT_MESSAGE_UNKNOWN("support-message-unknown");
+            SUPPORT_MESSAGE_UNKNOWN("support-message-unknown"),
+            OPERATION_RETIRED("operation-retired");
             private final String wire;
             ErrorCode(String wire) { this.wire = wire; }
             @JsonValue public String wire() { return wire; }
