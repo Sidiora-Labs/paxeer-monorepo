@@ -189400,7 +189400,7 @@ qualification = "UNRUN"
 
 [task.18.1214.1]
 title = "Issue #1214: Settle migration receipts signed under the fixed pinned sequencer key id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -189759,7 +189759,7 @@ qualification = "UNRUN"
 
 [task.18.1314.1]
 title = "Issue #1314: Accept and honour requested_rung on program.receipt requests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
