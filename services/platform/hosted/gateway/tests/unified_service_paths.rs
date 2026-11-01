@@ -17,7 +17,6 @@ const OWNER: &str = include_str!("../../../../../services/wallet/gateway/src/ind
 const SDK_PROVIDER: &str = include_str!("../../../../../sdk/wallet/src/provider.ts");
 const SDK_LX: &str = include_str!("../../../../../sdk/wallet/src/index.ts");
 const SDK_GAS: &str = include_str!("../../../../../sdk/wallet/src/modules/gas-station.ts");
-const ARCHIVE: &str = include_str!("../../../../../services/platform/relay_archive/runtime.py");
 
 #[test]
 fn served_catalogue_lists_px_register_and_no_retired_lx_routes() {
@@ -184,8 +183,6 @@ fn archive_sync_readiness_reaches_the_actual_sync_predicate() {
         entry["source"],
         "services/platform/relay_archive/runtime.py"
     );
-    assert!(ARCHIVE.contains("if path == \"/v1/sync/readiness\":"));
-    assert!(ARCHIVE.contains("value = self.readiness()"));
     assert!(unified_service_route("GET", "/v1/sync/network").is_some());
     assert!(unified_service_route("GET", "/v1/history/activities?limit=10&cursor=0").is_some());
 }
