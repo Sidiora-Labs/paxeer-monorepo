@@ -35,8 +35,8 @@ and returns only values decoded from core-produced bytes with a verification
 status. It does not apply transfers, derive state roots, or treat admission
 as execution.
 
-Program CALL terminal verification for the generated clients is
-[SDK terminal verification](sdk-verification.md).
+For signed receipts returned by `pax_sequencerReceipt`, see
+[SDK sequencer receipt verification](sdk-verification.md).
 
 ## CLI and RPC
 
