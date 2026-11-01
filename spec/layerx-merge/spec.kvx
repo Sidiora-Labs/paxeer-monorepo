@@ -164294,7 +164294,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.0.9]
 title = "Gate domain 13 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["13.0.1", "13.0.2", "13.0.3", "13.0.4", "13.4.6", "13.7.5", "13.8.1", "13.8.2", "13.9.1", "13.9.2", "13.9.3", "13.9.4", "13.9.5", "13.9.6", "13.9.7", "13.34.1", "13.34.2", "13.34.10", "8.4.5", "13.3.12", "13.8.4"]
