@@ -153470,7 +153470,7 @@ proof_policy = "Interface-changing proof: the two tests start the real layerx-ag
 
 [task.10.20.5]
 title = "Commit Move money through bank sends and delete the movement provider client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.6.1", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1", "9.25.16", "10.2.10"]
