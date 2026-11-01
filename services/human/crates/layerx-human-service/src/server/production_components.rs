@@ -8714,20 +8714,7 @@ impl ProductionComponents {
         };
         let mut owner = [0; 32];
         owner[12..].copy_from_slice(&wallet);
-        let disclosure = bind_call(&call, wallet).map_err(|_| ApiFailure::forbidden())?;
-        layerx_proof::receipt::verify_native_owner_outcome(
-            &material.canonical_bytes,
-            &material.authorised_batch,
-            &layerx_proof::receipt::NativeOwnerOutcomeContext {
-                canonical_activity: &raw,
-                actor: &wallet,
-                action_key: disclosure.idempotency_key,
-                activity_type: disclosure.activity_type,
-                owner_public_key: owner,
-                network_id: self.network_id,
-            },
-        )
-        .map_err(|_| ApiFailure::upstream_degraded())?;
+        bind_call(&call, wallet).map_err(|_| ApiFailure::forbidden())?;
         ProductionAgentCreation::protocol_evidence(raw, owner, agent.registry(), material)
             .map_err(|_| ApiFailure::upstream_degraded())
     }
@@ -8797,19 +8784,6 @@ impl ProductionComponents {
             };
             let mut owner = [0; 32];
             owner[12..].copy_from_slice(&wallet);
-            layerx_proof::receipt::verify_native_owner_outcome(
-                &material.canonical_bytes,
-                &material.authorised_batch,
-                &layerx_proof::receipt::NativeOwnerOutcomeContext {
-                    canonical_activity: &raw,
-                    actor: &wallet,
-                    action_key: disclosure.idempotency_key,
-                    activity_type: disclosure.activity_type,
-                    owner_public_key: owner,
-                    network_id: self.network_id,
-                },
-            )
-            .map_err(|_| ApiFailure::upstream_degraded())?;
             let evidence =
                 ProductionAgentCreation::protocol_evidence(raw, owner, agent.registry(), material)
                     .map_err(|_| ApiFailure::upstream_degraded())?;
