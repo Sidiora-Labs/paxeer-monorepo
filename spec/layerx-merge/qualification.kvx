@@ -16075,3 +16075,51 @@ symbol = "ReclaimAgentContext"
 observed = "Attempt 2 (a4d305cf1) ported the eleven callers of finding 10.2.4.1 and the library built; the test-target compile of the build command failed at tests/reclaim_nonces.rs:42 with E0063 missing field account_sequence in the ReclaimAgentContext initializer, because the attempt added pub account_sequence: u64 to ReclaimAgentContext (src/agents/reclaim.rs:66-76) and set it in src and in tests/agent_controls_rungs.rs but tests/reclaim_nonces.rs and tests/reclaim.rs, which also construct the struct, are outside the touches."
 assumption = "Both test files set account_sequence from their fixture's binding, as agent_controls_rungs.rs does with its constant, and the build's --no-run compile passes."
 severity = "minor"
+
+[finding.5.5.23.1]
+task = "5.5.23"
+file = "rpc/pending_block_test.go:190"
+symbol = "TestPendingBlockGasPriceFromOpenBlock"
+observed = "Attempts 1 (c1c8a1570 on cc23ec1cd) and 2 (ceebd4ab4 on 831771c62) built, TestGasPriceWithoutOpenBlockUsesLatestBaseFee passed, and TestPendingBlockGasPriceFromOpenBlock failed expecting 77000000 for the open block: gasPriceHelper (rpc/info.go:131-145) has added the 1 gwei defaultPriorityFeePerGas (:24) to baseFee*110/100 since 8a79a1125 (task 7.19.6), which updated rpc/info_test.go but not this sibling test, so the test fails on main before this task."
+assumption = "The sibling test's expectations follow the helper formula: the open block answers 1077000000 and the committed API answers committedFee*110/100 + 1000000000."
+severity = "minor"
+
+[finding.10.2.4.3]
+task = "10.2.4"
+file = "services/human/Cargo.lock:1"
+symbol = "layerx-client"
+observed = "Attempt 3 (dc4a70118 on 831771c62) set account_sequence in tests/reclaim_nonces.rs and tests/reclaim.rs as finding 10.2.4.2 asked, then the build command failed before compiling: cargo refused with 'the lock file services/human/Cargo.lock needs to be updated but --locked was passed', because 021ce67fb (task 9.25.11) added base64 and layerx-programs-registry to services/agent/crates/layerx-client/Cargo.toml without refreshing the human workspace lock; pre-existing on main."
+assumption = "Task 9.25.16 refreshes every lock that pins layerx-client; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.10.20.5.2]
+task = "10.20.5"
+file = "services/human/crates/layerx-human-service/tests/support/production_fixture.rs:1141"
+symbol = "request"
+observed = "Attempt 2 (108c869b4 on 63d862dfd) built three times; verify 1 at 60183d30f answered 403 forbidden to POST /v1/moves/quote because the request helper sent the browser session without the __Host-layerx_csrf cookie (src/server/http.rs:24) and the X-LayerX-CSRF header the Move routes require of a browser session; the repair at 108c869b4 added them for the /v1/moves paths, admitted the owner assertion to each reopened custody client and made the quote's expires_at and arrival_estimate RFC 3339, its build passed, and the repair budget was spent before a verify ran. Attempt 3 on 831771c62 meets the stale human lock of finding 10.2.4.3 before compiling."
+assumption = "The attempt 2 tree passes its verify once the human workspace resolves under --locked."
+severity = "minor"
+
+[finding.9.25.6.3]
+task = "9.25.6"
+file = "services/agent/crates/layerx-agentd/src/budget/program_sources.rs:1"
+symbol = "VerifiedCaps"
+observed = "Attempt 2 (ca88df98b on cc23ec1cd) wrote read/committed.rs with the capability, account and program-record reads and ported the four listed files, then stopped: budget/program_sources.rs still takes a VerifiedCaps with a signed batch header where the task introduces CommittedCaps, and budget/program_lifecycle_settlement.rs still reads the retired module-record byte layouts that the precompile views of finding 9.25.6.2 replace; both are consumers outside the touches, and the build then refused before compiling on the stale services/agent/Cargo.lock of task 9.25.16."
+assumption = "The two consumer files join the task so the producer, the committed reader, and every consumer compile together, and the build runs once the lock is refreshed."
+severity = "major"
+
+[finding.17.5.5.8]
+task = "17.5.5"
+file = "services/platform/Makefile.inc:234"
+symbol = "platform-sdk-check"
+observed = "Attempt 15 (a433b825f) kept the earlier test unchanged, built, and the wave 4 aggregate stopped in platform-sdk-check: the sdkgen drift gate reports the platform-sdkgen generator root changed after the last generation, because d57ae5e20 (task 8.46.11) edited sdk/platform/generators/generate_jvm.py and regenerated the JVM schema without resealing sdk/platform/pipeline.kvx."
+assumption = "Task 8.46.12 reseals the lock; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.17.5.1.17]
+task = "17.5.1"
+file = "services/platform/Makefile.inc:234"
+symbol = "platform-sdk-check"
+observed = "Attempt 19 (7dce00fca) kept the earlier test unchanged, built, and the wave 0 aggregate stopped in platform-sdk-check: the sdkgen drift gate reports the platform-sdkgen generator root changed after the last generation, because d57ae5e20 (task 8.46.11) edited sdk/platform/generators/generate_jvm.py and regenerated the JVM schema without resealing sdk/platform/pipeline.kvx."
+assumption = "Task 8.46.12 reseals the lock; this task requires it and continues unchanged."
+severity = "major"

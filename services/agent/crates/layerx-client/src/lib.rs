@@ -19,6 +19,7 @@ pub mod rpc;
 #[cfg(target_os = "linux")]
 pub mod runtime_clock;
 pub mod sequencer;
+pub mod storage_witness;
 pub mod stream;
 pub mod submit;
 pub mod subscription;
