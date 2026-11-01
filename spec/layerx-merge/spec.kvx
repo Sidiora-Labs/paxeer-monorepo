@@ -151766,7 +151766,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.27.1]
 title = "Delete the explorer index manifest and binary entry point"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["10.0.3", "10.25.5", "16.96.3", "14.29.3", "16.0.4", "9.1.8", "18.1119.1", "18.1297.1"]
