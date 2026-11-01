@@ -2,7 +2,7 @@ pub mod support;
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_programs::{
-    chain_evidence::{programs_state_key, protocol_head::ChainProtocolHeadProof},
+    chain_evidence::{programs_state_key, protocol_head::ChainProtocolHeadProof, HOST_STORE_NAME},
     chain_proof::{
         decode::decode_commitment_proof, header::ChainHeader, validators::TrustedValidator,
         vote::vote_sign_bytes,
@@ -498,7 +498,7 @@ fn native_maintenance_head_is_typed_tagged_and_equal_to_the_protocol_api() {
             ops: &state.commitment.proof_ops,
             kernel_key,
             value: state.commitment.value.as_ref().expect("program record"),
-            store_name: "layerx",
+            store_name: HOST_STORE_NAME,
             verifier: &fixture.chain.verifier,
             header: &fixture.chain.header,
             commit: &fixture.chain.commit,
