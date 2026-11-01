@@ -1,5 +1,6 @@
 import ast
 import re
+from hashlib import sha256
 from pathlib import Path, PurePosixPath
 
 from programme.kvx import load
@@ -8,12 +9,13 @@ from programme.parity import render_doc
 ROOT = Path(__file__).resolve().parents[4]
 FEATURE = ROOT / "spec/layerx-merge"
 DATA = FEATURE / "programme/data/parity.kvx"
+INVENTORY_REFERENCE = FEATURE / "programme/data/parity-inventory-original.md"
 
 
 def _inventory_rows() -> dict[tuple[int, str], list[str]]:
     rows = {}
     section = 0
-    for line in (FEATURE / "docs/parity-inventory.md").read_text().splitlines():
+    for line in INVENTORY_REFERENCE.read_text().splitlines():
         heading = re.match(r"## (\d+) ", line)
         if heading:
             section = int(heading[1])
@@ -59,6 +61,16 @@ def _declares_test(selector: str) -> bool:
             for node in ast.parse(text).body
         )
     return False
+
+
+def test_inventory_reference_is_the_frozen_original() -> None:
+    original = INVENTORY_REFERENCE.read_bytes()
+    assert sha256(original).hexdigest() == (
+        "671ca477247cd9d2d9fd7a3e8a2d33d4d107739527db22f926cb06c81c8d4dc8"
+    )
+    assert original != (FEATURE / "docs/parity-inventory.md").read_bytes()
+    assert b"Generated from `programme/data/parity.kvx`" not in original
+    assert {section for section, _ in _inventory_rows()} == {2, 3, 5}
 
 
 def test_kernel_replay_corpus_row_selects_the_qualification_replay() -> None:
