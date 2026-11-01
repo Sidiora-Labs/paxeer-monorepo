@@ -1,6 +1,5 @@
 //! Evidence reads over JSON-RPC.
 
-use crate::rpc::batch;
 use crate::sequencer::{AccountProof, SequencerBlock, SequencerEndpoint, SequencerError};
 
 pub type Rung = layerx_types::rung::Rung;
@@ -26,7 +25,9 @@ pub fn checkpoint(
     endpoint: &SequencerEndpoint,
     height: u64,
 ) -> Result<SequencerBlock, EvidenceError> {
-    Ok(batch::lookup(endpoint, height)?)
+    endpoint
+        .block_by_number(height)?
+        .ok_or(EvidenceError::Rpc(SequencerError::Unavailable))
 }
 
 pub fn proof_bundle(

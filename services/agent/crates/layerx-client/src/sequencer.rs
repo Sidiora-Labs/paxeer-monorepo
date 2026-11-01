@@ -525,6 +525,62 @@ impl SequencerEndpoint {
         quantity_u64(&result).ok_or(SequencerError::Malformed)
     }
 
+    pub fn commit_material(&self, height: u64) -> Result<Value, SequencerError> {
+        let result = self.call("px_getCommit", &json!([height.to_string()]))?;
+        let signed = &result["signedHeader"];
+        if height == 0
+            || decimal_u64(&result["height"]) != Some(height)
+            || !signed["header"].is_object()
+            || !signed["commit"].is_object()
+            || !signed["commit"]["block_id"].is_object()
+            || !signed["commit"]["signatures"].is_array()
+            || decimal_u64(&signed["header"]["height"]) != Some(height)
+            || decimal_u64(&signed["commit"]["height"]) != Some(height)
+        {
+            return Err(SequencerError::Malformed);
+        }
+        Ok(result)
+    }
+
+    pub fn validator_set(&self, height: u64) -> Result<Value, SequencerError> {
+        let result = self.call("px_getValidators", &json!([height.to_string()]))?;
+        let validators = result["validators"]
+            .as_array()
+            .ok_or(SequencerError::Malformed)?;
+        if height == 0
+            || decimal_u64(&result["height"]) != Some(height)
+            || validators.is_empty()
+            || decimal_u64(&result["total"]) != Some(validators.len() as u64)
+            || validators.iter().any(|validator| {
+                validator["address"].as_str().is_none_or(|address| {
+                    address.len() != 40 || !address.bytes().all(|byte| byte.is_ascii_hexdigit())
+                }) || validator["pubKey"]["type"] != "tendermint/PubKeyEd25519"
+                    || validator["pubKey"]["value"].as_str().is_none_or(|key| {
+                        key.len() != 44
+                            || !key.ends_with('=')
+                            || !key.as_bytes()[..43].iter().all(|byte| {
+                                byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'/')
+                            })
+                    })
+                    || decimal_u64(&validator["votingPower"]).is_none_or(|power| power == 0)
+            })
+        {
+            return Err(SequencerError::Malformed);
+        }
+        Ok(result)
+    }
+
+    pub fn state_root(&self, height: u64) -> Result<[u8; 32], SequencerError> {
+        let result = self.call(
+            "eth_getBlockByNumber",
+            &json!([format!("{height:#x}"), false]),
+        )?;
+        if height == 0 || quantity_u64(&result["number"]) != Some(height) {
+            return Err(SequencerError::Malformed);
+        }
+        fixed(&result["stateRoot"]).ok_or(SequencerError::Malformed)
+    }
+
     /// The committed block at `height` with full transactions; `None` when the
     /// node has no block at that height.
     ///
@@ -1262,6 +1318,14 @@ fn quantity_digits(value: &Value, max_digits: usize) -> Option<&str> {
         && digits.bytes().all(|digit| digit.is_ascii_hexdigit())
         && (digits == "0" || !digits.starts_with('0'));
     canonical.then_some(digits)
+}
+
+fn decimal_u64(value: &Value) -> Option<u64> {
+    let text = value.as_str()?;
+    if text.is_empty() || !text.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    text.parse().ok()
 }
 
 fn quantity_u64(value: &Value) -> Option<u64> {
