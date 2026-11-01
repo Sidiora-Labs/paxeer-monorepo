@@ -116871,7 +116871,7 @@ do_4 = "In tests/native_send_producer.rs pass a &mut AgentRuntime as the second 
 do_5 = "In tests/native_onboarding_rungs.rs:252 and in services/human/crates/layerx-intents/tests/owner_bootstrap.rs:93 and :121 call owner_activity::attach_native_signature with the same four arguments (unsigned, signature, owner key, registry): these tests sign the native Ed25519 owner envelope that attach_native_signature (owner_activity.rs:110) still binds and verify (:76) still checks; do not convert them to EIP-1559 calls, which attach_signature (:178) now serves for the send path."
 do_6 = "This task edits only the six test files in its touches and no src file. Build once with the task's build command, which compiles every test target of both crates, then verify once; the five named tests run against the real load_access, attach_native_signature and AdmissionRecord paths."
 symbols = ["load_access", "attach_native_signature", "AdmissionRecord", "native_onboarding_completes_only_at_committed"]
-touches = ["services/human/crates/layerx-human-service/tests/evidence_node.rs", "services/human/crates/layerx-human-service/tests/journey_family_projections.rs", "services/human/crates/layerx-human-service/tests/archive.rs", "services/human/crates/layerx-human-service/tests/native_send_producer.rs", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs"]
+touches = ["services/human/crates/layerx-human-service/tests/evidence_node.rs", "services/human/crates/layerx-human-service/tests/journey_family_projections.rs", "services/human/crates/layerx-human-service/tests/archive.rs", "services/human/crates/layerx-human-service/tests/native_send_producer.rs", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs", "services/human/crates/layerx-human-service/tests/spend.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/evidence_node.rs::advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission", "services/human/crates/layerx-human-service/tests/native_send_producer.rs::genuine_human_owner_session_consent_preview_and_reopen", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs::native_onboarding_completes_only_at_committed", "services/human/crates/layerx-human-service/tests/archive.rs::archive_requires_real_reclaim_and_step_up_then_retires_authority_once", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs::native_owner_bootstrap_is_disclosed_signed_and_bound_to_every_envelope_field"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-intents --tests"
@@ -116879,7 +116879,7 @@ verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p l
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
-rollback = "Restore the six test files from fc8c837a9; the test targets of both crates fail to compile again and 10.6.4 and 14.0.6 stay blocked behind them."
+rollback = "Restore the seven test files from fc8c837a9; the test targets of both crates fail to compile again and 10.6.4 and 14.0.6 stay blocked behind them."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -116887,6 +116887,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Finding 10.6.5.1: continue from attempt 1 (c3e36d484) keeping every port. In tests/spend.rs:280 replace the authorized_batch argument of support::raw_receipt_evidence with signer.verifying_key().to_bytes(), fields.previous_state_root and fields.resulting_state_root, so the call passes canonical_receipt.clone(), the pinned key, the two roots, sequence and &signer as tests/move_money.rs:523 does; authorized_batch stays for the ReceiptMaterial built below it. spend.rs is the seventh and last test file of this task: if the build then reports a further broken target, record it as a finding rather than widening the task. Build once, verify once."
 
 [task.9.25.8]
 title = "Restore the daemon's head, checkpoint and expiry-clock reads from the committed block commit"

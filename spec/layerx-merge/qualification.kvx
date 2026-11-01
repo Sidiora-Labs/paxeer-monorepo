@@ -15603,3 +15603,11 @@ symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload
 observed = "Attempt 13 (dcddfd4f1) got past the idle-chain wordings and transaction discovery and failed at :746 expecting data-truth 'pending': the heading rendered 'submitted' twice and then 'included', because the node commits blocks on its own and had included the transfer before the page first looked, so the pending state the anvil-driven test at :95 holds by withholding blocks never exists here."
 assumption = "The transient assertions before the receipt give way to a membership check; everything from the receipt poll onward stays."
 severity = "minor"
+
+[finding.10.6.5.1]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/spend.rs:280"
+symbol = "raw_receipt_evidence"
+observed = "Attempt 1 (c3e36d484) ported the six declared test files and enumerated the remaining broken targets of layerx-human-service with --keep-going: one remains, tests/spend.rs, whose call at :280 still passes an AuthorizedBatch as the second argument of support::raw_receipt_evidence, while 351e3da14 (task 10.25.2) changed that helper (layerx-human-test-support/src/lib.rs:374) to take the pinned receipt key and the previous and resulting state roots, as tests/move_money.rs:523, journey_faults.rs:921 and agent_controls_rungs.rs:1780 already pass them; spend.rs was outside the task's touches, so the attempt left it and the build gate stopped there with verification never run."
+assumption = "spend.rs joins the touches and its call takes the three values the other callers pass; no src file changes."
+severity = "major"
