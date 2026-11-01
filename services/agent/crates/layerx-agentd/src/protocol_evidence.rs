@@ -24,7 +24,6 @@ use sha2::{Digest, Sha256};
 use crate::config::{read_protected_source, ProtectedSourceError, ReceiptKeySource, StartupConfig};
 use crate::human::HumanOperationError;
 use layerx_client::sequencer::SequencerEndpoint;
-mod native_owner;
 
 const MAX_AUTHORITY_SOURCE_BYTES: usize = 65_536;
 const AUTHORITY_SOURCE_VERSION: &str = "layerx-sequencer-authority-v1";
@@ -1285,7 +1284,6 @@ pub enum ReceiptEvidenceError {
     Policy(VerifierPolicyError),
     Inclusion(InclusionError),
     Receipt(VerificationFailure),
-    NativeOwner(layerx_proof::receipt::NativeOwnerOutcomeFailure),
     ProtocolVersion,
     SequenceRange,
     BatchIdentity,
@@ -1719,18 +1717,6 @@ impl RawStateEvidence {
                 resulting_state_root,
                 canonical_header,
                 header_signature,
-            },
-        }
-    }
-
-    /// Wraps a checked call and its repeated answer at one committed checkpoint.
-    #[must_use]
-    pub fn module_witness(committed: crate::read::committed::CommittedCall) -> Self {
-        Self {
-            canonical_state: committed.canonical_bytes().to_vec(),
-            shape: StateEvidenceShape::ModuleWitness {
-                committed,
-                budget_id: None,
             },
         }
     }

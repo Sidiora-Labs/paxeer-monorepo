@@ -3,8 +3,8 @@ use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
 use layerx_client::sequencer::{
-    AccountProof, CallRequest, ReceiptKeyEntry, RpcRefusal, SequencerBlock, SequencerEndpoint,
-    SequencerError, SequencerReceipt,
+    CallRequest, ReceiptKeyEntry, RpcRefusal, SequencerBlock, SequencerEndpoint, SequencerError,
+    SequencerReceipt, StorageWitness,
 };
 use serde_json::{json, Value};
 
@@ -202,15 +202,15 @@ impl NodeRpc {
         self.request(SequencerEndpoint::block_number)
     }
 
-    pub fn account_proof(
+    pub fn storage_witness(
         &self,
         address: &[u8; 20],
         slots: &[[u8; 32]],
         height: u64,
-    ) -> Result<AccountProof, NodeRpcError> {
+    ) -> Result<Vec<StorageWitness>, NodeRpcError> {
         let address = *address;
         let slots = slots.to_vec();
-        self.request(move |endpoint| endpoint.account_proof(&address, &slots, height))
+        self.request(move |endpoint| endpoint.storage_witness(&address, &slots, height))
     }
 
     pub fn bound_address(&self, public_key: &[u8; 32]) -> Result<Option<[u8; 20]>, NodeRpcError> {
