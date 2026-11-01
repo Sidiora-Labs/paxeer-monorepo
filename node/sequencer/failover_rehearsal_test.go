@@ -190,7 +190,7 @@ func TestFailoverRehearsalNoReceiptLost(t *testing.T) {
 				<-resume
 			}
 			receipt, err := accepter.Accept(tx)
-			returned <- outcome{receipt: receipt, err: err}
+			returned <- outcome{receipt: receipt.Receipt, err: err}
 			if err != nil {
 				return
 			}
