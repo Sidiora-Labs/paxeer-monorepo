@@ -133727,7 +133727,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.60.5]
 title = "Retire the custody_deploy_scripts kernel harness files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["6.51.1", "8.19.6", "10.26.16", "16.0.4", "16.11.11", "6.60.6"]
