@@ -1570,7 +1570,7 @@
             ],
             "pattern": "^[a-z0-9_]{1,64}$"
           },
-          "description": "Only rows of this indexer kind, for example lxp_transfer, native_transfer, erc20_transfer or custody_deposit."
+          "description": "Only rows of this indexer kind, for example native_transfer, erc20_transfer, pointer_transfer or bank_transfer."
         }
       ],
       "result": {
@@ -1880,7 +1880,7 @@
             ],
             "pattern": "^[a-z0-9_]{1,64}$"
           },
-          "description": "Only rows of this indexer kind, for example lxp_transfer, native_transfer, erc20_transfer or custody_deposit."
+          "description": "Only rows of this indexer kind, for example native_transfer, erc20_transfer, pointer_transfer or bank_transfer."
         }
       ],
       "result": {
