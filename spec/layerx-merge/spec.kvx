@@ -117309,7 +117309,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.98.18]
 title = "Bind the authority's human budget proof v2 to the committed block and commit its fixture export"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["8.98.17", "9.25.10", "9.25.14"]
