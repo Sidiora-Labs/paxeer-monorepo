@@ -80,12 +80,19 @@ pub(super) type Node<'a> = dyn FnMut(&Value) -> Result<Value, &'static str> + 'a
 /// and returns the answer document of the first one that answers 200 without
 /// a transport failure, unchanged. Every skipped node is reported on stderr.
 pub(super) fn node(config: &Config, request: &Value) -> Result<Value, &'static str> {
-    let Some(endpoints) = &config.paxeer else {
+    if config.paxeer.is_none() {
         return Err("paxeer_rpc_not_configured");
-    };
+    }
     if !public_reads::consume_read() {
         return Err("public_read_rate_limit");
     }
+    node_unmetered(config, request)
+}
+
+fn node_unmetered(config: &Config, request: &Value) -> Result<Value, &'static str> {
+    let Some(endpoints) = &config.paxeer else {
+        return Err("paxeer_rpc_not_configured");
+    };
     let body = serde_json::to_vec(request).map_err(|_| "invalid_paxeer_request")?;
     let mut failure = "paxeer_unreachable";
     let mut answered = None;
@@ -505,12 +512,16 @@ fn resolve_account(config: &Config, id: &Value, params: Option<&Value>) -> Value
     }
 }
 
-fn node_at_height(config: &Config, height: u64, request: &Value) -> Result<Value, &'static str> {
+fn node_at_height(
+    node: &mut Node<'_>,
+    height: u64,
+    request: &Value,
+) -> Result<Value, &'static str> {
     let mut request = request.clone();
     if request["method"] == "eth_call" {
         request["params"][1] = json!(format!("0x{height:x}"));
     }
-    node(config, &request)
+    node(&request)
 }
 
 fn resolved_at_height(
@@ -526,7 +537,7 @@ fn resolved_at_height(
     let height =
         block_number(&mut |request| node(config, request)).map_err(|code| unavailable(id, code))?;
     let resolution = match resolve(
-        &mut |request| node_at_height(config, height, request),
+        &mut |request| node_at_height(&mut |request| node(config, request), height, request),
         &selector,
     ) {
         Ok(resolution) => resolution,
@@ -661,8 +672,8 @@ fn layerx_assets(config: &Config, id: &Value) -> Result<Vec<Value>, Value> {
     Ok(records)
 }
 
-fn custody_asset(config: &Config, record: &Value, height: u64) -> Value {
-    let mut node = |request: &Value| node_at_height(config, height, request);
+fn custody_asset(node: &mut Node<'_>, record: &Value, height: u64) -> Result<Value, &'static str> {
+    let mut node = |request: &Value| node_at_height(node, height, request);
     let metadata = (|| -> Result<Value, &'static str> {
         if matches!(record["kind"].as_str(), Some("layerx" | "ledger")) {
             let id = record["asset_id"]
@@ -709,8 +720,9 @@ fn custody_asset(config: &Config, record: &Value, height: u64) -> Value {
             "supply": evm::uint256_decimal(&supply)}))
     })();
     match metadata {
-        Ok(metadata) => metadata,
-        Err(_) => json!({"name": null, "symbol": null, "decimals": null, "supply": null}),
+        Ok(metadata) => Ok(metadata),
+        Err("public_read_rate_limit") => Err("public_read_rate_limit"),
+        Err(_) => Ok(json!({"name": null, "symbol": null, "decimals": null, "supply": null})),
     }
 }
 
@@ -725,13 +737,20 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
         Ok(records) => records,
         Err(refusal) => return refusal,
     };
-    let height = match block_number(&mut |request| node(config, request)) {
+    if !public_reads::consume_read() {
+        return unavailable(id, "public_read_rate_limit");
+    }
+    let mut node = |request: &Value| node_unmetered(config, request);
+    let height = match block_number(&mut node) {
         Ok(height) => height,
         Err(code) => return unavailable(id, code),
     };
     let mut joined = Vec::with_capacity(records.len());
     for mut record in records {
-        let metadata = custody_asset(config, &record, height);
+        let metadata = match custody_asset(&mut node, &record, height) {
+            Ok(metadata) => metadata,
+            Err(code) => return unavailable(id, code),
+        };
         record
             .as_object_mut()
             .expect("asset record is an object")
@@ -772,7 +791,7 @@ fn get_balances(config: &Config, id: &Value, params: Option<&Value>) -> Value {
         return unavailable(id, UNBOUND_DID);
     };
     let answer = match call(
-        &mut |request| node_at_height(config, height, request),
+        &mut |request| node_at_height(&mut |request| node(config, request), height, request),
         &evm::BANK_PRECOMPILE,
         &evm::calldata_address(evm::SELECTOR_BANK_ALL_BALANCES, &address),
     ) {
