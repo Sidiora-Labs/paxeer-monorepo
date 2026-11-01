@@ -12701,3 +12701,28 @@ fix = "assert the alerts a user can read, getByRole('alert').filter({ hasText: /
 title = "Pending-tag reads outside the send path fail between blocks"
 symptom = "eth_gasPrice on the sequencer resolved the pending watermark with a bare Snapshot and answered 'pending block unavailable: sequencer: no block is open' to an ethclient SuggestGasPrice call that landed between a seal and the next open; the send path had been given a bounded wait, the suggestion path had not"
 fix = "a suggestion or read RPC that consults the open block falls back to committed values when no block is open; only the send path waits for the next open"
+
+[gotcha.2577]
+title = "A helper formula moved and a sibling test kept the old expectation"
+symptom = "eth_gasPrice gained the default priority fee in gasPriceHelper and the test beside the one that was updated still expected base fee plus ten percent, so a later task touching the same test file inherited a failing test"
+fix = "when a shared formula changes, grep the test tree for every literal built from it and update each; a task that meets a stale sibling expectation fixes it in place and records the commit that moved the formula"
+
+[gotcha.2578]
+title = "Browser-session requests to mutating routes need the CSRF pair"
+symptom = "a test helper sent the browser session cookie to POST /v1/moves/quote without the __Host-layerx_csrf cookie and X-LayerX-CSRF header and got 403 forbidden, and the repair budget ran out before the fixed request was verified"
+fix = "every browser-session request to a mutating route carries both the CSRF cookie and the header; add them in the shared request helper, not per call"
+
+[gotcha.2579]
+title = "A manifest change ships without the lock files that pin the crate"
+symptom = "layerx-client gained two dependencies and every --locked build in seventeen workspaces refused before compiling; the publishing task listed the manifest but no Cargo.lock, so the lock it refreshed to build was not part of what landed"
+fix = "a task that edits a Cargo.toml lists every Cargo.lock that resolves that crate and refreshes them with cargo metadata; a reviewer of a manifest change checks the lock files landed with it"
+
+[gotcha.2580]
+title = "Editing a generator file without resealing the pipeline lock"
+symptom = "a change to sdk/platform/generators/generate_jvm.py moved the platform-sdkgen generator digest recorded in sdk/platform/pipeline.kvx and platform-sdk-check refused every later aggregate with stale generated SDKs"
+fix = "any change under a generator root or a generated output listed in sdk/platform/pipeline.kvx is followed by the sdkgen --write reseal in the same task, and the task's verify runs the sdkgen --check"
+
+[gotcha.2581]
+title = "Two reports of one defect became two tasks with the same touches"
+symptom = "neighbouring issue reports described the same renderer defect and were drafted as two tasks editing the same files, which would have collided on landing"
+fix = "before adding a batch of tasks, group them by touches and keep one task per overlapping set, closing the other reports against it"
