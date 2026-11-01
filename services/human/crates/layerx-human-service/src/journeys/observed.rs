@@ -411,8 +411,6 @@ mod tests {
             (LegMechanism::Protocol(Mechanism::Send), 5),
             (LegMechanism::Protocol(Mechanism::BudgetFund), 2),
             (LegMechanism::Protocol(Mechanism::BudgetDefund), 2),
-            (LegMechanism::Protocol(Mechanism::BridgeDepositCredit), 3),
-            (LegMechanism::Protocol(Mechanism::BridgeWithdrawRequest), 4),
             (LegMechanism::PaxeerCustodyDeposit, 1),
             (LegMechanism::PaxeerWithdrawFinalise, 1),
         ])

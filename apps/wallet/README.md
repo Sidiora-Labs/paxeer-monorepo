@@ -41,6 +41,10 @@ Every value is supplied through the environment at build or run time; no environ
 | `NEXT_PUBLIC_EXPLORER_STATUS_URL`                                                       | build      | Transfer status explorer endpoint, after `NEXT_PUBLIC_PAXEER_EXPLORER_URL` and before the same-origin Blockscout API in fallback order |
 | `NEXT_PUBLIC_PAXEER_ATTESTOR_URL`                                                       | build      | Attestor base                                                                                                                          |
 | `NEXT_PUBLIC_PNS_API_BASE`                                                              | build      | Name service indexer base; name lookups return nothing when unset                                                                      |
+| `NEXT_PUBLIC_PNS_CONTROLLER`                                                            | build      | Deployed .pax controller address (0x-prefixed, 20-byte hex)                                                                            |
+| `NEXT_PUBLIC_PNS_PUBLIC_RESOLVER`                                                       | build      | Deployed .pax public resolver address (0x-prefixed, 20-byte hex)                                                                       |
+| `NEXT_PUBLIC_PNS_REVERSE_REGISTRAR`                                                     | build      | Deployed .pax reverse registrar address (0x-prefixed, 20-byte hex)                                                                     |
+| `NEXT_PUBLIC_PNS_SHELL_DOMAIN`                                                          | build      | Optional shell hostname for website links at `https://<label>.pax.<shell-domain>/`; supply a hostname without a scheme or path         |
 | `NEXT_PUBLIC_POINTS_API_BASE`                                                           | build      | Points indexer base                                                                                                                    |
 | `NEXT_PUBLIC_MARKET_DATA_API`                                                           | build      | Market data base for PAX and listed token prices; price reads fail when unset                                                          |
 | `NEXT_PUBLIC_FX_RATES_API`                                                              | build      | Fiat exchange rate base; amounts stay in USD when unset                                                                                |
@@ -71,5 +75,7 @@ Every value is supplied through the environment at build or run time; no environ
 | `NODE_ENV`                                                                              | build, run | Next.js execution mode; the PWA provider registers the service worker only in `production`                                             |
 
 Each configured `NEXT_PUBLIC_*` network base (`src/pwa/config.ts`) joins the content security policy connect list in `src/lib/security/csp.ts`.
+
+The name widget shows `name service not configured` with no actions until the .pax contracts of task 19.1.3 are deployed and all three contract addresses are set and valid. Website records store a 32-byte manifest digest prefixed with the Paxeer contenthash tag `0x70617831`. Set website accepts a `0x`-prefixed 64-hex digest; configure `NEXT_PUBLIC_PNS_SHELL_DOMAIN` to enable the Website link. The indexer proxy routes under `src/app/api/pns` are repointed separately by task 19.7.3 (decision 2160).
 
 `.env` and `.env.*` are ignored by git, together with build output, native intermediates, signing files and editor and OS artefacts; see `.gitignore`.

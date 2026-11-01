@@ -17,6 +17,19 @@ skip = ["contracts/src/**", "contracts/test/**", "contracts/lib/**", "contracts/
 fs_permissions = [
     { access = "read", path = "./contracts/config" },
     { access = "read", path = "./tests/vectors/checkpoint" },
+    { access = "read-write", path = "./tests/vectors/names" },
+    { access = "write", path = "./build" },
+]
+
+[profile.names]
+src = "contracts/names"
+test = "tests/solidity/names"
+script = "contracts/names"
+out = "build/forge-artifacts-names"
+cache_path = "build/forge-cache-names"
+fs_permissions = [
+    { access = "read-write", path = "./tests/vectors/names" },
+    { access = "write", path = "./build" },
 ]
 
 [fmt]

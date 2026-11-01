@@ -46,13 +46,16 @@ func unmarshalFixedHex(raw []byte, out []byte) error {
 
 // Request kinds. KindApi carries an api payload (api.go).
 const (
-	KindFetch  uint8 = 1
-	KindSearch uint8 = 2
-	KindApi    uint8 = 3
+	KindFetch          uint8 = 1
+	KindSearch         uint8 = 2
+	KindApi            uint8 = 3
+	KindStorageReceipt uint8 = 4
 )
 
 // KnownKind reports whether kind is a request kind the module accepts.
-func KnownKind(kind uint8) bool { return kind == KindFetch || kind == KindSearch || kind == KindApi }
+func KnownKind(kind uint8) bool {
+	return kind == KindFetch || kind == KindSearch || kind == KindApi || kind == KindStorageReceipt
+}
 
 // Attestation levels. Under LevelMajority a fulfilment needs the threshold of
 // attestor signatures; under LevelSingle, open to the api kind only, it needs

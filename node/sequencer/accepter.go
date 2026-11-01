@@ -50,7 +50,8 @@ func (a *Accepter) Accept(txBytes []byte) ([]byte, error) {
 	}
 	send, err := a.send(txBytes, acc, receipt)
 	if err != nil {
-		return nil, err
+		a.halted = true
+		return nil, fmt.Errorf("sequencer: accepted send at sequence %d: %w", acc.Seq, err)
 	}
 	ackStart := time.Now()
 	ack, err := a.rep.Release(context.Background(), &wal.Accept{

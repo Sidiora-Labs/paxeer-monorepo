@@ -45,7 +45,6 @@ typedef struct lxp_gateway_settlement_context {
 
 typedef struct lxp_gateway_receive_context {
     lx_asset_registry *assets;
-    lxp_receive_environment *receive_environment;
     lxp_gateway_invoice_registry *invoices;
     const uint8_t *service_public_key;
     const uint8_t *sequencer_private_key;

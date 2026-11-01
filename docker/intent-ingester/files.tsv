@@ -1,2 +1,0 @@
-INTENT_INGESTER_SIGNER_KEY	/run/secrets/intent-ingester/signer.key		*
-INTENT_INGESTER_MARKET_MAP	/run/secrets/intent-ingester/markets.json		*

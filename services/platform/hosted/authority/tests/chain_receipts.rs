@@ -260,6 +260,7 @@ impl ReceiptHarness {
                 &format!("http://{address}/evm"),
                 &keys_file,
             )),
+            chain_rpc_url: format!("http://{address}/evm"),
             lni_socket: directory.join("absent-lni.sock"),
             lni_gate: ConnectionGate::new(MAX_LNI_CONNECTIONS),
             chain_endpoint: trust::chain_endpoint(

@@ -48,14 +48,14 @@ func humanCatalogueConstants(t *testing.T, typeName string) map[string]string {
 	return constants
 }
 
-func TestHumanVerificationLevelsUseBlockCommitted(t *testing.T) {
+func TestHumanVerificationLevelsFollowTheHumanSchema(t *testing.T) {
 	want := map[string]HumanVerificationLevel{
-		"HumanVerificationUnverified":      HumanVerificationUnverified,
-		"HumanVerificationReceiptVerified": HumanVerificationReceiptVerified,
-		"HumanVerificationBlockCommitted":  HumanVerificationBlockCommitted,
+		"HumanVerificationUnverified":          HumanVerificationUnverified,
+		"HumanVerificationReceiptVerified":     HumanVerificationReceiptVerified,
+		"HumanVerificationCheckpointFinalised": HumanVerificationCheckpointFinalised,
 	}
-	if HumanVerificationBlockCommitted != "block-committed" {
-		t.Fatalf("block commitment level = %q", HumanVerificationBlockCommitted)
+	if HumanVerificationUnverified != "unverified" || HumanVerificationReceiptVerified != "receipt-verified" || HumanVerificationCheckpointFinalised != "checkpoint-finalised" {
+		t.Fatalf("verification levels do not match the human schema: %v", want)
 	}
 	constants := humanCatalogueConstants(t, "HumanVerificationLevel")
 	if len(constants) != len(want) {
@@ -66,7 +66,7 @@ func TestHumanVerificationLevelsUseBlockCommitted(t *testing.T) {
 			t.Errorf("verification level %s = %q (declared %t, valid %t)", name, value, ok, level.Valid())
 		}
 	}
-	for _, level := range []HumanVerificationLevel{"checkpoint-finalised", "paxeer-finalised", "settlement-anchored", ""} {
+	for _, level := range []HumanVerificationLevel{"block-committed", "paxeer-finalised", "settlement-anchored", ""} {
 		if level.Valid() {
 			t.Errorf("obsolete or invalid verification level %q is accepted", level)
 		}

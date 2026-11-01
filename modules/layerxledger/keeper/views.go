@@ -27,11 +27,6 @@ func (k *Keeper) AccountOwner(ctx sdk.Context, accountID [32]byte) ([32]byte, er
 	return owner, ledgerReadError(err)
 }
 
-func (k *Keeper) GetPayerGrant(ctx sdk.Context, grantID [32]byte) (lxphost.PayerGrantState, error) {
-	grant, err := k.host.ReadPayerGrant(ctx, grantID)
-	return grant, ledgerReadError(err)
-}
-
 func (k *Keeper) NextSequence(ctx sdk.Context, didKey, assetID [32]byte) (uint64, error) {
 	name, accountID, err := lxphost.AssetAccountID(didKey, assetID)
 	if err != nil {

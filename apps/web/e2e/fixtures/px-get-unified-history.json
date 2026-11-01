@@ -49,7 +49,7 @@
         },
         "direction": "out",
         "final": false,
-        "final_basis": "local_finality_depth",
+        "final_basis": "block_commit",
         "height_or_seq": "10",
         "id": "3",
         "kind": "native_transfer",
@@ -65,10 +65,11 @@
         "stability": {
           "finalized_boundary": null,
           "level": "reversible",
-          "source": "local_finality_depth"
+          "source": "block_commit"
         },
         "txIndex": 0,
-        "tx_id": "native_transfer-10-0",
+        "tx_hash": "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+        "tx_id": "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
         "tx_index": "0"
       },
       {
@@ -95,7 +96,7 @@
         },
         "direction": "in",
         "final": false,
-        "final_basis": "local_finality_depth",
+        "final_basis": "block_commit",
         "height_or_seq": "11",
         "id": "6",
         "kind": "pointer_transfer",
@@ -111,10 +112,11 @@
         "stability": {
           "finalized_boundary": null,
           "level": "reversible",
-          "source": "local_finality_depth"
+          "source": "block_commit"
         },
         "txIndex": 0,
-        "tx_id": "pointer_transfer-11-0",
+        "tx_hash": "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
+        "tx_id": "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
         "tx_index": "0"
       },
       {
@@ -141,7 +143,7 @@
         },
         "direction": "out",
         "final": false,
-        "final_basis": "local_finality_depth",
+        "final_basis": "block_commit",
         "height_or_seq": "12",
         "id": "9",
         "kind": "bank_transfer",
@@ -157,10 +159,11 @@
         "stability": {
           "finalized_boundary": null,
           "level": "reversible",
-          "source": "local_finality_depth"
+          "source": "block_commit"
         },
         "txIndex": 0,
-        "tx_id": "bank_transfer-12-0",
+        "tx_hash": "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
+        "tx_id": "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
         "tx_index": "0"
       },
       {
@@ -176,7 +179,7 @@
         },
         "direction": "in",
         "final": false,
-        "final_basis": "local_finality_depth",
+        "final_basis": "block_commit",
         "height_or_seq": "12",
         "id": "11",
         "kind": "erc20_transfer",
@@ -192,10 +195,11 @@
         "stability": {
           "finalized_boundary": null,
           "level": "reversible",
-          "source": "local_finality_depth"
+          "source": "block_commit"
         },
         "txIndex": 1,
-        "tx_id": "erc20_transfer-12-1",
+        "tx_hash": "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
+        "tx_id": "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
         "tx_index": "1"
       }
     ],
