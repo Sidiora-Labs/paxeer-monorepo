@@ -167,15 +167,21 @@ from .verifier import LocalSignatureVerifier as LocalSignatureVerifier
 from .verifier import MerkleProof as MerkleProof
 from .verifier import ProtocolReceipt as ProtocolReceipt
 from .verifier import ReceiptEffect as ReceiptEffect
+from .verifier import ReceiptKey as ReceiptKey
 from .verifier import ReceiptVerification as ReceiptVerification
 from .verifier import ReceiptVerificationError as ReceiptVerificationError
 from .verifier import SequencerAuthorization as SequencerAuthorization
+from .verifier import SequencerReceiptVerification as SequencerReceiptVerification
+from .verifier import (
+    SequencerReceiptVerificationError as SequencerReceiptVerificationError,
+)
 from .verifier import decode_batch_header as decode_batch_header
 from .verifier import verify_batch_inclusion as verify_batch_inclusion
 from .verifier import verify_checkpoint as verify_checkpoint
 from .verifier import verify_merkle_inclusion as verify_merkle_inclusion
 from .verifier import verify_receipt as verify_receipt
 from .verifier import verify_receipt_outcome as verify_receipt_outcome
+from .verifier import verify_sequencer_receipt as verify_sequencer_receipt
 from .x402 import PaymentCheckpointEvidence as PaymentCheckpointEvidence
 from .x402 import PaymentCommitment as PaymentCommitment
 from .x402 import PaymentCommitmentEvidence as PaymentCommitmentEvidence
