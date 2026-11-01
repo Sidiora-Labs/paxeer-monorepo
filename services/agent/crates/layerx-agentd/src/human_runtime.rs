@@ -18414,18 +18414,18 @@ fn encode_capability_record(
 
 const FEE_PROJECTION_RATIONALE: &str = "native committed fee schedule evaluated for the stated hypothetical meter at the captured authenticated head snapshot; not an executed fee and not verified";
 
-fn fee_estimate_error(error: layerx_client::client::FeeEstimateError) -> HumanOperationError {
+fn fee_estimate_error(error: layerx_client::fee::FeeEstimateError) -> HumanOperationError {
     match error {
-        layerx_client::client::FeeEstimateError::SnapshotSkew { .. } => {
+        layerx_client::fee::FeeEstimateError::SnapshotSkew { .. } => {
             HumanOperationError::Typed(crate::human::HumanRefusal::FeeSnapshotSkew)
         }
-        layerx_client::client::FeeEstimateError::Read(
+        layerx_client::fee::FeeEstimateError::Read(
             layerx_client::read::ReadError::UnavailableCapability
             | layerx_client::read::ReadError::Disconnected
             | layerx_client::read::ReadError::Transport(_),
         ) => HumanOperationError::Unavailable,
-        layerx_client::client::FeeEstimateError::MeterOutOfRange { .. }
-        | layerx_client::client::FeeEstimateError::Read(_) => HumanOperationError::Refused,
+        layerx_client::fee::FeeEstimateError::MeterOutOfRange { .. }
+        | layerx_client::fee::FeeEstimateError::Read(_) => HumanOperationError::Refused,
     }
 }
 

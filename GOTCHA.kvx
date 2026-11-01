@@ -12826,3 +12826,33 @@ fix = "Generate and commit the vector once before the build; build and verify ru
 title = "A struct field changed to Option and the test targets of a sibling crate kept the plain value"
 symptom = "A done task changes two public struct fields to Option<u64> and ports the test file its text names; two other test targets of the same crate still build integer literals and every later task whose build compiles the crate's tests fails before touching its own work."
 fix = "When a public type changes shape, grep every tests/ file of its crate for constructions of that type and port them in the same task."
+
+[gotcha.2602]
+title = "A private copy of a daemon test setup falls behind the daemon's mandatory inputs"
+symptom = "One integration test keeps its own copy of the daemon start sequence while a shared support module carries the maintained one; the daemon gains mandatory inputs, the shared tests keep passing and the private copy's daemons exit at start."
+fix = "Compare the private setup's environment against the shared support's before ruling on a daemon start failure, and prefer building through the shared support."
+
+[gotcha.2603]
+title = "A port instruction that names helper symbols misses literals of a widened type"
+symptom = "A ruling asks the implementer to grep for three named constructors; a fourth type the same change widened has struct literals in another test file and the crate-wide build fails once more."
+fix = "When a producer type gains fields, name every widened type in the grep instruction, not only the helpers that construct it."
+
+[gotcha.2604]
+title = "A finding blames test state when the production path is retired unconditionally"
+symptom = "A test expected a finalisation error and got the retirement error; the first ruling asked for the retirement flag to be traced, while the production function returns the retirement error regardless of the flag since an earlier task."
+fix = "Read the production function the failing call reaches before ruling on state; an unconditional retirement makes the test's path assertions stale, not the state."
+
+[gotcha.2605]
+title = "A test policy copies the shared defaults but not the deployed precompile allow-list"
+symptom = "A daemon refuses every call to a precompile whose methods its policy does not list; the test policy mirrors the shared support's defaults, which list none, so the disclosed ledger call is refused with selector_not_allowed after the daemons finally start."
+fix = "When a daemon test exercises a precompile call, copy that precompile's method list from the deployed policy file into the test policy."
+
+[gotcha.2606]
+title = "A task's symbols list names the symbols the task deletes"
+symptom = "The done check validates each listed symbol against the code graph; a deletion task that still lists the deleted symbols passes build and verify and is refused at the done record."
+fix = "For deletion tasks list only the symbols that remain after the change; audit the symbols list when writing a delete ruling."
+
+[gotcha.2607]
+title = "A sibling task re-shapes the lookup a ruling describes before the ruling runs"
+symptom = "A ruling tells the test double to answer the 0x form a production lookup accepted on the day it was written; a later task changes the lookup to a denom-prefixed form and the double's answer is refused."
+fix = "Before relaunching a task whose ruling names a production function, read that function's latest commit and re-check the ruling against it."
