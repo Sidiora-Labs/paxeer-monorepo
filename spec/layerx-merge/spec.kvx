@@ -117223,7 +117223,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.25.15]
 title = "Port the layerxpay budget mutation test off the budget proof trust that 9.25.10 replaced"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = []
