@@ -232,21 +232,6 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             )?;
             finish(registry, ModuleId::Governance, 3, encoder)
         }
-        IntentKind::EvmPayoutBinding(value) => {
-            header(&mut encoder, 0x7104, 4)?;
-            did(&mut encoder, &value.did, CompileField::Did)?;
-            wire(CompileField::Network, encoder.u32(value.network.value()))?;
-            fixed(
-                &mut encoder,
-                &value.payout_address.bytes(),
-                CompileField::PayoutAddress,
-            )?;
-            wire(
-                CompileField::OwnershipSignature,
-                encoder.bytes(value.ownership_signature.as_bytes(), 128),
-            )?;
-            finish(registry, ModuleId::Governance, 4, encoder)
-        }
         IntentKind::AuthorityGrant(value) => {
             let payload = value.payload().map_err(|error| CompileError {
                 field: CompileField::AuthorityGrant,
@@ -495,67 +480,6 @@ pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledInt
             fixed(&mut encoder, &value.budget_id.bytes(), CompileField::Budget)?;
             wire(CompileField::Amount, encoder.u128(value.amount.value()))?;
             finish(registry, ModuleId::Budget, 8, encoder)
-        }
-        IntentKind::BridgeDepositCredit(value) => {
-            header(&mut encoder, 0x4801, 7)?;
-            fixed(
-                &mut encoder,
-                &value.deposit_proof.bytes(),
-                CompileField::DepositProof,
-            )?;
-            fixed(
-                &mut encoder,
-                &value.checkpoint.bytes(),
-                CompileField::Checkpoint,
-            )?;
-            account(&mut encoder, &value.reserve, CompileField::From)?;
-            account(&mut encoder, &value.recipient, CompileField::Recipient)?;
-            fixed(&mut encoder, &value.asset.bytes(), CompileField::Asset)?;
-            wire(CompileField::Amount, encoder.u128(value.amount.value()))?;
-            fixed(
-                &mut encoder,
-                &value.idempotency_key.bytes(),
-                CompileField::IdempotencyKey,
-            )?;
-            finish(registry, ModuleId::Bridge, 1, encoder)
-        }
-        IntentKind::NativeCustodyCredit(value) => {
-            if intent.version() != IntentVersion::V1 {
-                return Err(CompileError::wire(
-                    CompileField::Version,
-                    WireError {
-                        result: layerx_types::result::KnownResult::VersionUnsupported.into(),
-                        offset: 0,
-                    },
-                ));
-            }
-            fixed(&mut encoder, value.payload(), CompileField::DepositProof)?;
-            finish(registry, ModuleId::Bridge, 1, encoder)
-        }
-        IntentKind::BridgeWithdrawRequest(value) => {
-            if intent.version() != IntentVersion::V2 {
-                return Err(CompileError::wire(
-                    CompileField::Version,
-                    WireError {
-                        result: layerx_types::result::KnownResult::VersionUnsupported.into(),
-                        offset: 0,
-                    },
-                ));
-            }
-            fixed(&mut encoder, &value.asset.bytes(), CompileField::Asset)?;
-            wire(CompileField::Amount, encoder.u128(value.amount.value()))?;
-            fixed(
-                &mut encoder,
-                &value.payout_address.bytes(),
-                CompileField::PayoutAddress,
-            )?;
-            fixed(
-                &mut encoder,
-                &value.request_anchor.bytes(),
-                CompileField::Checkpoint,
-            )?;
-            wire(CompileField::FeeLimit, encoder.u64(value.fee_limit))?;
-            finish(registry, ModuleId::Asset, 9, encoder)
         }
         IntentKind::Perps(payload) => perps(intent, registry, payload),
     }
