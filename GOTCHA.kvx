@@ -12311,3 +12311,123 @@ fix = "Check each route's authentication kind before writing a fixture; open the
 title = "A leaf pnpm install walks up to the root workspace"
 symptom = "pnpm --dir sdk/names install resolved all workspace projects and failed on an unpublished dependency of another package once the names manifest changed"
 fix = "Install leaf packages that keep their own lockfile with --ignore-workspace, or add them to the workspace deliberately"
+
+[gotcha.2499]
+title = "Deleting a file must carry every include_str! of it"
+symptom = "A Python-gated task deleted services/platform/relay_archive/runtime.py while a Rust integration test still include_str!-ed it, so every later build of the gateway test target failed with 'couldn't read' on an unrelated task"
+fix = "Before deleting a file, grep the repository for its path (include_str!, include_bytes!, fixtures) and put every referrer in touches; a deletion's gate must compile the crates that embed the file"
+
+[gotcha.2500]
+title = "A build command fix must sweep every task that shares the command"
+symptom = "Decision 2178 repaired the names SDK install command on one task while a sibling task kept the old command and failed on the identical root-workspace resolution one attempt later"
+fix = "When a ruling changes a build_cmd or verify_cmd, grep the spec for every task carrying the same command and change them in the same batch"
+
+[gotcha.2501]
+title = "A pending-window fix must cover the send itself"
+symptom = "The RPC send path waited for an open block on its nonce read and receipt record but handed the transaction to Accept unguarded, so a fixture's first call during a sealed layer failed with the raw sequencer error"
+fix = "When a wait is added for a closed window, list every call on the handler path that touches the open layer, including the final hand-off, and guard each one"
+
+[gotcha.2502]
+title = "Adding an enum variant must carry the exhaustive matches of dependent crates"
+symptom = "A decoder task added ConstructMethod::PayBudgetFund with a layerx-crypto-only gate while the human service matched the enum exhaustively, so every human workspace build failed until the consumer task landed its arms half an hour later"
+fix = "A task that adds a variant to a public enum puts every exhaustive match in dependent crates in touches, or the consumer task that adds them merges in the same step"
+
+[gotcha.2503]
+title = "Deleting a crate must carry its workspace manifest and lockfile"
+symptom = "A deletion task's touches named only the crate's files, so the workspace manifest kept the member and every cargo command in the human workspace failed with a missing manifest"
+fix = "Grep the workspace Cargo.toml members and the Cargo.lock package list for a crate before deleting it and put both in touches"
+
+[gotcha.2504]
+title = "A task that edits the specification document cannot be compared by raw tree after its done record"
+symptom = "A task whose touches include the specification document verified, then the done record rewrote the task's own status line inside that allowed file, so the measured candidate never matched the verified one and two attempts failed with the same unmet check"
+fix = "Mask the task's own status line in the comparison hash when the specification document is an allowed path; the published commit keeps the real content"
+
+[gotcha.2505]
+title = "A native envelope binder has no call-name port to an EVM call binder"
+symptom = "A migration task ordered call-name ports of every binder use, but two sites bind unsigned native kernel envelopes, which the EVM call binder cannot take; two attempts failed the retirement scan on them"
+fix = "When a retired function has no same-shape replacement, retire its callers with the task that deletes their file and order the deletion of the definition behind them"
+
+[gotcha.2506]
+title = "A consumer task cannot precede the producer whose fields it reads"
+symptom = "10.95.1 read AccountBalances.height and AssetBalance.amount while 10.24.1, which adds them, required 10.95.1; neither order built."
+fix = "Point the requirement from consumer to producer and let the producer port the single dependent call site in the same change."
+
+[gotcha.2507]
+title = "A test fixture built on a deleted module falls with the module"
+symptom = "intent_submit.rs still imported layerx_human_service::binding after 10.9.1 deleted it, so a later task could not port the signatures inside that fixture."
+fix = "Delete the fixture and the cases' binding steps; decide what the product still reads and write that record directly."
+
+[gotcha.2508]
+title = "A journey identifier in a test must carry the jrn_ prefix"
+symptom = "JourneyId::new('move-bank-send') refused with InvalidIdentifier kind journey and both tests panicked before asserting anything."
+fix = "Use jrn_-prefixed lowercase identifiers (notify/event.rs:73), as the other tests do."
+
+[gotcha.2509]
+title = "A fixture loop that logs only on failure leaves an empty log when its parent times out"
+symptom = "feeder.log was empty after the 30 second price wait killed the feeder, so the first failing step was invisible."
+fix = "Log every iteration before and after the broadcast and size the wait to the first commit and aggregate."
+
+[gotcha.2510]
+title = "A test-support server for a retired protocol is deleted, not re-encoded"
+symptom = "The evidence node spoke LNI frames; the retired-module scan refused lni paths while a do-line asked to keep the handshake."
+fix = "Delete it with its tests once its consumer moved to the real RPC; keep the journal types the consumer still uses."
+
+[gotcha.2511]
+title = "A retirement scan for a package name fails while sibling tasks still delete the package's other files"
+symptom = "10.27.2's test scanned for layerx-explorer-index and found the package's own sources and the tests of 10.27.4, 10.27.5 and 10.27.7."
+fix = "Scan for the deleted files' names and the symbol they exercised; order the tasks whose scans hit each other's files with requires."
+
+[gotcha.2512]
+title = "A sequencer send refused -32000 'receipted but its logs are not recorded ... pending height H+1, receipt height H' is a send-path race, not a consumer fault"
+symptom = "rpc/send.go recordReceiptLogs compared the pending height with the receipt's height after Accept; a layer sealing between the two refused a transaction the sequencer had receipted (18.670.1 a12, 10.6.1 a3, 5.47.4, 18.997.1, 11.37.3)."
+fix = "task 5.98.7 records the logs from the AcceptedSend the accepter returns and orders Committed after in-flight sends; consumers must not retry the send (the nonce is spent) nor mask the refusal."
+
+[gotcha.2513]
+title = "A touches entry for a file another task deleted on main fails the done gate as 'no matching change'"
+symptom = "10.98.10 attempt 4 listed tests/deposit.rs in touches after 10.20.x deleted it at ad92aa7fc; the gate found no change for the path."
+fix = "drop the path from touches and withdraw the do line that named it; the attempt's remaining work stands."
+
+[gotcha.2514]
+title = "Playwright body.innerText of '' against a Next dev server usually means a client exception swallowed by the dev overlay"
+symptom = "12.35.2 attempt 8 printed body '' although the init script ran; the Next dev overlay lives in a nextjs-portal element outside body text."
+fix = "attach page.on('pageerror') and page.on('console') before goto and print locator('nextjs-portal') text with the navigation response status before changing product code."
+
+[gotcha.2515]
+title = "A task reshaping a shared struct must build every consumer crate in its own build_cmd, not only its test target"
+symptom = "10.24.1 changed AssetBalance in layerx-network-gateway and built only the gateway test; production_components.rs in layerx-human-service kept the old fields and main stopped building for every human-service task (10.95.1 a4, 18.1156.1 a12, 18.1151.1 a12, 10.27.2 a4)."
+fix = "a port task (10.24.4) repairs the consumer and the human-service builders require it; when writing a producer task, put cargo build -p <consumer crate> into build_cmd."
+
+[gotcha.2516]
+title = "Deleting a module's files is not enough when the crate's facade still defines methods over it"
+symptom = "9.24.3 deleted the arbiter and execution prestate readers but client.rs kept seven methods and two evidence type names over them (36 errors)."
+fix = "list the facade file in touches and name the methods to delete; the callers in other crates belong to the wiring tasks."
+
+[gotcha.2517]
+title = "A symbols entry for a type the task deletes fails the done gate as 'not defined in the graph'"
+symptom = "10.24.3 attempt 1 listed AnchorHead in symbols while do_1 deleted it."
+fix = "list only symbols that exist after the task; deleted names belong in the do lines."
+
+[gotcha.2518]
+title = "A programme check over the installed spec is green only when the features it checks are complete"
+symptom = "17.4.5's uncovered-selector test failed with 127 selectors for tests pending tasks have not written."
+fix = "sequence such checks behind the domain completion gates (N.0.9) instead of running them mid-programme."
+
+[gotcha.2519]
+title = "Refusal-only retired components never appear in the callers inventory"
+symptom = "17.2.6's stale_rows flagged requires-sei-wasm, a row with deleted_trees = [] whose callers are shell scripts."
+fix = "treat components without deleted_trees as outside the inventory's domain."
+
+[gotcha.2520]
+title = "A schema edit without a regenerated client fails the api-gen drift test on every later main"
+symptom = "10.0.3 (63aee3813) extended services/human/schema/human-api and left apps/web/src/api/generated at its earlier shape; make human-build was red until 14.0.5."
+fix = "a task that touches the human-api schema regenerates the client in the same change, or the spec names the web task that does and sequences the aggregate gates behind it."
+
+[gotcha.2521]
+title = "A browser test that sees an empty document must prove the server serves the app before touching the test"
+symptom = "12.35.2 spent attempts 7 to 9 refining diagnostics while no test had ever rendered the wallet shell under the app config."
+fix = "fetch the page from the test process, run the simplest existing test under the same config, and only then decide whether the config or the test is at fault."
+
+[gotcha.2522]
+title = "go build compiles no _test.go file, so a changed Accept signature passed the build and broke the consumer package's tests"
+symptom = "5.98.7 attempt 1 changed SequencerAccepter.Accept to return AcceptedSend; go build ./rpc/... ./node/... passed and go test ./node/sequencer/ failed to compile on two test callers outside touches."
+fix = "a task that changes a signature test files call adds go vet over those packages to its build gate and names the calling test files in touches."

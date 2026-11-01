@@ -23,18 +23,17 @@ pub use layerx_wire::WireError as CanonicalError;
 
 /// # Errors
 /// Refuses noncanonical debit fields before constructing the authorization preimage.
-pub fn send_authorization_bytes(
-    debit: &layerx_crypto::send::SendDebit,
-) -> Result<Vec<u8>, layerx_crypto::disclosure::DisclosureError> {
+pub fn send_authorization_bytes(debit: &SendDebit) -> Result<Vec<u8>, DisclosureError> {
     debit.authorization_message()
 }
 
 /// # Errors
 /// Refuses malformed debit fields or an authorization signature not bound to them.
 pub fn signed_send_payload(
-    debit: &layerx_crypto::send::SendDebit,
+    debit: &SendDebit,
     public_key: [u8; 32],
     signature: [u8; 64],
-) -> Result<Vec<u8>, layerx_crypto::disclosure::DisclosureError> {
+) -> Result<Vec<u8>, DisclosureError> {
     debit.encode_signed(public_key, signature)
 }
+use layerx_crypto::{disclosure::DisclosureError, send::SendDebit};

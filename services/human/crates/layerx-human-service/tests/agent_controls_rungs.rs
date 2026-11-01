@@ -1117,9 +1117,15 @@ mod archive_fixture {
         }
     }
 
-    fn raw_transaction(nonce: usize, prepared: &Prepared) -> Result<Vec<u8>, AgentBoundaryError> {
-        use layerx_crypto::disclosure::call::{bind_call, encode_payment_call, ledger_selector};
-        use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
+    fn prepare_bound(
+        prepared: &Prepared,
+        actor_address: [u8; 20],
+    ) -> Result<layerx_agentd::prepare::EvmPrepared, AgentBoundaryError> {
+        use layerx_agentd::prepare::evm::{
+            AbiArgument, EvmPreparationState, PrecompileCall, PrecompileTarget,
+            PreparationDefaults as EvmDefaults, PrepareRequest as EvmRequest,
+        };
+        use layerx_crypto::disclosure::call::{encode_payment_call, ledger_selector};
 
         let payload = prepared.envelope.payload();
         let activity = payload.activity_type();
@@ -1184,54 +1190,140 @@ mod archive_fixture {
             }
             _ => return Err(AgentBoundaryError::Refused),
         };
-        let call = Eip1559Call {
-            chain_id: u64::from(NETWORK_ID),
-            nonce: u64::try_from(nonce).map_err(|_| AgentBoundaryError::CorruptResponse)?,
-            max_priority_fee_per_gas: 1,
-            max_fee_per_gas: 1,
-            gas_limit: u64::try_from(prepared.envelope.fee_limit().value())
-                .map_err(|_| AgentBoundaryError::CorruptResponse)?,
-            to,
-            data,
+        let target = match activity.module() {
+            ModuleId::Budget => PrecompileTarget::Pay,
+            ModuleId::Asset => PrecompileTarget::Ledger,
+            _ => return Err(AgentBoundaryError::Refused),
         };
-        let bytes = call
-            .sign(&[0xa5; 32])
-            .map_err(|_| AgentBoundaryError::Refused)?;
-        let (decoded, signature) =
-            decode_signed(&bytes).map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        let sender = recover_sender(&decoded, &signature)
+        assert_eq!(to, target.address());
+        let selector = data[..4]
+            .try_into()
             .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        let disclosure =
-            bind_call(&decoded, sender).map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        if decoded != call || disclosure.activity_type != activity {
-            return Err(AgentBoundaryError::CorruptResponse);
-        }
-        if activity.module() == ModuleId::Asset
-            && disclosure.idempotency_key != prepared.envelope.idempotency_key().bytes()
-        {
-            return Err(AgentBoundaryError::CorruptResponse);
-        }
-        Ok(bytes)
+        let arguments = data[4..]
+            .chunks(32)
+            .map(|word| {
+                word.try_into()
+                    .map(AbiArgument::Word)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let fee_limit = prepared.envelope.fee_limit().value();
+        let transaction = layerx_agentd::prepare::evm::prepare_bound(
+            EvmPreparationState {
+                chain_id: u64::from(NETWORK_ID),
+                pending_nonce: prepared.envelope.account_sequence(),
+                base_fee_per_gas: 0,
+                head_height: prepared.observed_head_sequence,
+            },
+            EvmDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 1,
+                maximum_payload_bytes: 2_048,
+            },
+            EvmRequest {
+                from: actor_address,
+                call: PrecompileCall {
+                    target,
+                    selector,
+                    arguments,
+                },
+                expected_nonce: Some(prepared.envelope.account_sequence()),
+                max_priority_fee_per_gas: Some(1),
+                max_fee_per_gas: Some(1),
+                declared_payload_limit: 2_048,
+            },
+            u64::try_from(fee_limit).map_err(|_| AgentBoundaryError::CorruptResponse)?,
+        )
+        .map_err(|_| AgentBoundaryError::Refused)?;
+        assert_eq!(transaction.call.data, data);
+        assert_eq!(transaction.call.nonce, prepared.envelope.account_sequence());
+        assert_eq!(
+            u128::from(transaction.call.gas_limit) * transaction.call.max_fee_per_gas,
+            fee_limit
+        );
+        Ok(transaction)
     }
 
     fn signing_preparation(
         prepared: &Prepared,
         actor_address: [u8; 20],
     ) -> Result<SigningPreparation, AgentBoundaryError> {
-        let nonce = usize::try_from(prepared.envelope.account_sequence())
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-        let raw = raw_transaction(nonce, prepared)?;
-        let (call, _) = layerx_crypto::evm_transaction::decode_signed(&raw)
-            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         Ok(SigningPreparation {
-            transaction: layerx_agentd::prepare::EvmPrepared {
-                signing_hash: call.signing_hash(),
-                call,
-                observed_head_height: prepared.observed_head_sequence,
-            },
+            transaction: prepare_bound(prepared, actor_address)?,
             actor_address,
             authorization: prepared.clone(),
         })
+    }
+
+    #[derive(Debug)]
+    struct TransactionSigner;
+
+    impl layerx_crypto::signer::Signer for TransactionSigner {
+        fn public_key(&self) -> [u8; 32] {
+            layerx_crypto::signer::Signer::public_key(&layerx_crypto::local::LocalSigner::new(
+                [0x51; 32],
+            ))
+        }
+
+        fn sign<'a>(
+            &'a self,
+            request: layerx_crypto::signer::SigningRequest<'a>,
+        ) -> layerx_crypto::signer::SignFuture<'a> {
+            Box::pin(async move {
+                layerx_crypto::signer::Signer::sign(
+                    &layerx_crypto::local::LocalSigner::new([0x51; 32]),
+                    request,
+                )
+                .await
+            })
+        }
+
+        fn evm_address(&self) -> Option<[u8; 20]> {
+            let key =
+                k256::ecdsa::SigningKey::from_slice(&[0x51; 32]).expect("fixture secp256k1 key");
+            Some(
+                layerx_crypto::secp256k1::evm_address(
+                    key.verifying_key().to_encoded_point(false).as_bytes(),
+                )
+                .expect("fixture wallet"),
+            )
+        }
+
+        fn sign_transaction<'a>(
+            &'a self,
+            call: &'a layerx_crypto::evm_transaction::Eip1559Call,
+        ) -> layerx_crypto::signer::TransactionSignFuture<'a> {
+            Box::pin(async move {
+                let raw = call
+                    .sign(&[0x51; 32])
+                    .map_err(|_| layerx_crypto::signer::SignError::KeyRejected)?;
+                let (_, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)
+                    .map_err(|_| layerx_crypto::signer::SignError::ReturnedSignatureInvalid)?;
+                Ok(signature)
+            })
+        }
+    }
+
+    fn sign_disclosed_call(signing: &SigningPreparation) -> layerx_crypto::signer::AgentSignature {
+        use layerx_crypto::signer::Signer as _;
+        let signer = TransactionSigner;
+        assert_eq!(signer.evm_address(), Some(signing.actor_address));
+        let disclosure = layerx_crypto::disclosure::call::bind_call(
+            &signing.transaction.call,
+            signing.actor_address,
+        )
+        .expect("fixture call disclosure");
+        ready(layerx_crypto::signer::sign_disclosed_call(
+            &signer,
+            &signing.transaction.call,
+            &disclosure,
+            signing.actor_address,
+        ))
+        .expect("disclosure-bound transaction signature")
+    }
+
+    fn transaction_hash(raw: &[u8]) -> [u8; 32] {
+        layerx_crypto::evm_transaction::transaction_hash(raw)
     }
 
     /// Test adapter over the real agentd prepare, signature-verification, durable
@@ -1544,6 +1636,24 @@ mod archive_fixture {
                 signing_preparation(&prepared, self.sender.ok_or(AgentBoundaryError::Refused)?)?;
             let signed = attach_external_signature(&signing, signature)
                 .map_err(|_| AgentBoundaryError::Refused)?;
+            let fixture_signature = sign_disclosed_call(&signing);
+            let expected_raw = layerx_crypto::evm_transaction::assemble(
+                &signing.transaction.call,
+                &fixture_signature,
+            );
+            assert_eq!(
+                signed, expected_raw,
+                "service and fixture sign the same prepared call"
+            );
+            let (decoded, recovered_signature) =
+                layerx_crypto::evm_transaction::decode_signed(&signed)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+            assert_eq!(decoded, signing.transaction.call);
+            assert_eq!(
+                layerx_crypto::evm_transaction::recover_sender(&decoded, &recovered_signature)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+                signing.actor_address
+            );
             let verified =
                 verify_before_submit(&signed, &signing, &signing.actor_address, &self.registry)
                     .map_err(|_| AgentBoundaryError::Refused)?;
@@ -1555,6 +1665,7 @@ mod archive_fixture {
             } else {
                 verified.into_exact_bytes()
             };
+            let activity_id = transaction_hash(&raw);
             let submission_id = match self
                 .outbox
                 .enqueue(&mut self.store, self.tenant.clone(), raw)
@@ -1564,7 +1675,7 @@ mod archive_fixture {
                 Err(_) => return Err(AgentBoundaryError::Refused),
             };
             self.outbox_submissions.insert(key, submission_id);
-            let activity_id = submission_id;
+            assert_eq!(activity_id, submission_id);
             self.outbox
                 .transition(
                     &mut self.store,
@@ -2424,6 +2535,46 @@ mod archive_fixture {
             assert_eq!(result.fee_charged(), 1);
             assert_ne!(result.activity_id(), [0; 32]);
             assert_ne!(result.receipt_digest(), [0; 32]);
+
+            let submission_id = agent.outbox_submissions[&request.idempotency_key];
+            let raw = agent
+                .outbox
+                .exact_signed_bytes(submission_id)
+                .unwrap_or_else(|error| panic!("reclaim raw transaction: {error:?}"));
+            let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw)
+                .unwrap_or_else(|error| panic!("reclaim type-2 transaction: {error:?}"));
+            assert_eq!(raw[0], 2);
+            assert_eq!(signature.as_bytes().len(), 65);
+            assert_eq!(call.nonce, request.agent.nonce());
+            assert_eq!(
+                u128::from(call.gas_limit) * call.max_fee_per_gas,
+                request.agent.fee_limit
+            );
+            assert_eq!(
+                layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                    .unwrap_or_else(|error| panic!("reclaim sender: {error:?}")),
+                agent.sender.expect("agent wallet")
+            );
+            assert_eq!(result.activity_id(), transaction_hash(raw));
+            assert_eq!(
+                agent.receipt_material[&request.idempotency_key].tx_hash,
+                transaction_hash(raw)
+            );
+            if let ReclaimMechanism::BudgetDefund { budget_id, .. } = &request.mechanism {
+                assert_eq!(
+                    call.to,
+                    layerx_agentd::prepare::PrecompileTarget::Pay.address()
+                );
+                assert_eq!(
+                    call.data[..4],
+                    layerx_crypto::disclosure::call::ledger_selector(
+                        "budgetDefund(bytes32,uint128)"
+                    )
+                );
+                assert_eq!(call.data[4..36], budget_id.bytes());
+                assert_eq!(call.data[36..52], [0; 16]);
+                assert_eq!(call.data[52..], request.amount.value().to_be_bytes());
+            }
             assert_eq!(agent.effects.get(&request.idempotency_key), Some(&1));
             assert_eq!(agent.submit_calls.get(&request.idempotency_key), Some(&1));
         }

@@ -30,8 +30,6 @@ const MAXIMUM_JOINED_ASSETS: usize = 1_024;
 pub const PAX_ADDRESS_LIMIT: usize = 128;
 /// Longest accepted asset denomination text.
 pub const DENOM_LIMIT: usize = 128;
-/// Longest accepted anchor status name.
-pub const STATUS_NAME_LIMIT: usize = 64;
 /// Longest accepted network identifier text.
 pub const NETWORK_ID_LIMIT: usize = 64;
 
@@ -283,125 +281,79 @@ impl ResolvedIdentities {
 pub struct PaxeerAccount {
     /// The EVM address the balance and nonce were read at.
     pub address: [u8; 20],
-    /// The native balance at the latest block.
+    /// The native balance at the reported block height.
     pub balance: u128,
-    /// The transaction count at the latest block.
+    /// The transaction count at the reported block height.
     pub nonce: u64,
+    /// The block height at which the balance and nonce were read.
+    pub height: u64,
 }
 
-/// One account joined across both domains by `px_getAccount`.
+/// One chain account as `px_getAccount` reports it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountJoin {
     /// The resolved identities of the account.
     pub account: ResolvedIdentities,
     /// The Paxeer half, absent when the account is not bound to an address.
     pub paxeer: Option<PaxeerAccount>,
-    /// The `LayerX` public core account document, absent when there is none.
-    pub layerx: Option<Value>,
     /// How this fact reached the caller.
     pub evidence: Evidence,
 }
 
-/// The Paxeer bank balance of one asset for one address.
+/// One bank coin as `px_getBalances` reports it.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PaxeerAssetBalance {
-    /// The bank denomination the balance was read under.
+pub struct AssetBalance {
+    /// The bank denomination.
     pub denom: String,
-    /// The exact balance.
+    /// The exact balance at the answer height.
     pub amount: u128,
 }
 
-/// The custody precompile's record for one asset.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CustodyAsset {
-    /// The `LayerX` asset identifier.
-    pub asset_id: [u8; 32],
-    /// The bank denomination custody mints against.
-    pub denom: String,
-    /// Whether deposits are accepted.
-    pub enabled: bool,
-    /// Whether the asset is paused.
-    pub paused: bool,
-    /// The smallest accepted deposit.
-    pub minimum_deposit: u128,
-    /// The ceiling on total custodied value.
-    pub custody_cap: u128,
-    /// The amount currently custodied.
-    pub custodied: u128,
-    /// The amount already released.
-    pub released: u128,
-    /// The amount queued for release.
-    pub pending: u128,
-}
-
-/// One asset held by the same account in either domain, joined through the
-/// custody asset map, exactly as `px_getBalances` reports it.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AssetBalance {
-    /// The `LayerX` asset identifier.
-    pub asset_id: [u8; 32],
-    /// The joined denomination, when either domain reports one.
-    pub denom: Option<String>,
-    /// The custody precompile's record, absent when the asset is not custodied.
-    pub custody: Option<CustodyAsset>,
-    /// The Paxeer bank balance, absent when no address or denom is known.
-    pub paxeer: Option<PaxeerAssetBalance>,
-    /// The `LayerX` account document for this asset, absent when there is none.
-    pub layerx: Option<Value>,
-}
-
-impl AssetBalance {
-    /// The LayerX-side spendable amount this row reports, when it reports one.
-    ///
-    /// # Errors
-    /// Refuses a `LayerX` document whose balance is not a gateway quantity.
-    pub fn layerx_amount(&self) -> Result<Option<u128>, GatewayError> {
-        let Some(document) = self.layerx.as_ref() else {
-            return Ok(None);
-        };
-        let value = document
-            .get("balance")
-            .or_else(|| document.get("amount"))
-            .ok_or(GatewayError::MalformedAnswer)?;
-        quantity(value).map(Some)
-    }
-}
-
-/// The bounded joined balance table for one account.
+/// The bounded bank balance table for one account at one height.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountBalances {
-    /// The resolved identities the table was joined for.
+    /// The resolved identities the table was read for.
     pub account: ResolvedIdentities,
-    /// One row per joined asset, in the gateway's own order.
+    /// The block height at which every coin was read.
+    pub height: u64,
+    /// One row per bank coin, in the gateway's own order.
     pub balances: Vec<AssetBalance>,
-    /// The number of assets the gateway joins per answer.
-    pub joined_limit: u64,
     /// How this fact reached the caller.
     pub evidence: Evidence,
 }
 
 impl AccountBalances {
-    /// The row for one asset, when the joined table carries it.
+    /// The row for one bank denomination, when the table carries it.
     #[must_use]
-    pub fn asset(&self, asset_id: [u8; 32]) -> Option<&AssetBalance> {
-        self.balances.iter().find(|row| row.asset_id == asset_id)
+    pub fn asset(&self, denom: &str) -> Option<&AssetBalance> {
+        self.balances.iter().find(|row| row.denom == denom)
     }
 }
 
-/// One entry of the joined asset map from `px_listAssets`.
+/// One chain asset from `px_listAssets`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssetEntry {
-    /// The `LayerX` asset identifier.
-    pub asset_id: [u8; 32],
-    /// The `LayerX` public core asset record.
-    pub layerx: Option<Value>,
-    /// The custody precompile's record, absent when the asset is not custodied.
-    pub paxeer: Option<CustodyAsset>,
+    /// The indexer's asset identifier, including bank denomination identifiers.
+    pub asset_id: String,
+    /// The bank denomination, absent for assets without one.
+    pub denom: Option<String>,
+    /// The indexer's asset kind.
+    pub kind: String,
+    /// The chain name, absent when the metadata read failed.
+    pub name: Option<String>,
+    /// The chain symbol, absent when the metadata read failed.
+    pub symbol: Option<String>,
+    /// The chain decimal precision, absent when the metadata read failed.
+    pub decimals: Option<u8>,
+    /// The chain supply, absent when the metadata read failed.
+    pub supply: Option<u128>,
 }
 
-/// The bounded joined asset map.
+/// The bounded chain asset table at one height.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssetTable {
+    /// The block height at which the chain metadata was read.
+    pub height: u64,
     /// One entry per joined asset, in the gateway's own order.
     pub assets: Vec<AssetEntry>,
     /// The number of assets the gateway joins per answer.
@@ -410,15 +362,17 @@ pub struct AssetTable {
     pub evidence: Evidence,
 }
 
-/// The anchor rung of the settlement ladder.
+/// The consensus head reported by the gateway.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AnchorHead {
-    /// The newest batch the anchor reports as finalised, when one exists.
-    pub latest_finalized_batch: Option<u64>,
-    /// The anchor's own status code for that batch.
-    pub status: Option<u64>,
-    /// The anchor's own name for that status.
-    pub status_name: Option<String>,
+pub struct ConsensusHead {
+    /// The latest consensus block height.
+    pub latest_height: u64,
+    /// The latest consensus block hash.
+    pub latest_block_hash: [u8; 32],
+    /// The latest consensus application hash.
+    pub latest_app_hash: [u8; 32],
+    /// Whether the consensus node is catching up.
+    pub catching_up: bool,
 }
 
 /// One head for the whole network, as `px_getNetwork` reports it.
@@ -430,8 +384,8 @@ pub struct NetworkHead {
     pub chain_id: u64,
     /// The Paxeer block the gateway currently reports as latest.
     pub latest_block: u64,
-    /// The anchor rung.
-    pub anchor: AnchorHead,
+    /// The consensus head, absent when consensus is unavailable.
+    pub consensus: Option<ConsensusHead>,
     /// How this fact reached the caller.
     pub evidence: Evidence,
 }
@@ -881,13 +835,6 @@ pub fn counted(value: &Value) -> Result<u64, GatewayError> {
     u64::try_from(quantity(value)?).map_err(|_| GatewayError::MalformedAnswer)
 }
 
-fn optional_counted(value: &Value) -> Result<Option<u64>, GatewayError> {
-    if value.is_null() {
-        return Ok(None);
-    }
-    counted(value).map(Some)
-}
-
 /// Decodes the `px_resolveAccount` result.
 ///
 /// # Errors
@@ -928,44 +875,23 @@ pub fn decode_account(result: &Value) -> Result<AccountJoin, GatewayError> {
             )?,
             balance: quantity(&document["balance"])?,
             nonce: counted(&document["nonce"])?,
+            height: counted(&document["height"])?,
         }),
         _ => return Err(GatewayError::MalformedAnswer),
     };
     Ok(AccountJoin {
         account,
         paxeer,
-        layerx: object_or_null(&result["layerx"])?,
         evidence: Evidence::GatewayReported,
     })
 }
 
-fn object_or_null(value: &Value) -> Result<Option<Value>, GatewayError> {
+fn asset_metadata_text(value: &Value) -> Result<Option<String>, GatewayError> {
     match value {
         Value::Null => Ok(None),
-        document if document.is_object() => Ok(Some(document.clone())),
+        Value::String(text) => Ok(Some(text.clone())),
         _ => Err(GatewayError::MalformedAnswer),
     }
-}
-
-fn decode_custody_asset(value: &Value) -> Result<Option<CustodyAsset>, GatewayError> {
-    let Some(document) = object_or_null(value)? else {
-        return Ok(None);
-    };
-    Ok(Some(CustodyAsset {
-        asset_id: digest(
-            document["asset_id"]
-                .as_str()
-                .ok_or(GatewayError::MalformedAnswer)?,
-        )?,
-        denom: required_text(&document["denom"], DENOM_LIMIT)?,
-        enabled: boolean(&document["enabled"])?,
-        paused: boolean(&document["paused"])?,
-        minimum_deposit: quantity(&document["minimum_deposit"])?,
-        custody_cap: quantity(&document["custody_cap"])?,
-        custodied: quantity(&document["custodied"])?,
-        released: quantity(&document["released"])?,
-        pending: quantity(&document["pending"])?,
-    }))
 }
 
 /// Decodes the `px_getBalances` result.
@@ -982,29 +908,15 @@ pub fn decode_account_balances(result: &Value) -> Result<AccountBalances, Gatewa
     }
     let mut balances = Vec::with_capacity(rows.len());
     for row in rows {
-        let paxeer = match object_or_null(&row["paxeer"])? {
-            None => None,
-            Some(document) => Some(PaxeerAssetBalance {
-                denom: required_text(&document["denom"], DENOM_LIMIT)?,
-                amount: quantity(&document["amount"])?,
-            }),
-        };
         balances.push(AssetBalance {
-            asset_id: digest(
-                row["asset_id"]
-                    .as_str()
-                    .ok_or(GatewayError::MalformedAnswer)?,
-            )?,
-            denom: optional_text(&row["denom"], DENOM_LIMIT)?,
-            custody: decode_custody_asset(&row["custody"])?,
-            paxeer,
-            layerx: object_or_null(&row["layerx"])?,
+            denom: required_text(&row["denom"], DENOM_LIMIT)?,
+            amount: quantity(&row["amount"])?,
         });
     }
     Ok(AccountBalances {
         account: decode_identities(&result["account"])?,
+        height: counted(&result["height"])?,
         balances,
-        joined_limit: counted(&result["joined_limit"])?,
         evidence: Evidence::GatewayReported,
     })
 }
@@ -1024,16 +936,28 @@ pub fn decode_assets(result: &Value) -> Result<AssetTable, GatewayError> {
     let mut assets = Vec::with_capacity(rows.len());
     for row in rows {
         assets.push(AssetEntry {
-            asset_id: digest(
-                row["asset_id"]
-                    .as_str()
-                    .ok_or(GatewayError::MalformedAnswer)?,
-            )?,
-            layerx: object_or_null(&row["layerx"])?,
-            paxeer: decode_custody_asset(&row["paxeer"])?,
+            asset_id: row["asset_id"]
+                .as_str()
+                .filter(|text| !text.is_empty())
+                .ok_or(GatewayError::MalformedAnswer)?
+                .to_owned(),
+            denom: optional_text(&row["denom"], DENOM_LIMIT)?,
+            kind: row["kind"]
+                .as_str()
+                .filter(|text| !text.is_empty())
+                .ok_or(GatewayError::MalformedAnswer)?
+                .to_owned(),
+            name: asset_metadata_text(&row["name"])?,
+            symbol: asset_metadata_text(&row["symbol"])?,
+            decimals: optional_quantity(&row["decimals"])?
+                .map(u8::try_from)
+                .transpose()
+                .map_err(|_| GatewayError::MalformedAnswer)?,
+            supply: optional_quantity(&row["supply"])?,
         });
     }
     Ok(AssetTable {
+        height: counted(&result["height"])?,
         assets,
         joined_limit: counted(&result["joined_limit"])?,
         evidence: Evidence::GatewayReported,
@@ -1046,16 +970,29 @@ pub fn decode_assets(result: &Value) -> Result<AssetTable, GatewayError> {
 /// Refuses a document that is not the declared shape.
 pub fn decode_network(result: &Value) -> Result<NetworkHead, GatewayError> {
     let paxeer = &result["paxeer"];
-    let anchor = &result["anchor"];
+    let consensus = match result.get("consensus") {
+        Some(Value::Null) if result["reason"] == "consensus_unavailable" => None,
+        Some(head @ Value::Object(_)) => Some(ConsensusHead {
+            latest_height: counted(&head["latest_height"])?,
+            latest_block_hash: digest(
+                head["latest_block_hash"]
+                    .as_str()
+                    .ok_or(GatewayError::MalformedAnswer)?,
+            )?,
+            latest_app_hash: digest(
+                head["latest_app_hash"]
+                    .as_str()
+                    .ok_or(GatewayError::MalformedAnswer)?,
+            )?,
+            catching_up: boolean(&head["catching_up"])?,
+        }),
+        _ => return Err(GatewayError::MalformedAnswer),
+    };
     Ok(NetworkHead {
         network_id: required_text(&result["network_id"], NETWORK_ID_LIMIT)?,
         chain_id: counted(&paxeer["chain_id"])?,
         latest_block: counted(&paxeer["latest_block"])?,
-        anchor: AnchorHead {
-            latest_finalized_batch: optional_counted(&anchor["latest_finalized_batch"])?,
-            status: optional_counted(&anchor["status"])?,
-            status_name: optional_text(&anchor["status_name"], STATUS_NAME_LIMIT)?,
-        },
+        consensus,
         evidence: Evidence::GatewayReported,
     })
 }
@@ -1113,40 +1050,20 @@ mod tests {
                 "layerx_account": "33".repeat(32),
                 "bound": true
             },
-            "balances": [{
-                "asset_id": "44".repeat(32),
-                "denom": "upax",
-                "custody": {
-                    "asset_id": "44".repeat(32),
-                    "denom": "upax",
-                    "pointer": "0x2222222222222222222222222222222222222222",
-                    "enabled": true,
-                    "paused": false,
-                    "minimum_deposit": "1",
-                    "custody_cap": "1000",
-                    "custodied": "500",
-                    "released": "10",
-                    "pending": "0"
-                },
-                "paxeer": {"denom": "upax", "amount": "250"},
-                "layerx": {"asset_id": "44".repeat(32), "balance": "125"}
-            }],
-            "joined_limit": 16
+            "height": 16,
+            "balances": [{"denom": "upax", "amount": "250"}]
         });
         let balances =
             decode_account_balances(&result).unwrap_or_else(|error| panic!("balances: {error}"));
-        assert_eq!(balances.joined_limit, 16);
+        assert_eq!(balances.height, 16);
         assert!(balances.account.bound);
+        assert_eq!(balances.balances.len(), 1);
         let row = balances
-            .asset([0x44; 32])
+            .asset("upax")
             .unwrap_or_else(|| panic!("asset row"));
-        assert_eq!(row.denom.as_deref(), Some("upax"));
-        assert_eq!(
-            row.custody.as_ref().map(|custody| custody.custodied),
-            Some(500)
-        );
-        assert_eq!(row.paxeer.as_ref().map(|paxeer| paxeer.amount), Some(250));
-        assert_eq!(row.layerx_amount(), Ok(Some(125)));
+        assert_eq!(row.denom, "upax");
+        assert_eq!(row.amount, 250);
+        assert_eq!(balances.evidence, Evidence::GatewayReported);
     }
 
     #[test]
@@ -1164,7 +1081,7 @@ mod tests {
         });
         let join = decode_account(&result).unwrap_or_else(|error| panic!("account: {error}"));
         assert!(join.paxeer.is_none());
-        assert!(join.layerx.is_none());
+        assert_eq!(join.account.evm_address, None);
         assert!(!join.account.bound);
         assert_eq!(join.evidence, Evidence::GatewayReported);
     }
@@ -1174,20 +1091,26 @@ mod tests {
         let result = json!({
             "network_id": "paxeer-x",
             "paxeer": {"chain_id": "0x1f", "latest_block": 4_096},
-            "anchor": {
-                "latest_finalized_batch": 12,
-                "status": 2,
-                "status_name": "final",
-                "status_ladder": {"0": "unknown", "1": "submitted", "2": "final"}
-            },
-            "layerx": {"node_info": {}}
+            "consensus": {
+                "latest_height": "4096",
+                "latest_block_hash": "A1".repeat(32),
+                "latest_app_hash": "B2".repeat(32),
+                "catching_up": false
+            }
         });
         let head = decode_network(&result).unwrap_or_else(|error| panic!("network: {error}"));
         assert_eq!(head.network_id, "paxeer-x");
         assert_eq!(head.chain_id, 31);
         assert_eq!(head.latest_block, 4_096);
-        assert_eq!(head.anchor.latest_finalized_batch, Some(12));
-        assert_eq!(head.anchor.status_name.as_deref(), Some("final"));
+        assert_eq!(
+            head.consensus,
+            Some(ConsensusHead {
+                latest_height: 4_096,
+                latest_block_hash: [0xa1; 32],
+                latest_app_hash: [0xb2; 32],
+                catching_up: false,
+            })
+        );
     }
 
     #[test]
@@ -1310,24 +1233,49 @@ mod identity_selector_contract_bound_shape {
     #[test]
     fn retaining_lookup_refuses_incomplete_or_conflicting_joins() {
         let mut identities = ResolvedIdentities {
-            lookup_selector: None, evm_address: Some([9; 20]), pax_address: None,
-            layerx_did: Some([7; 32]), layerx_account: Some([8; 32]),
-            bound: true, evidence: Evidence::GatewayReported,
+            lookup_selector: None,
+            evm_address: Some([9; 20]),
+            pax_address: None,
+            layerx_did: Some([7; 32]),
+            layerx_account: Some([8; 32]),
+            bound: true,
+            evidence: Evidence::GatewayReported,
         };
         let requested = AccountIdentifier::Evm([9; 20]);
-        assert_eq!(identities.retain_lookup(requested), Ok(LookupSelector::Evm([9; 20])));
+        assert_eq!(
+            identities.retain_lookup(requested),
+            Ok(LookupSelector::Evm([9; 20]))
+        );
         let preserved = identities.clone();
         identities.layerx_account = None;
-        assert_eq!(identities.retain_lookup(requested), Err(GatewayError::Unbound));
+        assert_eq!(
+            identities.retain_lookup(requested),
+            Err(GatewayError::Unbound)
+        );
         identities = preserved.clone();
         identities.bound = false;
-        assert_eq!(identities.retain_lookup(requested), Err(GatewayError::Unbound));
+        assert_eq!(
+            identities.retain_lookup(requested),
+            Err(GatewayError::Unbound)
+        );
         identities = preserved.clone();
         identities.evm_address = None;
-        assert_eq!(identities.retain_lookup(AccountIdentifier::Did([7; 32])), Err(GatewayError::Unbound));
+        assert_eq!(
+            identities.retain_lookup(AccountIdentifier::Did([7; 32])),
+            Err(GatewayError::Unbound)
+        );
         identities = preserved;
-        assert_eq!(identities.retain_lookup(AccountIdentifier::Did([8; 32])), Err(GatewayError::Unbound));
-        assert_eq!(identities.lookup_selector, Some(LookupSelector::Evm([9; 20])));
-        assert_eq!(identities.native_reference(), Some(NativeAccountReference([8; 32])));
+        assert_eq!(
+            identities.retain_lookup(AccountIdentifier::Did([8; 32])),
+            Err(GatewayError::Unbound)
+        );
+        assert_eq!(
+            identities.lookup_selector,
+            Some(LookupSelector::Evm([9; 20]))
+        );
+        assert_eq!(
+            identities.native_reference(),
+            Some(NativeAccountReference([8; 32]))
+        );
     }
 }
