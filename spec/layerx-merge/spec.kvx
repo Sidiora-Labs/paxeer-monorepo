@@ -189950,7 +189950,7 @@ qualification = "UNRUN"
 
 [task.18.1318.1]
 title = "Issue #1318: Decode SnapshotBinding v2 bindings with absent epoch or roster"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -189992,7 +189992,7 @@ qualification = "UNRUN"
 
 [task.18.1322.1]
 title = "Issue #1322: Publish every gated surface in the OpenRPC refusal rule and the px_getCapabilities result schema"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -190271,7 +190271,7 @@ qualification = "UNRUN"
 
 [task.18.1330.1]
 title = "Issue #1330: Charge the public read budget once per px_listAssets page and refuse instead of nulling metadata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
