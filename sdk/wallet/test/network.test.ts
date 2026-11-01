@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { expect, expectTypeOf, test } from 'vitest';
-import { decodeKernelStatus, EndpointClient } from '../src/endpoint.js';
+import { EndpointClient } from '../src/endpoint.js';
 import { KernelAvailability } from '../src/kernel.js';
 import { JsonRpcTransportError } from '../src/rpc.js';
 import type {
@@ -137,12 +137,14 @@ async function endpoint_network_decodes_the_consensus_head_or_its_absence(): Pro
       });
     }
 
-    for (const reason of ['available', 'not_configured', 'unreachable', 'consensus_unavailable'] as const) {
-      const status = { available: reason === 'available', reason };
-      expect(decodeKernelStatus(status)).toEqual(status);
-      expect(() => decodeKernelStatus({ ...status, available: !status.available })).toThrow(JsonRpcTransportError);
-    }
-    expect(() => decodeKernelStatus({ available: false, reason: 'no_finalised_checkpoint' })).toThrow(JsonRpcTransportError);
+    result = { ...answer, consensus: null, reason: 'consensus_unavailable' };
+    await expect(new KernelAvailability(client).current()).resolves.toEqual({
+      available: false, reason: 'consensus_unavailable', backend: null,
+    });
+    result = { ...answer, consensus: { ...consensus, catching_up: true } };
+    await expect(new KernelAvailability(client).current()).resolves.toEqual({
+      available: false, reason: 'consensus_unavailable', backend: null,
+    });
   } finally {
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
