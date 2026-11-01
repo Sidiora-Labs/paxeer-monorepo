@@ -1,8 +1,8 @@
-use layerx_client::evidence::{verify_arbiter_admission_v3, VerifiedAdmissionPrestate};
 use layerx_program_sdk::arbiter::{
     MarketBillingCommitment, MarketSandboxProfile, ProfileLimits, MARKET_SANDBOX_BILLING_CAPACITY,
     MARKET_SANDBOX_PROFILE_CAPACITY,
 };
+use layerx_programs_arbiter::AdmissionEvidence;
 use layerx_programs_arbiter::{
     ics23::{decode_existence, ExistenceProof},
     market::{MarketAdmissionEvidence, MarketCommittedNamespaces},
@@ -163,7 +163,7 @@ struct Capture {
     receipt: VerifiedReceipt,
     header: VerifiedBatchHeader,
     commit: ChainCommitProof,
-    admission: VerifiedAdmissionPrestate,
+    admission: AdmissionEvidence,
 }
 
 impl Capture {
@@ -236,9 +236,12 @@ impl Fixture {
             .iter()
             .map(|capture| {
                 let (receipt, header, commit) = verified(capture, &authorization);
-                let prestate =
-                    verify_arbiter_admission_v3(&read(capture, "v3_path"), &receipt, network)
-                        .expect("genuine sealed V3 admission");
+                let prestate = admission_from_proofs(&capture["admission"]);
+                assert_eq!(prestate.network_id(), network);
+                assert_eq!(
+                    prestate.receipt_digest(),
+                    receipt.evidence().receipt_digest().expect("receipt digest")
+                );
                 if prestate.activity().activity_type().module()
                     == layerx_types::payload::ModuleId::Programs
                     && prestate.activity().activity_type().ordinal() == 1
@@ -954,4 +957,34 @@ fn raw_market_engine_integer_trap_and_sdk_profile_codecs() {
         billing_bytes[0] ^= 1;
         assert!(MarketBillingCommitment::decode(&billing_bytes[..length]).is_err());
     }
+}
+
+fn admission_from_proofs(entry: &Value) -> layerx_programs_arbiter::AdmissionEvidence {
+    let records = entry["records"]
+        .as_array()
+        .expect("app-hash admission record proofs");
+    assert!(!records.is_empty());
+    let first = &records[0];
+    let mut proofs = BTreeMap::new();
+    for record in records {
+        assert_eq!(hash(record, "app_hash"), hash(first, "app_hash"));
+        assert_eq!(hash(record, "store_root"), hash(first, "store_root"));
+        assert_eq!(
+            hex(record, "multistore_proof"),
+            hex(first, "multistore_proof")
+        );
+        let proof =
+            decode_existence(&hex(record, "proof")).expect("real admission existence proof");
+        assert_eq!(proof.key, hex(record, "key"));
+        assert_eq!(proof.value, hex(record, "value"));
+        assert!(proofs.insert(proof.key.clone(), proof).is_none());
+    }
+    layerx_programs_arbiter::AdmissionEvidence::verify_under_app_hash(
+        hash(first, "app_hash"),
+        hash(first, "store_root"),
+        &hex(first, "multistore_proof"),
+        &hash(entry, "activity_id"),
+        &proofs,
+    )
+    .expect("admission records authenticated under the block app hash")
 }

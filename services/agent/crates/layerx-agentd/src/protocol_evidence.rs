@@ -1865,12 +1865,30 @@ pub(crate) fn verified_program_owner(
     authorization: SequencerAuthorization,
     program_id: &[u8; 32],
 ) -> Result<[u8; 32], HumanOperationError> {
+    let verified = verified_program_record(
+        node,
+        verifier,
+        sequencer_key,
+        correlation_id,
+        authorization,
+        &program_owner_key(program_id),
+    )?;
+    decode_program_owner(verified.canonical_state())
+}
+
+pub(crate) fn verified_program_record(
+    node: &mut Client,
+    verifier: &EvidenceAuthority,
+    sequencer_key: [u8; 32],
+    correlation_id: u64,
+    authorization: SequencerAuthorization,
+    key: &[u8],
+) -> Result<VerifiedStateEvidence, HumanOperationError> {
     let module_id = ModuleId::Programs as u16;
-    let key = program_owner_key(program_id);
     let value = node
         .module_state(
             module_id,
-            &key,
+            key,
             VerificationLevel::STATE_PROVEN,
             correlation_id,
             authorization,
@@ -1884,10 +1902,9 @@ pub(crate) fn verified_program_owner(
         RootSelector::Latest,
         sequencer_key,
     );
-    let verified = verifier
+    verifier
         .verify_state(&evidence)
-        .map_err(|_| HumanOperationError::Refused)?;
-    decode_program_owner(verified.canonical_state())
+        .map_err(|_| HumanOperationError::Refused)
 }
 
 #[cfg(test)]
