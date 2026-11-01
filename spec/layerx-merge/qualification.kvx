@@ -15979,3 +15979,11 @@ symbol = "platform-sample-install"
 observed = "Attempt 3 (99cc5fb56, base 1da31ece9) carries the path change, its build gate confirmed the recipe names services/agent/sdk/python and no root-anchored agent/ path remains, and the rewritten verify gate installed both packages and matched the two versions; the done record was refused by the symbol check alone, because the symbol list named the make targets platform-sample-install and platform-sample-dependencies-ready, which the symbol graph does not index (it holds functions, types and tests, not Makefile rules). The change of attempt 3 is correct."
 assumption = "The task declares no symbols; the touched check on services/platform/Makefile.inc remains. Attempt 3 continues unchanged."
 severity = "minor"
+
+[finding.5.98.8.1]
+task = "5.98.8"
+file = "consensus/internal/state/sequencer_proposal_test.go:72"
+symbol = "TestSequencerProposalHeaderTime"
+observed = "Attempt 1 (abec5fdf9, base 3fee695f2) implemented Admit in the six files, built and vetted, and both verify runs failed in the first package on two tests this task did not write: TestSequencerProposalHeaderTime (:52-73) seals with an open time two seconds before now and TestSequencerProposalBelowActivationReaps (:76-93) with the fixed open time 1700000000000 ms, while the fixture state from makeState carries the current time as its last block time (genesis time defaults to now, consensus/types/genesis.go:160), so CreateProposalBlock refuses both with 'sealed block open time is not after the last block time' (execution.go:276). That check came from task 5.33.3 (1c7d966b2), whose verify gate ran only its own TestSequencerProposalRefusesStaleOpenTime; the two sibling tests have failed on main since then and no gate ran them until this task's. The node tests of this task never ran because the first package failed."
+assumption = "The two pre-existing tests are repaired in this task, whose touches already hold the file: their open times move after the fixture's last block time; the implementation of attempt 1 stands."
+severity = "major"

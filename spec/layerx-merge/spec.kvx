@@ -117254,7 +117254,7 @@ do_4 = "Finding 9.25.15.1: continue from attempt 1 (145aa044047) unchanged; the 
 
 [task.17.5.13]
 title = "Install the Python SDK from its services/agent path in make platform-sample-install"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = []
@@ -118262,6 +118262,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Finding 5.98.8.1: continue from attempt 1 (abec5fdf9) keeping every change, and repair the two tests task 5.33.3 (1c7d966b2) left failing in consensus/internal/state/sequencer_proposal_test.go. In TestSequencerProposalHeaderTime set f.state.LastBlockTime = now.Add(-time.Minute) right after now is taken (:71) and before the two timely calls, so an open time two seconds before now is after the last block time and the twenty-second case still fails IsTimely. In TestSequencerProposalBelowActivationReaps seal the activation height with OpenTime f.state.LastBlockTime.Add(time.Second) in place of time.UnixMilli(1700000000000) (:89); the below-activation reap assertions and the sealCalls assertion are unchanged. Build once, verify once; a further failure in the node package is a new finding naming the test and the line."
 
 [task.5.5.22]
 title = "Retain committed sends in the receipt source so pax_sequencerReceipt answers the committed rung"
@@ -151158,7 +151159,7 @@ do_5 = "native_onboarding_uses_the_pending_nonce drives the agent runtime throug
 
 [task.10.6.1]
 title = "Plan and execute Move money as bank 0x1001 sends completed from receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.6.2", "10.0.3", "9.1.8", "18.1119.1", "10.2.8", "10.2.9", "18.1297.1", "5.98.7", "10.24.4", "10.6.4"]
