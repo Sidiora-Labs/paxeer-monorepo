@@ -149807,7 +149807,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.27.3]
 title = "Retire checkpoint and activity facts from offline exports"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.27.2", "9.27.6", "9.6.1", "9.25.2", "9.35.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "18.1304.1", "9.25.16", "13.8.3"]
