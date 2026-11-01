@@ -329,9 +329,7 @@ impl Fixture {
             &client,
             &self.custody,
             &trace,
-            checked(AgentDid::new(checked(std::str::from_utf8(
-                &self.owner.actor,
-            )))),
+            checked(AgentDid::new(canonical_owner::OWNER_DID)),
             checked(AuthorityRef::new(hex(&self.owner.public_key))),
             CreationBounds {
                 timestamp_span: 30,
