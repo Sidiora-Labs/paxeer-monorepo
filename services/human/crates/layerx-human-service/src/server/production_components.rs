@@ -8925,11 +8925,13 @@ impl ProductionComponents {
             {
                 leg["refused"] = json!(true);
                 leg["receipt_hash"] = json!(format!("0x{}", hex_bytes(&evidence.receipt_hash)));
+                leg["receipt"] = json!(evidence.receipt_bytes);
                 refused = true;
                 break;
             }
             leg["verified"] = json!(true);
             leg["receipt_hash"] = json!(format!("0x{}", hex_bytes(&evidence.receipt_hash)));
+            leg["receipt"] = json!(evidence.receipt_bytes);
         }
         let state = if refused {
             "refused"
