@@ -12676,3 +12676,8 @@ fix = "a task that touches a Maven module runs that module's whole suite in its 
 title = "A type change compiled against the declared touches only"
 symptom = "a task widened a constructor, removed enum variants and added an enum state in its declared files, and eleven callers in five undeclared files plus six integration tests of the same crate broke at build time"
 fix = "before declaring touches for a type change, grep the crate for every constructor call, retired variant and exhaustive match, including tests/, and put each file in the touches; the build command compiles the crate's tests with cargo test --no-run"
+
+[gotcha.2572]
+title = "A test that demands an externally provisioned fixture document is a vacuous gate"
+symptom = "a Move commit test read a protected JSON path from an environment variable naming a provisioned owner, attestor, identity, agent and bank node and panicked NotPresent in every qualification environment, while a sibling test of the same crate already ran the same server in-process over loopback doubles"
+fix = "an integration test builds its fixture in-process from doubles the crate's test support provides; when a sibling test already has that fixture, lift it into tests/support and share it rather than invent an external document"
