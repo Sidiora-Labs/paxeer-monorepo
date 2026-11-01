@@ -782,7 +782,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         peer: &HumanPeer,
         budget_id: [u8; 32],
     ) -> Result<crate::budget::budget_proof::VerifiedBudgetProof, HumanOperationError> {
-        use crate::budget::budget_proof::{verify_budget_proof, BudgetProofTrust};
+        use crate::budget::{budget_proof_committed_head, verify_budget_proof, BudgetProofTrust};
         let subject = peer.subject.as_ref().ok_or(HumanOperationError::Refused)?;
         if budget_id == [0; 32] {
             return Err(HumanOperationError::Refused);
@@ -834,13 +834,50 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| HumanOperationError::Unavailable)?,
         )
         .map_err(|_| HumanOperationError::Refused)?;
-        let key = operations
+        let export = operations
+            .authority
+            .budget_proof_export(&bound, budget_id, &owner_did)?;
+        let (height, hash) =
+            budget_proof_committed_head(&export).map_err(|_| HumanOperationError::Refused)?;
+        let export_block = operations
             .chain
-            .receipt_key_at_head()
+            .committed_block(height)
             .map_err(|_| HumanOperationError::Unavailable)?;
-        human_receipt_commit_material(&operations.node, u64::from(network_id), &block)?;
-        // Decision 2199: task 9.25.8 ports head and checkpoint evidence reads.
-        Err(HumanOperationError::Unavailable)
+        if export_block.hash != hash {
+            return Err(HumanOperationError::Refused);
+        }
+        let checkpoint = operations.committed_checkpoint(&export_block, Some(hash))?;
+        let (_, _, _, _, age_seconds, maximum_age_seconds, _) =
+            operations.authority.balance_context(&bound)?;
+        if maximum_age_seconds == 0 || age_seconds > maximum_age_seconds {
+            return Err(HumanOperationError::Refused);
+        }
+        let now_ms = operations
+            .clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .unix_milliseconds;
+        let proof = verify_budget_proof(
+            &export,
+            budget_id,
+            &BudgetProofTrust {
+                tenant: peer.transport_tenant(),
+                principal: &subject.transport_principal,
+                owner: &owner_did,
+                protocol_version: 3,
+                network_id,
+                checkpoint: &checkpoint,
+                endpoint: &operations.node,
+                current_height: chain_head.number,
+                now_ms,
+                maximum_age_seconds,
+            },
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
+        if proof.asset() != subject.asset {
+            return Err(HumanOperationError::Refused);
+        }
+        Ok(proof)
     }
     /// The tenant capability derivation graph, restored under the owner lock from
     /// the shared durable store on first use; a tenant with no persisted graph
@@ -9229,49 +9266,22 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             owner.active_budget_id
         };
         let proof = self.verified_program_budget_proof(peer, budget_id)?;
-        if proof.observed_head_sequence() != sequence {
-            return Err(HumanOperationError::Refused);
-        }
-        let store = self
-            .store
-            .lock()
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        let row = crate::budget::program_settlement::read_owned_program_budget(
-            &store,
-            peer,
-            id,
-            digest,
-            &registry,
-            &self.budgets,
-            &proof,
-            sequence,
-        )
-        .map_err(|_| HumanOperationError::Refused)?;
         let mut out = Encoder::new();
-        out.u16(5)?;
-        out.fixed(&id);
-        out.fixed(&digest);
-        out.text(
-            &peer
-                .subject
-                .as_ref()
-                .ok_or(HumanOperationError::Refused)?
-                .owner,
-        )?;
-        out.fixed(&row.budget_id());
-        out.fixed(&row.asset());
-        out.fixed(&row.source());
-        out.u64(row.observed_sequence());
-        out.u128(row.remaining_after_reservations());
-        out.u8(u8::from(row.terminal()));
-        out.u8(row.verification().wire_rank());
-        out.fixed(&row.evidence_digest());
-        out.fixed(&row.receipt_digest());
-        out.fixed(&row.checkpoint_digest());
-        out.u64(row.age_sequences());
-        out.u64(row.maximum_age_sequences());
-        out.fixed(&row.proof_digest());
-        out.bytes(row.verified_proof_bytes())?;
+        out.u16(4)?;
+        out.text(proof.owner())?;
+        out.fixed(&proof.budget_id());
+        out.fixed(&proof.asset());
+        out.fixed(&proof.source_account());
+        out.u64(proof.observed_head_sequence());
+        out.u128(proof.remaining());
+        out.u8(layerx_types::rung::Rung::Committed.wire_rank());
+        out.fixed(&proof.evidence_digest());
+        out.fixed(&proof.receipt_digest());
+        out.fixed(&proof.checkpoint_digest());
+        out.u64(proof.age_sequences());
+        out.u64(proof.maximum_age_sequences());
+        out.fixed(&proof.digest());
+        out.bytes(proof.canonical_export_bytes())?;
         out.finish()
     }
     fn native_program_approval_decide(
@@ -9354,65 +9364,10 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         peer: &HumanPeer,
         budget_id: [u8; 32],
     ) -> Result<HumanResponse, HumanOperationError> {
-        use crate::budget::budget_proof::{verify_budget_proof, BudgetProofTrust};
-        let subject = peer.subject.as_ref().ok_or(HumanOperationError::Refused)?;
-        if budget_id == [0; 32] {
-            return Err(HumanOperationError::Refused);
-        }
-        let tenant =
-            TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
-        let owner_did = {
-            let store = self
-                .store
-                .lock()
-                .map_err(|_| HumanOperationError::Unavailable)?;
-            let owners = managed_agent::budget_owners(&store, &tenant)?;
-            let mut matching = owners
-                .iter()
-                .filter(|owner| owner.active_budget_id == budget_id);
-            let (Some(owner), None) = (matching.next(), matching.next()) else {
-                return Err(HumanOperationError::Refused);
-            };
-            Did::new(owner.agent_did.as_bytes()).map_err(|_| HumanOperationError::Refused)?
-        };
-        let mut operations = self.lock_operations()?;
-        operations.authority.authorize_subject(peer)?;
-        let registry = operations.authority.registry(peer).map_err(map_core)?;
-        let bound = subject::for_did(&operations.store, peer, &owner_did, &registry)?;
-        let snapshot = core_preparation_snapshot(
-            operations.chain.as_ref(),
-            &operations.authority,
-            peer,
-            &owner_did,
-        )?;
-        let chain_head = operations
-            .chain
-            .head()
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        if snapshot.observed_head_sequence != chain_head.number {
-            return Err(HumanOperationError::Refused);
-        }
-        let block = operations
-            .chain
-            .committed_block(chain_head.number)
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        if block != chain_head {
-            return Err(HumanOperationError::Refused);
-        }
-        let network_id = u32::try_from(
-            operations
-                .chain
-                .chain_id()
-                .map_err(|_| HumanOperationError::Unavailable)?,
-        )
-        .map_err(|_| HumanOperationError::Refused)?;
-        let key = operations
-            .chain
-            .receipt_key_at_head()
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        human_receipt_commit_material(&operations.node, u64::from(network_id), &block)?;
-        // Decision 2199: task 9.25.8 ports head and checkpoint evidence reads.
-        Err(HumanOperationError::Unavailable)
+        let proof = self.verified_program_budget_proof(peer, budget_id)?;
+        let mut out = Encoder::new();
+        out.bytes(proof.canonical_export_bytes())?;
+        out.finish()
     }
     fn native_effect_approval_material(
         &mut self,

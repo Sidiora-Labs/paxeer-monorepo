@@ -660,16 +660,6 @@ impl ServedCheckpoint {
     pub(crate) fn test_fixture(height: u64, seconds: i64, nanos: u32) -> Self {
         tests::signed_checkpoint(height, seconds, nanos)
     }
-
-    pub(crate) fn test_committed_reads() {
-        tests::committed_checkpoint_decodes_the_comet_signed_header_and_uses_pinned_validators();
-        tests::committed_head_and_identifier_read_the_recorded_height();
-        tests::committed_head_refuses_a_height_other_than_the_nodes_committed_head();
-        tests::committed_checkpoint_refuses_identifier_hash_time_and_height_substitution();
-        tests::committed_checkpoint_refuses_block_hash_and_state_root_mismatch();
-        tests::committed_checkpoint_accessors_refuse_null_and_malformed_material();
-        tests::committed_checkpoint_refuses_invalid_signature_and_insufficient_power();
-    }
 }
 
 #[cfg(test)]
@@ -887,8 +877,7 @@ mod tests {
     }
 
     #[test]
-    pub(super) fn committed_checkpoint_decodes_the_comet_signed_header_and_uses_pinned_validators()
-    {
+    fn committed_checkpoint_decodes_the_comet_signed_header_and_uses_pinned_validators() {
         let signed = signed_checkpoint(8, 1_700_000_000, 123_000_000);
         let material = rpc_commit(&signed);
         assert_eq!(
@@ -908,7 +897,7 @@ mod tests {
     }
 
     #[test]
-    pub(super) fn committed_head_and_identifier_read_the_recorded_height() {
+    fn committed_head_and_identifier_read_the_recorded_height() {
         let signed = signed_checkpoint(8, 1_700_000_000, 123_000_000);
         let mut answers = vec![
             ("eth_blockNumber", json!("0x8")),
@@ -934,7 +923,7 @@ mod tests {
     }
 
     #[test]
-    pub(super) fn committed_head_refuses_a_height_other_than_the_nodes_committed_head() {
+    fn committed_head_refuses_a_height_other_than_the_nodes_committed_head() {
         let (endpoint, worker) = endpoint(vec![("eth_blockNumber", json!("0x9"))]);
         assert_eq!(
             ServedCheckpoint::acquire_at_committed_block(&endpoint, 8, None, "125",),
@@ -944,7 +933,7 @@ mod tests {
     }
 
     #[test]
-    pub(super) fn committed_checkpoint_refuses_identifier_hash_time_and_height_substitution() {
+    fn committed_checkpoint_refuses_identifier_hash_time_and_height_substitution() {
         let signed = signed_checkpoint(8, 1_700_000_000, 0);
         for changed in ["identifier", "hash", "time", "height", "missing"] {
             let mut block = rpc_block(&signed);
@@ -981,7 +970,7 @@ mod tests {
     }
 
     #[test]
-    pub(super) fn committed_checkpoint_refuses_block_hash_and_state_root_mismatch() {
+    fn committed_checkpoint_refuses_block_hash_and_state_root_mismatch() {
         let signed = signed_checkpoint(8, 1_700_000_000, 0);
         for changed in ["hash", "stateRoot"] {
             let mut answers = acquisition_answers(&signed, rpc_block(&signed));
@@ -1002,7 +991,7 @@ mod tests {
     }
 
     #[test]
-    pub(super) fn committed_checkpoint_accessors_refuse_null_and_malformed_material() {
+    fn committed_checkpoint_accessors_refuse_null_and_malformed_material() {
         let signed = signed_checkpoint(8, 1_700_000_000, 0);
         for changed in ["null", "height", "root"] {
             let mut block = rpc_block(&signed);
@@ -1030,7 +1019,7 @@ mod tests {
     }
 
     #[test]
-    pub(super) fn committed_checkpoint_refuses_invalid_signature_and_insufficient_power() {
+    fn committed_checkpoint_refuses_invalid_signature_and_insufficient_power() {
         let signed = signed_checkpoint(8, 1_700_000_000, 0);
         let mut commit = signed.commit.clone();
         commit.votes[0].signature[0] ^= 1;
