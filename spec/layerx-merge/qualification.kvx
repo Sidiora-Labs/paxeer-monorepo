@@ -15915,3 +15915,27 @@ symbol = "send_reaches_committed_only_with_a_matching_explorer_answer"
 observed = "Attempt 1 (6920ab6ad, base a46c1fbdd) rewrote the three tests of do_1 to do_3 and type-checked, and the verify gate failed at the first line of the new test: it throws unless PAXEER_X_EXPLORER_STATUS_URL, PAXEER_X_EXPLORER_COMMITTED_TX and WALLET_TRANSFER_TRUTH_WRONG_RPC_URL name a real explorer and a committed transaction of another block, and its route handler proxies every explorer status request to that explorer; the fixture of 12.35.4 (tools/qualification/paxeer-x/wallet-injected-fixture.py) provides the two chains and the manifest and no explorer, so the test can never run under its gate. The page needs no explorer service for this rung: StatusLadder.tsx:90-93 reaches Committed when the status document says rung committed and its block_number equals the receipt's blockNumber, which the test can serve itself."
 assumption = "do_4 makes the route handler the explorer: it answers from the status document shape the unit test serves, mismatching the receipt block first and matching it second, without environment variables."
 severity = "major"
+
+[finding.18.670.1.13]
+task = "18.670.1"
+file = "tools/qualification/localnode/v6120-node.sh:211"
+symbol = "feed_loop"
+observed = "Attempts 14 (e4535d43f) and 15 (1ee69fb2b, base 0265dac80) built, ran the fixture under --sequencer through the setup sends and failed in the feed loop: the first MsgSubmitPrices broadcast with paxd tx broadcast -b sync (:204) returned code 0 (hash 046D01AA at height 34742436 in attempt 15) and paxd q tx never found it within the thirty-second wait while the node committed about three hundred further blocks. At a sequenced height CreateProposalBlock takes only the sealed slice (consensus/internal/state/execution.go:267) and nothing moves a mempool transaction into it, so the hash could never commit; the script and the test are correct. The bootstrap-peer /status failure in the evidence dump is the fixture's own stop of that peer (:693) and the goroutine dump is its evidence capture, neither a crash."
+assumption = "Task 5.98.8 (decision 2212) admits the mempool into the open layer at each proposal; the script and the test change nothing."
+severity = "major"
+
+[finding.17.5.13.1]
+task = "17.5.13"
+file = "services/platform/Makefile.inc:41"
+symbol = "platform-sample-install"
+observed = "Attempt 2 (3931793285b, base 712c7ea58) carries the Makefile.inc:41 path change and its build gate passed; the verify gate installed both packages into the throwaway target and then failed inside the python3 -c of the version print before any check ran: the two escaped double quotes of the command text reached the shell as backslash-quote and python reported 'unexpected character after line continuation character'. The recipe change is correct."
+assumption = "The verify command is rewritten without double quotes (the package names travel as arguments and the print maps metadata.version over them); the change of attempt 2 stands."
+severity = "minor"
+
+[finding.12.35.3.2]
+task = "12.35.3"
+file = "apps/wallet/e2e/send.spec.ts:716"
+symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+observed = "Attempt 2 (2981acb82, base 712c7ea58) implemented do_4, type-checked, and the verify gate failed at send.spec.ts:718: the committed test first runs the receipted send of 12.35.2 (:621), which needs WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL and WALLET_TRANSFER_TRUTH_SEQUENCER_KEY, and this task's verify command ran playwright alone, without the local node fixture and the four environment lines the verify command of 12.35.2 sets; the test file is correct."
+assumption = "This task's build and verify commands take the fixture prelude and environment lines of 12.35.2 with their own -g pattern."
+severity = "minor"

@@ -12616,3 +12616,18 @@ fix = "a task that removes or renames a pub item greps the crate's tests/ direct
 title = "An end-to-end test that proxies to a real third-party service cannot pass under its gate"
 symptom = "a wallet test required a real explorer URL and a committed transaction hash from environment variables and forwarded the page's explorer requests to it, so it threw before the first assertion in the qualification environment, which provides the two local chains and no explorer"
 fix = "serve the third party from the test: route the request and fulfil it with the document shape the page reads, derived from local chain state; keep real-service checks to release gates that declare the service"
+
+[gotcha.2560]
+title = "Escaped double quotes in a spec command reach the shell literally"
+symptom = "a verify command stored with backslash-escaped double quotes inside a python3 -c was run with the backslashes intact and python failed with 'unexpected character after line continuation character'"
+fix = "write gate commands without double quotes: single-quoted python with its values passed as arguments, unquoted $PWD and ${VAR:-default} forms"
+
+[gotcha.2561]
+title = "Transactions broadcast to the consensus RPC never commit at sequenced heights"
+symptom = "a Cosmos transaction sent with paxd tx broadcast -b sync to a node running the sequencer returned code 0 and paxd q tx never found it while blocks kept committing; sequenced blocks carry only the sealed slice, which eth_sendRawTransaction alone feeds"
+fix = "decision 2212 admits the mempool into the open layer at each proposal (task 5.98.8); until it is on main a sequencer-mode fixture cannot await a Cosmos transaction"
+
+[gotcha.2562]
+title = "A derived test task must carry the fixture prelude of the test it chains"
+symptom = "a playwright test that calls its sibling test first failed on the sibling's environment requirement because the new task's verify command ran playwright alone"
+fix = "copy the sibling task's build and verify prelude and change only the -g pattern"
