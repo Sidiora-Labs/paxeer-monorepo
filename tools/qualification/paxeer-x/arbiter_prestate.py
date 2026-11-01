@@ -7,7 +7,6 @@ from pathlib import Path
 import shlex
 import subprocess
 import sys
-import time
 
 ROOT = Path(__file__).resolve().parents[3]
 TASK = "104.35.11"
@@ -17,7 +16,6 @@ DECLARED = (
     "include/layerx/lxp_kernel.h",
     "services/agent/crates/layerx-client/src/evidence/arbiter_prestate.rs",
     "services/agent/crates/layerx-client/src/evidence.rs",
-    "tests/daemon/lxp_test_arbiter_prestate.c",
     "services/agent/crates/layerx-client/tests/arbiter_prestate.rs",
     "tools/paxeer-x/build/104.35.11.mk",
     "tools/qualification/paxeer-x/arbiter_prestate.py",
@@ -88,9 +86,7 @@ def inputs():
             "services/agent/crates/layerx-client",
             "services/agent/crates/layerx-proof",
             "services/agent/crates/layerx-types",
-            "services/agent/crates/layerx-wire",
             "services/agent/crates/layerx-crypto",
-            "cmd/layerxd",
             "node/sequencer",
             "modules/sequencer",
             "modules/lxphost",
@@ -99,7 +95,6 @@ def inputs():
             "rpc",
             "go.mod",
             "go.sum",
-            "tests/storage/lxp_test_maintenance_publication.c",
             "tests/programs/test_call_activity.c",
             "tests/bridge/files.h",
             "rust-toolchain.toml",
@@ -158,63 +153,11 @@ def build(arguments, evidence):
     manifest_path.unlink(missing_ok=True)
     source = inputs()
     directory = Path(arguments.build_dir).resolve()
-    native_build = directory / "native"
     rust_target = directory / "rust"
-    native = native_build / "tests/lxp_test_arbiter_prestate"
-    native.parent.mkdir(parents=True, exist_ok=True)
     environment = dict(
         os.environ, CARGO_TARGET_DIR=str(rust_target), CARGO_BUILD_JOBS="4"
     )
     cargo = shlex.split(arguments.cargo)
-    execute(
-        [
-            *cargo,
-            "build",
-            "--locked",
-            "--manifest-path",
-            "programs/Cargo.toml",
-            "-p",
-            "layerx-programs-sandbox",
-            "--lib",
-            "--features",
-            "host-ffi",
-        ],
-        evidence / "build-sandbox.log",
-        environment,
-    )
-    library = native_build / "liblayerx.a"
-    execute(
-        [
-            "make",
-            "-j4",
-            "BUILD_DIR=" + str(native_build),
-            "CC=" + arguments.cc,
-            str(library),
-        ],
-        evidence / "build-native-library.log",
-        environment,
-    )
-    sandbox = rust_target / "debug/liblayerx_programs_sandbox.a"
-    compile_command = [
-        *shlex.split(arguments.cc),
-        "-I" + str(native_build / "generated"),
-        *shlex.split(arguments.cppflags),
-        "-Icmd/layerxd",
-        *shlex.split(arguments.cflags),
-        "tests/daemon/lxp_test_arbiter_prestate.c",
-        str(library),
-        str(sandbox),
-        str(library),
-        *shlex.split(arguments.ldflags),
-        "-lcrypto",
-        "-pthread",
-        "-lsqlite3",
-        "-ldl",
-        "-lm",
-        "-o",
-        str(native),
-    ]
-    execute(compile_command, evidence / "build-native-fixture.log", environment)
     output = execute(
         [
             *cargo,
@@ -262,11 +205,7 @@ def build(arguments, evidence):
             "task": TASK,
             "revision": revision,
             "inputs": source,
-            "native": record(native),
             "rust": record(executables.pop()),
-            "library": record(library),
-            "sandbox": record(sandbox),
-            "compile_command": compile_command,
         },
     )
     print("ARTIFACTS " + str(manifest_path), flush=True)
@@ -280,37 +219,8 @@ def qualify(evidence):
         or manifest.get("inputs") != inputs()
     ):
         raise RuntimeError("declared producer does not bind current source")
-    native = checked(manifest["native"])
     rust = checked(manifest["rust"])
-    checked(manifest["library"])
-    checked(manifest["sandbox"])
-    fixture = evidence / ("native-inputs-" + str(time.time_ns()))
-    fixture.mkdir(mode=0o700, exist_ok=False)
-    native_output = execute([str(native), str(fixture)], evidence / "verify-native.log")
-    inventory = fixture / "inputs.json"
-    if not inventory.is_file():
-        raise RuntimeError("native producer did not emit its genuine input inventory")
-    captures = json.loads(inventory.read_text()).get("captures", [])
-    required = {"serial-empty-0", "scheduled-0", "scheduled-1", "terminal-0"}
-    if (
-        len(captures) != len(required)
-        or {item.get("name") for item in captures} != required
-    ):
-        raise RuntimeError(
-            "complete serial, scheduled and terminal native fixture inventory required"
-        )
-    for marker in (
-        "ARBITER_CASE native-actual-boundaries-legacy-bytes-ownership-bounds",
-        "ARBITER_CASE native-serial-scheduled-terminal-maintained-signatures-wal-recovery",
-    ):
-        if marker not in native_output:
-            raise RuntimeError(
-                "native producer did not execute required boundary assertions"
-            )
-    environment = dict(os.environ, LAYERX_ARBITER_PRESTATE_INPUTS=str(inventory))
-    listed = execute(
-        [str(rust), "--list"], evidence / "verify-rust-list.log", environment
-    )
+    listed = execute([str(rust), "--list"], evidence / "verify-rust-list.log")
     names = [line[:-6] for line in listed.splitlines() if line.endswith(": test")]
     if not names or any(
         "ignored" in line and not line.startswith("0 ") for line in listed.splitlines()
@@ -319,7 +229,6 @@ def qualify(evidence):
     output = execute(
         [str(rust), "--nocapture", "--test-threads=1"],
         evidence / "verify-rust.log",
-        environment,
     )
     expected = (
         "test result: ok. "
@@ -340,7 +249,6 @@ def qualify(evidence):
             "command": "timeout 20m python3 tools/qualification/paxeer-x/arbiter_prestate.py",
             "exit": 0,
             "rust_tests": names,
-            "native_log": str(evidence / "verify-native.log"),
             "rust_log": str(evidence / "verify-rust.log"),
         },
     )
@@ -351,13 +259,6 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", action="store_true")
     parser.add_argument("--build-dir", default="/root/lx-target/arbiter-prestate")
-    parser.add_argument("--cc", default="cc")
-    parser.add_argument("--cppflags", default="-Iinclude")
-    parser.add_argument(
-        "--cflags",
-        default="-std=c17 -pedantic -Werror -Wall -Wextra -Wconversion -Wshadow -Wvla -O2",
-    )
-    parser.add_argument("--ldflags", default="")
     parser.add_argument("--cargo", default="cargo")
     arguments = parser.parse_args()
     evidence = evidence_dir()

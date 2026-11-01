@@ -164,7 +164,7 @@ func (e *Accept) appendPayload(dst []byte) ([]byte, error) {
 }
 
 func (e *Seal) appendPayload(dst []byte) ([]byte, error) {
-	if e.FromSeq > e.ToSeq {
+	if e.FromSeq > e.ToSeq && e.FromSeq-e.ToSeq > 1 {
 		return nil, fmt.Errorf("%w: SEAL fromSeq %d above toSeq %d", ErrMalformed, e.FromSeq, e.ToSeq)
 	}
 	dst = binary.BigEndian.AppendUint64(dst, e.Height)
@@ -225,7 +225,7 @@ func DecodeEntry(b []byte) (Entry, error) {
 		s := &Seal{Height: d.u64(), ToSeq: d.u64()}
 		copy(s.LastSeqHash[:], d.fixed(32))
 		s.FromSeq = d.u64()
-		if !d.failed && s.FromSeq > s.ToSeq {
+		if !d.failed && s.FromSeq > s.ToSeq && s.FromSeq-s.ToSeq > 1 {
 			return nil, fmt.Errorf("%w: SEAL fromSeq %d above toSeq %d", ErrMalformed, s.FromSeq, s.ToSeq)
 		}
 		e = s

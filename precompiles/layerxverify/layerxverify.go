@@ -229,14 +229,15 @@ func signature64(raw []byte) ([64]byte, error) {
 	return out, nil
 }
 
-// verifyEd25519 returns false for a refused signature and reverts only for
-// arguments that are not a well-formed question.
+// verifyEd25519 accepts only raw messages; LayerX domain-tag verification is retired.
 func (p PrecompileExecutor) verifyEd25519(method *abi.Method, args []interface{}) ([]byte, error) {
 	if err := pcommon.ValidateArgsLength(args, 4); err != nil {
 		return nil, err
 	}
+	if args[1].(uint8) != RawMessageDomain {
+		return pcommon.RetiredRevert("layerxVerify"), vm.ErrExecutionReverted
+	}
 	publicKey := args[0].([32]byte)
-	domain := args[1].(uint8)
 	message := args[2].([]byte)
 	signature, err := signature64(args[3].([]byte))
 	if err != nil {
@@ -245,19 +246,20 @@ func (p PrecompileExecutor) verifyEd25519(method *abi.Method, args []interface{}
 	if len(message) > codec.MaxMessageBytes {
 		return nil, errors.New("layerxverify: message exceeds the LayerX message bound")
 	}
-	if domain == RawMessageDomain {
-		return method.Outputs.Pack(verify.Ed25519(publicKey, signature, message) == nil)
-	}
-	if _, err := codec.Domain(domain).Tag(); err != nil {
-		return nil, err
-	}
-	return method.Outputs.Pack(verify.Ed25519Domain(publicKey, signature, codec.Domain(domain), message) == nil)
+	return method.Outputs.Pack(verify.Ed25519(publicKey, signature, message) == nil)
 }
 
-func receiptFacts(verified *verify.VerifiedReceipt) (ReceiptFacts, error) {
+func (p PrecompileExecutor) verifyReceipt(method *abi.Method, args []interface{}) ([]byte, error) {
+	if err := pcommon.ValidateArgsLength(args, 2); err != nil {
+		return nil, err
+	}
+	verified, err := verify.ReceiptSignature(args[0].([]byte), args[1].([32]byte))
+	if err != nil {
+		return nil, err
+	}
 	receipt := verified.Receipt
 	amount := receipt.Amount.Bytes()
-	return ReceiptFacts{
+	return method.Outputs.Pack(ReceiptFacts{
 		ReceiptDigest:      verified.Digest,
 		ActivityId:         receipt.ActivityID,
 		GlobalSequence:     receipt.GlobalSequence,
@@ -271,66 +273,11 @@ func receiptFacts(verified *verify.VerifiedReceipt) (ReceiptFacts, error) {
 		PreviousStateRoot:  receipt.PreviousStateRoot,
 		ResultingStateRoot: receipt.ResultingStateRoot,
 		Timestamp:          receipt.Timestamp,
-	}, nil
-}
-
-func (p PrecompileExecutor) verifyReceipt(method *abi.Method, args []interface{}) ([]byte, error) {
-	if err := pcommon.ValidateArgsLength(args, 2); err != nil {
-		return nil, err
-	}
-	verified, err := verify.ReceiptSignature(args[0].([]byte), args[1].([32]byte))
-	if err != nil {
-		return nil, err
-	}
-	facts, err := receiptFacts(verified)
-	if err != nil {
-		return nil, err
-	}
-	return method.Outputs.Pack(facts)
-}
-
-func (p PrecompileExecutor) verifyReceiptInclusion(method *abi.Method, args []interface{}) ([]byte, error) {
-	if err := pcommon.ValidateArgsLength(args, 8); err != nil {
-		return nil, err
-	}
-	proof, err := codec.DecodeMerkleProof(args[1].([]byte))
-	if err != nil {
-		return nil, err
-	}
-	headerSignature, err := signature64(args[3].([]byte))
-	if err != nil {
-		return nil, err
-	}
-	authorization := verify.SequencerAuthorization{
-		SequencerID:      args[4].([32]byte),
-		PublicKey:        args[5].([32]byte),
-		FirstBatchNumber: args[6].(uint64),
-		LastBatchNumber:  args[7].(uint64),
-	}
-	if authorization.FirstBatchNumber > authorization.LastBatchNumber {
-		return nil, errors.New("layerxverify: authorised batch range is reversed")
-	}
-	verified, header, err := verify.ReceiptInclusion(args[0].([]byte), proof, args[2].([]byte), headerSignature, authorization)
-	if err != nil {
-		return nil, err
-	}
-	facts, err := receiptFacts(verified)
-	if err != nil {
-		return nil, err
-	}
-	return method.Outputs.Pack(facts, BatchFacts{
-		HeaderDigest:       header.Digest,
-		NetworkId:          header.Header.NetworkID,
-		Epoch:              header.Header.Epoch,
-		BatchNumber:        header.Header.BatchNumber,
-		FirstSequence:      header.Header.FirstSequence,
-		LastSequence:       header.Header.LastSequence,
-		PreviousStateRoot:  header.Header.PreviousStateRoot,
-		ResultingStateRoot: header.Header.ResultingStateRoot,
-		ReceiptRoot:        header.Header.ReceiptMerkleRoot,
-		SequencerId:        header.Header.SequencerID,
-		TimestampMs:        header.Header.TimestampMs,
 	})
+}
+
+func (p PrecompileExecutor) verifyReceiptInclusion(_ *abi.Method, _ []interface{}) ([]byte, error) {
+	return pcommon.RetiredRevert("layerxVerify"), vm.ErrExecutionReverted
 }
 
 func (p PrecompileExecutor) verifyStateProof(method *abi.Method, args []interface{}) ([]byte, error) {
@@ -344,24 +291,6 @@ func (p PrecompileExecutor) verifyStateProof(method *abi.Method, args []interfac
 	return method.Outputs.Pack(witness.ModuleID, witness.Key, witness.Value)
 }
 
-func (p PrecompileExecutor) verifyDiscoveryProof(method *abi.Method, args []interface{}) ([]byte, error) {
-	if err := pcommon.ValidateArgsLength(args, 5); err != nil {
-		return nil, err
-	}
-	verified, err := verify.DiscoveryProof(args[0].([]byte), args[1].([]byte), args[2].([32]byte),
-		args[3].(uint64), args[4].([32]byte))
-	if err != nil {
-		return nil, err
-	}
-	return method.Outputs.Pack(DiscoveryFacts{
-		Digest:            verified.Digest,
-		Version:           verified.Head.Version,
-		CodeHash:          verified.Head.CodeHash,
-		AbiVersion:        verified.Head.AbiVersion,
-		ObservedSequence:  verified.Head.ObservedSequence,
-		ObservedAt:        verified.Head.ObservedAt,
-		ValidThrough:      verified.Head.ValidThrough,
-		StateRoot:         verified.Head.StateRoot,
-		HeadReceiptDigest: verified.HeadReceiptDigest,
-	})
+func (p PrecompileExecutor) verifyDiscoveryProof(_ *abi.Method, _ []interface{}) ([]byte, error) {
+	return pcommon.RetiredRevert("layerxVerify"), vm.ErrExecutionReverted
 }

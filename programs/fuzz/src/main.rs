@@ -12,6 +12,7 @@ use layerx_programs::chain_proof::{
     vote::{BlockId, CommitSig, PartSetHeader},
     ChainProofError, ChainProofVerifier, Commit,
 };
+use layerx_programs::ProgramStateBundle;
 use layerx_programs_runtime::{programs_fuzz_observation, FuzzTarget as RuntimeFuzzTarget};
 
 #[derive(Clone, Copy, Debug)]
@@ -19,6 +20,7 @@ enum FuzzTarget {
     Runtime(RuntimeFuzzTarget),
     ChainProof,
     TrustRoot,
+    ProgramBundle,
 }
 
 /// A heap ceiling far above the runtime's metered module memory bound. A lawful
@@ -110,6 +112,7 @@ fn target(name: &str) -> Result<FuzzTarget, String> {
         "execution" => Ok(FuzzTarget::Runtime(RuntimeFuzzTarget::Execution)),
         "chain-proof" => Ok(FuzzTarget::ChainProof),
         "trust-root" => Ok(FuzzTarget::TrustRoot),
+        "program-bundle" => Ok(FuzzTarget::ProgramBundle),
         _ => Err(format!("unknown fuzz target {name}")),
     }
 }
@@ -271,6 +274,9 @@ fn check(selected: FuzzTarget, input: &[u8], path: &Path) -> Result<(), String> 
             programs_fuzz_observation(target, input) == programs_fuzz_observation(target, input)
         }
         FuzzTarget::ChainProof => chain_proof_observation(input) == chain_proof_observation(input),
+        FuzzTarget::ProgramBundle => {
+            ProgramStateBundle::decode(input) == ProgramStateBundle::decode(input)
+        }
         FuzzTarget::TrustRoot => {
             let first = TrustRoot::decode(input);
             let second = TrustRoot::decode(input);
@@ -333,6 +339,37 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn program_bundle_target_never_panics_on_seed_corpus() -> Result<(), String> {
+        let selected = target("program-bundle")?;
+        assert!(matches!(selected, FuzzTarget::ProgramBundle));
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("corpus/program-bundle");
+        let source =
+            fs::read_to_string(root.join("empty-ops.hex")).map_err(|error| error.to_string())?;
+        let seed = decode_hex(&source)?;
+        assert!(seed.starts_with(b"LXPB\x02"));
+        assert_eq!(
+            ProgramStateBundle::decode(&seed),
+            Err(layerx_programs::ProgramBundleError::Evidence(
+                layerx_programs::ProtocolEvidenceError::Encoding
+            ))
+        );
+        for path in corpus_files(&root)? {
+            let source = fs::read_to_string(&path).map_err(|error| error.to_string())?;
+            let seed = decode_hex(&source)?;
+            for input in mutate(&seed) {
+                let outcome = std::panic::catch_unwind(|| check(selected, &input, &path));
+                assert!(
+                    outcome.is_ok(),
+                    "program-bundle panicked for {}",
+                    path.display()
+                );
+                outcome.map_err(|_| format!("panic for {}", path.display()))??;
+            }
+        }
+        Ok(())
+    }
 
     #[test]
     fn trust_root_target_never_panics_on_seed_corpus() -> Result<(), String> {

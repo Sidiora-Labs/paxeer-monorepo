@@ -28,12 +28,8 @@ export const PRECOMPILE_ADDRESSES = {
   p256: '0x0000000000000000000000000000000000001011',
 } as const satisfies Record<string, `0x${string}`>;
 
-/** Route keys without a linked constructor in node/precompiles.go. */
-export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES> = new Set([
-  'oracle',
-  'scheduler',
-  'streams',
-] as const);
+/** Route keys without a registered merge constructor under precompiles/. */
+export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES> = new Set();
 
 export function unservedPrecompileAt(
   to: string | undefined,
@@ -64,8 +60,14 @@ const servedPrecompiles = new Set<keyof typeof PRECOMPILE_ADDRESSES>();
 export async function ensureServed(key: keyof typeof PRECOMPILE_ADDRESSES): Promise<void> {
   const address = servedAddress(key);
   if (servedPrecompiles.has(key)) return;
-  const code = await publicClient().getCode({ address });
-  if (!code || code === '0x') throw new PrecompileNotServedError(key);
+  try {
+    const { data } = await publicClient().call({ to: address, data: '0xffffffff' });
+    if (!data || data === '0x') throw new PrecompileNotServedError(key);
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes('LXP_PRECOMPILE_UNKNOWN_METHOD')) {
+      throw error;
+    }
+  }
   servedPrecompiles.add(key);
 }
 

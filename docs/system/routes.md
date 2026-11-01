@@ -234,10 +234,10 @@ Source: `tools/paxeer-x/route-catalogue.json` (schema `paxeer-x.routes.v1`), the
 | GET | `/explorer/backend/api/v2/main-page/indexing-status` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/main-page/transactions` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/main-page/transactions/watchlist` | http | public-read | 8 | 0 | explorer |
-| GET | `/explorer/backend/api/v2/paxeer-x/anchors` | http | public-read | 8 | 0 | explorer |
+| GET | `/explorer/backend/api/v2/paxeer-x/archive/anchors` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/paxeer-x/capabilities` | http | public-read | 8 | 0 | explorer |
-| GET | `/explorer/backend/api/v2/paxeer-x/receipts` | http | public-read | 8 | 0 | explorer |
-| GET | `/explorer/backend/api/v2/paxeer-x/receipts/{id}` | http | public-read | 8 | 0 | explorer |
+| GET | `/explorer/backend/api/v2/paxeer-x/archive/receipts` | http | public-read | 8 | 0 | explorer |
+| GET | `/explorer/backend/api/v2/paxeer-x/archive/receipts/{id}` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/proxy/account-abstraction/accounts` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/proxy/account-abstraction/accounts/{address_hash_param}` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/proxy/account-abstraction/bundlers` | http | public-read | 8 | 0 | explorer |
@@ -555,6 +555,8 @@ Source: `tools/paxeer-x/route-catalogue.json` (schema `paxeer-x.routes.v1`), the
 | GET | `/v1/accounts/{accountId}/unified` | http | public-read | 8 | 0 | wallet, explorer |
 | GET | `/v1/programs/{program_id}` | http | public-read | 8 | 0 | wallet, explorer |
 | GET | `/v1/programs/{program_id}/reads/resolve` | http | public-read | 8 | 0 | wallet, explorer |
+
+Other `/api/v2/paxeer-x` paths answer 404.
 
 ### gas
 

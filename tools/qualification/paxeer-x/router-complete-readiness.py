@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import hashlib
 import http.client
 import ipaddress
@@ -24,14 +25,12 @@ ROSTER = {
     "paxeer_chain",
     "core_agent_boundary",
     "public_core",
-    "independent_receipt_authority",
     "identity",
     "program_registry",
 }
 KERNEL = {
     "core_agent_boundary",
     "public_core",
-    "independent_receipt_authority",
     "identity",
     "program_registry",
 }
@@ -44,8 +43,6 @@ KERNEL_ENV = (
     "LAYERX_GATEWAY_COMPONENT_URL",
     "LAYERX_GATEWAY_COMPONENT_TOKEN_FILE",
     "LAYERX_GATEWAY_PUBLIC_CORE_URL",
-    "LAYERX_GATEWAY_AUTHORITY_URL",
-    "LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE",
     "LAYERX_GATEWAY_IDENTITY_URL",
     "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE",
     "LAYERX_GATEWAY_PROGRAM_REGISTRY_URL",
@@ -284,7 +281,7 @@ class Run:
             )
             for key, value in values.items():
                 if key.endswith("_URL"):
-                    if key in ("LAYERX_CORE_NODE_URL", "LAYERX_CORE_REPLICA_URL"):
+                    if key == "LAYERX_CORE_NODE_URL":
                         parsed_node = urlsplit(value)
                         require(
                             parsed_node.scheme == "http"
@@ -362,7 +359,6 @@ class Run:
         observed = set()
         services = {
             "component": "layerx-agent-boundary",
-            "authority": "layerx-receipt-authority",
             "registry": "layerx-program-registry",
             "redis": "redis-server",
             "paxeer": "layerx-paxeer-boundary",
@@ -397,7 +393,6 @@ class Run:
             gateway[name]
             for name in (
                 "LAYERX_GATEWAY_COMPONENT_URL",
-                "LAYERX_GATEWAY_AUTHORITY_URL",
                 "LAYERX_GATEWAY_PROGRAM_REGISTRY_URL",
                 "LAYERX_GATEWAY_REDIS_URL",
             )
@@ -729,12 +724,8 @@ def worker(directory):
         run.record("core-credential-restored-with-same-retained-state")
         wrong = int(gateway["LAYERX_GATEWAY_PROTOCOL_NETWORK_ID"]) % (2**32 - 1) + 1
         run.start("gateway", {"LAYERX_GATEWAY_PROTOCOL_NETWORK_ID": str(wrong)})
-        run.wait(
-            lambda: bool(
-                run.readiness({"public_core", "independent_receipt_authority"})
-            )
-        )
-        run.record("wrong-network-real-router-refuses-core-and-authority")
+        run.wait(lambda: bool(run.readiness({"public_core"})))
+        run.record("wrong-network-real-router-refuses-core")
         run.start("gateway")
         run.wait(lambda: bool(run.readiness()))
         require(
@@ -848,10 +839,14 @@ def worker(directory):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Qualify router readiness against the configured service roster."
+    )
+    parser.add_argument("--worker", metavar="DIRECTORY", help=argparse.SUPPRESS)
+    args = parser.parse_args()
     os.umask(0o077)
-    if len(sys.argv) == 3 and sys.argv[1] == "--worker":
-        return worker(sys.argv[2])
-    require(len(sys.argv) == 1, "gate accepts no arguments")
+    if args.worker is not None:
+        return worker(args.worker)
     revision, binaries, fixture = inputs()
     require(
         os.geteuid() == 0, "explicit isolated network namespace entry requires root"

@@ -1,6 +1,16 @@
 [
   {
     "type": "function",
+    "name": "recordLifecycle",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {"name": "payload", "type": "bytes", "internalType": "bytes"},
+      {"name": "idempotencyKey", "type": "bytes32", "internalType": "bytes32"}
+    ],
+    "outputs": [{"name": "globalSequence", "type": "uint64", "internalType": "uint64"}]
+  },
+  {
+    "type": "function",
     "name": "grantSession",
     "stateMutability": "nonpayable",
     "inputs": [
@@ -40,16 +50,6 @@
       {"name": "sequence", "type": "uint64", "internalType": "uint64"}
     ],
     "outputs": []
-  },
-  {
-    "type": "function",
-    "name": "resultByIdempotency",
-    "stateMutability": "view",
-    "inputs": [
-      {"name": "didId", "type": "bytes32", "internalType": "bytes32"},
-      {"name": "idempotencyKey", "type": "bytes32", "internalType": "bytes32"}
-    ],
-    "outputs": [{"name": "receipt", "type": "bytes", "internalType": "bytes"}]
   },
   {
     "type": "function",

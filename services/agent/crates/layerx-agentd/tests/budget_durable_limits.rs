@@ -1,11 +1,8 @@
 use std::collections::BTreeSet;
 use std::fs;
-use std::future::Future;
 use std::path::PathBuf;
-use std::pin::pin;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
-use std::task::{Context, Poll, Wake, Waker};
 
 use layerx_agent_api::budget::{
     AuthorityDescription, AuthorityResponse, BudgetAuthorization, BudgetEnforcement, BudgetId,
@@ -25,6 +22,7 @@ use layerx_agentd::budget::{
 use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityResolver, ProtocolAuthority,
 };
+use layerx_agentd::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
 use layerx_agentd::prepare::{
     prepare_activity_for_protocol, CorePreparationBoundary, CorePreparationState, CoreStateError,
     PreparationDefaults, PreparationLifecycle, PrepareError, PrepareRequest, Prepared,
@@ -33,13 +31,11 @@ use layerx_agentd::session::{open, OpenRequest, SessionId, SessionRegistry, Toke
 use layerx_agentd::session_control::{
     AdmissionStage, OperationPermit, SessionControl, WriteAdmission, WriteCharge,
 };
-use layerx_agentd::sign::{
-    attach_kernel_signature, verify_kernel_before_submit, VerifiedSubmission,
-};
 use layerx_agentd::store::{Store, TenantId};
 use layerx_agentd::tenant::{Operation, Surface};
+use layerx_crypto::evm_transaction::{transaction_hash, Eip1559Call};
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::signer::{sign_disclosed, Signer};
+use layerx_crypto::signer::Signer;
 use layerx_types::account::AccountId;
 use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
@@ -68,22 +64,6 @@ const DAEMON_CEILING: u128 = 1_000;
 const CREATE_SIGNING_SEED: [u8; 32] = [0xa5; 32];
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
-
-struct NoopWake;
-
-impl Wake for NoopWake {
-    fn wake(self: Arc<Self>) {}
-}
-
-fn ready<F: Future>(future: F) -> F::Output {
-    let mut future = pin!(future);
-    let waker = Waker::from(Arc::new(NoopWake));
-    let mut context = Context::from_waker(&waker);
-    match future.as_mut().poll(&mut context) {
-        Poll::Ready(value) => value,
-        Poll::Pending => panic!("local signing unexpectedly blocked"),
-    }
-}
 
 struct RecordedCore(CorePreparationState);
 
@@ -249,30 +229,56 @@ fn prepare(
     )
 }
 
-fn signed_create(source: Option<([u8; 32], u64)>) -> (Prepared, VerifiedSubmission) {
-    let signer = LocalSigner::new(CREATE_SIGNING_SEED);
-    let prepared = text(
-        prepare(&signer, create_kind(), core_create(source)),
-        "prepare",
-    );
-    let signature = text(
-        ready(sign_disclosed(
-            &signer,
-            &prepared.canonical_bytes,
-            &prepared.disclosure,
-            &registry(),
-        )),
-        "sign",
-    );
-    let signed = text(
-        attach_kernel_signature(&prepared, *signature.as_bytes()),
-        "attach",
-    );
-    let verified = text(
-        verify_kernel_before_submit(&signed, &prepared, &signer.public_key(), &registry()),
-        "verify",
-    );
-    (prepared, verified)
+fn signed_evm_create(source: Option<([u8; 32], u64)>) -> Vec<u8> {
+    let integer = |value: u128| {
+        let mut word = [0; 32];
+        word[16..].copy_from_slice(&value.to_be_bytes());
+        AbiArgument::Word(word)
+    };
+    let signature = if source.is_some() {
+        "budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64)"
+    } else {
+        "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)"
+    };
+    let mut arguments = vec![
+        AbiArgument::Word(BUDGET_ID),
+        AbiArgument::Word(budget_account()),
+        AbiArgument::Word(ASSET),
+        AbiArgument::Word(PURPOSE),
+        integer(PER_PERIOD_LIMIT),
+        integer(0),
+        integer(INITIAL_AMOUNT),
+        integer(u128::from(PERIOD_LENGTH_MS)),
+        integer(u128::from(PERIOD_START_MS)),
+        integer(u128::from(EXPIRY_MS)),
+        integer(3),
+        integer(1),
+    ];
+    if let Some((account, sequence)) = source {
+        arguments.push(AbiArgument::Word(account));
+        arguments.push(integer(u128::from(sequence)));
+    }
+    let call = PrecompileCall {
+        target: PrecompileTarget::Pay,
+        selector: text(
+            transaction_hash(signature.as_bytes())[..4].try_into(),
+            "selector",
+        ),
+        arguments,
+    };
+    let transaction = Eip1559Call {
+        chain_id: 17,
+        nonce: ENVELOPE_SEQUENCE,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 7,
+        gas_limit: 300_000,
+        to: PrecompileTarget::Pay.address(),
+        data: text(call.encode(), "budget create ABI"),
+    };
+    text(
+        transaction.sign(&CREATE_SIGNING_SEED),
+        "sign EVM budget create",
+    )
 }
 
 fn core_record(spent_this_period: u128, revoked: bool) -> Vec<u8> {
@@ -508,9 +514,9 @@ impl Harness {
 
 #[test]
 fn core_create_identity_is_read_from_the_signed_v1_and_v2_bytes() {
-    let (prepared, v1) = signed_create(None);
+    let v1 = signed_evm_create(None);
     let identity = text(
-        budget_create_identity(v1.exact_bytes(), &registry()),
+        budget_create_identity(v1.as_slice(), &registry()),
         "v1 identity",
     );
     assert_eq!(identity.encoding_version, 1);
@@ -540,19 +546,39 @@ fn core_create_identity_is_read_from_the_signed_v1_and_v2_bytes() {
     assert_eq!(identity.expiry_ms, EXPIRY_MS);
     assert_eq!(identity.revocation_sequence, 3);
     assert_eq!(identity.rollover, 1);
-    assert_eq!(identity.source_account, main_account());
-    assert_eq!(identity.source_sequence, ENVELOPE_SEQUENCE);
+    assert_eq!(identity.source_account, [0; 32]);
+    assert_eq!(identity.source_sequence, 0);
+    let prepared = text(
+        prepare(
+            &LocalSigner::new(CREATE_SIGNING_SEED),
+            create_kind(),
+            core_create(None),
+        ),
+        "prepare",
+    );
     assert_eq!(
         budget_create_identity(prepared.canonical_bytes.as_slice(), &registry()),
         Err(BudgetCreationError::NotBudgetCreation)
     );
 
-    let (_, v2) = signed_create(Some((asset_account(), ENVELOPE_SEQUENCE)));
+    let v2 = signed_evm_create(Some((asset_account(), ENVELOPE_SEQUENCE)));
     let identity = text(
-        budget_create_identity(v2.exact_bytes(), &registry()),
+        budget_create_identity(v2.as_slice(), &registry()),
         "v2 identity",
     );
     assert_eq!(identity.encoding_version, 2);
+    assert_eq!(identity.sender, sender);
+    assert_eq!(identity.budget_id, BUDGET_ID);
+    assert_eq!(identity.budget_account, budget_account());
+    assert_eq!(identity.asset, ASSET);
+    assert_eq!(identity.purpose, PURPOSE);
+    assert_eq!(identity.per_period_limit, PER_PERIOD_LIMIT);
+    assert_eq!(identity.carry_cap, 0);
+    assert_eq!(identity.initial_amount, INITIAL_AMOUNT);
+    assert_eq!(identity.period_length_ms, PERIOD_LENGTH_MS);
+    assert_eq!(identity.period_start_ms, PERIOD_START_MS);
+    assert_eq!(identity.revocation_sequence, 3);
+    assert_eq!(identity.rollover, 1);
     assert_eq!(identity.source_account, asset_account());
     assert_eq!(identity.source_sequence, ENVELOPE_SEQUENCE);
     assert_eq!(identity.expiry_ms, EXPIRY_MS);

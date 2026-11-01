@@ -1,6 +1,6 @@
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_programs::chain_proof::{
-    decode::{CommitmentProof, ProofOp},
+    decode::{decode_commitment_proof, CommitmentProof, ProofOp},
     header::{ChainHeader, HeaderBlockId, HeaderTime, HeaderVersion},
     validators::{TrustedValidator, ValidatorSet},
     vote::{vote_sign_bytes, BlockId, PartSetHeader, Timestamp},
@@ -308,4 +308,60 @@ fn terminal_record_verifies_from_proven_state() {
         AuthenticatedTerminalRecord::verify(&verifier, &valid, NOW_MS + MAX_AGE_MS, lease).is_ok()
     );
     assert!(AuthenticatedTerminalRecord::verify(&verifier, &valid, NOW_MS - 1_000, lease).is_ok());
+}
+
+#[test]
+fn terminal_record_refuses_kernel_receipt_bytes() {
+    let kernel_receipt =
+        include_bytes!("../../layerx-programs-registry/tests/fixtures/maintained-head/receipt");
+    let kernel_key = *include_bytes!(
+        "../../layerx-programs-registry/tests/fixtures/maintained-head/sequencer.public"
+    );
+    let receipt =
+        layerx_proof::receipt::verify_sequencer_signature(kernel_receipt.as_slice(), kernel_key)
+            .unwrap_or_else(|error| panic!("signed kernel receipt: {error:?}"));
+    assert!(receipt
+        .protocol()
+        .unwrap_or_else(|| panic!("kernel protocol receipt"))
+        .sequencer_signature()
+        .is_some());
+    assert_eq!(
+        decode_commitment_proof(kernel_receipt),
+        Err(layerx_programs::chain_proof::ChainProofError::NonCanonical)
+    );
+
+    let lease = LeaseId::new([1; 32]).unwrap_or_else(|error| panic!("lease: {error}"));
+    let signing_key = SigningKey::from_bytes(&[17; 32]);
+    let record = terminal_record(lease);
+    let (valid, validator, header_hash) = evidence(lease, record.clone(), 2, &signing_key);
+    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        "paxeer-expiry-test".to_owned(),
+        vec![validator],
+        MAX_AGE_MS,
+    )
+    .unwrap_or_else(|error| panic!("chain trust: {error}"));
+    let authenticated = AuthenticatedTerminalRecord::verify(&verifier, &valid, NOW_MS, lease)
+        .unwrap_or_else(|error| panic!("terminal record: {error}"));
+    assert_eq!(authenticated.canonical_bytes().as_slice(), record);
+    assert_eq!(authenticated.receipt_activity_id(), header_hash);
+
+    let refuse = |proof: &TerminalReceiptEvidence| {
+        assert_eq!(
+            AuthenticatedTerminalRecord::verify(&verifier, proof, NOW_MS, lease),
+            Err(ExpiryRefusal::InvalidProtocolReceipt)
+        );
+    };
+    let mut kernel_header = valid.clone();
+    kernel_header.commitment.signed_header = kernel_receipt.to_vec();
+    refuse(&kernel_header);
+    let mut kernel_commit = valid.clone();
+    kernel_commit.commitment.commit = kernel_receipt.to_vec();
+    refuse(&kernel_commit);
+    for index in 0..valid.terminal_ops.len() {
+        let mut kernel_proof = valid.clone();
+        kernel_proof.terminal_ops[index].data = kernel_receipt.to_vec();
+        refuse(&kernel_proof);
+    }
+    let (proven_kernel_receipt, _, _) = evidence(lease, kernel_receipt.to_vec(), 2, &signing_key);
+    refuse(&proven_kernel_receipt);
 }

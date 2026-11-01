@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
+	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	xwebkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/keeper"
 	xwebtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
@@ -65,8 +66,14 @@ func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContex
 	keeper, _ := cached.Value(xwebContextKey{}).(*xwebkeeper.Keeper)
 	for _, leg := range receipt.Transfers {
 		denom := ""
+		found := false
 		if keeper != nil {
-			denom, _ = keeper.ProgramFeeDenom(cached, xwebtypes.Hash32(leg.Asset))
+			denom, found = keeper.ProgramFeeDenom(cached, xwebtypes.Hash32(leg.Asset))
+		}
+		if !found && p.assets != nil {
+			if asset, mapped := p.assets.GetAsset(cached, leg.Asset); mapped {
+				denom = asset.Denom
+			}
 		}
 		programCall.Legs = append(programCall.Legs, xwebkeeper.ProgramLeg{From: lxphost.BankAddress(leg.From), To: lxphost.BankAddress(leg.To), Asset: xwebtypes.Hash32(leg.Asset), Denom: denom, Amount: leg.Amount})
 	}
@@ -86,6 +93,10 @@ func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContex
 }
 
 type xwebContextKey struct{}
+
+type assetDenoms interface {
+	GetAsset(ctx sdk.Context, assetID [32]byte) (custodytypes.AssetMapping, bool)
+}
 
 func configureXWeb(p *PrecompileExecutor, keeper *xwebkeeper.Keeper) {
 	table := make(handlerTable, len(handlers))

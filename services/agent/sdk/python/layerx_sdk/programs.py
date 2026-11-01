@@ -14,8 +14,6 @@ from .program_wire import (
     DecodedSignedProgramCall,
     OccupancyPayer,
     assert_fresh_simulation_observation,
-    bind_retained_program_call,
-    decode_and_verify_program_terminal,
     decode_signed_program_call,
     verify_native_program_call_signature,
 )
@@ -23,10 +21,6 @@ from .verifier import (
     AuthorizedReceiptBatch,
     LocalSignatureVerifier,
     ReceiptVerification,
-    programs_module_version_for_protocol,
-    verify_program_lifecycle_receipt,
-    verify_receipt_outcome,
-    verify_program_receipt_outcome_v5,
 )
 
 ProgramCapability = Literal["storage_read", "storage_write", "transfer", "emit_event", "compose"]
@@ -183,70 +177,6 @@ def _evidence_bytes(execution: Mapping[str, object], field: str) -> bytes:
     if not isinstance(value, str) or len(value) > 2_097_152 or len(value) % 2 or any(character not in "0123456789abcdef" for character in value):
         raise ValueError("program evidence is not canonical hexadecimal")
     return bytes.fromhex(value)
-
-
-def verify_program_receipt(
-    execution: Mapping[str, object],
-    authority: AuthorizedReceiptBatch,
-    signatures: LocalSignatureVerifier,
-    trust: ProgramTrustContext,
-    *, expected_signed_activity: bytes | None = None,
-    occupancy_payers: tuple[OccupancyPayer, ...] = (),
-) -> VerifiedProgramReceipt:
-    activity_id = execution.get("activity_id")
-    module_version = execution.get("module_version")
-    guest_abi = execution.get("guest_abi_version")
-    result_code = execution.get("result_code")
-    if not isinstance(activity_id, str) or not _hex32(activity_id) or not programs_module_version_for_protocol(trust.protocol_version, module_version) or type(guest_abi) is not int or not native_guest_abi_for_protocol(guest_abi, trust.protocol_version) or guest_abi > cast(int, module_version) or type(result_code) is not int:
-        raise ValueError("invalid program execution evidence")
-    receipt = _evidence_bytes(execution, "receipt")
-    terminal_payload = _evidence_bytes(execution, "terminal_payload")
-    call_graph = _evidence_bytes(execution, "call_graph")
-    if authority.sequencer_public_key != trust.sequencer_public_key or _mapping(execution.get("authority")).get("sequencer_public_key") != trust.sequencer_public_key.hex():
-        raise ValueError("program sequencer authority mismatch")
-    if guest_abi in (3, 4, 5):
-        retained_v5 = expected_signed_activity
-        if retained_v5 is None and "retained_signed_activity" in execution:
-            retained_v5 = _evidence_bytes(execution, "retained_signed_activity")
-        if retained_v5 is None:
-            raise ValueError("v5 receipt requires actual retained signed request")
-        v5_hash, v5_abi, _ = bind_retained_program_call(retained_v5, activity_id, cast(str, execution["program_id"]), trust.protocol_version)
-        if v5_abi != guest_abi:
-            raise ValueError("v5 signed request ABI mismatch")
-        verify_native_program_call_signature(retained_v5, signatures, trust.network_id)
-        verification = verify_program_receipt_outcome_v5(receipt, authority, signatures, terminal_payload,
-                                                        call_graph, cast(str, execution["program_id"]), retained_v5,
-                                                        occupancy_payers=occupancy_payers)
-    else:
-        verification = verify_receipt_outcome(receipt, authority, signatures, protocol_version=trust.protocol_version)
-    protocol = verification.receipt
-    outcome = protocol.program_outcome
-    authority_document = _mapping(execution.get("authority"))
-    if protocol.module_id != 9 or protocol.operation != 3 or protocol.module_version != module_version or protocol.activity_id.hex() != activity_id or outcome is None or outcome.abi_version != guest_abi or outcome.result_code != result_code or protocol.batch_id.hex() != execution.get("batch_id") or execution.get("batch_id") != authority_document.get("batch_id") or str(protocol.global_sequence) != execution.get("global_sequence") or protocol.previous_state_root.hex() != authority_document.get("previous_state_root") or protocol.resulting_state_root.hex() != execution.get("state_root") or execution.get("state_root") != authority_document.get("resulting_state_root") or verification.receipt_digest.hex() != execution.get("receipt_digest") or not call_graph or sha256(terminal_payload).digest() != outcome.terminal_payload_root or sha256(call_graph).digest() != outcome.call_graph_root:
-        raise ValueError("program receipt binding failed")
-    retained = None
-    if "retained_signed_activity" in execution:
-        retained = _evidence_bytes(execution, "retained_signed_activity")
-    if expected_signed_activity is not None:
-        if retained is not None and retained != expected_signed_activity:
-            raise ValueError("program retained call mismatch")
-        retained = expected_signed_activity
-    payload_hash = None
-    if retained is not None:
-        if protocol.protocol_version == 3:
-            verify_native_program_call_signature(retained, signatures, trust.network_id)
-        payload_hash, expected_abi, expected_key = bind_retained_program_call(
-            retained, activity_id, cast(str, execution["program_id"]), protocol.protocol_version)
-        if expected_abi != guest_abi or ("idempotency_key" in execution and execution["idempotency_key"] != expected_key):
-            raise ValueError("program retained call metadata mismatch")
-    terminal = decode_and_verify_program_terminal(
-        terminal_payload, call_graph, cast(str, execution["program_id"]), outcome,
-        protocol.protocol_version, protocol=protocol, expected_payload_hash=payload_hash,
-        occupancy_payers=occupancy_payers)
-    if terminal.usage != execution.get("usage") or terminal.outcome != execution.get("outcome"):
-        raise ValueError("program terminal document binding failed")
-    return VerifiedProgramReceipt(verification, terminal_payload, call_graph, terminal.transfer_verification,
-                                  terminal.occupancy_payment_accounts)
 
 
 def verify_lifecycle_recovery(result: object, expected_activity: str, sequencer: bytes, signatures: LocalSignatureVerifier) -> ReceiptVerification:

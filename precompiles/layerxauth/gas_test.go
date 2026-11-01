@@ -13,11 +13,11 @@ func TestAuthGasTable(t *testing.T) {
 		write     bool
 		surcharge uint64
 	}{
+		{"recordLifecycle", true, 36680},
 		{"grantSession", true, 36680},
 		{"grantSessionSuccessor", true, 38600},
 		{"grantCapability", true, 34760},
 		{"revokeGrant", true, 5000},
-		{"resultByIdempotency", false, 1204},
 		{"getGrant", false, 1108},
 		{"isLive", false, 1300},
 		{"sessionKey", false, 1108},

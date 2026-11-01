@@ -4,7 +4,9 @@ use layerx_interop_gateway::adapter::{
 };
 use layerx_interop_gateway::audit::{verify_export, AuditEventKind};
 use layerx_interop_gateway::error::{error_emission, GatewayError, Retriability};
-use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::gateway::{
     SequencerSettlementError, TranslationKind, TranslationRequest, TranslationStatus,
 };
@@ -62,9 +64,59 @@ fn array<const N: usize>(value: &str) -> [u8; N] {
         .unwrap_or_else(|_| panic!("fixture value must have {N} bytes"))
 }
 
+fn payment_exact_words(case: &str) -> [[u8; 32]; 3] {
+    let transaction = hex(field(case, "rawTransaction"));
+    let offsets: Vec<usize> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact selector");
+    let calldata = &transaction[offsets[0] + 4..];
+    [5, 0, 1].map(|word| {
+        calldata[word * 32..(word + 1) * 32]
+            .try_into()
+            .unwrap_or_else(|_| panic!("recorded payExact word {word}"))
+    })
+}
+
+fn signed_recorded_payment(
+    case: &str,
+    recorded_topics: &[[u8; 32]],
+    topics: &[[u8; 32]],
+) -> Vec<u8> {
+    let signed = hex(field(case, "signedReceipt"));
+    assert_eq!(
+        canonical_receipt_digest(&signed),
+        Ok(array(field(case, "receiptDigest")))
+    );
+    let mut unsigned = signed[..signed.len() - 69].to_vec();
+    let before = recorded_topics.concat();
+    let offsets: Vec<usize> = unsigned
+        .windows(before.len())
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == before).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one signed payment log");
+    unsigned[offsets[0]..offsets[0] + before.len()].copy_from_slice(&topics.concat());
+    let mut digest = Sha256::new();
+    digest.update(b"LXP/v1/receipt\0");
+    digest.update(&unsigned);
+    digest.update([0]);
+    let signer = SigningKey::from_bytes(&[0x5e; 32]);
+    assert_eq!(
+        signer.verifying_key().to_bytes(),
+        array(field(case, "publicKey"))
+    );
+    let signature = signer.sign(&digest.finalize()).to_bytes();
+    unsigned.extend_from_slice(&[1, 0, 0, 0, 64]);
+    unsigned.extend_from_slice(&signature);
+    unsigned
+}
+
 fn recorded_evidence() -> SequencerEvidence {
     let case = fixture_case();
-    let topics = case
+    let recorded_topics: Vec<[u8; 32]> = case
         .split_once("\"topics\": [")
         .and_then(|(_, rest)| rest.split_once(']'))
         .map(|(topics, _)| topics)
@@ -73,6 +125,9 @@ fn recorded_evidence() -> SequencerEvidence {
         .filter(|value| value.starts_with("0x"))
         .map(array)
         .collect();
+    let [reference, from, to] = payment_exact_words(case);
+    let topics = vec![recorded_topics[0], reference, from, to];
+    let signed_receipt = signed_recorded_payment(case, &recorded_topics, &topics);
     let log_index = u64::from_str_radix(
         field(case, "logIndex")
             .strip_prefix("0x")
@@ -82,7 +137,7 @@ fn recorded_evidence() -> SequencerEvidence {
     .unwrap_or_else(|error| panic!("invalid log index: {error}"));
     SequencerEvidence {
         transaction_hash: array(field(case, "txHash")),
-        signed_receipt: hex(field(case, "signedReceipt")),
+        signed_receipt,
         logs: vec![SequencerLog::new(
             array(field(case, "address")),
             topics,
@@ -338,7 +393,8 @@ fn a_state_changing_translation_refuses_every_unproved_sequencer_termination() {
     assert_eq!(
         settled,
         TranslationStatus::ReceiptVerified {
-            receipt_digest: array(field(case, "receiptDigest")),
+            receipt_digest: canonical_receipt_digest(&evidence.signed_receipt)
+                .unwrap_or_else(|error| panic!("native receipt digest: {error:?}")),
         }
     );
 }
@@ -361,7 +417,8 @@ fn a_verified_receipt_terminates_the_translation_and_binds_the_audit_chain() {
     let settled = core
         .settle_with_sequencer_evidence(&alice, key, &material, &recorded_keys(), &trace, 14)
         .unwrap_or_else(|error| panic!("settle: {error}"));
-    let receipt_digest = array(field(fixture_case(), "receiptDigest"));
+    let receipt_digest = canonical_receipt_digest(&material.signed_receipt)
+        .unwrap_or_else(|error| panic!("native receipt digest: {error:?}"));
     assert_eq!(
         settled,
         TranslationStatus::ReceiptVerified { receipt_digest }
@@ -890,7 +947,8 @@ fn assert_nothing_recorded(core: &GatewayCore, alice: &PrincipalId, key: [u8; 32
 }
 
 fn assert_settled(core: &GatewayCore, alice: &PrincipalId, key: [u8; 32], receipt: &[u8]) {
-    let receipt_digest = sha256(receipt);
+    let receipt_digest = canonical_receipt_digest(receipt)
+        .unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
     assert_eq!(
         core.translation(alice, key),
         Some(TranslationStatus::ReceiptVerified { receipt_digest })
@@ -933,7 +991,8 @@ fn a_payment_exact_receipt_matched_by_payment_reference_settles_the_translation(
     assert_eq!(
         settled,
         TranslationStatus::ReceiptVerified {
-            receipt_digest: sha256(&receipt)
+            receipt_digest: canonical_receipt_digest(&receipt)
+                .unwrap_or_else(|error| panic!("receipt digest: {error:?}"))
         }
     );
     assert_settled(&core, &alice, key, &receipt);
@@ -948,15 +1007,24 @@ fn a_payment_exact_receipt_matched_by_payment_reference_settles_the_translation(
 fn a_payment_exact_receipt_with_legacy_topic_order_is_refused() {
     let mut core = registered_core();
     let alice = principal("alice");
-    let key = [0x81; 32];
-    assert_ne!(key, PAYER);
-    assert_ne!(key, PAYEE);
-    assert_ne!(PAYER, PAYEE);
-    pending_state_changing(&mut core, &alice, 0x81);
-    let native = payment_exact_log(0, key);
+    let [key, from, to] = payment_exact_words(fixture_case());
+    assert_ne!(key, from);
+    assert_ne!(key, to);
+    assert_ne!(from, to);
+    let opened = core
+        .begin_translation(
+            &alice,
+            &request_for_key(TranslationKind::StateChanging, key),
+            &TraceId::mint([0x81; 16]),
+            10,
+        )
+        .unwrap_or_else(|error| panic!("begin: {error}"));
+    assert_eq!(opened, TranslationStatus::Pending);
+    let evidence = recorded_evidence();
+    let native = &evidence.logs[0];
     let mut topics = native.topics().to_vec();
-    assert_eq!(&topics[1..], &[key, PAYER, PAYEE]);
-    topics[1..].rotate_left(1);
+    assert_eq!(&topics[1..], &[key, from, to]);
+    topics[1..].copy_from_slice(&[from, to, key]);
     let logs = vec![SequencerLog::new(
         native.address(),
         topics,
@@ -1002,7 +1070,8 @@ fn a_payment_drawn_receipt_matched_by_its_idempotency_key_settles_the_translatio
     assert_eq!(
         settled,
         TranslationStatus::ReceiptVerified {
-            receipt_digest: sha256(&receipt)
+            receipt_digest: canonical_receipt_digest(&receipt)
+                .unwrap_or_else(|error| panic!("receipt digest: {error:?}"))
         }
     );
     assert_settled(&core, &alice, key, &receipt);

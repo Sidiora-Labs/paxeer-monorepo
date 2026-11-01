@@ -1,6 +1,10 @@
 package com.sidiora.layerx.sdk;
 
 import com.fasterxml.jackson.databind.JavaType;
+import com.sidiora.layerx.sdk.verify.LocalVerifier;
+import com.sun.net.httpserver.HttpServer;
+import java.net.InetSocketAddress;
+import java.util.concurrent.CopyOnWriteArrayList;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.math.BigInteger;
@@ -14,8 +18,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.HexFormat;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -40,7 +42,7 @@ public final class ProgramsContractTest {
     }
 
     @Test
-    void generatedInterfaceAndTypedClientPreserveStructuredSourceMetadata() throws Exception {
+    void generatedSourceMetadataAndPrecompileInterfaceUseTheirDeclaredContracts() throws Exception {
         long now = System.currentTimeMillis();
         ObjectNode source = JSON.createObjectNode().put("status", "verified")
             .put("source_digest", HEX32).put("environment_digest", OTHER_HEX32)
@@ -58,14 +60,60 @@ public final class ProgramsContractTest {
         assertEquals("verified", generated.source().status());
         assertEquals(HEX32, generated.source().source_digest());
 
-        byte[] pinned = new byte[32]; pinned[0] = 1;
-        var programs = new ProgramsClient(new ProductionClient(new CapturingTransport(interfaceValue)), pinned);
-        ProgramsClient.Interface typed = programs.interfaceAt(HexFormat.of().parseHex(HEX32), "sequencer-signed")
-            .toCompletableFuture().join();
-        assertEquals(7, typed.version());
-        assertEquals("verified", typed.source().status());
-        assertArrayEquals(HexFormat.of().parseHex(HEX32), typed.source().sourceDigest());
-        assertEquals("server-side-receipt-verification-only", typed.verification());
+        NativeProgramDeploy deploy = NativeProgramDeploy.decode(fixtureBytes(
+            fixture("native-program-deploy-v4.json"), "payload_hex"));
+        byte[] encoding = deploy.programInterface();
+        byte[] digest = sha256(encoding);
+        byte[] head = concatenate(ProgramsClient.Programs.word(BigInteger.ONE, 8),
+            deploy.authority(), deploy.newHash(), ProgramsClient.Programs.word(BigInteger.valueOf(deploy.guestAbi()), 16),
+            ProgramsClient.Programs.word(BigInteger.valueOf(7), 32), ProgramsClient.Programs.word(BigInteger.ONE, 1));
+        try (RpcEndpoint endpoint = new RpcEndpoint(request -> {
+            String data = request.required("params").get(0).required("data").asText();
+            byte[] value = data.startsWith("0x8efc7240")
+                ? ProgramsClient.Programs.abi("", new Object[] {
+                    ProgramsClient.Programs.word(BigInteger.valueOf(7), 32), digest, encoding}, 2)
+                : head;
+            return JSON.getNodeFactory().textNode("0x" + HexFormat.of().formatHex(value));
+        })) {
+            ProgramsClient.Interface typed = client(endpoint).interfaceAt(deploy.programId())
+                .toCompletableFuture().join();
+            assertEquals(7, typed.version());
+            assertArrayEquals(encoding, typed.interfaceBytes());
+            assertArrayEquals(digest, typed.interfaceDigest());
+            assertArrayEquals(deploy.newHash(), typed.codeHash());
+            assertEquals(deploy.guestAbi(), typed.abiVersion());
+            org.junit.jupiter.api.Assertions.assertNull(typed.source());
+            assertEquals("pending", typed.verification());
+            assertEquals(2, endpoint.requests.size());
+            for (JsonNode request : endpoint.requests) {
+                assertEquals("eth_call", request.required("method").asText());
+                assertEquals("pending", request.required("params").get(1).asText());
+                assertEquals(ProgramsClient.PROGRAMS_ADDRESS, request.required("params").get(0).required("to").asText());
+            }
+            assertTrue(endpoint.requests.get(0).required("params").get(0).required("data").asText().startsWith("0x8efc7240"));
+            assertTrue(endpoint.requests.get(1).required("params").get(0).required("data").asText().startsWith("0xb1ffb3d4"));
+        }
+    }
+
+    @Test
+    void programsDecoderRefusesRetiredRestEnvelopes() {
+        var transport = new HttpProductionTransport(HttpClient.newHttpClient(), JSON,
+            URI.create("http://localhost:8080"), URI.create("http://localhost:9090"),
+            Duration.ofSeconds(1), null);
+        JavaType object = JSON.constructType(ObjectNode.class);
+        byte[] result = "{\"result\":{}}".getBytes(StandardCharsets.UTF_8);
+        PlatformSdkException deploy = assertThrows(PlatformSdkException.class,
+            () -> transport.decodePrograms("program.deploy", 200, result, object));
+        assertEquals(PlatformSdkException.Code.DECODE_FAILURE, deploy.code());
+        PlatformSdkException receipt = assertThrows(PlatformSdkException.class,
+            () -> transport.decodePrograms("program.receipt", 200, result, object));
+        assertEquals(PlatformSdkException.Code.DECODE_FAILURE, receipt.code());
+
+        byte[] error = "{\"error\":{\"code\":\"policy_refusal\",\"retry\":\"never\"}}"
+            .getBytes(StandardCharsets.UTF_8);
+        PlatformSdkException windDown = assertThrows(PlatformSdkException.class,
+            () -> transport.decodePrograms("program.wind-down", 400, error, object));
+        assertEquals(PlatformSdkException.Code.DECODE_FAILURE, windDown.code());
     }
 
     @Test
@@ -155,30 +203,53 @@ public final class ProgramsContractTest {
     }
 
     @Test
-    void receiptSelectorBindsUnknownActivityAndIdempotency() {
-        ObjectNode unknown = JSON.createObjectNode().put("state", "unknown")
-            .put("activity_id", HEX32).put("idempotency_key", OTHER_HEX32);
-        var transport = new CapturingTransport(unknown);
-        byte[] pinnedKey = new byte[32];
-        pinnedKey[0] = 3;
-        var programs = new ProgramsClient(new ProductionClient(transport), pinnedKey);
-        ProgramsClient.Submission result = programs.receipt(new IdempotencyKey(OTHER_HEX32),
-            java.util.HexFormat.of().parseHex(HEX32)).toCompletableFuture().join();
-        assertTrue(result.unknown());
-        assertEquals(OTHER_HEX32, result.idempotencyKey());
-        assertEquals("program.receipt", transport.call.operation().wireName());
-        assertEquals(OTHER_HEX32, transport.call.pathParameters().require("idempotency_key"));
+    void receiptSelectorBindsUnknownActivityAndIdempotency() throws Exception {
+        NativeProgramCall nativeCall = NativeProgramCall.decode(fixtureBytes(fixture("native-program-call-v4.json"), "payload_hex"));
+        byte[] signed = ReceiptFixtureTest.signedTransaction(nativeCall.calldata(BigInteger.valueOf(1000)));
+        byte[] hash = ProgramsClient.Programs.transactionHash(signed);
+        ObjectNode view = JSON.createObjectNode().put("rung", "submitted")
+            .put("txHash", "0x" + HexFormat.of().formatHex(hash)).put("nonce", "0x3");
+        try (RpcEndpoint endpoint = new RpcEndpoint(request -> view.deepCopy())) {
+            ProgramsClient programs = client(endpoint);
+            IdempotencyKey key = new IdempotencyKey(OTHER_HEX32);
+            var call = new ProgramsClient.Call(nativeCall, BigInteger.valueOf(1000), signed);
+            var submitted = programs.submit(call, key).toCompletableFuture().join();
+            assertTrue(submitted.unknown());
+            assertEquals(key.value(), submitted.idempotencyKey());
+            PlatformSdkException pending = assertInstanceOf(PlatformSdkException.class,
+                assertThrows(java.util.concurrent.CompletionException.class,
+                    () -> programs.receipt(key, hash).toCompletableFuture().join()).getCause());
+            assertEquals(PlatformSdkException.Code.UNKNOWN_OUTCOME, pending.code());
+            JsonNode request = endpoint.requests.getLast();
+            assertEquals("pax_sequencerReceipt", request.required("method").asText());
+            assertEquals("0x" + HexFormat.of().formatHex(hash), request.required("params").get(0).asText());
+            assertEquals(1, request.required("params").size());
+            view.put("txHash", "0x" + OTHER_HEX32);
+            PlatformSdkException mismatch = assertInstanceOf(PlatformSdkException.class,
+                assertThrows(java.util.concurrent.CompletionException.class,
+                    () -> programs.receipt(key, hash).toCompletableFuture().join()).getCause());
+            assertEquals(PlatformSdkException.Code.VERIFICATION_FAILURE, mismatch.code());
+            int requests = endpoint.requests.size();
+            assertEquals(PlatformSdkException.Code.INVALID_ARGUMENT,
+                assertThrows(PlatformSdkException.class, () -> programs.receipt(key,
+                    HexFormat.of().parseHex(HEX32))).code());
+            assertEquals(requests, endpoint.requests.size());
 
-        unknown.put("activity_id", OTHER_HEX32);
-        PlatformSdkException failure = assertInstanceOf(PlatformSdkException.class,
-            assertThrows(java.util.concurrent.CompletionException.class,
-                () -> programs.receipt(new IdempotencyKey(OTHER_HEX32),
-                    java.util.HexFormat.of().parseHex(HEX32)).toCompletableFuture().join()).getCause());
-        assertEquals(PlatformSdkException.Code.VERIFICATION_FAILURE, failure.code());
+            JsonNode receiptVector = fixture("sequencer-receipt-v1.json").required("cases").get(0);
+            view.removeAll();
+            view.setAll((ObjectNode) receiptVector.required("receiptJson"));
+            byte[] retained = prefixedBytes(receiptVector, "rawTransaction");
+            var receipted = programs.receipt(new ProgramsClient.ProgramSubmission(
+                ProgramsClient.Programs.transactionHash(retained), retained, null)).toCompletableFuture().join();
+            assertFalse(receipted.pending());
+            assertEquals(LocalVerifier.VerificationLevel.RECEIPTED, receipted.receipt().level());
+            assertArrayEquals(prefixedBytes(receiptVector, "receiptDigest"), receipted.receipt().receiptDigest());
+            assertArrayEquals(retained, receipted.signedTransaction());
+        }
     }
 
     @Test
-    void programCallBoundsAndCanonicalCapabilitiesFailClosed() {
+    void programCallBoundsAndCanonicalCapabilitiesFailClosed() throws Exception {
         var budget = new ProgramsClient.Budget(BigInteger.ONE, BigInteger.ZERO);
         byte[] programId = new byte[32];
         programId[0] = 1;
@@ -187,40 +258,45 @@ public final class ProgramsContractTest {
         assertThrows(PlatformSdkException.class, () -> new ProgramsClient.Call(programId,
             new byte[0], budget, List.of(ProgramsClient.Capability.TRANSFER,
                 ProgramsClient.Capability.STORAGE_READ), new byte[] {1}));
-        var transport = new CapturingTransport(JSON.createObjectNode());
-        byte[] pinnedKey = new byte[32];
-        pinnedKey[0] = 3;
-        var programs = new ProgramsClient(new ProductionClient(transport), pinnedKey);
-        ProgramsClient.Call call = new ProgramsClient.Call(programId, new byte[0], budget,
-            List.of(ProgramsClient.Capability.STORAGE_READ), new byte[] {1});
-        PlatformSdkException invalid = assertThrows(PlatformSdkException.class,
-            () -> programs.submit(call, new IdempotencyKey("not-a-bytes32")));
-        assertEquals(PlatformSdkException.Code.IDEMPOTENCY_REQUIRED, invalid.code());
+        NativeProgramCall nativeCall = NativeProgramCall.decode(fixtureBytes(fixture("native-program-call-v4.json"), "payload_hex"));
+        byte[] signed = ReceiptFixtureTest.signedTransaction(nativeCall.calldata(BigInteger.valueOf(1000)));
+        try (RpcEndpoint endpoint = new RpcEndpoint(request -> JSON.nullNode())) {
+            ProgramsClient programs = client(endpoint);
+            var call = new ProgramsClient.Call(nativeCall, BigInteger.valueOf(1000), signed);
+            PlatformSdkException invalid = assertThrows(PlatformSdkException.class,
+                () -> programs.submit(call, new IdempotencyKey("not-a-bytes32")));
+            assertEquals(PlatformSdkException.Code.INVALID_ARGUMENT, invalid.code());
+            var wrongFee = new ProgramsClient.Call(nativeCall, BigInteger.valueOf(999), signed);
+            assertEquals(PlatformSdkException.Code.INVALID_ARGUMENT,
+                assertThrows(PlatformSdkException.class, () -> programs.submit(wrongFee,
+                    new IdempotencyKey(OTHER_HEX32))).code());
+            assertEquals(PlatformSdkException.Code.INVALID_ARGUMENT,
+                assertThrows(PlatformSdkException.class, () -> programs.receipt(wrongFee,
+                    new IdempotencyKey(OTHER_HEX32))).code());
+            assertTrue(endpoint.requests.isEmpty());
+        }
     }
 
     @Test
     void submittedSignedActivityBindsCanonicalCallActivityAndIdempotency() throws Exception {
-        byte[] programId = java.util.HexFormat.of().parseHex(HEX32);
-        byte[] key = java.util.HexFormat.of().parseHex(OTHER_HEX32);
-        byte[] calldata = new byte[] {9, 8};
-        byte[] payload = programPayload(programId, calldata, key);
-        byte[] signed = signedActivity(payload, key);
-        byte[] activityId = sha256("LXP/v1/activity-id\0".getBytes(StandardCharsets.UTF_8), signed);
-        ObjectNode unknown = JSON.createObjectNode().put("state", "unknown")
-            .put("activity_id", java.util.HexFormat.of().formatHex(activityId))
-            .put("idempotency_key", OTHER_HEX32)
-            .put("retained_signed_activity", java.util.HexFormat.of().formatHex(signed));
-        byte[] pinnedKey = new byte[32];
-        pinnedKey[0] = 3;
-        var programs = new ProgramsClient(new ProductionClient(new CapturingTransport(unknown)), pinnedKey);
-        ProgramsClient.Call call = new ProgramsClient.Call(programId, calldata,
-            new ProgramsClient.Budget(BigInteger.ONE, BigInteger.ZERO),
-            List.of(ProgramsClient.Capability.STORAGE_READ), signed);
-        ProgramsClient.Submission result = programs.submit(call, new IdempotencyKey(OTHER_HEX32))
-            .toCompletableFuture().join();
-        assertTrue(result.unknown());
-        assertEquals(java.util.HexFormat.of().formatHex(activityId),
-            java.util.HexFormat.of().formatHex(result.activityId()));
+        NativeProgramCall nativeCall = NativeProgramCall.decode(fixtureBytes(fixture("native-program-call-v4.json"), "payload_hex"));
+        byte[] signed = ReceiptFixtureTest.signedTransaction(nativeCall.calldata(BigInteger.valueOf(1000)));
+        byte[] transactionHash = ProgramsClient.Programs.transactionHash(signed);
+        try (RpcEndpoint endpoint = new RpcEndpoint(request -> JSON.nullNode())) {
+            ProgramsClient programs = client(endpoint);
+            var call = new ProgramsClient.Call(nativeCall, BigInteger.valueOf(1000), signed);
+            ProgramsClient.Submission result = programs.submit(call, new IdempotencyKey(OTHER_HEX32))
+                .toCompletableFuture().join();
+            assertTrue(result.unknown());
+            assertEquals(OTHER_HEX32, result.idempotencyKey());
+            assertArrayEquals(transactionHash, result.activityId());
+            assertArrayEquals(signed, result.retainedSignedTransaction());
+            assertArrayEquals(transactionHash, nativeCall.bindSignedActivity(result.retainedSignedTransaction()));
+            assertEquals(1, endpoint.requests.size());
+            JsonNode request = endpoint.requests.getFirst();
+            assertEquals("eth_sendRawTransaction", request.required("method").asText());
+            assertEquals("0x" + HexFormat.of().formatHex(signed), request.required("params").get(0).asText());
+        }
     }
 
     @Test
@@ -337,14 +413,6 @@ public final class ProgramsContractTest {
         return HexFormat.of().parseHex(value.path(name).asText());
     }
 
-    private static byte[] programPayload(byte[] programId, byte[] calldata, byte[] ignoredKey) {
-        byte[] domain = "LayerX/programs/call/v1\0".getBytes(StandardCharsets.UTF_8);
-        ByteBuffer out = ByteBuffer.allocate(domain.length + 32 + 8 + 16 + 2 + 1 + 4 + calldata.length);
-        out.put(domain).put(programId).putLong(1).put(new byte[16]).putShort((short) 1).put((byte) 1)
-            .putInt(calldata.length).put(calldata);
-        return out.array();
-    }
-
     private static byte[] transferAuthorization(boolean candidate, byte[] program, byte[] principal,
                                                 byte[] asset, byte[] destination) {
         byte[] domain = (candidate ? "LayerX/programs/402LXP/transfer-set/v2\0"
@@ -447,25 +515,6 @@ public final class ProgramsContractTest {
         return result;
     }
 
-    private static byte[] signedActivity(byte[] payload, byte[] key) {
-        byte[] payloadHash = sha256("LXP/v1/payload-hash\0".getBytes(StandardCharsets.UTF_8), payload);
-        ByteBuffer out = ByteBuffer.allocate(157 + payload.length);
-        out.putShort((short) 2).putShort((short) 0x1001).put((byte) 12);
-        out.put((byte) 1).putShort((short) 2);
-        out.put((byte) 2).putInt(1);
-        out.put((byte) 3).putInt((9 << 16) | 3);
-        out.put((byte) 4).putInt(1).put((byte) 'a');
-        out.put((byte) 5).putInt(0);
-        out.put((byte) 6).putLong(1);
-        out.put((byte) 7).putLong(10).putLong(20);
-        out.put((byte) 8).putInt(32).put(key);
-        out.put((byte) 9).put(new byte[16]);
-        out.put((byte) 10).putInt(32).put(payloadHash);
-        out.put((byte) 11).putInt(payload.length).put(payload);
-        out.put((byte) 12).putInt(1).put((byte) 0);
-        return out.array();
-    }
-
     private static byte[] sha256(byte[]... values) {
         try {
             var digest = java.security.MessageDigest.getInstance("SHA-256");
@@ -476,15 +525,46 @@ public final class ProgramsContractTest {
         }
     }
 
-    private static final class CapturingTransport implements ProductionTransport {
-        private ObjectNode response;
-        private Call call;
-        private CapturingTransport(ObjectNode response) { this.response = response; }
+    private static ProgramsClient client(RpcEndpoint endpoint) throws Exception {
+        JsonNode key = fixture("sequencer-receipt-v1.json").required("cases").get(0).required("pinnedKey");
+        var pin = new LocalVerifier.ReceiptKey(prefixedBytes(key, "keyId"), prefixedBytes(key, "publicKey"),
+            key.required("firstHeight").bigIntegerValue(), key.required("lastHeight").bigIntegerValue());
+        return new ProgramsClient(new ProgramsClient.Programs(endpoint.uri()), ReceiptFixtureTest.SENDER,
+            BigInteger.ONE, BigInteger.TWO, new LocalVerifier.ReceiptKeys(List.of(pin)), pin.keyId());
+    }
 
-        @Override public <T> CompletionStage<T> call(Call call, JavaType responseType) {
-            this.call = call;
-            @SuppressWarnings("unchecked") T value = (T) response;
-            return CompletableFuture.completedFuture(value);
+    private static byte[] prefixedBytes(JsonNode value, String field) {
+        return HexFormat.of().parseHex(value.required(field).asText().substring(2));
+    }
+
+    private static final class RpcEndpoint implements AutoCloseable {
+        private final HttpServer server;
+        private final List<JsonNode> requests = new CopyOnWriteArrayList<>();
+
+        RpcEndpoint(java.util.function.Function<JsonNode, JsonNode> responseValue) throws Exception {
+            server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+            server.createContext("/rpc", exchange -> {
+                try (exchange) {
+                    JsonNode request = JSON.readTree(exchange.getRequestBody());
+                    requests.add(request);
+                    ObjectNode response = JSON.createObjectNode().put("jsonrpc", "2.0");
+                    response.set("id", request.required("id"));
+                    if ("eth_sendRawTransaction".equals(request.required("method").asText())) {
+                        byte[] raw = HexFormat.of().parseHex(request.required("params").get(0).asText().substring(2));
+                        response.put("result", "0x" + HexFormat.of().formatHex(ProgramsClient.Programs.transactionHash(raw)));
+                    } else {
+                        response.set("result", responseValue.apply(request));
+                    }
+                    byte[] encoded = JSON.writeValueAsBytes(response);
+                    exchange.getResponseHeaders().set("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(200, encoded.length);
+                    exchange.getResponseBody().write(encoded);
+                }
+            });
+            server.start();
         }
+
+        URI uri() { return URI.create("http://127.0.0.1:" + server.getAddress().getPort() + "/rpc"); }
+        @Override public void close() { server.stop(0); }
     }
 }

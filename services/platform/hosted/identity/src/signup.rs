@@ -578,6 +578,34 @@ mod tests {
     }
 
     #[test]
+    fn signup_starter_credit_is_one_million_base_units_of_native_pax() {
+        assert_eq!(STARTER_CREDIT_AMOUNT, "1000000");
+        let amount = STARTER_CREDIT_AMOUNT
+            .parse::<u64>()
+            .expect("starter credit amount must be a u64 in base units");
+        assert_eq!(amount, 1_000_000);
+        assert!(amount < 10_u64.pow(18));
+        assert_eq!(STARTER_CREDIT_ASSET, "PAX");
+
+        let (mut store, _root) = store("credit-base-units");
+        let mut desk = Desk::new(Limits::default(), Vec::new());
+        desk.start(
+            &mut store,
+            &request("base-units@example.com", "ip", "beta.base-units"),
+            &token(1),
+            NOW,
+        )
+        .unwrap_or_else(|refused| panic!("{refused:?}"));
+        let principal =
+            verify(&mut store, &token(1), NOW + 1).unwrap_or_else(|refused| panic!("{refused:?}"));
+
+        let grant: StarterCredit =
+            grant_starter_credit(&mut store, &principal.sub, "grant-1", NOW + 2)
+                .unwrap_or_else(|refused| panic!("{refused:?}"));
+        assert_eq!(grant.amount, "1000000");
+    }
+
+    #[test]
     fn signup_starter_credit_is_granted_once() {
         let (mut store, root) = store("credit");
         let mut desk = Desk::new(Limits::default(), Vec::new());

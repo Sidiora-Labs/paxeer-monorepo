@@ -19,6 +19,7 @@ export interface Props {
 }
 
 const ActivityListItem = ({ item, isLoading }: Props) => {
+  const kindLabel = activityKindLabel(item.kind);
   const amount = item.amount === null ?
     null :
     `${ formatAmount(item.amount, item.asset) } ${ assetLabel(item.asset) }`;
@@ -26,7 +27,7 @@ const ActivityListItem = ({ item, isLoading }: Props) => {
   return (
     <TableRow data-activity={ item.hash }>
       <TableCell verticalAlign="middle">
-        <ScanMethodChip method={ activityKindLabel(item.kind) } isLoading={ isLoading }/>
+        <ScanMethodChip method={ kindLabel } isLoading={ isLoading }/>
       </TableCell>
       <TableCell verticalAlign="middle">
         <TxEntity

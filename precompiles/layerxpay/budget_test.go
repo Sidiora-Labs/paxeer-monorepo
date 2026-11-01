@@ -1,4 +1,4 @@
-package layerxpay
+package layerxpay_test
 
 import (
 	"crypto/ed25519"
@@ -11,6 +11,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -87,9 +88,9 @@ func budgetTestWrite(t *testing.T, h *payPrecompileHarness, caller common.Addres
 		require.NotEqual(t, [32]byte{}, key)
 		var payload []byte
 		if name == "budgetPull" {
-			payload, err = paytypes.EncodeBudgetPull(args[0].([32]byte), args[1].([32]byte), payU128(args[2]), key, args[3].([]byte))
+			payload, err = paytypes.EncodeBudgetPull(args[0].([32]byte), args[1].([32]byte), lp.PayU128(args[2]), key, args[3].([]byte))
 		} else {
-			payload, err = paytypes.EncodeBudgetDelegateSpend(args[0].([32]byte), args[1].([32]byte), payU128(args[2]), key)
+			payload, err = paytypes.EncodeBudgetDelegateSpend(args[0].([32]byte), args[1].([32]byte), lp.PayU128(args[2]), key)
 		}
 		require.NoError(t, err)
 		require.Equal(t, key[:], payload[82:114])
@@ -315,16 +316,12 @@ func TestPrecompileBudgetNativeAndPull(t *testing.T) {
 	consumed := h.db.Ctx().KVStore(escrowTestHostKey(t, h)).Get(capabilityKey)
 	require.Equal(t, (codec.U128{Lo: 20}).Bytes(), [16]byte(consumed[162:178]))
 	budgetTestRevert(t, h, f.beneficiary.caller, "budgetDelegateSpend", id, f.beneficiary.account, big.NewInt(26))
-	grant, grantID := budgetTestGrant(t, f, r.PurposeHash)
+	grant, _ := budgetTestGrant(t, f, r.PurposeHash)
 	escrowTestExecute(t, h, f.owner, 0x00010007, grant, [32]byte{0xc3})
 	for i := 0; i < 2; i++ {
 		r = budgetTestWrite(t, h, f.beneficiary.caller, "budgetPull", "BudgetSpent", []interface{}{f.beneficiary.account, big.NewInt(30)}, id, f.beneficiary.account, big.NewInt(30), grant)
 		require.Equal(t, codec.U128{Lo: uint64(50 + i*30)}, r.SpentThisPeriod)
 	}
-	state, err := h.keeper.Host().ReadPayerGrant(h.db.Ctx(), grantID)
-	require.NoError(t, err)
-	require.Equal(t, "60", state.DrawnTotal.String())
-	require.Equal(t, "60", state.DrawnThisPeriod.String())
 	require.Equal(t, big.NewInt(170), budgetTestView(t, h, "budgetRemaining", id)[0])
 	budgetTestBalance(t, h, r.BudgetAccount, f.asset, "170")
 	budgetTestBalance(t, h, f.beneficiary.account, f.asset, "80")

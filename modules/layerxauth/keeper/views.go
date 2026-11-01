@@ -163,17 +163,6 @@ func (k *Keeper) CheckActivity(ctx sdk.Context, grantID [32]byte, activityType u
 	return "", nil
 }
 
-func (k *Keeper) ResultByIdempotency(ctx sdk.Context, didKey, idempotencyKey [32]byte) ([]byte, error) {
-	receipt, err := k.host.ReadIdempotentReceipt(ctx, []byte(evmtypes.LayerXDid(didKey)), idempotencyKey)
-	if err == lxphost.Code(-7) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, authReadError(err)
-	}
-	return receipt.Encoded, nil
-}
-
 func (k *Keeper) RevocationSequence(ctx sdk.Context, didKey [32]byte) (uint64, error) {
 	identity, err := k.host.ReadIdentityState(ctx, []byte(evmtypes.LayerXDid(didKey)))
 	if err != nil {

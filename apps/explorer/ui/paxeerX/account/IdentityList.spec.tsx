@@ -4,30 +4,48 @@ import React from 'react';
 
 import * as paxeerXMock from 'mocks/paxeerX/unifiedAccount';
 import { describe, expect, it } from 'vitest';
-import { screen } from 'vitest/lib';
+import { screen, within } from 'vitest/lib';
 
 import IdentityList from './IdentityList';
 import { render } from './testWrapper';
 
-describe('IdentityList', () => {
-  it('renders all four spellings of the account', () => {
-    render(<IdentityList identities={ paxeerXMock.unifiedAccount.identities }/>);
+function identity_list_renders_evm_pax_did() {
+  const identities = {
+    ...paxeerXMock.unifiedAccount.identities,
+    kernel_account: paxeerXMock.kernelAccount,
+  };
+  const { container } = render(<IdentityList identities={ identities }/>);
 
-    expect(screen.getByText('EVM address')).toBeTruthy();
-    expect(screen.getByText('Paxeer address')).toBeTruthy();
-    expect(screen.getByText('LayerX DID')).toBeTruthy();
-    expect(screen.getByText('Kernel account')).toBeTruthy();
+  const rows = Array.from(container.querySelectorAll<HTMLElement>('[data-identity]'));
 
-    expect(screen.getByText(paxeerXMock.evmAddress)).toBeTruthy();
-    expect(screen.getByText(paxeerXMock.paxAddress)).toBeTruthy();
-    expect(screen.getByText(paxeerXMock.did)).toBeTruthy();
-    expect(screen.getByText(paxeerXMock.kernelAccount)).toBeTruthy();
+  expect(rows.map((row) => row.dataset.identity)).toEqual([ 'evm', 'pax', 'did' ]);
+
+  const expectedRows = [
+    { label: 'EVM address', value: paxeerXMock.evmAddress },
+    { label: 'Paxeer address', value: paxeerXMock.paxAddress },
+    { label: 'LayerX DID', value: paxeerXMock.did },
+  ];
+
+  expectedRows.forEach(({ label, value }, index) => {
+    const row = within(rows[index]);
+
+    expect(row.getByText(label)).toBeTruthy();
+    expect(row.getByText(value)).toBeTruthy();
+    expect(row.getAllByRole('button', { name: 'copy' })).toHaveLength(1);
   });
+
+  expect(screen.queryByText('Kernel account')).toBeNull();
+  expect(screen.queryByText(paxeerXMock.kernelAccount)).toBeNull();
+  expect(container.querySelector('[data-identity="kernel_account"]')).toBeNull();
+}
+
+describe('IdentityList', () => {
+  it(identity_list_renders_evm_pax_did.name, identity_list_renders_evm_pax_did);
 
   it('gives every identity a copy button', () => {
     render(<IdentityList identities={ paxeerXMock.unifiedAccount.identities }/>);
 
-    expect(screen.getAllByLabelText('copy')).toHaveLength(4);
+    expect(screen.getAllByLabelText('copy')).toHaveLength(3);
   });
 
   it('hides identities the account does not have', () => {
@@ -52,7 +70,7 @@ describe('IdentityList', () => {
 
     const card = container.querySelector('[data-scan-table-card]');
 
-    expect(card?.querySelector('[data-title]')?.textContent).toBe('A total of 4 identities found');
+    expect(card?.querySelector('[data-title]')?.textContent).toBe('A total of 3 identities found');
     expect(card?.querySelector('[data-note]')?.textContent).toBe('Every spelling of this account the node answers for');
   });
 

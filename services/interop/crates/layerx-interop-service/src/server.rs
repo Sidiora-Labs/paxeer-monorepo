@@ -33,8 +33,7 @@ use layerx_platform_gateway::store::{
     TapNonceConsumption,
 };
 use layerx_platform_gateway::{
-    authenticate_gateway_key, gateway_audit_event, gateway_digest, verify_submission, AccessError,
-    ModuleRegistry, VerifiedSubmission, VerifiedTransfer,
+    authenticate_gateway_key, gateway_audit_event, gateway_digest, AccessError,
 };
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
@@ -1123,57 +1122,6 @@ fn verified_x402_transfer_reference(
         return Err("activity_time_window_refused");
     }
     Ok((transfer, transaction_hash))
-}
-
-fn verified_x402_activity(
-    request: &FacilitatorPaymentRequest,
-    modules: &ModuleRegistry,
-    protocol_version: u16,
-    protocol_network_id: u32,
-    expected_signer: &[u8; 32],
-    observed_at: u64,
-) -> Result<(VerifiedSubmission, VerifiedTransfer), &'static str> {
-    let activity = request
-        .payment_payload
-        .payload
-        .get("layerxActivity")
-        .and_then(Value::as_str)
-        .and_then(|value| decode_hex(value, MAX_BODY).ok())
-        .filter(|value| !value.is_empty())
-        .ok_or("typed_intent_required")?;
-    let declared_idempotency = request
-        .payment_payload
-        .payload
-        .get("layerxIdempotencyKey")
-        .and_then(Value::as_str)
-        .and_then(|value| parse_hex32(value).ok())
-        .ok_or("protocol_idempotency_required")?;
-    let submission = verify_submission(
-        &activity,
-        modules,
-        protocol_version,
-        protocol_network_id,
-        expected_signer,
-    )
-    .map_err(|_| "activity_authorization_refused")?;
-    if submission.idempotency_key() != declared_idempotency {
-        return Err("protocol_idempotency_mismatch");
-    }
-    let transfer = submission.transfer().ok_or("typed_transfer_required")?;
-    let (asset, recipient) = x402_facts(&request.payment_requirements)?;
-    if transfer.asset() != asset
-        || transfer.recipient() != recipient
-        || transfer.amount() != request.payment_requirements.amount.value()
-    {
-        return Err("payment_requirements_mismatch");
-    }
-    if observed_at < transfer.not_before()
-        || observed_at > transfer.not_after()
-        || observed_at > transfer.expires_at()
-    {
-        return Err("activity_time_window_refused");
-    }
-    Ok((submission, transfer))
 }
 
 fn x402_facts(requirements: &PaymentRequirements) -> Result<([u8; 32], [u8; 32]), &'static str> {
@@ -4328,7 +4276,7 @@ mod tests {
         let new_root: [u8; 32] = sequence.finalize().into();
         replace(
             &mut receipt,
-            &[transfer.from, transfer.to, transfer.reference].concat(),
+            &[transfer.reference, transfer.from, transfer.to].concat(),
             &[reference, transfer.from, transfer.to].concat(),
         );
         replace(&mut receipt, &old_hash, &hash);
@@ -4745,7 +4693,7 @@ mod tests {
     fn x402_fixture_request(payload: Value) -> FacilitatorRequest {
         let requirements = PaymentRequirements {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: "eip155:125".to_owned(),
             amount: AtomicAmount::parse("1000")
                 .unwrap_or_else(|error| panic!("fixture amount is canonical: {error:?}")),
             asset: "44".repeat(32),
@@ -4807,10 +4755,10 @@ mod tests {
         let reference = "26fde3dedb14662268bff5bb3ab6560550a0dc3938b0c9d5ed717932c75b9839";
         let requirements = PaymentRequirements {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: "eip155:125".to_owned(),
             amount: AtomicAmount::parse("1000000")?,
             asset: "4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28".to_owned(),
-            pay_to: "84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985".to_owned(),
+            pay_to: "112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4".to_owned(),
             max_timeout_seconds: 60,
             extra: None,
         };
@@ -5001,7 +4949,7 @@ mod tests {
         )?;
         replace(
             &mut receipt,
-            &[old_transfer.from, old_transfer.to, old_transfer.reference].concat(),
+            &[old_transfer.reference, old_transfer.from, old_transfer.to].concat(),
             &[stable_identity, old_transfer.from, recipient].concat(),
         );
         replace(&mut receipt, &old_hash, &tx_hash);
@@ -5135,7 +5083,15 @@ mod tests {
         let trace = TraceId::mint([0x75; 16]);
         let principal = PrincipalId::new("principal-x402-settle")?;
         let stable_identity = [0x76; 32];
-        let (request, receipt, keys) = x402_settlement_fixture(&principal, stable_identity)?;
+        let (request, _, _) = x402_settlement_fixture(&principal, stable_identity)?;
+        let identity = layerx_x402::facilitator::SettlementIdentity::derive(
+            &principal,
+            &request,
+            stable_identity,
+            SettlementStep::Single,
+        )?;
+        let (request, receipt, keys) =
+            x402_settlement_fixture(&principal, identity.idempotency_key)?;
         let redis = X402RedisProcess::start()?;
         let listener = TcpListener::bind("127.0.0.1:0")?;
         listener.set_nonblocking(true)?;
@@ -5313,6 +5269,20 @@ mod tests {
     }
 
     #[test]
+    fn x402_verify_refuses_an_activity_only_payload() -> X402TestResult {
+        let (mut request, _) = recorded_x402_request("V1-layerxledger-pay-exact")?;
+        request.payment_payload.payload = json!({
+            "layerxActivity": "deadbeef",
+            "layerxIdempotencyKey": hex(&request.idempotency_key),
+        });
+        assert_eq!(
+            verified_x402_transfer(&request, 1_750_000_000_000),
+            Err("typed_intent_required"),
+        );
+        Ok(())
+    }
+
+    #[test]
     fn x402_verify_accepts_the_recorded_pay_exact_transaction(
     ) -> Result<(), Box<dyn std::error::Error>> {
         let (request, receipt) = recorded_x402_request("V1-layerxledger-pay-exact")?;
@@ -5421,7 +5391,7 @@ mod tests {
             kinds: vec![FacilitatorKind {
                 x402_version: 2,
                 scheme: "exact".to_owned(),
-                network: "layerx:beta".to_owned(),
+                network: "eip155:125".to_owned(),
                 extra: None,
             }],
             extensions: vec![],
@@ -5436,11 +5406,15 @@ mod tests {
             receipt_keys: &[],
         };
         let mut gateway = x402_fixture_gateway(&trace);
+        let (_, recorded) = recorded_x402_request("V1-layerxledger-pay-exact")
+            .unwrap_or_else(|error| panic!("recorded payment has a transaction hash: {error:?}"));
         let unsigned = facilitator
             .verify(
                 &mut gateway,
                 &principal,
-                &x402_fixture_request(serde_json::json!({})),
+                &x402_fixture_request(serde_json::json!({
+                    "transaction": recorded["txHash"],
+                })),
                 &mut plane,
                 &trace,
                 10,
@@ -5460,6 +5434,7 @@ mod tests {
                 &mut gateway,
                 &principal,
                 &x402_fixture_request(serde_json::json!({
+                    "transaction": recorded["txHash"],
                     "layerxTransaction": "deadbeef",
                     "layerxIdempotencyKey": "00".repeat(32),
                 })),

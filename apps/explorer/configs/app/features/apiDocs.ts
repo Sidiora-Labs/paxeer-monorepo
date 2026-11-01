@@ -16,6 +16,7 @@ const title = 'API documentation';
 const config: Feature<{
   tabs: Array<ApiDocsTabId>;
   alertMessage: string | undefined;
+  coreApiSpecUrl: string | undefined;
 }> = (() => {
   if (tabs) {
     return Object.freeze({
@@ -23,6 +24,7 @@ const config: Feature<{
       isEnabled: true,
       tabs,
       alertMessage: getEnvValue('NEXT_PUBLIC_API_DOCS_ALERT_MESSAGE'),
+      coreApiSpecUrl: getEnvValue('NEXT_PUBLIC_API_SPEC_URL'),
     });
   }
 

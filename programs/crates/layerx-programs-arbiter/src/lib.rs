@@ -3,6 +3,8 @@ use layerx_programs::chain_proof::{proto, ChainProofError};
 mod multistore;
 
 pub mod activity_codec;
+pub mod admission;
+pub use admission::AdmissionEvidence;
 mod authority;
 pub mod bisect;
 pub mod ics23;

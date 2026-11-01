@@ -289,7 +289,7 @@ func TestStateAPIGetProofUnavailableHeight(t *testing.T) {
 	highHeight := latest + 4
 	client := newHeightTestClient(highHeight, earliest, latest)
 	watermarks := NewWatermarkManager(client, testCtxProvider, nil, nil)
-	api := NewStateAPI(client, nil, testCtxProvider, ConnectionTypeHTTP, watermarks)
+	api := NewStateAPI(client, nil, testCtxProvider, ConnectionTypeHTTP, watermarks, nil)
 
 	blockParam := rpc.BlockNumberOrHashWithHash(common.HexToHash(highBlockHashHex), true)
 	_, err := api.GetProof(context.Background(), common.Address{}, []string{}, blockParam)

@@ -18,6 +18,7 @@ import (
 type PrecompileExecutor struct {
 	host      *lxphost.Host
 	evmKeeper *evmkeeper.Keeper
+	assets    assetDenoms
 	handlers  handlerTable
 }
 
@@ -30,6 +31,8 @@ type callContext struct {
 type handler func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error)
 
 type handlerTable map[string]handler
+
+type ReceiptAuthority = lxphost.ReceiptAuthority
 
 func (t handlerTable) register(name string, h handler) {
 	if _, exists := t[name]; exists {
@@ -49,7 +52,7 @@ func (p *PrecompileExecutor) table() handlerTable {
 	return handlers
 }
 
-func submit(ctx sdk.Context, p *PrecompileExecutor, call callContext, activityType uint32, payload []byte, feeLimit [16]byte) (lxphost.Receipt, error) {
+func submit(ctx sdk.Context, p *PrecompileExecutor, call callContext, activityType uint32, payload []byte, feeLimit [16]byte, authorities ...ReceiptAuthority) (lxphost.Receipt, error) {
 	if call.method == nil || len(call.method.ID) != 4 {
 		return lxphost.Receipt{}, fmt.Errorf("LXP_PRECOMPILE_UNKNOWN_METHOD: missing submission selector")
 	}
@@ -73,16 +76,17 @@ func submit(ctx sdk.Context, p *PrecompileExecutor, call callContext, activityTy
 	txHash := [32]byte(ctx.EVMTxHash())
 	timestamp := uint64(ctx.BlockTime().UnixMilli())
 	activity := lxphost.Activity{
-		ProtocolVersion: 3,
-		Type:            activityType,
-		ActorDID:        did,
-		AuthorityKey:    authority.VerifiedKey,
-		AccountSequence: accountSequence,
-		NotBefore:       timestamp,
-		NotAfter:        timestamp,
-		IdempotencyKey:  IdempotencyKey(txHash, nextOrdinal(ctx, txHash), selector),
-		FeeLimit:        feeLimit,
-		Payload:         payload,
+		ReceiptAuthorities: append([]lxphost.ReceiptAuthority(nil), authorities...),
+		ProtocolVersion:    3,
+		Type:               activityType,
+		ActorDID:           did,
+		AuthorityKey:       authority.VerifiedKey,
+		AccountSequence:    accountSequence,
+		NotBefore:          timestamp,
+		NotAfter:           timestamp,
+		IdempotencyKey:     IdempotencyKey(txHash, nextOrdinal(ctx, txHash), selector),
+		FeeLimit:           feeLimit,
+		Payload:            payload,
 	}
 	receipt, err := p.host.Execute(lxphost.WithSequence(ctx, lastSequence+1), activity, authority)
 	if err != nil {

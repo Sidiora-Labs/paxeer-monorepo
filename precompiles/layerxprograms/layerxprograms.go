@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
+	layerxcustodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	xwebkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
@@ -72,6 +73,13 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 		return nil, err
 	}
 	executor := &PrecompileExecutor{host: wired.LayerXHost(), evmKeeper: evm}
+	if custody, ok := keepers.(interface {
+		LayerXCustodyK() *layerxcustodykeeper.Keeper
+	}); ok {
+		if assets := custody.LayerXCustodyK(); assets != nil {
+			executor.assets = assets
+		}
+	}
 	configureXWeb(executor, wired.XWebKeeper())
 	return pcommon.NewPrecompile(programsABI, executor, p.Address(), PrecompileName).
 		WithLXPReasons().WithGasTable(gasTable), nil

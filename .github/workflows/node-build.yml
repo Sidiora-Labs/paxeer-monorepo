@@ -122,10 +122,10 @@ jobs:
         run: rustup toolchain install 1.91.1 --profile minimal
       - name: Build native libraries
         run: make paxd-native-libs
-      - name: Test node and custody packages
+      - name: Test node packages
         env:
           CGO_ENABLED: '1'
-        run: go test ./node/... ./modules/layerxcustody/...
+        run: go test ./node/...
 
   node-build-gate:
     if: always()

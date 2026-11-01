@@ -91,6 +91,34 @@ CREATE TABLE IF NOT EXISTS events(
 );
 CREATE INDEX IF NOT EXISTS events_account ON events(account, id);
 CREATE INDEX IF NOT EXISTS events_chain_position ON events(chain, height_or_seq);
+CREATE TABLE IF NOT EXISTS name_events(
+    chain TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    height INTEGER NOT NULL,
+    tx_hash TEXT NOT NULL,
+    log_index INTEGER NOT NULL,
+    node TEXT NOT NULL,
+    action TEXT NOT NULL,
+    from_address TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    data JSON NOT NULL,
+    PRIMARY KEY(tx_hash, log_index)
+);
+CREATE INDEX IF NOT EXISTS name_events_position ON name_events(chain, position);
+CREATE INDEX IF NOT EXISTS name_events_node ON name_events(node, height, log_index);
+CREATE TABLE IF NOT EXISTS names(
+    node TEXT PRIMARY KEY,
+    label TEXT,
+    name TEXT,
+    owner TEXT,
+    registrant TEXT,
+    resolver TEXT,
+    resolved_address TEXT,
+    contenthash TEXT,
+    registered_at INTEGER,
+    expires_at TEXT,
+    token_id TEXT
+);
 CREATE TABLE IF NOT EXISTS explorer_transfers(
     account TEXT NOT NULL,
     key INTEGER NOT NULL,
@@ -180,9 +208,9 @@ CREATE TABLE IF NOT EXISTS chain_links(
 );
 ";
 
-/// Evidence source of the published local stability level: the configured
-/// reorg depth below the indexed head. It never implies LayerX settlement.
-pub const STABILITY_SOURCE: &str = "local_finality_depth";
+/// Evidence source of the published node stability level: block commit.
+/// It never implies LayerX settlement.
+pub const STABILITY_SOURCE: &str = "block_commit";
 /// Explorer row keys are strictly below this value.
 pub const EXPLORER_KEY_LIMIT: u64 = (1 << 62) - 1;
 /// The provenance of explorer-imported rows.
@@ -284,6 +312,49 @@ pub struct EventRow {
     pub decoded: Value,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct NameEventRow {
+    pub height: u64,
+    pub tx_hash: String,
+    pub log_index: u64,
+    pub node: String,
+    pub action: String,
+    pub from_address: String,
+    pub timestamp: u64,
+    pub data: Value,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+pub enum NameOrder {
+    Asc,
+    #[default]
+    Desc,
+}
+
+impl NameOrder {
+    fn sql(self) -> &'static str {
+        match self {
+            Self::Asc => "ASC",
+            Self::Desc => "DESC",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NameRecord {
+    pub node: String,
+    pub name: String,
+    pub owner: String,
+    pub registrant: Option<String>,
+    pub resolver: Option<String>,
+    pub resolved_address: Option<String>,
+    pub registration_date: Option<String>,
+    pub expiry_date: Option<String>,
+    pub token_id: Option<String>,
+    pub registrar: Option<String>,
+    pub active: bool,
+}
+
 /// One budget or grant record event, keyed by the transaction sender as
 /// its holder.
 #[derive(Clone, Debug, PartialEq)]
@@ -327,6 +398,7 @@ pub struct Unit {
     pub boundary: u64,
     pub transfers: Vec<TransferRow>,
     pub events: Vec<EventRow>,
+    pub name_events: Vec<NameEventRow>,
     pub holders: Vec<HolderRow>,
     pub assets: Vec<AssetRow>,
     pub accounts: Vec<String>,
@@ -1067,6 +1139,33 @@ impl Store {
                 accounts.push(account);
             }
         }
+        let mut nodes = Vec::new();
+        for event in &unit.name_events {
+            if event.height > unit.boundary {
+                return Err(IndexError::Integrity(
+                    "name event exceeds unit boundary".to_owned(),
+                ));
+            }
+            transaction.execute(
+                "INSERT INTO name_events(chain, position, height, tx_hash, log_index, node,
+                    action, from_address, timestamp, data)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![
+                    unit.chain,
+                    position,
+                    signed(event.height)?,
+                    event.tx_hash,
+                    signed(event.log_index)?,
+                    event.node,
+                    event.action,
+                    event.from_address,
+                    signed(event.timestamp)?,
+                    event.data.to_string()
+                ],
+            )?;
+            nodes.push(event.node.clone());
+        }
+        Self::rebuild_names(transaction, &nodes)?;
         accounts.sort_unstable();
         accounts.dedup();
         for account in accounts {
@@ -1109,6 +1208,58 @@ impl Store {
             )?;
         }
         Ok((finalized, finalized_boundary))
+    }
+
+    fn rebuild_names(connection: &Connection, nodes: &[String]) -> Result<(), IndexError> {
+        let nodes: std::collections::BTreeSet<_> = nodes.iter().collect();
+        for node in nodes {
+            connection.execute("DELETE FROM names WHERE node = ?1", params![node])?;
+            let mut statement = connection.prepare(
+                "SELECT data FROM name_events WHERE node = ?1 ORDER BY height, log_index",
+            )?;
+            let records = statement.query_map(params![node], |row| row.get::<_, String>(0))?;
+            let mut state = serde_json::Map::new();
+            let mut found = false;
+            for record in records {
+                let data: Value = serde_json::from_str(&record?)
+                    .map_err(|error| IndexError::Store(format!("name event JSON: {error}")))?;
+                let changes = data
+                    .get("changes")
+                    .and_then(Value::as_object)
+                    .ok_or_else(|| {
+                        IndexError::Store("name event has no changes object".to_owned())
+                    })?;
+                state.extend(changes.clone());
+                found = true;
+            }
+            if found {
+                let text = |key: &str| state.get(key).and_then(Value::as_str);
+                let registered_at = state
+                    .get("registered_at")
+                    .and_then(Value::as_u64)
+                    .map(signed)
+                    .transpose()?;
+                connection.execute(
+                    "INSERT INTO names(node, label, name, owner, registrant, resolver,
+                        resolved_address, contenthash, registered_at, expires_at, token_id)
+                     VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                    params![
+                        node,
+                        text("label"),
+                        text("name"),
+                        text("owner"),
+                        text("registrant"),
+                        text("resolver"),
+                        text("resolved_address"),
+                        text("contenthash"),
+                        registered_at,
+                        text("expires_at"),
+                        text("token_id")
+                    ],
+                )?;
+            }
+        }
+        Ok(())
     }
 
     /// Recomputes one asset's observed projection from its surviving
@@ -1312,134 +1463,22 @@ impl Store {
                 -1
             }
         };
+        let nodes = {
+            let mut statement = transaction.prepare(
+                "SELECT DISTINCT node FROM name_events WHERE chain = ?1 AND position > ?2",
+            )?;
+            let nodes = statement
+                .query_map(params![chain, above], |row| row.get::<_, String>(0))?
+                .collect::<Result<Vec<_>, _>>()?;
+            nodes
+        };
+        transaction.execute(
+            "DELETE FROM name_events WHERE chain = ?1 AND position > ?2",
+            params![chain, above],
+        )?;
+        Self::rebuild_names(&transaction, &nodes)?;
         Self::rewind_projections(&transaction, chain, above)?;
         transaction.commit()?;
-        Ok(())
-    }
-
-    pub fn pending_settlement(&self, limit: usize) -> Result<Vec<(u64, Vec<u8>)>, IndexError> {
-        let connection = self.lock()?;
-        let mut statement = connection.prepare(
-            "SELECT events.decoded_json FROM events LEFT JOIN settlement_evidence evidence
-             ON evidence.chain = events.chain AND evidence.activity_id = events.tx_id AND evidence.sequence = events.height_or_seq
-             WHERE events.chain = 'layerx' AND events.source = 'layerx-receipt' AND events.name = 'activity'
-             AND json_extract(events.decoded_json, '$.receipt_hex') IS NOT NULL
-             AND (evidence.document IS NULL OR json_extract(evidence.document, '$.level') != 'settlement_verified')
-             ORDER BY COALESCE(evidence.last_attempt, 0), events.height_or_seq LIMIT ?1")?;
-        let rows = statement.query_map(
-            params![i64::try_from(limit)
-                .map_err(|_| IndexError::Store("settlement limit overflow".into()))?],
-            |row| row.get::<_, String>(0),
-        )?;
-        let mut result = Vec::new();
-        for row in rows {
-            let document: Value = serde_json::from_str(&row?)
-                .map_err(|_| IndexError::Integrity("invalid retained receipt context".into()))?;
-            let Some(bytes) = document.get("receipt_hex").and_then(Value::as_str) else {
-                continue;
-            };
-            let batch = document
-                .get("batch_number")
-                .and_then(Value::as_str)
-                .and_then(|value| value.parse().ok())
-                .ok_or_else(|| {
-                    IndexError::Integrity("retained receipt lacks batch number".into())
-                })?;
-            result.push((batch, crate::codec::unhex(bytes)?));
-        }
-        Ok(result)
-    }
-
-    pub fn record_settlement(
-        &self,
-        verified: &crate::settlement::VerifiedSettlement,
-    ) -> Result<(), IndexError> {
-        let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
-        let link = Self::link_in(&transaction, "layerx", verified.batch)?
-            .ok_or_else(|| IndexError::Integrity("settlement batch is not indexed".into()))?;
-        if link.hash != crate::codec::hex(&verified.batch_id) {
-            return Err(IndexError::Integrity(
-                "settlement receipt belongs to another batch".into(),
-            ));
-        }
-        Self::write_settlement(
-            &transaction,
-            &verified.receipt,
-            verified.activity_id,
-            verified.sequence,
-            &verified.document,
-        )?;
-        transaction.commit()?;
-        Ok(())
-    }
-
-    pub fn record_settlement_failure(
-        &self,
-        receipt: &[u8],
-        failure: crate::settlement::SettlementFailure,
-    ) -> Result<(), IndexError> {
-        let decoded = layerx_wire::receipt::decode(receipt)
-            .map_err(|_| IndexError::Integrity("retained receipt is malformed".into()))?;
-        let protocol = decoded.protocol().ok_or_else(|| {
-            IndexError::Integrity("retained receipt is not a protocol receipt".into())
-        })?;
-        let mut connection = self.lock()?;
-        let transaction = connection.transaction()?;
-        Self::write_settlement(
-            &transaction,
-            receipt,
-            protocol.activity_id(),
-            protocol.global_sequence(),
-            &failure.document(),
-        )?;
-        transaction.commit()?;
-        Ok(())
-    }
-
-    fn write_settlement(
-        connection: &Connection,
-        receipt: &[u8],
-        activity: [u8; 32],
-        sequence: u64,
-        document: &Value,
-    ) -> Result<(), IndexError> {
-        let activity = crate::codec::hex(&activity);
-        let retained: String = connection.query_row(
-            "SELECT decoded_json FROM events WHERE chain = 'layerx' AND source = 'layerx-receipt' AND name = 'activity' AND tx_id = ?1 AND height_or_seq = ?2",
-            params![activity, signed(sequence)?], |row| row.get(0))?;
-        let retained: Value = serde_json::from_str(&retained)
-            .map_err(|_| IndexError::Integrity("invalid retained receipt context".into()))?;
-        if retained.get("receipt_hex").and_then(Value::as_str)
-            != Some(crate::codec::hex(receipt).as_str())
-        {
-            return Err(IndexError::Integrity(
-                "settlement proof substitutes the indexed receipt".into(),
-            ));
-        }
-        let mut document = document.clone();
-        if document.get("level").and_then(Value::as_str) != Some("settlement_verified") {
-            let previous: Option<String> = connection.query_row(
-                "SELECT document FROM settlement_evidence WHERE chain = 'layerx' AND activity_id = ?1 AND sequence = ?2",
-                params![activity, signed(sequence)?], |row| row.get(0)).optional()?;
-            if let Some(previous) = previous {
-                let previous: Value = serde_json::from_str(&previous).map_err(|_| {
-                    IndexError::Integrity("invalid retained settlement provenance".into())
-                })?;
-                let evidence = if previous.get("level").and_then(Value::as_str)
-                    == Some("settlement_verified")
-                {
-                    Some(previous)
-                } else {
-                    previous.get("previously_verified_evidence").cloned()
-                };
-                if let Some(evidence) = evidence {
-                    document["previously_verified_evidence"] = evidence;
-                }
-            }
-        }
-        connection.execute("INSERT INTO settlement_evidence(chain, activity_id, sequence, document, last_attempt) VALUES('layerx', ?1, ?2, ?3, ?4)
-            ON CONFLICT(chain, activity_id, sequence) DO UPDATE SET document = excluded.document, last_attempt = excluded.last_attempt", params![activity, signed(sequence)?, document.to_string(), now()])?;
         Ok(())
     }
 
@@ -1860,6 +1899,139 @@ impl Store {
             "settlement": {"level": SETTLEMENT_UNVERIFIED, "source": Value::Null, "reason": SETTLEMENT_UNAVAILABLE_REASON},
             "decoded": parse_json(&decoded),
         }))
+    }
+
+    fn query_names(
+        connection: &Connection,
+        filter: &str,
+        parameters: impl rusqlite::Params,
+        order: NameOrder,
+    ) -> Result<Vec<NameRecord>, IndexError> {
+        let mut statement = connection.prepare(&format!(
+            "SELECT n.node, n.name, n.owner, n.registrant,
+                COALESCE(n.resolver, (
+                    SELECT json_extract(e.decoded_json, '$.address')
+                    FROM name_events ne JOIN events e ON e.chain = ne.chain
+                        AND e.tx_id = ne.tx_hash
+                        AND json_extract(e.decoded_json, '$.log_index') = CAST(ne.log_index AS TEXT)
+                    WHERE ne.node = n.node AND e.contract = 'names_resolver'
+                    ORDER BY ne.height DESC, ne.log_index DESC LIMIT 1)),
+                n.resolved_address,
+                strftime('%Y-%m-%dT%H:%M:%SZ', n.registered_at, 'unixepoch'),
+                strftime('%Y-%m-%dT%H:%M:%SZ', n.expires_at, 'unixepoch'),
+                n.token_id, (
+                    SELECT json_extract(e.decoded_json, '$.address')
+                    FROM name_events ne JOIN events e ON e.chain = ne.chain
+                        AND e.tx_id = ne.tx_hash
+                        AND json_extract(e.decoded_json, '$.log_index') = CAST(ne.log_index AS TEXT)
+                    WHERE ne.node = n.node AND e.contract = 'names_registrar'
+                    ORDER BY ne.height DESC, ne.log_index DESC LIMIT 1),
+                COALESCE(CAST(n.expires_at AS INTEGER) > unixepoch(), 0)
+             FROM names n WHERE n.label IS NOT NULL AND n.name IS NOT NULL
+                AND n.owner IS NOT NULL AND ({filter})
+             ORDER BY n.registered_at {direction}, n.node {direction}",
+            direction = order.sql(),
+        ))?;
+        let records = statement.query_map(parameters, |row| {
+            Ok(NameRecord {
+                node: row.get(0)?,
+                name: row.get::<_, String>(1)?.to_ascii_lowercase(),
+                owner: row.get(2)?,
+                registrant: row.get(3)?,
+                resolver: row.get(4)?,
+                resolved_address: row.get(5)?,
+                registration_date: row.get(6)?,
+                expiry_date: row.get(7)?,
+                token_id: row.get(8)?,
+                registrar: row.get(9)?,
+                active: row.get(10)?,
+            })
+        })?;
+        Ok(records.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    pub fn names_owned_by(
+        &self,
+        address: &str,
+        only_active: bool,
+        order: NameOrder,
+    ) -> Result<Vec<NameRecord>, IndexError> {
+        Self::query_names(
+            &*self.lock()?,
+            "lower(n.owner) = lower(?1) AND (NOT ?2 OR CAST(n.expires_at AS INTEGER) > unixepoch())",
+            params![address, only_active],
+            order,
+        )
+    }
+
+    pub fn names_resolving_to(
+        &self,
+        address: &str,
+        only_active: bool,
+        order: NameOrder,
+    ) -> Result<Vec<NameRecord>, IndexError> {
+        Self::query_names(
+            &*self.lock()?,
+            "lower(n.resolved_address) = lower(?1) AND (NOT ?2 OR CAST(n.expires_at AS INTEGER) > unixepoch())",
+            params![address, only_active],
+            order,
+        )
+    }
+
+    pub fn name(&self, name: &str) -> Result<Option<NameRecord>, IndexError> {
+        let name = name.to_ascii_lowercase();
+        let name = if name.ends_with(".pax") {
+            name
+        } else {
+            format!("{name}.pax")
+        };
+        Ok(Self::query_names(
+            &*self.lock()?,
+            "lower(n.name) = ?1",
+            params![name],
+            NameOrder::Desc,
+        )?
+        .into_iter()
+        .next())
+    }
+
+    pub fn name_events(&self, node: &str, order: NameOrder) -> Result<Vec<Value>, IndexError> {
+        let connection = self.lock()?;
+        let mut statement = connection.prepare(&format!(
+            "SELECT tx_hash, strftime('%Y-%m-%dT%H:%M:%SZ', timestamp, 'unixepoch'),
+                from_address, action FROM name_events WHERE node = ?1
+             ORDER BY height {direction}, log_index {direction}",
+            direction = order.sql(),
+        ))?;
+        let events = statement.query_map(params![node], |row| {
+            Ok(json!({
+                "transaction_hash": row.get::<_, String>(0)?,
+                "timestamp": row.get::<_, String>(1)?,
+                "from_address": {"hash": row.get::<_, String>(2)?},
+                "action": row.get::<_, String>(3)?,
+            }))
+        })?;
+        Ok(events.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    pub fn name_for_address(&self, address: &str) -> Result<Option<NameRecord>, IndexError> {
+        let reverse_node = crate::names::reverse_node(address)
+            .map(|node| crate::codec::hex0x(&node))
+            .ok_or_else(|| IndexError::Decode("invalid names address".to_owned()))?;
+        let reverse: Option<String> = self
+            .lock()?
+            .query_row(
+                "SELECT name FROM names WHERE node = ?1",
+                params![reverse_node],
+                |row| row.get(0),
+            )
+            .optional()?
+            .flatten();
+        if let Some(reverse) = reverse {
+            return self.name(&reverse);
+        }
+        let mut names = self.names_resolving_to(address, false, NameOrder::Desc)?;
+        Ok(if names.len() == 1 { names.pop() } else { None })
     }
 
     /// Every event row of `chain`, oldest first, for inspection and tests.

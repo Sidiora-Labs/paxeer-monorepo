@@ -1,0 +1,21 @@
+{
+  "validators": [
+    {
+      "pub_key": "nlIcPldgpFeYjrJR75rZ7yceM/1U1jnDL/ZmDoyZeR4=",
+      "voting_power": 10
+    },
+    {
+      "pub_key": "Jwnw0QjzcLhZo302m8UEZh8a/l8p/npOFRw9lSnR+Mk=",
+      "voting_power": 10
+    },
+    {
+      "pub_key": "fAq8hlG86PQIWY02WcwvX/ervg1i6dOnRG3o0n0ZM9Y=",
+      "voting_power": 10
+    },
+    {
+      "pub_key": "YAZlLAHZByjxCxGF0eQT0NAoCkFf7BSYsKc/BGNIZVs=",
+      "voting_power": 10
+    }
+  ],
+  "total_power": 40
+}

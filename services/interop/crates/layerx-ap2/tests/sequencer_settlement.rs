@@ -18,7 +18,7 @@ use layerx_interop_gateway::gateway::TranslationStatus;
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::GatewayCore;
-use layerx_portable::{PortableReceiptV2, PORTABLE_RECEIPT_FORMAT_V2};
+use layerx_portable::{PortableReceiptV2, PORTABLE_RECEIPT_FORMAT};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
@@ -65,6 +65,22 @@ fn bytes(value: &Value) -> Vec<u8> {
 
 fn array<const N: usize>(value: &Value) -> [u8; N] {
     bytes(value).try_into().expect("fixed-width field")
+}
+
+fn recorded_payment_topics(case: &Value) -> [[u8; 32]; 3] {
+    let transaction = bytes(&case["rawTransaction"]);
+    let offsets: Vec<_> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact calldata selector");
+    let start = offsets[0] + 4;
+    [5, 0, 1].map(|word| {
+        transaction[start + word * 32..start + (word + 1) * 32]
+            .try_into()
+            .expect("recorded payExact calldata word")
+    })
 }
 
 fn recorded_evidence(case: &Value) -> SequencerEvidence {
@@ -241,15 +257,15 @@ fn context() -> VerificationContext<'static> {
     }
 }
 
-fn binding(evidence: &SequencerEvidence) -> LayerXAssetBinding {
+fn binding(case: &Value, evidence: &SequencerEvidence) -> LayerXAssetBinding {
     let log = &evidence.logs[0];
     LayerXAssetBinding {
         currency: "USD".into(),
         minor_unit_exponent: 2,
         atomic_units_per_minor_unit: 1,
         asset: log.data()[..32].try_into().expect("asset"),
-        payer_receipt_account: log.topics()[1],
-        payee_receipt_account: log.topics()[2],
+        payer_receipt_account: recorded_payment_topics(case)[1],
+        payee_receipt_account: recorded_payment_topics(case)[2],
         payee_merchant: Merchant::new("merchant-001", "Test Merchant", None).expect("merchant"),
     }
 }
@@ -375,16 +391,18 @@ fn signed_payload(jwt: &str, key: &VerifyingKey) -> Value {
 }
 
 fn sign_payment_reference(
+    case: &Value,
     evidence: &mut SequencerEvidence,
     payment: &AuthorizedPayment,
     key: &ReceiptKey,
 ) -> [u8; 32] {
+    let [_, payer, payee] = recorded_payment_topics(case);
     let old_topics = evidence.logs[0].topics()[1..].concat();
     let topics = vec![
         evidence.logs[0].topics()[0],
         payment.idempotency_key(),
-        evidence.logs[0].topics()[1],
-        evidence.logs[0].topics()[2],
+        payer,
+        payee,
     ];
     let positions: Vec<_> = evidence
         .signed_receipt
@@ -415,12 +433,12 @@ fn sign_payment_reference(
 fn ap2_execute_settles_receipted_evidence() {
     let case = recorded_case();
     let mut evidence = recorded_evidence(&case);
-    let binding = binding(&evidence);
+    let binding = binding(&case, &evidence);
     let pair = mandates();
     let principal = PrincipalId::new("buyer").expect("principal");
     let payment = authorized(&principal, &pair, &binding);
     let key = ReceiptKey::new();
-    let digest = sign_payment_reference(&mut evidence, &payment, &key);
+    let digest = sign_payment_reference(&case, &mut evidence, &payment, &key);
     assert_eq!(
         &evidence.logs[0].topics()[1..],
         &[
@@ -530,12 +548,12 @@ fn ap2_execute_settles_receipted_evidence() {
 fn ap2_portable_evidence_round_trips_as_v2() {
     let case = recorded_case();
     let mut evidence = recorded_evidence(&case);
-    let binding = binding(&evidence);
+    let binding = binding(&case, &evidence);
     let pair = mandates();
     let principal = PrincipalId::new("buyer").expect("principal");
     let payment = authorized(&principal, &pair, &binding);
     let key = ReceiptKey::new();
-    let digest = sign_payment_reference(&mut evidence, &payment, &key);
+    let digest = sign_payment_reference(&case, &mut evidence, &payment, &key);
     let recorded_pin = pinned_key(&case);
     let pins = [SequencerAuthorization::new(
         recorded_pin.sequencer_id(),
@@ -582,7 +600,7 @@ fn ap2_portable_evidence_round_trips_as_v2() {
     let json = settled.layerx.to_json().expect("portable JSON export");
     let parsed = PortableReceiptV2::from_json(&json).expect("version 2 portable receipt");
     assert_eq!(parsed, settled.layerx);
-    assert_eq!(parsed.format(), PORTABLE_RECEIPT_FORMAT_V2);
+    assert_eq!(parsed.format(), PORTABLE_RECEIPT_FORMAT);
     assert_eq!(parsed.format(), "layerx-receipt-proof-v2");
     let verified = parsed
         .verify_v2(&pins)
@@ -630,10 +648,16 @@ fn ap2_execute_refuses_a_payee_mismatch() {
         canonical_receipt_digest(&evidence.signed_receipt),
         Ok(array(&case["receiptDigest"]))
     );
-    let mut binding = binding(&evidence);
+    let mut binding = binding(&case, &evidence);
     binding.payee_receipt_account = [0x99; 32];
-    assert_ne!(binding.payee_receipt_account, evidence.logs[0].topics()[2]);
-    assert_eq!(binding.payer_receipt_account, evidence.logs[0].topics()[1]);
+    assert_ne!(
+        binding.payee_receipt_account,
+        recorded_payment_topics(&case)[2]
+    );
+    assert_eq!(
+        binding.payer_receipt_account,
+        recorded_payment_topics(&case)[1]
+    );
     let pair = mandates();
     let principal = PrincipalId::new("buyer").expect("principal");
     let payment = authorized(&principal, &pair, &binding);
@@ -675,7 +699,7 @@ fn ap2_execute_refuses_a_payee_mismatch() {
             .len(),
         1
     );
-    let digest = sign_payment_reference(&mut plane.evidence, &payment, &plane.key);
+    let digest = sign_payment_reference(&case, &mut plane.evidence, &payment, &plane.key);
     assert_eq!(
         plane.evidence.logs[0].topics()[1],
         payment.idempotency_key()

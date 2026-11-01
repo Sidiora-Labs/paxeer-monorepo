@@ -13,7 +13,6 @@ import (
 )
 
 func init() {
-	authHandlers["resultByIdempotency"] = resultByIdempotency
 	authHandlers["getGrant"] = getGrant
 	authHandlers["isLive"] = isLive
 	authHandlers["sessionKey"] = sessionKey
@@ -23,21 +22,6 @@ func init() {
 
 type grantViewInput struct {
 	GrantID [32]byte `abi:"grantId"`
-}
-
-func resultByIdempotency(p *PrecompileExecutor, ctx sdk.Context, method *abi.Method, _ authkeeper.Actor, args []interface{}, _ *vm.EVM, _ *tracing.Hooks) ([]byte, error) {
-	var input struct {
-		DIDID          [32]byte `abi:"didId"`
-		IdempotencyKey [32]byte `abi:"idempotencyKey"`
-	}
-	if err := method.Inputs.Copy(&input, args); err != nil {
-		return nil, err
-	}
-	receipt, err := p.keeper.ResultByIdempotency(ctx, input.DIDID, input.IdempotencyKey)
-	if err != nil {
-		return nil, RevertError(err)
-	}
-	return method.Outputs.Pack(receipt)
 }
 
 func getGrant(p *PrecompileExecutor, ctx sdk.Context, method *abi.Method, _ authkeeper.Actor, args []interface{}, _ *vm.EVM, _ *tracing.Hooks) ([]byte, error) {

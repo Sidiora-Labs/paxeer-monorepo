@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 const (
@@ -45,6 +47,7 @@ const (
 	EnvJWTMaxAge            = "ATTESTOR_JWT_MAX_AGE"
 	EnvAgentsFile           = "ATTESTOR_AGENTS_FILE"
 	EnvAgentMaxExpiry       = "ATTESTOR_AGENT_MAX_EXPIRY"
+	EnvAgentPaymaster       = "ATTESTOR_AGENT_PAYMASTER"
 	EnvKernelPolicy         = "ATTESTOR_KERNEL_POLICY_FILE"
 	EnvNativePolicy         = "ATTESTOR_NATIVE_POLICY_FILE"
 	DefaultJWTMaxAge        = time.Hour
@@ -99,6 +102,7 @@ type Config struct {
 	JWTMaxAge          time.Duration
 	AgentsFile         string
 	AgentMaxExpiry     time.Duration
+	AgentPaymaster     common.Address
 	KernelPolicy       string
 	NativePolicy       string
 	SnapshotInterval   time.Duration
@@ -166,6 +170,12 @@ func Load(getenv func(string) string) (*Config, error) {
 	}
 	if c.ChainID, err = strconv.ParseUint(chainID, 10, 64); err != nil || c.ChainID == 0 {
 		return nil, fmt.Errorf("config: %s: invalid chain id %q", EnvChainID, chainID)
+	}
+	if v := get(EnvAgentPaymaster); v != "" {
+		if !common.IsHexAddress(v) {
+			return nil, fmt.Errorf("config: %s: invalid address %q", EnvAgentPaymaster, v)
+		}
+		c.AgentPaymaster = common.HexToAddress(v)
 	}
 
 	if v := get(EnvCeremony); v != "" {

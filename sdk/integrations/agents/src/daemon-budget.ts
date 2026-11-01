@@ -108,14 +108,14 @@ export class DaemonPreparationBudget implements AgentPreparationBudget {
     if (created) {
       try {
         const response = await this.#transport.prepareNative(p, idempotencyKey(p.idempotency_key));
-        decodeDaemonPrepared(response.value, request, services.protocolVersion);
+        decodeDaemonPrepared(response.value, request, 0);
         const next: Retained = { ...retained, result: response.value, stage: "prepared" };
         this.#replace(retained, next); retained = next;
       } catch { return outcome("admission-unknown"); }
     }
     if (retained.result === null) return outcome("admission-unknown");
     let prepared;
-    try { prepared = decodeDaemonPrepared(retained.result, request, services.protocolVersion); admissionObserved = true; }
+    try { prepared = decodeDaemonPrepared(retained.result, request, 0); admissionObserved = true; }
     catch { return outcome("unknown"); }
     let approval;
     try {
@@ -176,7 +176,7 @@ export class DaemonPreparationBudget implements AgentPreparationBudget {
         if (submission.state !== "Executed") return outcome("pending", { submission });
       }
       const evidence = await services.receipts.resolveActivity({ idempotencyKey: p.idempotency_key, activityId: retained.activityId });
-      const verification = await verifyAgentPayment(evidence, request, services.commitments, { protocolVersion: services.protocolVersion });
+      const verification = await verifyAgentPayment(evidence, request, services.receiptKeys, services.commitments);
       if (Buffer.from(verification.receipt.activityId).toString("hex") !== retained.activityId) throw refusal();
       await services.receipts.retainVerified({ idempotencyKey: p.idempotency_key, activityId: retained.activityId,
         receiptDigest: Buffer.from(verification.receiptDigest).toString("hex"),

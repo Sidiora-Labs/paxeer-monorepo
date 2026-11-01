@@ -310,6 +310,25 @@ pub struct VerifiedCommit {
     pub store_proof_digest: [u8; 32],
 }
 
+impl VerifiedCommit {
+    /// Builds v2 evidence from the committed block for the captured native root.
+    /// The caller must match that root and the capture's height/hash to this commit
+    /// before publishing the binding.
+    ///
+    /// # Errors
+    /// Returns a decode refusal for a zero block hash, app hash or proof digest.
+    pub fn finality_evidence(&self, native_state_root: Digest32) -> ViewResult<FinalityEvidence> {
+        Ok(FinalityEvidence {
+            native_state_root,
+            block_height: self.height,
+            block_hash: Digest32::new(self.block_hash)?,
+            app_hash: Digest32::new(self.app_hash)?,
+            store_proof_digest: Digest32::new(self.store_proof_digest)?,
+            rank: MINIMUM_PUBLICATION_RANK,
+        })
+    }
+}
+
 /// Verifies the header's validator commitment and strictly greater than two thirds
 /// voting power, then hashes the supplied store proof bytes.
 ///
@@ -1452,14 +1471,7 @@ impl ProjectionStore {
         {
             return Err(ViewError::BindingMismatch);
         }
-        let finality = FinalityEvidence {
-            native_state_root: record.native_state_root,
-            block_height: verified.height,
-            block_hash: Digest32::new(verified.block_hash)?,
-            app_hash: Digest32::new(verified.app_hash)?,
-            store_proof_digest: Digest32::new(verified.store_proof_digest)?,
-            rank: MINIMUM_PUBLICATION_RANK,
-        };
+        let finality = verified.finality_evidence(record.native_state_root)?;
         let binding =
             queries::bind_snapshot(&state, &record.facts(), &finality, publication_time_ms)?;
         binding.require_finalized()?;

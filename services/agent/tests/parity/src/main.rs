@@ -3,39 +3,36 @@ use std::fs;
 use std::io::{BufRead, BufReader, Write};
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, ExitCode, Stdio};
+use std::process::{Command, ExitCode};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Barrier};
 use std::thread;
 use std::time::Duration;
 
 use layerx_agent_api::identity::TenantId as SdkTenantId;
-use layerx_agent_api::read::{
-    AccountRef, BalanceValue, BatchRef, CheckpointRef, Freshness, RelativeTo, VerifiedRead,
-};
+use layerx_agent_api::read::{AccountRef, BalanceValue, Freshness, RelativeTo, VerifiedRead};
 use layerx_agent_api::track::{SubmissionRef, TrackRequest};
-use layerx_agent_api::verify::Level;
-use layerx_agent_api::{Amount, ContractVersion, Sequence, SubmissionState};
+use layerx_agent_api::verify::Rung;
+use layerx_agent_api::{agent_api_schema_v1, Amount, SubmissionState};
 use layerx_agentd::idempotency::{
     EconomicResult, IdempotencyError, Outcome, RetentionPolicy, Store as IdempotencyStore,
 };
+use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_agentd::store::TenantId;
-use layerx_client::lni::handshake::{perform, HandshakeConfig};
-use layerx_client::lni::schema::{encode_envelope, Capability, Envelope, Version};
-use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
-use layerx_proof::merkle::leaf_hash;
 use layerx_sdk::approval::{
     ApprovalApproveRequest, ApprovalDecisionOutcome, ApprovalEventKind, ApprovalGetRequest,
     ApprovalId, ApprovalListRequest, ApprovalRejectRequest, DecisionKey,
 };
 use layerx_sdk::{Client as RustSdkClient, Deployment, Operation};
 use layerx_types::result::ResultCode;
+use serde_json::{json, Value};
+use url::Url;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct Observation {
     state: String,
     error: String,
-    verification: String,
+    verification: Rung,
     idempotency: String,
     result_code: String,
     receipt_count: usize,
@@ -48,7 +45,7 @@ impl Observation {
             "state={};error={};verification={};idempotency={};result_code={};receipt_count={};economic_effects={}",
             self.state,
             self.error,
-            self.verification,
+            self.verification.name(),
             self.idempotency,
             self.result_code,
             self.receipt_count,
@@ -75,7 +72,7 @@ impl Observation {
         Ok(Self {
             state: required("state")?,
             error: required("error")?,
-            verification: required("verification")?,
+            verification: parse_rung(&required("verification")?)?,
             idempotency: required("idempotency")?,
             result_code: required("result_code")?,
             receipt_count: required("receipt_count")?
@@ -124,10 +121,17 @@ fn parse_scenarios(path: &Path) -> Result<BTreeMap<String, Observation>, String>
         let (key, value) = line
             .split_once('=')
             .ok_or_else(|| format!("malformed scenario declaration {line}"))?;
-        fields
+        if fields
             .get_mut(scenario)
             .ok_or_else(|| "scenario parser lost section".to_owned())?
-            .insert(key.trim().to_owned(), value.trim().to_owned());
+            .insert(key.trim().to_owned(), value.trim().to_owned())
+            .is_some()
+        {
+            return Err(format!(
+                "scenario {scenario}: duplicate field {}",
+                key.trim()
+            ));
+        }
     }
     fields
         .into_iter()
@@ -148,7 +152,8 @@ fn parse_scenarios(path: &Path) -> Result<BTreeMap<String, Observation>, String>
             let observation = Observation {
                 state: string("state")?,
                 error: string("error")?,
-                verification: string("verification")?,
+                verification: parse_rung(&string("verification")?)
+                    .map_err(|error| format!("scenario {name}: {error}"))?,
                 idempotency: string("idempotency")?,
                 result_code: string("result_code")?,
                 receipt_count: number("receipt_count")?,
@@ -159,271 +164,92 @@ fn parse_scenarios(path: &Path) -> Result<BTreeMap<String, Observation>, String>
         .collect()
 }
 
-struct NodeProcess {
-    child: Child,
-    socket: PathBuf,
+fn parse_rung(name: &str) -> Result<Rung, String> {
+    Rung::from_name(name).ok_or_else(|| {
+        format!("invalid verification rung {name:?}; expected submitted, receipted or committed")
+    })
 }
 
-impl NodeProcess {
-    fn start(executable: &Path, socket: &Path, genesis: &Path, mode: &str) -> Result<Self, String> {
-        let child = Command::new(executable)
-            .arg("--serve")
-            .arg(socket)
-            .arg(genesis)
-            .arg(mode)
-            .stdin(Stdio::null())
-            .stdout(Stdio::null())
-            .stderr(Stdio::inherit())
-            .spawn()
-            .map_err(|error| format!("could not start layerxd: {error}"))?;
-        let mut process = Self {
-            child,
-            socket: socket.to_path_buf(),
-        };
-        for _ in 0..200 {
-            if socket.exists() {
-                return Ok(process);
-            }
-            if let Some(status) = process
-                .child
-                .try_wait()
-                .map_err(|error| format!("could not inspect layerxd: {error}"))?
-            {
-                return Err(format!("layerxd exited before listen: {status}"));
-            }
-            thread::sleep(Duration::from_millis(5));
-        }
-        Err("layerxd did not create its socket".to_owned())
+fn node_json_rpc_url(value: &str) -> Result<Url, String> {
+    let invalid = || {
+        "expected a node JSON-RPC URL; parity suite requires an http or https node JSON-RPC URL"
+            .to_owned()
+    };
+    if value.trim() != value
+        || value.chars().any(char::is_control)
+        || !(value.starts_with("http://") || value.starts_with("https://"))
+    {
+        return Err(invalid());
     }
-
-    fn stop(mut self) -> Result<(), String> {
-        self.child
-            .kill()
-            .map_err(|error| format!("could not stop layerxd: {error}"))?;
-        self.child
-            .wait()
-            .map_err(|error| format!("could not reap layerxd: {error}"))?;
-        let _ = fs::remove_file(&self.socket);
-        Ok(())
+    let url = Url::parse(value).map_err(|_| invalid())?;
+    if !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+        || url.fragment().is_some()
+    {
+        return Err(invalid());
     }
+    Ok(url)
 }
 
-impl Drop for NodeProcess {
-    fn drop(&mut self) {
-        let _ = self.child.kill();
-        let _ = self.child.wait();
-        let _ = fs::remove_file(&self.socket);
+fn qualify_node(url: &Url) -> Result<Freshness, String> {
+    let agent: ureq::Agent = ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(2)))
+        .max_redirects(0)
+        .build()
+        .into();
+    let mut response = agent
+        .post(url.as_str())
+        .send_json(json!({"jsonrpc": "2.0", "id": 1, "method": "eth_chainId", "params": []}))
+        .map_err(|error| format!("node JSON-RPC chain id request failed: {error}"))?;
+    let bytes = response
+        .body_mut()
+        .with_config()
+        .limit(65_536)
+        .read_to_vec()
+        .map_err(|error| format!("node JSON-RPC chain id response failed: {error}"))?;
+    let response: Value = serde_json::from_slice(&bytes)
+        .map_err(|error| format!("node JSON-RPC chain id response is invalid: {error}"))?;
+    if response["jsonrpc"] != "2.0" || response["id"] != 1 || response.get("error").is_some() {
+        return Err("node JSON-RPC refused the chain id request".to_owned());
     }
-}
-
-#[derive(Debug)]
-struct NodeResponse {
-    tag: u16,
-    correlation: u64,
-    payload: Vec<u8>,
-    proof: Vec<u8>,
-}
-
-fn limits() -> Limits {
-    Limits {
-        maximum_frame_bytes: 1_048_576,
-        maximum_connections: 4,
-        maximum_streams: 32,
-        maximum_queued_bytes: 4_194_304,
+    let chain_id = response["result"]
+        .as_str()
+        .and_then(|text| text.strip_prefix("0x"))
+        .filter(|digits| {
+            !digits.is_empty()
+                && (digits.len() == 1 || !digits.starts_with('0'))
+                && digits.bytes().all(|byte| byte.is_ascii_hexdigit())
+        })
+        .and_then(|digits| u64::from_str_radix(digits, 16).ok())
+        .ok_or_else(|| "node JSON-RPC returned an invalid chain id".to_owned())?;
+    let node = NodeRpc::connect(&NodeRpcConfig {
+        url: url.to_string(),
+        chain_id,
         deadline: Duration::from_secs(2),
-    }
-}
-
-fn connect_node(socket: &Path) -> Result<Uds, String> {
-    Uds::connect(socket, &ConnectionGate::new(4), limits())
-        .map_err(|error| format!("node connection failed: {error:?}"))
-}
-
-fn node_config() -> HandshakeConfig {
-    HandshakeConfig {
-        built_interface_version: Version::V1_0,
-        expected_protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
-        expected_network_id: 77,
-    }
-}
-
-fn node_request(
-    transport: &mut impl FrameTransport,
-    tag: u16,
-    correlation: u64,
-    payload: &[u8],
-) -> Result<(), String> {
-    let bytes = encode_envelope(Envelope {
-        version: Version::V1_0,
-        message_tag: tag,
-        correlation_id: correlation,
-        canonical_payload: payload,
-        proof_material: &[],
     })
-    .map_err(|error| format!("node request encoding failed: {error:?}"))?;
-    transport
-        .send(&bytes)
-        .map_err(|error| format!("node request failed: {error:?}"))
-}
-
-fn node_response(transport: &mut impl FrameTransport) -> Result<NodeResponse, String> {
-    let bytes = transport
-        .receive()
-        .map_err(|error| format!("node response failed: {error:?}"))?;
-    if bytes.len() < 22 {
-        return Err("truncated node response".to_owned());
+    .map_err(|error| format!("node JSON-RPC connection failed: {error}"))?;
+    let height = node
+        .block_number()
+        .map_err(|error| format!("node JSON-RPC head failed: {error}"))?;
+    let block = node
+        .block_by_number(height)
+        .map_err(|error| format!("node JSON-RPC block failed: {error}"))?
+        .ok_or_else(|| "node JSON-RPC head block is unavailable".to_owned())?;
+    if block.number != height || block.hash == [0; 32] {
+        return Err("node JSON-RPC returned a mismatched head block".to_owned());
     }
-    let tag = u16::from_be_bytes([bytes[4], bytes[5]]);
-    let correlation = u64::from_be_bytes(
-        bytes[6..14]
-            .try_into()
-            .map_err(|_| "invalid node correlation".to_owned())?,
-    );
-    let payload_length = u32::from_be_bytes(
-        bytes[14..18]
-            .try_into()
-            .map_err(|_| "invalid node payload length".to_owned())?,
-    ) as usize;
-    let payload_end = 18_usize
-        .checked_add(payload_length)
-        .ok_or_else(|| "node payload overflow".to_owned())?;
-    let proof_prefix_end = payload_end
-        .checked_add(4)
-        .ok_or_else(|| "node proof prefix overflow".to_owned())?;
-    let proof_length = u32::from_be_bytes(
-        bytes
-            .get(payload_end..proof_prefix_end)
-            .ok_or_else(|| "truncated node proof prefix".to_owned())?
-            .try_into()
-            .map_err(|_| "invalid node proof length".to_owned())?,
-    ) as usize;
-    let proof_end = proof_prefix_end
-        .checked_add(proof_length)
-        .ok_or_else(|| "node proof overflow".to_owned())?;
-    if proof_end != bytes.len() {
-        return Err("node response length mismatch".to_owned());
-    }
-    Ok(NodeResponse {
-        tag,
-        correlation,
-        payload: bytes[18..payload_end].to_vec(),
-        proof: bytes[proof_prefix_end..].to_vec(),
+    node.receipt_keys()
+        .map_err(|error| format!("node JSON-RPC receipt keys failed: {error}"))?;
+    Ok(Freshness {
+        chain_head: height,
+        value_height: height,
+        relative_to: RelativeTo::Block {
+            height,
+            hash: block.hash,
+        },
     })
-}
-
-fn expect_node(response: &NodeResponse, tag: u16, correlation: u64) -> Result<(), String> {
-    if response.tag != tag || response.correlation != correlation {
-        return Err(format!("unexpected node response {response:?}"));
-    }
-    Ok(())
-}
-
-fn create_genesis(executable: &Path, path: &Path) -> Result<(), String> {
-    let status = Command::new(executable)
-        .arg("--write-genesis")
-        .arg(path)
-        .status()
-        .map_err(|error| format!("could not create genesis: {error}"))?;
-    if status.success() {
-        Ok(())
-    } else {
-        Err(format!("genesis writer failed: {status}"))
-    }
-}
-
-fn qualify_node(
-    executable: &Path,
-    directory: &Path,
-    expected: &BTreeMap<String, Observation>,
-) -> Result<NodeProcess, String> {
-    let genesis = directory.join("genesis.lxp");
-    let socket = directory.join("layerxd.sock");
-    create_genesis(executable, &genesis)?;
-    let normal = NodeProcess::start(executable, &socket, &genesis, "normal")?;
-    let mut transport = connect_node(&socket)?;
-    let handshake = perform(&mut transport, &node_config(), None)
-        .map_err(|error| format!("node handshake failed: {error:?}"))?;
-    handshake
-        .capabilities()
-        .require(Capability::AccountRead)
-        .map_err(|error| format!("account capability missing: {error:?}"))?;
-    node_request(&mut transport, 7, 7, &[1])?;
-    let account = node_response(&mut transport)?;
-    expect_node(&account, 8, 7)?;
-    if account.proof
-        != leaf_hash(&account.payload).map_err(|error| format!("read proof: {error:?}"))?
-    {
-        return Err("proven read root mismatch".to_owned());
-    }
-    assert_scenario(
-        expected,
-        "proven_read",
-        &Observation {
-            state: "Value".to_owned(),
-            error: "None".to_owned(),
-            verification: "StateProven".to_owned(),
-            idempotency: "None".to_owned(),
-            result_code: "none".to_owned(),
-            receipt_count: 0,
-            economic_effects: 0,
-        },
-    )?;
-    node_request(&mut transport, 21, 21, &[0])?;
-    expect_node(&node_response(&mut transport)?, 22, 21)?;
-    expect_node(&node_response(&mut transport)?, 23, 21)?;
-    let heartbeat = node_response(&mut transport)?;
-    expect_node(&heartbeat, 24, 21)?;
-    if heartbeat.payload != 10_u64.to_be_bytes() {
-        return Err("subscription heartbeat changed".to_owned());
-    }
-    assert_scenario(
-        expected,
-        "subscription_gap",
-        &Observation {
-            state: "Gap".to_owned(),
-            error: "None".to_owned(),
-            verification: "SequencerSigned".to_owned(),
-            idempotency: "None".to_owned(),
-            result_code: "none".to_owned(),
-            receipt_count: 0,
-            economic_effects: 0,
-        },
-    )?;
-    drop(transport);
-    normal.stop()?;
-
-    let degraded = NodeProcess::start(executable, &socket, &genesis, "degraded")?;
-    let mut transport = connect_node(&socket)?;
-    let handshake = perform(&mut transport, &node_config(), None)
-        .map_err(|error| format!("degraded handshake failed: {error:?}"))?;
-    if handshake
-        .capabilities()
-        .contains(Capability::AvailabilityFetch)
-    {
-        return Err("degraded node advertised availability".to_owned());
-    }
-    node_request(&mut transport, 18, 18, &[22])?;
-    let unavailable = node_response(&mut transport)?;
-    expect_node(&unavailable, 25, 18)?;
-    if unavailable.payload.first() != Some(&3) {
-        return Err("availability refusal class changed".to_owned());
-    }
-    assert_scenario(
-        expected,
-        "availability_failure",
-        &Observation {
-            state: "Refused".to_owned(),
-            error: "UnavailableCapability".to_owned(),
-            verification: "Unverified".to_owned(),
-            idempotency: "None".to_owned(),
-            result_code: "none".to_owned(),
-            receipt_count: 0,
-            economic_effects: 0,
-        },
-    )?;
-    drop(transport);
-    degraded.stop()?;
-    NodeProcess::start(executable, &socket, &genesis, "normal")
 }
 
 fn tenant() -> Result<TenantId, String> {
@@ -558,7 +384,7 @@ fn assert_idempotency(
         &Observation {
             state: "Executed".to_owned(),
             error: "None".to_owned(),
-            verification: "SequencerSigned".to_owned(),
+            verification: Rung::Receipted,
             idempotency: idempotency.to_owned(),
             result_code: "0".to_owned(),
             receipt_count: 1,
@@ -577,7 +403,7 @@ fn qualify_state_semantics(expected: &BTreeMap<String, Observation>) -> Result<(
         &Observation {
             state: "Unknown".to_owned(),
             error: "None".to_owned(),
-            verification: "Unverified".to_owned(),
+            verification: Rung::Submitted,
             idempotency: "Original".to_owned(),
             result_code: "none".to_owned(),
             receipt_count: 0,
@@ -594,7 +420,7 @@ fn qualify_state_semantics(expected: &BTreeMap<String, Observation>) -> Result<(
         &Observation {
             state: "Failed".to_owned(),
             error: "CoreRejection".to_owned(),
-            verification: "Unverified".to_owned(),
+            verification: Rung::Submitted,
             idempotency: "Original".to_owned(),
             result_code: result.raw().to_string(),
             receipt_count: 0,
@@ -666,20 +492,12 @@ fn query_daemon(socket: &Path, language: &str, scenario: &str) -> Result<Observa
     Observation::decode(response.trim_end())
 }
 
-fn freshness() -> Result<Freshness, String> {
-    let batch = BatchRef::new("batch-22").map_err(|error| format!("batch: {error:?}"))?;
-    Ok(Freshness {
-        chain_head: Sequence(10),
-        latest_sealed_batch: batch.clone(),
-        latest_finalised_checkpoint: CheckpointRef::new("genesis")
-            .map_err(|error| format!("checkpoint: {error:?}"))?,
-        value_sequence: Sequence(10),
-        relative_to: RelativeTo::Batch(batch),
-    })
-}
-
-fn validate_rust_sdk(scenario: &str, observation: &Observation) -> Result<(), String> {
-    let client = RustSdkClient::daemon("parity.sock", ContractVersion { major: 1, minor: 1 })
+fn validate_rust_sdk(
+    scenario: &str,
+    observation: &Observation,
+    freshness: &Freshness,
+) -> Result<(), String> {
+    let client = RustSdkClient::daemon("parity.sock", agent_api_schema_v1().version)
         .map_err(|error| format!("Rust SDK daemon client: {error:?}"))?;
     if client.deployment() != Deployment::Daemon {
         return Err("Rust SDK did not select daemon deployment".to_owned());
@@ -762,12 +580,13 @@ fn validate_rust_sdk(scenario: &str, observation: &Observation) -> Result<(), St
                 asset: layerx_agent_api::identity::Asset::new("LXP")
                     .map_err(|error| format!("asset: {error:?}"))?,
                 amount: Amount(1),
+                height: freshness.value_height,
                 canonical_state: layerx_agent_api::prepare::CanonicalBytes::new(vec![1])
                     .map_err(|error| format!("state: {error:?}"))?,
             };
             RustSdkClient::accept_verified_read(
-                Level::StateProven,
-                VerifiedRead::new(value, Level::StateProven, freshness()?),
+                Rung::Committed,
+                VerifiedRead::new(value, Rung::Committed, freshness.clone()),
             )
             .map(|_| ())
             .map_err(|error| format!("Rust SDK refused proven read: {error:?}"))
@@ -813,12 +632,16 @@ fn validate_rust_sdk(scenario: &str, observation: &Observation) -> Result<(), St
     }
 }
 
-fn run_rust(socket: &Path, scenarios: &[String]) -> Result<BTreeMap<String, Observation>, String> {
+fn run_rust(
+    socket: &Path,
+    scenarios: &[String],
+    freshness: &Freshness,
+) -> Result<BTreeMap<String, Observation>, String> {
     scenarios
         .iter()
         .map(|scenario| {
             let observation = query_daemon(socket, "rust", scenario)?;
-            validate_rust_sdk(scenario, &observation)?;
+            validate_rust_sdk(scenario, &observation, freshness)?;
             Ok((scenario.clone(), observation))
         })
         .collect()
@@ -880,15 +703,13 @@ fn compare_language(
     Ok(())
 }
 
-/// Runs every SDK against one live daemon and one core-linked node fixture.
+/// Runs every SDK against one live daemon and one node JSON-RPC endpoint.
 ///
 /// # Errors
 ///
 /// Names the scenario, language and differing observations on any divergence.
-pub fn agent_sdk_parity_suite(node_executable: &Path, repository: &Path) -> Result<String, String> {
-    if !node_executable.is_file() {
-        return Err("parity suite requires the core-linked layerxd executable".to_owned());
-    }
+pub fn agent_sdk_parity_suite(node_url: &str, repository: &Path) -> Result<String, String> {
+    let node_url = node_json_rpc_url(node_url)?;
     let expected = parse_scenarios(&repository.join("services/agent/tests/parity/scenarios.kvx"))?;
     if expected.len() != 21 {
         return Err(format!(
@@ -905,7 +726,7 @@ pub fn agent_sdk_parity_suite(node_executable: &Path, repository: &Path) -> Resu
     fs::create_dir(&directory)
         .map_err(|error| format!("could not create parity directory: {error}"))?;
     qualify_idempotency(&directory, &expected)?;
-    let live_node = qualify_node(node_executable, &directory, &expected)?;
+    let freshness = qualify_node(&node_url)?;
 
     let daemon_socket = directory.join("agentd-parity.sock");
     let listener = UnixListener::bind(&daemon_socket)
@@ -916,7 +737,7 @@ pub fn agent_sdk_parity_suite(node_executable: &Path, repository: &Path) -> Resu
         thread::spawn(move || serve_daemon(listener, daemon_observations, expected_requests));
     let scenarios = expected.keys().cloned().collect::<Vec<_>>();
     let joined = scenarios.join(",");
-    let rust = run_rust(&daemon_socket, &scenarios)?;
+    let rust = run_rust(&daemon_socket, &scenarios, &freshness)?;
 
     let mut typescript_command = Command::new("node");
     typescript_command
@@ -945,31 +766,47 @@ pub fn agent_sdk_parity_suite(node_executable: &Path, repository: &Path) -> Resu
             seen.len()
         ));
     }
-    live_node.stop()?;
     fs::remove_dir_all(&directory)
         .map_err(|error| format!("could not clean parity directory: {error}"))?;
     Ok(format!(
-        "agent SDK parity passed: {} scenarios, 3 SDKs, one daemon, one core-linked node",
+        "agent SDK parity passed: {} scenarios, 3 SDKs, one daemon, one node JSON-RPC endpoint",
         expected.len()
     ))
 }
 
 fn main() -> ExitCode {
-    let mut arguments = std::env::args_os();
-    let _program = arguments.next();
-    let Some(node) = arguments.next().map(PathBuf::from) else {
-        eprintln!("missing layerxd executable path");
+    let mut arguments = std::env::args_os().skip(1);
+    let Some(first) = arguments.next() else {
+        eprintln!("missing http or https node JSON-RPC URL");
         return ExitCode::FAILURE;
     };
-    let Some(repository) = arguments.next().map(PathBuf::from) else {
-        eprintln!("missing repository root");
-        return ExitCode::FAILURE;
+    let result = if first == "--check-scenarios" {
+        match (arguments.next(), arguments.next()) {
+            (Some(path), None) => parse_scenarios(Path::new(&path)).map(|scenarios| {
+                format!(
+                    "{} parity scenarios use submitted, receipted or committed",
+                    scenarios.len()
+                )
+            }),
+            _ => Err("usage: agent-sdk-parity --check-scenarios <path>".to_owned()),
+        }
+    } else {
+        let node = first
+            .to_str()
+            .ok_or_else(|| "parity suite requires an http or https node JSON-RPC URL".to_owned());
+        node.and_then(|node| {
+            node_json_rpc_url(node)?;
+            let repository = arguments
+                .next()
+                .map(PathBuf::from)
+                .ok_or_else(|| "missing repository root".to_owned())?;
+            if arguments.next().is_some() {
+                return Err("unexpected parity-suite argument".to_owned());
+            }
+            agent_sdk_parity_suite(node, &repository)
+        })
     };
-    if arguments.next().is_some() {
-        eprintln!("unexpected parity-suite argument");
-        return ExitCode::FAILURE;
-    }
-    match agent_sdk_parity_suite(&node, &repository) {
+    match result {
         Ok(report) => {
             println!("{report}");
             ExitCode::SUCCESS

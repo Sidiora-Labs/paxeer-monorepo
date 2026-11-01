@@ -2,11 +2,21 @@
 mod chain;
 
 use chain::{ChainFixture, STATE_HEIGHT};
-use layerx_programs::chain_proof::state::verify_state;
+use ed25519_dalek::{Signer, SigningKey};
+use layerx_programs::chain_proof::{
+    decode::decode_commitment_proof, header::ChainHeader, state::verify_state,
+};
 use layerx_programs_runtime::{AuthorizationContext, CapabilitySet, PrincipalId, ProgramId};
 use layerx_programs_sandbox::{
     sandbox_state_key, Lease, LeaseActivity, LeaseId, LeaseLimits, LeaseRefusal, LeaseState,
     LeaseTransition, TransitionEvidence,
+};
+use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_wire::{
+    activity::{decode_signed, encode_signed, signing_bytes},
+    encode::Encoder,
+    receipt::{decode_batch_header, encode_batch_header},
+    WireError,
 };
 use sha2::{Digest, Sha256};
 
@@ -117,7 +127,8 @@ fn lease_transition_verifies_against_proven_lease_record() {
         sandbox_state_key(0, active.id().bytes()).unwrap_or_else(|error| panic!("key: {error}"));
     let usage_key = sandbox_state_key(1, active.id().bytes())
         .unwrap_or_else(|error| panic!("usage key: {error}"));
-    let fixture = ChainFixture::new(
+    let fixture = ChainFixture::new_in_store(
+        "lxphost",
         "paxeer-lease-chain",
         &[[1; 32], [2; 32], [3; 32]],
         vec![
@@ -192,6 +203,61 @@ fn lease_transition_verifies_against_proven_lease_record() {
 }
 
 #[test]
+fn lease_transition_verifies_only_against_mounted_lxphost_store() {
+    let (funded, _) = record(2);
+    let (active, transition) = record(3);
+    assert_eq!(funded.state(), LeaseState::Funded);
+    assert_eq!(active.state(), LeaseState::Active);
+    let canonical = active
+        .canonical_state_bytes()
+        .unwrap_or_else(|error| panic!("encode: {error}"));
+    let key =
+        sandbox_state_key(0, active.id().bytes()).unwrap_or_else(|error| panic!("key: {error}"));
+    let authorization = AuthorizationContext::new(funded.tenant(), CapabilitySet::empty());
+    for store_name in ["lxphost", "layerx", "unmounted"] {
+        let fixture = ChainFixture::new_in_store(
+            store_name,
+            "paxeer-lease-chain",
+            &[[1; 32], [2; 32], [3; 32]],
+            vec![(key.clone(), canonical.clone())],
+        )
+        .unwrap_or_else(|error| panic!("chain: {error:?}"));
+        let head = fixture
+            .verifier
+            .verify_head(&fixture.header, &fixture.commit)
+            .unwrap_or_else(|error| panic!("head: {error:?}"));
+        let ops = fixture
+            .prove(&key)
+            .unwrap_or_else(|error| panic!("proof: {error:?}"));
+        assert_eq!(
+            verify_state(&head, store_name, &key, &canonical, &ops),
+            Ok(STATE_HEIGHT)
+        );
+        let evidence = TransitionEvidence::verify_call(
+            &head,
+            &funded,
+            transition,
+            &authorization,
+            &canonical,
+            &ops,
+        );
+        if store_name == "lxphost" {
+            let evidence = evidence.unwrap_or_else(|error| panic!("activate: {error}"));
+            assert_eq!(evidence.state_height(), STATE_HEIGHT as u64);
+            assert_eq!(evidence.tx_hash(), transition.activity_id);
+            assert_eq!(
+                evidence.lease_digest(),
+                active
+                    .state_digest()
+                    .unwrap_or_else(|error| panic!("digest: {error}"))
+            );
+        } else {
+            assert_eq!(evidence, Err(LeaseRefusal::InvalidCanonicalEvidence));
+        }
+    }
+}
+
+#[test]
 fn lease_transition_refuses_regressed_state() {
     let (funded, _) = record(2);
     let (_, activate) = record(3);
@@ -200,7 +266,8 @@ fn lease_transition_refuses_regressed_state() {
         .unwrap_or_else(|error| panic!("encode: {error}"));
     let key =
         sandbox_state_key(0, funded.id().bytes()).unwrap_or_else(|error| panic!("key: {error}"));
-    let fixture = ChainFixture::new(
+    let fixture = ChainFixture::new_in_store(
+        "lxphost",
         "paxeer-lease-chain",
         &[[1; 32]],
         vec![(key.clone(), canonical.clone())],
@@ -214,7 +281,7 @@ fn lease_transition_refuses_regressed_state() {
         .prove(&key)
         .unwrap_or_else(|error| panic!("proof: {error:?}"));
     assert_eq!(
-        verify_state(&head, "layerx", &key, &canonical, &ops),
+        verify_state(&head, "lxphost", &key, &canonical, &ops),
         Ok(STATE_HEIGHT)
     );
     assert_eq!(funded.state(), LeaseState::Funded);
@@ -229,4 +296,172 @@ fn lease_transition_refuses_regressed_state() {
         ),
         Err(LeaseRefusal::InvalidTransition)
     );
+}
+
+fn kernel_signed_activity(payload: &[u8]) -> Result<Vec<u8>, WireError> {
+    let signer = SigningKey::from_bytes(&[2; 32]);
+    let mut encoder = Encoder::new(4096);
+    encoder.structure_header_version(0x1001, 1)?;
+    encoder.u8(11)?;
+    encoder.tag(1, 12)?;
+    encoder.u16(1)?;
+    encoder.tag(2, 12)?;
+    encoder.u32(77)?;
+    encoder.tag(3, 12)?;
+    encoder.u32(0x0009_0003)?;
+    encoder.tag(4, 12)?;
+    encoder.bytes(b"did:layerx:tenant", 255)?;
+    encoder.tag(5, 12)?;
+    encoder.bytes(signer.verifying_key().as_bytes(), 32)?;
+    encoder.tag(6, 12)?;
+    encoder.u64(1)?;
+    encoder.tag(7, 12)?;
+    encoder.u64(1_700_000_000_000)?;
+    encoder.u64(1_700_000_002_000)?;
+    encoder.tag(8, 12)?;
+    encoder.bytes(&[8; 32], 32)?;
+    encoder.tag(9, 12)?;
+    encoder.u128(100)?;
+    encoder.tag(10, 12)?;
+    let mut payload_hash = Sha256::new();
+    payload_hash.update(b"LXP/v1/payload-hash\0");
+    payload_hash.update(payload);
+    encoder.bytes(&payload_hash.finalize(), 32)?;
+    encoder.tag(11, 12)?;
+    encoder.bytes(payload, 4096)?;
+    let mut bytes = encoder.finish();
+    let signature = signer.sign(&bytes);
+    bytes[4] = 12;
+    let mut signed = Encoder::new(4096);
+    signed.fixed(&bytes)?;
+    signed.tag(12, 12)?;
+    signed.bytes(&signature.to_bytes(), 64)?;
+    Ok(signed.finish())
+}
+
+fn kernel_batch_header(activity_root: [u8; 32]) -> Result<Vec<u8>, WireError> {
+    let mut encoder = Encoder::new(354);
+    encoder.structure_header_version(0x1701, 1)?;
+    encoder.u8(15)?;
+    encoder.tag(1, 15)?;
+    encoder.u16(1)?;
+    encoder.tag(2, 15)?;
+    encoder.u32(77)?;
+    for (field, value) in [(3, 1), (4, STATE_HEIGHT as u64), (5, 1), (6, 1)] {
+        encoder.tag(field, 15)?;
+        encoder.u64(value)?;
+    }
+    for field in 7..=13 {
+        encoder.tag(field, 15)?;
+        let root = if field == 9 {
+            activity_root
+        } else {
+            [field; 32]
+        };
+        encoder.bytes(&root, 32)?;
+    }
+    encoder.tag(14, 15)?;
+    encoder.u64(1_700_000_001_000)?;
+    encoder.tag(15, 15)?;
+    encoder.bytes(&[15; 32], 32)?;
+    Ok(encoder.finish())
+}
+
+#[test]
+fn lease_transition_refuses_kernel_batch_header_evidence() {
+    let (funded, _) = record(2);
+    let (active, transition) = record(3);
+    let canonical = active
+        .canonical_state_bytes()
+        .unwrap_or_else(|error| panic!("encode: {error}"));
+    let key =
+        sandbox_state_key(0, active.id().bytes()).unwrap_or_else(|error| panic!("key: {error}"));
+    let authorization = AuthorizationContext::new(funded.tenant(), CapabilitySet::empty());
+    let signed = kernel_signed_activity(&canonical)
+        .unwrap_or_else(|error| panic!("signed activity: {error:?}"));
+    let kind = ActivityType::new(ModuleId::Programs, 3)
+        .unwrap_or_else(|error| panic!("activity type: {error:?}"));
+    let registration = ModuleRegistration::new(ModuleId::Programs, &[kind])
+        .unwrap_or_else(|error| panic!("registration: {error:?}"));
+    let registry =
+        ModuleRegistry::new(&[registration]).unwrap_or_else(|error| panic!("registry: {error:?}"));
+    let activity = decode_signed(&signed, &registry)
+        .unwrap_or_else(|error| panic!("decode signed activity: {error:?}"));
+    assert_eq!(encode_signed(&activity), Ok(signed.clone()));
+    let signing_input =
+        signing_bytes(&activity).unwrap_or_else(|error| panic!("signing bytes: {error:?}"));
+    let signature = ed25519_dalek::Signature::from_slice(
+        activity
+            .signature()
+            .unwrap_or_else(|| panic!("missing signature")),
+    )
+    .unwrap_or_else(|error| panic!("signature: {error}"));
+    assert!(SigningKey::from_bytes(&[2; 32])
+        .verifying_key()
+        .verify_strict(signing_input.as_bytes(), &signature)
+        .is_ok());
+    let activity_id = layerx_wire::hash::activity_id(&activity)
+        .unwrap_or_else(|error| panic!("activity id: {error:?}"));
+    let activity_root = layerx_proof::merkle::leaf_hash(&activity_id)
+        .unwrap_or_else(|error| panic!("activity root: {error:?}"));
+    let batch = kernel_batch_header(activity_root)
+        .unwrap_or_else(|error| panic!("batch header: {error:?}"));
+    let header =
+        decode_batch_header(&batch).unwrap_or_else(|error| panic!("decode batch: {error:?}"));
+    assert_eq!(encode_batch_header(&header), Ok(batch.clone()));
+
+    for value in [canonical.clone(), batch.clone(), signed] {
+        let fixture = ChainFixture::new_in_store(
+            "lxphost",
+            "paxeer-lease-chain",
+            &[[1; 32]],
+            vec![(key.clone(), value.clone())],
+        )
+        .unwrap_or_else(|error| panic!("chain: {error:?}"));
+        let head = fixture
+            .verifier
+            .verify_head(&fixture.header, &fixture.commit)
+            .unwrap_or_else(|error| panic!("head: {error:?}"));
+        let ops = fixture
+            .prove(&key)
+            .unwrap_or_else(|error| panic!("proof: {error:?}"));
+        assert_eq!(
+            verify_state(&head, "lxphost", &key, &value, &ops),
+            Ok(STATE_HEIGHT)
+        );
+        let evidence = TransitionEvidence::verify_call(
+            &head,
+            &funded,
+            transition,
+            &authorization,
+            &value,
+            &ops,
+        );
+        if value == canonical {
+            let evidence = evidence.unwrap_or_else(|error| panic!("chain evidence: {error}"));
+            assert_eq!(evidence.state_height(), STATE_HEIGHT as u64);
+            assert_eq!(evidence.tx_hash(), transition.activity_id);
+        } else {
+            assert_eq!(evidence, Err(LeaseRefusal::InvalidCanonicalEvidence));
+        }
+        let mut commitment = decode_commitment_proof(
+            &fixture
+                .encode_key(&key)
+                .unwrap_or_else(|error| panic!("commitment: {error:?}")),
+        )
+        .unwrap_or_else(|error| panic!("decode commitment: {error:?}"));
+        commitment.signed_header = batch.clone();
+        assert!(ChainHeader::decode(&commitment.signed_header).is_err());
+        assert_eq!(
+            TransitionEvidence::verify_call(
+                &head,
+                &funded,
+                transition,
+                &authorization,
+                &commitment.signed_header,
+                &ops,
+            ),
+            Err(LeaseRefusal::InvalidCanonicalEvidence),
+        );
+    }
 }

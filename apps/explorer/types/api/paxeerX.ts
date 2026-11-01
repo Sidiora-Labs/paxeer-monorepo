@@ -4,13 +4,12 @@ import type { PaxeerXStatusRung } from './paxeerXLists';
 // `paxeer_x` is the chain-type label; LayerX names only the kernel domain, so kernel-side
 // entities keep their `lx_*` / `kernel` spelling here.
 
-export type PaxeerXIdentityKind = 'evm' | 'pax' | 'did' | 'kernel_account';
+export type PaxeerXIdentityKind = 'evm' | 'pax' | 'did';
 
 export interface PaxeerXIdentities {
   evm: string | null;
   pax: string | null;
   did: string | null;
-  kernel_account: string | null;
 }
 
 export interface PaxeerXAsset {
@@ -55,8 +54,6 @@ export interface PaxeerXUnifiedAccount {
 // Precompile probe result: which unified surfaces the connected node actually answers for.
 export interface PaxeerXCapabilities {
   addr: boolean;
-  custody: boolean;
-  anchor: boolean;
   exchange: boolean;
   bridge: boolean;
   launchpad: boolean;

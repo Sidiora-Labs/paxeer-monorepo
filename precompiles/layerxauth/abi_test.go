@@ -20,6 +20,10 @@ func TestAuthABIMethods(t *testing.T) {
 		outputs    []string
 	}{
 		{
+			"recordLifecycle", "recordLifecycle(bytes,bytes32)", "0x87d3a067", "nonpayable",
+			[]string{"payload:bytes", "idempotencyKey:bytes32"}, []string{"globalSequence:uint64"},
+		},
+		{
 			"grantSession", "grantSession(bytes,uint64,bytes32)", "0x1107b49e", "nonpayable",
 			[]string{"grant:bytes", "expirySequence:uint64", "actionKey:bytes32"},
 			[]string{"grantId:bytes32"},
@@ -36,10 +40,6 @@ func TestAuthABIMethods(t *testing.T) {
 		{
 			"revokeGrant", "revokeGrant(bytes32,uint8,uint64)", "0x859615ab", "nonpayable",
 			[]string{"grantId:bytes32", "reason:uint8", "sequence:uint64"}, nil,
-		},
-		{
-			"resultByIdempotency", "resultByIdempotency(bytes32,bytes32)", "0x2eda9f2b", "view",
-			[]string{"didId:bytes32", "idempotencyKey:bytes32"}, []string{"receipt:bytes"},
 		},
 		{
 			"getGrant", "getGrant(bytes32)", "0xe483ac04", "view",

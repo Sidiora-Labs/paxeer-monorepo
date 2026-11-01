@@ -16,6 +16,8 @@ const root = fileURLToPath(new URL("../../../../", import.meta.url));
 const walkthrough = fileURLToPath(new URL("../agent-program-call/walkthrough.sh", import.meta.url));
 const programsAddress = "0x000000000000000000000000000000000000101d";
 const programId = "11".repeat(32);
+const codeHash = "33".repeat(32);
+const deployedTopic = "0x2765c1020c93cab47e389edaa5b5c68834bdd76f7a5d384adb460fc86e688709";
 const sender = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf";
 const hex = (value) => `0x${Buffer.from(value).toString("hex")}`;
 const bytes = (value) => Buffer.from(value.slice(2), "hex");
@@ -24,6 +26,9 @@ let cli;
 
 before(async () => {
   scratch = await mkdtemp(join(tmpdir(), "agent-program-call-"));
+  await execute("npm", ["run", "build", "--workspace", "@sidiora/layerx-sdk"], {
+    cwd: root, timeout: 600000, maxBuffer: 8 * 1024 * 1024,
+  });
   const target = join(scratch, "target");
   const result = await execute("cargo", [
     "build", "--manifest-path", join(root, "tools/platform/Cargo.toml"),
@@ -75,12 +80,12 @@ function decodeRlp(encoded) {
   return value;
 }
 
-function signedReceipt(raw, returnData) {
+function signedReceipt(raw, returnData, pair) {
   const uint = (value, width) => Buffer.from(BigInt(value).toString(16).padStart(width * 2, "0"), "hex");
   const bounded = (value) => Buffer.concat([uint(value.length, 4), value]);
   const sha256 = (value) => createHash("sha256").update(value).digest();
   const txHash = hex(keccak_256(raw));
-  const pair = generateKeyPairSync("ed25519");
+  const publicKey = hex(pair.publicKey.export({ type: "spki", format: "der" }).subarray(-32));
   const keyId = Buffer.alloc(32, 0x55);
   const zero = Buffer.alloc(32);
   const prefix = Buffer.concat([
@@ -92,10 +97,12 @@ function signedReceipt(raw, returnData) {
   ]);
   const digest = sha256(Buffer.concat([Buffer.from("LXP/v1/receipt\0"), prefix, Buffer.of(0)]));
   const receipt = hex(Buffer.concat([prefix, Buffer.of(1), bounded(sign(null, digest, pair.privateKey))]));
-  return { txHash, rung: "receipted", status: "0x1", returnData, vmError: "", receipt };
+  return { txHash, rung: "receipted", status: "0x1", returnData, vmError: "", receipt, publicKey };
 }
 
-async function runWalkthrough(t, refused, receiptState = "receipted") {
+async function runWalkthrough(t, refused, receiptState = "receipted", unpinned = false) {
+  const signer = generateKeyPairSync("ed25519");
+  const pinnedKey = unpinned ? generateKeyPairSync("ed25519").publicKey : signer.publicKey;
   const directory = await mkdtemp(join(scratch, "case-"));
   const bin = join(directory, "bin");
   await mkdir(bin);
@@ -112,6 +119,11 @@ async function runWalkthrough(t, refused, receiptState = "receipted") {
   let transaction;
   let receipt;
   let estimate;
+  const programInterface = Buffer.concat([
+    Buffer.from("LayerX/program-interface/v1\0"), Buffer.from(codeHash, "hex"),
+    Buffer.from("00020001000463616c6c010203040202000000000000", "hex"),
+  ]);
+  const interfaceDigest = createHash("sha256").update(programInterface).digest("hex");
   const simulation = abiOutcome(refused ? -1 : 0, refused ? 2 : 1, "aabb");
   const server = createServer(async (request, response) => {
     try {
@@ -143,9 +155,29 @@ async function runWalkthrough(t, refused, receiptState = "receipted") {
       assert.equal(message.jsonrpc, "2.0");
       let result;
       switch (message.method) {
+        case "eth_getLogs":
+          assert.deepEqual(message.params, [{
+            address: programsAddress, fromBlock: "earliest", toBlock: "latest", topics: [deployedTopic],
+          }]);
+          result = [{
+            address: programsAddress, removed: false, topics: [deployedTopic, `0x${programId}`],
+            data: `0x${codeHash}`,
+          }];
+          break;
         case "eth_call":
           assert.equal(message.params[0].to, programsAddress);
           assert.equal(message.params[1], "pending");
+          if (message.params[0].data.startsWith("0xb1ffb3d4")) {
+            assert.equal(message.params[0].data, `0xb1ffb3d4${programId}`);
+            result = `0x${word(0)}${"22".repeat(32)}${codeHash}${word(2)}${word(1)}${word(1)}`;
+            break;
+          }
+          if (message.params[0].data.startsWith("0x8efc7240")) {
+            assert.equal(message.params[0].data, `0x8efc7240${programId}`);
+            const encoded = programInterface.toString("hex");
+            result = `0x${word(1)}${interfaceDigest}${word(96)}${word(programInterface.length)}${encoded.padEnd(Math.ceil(encoded.length / 64) * 64, "0")}`;
+            break;
+          }
           assert.match(message.params[0].data, /^0x3044bd56/u);
           assert.equal(message.params[0].data.slice(10, 74), programId);
           assert.equal(BigInt(`0x${message.params[0].data.slice(10 + 7 * 64, 10 + 8 * 64)}`), 1000000n);
@@ -165,7 +197,8 @@ async function runWalkthrough(t, refused, receiptState = "receipted") {
           assert.equal(message.params[1], "pending");
           estimate = message.params[0].data;
           assert.match(estimate, /^0x54bd2b48/u);
-          assert.equal(estimate.slice(10), requests.find((entry) => entry.method === "eth_call").params[0].data.slice(10));
+          assert.equal(estimate.slice(10), requests.find((entry) => entry.method === "eth_call"
+            && entry.params[0].data.startsWith("0x3044bd56")).params[0].data.slice(10));
           result = "0x493e0";
           break;
         case "eth_sendRawTransaction": {
@@ -181,10 +214,15 @@ async function runWalkthrough(t, refused, receiptState = "receipted") {
           assert.equal(hex(fields[5]), programsAddress);
           assert.equal(hex(fields[7]), estimate);
           assert.ok(fields[10].length > 0 && fields[11].length > 0);
-          receipt = signedReceipt(transaction, abiOutcome(0, 1, "ccdd"));
+          receipt = signedReceipt(transaction, abiOutcome(0, 1, "ccdd"), signer);
           result = receipt.txHash;
           break;
         }
+        case "eth_getRawTransactionByHash":
+          assert.ok(transaction);
+          assert.deepEqual(message.params, [receipt.txHash]);
+          result = hex(transaction);
+          break;
         case "pax_sequencerReceipt":
           assert.ok(transaction);
           assert.deepEqual(message.params, [receipt.txHash]);
@@ -212,7 +250,13 @@ async function runWalkthrough(t, refused, receiptState = "receipted") {
     cwd: root, timeout: 30000, maxBuffer: 1024 * 1024,
     env: { ...env, PATH: `${bin}${delimiter}${env.PATH}`, LAYERX_CONFIG: configuration,
       LAYERX_CREDENTIAL_STORE: "file", LAYERX_CREDENTIAL_PASSPHRASE: "walkthrough local integration test",
-      LAYERX_EVM_KEY_FILE: keyFile },
+      LAYERX_EVM_KEY_FILE: keyFile,
+      LAYERX_RPC_URL: `http://127.0.0.1:${server.address().port}/rpc`,
+      LAYERX_RECEIPT_KEYS_JSON: JSON.stringify([{
+        keyId: `0x${"55".repeat(32)}`,
+        publicKey: hex(pinnedKey.export({ type: "spki", format: "der" }).subarray(-32)),
+        firstHeight: "0", lastHeight: "10",
+      }]) },
   });
   assert.deepEqual(errors, []);
   assert.equal(output.stderr, "");
@@ -224,7 +268,9 @@ async function walkthroughSimulatesThroughProgramsPrecompile(t) {
   assert.equal(output.status, "typed-refusal");
   assert.equal(output.program_id, programId);
   assert.deepEqual(output.refusal, { terminal_result: -1, terminal_kind: 2, response: "0xaabb" });
-  assert.deepEqual(requests.filter((request) => request.jsonrpc).map((request) => request.method), ["eth_call"]);
+  assert.deepEqual(requests.filter((request) => request.jsonrpc).map((request) => request.method), [
+    "eth_getLogs", "eth_call", "eth_call", "eth_call",
+  ]);
   assert.equal(requests.some((request) => request.path?.includes("account")), false);
 }
 
@@ -238,10 +284,12 @@ async function walkthroughReportsTransactionHashAndRung(t) {
   assert.equal(Object.hasOwn(output, "activity_id"), false);
   assert.equal(Object.hasOwn(output, "receipt_digest"), false);
   assert.equal(requests.filter((request) => request.method === "eth_sendRawTransaction").length, 1);
-  assert.equal(requests.filter((request) => request.method === "pax_sequencerReceipt").length, 1);
+  assert.equal(requests.filter((request) => request.method === "pax_sequencerReceipt").length, 2);
   assert.deepEqual(requests.filter((request) => request.jsonrpc).map((request) => request.method), [
+    "eth_getLogs", "eth_call", "eth_call",
     "eth_call", "eth_chainId", "eth_getTransactionCount", "eth_gasPrice",
     "eth_maxPriorityFeePerGas", "eth_estimateGas", "eth_sendRawTransaction", "pax_sequencerReceipt",
+    "eth_getRawTransactionByHash", "pax_sequencerReceipt",
   ]);
   const pending = await runWalkthrough(t, false, "submitted");
   assert.equal(pending.output.status, "unknown-fate");
@@ -251,5 +299,18 @@ async function walkthroughReportsTransactionHashAndRung(t) {
   assert.equal(pending.requests.filter((request) => request.method === "eth_sendRawTransaction").length, 1);
 }
 
+async function walkthroughRefusesUnpinnedReceipt(t) {
+  const { output, requests, receipt } = await runWalkthrough(t, false, "receipted", true);
+  assert.equal(output.status, "unknown-fate");
+  assert.equal(output.rung, "submitted");
+  assert.equal(output.tx_hash, receipt.txHash);
+  assert.equal(Object.hasOwn(output, "outcome"), false);
+  assert.equal(output.action, "Query receipt get with this transaction hash; do not resubmit the call");
+  assert.equal(requests.filter((request) => request.method === "eth_sendRawTransaction").length, 1);
+  assert.equal(requests.filter((request) => request.method === "eth_getRawTransactionByHash").length, 1);
+  assert.equal(requests.filter((request) => request.method === "pax_sequencerReceipt").length, 2);
+}
+
 test(walkthroughSimulatesThroughProgramsPrecompile);
 test(walkthroughReportsTransactionHashAndRung);
+test(walkthroughRefusesUnpinnedReceipt);

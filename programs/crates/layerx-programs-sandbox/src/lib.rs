@@ -17,7 +17,17 @@ pub mod usage;
 #[cfg(feature = "host-ffi")]
 #[inline(never)]
 pub fn retain_host_ffi_exports() {
+    #[allow(unsafe_code)]
+    unsafe extern "C" {
+        fn layerx_programs_event_log_encode(
+            call_token: u64,
+            index: u32,
+            out: *mut u8,
+            out_len: u32,
+        ) -> i32;
+    }
     let exports = [
+        layerx_programs_event_log_encode as *const (),
         host_ffi::layerx_programs_sandbox_admit_host as *const (),
         host_ffi::layerx_programs_sandbox_final_reserve_host as *const (),
         host_ffi::layerx_programs_sandbox_cancel_host as *const (),

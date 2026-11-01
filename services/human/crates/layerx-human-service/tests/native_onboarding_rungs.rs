@@ -1,7 +1,9 @@
+#[path = "support/canonical_owner.rs"]
+mod canonical_owner;
+
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::agent_api_schema_v1;
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
-use layerx_crypto::SignatureMessage;
 use layerx_human_service::agents::ProtocolEvidence;
 use layerx_human_service::custody::{EnvelopeKms, KeyClass, KeyEntropy, KeyId, Keystore};
 use layerx_human_service::frame::{read_frame, write_frame, Limits};
@@ -13,7 +15,7 @@ use layerx_human_service::server::agent_runtime::AgentRuntime;
 use layerx_human_service::store::{PrincipalStore, TenancyDigest};
 use layerx_human_service::trace::TraceId;
 use layerx_human_test_support as support;
-use layerx_intents::{canonical, owner_activity, NativeOwnerBootstrap};
+use layerx_intents::{canonical, NativeOwnerBootstrap};
 use layerx_sdk::Client as AgentClient;
 use layerx_types::ids::Did;
 use layerx_types::intent::{ApprovalThreshold, PublicKey, RecoveryRoot};
@@ -223,40 +225,17 @@ fn setup_evidence(
         },
     };
     let compiled = request.compile(registry).unwrap();
-    let (unsigned, _) = owner_activity::unsigned_native(
-        &compiled,
-        &owner_activity::OwnerEnvelopeContext {
-            actor: Did::new(b"did:layerx:owner-receipt-fixture").unwrap(),
-            owner_public_key: public_key,
-            network_id: NETWORK_ID,
-            account_sequence: 1,
-            not_before_ms: 900,
-            not_after_ms: 2000,
-            action_key,
-            fee_limit: 10,
-        },
-        registry,
-    )
-    .unwrap();
-    let message = SignatureMessage::new(
-        canonical::Domain::SignaturePreimage,
-        3,
+    let owner = canonical_owner::sign_transaction(
+        compiled.payload(),
+        action_key,
+        canonical::STATE_COMMITMENT_PROTOCOL_VERSION,
         NETWORK_ID,
-        &unsigned,
-    )
-    .unwrap();
-    let signature = SigningKey::from_bytes(&[0x68; 32])
-        .sign(&message.digest())
-        .to_bytes();
-    let signed_activity =
-        owner_activity::attach_signature(&unsigned, signature, public_key, registry).unwrap();
-    let activity = owner_activity::verify(&signed_activity, registry).unwrap();
-    let activity_id = canonical::activity_id(&activity).unwrap();
+    );
     let block_height = 42_u64;
     let mut batch_id = [0; 32];
     batch_id[24..].copy_from_slice(&block_height.to_be_bytes());
     let fields = ReceiptFields {
-        activity_id,
+        activity_id: owner.id,
         previous_state_root: [0x31; 32],
         resulting_state_root: [0x32; 32],
         batch_id,
@@ -271,15 +250,15 @@ fn setup_evidence(
     let signature = signer.sign(&<[u8; 32]>::from(digest.finalize())).to_bytes();
     let receipt_bytes = encode_receipt(&fields, Some(signature));
     let evidence = ProtocolEvidence {
-        signed_activity,
-        actor: activity.actor_did().to_vec(),
-        owner_public_key: public_key,
+        signed_activity: owner.bytes,
+        actor: owner.actor,
+        owner_public_key: owner.public_key,
         network_id: NETWORK_ID,
         action_key,
-        activity_id,
+        activity_id: owner.id,
         receipt_hash: Sha256::digest(&receipt_bytes).into(),
         receipt_bytes,
-        tx_hash: activity_id,
+        tx_hash: owner.id,
         block_height,
         rung: Rung::Committed,
     };

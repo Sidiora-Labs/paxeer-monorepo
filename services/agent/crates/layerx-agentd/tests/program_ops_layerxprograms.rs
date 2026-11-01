@@ -94,7 +94,11 @@ fn output(result: i32, kind: u8, response: &[u8]) -> Vec<u8> {
     bytes
 }
 
-fn assert_request(request: &Value) {
+fn assert_request(request: &Value, actor: [u8; 20]) {
+    assert_eq!(
+        request["params"][0]["from"],
+        format!("0x{}", hex::encode(actor))
+    );
     assert_eq!(request["jsonrpc"], "2.0");
     assert_eq!(request["method"], "eth_call");
     assert_eq!(request["params"][1], "pending");
@@ -169,15 +173,15 @@ fn program_simulation_uses_eth_call_at_pending() {
         let operations =
             ProgramOperations::from_endpoint(SequencerEndpoint::new(&url, &[]).unwrap());
         let result = if native {
-            operations.simulate_native(call(), 987)
+            operations.simulate_native([0x11; 20], call(), 987)
         } else {
-            operations.simulate(call(), 987)
+            operations.simulate([0x11; 20], call(), 987)
         }
         .unwrap();
         assert_eq!(result.terminal_result, code);
         assert_eq!(result.terminal_kind, kind);
         assert_eq!(result.response, response);
-        assert_request(&server.join().unwrap());
+        assert_request(&server.join().unwrap(), [0x11; 20]);
     }
     for malformed in [
         vec![],
@@ -196,10 +200,10 @@ fn program_simulation_uses_eth_call_at_pending() {
         let (url, server) = serve(json!({"result": format!("0x{}", hex::encode(malformed))}));
         let operations = ProgramOperations::connect(&url, &[]).unwrap();
         assert_eq!(
-            operations.simulate(call(), 987),
+            operations.simulate([0x11; 20], call(), 987),
             Err(ProgramOperationError::UnverifiedReceipt)
         );
-        assert_request(&server.join().unwrap());
+        assert_request(&server.join().unwrap(), [0x11; 20]);
     }
 }
 
@@ -223,12 +227,12 @@ fn program_revert_maps_to_a_typed_operation_error() {
         let (url, server) = serve(json!({"error": error}));
         let operations = ProgramOperations::connect(&url, &[]).unwrap();
         assert_eq!(
-            operations.simulate(call(), 987),
+            operations.simulate([0x11; 20], call(), 987),
             Err(ProgramOperationError::Submit(
                 ProgramRpcFailure::ExecutionReverted(refusal)
             ))
         );
-        assert_request(&server.join().unwrap());
+        assert_request(&server.join().unwrap(), [0x11; 20]);
     }
     let refusal = RpcRefusal {
         code: -32602,
@@ -240,10 +244,50 @@ fn program_revert_maps_to_a_typed_operation_error() {
     );
     let operations = ProgramOperations::connect(&url, &[]).unwrap();
     assert_eq!(
-        operations.simulate(call(), 987),
+        operations.simulate([0x11; 20], call(), 987),
         Err(ProgramOperationError::Submit(ProgramRpcFailure::Sequencer(
             SequencerError::Rpc(refusal)
         )))
     );
-    assert_request(&server.join().unwrap());
+    assert_request(&server.join().unwrap(), [0x11; 20]);
+}
+
+#[test]
+fn program_simulation_carries_the_actor_as_caller() {
+    let response = vec![0x00, 0xab, 0xff];
+    for actor in [[0x11; 20], [0x22; 20]] {
+        for native in [false, true] {
+            let (url, server) = serve(json!({
+                "result": format!("0x{}", hex::encode(output(-7, 2, &response)))
+            }));
+            let operations = ProgramOperations::connect(&url, &[]).unwrap();
+            let result = if native {
+                operations.simulate_native(actor, call(), 987)
+            } else {
+                operations.simulate(actor, call(), 987)
+            }
+            .unwrap();
+            assert_eq!(result.terminal_result, -7);
+            assert_eq!(result.terminal_kind, 2);
+            assert_eq!(result.response, response);
+            assert_request(&server.join().unwrap(), actor);
+        }
+    }
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let url = format!("http://{}/", listener.local_addr().unwrap());
+    let operations = ProgramOperations::connect(&url, &[]).unwrap();
+    for native in [false, true] {
+        let result = if native {
+            operations.simulate_native([0; 20], call(), 987)
+        } else {
+            operations.simulate([0; 20], call(), 987)
+        };
+        assert_eq!(result, Err(ProgramOperationError::InvalidRequest));
+        assert!(matches!(
+            listener.accept(),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock
+        ));
+    }
 }

@@ -5,7 +5,7 @@ import { request as httpsRequest } from 'node:https';
 import { createServer, type Server } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { buildAttestor, CHAIN_ID, KERNEL_POLICY } from '../e2e/attestors.js';
+import { buildAttestor, CHAIN_ID, KERNEL_POLICY, PAYMASTER } from '../e2e/attestors.js';
 import { ADDR, BIND_SELECTOR } from './chain.js';
 import type { IdentityProvider } from './identity.js';
 
@@ -133,6 +133,7 @@ export async function startCustodyAuthority(idp: IdentityProvider, rpcUrl: strin
           ATTESTOR_NODE_KEY_FILE: keyFile,
           ATTESTOR_DATA_DIR: join(workDir, `${node}-data`),
           ATTESTOR_CHAIN_ID: String(CHAIN_ID),
+          ATTESTOR_AGENT_PAYMASTER: PAYMASTER,
           ATTESTOR_JWKS_URL: `${idp.url}/auth/v1/.well-known/jwks.json`,
           ATTESTOR_JWT_ISSUER: `${idp.url}/auth/v1`,
           ATTESTOR_JWT_AUDIENCE: 'authenticated',

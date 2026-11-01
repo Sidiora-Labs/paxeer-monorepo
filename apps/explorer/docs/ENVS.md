@@ -596,6 +596,7 @@ Ads are enabled by default on all self-hosted instances. If you would like to di
 | --- | --- | --- | --- | --- | --- | --- |
 | NEXT_PUBLIC_API_DOCS_TABS | `Array<TabId>` | Controls which tabs appear on the API documentation page. Possible values for `TabId` are `rest_api`, `eth_rpc_api`, `rpc_api`, and `graphql_api`. **Note** that this variable has a default value, so the feature is enabled by default. Pass an empty array to disable it. | - | `['rest_api','eth_rpc_api','rpc_api','graphql_api']` | `[]` | v2.3.x+ |
 | NEXT_PUBLIC_API_DOCS_ALERT_MESSAGE | `string` | Used for displaying custom alerts on the API documentation page. Could be a regular string or a HTML code. | - | - | `Hello world! 🤪` | v2.7.0+ |
+| NEXT_PUBLIC_API_SPEC_URL | `string` | URL of the OpenAPI document (`.yaml` or `.json`) shown in the "Blockscout core API" section of the REST API tab. When it is not set or not reachable, the app falls back to the `openapi.yaml` file in its public directory and then to the `/api/v2/openapi` endpoint of the backend. | - | - | `https://example.com/openapi.yaml` | v2.7.0+ |
 
 &nbsp;
 

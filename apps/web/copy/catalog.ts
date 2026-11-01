@@ -29,6 +29,8 @@ export interface CopyEntry {
 }
 
 export const copyEntries = [
+  { key: "markets.send.receipt", message: "Receipt: block {blockNumber}, logs {logCount}.", context: "Confirmed market transaction receipt block and number of logs.", surface: "default", kind: "status", moneyAdjacent: true },
+  { key: "markets.send.reverted", message: "Transaction {transactionHash} reverted.", context: "Market transaction execution reverted; never shown as a successful send.", surface: "default", kind: "status", moneyAdjacent: true },
   { key: "gas.sidiora.title", message: "Transaction fees", context: "Sidiora fee selection and signing journey.", surface: "default", kind: "body", moneyAdjacent: true },
   { key: "gas.sidiora.scope", message: "Choose how this tab pays wallet transaction fees on Paxeer X Network.", context: "Sidiora fee selection and signing journey.", surface: "default", kind: "body", moneyAdjacent: true },
   { key: "gas.sidiora.paxeer", message: "Pay fees in Paxeer", context: "Sidiora fee selection and signing journey.", surface: "default", kind: "action", moneyAdjacent: true },

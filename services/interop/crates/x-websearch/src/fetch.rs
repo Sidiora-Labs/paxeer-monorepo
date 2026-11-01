@@ -845,14 +845,12 @@ impl Fetcher {
         Ok(robots)
     }
 
-    /// Fetches a URL: destination and robots.txt checks before every
-    /// request, at most the configured redirects each checked again, the
-    /// body limit and the time limits, then extraction and the canonical
-    /// bytes with the requested URL as the payload.
-    ///
-    /// # Errors
-    /// Returns the refusal that stopped the fetch.
-    pub fn fetch(&self, url: &str) -> Result<FetchedPage, FetchError> {
+    fn fetch_response(
+        &self,
+        url: &str,
+        limit: usize,
+        accept: &str,
+    ) -> Result<(Url, HttpResponse), FetchError> {
         let deadline = Instant::now() + self.limits.total_timeout();
         let mut current = Url::parse(url)?;
         let mut redirects = 0_u8;
@@ -864,44 +862,11 @@ impl Fetcher {
             {
                 return Err(FetchError::RobotsDisallowed);
             }
-            let response = self.client.get(
-                &current,
-                address,
-                deadline,
-                self.body_limit(),
-                &[("Accept", ACCEPT)],
-            )?;
+            let response =
+                self.client
+                    .get(&current, address, deadline, limit, &[("Accept", accept)])?;
             match response.status {
-                200..=299 => {
-                    let content_type = response.header("content-type");
-                    let extracted = extract::extract(content_type, &response.body)
-                        .map_err(FetchError::Extract)?;
-                    let charset = content_type
-                        .map(extract::parse_content_type)
-                        .transpose()
-                        .map_err(FetchError::Extract)?
-                        .and_then(|(_, charset)| charset);
-                    let canonical = canonical::canonical_bytes(
-                        ContentKind::Fetch,
-                        url.as_bytes(),
-                        &extracted.media_type,
-                        &extracted.text,
-                    )
-                    .map_err(FetchError::Canonical)?;
-                    if canonical.len() > MAX_CONTENT_BYTES {
-                        return Err(FetchError::ContentTooLarge);
-                    }
-                    return Ok(FetchedPage {
-                        url: url.to_owned(),
-                        final_url: current.to_string(),
-                        media_type: extracted.media_type,
-                        text: extracted.text,
-                        digest: canonical::content_digest(&canonical),
-                        canonical,
-                        body: response.body,
-                        charset,
-                    });
-                }
+                200..=299 => return Ok((current, response)),
                 status if redirect(status) => {
                     if redirects >= self.limits.max_redirects {
                         return Err(FetchError::TooManyRedirects);
@@ -915,6 +880,54 @@ impl Fetcher {
                 status => return Err(FetchError::Status(status)),
             }
         }
+    }
+
+    pub fn fetch_bytes(&self, url: &str, limit: usize) -> Result<Vec<u8>, FetchError> {
+        if limit == 0 {
+            return Err(FetchError::InvalidLimits);
+        }
+        let (_, response) =
+            self.fetch_response(url, limit.min(8 * 1024 * 1024), "application/octet-stream")?;
+        Ok(response.body)
+    }
+
+    /// Fetches a URL: destination and robots.txt checks before every
+    /// request, at most the configured redirects each checked again, the
+    /// body limit and the time limits, then extraction and the canonical
+    /// bytes with the requested URL as the payload.
+    ///
+    /// # Errors
+    /// Returns the refusal that stopped the fetch.
+    pub fn fetch(&self, url: &str) -> Result<FetchedPage, FetchError> {
+        let (current, response) = self.fetch_response(url, self.body_limit(), ACCEPT)?;
+        let content_type = response.header("content-type");
+        let extracted =
+            extract::extract(content_type, &response.body).map_err(FetchError::Extract)?;
+        let charset = content_type
+            .map(extract::parse_content_type)
+            .transpose()
+            .map_err(FetchError::Extract)?
+            .and_then(|(_, charset)| charset);
+        let canonical = canonical::canonical_bytes(
+            ContentKind::Fetch,
+            url.as_bytes(),
+            &extracted.media_type,
+            &extracted.text,
+        )
+        .map_err(FetchError::Canonical)?;
+        if canonical.len() > MAX_CONTENT_BYTES {
+            return Err(FetchError::ContentTooLarge);
+        }
+        Ok(FetchedPage {
+            url: url.to_owned(),
+            final_url: current.to_string(),
+            media_type: extracted.media_type,
+            text: extracted.text,
+            digest: canonical::content_digest(&canonical),
+            canonical,
+            body: response.body,
+            charset,
+        })
     }
 }
 

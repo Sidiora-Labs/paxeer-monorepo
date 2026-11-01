@@ -936,6 +936,7 @@ name = "layerx-mcp"
 version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
+ "ed25519-dalek",
  "layerx-agent-api",
  "layerx-agentd",
  "layerx-crypto",

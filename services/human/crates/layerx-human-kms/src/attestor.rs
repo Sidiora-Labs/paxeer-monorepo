@@ -9,6 +9,7 @@ use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
 use layerx_crypto::disclosure::{
     AmountRole, Counterparty, CounterpartyRole, DisclosedAmount, Disclosure,
 };
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::payments::Payment;
 use layerx_crypto::signer::SignError;
 use layerx_types::payload::ModuleId;
@@ -809,7 +810,7 @@ impl AttestorSigner {
     /// Signs a disclosure-bound EIP-1559 ledger call through the attestor quorum.
     pub fn sign_activity(
         &self,
-        call: &layerx_crypto::evm_transaction::Eip1559Call,
+        call: &Eip1559Call,
         disclosure: &Disclosure,
         from: [u8; 20],
         approval: &Approval<'_>,
@@ -820,7 +821,7 @@ impl AttestorSigner {
 
     fn sign_activity_with_clock(
         &self,
-        call: &layerx_crypto::evm_transaction::Eip1559Call,
+        call: &Eip1559Call,
         disclosure: &Disclosure,
         from: [u8; 20],
         approval: &Approval<'_>,
@@ -1155,7 +1156,7 @@ impl AttestorSigner {
 }
 
 fn validate_disclosure(
-    call: &layerx_crypto::evm_transaction::Eip1559Call,
+    call: &Eip1559Call,
     disclosure: &Disclosure,
     from: [u8; 20],
 ) -> Result<(), AttestorError> {
@@ -1253,7 +1254,7 @@ impl layerx_crypto::signer::Signer for AttestorTransactionSigner<'_> {
 
     fn sign_transaction<'a>(
         &'a self,
-        call: &'a layerx_crypto::evm_transaction::Eip1559Call,
+        call: &'a Eip1559Call,
     ) -> layerx_crypto::signer::TransactionSignFuture<'a> {
         Box::pin(async move {
             let result = self.signer.sign_evm_transaction_with_assertion(
@@ -1335,7 +1336,7 @@ fn evm_rlp_list(payload: &[u8]) -> Vec<u8> {
     out
 }
 
-pub fn unsigned_evm_transaction(call: &layerx_crypto::evm_transaction::Eip1559Call) -> Vec<u8> {
+pub fn unsigned_evm_transaction(call: &Eip1559Call) -> Vec<u8> {
     fn bytes(value: &[u8], out: &mut Vec<u8>) {
         if value.len() == 1 && value[0] < 0x80 {
             out.extend_from_slice(value);
@@ -1367,9 +1368,7 @@ pub fn unsigned_evm_transaction(call: &layerx_crypto::evm_transaction::Eip1559Ca
     unsigned
 }
 
-pub fn decode_unsigned_evm_transaction(
-    unsigned: &[u8],
-) -> Result<layerx_crypto::evm_transaction::Eip1559Call, AttestorError> {
+pub fn decode_unsigned_evm_transaction(unsigned: &[u8]) -> Result<Eip1559Call, AttestorError> {
     let invalid = || AttestorError::Configuration("unsigned EIP-1559 call");
     if unsigned.first() != Some(&2) || unsigned.len() > 1_048_576 {
         return Err(invalid());
@@ -1406,7 +1405,7 @@ pub fn decode_unsigned_evm_transaction(
     if list || take(&mut fields) != Some((&[][..], true)) || !fields.is_empty() || chain_id == 0 {
         return Err(invalid());
     }
-    let call = layerx_crypto::evm_transaction::Eip1559Call {
+    let call = Eip1559Call {
         chain_id,
         nonce,
         max_priority_fee_per_gas,

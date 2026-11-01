@@ -53,3 +53,15 @@ def test_guarantor_duties_retired():
             ],
         ),
     )
+
+
+def test_guarantor_dissent_symbols_unreferenced_in_kernel():
+    assert_symbols_unreferenced(
+        [
+            "lxp_guarantor_first_divergence",
+            "lxp_guarantor_dissent",
+            "lxp_guarantor_dissent_verify",
+            "lxp_guarantor_withhold",
+        ],
+        _included_sources(["src", "include", "cmd"], exclude=[]),
+    )

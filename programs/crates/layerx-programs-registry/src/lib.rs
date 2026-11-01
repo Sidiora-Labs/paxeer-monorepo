@@ -49,11 +49,10 @@ pub use interface::{
 };
 pub use pipeline::{BuildAttempt, BuildPlan, BuildRefusal, BuildRunner, SourceVerifier};
 pub use protocol_evidence::{
-    DeploymentMaintenanceProof, DeploymentProof, ProgramBundleError, ProgramHeadKind,
-    ProgramLifecycleProof, ProgramStateBundle, ProgramStateProof, ProtocolDeploymentVerifier,
-    ProtocolEvidenceError, ProtocolHeadMaintenanceProof, ProtocolHeadProof, ReceiptEvidenceDigest,
-    StateLeafWitness, VerifiedChainHead, VerifiedDeploymentEvidence, VerifiedMaintenanceHead,
-    VerifiedProgramBundle, VerifiedProgramHead, VerifiedProtocolHead,
+    DeploymentProof, ProgramBundleError, ProgramHeadKind, ProgramLifecycleProof,
+    ProgramStateBundle, ProgramStateProof, ProtocolDeploymentVerifier, ProtocolEvidenceError,
+    ProtocolHeadProof, ReceiptEvidenceDigest, StateLeafWitness, VerifiedChainHead,
+    VerifiedDeploymentEvidence, VerifiedProgramBundle, VerifiedProgramHead, VerifiedProtocolHead,
 };
 pub use resolver::{ExecutableAdmissionError, VerifiedProgramCatalog};
 

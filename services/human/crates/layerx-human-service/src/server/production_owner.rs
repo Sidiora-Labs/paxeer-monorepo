@@ -1,5 +1,11 @@
 use super::*;
-use layerx_crypto::rotation::OwnerRotationState;
+use owner_identity::OwnerIdentityState;
+
+#[path = "owner_identity.rs"]
+pub(super) mod owner_identity;
+
+#[cfg(test)]
+use owner_identity::OwnerIdentityState as OwnerRotationState;
 
 pub(super) struct PrincipalOwner {
     pub actor: AgentDid,
@@ -66,7 +72,7 @@ fn validate_owner_identity(
     public_key: [u8; 32],
     identity: &super::super::agent_runtime::AgentCoreIdentity,
 ) -> Result<(), ApiFailure> {
-    let state = OwnerRotationState::decode(&identity.canonical_bytes, did)
+    let state = OwnerIdentityState::decode(&identity.canonical_bytes, did)
         .map_err(|_| ApiFailure::forbidden())?;
     if identity.frozen
         || !matches!(identity.verification, 4 | 5)

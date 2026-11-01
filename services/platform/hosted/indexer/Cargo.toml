@@ -17,9 +17,7 @@ layerx-committed-proof = { path = "../../../../services/interop/crates/layerx-co
 layerx-platform-internal.workspace = true
 layerx-types.workspace = true
 layerx-wire.workspace = true
-layerx-client.workspace = true
 layerx-proof.workspace = true
-layerx-paxeer-verifier = { path = "../../../../services/agent/crates/layerx-paxeer-verifier" }
 layerx-programs-ai-market = { path = "../../../../programs/crates/layerx-programs-ai-market" }
 postgres = "=0.19.14"
 rusqlite = { version = "=0.37.0", default-features = false, features = ["bundled"] }

@@ -27,6 +27,7 @@ import {
   sponsoredBindRequest,
   provisioningStationConfig,
   type SponsoredBindRequest,
+  type SponsoredBindConstruction,
   type SignBody,
 } from './bind.js';
 
@@ -117,7 +118,7 @@ interface ProvisionRow {
   bind_tx_hash: Hex | null;
   station_quote_nonce: string | null;
   station_batch_nonce: string | null;
-  station_request: SponsoredBindRequest | null;
+  station_request: SponsoredBindConstruction | SponsoredBindRequest | null;
   refusal_reason: string | null;
 }
 
@@ -446,7 +447,7 @@ export async function provisionAccount(deps: ProvisionDeps, subject: ProvisionSu
 
     if (row.state === 'evm_key') {
       if (principal) {
-        await storeIdentity(deps, row, wallet, normalisePublicKey(principal.public_key), null);
+        await storeIdentity(deps, row, wallet, normalisePublicKey(principal.public_key), principal.did);
       } else {
         const attestors = requireAttestors(deps);
         const keyId = `account:${userId}:${kind}:ed25519:${row.ed_key_generation}`;
@@ -492,10 +493,13 @@ export async function provisionAccount(deps: ProvisionDeps, subject: ProvisionSu
       if (subject.kind === 'standard' && !subject.token) return result(row, wallet, 'owner');
       let requoted = false;
       for (;;) {
-        if (!row.station_request) {
+        if (!row.station_request || !('call' in row.station_request)) {
           const config = provisioningStationConfig();
-          const f = await fees(deps.rpc);
-          const gasCost = config.gasLimit * f.maxFeePerGas;
+          const f = row.station_request
+            ? { maxFeePerGas: BigInt(row.bind_max_fee_wei!) }
+            : await fees(deps.rpc);
+          const gasLimit = row.station_request ? BigInt(row.bind_gas!) : config.gasLimit;
+          const gasCost = gasLimit * f.maxFeePerGas;
           if (gasCost > deps.gasCapWei)
             throw new ProvisionError('setup_gas_over_cap', 503, `binding needs ${gasCost} wei, above the setup gas cap ${deps.gasCapWei}`);
           const signerWallet = wallet;
@@ -504,12 +508,21 @@ export async function provisionAccount(deps: ProvisionDeps, subject: ProvisionSu
             publicKey: row.ed_public_key!, signature: row.bind_signature!, gasCost,
             paymaster: config.paymaster, maxTokenAmount: config.maxTokenAmount,
             sign: payload => signStationPayload(deps, subject, signerWallet, payload),
+            retained: row.station_request ?? undefined,
+            persist: async construction => {
+              const fields = { station_request: construction, station_quote_nonce: construction.batch.quote.quoteNonce,
+                station_batch_nonce: construction.batch.nonce, bind_gas: gasLimit.toString(), bind_max_fee_wei: f.maxFeePerGas.toString() };
+              await updateRow(deps.pool, row.id, fields);
+              Object.assign(row, fields);
+            },
           });
           const fields = { station_request: request, station_quote_nonce: request.batch.quote.quoteNonce,
-            station_batch_nonce: request.batch.nonce, bind_gas: config.gasLimit.toString(), bind_max_fee_wei: f.maxFeePerGas.toString() };
+            station_batch_nonce: request.batch.nonce, bind_gas: gasLimit.toString(), bind_max_fee_wei: f.maxFeePerGas.toString() };
           await updateRow(deps.pool, row.id, fields);
           Object.assign(row, fields);
         }
+        if (!row.station_request || !('call' in row.station_request))
+          throw new ProvisionError('station_request_unsigned', 503, 'binding construction has not been signed');
         let submitted: Record<string, unknown>;
         try {
           submitted = await deps.station.submit(row.station_request);

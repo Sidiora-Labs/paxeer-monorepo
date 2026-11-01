@@ -35,7 +35,20 @@ pub mod types;
 pub mod value_adapter;
 pub mod workers;
 
-#[cfg(any(target_arch = "wasm32", test))]
+pub fn merged_chain_domain(chain_id: u64) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+
+    Sha256::new()
+        .chain_update(b"PAXAI/chain-domain/v1")
+        .chain_update(chain_id.to_be_bytes())
+        .finalize()
+        .into()
+}
+
+pub fn deployment_chain_domain() -> CodecResult<ChainDomain> {
+    deployment::chain_domain()
+}
+
 mod deployment {
     use crate::{errors::WRONG_DOMAIN, ChainDomain, CodecResult};
 
@@ -246,7 +259,7 @@ mod guest {
             Err(AdapterError::Application(error)) => return Err(failure(error, result)),
             Err(AdapterError::Host(_)) => return Err(EMPTY_REFUSAL),
         };
-        let chain = match crate::deployment::chain_domain() {
+        let chain = match crate::deployment_chain_domain() {
             Ok(chain) => chain,
             Err(error) => return Err(failure(error, result)),
         };

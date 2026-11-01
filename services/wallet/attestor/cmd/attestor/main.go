@@ -201,7 +201,7 @@ func run(ctx context.Context, getenv func(string) string, ready func(listening))
 			return err
 		}
 	}
-	authority, err := agent.NewAuthority(agent.AuthorityConfig{PublicKeyFile: cfg.AuthorityPublicKey, Issuer: cfg.AuthorityIssuer, Tenant: cfg.AuthorityTenant, Store: st, ChainID: cfg.ChainID})
+	authority, err := agent.NewAuthority(agent.AuthorityConfig{PublicKeyFile: cfg.AuthorityPublicKey, Issuer: cfg.AuthorityIssuer, Tenant: cfg.AuthorityTenant, Store: st, ChainID: cfg.ChainID, Paymaster: cfg.AgentPaymaster})
 	if err != nil {
 		return fmt.Errorf("attestor: pinned custody producer authority: %w", err)
 	}

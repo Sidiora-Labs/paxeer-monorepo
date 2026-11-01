@@ -127,6 +127,46 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
     end
   end
 
+  describe "transaction counts" do
+    test "each block's submissions count and the total survives rescans and retention", %{update: update} do
+      second = %{update | hash: random_hash(), index: update.index + 1}
+      third = %{update | hash: random_hash()}
+      block_a = insert(:block, number: 40, timestamp: ~U[2020-01-01 00:00:00Z])
+      block_b = insert(:block, number: 41, timestamp: ~U[2020-01-01 00:00:05Z])
+      empty = insert(:block, number: 42, timestamp: ~U[2020-01-01 00:00:10Z])
+
+      assert PriceFeed.total_update_count() == 0
+      assert PriceFeed.block_update_counts([]) == %{}
+
+      assert {:ok, 2} = PriceFeed.replace_block_updates(block_a, [update, second])
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block_b, [third])
+      assert {:ok, 0} = PriceFeed.replace_block_updates(empty, [])
+
+      assert PriceFeed.block_update_counts([block_a.hash, block_b.hash, empty.hash]) ==
+               %{block_a.hash => 2, block_b.hash => 1}
+
+      assert PriceFeed.block_update_count(empty.hash) == 0
+      assert PriceFeed.total_update_count() == 3
+
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block_a, [update])
+      assert PriceFeed.block_update_counts([block_a.hash]) == %{block_a.hash => 1}
+      assert PriceFeed.total_update_count() == 2
+
+      assert PriceFeed.delete_expired_updates(1, 10) == 1
+      assert Repo.aggregate(PriceUpdate, :count) == 1
+      assert PriceFeed.total_update_count() == 2
+
+      assert LastFetchedCounter.delete("paxeer_x_price_update_total")
+      assert PriceFeed.total_update_count() == 1
+
+      assert {:ok, 1} = PriceFeed.replace_block_updates(empty, [%{update | hash: random_hash()}])
+      assert PriceFeed.total_update_count() == 2
+      assert PriceFeed.block_update_counts([empty.hash]) == %{empty.hash => 1}
+    end
+  end
+
+  defp random_hash, do: "0x" <> Base.encode16(:crypto.strong_rand_bytes(32), case: :lower)
+
   describe "reads" do
     test "latest_per_market and market_updates skip failed submissions and refused observations", %{update: update} do
       [older, newer] = Enum.map([10, 11], &insert(:block, number: &1))

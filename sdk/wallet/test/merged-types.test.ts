@@ -11,7 +11,6 @@ import type {
   ConsensusHead,
   Hex,
   HistoryItem,
-  JoinedAccount,
   SequencerReceiptAnswer,
   SequencerRung,
   SendTxResponse,
@@ -113,7 +112,11 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
     paxeer: { address: string; balance: string; nonce: string; height: string };
   }>();
   expectTypeOf<BankBalance>().toEqualTypeOf<{ denom: string; amount: string }>();
-  expectTypeOf<Balances>().toEqualTypeOf<{ account: UnifiedAccountDocument; height: string; balances: BankBalance[] }>();
+  expectTypeOf<Balances>().toEqualTypeOf<{
+    account: UnifiedAccountDocument;
+    height: string;
+    balances: BankBalance[];
+  }>();
   expectTypeOf<BankAsset>().toEqualTypeOf<{
     asset_id: string;
     denom: string;
@@ -123,7 +126,11 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
     decimals: number;
     supply: string;
   }>();
-  expectTypeOf<AssetPage>().toEqualTypeOf<{ height: string; assets: BankAsset[]; joined_limit: number }>();
+  expectTypeOf<AssetPage>().toEqualTypeOf<{
+    height: string;
+    assets: BankAsset[];
+    joined_limit: number;
+  }>();
   expectTypeOf<ConsensusHead>().toEqualTypeOf<{
     latest_height: string;
     latest_block_hash: string;
@@ -165,7 +172,7 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
   }>();
   expectTypeOf<SendTxResponse['receipt']>().toEqualTypeOf<SequencerReceiptAnswer | undefined>();
   expectTypeOf<SendTxResponse['tx_hash']>().toEqualTypeOf<Hex>();
-  expectTypeOf<JoinedAccount['account']>().not.toEqualTypeOf<string>();
+  expectTypeOf<ChainAccount['account']>().not.toEqualTypeOf<string>();
 
   expect(balances).toEqual({
     account: account.account,
@@ -208,4 +215,41 @@ function merged_types_type_every_merged_read_and_the_sequencer_receipt() {
 test(
   merged_types_type_every_merged_read_and_the_sequencer_receipt,
   merged_types_type_every_merged_read_and_the_sequencer_receipt,
+);
+
+function merged_types_export_no_joined_anchor_or_custody_type() {
+  expect(config.error).toBeUndefined();
+  expect(parsed.errors).toEqual([]);
+  const indexSource = program.getSourceFile(`${packageDir}src/index.ts`);
+  expect(indexSource).toBeDefined();
+  const checker = program.getTypeChecker();
+  const namespace = checker.getSymbolAtLocation(indexSource!);
+  expect(namespace).toBeDefined();
+  const exportedNames = checker.getExportsOfModule(namespace!).map((symbol) => symbol.getName());
+
+  expect(exportedNames).toContain('ChainAccount');
+  expect(exportedNames).toContain('NetworkHead');
+  for (const name of [
+    'PaxeerAccountHalf',
+    'JoinedAccount',
+    'CustodyAssetRecord',
+    'JoinedAsset',
+    'AssetMap',
+    'JoinedBalanceRow',
+    'JoinedBalances',
+    'CompletionAsset',
+    'CompletedBalance',
+    'AccountBalances',
+    'KernelStatus',
+    'AnchorHead',
+    'AnchorStatusName',
+    'SignCustodyResponse',
+  ]) {
+    expect(exportedNames).not.toContain(name);
+  }
+}
+
+test(
+  merged_types_export_no_joined_anchor_or_custody_type,
+  merged_types_export_no_joined_anchor_or_custody_type,
 );

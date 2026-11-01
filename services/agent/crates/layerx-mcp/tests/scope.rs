@@ -522,7 +522,7 @@ fn authority_revocation_refuses_the_bound_server_and_leaves_a_sibling_session_li
                     &RevocationEvent {
                         did: session.request.agent.clone(),
                         authority: Some(session.request.authority.clone()),
-                        reason: InvalidationReason::CapabilityGrantRevoked,
+                        reason: InvalidationReason::GrantRevokedOnChain,
                         observed_sequence: 60,
                     },
                 )

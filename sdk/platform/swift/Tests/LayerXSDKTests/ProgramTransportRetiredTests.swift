@@ -66,7 +66,7 @@ final class ProgramTransportRetiredTests: XCTestCase {
       XCTAssertEqual(body.objectValue?["jsonrpc"], .string("2.0"), operation)
       XCTAssertEqual(body.objectValue?["method"], .string(method), operation)
       if let selector {
-        guard case let .array(params)? = body.objectValue?["params"] else {
+        guard case .array(let params)? = body.objectValue?["params"] else {
           return XCTFail("\(operation) has no RPC parameters")
         }
         let transaction = try XCTUnwrap(params.first?.objectValue)
@@ -75,7 +75,7 @@ final class ProgramTransportRetiredTests: XCTestCase {
         XCTAssertEqual(params.last, .string("pending"), operation)
         XCTAssertEqual(
           transaction["to"],
-          .string(selector == "2eda9f2b" ? Programs.authAddress : Programs.address),
+          .string(Programs.address),
           operation)
       }
     }
@@ -98,10 +98,7 @@ final class ProgramTransportRetiredTests: XCTestCase {
     try await record("interface", method: "eth_call", selector: "8efc7240") {
       _ = try await programs.interface(programID: programID)
     }
-    try await record("receipt by actor", method: "eth_call", selector: "2eda9f2b") {
-      _ = try await programs.receipt(actor: Data(repeating: 0x66, count: 32), idempotencyKey: key)
-    }
-    try await record("receipt", method: "eth_call", selector: "2eda9f2b") {
+    try await record("receipt", method: "eth_getTransactionByHash") {
       _ = try await programs.receipt(
         idempotencyKey: key, expectedActivityID: transactionHash, verificationLevel: "pending")
     }
@@ -125,7 +122,7 @@ final class ProgramTransportRetiredTests: XCTestCase {
         deploy, signedActivity: signedDeploy,
         idempotencyKey: IdempotencyKey(deployVector.idempotency_key_hex))
     }
-    try await record("lifecycle receipt", method: "eth_call", selector: "2eda9f2b") {
+    try await record("lifecycle receipt", method: "eth_getTransactionByHash") {
       _ = try await programs.lifecycleReceipt(lifecycle)
     }
     let upgradeVector = try fixture("native-program-upgrade-v4")
@@ -148,7 +145,7 @@ final class ProgramTransportRetiredTests: XCTestCase {
         windDown, signedActivity: nativeTransportHex(windDownVector.signed_activity_hex),
         idempotencyKey: IdempotencyKey(windDownVector.idempotency_key_hex))
     }
-    XCTAssertEqual(RecordingProgramHTTP.requests.snapshot().count, 17)
+    XCTAssertEqual(RecordingProgramHTTP.requests.snapshot().count, 16)
 
     let token = try AccessToken(Data("recording-transport".utf8))
     defer { token.destroy() }
@@ -173,7 +170,7 @@ final class ProgramTransportRetiredTests: XCTestCase {
         XCTAssertEqual(error.retry, .never)
       }
     }
-    XCTAssertEqual(RecordingProgramHTTP.requests.snapshot().count, 17)
+    XCTAssertEqual(RecordingProgramHTTP.requests.snapshot().count, 16)
   }
 }
 

@@ -1,5 +1,4 @@
 #define _POSIX_C_SOURCE 200809L
-#include "layerx/lxp_crypto.h"
 #include "layerx/lxp_genesis.h"
 #include "layerx/lxp_kernel.h"
 #include <stdio.h>

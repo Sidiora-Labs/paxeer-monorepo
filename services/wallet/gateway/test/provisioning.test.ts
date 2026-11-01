@@ -279,6 +279,7 @@ beforeAll(async () => {
         ATTESTOR_NODE_KEY_FILE: keyFile,
         ATTESTOR_DATA_DIR: join(workDir, `${node}-data`),
         ATTESTOR_CHAIN_ID: String(CHAIN_ID),
+        ATTESTOR_AGENT_PAYMASTER: PAYMASTER,
         ATTESTOR_JWKS_URL: `${idp.url}/auth/v1/.well-known/jwks.json`,
         ATTESTOR_JWT_ISSUER: `${idp.url}/auth/v1`,
         ATTESTOR_JWT_AUDIENCE: 'authenticated',
@@ -835,7 +836,7 @@ describe('provisioning flow', () => {
     expect(chain.bindings.get(address)).toBe(foreign);
   }, LONG);
 
-  it('provisioning backfills migrated and agent wallets in bounded batches and requires agent reauthorization', async () => {
+  async function provisioningSponsorsAgentBindThroughTwoReauthorizationChallengesAndConfirmsItBeforeActive() {
     const d = deps();
     const pool = poolModule.getPool();
 
@@ -875,7 +876,11 @@ describe('provisioning flow', () => {
     });
     await agents.setPrincipalWallet(agent.did, agentWallet.row.id);
     await agents.setPrincipalFrozen(agent.did, false);
-    await agents.upsertPolicy(agent.did, { mode: 'full' }, null);
+    const agentPolicy = await agents.upsertPolicy(agent.did, {
+      mode: 'full', max_tx_value_wei: 1_000_000n, max_daily_value_wei: 100n,
+    }, null);
+    expect(agentPolicy.max_tx_value_wei).toBe(1_000_000n);
+    expect(agentPolicy.max_daily_value_wei).toBe(100n);
 
     const first = await backfillModule.backfillAccounts(d, { batchSize: 1, maxBatches: 1 });
     expect(first.outcomes).toHaveLength(1);
@@ -885,7 +890,7 @@ describe('provisioning flow', () => {
     const outcomes = [...first.outcomes, ...rest.outcomes];
     expect(outcomes.map((o) => o.wallet_id).sort()).toEqual([migratedId, agentWallet.row.id].sort());
     const byId = new Map(outcomes.map((o) => [o.wallet_id, o]));
-    expect(byId.get(migratedId)).toMatchObject({ outcome: 'awaiting_owner', kind: 'standard' });
+    expect(byId.get(migratedId), JSON.stringify(byId.get(migratedId))).toMatchObject({ outcome: 'awaiting_owner', kind: 'standard' });
     expect(byId.get(migratedId)!.did).toMatch(/^did:layerx:[0-9a-f]{64}$/);
     const agentOutcome = byId.get(agentWallet.row.id);
     expect(agentOutcome, JSON.stringify(agentOutcome)).toMatchObject({
@@ -944,13 +949,14 @@ describe('provisioning flow', () => {
     }).then(
       () => { throw new Error('agent provisioning must require exact-envelope reauthorization'); },
       (error: unknown) => {
-        expect(error).toBeInstanceOf(AttestorReauthorizationRequired);
+        expect(error, error instanceof Error ? error.message : String(error)).toBeInstanceOf(AttestorReauthorizationRequired);
         if (!(error instanceof AttestorReauthorizationRequired)) throw error;
         return error;
       },
     );
     expect(challenge.code).toBe('agent_reauthorization_required');
     expect(challenge.keyId).toBe(agentEvmKeyId);
+    expect(challenge.kind).toBe('eth_sign_digest');
     expect(JSON.parse(challenge.request)).toMatchObject({
       kind: 'eth_sign_digest',
       key_id: agentEvmKeyId,
@@ -962,8 +968,20 @@ describe('provisioning flow', () => {
       wallet_id: agentWallet.row.id,
       state: 'bind_signed',
       bind_signature: agent.sign(message).replace(/^0x/, ''),
-      station_request: null,
+      station_request: {
+        batch: { account: agentKey.address, nonce: '0' },
+        authorization: { chainId: String(CHAIN_ID), address: PAYMASTER, nonce: '0' },
+      },
     });
+    const retained = agentProvision.station_request as import('../src/provision/bind.js').SponsoredBindConstruction;
+    const batchEnvelope = JSON.parse(challenge.request);
+    expect(batchEnvelope.construction).toEqual({
+      kind: 'sponsored_batch', ...retained.batch,
+      quote: Object.fromEntries(Object.entries(retained.batch.quote).filter(([key]) => key !== 'decimals')),
+    });
+    expect(retained.accountSignature).toBeUndefined();
+    expect(String(agentProvision.station_quote_nonce)).toBe(retained.batch.quote.quoteNonce);
+    expect(String(agentProvision.station_batch_nonce)).toBe(retained.batch.nonce);
     expect(stationErrors).toEqual([]);
     expect(quoteRequests.filter((request) => request.account.toLowerCase() === agentAddress)).toHaveLength(1);
     expect(submitRequests.filter((request) => request.batch.account.toLowerCase() === agentAddress)).toHaveLength(0);
@@ -971,6 +989,71 @@ describe('provisioning flow', () => {
     expect(sentTo(agentAddress)).toHaveLength(0);
     expect(sentFrom(agentAddress)).toHaveLength(0);
     const agentRow = await pool.query(`select binding_state, layerx_key_id, did from wallets where id = $1`, [agentWallet.row.id]);
-    expect(agentRow.rows[0]).toEqual({ binding_state: 'pending', layerx_key_id: null, did: `did:layerx:${agent.publicKeyHex}` });
-  }, LONG);
+    expect(agentRow.rows[0]).toEqual({ binding_state: 'pending', layerx_key_id: agent.did, did: `did:layerx:${agent.publicKeyHex}` });
+
+    const reauthorize = (body: string) => {
+      const wire = JSON.parse(body);
+      const nonce = randomBytes(16);
+      const expiry = Math.floor(Date.now() / 1000) + 300;
+      return { body, nonce: nonce.toString('hex'), expiry,
+        signature: agent.sign(agentRequestDigest({ method: '/v1/sign', keyId: wire.key_id,
+          nonce, expiry: BigInt(expiry), body: Buffer.from(body) })) };
+    };
+    const batchApproval = reauthorize(challenge.request);
+    const authorizationChallenge = await stateModule.provisionAccount(d, {
+      kind: 'agent', did: agent.did, agentSignature: agent.sign(message),
+      custody: { origin, reauthorization: batchApproval },
+    }).then(
+      () => { throw new Error('the EIP-7702 authorization must require its own reauthorization'); },
+      (error: unknown) => {
+        expect(error, error instanceof Error ? error.message : String(error)).toBeInstanceOf(AttestorReauthorizationRequired);
+        if (!(error instanceof AttestorReauthorizationRequired)) throw error;
+        return error;
+      },
+    );
+    expect(authorizationChallenge.code).toBe('agent_reauthorization_required');
+    expect(authorizationChallenge.keyId).toBe(agentEvmKeyId);
+    expect(authorizationChallenge.kind).toBe('eip7702_authorization');
+    expect(JSON.parse(authorizationChallenge.request)).toMatchObject({
+      key_id: agentEvmKeyId, kind: 'eth_sign_digest', origin,
+      construction: { kind: 'eip7702_authorization', ...retained.authorization },
+    });
+    const afterBatch = await provisionRow(agentUserId, 'agent');
+    const signedBatch = afterBatch.station_request as import('../src/provision/bind.js').SponsoredBindConstruction;
+    expect(afterBatch.state).toBe('bind_signed');
+    expect(signedBatch.batch).toEqual(retained.batch);
+    expect(signedBatch.authorization).toEqual(retained.authorization);
+    expect(signedBatch.relayerSignature).toBe(retained.relayerSignature);
+    expect(signedBatch.accountSignature).toMatch(/^0x[0-9a-f]{130}$/);
+    expect(quoteRequests.filter(request => request.account.toLowerCase() === agentAddress)).toHaveLength(1);
+    expect(submitRequests.filter(request => request.batch.account.toLowerCase() === agentAddress)).toHaveLength(0);
+    expect(chain.bindings.has(agentAddress)).toBe(false);
+    expect((await pool.query('select binding_state from wallets where id = $1', [agentWallet.row.id])).rows[0].binding_state).toBe('pending');
+
+    const active = await stateModule.provisionAccount(d, {
+      kind: 'agent', did: agent.did, agentSignature: agent.sign(message),
+      custody: { origin, reauthorization: reauthorize(authorizationChallenge.request) },
+    });
+    expect(active).toMatchObject({ state: 'active', awaiting: null, walletId: agentWallet.row.id, did: `did:layerx:${agent.publicKeyHex}` });
+    const boundWallet = (await pool.query(
+      'select binding_state, layerx_key_id, attestor_key_id, did from wallets where id = $1', [agentWallet.row.id],
+    )).rows[0];
+    expect(boundWallet).toEqual({ binding_state: 'bound', layerx_key_id: agent.did, attestor_key_id: agentEvmKeyId, did: `did:layerx:${agent.publicKeyHex}` });
+    const finalRow = await provisionRow(agentUserId, 'agent');
+    const submitted = submitRequests.filter(request => request.batch.account.toLowerCase() === agentAddress);
+    expect(submitted).toHaveLength(1);
+    expect(finalRow.station_request).toEqual(submitted[0]);
+    expect(submitted[0]!.batch).toEqual(retained.batch);
+    expect(submitted[0]!.accountSignature).toBe(signedBatch.accountSignature);
+    expect(submitted[0]!.relayerSignature).toBe(retained.relayerSignature);
+    expect(quoteRequests.filter(request => request.account.toLowerCase() === agentAddress)).toHaveLength(1);
+    expect(chain.bindings.has(agentAddress)).toBe(true);
+    expect(chain.bindings.get(agentAddress)).toBe(agent.publicKeyHex);
+    expect(chain.bindNonces.get(agentAddress)).toBe(1n);
+    expect(stationErrors).toEqual([]);
+    expect(sentFrom(agentAddress)).toHaveLength(0);
+  }
+
+  test('provisioning sponsors the agent bind through two reauthorization challenges and confirms it before active',
+    provisioningSponsorsAgentBindThroughTwoReauthorizationChallengesAndConfirmsItBeforeActive, LONG);
 });

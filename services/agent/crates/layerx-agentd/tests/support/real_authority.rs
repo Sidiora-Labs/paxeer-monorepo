@@ -70,10 +70,17 @@ impl Clock {
 
 fn repository_root() -> PathBuf {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-    manifest.ancestors().nth(3).map_or_else(
+    manifest.ancestors().nth(4).map_or_else(
         || panic!("repository root above {}", manifest.display()),
         Path::to_path_buf,
     )
+}
+
+#[test]
+fn repository_root_holds_migrations_and_agent_workspace() {
+    let repository = repository_root();
+    assert!(repository.join("migrations").is_dir());
+    assert!(repository.join("services/agent/Cargo.toml").is_file());
 }
 
 fn free_port() -> u16 {

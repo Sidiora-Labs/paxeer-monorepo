@@ -88,85 +88,6 @@ lxp_result lxp_programs_project_receipt_events(
     const lxp_receipt *receipt, lxp_arena *arena,
     lxp_byte_span *canonical_events);
 
-/* Node-owned durable account-state feed. `append` must commit the notice and
- * its canonical receipt reference before returning. The node binds the feed
- * to the same kernel instance that commits activities; a refusal halts
- * publication and restart recovery resumes from canonical history. */
-typedef lxp_result (*lx_programs_state_feed_append_fn)(
-    void *context, uint64_t global_sequence, uint32_t ordinal,
-    const uint8_t program_id[32], uint32_t activity_type,
-    uint16_t event_type, const lxp_receipt *receipt);
-typedef lxp_result (*lx_programs_state_feed_begin_fn)(
-    void *context, const lxp_activity *activity, const lxp_receipt *receipt);
-typedef lxp_result (*lx_programs_state_feed_advance_fn)(
-    void *context, const lxp_activity *activity, const lxp_receipt *receipt);
-typedef lxp_result (*lx_programs_state_feed_lock_fn)(void *context);
-typedef lxp_result (*lx_programs_state_feed_unlock_fn)(void *context);
-
-typedef struct lx_programs_state_feed {
-    lx_programs_state_feed_begin_fn begin;
-    lx_programs_state_feed_append_fn append;
-    lx_programs_state_feed_advance_fn advance;
-    lx_programs_state_feed_lock_fn lock;
-    lx_programs_state_feed_unlock_fn unlock;
-    void *context;
-} lx_programs_state_feed;
-
-enum {
-    LX_PROGRAMS_STATE_FEED_MAX_NOTICES = 4096,
-    LX_PROGRAMS_STATE_FEED_CACHE_NOTICES = 256
-};
-typedef struct lx_programs_state_notice {
-    uint64_t global_sequence;
-    uint32_t ordinal;
-    uint8_t program_id[32];
-    uint32_t activity_type;
-    uint16_t event_type;
-    uint8_t receipt_digest[32];
-} lx_programs_state_notice;
-
-typedef struct lx_programs_state_feed_store {
-    lxp_log *log;
-    lxp_log *canonical_log;
-    lxp_history *history;
-    lxp_arena *scratch;
-    pthread_mutex_t *coordination_mutex;
-    lx_programs_state_notice notices[LX_PROGRAMS_STATE_FEED_CACHE_NOTICES];
-    size_t notice_count;
-    size_t notice_next;
-    uint64_t notice_record_count;
-    uint64_t open_notice_sequence;
-    uint8_t open_notice_receipt_digest[32];
-    uint32_t next_notice_ordinal;
-    bool notice_group_open;
-    uint64_t scanned_through_sequence;
-    uint8_t head_receipt_digest[32];
-    uint8_t head_state_root[32];
-    uint64_t head_timestamp;
-    uint64_t baseline_next_sequence;
-    uint8_t baseline_state_root[32];
-    bool baseline_present;
-    lx_programs_state_feed feed;
-} lx_programs_state_feed_store;
-
-lxp_result lxp_programs_state_feed_store_open(
-    lx_programs_state_feed_store *store, lxp_log *log,
-    lxp_log *canonical_log, lxp_history *history, lxp_arena *scratch,
-    pthread_mutex_t *coordination_mutex);
-/* Irreversibly anchors an empty recovered feed. The daemon may invoke this
- * only after WAL authentication, context binding and recovery classification
- * authorize creation of a new feed lineage. Existing or partial feed state is
- * refused rather than treated as an idempotent anchor. */
-lxp_result lxp_programs_state_feed_store_anchor(
-    lx_programs_state_feed_store *store, uint64_t baseline_next_sequence,
-    const uint8_t baseline_state_root[32]);
-lxp_result lxp_programs_state_feed_store_recover(
-    lx_programs_state_feed_store *store, lxp_kernel *kernel);
-lxp_result lxp_programs_state_feed_store_page(
-    const lx_programs_state_feed_store *store, uint64_t after_sequence,
-    size_t maximum, lx_programs_state_notice *notices, size_t *notice_count,
-    uint64_t *complete_through, uint64_t *scanned_through);
-
 enum {
     LX_PROGRAMS_DEPLOY = 0x00090001,
     LX_PROGRAMS_UPGRADE = 0x00090002,
@@ -175,7 +96,6 @@ enum {
     LX_PROGRAMS_TRANSFER = 0x00090005,
     LX_PROGRAMS_ACCOUNT = 0x00090006,
     LX_PROGRAMS_WIND_DOWN = 0x00090007,
-    LX_PROGRAMS_FEE_GOVERNANCE = 0x00090008,
     LX_PROGRAMS_SANDBOX = 0x00090009,
     LX_PROGRAMS_SANDBOX_DESTROY = 0x0009000A,
     LX_PROGRAMS_STORAGE_RETIREMENT = 0x0009000B,
@@ -336,22 +256,11 @@ typedef struct lx_programs_fee_genesis_parameters {
 } lx_programs_fee_genesis_parameters;
 
 enum {
-    LX_PROGRAMS_FEE_PRICE_FIELDS = 7,
-    LX_PROGRAMS_FEE_GOVERNANCE_PROPOSAL_BYTES = 149
+    LX_PROGRAMS_FEE_PRICE_FIELDS = 7
 };
 
 lxp_result lxp_programs_fee_governance_proposal_validate(
     const uint8_t *payload, size_t payload_length);
-lxp_result lxp_programs_fee_governance_decode(
-    lxp_module_ctx *ctx, const uint8_t *payload, size_t payload_length,
-    void **decoded);
-lxp_result lxp_programs_fee_governance_validate(
-    lxp_module_ctx *ctx, const lxp_activity *activity,
-    const lxp_authority_resolved *authority, const void *decoded);
-lxp_result lxp_programs_fee_governance_execute(
-    lxp_module_ctx *ctx, const lxp_activity *activity,
-    const lxp_authority_resolved *authority, const void *decoded,
-    lxp_effect_buffer *effects);
 lxp_result lxp_programs_fee_governance_stage(
     lxp_module_ctx *ctx, const lx_programs_fee_schedule *proposed,
     const uint8_t occupancy_asset_id[32],
@@ -1028,7 +937,6 @@ typedef struct lx_programs_transfer_runtime {
     uint8_t occupancy_asset_id[32];
     lx_programs_occupancy_parameters_fn resolve_occupancy_parameters;
     void *occupancy_parameter_context;
-    const lx_programs_state_feed *state_feed;
     lx_programs_metering_schedule_fn resolve_metering_schedule;
     void *metering_schedule_context;
 } lx_programs_transfer_runtime;
@@ -1090,19 +998,7 @@ lxp_result lxp_programs_occupancy_receipt_encode(
 lxp_result lxp_programs_occupancy_receipt_decode(
     const uint8_t *bytes, size_t length,
     lxp_programs_occupancy_receipt *receipt);
-lxp_result lxp_programs_replay_finalize(
-    void *context, const lxp_batch_header *header, uint32_t parameter_version,
-    uint64_t system_sequence, const uint8_t previous_state_root[32],
-    lxp_arena *arena, lxp_replay_activity_output *output);
-lxp_result lxp_programs_replay_engine_bind(lxp_replay_engine *engine,
-                                           lxp_kernel *kernel);
-
 lxp_result lxp_programs_bind_fee_transaction(lxp_kernel *kernel);
-lxp_result lxp_programs_bind_state_feed(
-    lxp_kernel *kernel, const lx_programs_state_feed *feed);
-lxp_result lxp_programs_state_feed_observe(
-    const lx_programs_state_feed *feed, const lxp_activity *activity,
-    const lxp_receipt *receipt);
 
 lxp_result lxp_programs_transfer_decode(lxp_module_ctx *ctx,
                                         const uint8_t *payload,

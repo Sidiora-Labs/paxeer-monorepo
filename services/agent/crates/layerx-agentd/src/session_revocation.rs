@@ -262,6 +262,13 @@ pub(crate) fn apply_revocation(
     apply_revocation_with_updates(store, registry, activities, event, Vec::new())
 }
 
+fn revoked_grant_id(authority: &ProtocolAuthority) -> Option<[u8; 32]> {
+    match authority {
+        ProtocolAuthority::SessionKey(id) | ProtocolAuthority::CapabilityGrant(id) => Some(*id),
+        ProtocolAuthority::PrimaryKey(_) => None,
+    }
+}
+
 pub(crate) fn apply_revocation_with_updates(
     store: &mut Store,
     registry: &mut SessionRegistry,
@@ -269,11 +276,17 @@ pub(crate) fn apply_revocation_with_updates(
     event: &RevocationEvent,
     mut companion: Vec<(crate::store::TenantKey, Vec<u8>)>,
 ) -> Result<InvalidationReport, SessionError> {
-    if event.reason == InvalidationReason::GrantRevokedOnChain
-        && !matches!(event.authority, Some(ProtocolAuthority::SessionKey(_)))
-    {
-        return Err(SessionError::AuthorityMissing);
-    }
+    let grant_id = if event.reason == InvalidationReason::GrantRevokedOnChain {
+        Some(
+            event
+                .authority
+                .as_ref()
+                .and_then(revoked_grant_id)
+                .ok_or(SessionError::AuthorityMissing)?,
+        )
+    } else {
+        None
+    };
     let mut invalidated_sessions = Vec::new();
     let mut invalidated_generations = Vec::new();
     let candidates = registry
@@ -282,10 +295,13 @@ pub(crate) fn apply_revocation_with_updates(
         .filter(|(_, record)| {
             record.open
                 && record.request.agent == event.did
-                && event
-                    .authority
-                    .as_ref()
-                    .is_none_or(|authority| &record.request.authority == authority)
+                && match grant_id {
+                    Some(id) => revoked_grant_id(&record.request.authority) == Some(id),
+                    None => event
+                        .authority
+                        .as_ref()
+                        .is_none_or(|authority| &record.request.authority == authority),
+                }
         })
         .map(|(session, record)| {
             let mut invalidated = record.clone();

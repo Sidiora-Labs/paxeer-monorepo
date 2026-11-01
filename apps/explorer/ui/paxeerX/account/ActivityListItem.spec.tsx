@@ -22,6 +22,32 @@ const renderItem = (item: typeof transfer) => render(
   </TableRoot>,
 );
 
+function activity_item_renders_without_side() {
+  const { container } = render(
+    <TableRoot variant="scan">
+      <TableBody>
+        { paxeerXMock.unifiedAccount.activity.map((item) => <ActivityListItem key={ item.hash } item={ item }/>) }
+      </TableBody>
+    </TableRoot>,
+  );
+
+  expect(container.querySelectorAll('[data-activity]')).toHaveLength(2);
+
+  for (const [ index, label ] of [ 'Token transfer', 'Transaction' ].entries()) {
+    const item = paxeerXMock.unifiedAccount.activity[index];
+    const row = container.querySelector(`[data-activity="${ item.hash }"]`);
+
+    expect(item).not.toHaveProperty('side');
+    expect(row).toBeTruthy();
+    expect(row?.querySelectorAll('td')).toHaveLength(5);
+    expect(row?.querySelector('td:first-child')?.textContent).toBe(label);
+    expect(row?.querySelector('[data-scan-method]')?.getAttribute('data-scan-method')).toBe(label);
+  }
+
+  expect(screen.queryByText('Chain')).toBeNull();
+  expect(screen.queryByText('Kernel')).toBeNull();
+}
+
 function activity_row_renders_native_item_without_side() {
   const item: PaxeerXActivityItem = {
     kind: transfer.kind,
@@ -46,6 +72,7 @@ function activity_row_renders_native_item_without_side() {
 }
 
 describe('ActivityListItem', () => {
+  test(activity_item_renders_without_side.name, activity_item_renders_without_side);
   test(activity_row_renders_native_item_without_side);
 
   it('links the transaction and the block it sits in', () => {

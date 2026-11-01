@@ -7,7 +7,7 @@ use crate::chain_proof::{
 use crate::protocol_evidence::{
     decode_program_record, StateLeafWitness, PROGRAM_KEY_PREFIX, STATUS_KEY_PREFIX,
 };
-use crate::{ProgramId, ProgramLifecycle, ProtocolEvidenceError, StateProof};
+use crate::{ProgramId, ProgramLifecycle, ProtocolEvidenceError};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChainLifecycleProof {
@@ -36,11 +36,7 @@ impl ChainLifecycleProof {
         let record = decode_program_record(&StateLeafWitness {
             key: record_key,
             value: value.clone(),
-            proof: StateProof {
-                leaf_index: 0,
-                leaf_count: 1,
-                siblings: Vec::new(),
-            },
+            proof: self.record_ops.clone(),
         })?;
         if record.program != self.program {
             return Err(ProtocolEvidenceError::LifecycleProof);

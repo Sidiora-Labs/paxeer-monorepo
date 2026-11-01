@@ -16,12 +16,22 @@ pub struct ChainFixture {
     pub verifier: ChainProofVerifier,
     pub header: ChainHeader,
     pub commit: Commit,
+    store_name: String,
     tree: Tree,
     store_proof: ProofOp,
 }
 
 impl ChainFixture {
     pub fn new(
+        chain_id: &str,
+        validator_seeds: &[[u8; 32]],
+        pairs: Vec<(Vec<u8>, Vec<u8>)>,
+    ) -> Result<Self, ChainProofError> {
+        Self::new_in_store(STORE_NAME, chain_id, validator_seeds, pairs)
+    }
+
+    pub fn new_in_store(
+        store_name: &str,
         chain_id: &str,
         validator_seeds: &[[u8; 32]],
         mut pairs: Vec<(Vec<u8>, Vec<u8>)>,
@@ -37,10 +47,10 @@ impl ChainFixture {
             return Err(ChainProofError::NonCanonical);
         }
         let tree = Tree::new(&pairs, TreeKind::Iavl);
-        let stores = ["auth", "bank", STORE_NAME, "staking"]
+        let mut stores = ["auth", "bank", store_name, "staking"]
             .into_iter()
             .map(|name| {
-                let root = if name == STORE_NAME {
+                let root = if name == store_name {
                     tree.root
                 } else {
                     Tree::new(
@@ -52,15 +62,16 @@ impl ChainFixture {
                 (name.as_bytes().to_vec(), root.to_vec())
             })
             .collect::<Vec<_>>();
+        stores.sort_by(|left, right| left.0.cmp(&right.0));
         let multistore = Tree::new(&stores, TreeKind::Simple);
         let store = multistore
             .leaves
             .iter()
-            .find(|proof| proof.key == STORE_NAME.as_bytes())
+            .find(|proof| proof.key == store_name.as_bytes())
             .ok_or(ChainProofError::Absent)?;
         let store_proof = ProofOp {
             op_type: "ics23:simple".to_owned(),
-            key: STORE_NAME.as_bytes().to_vec(),
+            key: store_name.as_bytes().to_vec(),
             data: message(1, &encode_existence(store)),
         };
 
@@ -137,6 +148,7 @@ impl ChainFixture {
             },
             header,
             commit,
+            store_name: store_name.to_owned(),
             tree,
             store_proof,
         })
@@ -194,7 +206,7 @@ impl ChainFixture {
             signed_header: encode_header(&self.header),
             commit: encode_commit(&self.commit),
             validator_set: encode_validators(&self.verifier.validators),
-            store_name: STORE_NAME.to_owned(),
+            store_name: self.store_name.clone(),
             key: key.to_vec(),
             value,
             proof_ops,

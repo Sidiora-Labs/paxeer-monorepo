@@ -88,6 +88,12 @@ impl TrustRoot {
         if !reader.remaining.is_empty() {
             return Err(ChainProofError::NonCanonical);
         }
+        validators.sort_unstable_by(|left, right| {
+            right
+                .voting_power
+                .cmp(&left.voting_power)
+                .then_with(|| left.address.cmp(&right.address))
+        });
         Ok(Self {
             chain_id,
             height,

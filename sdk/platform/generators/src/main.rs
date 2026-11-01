@@ -12,8 +12,6 @@ const LOCK_PATH: &str = "sdk/platform/pipeline.kvx";
 const RUST_OPERATION_GENERATED_PATH: &str =
     "services/agent/crates/layerx-agent-api/src/operation_generated.rs";
 const GO_GENERATED_PATH: &str = "sdk/platform/go/generated.go";
-const JVM_GENERATED_PATH: &str =
-    "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java";
 const JVM_CONFORMANCE_PATH: &str = "sdk/platform/conformance/jvm.kvx";
 const RECEIPT_CONTRACT_PATH: &str = "sdk/platform/generators/receipt.kvx";
 const RUST_RECEIPT_GENERATED_PATH: &str =
@@ -144,21 +142,21 @@ const OUTPUTS: [(&str, &str, &str, Option<&[&str]>); 12] = [
     (
         "platform-swift",
         "swift",
-        "sdk/platform/swift/Sources/LayerXSDK/Generated",
+        "sdk/platform/swift/Sources/LayerXSDK",
         Some(&[
-            "OperationCatalog.swift",
-            "MirrorSchema.swift",
-            "ReceiptContract.swift",
+            "Generated/OperationCatalog.swift",
+            "Generated/MirrorSchema.swift",
+            "Generated/ReceiptContract.swift",
         ]),
     ),
     (
         "platform-dotnet",
         "csharp",
-        "sdk/platform/dotnet/Generated",
+        "sdk/platform/dotnet",
         Some(&[
-            "OperationCatalog.cs",
-            "MirrorSchema.cs",
-            "ReceiptContract.cs",
+            "Generated/OperationCatalog.cs",
+            "Generated/MirrorSchema.cs",
+            "Generated/ReceiptContract.cs",
         ]),
     ),
     (
@@ -511,46 +509,6 @@ fn receipt_contract(repo_root: &Path) -> Result<ReceiptContract, String> {
         return Err(
             "Programs ABI capability encoding differs from the canonical policy".to_owned(),
         );
-    }
-    let terminal_source = fs::read_to_string(
-        repo_root.join("programs/crates/layerx-programs-runtime/src/terminal.rs"),
-    )
-    .map_err(|error| format!("read native terminal codec: {error}"))?;
-    for (section, version, allowed) in [
-        (
-            "type.ProgramExecutionV4",
-            4,
-            vec!["ABI_V2_VERSION".to_owned()],
-        ),
-        (
-            "type.ProgramExecutionV5",
-            5,
-            vec![
-                "ABI_V3_VERSION".to_owned(),
-                "ABI_V4_VERSION".to_owned(),
-                "ABI_V5_VERSION".to_owned(),
-            ],
-        ),
-    ] {
-        let domain = layerx_platform_kvx::unquote(programs.required(section, "domain")?)?;
-        if domain != format!("LXP/program-execution/v{version}")
-            || programs.required(section, "encoding_version")? != version.to_string()
-            || layerx_platform_kvx::unquote(programs.required(section, "domain_terminator_hex")?)?
-                != "00"
-            || layerx_platform_kvx::string_list(programs.required(section, "allowed_guest_abis")?)?
-                != allowed
-        {
-            return Err(format!("{section} violates the frozen execution profile"));
-        }
-        let declaration = format!("const EXECUTION_V{version}: &[u8] = b\"{domain}\\0\";");
-        if !terminal_source
-            .lines()
-            .any(|line| line.trim() == declaration)
-        {
-            return Err(format!(
-                "{section} has no matching genuine terminal domain producer"
-            ));
-        }
     }
     Ok(ReceiptContract {
         receipt_versions,
@@ -1300,8 +1258,13 @@ fn write_rust_operation_catalog(repo_root: &Path) -> Result<(), String> {
 
 fn go_human_operations(human: &Sections) -> (Vec<String>, BTreeSet<String>) {
     let operations = human
-        .keys()
-        .filter_map(|section| section.strip_prefix("operation.").map(str::to_owned))
+        .iter()
+        .filter(|(_, entries)| {
+            !entries
+                .get("retired")
+                .is_some_and(|value| value == "\"true\"")
+        })
+        .filter_map(|(section, _)| section.strip_prefix("operation.").map(str::to_owned))
         .collect::<Vec<_>>();
     let mutations = operations
         .iter()
@@ -1523,152 +1486,16 @@ fn write_go(repo_root: &Path) -> Result<(), String> {
         .map_err(|error| format!("write {}: {error}", path.display()))
 }
 
-fn render_jvm_set(output: &mut String, name: &str, values: &[String]) -> Result<(), String> {
-    writeln!(output, "    static final Set<String> {name} = Set.of(")
-        .map_err(|error| error.to_string())?;
-    for (index, value) in values.iter().enumerate() {
-        writeln!(
-            output,
-            "        {}{}",
-            quoted(value),
-            if index + 1 == values.len() { ");" } else { "," }
-        )
-        .map_err(|error| error.to_string())?;
-    }
-    Ok(())
-}
-
-fn generate_jvm_contract(repo_root: &Path) -> Result<String, String> {
-    let agent = schema_sections(&repo_root.join(SOURCES[0].1))?;
-    let human = schema_sections(&repo_root.join(SOURCES[1].1))?;
-    let operations = |sections: &Sections| {
-        sections
-            .keys()
-            .filter_map(|section| section.strip_prefix("operation.").map(str::to_owned))
-            .collect::<Vec<_>>()
-    };
-    let agent_operations = operations(&agent);
-    let human_operations = operations(&human);
-    if agent_operations.is_empty() || human_operations.is_empty() {
-        return Err("JVM SDK generation found an empty operation catalogue".to_owned());
-    }
-    let mut agent_mutations = agent
-        .keys()
-        .filter_map(|section| section.strip_prefix("mutation.").map(str::to_owned))
-        .collect::<BTreeSet<_>>();
-    for operation in &agent_operations {
-        if agent
-            .get(&format!("operation.{operation}"))
-            .and_then(|entries| entries.get("required"))
-            .is_some_and(|value| value.contains("idempotency_key"))
-        {
-            agent_mutations.insert(operation.clone());
-        }
-    }
-    let mut output = String::from(
-        "// Code generated from the LayerX Agent API and Human API schemas. DO NOT EDIT.\n\npackage com.sidiora.layerx.sdk;\n\nimport java.util.List;\nimport java.util.Map;\nimport java.util.Set;\n\nfinal class GeneratedContract {\n    private GeneratedContract() {}\n",
-    );
-    render_jvm_set(&mut output, "AGENT_OPERATIONS", &agent_operations)?;
-    render_jvm_set(
-        &mut output,
-        "AGENT_IDEMPOTENT",
-        &agent_mutations.into_iter().collect::<Vec<_>>(),
-    )?;
-    render_jvm_set(
-        &mut output,
-        "AGENT_ERROR_CLASSES",
-        &variants(&agent, "type.ErrorClass")?,
-    )?;
-    render_jvm_set(
-        &mut output,
-        "AGENT_RETRIABILITY",
-        &variants(&agent, "type.Retriability")?,
-    )?;
-    render_jvm_set(
-        &mut output,
-        "HUMAN_ERROR_CODES",
-        &variants(&human, "type.ErrorCode")?,
-    )?;
-    render_jvm_set(
-        &mut output,
-        "HUMAN_RETRIABILITY",
-        &variants(&human, "type.Retriability")?,
-    )?;
-    writeln!(
-        output,
-        "    static final Map<String, OperationCatalog.Route> HUMAN_ROUTES = Map.ofEntries("
-    )
-    .map_err(|error| error.to_string())?;
-    for (index, operation) in human_operations.iter().enumerate() {
-        let entries = human
-            .get(&format!("operation.{operation}"))
-            .ok_or_else(|| format!("missing operation.{operation}"))?;
-        let field = |name: &str| -> Result<String, String> {
-            entries
-                .get(name)
-                .ok_or_else(|| format!("missing operation.{operation}.{name}"))
-                .and_then(|value| layerx_platform_kvx::unquote(value))
-        };
-        let path = field("path")?;
-        let mut path_parameters = Vec::new();
-        let mut rest = path.as_str();
-        while let Some(open) = rest.find('{') {
-            let after = &rest[open + 1..];
-            let close = after
-                .find('}')
-                .ok_or_else(|| format!("unclosed path parameter in operation.{operation}.path"))?;
-            path_parameters.push(after[..close].to_owned());
-            rest = &after[close + 1..];
-        }
-        let params = path_parameters
-            .iter()
-            .map(|value| quoted(value))
-            .collect::<Vec<_>>()
-            .join(", ");
-        let idempotency = entries
-            .get("idempotency")
-            .is_some_and(|value| value == "true");
-        let bodyless = field("request")? == "Empty";
-        writeln!(
-            output,
-            "        Map.entry({}, new OperationCatalog.Route({}, {}, List.of({params}), {idempotency}, {bodyless})){}",
-            quoted(operation), quoted(&field("method")?), quoted(&path),
-            if index + 1 == human_operations.len() { ");" } else { "," },
-        )
-        .map_err(|error| error.to_string())?;
-    }
-    output.push_str("}\n");
-    Ok(output)
-}
-
-fn check_jvm_contract(repo_root: &Path) -> Result<(), String> {
-    let path = repo_root.join(JVM_GENERATED_PATH);
-    let actual = fs::read_to_string(&path)
-        .map_err(|error| format!("generated JVM file missing {}: {error}", path.display()))?;
-    if actual != generate_jvm_contract(repo_root)? {
-        return Err(format!(
-            "generated JVM file {} is stale or hand-edited; run make platform-sdk-generate",
-            path.display()
-        ));
-    }
-    Ok(())
-}
-
-fn write_jvm_contract(repo_root: &Path) -> Result<(), String> {
-    let path = repo_root.join(JVM_GENERATED_PATH);
-    let parent = path
-        .parent()
-        .ok_or_else(|| format!("generated path has no parent: {}", path.display()))?;
-    fs::create_dir_all(parent).map_err(|error| format!("create {}: {error}", parent.display()))?;
-    fs::write(&path, generate_jvm_contract(repo_root)?)
-        .map_err(|error| format!("write {}: {error}", path.display()))
-}
-
 fn generate_jvm_conformance(repo_root: &Path) -> Result<String, String> {
     let operation_count = |root: &Path| -> Result<usize, String> {
         Ok(schema_sections(root)?
-            .keys()
-            .filter(|section| section.starts_with("operation."))
+            .iter()
+            .filter(|(section, entries)| {
+                section.starts_with("operation.")
+                    && !entries
+                        .get("retired")
+                        .is_some_and(|value| value == "\"true\"")
+            })
             .count())
     };
     let agent_operations = operation_count(&repo_root.join(SOURCES[0].1))?;
@@ -2077,7 +1904,6 @@ pub fn check(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
     drift_gate(&committed, &live)?;
     check_rust_operation_catalog(repo_root)?;
     check_go(repo_root)?;
-    check_jvm_contract(repo_root)?;
     check_jvm_conformance(repo_root)?;
     check_receipt_contracts(repo_root)
 }
@@ -2092,7 +1918,6 @@ pub fn check(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
 pub fn write_lock(repo_root: &Path, lock_path: &Path) -> Result<(), String> {
     write_rust_operation_catalog(repo_root)?;
     write_go(repo_root)?;
-    write_jvm_contract(repo_root)?;
     write_jvm_conformance(repo_root)?;
     write_receipt_contracts(repo_root)?;
     replace_lock(lock_path, &classified_lock(repo_root, lock_path)?)

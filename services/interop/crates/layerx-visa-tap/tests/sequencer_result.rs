@@ -27,17 +27,38 @@ fn fixed<const N: usize>(value: &Value) -> [u8; N] {
     bytes(value).try_into().expect("fixture field length")
 }
 
-fn recorded_legacy_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 32]) {
+fn recorded_case() -> Value {
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
     .expect("recorded sequencer fixture");
-    let case = fixture["cases"]
+    fixture["cases"]
         .as_array()
         .expect("fixture cases")
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .expect("recorded payExact case");
+        .expect("recorded payExact case")
+        .clone()
+}
+
+fn recorded_payment_topics(case: &Value) -> [[u8; 32]; 3] {
+    let transaction = bytes(&case["rawTransaction"]);
+    let offsets: Vec<_> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact calldata selector");
+    let start = offsets[0] + 4;
+    [5, 0, 1].map(|word| {
+        transaction[start + word * 32..start + (word + 1) * 32]
+            .try_into()
+            .expect("recorded payExact calldata word")
+    })
+}
+
+fn recorded_legacy_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 32]) {
+    let case = recorded_case();
     let receipt = &case["receiptJson"];
     assert_eq!(receipt["rung"], "receipted");
     let logs = receipt["logs"]
@@ -84,11 +105,17 @@ fn recorded_legacy_payment() -> (SequencerEvidence, [SequencerAuthorization; 1],
 }
 
 fn recorded_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 32]) {
+    signed_recorded_payment(recorded_payment_topics(&recorded_case()))
+}
+
+fn signed_recorded_payment(
+    indexed_topics: [[u8; 32]; 3],
+) -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 32]) {
     let (mut evidence, keys, _) = recorded_legacy_payment();
     assert_eq!(evidence.logs.len(), 1);
     let original = &evidence.logs[0];
     let mut topics = original.topics().to_vec();
-    topics[1..].rotate_right(1);
+    topics[1..].copy_from_slice(&indexed_topics);
     let payment = SequencerLog::new(
         original.address(),
         topics,
@@ -143,7 +170,7 @@ fn from_receipt_reads_the_pay_exact_log() {
                 "0x1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769"
             )),
             to: fixed(&Value::from(
-                "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985"
+                "0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4"
             )),
             asset: fixed(&Value::from(
                 "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28"
@@ -200,8 +227,9 @@ fn from_receipt_refuses_another_reference() {
 
 #[test]
 fn from_receipt_refuses_the_legacy_topic_order() {
-    let (evidence, keys, _) = recorded_legacy_payment();
-    let reference = evidence.logs[0].topics()[3];
+    let [reference, from, to] = recorded_payment_topics(&recorded_case());
+    let (evidence, keys, _) = signed_recorded_payment([from, to, reference]);
+    assert_eq!(&evidence.logs[0].topics()[1..], &[from, to, reference]);
     assert_eq!(
         MerchantOperationResult::from_receipt(&evidence, &keys, reference),
         Err(TapError::ReceiptMismatch)

@@ -17061,6 +17061,14 @@ components:
           $ref: '#/components/schemas/HexStringNullable'
         parent_hash:
           $ref: '#/components/schemas/FullHash'
+        price_update_count:
+          description: Native price-feed submissions the block carries, included in
+            transactions_count
+          minimum: 0
+          nullable: false
+          type: integer
+          x-struct: null
+          x-validate: null
         priority_fee:
           $ref: '#/components/schemas/IntegerStringNullable'
         rewards:
@@ -17098,6 +17106,8 @@ components:
         transaction_fees:
           $ref: '#/components/schemas/IntegerString'
         transactions_count:
+          description: 'Transactions in the block: EVM transactions and native price-feed
+            submissions'
           nullable: false
           type: integer
           x-struct: null
@@ -17918,13 +17928,13 @@ components:
         parent_hash:
           $ref: '#/components/schemas/FullHash'
         price_update_count:
-          description: Native price-feed submissions the block carries
+          description: Native price-feed submissions the block carries, included in
+            transactions_count
           minimum: 0
           nullable: false
           type: integer
           x-struct: null
           x-validate: null
-        priority_fee:
           $ref: '#/components/schemas/IntegerStringNullable'
         rewards:
           items:
@@ -17961,6 +17971,8 @@ components:
         transaction_fees:
           $ref: '#/components/schemas/IntegerString'
         transactions_count:
+          description: 'Transactions in the block: EVM transactions and native price-feed
+            submissions'
           nullable: false
           type: integer
           x-struct: null

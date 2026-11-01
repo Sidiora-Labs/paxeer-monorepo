@@ -22,6 +22,7 @@ pub mod events;
 pub mod export;
 pub mod finality;
 pub mod human;
+pub mod human_node;
 pub mod human_runtime;
 pub mod idempotency;
 pub mod identity;

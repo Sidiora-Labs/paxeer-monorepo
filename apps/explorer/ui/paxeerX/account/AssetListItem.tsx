@@ -15,6 +15,7 @@ export interface Props {
 
 const AssetListItem = ({ item, isLoading }: Props) => {
   const label = assetLabel(item.asset);
+  const total = formatAmount(item.total, item.asset);
 
   return (
     <TableRow data-asset={ item.asset.id }>
@@ -33,7 +34,7 @@ const AssetListItem = ({ item, isLoading }: Props) => {
       </TableCell>
       <TableCell verticalAlign="middle" isNumeric>
         <Skeleton loading={ isLoading } display="inline-block" fontWeight={ 500 } data-label="total">
-          { formatAmount(item.total, item.asset) }
+          { total }
         </Skeleton>
       </TableCell>
     </TableRow>

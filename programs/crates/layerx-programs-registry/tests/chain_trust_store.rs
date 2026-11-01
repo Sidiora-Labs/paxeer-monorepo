@@ -132,6 +132,52 @@ fn chain_trust_root_round_trips() -> Result<(), ChainProofError> {
 }
 
 #[test]
+fn chain_trust_root_reload_preserves_unequal_power_validator_hash() -> Result<(), ChainProofError> {
+    let (mut verifier, mut header, keys) = fixture()?;
+    let mut validators = verifier.validators.validators().to_vec();
+    validators.reverse();
+    for (validator, power) in validators.iter_mut().zip([30, 20, 10]) {
+        validator.voting_power = power;
+    }
+    let mut address_sorted = validators.clone();
+    address_sorted.sort_unstable_by_key(|validator| validator.address);
+    assert_ne!(validators, address_sorted);
+    verifier.validators = ValidatorSet::new(validators.clone())?;
+    let validators_hash = verifier.validators.hash();
+    header.validators_hash = validators_hash.to_vec();
+    header.next_validators_hash = validators_hash.to_vec();
+    header.proposer_address = validators[0].address.to_vec();
+
+    let commit = signed_commit(&header, &keys)?;
+    let trusted = verifier.verify_head(&header, &commit)?;
+    let root = TrustRoot::from_head(&trusted, verifier.validators.clone())?;
+    let bytes = root.canonical_bytes()?;
+    let mut address_sorted_root = root.clone();
+    address_sorted_root.validators = ValidatorSet::new(address_sorted)?;
+    assert_eq!(address_sorted_root.canonical_bytes()?, bytes);
+    let decoded = TrustRoot::decode(&bytes)?;
+    assert_eq!(decoded.validators.validators(), validators.as_slice());
+    assert_eq!(decoded.validators.hash(), validators_hash);
+    assert_eq!(decoded, root);
+    assert_eq!(decoded.canonical_bytes()?, bytes);
+
+    let rebuilt = ChainProofVerifier {
+        chain_id: decoded.chain_id,
+        validators: decoded.validators,
+    };
+    assert_eq!(rebuilt.verify_head(&header, &commit)?, trusted);
+    header.last_block_id.hash = root.header_hash.to_vec();
+    header.height += 1;
+    header.time.seconds += 1;
+    let next_commit = signed_commit(&header, &keys)?;
+    let next = rebuilt.verify_head(&header, &next_commit)?;
+    assert_eq!(next, verifier.verify_head(&header, &next_commit)?);
+    assert_eq!(next.height(), trusted.height() + 1);
+    assert_eq!(next.time_ms(), trusted.time_ms() + 1_000);
+    Ok(())
+}
+
+#[test]
 fn chain_trust_root_refuses_unsorted_and_trailing_bytes() -> Result<(), ChainProofError> {
     let (verifier, header, keys) = fixture()?;
     let head = verifier.verify_head(&header, &signed_commit(&header, &keys)?)?;
