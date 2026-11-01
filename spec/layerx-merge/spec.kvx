@@ -117228,7 +117228,7 @@ do_6 = "Finding 14.0.6.4: the two files of do_5 (journey_family_projections.rs a
 
 [task.9.25.3]
 title = "Port the agent daemon's remaining layerx_client::Client holders to SequencerEndpoint and PxEndpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["9.24.5", "9.12.5", "9.3.3", "9.5.3"]
