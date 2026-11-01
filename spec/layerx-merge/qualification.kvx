@@ -16555,3 +16555,11 @@ symbol = "module_witness"
 observed = "Attempt 3 (7b81963c7) added Display and Error for ChainProofError and built; the --tests build then failed in the daemon test outbox_recover.rs at :155, :453 and :466, which still call RawStateEvidence::module_witness with six arguments while 0e916bb08 (task 9.25.6, done) changed it to take one CommittedCall (protocol_evidence.rs:1732) without porting that test. Task 9.25.17 owns tests/outbox_recover.rs and its attempt 1 (5b4648003) already removes those call sites, so the break on main closes when 9.25.17 lands."
 assumption = "This task requires 9.25.17 (same wave) and continues from attempt 3 unchanged."
 severity = "major"
+
+[finding.9.25.17.2]
+task = "9.25.17"
+file = "programs/crates/layerx-programs-registry/host-tests/serve_routes.rs:91"
+symbol = "ChainProofError"
+observed = "Attempt 2 (d90cd5486) repointed the three consumer crates, unified RootSelector in rpc/evidence.rs with the re-export of finding 9.25.17.1, deleted the kernel-transport-only items with their tests and built; the --tests build then stopped in layerx-agentd-host at host-tests/serve_routes.rs:91, :94 and :96, where ? converts ChainProofError, which derives only Debug (chain_proof.rs:82). Finding 9.25.19.2 placed that impl in task 9.25.19, and finding 9.25.19.3 then sequenced 9.25.19 after this task, so neither task's --tests build can pass until the impl lands with the first of the two."
+assumption = "The Display and std::error::Error impls for ChainProofError land with this task; 9.25.19 keeps a single impl and continues otherwise unchanged."
+severity = "major"
