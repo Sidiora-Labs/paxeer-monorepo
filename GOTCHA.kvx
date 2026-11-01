@@ -12866,3 +12866,28 @@ fix = "When a test moves a non-native asset through the daemon, add a cap keyed 
 title = "A crate-wide grep instruction does not override the declared paths"
 symptom = "A ruling asks the implementer to grep the whole crate and port every construction site, but the path policy limits edits to the declared paths, so the implementer ports the declared files and stops at the next undeclared one."
 fix = "Grep the crate yourself when ruling on a widened type and declare every constructing file on the task in the same batch."
+
+[gotcha.2610]
+title = "A retired keeper path refuses before any fixture can be built through it"
+symptom = "Tests that create their fixtures through message paths (RequestWithdrawal, RequestForcedExit) all fail with the retirement error once the verifier refuses unconditionally, and a shared-state hypothesis looks plausible because the failures span every test file."
+fix = "Read one trace per file first: when each ends in the same retired call, rule on fixtures written directly into the store with the exported key helpers and delete the pure path tests the retirement test already covers."
+
+[gotcha.2611]
+title = "An unsigned EIP-1559 body is not what a signer daemon decodes"
+symptom = "The daemon decodes the posted transaction with the signed-transaction binary decoder, which needs twelve list items, while the unsigned signing body has nine; a raw test request built from the unsigned encoder fails with 'rlp: too few elements'."
+fix = "Post the wire shape the client posts: the nine signing fields plus three empty items, re-wrapped as a type-2 list; read the client's encoder before writing a raw request."
+
+[gotcha.2612]
+title = "A module deletion task inherits unported consumers from its requires list"
+symptom = "A deletion task listed twenty-two requires on the assumption that they had ported every consumer; forty files still named the modules and the first attempt stopped at the first three compile errors."
+fix = "Before launching a deletion task, grep the workspace for the module paths it deletes; when consumers remain, author port tasks per module group with grep-and-build verifies and make the deletion require them."
+
+[gotcha.2613]
+title = "A verifier deletion fails the dependent-crate check in the crates that re-export it"
+symptom = "Deleting a proof verifier passed the crate's own build and failed the dependents check in the client crate that wrapped it; the daemon wrapped it too, two crates deep."
+fix = "Grep every crate of the workspace for the deleted symbol names and declare each consumer file on the task with the exact retirement of its wrapper, variant and callers."
+
+[gotcha.2614]
+title = "A trait that mirrors a request method keeps the deleted type alive"
+symptom = "A node request method was replaced on the concrete type while the trait that mirrors it for callers kept the old signature and the deleted return type, in a file the task did not declare."
+fix = "When replacing a method on a type that also implements a trait exposing it, declare the trait file and rename the trait method and its implementation in the same task."
