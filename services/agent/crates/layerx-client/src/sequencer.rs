@@ -12,7 +12,10 @@ use std::fmt::Write as _;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
+use base64::Engine as _;
 use serde_json::{json, Map, Value};
+
+pub use layerx_programs_registry::chain_proof::decode::ProofOp;
 
 /// The `addr` precompile serving the `LayerX` DID binding reads.
 pub const ADDR_PRECOMPILE: [u8; 20] = [
@@ -212,6 +215,7 @@ pub struct StorageProof {
     pub proof: Vec<Vec<u8>>,
 }
 
+/// Compatibility account proof; task 9.25.13 retires this type and its readers.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AccountProof {
     pub address: [u8; 20],
@@ -221,6 +225,14 @@ pub struct AccountProof {
     pub storage_hash: [u8; 32],
     pub account_proof: Vec<Vec<u8>>,
     pub storage: Vec<StorageProof>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StorageWitness {
+    pub address: [u8; 20],
+    pub slot: [u8; 32],
+    pub value: [u8; 32],
+    pub ops: Vec<ProofOp>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -334,6 +346,36 @@ impl SequencerEndpoint {
             return Err(SequencerError::Malformed);
         }
         Ok(proof)
+    }
+
+    pub fn storage_witness(
+        &self,
+        address: &[u8; 20],
+        slots: &[[u8; 32]],
+        height: u64,
+    ) -> Result<Vec<StorageWitness>, SequencerError> {
+        let encoded_slots: Vec<_> = slots.iter().map(|slot| hex(slot)).collect();
+        let result = self.call(
+            "eth_getProof",
+            &json!([hex(address), encoded_slots, format!("{height:#x}")]),
+        )?;
+        decode_storage_witness(&result, address, slots).ok_or(SequencerError::Malformed)
+    }
+
+    pub fn balance_at(&self, address: &[u8; 20], height: u64) -> Result<[u8; 32], SequencerError> {
+        let result = self.call(
+            "eth_getBalance",
+            &json!([hex(address), format!("{height:#x}")]),
+        )?;
+        quantity_u256(&result).ok_or(SequencerError::Malformed)
+    }
+
+    pub fn nonce_at(&self, address: &[u8; 20], height: u64) -> Result<u64, SequencerError> {
+        let result = self.call(
+            "eth_getTransactionCount",
+            &json!([hex(address), format!("{height:#x}")]),
+        )?;
+        quantity_u64(&result).ok_or(SequencerError::Malformed)
     }
 
     pub fn history(
@@ -808,6 +850,58 @@ fn decode_account_proof(value: &Value) -> Option<AccountProof> {
             .map(decode_storage_proof)
             .collect::<Option<_>>()?,
     })
+}
+
+fn decode_storage_witness(
+    value: &Value,
+    address: &[u8; 20],
+    slots: &[[u8; 32]],
+) -> Option<Vec<StorageWitness>> {
+    let fields = Fields(value.as_object()?);
+    if fields.fixed::<20>("address")? != *address {
+        return None;
+    }
+    let values = fields.0.get("hexValues")?.as_array()?;
+    let proofs = fields.0.get("storageProof")?.as_array()?;
+    if values.len() != slots.len() || proofs.len() != slots.len() {
+        return None;
+    }
+    slots
+        .iter()
+        .zip(values)
+        .zip(proofs)
+        .map(|((slot, value), proof)| {
+            // GetProof uses hex.EncodeToString for values and JSON's base64 for []byte fields.
+            let text = value.as_str()?;
+            if text.len() != 64 {
+                return None;
+            }
+            let value: [u8; 32] = bytes(&format!("0x{text}"))?.try_into().ok()?;
+            let ops = proof.get("ops")?.as_array()?;
+            if ops.len() != 2 {
+                return None;
+            }
+            let ops = ops
+                .iter()
+                .map(|op| {
+                    let op_type = op.get("type")?.as_str()?.to_owned();
+                    let key = base64::engine::general_purpose::STANDARD
+                        .decode(op.get("key")?.as_str()?)
+                        .ok()?;
+                    let data = base64::engine::general_purpose::STANDARD
+                        .decode(op.get("data")?.as_str()?)
+                        .ok()?;
+                    Some(ProofOp { op_type, key, data })
+                })
+                .collect::<Option<Vec<_>>>()?;
+            Some(StorageWitness {
+                address: *address,
+                slot: *slot,
+                value,
+                ops,
+            })
+        })
+        .collect()
 }
 
 fn history_cursor(cursor: &str) -> bool {

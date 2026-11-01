@@ -15987,3 +15987,59 @@ symbol = "TestSequencerProposalHeaderTime"
 observed = "Attempt 1 (abec5fdf9, base 3fee695f2) implemented Admit in the six files, built and vetted, and both verify runs failed in the first package on two tests this task did not write: TestSequencerProposalHeaderTime (:52-73) seals with an open time two seconds before now and TestSequencerProposalBelowActivationReaps (:76-93) with the fixed open time 1700000000000 ms, while the fixture state from makeState carries the current time as its last block time (genesis time defaults to now, consensus/types/genesis.go:160), so CreateProposalBlock refuses both with 'sealed block open time is not after the last block time' (execution.go:276). That check came from task 5.33.3 (1c7d966b2), whose verify gate ran only its own TestSequencerProposalRefusesStaleOpenTime; the two sibling tests have failed on main since then and no gate ran them until this task's. The node tests of this task never ran because the first package failed."
 assumption = "The two pre-existing tests are repaired in this task, whose touches already hold the file: their open times move after the fixture's last block time; the implementation of attempt 1 stands."
 severity = "major"
+
+[finding.12.35.3.3]
+task = "12.35.3"
+file = "apps/wallet/e2e/send.spec.ts:713"
+symbol = "send_reaches_committed_only_with_a_matching_explorer_answer"
+observed = "Attempt 4 (27e6d68db, base 3ac75bac9) built, repaired the saved-identity read of the first verify, and the second verify reached the committed rung with the saved observation steps [committed from receipt, committed from explorer] as decision 2208 specifies, then failed at :713 because li[data-rung=committed] rendered data-source receipt: StatusLadder takes the first step of the rung (apps/wallet/src/account/StatusLadder.tsx:37) and observeTransfer puts the receipt step first, while TransactionLadder drops the receipt's committed step before rendering; the test asserts what do_4 and req.12295 require and no file of this task can change the component."
+assumption = "Task 12.34.11 (decision 2213) makes the component prefer the explorer step at the committed rung; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.5.98.8.2]
+task = "5.98.8"
+file = "consensus/internal/state/sequencer_proposal_test.go:169"
+symbol = "TestSequencerProposalUsesSealedSlice"
+observed = "Attempt 2 (b70ca9f7c, base abec5fdf9) built, vetted, repaired the two tests of finding 5.98.8.1 and the two new consensus tests passed; the verify then failed in TestSequencerProposalUsesSealedSlice (:169), TestSequencerProposalHeaderTimeIsOpenTime (:225) and TestSequencerProposalIgnoresMempoolOrder (:248) with 'sealed block open time is not after the last block time', because the three seal their blocks at the fixed epoch 1700000000 while makeState leaves LastBlockTime at the genesis time, which defaults to now (consensus/types/genesis.go:160); the open-time check of 1c7d966b2 (task 5.33.3) was qualified against TestSequencerProposalRefusesStaleOpenTime alone and these tests failed since then. The node tests of the verify were not reached."
+assumption = "Open times are taken relative to f.state.LastBlockTime, as the other proposal tests already do, and the header-time test moves the last block time behind its fixed open time instead."
+severity = "major"
+
+[finding.17.5.1.16]
+task = "17.5.1"
+file = "services/platform/Makefile.inc:70"
+symbol = "platform-install-local-artifacts"
+observed = "Attempt 18 (a116f00c2) built and the gate stopped in make workspace-build at platform-sample-dependencies-ready (services/platform/Makefile.inc:66, 'run make platform-dependencies-install to install the local Spring integration'): the qualification environment now carries Maven, Swift and dotnet and ran make platform-sample-install before the gate, and that install failed at :70 because mvn install of sdk/platform/jvm ran its suite and 7 of 64 tests failed (GoldenVectorTest, ReceiptFixtureTest, ProgramsContractTest); the test of this task is unchanged and correct."
+assumption = "Task 8.46.11 (decision 2214) makes the three JVM suites pass under the install; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.17.5.5.7]
+task = "17.5.5"
+file = "services/platform/Makefile.inc:70"
+symbol = "platform-install-local-artifacts"
+observed = "Attempt 14 (e4609dad6) built and the gate stopped in make workspace-build at platform-sample-dependencies-ready (services/platform/Makefile.inc:66, 'run make platform-dependencies-install to install the local Spring integration'): the qualification environment now carries Maven, Swift and dotnet and ran make platform-sample-install before the gate, and that install failed at :70 because mvn install of sdk/platform/jvm ran its suite and 7 of 64 tests failed (GoldenVectorTest, ReceiptFixtureTest, ProgramsContractTest); the test of this task is unchanged and correct."
+assumption = "Task 8.46.11 (decision 2214) makes the three JVM suites pass under the install; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.10.2.4.1]
+task = "10.2.4"
+file = "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs:432"
+symbol = "JourneyLeg::new"
+observed = "Attempt 1 (38d228c7d) implemented do_1 to do_6 in the eight declared files and the build of layerx-human-service failed with eleven errors in files outside the touches: JourneyLeg::new now takes nine arguments and intent_submit.rs:432, move_money.rs:1250 and router.rs:1915 pass eight; JourneyKind lost WalletBinding, Deposit, Withdraw and Exit and production_components.rs:8310-8313 still names them; JourneyState gained Closed and the matches at intent_submit.rs:505, move_money.rs:1174, notify/links.rs:398 and production_components.rs:2669 are not exhaustive. The same signatures are used by router.rs:2700, audit/event.rs and six integration tests of the crate (native_journey_approval.rs:295, journey_faults.rs:1198, agent_runtime_eip1559.rs:263, agent_controls_rungs.rs:2057, audit.rs, audit_retired_kinds.rs) that the verify did not compile."
+assumption = "The task that changes a type ports every caller in the crate, including its integration tests, in the same change (the producer-and-consumer defect class); the twelve files join the touches and the build compiles the crate's tests."
+severity = "major"
+
+[finding.10.20.5.1]
+task = "10.20.5"
+file = "services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs:153"
+symbol = "move_commit_submits_a_bank_transfer_without_a_movement_provider"
+observed = "Attempt 1 (e5b827065) deleted the movement provider client, routed move.commit through the bank send signing path and built; the verify failed at :153 because the test reads LAYERX_TEST_MOVE_COMMIT_FIXTURE, a protected JSON document naming a provisioned owner, attestor, identity, agent and bank node, then talks to a live gateway and node RPC: no such document exists in any qualification environment, so the test can never run, while task 10.0.3's intent_plan_evm.rs (1895 lines) already opens ProductionComponents and a Router in-process over doubles it starts itself for the runtime clock, the agent runtime, the events upstreams and the node RPC (:458 RpcServer, :689 Fixture::open, :1053 reopen, :1096 request), including a movement socket (:692-698) this task retires."
+assumption = "The in-process fixture of intent_plan_evm.rs is lifted into a shared test support module both files use, the Move test drives move.commit through it with no environment beyond what the fixture sets, and this task's verify also runs 10.0.3's two tests because it deletes the movement provider their fixture served (decision 2194: a verify is never vacuous)."
+severity = "major"
+
+[finding.9.25.11.4]
+task = "9.25.11"
+file = "modules/sequencer/keeper/ics23_evm_storage_vector_test.go:89"
+symbol = "TestEvmStorageAppHashVector"
+observed = "Attempt 4 (e55bda128, base aa0b6ab87 with task 9.25.15 on main) implemented do_8; the first build at 8b6baabe0 failed because services/agent/Cargo.lock needed updating under --locked, the repaired build at b5f65c74e passed with the dependent-crate check, and the verify failed at :89 because the committed programs/tests/vectors/ics23-evm-storage-app-hash.json carried by attempt 3 (app_hash 00af3d2e..., store_root 6bf38b70...) no longer equals the generator's output on the current main (app_hash a10d2e72..., store_root 4a516195...): the IAVL leaf-version encoding of the store changed, so roots and proof bytes differ while address, slot and value are unchanged. The final commit regenerated the vector with LXP_WRITE_VECTORS=1 and the Rust test reads that file through include_str (tests/storage_witness.rs:61), but the repair budget was spent, so the regenerated tree was never verified."
+assumption = "The regenerated vector is the generator's output on the current main and both tests consume it; the attempt continues unchanged, build once and verify once."
+severity = "minor"
