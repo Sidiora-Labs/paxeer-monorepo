@@ -16651,3 +16651,27 @@ symbol = "state_proof"
 observed = "Attempt 3 (a275ad8a9 on 8a99461f5) deleted the state proof module, its test and its vectors and its build passed; the acceptance test retired_paxeer_client_state_proof_files_and_references_are_gone failed because services/human/crates/layerx-paxeer-client/tests/exit.rs:23 still imports layerx_paxeer_client::state_proof, and that file is deleted by task 10.26.14 (the emergency exit planner), which 10.26.6 did not require."
 assumption = "Ordering defect: 10.26.6 requires 10.26.14 in the same wave and continues from attempt 3 once 10.26.14 is on main; no file outside 10.26.14's touches references the module."
 severity = "major"
+
+[finding.10.26.9.1]
+task = "10.26.9"
+file = "services/human/crates/layerx-paxeer-client/tests/state_proof.rs:125"
+symbol = "custody"
+observed = "Attempt 3 (f64ca3cbe on 8a99461f5) deleted the custody ABI codec and its build passed; the acceptance test retired_paxeer_client_custody_files_and_references_are_gone failed because tests/custody_abi.rs, tests/exit.rs, tests/withdraw.rs and tests/state_proof.rs of the Paxeer client still imported layerx_paxeer_client::custody; the first three are deleted by tasks 10.26.10, 10.26.14 and 10.26.11, now on main, and tests/state_proof.rs by task 10.26.6."
+assumption = "Ordering defect: 10.26.9 requires 10.26.6 and continues from attempt 3 once it is on main."
+severity = "major"
+
+[finding.10.26.12.1]
+task = "10.26.12"
+file = "services/human/crates/layerx-paxeer-client/tests/deposit.rs"
+symbol = "wire"
+observed = "Attempt 3 (43bada0c5 on 8a99461f5) deleted the debit wire codec and its build passed; the acceptance test retired_paxeer_client_wire_files_and_references_are_gone failed because tests/deposit.rs of the Paxeer client still named the wire module; task 10.26.8 deleted that file and is on main."
+assumption = "Ordering defect: 10.26.12 requires 10.26.8 and continues from attempt 3 rebased onto main, where no file names the module."
+severity = "major"
+
+[finding.9.25.1.3]
+task = "9.25.1"
+file = "services/agent/crates/layerx-client/src/evidence/asset_record.rs:4"
+symbol = "Freshness"
+observed = "Attempt 2 (2dea00d58 on 8a99461f5) implemented every deletion of the task and ran no gate: the pre-build grep of do_5 over services/agent/crates/layerx-client/src matched `use crate::read::Freshness` in src/evidence/asset_record.rs, a submodule file that leaves the module tree with `pub mod evidence;` and is deleted by task 9.24.6 (which requires 9.25.1), and the file is outside this task's touches."
+assumption = "Spec defect in the precondition: the grep of do_5 excludes the orphaned src/evidence/ files, which the compiler no longer reads once the module declaration is gone; the task continues from attempt 2 and runs its declared build and verify."
+severity = "major"

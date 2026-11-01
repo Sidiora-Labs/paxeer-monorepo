@@ -117987,7 +117987,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1431.1]
 title = "Issue #1431: Accept same-position history rows and the last-position overflow group in HistoryPage::read_account"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.18", "13.8.3"]
@@ -149606,6 +149606,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "Finding 9.25.1.2 and decision 2232: this task runs again only once tasks 9.25.17, 9.25.18 and 9.25.19 are on main; continue from attempt 1 (3169533e2) rebased onto main. The module files then have no consumer outside themselves and the re-exports they carry go with them; before the build, `grep -rnE 'layerx_client::(read|receipt|submit|stream|batch|payments|withdrawal|head|evidence)\b' services/agent/crates` and `grep -rnE 'crate::(read|receipt|submit|stream|batch|payments|withdrawal|head|evidence)\b' services/agent/crates/layerx-client/src` must print nothing (the rpc twins are named layerx_client::rpc::<module>), and any remaining site is ported in this task."
+do_6 = "Finding 9.25.1.3: the pre-build grep of do_5 over services/agent/crates/layerx-client/src excludes src/evidence/asset_record.rs and src/evidence/module_state.rs, which are orphaned once `pub mod evidence;` is removed and are deleted by task 9.24.6; continue from attempt 2 (2dea00d58) rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.9.25.2]
 title = "Delete Client, the handover policy and caps readers and every paxeer-verifier use"
@@ -154607,7 +154608,7 @@ title = "Delete the Paxeer client verifier re-export modules"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2", "10.26.7", "10.26.13", "10.26.14"]
 reqs = ["10257.1"]
 capabilities = ["10.26.3"]
 interfaces = ["interface.10.rs-paxeer-client-deposit-agent-call-l2048-j46"]
@@ -154640,7 +154641,7 @@ do_7 = "Finding 10.1.2.2: continue from attempt 2 (25d184b4e) rebased onto main 
 
 [task.10.26.4]
 title = "Delete the Paxeer client checkpoint evidence module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154676,7 +154677,7 @@ do_7 = "Finding 10.1.2.2: continue from attempt 2 (9a3239495) rebased onto main 
 
 [task.10.26.5]
 title = "Delete the Paxeer client endpoint status model"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154748,7 +154749,7 @@ do_9 = "Finding 10.26.6.1: continue from attempt 3 (a275ad8a9), whose build pass
 
 [task.10.26.7]
 title = "Delete the Paxeer client deposit proof builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154783,7 +154784,7 @@ do_7 = "Finding 10.1.2.2: continue from attempt 2 (b97ac666c) rebased onto main 
 
 [task.10.26.8]
 title = "Delete the Paxeer client deposit and account vector tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154821,7 +154822,7 @@ title = "Delete the Paxeer client custody ABI codec"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2", "10.26.6", "10.26.10", "10.26.11", "10.26.14"]
 reqs = ["10263.1"]
 capabilities = ["10.26.9"]
 interfaces = ["interface.10.rs-paxeer-client-custody-custody-precompile", "interface.10.rs-paxeer-client-custody-wei-per-base-unit", "interface.10.rs-paxeer-client-custody-max-evidence-bytes", "interface.10.rs-paxeer-client-custody-selector-deposit", "interface.10.rs-paxeer-client-custody-selector-deposit-token", "interface.10.rs-paxeer-client-custody-selector-request-withdrawal", "interface.10.rs-paxeer-client-custody-selector-finalise-withdrawal", "interface.10.rs-paxeer-client-custody-selector-request-forced-exit", "interface.10.rs-paxeer-client-custody-selector-execute-forced-exit", "interface.10.rs-paxeer-client-custody-selector-get-claim", "interface.10.rs-paxeer-client-custody-selector-nullifier-status", "interface.10.rs-paxeer-client-custody-selector-get-asset", "interface.10.rs-paxeer-client-custody-selector-exit-eligible", "interface.10.rs-paxeer-client-custody-selector-native-asset-id", "interface.10.rs-paxeer-client-custody-custody-deposit-topic", "interface.10.rs-paxeer-client-custody-claim-queued-topic", "interface.10.rs-paxeer-client-custody-claim-finalised-topic", "interface.10.rs-paxeer-client-custody-custody-release-topic", "interface.10.rs-paxeer-client-custody-emergency-exit-executed-topic", "interface.10.rs-paxeer-client-custody-custody-abi-error", "interface.10.rs-paxeer-client-custody-withdrawal-material", "interface.10.rs-paxeer-client-custody-forced-exit-material", "interface.10.rs-paxeer-client-custody-custody-claim", "interface.10.rs-paxeer-client-custody-custody-asset", "interface.10.rs-paxeer-client-custody-claim-queued", "interface.10.rs-paxeer-client-custody-claim-finalised", "interface.10.rs-paxeer-client-custody-custody-release", "interface.10.rs-paxeer-client-custody-emergency-exit-executed", "interface.10.rs-paxeer-client-custody-native-value-wei", "interface.10.rs-paxeer-client-custody-base-units-from-wei", "interface.10.rs-paxeer-client-custody-deposit-calldata", "interface.10.rs-paxeer-client-custody-deposit-token-calldata", "interface.10.rs-paxeer-client-custody-withdrawal-material-from-inclusion", "interface.10.rs-paxeer-client-custody-withdrawal-material-validated", "interface.10.rs-paxeer-client-custody-withdrawal-material-request-calldata", "interface.10.rs-paxeer-client-custody-withdrawal-material-finalise-calldata", "interface.10.rs-paxeer-client-custody-forced-exit-material-validated", "interface.10.rs-paxeer-client-custody-forced-exit-material-request-calldata", "interface.10.rs-paxeer-client-custody-forced-exit-material-execute-calldata", "interface.10.rs-paxeer-client-custody-get-claim-calldata", "interface.10.rs-paxeer-client-custody-nullifier-status-calldata", "interface.10.rs-paxeer-client-custody-get-asset-calldata", "interface.10.rs-paxeer-client-custody-exit-eligible-calldata", "interface.10.rs-paxeer-client-custody-native-asset-id-calldata", "interface.10.rs-paxeer-client-custody-withdrawal-nullifier", "interface.10.rs-paxeer-client-custody-exit-withdrawal-id", "interface.10.rs-paxeer-client-custody-withdrawal-claim-id", "interface.10.rs-paxeer-client-custody-exit-claim-id", "interface.10.rs-paxeer-client-custody-exit-recipient-message", "interface.10.rs-paxeer-client-custody-decode-claim", "interface.10.rs-paxeer-client-custody-decode-asset", "interface.10.rs-paxeer-client-custody-decode-status", "interface.10.rs-paxeer-client-custody-decode-bool", "interface.10.rs-paxeer-client-custody-decode-claim-queued", "interface.10.rs-paxeer-client-custody-decode-claim-finalised", "interface.10.rs-paxeer-client-custody-decode-custody-release", "interface.10.rs-paxeer-client-custody-decode-emergency-exit-executed", "interface.10.rs-paxeer-client-custody-unique-custody-log", "interface.10.rs-paxeer-client-custody-wire-merkle-proof"]
@@ -154849,10 +154850,11 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "Finding 10.1.2.1: continue from attempt 1 (4603492ef) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 do_6 = "Finding 10.1.2.2: continue from attempt 2 (0a80a9db7) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_7 = "Finding 10.26.9.1: continue from attempt 3 (f64ca3cbe), whose build passed, rebased onto main once task 10.26.6 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.10]
 title = "Delete the Paxeer client custody ABI fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154928,7 +154930,7 @@ title = "Delete the Paxeer client debit wire codec"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2", "10.26.8", "10.26.10", "10.26.13"]
 reqs = ["10266.1"]
 capabilities = ["10.26.12"]
 interfaces = ["interface.10.rs-paxeer-client-wire-max-deposit-proof-bytes", "interface.10.rs-paxeer-client-wire-encode-deposit-proof", "interface.10.rs-paxeer-client-wire-decode-deposit-proof", "interface.10.rs-paxeer-client-wire-encode-deposit-failure", "interface.10.rs-paxeer-client-wire-decode-deposit-failure", "interface.10.rs-paxeer-client-wire-encode-finality-report", "interface.10.rs-paxeer-client-wire-decode-finality-report", "interface.10.rs-paxeer-client-wire-encode-debit-expectation", "interface.10.rs-paxeer-client-wire-decode-debit-expectation", "interface.10.rs-paxeer-client-wire-encode-withdrawal-material", "interface.10.rs-paxeer-client-wire-decode-withdrawal-material", "interface.10.rs-paxeer-client-wire-encode-forced-exit-material", "interface.10.rs-paxeer-client-wire-decode-forced-exit-material", "interface.10.rs-paxeer-client-wire-max-deposit-failure-bytes-l22-j46", "interface.10.rs-paxeer-client-wire-native-wire-error-l29-j46"]
@@ -154956,10 +154958,11 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "Finding 10.1.2.1: continue from attempt 1 (e55b48ff0) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 do_6 = "Finding 10.1.2.2: continue from attempt 2 (a7406880e) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_7 = "Finding 10.26.12.1: continue from attempt 3 (43bada0c5), whose build passed, rebased onto current main, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.13]
 title = "Delete the Paxeer client finality tracker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154995,7 +154998,7 @@ do_8 = "Finding 10.1.2.2: continue from attempt 2 (b24d242a6) rebased onto main 
 
 [task.10.26.14]
 title = "Delete the Paxeer client emergency exit planner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
