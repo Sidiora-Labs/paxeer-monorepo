@@ -117680,7 +117680,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.3.12]
 title = "Name the node store once in the Programs evidence verifiers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
