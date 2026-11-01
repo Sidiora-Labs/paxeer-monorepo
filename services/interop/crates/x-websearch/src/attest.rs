@@ -496,7 +496,7 @@ impl Attestor {
                 let hex = canonical::digest_hex(&digest);
                 let bytes = self
                     .fetcher
-                    .fetch_bytes(&format!("{base}/objects/{hex}"), 8 * 1024 * 1024)
+                    .fetch_bytes(&format!("{base}/manifests/{hex}.json"), 8 * 1024 * 1024)
                     .map_err(AttestError::Fetch)?;
                 let actual: [u8; 32] = Sha256::digest(&bytes).into();
                 if actual != digest {

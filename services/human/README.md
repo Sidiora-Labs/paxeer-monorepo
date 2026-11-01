@@ -36,7 +36,7 @@ make human-lint         # copy lint, clippy -D warnings, payload-authority gate
 make human-check-ui     # UI gate, @layerx/ui build, web typecheck and tests
 ```
 
-`make human-test` builds the native `explorer_fixture` first and passes it as `LAYERX_EXPLORER_CORE_FIXTURE`. A single crate runs with `cargo test --locked --manifest-path services/human/Cargo.toml -p <crate>`.
+`make human-test` runs hosted provisioning tests, the Rust workspace tests and web unit tests. A single crate runs with `cargo test --locked --manifest-path services/human/Cargo.toml -p <crate>`.
 
 ## The single payload authority
 

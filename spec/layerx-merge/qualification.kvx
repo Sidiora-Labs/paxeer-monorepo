@@ -16123,3 +16123,211 @@ symbol = "platform-sdk-check"
 observed = "Attempt 19 (7dce00fca) kept the earlier test unchanged, built, and the wave 0 aggregate stopped in platform-sdk-check: the sdkgen drift gate reports the platform-sdkgen generator root changed after the last generation, because d57ae5e20 (task 8.46.11) edited sdk/platform/generators/generate_jvm.py and regenerated the JVM schema without resealing sdk/platform/pipeline.kvx."
 assumption = "Task 8.46.12 reseals the lock; this task requires it and continues unchanged."
 severity = "major"
+
+[finding.18.1214.1.1]
+task = "18.1214.1"
+file = "services/interop/Cargo.lock:1"
+symbol = "layerx-client"
+observed = "Attempt 1 (f-series, base d90e6b826) edited only services/interop/crates/layerx-migrate and its build stopped before compiling: cargo refused with the lock file services/interop/Cargo.lock needs to be updated but --locked was passed, because 021ce67fb (task 9.25.11) added base64 and layerx-programs-registry to layerx-client's manifest without refreshing the lock."
+assumption = "Task 9.25.16 refreshes the 17 lock files that pin layerx-client; every open task whose gate runs cargo --locked in one of those workspaces now requires it and continues from its last attempt once the refresh lands."
+severity = "major"
+
+[finding.18.1408.1.1]
+task = "18.1408.1"
+file = "spec/layerx-merge/programme/data/parity.kvx:157"
+symbol = "construct.existing-web-search-sidecar-and-402lxp-payment"
+observed = "Attempt 1 (f428d6ca4) repointed the Kernel replay corpus row and its new test passed, but test_every_row_has_exact_selectors failed on a_request_record_decodes_only_in_its_canonical_form: the Web search sidecar row still selects eight tests of services/interop/crates/x-websearch/tests/kernel.rs, deleted by 79aec7611 (task 11.36.1), and the Mirror row selects mirror_checkpoint_identity_and_freshness_follow_the_shared_vectors of layerx-mirror/tests/checkpoint_vectors.rs, deleted by edd77cf4a (task 11.26.4); the failure predates this task."
+assumption = "The same task lists those nine retired selectors as dropped, points the Web search sidecar row at six tests that still exist in its surviving source files, and points the Mirror row at five existing mirror tests, so the selector test passes for every row at HEAD."
+severity = "major"
+
+[finding.18.1337.1.1]
+task = "18.1337.1"
+file = "tests/wallet/check-live.test.sh:48"
+symbol = "check_live_passing_endpoint"
+observed = "Attempt 1 (0e8c737b4) rewrote both px_getNetwork judges and their fixtures and the build passed, then every case of bash tests/wallet/check-live.test.sh failed with fail px_getAccount Method not found: the fixture still serves lx_getAccount (:48, :74, :357, :371) while scripts/wallet/check-live.sh has probed px_getAccount since c66a0c1c6 (task 16.5.4), so the suite is red on main before this task; f4a558a33 (task 18.1360.1) has since rewritten that probe and judge without touching the bash fixture."
+assumption = "This task ports the fixture to the landed px_getAccount probe and judge in the same change as its px_getNetwork work, and requires 18.1360.1 so it rebases onto the judge it serves."
+severity = "major"
+
+[finding.18.1312.1.1]
+task = "18.1312.1"
+file = "modules/layerxpay/keeper/budget_pull_test.go:85"
+symbol = "TestBudgetPullWithPayerGrant"
+observed = "Attempt 1 (9fc6234b1) added the agent stream metadata genesis handling and its two tests and built, then go test ./modules/layerxpay/keeper/ failed with [build failed]: budget_pull_test.go:85 and :181 call h.host.ReadPayerGrant, which 7fbf93cdd (task 1.12.4) removed from lxphost.Host, so no test in the package can run at main."
+assumption = "Task 2.24.7 ports budget_pull_test.go off the retired read; this task requires it and continues from attempt 1 unchanged."
+severity = "major"
+
+[finding.18.1325.1.1]
+task = "18.1325.1"
+file = "precompiles/layerxanchor/retire_read_gate_test.go:106"
+symbol = "TestReadsRevertFromStoreDelete"
+observed = "Attempt 1 (base 64679b4d6) fails before the new assertions: h.submit(batch_1_quorum) at :106 (unchanged since deeff8f13) reverts with execution reverted because Keeper.SubmitCheckpoint has refused with ErrModuleRetired since afcc3485c (task 6.96.1, modules/layerxanchor/keeper/checkpoints.go:58); the test was red at main before this task touched it."
+assumption = "Attempt 2 (published) resolved it inside the task; recorded so the retirement of the checkpoint path is traceable to this consumer."
+severity = "minor"
+
+[finding.18.1326.1.1]
+task = "18.1326.1"
+file = "node/sequencer_seams_test.go:47"
+symbol = "seamsSequencerSource"
+observed = "Attempt 1 (1033f1b9c) and 18.1425.1 attempt 1 fail with FAIL github.com/Sidiora-Labs/Paxeer-X-Network/node [build failed]: node/sequencer_seams_test.go:47 passes *seamsSequencerSource to app.SetSequencerSource but the type lacks Admit, which 88e4603c6 (task 5.98.8) added to consensus/types.SequencerSource (consensus/types/sequencer.go:18); every test of package node has failed to compile at main since that merge."
+assumption = "Task 5.98.9 ports the fixture; 18.1326.1 and 18.1425.1 require it and continue unchanged."
+severity = "major"
+
+[finding.2.24.7.1]
+task = "2.24.7"
+file = "modules/layerxpay/keeper/budget_pull_test.go:84"
+symbol = "TestBudgetPullWithPayerGrant"
+observed = "Attempt 1 (0445b0874) removed the two retired reads as told; the test then fails at the grant issue: HostExecute of activity 0x00010007 answers LXP_ERR_UNKNOWN_ACTIVITY (execute_test.go:44), so no payer grant can be issued and budgetPull has no kernel type to reach."
+assumption = "Decision 2226 retires budgetPull on the Go side; this task implements it."
+severity = "owner"
+
+[finding.12.35.3.5]
+task = "12.35.3"
+file = "apps/wallet/e2e/send.spec.ts"
+symbol = "reload helper of the committed test"
+observed = "Attempt 6 (99d891d63) fails the committed test at the reload step: h2[data-truth] stays submitted past 5 s after page.reload() because the test's status route handler waits for the committed receipt inside the handler, so every status fetch of the page blocks until the poll ends and the ladder never sees the included rung."
+assumption = "The route handler answers at once from one read; the committed poll stays in the test body after the helper."
+severity = "major"
+
+[finding.18.1382.1.1]
+task = "18.1382.1"
+file = "rpc/names_contenthash_proof_test.go"
+symbol = "TestNamesContenthashProofVerifiesAgainstTheAppHash"
+observed = "Attempts 2 and 3 fail before the TypeScript gate: the Go step that writes tests/vectors/names/storage_absence_v1.json links the kernel through cgo and the two static libraries make paxd-native-libs builds (Makefile:2427) are not built when the build step is only the TypeScript type check, so go test fails at link time and vitest reads a stale or missing vector."
+assumption = "The build step builds the native libraries and writes the vector before the TypeScript check."
+severity = "major"
+
+[finding.18.1317.1.1]
+task = "18.1317.1"
+file = "programs/crates/layerx-programs-registry/src/chain_evidence/verify_bundle.rs:175"
+symbol = "store name of the programs proof path"
+observed = "Attempt 2 (35a34ecb9) verifies the journal proof against a store named layerx, which the node does not have; the node keeps the kernel rows in lxphost (storage/common/keys/store_keys.go) and the proof fails to verify while the same bundle verifies under lxphost."
+assumption = "Decision 2227: task 13.3.12 introduces the crate constant; this task requires it and uses the constant."
+severity = "owner"
+
+[finding.18.1376.1.1]
+task = "18.1376.1"
+file = "services/platform/hosted/core/src/public_reads.rs:447"
+symbol = "proof answer of the public read"
+observed = "Attempt 2 (6f802fe3c) fails compiling bin layerx-core-boundary at main: public_reads.rs:447-448 read bundle.account_proof, a field 021ce67fb (task 9.25.11) removed from layerx_client::rpc::evidence::ProofBundle, which now carries landing_block only."
+assumption = "Decision 2228: task 8.94.9 ports the read; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.18.1331.1.1]
+task = "18.1331.1"
+file = "tools/platform/cli/tests/wallet_estimate_fee.rs:376"
+symbol = "encode_unsigned_envelope call of the estimate-fee test"
+observed = "Attempts 2 and 3 fail compiling test wallet_estimate_fee at main: 31e7d5491 (task 8.94.7) applies ? to layerx_wire::activity::encode_unsigned_envelope, whose WireError (services/agent/crates/layerx-wire/src/lib.rs:19) implements no std::error::Error, inside a function returning Box<dyn Error>; every cargo test of layerx-platform-cli fails to compile."
+assumption = "Task 8.94.10 maps the error like its neighbours; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.10.20.5.3]
+task = "10.20.5"
+file = "services/human/crates/layerx-human-service/tests/evidence_node.rs:450"
+symbol = "advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission"
+observed = "Attempt 4 (0e451a14a) and 18.1402.1 attempts 2 and 3 fail the --no-run test build of layerx-human-service at main: evidence_node.rs:450-451 read bundle.account_proof, removed from layerx_client::rpc::evidence::ProofBundle by 021ce67fb (task 9.25.11); the landing-block equality at :449 is the surviving assertion."
+assumption = "Task 10.2.10 ports the test; 10.20.5 and 18.1402.1 require it and continue unchanged."
+severity = "major"
+
+[finding.18.1271.1.1]
+task = "18.1271.1"
+file = "services/human/crates/layerx-human-kms/tests/attestor.rs:924"
+symbol = "assert_verified"
+observed = "Attempt 2 (8d0ea7190) fails the --tests build of layerx-human-kms at main in two files it does not touch: attestor.rs:924 applies ? to a Result carrying layerx_crypto::VerifyError, which implements no std::error::Error, inside a function returning anyhow-style Result<()>; provider.rs:780 calls as_bytes() on forged_activity.payload(), which returns &[u8] (src/attestor.rs:144)."
+assumption = "Task 10.2.11 ports the two tests; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.6.96.3.1]
+task = "6.96.3"
+file = "modules/layerxcustody/keeper/anchor_reader_test.go:120"
+symbol = "TestWithdrawalReadsAnchorFinalizedCheckpoint"
+observed = "Attempt 1 (e45bf55c1) made the three edits; go test of the package then failed 25 tests with ErrModuleRetired (custody module retired by the merge plan), the anchor reader test among them at :120 where VerifyWithdrawal met the retirement before the ErrNotFinalized check, while TestDepositRootRegistration passed at the same height 7; 22 of the failing tests are outside this task."
+assumption = "The task finds the write that marks the merge plan done for the shared test application and isolates it; task 6.96.4 brings the whole package back to green."
+severity = "major"
+
+[finding.18.1408.1.2]
+task = "18.1408.1"
+file = "spec/layerx-merge/programme/tests/test_parity_rows.py:129"
+symbol = "test_every_row_has_exact_selectors"
+observed = "Attempt 3 (4050ebf17) cannot satisfy both rules: test_every_row_has_exact_selectors requires every planned_by task's tests to be a subset of the row's selectors and refuses a dropped selector any task plans, while do_7 refuses a selector whose file is absent; task 2.4.6 (done) plans the two grants_test.go tests 7d9310759 (task 1.12.5) deleted, so the asset-ledger row fails one rule or the other."
+assumption = "The planned-by rule accepts dropped selectors whose file is gone: a test retired after its task completed."
+severity = "major"
+
+[finding.18.1311.1.1]
+task = "18.1311.1"
+file = "services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json"
+symbol = "pax_sequencerReceipt recordings"
+observed = "Attempt 3 (bf113985c) fails metered_offer_returns_the_grant_without_a_payer_draw at web.rs:2325: the test double looks up a recorded pax_sequencerReceipt whose PayerGrantIssued log carries the grant id, and the fixture holds recordings only for the grant ids of the pre-existing tests, so a test with distinct payer and receiver accounts finds none."
+assumption = "The fixture gains the recording for the new grant id; the fixture file is in scope."
+severity = "major"
+
+[finding.18.1392.1.1]
+task = "18.1392.1"
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:46"
+symbol = "validate_call"
+observed = "Attempt 1 (a28f16af0) implements the shared idempotency check, then the new test fails at agent_creation_rungs.rs:380 and :44 with Refused: validate_call maps only the Budget ordinal 8 (budgetDefund) and the Asset ordinals to a ledger call and refuses every other budget method, so a signed budget creation or funding never reaches the submission checks the task fixes."
+assumption = "validate_call learns the budget creation and funding methods; agent_runtime.rs is in scope."
+severity = "major"
+
+[finding.13.3.12.1]
+task = "13.3.12"
+file = "programs/crates/layerx-programs-registry/src/account_state.rs:563"
+symbol = "store name of the account state verifier"
+observed = "Attempt 1 (568cc7943) replaced the literal in the eight files that exist and stopped: do_2 names chain_evidence/account_state.rs:563 and chain_evidence/protocol_evidence.rs:336, but those two readers live at src/account_state.rs:563 and src/protocol_evidence.rs:336 beside chain_evidence.rs, outside the declared scope, so the literal store name survives there."
+assumption = "The two files join the scope under their real paths and the attempt continues."
+severity = "major"
+
+[finding.10.2.11.1]
+task = "10.2.11"
+file = "services/human/crates/layerx-human-kms/tests/attestor.rs:545"
+symbol = "activity types of the daemon start"
+observed = "Attempt 1 (b7e4544c0) compiles both targets; attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum then fails before any request because every daemon exits at start: the test derives ATTESTOR_ACTIVITY_TYPES from every registration of the activity registry (65537 among them) and services/wallet/attestor/internal/config/config.go:297 (eec0db612, task 12.12.1) admits only the asset send 0x10005, so the daemons report that 65537 is not the asset send."
+assumption = "The test passes only the asset send type; the daemon config is right."
+severity = "major"
+
+[finding.18.1311.1.2]
+task = "18.1311.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs:1442"
+symbol = "check_grant"
+observed = "Attempt 4 (5e7d74b2c) kept the recorded-receipt lookup of attempt 3 and fails the same way: services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json holds no pax_sequencerReceipt whose log is PayerGrantIssued for any grant (its six receipts carry PaymentExact and PaymentDrawn logs), and check_grant (web.rs:1442-1470) accepts an issue receipt only when layerx_proof::receipt::verify_sequencer_signature verifies it under the configured sequencer authorization, its activity id is the payment's tx_hash and verify_logs authenticates the logs, so a recording written by hand cannot pass."
+assumption = "The test signs its own issue receipt with a test key the config trusts, as the client receipt tests do; the fixture is not changed."
+severity = "major"
+
+[finding.18.1408.1.3]
+task = "18.1408.1"
+file = "spec/layerx-merge/programme/tests/test_parity_rows.py:201"
+symbol = "test_every_row_has_exact_selectors"
+observed = "Attempt 4 (7f142e34c) applies do_9 and fails on construct.existing-asset-ledger at :201: the planned dropped selectors draw_test.go::TestDrawWithinGrant and draw_test.go::TestDrawWithoutGrant name modules/layerxledger/keeper/draw_test.go, which 7d9310759 (task 1.12.5) kept for its remaining tests, so the file-absence rule of do_9 refuses them although neither function is declared any more."
+assumption = "A planned dropped selector is accepted when its file is absent or no longer declares the test."
+severity = "major"
+
+[finding.18.670.1.15]
+task = "18.670.1"
+file = "rpc/simulate.go:389"
+symbol = "StateAndHeaderByNumberOrHash"
+observed = "Attempt 17 (7d151e916) rebased onto 5.5.23 passes the fixture setup and fails at e2e_test.go:1098 (estimate approve): the client's gas estimate carries no block tag, defaultEstimateTag (simulate.go:316) picks pending on the proposer, and pendingStateAndHeader fails with pending block unavailable: sequencer: no block is open because the estimate landed between a seal and the next open."
+assumption = "Decision 2229: task 5.5.24 serves the committed state in that window; this task requires it and continues unchanged."
+severity = "owner"
+
+[finding.17.5.1.18]
+task = "17.5.1"
+file = "services/platform/middleware/seller/src/rpc.ts:1"
+symbol = "MerkleProof import"
+observed = "Attempt 20 (855a3c350) kept the earlier test unchanged, built, and the wave 0 aggregate stopped in platform-build-all (services/platform/Makefile.inc:105): the seller imports type MerkleProof from @sidiora/layerx-sdk, which no longer exports it; task 8.22.6 (pending, wave 29, eleven requirements) retires that seller export."
+assumption = "This task runs again only once 8.22.6 is on main; nothing in it changes."
+severity = "major"
+
+[finding.17.5.5.9]
+task = "17.5.5"
+file = "services/platform/middleware/seller/src/rpc.ts:1"
+symbol = "MerkleProof import"
+observed = "Attempt 16 (39a35b83c) kept the earlier test unchanged, built, and the wave 4 aggregate stopped in platform-build-all (services/platform/Makefile.inc:105): the seller imports type MerkleProof from @sidiora/layerx-sdk, which no longer exports it; task 8.22.6 (pending, wave 29, eleven requirements) retires that seller export."
+assumption = "This task runs again only once 8.22.6 is on main; nothing in it changes."
+severity = "major"
+
+[finding.10.2.4.4]
+task = "10.2.4"
+file = "services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs:124"
+symbol = "ReceiptMaterial construction of the rung test"
+observed = "Attempt 6 (29813f720) ports tests/onboarding.rs and the crate-wide test build then stops in two other test targets of the same crate: receipt_material_rungs.rs:124 builds a ReceiptMaterial without the inclusion_height, receipt_key and signed_receipt fields the task added and :153 destructures it without them, and native_onboarding_rungs.rs:117 calls AgentPreparationContext::new with six arguments where the task's signature (src/onboarding/mod.rs:316) takes seven."
+assumption = "Every test target of the crate that consumes a type this task changes is ported in this task."
+severity = "major"

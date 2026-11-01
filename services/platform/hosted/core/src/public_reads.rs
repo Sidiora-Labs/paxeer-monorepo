@@ -1,15 +1,63 @@
 use layerx_client::px::PxAssetEntry;
 use layerx_client::rpc::evidence::{verification_label, Rung};
 use layerx_client::rpc::{account as account_rpc, evidence as evidence_rpc, history, payments};
+use layerx_client::sequencer::SequencerError;
 
 use super::{fixed_hex, hex_encode, refusal, success, Config, Request, Response};
 
-pub(super) fn account(config: &Config, id: &str) -> Response {
-    let Ok(account_id) = fixed_hex::<32>("account_id", id) else {
-        return refusal(400, "invalid_account_id", None);
+fn account_selector(id: &str) -> Result<String, Response> {
+    let supported = if let Some(address) = id.strip_prefix("0x") {
+        address.len() == 40 && address.bytes().all(|byte| byte.is_ascii_hexdigit())
+    } else if let Some(key) = id.strip_prefix("did:layerx:") {
+        key.len() == 64 && fixed_hex::<32>("did_key", key).is_ok_and(|key| key != [0; 32])
+    } else {
+        false
     };
-    let Ok(joined) = config.network.account(&hex_encode(&account_id)) else {
-        return refusal(503, "node_unavailable", Some(5));
+    if supported {
+        Ok(id.to_owned())
+    } else {
+        Err(refusal(400, "unsupported_account_selector", None))
+    }
+}
+
+fn account_lookup_error(
+    error: SequencerError,
+    selector_code: &str,
+    evidence_code: &str,
+) -> Response {
+    match error {
+        SequencerError::Tls | SequencerError::Unavailable => {
+            refusal(503, "node_unavailable", Some(5))
+        }
+        SequencerError::Rpc(error)
+            if error.code == -32602
+                || error
+                    .data
+                    .as_ref()
+                    .and_then(|data| data.get("code"))
+                    .and_then(serde_json::Value::as_str)
+                    == Some("native_account_reverse_resolution_unsupported") =>
+        {
+            refusal(400, selector_code, None)
+        }
+        _ => refusal(502, evidence_code, None),
+    }
+}
+
+pub(super) fn account(config: &Config, id: &str) -> Response {
+    let account_id = match account_selector(id) {
+        Ok(selector) => selector,
+        Err(response) => return response,
+    };
+    let joined = match config.network.account(&account_id) {
+        Ok(joined) => joined,
+        Err(error) => {
+            return account_lookup_error(
+                error,
+                "unsupported_account_selector",
+                "account_evidence_unavailable",
+            )
+        }
     };
     let Some(address) = joined.account.evm_address else {
         return refusal(503, "account_evidence_unavailable", Some(5));
@@ -38,7 +86,7 @@ pub(super) fn account(config: &Config, id: &str) -> Response {
             }
         }
     }
-    result.insert("account_id".to_owned(), hex_encode(&account_id).into());
+    result.insert("account_id".to_owned(), account_id.into());
     result.insert("next_sequence".to_owned(), value.nonce.to_string().into());
     result.insert(
         "batch_number".to_owned(),
@@ -372,6 +420,17 @@ fn sequence(config: &Config, did: &str) -> Response {
     }))
 }
 
+fn landing_block_json(block: &layerx_client::sequencer::SequencerBlock) -> serde_json::Value {
+    serde_json::json!({
+        "number": block.number,
+        "hash": hex_encode(&block.hash),
+        "parent_hash": hex_encode(&block.parent_hash),
+        "timestamp": block.timestamp,
+        "transactions_root": hex_encode(&block.transactions_root),
+        "receipts_root": hex_encode(&block.receipts_root)
+    })
+}
+
 fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Response {
     let Ok(identifier) = fixed_hex::<32>("activity_id", id) else {
         return refusal(400, "invalid_proof_selector", None);
@@ -383,13 +442,10 @@ fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Respon
         let Some(account) = account else {
             return refusal(400, "invalid_proof_selector", None);
         };
-        let Ok(account_id) = fixed_hex::<32>("account_id", account) else {
+        let Ok(selector) = account_selector(account) else {
             return refusal(400, "invalid_proof_selector", None);
         };
-        if account_id == [0; 32] {
-            return refusal(400, "invalid_proof_selector", None);
-        }
-        Some(account_id)
+        Some(selector)
     } else {
         None
     };
@@ -407,9 +463,16 @@ fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Respon
     else {
         return refusal(503, "proof_evidence_unavailable", Some(5));
     };
-    let address = if let Some(account_id) = selected_account {
-        let Ok(joined) = config.network.account(&hex_encode(&account_id)) else {
-            return refusal(503, "node_unavailable", Some(5));
+    let address = if let Some(selector) = selected_account {
+        let joined = match config.network.account(&selector) {
+            Ok(joined) => joined,
+            Err(error) => {
+                return account_lookup_error(
+                    error,
+                    "invalid_proof_selector",
+                    "proof_evidence_unavailable",
+                )
+            }
         };
         let Some(address) = joined.account.evm_address else {
             return refusal(503, "proof_evidence_unavailable", Some(5));
@@ -444,8 +507,7 @@ fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Respon
     };
     let mut result = serde_json::json!({
         "kind": kind, "activity_id": id, "account_id": account,
-        "proof": {"address": hex_encode(&bundle.account_proof.address),
-            "account_proof": bundle.account_proof.account_proof.iter().map(|node| hex_encode(node)).collect::<Vec<_>>()},
+        "landing_block": landing_block_json(&bundle.landing_block),
         "verification": verification_label(receipt.rung())
     });
     if kind == "receipt" {
@@ -527,6 +589,103 @@ fn valid_fee_request(body: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn landing_block_json_names_the_six_header_fields() {
+        let block = layerx_client::sequencer::SequencerBlock {
+            number: 42,
+            hash: [0xab; 32],
+            parent_hash: [0xcd; 32],
+            timestamp: 1_700_000_000,
+            transactions_root: [0xef; 32],
+            receipts_root: [0x01; 32],
+            transactions: vec![vec![0x02; 64]],
+        };
+        assert_eq!(
+            super::landing_block_json(&block),
+            serde_json::json!({
+                "number": 42,
+                "hash": "ab".repeat(32),
+                "parent_hash": "cd".repeat(32),
+                "timestamp": 1_700_000_000,
+                "transactions_root": "ef".repeat(32),
+                "receipts_root": "01".repeat(32)
+            })
+        );
+    }
+
+    #[test]
+    fn account_selector_forwards_only_supported_identities() {
+        for selector in [
+            format!("0x{}", "aB".repeat(20)),
+            format!("did:layerx:{}", "aB".repeat(32)),
+            format!("0x{}", "00".repeat(20)),
+        ] {
+            let forwarded = super::account_selector(&selector)
+                .unwrap_or_else(|response| panic!("supported selector refused: {}", response.body));
+            assert_eq!(forwarded, selector);
+        }
+        for selector in [
+            "ab".repeat(32),
+            format!("did:layerx:{}", "00".repeat(32)),
+            format!("0x{}", "ab".repeat(32)),
+            "ab".repeat(20),
+            format!("did:layerx:0x{}", "ab".repeat(32)),
+            format!("did:layerx:{}", "zz".repeat(32)),
+            format!("0x{}", "zz".repeat(20)),
+        ] {
+            let response =
+                super::account_selector(&selector).expect_err("unsupported selector was forwarded");
+            assert_eq!(response.status, 400);
+            assert_eq!(response.retry_after, None);
+            let body: serde_json::Value = serde_json::from_str(&response.body)
+                .unwrap_or_else(|error| panic!("typed response: {error}"));
+            assert_eq!(body["error"]["code"], "unsupported_account_selector");
+            assert_eq!(body["error"]["retry"], "never");
+        }
+        for (error, status, retry_after) in [
+            (super::SequencerError::Unavailable, 503, Some(5)),
+            (super::SequencerError::Tls, 503, Some(5)),
+            (super::SequencerError::Malformed, 502, None),
+            (super::SequencerError::Endpoint, 502, None),
+            (super::SequencerError::HttpStatus(400), 502, None),
+            (
+                super::SequencerError::Rpc(layerx_client::sequencer::RpcRefusal {
+                    code: -32602,
+                    message: "Invalid params".to_owned(),
+                    data: None,
+                }),
+                400,
+                None,
+            ),
+            (
+                super::SequencerError::Rpc(layerx_client::sequencer::RpcRefusal {
+                    code: -32001,
+                    message: "Read unavailable".to_owned(),
+                    data: Some(
+                        serde_json::json!({"code": "native_account_reverse_resolution_unsupported"}),
+                    ),
+                }),
+                400,
+                None,
+            ),
+        ] {
+            for selector_code in ["unsupported_account_selector", "invalid_proof_selector"] {
+                let response = super::account_lookup_error(
+                    error.clone(),
+                    selector_code,
+                    "account_evidence_unavailable",
+                );
+                assert_eq!(response.status, status);
+                assert_eq!(response.retry_after, retry_after);
+                if status == 400 {
+                    let body: serde_json::Value = serde_json::from_str(&response.body)
+                        .unwrap_or_else(|error| panic!("typed response: {error}"));
+                    assert_eq!(body["error"]["code"], selector_code);
+                }
+            }
+        }
+    }
+
     fn asset(symbol: &[u8]) -> super::PxAssetEntry {
         let symbol = match std::str::from_utf8(symbol) {
             Ok(symbol) => serde_json::Value::String(symbol.to_owned()),

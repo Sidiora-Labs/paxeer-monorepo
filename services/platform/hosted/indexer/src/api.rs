@@ -2,6 +2,7 @@
 //! `/v1/holders/{address}`, `/v1/assets` and `/v1/assets/{id}`, served over
 //! plain HTTP on loopback or over TLS.
 
+use std::collections::HashSet;
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
@@ -175,11 +176,16 @@ struct NameQuery {
     name: Option<String>,
     only_active: bool,
     owned_by: Option<bool>,
+    resolved_to: Option<bool>,
+    protocol_ok: bool,
     order: NameOrder,
 }
 
 fn parse_name_query(query: Option<&str>, allowed: &[&str]) -> Result<NameQuery, Response> {
-    let mut parsed = NameQuery::default();
+    let mut parsed = NameQuery {
+        protocol_ok: true,
+        ..NameQuery::default()
+    };
     let mut seen = Vec::new();
     for pair in query
         .unwrap_or_default()
@@ -198,7 +204,7 @@ fn parse_name_query(query: Option<&str>, allowed: &[&str]) -> Result<NameQuery, 
         match key.as_str() {
             "address" => parsed.address = Some(name_address(&value)?),
             "name" => parsed.name = Some(name_identifier(&value)?),
-            "owned_by" | "only_active" => {
+            "owned_by" | "resolved_to" | "only_active" => {
                 let flag = match value.as_str() {
                     "true" => true,
                     "false" => false,
@@ -206,10 +212,14 @@ fn parse_name_query(query: Option<&str>, allowed: &[&str]) -> Result<NameQuery, 
                 };
                 if key == "owned_by" {
                     parsed.owned_by = Some(flag);
+                } else if key == "resolved_to" {
+                    parsed.resolved_to = Some(flag);
                 } else {
                     parsed.only_active = flag;
                 }
             }
+            "protocols" => parsed.protocol_ok &= value.split(',').any(|id| id == "pax"),
+            "protocol_id" => parsed.protocol_ok &= value == "pax",
             "sort" if value == "registration_date" => {}
             "order" => {
                 parsed.order = match value.as_str() {
@@ -243,6 +253,10 @@ fn name_identifier(name: &str) -> Result<String, Response> {
     Ok(name.to_ascii_lowercase())
 }
 
+fn protocol_document() -> serde_json::Value {
+    json!({"id": "pax", "short_name": "PNS", "title": "Paxeer Name System", "tld_list": ["pax"]})
+}
+
 fn domain_document(record: &NameRecord, detailed: bool) -> serde_json::Value {
     let address = |hash: &Option<String>| hash.as_ref().map(|hash| json!({"hash": hash}));
     let mut document = json!({
@@ -253,7 +267,7 @@ fn domain_document(record: &NameRecord, detailed: bool) -> serde_json::Value {
         "wrapped_owner": null,
         "registration_date": record.registration_date,
         "expiry_date": record.expiry_date,
-        "protocol": {"id": "pax", "short_name": "PNS", "title": "Paxeer Name System", "tld_list": ["pax"]},
+        "protocol": protocol_document(),
     });
     if detailed {
         let tokens: Vec<_> = record.token_id.iter().zip(record.registrar.iter()).map(|(id, contract)| {
@@ -277,17 +291,50 @@ fn names_route(
     if path == "/api/v1/addresses:lookup" {
         let query = parse_name_query(
             query,
-            &["address", "owned_by", "only_active", "sort", "order"],
+            &[
+                "address",
+                "owned_by",
+                "resolved_to",
+                "only_active",
+                "sort",
+                "order",
+                "protocols",
+            ],
         )?;
         let address = query
             .address
             .ok_or_else(|| refusal(400, "missing_address", None))?;
-        let records = if query.owned_by == Some(false) {
-            store.names_resolving_to(&address, query.only_active, query.order)
+        let records = if !query.protocol_ok {
+            Vec::new()
+        } else if query.owned_by == Some(true) && query.resolved_to == Some(true) {
+            let mut records = store
+                .names_owned_by(&address, query.only_active, query.order)
+                .map_err(store_error)?;
+            records.extend(
+                store
+                    .names_resolving_to(&address, query.only_active, query.order)
+                    .map_err(store_error)?,
+            );
+            let mut nodes = HashSet::new();
+            records.retain(|record| nodes.insert(record.node.clone()));
+            records.sort_by(|left, right| {
+                let order = (&left.registration_date, &left.node)
+                    .cmp(&(&right.registration_date, &right.node));
+                match query.order {
+                    NameOrder::Asc => order,
+                    NameOrder::Desc => order.reverse(),
+                }
+            });
+            records
+        } else if query.resolved_to == Some(true) || query.owned_by == Some(false) {
+            store
+                .names_resolving_to(&address, query.only_active, query.order)
+                .map_err(store_error)?
         } else {
-            store.names_owned_by(&address, query.only_active, query.order)
-        }
-        .map_err(store_error)?;
+            store
+                .names_owned_by(&address, query.only_active, query.order)
+                .map_err(store_error)?
+        };
         let items: Vec<_> = records
             .iter()
             .map(|record| domain_document(record, false))
@@ -295,10 +342,13 @@ fn names_route(
         return Ok(json!({"items": items, "next_page_params": null}));
     }
     if path == "/api/v1/domains:lookup" {
-        let query = parse_name_query(query, &["name", "only_active"])?;
+        let query = parse_name_query(query, &["name", "only_active", "protocols"])?;
         let name = query
             .name
             .ok_or_else(|| refusal(400, "missing_name", None))?;
+        if !query.protocol_ok {
+            return Ok(json!({"items": [], "next_page_params": null}));
+        }
         let record = store
             .name(&name)
             .map_err(store_error)?
@@ -314,8 +364,18 @@ fn names_route(
         let (segment, events) = segment
             .strip_suffix("/events")
             .map_or((segment, false), |name| (name, true));
-        let query = parse_name_query(query, if events { &["order"] } else { &[] })?;
+        let query = parse_name_query(
+            query,
+            if events {
+                &["order", "protocol_id", "protocols"]
+            } else {
+                &["protocol_id", "protocols"]
+            },
+        )?;
         let name = name_identifier(&identifier(segment)?)?;
+        if !query.protocol_ok {
+            return Err(refusal(404, "domain_not_found", None));
+        }
         let record = store
             .name(&name)
             .map_err(store_error)?
@@ -329,8 +389,11 @@ fn names_route(
         return Ok(domain_document(&record, true));
     }
     if let Some(segment) = path.strip_prefix("/api/v1/addresses/") {
-        parse_name_query(query, &[])?;
+        let query = parse_name_query(query, &["protocols"])?;
         let address = name_address(&identifier(segment)?)?;
+        if !query.protocol_ok {
+            return Ok(json!({"domain": null, "resolved_domains_count": 0}));
+        }
         let domain = store.name_for_address(&address).map_err(store_error)?;
         let count = store
             .names_resolving_to(&address, false, NameOrder::Desc)
@@ -340,6 +403,12 @@ fn names_route(
             "domain": domain.as_ref().map(|record| domain_document(record, true)),
             "resolved_domains_count": count,
         }));
+    }
+    if path == "/api/v1/protocols" {
+        parse_name_query(query, &[])?;
+        let mut protocol = protocol_document();
+        protocol["description"] = json!("The native name service for Paxeer.");
+        return Ok(json!({"items": [protocol]}));
     }
     Err(refusal(404, "not_found", None))
 }

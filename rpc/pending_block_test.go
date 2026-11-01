@@ -187,13 +187,14 @@ func TestPendingBlockGasPriceFromOpenBlock(t *testing.T) {
 	// Not congested: the price is the open block's base fee plus 10%.
 	price, err := sequencerAPI.GasPrice(ctx)
 	require.NoError(t, err)
-	require.Equal(t, big.NewInt(77_000_000), price.ToInt())
+	require.Equal(t, big.NewInt(1_077_000_000), price.ToInt())
 
 	committedFee := EVMKeeper.GetNextBaseFeePerGas(ctxProvider(evmrpc.LatestCtxHeight)).TruncateInt().BigInt()
 	require.NotEqual(t, big.NewInt(pendingBlockBaseFeeWei), committedFee)
 	committedPrice, err := committedAPI.GasPrice(ctx)
 	require.NoError(t, err)
 	wantCommitted := new(big.Int).Div(new(big.Int).Mul(committedFee, big.NewInt(110)), big.NewInt(100))
+	wantCommitted.Add(wantCommitted, big.NewInt(1_000_000_000))
 	require.Equal(t, wantCommitted, committedPrice.ToInt())
 
 	// The child base fee after the latest committed block is the open block's.
@@ -212,9 +213,59 @@ func TestPendingBlockGasPriceFromOpenBlock(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, committedTip, tip)
 
-	// Without an open block the sequencer refuses rather than report a stale fee.
+	// Without an open block the sequencer reports the committed fee.
 	_, err = floor.Seal(MockHeight8 + 1)
 	require.NoError(t, err)
-	_, err = sequencerAPI.GasPrice(ctx)
+	price, err = sequencerAPI.GasPrice(ctx)
+	require.NoError(t, err)
+	require.Equal(t, wantCommitted, price.ToInt())
+}
+
+func TestGasPriceWithoutOpenBlockUsesLatestBaseFee(t *testing.T) {
+	floor, wm := pendingBlockFeeSequencer(t, MockHeight8, pendingBlockBaseFeeWei)
+	ctxProvider := func(height int64) sdk.Context {
+		if height == evmrpc.LatestCtxHeight {
+			height = MockHeight8
+		}
+		return Ctx.WithBlockHeight(height).WithIsTracing(true).WithClosestUpgradeName(LatestCtxUpgradeName)
+	}
+	txConfigProvider := func(int64) client.TxConfig { return TxConfig }
+	committedWM := evmrpc.NewWatermarkManager(&MockClient{}, ctxProvider, nil, EVMKeeper.ReceiptStore())
+	committedAPI := evmrpc.NewInfoAPI(&MockClient{}, EVMKeeper, ctxProvider, txConfigProvider, "", 1024, evmrpc.ConnectionTypeHTTP, Decoder, committedWM)
+	sequencerAPI := evmrpc.NewInfoAPI(&MockClient{}, EVMKeeper, ctxProvider, txConfigProvider, "", 1024, evmrpc.ConnectionTypeHTTP, Decoder, wm)
+	ctx := context.Background()
+
+	_, err := floor.Seal(MockHeight8 + 1)
+	require.NoError(t, err)
+	_, err = floor.Snapshot()
 	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	_, err = floor.BaseFeePerGas()
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+
+	price, err := sequencerAPI.GasPrice(ctx)
+	require.NoError(t, err)
+	committedPrice, err := committedAPI.GasPrice(ctx)
+	require.NoError(t, err)
+	committedFee := EVMKeeper.GetNextBaseFeePerGas(ctxProvider(evmrpc.LatestCtxHeight)).TruncateInt().BigInt()
+	require.NotEqual(t, big.NewInt(pendingBlockBaseFeeWei), committedFee)
+	want := new(big.Int).Div(new(big.Int).Mul(committedFee, big.NewInt(110)), big.NewInt(100))
+	want.Add(want, big.NewInt(1_000_000_000))
+	require.Equal(t, want, price.ToInt())
+	require.Equal(t, committedPrice.ToInt(), price.ToInt())
+
+	// A snapshot can still be available before the fee floor fixes a base fee.
+	require.NoError(t, floor.Executor.Open(MockHeight8+1, time.Now().UTC().UnixMilli()))
+	_, err = floor.Snapshot()
+	require.NoError(t, err)
+	_, err = floor.BaseFeePerGas()
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	price, err = sequencerAPI.GasPrice(ctx)
+	require.NoError(t, err)
+	require.Equal(t, want, price.ToInt())
+	require.Equal(t, committedPrice.ToInt(), price.ToInt())
+
+	wm.SetPendingSnapshot(floor.Executor)
+	price, err = sequencerAPI.GasPrice(ctx)
+	require.Nil(t, price)
+	require.EqualError(t, err, "pending block does not fix a base fee")
 }

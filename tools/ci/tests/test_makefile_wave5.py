@@ -74,7 +74,8 @@ class MakefileWaveFiveTest(unittest.TestCase):
             with self.subTest(retired=retired):
                 offending = [line for line in result.stdout.splitlines() if retired in line]
                 self.assertEqual(offending, [], "\n".join(offending))
-        self.assertIn("LAYERX_EXPLORER_CORE_FIXTURE=", result.stdout)
+        self.assertNotIn("LAYERX_EXPLORER_CORE_FIXTURE=", result.stdout)
+        self.assertNotIn("tests/explorer_fixture", result.stdout)
         self.assertIn("tests/test_asset_withdraw_activity", result.stdout)
 
 
