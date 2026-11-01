@@ -11,7 +11,6 @@ pub mod identity;
 mod identity_dispatch;
 mod identity_services;
 mod limits;
-pub mod movement_provider;
 pub mod native_send;
 mod privileged;
 pub mod production_auth;
