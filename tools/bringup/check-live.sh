@@ -345,6 +345,92 @@ fly_app() {
 	[ -n "$app" ] && printf '%s' "$app"
 }
 
+# railway_service <rollout row>: resolve the deployed service, failing when
+# the row has no Railway service instead of consulting a retired Fly toml.
+railway_service() {
+	python3 -c '
+import sys, tomllib
+with open(sys.argv[1], "rb") as source:
+    row = tomllib.load(source).get("service", {}).get(sys.argv[2], {})
+service = row.get("railway_service")
+if not service:
+    sys.exit(1)
+print(service, end="")
+' "$repo_root/deploy/rollout.kvx" "$1" 2>/dev/null
+}
+
+# Railway ssh accepts one command line and does not forward stdin. Carry the
+# input in that command, just as the relay probe does.
+railway_ssh() {
+	local input command
+	input="$(base64 -w0)"
+	command="echo $input | base64 -d | $2"
+	command="${command//\'/\'\\\'\'}"
+	timeout "$timeout" "$railway_bin" ssh --service "$1" --environment "$railway_env" -- "sh -c '$command'" 2>/dev/null
+}
+
+railway_instance() {
+	timeout "$timeout" "$railway_bin" status --service "$1" --environment "$railway_env" --json </dev/null 2>/dev/null |
+		python3 -c '
+import json, sys
+def nodes(connection):
+    return [edge["node"] for edge in connection["edges"]]
+doc = json.load(sys.stdin)
+service, environment = sys.argv[1:]
+if "environments" in doc:
+    env = next(e for e in nodes(doc["environments"]) if e["name"] == environment or e["id"] == environment)
+    if "serviceInstances" in env:
+        instance = next(i for i in nodes(env["serviceInstances"]) if i["serviceName"] == service or i["serviceId"] == service)
+    else:
+        svc = next(s for s in nodes(doc["services"]) if s["name"] == service or s["id"] == service)
+        instance = next(i for i in nodes(svc["serviceInstances"]) if i["environmentId"] == env["id"])
+else:
+    instance = doc
+print(json.dumps(instance))
+' "$1" "$railway_env" 2>/dev/null
+}
+
+railway_domains() {
+	railway_instance "$1" | python3 -c '
+import json, sys
+domains = json.load(sys.stdin)["domains"]
+print(len(domains["serviceDomains"]) + len(domains["customDomains"]))
+' 2>/dev/null
+}
+
+railway_origin() {
+	railway_instance "$1" | python3 -c '
+import json, sys
+domains = json.load(sys.stdin)["domains"]
+print("https://" + (domains["customDomains"] + domains["serviceDomains"])[0]["domain"])
+' 2>/dev/null
+}
+
+railway_deployment() {
+	local answer
+	answer="$(railway_instance "$1" | python3 -c '
+import json, sys
+i = json.load(sys.stdin)
+d = i.get("latestDeployment") or {}
+config = (d.get("meta") or {}).get("serviceManifest", {}).get("deploy", {})
+regions = config.get("multiRegionConfig") or {}
+replicas = sum(r["numReplicas"] for r in regions.values()) if regions else config.get("numReplicas")
+volume = sys.argv[1]
+volumes = (d.get("meta") or {}).get("volumeMounts") or {}
+if isinstance(volumes, dict):
+    volumes = [e["node"] for e in volumes.get("edges", [])]
+mounted = any(v.get("mountPath") == volume for v in volumes)
+ok = d.get("status") == "SUCCESS" and isinstance(replicas, int)
+if volume != "-":
+    ok = ok and replicas == 1 and len(volumes) == 1 and mounted
+else:
+    ok = ok and replicas >= 2 and len(regions) >= 2
+print(("pass" if ok else "fail") + " deployment status=%s replicas=%s regions=%s volume=%s" % (d.get("status", "none"), replicas, ",".join(sorted(regions)) or "none", volume if mounted else "none"))
+' "${2:--}" 2>/dev/null)" || answer="fail deployment status=unreadable"
+	echo "${answer%% *} deployment service=$1 ${answer#* deployment }"
+	[ "${answer%% *}" = pass ]
+}
+
 # fly_ssh <app> <process group or -> <command>: runs the command under sh
 # inside a machine of the app, of the process group unless it is -, through
 # flyctl ssh console, bounded by CHECK_LIVE_TIMEOUT. stdin passes through and
@@ -1289,50 +1375,32 @@ check_validators() {
 	finish "$failures"
 }
 
-# check_identity: the identity app of services/platform/hosted/identity/fly.toml runs
-# one started machine with a volume, holds no public IP, and answers
-# readiness over TLS under the internal CA at its .internal name when asked
-# from a machine of the human app of services/wallet/deploy/human.toml, which
-# gets only the CA certificate on stdin.
+# check_identity: the rollout's identity service runs one replica with a
+# volume and no public domain. Its Railway private name answers readiness
+# over TLS under the internal CA, sent to the service through Railway ssh.
 check_identity() {
-	local app from answer url code body attempt n_machines n_started n_mounts failures=0
-	if ! app="$(fly_app services/platform/hosted/identity/fly.toml)"; then
-		echo "fail identity toml=absent"
+	local app from answer url code body attempt failures=0
+	if ! app="$(railway_service identity)"; then
+		echo "fail identity rollout=absent"
 		finish 1
 	fi
-	answer="$(timeout "$timeout" flyctl machines list --app "$app" --json 2>/dev/null | python3 -c '
-import json, sys
-ms = json.load(sys.stdin)
-started = [m for m in ms if m.get("state") == "started"]
-mounts = [x.get("volume", "") for m in ms for x in (m.get("config") or {}).get("mounts") or []]
-print(len(ms), len(started), len(mounts))
-' 2>/dev/null)" || answer=""
-	read -r n_machines n_started n_mounts <<<"${answer:-none none none}"
-	if [ "$n_machines" = 1 ] && [ "$n_started" = 1 ] && [ "$n_mounts" = 1 ]; then
-		echo "pass machines app=$app machines=1 started=1 volumes=1"
-	else
-		echo "fail machines app=$app machines=$n_machines started=$n_started volumes=$n_mounts"
-		failures=$((failures + 1))
-	fi
-	answer="$(timeout "$timeout" flyctl ips list --app "$app" --json 2>/dev/null | python3 -c 'import json, sys; print(len(json.load(sys.stdin) or []))' 2>/dev/null)" || answer=none
+	railway_deployment "$app" /data || failures=$((failures + 1))
+	answer="$(railway_domains "$app")" || answer=none
 	if [ "$answer" = 0 ]; then
-		echo "pass public-ips app=$app count=0"
+		echo "pass public-domains service=$app count=0"
 	else
-		echo "fail public-ips app=$app count=${answer:-none}"
+		echo "fail public-domains service=$app count=${answer:-none}"
 		failures=$((failures + 1))
 	fi
-	url="https://$app.internal:9443/readyz"
-	if ! from="$(fly_app services/wallet/deploy/human.toml)"; then
-		echo "fail readiness app=$app from=absent"
-		finish $((failures + 1))
-	fi
+	url="https://$app.railway.internal:9443/readyz"
+	from="$app"
 	if [ ! -r "$ca_dir/ca.pem" ]; then
 		echo "fail readiness app=$app ca=absent"
 		finish $((failures + 1))
 	fi
 	answer=""
 	for attempt in 1 2; do
-		answer="$(fly_ssh "$from" - "cat >/tmp/identity-ca.pem && curl -sS -m $timeout --cacert /tmp/identity-ca.pem -w \" %{http_code}\" $url; rm -f /tmp/identity-ca.pem" <"$ca_dir/ca.pem" | tail -n 1)" || true
+		answer="$(railway_ssh "$from" "cat >/tmp/identity-ca.pem && curl -sS -m $timeout --cacert /tmp/identity-ca.pem -w \" %{http_code}\" $url; rm -f /tmp/identity-ca.pem" <"$ca_dir/ca.pem" | tail -n 1)" || true
 		[ "${answer##* }" != 200 ] || break
 		[ "$attempt" = 2 ] || sleep 10
 	done
@@ -1355,14 +1423,14 @@ print(len(ms), len(started), len(mounts))
 # and holds no validator host's apiN name; two requests from this address get
 # the same X-Search-Node, one of those names. One line per check.
 check_search_front() {
-	local host=search.paxeer.network toml=services/interop/deploy/search-front/fly.toml
+	local host=search.paxeer.network
 	local app status headers code listing mounted expected validators listed first second failures=0
-	if ! command -v flyctl >/dev/null 2>&1; then
-		echo "check-live: flyctl is required" >&2
+	if ! command -v "$railway_bin" >/dev/null 2>&1; then
+		echo "check-live: $railway_bin is required" >&2
 		exit 2
 	fi
-	if ! app="$(fly_app "$toml")"; then
-		echo "fail search-front toml=absent"
+	if ! app="$(railway_service search-front)"; then
+		echo "fail search-front rollout=absent"
 		finish 1
 	fi
 
@@ -1379,7 +1447,7 @@ check_search_front() {
 		failures=$((failures + 1))
 	fi
 
-	fly_regions "$app" || failures=$((failures + 1))
+	railway_deployment "$app" || failures=$((failures + 1))
 
 	if ! listing="$("$(dirname "${BASH_SOURCE[0]}")/search-front.sh" names 2>&1)"; then
 		echo "fail upstreams names=unreadable $(printf '%s' "$listing" | tr '\n' ' ' | cut -c1-160)"
@@ -1388,7 +1456,7 @@ check_search_front() {
 	else
 		expected="$(sed -n 's/^serve //p' <<<"$listing" | sort)"
 		validators="$(sed -n 's/^validator //p' <<<"$listing" | sort)"
-		mounted="$(fly_ssh "$app" - "cat /etc/nginx/search/upstreams.conf" </dev/null)" || mounted=""
+		mounted="$(railway_ssh "$app" "cat /etc/nginx/search/upstreams.conf" </dev/null)" || mounted=""
 		listed="$(sed -n 's/^[[:space:]]*\([0-9.]*%\|\*\)[[:space:]]\{1,\}\([a-z0-9.-]*\);.*/\2/p' <<<"$mounted" | sort)"
 		first="$(comm -23 <(printf '%s\n' "$expected") <(printf '%s\n' "$listed") | grep -c . || true)"
 		second="$(comm -13 <(printf '%s\n' "$expected") <(printf '%s\n' "$listed") | grep -c . || true)"
@@ -2004,8 +2072,8 @@ gas_sign() {
 }
 
 check_gas() {
-	local toml=services/interop/deploy/gas-station/fly.toml name
-	local app answer n_machines n_started n_mounts config chain token endpoints first paymaster gas_limit priority
+	local name
+	local app answer config chain token endpoints first paymaster gas_limit priority
 	local account code rate price nonce auth_nonce gas_cost w status body quote sponsor amount maximum deadline qnonce
 	local qd calls_hash bd account_sig auth_sig auth_rlp call_data tx receipt attempt verdict failures=0
 	local max_age updated head age updated_at rate_config journal worst spent
@@ -2021,26 +2089,13 @@ check_gas() {
 	fi
 	gas_origin="${CHECK_LIVE_GAS_ORIGIN:-https://chain.paxeer.network}"
 	gas_rpc_url="${CHECK_LIVE_GAS_RPC:-https://api-mainnet-beta.paxeer.network/rpc}"
-	if ! app="$(fly_app "$toml")"; then
-		echo "fail gas toml=absent"
+	if ! app="$(railway_service gas-station)"; then
+		echo "fail gas rollout=absent"
 		finish 1
 	fi
-	answer="$(timeout "$timeout" flyctl machines list --app "$app" --json 2>/dev/null | python3 -c '
-import json, sys
-ms = json.load(sys.stdin)
-started = [m for m in ms if m.get("state") == "started"]
-mounts = [x.get("volume", "") for m in ms for x in (m.get("config") or {}).get("mounts") or []]
-print(len(ms), len(started), len(mounts))
-' 2>/dev/null)" || answer=""
-	read -r n_machines n_started n_mounts <<<"${answer:-none none none}"
-	if [ "$n_machines" = 1 ] && [ "$n_started" = 1 ] && [ "$n_mounts" = 1 ]; then
-		echo "pass machines app=$app machines=1 started=1 volumes=1"
-	else
-		echo "fail machines app=$app machines=$n_machines started=$n_started volumes=$n_mounts"
-		failures=$((failures + 1))
-	fi
+	railway_deployment "$app" /data || failures=$((failures + 1))
 
-	config="$(fly_ssh "$app" - "cat /data/gas-station/station.json" </dev/null | python3 -c '
+	config="$(railway_ssh "$app" "cat /data/gas-station/station.json" </dev/null | python3 -c '
 import json, sys
 c = json.load(sys.stdin)
 print(c["chain_id"], c["token"], len(c["endpoints"]), c["endpoints"][0], c["paymaster"], c["gas_limit"], c["max_priority_fee_per_gas"], c["max_rate_age"])
@@ -2070,14 +2125,14 @@ print(int(head["timestamp"], 16) - updated, updated)
 		echo "fail rate-age paymaster=$paymaster updated_at=${updated_at:-none} age=${age:-none} max_rate_age=$max_age"
 		failures=$((failures + 1))
 	fi
-	rate_config="$(fly_ssh "$app" - "cat /data/gas-station/rate.json" </dev/null)" || rate_config=""
+	rate_config="$(railway_ssh "$app" "cat /data/gas-station/rate.json" </dev/null)" || rate_config=""
 	worst="$(python3 -c '
 import json, sys
 c = json.loads(sys.argv[1])
 print(int(c["rate_max_fee_per_gas"]) * int(c["rate_gas_budget_per_day"]))
 ' "$rate_config" 2>/dev/null)" || worst=none
 	spent=none
-	if journal="$(fly_ssh "$app" - "cat /data/gas-station/rate.jsonl" </dev/null)"; then
+	if journal="$(railway_ssh "$app" "cat /data/gas-station/rate.jsonl" </dev/null)"; then
 		spent="$(python3 -c '
 import json, sys
 day = int(json.loads(sys.argv[1])["timestamp"], 16) // 86400
@@ -2239,30 +2294,31 @@ env_of() { tr "\000" "\n" <"$pid/environ" | sed -n "s/^$1=//p" | head -n 1; }
 echo "@@url $(env_of LAYERX_EVENTS_UPSTREAM_URL)"
 echo "@@pin $(base64 <"$(env_of LAYERX_EVENTS_UPSTREAM_CA_DER)" 2>/dev/null | tr -d "\n")"'
 # shellcheck disable=SC2016
-internal_ready_script='for group in kms journeys payments approvals programs; do
+internal_ready_script='for group in "$group"; do
 	status=0
-	answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" --cert "$tls/cert.pem" --key "$tls/key.pem" -w "\n%{http_code}" "https://$group.process.$app.internal:9443/readyz" 2>&1) || status=$?
+	answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" --cert "$tls/cert.pem" --key "$tls/key.pem" -w "\n%{http_code}" "https://$app.railway.internal:9443/readyz" 2>&1) || status=$?
 	echo "@@$group $status $(printf "%s" "$answer" | tail -n 1) $(printf "%s" "$answer" | head -n 1 | tr -d " " | cut -c1-120)"
 done'
 check_internal() {
 	local router=api-mainnet-beta.paxeer.network
 	local connect="${CHECK_LIVE_ROUTER_CONNECT:-api-mainnet-beta.paxeer.network:443}"
-	local app redis_app kernel name="" answer w root="" group reply url pin subject line status code body failures=0
-	if ! command -v flyctl >/dev/null 2>&1; then
-		echo "check-live: flyctl is required" >&2
+	local app kernel name="" answer w root="" group reply url pin subject line status code body failures=0
+	if ! command -v "$railway_bin" >/dev/null 2>&1; then
+		echo "check-live: $railway_bin is required" >&2
 		exit 2
 	fi
-	if ! app="$(fly_app services/platform/hosted/internal/fly.toml)" || ! redis_app="$(fly_app services/platform/hosted/internal/redis.toml)" ||
-		! kernel="$(fly_app services/wallet/deploy/human.toml)"; then
-		echo "fail internal toml=absent"
-		finish 1
-	fi
-	for name in "$app" "$redis_app"; do
-		answer="$(timeout "$timeout" flyctl ips list --app "$name" --json 2>/dev/null | python3 -c 'import json, sys; print(len(json.load(sys.stdin) or []))' 2>/dev/null)" || answer=none
+	for group in kms payments programs journeys approvals redis; do
+		name="internal-$group"
+		[ "$group" != redis ] || name=redis-internal
+		if ! app="$(railway_service "$name")"; then
+			echo "fail internal service=$name rollout=absent"
+			finish 1
+		fi
+		answer="$(railway_domains "$app")" || answer=none
 		if [ "$answer" = 0 ]; then
-			echo "pass public-ips app=$name count=0"
+			echo "pass public-domains service=$app count=0"
 		else
-			echo "fail public-ips app=$name count=${answer:-none}"
+			echo "fail public-domains service=$app count=${answer:-none}"
 			failures=$((failures + 1))
 		fi
 	done
@@ -2291,7 +2347,8 @@ check_internal() {
 	fi
 
 	for group in payments programs; do
-		reply="$(printf '%s\n' "$internal_pin_script" | fly_ssh "$app" "$group" "kind=$group sh -s")" || reply=""
+		app="$(railway_service "internal-$group")"
+		reply="$(printf '%s\n' "$internal_pin_script" | railway_ssh "$app" "kind=$group sh -s")" || reply=""
 		url="$(sed -n 's/^@@url //p' <<<"$reply" | head -n 1)"
 		pin="$(sed -n 's/^@@pin //p' <<<"$reply" | head -n 1)"
 		if [ -z "$url" ]; then
@@ -2318,9 +2375,11 @@ check_internal() {
 		fi
 	done
 
-	reply="$(printf '%s\n' "$internal_ready_script" | fly_ssh "$kernel" - "tls=$tls_dir/human-event-client app=$app limit=$timeout sh -s")" || reply=""
 	for group in kms journeys payments approvals programs; do
-		url="https://$group.process.$app.internal:9443/readyz"
+		app="$(railway_service "internal-$group")"
+		kernel="$app"
+		url="https://$app.railway.internal:9443/readyz"
+		reply="$(printf '%s\n' "$internal_ready_script" | railway_ssh "$app" "tls=$tls_dir/human-event-client app=$app group=$group limit=$timeout sh -s")" || reply=""
 		line="$(sed -n "s/^@@$group //p" <<<"$reply" | head -n 1)"
 		read -r status code body <<<"${line:-none none}"
 		if [ "$status" = 0 ] && [ "$code" = 200 ] && [[ "$body" == *'"ready":true'* ]]; then
@@ -2460,19 +2519,19 @@ check_bridge() {
 # machines in two regions. The gates' check lines are printed as they come
 # without their summary lines, and a failing gate counts as one failure.
 check_wallet() {
-	local toml=services/wallet/deploy/gateway.toml spec=spec/paxeer-x-bringup/spec.kvx
-	local app name output status failures=0
+	local spec=spec/paxeer-x-bringup/spec.kvx
+	local app name output status answer failures=0
 	local host_re='^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+(:[0-9]{1,5})?$'
 	if [ -z "${CHECK_LIVE_GATEWAY_TOKEN:-}" ]; then
 		echo "check-live: CHECK_LIVE_GATEWAY_TOKEN is required; it is the access token of a provisioned test identity of the wallet gateway" >&2
 		exit 2
 	fi
-	if ! command -v flyctl >/dev/null 2>&1; then
-		echo "check-live: flyctl is required" >&2
+	if ! command -v "$railway_bin" >/dev/null 2>&1; then
+		echo "check-live: $railway_bin is required" >&2
 		exit 2
 	fi
-	if ! app="$(fly_app "$toml")"; then
-		echo "fail wallet toml=absent"
+	if ! app="$(railway_service wallet-gateway)"; then
+		echo "fail wallet rollout=absent"
 		finish 1
 	fi
 
@@ -2489,18 +2548,22 @@ check_wallet() {
 	fi
 
 	status=0
-	output="$(CHECK_LIVE_GATEWAY_BASE="https://$app.fly.dev" "$repo_root/scripts/wallet/check-live.sh" gateway 2>&1)" || status=$?
+	if ! answer="$(railway_origin "$app")"; then
+		echo "fail wallet service=$app public-domain=absent"
+		finish $((failures + 1))
+	fi
+	output="$(CHECK_LIVE_GATEWAY_BASE="$answer" "$repo_root/scripts/wallet/check-live.sh" gateway 2>&1)" || status=$?
 	grep -Ev '^check-live: (all checks passed|[0-9]+ check\(s\) failed)$' <<<"$output" || true
 	[ "$status" -eq 0 ] || failures=$((failures + 1))
 
-	fly_regions "$app" || failures=$((failures + 1))
+	railway_deployment "$app" || failures=$((failures + 1))
 	finish "$failures"
 }
 
 # check_router: the router URL https://api-mainnet-beta.paxeer.network serves
 # the gateway of services/wallet/deploy/endpoint.toml in kernel mode. Through its
-# /rpc: eth_chainId 0x7d, px_getNetwork kernel.available true and lx_getAccount
-# answering a read for the bound account CHECK_LIVE_ROUTER_ACCOUNT. The app
+# /rpc: eth_chainId 0x7d, px_getNetwork consensus object with catching_up false,
+# and lx_getAccount answering a read for the bound account CHECK_LIVE_ROUTER_ACCOUNT. The app
 # runs started machines in at least two regions (fly_regions); /readyz through the router,
 # forced to the first started machine of each region with
 # fly-force-instance-id, answers 200 with durable_store (its Redis round trip)
@@ -2509,14 +2572,14 @@ check_wallet() {
 # rpc_pool up with the router URL first. One line per check.
 check_router() {
 	local url=https://api-mainnet-beta.paxeer.network account="${CHECK_LIVE_ROUTER_ACCOUNT:-}"
-	local app wallet method params body answer machines region id code failures=0
+	local app wallet method params body answer regions region code failures=0
 	router_prerequisite
-	if ! command -v flyctl >/dev/null 2>&1; then
-		echo "check-live: flyctl is required" >&2
+	if ! command -v "$railway_bin" >/dev/null 2>&1; then
+		echo "check-live: $railway_bin is required" >&2
 		exit 2
 	fi
-	if ! app="$(fly_app services/wallet/deploy/endpoint.toml)"; then
-		echo "fail router toml=absent"
+	if ! app="$(railway_service router)"; then
+		echo "fail router rollout=absent"
 		finish 1
 	fi
 
@@ -2550,10 +2613,12 @@ result = doc["result"]
 if method == "eth_chainId":
     print("%s eth_chainId result=%s" % ("pass" if result == "0x7d" else "fail", result))
 elif method == "px_getNetwork":
-    kernel = (result or {}).get("kernel") if isinstance(result, dict) else None
-    kernel = kernel if isinstance(kernel, dict) else {}
-    ok = kernel.get("available") is True
-    print("%s px_getNetwork kernel.available=%s reason=%s" % ("pass" if ok else "fail", json.dumps(kernel.get("available")), kernel.get("reason") or "none"))
+    consensus = result.get("consensus") if isinstance(result, dict) else None
+    if isinstance(consensus, dict) and consensus.get("catching_up") is False:
+        print("pass px_getNetwork consensus.latest_height=%s catching_up=false" % consensus.get("latest_height"))
+    else:
+        reason = result.get("reason") if isinstance(result, dict) else None
+        print("fail px_getNetwork consensus=null reason=%s" % (reason or "none"))
 else:
     ok = isinstance(result, dict) and len(result) > 0
     print("%s lx_getAccount read=%s" % ("pass" if ok else "fail", "answered" if ok else "empty"))
@@ -2562,21 +2627,15 @@ else:
 		[ "${answer%% *}" = pass ] || failures=$((failures + 1))
 	done
 
-	machines="$(timeout "$timeout" flyctl machines list --app "$app" --json 2>/dev/null | python3 -c '
-import json
-import sys
-
-first = {}
-for machine in json.load(sys.stdin):
-    if machine.get("state") == "started" and machine.get("id"):
-        first.setdefault(machine.get("region") or "none", machine["id"])
-for region in sorted(first):
-    print(region, first[region])
-' 2>/dev/null)" || machines=""
-	fly_regions "$app" || failures=$((failures + 1))
-	while read -r region id; do
-		[ -n "$id" ] || continue
-		body="$(curl -sS -m "$timeout" -H "fly-force-instance-id: $id" -w '\n%{http_code}' "$url/readyz" 2>/dev/null)" || body=""
+	railway_deployment "$app" || failures=$((failures + 1))
+	regions="$(railway_instance "$app" | python3 -c '
+import json, sys
+config = json.load(sys.stdin)["latestDeployment"]["meta"]["serviceManifest"]["deploy"]
+print("\n".join(sorted(config["multiRegionConfig"])))
+' 2>/dev/null)" || regions=""
+	while read -r region; do
+		[ -n "$region" ] || continue
+		body="$(railway_ssh "$app" "curl -sS -m $timeout -w '\n%{http_code}' http://127.0.0.1:8080/readyz" </dev/null)" || body=""
 		code="${body##*$'\n'}"
 		answer="$(python3 -c '
 import json
@@ -2599,13 +2658,13 @@ print(("pass " if ok else "fail ") + line + (" unready=" + ",".join(unready) if 
 ' "$code" <<<"${body%$'\n'*}")"
 		echo "${answer%% *} readyz app=$app region=$region ${answer#* }"
 		[ "${answer%% *}" = pass ] || failures=$((failures + 1))
-	done <<<"$machines"
+	done <<<"$regions"
 
-	if ! wallet="$(fly_app services/wallet/deploy/gateway.toml)"; then
-		echo "fail wallet-gateway toml=absent"
+	if ! wallet="$(railway_service wallet-gateway)"; then
+		echo "fail wallet-gateway rollout=absent"
 		finish $((failures + 1))
 	fi
-	body="$(fly_ssh "$wallet" - 'node -e "fetch(\"http://127.0.0.1:8080/readyz\").then(r => r.text()).then(t => process.stdout.write(t))"' </dev/null | tail -n 1)" || body=""
+	body="$(railway_ssh "$wallet" 'node -e "fetch(\"http://127.0.0.1:8080/readyz\").then(r => r.text()).then(t => process.stdout.write(t))"' </dev/null | tail -n 1)" || body=""
 	answer="$(python3 -c '
 import json
 import sys
@@ -3605,8 +3664,8 @@ PY
 # LAYERX_RAMP_CA_PEM defaults to the system CA file. One line per check,
 # never printing a token or an address.
 check_ramp() {
-	local toml=services/platform/ramps/fly.toml ramp_name=ramp.paxeer.network name app answer n_machines n_started n_mounts
-	local reply status=0 manifest line edge_addrs addrs at out headers body code fly_id app_body v failures=0
+	local ramp_name=ramp.paxeer.network name app answer
+	local reply status=0 manifest line edge_addrs addrs at out headers body code railway_id app_body v failures=0
 	for name in LAYERX_RAMP_CUSTOMER_TOKEN LAYERX_RAMP_OPERATOR_URL LAYERX_RAMP_OPERATOR_TOKEN LAYERX_RAMP_ON_QUOTE_ID \
 		LAYERX_RAMP_OFF_QUOTE_ID LAYERX_RAMP_OFF_GRANT_JSON LAYERX_RAMP_ON_ACCOUNT_SEQUENCE LAYERX_RAMP_OFF_RECEIVER_SEQUENCE; do
 		if [ -z "${!name:-}" ]; then
@@ -3614,30 +3673,17 @@ check_ramp() {
 			exit 2
 		fi
 	done
-	for name in flyctl jq; do
+	for name in "$railway_bin" jq; do
 		if ! command -v "$name" >/dev/null 2>&1; then
 			echo "check-live: $name is required" >&2
 			exit 2
 		fi
 	done
-	if ! app="$(fly_app "$toml")"; then
-		echo "fail ramp toml=absent"
+	if ! app="$(railway_service ramp)"; then
+		echo "fail ramp rollout=absent"
 		finish 1
 	fi
-	answer="$(timeout "$timeout" flyctl machines list --app "$app" --json 2>/dev/null | python3 -c '
-import json, sys
-ms = json.load(sys.stdin)
-started = [m for m in ms if m.get("state") == "started"]
-mounts = [x.get("volume", "") for m in ms for x in (m.get("config") or {}).get("mounts") or []]
-print(len(ms), len(started), len(mounts))
-' 2>/dev/null)" || answer=""
-	read -r n_machines n_started n_mounts <<<"${answer:-none none none}"
-	if [ "$n_machines" = 1 ] && [ "$n_started" = 1 ] && [ "$n_mounts" = 1 ]; then
-		echo "pass machines app=$app machines=1 started=1 volumes=1"
-	else
-		echo "fail machines app=$app machines=$n_machines started=$n_started volumes=$n_mounts"
-		failures=$((failures + 1))
-	fi
+	railway_deployment "$app" /data || failures=$((failures + 1))
 
 	reply="$(ssh_read "$EDGE_HOST" "$edge_cmd")" || status=$?
 	manifest="$(grep -E '^[a-z0-9.-]+ (http|stream) [a-z0-9-]+ [0-9]+$' <<<"${reply%%@@sites*}" || true)"
@@ -3662,17 +3708,18 @@ print(len(ms), len(started), len(mounts))
 	status=0
 	out="$(curl -sS --max-time "$timeout" -D - "https://$ramp_name/readyz" 2>&1)" || status=$?
 	code=none
-	fly_id=absent
+	railway_id=absent
 	body=""
 	if [ "$status" -eq 0 ]; then
 		headers="${out%%$'\r\n\r\n'*}"
 		body="${out#*$'\r\n\r\n'}"
 		code="$(sed -n '1s/^HTTP\/[0-9.]* \([0-9]*\).*/\1/p' <<<"$headers")"
-		if grep -qiE '^fly-request-id: *[^[:space:]]' <<<"$headers"; then
-			fly_id=present
+		if grep -qiE '^x-railway-request-id: *[^[:space:]]' <<<"$headers"; then
+			railway_id=present
 		fi
 	fi
-	app_body="$(curl -sS --max-time "$timeout" -D - "https://$app.fly.dev/readyz" 2>/dev/null)" || app_body=""
+	answer="$(railway_origin "$app")" || answer=""
+	app_body="$(curl -sS --max-time "$timeout" -D - "$answer/readyz" 2>/dev/null)" || app_body=""
 	app_body="${app_body#*$'\r\n\r\n'}"
 	v=differ
 	if [ -n "$body" ] && [ "$body" = "$app_body" ]; then
@@ -3681,10 +3728,10 @@ print(len(ms), len(started), len(mounts))
 	if [ "$status" -ne 0 ]; then
 		echo "fail readyz https://$ramp_name/readyz curl=$status"
 		failures=$((failures + 1))
-	elif [ "$code" = 200 ] && [ "$fly_id" = present ] && [ "$v" = match ]; then
-		echo "pass readyz https://$ramp_name/readyz tls=verified http=200 fly-request-id=present body=match"
+	elif [ "$code" = 200 ] && [ "$railway_id" = present ] && [ "$v" = match ]; then
+		echo "pass readyz https://$ramp_name/readyz tls=verified http=200 x-railway-request-id=present body=match"
 	else
-		echo "fail readyz https://$ramp_name/readyz tls=verified http=${code:-none} fly-request-id=$fly_id body=$v"
+		echo "fail readyz https://$ramp_name/readyz tls=verified http=${code:-none} x-railway-request-id=$railway_id body=$v"
 		failures=$((failures + 1))
 	fi
 
@@ -3700,8 +3747,8 @@ print(len(ms), len(started), len(mounts))
 	finish "$failures"
 }
 
-# check_indexer: the indexer app of services/platform/hosted/indexer/fly.toml has no
-# public IP and runs exactly one machine, started, with its volume at /data;
+# check_indexer: the rollout's indexer service has no public domain and runs
+# one successful deployment replica with its volume at /data;
 # inside it the layerx-indexer process answers /healthz over TLS at its
 # .internal name to the internal CA tools/bringup/ca.sh left on the volume;
 # its EVM URL is the archive node's public RPC name (the name rpc_unit reads
@@ -3717,42 +3764,29 @@ print(len(ms), len(started), len(mounts))
 # One line per check.
 check_indexer() {
 	local router_url=https://api-mainnet-beta.paxeer.network/rpc relay_url=https://archive.paxeer.network
-	local account="${CHECK_LIVE_INDEXER_ACCOUNT:-}" app answer n_machines n_started n_data unit w reply line side want url pin host
+	local account="${CHECK_LIVE_INDEXER_ACCOUNT:-}" app answer unit w reply line side want url pin host
 	local subject status code earliest start cutover backfilled live listen method params failures=0
 	local script
 	if ! [[ "$account" =~ ^0x[0-9a-fA-F]{40}$ ]]; then
 		echo "check-live: CHECK_LIVE_INDEXER_ACCOUNT must be a 0x EVM address with indexed history" >&2
 		exit 2
 	fi
-	if ! command -v flyctl >/dev/null 2>&1; then
-		echo "check-live: flyctl is required" >&2
+	if ! command -v "$railway_bin" >/dev/null 2>&1; then
+		echo "check-live: $railway_bin is required" >&2
 		exit 2
 	fi
-	if ! app="$(fly_app services/platform/hosted/indexer/fly.toml)"; then
-		echo "fail indexer toml=absent"
+	if ! app="$(railway_service indexer)"; then
+		echo "fail indexer rollout=absent"
 		finish 1
 	fi
-	answer="$(timeout "$timeout" flyctl ips list --app "$app" --json 2>/dev/null | python3 -c 'import json, sys; print(len(json.load(sys.stdin) or []))' 2>/dev/null)" || answer=none
+	answer="$(railway_domains "$app")" || answer=none
 	if [ "$answer" = 0 ]; then
-		echo "pass public-ips app=$app count=0"
+		echo "pass public-domains service=$app count=0"
 	else
-		echo "fail public-ips app=$app count=${answer:-none}"
+		echo "fail public-domains service=$app count=${answer:-none}"
 		failures=$((failures + 1))
 	fi
-	answer="$(timeout "$timeout" flyctl machines list --app "$app" --json 2>/dev/null | python3 -c '
-import json, sys
-ms = json.load(sys.stdin)
-started = [m for m in ms if m.get("state") == "started"]
-data = [x for m in started for x in (m.get("config") or {}).get("mounts") or [] if x.get("path") == "/data" and x.get("volume")]
-print(len(ms), len(started), len(data))
-' 2>/dev/null)" || answer=""
-	read -r n_machines n_started n_data <<<"${answer:-none none none}"
-	if [ "$n_machines" = 1 ] && [ "$n_started" = 1 ] && [ "$n_data" = 1 ]; then
-		echo "pass machines app=$app machines=1 started=1 volume=/data"
-	else
-		echo "fail machines app=$app machines=$n_machines started=$n_started volume-at-data=$n_data"
-		failures=$((failures + 1))
-	fi
+	railway_deployment "$app" /data || failures=$((failures + 1))
 
 	read -r unit _ <<<"$(rpc_unit "$ARCHIVE_HOST" || true)"
 	if [[ "${unit:-}" =~ ^api[0-9]+$ ]]; then
@@ -3786,11 +3820,11 @@ listen=$(env_of LAYERX_INDEXER_LISTEN)
 echo "@@start $(env_of LAYERX_INDEXER_START_BLOCK)"
 echo "@@listen $listen"
 status=0
-answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" -w "\n%{http_code}" "https://$app.internal:${listen##*:}/healthz" 2>&1) || status=$?
+answer=$(curl -sS -m "$limit" --cacert "$tls/ca.pem" -w "\n%{http_code}" "https://$app.railway.internal:${listen##*:}/healthz" 2>&1) || status=$?
 echo "@@health $status $(printf "%s" "$answer" | tail -n 1) $(printf "%s" "$answer" | head -n 1 | tr -d " " | cut -c1-120)"
 echo "@@cutover $(cat "$(dirname "$db")/cutover-height" 2>/dev/null)"
 echo "@@cursors $(sqlite3 -readonly -separator " " "$db" "SELECT (SELECT position FROM backfill_cursors WHERE chain = '\''paxeer'\''), (SELECT position FROM cursors WHERE chain = '\''paxeer'\'');" 2>/dev/null)"'
-	reply="$(printf '%s\n' "$script" | fly_ssh "$app" - "tls=$tls_dir/indexer app=$app limit=$timeout sh -s")" || reply=""
+	reply="$(printf '%s\n' "$script" | railway_ssh "$app" "tls=$tls_dir/indexer app=$app limit=$timeout sh -s")" || reply=""
 	if [ -z "$reply" ] || grep -q '^@@process none' <<<"$reply"; then
 		[ -n "$reply" ] && answer=none || answer=unreachable
 		echo "fail indexer app=$app process=$answer"
@@ -3800,7 +3834,7 @@ echo "@@cursors $(sqlite3 -readonly -separator " " "$db" "SELECT (SELECT positio
 	listen="$(sed -n 's/^@@listen //p' <<<"$reply" | head -n 1)"
 	read -r status code answer <<<"$(sed -n 's/^@@health //p' <<<"$reply" | head -n 1)"
 	if [[ "$listen" == "[::]:"* ]] && [ "$status" = 0 ] && [ "$code" = 200 ] && [[ "$answer" == *'"status":"ok"'* ]]; then
-		echo "pass listener url=https://$app.internal:${listen##*:}/healthz listen=$listen tls=internal-ca http=200"
+		echo "pass listener url=https://$app.railway.internal:${listen##*:}/healthz listen=$listen tls=internal-ca http=200"
 	else
 		echo "fail listener app=$app listen=${listen:-none} curl=${status:-none} http=${code:-none}"
 		failures=$((failures + 1))
@@ -3912,9 +3946,9 @@ check_developers() {
 	local hooks=https://hooks.paxeer.network api=https://api-dev.paxeer.network web=https://dev.paxeer.network
 	local token_file="${CHECK_LIVE_DEVELOPERS_TOKEN_FILE:-}" receiver="${CHECK_LIVE_DEVELOPERS_RECEIVER:-}"
 	local attempts="${CHECK_LIVE_DEVELOPERS_DELIVERY_ATTEMPTS:-36}"
-	local toml app groups answer group started regions url want code body w endpoint="" n failures=0
-	if ! command -v flyctl >/dev/null 2>&1; then
-		echo "check-live: flyctl is required" >&2
+	local name app url want code body w endpoint="" n failures=0
+	if ! command -v "$railway_bin" >/dev/null 2>&1; then
+		echo "check-live: $railway_bin is required" >&2
 		exit 2
 	fi
 	if [ -z "$token_file" ] || [ ! -r "$token_file" ]; then
@@ -3930,31 +3964,13 @@ check_developers() {
 		exit 2
 	fi
 
-	for toml in services/platform/hosted/webhooks/fly.toml services/platform/hosted/dashboard/fly.toml services/platform/hosted/dashboard/web/fly.toml; do
-		if ! app="$(fly_app "$toml")"; then
-			echo "fail machines toml=$toml status=absent"
+	for name in webhooks-public webhooks-ingress dashboard dashboard-web; do
+		if ! app="$(railway_service "$name")"; then
+			echo "fail deployment service=$name rollout=absent"
 			failures=$((failures + 1))
 			continue
 		fi
-		groups=app
-		[ "$toml" != services/platform/hosted/webhooks/fly.toml ] || groups="public ingress"
-		# shellcheck disable=SC2086 # groups is a word list
-		answer="$(timeout "$timeout" flyctl machines list --app "$app" --json 2>/dev/null | python3 -c '
-import json, sys
-ms = json.load(sys.stdin) or []
-for group in sys.argv[1:]:
-    regions = [m.get("region") or "-" for m in ms if m.get("state") == "started" and ((m.get("config") or {}).get("metadata") or {}).get("fly_process_group", "app") == group]
-    print(group, len(regions), ",".join(sorted(set(regions))) or "-")
-' $groups 2>/dev/null)" || answer=""
-		for group in $groups; do
-			read -r started regions <<<"$(sed -n "s/^$group //p" <<<"$answer" | head -n 1)"
-			if [ "${started:-0}" -ge 2 ] && [[ ",$regions," == *,ams,* ]] && [[ ",$regions," == *,fra,* ]]; then
-				echo "pass machines app=$app group=$group started=$started regions=$regions"
-			else
-				echo "fail machines app=$app group=$group started=${started:-none} regions=${regions:-none}"
-				failures=$((failures + 1))
-			fi
-		done
+		railway_deployment "$app" || failures=$((failures + 1))
 	done
 
 	w="$(mktemp -d)"
@@ -4991,8 +5007,10 @@ fi
 
 tools=(ssh timeout curl python3 openssl sha256sum)
 [ "$mode" != explorer ] || tools=(curl python3 psql)
-[ "$mode" != ca ] || tools+=("$railway_bin")
-[ "$mode" != gas ] || tools+=(flyctl cast)
+case "$mode" in
+ca | identity | search-front | internal | wallet | router | ramp | indexer | developers) tools+=("$railway_bin") ;;
+esac
+[ "$mode" != gas ] || tools+=("$railway_bin" cast)
 [ "$mode" != relay ] || tools+=(flyctl "$railway_bin")
 [ "$mode" != interop-adapters ] || tools+=(make)
 [ "$mode" != registry-plan ] || tools=(grep)

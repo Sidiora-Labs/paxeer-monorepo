@@ -676,8 +676,7 @@ impl BindingReceiptPolicy {
         })
     }
 
-    /// Returns the exact external-claim commitment carried by the binding
-    /// operation's protocol receipt.
+    /// Returns the external-claim commitment for the binding operation.
     #[must_use]
     pub fn context_hash(ownership: &VerifiedOwnership) -> [u8; 32] {
         binding_context_hash(ownership)
@@ -706,7 +705,6 @@ impl BindingReceiptPolicy {
             || protocol.asset() != self.asset
             || protocol.amount() != self.amount
             || protocol.to() != ownership.layerx_identity
-            || protocol.context_hash() != Self::context_hash(ownership)
             || protocol
                 .debit_balance_before()
                 .checked_sub(protocol.debit_balance_after())
@@ -724,7 +722,7 @@ impl BindingReceiptPolicy {
 
 /// Exact protocol receipt policy for custody credits. The authority and
 /// operation coordinates come from deployment configuration, while the
-/// context commitment is derived from the independently verified source fact.
+/// payment log binds the independently verified source claim.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CustodyReceiptPolicy {
     sequencer_public_key: [u8; 32],
@@ -767,8 +765,7 @@ impl CustodyReceiptPolicy {
         })
     }
 
-    /// Returns the exact source-claim commitment that the custody operation
-    /// must carry in the protocol receipt context.
+    /// Returns the source-claim commitment for the custody operation.
     #[must_use]
     pub fn context_hash(finality: &VerifiedAssetFinality) -> [u8; 32] {
         custody_context_hash(finality)
@@ -794,7 +791,6 @@ impl CustodyReceiptPolicy {
             || protocol.module_version() != self.module_version
             || protocol.parameter_version() != self.parameter_version
             || protocol.operation() != self.operation
-            || protocol.context_hash() != Self::context_hash(finality)
             || protocol.asset() != finality.layerx_asset
             || protocol.amount() != finality.layerx_amount
             || protocol.to() != finality.destination

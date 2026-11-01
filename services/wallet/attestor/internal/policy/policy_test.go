@@ -1813,7 +1813,11 @@ func TestShippedPolicyCountsPerpsPulls(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	methods := []string{"deposit", "withdraw", "openPosition", "cancelOrder", "closePosition"}
+	methods := []string{
+		"deposit", "withdraw", "openPosition", "cancelOrder", "closePosition",
+		"placeLimitOrder", "placeStopLimitOrder", "placeTakeProfitOrder", "placeStopLossOrder",
+		"setPositionTpSl", "partialClose", "addCollateral", "removeCollateral",
+	}
 	if len(effective.selectors[perps]) != len(methods) {
 		t.Fatalf("perps selectors %v, want exactly %v", effective.selectors[perps], methods)
 	}
@@ -1865,13 +1869,47 @@ func TestShippedPolicyCountsPerpsPulls(t *testing.T) {
 		}
 	}
 
-	expect(t, deposit(big.NewInt(1_000_000_001)), CodeValueCap)
-	expect(t, open(big.NewInt(1_000_000_001)), CodeValueCap)
+	pull := func(name string, args ...interface{}) Decision {
+		data, err := perpsABI.Pack(name, args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return h.policy.Evaluate(testAccount, h.tx(t, perps, big.NewInt(0), data), h.ledger)
+	}
+	price := new(big.Int).Mul(big.NewInt(65_000), big.NewInt(1e18))
+	size := new(big.Int).Mul(big.NewInt(50), big.NewInt(1e18))
+	pulls := []struct {
+		name string
+		send func(*big.Int) Decision
+	}{
+		{"deposit", deposit},
+		{"openPosition", open},
+		{"placeLimitOrder", func(amount *big.Int) Decision {
+			return pull("placeLimitOrder", big.NewInt(3), true, price, size, leverage, usdl, amount)
+		}},
+		{"placeStopLimitOrder", func(amount *big.Int) Decision {
+			return pull("placeStopLimitOrder", big.NewInt(3), false, price, price, size, leverage, usdl, amount)
+		}},
+		{"addCollateral", func(amount *big.Int) Decision {
+			return pull("addCollateral", big.NewInt(4), amount)
+		}},
+	}
+	for _, write := range pulls {
+		t.Run(write.name+"_transaction_cap", func(t *testing.T) {
+			expect(t, write.send(big.NewInt(1_000_000_001)), CodeValueCap)
+		})
+	}
 	full := big.NewInt(1_000_000_000)
-	for i := 0; i < 5; i++ {
-		h.now = h.now.Add(RateWindow)
-		counted(deposit(full), full)
-		counted(open(full), full)
+	for i := 0; i < 2; i++ {
+		for _, write := range pulls {
+			h.now = h.now.Add(RateWindow)
+			approval := h.policy.Evaluate(testAccount, h.tx(t, usdl, big.NewInt(0), approve), h.ledger)
+			expect(t, approval, CodeAllowed)
+			if len(approval.Spends) != 0 {
+				t.Fatalf("%s approval counted %+v before the perps pull", write.name, approval.Spends)
+			}
+			counted(write.send(full), full)
+		}
 	}
 	spent, err := h.ledger.Spent(strings.ToLower(testAccount), TokenAsset(usdl), h.now.Add(-SpendWindow))
 	if err != nil {
@@ -1881,6 +1919,10 @@ func TestShippedPolicyCountsPerpsPulls(t *testing.T) {
 		t.Fatalf("perps pulls counted %s of USDL, want the full daily cap", spent)
 	}
 	h.now = h.now.Add(RateWindow)
-	expect(t, deposit(big.NewInt(1)), CodeDailyCap)
-	expect(t, open(big.NewInt(1)), CodeDailyCap)
+	for _, write := range pulls {
+		t.Run(write.name+"_daily_cap", func(t *testing.T) {
+			expect(t, write.send(big.NewInt(1)), CodeDailyCap)
+		})
+	}
+
 }

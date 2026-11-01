@@ -4,15 +4,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	launchpadtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	anchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
+	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	anchorprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	storekeys "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,16 +78,39 @@ func TestAnchorPrecompileStaysRegisteredWithoutModule(t *testing.T) {
 	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, ActivationUpgrade))
 	before := a.EvmKeeper.CustomPrecompiles(ctx)[address]
 	require.NotNil(t, before)
+	precompile, ok := before.(*pcommon.Precompile)
+	require.True(t, ok)
+	contract := precompile.GetABI()
+	input, err := contract.Pack(anchorprecompile.LatestFinalizedMethod)
+	require.NoError(t, err)
+	caller := common.Address{1}
 	a.UpgradeKeeper.SetDone(ctx.WithBlockHeight(99), MergeUpgrade)
 	plan := upgradetypes.Plan{Name: AnchorStoreDeleteUpgrade, Height: ctx.BlockHeight()}
 	require.NoError(t, a.UpgradeKeeper.ScheduleUpgrade(ctx, plan))
+	stateDB := state.NewDBImpl(ctx.WithBlockHeight(plan.Height-1), &a.EvmKeeper, true)
+	evm := &vm.EVM{StateDB: stateDB}
+	output, err := before.Run(evm, caller, caller, input, nil, true, false, nil)
+	require.NoError(t, err)
+	values, err := contract.Unpack(anchorprecompile.LatestFinalizedMethod, output)
+	require.NoError(t, err)
+	require.Equal(t, []interface{}{uint64(0), false}, values)
 	a.UpgradeKeeper.ApplyUpgrade(ctx, plan)
-	for _, tracing := range []bool{false, true} {
-		at := ctx.WithBlockHeight(101).WithIsTracing(tracing)
-		require.Same(t, before, a.EvmKeeper.CustomPrecompiles(at)[address])
-		require.Contains(t, a.EvmKeeper.GetCustomPrecompilesVersions(at), address)
+	for _, height := range []int64{plan.Height, plan.Height + 1} {
+		for _, tracing := range []bool{false, true} {
+			at := ctx.WithBlockHeight(height).WithIsTracing(tracing)
+			registered := a.EvmKeeper.CustomPrecompiles(at)[address]
+			require.Same(t, before, registered)
+			require.Contains(t, a.EvmKeeper.GetCustomPrecompilesVersions(at), address)
+			stateDB = state.NewDBImpl(at, &a.EvmKeeper, true)
+			evm = &vm.EVM{StateDB: stateDB}
+			output, err = registered.Run(evm, caller, caller, input, nil, true, false, nil)
+			require.ErrorIs(t, err, vm.ErrExecutionReverted)
+			reason, err := abi.UnpackRevert(output)
+			require.NoError(t, err)
+			require.Equal(t, "LXP_MODULE_DISABLED: module disabled; layerxAnchor retired", reason)
+		}
 	}
-	require.Nil(t, NewPrecompileKeepers(a).AnchorK())
+	require.NotNil(t, NewPrecompileKeepers(a).AnchorK())
 }
 
 type RegisterBalanceChangeHook func(string, bankkeeper.BalanceChangeHook)
