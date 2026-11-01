@@ -147,13 +147,14 @@ export function tendermintHeaders(url: string): HeaderSource {
       const header = record(record(result.signed_header).header);
       if (heightOf(header.height) !== height)
         throw new Error('Consensus RPC returned the wrong header height');
-      if (typeof header.app_hash !== 'string')
-        throw new TypeError('Missing header app_hash');
-      const appHash = Uint8Array.from(atob(header.app_hash), (character) =>
-        character.charCodeAt(0)
-      );
-      if (appHash.length !== 32) throw new TypeError('Header app_hash must be 32 bytes');
-      return appHash;
+      if (
+        typeof header.app_hash !== 'string' ||
+        header.app_hash.length !== 64 ||
+        !/^[0-9a-fA-F]+$/.test(header.app_hash)
+      ) {
+        throw new TypeError('Header app_hash must be 32 bytes encoded as hex');
+      }
+      return hexToBytes(header.app_hash);
     },
   };
 }
