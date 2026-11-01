@@ -101,6 +101,43 @@ contract NamesEndToEndTest {
         require(vm.load(deployed.resolver, digestSlot) == bytes32(0), "freeze clears manifest digest");
     }
 
+    function testReverseSetNameForAddrRefusesCallersOtherThanTheAccountAndController() public {
+        NamesDeployment.Addresses memory deployed = _deploy();
+        PaxRegistry registry = PaxRegistry(deployed.registry);
+        PaxPublicResolver resolver = PaxPublicResolver(deployed.resolver);
+        PaxReverseRegistrar reverseRegistrar = PaxReverseRegistrar(deployed.reverseRegistrar);
+        address stranger = address(0xBAD);
+        bytes32 reverseNode = reverseRegistrar.node(USER);
+
+        vm.prank(USER);
+        require(reverseRegistrar.setName("original.pax") == reverseNode, "returned reverse node");
+        vm.prank(stranger);
+        vm.expectRevert(PaxReverseRegistrar.Unauthorised.selector);
+        reverseRegistrar.setNameForAddr(USER, stranger, deployed.resolver, "stolen.pax");
+        require(keccak256(bytes(resolver.name(reverseNode))) == keccak256("original.pax"), "reverse name unchanged");
+        require(registry.owner(reverseNode) == USER, "reverse owner unchanged");
+        require(registry.resolver(reverseNode) == deployed.resolver, "reverse resolver unchanged");
+
+        vm.prank(stranger);
+        reverseRegistrar.setName("stranger.pax");
+        require(keccak256(bytes(resolver.name(reverseNode))) == keccak256("original.pax"), "setName binds caller");
+        bytes32 strangerNode = reverseRegistrar.node(stranger);
+        require(registry.owner(strangerNode) == stranger, "stranger owns own reverse node");
+        require(keccak256(bytes(resolver.name(strangerNode))) == keccak256("stranger.pax"), "stranger reverse name");
+
+        vm.prank(USER);
+        vm.expectRevert(PaxReverseRegistrar.InvalidConfiguration.selector);
+        reverseRegistrar.setNameForAddr(USER, USER, stranger, "invalid.pax");
+        require(keccak256(bytes(resolver.name(reverseNode))) == keccak256("original.pax"), "invalid resolver unchanged");
+
+        vm.prank(USER);
+        require(reverseRegistrar.setName("updated.pax") == reverseNode, "updated reverse node");
+        require(keccak256(bytes(resolver.name(reverseNode))) == keccak256("updated.pax"), "caller updates own name");
+        require(registry.owner(reverseNode) == USER, "caller retains reverse node");
+        require(registry.resolver(reverseNode) == deployed.resolver, "caller uses default resolver");
+        require(keccak256(bytes(resolver.name(strangerNode))) == keccak256("stranger.pax"), "other reverse unchanged");
+    }
+
     function testDeploymentHandsControlToGovernance() public {
         NamesDeployment.Addresses memory deployed;
         {
@@ -114,8 +151,12 @@ contract NamesEndToEndTest {
             require(
                 PaxPublicResolver(deployed.resolver).registrarController() == address(0), "resolver awaits governance"
             );
+            require(
+                PaxRegistrarController(deployed.controller).reverseRegistrar() == address(0),
+                "reverse registrar awaits governance"
+            );
             (address[] memory targets, bytes[] memory payloads) = deployment.governanceSetup(deployed, prices);
-            require(targets.length == 5 && payloads.length == 5, "five governance setup calls");
+            require(targets.length == 6 && payloads.length == 6, "six governance setup calls");
             require(targets[0] == deployed.registrar && targets[1] == deployed.resolver, "setup registrar and resolver");
             require(
                 keccak256(payloads[0])
@@ -136,6 +177,16 @@ contract NamesEndToEndTest {
                     "setup price payload"
                 );
             }
+            require(targets[5] == deployed.controller, "setup resolvers target");
+            require(
+                keccak256(payloads[5])
+                    == keccak256(
+                        abi.encodeCall(
+                            PaxRegistrarController.setResolvers, (deployed.resolver, deployed.reverseRegistrar)
+                        )
+                    ),
+                "setup resolvers payload"
+            );
             _assertGovernanceSetupRejected(address(deployment), targets, payloads);
             _assertGovernanceSetupRejected(USER, targets, payloads);
             _executeGovernanceSetup(targets, payloads);
@@ -162,6 +213,7 @@ contract NamesEndToEndTest {
         require(address(resolver.registry()) == deployed.registry, "resolver registry");
         require(address(reverseRegistrar.registry()) == deployed.registry, "reverse registry");
         require(address(reverseRegistrar.defaultResolver()) == deployed.resolver, "reverse default resolver");
+        require(reverseRegistrar.controller() == deployed.controller, "reverse controller");
         require(address(controller.registrar()) == deployed.registrar, "controller registrar");
         require(address(controller.registry()) == deployed.registry, "controller registry");
         require(controller.resolver() == deployed.resolver, "controller resolver");

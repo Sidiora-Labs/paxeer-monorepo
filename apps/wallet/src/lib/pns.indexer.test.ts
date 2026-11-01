@@ -86,6 +86,16 @@ async function pns_helpers_parse_the_committed_indexer_vector() {
   ]);
 }
 
+async function pns_helpers_use_the_proxy_when_the_base_is_empty() {
+  vi.stubEnv('NEXT_PUBLIC_PNS_API_BASE', '');
+  const fetchIndexer = vi.fn<typeof fetch>(async () => Response.json(vector[DETAIL_PATH]));
+  vi.stubGlobal('fetch', fetchIndexer);
+  const { fetchDomainDetail } = await import('./pns');
+
+  await expect(fetchDomainDetail(NAME)).resolves.toEqual(vector[DETAIL_PATH]);
+  expect(fetchIndexer).toHaveBeenCalledExactlyOnceWith('/wallet/api/pns/api/v1/domains/alice.pax');
+}
+
 async function pns_helpers_return_empty_when_the_proxy_is_not_configured() {
   const fetchIndexer = vi.fn<typeof fetch>(async () =>
     Response.json({ error: { code: 'name_service_not_configured' } }, { status: 503 })
@@ -114,4 +124,5 @@ async function pns_helpers_return_empty_when_the_proxy_is_not_configured() {
 }
 
 test(pns_helpers_parse_the_committed_indexer_vector);
+test(pns_helpers_use_the_proxy_when_the_base_is_empty);
 test(pns_helpers_return_empty_when_the_proxy_is_not_configured);
