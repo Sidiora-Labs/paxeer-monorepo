@@ -12946,3 +12946,18 @@ fix = "Qualification build and verify commands never pass --offline; --locked al
 title = "A touched path written from memory must be checked with ls before the task is published"
 symptom = "A task named a stylesheet under src/app/ while the file lives under src/styles/; the attempt made every other change, declined to edit a file outside its touches, and failed its verify grep on the two references in the real file."
 fix = "Run ls or git ls-files on every touches entry when authoring a task; a path that does not exist on main is a spec defect, not an implementation gap."
+
+[gotcha.2626]
+title = "A task that changes a constructor signature must build its crate's tests before it is done"
+symptom = "A done task narrowed a witness constructor from six arguments to one and left three call sites in a same-crate integration test unported; its verify built the library only, and every later task whose verify builds the crate with --tests inherited the compile error."
+fix = "A signature-changing task's verify includes cargo build --tests for its own crate, and its touches list every test file that calls the changed item; a later task that meets the break requires the task that owns the test file instead of patching it."
+
+[gotcha.2627]
+title = "Two tasks whose test builds each need the other's fix deadlock unless the shared fix moves to the first in requires order"
+symptom = "Task A's --tests build failed on a missing error impl assigned to task B, and task B's --tests build failed on a test file task A owns; after B was made to require A, A still could not pass, because the impl stayed in B."
+fix = "When a later task's finding sequences it after an earlier one, move every fix the earlier task's verify needs into the earlier task in the same batch, and leave the later task a do that drops its duplicate hunk on rebase."
+
+[gotcha.2628]
+title = "A task that removes a crate from a workspace manifest must list every file that names that crate"
+symptom = "A task deleted a crate from the human workspace manifest and the dependent service manifest, with its touches limited to the two manifests, the lock file and a boundary test; the service build failed on an uncalled method and a test that still imported the removed crate."
+fix = "Before authoring a dependency removal, grep the crate's snake_case identifier across the workspace sources and tests, add every hit to the touches with a do that ports or deletes it, and make the verify compile the test targets that named it."
