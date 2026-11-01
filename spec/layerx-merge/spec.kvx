@@ -110689,7 +110689,7 @@ do_5 = "Finding 8.45.5.2: continue from attempt 3 (4ccbabda0) changing nothing; 
 
 [task.9.25.11]
 title = "Decode and verify the node's eth_getProof ICS23 storage witness in layerx-client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.8", "9.25.15"]
@@ -117313,7 +117313,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.46.11]
 title = "Make the JVM SDK suite pass under the Maven install of the platform dependency step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["17.5.13"]
