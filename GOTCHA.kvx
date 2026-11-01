@@ -12656,3 +12656,73 @@ fix = "a task whose only touched file is a Makefile declares no symbols; the tou
 title = "A task that adds a refusal to a shared path must run the sibling tests of that path"
 symptom = "a task added the open-time-after-last-block refusal to the sequenced proposal path and verified only its own new test; two sibling tests sealing with earlier open times failed on main for six days until the next task gating the whole test family ran them"
 fix = "when a verify command names a single test in a file, include the file's test family (a -run prefix) so the refusal is proven against every existing case"
+
+[gotcha.2568]
+title = "Proposal tests sealing at a fixed epoch fail a later open-time check"
+symptom = "three sequencer proposal tests sealed their blocks at time.UnixMilli(1700000000...) while the fixture's LastBlockTime defaulted to now, so the open-time check a later task added made them fail and that task's verify ran only its own new test"
+fix = "take open times relative to f.state.LastBlockTime in proposal tests, and a task that adds a check to a shared code path runs the whole test file of that path in its verify command"
+
+[gotcha.2569]
+title = "Two renderers of one ladder disagreed on the committed rung's source"
+symptom = "TransactionLadder dropped the receipt's committed step before rendering while the saved observation of observeTransfer kept it first, so the shared StatusLadder showed data-source explorer on one page and receipt on the other and the send test failed at its committed assertion"
+fix = "put a presentation rule in the shared component once, with a unit test of the mixed-source steps, instead of shaping the steps differently in each caller"
+
+[gotcha.2570]
+title = "A Maven suite qualified only with -Dtest selections went red under mvn install"
+symptom = "every JVM SDK task verified with -Dtest of its own tests while the platform dependency step runs mvn install, which runs the whole suite; seven tests left behind by three earlier tasks failed the install and stopped two wave aggregates at the readiness check"
+fix = "a task that touches a Maven module runs that module's whole suite in its verify command, and an install target that runs tests is itself a product gate"
+
+[gotcha.2571]
+title = "A type change compiled against the declared touches only"
+symptom = "a task widened a constructor, removed enum variants and added an enum state in its declared files, and eleven callers in five undeclared files plus six integration tests of the same crate broke at build time"
+fix = "before declaring touches for a type change, grep the crate for every constructor call, retired variant and exhaustive match, including tests/, and put each file in the touches; the build command compiles the crate's tests with cargo test --no-run"
+
+[gotcha.2572]
+title = "A test that demands an externally provisioned fixture document is a vacuous gate"
+symptom = "a Move commit test read a protected JSON path from an environment variable naming a provisioned owner, attestor, identity, agent and bank node and panicked NotPresent in every qualification environment, while a sibling test of the same crate already ran the same server in-process over loopback doubles"
+fix = "an integration test builds its fixture in-process from doubles the crate's test support provides; when a sibling test already has that fixture, lift it into tests/support and share it rather than invent an external document"
+
+[gotcha.2573]
+title = "A committed app-hash vector goes stale when main changes the store encoding"
+symptom = "a task carried its generated ICS23 storage vector across a rebase, main had changed the IAVL leaf-version encoding so app_hash, store_root and the proof bytes differed, the compare-mode test failed with 'regenerate with LXP_WRITE_VECTORS=1' and the regeneration consumed the last repair cycle"
+fix = "after a rebase of a task that commits a generated vector, regenerate it with its writer switch before the build and commit the result with the rebase, so the first verify runs against the current store"
+
+[gotcha.2574]
+title = "A generator that filters one rendering of a schema set but not another breaks parity tests"
+symptom = "generate_jvm.py appended operation-retired to the retired variants used for the human ErrorCode enum but built the contract set HUMAN_ERROR_CODES from the raw schema, so GoldenVectorTest (parity with the contract set) and GeneratedCatalogueJourneysTest (parity with the enum) demanded different SchemaErrors.HumanCode sets and no edit of the hand-kept enum could satisfy both"
+fix = "every rendering of one schema set in a generator reads the same filtered model; when two generated views of a set disagree, fix the generator and regenerate, never the hand-kept mirror"
+
+[gotcha.2575]
+title = "getByRole alert counts the Next.js route announcer"
+symptom = "a wallet end-to-end test asserted zero role alert elements after a successful send and found one: the empty aria-live announcer the Next.js app router mounts on every page carries role alert"
+fix = "assert the alerts a user can read, getByRole('alert').filter({ hasText: /\S/ }), or a data-role the page's own alerts carry"
+
+[gotcha.2576]
+title = "Pending-tag reads outside the send path fail between blocks"
+symptom = "eth_gasPrice on the sequencer resolved the pending watermark with a bare Snapshot and answered 'pending block unavailable: sequencer: no block is open' to an ethclient SuggestGasPrice call that landed between a seal and the next open; the send path had been given a bounded wait, the suggestion path had not"
+fix = "a suggestion or read RPC that consults the open block falls back to committed values when no block is open; only the send path waits for the next open"
+
+[gotcha.2577]
+title = "A helper formula moved and a sibling test kept the old expectation"
+symptom = "eth_gasPrice gained the default priority fee in gasPriceHelper and the test beside the one that was updated still expected base fee plus ten percent, so a later task touching the same test file inherited a failing test"
+fix = "when a shared formula changes, grep the test tree for every literal built from it and update each; a task that meets a stale sibling expectation fixes it in place and records the commit that moved the formula"
+
+[gotcha.2578]
+title = "Browser-session requests to mutating routes need the CSRF pair"
+symptom = "a test helper sent the browser session cookie to POST /v1/moves/quote without the __Host-layerx_csrf cookie and X-LayerX-CSRF header and got 403 forbidden, and the repair budget ran out before the fixed request was verified"
+fix = "every browser-session request to a mutating route carries both the CSRF cookie and the header; add them in the shared request helper, not per call"
+
+[gotcha.2579]
+title = "A manifest change ships without the lock files that pin the crate"
+symptom = "layerx-client gained two dependencies and every --locked build in seventeen workspaces refused before compiling; the publishing task listed the manifest but no Cargo.lock, so the lock it refreshed to build was not part of what landed"
+fix = "a task that edits a Cargo.toml lists every Cargo.lock that resolves that crate and refreshes them with cargo metadata; a reviewer of a manifest change checks the lock files landed with it"
+
+[gotcha.2580]
+title = "Editing a generator file without resealing the pipeline lock"
+symptom = "a change to sdk/platform/generators/generate_jvm.py moved the platform-sdkgen generator digest recorded in sdk/platform/pipeline.kvx and platform-sdk-check refused every later aggregate with stale generated SDKs"
+fix = "any change under a generator root or a generated output listed in sdk/platform/pipeline.kvx is followed by the sdkgen --write reseal in the same task, and the task's verify runs the sdkgen --check"
+
+[gotcha.2581]
+title = "Two reports of one defect became two tasks with the same touches"
+symptom = "neighbouring issue reports described the same renderer defect and were drafted as two tasks editing the same files, which would have collided on landing"
+fix = "before adding a batch of tasks, group them by touches and keep one task per overlapping set, closing the other reports against it"
