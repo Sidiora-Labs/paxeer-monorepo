@@ -162480,7 +162480,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.35.2]
 title = "Assert the receipted rung of a sent transfer in the send end-to-end test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["12.35.1", "12.22.5", "12.35.4", "5.98.5", "5.98.7", "5.5.22", "12.22.6"]
