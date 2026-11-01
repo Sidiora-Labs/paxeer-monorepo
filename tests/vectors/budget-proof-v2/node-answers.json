@@ -121,14 +121,14 @@
   {
     "method": "px_getAccount",
     "params": [
-      "did:layerx:budget-owner"
+      "did:layerx:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a"
     ],
     "result": {
       "account": {
         "bound": true,
         "evm_address": "0x1111111111111111111111111111111111111111",
         "layerx_account": "0202020202020202020202020202020202020202020202020202020202020202",
-        "layerx_did": "did:layerx:budget-owner",
+        "layerx_did": "did:layerx:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
         "pax_address": null
       },
       "layerx": {
@@ -137,7 +137,7 @@
             "bound": true,
             "evm_address": "0x1111111111111111111111111111111111111111",
             "layerx_account": "0202020202020202020202020202020202020202020202020202020202020202",
-            "layerx_did": "did:layerx:budget-owner",
+            "layerx_did": "did:layerx:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
             "pax_address": null
           }
         ]
@@ -155,7 +155,7 @@
         "bound": true,
         "evm_address": "0x1111111111111111111111111111111111111111",
         "layerx_account": "0202020202020202020202020202020202020202020202020202020202020202",
-        "layerx_did": "did:layerx:budget-owner",
+        "layerx_did": "did:layerx:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
         "pax_address": null
       },
       "balances": [
@@ -182,7 +182,7 @@
         "bound": true,
         "evm_address": "0x1111111111111111111111111111111111111111",
         "layerx_account": "0303030303030303030303030303030303030303030303030303030303030303",
-        "layerx_did": "did:layerx:budget-owner",
+        "layerx_did": "did:layerx:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a",
         "pax_address": null
       },
       "balances": [
