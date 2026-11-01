@@ -15347,3 +15347,19 @@ symbol = "AcceptedSend"
 observed = "Attempt 6 (7b81d2948) spent both build runs before its last edit: the second go vet still reported crash_replay_test.go:59 passing the Accept result to bytes.Clone, while the committed tree already passes receipt.Receipt at :56 and :59 and names no other Accept result as bytes."
 assumption = "The committed tree of attempt 6 passes go build and go vet unchanged; the next attempt continues from it and runs the gates."
 severity = "minor"
+
+[finding.9.24.5.2]
+task = "9.24.5"
+file = "services/agent/crates/layerx-agentd/src/budget/program_sources.rs:454"
+symbol = "execution_program_sources"
+observed = "Attempt 4 (492fb44e4) passed the dependent-crate build and the verify gate (6 tests) and the completion check refused because the task's symbol list still named execution_program_sources and execution_program_binding, which do_4 deletes."
+assumption = "The two symbols leave the list; attempt 5 continues from the same tree and completes."
+severity = "minor"
+
+[finding.5.98.7.4]
+task = "5.98.7"
+file = "node/sequencer/node_start_test.go:158"
+symbol = "AcceptedSend"
+observed = "Attempt 7 (051f9cda5) ported crash_replay_test.go and go vet reported the next caller, node_start_test.go:158; vet prints one type error per package run, so each attempt has fixed one site and met the next: Accepter.Accept now returns evmrpc.AcceptedSend and the tests still pass the result where []byte is expected at node_start_test.go:158 and :229, node_stop_test.go:35, :74 (stopReceiptResult), commit_release_test.go:185 and tcp_ack_test.go:143 (outcome), and compare it with nil at node_stop_test.go:33, :118 and :152, which a struct value never is."
+assumption = "One attempt ports every site named here and runs go vet ./node/sequencer/ itself until it is silent before the gate."
+severity = "minor"
