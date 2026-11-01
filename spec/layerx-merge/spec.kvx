@@ -108625,7 +108625,7 @@ do_3 = "Decision 2158: continue from attempt 1 (26892f709), whose code and tests
 
 [task.19.2.3]
 title = "Verify storage proofs in TypeScript and resolve a name's content against a signed header's app hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["19.2.1", "19.2.2"]
