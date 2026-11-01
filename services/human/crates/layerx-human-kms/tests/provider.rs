@@ -20,8 +20,6 @@ type Result<T> = std::result::Result<T, Box<dyn Error>>;
 mod attestor_cluster;
 #[path = "provider/native_setup.rs"]
 mod native_setup;
-#[path = "provider/owner_bootstrap.rs"]
-mod owner_bootstrap;
 #[path = "provider/owner_rotation.rs"]
 mod owner_rotation;
 const MAX: usize = 2_097_152;

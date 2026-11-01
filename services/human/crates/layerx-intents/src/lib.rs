@@ -8,7 +8,6 @@ pub mod golden;
 mod keccak;
 mod native_budget;
 mod native_receive;
-pub mod owner_activity;
 mod reject;
 #[cfg(feature = "test-vectors")]
 pub mod vectors;
