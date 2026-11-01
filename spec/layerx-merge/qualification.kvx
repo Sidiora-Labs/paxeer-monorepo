@@ -15899,3 +15899,19 @@ symbol = "platform-sample-install"
 observed = "Attempt 13 (fe9f54c21, base 0cc7a738e) built, and the wave 4 aggregate failed in platform-sample-dependencies-ready (services/platform/Makefile.inc:60): the Platform Python environment had no layerx-sdk metadata because make platform-sample-install exits at its pip step within seconds, its line :41 installing from $(CURDIR)/agent/sdk/python, a path that 3422bafe2 moved to services/agent/sdk/python while rewriting :112, :277 and :350; the aggregate and the test of this task are unchanged and correct."
 assumption = "Task 17.5.13 (req.17513) corrects the path and proves the install step; this task requires it and continues unchanged."
 severity = "major"
+
+[finding.9.25.11.3]
+task = "9.25.11"
+file = "services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs:2"
+symbol = "CommittedBudgetProofTrust"
+observed = "Attempt 3 (99b0818b8, base a46c1fbdd) implemented do_7, and the build gate failed compiling the test target budget_mutations_layerxpay of layerx-agentd: its line 2 imports layerx_agentd::budget::budget_proof::CommittedBudgetProofTrust, a type that 9f2f0adf8 (task 9.25.10) removed when it rewrote budget_proof.rs around BudgetProofTrust and the BudgetProofVerifier trait, under a build gate that compiled the lib and three crates but no test target; the file is outside the touches of this task and nothing in them can repair it."
+assumption = "Task 9.25.15 (req.92515) removes the stale test and keeps its coverage in the lib tests; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.12.35.3.1]
+task = "12.35.3"
+file = "apps/wallet/e2e/send.spec.ts:589"
+symbol = "send_reaches_committed_only_with_a_matching_explorer_answer"
+observed = "Attempt 1 (6920ab6ad, base a46c1fbdd) rewrote the three tests of do_1 to do_3 and type-checked, and the verify gate failed at the first line of the new test: it throws unless PAXEER_X_EXPLORER_STATUS_URL, PAXEER_X_EXPLORER_COMMITTED_TX and WALLET_TRANSFER_TRUTH_WRONG_RPC_URL name a real explorer and a committed transaction of another block, and its route handler proxies every explorer status request to that explorer; the fixture of 12.35.4 (tools/qualification/paxeer-x/wallet-injected-fixture.py) provides the two chains and the manifest and no explorer, so the test can never run under its gate. The page needs no explorer service for this rung: StatusLadder.tsx:90-93 reaches Committed when the status document says rung committed and its block_number equals the receipt's blockNumber, which the test can serve itself."
+assumption = "do_4 makes the route handler the explorer: it answers from the status document shape the unit test serves, mismatching the receipt block first and matching it second, without environment variables."
+severity = "major"

@@ -12606,3 +12606,13 @@ fix = "after a directory move grep the old path in every prefix form ($(CURDIR)/
 title = "EVM owner evidence refused by consumers that compare the actor with a DID"
 symptom = "after a producer switched ProtocolEvidence to the EVM owner form (actor = the 20-byte sender, owner_public_key = the sender's authority word), onboarding/native.rs kept four comparisons of evidence.actor with DID bytes and of evidence.owner_public_key with ed25519 keys and refused every ported test with EvidenceConflict, found only when the test port of a different task reached that site"
 fix = "when a producer changes the encoding of an identity field, enumerate every consumer that compares that field (grep for the field name) and port them in the same task or in tasks the test port requires; a comparison that can never be true in the new form is a product defect, not a test fault"
+
+[gotcha.2558]
+title = "A lib-only build gate let a rewritten module break a test target nobody compiled"
+symptom = "a task rewrote budget_proof.rs around a new trust type under a build gate of cargo build for four crates without --tests, and the integration test that imported the removed CommittedBudgetProofTrust failed to compile for every later task that builds layerx-agentd --tests"
+fix = "a task that removes or renames a pub item greps the crate's tests/ directory for it and builds with --tests in its build gate; a consumer in tests/ is a consumer"
+
+[gotcha.2559]
+title = "An end-to-end test that proxies to a real third-party service cannot pass under its gate"
+symptom = "a wallet test required a real explorer URL and a committed transaction hash from environment variables and forwarded the page's explorer requests to it, so it threw before the first assertion in the qualification environment, which provides the two local chains and no explorer"
+fix = "serve the third party from the test: route the request and fulfil it with the document shape the page reads, derived from local chain state; keep real-service checks to release gates that declare the service"
