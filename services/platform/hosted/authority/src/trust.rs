@@ -30,6 +30,8 @@ impl CommittedCheckpoint {
                 && header.last_sequence() == self.last_sequence
                 && header.previous_state_root() == self.previous_state_root
                 && header.resulting_state_root() == self.state_root
+                && layerx_wire::hash::batch_header_digest(canonical)
+                    .is_ok_and(|digest| digest == self.header_digest)
         })
     }
 }
