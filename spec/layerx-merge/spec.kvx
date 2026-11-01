@@ -116955,7 +116955,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.98.17]
 title = "Verify authority receipt headers under the pinned receipt keys and retire the handover genesis trust"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["8.98.16"]
