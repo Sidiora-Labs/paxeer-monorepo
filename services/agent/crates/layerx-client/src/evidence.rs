@@ -64,12 +64,7 @@ const MAX_HEADER_BYTES: usize = 4096;
 pub const MINIMUM_FINALITY_FRAME_BYTES: usize = MAX_VALIDITY_PROOF_BYTES + 96 * 1024 + 22;
 
 /// Exact root selection admitted by account and proof reads.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum RootSelector {
-    Latest,
-    Batch(u64),
-    Checkpoint([u8; 32]),
-}
+pub use crate::rpc::evidence::RootSelector;
 
 impl RootSelector {
     pub(crate) fn encode(self, bytes: &mut Vec<u8>) {

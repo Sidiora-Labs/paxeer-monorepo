@@ -30,7 +30,7 @@ func depositRootRegistration(checkpointID, stateRoot, depositRoot, custodyRefere
 	return binary.BigEndian.AppendUint16(out, protocol)
 }
 
-// TestDepositRootRegistration finalizes a checkpoint on the anchor keeper and
+// TestDepositRootRegistration imports a final checkpoint into the anchor keeper and
 // registers its deposit root the way the settlement service does.
 func TestDepositRootRegistration(t *testing.T) {
 	testDepositRootRegistration(t, false)
@@ -107,6 +107,10 @@ func testDepositRootRegistration(t *testing.T, registerByAnotherSender bool) {
 	require.NoError(t, err)
 	decodedCertificate, err := codec.DecodeCheckpointCertificate(certificate)
 	require.NoError(t, err)
+	guarantors := make([]anchortypes.Hash32, len(decodedCertificate.Attestations))
+	for i, attestation := range decodedCertificate.Attestations {
+		guarantors[i] = anchortypes.Hash32(attestation.GuarantorID)
+	}
 	verifiedID, signers, err := verify.CheckpointCertificate(decodedCertificate, verify.SettlementDomain{
 		PaxeerChainID: genesis.Params.PaxeerChainID, SettlementContract: genesis.Params.SettlementContract,
 	}, genesis.Params.MaxAttestationDelayMs, anchor.EligibleSigner(ctx, genesis.Params))
@@ -114,8 +118,8 @@ func testDepositRootRegistration(t *testing.T, registerByAnotherSender bool) {
 	require.Equal(t, checkpointID, verifiedID)
 	require.Equal(t, int(genesis.Params.Threshold), signers)
 
-	// Submission is retired; restore the verified submitted checkpoint through
-	// genesis and let the anchor's finality rule produce the final checkpoint.
+	// Submission is retired; import the verified checkpoint through genesis
+	// before and after finality to exercise custody's finality requirement.
 	restored := anchor.ExportGenesis(ctx)
 	restored.Checkpoints = []anchortypes.Checkpoint{{
 		BatchNumber: header.BatchNumber, CheckpointID: anchortypes.Hash32(verifiedID),
@@ -125,16 +129,25 @@ func testDepositRootRegistration(t *testing.T, registerByAnotherSender bool) {
 		StateRoot: anchortypes.Hash32(header.ResultingStateRoot), ReceiptRoot: anchortypes.Hash32(header.ReceiptMerkleRoot),
 		DataAvailabilityRoot: anchortypes.Hash32(header.DataAvailabilityRoot), SequencerID: anchortypes.Hash32(header.SequencerID),
 		TimestampMs: header.TimestampMs, Status: anchortypes.CheckpointSubmitted,
-		DeclaredThreshold: decodedCertificate.Threshold, Guarantors: []anchortypes.Hash32{guarantorID},
-		AvailabilityMask: codec.AvailabilityAll, Submitter: operator.String(),
+		DeclaredThreshold: decodedCertificate.Threshold, Guarantors: guarantors,
+		AvailabilityMask: decodedCertificate.Attestations[0].AvailabilityClassMask, Submitter: operator.String(),
 		SubmittedHeight: ctx.BlockHeight(), SubmittedTime: ctx.BlockTime().Unix(),
 	}}
 	require.NoError(t, restored.Validate())
 	anchor.InitGenesis(ctx, *restored)
 	_, err = k.RegisterDepositRoot(ctx, operator, registration, signature, ordering)
 	require.ErrorIs(t, err, types.ErrInvalidDepositRoot)
-	checkpoint, err := anchor.Finalize(ctx, header.BatchNumber)
-	require.NoError(t, err)
+	checkpoint := restored.Checkpoints[0]
+	checkpoint.Status = anchortypes.CheckpointFinal
+	checkpoint.FinalizedHeight = ctx.BlockHeight()
+	checkpoint.FinalizedTime = ctx.BlockTime().Unix()
+	restored.Checkpoints = []anchortypes.Checkpoint{checkpoint}
+	restored.HasLatestFinalized = true
+	restored.LatestFinalized = header.BatchNumber
+	require.NoError(t, restored.Validate())
+	anchor.InitGenesis(ctx, *restored)
+	checkpoint, found = anchor.GetCheckpoint(ctx, header.BatchNumber)
+	require.True(t, found)
 	require.Equal(t, anchortypes.CheckpointFinal, checkpoint.Status)
 	require.Equal(t, operator.String(), checkpoint.Submitter)
 

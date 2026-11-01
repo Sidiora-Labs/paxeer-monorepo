@@ -310,13 +310,17 @@ fn evidence_get(
             Some(ReceiptRow {
                 entry_id,
                 canonical: &evidence.canonical_receipt,
-                rung: Rung::Receipted,
+                rung: evidence.rung,
             }),
             expected,
         )?;
         return Ok(response(
             json!({"evidence_id": id, "class": "layerx-receipt", "verification": verification,
-            "content_type": "application/vnd.layerx.receipt", "bytes_base64": STANDARD.encode(evidence.canonical_receipt)}),
+            "content_type": "application/vnd.layerx.receipt", "bytes_base64": STANDARD.encode(evidence.canonical_receipt),
+            "signed_receipt": STANDARD.encode(evidence.signed_receipt), "tx_hash": hex(&evidence.tx_hash),
+            "rung": evidence.rung.name(), "inclusion_height": evidence.inclusion_height,
+            "receipt_key": {"key_id": hex(&evidence.receipt_key.key_id), "public_key": hex(&evidence.receipt_key.public_key),
+                "first_height": evidence.receipt_key.first_height, "last_height": evidence.receipt_key.last_height}}),
         ));
     }
     let mut records = Vec::new();
@@ -463,6 +467,16 @@ fn native_journey_json(
     journey: &JourneyEngine,
 ) -> Result<Value, ApiFailure> {
     let status = journey.status().map_err(|error| failure(&error))?;
+    if status.state() == JourneyState::Closed {
+        return Ok(json!({
+            "journey_id": status.journey_id().as_str(),
+            "kind": journey.historical_kind().ok_or_else(ApiFailure::upstream_degraded)?,
+            "state": "closed", "state_copy_key": "journey.state.closed",
+            "stages": [], "evidence": [],
+            "started_at": crate::time::rfc3339(journey.started_at()),
+            "updated_at": crate::time::rfc3339(journey.updated_at()),
+        }));
+    }
     let entry_id = crate::activity::stable_entry_id(status.journey_id().as_str())
         .map_err(|error| feed_failure(&error))?;
     let mut references = Vec::with_capacity(status.phases().len());
@@ -471,14 +485,13 @@ fn native_journey_json(
             references.push(None);
             continue;
         };
-        let material = status
-            .receipt_material()
-            .get(index)
-            .and_then(Option::as_deref);
-        let row = material.map(|canonical| ReceiptRow {
+        let material = journey
+            .verified_leg_evidence(index)
+            .map_err(|error| failure(&error))?;
+        let row = material.as_ref().map(|evidence| ReceiptRow {
             entry_id: entry_id.clone(),
-            canonical,
-            rung: Rung::Receipted,
+            canonical: &evidence.canonical_receipt,
+            rung: evidence.rung,
         });
         let verification = receipt_label(scope, row, digest)?;
         references.push(Some(evidence_ref(digest, verification)));
@@ -491,7 +504,7 @@ fn native_journey_json(
     let evidence = references.iter().flatten().cloned().collect::<Vec<_>>();
     let state = state_label(status.state());
     Ok(
-        json!({"journey_id": status.journey_id().as_str(), "kind": kind_label(journey.kind()), "state": state,
+        json!({"journey_id": status.journey_id().as_str(), "kind": journey.kind().map(kind_label).or_else(|| journey.historical_kind()).ok_or_else(ApiFailure::upstream_degraded)?, "state": state,
         "state_copy_key": format!("journey.state.{state}"), "stages": stages, "evidence": evidence,
         "started_at": crate::time::rfc3339(journey.started_at()), "updated_at": crate::time::rfc3339(journey.updated_at())}),
     )
@@ -624,15 +637,12 @@ fn state_label(value: JourneyState) -> &'static str {
         JourneyState::StillChecking => "still-checking",
         JourneyState::Done => "done",
         JourneyState::Refused => "refused",
+        JourneyState::Closed => "closed",
     }
 }
 fn kind_label(value: JourneyKind) -> &'static str {
     match value {
         JourneyKind::Onboarding => "onboarding",
-        JourneyKind::WalletBinding => "wallet-binding",
-        JourneyKind::Deposit => "deposit",
-        JourneyKind::Withdraw => "withdraw",
-        JourneyKind::Exit => "exit",
         JourneyKind::Move => "move",
         JourneyKind::AgentCreate => "agent-create",
         JourneyKind::AgentFund => "agent-fund",

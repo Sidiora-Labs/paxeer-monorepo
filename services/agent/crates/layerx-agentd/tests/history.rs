@@ -6,12 +6,12 @@ use std::thread;
 use std::time::Duration;
 
 use layerx_agentd::read::{history, Cursor, HistoryLimits, HistoryPage, HistoryReadError};
-use layerx_client::evidence::RootSelector;
 use layerx_client::head::Head;
 use layerx_client::lni::framing::{read_frame, write_frame};
 use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope, Version};
 use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
 use layerx_client::read::{ReadContext, Requested};
+use layerx_client::rpc::evidence::RootSelector;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_types::verify::VerificationLevel;
 use serde_json::{json, Value};
