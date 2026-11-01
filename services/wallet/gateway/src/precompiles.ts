@@ -134,20 +134,14 @@ export const SCHEDULER_ABI = [
     stateMutability: 'view',
     inputs: [{ name: 'jobId', type: 'uint256' }],
     outputs: [
-      {
-        name: 'job',
-        type: 'tuple',
-        components: [
-          { name: 'id', type: 'uint256' },
-          { name: 'creator', type: 'address' },
-          { name: 'target', type: 'address' },
-          { name: 'callData', type: 'bytes' },
-          { name: 'executeAtBlock', type: 'uint64' },
-          { name: 'gasLimit', type: 'uint64' },
-          { name: 'deposit', type: 'uint256' },
-          { name: 'active', type: 'bool' },
-        ],
-      },
+      { name: 'id', type: 'uint256' },
+      { name: 'creator', type: 'address' },
+      { name: 'target', type: 'address' },
+      { name: 'callData', type: 'bytes' },
+      { name: 'executeAtBlock', type: 'uint64' },
+      { name: 'gasLimit', type: 'uint64' },
+      { name: 'deposit', type: 'uint256' },
+      { name: 'active', type: 'bool' },
     ],
   },
   {
@@ -382,31 +376,23 @@ export const scheduler = {
     active: boolean;
   } | null> {
     await ensureServed('scheduler');
-    const r = (await publicClient().readContract({
-      address: servedAddress('scheduler'),
-      abi: SCHEDULER_ABI,
-      functionName: 'getJob',
-      args: [jobId],
-    })) as {
-      id: bigint;
-      creator: string;
-      target: string;
-      callData: string;
-      executeAtBlock: bigint;
-      gasLimit: bigint;
-      deposit: bigint;
-      active: boolean;
-    };
-    if (r.id === 0n && !r.active) return null;
+    const [id, creator, target, callData, executeAtBlock, gasLimit, deposit, active] =
+      await publicClient().readContract({
+        address: servedAddress('scheduler'),
+        abi: SCHEDULER_ABI,
+        functionName: 'getJob',
+        args: [jobId],
+      });
+    if (id === 0n && active === false) return null;
     return {
-      id: r.id.toString(),
-      creator: r.creator,
-      target: r.target,
-      callData: r.callData,
-      executeAtBlock: r.executeAtBlock.toString(),
-      gasLimit: r.gasLimit.toString(),
-      deposit: r.deposit.toString(),
-      active: r.active,
+      id: id.toString(),
+      creator,
+      target,
+      callData,
+      executeAtBlock: executeAtBlock.toString(),
+      gasLimit: gasLimit.toString(),
+      deposit: deposit.toString(),
+      active,
     };
   },
   async pending(creator: `0x${string}`): Promise<string[]> {
