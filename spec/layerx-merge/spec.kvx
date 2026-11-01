@@ -116343,7 +116343,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.7.5]
 title = "Remove the retired program route assertions from the gateway browser profile test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = []
