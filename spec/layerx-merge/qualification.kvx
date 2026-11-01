@@ -15811,3 +15811,11 @@ symbol = "platform-sdk-check"
 observed = "Attempt 3 (4ccbabda0, base de1dbe1b8) deleted the Rust rendering of GeneratedContract.java, regenerated the outputs and resealed the lock; the build passed, make platform-sdk-check passed and both pipeline_reseal tests passed, and the qualification was refused only by two graph checks: the declared symbols platform-sdk-generate and platform-sdk-check are Makefile targets, which the code graph never indexes, so they can never be found."
 assumption = "The task's symbols name only pipeline_lock_matches_repository; the attempt continues unchanged."
 severity = "minor"
+
+[finding.9.25.2.3]
+task = "9.25.2"
+file = "services/agent/crates/layerx-agentd/src/budget/execution_state.rs:142"
+symbol = "VerifiedCaps"
+observed = "Attempt 5 (faf586fdb, base de1dbe1b8) ported the twenty-seven files of do_8, layerx-client and its test targets built, and layerx-agentd failed with nine errors naming layerx_client::evidence::VerifiedCaps, the type of the evidence/caps.rs this task deletes: budget/execution_state.rs:7 and :142, budget/program_sources.rs:3 and its four caps parameters, and the seven human_runtime.rs Unavailable stubs (:187, :3923, :5776, :6637, :7087, :8120, :8334) that name it as the type of the capability value; tasks 9.25.6 (execution_state.rs, human_runtime.rs) and 9.25.7 (program_sources.rs) port those consumers, and this task did not require them."
+assumption = "This task requires 9.25.6 and 9.25.7 and moves to their wave with its wave-35 dependents; attempt 5 continues unchanged once they are on main."
+severity = "major"
