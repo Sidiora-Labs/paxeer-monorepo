@@ -117513,7 +117513,7 @@ do_7 = "Finding 9.25.9.1: continue from attempt 1 (717e1bb48) unchanged: the thi
 
 [task.10.6.5]
 title = "Port the layerx-human-service and layerx-intents test targets to the current producer signatures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = []
