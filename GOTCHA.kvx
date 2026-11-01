@@ -12651,3 +12651,8 @@ fix = "when a prerequisite takes over an edit, remove the path from the dependen
 title = "Make targets are not symbols for the done record's symbol check"
 symptom = "a Makefile-only task listed two make targets as its symbols; the build and verify gates passed and the done record was refused because neither name is defined in the symbol graph"
 fix = "a task whose only touched file is a Makefile declares no symbols; the touched check carries it"
+
+[gotcha.2567]
+title = "A task that adds a refusal to a shared path must run the sibling tests of that path"
+symptom = "a task added the open-time-after-last-block refusal to the sequenced proposal path and verified only its own new test; two sibling tests sealing with earlier open times failed on main for six days until the next task gating the whole test family ran them"
+fix = "when a verify command names a single test in a file, include the file's test family (a -run prefix) so the refusal is proven against every existing case"
