@@ -167,9 +167,13 @@ fn prepare_tls(root: &Path) {
 }
 
 fn signed_fixture() -> Value {
-    let mut fixture: Value = must(serde_json::from_str(include_str!(
+    let fixture: Value = must(serde_json::from_str(include_str!(
         "fixtures/real-program-deploy-receipt.json"
     )));
+    sign_fixture(fixture)
+}
+
+fn sign_fixture(mut fixture: Value) -> Value {
     let signer = ed25519_dalek::SigningKey::from_bytes(&[0x51; 32]);
     let public_key = signer.verifying_key().to_bytes();
     let key_id: [u8; 32] = Sha256::digest(public_key).into();
@@ -216,8 +220,11 @@ fn signed_fixture() -> Value {
 }
 
 fn seed(root: &Path) {
+    seed_fixture(root, &signed_fixture());
+}
+
+fn seed_fixture(root: &Path, fixture: &Value) {
     let state = root.join("state");
-    let fixture = signed_fixture();
     let text = |key: &str| {
         fixture[key]
             .as_str()
@@ -327,7 +334,6 @@ fn launch_at(root: PathBuf, chain_rpc_url: &str) -> (Server, std::net::SocketAdd
                 root.join("replica.token"),
             )
             .env("LAYERX_AUTHORITY_REPLICA_ID", hex::encode(&[9; 32]))
-            .env("LAYERX_AUTHORITY_LNI_SOCKET", root.join("absent.sock"))
             .env("LAYERX_AUTHORITY_CHAIN_RPC_URL", chain_rpc_url)
             .env(
                 "LAYERX_AUTHORITY_RECEIPT_KEYS_FILE",
@@ -774,6 +780,161 @@ fn wire_json(root: &Path, address: &str, path: &str) -> Value {
     let value = serde_json::from_str(&response.1);
     assert_wire_status(root, response, 200);
     must(value)
+}
+
+// Keep the executed native identity state and receipt commitments from the
+// governance fixture; sign its receipt and single-receipt header with the same
+// test authority key used by the TLS harness.
+fn signed_identity_fixture() -> Value {
+    let receipt = include_bytes!("../../../../../tests/fixtures/governance/owner-rotation/receipt");
+    let decoded = must(layerx_wire::receipt::decode(receipt));
+    let protocol = decoded.protocol().unwrap();
+    let batch = (1..=100)
+        .find(|batch| {
+            must(layerx_wire::hash::program_execution_batch_id(
+                protocol.previous_state_root(),
+                protocol.activity_root(),
+                protocol.global_sequence(),
+                protocol.global_sequence(),
+                *batch,
+            )) == protocol.batch_id()
+        })
+        .expect("native receipt execution batch");
+    let template = signed_fixture();
+    let template_header = must(hex::decode(template["header_hex"].as_str().unwrap()));
+    let template_header = must(layerx_wire::receipt::decode_batch_header(&template_header));
+    let mut encoder = layerx_wire::encode::Encoder::new(354);
+    must(encoder.structure_header_version(0x1701, protocol.protocol_version()));
+    must(encoder.u8(15));
+    must(encoder.tag(1, 15));
+    must(encoder.u16(protocol.protocol_version()));
+    must(encoder.tag(2, 15));
+    must(encoder.u32(template_header.network_id()));
+    for (tag, value) in [
+        (3, 1),
+        (4, batch),
+        (5, protocol.global_sequence()),
+        (6, protocol.global_sequence()),
+    ] {
+        must(encoder.tag(tag, 15));
+        must(encoder.u64(value));
+    }
+    for (tag, value) in [
+        (7, protocol.previous_state_root()),
+        (8, protocol.resulting_state_root()),
+        (9, protocol.activity_root()),
+        (10, must(layerx_wire::hash::merkle_leaf(receipt))),
+        (11, template_header.event_merkle_root()),
+        (12, template_header.data_availability_root()),
+        (13, template_header.oracle_root()),
+    ] {
+        must(encoder.tag(tag, 15));
+        must(encoder.bytes(&value, 32));
+    }
+    must(encoder.tag(14, 15));
+    must(encoder.u64(protocol.timestamp()));
+    must(encoder.tag(15, 15));
+    must(encoder.bytes(&template_header.sequencer_id(), 32));
+    let mut fixture = template;
+    fixture["receipt_hex"] = json!(hex::encode(receipt));
+    fixture["header_hex"] = json!(hex::encode(&encoder.finish()));
+    sign_fixture(fixture)
+}
+
+#[test]
+fn identity_evidence_binds_to_the_committed_anchor_checkpoint() {
+    let fixture = signed_identity_fixture();
+    let receipt = must(hex::decode(fixture["receipt_hex"].as_str().unwrap()));
+    let decoded = must(layerx_wire::receipt::decode(&receipt));
+    let protocol = decoded.protocol().unwrap();
+    let state = protocol
+        .effects()
+        .iter()
+        .find(|effect| effect.event_type() == 0x7110)
+        .expect("executed identity state")
+        .body();
+    let number = |offset| u64::from_be_bytes(state[offset..offset + 8].try_into().unwrap());
+    let header = must(hex::decode(fixture["header_hex"].as_str().unwrap()));
+    let header = must(layerx_wire::receipt::decode_batch_header(&header));
+    let checkpoint_id: [u8; 32] = Sha256::digest(b"committed anchor checkpoint").into();
+    let word = |value: u64| {
+        let mut word = [0; 32];
+        word[24..].copy_from_slice(&value.to_be_bytes());
+        word
+    };
+    let call = |signature: &[u8], argument: Option<u64>| {
+        let mut data = layerx_crypto::evm_transaction::transaction_hash(signature)[..4].to_vec();
+        if let Some(argument) = argument {
+            data.extend_from_slice(&word(argument));
+        }
+        json!([{"to":"0x0000000000000000000000000000000000001014","data":format!("0x{}",hex::encode(&data))},"0x64"])
+    };
+    let did = "did:layerx:042bb23f93d99cf87ee8cd5428a149217a94200afce832589629d75f309c833a";
+    for mismatch in [false, true] {
+        let mut checkpoint = vec![[0; 32]; 18];
+        checkpoint[0] = word(header.batch_number());
+        checkpoint[1] = checkpoint_id;
+        checkpoint[2] = must(layerx_wire::hash::batch_header_digest(&must(hex::decode(
+            fixture["header_hex"].as_str().unwrap(),
+        ))));
+        checkpoint[5] = word(header.last_sequence());
+        checkpoint[6] = header.previous_state_root();
+        checkpoint[7] = header.resulting_state_root();
+        if mismatch {
+            checkpoint[7][0] ^= 1;
+        }
+        checkpoint[11] = word(header.timestamp_ms());
+        checkpoint[12] = word(2);
+        checkpoint[17] = word(99);
+        let node = NodeReads::captured(vec![
+            json!({"method":"eth_blockNumber","params":[],"result":"0x64"}),
+            json!({"method":"eth_call","params":call(b"latestFinalized()",None),"result":format!("0x{}",hex::encode(&[word(header.batch_number()),word(1)].concat()))}),
+            json!({"method":"eth_call","params":call(b"checkpoint(uint64)",Some(header.batch_number())),"result":format!("0x{}",hex::encode(&checkpoint.concat()))}),
+        ]);
+        let root = prepare_root();
+        seed_fixture(&root, &fixture);
+        let mut policy: Value = must(serde_json::from_slice(&must(fs::read(
+            root.join("policy.json"),
+        ))));
+        // The native fixture predates the run; keep its signed timestamp.
+        policy["principals"][0]["maximum_age_seconds"] = json!(315_360_000_u64);
+        let identity = &mut policy["principals"][0]["identities"][0];
+        identity["did"] = json!(did);
+        identity["authorities"][0]["id"] = json!(hex::encode(&state[37..69]));
+        identity["revocation_sequence"] = json!(number(69));
+        identity["rotation"]["policy_revision"] = json!(number(167));
+        identity["rotation"]["required_delay_seconds"] = json!(number(199).div_ceil(1000));
+        identity["rotation"]["maximum_delay_seconds"] = json!(number(207) / 1000);
+        identity["rotation"]["effective_sequence"] = json!(protocol.global_sequence());
+        write(
+            &root.join("policy.json"),
+            &must(serde_json::to_vec(&policy)),
+        );
+        let (server, address) = launch_at(root, &node.url);
+        let response = wire_status_at(&server.root, &address.to_string(),
+            &format!("/v1/agent/key-policy?tenant=tenant%20space&principal=principal&did={did}&recovery=false"),
+            "human-test-token-0000000000000000000000");
+        let document: Value = must(serde_json::from_str(&response.1));
+        assert_wire_status(&server.root, response, if mismatch { 503 } else { 200 });
+        if mismatch {
+            assert_eq!(
+                document["error"]["code"],
+                "key_policy_checkpoint_evidence_unavailable"
+            );
+        } else {
+            assert_eq!(document["checkpoint_digest"], hex::encode(&checkpoint_id));
+            assert_eq!(document["policy_revision"], number(167));
+            assert_eq!(document["observed_head_sequence"], header.last_sequence());
+            assert_eq!(document["verification"], 4);
+            // This route also exercises latestFinalized at the same committed height.
+            let identity = wire_json(
+                &server.root,
+                &address.to_string(),
+                &format!("/v1/agent/identity?tenant=tenant%20space&principal=principal&did={did}"),
+            );
+            assert_eq!(identity["head_sequence"], header.last_sequence());
+        }
+    }
 }
 
 #[test]

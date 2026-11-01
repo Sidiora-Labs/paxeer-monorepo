@@ -1,3 +1,4 @@
+use super::trust::CommittedCheckpoint;
 use super::{by_activity, hex, json, protected, refusal, Config, Request, Response};
 use layerx_platform_authority::{authorized_batch_by_activity, receipt_locator, AuthorityFacts};
 use layerx_proof::inclusion::SequencerAuthorization;
@@ -131,7 +132,7 @@ struct Verified {
     header_signature: [u8; 64],
     timestamp_ms: u64,
     last_sequence: u64,
-    checkpoint: Option<layerx_client::evidence::VerifiedCheckpoint>,
+    checkpoint: Option<CommittedCheckpoint>,
 }
 
 pub(super) struct Human {
@@ -585,7 +586,7 @@ fn dispatch(config: &Config, request: &Request) -> Result<Response, Response> {
         let latest = evidence
             .last()
             .ok_or_else(|| unavailable("identity_state_proof_unavailable"))?;
-        if current.canonical_header() != latest.header {
+        if !current.binds_header(&latest.header) {
             return Err(unavailable("identity_head_evidence_incomplete"));
         }
     }
@@ -1010,19 +1011,17 @@ fn native_capability_scope(
             "enforceable_dimensions": [], "observed_sequence": head, "verification": 4,
             "evidence_digest": hex::encode(&item.receipt_digest),
             "canonical_core_bytes": hex::encode(summary),
-            "checkpoint_digest": hex::encode(&checkpoint.report().evidence().checkpoint_id().ok_or_else(refused)?)
+            "checkpoint_digest": hex::encode(&checkpoint.checkpoint_id)
         }),
     ))
 }
 
-fn native_checkpoint(
-    item: &Verified,
-) -> Result<&layerx_client::evidence::VerifiedCheckpoint, Response> {
+fn native_checkpoint(item: &Verified) -> Result<&CommittedCheckpoint, Response> {
     let checkpoint = item
         .checkpoint
         .as_ref()
         .ok_or_else(|| unavailable("key_policy_checkpoint_evidence_unavailable"))?;
-    if checkpoint.canonical_header() != item.header {
+    if !checkpoint.binds_header(&item.header) {
         return Err(unavailable("key_policy_checkpoint_evidence_unavailable"));
     }
     Ok(checkpoint)
@@ -1034,7 +1033,7 @@ fn native_key_policy(
     item: &Verified,
     evidence: &[Verified],
     p: &PrincipalPolicy,
-    checkpoint: Option<&layerx_client::evidence::VerifiedCheckpoint>,
+    checkpoint: Option<&CommittedCheckpoint>,
 ) -> Result<Response, Response> {
     let head = evidence
         .iter()
@@ -1095,7 +1094,7 @@ fn native_key_policy(
             "verification": 4,
             "evidence_digest": hex::encode(&item.receipt_digest),
             "checkpoint_digest": hex::encode(&checkpoint
-                .and_then(|c| c.report().evidence().checkpoint_id())
+                .map(|c| c.checkpoint_id)
                 .ok_or_else(|| unavailable("key_policy_checkpoint_evidence_unavailable"))?),
             "age_sequences": head - item.facts.global_sequence,
             "maximum_age_sequences": p.maximum_age_sequences
