@@ -188677,7 +188677,7 @@ qualification = "UNRUN"
 
 [task.18.1320.1]
 title = "Issue #1320: Read the receipt context captured inside the accept critical section in Receipter.after so a seal does not halt replication"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -188951,7 +188951,7 @@ qualification = "UNRUN"
 
 [task.18.756.1]
 title = "Issue #756: Give the wallet one token registry that balances and swaps both read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189003,7 +189003,7 @@ qualification = "UNRUN"
 
 [task.18.757.1]
 title = "Issue #757: Rewrite the wallet privacy page to describe the installable web wallet's real data flows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189684,7 +189684,7 @@ qualification = "UNRUN"
 
 [task.18.1316.1]
 title = "Issue #1316: Send and read the version 1 agent envelope without contract_major in the TypeScript SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190377,7 +190377,7 @@ qualification = "UNRUN"
 
 [task.18.1341.1]
 title = "Issue #1341: Describe the chain-only and kernel-configured gateway readiness documents in the hosted gateway docs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190420,7 +190420,7 @@ qualification = "UNRUN"
 
 [task.18.1344.1]
 title = "Issue #1344: Build the agent TypeScript SDK inside the web image before the web build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190463,7 +190463,7 @@ qualification = "UNRUN"
 
 [task.18.1346.1]
 title = "Issue #1346: Remove the inbound links to the retired relay-archive docs page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190688,7 +190688,7 @@ qualification = "UNRUN"
 
 [task.18.1351.1]
 title = "Issue #1351: Drop the unused layerx-proof dependency from the indexer manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -190730,7 +190730,7 @@ qualification = "UNRUN"
 
 [task.18.1352.1]
 title = "Issue #1352: Retire gates 103.6.1 and 108.1.1 that run the deleted node make targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190816,7 +190816,7 @@ qualification = "UNRUN"
 
 [task.18.1355.1]
 title = "Issue #1355: Name the required extra when sequencer receipt verification lacks the cryptography package"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190859,7 +190859,7 @@ qualification = "UNRUN"
 
 [task.18.1356.1]
 title = "Issue #1356: Declare the sequencer receipt verifier API in the layerx_sdk type stub"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190986,7 +190986,7 @@ qualification = "UNRUN"
 
 [task.18.1359.1]
 title = "Issue #1359: Move the wallet network contract test off the retired kernel status decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191029,7 +191029,7 @@ qualification = "UNRUN"
 
 [task.18.1360.1]
 title = "Issue #1360: Probe px_getAccount with an EVM selector and judge its current answer in the wallet live check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191081,7 +191081,7 @@ qualification = "UNRUN"
 
 [task.18.1362.1]
 title = "Issue #1362: Stop the full kernel profile from launching the retired Human movement role"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191133,7 +191133,7 @@ qualification = "UNRUN"
 
 [task.18.1363.1]
 title = "Issue #1363: Match history-readiness's missing-source assertion to the EVM-only indexer refusal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191175,7 +191175,7 @@ qualification = "UNRUN"
 
 [task.18.1364.1]
 title = "Issue #1364: Drop the retired relay-archive and intent-ingester recipes from the image publication table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191707,7 +191707,7 @@ qualification = "UNRUN"
 
 [task.18.1377.1]
 title = "Issue #1377: Let the names deployment hand its governance-only setup to the configured timelock instead of calling it itself"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191854,7 +191854,7 @@ qualification = "UNRUN"
 
 [task.18.1381.1]
 title = "Issue #1381: Pin resolveContent's storage proof to an explicit block number instead of reading a height the node never sends"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
