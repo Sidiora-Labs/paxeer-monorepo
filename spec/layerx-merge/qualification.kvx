@@ -16323,3 +16323,11 @@ symbol = "MerkleProof import"
 observed = "Attempt 16 (39a35b83c) kept the earlier test unchanged, built, and the wave 4 aggregate stopped in platform-build-all (services/platform/Makefile.inc:105): the seller imports type MerkleProof from @sidiora/layerx-sdk, which no longer exports it; task 8.22.6 (pending, wave 29, eleven requirements) retires that seller export."
 assumption = "This task runs again only once 8.22.6 is on main; nothing in it changes."
 severity = "major"
+
+[finding.10.2.4.4]
+task = "10.2.4"
+file = "services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs:124"
+symbol = "ReceiptMaterial construction of the rung test"
+observed = "Attempt 6 (29813f720) ports tests/onboarding.rs and the crate-wide test build then stops in two other test targets of the same crate: receipt_material_rungs.rs:124 builds a ReceiptMaterial without the inclusion_height, receipt_key and signed_receipt fields the task added and :153 destructures it without them, and native_onboarding_rungs.rs:117 calls AgentPreparationContext::new with six arguments where the task's signature (src/onboarding/mod.rs:316) takes seven."
+assumption = "Every test target of the crate that consumes a type this task changes is ported in this task."
+severity = "major"

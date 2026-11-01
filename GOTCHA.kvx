@@ -12811,3 +12811,8 @@ fix = "Accept the selector when the file is absent or no longer declares the fun
 title = "Serving pending-only simulation reads between blocks"
 symptom = "The proposer resolves untagged estimates and calls to the open block; between a seal and the next open there is none and clients see pending block unavailable."
 fix = "Fall back to the latest committed state when the open-layer error is returned, as the gas price read does."
+
+[gotcha.2599]
+title = "Porting one test consumer of a changed producer type and leaving its siblings"
+symptom = "A task changes a struct and a constructor, ports the one test file its text names and runs the crate-wide test build; two sibling test targets of the same crate still build the old shape and the build fails after the port."
+fix = "Before building, grep the crate's tests for every use of each changed symbol and port them all in the same attempt."
