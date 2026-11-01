@@ -1281,22 +1281,6 @@ receipt_authority_prepare() {
 receipt_authority_native_prepare() {
     receipt_authority_prepare || return 1
     install -d -o 4021 -g 4020 -m 0700 "$run/authority-clock" || return 1
-    if [ -e "$node_data/genesis/genesis-handover-trust.lxt" ]; then
-        [ -n "${LAYERX_AUTHORITY_HANDOVER_FINALITY:-}" ] && [ -f "$LAYERX_AUTHORITY_HANDOVER_FINALITY" ] || {
-            log "native handover genesis requires an independent finality policy"
-            return 1
-        }
-        if [ -n "${LAYERX_AUTHORITY_GENESIS_TRUST:-}" ]; then
-            cmp -s "$node_data/genesis/genesis-handover-trust.lxt" "$LAYERX_AUTHORITY_GENESIS_TRUST" || return 1
-        fi
-        install -d -o 4021 -g 4020 -m 0700 "$authority_material" || return 1
-        install -o 4021 -g 4020 -m 0600 "$node_data/genesis/genesis-handover-trust.lxt" "$authority_material/genesis-handover-trust.lxt" || return 1
-        if [ "$LAYERX_AUTHORITY_HANDOVER_FINALITY" != "$authority_material/handover-finality.conf" ]; then
-            install -o 4021 -g 4020 -m 0600 "$LAYERX_AUTHORITY_HANDOVER_FINALITY" "$authority_material/handover-finality.conf" || return 1
-        fi
-        export LAYERX_AUTHORITY_GENESIS_TRUST="$authority_material/genesis-handover-trust.lxt"
-        export LAYERX_AUTHORITY_HANDOVER_FINALITY="$authority_material/handover-finality.conf"
-    fi
 }
 
 agent_boundary_prepare() {
@@ -1370,9 +1354,6 @@ LAYERX_AUTHORITY_HUMAN_AGENT_PRINCIPAL=$(jq -er .principal "$m/authority.json")
 LAYERX_AUTHORITY_CORE_CLOCK_HORIZON=$(jq -er ".\"core-clock-horizon\"" "$m/authority.json")
 export LAYERX_AUTHORITY_NETWORK_ID LAYERX_AUTHORITY_SEQUENCER_ID LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY LAYERX_AUTHORITY_REPLICA_ID \
 	LAYERX_AUTHORITY_HUMAN_AGENT_TENANT LAYERX_AUTHORITY_HUMAN_AGENT_PRINCIPAL LAYERX_AUTHORITY_CORE_CLOCK_HORIZON
-if [ -e "$m/genesis-handover-trust.lxt" ]; then
-	export LAYERX_AUTHORITY_GENESIS_TRUST="$m/genesis-handover-trust.lxt" LAYERX_AUTHORITY_HANDOVER_FINALITY="$m/handover-finality.conf"
-fi
 exec /usr/local/bin/layerx-runtime-clock --runtime-dir '"$run"'/human/authority-clock -- /usr/local/bin/layerx-receipt-authority'
 else
 service receipt-authority 4021 \
