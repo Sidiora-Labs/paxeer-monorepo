@@ -117254,7 +117254,7 @@ do_4 = "Finding 9.25.15.1: continue from attempt 1 (145aa044047) unchanged; the 
 
 [task.17.5.13]
 title = "Install the Python SDK from its services/agent path in make platform-sample-install"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = []
