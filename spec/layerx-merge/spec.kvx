@@ -146339,7 +146339,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.24.3]
 title = "Delete the kernel execution, admission and arbiter prestate readers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["9.24.1", "9.10.1", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.98.1", "8.98.2", "8.98.3", "8.98.4", "8.98.5", "8.98.6", "8.98.10", "8.98.11", "8.98.12", "10.20.3", "10.25.2", "10.98.1", "10.98.2", "10.98.3", "10.98.4", "10.98.5", "10.98.6", "10.98.15", "18.1304.1"]
@@ -152335,7 +152335,7 @@ do_4 = "The receipt bytes are PortableReceiptV2::export(signed_receipt, &key_ent
 
 [task.10.95.1]
 title = "Rebuild the observed journey balances on the denom and amount AssetBalance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.3", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1", "10.24.1", "10.24.4"]
@@ -152823,7 +152823,7 @@ do_5 = "do_2's behaviour clause yields to decision.1825: tests/binding.rs is rew
 
 [task.10.98.10]
 title = "Migrate the layerx-human-service callers of wiring.J44.25 (part 1)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.3", "9.1.8", "18.1119.1", "18.1172.1", "10.98.7", "10.98.13", "10.2.8", "10.2.9", "18.1297.1", "10.24.4"]
