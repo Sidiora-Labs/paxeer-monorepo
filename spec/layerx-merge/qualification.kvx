@@ -14971,3 +14971,19 @@ symbol = "resolveContent"
 observed = "Attempt 1 (f0687b8eb) wrote the verifier, slots, resolver and tests, but the build command pnpm --dir sdk/names install --no-frozen-lockfile resolved all 20 projects of the root pnpm-workspace.yaml and failed with ERR_PNPM_FETCH_404 for @sidiora/layerx-sdk 0.1.0, a dependency of sdk/integrations/next that is not on the registry; adding @confio/ics23 forced the re-resolution that 19.2.1 avoided with an unchanged lockfile. The attempt also read a proven height from the eth_getProof response, which rpc/state.go:119-122 does not carry (do_1 misstated it)."
 assumption = "Decision 2178: sdk/names installs standalone with --ignore-workspace, and the resolver pins the height itself by reading eth_blockNumber and passing that block number to eth_getProof."
 severity = "major"
+
+[finding.8.7.5.1]
+task = "8.7.5"
+file = "services/platform/hosted/gateway/tests/unified_service_paths.rs:20"
+symbol = "archive_sync_readiness_reaches_the_actual_sync_predicate"
+observed = "Attempt 1 (124e0cfad) removed the retired route assertions from services/platform/hosted/gateway/tests/browser_profiles.rs as specified, but the build_cmd (cargo build --tests of layerx-platform-gateway) fails compiling the test target unified_service_paths: services/platform/hosted/gateway/tests/unified_service_paths.rs:20 declares const ARCHIVE = include_str!('../../../../../services/platform/relay_archive/runtime.py') and task 8.32.1 (10ba36017) deleted that file; :187-188 assert two substrings of ARCHIVE (the /v1/sync/readiness branch and the readiness() call) and :185 still expects the catalogue entry's source to be services/platform/relay_archive/runtime.py, which tools/paxeer-x/route-catalogue.json still records for every archive route."
+assumption = "8.7.5 also drops the include and the two ARCHIVE assertions (decision 2179) so the gateway test target compiles; the catalogue's stale archive source strings are a documentation defect left for the task that retires or re-homes the archive routes."
+severity = "major"
+
+[finding.19.5.2.1]
+task = "19.5.2"
+file = "sdk/names/package.json"
+symbol = "verifyCommit"
+observed = "Attempt 1 (f1f1f4592) wrote header.ts, the two tests and the lockfile, but the build_cmd (pnpm --dir sdk/names install --no-frozen-lockfile) walked up to the root workspace and failed on sdk/integrations/next's unpublished @sidiora/layerx-sdk dependency (ERR_PNPM_FETCH_404), the failure decision 2178 already ruled for 19.2.3; tsc and vitest never ran."
+assumption = "19.5.2 takes the same --ignore-workspace build_cmd as 19.2.3 and continues from attempt 1; no other open task installs sdk/names without it."
+severity = "major"

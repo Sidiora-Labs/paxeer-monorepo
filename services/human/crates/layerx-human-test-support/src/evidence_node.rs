@@ -10,12 +10,9 @@ use layerx_client::lni::handshake::{encode_node_info, NodeInfo, NodeRole};
 use layerx_client::lni::schema::{
     decode_envelope, encode_envelope, Capability, Envelope, SchemaError, Version,
 };
-use layerx_crypto::{ed25519, SignatureMessage};
+use layerx_crypto::evm_transaction::{self, Eip1559Call, EvmTransactionError};
+use layerx_crypto::signer::AgentSignature;
 use layerx_human_service::frame::{read_frame, write_frame, FrameViolation, TransportError};
-use layerx_intents::canonical::{activity_id, payload_hash, Domain};
-use layerx_intents::canonical::{
-    decode_signed_activity as decode_signed, unsigned_activity_bytes as encode_unsigned,
-};
 use layerx_intents::canonical::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION};
 use layerx_types::payload::ModuleRegistry;
 use layerx_types::result::{KnownResult, ResultCode};
@@ -65,8 +62,8 @@ impl Refusal {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AdmissionRecord {
-    pub activity_id: [u8; 32],
-    pub activity: Vec<u8>,
+    pub tx_hash: [u8; 32],
+    pub raw_transaction: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -107,7 +104,7 @@ impl AdmissionJournal {
                 .unwrap_or_else(|error| panic!("admission directory fsync: {error}"));
             Vec::new()
         };
-        let admitted = records.iter().map(|record| record.activity_id).collect();
+        let admitted = records.iter().map(|record| record.tx_hash).collect();
         Self {
             directory: directory.to_path_buf(),
             file,
@@ -145,20 +142,20 @@ impl AdmissionJournal {
                 header[4], header[5], header[6], header[7],
             ]))
             .unwrap_or_else(|_| panic!("admission record length overflow"));
-            let mut activity_id = [0_u8; 32];
-            activity_id.copy_from_slice(&header[8..40]);
+            let mut tx_hash = [0_u8; 32];
+            tx_hash.copy_from_slice(&header[8..40]);
             let body_end = cursor + RECORD_HEADER_BYTES + length;
             let record_end = body_end + RECORD_DIGEST_BYTES;
             if length == 0 || length > MAX_MESSAGE_BYTES || record_end > bytes.len() {
                 break;
             }
-            let activity = &bytes[cursor + RECORD_HEADER_BYTES..body_end];
-            if bytes[body_end..record_end] != record_digest(&header[4..40], activity) {
+            let raw_transaction = &bytes[cursor + RECORD_HEADER_BYTES..body_end];
+            if bytes[body_end..record_end] != record_digest(&header[4..40], raw_transaction) {
                 break;
             }
             records.push(AdmissionRecord {
-                activity_id,
-                activity: activity.to_vec(),
+                tx_hash,
+                raw_transaction: raw_transaction.to_vec(),
             });
             cursor = record_end;
         }
@@ -166,8 +163,8 @@ impl AdmissionJournal {
     }
 
     #[must_use]
-    pub fn contains(&self, activity_id: &[u8; 32]) -> bool {
-        self.admitted.contains(activity_id)
+    pub fn contains(&self, tx_hash: &[u8; 32]) -> bool {
+        self.admitted.contains(tx_hash)
     }
 
     #[must_use]
@@ -180,24 +177,24 @@ impl AdmissionJournal {
         &self.directory
     }
 
-    fn admit(&mut self, activity_id: [u8; 32], activity: &[u8]) -> std::io::Result<()> {
+    fn admit(&mut self, tx_hash: [u8; 32], raw_transaction: &[u8]) -> std::io::Result<()> {
         let mut record =
-            Vec::with_capacity(RECORD_HEADER_BYTES + activity.len() + RECORD_DIGEST_BYTES);
+            Vec::with_capacity(RECORD_HEADER_BYTES + raw_transaction.len() + RECORD_DIGEST_BYTES);
         record.extend_from_slice(RECORD_MAGIC);
-        let length = u32::try_from(activity.len())
+        let length = u32::try_from(raw_transaction.len())
             .map_err(|_| std::io::Error::other("admission record length overflow"))?;
         record.extend_from_slice(&length.to_be_bytes());
-        record.extend_from_slice(&activity_id);
-        record.extend_from_slice(activity);
-        let digest = record_digest(&record[4..RECORD_HEADER_BYTES], activity);
+        record.extend_from_slice(&tx_hash);
+        record.extend_from_slice(raw_transaction);
+        let digest = record_digest(&record[4..RECORD_HEADER_BYTES], raw_transaction);
         record.extend_from_slice(&digest);
         self.file.write_all(&record)?;
         self.file.sync_data()?;
         self.records.push(AdmissionRecord {
-            activity_id,
-            activity: activity.to_vec(),
+            tx_hash,
+            raw_transaction: raw_transaction.to_vec(),
         });
-        self.admitted.insert(activity_id);
+        self.admitted.insert(tx_hash);
         Ok(())
     }
 }
@@ -210,18 +207,17 @@ fn superblock(network_id: u32) -> [u8; JOURNAL_SUPERBLOCK_BYTES] {
     bytes
 }
 
-fn record_digest(header_tail: &[u8], activity: &[u8]) -> [u8; RECORD_DIGEST_BYTES] {
+fn record_digest(header_tail: &[u8], raw_transaction: &[u8]) -> [u8; RECORD_DIGEST_BYTES] {
     let mut digest = Sha256::new();
     digest.update(b"LXH/v1/admission-record\0");
     digest.update(header_tail);
-    digest.update(activity);
+    digest.update(raw_transaction);
     digest.finalize().into()
 }
 
 #[derive(Debug)]
 pub struct EvidenceNode {
     info: NodeInfo,
-    registry: ModuleRegistry,
     identities: BTreeMap<Vec<u8>, [u8; 32]>,
     journal: AdmissionJournal,
     queue: VecDeque<[u8; 32]>,
@@ -237,7 +233,7 @@ impl EvidenceNode {
     pub fn new(
         authorised_sequencer_key: [u8; 32],
         network_id: u32,
-        registry: ModuleRegistry,
+        _registry: ModuleRegistry,
         admission_directory: &Path,
         queue_capacity: usize,
     ) -> Self {
@@ -261,7 +257,6 @@ impl EvidenceNode {
                     Capability::Submit.name().to_owned(),
                 ],
             },
-            registry,
             identities: BTreeMap::new(),
             journal: AdmissionJournal::open(admission_directory, network_id),
             queue: VecDeque::new(),
@@ -347,14 +342,14 @@ impl EvidenceNode {
                 continue;
             }
             match self.admit(&request) {
-                Ok(activity_id) => {
+                Ok(tx_hash) => {
                     let echoed = request.canonical_payload.to_vec();
                     self.respond(
                         stream,
                         SUBMIT_RESPONSE_TAG,
                         correlation_id,
                         &echoed,
-                        &activity_id,
+                        &tx_hash,
                     );
                 }
                 Err(Some(refusal)) => {
@@ -405,71 +400,22 @@ impl EvidenceNode {
                 KnownResult::MalformedEnvelope,
             )));
         }
-        let activity = decode_signed(payload, &self.registry).map_err(|error| {
-            Some(Refusal {
-                class: ADMISSION_REFUSAL_CLASS,
-                result: error.result,
+        let (call, signature) = decode_signed(payload).map_err(|error| {
+            Some(if error == EvmTransactionError::BadSignature {
+                self.authentication_refusal(KnownResult::BadSignature)
+            } else {
+                Refusal::known(ADMISSION_REFUSAL_CLASS, KnownResult::MalformedEnvelope)
             })
         })?;
-        if activity.protocol_version() != self.info.protocol_version {
-            return Err(Some(Refusal::known(
-                ADMISSION_REFUSAL_CLASS,
-                KnownResult::VersionUnsupported,
-            )));
-        }
-        if activity.network_id() != self.info.network_id {
+        if call.chain_id != crate::EVIDENCE_CHAIN_ID {
             return Err(Some(Refusal::known(
                 ADMISSION_REFUSAL_CLASS,
                 KnownResult::WrongNetwork,
             )));
         }
-        let expected_payload_hash = payload_hash(&activity).map_err(|error| {
-            Some(Refusal {
-                class: ADMISSION_REFUSAL_CLASS,
-                result: error.result,
-            })
-        })?;
-        if expected_payload_hash != activity.payload_hash() {
-            return Err(Some(Refusal::known(
-                ADMISSION_REFUSAL_CLASS,
-                KnownResult::PayloadHashMismatch,
-            )));
-        }
-        let identifier = activity_id(&activity).map_err(|error| {
-            Some(Refusal {
-                class: ADMISSION_REFUSAL_CLASS,
-                result: error.result,
-            })
-        })?;
-
-        let Some(current_key) = self.identities.get(activity.actor_did()).copied() else {
-            return Err(Some(self.authentication_refusal(KnownResult::UnknownDid)));
-        };
-        if activity.authority() != current_key.as_slice() {
-            return Err(Some(self.authentication_refusal(KnownResult::BadSignature)));
-        }
-        let Some(signature) = activity
-            .signature()
-            .and_then(|bytes| <[u8; 64]>::try_from(bytes).ok())
-        else {
-            return Err(Some(self.authentication_refusal(KnownResult::BadSignature)));
-        };
-        let unsigned = encode_unsigned(&activity).map_err(|error| {
-            Some(Refusal {
-                class: ADMISSION_REFUSAL_CLASS,
-                result: error.result,
-            })
-        })?;
-        let message = SignatureMessage::new(
-            Domain::SignaturePreimage,
-            activity.protocol_version(),
-            activity.network_id(),
-            &unsigned,
-        )
-        .map_err(|error| Some(self.authentication_refusal_code(error.result_code())))?;
-        if ed25519::verify(&current_key, &signature, message).is_err() {
-            return Err(Some(self.authentication_refusal(KnownResult::BadSignature)));
-        }
+        evm_transaction::recover_sender(&call, &signature)
+            .map_err(|_| Some(self.authentication_refusal(KnownResult::BadSignature)))?;
+        let identifier = transaction_hash(payload);
 
         if self.journal.contains(&identifier) {
             return Ok(identifier);
@@ -496,4 +442,14 @@ impl EvidenceNode {
             result,
         }
     }
+}
+
+fn decode_signed(
+    raw_transaction: &[u8],
+) -> Result<(Eip1559Call, AgentSignature), EvmTransactionError> {
+    evm_transaction::decode_signed(raw_transaction)
+}
+
+fn transaction_hash(raw_transaction: &[u8]) -> [u8; 32] {
+    evm_transaction::transaction_hash(raw_transaction)
 }

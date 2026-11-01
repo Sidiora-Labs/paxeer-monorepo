@@ -12311,3 +12311,13 @@ fix = "Check each route's authentication kind before writing a fixture; open the
 title = "A leaf pnpm install walks up to the root workspace"
 symptom = "pnpm --dir sdk/names install resolved all workspace projects and failed on an unpublished dependency of another package once the names manifest changed"
 fix = "Install leaf packages that keep their own lockfile with --ignore-workspace, or add them to the workspace deliberately"
+
+[gotcha.2499]
+title = "Deleting a file must carry every include_str! of it"
+symptom = "A Python-gated task deleted services/platform/relay_archive/runtime.py while a Rust integration test still include_str!-ed it, so every later build of the gateway test target failed with 'couldn't read' on an unrelated task"
+fix = "Before deleting a file, grep the repository for its path (include_str!, include_bytes!, fixtures) and put every referrer in touches; a deletion's gate must compile the crates that embed the file"
+
+[gotcha.2500]
+title = "A build command fix must sweep every task that shares the command"
+symptom = "Decision 2178 repaired the names SDK install command on one task while a sibling task kept the old command and failed on the identical root-workspace resolution one attempt later"
+fix = "When a ruling changes a build_cmd or verify_cmd, grep the spec for every task carrying the same command and change them in the same batch"
