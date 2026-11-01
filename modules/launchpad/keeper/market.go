@@ -38,7 +38,8 @@ var PoolRole = crypto.Keccak256Hash([]byte("POOL_ROLE"))
 var (
 	poolInitializeSelector = crypto.Keccak256([]byte(
 		"initialize(address,address,address,address,address,address,address,uint256,uint256)"))[:4]
-	bindPoolSelector = crypto.Keccak256([]byte("bindPool(address)"))[:4]
+	bindPoolSelector          = crypto.Keccak256([]byte("bindPool(address)"))[:4]
+	opticalIsApprovedSelector = crypto.Keccak256([]byte("isApproved(address)"))[:4]
 )
 
 // poolTokenGas bounds the nested CREATE2 of a pool token; the SidioraERC20
@@ -160,6 +161,14 @@ func (k *Keeper) createMarket(ctx sdk.Context, caller NestedCaller, evm *vm.EVM,
 	if !uint128Positive(virtualQuote) || !uint128Positive(virtualToken) || strategy > types.FeeStrategyLpRewards ||
 		(optical != (common.Address{}) && len(k.evmKeeper.GetCode(ctx, optical)) == 0) {
 		return ctx, types.Market{}, types.ErrZeroAddress
+	}
+
+	if optical != (common.Address{}) {
+		ret, err := caller.StaticCall(ctx, k.generation2.SidioraFactory, k.generation2.OpticalRegistry,
+			erc20Call(opticalIsApprovedSelector, addressWord(optical)))
+		if err != nil || len(ret) != 32 || new(big.Int).SetBytes(ret).Cmp(big.NewInt(1)) != 0 {
+			return ctx, types.Market{}, types.ErrOpticalNotApproved
+		}
 	}
 
 	token, err := k.deployPoolToken(ctx, evm, creator, name, symbol, virtualToken.BigInt())

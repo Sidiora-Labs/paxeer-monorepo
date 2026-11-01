@@ -5,15 +5,26 @@ import (
 	"math/big"
 	"testing"
 
+	proofcodec "github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
+	anchorkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/keeper"
 	anchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor"
+	putils "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/stretchr/testify/require"
 )
+
+type wiredAnchorKeepers struct {
+	putils.Keepers
+	anchor anchorkeeper.Keeper
+}
+
+func (k wiredAnchorKeepers) AnchorK() putils.AnchorKeeper { return k.anchor }
 
 func anchorRetirementReads(h *harness) map[string][]interface{} {
 	return map[string][]interface{}{
@@ -102,21 +113,75 @@ func TestReadsServedUntilStoreDelete(t *testing.T) {
 
 func TestReadsRevertFromStoreDelete(t *testing.T) {
 	h := newHarness(t, nil)
-	h.bootstrap()
-	_, err := h.submit("batch_1_quorum")
+	var err error
+	h.fixture, err = testvectors.LoadAnchor()
 	require.NoError(t, err)
+	encoded, err := h.vector("checkpoints", "batch_1_quorum").Bytes("certificate")
+	require.NoError(t, err)
+	certificate, err := proofcodec.DecodeCheckpointCertificate(encoded)
+	require.NoError(t, err)
+	require.Equal(t, h.vectorIDForRetirement(), certificate.CheckpointID())
+	require.Len(t, certificate.Attestations, len(h.ids))
+	guarantors := make([]anchortypes.Hash32, len(h.ids))
+	for i, attestation := range certificate.Attestations {
+		h.ids[i], h.signers[i] = attestation.GuarantorID, attestation.Signer
+		guarantors[i] = attestation.GuarantorID
+	}
+	withAnchor, err := layerxanchor.NewPrecompile(wiredAnchorKeepers{
+		Keepers: h.app.GetPrecompileKeepers(), anchor: h.app.LayerXAnchorKeeper,
+	})
+	require.NoError(t, err)
+	h.precompile = withAnchor
+	h.bootstrap()
+	header := certificate.Header
+	genesis := h.anchor.ExportGenesis(h.ctx())
+	genesis.Checkpoints = []anchortypes.Checkpoint{{
+		BatchNumber: header.BatchNumber, CheckpointID: certificate.CheckpointID(),
+		HeaderDigest:    proofcodec.BatchHeaderDigest(certificate.HeaderBytes),
+		ProtocolVersion: header.ProtocolVersion, NetworkID: header.NetworkID, Epoch: header.Epoch,
+		FirstSequence: header.FirstSequence, LastSequence: header.LastSequence,
+		PreviousStateRoot: header.PreviousStateRoot, StateRoot: header.ResultingStateRoot,
+		ReceiptRoot: header.ReceiptMerkleRoot, DataAvailabilityRoot: header.DataAvailabilityRoot,
+		SequencerID: header.SequencerID, TimestampMs: header.TimestampMs,
+		Status: anchortypes.CheckpointFinal, DeclaredThreshold: certificate.Threshold, Guarantors: guarantors,
+		Submitter: h.reporter.account.String(), SubmittedHeight: h.ctx().BlockHeight(),
+		SubmittedTime: h.ctx().BlockTime().Unix(), FinalizedHeight: h.ctx().BlockHeight(),
+		FinalizedTime: h.ctx().BlockTime().Unix(),
+	}}
+	genesis.HasLatestFinalized, genesis.LatestFinalized = true, header.BatchNumber
+	require.NoError(t, genesis.Validate())
+	h.anchor.InitGenesis(h.ctx(), *genesis)
+	h.invariant()
 	const mergeHeight, deleteHeight = int64(20), int64(40)
 	h.app.UpgradeKeeper.SetDone(h.ctx().WithBlockHeight(mergeHeight), pcommon.MergeUpgrade)
-	h.app.UpgradeKeeper.SetDone(h.ctx().WithBlockHeight(deleteHeight), anchortypes.StoreDeleteUpgrade)
 	require.Equal(t, anchortypes.StoreDeleteUpgrade, layerxanchor.StoreDeleteUpgrade)
 
 	keepers, ok := h.app.GetPrecompileKeepers().(*app.PrecompileKeepers)
 	require.True(t, ok)
 	withoutAnchor, err := layerxanchor.NewPrecompile(keepers)
 	require.NoError(t, err)
-	precompiles := map[string]*pcommon.Precompile{"wired": h.precompile, "unwired": withoutAnchor}
+	precompiles := map[string]*pcommon.Precompile{"wired": withAnchor, "unwired": withoutAnchor}
 	reads := anchorRetirementReads(h)
 	require.Len(t, reads, 9)
+	h.stateDB.WithCtx(h.ctx().WithBlockHeight(deleteHeight - 1))
+	require.Equal(t, []interface{}{uint64(1), true}, h.view(layerxanchor.LatestFinalizedMethod))
+	require.Equal(t, []interface{}{header.ResultingStateRoot, true}, h.view(layerxanchor.FinalizedStateRootMethod, uint64(1)))
+	require.Equal(t, []interface{}{header.ReceiptMerkleRoot, true}, h.view(layerxanchor.FinalizedReceiptRootMethod, uint64(1)))
+	require.Equal(t, []interface{}{uint64(1), anchortypes.CheckpointFinal}, h.view(layerxanchor.CheckpointBatchMethod, h.vectorIDForRetirement()))
+	require.Equal(t, []interface{}{h.ids}, h.view(layerxanchor.CheckpointGuarantorsMethod, uint64(1)))
+	for name, args := range reads {
+		for _, readOnly := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%d/wired/%s/static=%t", deleteHeight-1, name, readOnly), func(t *testing.T) {
+				res, err := withAnchor.GetExecutor().Execute(h.ctx(), h.method(name), h.reporter.address, h.reporter.address, args, nil, readOnly, h.evm, nil)
+				require.NoError(t, err)
+				require.NotEqual(t, pcommon.RetiredRevert(layerxanchor.PrecompileName), res)
+				res, err = withAnchor.Run(h.evm, h.reporter.address, h.reporter.address, h.input(name, args...), nil, readOnly, false, nil)
+				require.NoError(t, err)
+				require.NotEqual(t, pcommon.RetiredRevert(layerxanchor.PrecompileName), res)
+			})
+		}
+	}
+	h.app.UpgradeKeeper.SetDone(h.ctx().WithBlockHeight(deleteHeight), anchortypes.StoreDeleteUpgrade)
 	for _, height := range []int64{deleteHeight, deleteHeight + 1} {
 		h.stateDB.WithCtx(h.ctx().WithBlockHeight(height))
 		for wiring, precompile := range precompiles {

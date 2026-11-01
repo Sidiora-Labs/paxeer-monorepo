@@ -229,5 +229,42 @@ async function shell_refuses_an_object_whose_digest_differs_from_the_manifest(t:
   assert.equal(f.s3.requests.length, 0);
 }
 
+async function shell_answers_invalid_site_path_for_a_malformed_escape(t: TestContext) {
+  const f = await fixture(t);
+  const environment = {
+    NAMES_SHELL_DOMAIN: 'names.test',
+    NAMES_RPC_URL: f.rpc.rpcUrl,
+    NAMES_RESOLVER: f.vector.address,
+    NAMES_CONSENSUS_RPC_URL: f.rpc.rpcUrl,
+    NAMES_BUCKET_BASE_URL: f.deps.bucketBaseUrl,
+  };
+  const previous = Object.fromEntries(
+    Object.keys(environment).map((key) => [key, process.env[key]])
+  );
+  Object.assign(process.env, environment);
+  try {
+    f.rpc.calls.length = 0;
+    f.s3.requests.length = 0;
+    const response = await proxy(
+      new NextRequest('https://example.pax.names.test/%E0%A4%A', {
+        headers: { host: 'example.pax.names.test' },
+      })
+    );
+    assert.equal(response.status, 400);
+    assert.deepEqual(await response.json(), { code: 'invalid_site_path' });
+    assert.equal(response.headers.get('Cache-Control'), 'no-store');
+    assert.equal(response.headers.get('Content-Security-Policy'), expectedCsp);
+    assert.equal(response.headers.get('X-Content-Type-Options'), 'nosniff');
+    assert.deepEqual(f.rpc.calls, []);
+    assert.deepEqual(f.s3.requests, []);
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
 test(shell_serves_a_published_site_after_proof_verified_resolution);
 test(shell_refuses_an_object_whose_digest_differs_from_the_manifest);
+test(shell_answers_invalid_site_path_for_a_malformed_escape);
