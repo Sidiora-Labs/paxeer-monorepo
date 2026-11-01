@@ -116592,7 +116592,7 @@ do_4 = "Task 9.24.5 (decision 2192) adds Client::module_state, VerifiedCaps and 
 
 [task.9.24.5]
 title = "Port the agent daemon's execution-prestate consumers to the committed program balance read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["9.24.3", "9.94.1"]
