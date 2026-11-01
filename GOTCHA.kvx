@@ -12401,3 +12401,18 @@ fix = "a port task (10.24.4) repairs the consumer and the human-service builders
 title = "Deleting a module's files is not enough when the crate's facade still defines methods over it"
 symptom = "9.24.3 deleted the arbiter and execution prestate readers but client.rs kept seven methods and two evidence type names over them (36 errors)."
 fix = "list the facade file in touches and name the methods to delete; the callers in other crates belong to the wiring tasks."
+
+[gotcha.2517]
+title = "A symbols entry for a type the task deletes fails the done gate as 'not defined in the graph'"
+symptom = "10.24.3 attempt 1 listed AnchorHead in symbols while do_1 deleted it."
+fix = "list only symbols that exist after the task; deleted names belong in the do lines."
+
+[gotcha.2518]
+title = "A programme check over the installed spec is green only when the features it checks are complete"
+symptom = "17.4.5's uncovered-selector test failed with 127 selectors for tests pending tasks have not written."
+fix = "sequence such checks behind the domain completion gates (N.0.9) instead of running them mid-programme."
+
+[gotcha.2519]
+title = "Refusal-only retired components never appear in the callers inventory"
+symptom = "17.2.6's stale_rows flagged requires-sei-wasm, a row with deleted_trees = [] whose callers are shell scripts."
+fix = "treat components without deleted_trees as outside the inventory's domain."

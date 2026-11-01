@@ -15203,3 +15203,35 @@ symbol = "start_arbiter_prestate_v2"
 observed = "Attempt 1 (d43235998) deleted the six reader and verifier files, and the build of layerx-client failed with 36 errors in services/agent/crates/layerx-client/src/client.rs, which still defines start_arbiter_prestate_v2 (:204), arbiter_prestate_v2 (:257), start_arbiter_admission_v3 (:279), start_execution_prestate (:348), execution_prestate (:404), start_native_execution_prestate (:426) and native_execution_prestate (:482) over the deleted modules, and names evidence::VerifiedReplayCatalogue (:487) and evidence::VerifiedNativeExecutionPrestate (:647)."
 assumption = "The client methods are the readers' public surface and retire with them; their callers outside the crate are the wiring tasks do_3 names."
 severity = "major"
+
+[finding.10.24.3.1]
+task = "10.24.3"
+file = "services/human/crates/layerx-network-gateway/src/lib.rs:415"
+symbol = "AnchorHead"
+observed = "Attempt 1 (74df7dd90) built and passed both declared tests; the done gate refused 'symbol AnchorHead — not defined in the graph' because the symbols list names the struct do_1 deletes."
+assumption = "The symbols list drops AnchorHead; the attempt's work stands."
+severity = "minor"
+
+[finding.17.2.6.1]
+task = "17.2.6"
+file = "spec/layerx-merge/programme/data/retired.kvx:385"
+symbol = "requires-sei-wasm"
+observed = "Attempt 1 (976b455f3): stale_rows reported [component.requires-sei-wasm], a refusal row with deleted_trees = [] whose callers are shell scripts named in the row itself; tools/paxeer-x/retired_callers.json lists only components with source trees, so the row can never appear there."
+assumption = "A component without deleted_trees is a refusal-only row and is outside the callers inventory's domain."
+severity = "minor"
+
+[finding.17.4.5.1]
+task = "17.4.5"
+file = "spec/layerx-merge/programme/parity.py:262"
+symbol = "uncovered"
+observed = "Attempt 1 (0afa1228f) implemented uncovered() and the test; the test fails on the installed spec with 127 stale acceptance selectors (77 in feature 16, 17 in 18, 11 in 8, 10 in 9, 12 across 2, 5, 10, 12, 13, 15 and 17), test names that pending tasks have not written yet."
+assumption = "The check passes only once the domain completion gates pass; the task moves behind them and the attempt's code stands."
+severity = "major"
+
+[finding.17.5.5.1]
+task = "17.5.5"
+file = "scripts/gates/wave-4.sh"
+symbol = "human-build"
+observed = "Attempt 1 (2cd0c587f): the wave-4 gate exits 2 in make human-build (Makefile:1637-1641): the api-gen test committed_client_matches_regeneration (services/human/tools/api-gen/tests/generation.rs:315) fails and the human workspace build stops at production_components.rs:4648 (finding 10.24.1.1)."
+assumption = "The aggregate gate requalifies unchanged once the human workspace builds (10.24.4) and the committed client matches regeneration; the regeneration drift needs its own task when it survives 10.24.4."
+severity = "major"
