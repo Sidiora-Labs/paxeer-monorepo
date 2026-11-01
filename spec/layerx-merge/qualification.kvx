@@ -15803,3 +15803,11 @@ symbol = "JourneyEngine::load"
 observed = "The kernel send test attempt 7 ported per do_10 loads the started journey with JourneyEngine::load, which scans only keys prefixed journey- (src/journeys/engine.rs:38, :803) and decodes the engine's record, while start_kernel_journey persists a flat record under RowKey intent-evm-<journey_id> (src/journeys/intent_submit.rs:303-333) that only ProductionComponents::advance_evm_intent (production_components.rs:8838) and the journey.get and list routes read; the ported test therefore panics 'persisted kernel journey missing' and the three refusal tests assert emptiness of a loader nothing feeds, and the verify gate of this task never ran the target, so the port was never exercised."
 assumption = "do_10 is corrected: the kernel test reads the intent-evm row and the replay rule; the engine-driving steps are deleted; the intent_submit target joins the verify gate."
 severity = "major"
+
+[finding.8.45.5.2]
+task = "8.45.5"
+file = "services/platform/Makefile.inc:231"
+symbol = "platform-sdk-check"
+observed = "Attempt 3 (4ccbabda0, base de1dbe1b8) deleted the Rust rendering of GeneratedContract.java, regenerated the outputs and resealed the lock; the build passed, make platform-sdk-check passed and both pipeline_reseal tests passed, and the qualification was refused only by two graph checks: the declared symbols platform-sdk-generate and platform-sdk-check are Makefile targets, which the code graph never indexes, so they can never be found."
+assumption = "The task's symbols name only pipeline_lock_matches_repository; the attempt continues unchanged."
+severity = "minor"

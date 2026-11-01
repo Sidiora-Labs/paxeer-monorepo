@@ -12551,3 +12551,8 @@ fix = "before dictating an assertion, walk the test's calls with the capacity an
 title = "A port the task gate never runs can assert against a loader the producer stopped feeding"
 symptom = "a test-port ruling told the implementer to load an EVM intent journey through the legacy journey engine; the producer had moved to a flat intent-evm row the engine's prefix scan never sees, the verify gate ran a fixture-gated release test instead of the ported target, and the port compiled, failed at runtime and was never exercised"
 fix = "when a task ports a test target, its verify command runs that target; before dictating a read path, follow the producer's write to the row it persists and name the reader that serves it in production"
+
+[gotcha.2547]
+title = "Makefile targets are not code-graph symbols"
+symptom = "a task listed two Makefile targets in its symbols; the attempt built, passed every gate and was refused by the graph check with 'symbol not defined in the graph' for both"
+fix = "symbols name functions, types, methods or enums the graph extracts; name a Makefile target in the verify command or the do text, never in symbols"
