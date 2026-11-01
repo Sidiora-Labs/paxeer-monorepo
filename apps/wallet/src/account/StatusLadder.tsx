@@ -35,7 +35,11 @@ export function StatusLadder({ steps }: { steps: readonly LadderStep[] }) {
       {LADDER_RUNGS.map((rung) => {
         const reached = steps.filter((step) => rank(step.rung) >= rank(rung));
         const evidence =
-          reached.find((step) => step.rung === rung) ?? statusLadder.highest(reached);
+          (rung === 'committed'
+            ? reached.find((step) => step.rung === 'committed' && step.source === 'explorer')
+            : undefined) ??
+          reached.find((step) => step.rung === rung) ??
+          statusLadder.highest(reached);
         const source = evidence?.source ?? null;
         return (
           <li
