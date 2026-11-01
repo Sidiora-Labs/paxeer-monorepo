@@ -10,43 +10,36 @@ pub enum IntentKindTag {
     DidRegistration = 1,
     KeyRotation = 2,
     RecoveryRegistration = 3,
-    EvmPayoutBinding = 4,
     LxpSend = 5,
     LxpReceive = 6,
     PayerGrantRegistration = 7,
     BudgetCreate = 8,
     BudgetFund = 9,
     BudgetDefund = 10,
-    BridgeDepositCredit = 11,
-    BridgeWithdrawRequest = 12,
     SessionGrant = 13,
     SessionRevoke = 14,
     AuthorityGrant = 15,
-    NativeCustodyCredit = 16,
     NativeReceive = 17,
 }
 
 impl IntentKindTag {
-    const fn from_u16(value: u16) -> Option<Self> {
+    const fn from_u16(value: u16) -> Result<Self, RejectReason> {
         match value {
-            1 => Some(Self::DidRegistration),
-            2 => Some(Self::KeyRotation),
-            3 => Some(Self::RecoveryRegistration),
-            4 => Some(Self::EvmPayoutBinding),
-            5 => Some(Self::LxpSend),
-            6 => Some(Self::LxpReceive),
-            7 => Some(Self::PayerGrantRegistration),
-            8 => Some(Self::BudgetCreate),
-            9 => Some(Self::BudgetFund),
-            10 => Some(Self::BudgetDefund),
-            11 => Some(Self::BridgeDepositCredit),
-            12 => Some(Self::BridgeWithdrawRequest),
-            13 => Some(Self::SessionGrant),
-            14 => Some(Self::SessionRevoke),
-            15 => Some(Self::AuthorityGrant),
-            16 => Some(Self::NativeCustodyCredit),
-            17 => Some(Self::NativeReceive),
-            _ => None,
+            1 => Ok(Self::DidRegistration),
+            2 => Ok(Self::KeyRotation),
+            3 => Ok(Self::RecoveryRegistration),
+            5 => Ok(Self::LxpSend),
+            6 => Ok(Self::LxpReceive),
+            7 => Ok(Self::PayerGrantRegistration),
+            8 => Ok(Self::BudgetCreate),
+            9 => Ok(Self::BudgetFund),
+            10 => Ok(Self::BudgetDefund),
+            13 => Ok(Self::SessionGrant),
+            14 => Ok(Self::SessionRevoke),
+            15 => Ok(Self::AuthorityGrant),
+            17 => Ok(Self::NativeReceive),
+            4 | 11 | 12 | 16 => Err(RejectReason::RetiredShape),
+            _ => Err(RejectReason::UnknownKind(value)),
         }
     }
 }
@@ -94,7 +87,7 @@ impl<'a> RejectedIntent<'a> {
 /// # Errors
 ///
 /// Returns a typed rejection for truncated input, every version other than V1,
-/// and every kind outside the closed fifteen-kind vocabulary.
+/// and every unknown or retired kind.
 pub fn inspect_intent(input: &[u8]) -> Result<IntentHeader, RejectedIntent<'_>> {
     let mut decoder = Decoder::new(input, 0);
     let version = decoder.u16().map_err(|error| RejectedIntent {
@@ -111,22 +104,12 @@ pub fn inspect_intent(input: &[u8]) -> Result<IntentHeader, RejectedIntent<'_>> 
         input,
         reason: RejectReason::Malformed(error),
     })?;
-    let Some(kind) = IntentKindTag::from_u16(raw_kind) else {
-        return Err(RejectedIntent {
-            input,
-            reason: RejectReason::UnknownKind(raw_kind),
-        });
-    };
-    if version == 2 && kind != IntentKindTag::BridgeWithdrawRequest {
+    let kind =
+        IntentKindTag::from_u16(raw_kind).map_err(|reason| RejectedIntent { input, reason })?;
+    if version == 2 {
         return Err(RejectedIntent {
             input,
             reason: RejectReason::UnknownVersion(version),
-        });
-    }
-    if version == 1 && kind == IntentKindTag::BridgeWithdrawRequest {
-        return Err(RejectedIntent {
-            input,
-            reason: RejectReason::RetiredShape,
         });
     }
     Ok(IntentHeader { version, kind })
@@ -156,10 +139,10 @@ mod tests {
     #[test]
     fn recognised_header_is_classification_not_execution() {
         assert_eq!(
-            inspect_intent(&[0, 2, 0, 12, 0xde, 0xad]),
+            inspect_intent(&[0, 1, 0, 17, 0xde, 0xad]),
             Ok(IntentHeader {
-                version: 2,
-                kind: IntentKindTag::BridgeWithdrawRequest,
+                version: 1,
+                kind: IntentKindTag::NativeReceive,
             })
         );
     }
