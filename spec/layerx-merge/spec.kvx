@@ -189325,7 +189325,7 @@ qualification = "UNRUN"
 
 [task.18.1408.1]
 title = "Issue #1408: Point the kernel replay corpus parity row at the qualification replay driver"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189460,7 +189460,7 @@ qualification = "UNRUN"
 
 [task.18.1413.1]
 title = "Issue #1413: Render every decision record from one programme helper with a basis verified at its stated revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190007,7 +190007,7 @@ qualification = "UNRUN"
 
 [task.18.1311.1]
 title = "Issue #1311: Hand the metered grant to the receiver instead of submitting the draw with the payer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -190298,7 +190298,7 @@ qualification = "UNRUN"
 
 [task.18.1317.1]
 title = "Issue #1317: Verify registry journal deployment proofs against the lxphost store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16", "13.3.12"]
@@ -190714,7 +190714,7 @@ qualification = "UNRUN"
 
 [task.18.1331.1]
 title = "Issue #1331: Resync the CLI published-contract fixture with the gateway OpenRPC document and restore the byte-equality check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16", "8.94.10"]
@@ -191080,7 +191080,7 @@ qualification = "UNRUN"
 
 [task.18.1347.1]
 title = "Issue #1347: Describe the SDK verification page as sequencer receipt verification on every inbound page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
