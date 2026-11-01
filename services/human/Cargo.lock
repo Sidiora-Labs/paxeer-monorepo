@@ -960,35 +960,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "layerx-explorer-index"
-version = "0.1.0"
-dependencies = [
- "ed25519-dalek",
- "k256",
- "layerx-agentd",
- "layerx-client",
- "layerx-crypto",
- "layerx-intents",
- "layerx-mirror",
- "layerx-network-gateway",
- "layerx-paxeer-verifier",
- "layerx-platform-authority",
- "layerx-program-sdk",
- "layerx-programs-protocol-adapter",
- "layerx-programs-registry",
- "layerx-proof",
- "layerx-sdk",
- "layerx-types",
- "layerx-wire",
- "native-tls",
- "serde_json",
- "sha2",
- "sha3",
- "ureq",
- "zeroize",
-]
-
-[[package]]
 name = "layerx-human-identity-provider"
 version = "0.1.0"
 dependencies = [
@@ -1224,26 +1195,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "layerx-platform-authority"
-version = "0.1.0"
-dependencies = [
- "layerx-client",
- "layerx-crypto",
- "layerx-identity-binding",
- "layerx-paxeer-verifier",
- "layerx-proof",
- "layerx-types",
- "layerx-wire",
- "rustls",
- "serde",
- "serde_json",
- "sha2",
- "signal-hook",
- "subtle",
- "zeroize",
-]
-
-[[package]]
 name = "layerx-platform-internal"
 version = "0.1.0"
 dependencies = [
@@ -1277,13 +1228,6 @@ dependencies = [
  "layerx-program-sdk",
  "sha2",
  "spin",
-]
-
-[[package]]
-name = "layerx-programs-protocol-adapter"
-version = "0.1.0"
-dependencies = [
- "layerx-programs-registry",
 ]
 
 [[package]]
