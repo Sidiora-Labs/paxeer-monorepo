@@ -528,6 +528,7 @@ mod tests {
                 decoded,
             }],
             events: Vec::new(),
+            name_events: Vec::new(),
             holders: Vec::new(),
             assets: Vec::new(),
             accounts: vec![ACCOUNT.to_owned()],
