@@ -2499,8 +2499,8 @@ check_wallet() {
 
 # check_router: the router URL https://api-mainnet-beta.paxeer.network serves
 # the gateway of services/wallet/deploy/endpoint.toml in kernel mode. Through its
-# /rpc: eth_chainId 0x7d, px_getNetwork kernel.available true and lx_getAccount
-# answering a read for the bound account CHECK_LIVE_ROUTER_ACCOUNT. The app
+# /rpc: eth_chainId 0x7d, px_getNetwork consensus object with catching_up false,
+# and lx_getAccount answering a read for the bound account CHECK_LIVE_ROUTER_ACCOUNT. The app
 # runs started machines in at least two regions (fly_regions); /readyz through the router,
 # forced to the first started machine of each region with
 # fly-force-instance-id, answers 200 with durable_store (its Redis round trip)
@@ -2550,10 +2550,12 @@ result = doc["result"]
 if method == "eth_chainId":
     print("%s eth_chainId result=%s" % ("pass" if result == "0x7d" else "fail", result))
 elif method == "px_getNetwork":
-    kernel = (result or {}).get("kernel") if isinstance(result, dict) else None
-    kernel = kernel if isinstance(kernel, dict) else {}
-    ok = kernel.get("available") is True
-    print("%s px_getNetwork kernel.available=%s reason=%s" % ("pass" if ok else "fail", json.dumps(kernel.get("available")), kernel.get("reason") or "none"))
+    consensus = result.get("consensus") if isinstance(result, dict) else None
+    if isinstance(consensus, dict) and consensus.get("catching_up") is False:
+        print("pass px_getNetwork consensus.latest_height=%s catching_up=false" % consensus.get("latest_height"))
+    else:
+        reason = result.get("reason") if isinstance(result, dict) else None
+        print("fail px_getNetwork consensus=null reason=%s" % (reason or "none"))
 else:
     ok = isinstance(result, dict) and len(result) > 0
     print("%s lx_getAccount read=%s" % ("pass" if ok else "fail", "answered" if ok else "empty"))

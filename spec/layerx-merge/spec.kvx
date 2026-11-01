@@ -117483,7 +117483,7 @@ do_5 = "Attempt 2 (4ff6e342c) failed only because --check reports services/agent
 
 [task.9.25.16]
 title = "Refresh the Cargo lock files that pin layerx-client after it gained base64 and the programs registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189256,7 +189256,7 @@ qualification = "UNRUN"
 
 [task.18.813.1]
 title = "Issue #813: Accept a deposit-root registration on the deposit root authority's signature, not on the checkpoint submitter"
-status = "superseded"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189346,7 +189346,7 @@ qualification = "UNRUN"
 
 [task.18.962.1]
 title = "Issue #962: Let the web exchange page place limit, stop-limit and TP/SL orders, partially close and adjust collateral on 0x1015"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189400,7 +189400,7 @@ qualification = "UNRUN"
 
 [task.18.1214.1]
 title = "Issue #1214: Settle migration receipts signed under the fixed pinned sequencer key id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -189759,7 +189759,7 @@ qualification = "UNRUN"
 
 [task.18.1314.1]
 title = "Issue #1314: Accept and honour requested_rung on program.receipt requests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -189950,7 +189950,7 @@ qualification = "UNRUN"
 
 [task.18.1318.1]
 title = "Issue #1318: Decode SnapshotBinding v2 bindings with absent epoch or roster"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -189992,7 +189992,7 @@ qualification = "UNRUN"
 
 [task.18.1322.1]
 title = "Issue #1322: Publish every gated surface in the OpenRPC refusal rule and the px_getCapabilities result schema"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -190271,7 +190271,7 @@ qualification = "UNRUN"
 
 [task.18.1330.1]
 title = "Issue #1330: Charge the public read budget once per px_listAssets page and refuse instead of nulling metadata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -190357,7 +190357,7 @@ qualification = "UNRUN"
 
 [task.18.1335.1]
 title = "Issue #1335: Decode the px_getNetwork consensus head in the Rust, Python and TypeScript px clients"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -190411,7 +190411,7 @@ qualification = "UNRUN"
 
 [task.18.1337.1]
 title = "Issue #1337: Judge px_getNetwork in both live checks from the paxeer and consensus members"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1360.1"]
@@ -190766,7 +190766,7 @@ qualification = "UNRUN"
 
 [task.18.1349.1]
 title = "Issue #1349: Decode stored retired verification words as block-committed so one old record cannot stop webhook dispatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -190946,7 +190946,7 @@ qualification = "UNRUN"
 
 [task.18.1353.1]
 title = "Issue #1353: Replace the hosted node Tests section that names the removed make target"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191074,7 +191074,7 @@ qualification = "UNRUN"
 
 [task.18.1357.1]
 title = "Issue #1357: Stop advertising custody_deposit as a history kind filter example"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -191117,7 +191117,7 @@ qualification = "UNRUN"
 
 [task.18.1358.1]
 title = "Issue #1358: Describe the Paxeer ingester without custody transfer legs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -191773,7 +191773,7 @@ qualification = "UNRUN"
 
 [task.18.1375.1]
 title = "Issue #1375: Point the value-loop probe calls at the RPC endpoint and the committed-height handshake"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -191975,7 +191975,7 @@ qualification = "UNRUN"
 
 [task.18.1379.1]
 title = "Issue #1379: Fetch the published manifest from its manifests key when attesting a name availability receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -192250,7 +192250,7 @@ qualification = "UNRUN"
 
 [task.18.1389.1]
 title = "Issue #1389: Make intent EVM journey evidence references resolve through GET evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -192390,7 +192390,7 @@ qualification = "UNRUN"
 
 [task.18.1394.1]
 title = "Issue #1394: Stop recording registry owner and resolver changes as registrations and address changes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -192433,7 +192433,7 @@ qualification = "UNRUN"
 
 [task.18.1396.1]
 title = "Issue #1396: Accept the explorer name-service parameters and serve the protocols list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -192784,7 +192784,7 @@ qualification = "UNRUN"
 
 [task.18.1423.1]
 title = "Issue #1423: Resolve a send leg's bank denomination from the catalog's denom identifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -192837,7 +192837,7 @@ qualification = "UNRUN"
 
 [task.18.1424.1]
 title = "Issue #1424: Read lifecycle settlement program records at the receipt's pre-execution height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -192934,7 +192934,7 @@ qualification = "UNRUN"
 
 [task.18.1426.1]
 title = "Issue #1426: Restore the revision 5 native program approval-budget response frame in the daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -192986,7 +192986,7 @@ qualification = "UNRUN"
 
 [task.18.1427.1]
 title = "Issue #1427: Accept the receipt key IDs that the genesis receipt key command produces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
