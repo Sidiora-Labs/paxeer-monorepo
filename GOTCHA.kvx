@@ -12471,3 +12471,8 @@ fix = "route wallet moves of a denom through its ERC20 native pointer (pointervi
 title = "A verify command written with single quotes inside a single-quoted node -e argument never runs"
 symptom = "17.5.12 attempts 1 and 2 failed at node -e 'require.resolve('@sidiora/...')': the shell closed the quote at the inner one and node parsed an unquoted module id (SyntaxError: Invalid or unexpected token)."
 fix = "quote a node -e program with double quotes in the spec string (escaped as \' in the kvx value) and keep single quotes inside it, as the merchant-shop build command does."
+
+[gotcha.2531]
+title = "A double quote inside a spec command is written out as a single quote"
+symptom = "The build gate of 18.90.1 (grep -q 'test 'reject an anchors page that lost a field'') and the verify gate of 17.5.12 (node -e 'require.resolve('@sidiora/layerx-sdk/browser', ...)') lost their inner double quotes when the spec was written, the shell split the commands at the inner quotes and both attempts failed on a command that never ran as intended."
+fix = "Write commands that need no nested quoting: pass values to node -e as arguments read from process.argv, and match quoted test titles with grep -E and a single-character wildcard in place of each quote."

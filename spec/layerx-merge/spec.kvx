@@ -6297,6 +6297,12 @@ value = "A Relationship::BankTransfer executes as an ERC20 transfer(address,uint
 basis = "precompiles/bank/bank.go:306-316 admits only the denom's pointer as caller of send; the human wire Eip1559Call (services/agent/crates/layerx-crypto/src/evm_transaction.rs:13-21) carries no value, so a native value transfer is not expressible, while the pointer route keeps the wire, the KMS signing path and the disclosure consumer unchanged."
 affects = ["10.6.1", "10.6.2", "10.6.4"]
 
+[decision.2198]
+title = "Six acceptances follow the implemented envelope, receipt, indexer and deletion behaviour"
+value = "8.484.1 and 8.502.1: the agent operation envelope carries version 1, the version the agent daemon serves (services/agent/schema/agent-api/v1.kvx:113-115, agent_rpc.rs ENVELOPE_VERSION, decision 901) and the one the Go and Swift SDKs send since 18.1230.1 and 18.1255.1; the existing TestAgentEnvelopeEncodesDaemonRequestGolden and testAgentEnvelopeEncodesVersionOne prove it. 8.484.2 and 8.502.2: the SDKs refuse a response by its schema fields, not by a version field: a 200 body that echoes the request id but lacks verification_status is a decode failure with no value (sdk/platform/go/http.go decodeAgentEnvelopeResponse, Transport.swift PlatformSDKError .decodeFailure). 9.372.1: receipt verification in the TypeScript SDK is verifySequencerReceipt under the pinned signing keys (9.97.8 deleted verifyReceipt), proven by sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key. 8.182.2: the indexer Config has no relay source; its sources are the PaxeerSource (EVM endpoint, Comet endpoint and finality depth) and the explorer endpoint, proven by environment_builds_evm_and_comet_sources. 16.44.1 and 16.966.4 stay as written and are proven at wave 47 once 5.50.7, 5.51.1, 5.51.4, 5.54.9 and 1.19.3 have deleted the trees they name."
+basis = "The parity attempts of 8.90.1, 8.90.2, 8.90.3, 9.90.2 and 16.90.1 (647e605ad, 57e6fe12a, b3f38bbd7, 04fe64eb6, 0dacda199) failed because the acceptances described behaviour later issues and tasks replaced (issue 1230 and 1255 kept version 1, 9.97.8 retired the kernel receipt verifier, 8.16.2 built the Paxeer source) or trees whose deletion tasks sit in waves 34 to 46."
+affects = ["8.90.1", "8.90.2", "8.90.3", "9.90.2", "16.90.1", "8.41.4", "8.44.4", "9.34.2", "8.16.2", "16.9.4", "16.97.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -33242,6 +33248,15 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.1.12.5]
+title = "Port the ledger keeper tests off the deleted payer-grant state reads"
+reqs = ["1124.1"]
+touches = ["modules/layerxledger/keeper/draw_test.go", "modules/layerxledger/keeper/grants_test.go", "modules/layerxledger/keeper/pause_test.go", "modules/layerxledger/keeper/retire_test.go", "modules/layerxledger/keeper/views_test.go"]
+tests = ["modules/layerxledger/keeper/draw_test.go::TestDrawWithinGrant", "modules/layerxledger/keeper/draw_test.go::TestDrawWithoutGrant", "modules/layerxledger/keeper/grants_test.go::TestIssuePayerGrant", "modules/layerxledger/keeper/grants_test.go::TestRevokePayerGrant", "modules/layerxledger/keeper/pause_test.go::TestLedgerPauseKeepsRevokeAndViews", "modules/layerxledger/keeper/retire_test.go::TestLedgerModuleStoreHasNoKernelKV", "modules/layerxledger/keeper/views_test.go::TestLedgerViews"]
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./modules/layerxledger/keeper/ 2>&1 | tee /dev/stderr | grep -q '^ok '"
+do_1 = "Task 1.12.4 (984636931) deleted Keeper.GetPayerGrant and Host.ReadPayerGrant with the kernel grant store (finding 1.12.4.2), but the ledger keeper test package still reads them at draw_test.go:78, :111 and :146, grants_test.go:117, :139, :144, :159, :169, :190 and :204, pause_test.go:237, retire_test.go:190 and views_test.go:177, :179, :184, :203 and :219, so go vet and go test of modules/layerxledger/keeper fail on main. No grant state read survives and none is reintroduced: port every site to prove the grant effect through the ledger behaviour the tests already drive. A draw within the grant moves the amount, emits the draw event and leaves the payer and payee balances the test reads through Host.ReadBalance and the bank mirror; a draw past the allowance is refused with the result code its receipt carries and moves nothing; a draw against a revoked grant is refused with Code(-219) as grants_test.go:201-203 already asserts; a draw against an unknown grant fails with types.ErrNoPayerGrant (draw.go:18)."
+symbols = ["Draw", "RevokeGrant", "ErrNoPayerGrant"]
+
 [capability.10.6.4]
 title = "Route wallet bank transfers through the denom's ERC20 native pointer and decode them in bind_call"
 reqs = ["10052.1", "10052.2"]
@@ -33292,7 +33307,7 @@ title = "Write the three TypeScript acceptance tests the merged spec names"
 reqs = ["9372.1", "18800.1", "18804.1"]
 touches = ["services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/wallet/gateway/test/precompiles.test.ts"]
 tests = ["services/agent/sdk/typescript/test/receipt-fixture.test.ts::verifyReceipt_reports_the_submitted_rung_under_an_authority_key", "services/wallet/gateway/test/precompiles.test.ts::probes the chain for code before serving a linked agent precompile", "services/wallet/gateway/test/precompiles.test.ts::lists every 0x09xx route while no node package links a layerxagent precompile"]
-verification_contract = "node --test --test-name-pattern='^verifyReceipt_reports_the_submitted_rung_under_an_authority_key$' services/agent/sdk/typescript/dist/test/receipt-fixture.test.js 2>&1 | tee /dev/stderr | grep -q '^# pass 1' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'probes the chain for code before serving a linked agent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'lists every 0x09xx route while no node package links a layerxagent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed'"
+verification_contract = "node --test --test-name-pattern='^verify_sequencer_receipt_pinned_key$' services/agent/sdk/typescript/dist/test/sequencer-receipt-verify.test.js 2>&1 | tee /dev/stderr | grep -q '^# pass 1' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'probes the chain for code before serving a linked agent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'lists every 0x09xx route while no node package links a layerxagent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed'"
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add the node:test case verifyReceipt_reports_the_submitted_rung_under_an_authority_key to services/agent/sdk/typescript/test/receipt-fixture.test.ts: verifying the receipt fixture against its authorized batch through the SDK's receipt verification entry (services/agent/sdk/typescript/src/agent-http.ts, the Rung.Submitted status at :534) reports rung Rung.Submitted and leaves the receipt fields unchanged (acceptance 9.372.1)."
 symbols = ["verifyReceipt_reports_the_submitted_rung_under_an_authority_key", "ensureServed", "PrecompileNotServedError"]
 
@@ -33310,7 +33325,7 @@ title = "Write the three Swift SDK acceptance tests the merged spec names"
 reqs = ["8502.1", "8502.2", "181264.1"]
 touches = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift"]
 tests = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionTwo", "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeRefusesVersionOneResponse", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptCarriesIdempotencyResult"]
-verification_contract = "swift test --package-path sdk/platform/swift --filter '^LayerXSDKTests.AgentEnvelopeMajor2Tests/(testAgentEnvelopeEncodesVersionTwo|testAgentEnvelopeRefusesVersionOneResponse)$' 2>&1 | tee /dev/stderr | grep -q 'Executed 2 tests, with 0 failures' && swift test --package-path sdk/platform/swift --filter '^LayerXSDKTests.ProgramsEvmTests/testProgramReceiptCarriesIdempotencyResult$' 2>&1 | tee /dev/stderr | grep -q 'Executed 1 test, with 0 failures'"
+verification_contract = "swift test --package-path sdk/platform/swift --filter '^LayerXSDKTests.AgentEnvelopeMajor2Tests/(testAgentEnvelopeEncodesVersionOne|testAgentEnvelopeRefusesResponseWithoutSchemaFields)$' 2>&1 | tee /dev/stderr | grep -q 'Executed 2 tests, with 0 failures' && swift test --package-path sdk/platform/swift --filter '^LayerXSDKTests.ProgramsEvmTests/testProgramReceiptCarriesIdempotencyResult$' 2>&1 | tee /dev/stderr | grep -q 'Executed 1 test, with 0 failures'"
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add testAgentEnvelopeEncodesVersionTwo and testAgentEnvelopeRefusesVersionOneResponse to sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift: encoding an agent operation request yields a JSON envelope whose version field equals 2, and decoding a recorded response envelope with version 1 fails with the version error and returns no result (acceptances 8.502.1 and 8.502.2), beside testAgentEnvelopeEncodesVersionOne."
 symbols = ["testAgentEnvelopeEncodesVersionTwo", "testAgentEnvelopeRefusesVersionOneResponse", "testProgramReceiptCarriesIdempotencyResult"]
 
@@ -33319,7 +33334,7 @@ title = "Write the two Go SDK agent envelope version tests the merged spec names
 reqs = ["8484.1", "8484.2"]
 touches = ["sdk/platform/go/agent_envelope_major2_test.go"]
 tests = ["sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesVersionTwo", "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeRefusesVersionOneResponse"]
-verification_contract = "go -C sdk/platform/go test -count=1 -v . -run '^TestAgentEnvelopeEncodesVersionTwo$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAgentEnvelopeEncodesVersionTwo ' && go -C sdk/platform/go test -count=1 -v . -run '^TestAgentEnvelopeRefusesVersionOneResponse$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAgentEnvelopeRefusesVersionOneResponse '"
+verification_contract = "go -C sdk/platform/go test -count=1 -v . -run '^TestAgentEnvelopeEncodesDaemonRequestGolden$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAgentEnvelopeEncodesDaemonRequestGolden ' && go -C sdk/platform/go test -count=1 -v . -run '^TestAgentEnvelopeRefusesResponseWithoutSchemaFields$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAgentEnvelopeRefusesResponseWithoutSchemaFields '"
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add TestAgentEnvelopeEncodesVersionTwo to sdk/platform/go/agent_envelope_major2_test.go: encoding an agent operation request produces a JSON envelope whose version field equals 2 (acceptance 8.484.1). Add TestAgentEnvelopeRefusesVersionOneResponse: decoding a recorded response envelope with version 1 fails with the version error and returns no result (8.484.2). Both use the goldens TestAgentEnvelopeEncodesDaemonRequestGolden and TestAgentEnvelopeDecodesDaemonResponseGoldens already read."
 symbols = ["TestAgentEnvelopeEncodesVersionTwo", "TestAgentEnvelopeRefusesVersionOneResponse"]
 
@@ -33328,7 +33343,7 @@ title = "Write the three platform acceptance tests the merged spec names and the
 reqs = ["8113.1", "8145.1", "8182.2"]
 touches = ["services/platform/hosted/authority/tests/chain_receipts.rs", "services/platform/hosted/webhooks/src/events.rs", "services/platform/hosted/indexer/src/config.rs"]
 tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::authority_starts_without_an_lni_socket", "services/platform/hosted/webhooks/src/events.rs::block_committed_orders_between_receipt_and_checkpoint", "services/platform/hosted/indexer/src/config.rs::environment_builds_both_sources"]
-verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test chain_receipts -- --exact authority_starts_without_an_lni_socket 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --lib -- --exact events::tests::block_committed_orders_between_receipt_and_checkpoint 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib -- --exact config::tests::environment_builds_both_sources 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test chain_receipts -- --exact authority_starts_without_an_lni_socket 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --lib -- --exact events::tests::block_committed_orders_between_receipt_and_checkpoint 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib -- --exact config::tests::environment_builds_evm_and_comet_sources 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add authority_starts_without_an_lni_socket to services/platform/hosted/authority/tests/chain_receipts.rs: with no LNI variable in the environment and a chain listener, the authority starts, reports ready and admits a receipt (acceptance 8.113.1), built on the fixtures receipt_admission_needs_no_kernel_socket uses. Add block_committed_orders_between_receipt_and_checkpoint to the tests module of services/platform/hosted/webhooks/src/events.rs: every Verification value renders, parses back and compares with at_least so that block-committed sits strictly between receipt-verified and checkpoint-finalised (8.145.1)."
 symbols = ["authority_starts_without_an_lni_socket", "block_committed_orders_between_receipt_and_checkpoint", "environment_builds_both_sources"]
 
@@ -33346,7 +33361,7 @@ title = "Build the agent TypeScript SDK before the web build and give its export
 reqs = ["9283.1"]
 touches = ["Makefile", "services/agent/sdk/typescript/package.json"]
 tests = ["tools/ci/tests/test_makefile_human_build.py"]
-verification_contract = "make agent-sdk-ts-build && node -e 'require.resolve('@sidiora/layerx-sdk/browser', {paths: [process.cwd() + '/apps/web']})' && npm --prefix apps/web run build"
+verification_contract = "make agent-sdk-ts-build && node -e 'require.resolve(process.argv[1], {paths: [process.cwd() + process.argv[2]]})' @sidiora/layerx-sdk/browser /apps/web && npm --prefix apps/web run build"
 do_1 = "apps/web depends on @sidiora/layerx-sdk (file:../../services/agent/sdk/typescript) and on @paxeer/wallet (file:../../sdk/wallet), whose modules sdk/wallet/src/modules/web-data.ts, launchpad.ts, bridge.ts, fee-choice.ts and fee-token.ts import @sidiora/layerx-sdk/browser. That package exports './browser' from ./dist/src/browser.js, dist/ is ignored by git and only its own npm run build (tsc -p tsconfig.json) produces it, so human-build (Makefile:1637-1641) fails at $(HUMAN_NPM) run build with Module not found: Can't resolve '@sidiora/layerx-sdk/browser' (finding 17.5.5.2). Add a Makefile target agent-sdk-ts-build that runs npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund when services/agent/sdk/typescript/node_modules is absent and then npm --prefix services/agent/sdk/typescript run build, and make human-build run $(MAKE) agent-sdk-ts-build as its first recipe line, before the api-gen test."
 symbols = ["agent-sdk-ts-build", "human-build"]
 
@@ -67153,9 +67168,9 @@ qualification = "UNRUN"
 [acceptance.8.182.2]
 feature = "8"
 req = "8182.2"
-scenario = "Given relay and EVM endpoints with a 30 second window, when the environment is parsed, then both sources exist and the paxeer depth is 0"
+scenario = "Given EVM and Comet endpoints with a 30 second window, when the environment is parsed, then the Paxeer source exists with its Comet endpoint and a finality depth of 0"
 contract = "contracts/platform-hosted.md#indexer-env-vars"
-test = "services/platform/hosted/indexer/src/config.rs::environment_builds_both_sources (existing)"
+test = "services/platform/hosted/indexer/src/config.rs::environment_builds_evm_and_comet_sources (existing)"
 qualification = "UNRUN"
 
 [acceptance.8.183.1]
@@ -68441,17 +68456,17 @@ qualification = "UNRUN"
 [acceptance.8.484.1]
 feature = "8"
 req = "8484.1"
-scenario = "Given an agent operation request, when the SDK encodes its envelope, then the JSON field version equals 2."
+scenario = "Given an agent operation request, when the Go SDK encodes its envelope, then the JSON field version equals 1, the version the agent daemon serves."
 contract = "contracts/platform-sdk.md#agent-envelope"
-test = "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesVersionTwo (planned)"
+test = "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesDaemonRequestGolden (existing)"
 qualification = "UNRUN"
 
 [acceptance.8.484.2]
 feature = "8"
 req = "8484.2"
-scenario = "Given a recorded response envelope with version 1, when the SDK decodes it, then decoding fails with a version error and no result is returned."
+scenario = "Given a status 200 response body that echoes the request id but lacks the verification_status field, when the Go SDK decodes it, then decoding fails with a decode failure and no value is returned."
 contract = "contracts/platform-sdk.md#agent-envelope"
-test = "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeRefusesVersionOneResponse (planned)"
+test = "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeRefusesResponseWithoutSchemaFields (planned)"
 qualification = "UNRUN"
 
 [acceptance.8.485.1]
@@ -68793,17 +68808,17 @@ qualification = "UNRUN"
 [acceptance.8.502.1]
 feature = "8"
 req = "8502.1"
-scenario = "Given an agent operation request, when the SDK encodes its envelope, then the JSON field version equals 2."
+scenario = "Given an agent operation request, when the Swift SDK encodes its envelope, then the JSON field version equals 1, the version the agent daemon serves."
 contract = "contracts/platform-sdk.md#agent-envelope"
-test = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionTwo (planned)"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionOne (existing)"
 qualification = "UNRUN"
 
 [acceptance.8.502.2]
 feature = "8"
 req = "8502.2"
-scenario = "Given a recorded response envelope with version 1, when the SDK decodes it, then decoding fails with a version error and no result is returned."
+scenario = "Given a status 200 response body that echoes the request id but lacks the verification_status field, when the Swift SDK decodes it, then decoding throws a decode failure and no value is returned."
 contract = "contracts/platform-sdk.md#agent-envelope"
-test = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeRefusesVersionOneResponse (planned)"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeRefusesResponseWithoutSchemaFields (planned)"
 qualification = "UNRUN"
 
 [acceptance.8.503.1]
@@ -71761,9 +71776,9 @@ qualification = "UNRUN"
 [acceptance.9.372.1]
 feature = "9"
 req = "9372.1"
-scenario = "Given the receipt fixture and its authorized batch, when the test calls verifyReceipt, then the result rung is Rung.Submitted and the receipt fields are unchanged."
+scenario = "Given the recorded sequencer receipt and its raw transaction, when the SDK verifies the receipt under the pinned signing key, then verification succeeds, and an unpinned key, a hash mismatch and a bad signature are refused."
 contract = "contracts/agent-ts-sdk.md#verifier"
-test = "services/agent/sdk/typescript/test/receipt-fixture.test.ts::verifyReceipt_reports_the_submitted_rung_under_an_authority_key (planned)"
+test = "services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key (existing)"
 qualification = "UNRUN"
 
 [acceptance.9.373.1]
@@ -100276,12 +100291,43 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.1.12.5]
+title = "Port the ledger keeper tests off the deleted payer-grant state reads"
+status = "pending"
+mode = "BUILD"
+wave = 30
+requires = ["1.12.4"]
+reqs = ["1124.1"]
+capabilities = ["1.12.5"]
+interfaces = []
+wiring = ["wiring.J23.1"]
+do_1 = "Task 1.12.4 (984636931) deleted Keeper.GetPayerGrant and Host.ReadPayerGrant with the kernel grant store (finding 1.12.4.2), but the ledger keeper test package still reads them at draw_test.go:78, :111 and :146, grants_test.go:117, :139, :144, :159, :169, :190 and :204, pause_test.go:237, retire_test.go:190 and views_test.go:177, :179, :184, :203 and :219, so go vet and go test of modules/layerxledger/keeper fail on main. No grant state read survives and none is reintroduced: port every site to prove the grant effect through the ledger behaviour the tests already drive. A draw within the grant moves the amount, emits the draw event and leaves the payer and payee balances the test reads through Host.ReadBalance and the bank mirror; a draw past the allowance is refused with the result code its receipt carries and moves nothing; a draw against a revoked grant is refused with Code(-219) as grants_test.go:201-203 already asserts; a draw against an unknown grant fails with types.ErrNoPayerGrant (draw.go:18)."
+do_2 = "Delete every assertion whose only subject is the deleted state record (the Grant, DrawnTotal, DrawnThisPeriod, Revoked and RevokedAt fields): the view comparison at views_test.go:177-186 and :203-205 keeps its asset, balance, total and owner checks and the non-canonical case at :219 drops its grant line; pause_test.go:237-241 and retire_test.go:190-192 prove the revocation by a draw against the grant that is refused with the balances unchanged; draw_test.go:78-82, :111-116 and :146-148 prove the drawn amounts by the balances before and after each draw and the allowance by the refusal of the draw that would exceed it; grants_test.go replaces each state read by the balance and result-code checks around it. Every other assertion in the five files stays."
+do_3 = "The build gate is go vet of the keeper package, which compiles the test files go build skips; the verify gate runs the whole package and fails unless go test prints its ok line."
+symbols = ["Draw", "RevokeGrant", "ErrNoPayerGrant"]
+touches = ["modules/layerxledger/keeper/draw_test.go", "modules/layerxledger/keeper/grants_test.go", "modules/layerxledger/keeper/pause_test.go", "modules/layerxledger/keeper/retire_test.go", "modules/layerxledger/keeper/views_test.go"]
+tests = ["modules/layerxledger/keeper/draw_test.go::TestDrawWithinGrant", "modules/layerxledger/keeper/draw_test.go::TestDrawWithoutGrant", "modules/layerxledger/keeper/grants_test.go::TestIssuePayerGrant", "modules/layerxledger/keeper/grants_test.go::TestRevokePayerGrant", "modules/layerxledger/keeper/pause_test.go::TestLedgerPauseKeepsRevokeAndViews", "modules/layerxledger/keeper/retire_test.go::TestLedgerModuleStoreHasNoKernelKV", "modules/layerxledger/keeper/views_test.go::TestLedgerViews"]
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go vet ./modules/layerxledger/keeper/"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./modules/layerxledger/keeper/ 2>&1 | tee /dev/stderr | grep -q '^ok '"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Restore the five test files from 984636931; go vet of the ledger keeper package is red on main again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.2.90.1]
 title = "Write the five Go acceptance tests the merged spec names and the tree lacks"
 status = "pending"
 mode = "BUILD"
 wave = 31
-requires = ["2.3.4", "2.6.4", "2.11.4", "5.5.6", "18.814.1"]
+requires = ["2.3.4", "2.6.4", "2.11.4", "5.5.6", "18.814.1", "1.12.5"]
 reqs = ["2020.2", "2035.1", "2058.4", "5045.2", "18814.1"]
 capabilities = ["2.90.1"]
 interfaces = []
@@ -100306,6 +100352,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 1.12.4.2: go vet of modules/layerxledger/keeper fails on main until task 1.12.5 ports its tests off the deleted payer-grant reads, so this task requires 1.12.5; continue from attempt 1 (94b92ebe6) with the five tests already written and change nothing else."
 
 [task.2.3.5]
 title = "Mirror kernel asset supply and transfers into bank under the layerx denom"
@@ -108783,15 +108830,15 @@ requires = ["9.34.2", "18.800.1", "18.804.1"]
 reqs = ["9372.1", "18800.1", "18804.1"]
 capabilities = ["9.90.2"]
 interfaces = []
-do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add the node:test case verifyReceipt_reports_the_submitted_rung_under_an_authority_key to services/agent/sdk/typescript/test/receipt-fixture.test.ts: verifying the receipt fixture against its authorized batch through the SDK's receipt verification entry (services/agent/sdk/typescript/src/agent-http.ts, the Rung.Submitted status at :534) reports rung Rung.Submitted and leaves the receipt fields unchanged (acceptance 9.372.1)."
+do_1 = "Finding 17.4.5.2 and decision 2198: acceptance 9.372.1 is proven by the existing verify_sequencer_receipt_pinned_key in services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts:51 (verifySequencerReceipt accepts the recorded receipt under its pinned key and refuses an unpinned key, a hash mismatch and a bad signature); the kernel verifyReceipt it once named was deleted by 9.97.8. Write no receipt test and import nothing that 9.97.8 deleted."
 do_2 = "In services/wallet/gateway/test/precompiles.test.ts add, inside describe('unserved agent precompiles'), a test titled exactly 'probes the chain for code before serving a linked agent precompile': with eth_getCode answering 0x for 0x0902, ensureServed('clearing') rejects with PrecompileNotServedError, and after eth_getCode answers runtime code it resolves (18.800.1); and a test titled exactly 'lists every 0x09xx route while no node package links a layerxagent precompile': without git metadata the unserved-precompile check walks the tree with node:fs and checks each route key against its own layerxagent package import (18.804.1). Titles are string literals in the test call so the parity check finds them."
 do_3 = "No production file changes; the verify command builds the SDK, runs each test by name and fails unless the runner reports exactly one passing test."
 symbols = ["verifyReceipt_reports_the_submitted_rung_under_an_authority_key", "ensureServed", "PrecompileNotServedError"]
 touches = ["services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/wallet/gateway/test/precompiles.test.ts"]
-tests = ["services/agent/sdk/typescript/test/receipt-fixture.test.ts::verifyReceipt_reports_the_submitted_rung_under_an_authority_key", "services/wallet/gateway/test/precompiles.test.ts::probes the chain for code before serving a linked agent precompile", "services/wallet/gateway/test/precompiles.test.ts::lists every 0x09xx route while no node package links a layerxagent precompile"]
+tests = ["services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key", "services/wallet/gateway/test/precompiles.test.ts::probes the chain for code before serving a linked agent precompile", "services/wallet/gateway/test/precompiles.test.ts::lists every 0x09xx route while no node package links a layerxagent precompile"]
 planned_paths = []
 build_cmd = "npm --prefix services/agent/sdk/typescript run build"
-verify_cmd = "node --test --test-name-pattern='^verifyReceipt_reports_the_submitted_rung_under_an_authority_key$' services/agent/sdk/typescript/dist/test/receipt-fixture.test.js 2>&1 | tee /dev/stderr | grep -q '^# pass 1' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'probes the chain for code before serving a linked agent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'lists every 0x09xx route while no node package links a layerxagent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed'"
+verify_cmd = "node --test --test-name-pattern='^verify_sequencer_receipt_pinned_key$' services/agent/sdk/typescript/dist/test/sequencer-receipt-verify.test.js 2>&1 | tee /dev/stderr | grep -q '^# pass 1' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'probes the chain for code before serving a linked agent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'lists every 0x09xx route while no node package links a layerxagent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed'"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-parity"
@@ -108803,6 +108850,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Continue from attempt 1 (04fe64eb6): remove the verifyReceipt test added to receipt-fixture.test.ts so the SDK builds again, keep the two gateway tests, and run all three verify segments."
 
 [task.19.7.3]
 title = "Point the wallet's name proxy at the configured indexer and prove the wallet parses its answers"
@@ -110161,7 +110209,7 @@ touches = ["Makefile", "services/agent/sdk/typescript/package.json"]
 tests = ["tools/ci/tests/test_makefile_human_build.py"]
 planned_paths = ["tools/ci/tests/test_makefile_human_build.py"]
 build_cmd = "make agent-sdk-ts-build && python3 -m pytest tools/ci/tests/test_makefile_human_build.py -q"
-verify_cmd = "make agent-sdk-ts-build && node -e 'require.resolve('@sidiora/layerx-sdk/browser', {paths: [process.cwd() + '/apps/web']})' && npm --prefix apps/web run build"
+verify_cmd = "make agent-sdk-ts-build && node -e 'require.resolve(process.argv[1], {paths: [process.cwd() + process.argv[2]]})' @sidiora/layerx-sdk/browser /apps/web && npm --prefix apps/web run build"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-web"
@@ -110174,6 +110222,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 17.5.12.1: continue from attempt 2 (0a93e54b1) and change nothing; the verify command is corrected in the spec."
+do_5 = "The verify command resolves the browser entry with the specifier and the search path passed as arguments after the script, so it carries no nested quotes."
 
 [task.14.0.5]
 title = "Regenerate the web human-api client after the EIP-1559 schema additions"
@@ -116859,14 +116908,14 @@ reqs = ["8113.1", "8145.1", "8182.2"]
 capabilities = ["8.90.1"]
 interfaces = []
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add authority_starts_without_an_lni_socket to services/platform/hosted/authority/tests/chain_receipts.rs: with no LNI variable in the environment and a chain listener, the authority starts, reports ready and admits a receipt (acceptance 8.113.1), built on the fixtures receipt_admission_needs_no_kernel_socket uses. Add block_committed_orders_between_receipt_and_checkpoint to the tests module of services/platform/hosted/webhooks/src/events.rs: every Verification value renders, parses back and compares with at_least so that block-committed sits strictly between receipt-verified and checkpoint-finalised (8.145.1)."
-do_2 = "Add environment_builds_both_sources to the tests module of services/platform/hosted/indexer/src/config.rs: relay and EVM endpoints with a 30 second window parse into both sources with a paxeer depth of 0 (8.182.2), beside environment_builds_evm_and_comet_sources."
+do_2 = "Finding 17.4.5.2 and decision 2198: acceptance 8.182.2 is proven by the existing environment_builds_evm_and_comet_sources in the tests module of services/platform/hosted/indexer/src/config.rs:445 (EVM and Comet endpoints with a 30 second window parse into the Paxeer source with finality depth 0 and a Comet endpoint); the indexer Config has no relay source, so write no indexer test."
 do_3 = "Each test proves its scenario against the real crate code and changes no production file; the verify command runs each test alone with --exact and fails unless cargo reports exactly one passed test."
 symbols = ["authority_starts_without_an_lni_socket", "block_committed_orders_between_receipt_and_checkpoint", "environment_builds_both_sources"]
 touches = ["services/platform/hosted/authority/tests/chain_receipts.rs", "services/platform/hosted/webhooks/src/events.rs", "services/platform/hosted/indexer/src/config.rs"]
-tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::authority_starts_without_an_lni_socket", "services/platform/hosted/webhooks/src/events.rs::block_committed_orders_between_receipt_and_checkpoint", "services/platform/hosted/indexer/src/config.rs::environment_builds_both_sources"]
+tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::authority_starts_without_an_lni_socket", "services/platform/hosted/webhooks/src/events.rs::block_committed_orders_between_receipt_and_checkpoint", "services/platform/hosted/indexer/src/config.rs::environment_builds_evm_and_comet_sources"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority -p layerx-platform-webhooks -p layerx-indexer --tests"
-verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test chain_receipts -- --exact authority_starts_without_an_lni_socket 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --lib -- --exact events::tests::block_committed_orders_between_receipt_and_checkpoint 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib -- --exact config::tests::environment_builds_both_sources 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test chain_receipts -- --exact authority_starts_without_an_lni_socket 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --lib -- --exact events::tests::block_committed_orders_between_receipt_and_checkpoint 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib -- --exact config::tests::environment_builds_evm_and_comet_sources 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-parity"
@@ -116878,6 +116927,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Continue from attempt 1 (647e605ad): delete environment_builds_both_sources from config.rs, keep the authority and webhooks tests, and run all three verify segments."
 
 [task.13.30.6]
 title = "Own the arbiter's admission evidence in the arbiter crate and prove it under the app hash"
@@ -117256,14 +117306,14 @@ requires = ["8.41.4"]
 reqs = ["8484.1", "8484.2"]
 capabilities = ["8.90.2"]
 interfaces = []
-do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add TestAgentEnvelopeEncodesVersionTwo to sdk/platform/go/agent_envelope_major2_test.go: encoding an agent operation request produces a JSON envelope whose version field equals 2 (acceptance 8.484.1). Add TestAgentEnvelopeRefusesVersionOneResponse: decoding a recorded response envelope with version 1 fails with the version error and returns no result (8.484.2). Both use the goldens TestAgentEnvelopeEncodesDaemonRequestGolden and TestAgentEnvelopeDecodesDaemonResponseGoldens already read."
+do_1 = "Finding 17.4.5.2 and decision 2198: acceptance 8.484.1 (the envelope carries version 1, the version the daemon serves) is proven by the existing TestAgentEnvelopeEncodesDaemonRequestGolden in sdk/platform/go/agent_envelope_major2_test.go:14, which asserts the literal 1 at :38. Add TestAgentEnvelopeRefusesResponseWithoutSchemaFields to the same file: decodeAgentEnvelopeResponse given status 200 and a body that echoes the request id but lacks verification_status, and again a body that lacks request_id, returns a nil value and an SDKError with ErrorDecodeFailure and RetryNever (acceptance 8.484.2), built on the goldens TestAgentEnvelopeDecodesDaemonResponseGoldens reads."
 do_2 = "No production file changes; the verify command runs each test alone and fails unless its own PASS line appears."
 symbols = ["TestAgentEnvelopeEncodesVersionTwo", "TestAgentEnvelopeRefusesVersionOneResponse"]
 touches = ["sdk/platform/go/agent_envelope_major2_test.go"]
-tests = ["sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesVersionTwo", "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeRefusesVersionOneResponse"]
+tests = ["sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesDaemonRequestGolden", "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeRefusesResponseWithoutSchemaFields"]
 planned_paths = []
 build_cmd = "go -C sdk/platform/go vet ."
-verify_cmd = "go -C sdk/platform/go test -count=1 -v . -run '^TestAgentEnvelopeEncodesVersionTwo$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAgentEnvelopeEncodesVersionTwo ' && go -C sdk/platform/go test -count=1 -v . -run '^TestAgentEnvelopeRefusesVersionOneResponse$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAgentEnvelopeRefusesVersionOneResponse '"
+verify_cmd = "go -C sdk/platform/go test -count=1 -v . -run '^TestAgentEnvelopeEncodesDaemonRequestGolden$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAgentEnvelopeEncodesDaemonRequestGolden ' && go -C sdk/platform/go test -count=1 -v . -run '^TestAgentEnvelopeRefusesResponseWithoutSchemaFields$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAgentEnvelopeRefusesResponseWithoutSchemaFields '"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-parity"
@@ -117275,6 +117325,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Continue from attempt 1 (57e6fe12a): delete TestAgentEnvelopeEncodesVersionTwo and TestAgentEnvelopeRefusesVersionOneResponse, which assert the version-2 shape the daemon never served."
 
 [task.5.98.7]
 title = "Record the receipt's logs at the receipt's height when the layer seals after Accept"
@@ -141557,15 +141608,15 @@ requires = ["8.44.4", "18.1264.1"]
 reqs = ["8502.1", "8502.2", "181264.1"]
 capabilities = ["8.90.3"]
 interfaces = []
-do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add testAgentEnvelopeEncodesVersionTwo and testAgentEnvelopeRefusesVersionOneResponse to sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift: encoding an agent operation request yields a JSON envelope whose version field equals 2, and decoding a recorded response envelope with version 1 fails with the version error and returns no result (acceptances 8.502.1 and 8.502.2), beside testAgentEnvelopeEncodesVersionOne."
+do_1 = "Finding 17.4.5.2 and decision 2198: acceptance 8.502.1 (the envelope carries version 1, the version the daemon serves) is proven by the existing testAgentEnvelopeEncodesVersionOne in sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift:7. Add testAgentEnvelopeRefusesResponseWithoutSchemaFields to the same file: decoding a status 200 response body that echoes the request id but lacks verification_status, and again one that lacks request_id, throws PlatformSDKError with code .decodeFailure and retry .never and yields no value (acceptance 8.502.2), built on the bodies testAgentEnvelopeDecodesDaemonResponseShapes (:41) decodes."
 do_2 = "Add testProgramReceiptCarriesIdempotencyResult to sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift: against an RPC double that does not know the expected transaction, the receipt lookup by idempotency key with level pending returns a submission in state unknown whose idempotencyKey equals the key, and no resultByIdempotency call is issued (18.1264.1), using the RPC double testProgramReceiptResolvesByTransaction uses."
 do_3 = "No production file changes; the verify command runs the filtered tests and fails unless XCTest reports exactly the expected number of tests executed with 0 failures."
 symbols = ["testAgentEnvelopeEncodesVersionTwo", "testAgentEnvelopeRefusesVersionOneResponse", "testProgramReceiptCarriesIdempotencyResult"]
 touches = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift"]
-tests = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionTwo", "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeRefusesVersionOneResponse", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptCarriesIdempotencyResult"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionOne", "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeRefusesResponseWithoutSchemaFields", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptCarriesIdempotencyResult"]
 planned_paths = []
 build_cmd = "swift build --package-path sdk/platform/swift --build-tests"
-verify_cmd = "swift test --package-path sdk/platform/swift --filter '^LayerXSDKTests.AgentEnvelopeMajor2Tests/(testAgentEnvelopeEncodesVersionTwo|testAgentEnvelopeRefusesVersionOneResponse)$' 2>&1 | tee /dev/stderr | grep -q 'Executed 2 tests, with 0 failures' && swift test --package-path sdk/platform/swift --filter '^LayerXSDKTests.ProgramsEvmTests/testProgramReceiptCarriesIdempotencyResult$' 2>&1 | tee /dev/stderr | grep -q 'Executed 1 test, with 0 failures'"
+verify_cmd = "swift test --package-path sdk/platform/swift --filter '^LayerXSDKTests.AgentEnvelopeMajor2Tests/(testAgentEnvelopeEncodesVersionOne|testAgentEnvelopeRefusesResponseWithoutSchemaFields)$' 2>&1 | tee /dev/stderr | grep -q 'Executed 2 tests, with 0 failures' && swift test --package-path sdk/platform/swift --filter '^LayerXSDKTests.ProgramsEvmTests/testProgramReceiptCarriesIdempotencyResult$' 2>&1 | tee /dev/stderr | grep -q 'Executed 1 test, with 0 failures'"
 gate_kind = "planned"
 sandbox_profile = "swift"
 owner_role = "fm-parity"
@@ -141577,6 +141628,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Continue from attempt 1 (b3f38bbd7): delete testAgentEnvelopeEncodesVersionTwo and testAgentEnvelopeRefusesVersionOneResponse, keep testProgramReceiptCarriesIdempotencyResult, and run both verify segments; the first segment of attempt 1 failed so the second never ran."
 
 [task.8.44.5]
 title = "Swift SDK retires kernel batch, checkpoint and settlement verification"
@@ -148284,7 +148336,7 @@ do_4 = "Add verifyReceipt reports the submitted rung under an authority key to s
 do_5 = "Register each gate test in services/agent/sdk/typescript/test/receipt-fixture.test.ts (no node:test import at HEAD; it asserts through its own helper at services/agent/sdk/typescript/test/receipt-fixture.test.ts:17) as a node:test case named exactly verifyReceipt_reports_the_submitted_rung_under_an_authority_key (`import { test } from \"node:test\"`), so the anchored --test-name-pattern of verify_cmd selects every one of them and cannot pass on a file with no matching case."
 symbols = ["verifyBatchInclusion", "verifyCheckpoint", "verifyReceipt"]
 touches = ["services/agent/sdk/typescript/src/verifier.ts", "services/agent/sdk/typescript/test/native-batch-header.test.ts", "services/agent/sdk/typescript/package.json", "services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/agent/sdk/typescript/test/integration.test.ts"]
-tests = ["services/agent/sdk/typescript/test/receipt-fixture.test.ts::verifyReceipt_reports_the_submitted_rung_under_an_authority_key"]
+tests = ["services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key"]
 planned_paths = []
 build_cmd = "npm --prefix services/agent/sdk/typescript run build"
 verify_cmd = "node --test --test-name-pattern='^(verifyReceipt_reports_the_submitted_rung_under_an_authority_key)$' services/agent/sdk/typescript/dist/test/receipt-fixture.test.js"
@@ -187319,8 +187371,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Write the two tooling acceptance tests the merged spec names"
 status = "pending"
 mode = "BUILD"
-wave = 31
-requires = ["16.9.4", "16.97.2"]
+wave = 47
+requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3"]
 reqs = ["16044.1", "16966.4"]
 capabilities = ["16.90.1"]
 interfaces = []
@@ -187343,6 +187395,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 16.9.4.4 and decision 2198: both acceptances hold only once cmd/layerxd (task 5.50.7), cmd/layerx-guarantor (5.51.1 and 5.51.4), tests/daemon (5.54.9) and the bridge credit suites (1.19.3) are deleted, so this task runs at wave 47 after them; the tests themselves stay as written in attempt 1 (0dacda199)."
 
 [task.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"
@@ -193668,7 +193721,7 @@ symbols = ["openapi_spec_test"]
 touches = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs"]
 tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs::reject an anchors page that lost a field"]
 planned_paths = []
-build_cmd = "grep -q 'test 'reject an anchors page that lost a field'' services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs"
+build_cmd = "grep -qE 'test .reject an anchors page that lost a field.' services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs"
 verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs 2>&1 | tee /dev/stderr | grep -qE '[1-9][0-9]* tests?, 0 failures'"
 gate_kind = "planned"
 sandbox_profile = "elixir"
@@ -193681,6 +193734,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "The build gate matches the test title with a single-character wildcard where the file quotes it, so the command carries no nested quotes; continue from attempt 1 (62257720c) and change nothing."
 
 [task.18.817.1]
 title = "Issue #817: Assert the mined nonce conflict as the 409 prepare-again answer the pool gives where the owner, agent receipt and nonce tests still expect 202 outcome_unknown"

@@ -15435,3 +15435,51 @@ symbol = "pointerSend"
 observed = "Attempt 6 (c12d43f86) planned two bank legs, signed them with the node key, submitted them to the real node and read Receipted receipts whose execution.success was false. The four-argument send(address,address,string,uint256) the resolver builds for Relationship::BankTransfer (services/human/crates/layerx-human-service/src/journeys/resolver.rs:858-883) is served by precompiles/bank/bank.go:228 through pointerSend (:306-316), which refuses every caller except the denom's ERC20 native pointer (GetERC20NativePointer); a wallet-signed transaction is never that caller, so the bank transfer shape that 10.6.2 asserts in send_routes.rs cannot execute on the chain."
 assumption = "Decision 2197 routes wallet bank transfers through the denom's ERC20 native pointer; task 10.6.4 ports the resolver and bind_call and 10.6.1 requires it."
 severity = "major"
+
+[finding.1.12.4.2]
+task = "1.12.4"
+file = "modules/layerxledger/keeper/pause_test.go:237"
+symbol = "GetPayerGrant"
+observed = "984636931 deleted Keeper.GetPayerGrant (views.go) and Host.ReadPayerGrant (modules/lxphost/read.go) with the retired kernel grant store, but the ledger keeper test package still reads them at draw_test.go:78, :111 and :146, grants_test.go:117, :139, :144, :159, :169, :190 and :204, pause_test.go:237, retire_test.go:190 and views_test.go:177, :179, :184, :203 and :219; the task's build gate was go build, which skips _test.go files, so go vet and go test of modules/layerxledger/keeper have failed on main since then and 2.90.1 attempt 1 (94b92ebe6) failed in its build gate on pause_test.go:237."
+assumption = "No grant state read survives, so task 1.12.5 ports the five test files to prove grant effects through the ledger behaviour (draw results, result codes and balances) and 2.90.1 requires it."
+severity = "major"
+
+[finding.8.41.4.1]
+task = "8.41.4"
+file = "sdk/platform/go/http.go:356"
+symbol = "agentEnvelopeVersion"
+observed = "Acceptances 8.484.1 and 8.484.2 demand an envelope version 2 and a version-1 refusal, but the daemon serves version 1 (v1.kvx:113-115, decision 901), 18.1230.1 (e177601db) set agentEnvelopeVersion back to 1 and made decodeAgentEnvelopeResponse ignore any version field; 8.90.2 attempt 1 (57e6fe12a) wrote TestAgentEnvelopeEncodesVersionTwo and it failed on the literal 1."
+assumption = "Decision 2198 corrects both acceptances to the version-1 envelope and the schema-field refusal."
+severity = "minor"
+
+[finding.8.44.4.1]
+task = "8.44.4"
+file = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift:436"
+symbol = "version"
+observed = "Acceptances 8.502.1 and 8.502.2 demand an envelope version 2 and a version-1 refusal, but Transport.swift sends version 1 since 18.1255.1 and refuses responses by their schema fields; 8.90.3 attempt 1 (b3f38bbd7) wrote testAgentEnvelopeEncodesVersionTwo and it failed on the integer 1 while the existing testAgentEnvelopeEncodesVersionOne already proves the served version."
+assumption = "Decision 2198 corrects both acceptances to the version-1 envelope and the schema-field refusal."
+severity = "minor"
+
+[finding.9.34.2.1]
+task = "9.34.2"
+file = "services/agent/sdk/typescript/test/receipt-fixture.test.ts:1"
+symbol = "verifyReceipt"
+observed = "Acceptance 9.372.1 names verifyReceipt and a Rung.Submitted result, but 9.97.8 (9192a4c02) deleted verifyReceipt with the kernel receipt stack and receipt-fixture.test.ts covers the native program call codec only; the SDK's receipt verification is verifySequencerReceipt under pinned keys, proven by sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key; 9.90.2 attempt 1 (04fe64eb6) failed in the SDK build on the missing export."
+assumption = "Decision 2198 points the acceptance at the pinned-key sequencer receipt test; 9.90.2 writes no receipt test."
+severity = "minor"
+
+[finding.8.16.2.1]
+task = "8.16.2"
+file = "services/platform/hosted/indexer/src/config.rs:37"
+symbol = "Config"
+observed = "Acceptance 8.182.2 describes relay and EVM endpoints parsing into two sources, but Config carries a PaxeerSource (EVM endpoint, Comet endpoint, finality depth) and an explorer endpoint and no relay source; 8.90.1 attempt 1 (647e605ad) wrote environment_builds_both_sources reading config.relay and the test build failed with E0609."
+assumption = "Decision 2198 points the acceptance at the existing environment_builds_evm_and_comet_sources (config.rs:445), which parses the EVM and Comet endpoints with a 30 second window into the Paxeer source at finality depth 0."
+severity = "minor"
+
+[finding.16.9.4.4]
+task = "16.9.4"
+file = "tools/paxeer-x/retired_callers.json:73"
+symbol = "guarantor-runtime"
+observed = "Acceptance 16.44.1 runs the scanner with --deleted for the catalogue's deleted trees and 16.966.4 asserts the bridge credit suites are absent, but cmd/layerxd, cmd/layerx-guarantor, tests/daemon, tests/bridge/test_credit.c and tests/bridge/sign_credit.c still exist on main (their deletions are 5.50.7 at wave 42, 5.51.1 and 5.51.4 at wave 37, 5.54.9 at wave 34 and 1.19.3 at wave 46); 16.90.1 attempt 1 (0dacda199) failed both tests on the present paths."
+assumption = "16.90.1 moves to wave 47 and requires the five deletion tasks; the two acceptances stay as written."
+severity = "minor"
