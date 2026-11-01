@@ -12891,3 +12891,8 @@ fix = "Grep every crate of the workspace for the deleted symbol names and declar
 title = "A trait that mirrors a request method keeps the deleted type alive"
 symptom = "A node request method was replaced on the concrete type while the trait that mirrors it for callers kept the old signature and the deleted return type, in a file the task did not declare."
 fix = "When replacing a method on a type that also implements a trait exposing it, declare the trait file and rename the trait method and its implementation in the same task."
+
+[gotcha.2615]
+title = "A build-with-tests gate inherits every stale test binary of the crate"
+symptom = "A task that builds a crate with --tests failed in a test file it never touched: an earlier task changed a constructor's signature and left the kernel-era test calling the old six-argument form."
+fix = "When a task changes a signature, grep the crate's tests directory for callers in the same task; when a later task inherits the break, point it at the task that declares the stale file and make it require that task."

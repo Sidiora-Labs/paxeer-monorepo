@@ -16451,3 +16451,19 @@ symbol = "FeeObservation"
 observed = "Attempt 1 (3169533e2) deleted the nine modules and the client failed to build on fee.rs:1-3 (crate::head::Head, crate::payments::{CommittedSnapshot, FeeEstimate}, crate::read::ReadError), rpc/payments.rs:7 (crate::payments::FeeEstimate) and rpc/withdrawal.rs:8 (crate::withdrawal::WithdrawalConfigurationError); behind them the daemon, SDK and agent API name the deleted modules in 40 more files, so the requires list did not deliver the ports it assumed."
 assumption = "Decision 2232: the ports land first as tasks 9.25.17 to 9.25.19 and this task requires them."
 severity = "critical"
+
+[finding.9.25.13.2]
+task = "9.25.13"
+file = "services/agent/crates/layerx-agentd/tests/outbox_recover.rs:155"
+symbol = "module_witness"
+observed = "Attempt 2 (df2fe641b) completed the HumanNode port and the build with tests stopped in the outbox_recover test binary: RawStateEvidence::module_witness takes one CommittedCall since task 9.25.6 (0e916bb08, services/agent/crates/layerx-agentd/src/protocol_evidence.rs:1732) while tests/outbox_recover.rs:155, :453 and :466 still pass the six kernel-era arguments including RootSelector::Latest. The file is declared on task 9.25.17, which ports the daemon off layerx_client::evidence and builds the daemon with tests."
+assumption = "Task 9.25.17 leaves outbox_recover.rs compiling or deletes it; this task waits for it."
+severity = "major"
+
+[qualification.9.25.13.a2]
+revision = "df2fe641b9e5513fb591e0c8dd12d134386c39b3"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk --tests"
+exit_code = 101
+log = "access-controlled qualification store, task 9.25.13 attempt 2, build-1.log"
+observed = "The outbox_recover test binary fails on three RawStateEvidence::module_witness calls that pass six arguments to a one-argument function since 0e916bb08 (task 9.25.6)."
+assumption = "Pre-existing on main and owned by task 9.25.17, which declares the file; 9.25.13 requires it."
