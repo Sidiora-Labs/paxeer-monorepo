@@ -149351,7 +149351,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.27.8]
 title = "Delete the guarantor finality evidence vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.27.7", "9.1.7", "9.25.2", "16.32.11", "16.5.2", "16.37.1"]
