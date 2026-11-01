@@ -6207,6 +6207,30 @@ value = "services/human/crates/layerx-intents/src/owner_activity.rs keeps layerx
 basis = "Finding 10.98.14.1: bind binds a canonical native envelope and bind_call binds an EVM call, so no call-name port of the native sites exists (10.98.14 do_6 forbids behaviour changes), and decision 1849 puts the deletion of callers with the task that deletes the definition; the envelope's own retirement (decision 1023) already owns those two files, so ordering the codec deletion behind it is the one consistent sequence."
 affects = ["10.98.14", "9.35.1", "10.21.4", "10.21.6"]
 
+[decision.2183]
+title = "The chain-balances producer lands before its human-service consumer"
+value = "Task 10.24.1 no longer requires 10.95.1 and ports the one consumer of its new fields, services/human/crates/layerx-human-service/src/journeys/observed.rs, in the same change; 10.95.1 requires 10.24.1 and continues from its attempt 2 on top of it."
+basis = "At main services/human/crates/layerx-network-gateway/src/lib.rs:340-344 AssetBalance carries denom and no amount and AccountBalances at :372 carries no height; 10.95.1 attempt 2 (4b6acfd3b) reads both fields in observed.rs (:223, :230) and fails to build, while 10.24.1 required 10.95.1 and layerx-human-service depends on layerx-network-gateway, so the dependent-crate check of 10.24.1 would break on observed.rs without the port."
+affects = ["10.24.1", "10.95.1"]
+
+[decision.2185]
+title = "The LNI-speaking evidence node is deleted, not re-encoded"
+value = "layerx-human-test-support deletes EvidenceNode (services/human/crates/layerx-human-test-support/src/evidence_node.rs:219-460), evidence_node, serve_evidence_node and connect_evidence_node (services/human/crates/layerx-human-test-support/src/lib.rs:276-310) and tests/evidence_node_frames.rs and tests/evidence_node_transactions.rs; Refusal, AdmissionRecord and AdmissionJournal stay for services/human/crates/layerx-human-service/tests/evidence_node.rs:35."
+basis = "The node's whole wire form is the LNI envelope schema and NODE_INFO handshake over the human frame module; its only consumer outside the crate, layerx-human-service/tests/evidence_node.rs, was rewritten by 10.98.12 against the loopback sequencer RPC (decision.1821) and keeps only AdmissionJournal; decision.1813 names no twin for the LNI handshake; 9.24.6 and 9.24.7 delete the LNI module afterwards."
+affects = ["10.98.6", "9.24.6", "9.24.7"]
+
+[decision.2186]
+title = "The owner identity record parser moves into the human service"
+value = "OwnerRotationState::decode (services/agent/crates/layerx-crypto/src/rotation.rs:26) is a pure parse of the 223-byte LXGI1 identity record; task 10.98.10 moves it as OwnerIdentityState::decode into services/human/crates/layerx-human-service/src/server/owner_identity.rs and points services/human/crates/layerx-human-service/src/server/production_owner.rs:68 and services/human/crates/layerx-human-service/src/server/production_rotation.rs:163 at it; 9.35.1 then deletes rotation.rs with nothing left to port."
+basis = "validate_owner_identity and checked_identity validate stored owner identities on read paths that stay; they decode no activity (rotation.rs:26-60 checks length, the LXGI1 tag and did_id_for_protocol, then reads fixed offsets), so the parser needs neither layerx_crypto nor the retired codec; do_14 of 10.98.10 wrongly treated the human-service rotation module as deleted, and leaving the two imports fails its scan while 9.35.1 would orphan them."
+affects = ["10.98.10", "9.35.1"]
+
+[decision.2184]
+title = "The intent-submit payout-binding fixture retires with the binding module"
+value = "services/human/crates/layerx-human-service/tests/intent_submit.rs drops the layerx_human_service::binding import (:28-31), the AgentBindingContract fixture (:724-790, with the sign_disclosed callers at :729 and :755), binding_receipt (:789-840) and bind_wallet (:989-1030); the two cases that bound a wallet through them (:1176, :1679) write the bound-wallet record the product still reads through the fixture store directly, or drop the binding step where the product reads none; the 0x7104 payout-binding signatures are not ported."
+basis = "Task 10.9.1 (2772a218f) deleted src/binding/mod.rs and tests/binding.rs because 10.20.3 unhooked their last users, but left intent_submit.rs importing the module, so the test target no longer compiles at main; layerx_crypto::disclosure::call carries no 0x7104 payload and decision.1813 ports only payments to their rpc twins."
+affects = ["10.98.11"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -147651,6 +147675,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "After do_1 to do_6, move the kept definitions bind_call, Disclosure, DisclosedCall, CallOptions, ledger_payment_call, send_context_hash, SendCondition and SendDebit into services/agent/crates/layerx-crypto/src/payments.rs so the re-exports of task 8.94.4 become definitions, then delete src/disclosure.rs and src/send.rs with their pub mod lines (decision.1889); every hosted crate already names them through layerx_crypto::payments (8.94.5 to 8.94.7)."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_8 = "Decision 2186: the two human-service readers of OwnerRotationState::decode moved to services/human/crates/layerx-human-service/src/server/owner_identity.rs in task 10.98.10, so do_1 deletes rotation.rs with no caller left outside the crate."
 
 [task.9.35.2]
 title = "Remove the checkpoint settlement types and activity decoders from layerx-sdk"
@@ -149345,6 +149370,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "Finding 10.6.1.1: continue from attempt 1 (6333ecb03), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
+do_6 = "Finding 10.6.1.2: continue from attempt 2 (4428c4d24); the fixture's JourneyId at tests/move_money_bank_send.rs:79 becomes a jrn_-prefixed lowercase identifier (as tests/agent_runtime_eip1559.rs:274 does). Change nothing else unless the verify reports it. Build once, verify once."
 
 [task.10.6.2]
 title = "Remove bridge mechanisms from send routing and executable shapes"
@@ -150979,7 +151005,7 @@ title = "Decode px_getBalances and px_getAccount as chain-state answers at one h
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.0.1", "8.0.3", "10.95.1", "18.1119.1", "18.1297.1"]
+requires = ["10.0.1", "8.0.3", "18.1119.1", "18.1297.1"]
 reqs = ["10247.1", "10247.2", "10247.3"]
 capabilities = ["10.24.1"]
 interfaces = ["interface.10.rs-network-gateway-paxeer-asset-balance", "interface.10.rs-network-gateway-asset-balance", "interface.10.rs-network-gateway-account-balances", "interface.10.rs-network-gateway-decode-account-balances", "interface.10.rs-network-gateway-lib-paxeer-account-l283-j46", "interface.10.rs-network-gateway-lib-account-join-l294-j46", "interface.10.rs-network-gateway-lib-layerx-amount-l358-j46", "interface.10.rs-network-gateway-lib-decode-account-l916-j46"]
@@ -150989,7 +151015,7 @@ do_2 = "Reshape `AssetBalance` (services/human/crates/layerx-network-gateway/src
 do_3 = "`decode_account` (services/human/crates/layerx-network-gateway/src/lib.rs:916) fills `AccountJoin.layerx` (services/human/crates/layerx-network-gateway/src/lib.rs:300); delete that field and add `height: u64` to `PaxeerAccount` (services/human/crates/layerx-network-gateway/src/lib.rs:283) read from `paxeer.height`."
 do_4 = "Create services/human/crates/layerx-network-gateway/tests/chain_balances.rs (planned) decoding recorded task 8.5.1 answers through `decode_account_balances` and `decode_account`."
 symbols = ["decode_account_balances", "decode_account", "AssetBalance", "AccountBalances", "PaxeerAccount", "AccountJoin", "balances_decode_bank_coins_at_one_height", "balances_refuse_row_without_denom", "account_decodes_paxeer_account_with_height"]
-touches = ["services/human/crates/layerx-network-gateway/src/lib.rs", "services/human/crates/layerx-network-gateway/tests/chain_balances.rs"]
+touches = ["services/human/crates/layerx-network-gateway/src/lib.rs", "services/human/crates/layerx-network-gateway/tests/chain_balances.rs", "services/human/crates/layerx-human-service/src/journeys/observed.rs"]
 tests = ["services/human/crates/layerx-network-gateway/tests/chain_balances.rs::balances_decode_bank_coins_at_one_height", "services/human/crates/layerx-network-gateway/tests/chain_balances.rs::balances_refuse_row_without_denom", "services/human/crates/layerx-network-gateway/tests/chain_balances.rs::account_decodes_paxeer_account_with_height"]
 planned_paths = ["services/human/crates/layerx-network-gateway/tests/chain_balances.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-network-gateway --test chain_balances"
@@ -151006,6 +151032,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_5 = "Decision 2183: this task no longer requires 10.95.1 and ports the consumer in services/human/crates/layerx-human-service/src/journeys/observed.rs to the new fields (AccountBalances.height at :223, AssetBalance.amount at :230, as 10.95.1 attempt 2 did) in the same change, so the dependent-crate check of layerx-human-service builds; 10.95.1 lands its test afterwards."
 
 [task.10.24.2]
 title = "Decode px_listAssets as chain asset metadata without custody rows"
@@ -152165,7 +152192,7 @@ title = "Rebuild the observed journey balances on the denom and amount AssetBala
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.0.3", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1"]
+requires = ["10.0.3", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1", "10.24.1"]
 reqs = ["10963.1"]
 capabilities = []
 interfaces = []
@@ -152191,6 +152218,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 10.95.1.1: continue from attempt 1 (8aabe4ba8), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
+do_5 = "Decision 2183 and finding 10.95.1.2: this task now requires 10.24.1. Continue from attempt 2 (4b6acfd3b) on a main that carries 10.24.1, keep its observed.rs changes only where 10.24.1 did not already make them, and land the test. Build once, verify once."
 
 [task.10.96.1]
 title = "Remove the Paxeer client and explorer index from the human workspace at wave 5"
@@ -152520,7 +152548,7 @@ do_1 = "Replace the retired layerx_client module uses at services/human/crates/l
 do_2 = "Change only import paths and call names, as wiring.J44.21 states; the behaviour of layerx-human-test-support (services/human/crates/layerx-human-test-support/Cargo.toml:1) and every existing test of the crate stay unchanged."
 do_3 = "Write no_retired_layerx_client_module_paths in services/human/crates/layerx-human-test-support/tests/retired_client_modules.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.21 remains."
 symbols = ["no_retired_layerx_client_module_paths"]
-touches = ["services/human/crates/layerx-human-test-support/src/evidence_node.rs", "services/human/crates/layerx-human-test-support/tests/retired_client_modules.rs"]
+touches = ["services/human/crates/layerx-human-test-support/src/evidence_node.rs", "services/human/crates/layerx-human-test-support/tests/retired_client_modules.rs", "services/human/crates/layerx-human-test-support/src/lib.rs", "services/human/crates/layerx-human-test-support/tests/evidence_node_frames.rs", "services/human/crates/layerx-human-test-support/tests/evidence_node_transactions.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_client_modules.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support"
@@ -152539,6 +152567,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Scan only after 10.25.4 rewrites evidence_node.rs over the production endpoint: the retired-module test covers the crate and no production file changes here (decision.1813)."
 do_5 = "Attempt 2's gate reports src/evidence_node.rs still naming layerx_client::lni; replace it with PxEndpoint::network / PxNetworkHead per decision.1813 and keep the LNI assertions through lni::handshake::perform as 18.1132.1 did."
+do_6 = "Decision 2185 and finding 10.98.6.2: do_5 is withdrawn. Continue from attempt 3 (07ed8f68e): delete EvidenceNode and everything only it uses in src/evidence_node.rs (:219-460, the lni imports at :9-17 and the frame import at :15 if orphaned), evidence_node, serve_evidence_node and connect_evidence_node in src/lib.rs (:276-310 with the lni transport import), and tests/evidence_node_frames.rs and tests/evidence_node_transactions.rs; keep Refusal, AdmissionRecord, AdmissionJournal, superblock and record_digest, which services/human/crates/layerx-human-service/tests/evidence_node.rs:35 still uses. Build once, verify once."
 
 [task.10.98.7]
 title = "Migrate the layerx-human-kms callers of wiring.J44.25 (wave 3)"
@@ -152668,7 +152697,7 @@ do_11 = "Move the layerx_crypto codec uses at services/human/crates/layerx-human
 do_12 = "Change only import paths and call names, as wiring.J44.25 states; the behaviour of layerx-human-service (services/human/crates/layerx-human-service/Cargo.toml:1) and every existing test of the crate stay unchanged."
 do_13 = "Write no_retired_layerx_crypto_codec_paths_1 in services/human/crates/layerx-human-service/tests/retired_crypto_codec_1.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.25 remains."
 symbols = ["no_retired_layerx_crypto_codec_paths_1"]
-touches = ["services/human/crates/layerx-human-service/src/agents/create_native.rs", "services/human/crates/layerx-human-service/src/custody/gateway.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/onboarding/native.rs", "services/human/crates/layerx-human-service/src/server/agent_creation_native.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs", "services/human/crates/layerx-human-service/src/server/production_owner.rs", "services/human/crates/layerx-human-service/src/server/production_rotation.rs", "services/human/crates/layerx-human-service/tests/custody.rs", "services/human/crates/layerx-human-service/tests/deposit.rs", "services/human/crates/layerx-human-service/tests/retired_crypto_codec_1.rs"]
+touches = ["services/human/crates/layerx-human-service/src/agents/create_native.rs", "services/human/crates/layerx-human-service/src/custody/gateway.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/onboarding/native.rs", "services/human/crates/layerx-human-service/src/server/agent_creation_native.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs", "services/human/crates/layerx-human-service/src/server/production_owner.rs", "services/human/crates/layerx-human-service/src/server/production_rotation.rs", "services/human/crates/layerx-human-service/tests/custody.rs", "services/human/crates/layerx-human-service/tests/deposit.rs", "services/human/crates/layerx-human-service/tests/retired_crypto_codec_1.rs", "services/human/crates/layerx-human-service/src/server/owner_identity.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/retired_crypto_codec_1.rs::no_retired_layerx_crypto_codec_paths_1"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/retired_crypto_codec_1.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
@@ -152690,6 +152719,7 @@ do_15 = "Task 10.98.7 do_8 ports src/custody/provider.rs, src/custody/signer.rs 
 do_16 = "Task 10.98.13 deletes IntentKind::{NativeOnboarding, NativeOnboardingConsent, NativeOwnerRotation} and the nine construction sites in src/agents/create_native.rs, src/server/agent_creation_native.rs, src/server/production_onboarding.rs and src/server/production_rotation.rs with the code that only fed them (decision.1849); this task requires it, keeps them deleted, and applies do_1, do_6, do_7 and do_9 to what remains of those files."
 do_17 = "The attach and verify calls at services/human/crates/layerx-human-service/tests/custody.rs:342 and :344 were ported to the kernel signing pair by 18.1172.2 (decision.1864); do_10 applies to the codec uses it names and nothing else in that file."
 do_18 = "Finding 10.98.10.1: continue from attempt 1 (c6b3c7c55), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
+do_19 = "Decision 2186 and finding 10.98.10.2: continue from attempt 2 (7bc7cb27e). Create services/human/crates/layerx-human-service/src/server/owner_identity.rs with OwnerIdentityState and a decode that parses the 223-byte LXGI1 record exactly as services/agent/crates/layerx-crypto/src/rotation.rs:26-60 does (same owner check through layerx_wire::hash::did_id_for_protocol, same fields), point validate_owner_identity (services/human/crates/layerx-human-service/src/server/production_owner.rs:68) and checked_identity (services/human/crates/layerx-human-service/src/server/production_rotation.rs:163) at it, and delete the two layerx_crypto::rotation imports. Build once, verify once."
 
 [task.10.98.11]
 title = "Migrate the layerx-human-service callers of wiring.J44.25 (part 2)"
@@ -152729,6 +152759,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Port services/human/crates/layerx-human-service/tests/intent_submit.rs to sign_disclosed_call; the other listed tests are scan-only (decision.1813)."
 do_11 = "Finding 10.98.11.1: continue from attempt 1 (0b05afad3), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
+do_12 = "Decision 2184 and finding 10.98.11.2: continue from attempt 2 (e9e7ae8b4). In services/human/crates/layerx-human-service/tests/intent_submit.rs delete the binding import (:28-31), the AgentBindingContract fixture (:724-790, which takes the sign_disclosed callers at :729 and :755 with it), binding_receipt (:789-840) and bind_wallet (:989-1030); for the two cases at :1176 and :1679 write the bound-wallet record the product still reads through the fixture store directly, or drop the binding step where the product reads none after 10.9.1. Port any other sign_disclosed caller per do_10. Build once, verify once."
 
 [task.10.98.12]
 title = "Migrate the layerx-human-test-support callers of wiring.J44.25"
@@ -160800,6 +160831,7 @@ do_7 = "Decision 2153: continue from attempt 3 (021b681bd), whose new test is co
 do_8 = "Decision 2161: continue from attempt 4 (1d21cfab8). In apps/wallet/playwright.wallet-app.config.ts pass conf: { ...config, basePath: '' } to next() instead of mutating the imported config, keep stdout piped and the 600 second timeout, and let the build command install chromium before the listing. Build once and verify once; if the launch reports missing shared libraries, rerun the install with --with-deps once and record it; if the probe still times out, record the dev server's first response status and body head in the finding."
 do_9 = "Decision 2171: continue from attempt 5 (85b99a037). Drop the conf basePath override, set webServer.url and use.baseURL to http://127.0.0.1:3099/wallet/, and make the three send.spec.ts navigations relative (./?screen=send, ./?screen=send, ./). This task now requires 5.98.5 for the node send path; start after it is published. Build once and verify once."
 do_10 = "Continue from attempt 6 (a0a6913a3), whose routing and configuration changes stand; the qualification environment now carries Chromium's shared libraries. Run the build_cmd and verify_cmd as declared and fix only what the ten send tests report."
+do_11 = "Finding 12.35.2.7: continue from attempt 7 (6d37fd989). Before clicking the provider button the new test waits for the shell to leave 'Loading wallet' and asserts the onboarding list is visible, and on failure prints the visible body text and the providers it announced. Fix only what that shows: if the shell does not reach Onboarding at './' with no stored session, clear the wallet's stored session in the init script; if the announcement does not reach wallet.injected, announce again after load. Build once, verify once."
 
 [task.12.35.3]
 title = "Assert the committed rung needs a matching explorer answer in the send e2e test"
@@ -179469,6 +179501,7 @@ do_11 = "Decision 2162: continue from attempt 7 (7c753e924), keeping the genesis
 do_12 = "Decision 2169: continue from attempt 8 (fd5d55aa7), keeping the sequencer start and the genesis perps state. In tools/qualification/localnode/v6120-node.sh move the SEQUENCER = 0 guard so that only activate_merge is plain-mode and the mint, approve, deposit, registerFeedKey, feeder and fresh-price wait run in both modes. Change nothing in the test. Build once and verify once; if the fresh-price wait fails under --sequencer, record the feeder log tail in the finding and stop."
 do_13 = "Continue from attempt 9 (8766345ee), keeping its script changes (the setup block before activate_merge, decision 2169). The method handler crashed answer on the first send is the node defect of finding 18.670.1.9, fixed by 5.98.5, which this task now requires; do not add retries on that error to the script. Once 5.98.5 is published, rebuild with the declared build command and run the verify command once."
 do_14 = "Decision 2180: continue from attempt 10 (1e16b9165), keeping the restart lifetime fix and the genesis market setup. In tools/qualification/localnode/v6120-node.sh evm_call capture the paxd tx evm call-contract stdout and stderr together and, while that output contains 'no block is open' and the function's 60-second deadline has not passed, sleep 0.2 and send the call again with the same nonce; any other failure fails as before. Run the build_cmd and verify_cmd as declared."
+do_15 = "Finding 18.670.1.11: continue from attempt 11 (d96dda6ec). In tools/qualification/localnode/v6120-node.sh the feed loop writes one line to feeder.log per iteration before and after each broadcast (height, transaction hash, broadcast code, commit height and code), the fresh-price wait rises from 30 to 90 seconds, and on timeout the failure prints the pricefeed price 0 and price 11 queries, the pricefeed params and the latest block time. Build once, verify once."
 
 [req.18670]
 title = "Keep the restarted perps data gateway alive through the post-restart end-to-end checks"
