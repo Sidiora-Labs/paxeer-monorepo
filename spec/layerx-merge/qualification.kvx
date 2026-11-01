@@ -16595,3 +16595,11 @@ symbol = "tenant_budget_recovery_reconciles_over_committed_budget_state"
 observed = "Attempt 1 (2d9533ab8) wrote both tests over a budget_recovery_fixture that acquires the getBudget CommittedCall at the fixture checkpoint, removed the uncalled module_witness constructor, built, and the refusal test passed; the success test failed at assertion accounting.reconciled, because do_2 told it to expect protocol_consumed Some(25) from the shared budget_result() answer while supplying no receipts and no holds, and the restart rule (budget/hold.rs:134-138) reconciles only when the protocol spend lies between receipt_consumed and receipt_consumed plus held_unresolved, so a spend of 25 against nothing is correctly unreconciled. The retired test this task replaces served a record with zero spend."
 assumption = "The success test serves a zero-spend record and also proves the unreconciled outcome of the 25-spend record; the attempt 1 tree stands."
 severity = "major"
+
+[finding.10.92.1.6]
+task = "10.92.1"
+file = "services/human/Cargo.toml:8"
+symbol = "layerx-human-movement-provider"
+observed = "Attempt 6 (4e8fb8fbc) of 10.92.1, based on main at d36e3e991, implemented the mapped verification level, the rung field, the schema line and the test assertions of finding 10.92.1.5, and its single build failed before compiling anything: cargo could not load the manifest of the workspace member crates/layerx-human-movement-provider, which 10.10.1 (b55da7a91) had deleted together with the crate while leaving the member line in services/human/Cargo.toml:8, so every build of the human workspace at main between the 10.10.1 landing and 54f32cf9a (10.96.1, which removed the line) failed at manifest load. Main is consistent again at bc550acb1."
+assumption = "The failure is pre-existing and already repaired on main; attempt 6 continues rebased onto current main with its tree unchanged and builds and verifies once."
+severity = "major"

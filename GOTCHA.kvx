@@ -12976,3 +12976,8 @@ fix = "A task that changes what a decoder accepts lists every test in its own cr
 title = "A recovery fixture's protocol spend must be covered by the receipts and holds the test supplies"
 symptom = "A task text told a recovery test to expect the shared fixture record's spend of 25 to reconcile while the request carried no receipts and no holds; the restart rule reconciles only a spend between the receipt total and the receipt total plus unresolved holds, so the faithful test failed."
 fix = "When a do names the expected accounting of a recovery, read the reconcile rule first and either serve a record whose spend the supplied receipts cover or assert the unreconciled outcome; the retired test being replaced shows which record it used."
+
+[gotcha.2632]
+title = "A task that deletes a crate must also drop its workspace member line in the same tree"
+symptom = "A retirement task deleted a crate directory and its manifest but left the crate listed under [workspace] members, so every build of that workspace at main failed at manifest load until a later task removed the line; an unrelated attempt in the window was charged a failed build."
+fix = "When a do deletes a crate, name the workspace manifest among the touches and say the member line goes with it; when an attempt fails at manifest load, check whether main at its base revision is consistent before reading further."
