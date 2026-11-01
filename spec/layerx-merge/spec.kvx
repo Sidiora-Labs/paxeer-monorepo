@@ -116409,7 +116409,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.7.2]
 title = "Serve the .pax names in the explorer name-service API shape and commit the answer vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["19.7.1"]
@@ -116561,7 +116561,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.5.98.6]
 title = "Wait for the next open layer on eth_sendRawTransaction before refusing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.98.5"]
@@ -152801,7 +152801,7 @@ do_8 = "Attempt 5 deleted the three IntentKind variants and the build of the dep
 
 [task.10.98.14]
 title = "Migrate the layerx-intents callers of wiring.J44.25"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.3", "9.1.7", "9.1.8", "18.1119.1", "10.98.7", "18.1297.1"]
