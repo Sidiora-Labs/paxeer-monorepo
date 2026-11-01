@@ -61,7 +61,6 @@ pub(super) fn binding_client(tenant: &str) -> Result<Option<Client>, String> {
 struct Subject {
     binding: Binding,
     did: String,
-    account: AccountId,
     account_id: [u8; 32],
     asset: [u8; 32],
 }
@@ -98,14 +97,12 @@ fn subject(human: &Human, params: &BTreeMap<String, String>) -> Result<Subject, 
     Ok(Subject {
         binding,
         did: did.clone(),
-        account,
         account_id,
         asset,
     })
 }
 
 struct Current {
-    state: Vec<u8>,
     head: u64,
     timestamp: u64,
     checkpoint: [u8; 32],
@@ -118,45 +115,25 @@ fn current(
     policy: &PrincipalPolicy,
 ) -> Result<Current, Response> {
     let refused = || unavailable("subject_checkpoint_proof_unavailable");
-    let mut session = budget_state::Session::open(config).map_err(|()| refused())?;
-    let key = budget_state::identity_key(&subject.did).map_err(|()| refused())?;
-    let state = session.module(7, &key).map_err(|()| refused())?;
-    let account = session
-        .account(subject.account_id)
+    let session = budget_state::Session::open(config).map_err(|()| refused())?;
+    let (account, _) = session
+        .identity(&subject.did, subject.account_id)
         .map_err(|()| refused())?;
-    let account = account.account();
-    if state.len() != 223
-        || &state[..5] != b"LXGI1"
-        || state[5..37] != key
-        || native_u64(&state, 69)? == 0
-        || native_u64(&state, 215)? > session.context.head.chain_sequence
-        || account.name != subject.account.canonical().as_bytes()
-        || account.kind != 1
-        || account.frozen
-        || account.asset_id() != subject.asset
-        || account.authority_key.as_ref().map(<[u8; 32]>::as_slice) != Some(&state[37..69])
+    if account["kind"].as_u64() != Some(1)
+        || account["frozen"].as_bool() != Some(false)
+        || account["asset_id"].as_str() != Some(hex::encode(&subject.asset).as_str())
     {
         return Err(refused());
     }
-    let header = layerx_wire::receipt::decode_batch_header(session.checkpoint.canonical_header())
-        .map_err(|_| refused())?;
-    let now = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_err(|_| refused())?
-        .as_millis();
-    if now
-        .checked_sub(u128::from(header.timestamp_ms()))
-        .is_none_or(|age| age > u128::from(policy.maximum_age_seconds) * 1000)
-    {
-        return Err(unavailable("subject_checkpoint_stale"));
-    }
+    session
+        .fresh(policy.maximum_age_seconds)
+        .map_err(|()| unavailable("subject_checkpoint_stale"))?;
     session.unchanged().map_err(|()| refused())?;
     Ok(Current {
-        state,
-        head: session.context.head.chain_sequence,
-        timestamp: header.timestamp_ms(),
-        checkpoint: session.context.head.finalised_checkpoint,
-        authorization: session.context.sequencer_authorization,
+        head: session.committed_height,
+        timestamp: session.timestamp,
+        checkpoint: session.checkpoint_id,
+        authorization: config.authorization,
     })
 }
 
@@ -558,6 +535,18 @@ pub(super) fn dispatch(
     if name == "balance-context" {
         return balance(human, policy, &subject, &current);
     }
+    if matches!(name, "budget-state" | "budget-proof") {
+        if params.get("did").is_some_and(|did| did != &subject.did) {
+            return Err(refusal(403, "subject_not_bound", None));
+        }
+        let mut bound = policy.clone();
+        bound.account_id = hex::encode(&subject.account_id);
+        bound.asset_id = hex::encode(&subject.asset);
+        if name == "budget-state" {
+            return budget_state::read_dynamic(config, &bound, &params["budget_id"], &subject.did);
+        }
+        return budget_state::export_dynamic(config, &bound, &params["budget_id"], &subject.did);
+    }
     let mut evidence = human.evidence(config)?;
     for item in &mut evidence {
         item.checkpoint = super::super::checkpoint_header(config, item.facts.batch_number).ok();
@@ -588,9 +577,6 @@ pub(super) fn dispatch(
     let (anchor, _) = identity_at(&evidence, target, current.head)?;
     let mut identity = identity(anchor, target)?;
     let (state, authorities) = session_membership::current(&identity, anchor, &evidence, policy)?;
-    if target == subject.did && state != current.state {
-        return Err(unavailable("identity_head_evidence_incomplete"));
-    }
     if name == "identity" {
         return Ok(json(
             200,
@@ -613,8 +599,12 @@ pub(super) fn dispatch(
     bound.identities = vec![identity];
     match name {
         "core-clock" => super::clock(&evidence, human.horizon),
-        "budget-state" => budget_state::read_dynamic(config, &bound, &params["budget_id"]),
-        "budget-proof" => budget_state::export_dynamic(config, &bound, &params["budget_id"]),
+        "budget-state" => {
+            budget_state::read_dynamic(config, &bound, &params["budget_id"], &subject.did)
+        }
+        "budget-proof" => {
+            budget_state::export_dynamic(config, &bound, &params["budget_id"], &subject.did)
+        }
         _ => super::policy_route(name, params, &bound, &evidence),
     }
 }
