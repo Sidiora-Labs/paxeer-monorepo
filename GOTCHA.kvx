@@ -12321,3 +12321,18 @@ fix = "Before deleting a file, grep the repository for its path (include_str!, i
 title = "A build command fix must sweep every task that shares the command"
 symptom = "Decision 2178 repaired the names SDK install command on one task while a sibling task kept the old command and failed on the identical root-workspace resolution one attempt later"
 fix = "When a ruling changes a build_cmd or verify_cmd, grep the spec for every task carrying the same command and change them in the same batch"
+
+[gotcha.2501]
+title = "A pending-window fix must cover the send itself"
+symptom = "The RPC send path waited for an open block on its nonce read and receipt record but handed the transaction to Accept unguarded, so a fixture's first call during a sealed layer failed with the raw sequencer error"
+fix = "When a wait is added for a closed window, list every call on the handler path that touches the open layer, including the final hand-off, and guard each one"
+
+[gotcha.2502]
+title = "Adding an enum variant must carry the exhaustive matches of dependent crates"
+symptom = "A decoder task added ConstructMethod::PayBudgetFund with a layerx-crypto-only gate while the human service matched the enum exhaustively, so every human workspace build failed until the consumer task landed its arms half an hour later"
+fix = "A task that adds a variant to a public enum puts every exhaustive match in dependent crates in touches, or the consumer task that adds them merges in the same step"
+
+[gotcha.2503]
+title = "Deleting a crate must carry its workspace manifest and lockfile"
+symptom = "A deletion task's touches named only the crate's files, so the workspace manifest kept the member and every cargo command in the human workspace failed with a missing manifest"
+fix = "Grep the workspace Cargo.toml members and the Cargo.lock package list for a crate before deleting it and put both in touches"

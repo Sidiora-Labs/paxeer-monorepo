@@ -6189,6 +6189,18 @@ value = "services/platform/hosted/gateway/tests/unified_service_paths.rs loses t
 basis = "Finding 8.7.5.1: 8.32.1 deleted runtime.py with a pytest gate that never compiled the gateway tests, so include_str! of the deleted file breaks every build of the gateway test target; 8.7.5 is the task whose gate already compiles that target, so it carries the one-line repair rather than opening another task on the same file set."
 affects = ["8.7.5", "19.7.1"]
 
+[decision.2180]
+title = "The send path waits for the next open layer before refusing a transaction, and the local-node fixture retries its setup calls"
+value = "In rpc/send.go acceptOnSequencer, an Accept error that errors.Is ErrLayerNotOpen is answered by s.watermarks.PendingContext(ctx) (bounded by PendingOpenWait) followed by one more Accept; when the context wait fails its ErrPendingBlockClosed is returned, and a second ErrLayerNotOpen from Accept is returned as ErrPendingBlockClosed too, so the raw sequencer error never reaches a client. The fixture tools/qualification/localnode/v6120-node.sh evm_call retries paxd tx evm call-contract while its combined output contains 'no block is open' within its existing 60-second deadline."
+basis = "Finding 18.670.1.10: the seal-to-open window is a property of the chain's own block production and 5.98.5 (req 5983) promised that the send path survives it; the send itself was the one pending-dependent step left unguarded."
+affects = ["5.98.6", "18.670.1"]
+
+[decision.2181]
+title = "Deleting a workspace crate removes its member entry and its lock record in the same task"
+value = "10.27.1 removes the crates/layerx-explorer-index line from services/human/Cargo.toml members (:12) and refreshes services/human/Cargo.lock so it carries no layerx-explorer-index package; the committed lock is what the --locked build and verify run against. No other member or dependency changes."
+basis = "Finding 10.27.1.1: a workspace member that no longer exists fails every cargo command in that workspace, so the deletion cannot qualify, or merge safely, without the manifest and lock; this is decision 1849 applied to a whole crate."
+affects = ["10.27.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -6216,7 +6228,7 @@ completion_task = "4.0.9"
 [feature.5]
 name = "node-runtime"
 scope = "Node runtime: node/, modules/sequencer/, modules/store/, storage/, engine/, consensus/, wasm-runtime/, cmd/, daemon/, admin/, go.mod, go.sum, tests/chain, tests/daemon, occ_tests/; application assembly, upgrade plans, the sequencer runtime, receipts, WAL and standby, proposal validation and node persistence."
-requirements = ["5001", "5002", "5003", "5004", "5005", "5006", "5007", "5008", "5009", "5010", "5011", "5012", "5013", "5014", "5015", "5016", "5017", "5018", "5019", "5020", "5021", "5022", "5023", "5024", "5025", "5026", "5027", "5028", "5029", "5030", "5031", "5032", "5033", "5034", "5035", "5036", "5037", "5038", "5039", "5040", "5041", "5042", "5043", "5044", "5045", "5046", "5047", "5048", "5049", "5050", "5051", "5052", "5053", "5054", "5055", "5056", "5057", "5058", "5059", "5060", "5061", "5062", "5063", "5064", "5065", "5066", "5067", "5068", "5069", "5070", "5071", "5072", "5073", "5074", "5075", "5076", "5077", "5078", "5079", "5080", "5241", "5242", "5243", "5244", "5245", "5246", "5247", "5248", "5249", "5250", "5251", "5252", "5253", "5254", "5255", "5256", "5257", "5258", "5259", "5260", "5261", "5262", "5263", "5264", "5265", "5266", "5267", "5268", "5269", "5270", "5271", "5272", "5273", "5274", "5275", "5481", "5482", "5483", "5484", "5485", "5486", "5487", "5488", "5489", "5490", "5491", "5492", "5493", "5494", "5495", "5496", "5497", "5498", "5499", "5500", "5501", "5502", "5503", "5504", "5505", "5506", "5507", "5508", "5509", "5510", "5511", "5512", "5513", "5514", "5515", "5516", "5517", "5518", "5519", "5520", "5521", "5522", "5523", "5524", "5525", "5526", "5527", "5528", "5529", "5530", "5531", "5532", "5533", "5534", "5535", "5536", "5537", "5538", "5539", "5540", "5541", "5542", "5543", "5544", "5545", "5546", "5961", "5962", "5963", "5964", "5965", "5966", "5967", "5969", "5970", "5971", "5972", "5973", "5974", "5975", "5999", "5081", "5983"]
+requirements = ["5001", "5002", "5003", "5004", "5005", "5006", "5007", "5008", "5009", "5010", "5011", "5012", "5013", "5014", "5015", "5016", "5017", "5018", "5019", "5020", "5021", "5022", "5023", "5024", "5025", "5026", "5027", "5028", "5029", "5030", "5031", "5032", "5033", "5034", "5035", "5036", "5037", "5038", "5039", "5040", "5041", "5042", "5043", "5044", "5045", "5046", "5047", "5048", "5049", "5050", "5051", "5052", "5053", "5054", "5055", "5056", "5057", "5058", "5059", "5060", "5061", "5062", "5063", "5064", "5065", "5066", "5067", "5068", "5069", "5070", "5071", "5072", "5073", "5074", "5075", "5076", "5077", "5078", "5079", "5080", "5241", "5242", "5243", "5244", "5245", "5246", "5247", "5248", "5249", "5250", "5251", "5252", "5253", "5254", "5255", "5256", "5257", "5258", "5259", "5260", "5261", "5262", "5263", "5264", "5265", "5266", "5267", "5268", "5269", "5270", "5271", "5272", "5273", "5274", "5275", "5481", "5482", "5483", "5484", "5485", "5486", "5487", "5488", "5489", "5490", "5491", "5492", "5493", "5494", "5495", "5496", "5497", "5498", "5499", "5500", "5501", "5502", "5503", "5504", "5505", "5506", "5507", "5508", "5509", "5510", "5511", "5512", "5513", "5514", "5515", "5516", "5517", "5518", "5519", "5520", "5521", "5522", "5523", "5524", "5525", "5526", "5527", "5528", "5529", "5530", "5531", "5532", "5533", "5534", "5535", "5536", "5537", "5538", "5539", "5540", "5541", "5542", "5543", "5544", "5545", "5546", "5961", "5962", "5963", "5964", "5965", "5966", "5967", "5969", "5970", "5971", "5972", "5973", "5974", "5975", "5999", "5081", "5983", "5089"]
 completion_task = "5.0.9"
 
 [feature.6]
@@ -33134,6 +33146,15 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.5.98.6]
+title = "Wait for the next open layer on eth_sendRawTransaction before refusing"
+reqs = ["5089.1"]
+touches = ["rpc/send.go", "rpc/README.md", "rpc/send_pending_test.go"]
+tests = ["rpc/send_pending_test.go::TestSendRawTransactionRetriesAcrossASealedLayer", "rpc/send_pending_test.go::TestSendRawTransactionRefusesWhenNoBlockReopens"]
+verification_contract = "go test -count=1 ./rpc/ -run '^(TestSendRawTransactionRetriesAcrossASealedLayer|TestSendRawTransactionRefusesWhenNoBlockReopens)$'"
+do_1 = "Decision 2180: in rpc/send.go acceptOnSequencer (:295) keep the first Sequencer.Accept call; when its error satisfies errors.Is(err, ErrLayerNotOpen), call s.watermarks.PendingContext(ctx) (the bounded wait of 5.98.5, rpc/watermark_manager.go:61) and, when it returns a context, call Accept once more; return the PendingContext error when the wait fails and map a second ErrLayerNotOpen to ErrPendingBlockClosed. The receiptMu lock is taken only around the Accept that succeeds and the receipt recording, so the wait never holds it. The sdkerrors coded-error mapping that follows stays as it is."
+symbols = ["acceptOnSequencer", "PendingContext", "ErrPendingBlockClosed"]
+
 [capability.8.7.5]
 title = "Remove the retired program route assertions from the gateway browser profile test"
 reqs = ["8083.1"]
@@ -57476,6 +57497,10 @@ ac_2 = "The local node's dev genesis carries perps market 11 (BTC-PERP, oracle s
 [req.5983]
 title = "Send-path pending reads survive the seal-to-open window"
 ac_1 = "eth_sendRawTransaction, the pending nonce read and the receipt check on a node holding the open block wait for the next block to open (bounded by two seconds) or answer the retriable error ErrPendingBlockClosed; they never crash the handler while the executor is between Seal and Open."
+
+[req.5089]
+title = "eth_sendRawTransaction survives the seal-to-open window"
+ac_1 = "A raw transaction sent to a node whose layer is sealed and not yet reopened is accepted once the next block opens (within PendingOpenWait) and its hash is returned; when no block opens in time the handler answers ErrPendingBlockClosed, never the raw ErrLayerNotOpen."
 
 [acceptance.5.982.1]
 feature = "5"
@@ -116528,6 +116553,36 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.5.98.6]
+title = "Wait for the next open layer on eth_sendRawTransaction before refusing"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["5.98.5"]
+reqs = ["5089.1"]
+capabilities = ["5.98.6"]
+interfaces = []
+do_1 = "Decision 2180: in rpc/send.go acceptOnSequencer (:295) keep the first Sequencer.Accept call; when its error satisfies errors.Is(err, ErrLayerNotOpen), call s.watermarks.PendingContext(ctx) (the bounded wait of 5.98.5, rpc/watermark_manager.go:61) and, when it returns a context, call Accept once more; return the PendingContext error when the wait fails and map a second ErrLayerNotOpen to ErrPendingBlockClosed. The receiptMu lock is taken only around the Accept that succeeds and the receipt recording, so the wait never holds it. The sdkerrors coded-error mapping that follows stays as it is."
+do_2 = "Write rpc/send_pending_test.go (planned) in the package of rpc/send_sequencer_test.go, reusing its SendAPI construction with a fake SequencerAccepter (like sendSeqReceipter at rpc/send_sequencer_test.go:98) and the open-flag PendingSnapshot fake of rpc/pending_context_test.go: TestSendRawTransactionRetriesAcrossASealedLayer makes the first Accept return ErrLayerNotOpen, opens the fake snapshot after 20 milliseconds, makes the second Accept return the receipt and asserts eth_sendRawTransaction returns the transaction hash with exactly two Accept calls; TestSendRawTransactionRefusesWhenNoBlockReopens sets the wait bound to 50 milliseconds, keeps the snapshot closed and asserts the handler returns ErrPendingBlockClosed and Accept was called once."
+do_3 = "Document the retry under rpc/README.md#pending in one sentence next to the 5.98.5 paragraph."
+symbols = ["acceptOnSequencer", "PendingContext", "ErrPendingBlockClosed"]
+touches = ["rpc/send.go", "rpc/README.md", "rpc/send_pending_test.go"]
+tests = ["rpc/send_pending_test.go::TestSendRawTransactionRetriesAcrossASealedLayer", "rpc/send_pending_test.go::TestSendRawTransactionRefusesWhenNoBlockReopens"]
+planned_paths = ["rpc/send_pending_test.go"]
+build_cmd = "go build ./rpc/..."
+verify_cmd = "go test -count=1 ./rpc/ -run '^(TestSendRawTransactionRetriesAcrossASealedLayer|TestSendRawTransactionRefusesWhenNoBlockReopens)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Restore the single Accept call; sends during a sealed layer are refused with the raw error again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.5.98.5]
 title = "Wait for the next open block on the RPC send path instead of panicking"
 status = "done"
@@ -151134,6 +151189,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Finding 10.25.4.1: continue from attempt 1 (eb7705180), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
 
 [task.10.25.5]
 title = "Add the cargo metadata harness to the human test-support crate"
@@ -151719,7 +151775,7 @@ do_4 = "The binary verifies guarantor checkpoints through layerx-paxeer-verifier
 do_5 = "Read the workspace through `human_workspace_metadata` and `human_sources_containing` of task 10.25.5 at services/human/crates/layerx-human-test-support/src/lib.rs (planned)."
 do_6 = "Create services/human/crates/layerx-human-test-support/tests/retired_explorer_index_binary.rs (planned) asserting the acceptance of this task with `std::path::Path::exists` and the two helpers."
 symbols = ["human_workspace_metadata", "human_sources_containing", "workspace_metadata_lists_no_layerx_explorer_index_package"]
-touches = ["services/human/crates/layerx-explorer-index/Cargo.toml", "services/human/crates/layerx-explorer-index/README.md", "services/human/crates/layerx-explorer-index/src/main.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_binary.rs"]
+touches = ["services/human/crates/layerx-explorer-index/Cargo.toml", "services/human/crates/layerx-explorer-index/README.md", "services/human/crates/layerx-explorer-index/src/main.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_binary.rs", "services/human/Cargo.toml", "services/human/Cargo.lock"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_binary.rs::workspace_metadata_lists_no_layerx_explorer_index_package"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_binary.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --test retired_explorer_index_binary"
@@ -151736,6 +151792,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_7 = "Decision 2181: continue from attempt 1 (ef9779700), keeping the deletions and the test. Remove the 'crates/layerx-explorer-index' line from services/human/Cargo.toml members (:12), then refresh services/human/Cargo.lock once with cargo metadata --manifest-path services/human/Cargo.toml --format-version 1 (no --locked) so the layerx-explorer-index package record (:963) disappears and nothing else in the lock changes; commit both files. Run the build_cmd and verify_cmd as declared."
 
 [task.10.27.2]
 title = "Delete the explorer index configuration tests"
@@ -152694,6 +152751,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Scan only: after the requires tasks land the files in touches carry no retired layerx-client or layerx-crypto path; write the retired-module test over the listed source tree and change no production file. If a retired path remains, port it to its replacement in decision.1813 and record the file in the qualification log."
+do_5 = "Finding 10.98.12.1: continue from attempt 1 (fe8ff0a0a), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
 
 [task.10.98.13]
 title = "Migrate the layerx-intents callers of wiring.J44.25 (wave 3)"
@@ -160730,6 +160788,7 @@ do_6 = "Decision 2137: the hold is lifted; qualify against the in-tree node exac
 do_7 = "Decision 2153: continue from attempt 3 (021b681bd), whose new test is complete. Add a default condition beside import for . and ./browser in services/agent/sdk/typescript/package.json; set stdout: 'pipe' and timeout: 600_000 on webServer in apps/wallet/playwright.wallet-app.config.ts; commit the apps/wallet/next-env.d.ts that next dev regenerates. Build once (the list must now show the send.spec.ts tests) and verify once; if the readiness probe still times out, record the dev server's first response (status and body head) and the module it names, fix that module when it is in apps/wallet, sdk/wallet or the SDK, and otherwise stop with the finding."
 do_8 = "Decision 2161: continue from attempt 4 (1d21cfab8). In apps/wallet/playwright.wallet-app.config.ts pass conf: { ...config, basePath: '' } to next() instead of mutating the imported config, keep stdout piped and the 600 second timeout, and let the build command install chromium before the listing. Build once and verify once; if the launch reports missing shared libraries, rerun the install with --with-deps once and record it; if the probe still times out, record the dev server's first response status and body head in the finding."
 do_9 = "Decision 2171: continue from attempt 5 (85b99a037). Drop the conf basePath override, set webServer.url and use.baseURL to http://127.0.0.1:3099/wallet/, and make the three send.spec.ts navigations relative (./?screen=send, ./?screen=send, ./). This task now requires 5.98.5 for the node send path; start after it is published. Build once and verify once."
+do_10 = "Continue from attempt 6 (a0a6913a3), whose routing and configuration changes stand; the qualification environment now carries Chromium's shared libraries. Run the build_cmd and verify_cmd as declared and fix only what the ten send tests report."
 
 [task.12.35.3]
 title = "Assert the committed rung needs a matching explorer answer in the send e2e test"
@@ -179397,6 +179456,7 @@ do_10 = "Decision 2154: continue from attempt 6 (03685946f), keeping the earlies
 do_11 = "Decision 2162: continue from attempt 7 (7c753e924), keeping the genesis perps state, the environment lines for PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET and the funding wait. Run the verify command as now declared, with --sequencer; change nothing in the test for the mode. If the withdraw receipt is still missing, record the node's last ten proposal log lines in the finding and stop."
 do_12 = "Decision 2169: continue from attempt 8 (fd5d55aa7), keeping the sequencer start and the genesis perps state. In tools/qualification/localnode/v6120-node.sh move the SEQUENCER = 0 guard so that only activate_merge is plain-mode and the mint, approve, deposit, registerFeedKey, feeder and fresh-price wait run in both modes. Change nothing in the test. Build once and verify once; if the fresh-price wait fails under --sequencer, record the feeder log tail in the finding and stop."
 do_13 = "Continue from attempt 9 (8766345ee), keeping its script changes (the setup block before activate_merge, decision 2169). The method handler crashed answer on the first send is the node defect of finding 18.670.1.9, fixed by 5.98.5, which this task now requires; do not add retries on that error to the script. Once 5.98.5 is published, rebuild with the declared build command and run the verify command once."
+do_14 = "Decision 2180: continue from attempt 10 (1e16b9165), keeping the restart lifetime fix and the genesis market setup. In tools/qualification/localnode/v6120-node.sh evm_call capture the paxd tx evm call-contract stdout and stderr together and, while that output contains 'no block is open' and the function's 60-second deadline has not passed, sleep 0.2 and send the call again with the same nonce; any other failure fails as before. Run the build_cmd and verify_cmd as declared."
 
 [req.18670]
 title = "Keep the restarted perps data gateway alive through the post-restart end-to-end checks"
@@ -185115,6 +185175,14 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.5.98.6]
+feature = "5"
+req = "5089.1"
+scenario = "Given a node whose layer is sealed and not yet reopened, when eth_sendRawTransaction arrives, then the handler waits for the next open block and returns the transaction hash, and when no block opens within the bound it answers ErrPendingBlockClosed"
+contract = "rpc/README.md#pending"
+test = "rpc/send_pending_test.go::TestSendRawTransactionRetriesAcrossASealedLayer (planned)"
 qualification = "UNRUN"
 
 [acceptance.8.7.5]
