@@ -6363,6 +6363,18 @@ value = "observeTransfer (sdk/wallet/src/ladder.ts:425-434) pushes a receipt ste
 basis = "Task 5.5.22 (decision 2202) made committed the normal pax_sequencerReceipt answer seconds after inclusion, and the ladder dropped the whole receipt step for a committed answer without explorer evidence, so the send test of 12.35.2 (attempt 16) saw an empty steps list and the title Transfer Included although the node had receipted and committed the transfer: TransferSuccess.tsx:242 derives Receipted from statusLadder.highest(steps). A node answer above receipted proves receipted. The producer-and-consumer defect class."
 affects = ["12.22.6", "12.35.2"]
 
+[decision.2209]
+title = "Program records are read through the programs precompile's view functions by eth_call at the ServedCheckpoint's height; the module-store slot read and the LNI header binding of verified_program_record retire"
+value = "layerx-client rpc/module_state.rs is module_state(endpoint, calldata, ModuleReadContext {precompile, committed_height, block_hash, app_hash}) as attempt 2 of task 9.25.11 (61529eece) wrote it: eth_call at the committed height, read twice, refused with CommittedChanged unless both answers agree and the block hash of eth_getBlockByNumber and the stateRoot at that height equal the context. A value so read is STATE_PROVEN for VerifiedStateEvidence, because the ServedCheckpoint (decision 2203) authenticates the block hash and app hash the read is bound to. The daemon reads program records through the view functions of the programs precompile (precompiles/layerxprograms/abi.json: getProgram, getProgramOwner, getWindDown, getInterface, getCurrentFeeSchedule, getProgramAccount, getProgramAccountById, getValueAccount) and decodes their ABI outputs; the module-store keys program NUL, program-owner NUL, wind-down NUL s, wind-down NUL r, interface NUL, progfee/active/v1 and program-account NUL r that budget/execution_state.rs:214-230 and protocol_evidence.rs program_owner_key build retire with the keccak(module_id || key) slot read. Task 9.25.11 ports verified_program_record (protocol_evidence.rs:1903) onto module_state with the ServedCheckpoint of the height, taking calldata in place of the key, and verified_program_owner reads getProgramOwner(bytes32); task 9.25.6 ports execution_state.rs read_record onto the view functions and removes the LNI header, authorization and signing-key parameters."
+basis = "The retired module_state proved one 32-byte storage slot keccak(module_id || key) of the precompile under an LNI batch header no node signs, while decode_program_owner expects a 33-byte versioned record and execution_state.rs:229 a binding of at least 139 bytes, so no record read could ever decode: the raw module store is not served as EVM storage, and the precompile's record access is its view functions. Attempt 2 of 9.25.11 rewrote module_state to the eth_call shape of decision 2204 and left verified_program_record (protocol_evidence.rs:1961-1975) and the proof bundle request and result types (read/checkpoint.rs:460, :483) on the deleted API, both outside the task's touches, with eleven build errors."
+affects = ["9.25.11", "9.25.6"]
+
+[decision.2210]
+title = "The budget proof v2 fixture's owner DID is did:layerx: followed by 64 lowercase hexadecimal characters"
+value = "tests/vectors/budget-proof-v2/node-answers.json carries did:layerx: followed by the lowercase hexadecimal encoding of [0x0a; 32] as the owner's layerx_did in its px_getAccount and px_getBalances answers, the form modules/evm/types/layerx_binding.go:57 renders and layerx-client px.rs identities() (:189-199) decodes; the generator test asserts that form for every layerx_did in the fixture. Task 9.25.14 regenerates the fixture from the daemon's generator with that constant and task 8.98.18 continues unchanged against it."
+basis = "Task 9.25.10 generated the fixture with the readable constant did:layerx:budget-owner (budget/budget_proof.rs:450); the daemon's generator and verifier tests passed because neither runs the client's account decoder, and the authority's export (task 8.98.18, attempt a88af5bbc) refused with budget_proof_export_unavailable because Session::identity reads px_getAccount through PxEndpoint::account, whose decoder accepts only the 64-hex form, so no identity bound. The producer of a shared fixture asserts the consumer's decoding rule."
+affects = ["9.25.14", "8.98.18"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -16121,6 +16133,10 @@ ac_1 = "The export of schema layerx.human.budget-proof.v2 produced from the comm
 [req.92510]
 title = "The daemon verifies a budget proof v2 export against the committed block"
 ac_1 = "verify_native_budget_proof accepts an export whose finality block hash and app hash equal the ServedCheckpoint of head.committed_height and whose embedded calls re-execute to their results, and refuses a changed result, a changed block hash, a changed app hash and a stale height."
+
+[req.92514]
+title = "The budget proof v2 fixture's owner DID decodes in layerx-client"
+ac_1 = "Every layerx_did in tests/vectors/budget-proof-v2/node-answers.json is did:layerx: followed by 64 lowercase hexadecimal characters, the generator test asserts it, and the regenerated fixture equals the generator's output byte for byte."
 
 [req.92511]
 title = "EVM storage slots are proven as ICS23 witnesses through the app root"
@@ -33367,6 +33383,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.9.25.14]
+title = "Give the budget proof v2 fixture an owner DID the client decoder accepts"
+reqs = ["92514.1"]
+touches = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "tests/vectors/budget-proof-v2/node-answers.json"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::tests::budget_proof_v2_node_answers_fixture_is_current"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --exact budget::budget_proof::tests::budget_proof_v2_node_answers_fixture_is_current budget::budget_proof::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 2 passed'"
+do_1 = "Decision 2210. In services/agent/crates/layerx-agentd/src/budget/budget_proof.rs change the test constant OWNER (:450) to did:layerx: followed by the lowercase hexadecimal encoding of [0x0a; 32] (64 characters), the form modules/evm/types/layerx_binding.go:57 renders and layerx-client px.rs identities() decodes; every use of OWNER (the identity closure at :569, the in-test export's policy and the identity_key it hashes) follows, and nothing else in the generator changes."
+symbols = ["OWNER", "budget_proof_v2_node_answers_fixture_is_current", "budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
 
 [capability.12.22.6]
 title = "Keep the receipted step when the node reports committed without explorer evidence"
@@ -110541,7 +110566,7 @@ do_3 = "In layerx-client tests/storage_witness.rs add storage_witness_verifies_t
 do_4 = "In the daemon's read/proof_bundle.rs, verify_account verifies each requested slot with verify_storage_witness under the ServedCheckpoint's app_hash and AccountState keeps the storage values alone; balance, nonce, code_hash and storage_hash leave it and a caller that needs a balance or nonce reads eth_getBalance or eth_getTransactionCount at the committed height."
 do_5 = "The build gate vets the generator package and builds layerx-client and layerx-agentd with their tests; the verify gate runs the generator test in compare mode and the client witness test."
 symbols = ["StorageWitness", "storage_witness", "verify_storage_witness", "TestEvmStorageAppHashVector", "storage_witness_verifies_the_generated_vector_and_refuses_tampering"]
-touches = ["services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-client/src/sequencer.rs", "services/agent/crates/layerx-client/src/storage_witness.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/rpc/module_state.rs", "services/agent/crates/layerx-client/src/rpc/evidence.rs", "services/agent/crates/layerx-client/tests/storage_witness.rs", "services/agent/crates/layerx-client/tests/module_reads_rpc.rs", "services/agent/crates/layerx-client/tests/evidence_rpc.rs", "services/agent/crates/layerx-agentd/src/read/proof_bundle.rs", "modules/sequencer/keeper/ics23_evm_storage_vector_test.go", "programs/tests/vectors/ics23-evm-storage-app-hash.json", "services/agent/crates/layerx-agentd/tests/proof_bundle_v2.rs"]
+touches = ["services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-client/src/sequencer.rs", "services/agent/crates/layerx-client/src/storage_witness.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/rpc/module_state.rs", "services/agent/crates/layerx-client/src/rpc/evidence.rs", "services/agent/crates/layerx-client/tests/storage_witness.rs", "services/agent/crates/layerx-client/tests/module_reads_rpc.rs", "services/agent/crates/layerx-client/tests/evidence_rpc.rs", "services/agent/crates/layerx-agentd/src/read/proof_bundle.rs", "modules/sequencer/keeper/ics23_evm_storage_vector_test.go", "programs/tests/vectors/ics23-evm-storage-app-hash.json", "services/agent/crates/layerx-agentd/tests/proof_bundle_v2.rs", "services/agent/crates/layerx-agentd/src/read/checkpoint.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"]
 tests = ["services/agent/crates/layerx-client/tests/storage_witness.rs::storage_witness_verifies_the_generated_vector_and_refuses_tampering", "modules/sequencer/keeper/ics23_evm_storage_vector_test.go::TestEvmStorageAppHashVector"]
 planned_paths = ["services/agent/crates/layerx-client/src/storage_witness.rs", "services/agent/crates/layerx-client/tests/storage_witness.rs", "modules/sequencer/keeper/ics23_evm_storage_vector_test.go", "programs/tests/vectors/ics23-evm-storage-app-hash.json"]
 build_cmd = "go vet ./modules/sequencer/keeper/ && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client -p layerx-agentd --tests"
@@ -110558,6 +110583,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 9.25.11.1 and decision 2207: continue from attempt 1 (3d00000a8) keeping storage_witness.rs, the vector, the generator test, the ported module_state.rs, rpc/evidence.rs, proof_bundle.rs and the three client tests. In sequencer.rs restore AccountProof, StorageProof, account_proof and decode_account_proof exactly as 7c9d46e36 has them, with one doc comment on AccountProof naming task 9.25.13 as the task that retires them; the pub type StorageProof re-export of module_state.rs:12 stays deleted. Port services/agent/crates/layerx-agentd/tests/proof_bundle_v2.rs onto the new AccountState: its node double answers eth_getProof for the vector's address and slot with the ops of programs/tests/vectors/ics23-evm-storage-app-hash.json and the checkpoint under test carries that vector's height and app_hash; the AccountProof at :46 and :129-134 and every balance, nonce, code_hash and storage_hash expectation leave; the tampering cases become a flipped storage value and a foreign app hash, each refused with its own error, and the refusal-before-eth_getProof case at :350 stays. A shape the vector cannot express is a finding naming the field and the owning task, not a local fixture. The verify gate adds the proof bundle test target. Build once, verify once."
+do_7 = "Finding 9.25.11.2 and decision 2209: continue from attempt 2 (61529eece) keeping every file of it, rebased onto main (task 9.25.5 changed protocol_evidence.rs and read/checkpoint.rs outside the lines named here). In read/checkpoint.rs replace the AccountProof import at :6 with StorageWitness from layerx_client::sequencer, declare ProofBundleRequest.account_proof (:460) as Option<&'a [StorageWitness]> and ServedProofBundle.account_proof (:483) as Option<super::proof_bundle_owner::AccountState>, so read/proof_bundle.rs:127-278 compiles as attempt 2 wrote it. In protocol_evidence.rs port verified_program_record (:1903): its last parameter is calldata: &[u8] in place of key; after the existing header and height checks it acquires crate::read::ServedCheckpoint::acquire_at_committed_block(node, height), mapping CheckpointReadError::Rpc to Unavailable and every other variant to Refused, and calls layerx_client::rpc::module_state::module_state(node, calldata, ModuleReadContext { precompile (eighteen zero bytes then 0x10, 0x1d, as :1943 builds it), committed_height: height, block_hash: checkpoint.block_hash, app_hash: checkpoint.app_hash }), mapping ModuleReadError::Rpc to Unavailable and the other variants to Refused; the evidence().level() and state_root() comparisons at :1961-1962 leave together with the AccountEvidencePolicy and RootSelector construction, the re-read of block_number and the block at :1963-1968 stays, and the result is VerifiedStateEvidence { canonical_state: value.canonical_bytes().to_vec(), level: VerificationLevel::STATE_PROVEN, observed_head_sequence: height }. verified_program_owner (:1882) passes the calldata of getProgramOwner(bytes32), the first four bytes of the keccak of the signature then the program id as read/program_node.rs programs_call builds it, and decodes the 32-byte result as the owner, Refused when the result is not 32 bytes or is zero; program_owner_key and decode_program_owner are deleted with their four tests at :1992-2034 and the record helper of that tests module. budget/execution_state.rs:189 compiles unchanged because it passes a byte slice; task 9.25.6 ports it (decision 2209) and this task does not touch it. Keep the build and verify commands; build once, verify once."
 
 [task.17.5.12]
 title = "Build the agent TypeScript SDK before the web build and give its exports a default condition"
@@ -117147,6 +117173,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.25.14]
+title = "Give the budget proof v2 fixture an owner DID the client decoder accepts"
+status = "pending"
+mode = "BUILD"
+wave = 37
+requires = ["9.25.10"]
+reqs = ["92514.1"]
+capabilities = ["9.25.14"]
+interfaces = []
+do_1 = "Decision 2210. In services/agent/crates/layerx-agentd/src/budget/budget_proof.rs change the test constant OWNER (:450) to did:layerx: followed by the lowercase hexadecimal encoding of [0x0a; 32] (64 characters), the form modules/evm/types/layerx_binding.go:57 renders and layerx-client px.rs identities() decodes; every use of OWNER (the identity closure at :569, the in-test export's policy and the identity_key it hashes) follows, and nothing else in the generator changes."
+do_2 = "In budget_proof_v2_node_answers_fixture_is_current assert, before the byte comparison, that every layerx_did string in the generated answers strips the prefix did:layerx: to exactly 64 ASCII hexadecimal characters. Regenerate tests/vectors/budget-proof-v2/node-answers.json with LAYERX_WRITE_VECTORS=1 through that test and commit it; the px_getAccount and the two px_getBalances answers now carry the new DID and no other value of the fixture changes. budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering keeps passing on the regenerated fixture."
+do_3 = "The build gate builds the four agent crates; the verify gate runs the two lib tests in compare mode, and the fixture export test of task 8.98.18 is the consumer gate."
+symbols = ["OWNER", "budget_proof_v2_node_answers_fixture_is_current", "budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
+touches = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "tests/vectors/budget-proof-v2/node-answers.json"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::tests::budget_proof_v2_node_answers_fixture_is_current"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --exact budget::budget_proof::tests::budget_proof_v2_node_answers_fixture_is_current budget::budget_proof::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 2 passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore budget_proof.rs and node-answers.json from 74787f90f; the authority's fixture export refuses again and 8.98.18 cannot pass."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.9.25.13]
 title = "Retire the client's eth_getProof account proof and port its last readers to the storage witness"
 status = "pending"
@@ -117211,7 +117267,7 @@ title = "Bind the authority's human budget proof v2 to the committed block and c
 status = "pending"
 mode = "BUILD"
 wave = 37
-requires = ["8.98.17", "9.25.10"]
+requires = ["8.98.17", "9.25.10", "9.25.14"]
 reqs = ["89818.1"]
 capabilities = ["8.98.18"]
 interfaces = []
@@ -117235,6 +117291,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 8.98.18.1 (decision 2210): continue from the latest attempt unchanged once task 9.25.14 is on main; the test reads the owner DID and the budget from the regenerated node-answers.json, so no line of this task changes. Rebase onto main, build once, verify once. A further refusal of the export is a new finding naming the check of produce_at that returned Err."
 
 [task.9.25.10]
 title = "Verify the human budget proof v2 against the ServedCheckpoint and re-executed calls in the daemon"
@@ -117499,6 +117556,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 9.25.6.1 and decisions 2203 and 2204: implement CommittedReads in read/committed.rs over the ServedCheckpoint of task 9.25.8: CommittedReads::open(endpoint, height) acquires the checkpoint and holds height, block_hash and app_hash; capabilities(precompile, calldata) and budget_state(precompile, calldata) are endpoint.call_at at that height whose result is decoded as now, each re-read once at the same height and refused with read.committed_changed when the two answers differ or when eth_getBlockByNumber at the height no longer carries the checkpoint's block hash; storage(address, slot) uses storage_witness and verify_storage_witness of task 9.25.11 under the checkpoint's app_hash. AccountProof, StorageProof and the proof bundle leave this task; RawStateEvidence::module_witness of protocol_evidence.rs takes the committed shape (height, block_hash, app_hash, call result) and verify_state checks re-read equality and the app_hash match against the checkpoint. The read::committed tests run against a TcpListener JSON-RPC double answering eth_getBlockByNumber, px_getCommit, px_getValidators, eth_call and eth_getProof, with one case where the second eth_call answer differs and the read refuses. Build once, verify once."
+do_5 = "Finding 9.25.6.2 and decision 2209: budget/execution_state.rs read_record (:188-230) reads the program's records through the view functions of the programs precompile instead of module-store keys: verified_program_record takes the calldata of getProgram(bytes32), getProgramOwner(bytes32), getWindDown(bytes32), getInterface(bytes32) and getCurrentFeeSchedule(), and per account getProgramAccountById(bytes32) or getProgramAccount(bytes32,bytes32,bytes) and getValueAccount(bytes32,bytes32), each result decoded by the ABI outputs of precompiles/layerxprograms/abi.json, and the settlement derives from those outputs the facts the record byte layouts at :229-250 checked. verified_program_record and verified_program_owner (protocol_evidence.rs:1882-1975) lose the verifier, signing-key, correlation_id, authorization and signed_header parameters and the LNI header checks, taking the ServedCheckpoint the caller holds, and the CommittedReads of do_4 passes its checkpoint. The restored unit tests cover one program with one account through the TcpListener double of do_4, including a getProgramOwner answer and a settlement read whose second eth_call answer differs and is refused."
 
 [task.8.98.16]
 title = "Retire the receipt authority's kernel socket and read checkpoints from the committed anchor"
