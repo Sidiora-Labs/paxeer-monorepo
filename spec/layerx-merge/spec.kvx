@@ -117770,7 +117770,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.8.4]
 title = "Retire the kernel-format refusal tests of the programs test crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
