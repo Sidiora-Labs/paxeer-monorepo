@@ -122,7 +122,7 @@ pub fn decode(event: &DecodedEvent, sender: &str, timestamp: u64) -> Option<Name
     let (node, action) = match (event.contract.as_str(), event.name.as_str()) {
         ("names_registry", "NewOwner") => {
             put("owner", "owner")?;
-            (child_node(bytes32("node")?, bytes32("label")?), "register")
+            (child_node(bytes32("node")?, bytes32("label")?), "transfer")
         }
         ("names_registry", "Transfer") => {
             put("owner", "owner")?;
@@ -130,7 +130,7 @@ pub fn decode(event: &DecodedEvent, sender: &str, timestamp: u64) -> Option<Name
         }
         ("names_registry", "NewResolver") => {
             put("resolver", "resolver")?;
-            (bytes32("node")?, "set_addr")
+            (bytes32("node")?, "set_resolver")
         }
         ("names_registrar", "NameRegistered") => {
             put("owner", "owner")?;

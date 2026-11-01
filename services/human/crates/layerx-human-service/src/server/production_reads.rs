@@ -319,7 +319,71 @@ fn evidence_get(
             "content_type": "application/vnd.layerx.receipt", "bytes_base64": STANDARD.encode(evidence.canonical_receipt)}),
         ));
     }
+    let mut records = Vec::new();
+    for key in scope
+        .keys(Table::Journeys)
+        .into_iter()
+        .filter(|key| key.as_str().starts_with("intent-evm-"))
+    {
+        let row = scope
+            .get(Table::Journeys, &key)
+            .ok_or_else(ApiFailure::upstream_degraded)?;
+        records.push(
+            serde_json::from_slice(row.bytes()).map_err(|_| ApiFailure::upstream_degraded())?,
+        );
+    }
+    if let Some((class, verification, content_type, bytes)) =
+        intent_evm_evidence(&records, expected)
+    {
+        return Ok(response(
+            json!({"evidence_id": id, "class": class, "verification": verification,
+            "content_type": content_type, "bytes_base64": STANDARD.encode(bytes)}),
+        ));
+    }
     Err(ApiFailure::not_found())
+}
+
+fn intent_evm_evidence(
+    records: &[Value],
+    digest: [u8; 32],
+) -> Option<(&'static str, &'static str, &'static str, Vec<u8>)> {
+    let matches_digest = |value: &Value| {
+        value
+            .as_str()
+            .and_then(|hash| hash.strip_prefix("0x"))
+            .and_then(|hash| decode_digest(&hash.to_ascii_lowercase()))
+            == Some(digest)
+    };
+    for leg in records
+        .iter()
+        .filter_map(|record| record["legs"].as_array())
+        .flatten()
+    {
+        if leg["verified"] == true || leg["refused"] == true {
+            if matches_digest(&leg["receipt_hash"]) {
+                if let Ok(bytes) = serde_json::from_value::<Vec<u8>>(leg["receipt"].clone()) {
+                    if Sha256::digest(&bytes)[..] == digest {
+                        return Some((
+                            "layerx-receipt",
+                            "receipt-verified",
+                            "application/vnd.layerx.receipt",
+                            bytes,
+                        ));
+                    }
+                }
+            }
+        } else if leg["submitted"] == true && matches_digest(&leg["tx_hash"]) {
+            if let Ok(bytes) = serde_json::from_value::<Vec<u8>>(leg["raw_transaction"].clone()) {
+                return Some((
+                    "submission-record",
+                    "unverified",
+                    "application/vnd.layerx.evm-transaction",
+                    bytes,
+                ));
+            }
+        }
+    }
+    None
 }
 
 pub(super) fn intent_journey_json(record: &Value) -> Result<Value, ApiFailure> {
@@ -348,8 +412,7 @@ pub(super) fn intent_journey_json(record: &Value) -> Result<Value, ApiFailure> {
         let hash = leg["tx_hash"]
             .as_str()
             .ok_or_else(ApiFailure::upstream_degraded)?;
-        let digest = hash
-            .strip_prefix("0x")
+        hash.strip_prefix("0x")
             .filter(|hex| hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
             .ok_or_else(ApiFailure::upstream_degraded)?;
         let nonce = leg["nonce"]
@@ -359,9 +422,23 @@ pub(super) fn intent_journey_json(record: &Value) -> Result<Value, ApiFailure> {
             ("refused", "refused", "layerx-receipt", "receipt-verified")
         } else if leg["verified"] == true {
             ("confirmed", "done", "layerx-receipt", "receipt-verified")
-        } else {
+        } else if leg["submitted"] == true {
             ("submitted", "processing", "submission-record", "unverified")
+        } else {
+            return Err(ApiFailure::upstream_degraded());
         };
+        let evidence_hash = if leg["refused"] == true || leg["verified"] == true {
+            leg["receipt_hash"]
+                .as_str()
+                .ok_or_else(ApiFailure::upstream_degraded)?
+        } else {
+            hash
+        };
+        let digest = evidence_hash
+            .strip_prefix("0x")
+            .filter(|hex| hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
+            .ok_or_else(ApiFailure::upstream_degraded)?
+            .to_ascii_lowercase();
         let reference = json!({"evidence_id": format!("evd_{digest}"), "class": class, "verification": verification});
         stages.push(json!({"stage_id": format!("stg_{id}_{index}"), "copy_key": format!("journey.stage.{phase}"),
             "state": stage_state, "evidence": [reference.clone()], "tx_hash": hash, "nonce": nonce}));
@@ -655,6 +732,107 @@ fn cached_balance_verification(
         Some(4) => Ok(("checkpoint-proof", "checkpoint-finalised")),
         Some(5) => Ok(("checkpoint-proof", "settlement-anchored")),
         _ => Err(ApiFailure::upstream_degraded()),
+    }
+}
+
+#[cfg(test)]
+mod intent_evm_evidence_tests {
+    use super::{hex, intent_evm_evidence, intent_journey_json, ApiFailure};
+    use serde_json::{json, Value};
+    use sha2::{Digest as _, Sha256};
+
+    #[test]
+    fn intent_evm_evidence_references_resolve_to_their_material() {
+        let receipt = b"canonical intent EVM receipt".to_vec();
+        let receipt_hash: [u8; 32] = Sha256::digest(&receipt).into();
+        let raw_transaction = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: 125,
+            nonce: 1,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 21_000,
+            to: [3; 20],
+            data: Vec::new(),
+        }
+        .sign(&[1; 32])
+        .expect("signed EVM transaction");
+        let tx_hash = layerx_crypto::evm_transaction::transaction_hash(&raw_transaction);
+        let mut record = json!({
+            "journey_id": "jrn_intentevidence",
+            "state": "still-checking",
+            "started_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:01Z",
+            "legs": [
+                {"tx_hash": format!("0x{}", hex(&[4; 32])), "nonce": 0,
+                 "submitted": true, "verified": true,
+                 "receipt_hash": format!("0x{}", hex(&receipt_hash)), "receipt": receipt},
+                {"tx_hash": format!("0x{}", hex(&tx_hash)), "nonce": 1,
+                 "submitted": true, "verified": false, "raw_transaction": raw_transaction}
+            ]
+        });
+        let receipt_reference = json!({"evidence_id": format!("evd_{}", hex(&receipt_hash)),
+            "class": "layerx-receipt", "verification": "receipt-verified"});
+        let submission_reference = json!({"evidence_id": format!("evd_{}", hex(&tx_hash)),
+            "class": "submission-record", "verification": "unverified"});
+        let journey = intent_journey_json(&record).expect("intent journey projection");
+        assert_eq!(journey["stages"][0]["evidence"], json!([receipt_reference]));
+        assert_eq!(
+            journey["stages"][1]["evidence"],
+            json!([submission_reference])
+        );
+        assert_eq!(
+            journey["evidence"],
+            json!([receipt_reference, submission_reference])
+        );
+        let receipt_material = (
+            "layerx-receipt",
+            "receipt-verified",
+            "application/vnd.layerx.receipt",
+            receipt,
+        );
+        assert_eq!(
+            intent_evm_evidence(std::slice::from_ref(&record), receipt_hash),
+            Some(receipt_material.clone())
+        );
+        assert_eq!(
+            intent_evm_evidence(std::slice::from_ref(&record), tx_hash),
+            Some((
+                "submission-record",
+                "unverified",
+                "application/vnd.layerx.evm-transaction",
+                raw_transaction
+            ))
+        );
+        assert_eq!(
+            intent_evm_evidence(std::slice::from_ref(&record), [4; 32]),
+            None
+        );
+
+        record["legs"][0]["verified"] = json!(false);
+        record["legs"][0]["refused"] = json!(true);
+        let refused = intent_journey_json(&record).expect("refused intent journey projection");
+        assert_eq!(refused["stages"][0]["state"], "refused");
+        assert_eq!(refused["stages"][0]["evidence"], json!([receipt_reference]));
+        assert_eq!(
+            intent_evm_evidence(std::slice::from_ref(&record), receipt_hash),
+            Some(receipt_material)
+        );
+        record["legs"][0]["receipt"] = json!(b"tampered receipt".to_vec());
+        assert_eq!(
+            intent_evm_evidence(std::slice::from_ref(&record), receipt_hash),
+            None
+        );
+        for invalid in [
+            Value::Null,
+            json!("0x12"),
+            json!(format!("0x{}", "gg".repeat(32))),
+        ] {
+            record["legs"][0]["receipt_hash"] = invalid;
+            assert_eq!(
+                intent_journey_json(&record),
+                Err(ApiFailure::upstream_degraded())
+            );
+        }
     }
 }
 

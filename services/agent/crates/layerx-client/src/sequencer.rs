@@ -239,8 +239,8 @@ pub struct StorageWitness {
 pub struct HistoryPage {
     pub items: Vec<Value>,
     pub next_cursor: Option<String>,
-    pub indexed_height: u64,
-    pub chain_height: u64,
+    pub indexed_height: Option<u64>,
+    pub chain_height: Option<u64>,
 }
 
 /// A JSON-RPC 2.0 client for the sequencer methods.
@@ -388,7 +388,10 @@ impl SequencerEndpoint {
             return Err(SequencerError::Endpoint);
         }
         let result = self.call("px_getHistory", &json!([account, cursor, limit]))?;
-        decode_history_page(&result).ok_or(SequencerError::Malformed)
+        let mut page = decode_history_page(&result).ok_or(SequencerError::Malformed)?;
+        // The served history page has no chain height; obtain the node head separately.
+        page.chain_height = Some(self.block_number()?);
+        Ok(page)
     }
 
     /// Next nonce of `address` from the sequencer's pending nonce map.
@@ -912,6 +915,11 @@ fn history_cursor(cursor: &str) -> bool {
 }
 
 fn decode_history_page(value: &Value) -> Option<HistoryPage> {
+    Fields::exact(value, &["items", "next_cursor", "indexedHeight"])?;
+    let indexed_height = match value.get("indexedHeight")? {
+        Value::Null => None,
+        height => Some(height.as_u64()?),
+    };
     let next_cursor = match value.get("next_cursor")? {
         Value::Null => None,
         Value::String(cursor) if history_cursor(cursor) => Some(cursor.clone()),
@@ -920,8 +928,8 @@ fn decode_history_page(value: &Value) -> Option<HistoryPage> {
     Some(HistoryPage {
         items: value.get("items")?.as_array()?.clone(),
         next_cursor,
-        indexed_height: value.get("indexedHeight")?.as_u64()?,
-        chain_height: value.get("chainHeight")?.as_u64()?,
+        indexed_height,
+        chain_height: None,
     })
 }
 

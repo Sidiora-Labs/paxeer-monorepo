@@ -31,16 +31,17 @@ contract NamesDeployment {
         PaxBaseRegistrar registrar =
             new PaxBaseRegistrar(address(registry), governanceTimelock, emergencyAuthority, gracePeriod);
         PaxPublicResolver resolver = new PaxPublicResolver(address(registry), governanceTimelock, emergencyAuthority);
-        PaxReverseRegistrar reverseRegistrar = new PaxReverseRegistrar(address(registry), address(resolver));
         PaxRegistrarController controller = new PaxRegistrarController(
             address(registrar),
             address(registry),
             address(resolver),
-            address(reverseRegistrar),
+            address(0),
             treasury,
             governanceTimelock,
             emergencyAuthority
         );
+        PaxReverseRegistrar reverseRegistrar =
+            new PaxReverseRegistrar(address(registry), address(resolver), address(controller));
 
         registry.setSubnodeOwner(bytes32(0), keccak256("pax"), address(registrar));
         bytes32 reverseNode = registry.setSubnodeOwner(bytes32(0), keccak256("reverse"), address(this));
@@ -61,8 +62,8 @@ contract NamesDeployment {
         pure
         returns (address[] memory targets, bytes[] memory payloads)
     {
-        targets = new address[](5);
-        payloads = new bytes[](5);
+        targets = new address[](6);
+        payloads = new bytes[](6);
         targets[0] = deployed.registrar;
         payloads[0] = abi.encodeCall(PaxBaseRegistrar.addController, (deployed.controller));
         targets[1] = deployed.resolver;
@@ -71,5 +72,8 @@ contract NamesDeployment {
             targets[i + 2] = deployed.controller;
             payloads[i + 2] = abi.encodeCall(PaxRegistrarController.setPrice, (i + 3, yearlyPrices[i]));
         }
+        targets[5] = deployed.controller;
+        payloads[5] =
+            abi.encodeCall(PaxRegistrarController.setResolvers, (deployed.resolver, deployed.reverseRegistrar));
     }
 }

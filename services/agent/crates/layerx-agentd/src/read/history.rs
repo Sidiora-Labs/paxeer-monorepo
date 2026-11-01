@@ -2,11 +2,9 @@
 
 use crate::human_node::HumanNode;
 use crate::node_rpc::NodeRpcError;
-use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope};
-use layerx_client::lni::transport::{FrameTransport, FrameViolation, TransportError};
+use layerx_client::lni::transport::FrameTransport;
 use layerx_client::read::{HistoryKind, ReadContext, ReadError};
 use layerx_client::sequencer::{RpcRefusal, SequencerEndpoint, SequencerError};
-use layerx_types::verify::VerificationLevel;
 use serde_json::{json, Value};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -113,7 +111,9 @@ pub struct HistoryPage {
 }
 
 impl HistoryPage {
-    pub(crate) fn read_account(
+    /// # Errors
+    /// Refuses malformed, oversized or unordered served pages and preserves RPC refusals.
+    pub fn read_account(
         endpoint: &SequencerEndpoint,
         account: &str,
         from_height: u64,
@@ -133,33 +133,69 @@ impl HistoryPage {
             Some(limits.maximum_items),
         )
         .map_err(HistoryReadError::Sequencer)?;
-        if page.indexed_height > page.chain_height || to_height > page.indexed_height {
-            return Err(HistoryReadError::InvalidRange);
+        let indexed_height = page.indexed_height.ok_or(HistoryReadError::InvalidRange)?;
+        let head = page.chain_height.ok_or(HistoryReadError::InvalidRange)?;
+        let height = indexed_height.min(head);
+        let to_height = to_height.min(height);
+        validate_request(from_height, to_height, cursor, limits)?;
+        let response_bytes = serde_json::to_vec(&json!({
+            "items": page.items,
+            "next_cursor": page.next_cursor,
+            "indexedHeight": page.indexed_height,
+        }))
+        .map_err(|_| HistoryReadError::Malformed)?
+        .len();
+        if response_bytes > limits.maximum_response_bytes
+            || page.items.len() > usize::from(limits.maximum_items)
+        {
+            return Err(HistoryReadError::Oversized);
         }
-        let next = page
+        let next_cursor = page
             .next_cursor
             .as_deref()
             .map(Cursor::from_hex)
             .transpose()?;
-        let result = json!({
-            "height": page.indexed_height.to_string(),
-            "items": page.items,
-            "cursor": next.map(Cursor::wire),
-        });
-        let response_bytes = serde_json::to_vec(&result)
-            .map_err(|_| HistoryReadError::Malformed)?
-            .len();
-        if response_bytes > limits.maximum_response_bytes {
-            return Err(HistoryReadError::Oversized);
+        let mut items = Vec::with_capacity(page.items.len());
+        let mut previous = cursor;
+        for row in page.items {
+            let position = Cursor {
+                block_height: row
+                    .get("blockHeight")
+                    .and_then(Value::as_u64)
+                    .ok_or(HistoryReadError::Malformed)?,
+                tx_index: row
+                    .get("txIndex")
+                    .and_then(Value::as_u64)
+                    .and_then(|index| u32::try_from(index).ok())
+                    .ok_or(HistoryReadError::Malformed)?,
+                log_index: row
+                    .get("logIndex")
+                    .and_then(Value::as_u64)
+                    .and_then(|index| u32::try_from(index).ok())
+                    .ok_or(HistoryReadError::Malformed)?,
+            };
+            if !(from_height..=to_height).contains(&position.block_height)
+                || previous.is_some_and(|previous| position <= previous)
+            {
+                return Err(HistoryReadError::Cursor);
+            }
+            items.push(HistoryItem {
+                position,
+                kind: HistoryKind::Event,
+                canonical: serde_json::to_vec(&row).map_err(|_| HistoryReadError::Malformed)?,
+                proof: None,
+            });
+            previous = Some(position);
         }
-        decode_page(
-            result.as_object().ok_or(HistoryReadError::Malformed)?,
-            from_height,
-            to_height,
-            cursor,
-            limits,
+        if next_cursor.is_some_and(|next| items.last().map(|item| item.position) != Some(next)) {
+            return Err(HistoryReadError::Cursor);
+        }
+        Ok(Self {
+            items,
+            next_cursor,
+            height,
             response_bytes,
-        )
+        })
     }
 }
 
@@ -189,130 +225,37 @@ pub trait HistorySource {
 impl HistorySource for dyn HumanNode + '_ {
     fn read_history_page(
         &mut self,
-        params: Value,
-        maximum_response_bytes: usize,
-        context: Option<ReadContext>,
+        _params: Value,
+        _maximum_response_bytes: usize,
+        _context: Option<ReadContext>,
     ) -> Result<(Vec<u8>, u64), HistoryReadError> {
-        if context.is_some() {
-            return Err(HistoryReadError::Read(ReadError::UnexpectedResponse));
-        }
-        self.history_page(params, maximum_response_bytes)
-            .map(|bytes| (bytes, 1))
-            .map_err(HistoryReadError::Node)
+        Err(HistoryReadError::Sequencer(SequencerError::Unavailable))
     }
 }
 
 impl<T: FrameTransport + ?Sized> HistorySource for T {
     fn read_history_page(
         &mut self,
-        params: Value,
-        maximum_response_bytes: usize,
-        context: Option<ReadContext>,
+        _params: Value,
+        _maximum_response_bytes: usize,
+        _context: Option<ReadContext>,
     ) -> Result<(Vec<u8>, u64), HistoryReadError> {
-        let context = context.ok_or(HistoryReadError::Read(ReadError::UnexpectedResponse))?;
-        if context.requested.level() != VerificationLevel::UNVERIFIED {
-            return Err(HistoryReadError::Read(ReadError::MissingEvidence {
-                requested: context.requested.level(),
-                achieved: VerificationLevel::UNVERIFIED,
-            }));
-        }
-        let payload = serde_json::to_vec(&json!({
-            "jsonrpc": "2.0", "id": context.correlation_id,
-            "method": "px_getHistory", "params": params
-        }))
-        .map_err(|_| HistoryReadError::Malformed)?;
-        let request = encode_envelope(Envelope {
-            version: context.interface_version,
-            message_tag: 9,
-            correlation_id: context.correlation_id,
-            canonical_payload: &payload,
-            proof_material: &[],
-        })
-        .map_err(|error| HistoryReadError::Read(ReadError::Envelope(error)))?;
-        self.send(&request).map_err(transport_error)?;
-        let frame = self.receive().map_err(transport_error)?;
-        let envelope = decode_envelope(&frame)
-            .map_err(|error| HistoryReadError::Read(ReadError::Envelope(error)))?;
-        if envelope.version.major != context.interface_version.major
-            || envelope.correlation_id != context.correlation_id
-            || envelope.message_tag != 11
-            || !envelope.proof_material.is_empty()
-        {
-            return Err(HistoryReadError::Read(ReadError::UnexpectedResponse));
-        }
-        if envelope.canonical_payload.len() > maximum_response_bytes {
-            return Err(HistoryReadError::Oversized);
-        }
-        Ok((envelope.canonical_payload.to_vec(), context.correlation_id))
+        Err(HistoryReadError::Sequencer(SequencerError::Unavailable))
     }
 }
 
-/// Reads a complete bounded px_getHistory page through the human node connection.
-///
 /// # Errors
-/// Refuses invalid ranges, cursors, malformed or unordered pages and oversized responses.
-/// Node transport and JSON-RPC refusals retain their original error.
+/// Block-range history is unavailable because the served method requires an account.
 pub fn history(
-    node: &mut (impl HistorySource + ?Sized),
+    _node: &mut (impl HistorySource + ?Sized),
     from_height: u64,
     to_height: u64,
     cursor: Option<Cursor>,
     limits: HistoryLimits,
-    context: impl Into<Option<ReadContext>>,
+    _context: impl Into<Option<ReadContext>>,
 ) -> Result<HistoryPage, HistoryReadError> {
     validate_request(from_height, to_height, cursor, limits)?;
-    let (bytes, correlation_id) = node.read_history_page(
-        json!([{
-            "from_height": from_height.to_string(), "to_height": to_height.to_string(),
-            "limit": limits.maximum_items.to_string(), "cursor": cursor.map(Cursor::wire)
-        }]),
-        limits.maximum_response_bytes,
-        context.into(),
-    )?;
-    if bytes.len() > limits.maximum_response_bytes {
-        return Err(HistoryReadError::Oversized);
-    }
-    let response: Value =
-        serde_json::from_slice(&bytes).map_err(|_| HistoryReadError::Malformed)?;
-    let object = response.as_object().ok_or(HistoryReadError::Malformed)?;
-    if object.len() != 3
-        || response["jsonrpc"] != "2.0"
-        || response["id"].as_u64() != Some(correlation_id)
-    {
-        return Err(HistoryReadError::Malformed);
-    }
-    if let Some(error) = object.get("error") {
-        let error = error.as_object().ok_or(HistoryReadError::Malformed)?;
-        if error
-            .keys()
-            .any(|key| !matches!(key.as_str(), "code" | "message" | "data"))
-        {
-            return Err(HistoryReadError::Malformed);
-        }
-        let refusal = RpcRefusal {
-            code: error
-                .get("code")
-                .and_then(Value::as_i64)
-                .ok_or(HistoryReadError::Malformed)?,
-            message: error
-                .get("message")
-                .and_then(Value::as_str)
-                .ok_or(HistoryReadError::Malformed)?
-                .to_owned(),
-            data: error.get("data").cloned(),
-        };
-        return Err(HistoryReadError::Rpc(refusal));
-    }
-    decode_page(
-        response["result"]
-            .as_object()
-            .ok_or(HistoryReadError::Malformed)?,
-        from_height,
-        to_height,
-        cursor,
-        limits,
-        bytes.len(),
-    )
+    Err(HistoryReadError::Sequencer(SequencerError::Unavailable))
 }
 
 fn validate_request(
@@ -331,25 +274,6 @@ fn validate_request(
         return Err(HistoryReadError::Cursor);
     }
     Ok(())
-}
-
-fn decode_page(
-    result: &serde_json::Map<String, Value>,
-    from_height: u64,
-    to_height: u64,
-    cursor: Option<Cursor>,
-    limits: HistoryLimits,
-    response_bytes: usize,
-) -> Result<HistoryPage, HistoryReadError> {
-    decode_page_ordered(
-        result,
-        from_height,
-        to_height,
-        cursor,
-        limits,
-        response_bytes,
-        false,
-    )
 }
 
 fn decode_page_ordered(
@@ -462,13 +386,6 @@ fn hex_bytes(value: &Value) -> Result<Vec<u8>, HistoryReadError> {
         .collect()
 }
 
-fn transport_error(error: TransportError) -> HistoryReadError {
-    match error {
-        TransportError::Frame(FrameViolation::Oversized { .. }) => HistoryReadError::Oversized,
-        _ => HistoryReadError::Read(ReadError::Transport(error)),
-    }
-}
-
 impl HistoryReadError {
     pub(crate) const fn code(&self) -> &'static str {
         match self {
@@ -495,7 +412,8 @@ impl HistoryPage {
             )
             .map_err(HistoryReadError::Sequencer)?;
         // An indexer behind the committed head cannot prove a complete usage window.
-        if page.indexed_height == 0 || page.indexed_height != page.chain_height {
+        let indexed_height = page.indexed_height.ok_or(HistoryReadError::InvalidRange)?;
+        if indexed_height == 0 || page.indexed_height != page.chain_height {
             return Err(HistoryReadError::InvalidRange);
         }
         let response_bytes = serde_json::to_vec(&json!({"items": page.items,
@@ -511,11 +429,11 @@ impl HistoryPage {
             .as_deref()
             .map(Cursor::from_hex)
             .transpose()?;
-        let result = json!({"height": page.indexed_height.to_string(), "items": page.items, "cursor": next.map(Cursor::wire)});
+        let result = json!({"height": indexed_height.to_string(), "items": page.items, "cursor": next.map(Cursor::wire)});
         decode_page_ordered(
             result.as_object().ok_or(HistoryReadError::Malformed)?,
             0,
-            page.indexed_height,
+            indexed_height,
             cursor,
             limits,
             response_bytes,

@@ -1326,6 +1326,18 @@ struct ActivityLookupRequest {
     agent: Option<String>,
     idempotency_key: String,
     expected_activity_id: String,
+    requested_rung: String,
+}
+
+impl ActivityLookupRequest {
+    fn requested_level(&self, id: RequestId) -> Result<Rung, Rejection> {
+        match self.requested_rung.as_str() {
+            "submitted" => Ok(Rung::Submitted),
+            "receipted" => Ok(Rung::Receipted),
+            "committed" => Ok(Rung::Committed),
+            _ => Err(malformed(id)),
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -1528,11 +1540,11 @@ pub(crate) fn canonical_request_bytes(
                 named(operation, &decode::<ApprovalGetRequest>(request, id)?, id)?
             }
         }
-        Operation::ProgramReceipt => named(
-            operation,
-            &decode::<ActivityLookupRequest>(request, id)?,
-            id,
-        )?,
+        Operation::ProgramReceipt => {
+            let request: ActivityLookupRequest = decode(request, id)?;
+            request.requested_level(id)?;
+            named(operation, &request, id)?
+        }
         Operation::ApprovalApprove | Operation::ApprovalReject => {
             if native_variant(request, id)? {
                 wire_bytes::<NativeApprovalDecisionV1Wire, _>(
@@ -1866,14 +1878,28 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
         }
         Operation::ProgramReceipt => {
             let request: ActivityLookupRequest = decode(request, id)?;
+            let requested = request.requested_level(id)?;
             let _ = (request.tenant, request.agent);
             let key = hex32(&request.idempotency_key, id)?;
             let activity = hex32(&request.expected_activity_id, id)?;
-            dispatched(
+            let mut receipt = dispatched(
                 id,
                 owner.receipt_by_idempotency_key(peer, key, activity),
                 decode_receipt_lookup,
-            )
+            )?;
+            if let Some(VerificationStatus::Achieved(achieved)) = receipt.verification {
+                if achieved < requested {
+                    receipt.verification = Some(VerificationStatus::Below {
+                        requested,
+                        achieved,
+                        reason: layerx_agent_api::error::ReasonCode::new(
+                            "requested_rung_not_achieved",
+                        )
+                        .map_err(|_| malformed(id))?,
+                    });
+                }
+            }
+            Ok(receipt)
         }
         Operation::ApprovalApprove => adapters::approval_approve(shared, context, request, ctx),
         Operation::ApprovalReject => adapters::approval_reject(shared, context, request, ctx),
@@ -2083,6 +2109,56 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             "mcp.operation_refused",
         )),
     }
+}
+
+#[test]
+fn program_receipt_request_requires_an_advertised_rung() {
+    let id = RequestId(13);
+    let mut request = Map::new();
+    request.insert("idempotency_key".into(), Value::String("ab".repeat(32)));
+    request.insert(
+        "expected_activity_id".into(),
+        Value::String("cd".repeat(32)),
+    );
+
+    for (name, level) in [
+        ("submitted", Rung::Submitted),
+        ("receipted", Rung::Receipted),
+        ("committed", Rung::Committed),
+    ] {
+        request.insert("requested_rung".into(), Value::String(name.into()));
+        let original = request.clone();
+        let bytes = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
+            .expect("an advertised rung is accepted")
+            .expect("program.receipt has canonical request bytes");
+        let prefix = b"program.receipt\0";
+        assert!(bytes.starts_with(prefix));
+        let canonical: Value = serde_json::from_slice(&bytes[prefix.len()..])
+            .expect("canonical request contains JSON");
+        assert_eq!(canonical, Value::Object(original.clone()));
+        assert_eq!(request, original);
+        let typed: ActivityLookupRequest = decode(&request, id).expect("selector decodes");
+        assert_eq!(typed.requested_level(id).expect("rung decodes"), level);
+    }
+
+    request.remove("requested_rung");
+    let missing = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
+        .expect_err("requested_rung is required");
+    assert_eq!(missing.class, ErrorClass::ProtocolIncompatibility);
+    assert_eq!(missing.reason, "envelope.malformed");
+
+    request.insert("requested_rung".into(), Value::String("pending".into()));
+    let pending = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
+        .expect_err("pending is not an advertised rung");
+    assert_eq!(pending.class, ErrorClass::ProtocolIncompatibility);
+    assert_eq!(pending.reason, "envelope.malformed");
+
+    request.insert("requested_rung".into(), Value::String("submitted".into()));
+    request.insert("extra".into(), Value::Bool(true));
+    let extra = canonical_request_bytes(Operation::ProgramReceipt, &request, id)
+        .expect_err("unknown selector fields are refused");
+    assert_eq!(extra.class, ErrorClass::ProtocolIncompatibility);
+    assert_eq!(extra.reason, "envelope.unknown_field");
 }
 
 #[test]
