@@ -110427,7 +110427,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.45.5]
 title = "Regenerate the platform SDK outputs and reseal the pipeline lock after the human API schema change"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["8.45.4", "10.0.3"]
