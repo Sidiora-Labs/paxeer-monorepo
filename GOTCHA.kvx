@@ -12981,3 +12981,13 @@ fix = "When a do names the expected accounting of a recovery, read the reconcile
 title = "A task that deletes a crate must also drop its workspace member line in the same tree"
 symptom = "A retirement task deleted a crate directory and its manifest but left the crate listed under [workspace] members, so every build of that workspace at main failed at manifest load until a later task removed the line; an unrelated attempt in the window was charged a failed build."
 fix = "When a do deletes a crate, name the workspace manifest among the touches and say the member line goes with it; when an attempt fails at manifest load, check whether main at its base revision is consistent before reading further."
+
+[gotcha.2633]
+title = "Dropping a dependency from a crate's manifest stales every workspace lock that resolves that crate"
+symptom = "A retirement removed two dependencies from a registry crate's manifest and regenerated only its own workspace lock; seventeen other lock files that resolve the crate by path still listed the two rows, so every --locked build of six other workspaces refused at main and sixteen implemented attempts failed before compiling."
+fix = "When a do edits [dependencies] of a crate other workspaces resolve by path, list every Cargo.lock that names the crate in the touches and regenerate them in the same task, as task 9.25.16 did; when many attempts fail at once with 'lock file needs to be updated', look for the manifest change on main before reading any attempt."
+
+[gotcha.2634]
+title = "A manifest dependency removal is qualified with the crate's test targets, not its library alone"
+symptom = "A task removed two crates from a test crate's manifest, built only the library target and verified the resolved dependency graph; three integration test files still imported the removed crates, and the workspace-wide dependent-crate check of the next programs task failed on them."
+fix = "When a do removes a dependency, make the build gate cargo build --tests (or cargo check --all-targets) of the edited crate and grep the removed crate names out of its tests directory in the verify."
