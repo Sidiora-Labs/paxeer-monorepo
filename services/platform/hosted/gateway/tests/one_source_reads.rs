@@ -679,9 +679,21 @@ fn px_get_account_reads_no_kernel_backend() {
             .count(),
         1
     );
-    let (_, readiness) = gateway.get("/readyz");
+    let (status, readiness) = gateway.get("/readyz");
+    assert_eq!(status, 200, "{readiness}");
+    assert_eq!(readiness["status"], "ready", "{readiness}");
+    for kernel in [
+        "core_agent_boundary",
+        "public_core",
+        "independent_receipt_authority",
+        "identity",
+        "program_registry",
+    ] {
+        assert!(readiness["backends"].get(kernel).is_none(), "{readiness}");
+    }
     assert_eq!(
-        readiness["backends"]["public_core"]["reason"], "not_configured",
+        readiness["components"],
+        json!({"durable_store": "ready"}),
         "{readiness}"
     );
 }
