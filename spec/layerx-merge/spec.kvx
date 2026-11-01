@@ -117439,7 +117439,7 @@ do_5 = "Finding 9.25.8.2: attempt 4 (06a2baa79) qualified on the tree of attempt
 
 [task.9.25.7]
 title = "Restore the daemon's native fee policy from the fee-token and asset registry precompiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.3", "9.25.8"]
