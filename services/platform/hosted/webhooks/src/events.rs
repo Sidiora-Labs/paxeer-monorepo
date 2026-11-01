@@ -673,6 +673,37 @@ mod tests {
     use crate::error::WebhookError;
 
     #[test]
+    fn block_committed_is_the_top_verification_above_receipt_verified() {
+        let levels = [
+            (Verification::Unverified, "unverified"),
+            (Verification::ReceiptVerified, "receipt-verified"),
+            (Verification::BlockCommitted, "block-committed"),
+        ];
+        for (rank, (level, word)) in levels.iter().enumerate() {
+            assert_eq!(level.as_str(), *word);
+            let parsed = Verification::parse(level.as_str()).expect("wire level round-trips");
+            assert_eq!(parsed, *level);
+            for (required_rank, (required, required_word)) in levels.iter().enumerate() {
+                let parsed_required =
+                    Verification::parse(required_word).expect("required wire level round-trips");
+                assert_eq!(parsed_required, *required);
+                assert_eq!(parsed.at_least(parsed_required), rank >= required_rank);
+                assert_eq!(parsed.cmp(&parsed_required), rank.cmp(&required_rank));
+            }
+        }
+        assert!(Verification::Unverified < Verification::ReceiptVerified);
+        assert!(Verification::ReceiptVerified < Verification::BlockCommitted);
+        assert!(Verification::BlockCommitted.at_least(Verification::ReceiptVerified));
+        assert!(!Verification::ReceiptVerified.at_least(Verification::BlockCommitted));
+        for word in ["checkpoint-finalised", "paxeer-finalised"] {
+            assert!(matches!(
+                Verification::parse(word),
+                Err(WebhookError::InvalidRequest)
+            ));
+        }
+    }
+
+    #[test]
     fn block_committed_orders_above_receipt() {
         let committed = Verification::BlockCommitted;
         assert_eq!(committed.as_str(), "block-committed");
