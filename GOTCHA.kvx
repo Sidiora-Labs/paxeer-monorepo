@@ -12606,3 +12606,53 @@ fix = "after a directory move grep the old path in every prefix form ($(CURDIR)/
 title = "EVM owner evidence refused by consumers that compare the actor with a DID"
 symptom = "after a producer switched ProtocolEvidence to the EVM owner form (actor = the 20-byte sender, owner_public_key = the sender's authority word), onboarding/native.rs kept four comparisons of evidence.actor with DID bytes and of evidence.owner_public_key with ed25519 keys and refused every ported test with EvidenceConflict, found only when the test port of a different task reached that site"
 fix = "when a producer changes the encoding of an identity field, enumerate every consumer that compares that field (grep for the field name) and port them in the same task or in tasks the test port requires; a comparison that can never be true in the new form is a product defect, not a test fault"
+
+[gotcha.2558]
+title = "A lib-only build gate let a rewritten module break a test target nobody compiled"
+symptom = "a task rewrote budget_proof.rs around a new trust type under a build gate of cargo build for four crates without --tests, and the integration test that imported the removed CommittedBudgetProofTrust failed to compile for every later task that builds layerx-agentd --tests"
+fix = "a task that removes or renames a pub item greps the crate's tests/ directory for it and builds with --tests in its build gate; a consumer in tests/ is a consumer"
+
+[gotcha.2559]
+title = "An end-to-end test that proxies to a real third-party service cannot pass under its gate"
+symptom = "a wallet test required a real explorer URL and a committed transaction hash from environment variables and forwarded the page's explorer requests to it, so it threw before the first assertion in the qualification environment, which provides the two local chains and no explorer"
+fix = "serve the third party from the test: route the request and fulfil it with the document shape the page reads, derived from local chain state; keep real-service checks to release gates that declare the service"
+
+[gotcha.2560]
+title = "Escaped double quotes in a spec command reach the shell literally"
+symptom = "a verify command stored with backslash-escaped double quotes inside a python3 -c was run with the backslashes intact and python failed with 'unexpected character after line continuation character'"
+fix = "write gate commands without double quotes: single-quoted python with its values passed as arguments, unquoted $PWD and ${VAR:-default} forms"
+
+[gotcha.2561]
+title = "Transactions broadcast to the consensus RPC never commit at sequenced heights"
+symptom = "a Cosmos transaction sent with paxd tx broadcast -b sync to a node running the sequencer returned code 0 and paxd q tx never found it while blocks kept committing; sequenced blocks carry only the sealed slice, which eth_sendRawTransaction alone feeds"
+fix = "decision 2212 admits the mempool into the open layer at each proposal (task 5.98.8); until it is on main a sequencer-mode fixture cannot await a Cosmos transaction"
+
+[gotcha.2562]
+title = "A derived test task must carry the fixture prelude of the test it chains"
+symptom = "a playwright test that calls its sibling test first failed on the sibling's environment requirement because the new task's verify command ran playwright alone"
+fix = "copy the sibling task's build and verify prelude and change only the -g pattern"
+
+[gotcha.2563]
+title = "Wave aggregate gates need the full SDK toolchain environment"
+symptom = "a wave gate task ran in the mixed-language environment, whose image has no Maven, Swift or dotnet, and make workspace-build stopped in platform-sample-dependencies-ready with 'run make platform-sample-install first' after every earlier target had passed"
+fix = "every task whose gate runs make workspace-build, workspace-test or a platform-* target takes the sdk-all environment profile, which installs the platform sample dependencies before the gate"
+
+[gotcha.2564]
+title = "A task that deletes a symbol must not list it among its symbols"
+symptom = "a port task that removed a stale import and its test passed its build and both verify runs and was refused at the done record because the symbol check wanted the two deleted names defined"
+fix = "list only symbols that exist on the qualified revision; name a deleted symbol in the do text, never in symbols"
+
+[gotcha.2565]
+title = "A touches entry for a file a prerequisite already deleted fails the touched check"
+symptom = "a port task listed a stale test file it was to delete; a prerequisite deleted it first, the task built and passed every test, and the done record was refused because no change to that path existed"
+fix = "when a prerequisite takes over an edit, remove the path from the dependent task's touches in the same ruling that records the takeover"
+
+[gotcha.2566]
+title = "Make targets are not symbols for the done record's symbol check"
+symptom = "a Makefile-only task listed two make targets as its symbols; the build and verify gates passed and the done record was refused because neither name is defined in the symbol graph"
+fix = "a task whose only touched file is a Makefile declares no symbols; the touched check carries it"
+
+[gotcha.2567]
+title = "A task that adds a refusal to a shared path must run the sibling tests of that path"
+symptom = "a task added the open-time-after-last-block refusal to the sequenced proposal path and verified only its own new test; two sibling tests sealing with earlier open times failed on main for six days until the next task gating the whole test family ran them"
+fix = "when a verify command names a single test in a file, include the file's test family (a -run prefix) so the refusal is proven against every existing case"
