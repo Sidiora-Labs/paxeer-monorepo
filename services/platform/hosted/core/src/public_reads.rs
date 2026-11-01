@@ -393,19 +393,11 @@ fn sequence(config: &Config, did: &str) -> Response {
     if layerx_types::ids::Did::new(did.as_bytes()).is_err() {
         return refusal(400, "invalid_did", None);
     }
-    let Ok(accounts) = history::did_accounts(&config.network, did) else {
+    let Ok(address) = history::did_evm_address(&config.network, did) else {
         return refusal(503, "sequence_unavailable", Some(5));
     };
-    let Some(account) = accounts.first() else {
+    let Some(address) = address else {
         return refusal(404, "unknown_did", None);
-    };
-    let Some(address) = account
-        .get("evm_address")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|address| address.strip_prefix("0x"))
-        .and_then(|address| fixed_hex::<20>("evm_address", address).ok())
-    else {
-        return refusal(503, "sequence_unavailable", Some(5));
     };
     let Ok(next_sequence) = config.sequencer.pending_nonce(&address) else {
         return refusal(503, "sequence_unavailable", Some(5));
