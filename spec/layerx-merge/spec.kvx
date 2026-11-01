@@ -6387,6 +6387,12 @@ value = "At a height the sequencer source sequences, CreateProposalBlock (consen
 basis = "Blocks at sequenced heights carry only the sealed slice (InjectSequenceBatch, consensus/internal/state/execution.go:53), and the sealed slice is fed only by eth_sendRawTransaction (rpc/send.go:183 into Accepter.Accept), so a Cosmos transaction broadcast to the consensus RPC is accepted by CheckTx into the mempool and never proposed: the local node fixture's price feed (MsgSubmitPrices through paxd tx broadcast, tools/qualification/localnode/v6120-node.sh:204) waited thirty seconds for a hash that never committed in attempts 14 and 15 of 18.670.1 while the node committed three hundred further blocks, and governance votes, staking and the validators' price submissions (tools/release/rehearsal/programme.py:1255) use the same path. Accept already executes Cosmos transactions (node/sequencer/fee.go:18, node/sequencer/mixed_load_test.go:119); only the entry from the mempool was missing. The producer-and-consumer defect class."
 affects = ["5.98.8", "18.670.1"]
 
+[decision.2213]
+title = "The committed rung presents the explorer's evidence when the receipt and the explorer both reach committed"
+value = "StatusLadder (apps/wallet/src/account/StatusLadder.tsx:37) chooses the evidence of the committed rung as the explorer step of that rung when one is present, then the first step of that rung, then the highest step above it as today; the other rungs keep the first step of their rung. A saved observation of [committed from receipt, committed from explorer] (decision 2208) therefore renders li[data-rung=committed] with data-source explorer and data-evidence committed:<blockHash>, the same presentation TransactionLadder gives by dropping the receipt's committed step (apps/wallet/src/account/StatusLadder.tsx:84), and the send test of 12.35.3 asserts data-source explorer on the committed rung as req.12295 intends: the explorer answer is what proves committed."
+basis = "Attempt 4 of 12.35.3 (27e6d68db) reached the committed rung with the saved steps [committed/receipt, committed/explorer] and the page rendered data-source receipt because StatusLadder takes the first step of the rung and observeTransfer puts the receipt step first; TransactionLadder filters the receipt's committed step out before rendering, so the two product paths through the same component disagreed on the committed rung's source. The component owns the rule once."
+affects = ["12.34.11", "12.35.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -21836,6 +21842,10 @@ ac_1 = "StatusLadder renders the rungs Submitted, Receipted and Committed in ord
 title = "Read the transaction ladder from the sequencer receipt before the explorer"
 ac_1 = "TransactionLadder reaches receipted from pax_sequencerReceipt while the explorer still answers submitted (apps/wallet/src/account/StatusLadder.tsx:50)."
 
+[req.12297]
+title = "The committed rung prefers the explorer step over the receipt step"
+ac_1 = "StatusLadder renders the committed rung with data-source explorer when its steps hold both a receipt step and an explorer step at rung committed, and with data-source receipt when only the receipt step is present (apps/wallet/src/account/StatusLadder.tsx:37)."
+
 [req.12285]
 title = "Bind kernel plan legs with the pending nonce of the wallet address"
 ac_1 = "KernelPlan binds each leg with the wallet EVM address as actor and its pending-tag nonce as account_sequence (apps/wallet/src/account/KernelPlan.tsx:53)."
@@ -33403,6 +33413,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.12.34.11]
+title = "Prefer the explorer step for the committed rung in StatusLadder"
+reqs = ["12297.1"]
+touches = ["apps/wallet/src/account/StatusLadder.tsx", "apps/wallet/src/account/StatusLadder.test.tsx"]
+tests = ["apps/wallet/src/account/StatusLadder.test.tsx::status_ladder_prefers_explorer_evidence_at_the_committed_rung"]
+verification_contract = "pnpm --dir apps/wallet exec vitest run src/account/StatusLadder.test.tsx -t 'status_ladder_prefers_explorer_evidence_at_the_committed_rung$'"
+do_1 = "Decision 2213. In apps/wallet/src/account/StatusLadder.tsx:37-38 the evidence of a rung becomes: for rung committed, reached.find(step => step.rung === 'committed' && step.source === 'explorer'), then reached.find(step => step.rung === rung), then statusLadder.highest(reached); for the other rungs the two existing lookups unchanged. data-source, data-evidence and title keep reading that evidence; nothing else in the component changes."
+symbols = ["StatusLadder", "status_ladder_prefers_explorer_evidence_at_the_committed_rung"]
 
 [capability.5.98.8]
 title = "Admit the consensus mempool into the sequencer's open layer at each proposal"
@@ -109162,6 +109181,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.12.34.11]
+title = "Prefer the explorer step for the committed rung in StatusLadder"
+status = "pending"
+mode = "BUILD"
+wave = 6
+requires = ["12.34.2"]
+reqs = ["12297.1"]
+capabilities = ["12.34.11"]
+interfaces = []
+do_1 = "Decision 2213. In apps/wallet/src/account/StatusLadder.tsx:37-38 the evidence of a rung becomes: for rung committed, reached.find(step => step.rung === 'committed' && step.source === 'explorer'), then reached.find(step => step.rung === rung), then statusLadder.highest(reached); for the other rungs the two existing lookups unchanged. data-source, data-evidence and title keep reading that evidence; nothing else in the component changes."
+do_2 = "In apps/wallet/src/account/StatusLadder.test.tsx add the test status_ladder_prefers_explorer_evidence_at_the_committed_rung inside describe('StatusLadder'): mount StatusLadder with steps [{rung: 'committed', source: 'receipt', state: 'committed:0xabc'}, {rung: 'committed', source: 'explorer', state: 'committed:0xabc'}] and assert rungs(mounted) equals [['submitted', 'true', 'receipt'], ['receipted', 'true', 'receipt'], ['committed', 'true', 'explorer']] and the committed li has data-evidence committed:0xabc; unmount, then mount with only the receipt step and assert the committed row is ['committed', 'true', 'receipt']. The four existing tests of the file keep passing unchanged."
+do_3 = "The verify gate runs the new test; the send test of 12.35.3 is the consumer gate across the saved observation of observeTransfer."
+symbols = ["StatusLadder", "status_ladder_prefers_explorer_evidence_at_the_committed_rung"]
+touches = ["apps/wallet/src/account/StatusLadder.tsx", "apps/wallet/src/account/StatusLadder.test.tsx"]
+tests = ["apps/wallet/src/account/StatusLadder.test.tsx::status_ladder_prefers_explorer_evidence_at_the_committed_rung"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/wallet run typecheck"
+verify_cmd = "pnpm --dir apps/wallet exec vitest run src/account/StatusLadder.test.tsx -t 'status_ladder_prefers_explorer_evidence_at_the_committed_rung$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the status ladder and its test; the send test of 12.35.3 renders the committed rung from the receipt again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.12.22.6]
 title = "Keep the receipted step when the node reports committed without explorer evidence"
 status = "done"
@@ -118263,6 +118312,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Finding 5.98.8.1: continue from attempt 1 (abec5fdf9) keeping every change, and repair the two tests task 5.33.3 (1c7d966b2) left failing in consensus/internal/state/sequencer_proposal_test.go. In TestSequencerProposalHeaderTime set f.state.LastBlockTime = now.Add(-time.Minute) right after now is taken (:71) and before the two timely calls, so an open time two seconds before now is after the last block time and the twenty-second case still fails IsTimely. In TestSequencerProposalBelowActivationReaps seal the activation height with OpenTime f.state.LastBlockTime.Add(time.Second) in place of time.UnixMilli(1700000000000) (:89); the below-activation reap assertions and the sealCalls assertion are unchanged. Build once, verify once; a further failure in the node package is a new finding naming the test and the line."
+do_8 = "Finding 5.98.8.2: continue from attempt 2 (b70ca9f7c) keeping every change, and repair the three remaining tests of consensus/internal/state/sequencer_proposal_test.go in the way do_7 repaired the first two. In TestSequencerProposalUsesSealedSlice (:169) and TestSequencerProposalIgnoresMempoolOrder (:248) seal with OpenTime f.state.LastBlockTime.Add(time.Second) in place of the fixed time.UnixMilli value. In TestSequencerProposalHeaderTimeIsOpenTime set f.state.LastBlockTime = open.Add(-time.Minute) right after open is taken (:225) so the asserted millisecond value at :231 stands. Every other test keeps its text. Build once, verify once."
 
 [task.5.5.22]
 title = "Retain committed sends in the receipt source so pax_sequencerReceipt answers the committed rung"
@@ -162676,7 +162726,7 @@ title = "Assert the committed rung needs a matching explorer answer in the send 
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["12.35.2", "12.34.2", "18.1053.1"]
+requires = ["12.35.2", "12.34.2", "18.1053.1", "12.34.11"]
 reqs = ["12295.1"]
 capabilities = ["12.35.3"]
 interfaces = []
@@ -162702,6 +162752,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 12.35.3.1: continue from attempt 1 (6920ab6ad) keeping the rewrites of do_1 to do_3. In send_reaches_committed_only_with_a_matching_explorer_answer drop the three environment requirements, the readExplorerStatus call against a real explorer and the otherHash transaction: the page.route handler for **/api/v2/transactions/*/status fulfils every request itself with a JSON document of the shape explorerAnswers.committed in apps/wallet/src/account/StatusLadder.test.tsx carries (rung committed, the requested hash, a block_number), built from the sent transfer's node receipt once readSequencerReceipt reports rung committed with a block: in the first phase block_number is the receipt block plus one and the test asserts li[data-rung=committed] keeps data-reached false after at least one served answer; in the second phase block_number equals the receipt block and the test asserts the committed step is reached with data-source explorer. Record the served answers and assert both phases answered at least once. WRONG_RPC and the manifest stay as the other tests use them; the test needs nothing beyond the fixture manifest and the node RPC the other send tests read. Build once, verify once."
 do_5 = "Finding 12.35.3.2: continue from attempt 2 (2981acb82) unchanged; the build command now builds the node binary and the verify command starts the local node fixture under --sequencer and sets the four WALLET_TRANSFER_TRUTH lines of 12.35.2 before the committed test. Build once, verify once."
+do_6 = "Finding 12.35.3.3: continue from attempt 4 (27e6d68db) unchanged once task 12.34.11 (decision 2213) is on main, so the committed rung renders data-source explorer from the saved observation. Rebase onto main, change nothing, build once and verify once."
 
 [task.12.35.4]
 title = "Start the in-tree node as a sequencer primary with a standby for local qualification"

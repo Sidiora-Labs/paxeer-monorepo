@@ -12656,3 +12656,13 @@ fix = "a task whose only touched file is a Makefile declares no symbols; the tou
 title = "A task that adds a refusal to a shared path must run the sibling tests of that path"
 symptom = "a task added the open-time-after-last-block refusal to the sequenced proposal path and verified only its own new test; two sibling tests sealing with earlier open times failed on main for six days until the next task gating the whole test family ran them"
 fix = "when a verify command names a single test in a file, include the file's test family (a -run prefix) so the refusal is proven against every existing case"
+
+[gotcha.2568]
+title = "Proposal tests sealing at a fixed epoch fail a later open-time check"
+symptom = "three sequencer proposal tests sealed their blocks at time.UnixMilli(1700000000...) while the fixture's LastBlockTime defaulted to now, so the open-time check a later task added made them fail and that task's verify ran only its own new test"
+fix = "take open times relative to f.state.LastBlockTime in proposal tests, and a task that adds a check to a shared code path runs the whole test file of that path in its verify command"
+
+[gotcha.2569]
+title = "Two renderers of one ladder disagreed on the committed rung's source"
+symptom = "TransactionLadder dropped the receipt's committed step before rendering while the saved observation of observeTransfer kept it first, so the shared StatusLadder showed data-source explorer on one page and receipt on the other and the send test failed at its committed assertion"
+fix = "put a presentation rule in the shared component once, with a unit test of the mixed-source steps, instead of shaping the steps differently in each caller"

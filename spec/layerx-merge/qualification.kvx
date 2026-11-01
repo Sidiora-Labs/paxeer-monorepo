@@ -15987,3 +15987,19 @@ symbol = "TestSequencerProposalHeaderTime"
 observed = "Attempt 1 (abec5fdf9, base 3fee695f2) implemented Admit in the six files, built and vetted, and both verify runs failed in the first package on two tests this task did not write: TestSequencerProposalHeaderTime (:52-73) seals with an open time two seconds before now and TestSequencerProposalBelowActivationReaps (:76-93) with the fixed open time 1700000000000 ms, while the fixture state from makeState carries the current time as its last block time (genesis time defaults to now, consensus/types/genesis.go:160), so CreateProposalBlock refuses both with 'sealed block open time is not after the last block time' (execution.go:276). That check came from task 5.33.3 (1c7d966b2), whose verify gate ran only its own TestSequencerProposalRefusesStaleOpenTime; the two sibling tests have failed on main since then and no gate ran them until this task's. The node tests of this task never ran because the first package failed."
 assumption = "The two pre-existing tests are repaired in this task, whose touches already hold the file: their open times move after the fixture's last block time; the implementation of attempt 1 stands."
 severity = "major"
+
+[finding.12.35.3.3]
+task = "12.35.3"
+file = "apps/wallet/e2e/send.spec.ts:713"
+symbol = "send_reaches_committed_only_with_a_matching_explorer_answer"
+observed = "Attempt 4 (27e6d68db, base 3ac75bac9) built, repaired the saved-identity read of the first verify, and the second verify reached the committed rung with the saved observation steps [committed from receipt, committed from explorer] as decision 2208 specifies, then failed at :713 because li[data-rung=committed] rendered data-source receipt: StatusLadder takes the first step of the rung (apps/wallet/src/account/StatusLadder.tsx:37) and observeTransfer puts the receipt step first, while TransactionLadder drops the receipt's committed step before rendering; the test asserts what do_4 and req.12295 require and no file of this task can change the component."
+assumption = "Task 12.34.11 (decision 2213) makes the component prefer the explorer step at the committed rung; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.5.98.8.2]
+task = "5.98.8"
+file = "consensus/internal/state/sequencer_proposal_test.go:169"
+symbol = "TestSequencerProposalUsesSealedSlice"
+observed = "Attempt 2 (b70ca9f7c, base abec5fdf9) built, vetted, repaired the two tests of finding 5.98.8.1 and the two new consensus tests passed; the verify then failed in TestSequencerProposalUsesSealedSlice (:169), TestSequencerProposalHeaderTimeIsOpenTime (:225) and TestSequencerProposalIgnoresMempoolOrder (:248) with 'sealed block open time is not after the last block time', because the three seal their blocks at the fixed epoch 1700000000 while makeState leaves LastBlockTime at the genesis time, which defaults to now (consensus/types/genesis.go:160); the open-time check of 1c7d966b2 (task 5.33.3) was qualified against TestSequencerProposalRefusesStaleOpenTime alone and these tests failed since then. The node tests of the verify were not reached."
+assumption = "Open times are taken relative to f.state.LastBlockTime, as the other proposal tests already do, and the header-time test moves the last block time behind its fixed open time instead."
+severity = "major"
