@@ -192453,7 +192453,7 @@ qualification = "UNRUN"
 
 [task.18.1404.1]
 title = "Issue #1404: Treat an empty name base as unset so the built wallet image reaches the name proxy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1403.1"]
@@ -192495,7 +192495,7 @@ qualification = "UNRUN"
 
 [task.18.1405.1]
 title = "Issue #1405: Stop building and exporting the explorer core fixture for the Human test targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
