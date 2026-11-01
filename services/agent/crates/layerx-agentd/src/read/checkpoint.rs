@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 
 use layerx_agent_api::proof::ProofBundleTarget;
-use layerx_client::sequencer::{AccountProof, SequencerEndpoint, SequencerError};
+use layerx_client::sequencer::{SequencerEndpoint, SequencerError, StorageWitness};
 use layerx_types::rung::Rung;
 
 use crate::receipt::TransactionReceiptEvidence;
@@ -457,7 +457,7 @@ pub struct ProofBundleRequest<'a> {
     pub header: &'a CheckpointHeader,
     pub commit: Option<&'a BlockCommit>,
     pub validators: &'a [CommitValidator],
-    pub account_proof: Option<&'a AccountProof>,
+    pub account_proof: Option<&'a [StorageWitness]>,
 }
 
 impl ProofBundleRequest<'_> {
@@ -480,7 +480,7 @@ pub struct ServedProofBundle {
     pub block_header: CheckpointHeader,
     pub checkpoint: Option<ServedCheckpoint>,
     pub validator_set: Vec<CommitValidator>,
-    pub account_proof: Option<AccountProof>,
+    pub account_proof: Option<super::proof_bundle_owner::AccountState>,
     pub state_root: Option<[u8; 32]>,
     pub verification_level: Rung,
 }
