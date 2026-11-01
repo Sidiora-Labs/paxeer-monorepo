@@ -7,6 +7,24 @@ use std::time::Duration;
 
 use sha2::{Digest, Sha256};
 
+fn transaction_hash(text: &str) -> std::result::Result<[u8; 32], String> {
+    let digits = text
+        .strip_prefix("0x")
+        .ok_or_else(|| "transaction hash: MissingPrefix".to_owned())?;
+    if digits.len() != 64 {
+        return Err("transaction hash: WrongLength".to_owned());
+    }
+    if !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err("transaction hash: NotHex".to_owned());
+    }
+    let mut bytes = [0; 32];
+    for (index, byte) in bytes.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&digits[index * 2..index * 2 + 2], 16)
+            .map_err(|_| "transaction hash: NotHex".to_owned())?;
+    }
+    Ok(bytes)
+}
+
 #[test]
 fn intent_plan_answers_eip1559_legs() -> Result<()> {
     assert_eq!(<[u8; 32]>::from(Sha256::digest(b"alxp")), ASSET);
@@ -80,11 +98,10 @@ fn intent_submit_records_each_leg_tx_hash() -> Result<()> {
     let mut transaction_hashes = std::collections::BTreeSet::new();
     for (index, leg) in legs.iter().enumerate() {
         let hash = leg["tx_hash"].as_str().ok_or("transaction hash")?;
-        let hash = layerx_paxeer_client::TransactionHash::from_hex(hash)
-            .map_err(|error| format!("transaction hash: {error:?}"))?;
-        assert_ne!(hash.bytes(), [0; 32]);
+        let hash = transaction_hash(hash)?;
+        assert_ne!(hash, [0; 32]);
         assert!(
-            transaction_hashes.insert(hash.bytes()),
+            transaction_hashes.insert(hash),
             "each leg must have its own signed transaction"
         );
         assert_eq!(leg["nonce"], plan["legs"][index]["nonce"]);
@@ -100,7 +117,7 @@ fn intent_submit_records_each_leg_tx_hash() -> Result<()> {
         );
         assert_eq!(
             leg["evidence"][0]["evidence_id"],
-            format!("evd_{}", cluster::hex(&hash.bytes()))
+            format!("evd_{}", cluster::hex(&hash))
         );
         assert_eq!(journey["evidence"][index], leg["evidence"][0]);
         assert_eq!(leg["copy_key"], "journey.stage.submitted");
@@ -108,10 +125,7 @@ fn intent_submit_records_each_leg_tx_hash() -> Result<()> {
         assert_eq!(leg["evidence"][0]["verification"], "unverified");
         let raw: Vec<u8> =
             serde_json::from_value(record["legs"][index]["raw_transaction"].clone())?;
-        assert_eq!(
-            layerx_crypto::evm_transaction::transaction_hash(&raw),
-            hash.bytes()
-        );
+        assert_eq!(layerx_crypto::evm_transaction::transaction_hash(&raw), hash);
         let (call, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)
             .map_err(|error| format!("signed transaction: {error:?}"))?;
         let planned = &plan["legs"][index];
@@ -141,11 +155,11 @@ fn intent_submit_records_each_leg_tx_hash() -> Result<()> {
                 .map_err(|error| format!("transaction sender: {error:?}"))?,
             peer.identities.get(actor).ok_or("owner identity")?.1
         );
-        assert_eq!(peer.submitted.get(&hash.bytes()), Some(&raw));
+        assert_eq!(peer.submitted.get(&hash), Some(&raw));
         drop(peer);
         assert_eq!(record["legs"][index]["submitted"], true);
         let receipt = node
-            .sequencer_receipt(&hash.bytes())?
+            .sequencer_receipt(&hash)?
             .ok_or("submitted transaction receipt")?;
         let observed = match receipt {
             layerx_client::sequencer::SequencerReceipt::Submitted { tx_hash, .. } => tx_hash,
@@ -154,7 +168,7 @@ fn intent_submit_records_each_leg_tx_hash() -> Result<()> {
                 receipt.tx_hash
             }
         };
-        assert_eq!(observed, hash.bytes());
+        assert_eq!(observed, hash);
     }
     let page = fixture.request("GET", "/v1/journeys", &json!({}), "intent-list-evm")?;
     let listed = page["journeys"]
