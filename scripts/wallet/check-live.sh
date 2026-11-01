@@ -15,7 +15,8 @@ Checks, each printed as "pass <check> <observed>" or "fail <check> <observed>":
   eth_chainId        the chain id is 0x7d
   px_resolveAccount  a well-formed address resolves to a result with a boolean
                      bound field, never a transport or read error
-  px_getNetwork      kernel.available is false with a reason other than available
+  px_getNetwork      paxeer.chain_id is 0x7d, with consensus an object or
+                     null with reason consensus_unavailable
   px_getAccount      an EVM address resolves to an account document with bound
                      and a Paxeer balance, nonce and height
 
@@ -774,16 +775,23 @@ elif check == "px_resolveAccount":
     else:
         print("fail " + show(error if error is not None else result))
 elif check == "px_getNetwork":
-    kernel = result.get("kernel") if error is None and isinstance(result, dict) else None
+    network = result if error is None and isinstance(result, dict) else {}
+    paxeer, consensus = network.get("paxeer"), network.get("consensus")
     if (
-        isinstance(kernel, dict)
-        and kernel.get("available") is False
-        and isinstance(kernel.get("reason"), str)
-        and kernel["reason"] not in ("", "available")
+        isinstance(paxeer, dict)
+        and paxeer.get("chain_id") == "0x7d"
+        and (
+            isinstance(consensus, dict)
+            or (
+                "consensus" in network
+                and consensus is None
+                and network.get("reason") == "consensus_unavailable"
+            )
+        )
     ):
-        print("pass kernel.available=false reason=" + kernel["reason"])
+        print("pass consensus=" + (str(consensus.get("latest_height")) if isinstance(consensus, dict) else "unavailable"))
     else:
-        print("fail " + show(kernel if kernel is not None else (error if error is not None else result)))
+        print("fail " + show(error if error is not None else result))
 elif check == "px_getAccount":
     account = result.get("account") if isinstance(result, dict) else None
     paxeer = result.get("paxeer") if isinstance(result, dict) else None
