@@ -174,6 +174,7 @@ pub enum HistoryReadError {
     Cursor,
     Oversized,
     Malformed,
+    ItemUnproven,
 }
 
 pub trait HistorySource {
@@ -340,6 +341,26 @@ fn decode_page(
     limits: HistoryLimits,
     response_bytes: usize,
 ) -> Result<HistoryPage, HistoryReadError> {
+    decode_page_ordered(
+        result,
+        from_height,
+        to_height,
+        cursor,
+        limits,
+        response_bytes,
+        false,
+    )
+}
+
+fn decode_page_ordered(
+    result: &serde_json::Map<String, Value>,
+    from_height: u64,
+    to_height: u64,
+    cursor: Option<Cursor>,
+    limits: HistoryLimits,
+    response_bytes: usize,
+    newest_first: bool,
+) -> Result<HistoryPage, HistoryReadError> {
     if result.len() != 3 {
         return Err(HistoryReadError::Malformed);
     }
@@ -368,7 +389,13 @@ fn decode_page(
         ]))?;
         if !(from_height..=to_height).contains(&position.block_height)
             || position.block_height > height
-            || previous.is_some_and(|previous| position <= previous)
+            || previous.is_some_and(|previous| {
+                if newest_first {
+                    position >= previous
+                } else {
+                    position <= previous
+                }
+            })
         {
             return Err(HistoryReadError::Cursor);
         }
@@ -439,5 +466,60 @@ fn transport_error(error: TransportError) -> HistoryReadError {
     match error {
         TransportError::Frame(FrameViolation::Oversized { .. }) => HistoryReadError::Oversized,
         _ => HistoryReadError::Read(ReadError::Transport(error)),
+    }
+}
+
+impl HistoryReadError {
+    pub(crate) const fn code(&self) -> &'static str {
+        match self {
+            Self::ItemUnproven => "read.history_item_unproven",
+            _ => "read.history_unavailable",
+        }
+    }
+}
+
+impl HistoryPage {
+    pub(crate) fn read_newest(
+        endpoint: &SequencerEndpoint,
+        account: &str,
+        cursor: Option<Cursor>,
+        limits: HistoryLimits,
+    ) -> Result<HistoryPage, HistoryReadError> {
+        validate_request(0, u64::MAX, cursor, limits)?;
+        let cursor_text = cursor.map(|c| c.to_hex());
+        let page = endpoint
+            .history(
+                account,
+                cursor_text.as_deref(),
+                u64::from(limits.maximum_items),
+            )
+            .map_err(HistoryReadError::Sequencer)?;
+        // An indexer behind the committed head cannot prove a complete usage window.
+        if page.indexed_height == 0 || page.indexed_height != page.chain_height {
+            return Err(HistoryReadError::InvalidRange);
+        }
+        let response_bytes = serde_json::to_vec(&json!({"items": page.items,
+            "next_cursor": page.next_cursor, "indexedHeight": page.indexed_height,
+            "chainHeight": page.chain_height}))
+        .map_err(|_| HistoryReadError::Malformed)?
+        .len();
+        if response_bytes > limits.maximum_response_bytes {
+            return Err(HistoryReadError::Oversized);
+        }
+        let next = page
+            .next_cursor
+            .as_deref()
+            .map(Cursor::from_hex)
+            .transpose()?;
+        let result = json!({"height": page.indexed_height.to_string(), "items": page.items, "cursor": next.map(Cursor::wire)});
+        decode_page_ordered(
+            result.as_object().ok_or(HistoryReadError::Malformed)?,
+            0,
+            page.indexed_height,
+            cursor,
+            limits,
+            response_bytes,
+            true,
+        )
     }
 }
