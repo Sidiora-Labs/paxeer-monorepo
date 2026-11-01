@@ -38,6 +38,33 @@ final class AgentEnvelopeMajor2Tests: XCTestCase {
     }
   }
 
+  func testAgentEnvelopeRefusesResponseWithoutSchemaFields() throws {
+    let success: [String: JSONValue] = [
+      "request_id": .string("42"), "value": .object(["account": .string("major-two")]),
+      "verification_status": .object([
+        "state": .string("achieved"), "rung": .string("submitted"),
+      ]),
+    ]
+    for field in ["verification_status", "request_id"] {
+      var envelope = success
+      envelope.removeValue(forKey: field)
+      let response = try JSONEncoder().encode(JSONValue.object(envelope))
+      var result: AgentEnvelopeResult?
+      XCTAssertThrowsError(
+        result = try AgentEnvelopeTransport.decodeResponse(
+          status: 200, data: response, requestID: "42"),
+        "Accepted a response without \(field)"
+      ) { error in
+        guard let error = error as? PlatformSDKError else {
+          return XCTFail("Unexpected error: \(error)")
+        }
+        XCTAssertEqual(error.code, .decodeFailure, field)
+        XCTAssertEqual(error.retry, .never, field)
+      }
+      XCTAssertNil(result, field)
+    }
+  }
+
   func testAgentEnvelopeDecodesDaemonResponseShapes() throws {
     let verification: JSONValue = .object([
       "state": .string("achieved"), "rung": .string("submitted"),

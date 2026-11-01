@@ -17,6 +17,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/stats"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/types"
 )
@@ -286,7 +287,7 @@ func NewEVMHTTPServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeHTTP, watermarks),
+			Service:   NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeHTTP, watermarks, app.CommitMultiStore().(storetypes.Queryable)),
 		},
 		{
 			Namespace: "eth",
@@ -495,7 +496,7 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeWS, watermarks),
+			Service:   NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeWS, watermarks, app.CommitMultiStore().(storetypes.Queryable)),
 		},
 		{
 			Namespace: "eth",

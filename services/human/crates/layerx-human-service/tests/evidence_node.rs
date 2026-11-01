@@ -212,9 +212,8 @@ impl AdmissionSequencer {
             self.authentication_refusals += 1;
             return Err(KnownResult::BadSignature);
         }
-        let identifier = checked(activity_id(&activity));
         let tx_hash: [u8; 32] = Keccak256::digest(raw).into();
-        if self.journal.contains(&identifier) {
+        if self.journal.contains(&tx_hash) {
             return Ok(tx_hash);
         }
         if self.queue.len() >= self.capacity {
@@ -222,7 +221,7 @@ impl AdmissionSequencer {
         }
         let mut record = b"LXAR".to_vec();
         record.extend_from_slice(&checked(u32::try_from(raw.len())).to_be_bytes());
-        record.extend_from_slice(&identifier);
+        record.extend_from_slice(&tx_hash);
         record.extend_from_slice(raw);
         let mut digest = Sha256::new();
         digest.update(b"LXH/v1/admission-record\0");
@@ -243,7 +242,7 @@ impl AdmissionSequencer {
             panic!("admission failed before durable response");
         }
         self.journal = AdmissionJournal::open(self.journal.directory(), EVIDENCE_NETWORK_ID);
-        self.queue.push(identifier);
+        self.queue.push(tx_hash);
         self.admitted.insert(tx_hash, activity.account_sequence());
         Ok(tx_hash)
     }
@@ -409,14 +408,14 @@ fn advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission() {
     let first = signed_activity(&registry, b"did:layerx:actor", actor_key, &actor, 1, 0x11);
     let (transaction, _) = checked(decode_transaction(&first));
     let first_activity = checked(decode_signed(&transaction.data, &registry));
-    let first_id = checked(activity_id(&first_activity));
+    let _first_id = checked(activity_id(&first_activity));
     let first_hash: [u8; 32] = Keccak256::digest(&first).into();
     let Submission::Unknown(unknown) = checked(submit_signed(&endpoint, &first)) else {
         panic!("interrupted durable admission must have an unknown outcome");
     };
     assert_eq!(unknown.retry_bytes(), first);
     assert_eq!(
-        AdmissionJournal::recover(&admission_directory, EVIDENCE_NETWORK_ID)[0].activity,
+        AdmissionJournal::recover(&admission_directory, EVIDENCE_NETWORK_ID)[0].raw_transaction,
         first
     );
     let admitted = checked(submit_signed(&endpoint, unknown.retry_bytes()));
@@ -459,18 +458,18 @@ fn advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission() {
     let node = checked(server.join());
     assert!(!node.fail_stopped);
     assert_eq!(node.authentication_refusals, 0);
-    assert_eq!(node.queue, vec![first_id]);
+    assert_eq!(node.queue, vec![first_hash]);
     let records = node.journal.records();
     assert_eq!(records.len(), 1);
-    assert_eq!(records[0].activity_id, first_id);
-    assert_eq!(records[0].activity, first);
+    assert_eq!(records[0].tx_hash, first_hash);
+    assert_eq!(records[0].raw_transaction, first);
     drop(node);
     let recovered = AdmissionJournal::recover(&admission_directory, EVIDENCE_NETWORK_ID);
     assert_eq!(recovered.len(), 1);
-    assert_eq!(recovered[0].activity_id, first_id);
-    assert_eq!(recovered[0].activity, first);
+    assert_eq!(recovered[0].tx_hash, first_hash);
+    assert_eq!(recovered[0].raw_transaction, first);
     let reopened = AdmissionJournal::open(&admission_directory, EVIDENCE_NETWORK_ID);
-    assert!(reopened.contains(&first_id));
+    assert!(reopened.contains(&first_hash));
 }
 
 #[test]

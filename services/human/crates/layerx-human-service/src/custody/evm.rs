@@ -205,24 +205,112 @@ pub struct SendPlanAuthorization {
     pub not_before: u64,
     pub not_after: u64,
 }
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct EvmSendAuthorization {
+    authorization: EvmPlanAuthorization,
+    disclosure: SendDisclosure,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct SendDisclosure {
+    recipient: [u8; 20],
+    denom: String,
+    amount: [u8; 32],
+}
+
 impl Keystore {
-    /// Authorizes a canonical owner SEND message for an approved plan.
+    /// Signs an exact bank transfer with its recipient and amount disclosure.
     /// # Errors
-    /// Refuses wrong principals, expiry, protocol scope and action conflicts.
-    pub fn authorize_send(
+    /// Refuses a mismatched binding, wallet, transaction or signed response.
+    pub fn authorize_send_transaction(
         &self,
         principal: &PrincipalId,
         key: &KeyId,
-        authorization: &SendPlanAuthorization,
-    ) -> Result<[u8; 64], CustodyError> {
-        if authorization.principal != principal.as_str() {
+        plan: &EvmPlanAuthorization,
+        recipient: [u8; 20],
+        denom: String,
+        amount: [u8; 32],
+    ) -> Result<Vec<u8>, CustodyError> {
+        let binding = self.evm_binding(principal, key)?;
+        if plan.principal != principal.as_str()
+            || plan.binding_digest != binding.digest()
+            || plan.transaction.chain_id != u64::from(binding.network_id())
+            || plan.wallet != self.evm_wallet(principal, key)?
+            || plan.transaction.value != [0; 32]
+        {
             return Err(CustodyError::Kms(KmsError::Refused));
         }
-        let payload = serde_json::to_vec(authorization)
+        let tx = &plan.transaction;
+        let call = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: tx.chain_id,
+            nonce: tx.nonce,
+            max_priority_fee_per_gas: tx.max_priority_fee_per_gas.into(),
+            max_fee_per_gas: tx.max_fee_per_gas.into(),
+            gas_limit: tx.gas_limit,
+            to: tx.to,
+            data: tx.calldata.clone(),
+        };
+        let disclosure = layerx_crypto::disclosure::call::bind_call(&call, plan.wallet)
+            .map_err(|_| CustodyError::Kms(KmsError::Refused))?;
+        match disclosure
+            .construct_method()
+            .map_err(|_| CustodyError::Kms(KmsError::Refused))?
+        {
+            Some(layerx_crypto::disclosure::call::ConstructMethod::BankSend {
+                from,
+                to,
+                denom: disclosed_denom,
+                amount: disclosed_amount,
+            }) if from == plan.wallet
+                && to == recipient
+                && disclosed_denom == denom
+                && disclosed_amount == amount => {}
+            _ => return Err(CustodyError::Kms(KmsError::Refused)),
+        }
+        let authorization = EvmSendAuthorization {
+            authorization: plan.clone(),
+            disclosure: SendDisclosure {
+                recipient,
+                denom,
+                amount,
+            },
+        };
+        let payload = serde_json::to_vec(&authorization)
             .map_err(|_| CustodyError::Kms(KmsError::InvalidConfiguration))?;
-        self.evm_call(principal, key, 11, &payload)?
-            .try_into()
-            .map_err(|_| CustodyError::Kms(KmsError::InvalidResponse))
+        let raw = self.evm_call(principal, key, 11, &payload)?;
+        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)
+            .map_err(|_| CustodyError::Kms(KmsError::InvalidResponse))?;
+        let tx = &authorization.authorization.transaction;
+        if call.chain_id != tx.chain_id
+            || call.nonce != tx.nonce
+            || call.to != tx.to
+            || call.data != tx.calldata
+            || call.gas_limit != tx.gas_limit
+            || call.max_fee_per_gas != u128::from(tx.max_fee_per_gas)
+            || call.max_priority_fee_per_gas != u128::from(tx.max_priority_fee_per_gas)
+            || tx.value != [0; 32]
+            || layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                .map_err(|_| CustodyError::Kms(KmsError::InvalidResponse))?
+                != authorization.authorization.wallet
+        {
+            return Err(CustodyError::Kms(KmsError::Integrity));
+        }
+        Ok(raw)
+    }
+
+    /// Refuses the retired kernel SEND authorization, which has no EIP-1559 call.
+    /// Callers must supply an exact transaction to `authorize_send_transaction`.
+    pub fn authorize_send(
+        &self,
+        _principal: &PrincipalId,
+        _key: &KeyId,
+        _authorization: &SendPlanAuthorization,
+    ) -> Result<[u8; 64], CustodyError> {
+        Err(CustodyError::Sign(
+            layerx_crypto::signer::SignError::InvalidDisclosure,
+        ))
     }
 }
 

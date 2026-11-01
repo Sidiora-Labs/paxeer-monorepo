@@ -1626,6 +1626,13 @@ public-audit:
 agent-build:
 	$(AGENT_CARGO) build --manifest-path $(AGENT_MANIFEST) --locked --workspace
 
+.PHONY: agent-sdk-ts-build
+agent-sdk-ts-build:
+	@if [ ! -d services/agent/sdk/typescript/node_modules ]; then \
+		npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund; \
+	fi
+	npm --prefix services/agent/sdk/typescript run build
+
 .PHONY: human-js-install
 human-js-install:
 	npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund
@@ -1635,14 +1642,14 @@ human-gen-api:
 	$(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked -- services/human/schema/human-api apps/web/src/api/generated
 
 human-build:
+	$(MAKE) agent-sdk-ts-build
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path services/human/tools/api-gen/Cargo.toml --locked
 	$(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked -- --check services/human/schema/human-api apps/web/src/api/generated
 	$(HUMAN_CARGO) build --manifest-path $(HUMAN_MANIFEST) --locked --workspace
 	$(HUMAN_NPM) run build
 
-human-test: $(BUILD_DIR)/tests/explorer_fixture human-test-hosted-provisioning
-	LAYERX_EXPLORER_CORE_FIXTURE=$(abspath $(BUILD_DIR)/tests/explorer_fixture) \
-		sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace
+human-test: human-test-hosted-provisioning
+	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace
 	$(HUMAN_NPM) test
 
 HUMAN_TARGET_DIR ?= $(or $(CARGO_TARGET_DIR),$(CURDIR)/services/human/target)
@@ -1694,9 +1701,8 @@ human-test-provider-probe:
 human-test-unit:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace --lib
 
-human-test-integration: $(BUILD_DIR)/tests/explorer_fixture
-	LAYERX_EXPLORER_CORE_FIXTURE=$(abspath $(BUILD_DIR)/tests/explorer_fixture) \
-		sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace --tests
+human-test-integration:
+	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked --workspace --tests
 
 human-test-intents:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path $(HUMAN_MANIFEST) --locked -p layerx-intents

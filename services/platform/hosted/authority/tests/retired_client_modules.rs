@@ -14,6 +14,7 @@ fn no_retired_layerx_client_module_paths() {
     ];
     let retired = [
         "client",
+        "read",
         "resolver",
         "handover_policy",
         "availability",
@@ -40,5 +41,22 @@ fn no_retired_layerx_client_module_paths() {
                 "{path} names retired path layerx_client::{module}"
             );
         }
+    }
+}
+
+#[test]
+fn budget_reader_uses_only_node_read_interfaces() {
+    let source = include_str!("../src/human/budget_state.rs");
+    for retired in ["read", "evidence", "head", "handover", "lni"] {
+        assert!(!source.contains(&format!("layerx_client::{retired}")));
+    }
+    for method in [
+        "getBudget(bytes32)",
+        "budgetRemaining(bytes32)",
+        "latestFinalized()",
+        "checkpoint(uint64)",
+        "layerx.human.budget-proof.v2",
+    ] {
+        assert!(source.contains(method), "missing node interface {method}");
     }
 }

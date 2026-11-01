@@ -5,7 +5,7 @@ import { bindSignedProgramLifecycle } from "./program-wire.js";
 import { encodeNativeEffectPrepareRequest, type NativeEffectPrepareRequestV1 } from "./native-effect.js";
 
 import {
-  Rung, layerx_sdk_ts_package,
+  Rung,
   encodeNativePrepareRequest, encodeNativeApprovalDecision, encodeNativeApprovalGet,
   decodeNativePrepareResult, decodeNativeApprovalResult, decodeNativeApprovalListResult,
   type NativePrepareRequestV1, type NativePrepareResultV1, type NativeApprovalDecisionV1,
@@ -397,7 +397,6 @@ function decodeFailure(requestId?: string): PlatformSdkError {
 }
 
 export const AGENT_ENVELOPE_VERSION = 1 as const;
-const AGENT_CONTRACT_MAJOR = layerx_sdk_ts_package().contractMajor;
 export const AGENT_ENVELOPE_PATH = "/v1/agent/rpc" as const;
 export const AGENT_DAEMON_RPC_PATH = "/rpc" as const;
 export type AgentEnvelopeSurface = "gateway" | "daemon";
@@ -870,7 +869,6 @@ export function encodeAgentEnvelope(
   try {
     text = JSON.stringify({
       version: AGENT_ENVELOPE_VERSION,
-      contract_major: AGENT_CONTRACT_MAJOR,
       request_id: requestId,
       operation,
       request: canonicalRequest(payload, 0),
@@ -944,11 +942,8 @@ export function decodeAgentEnvelopeResponse(status: number, encoded: Buffer, mut
   if (!mutation && envelope.ok === false && "error" in envelope && Object.keys(envelope).length === 2) {
     throw new PlatformSdkError({ code: "transport-failure", retry: "safe" });
   }
-  if (envelope.contract_major !== AGENT_CONTRACT_MAJOR) {
-    throw new PlatformSdkError({ code: "protocol-incompatibility", retry: mutation ? "unknown-outcome" : "never" });
-  }
   if ("class" in envelope) {
-    try { exactKeys(envelope, ["contract_major", "class", "protocol_result_code", "retriability", "reason", "request_id"]); }
+    try { exactKeys(envelope, ["class", "protocol_result_code", "retriability", "reason", "request_id"]); }
     catch { throw ambiguous(); }
     if (envelope.request_id !== sentRequestId && envelope.request_id !== "0") throw ambiguous();
     let refusal: PlatformSdkError;
@@ -962,7 +957,7 @@ export function decodeAgentEnvelopeResponse(status: number, encoded: Buffer, mut
     throw refusal;
   }
   const requestId = typeof envelope.request_id === "string" ? envelope.request_id : undefined;
-  try { exactKeys(envelope, ["contract_major", "request_id", "value", "verification_status"]); }
+  try { exactKeys(envelope, ["request_id", "value", "verification_status"]); }
   catch { throw ambiguous(requestId); }
   if (status !== 200 || envelope.request_id !== sentRequestId) throw ambiguous(requestId);
   let verification: Readonly<Record<string, unknown>>;
