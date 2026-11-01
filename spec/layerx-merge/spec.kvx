@@ -117306,7 +117306,7 @@ do_12 = "Findings 10.6.5.6 and 10.6.5.7: continue from attempt 7 (6b961c625) kee
 
 [task.9.25.8]
 title = "Restore the daemon's head, checkpoint and expiry-clock reads from the committed block commit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.3"]
