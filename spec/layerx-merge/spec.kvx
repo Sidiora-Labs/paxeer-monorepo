@@ -163485,7 +163485,7 @@ do_18 = "Finding 12.35.2.14: continue from attempt 16 (b7fe731c1) unchanged once
 
 [task.12.35.3]
 title = "Assert the committed rung needs a matching explorer answer in the send e2e test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["12.35.2", "12.34.2", "18.1053.1", "12.34.11"]
@@ -192742,7 +192742,7 @@ qualification = "UNRUN"
 
 [task.18.1392.1]
 title = "Issue #1392: Let signed budget creation and funding pass the agent creation submission checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
