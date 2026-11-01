@@ -16627,3 +16627,11 @@ symbol = "layerx-paxeer-client"
 observed = "Attempt 1 (7fa157518 on 95c9dd670) regenerated the seventeen lock files with no package version moves and its build passed; the verify chain stopped at cargo metadata --locked --manifest-path services/platform/Cargo.toml (exit 101) because workspace member services/platform/hosted/paxeer cannot load: its dev-dependency layerx-paxeer-client (services/platform/hosted/paxeer/Cargo.toml:19, workspace row services/platform/Cargo.toml:52, import services/platform/hosted/paxeer/tests/real_chain.rs:1) resolves by path to services/human/crates/layerx-paxeer-client/Cargo.toml, which task 10.26.1 (a47a944f9) deleted, and no open task owned the platform side of that retirement."
 assumption = "Task 8.52.1 removes the two manifest rows and the client-backed branch of the boundary's real-chain test and regenerates services/platform/Cargo.lock; task 13.8.3 requires it and continues from attempt 1 taking main's platform lock."
 severity = "critical"
+
+[finding.13.8.3.2]
+task = "13.8.3"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "layerx-programs-registry"
+observed = "Attempt 2 (b88301ce2 on bc97b8b38) kept the seventeen regenerated lock files, its build passed and all seventeen cargo metadata --locked reads passed; the completion record was refused by the graph check 'symbol layerx-programs-registry — not defined in the graph' because the task declared the package name as a code symbol while its touches are lock files, which define no symbol."
+assumption = "Spec defect: a lock-only task declares no symbols, as 9.25.16 did; the symbols list is emptied and the task continues from attempt 2 unchanged."
+severity = "major"
