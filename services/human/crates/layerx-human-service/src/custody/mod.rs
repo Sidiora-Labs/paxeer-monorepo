@@ -941,7 +941,7 @@ impl Keystore {
         ))
     }
 
-    fn binding(
+    pub fn binding(
         &self,
         principal: &PrincipalId,
         key: &KeyId,
