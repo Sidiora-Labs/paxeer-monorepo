@@ -776,6 +776,22 @@ mod tests {
             verified.verification(),
             VerificationLevel::CHECKPOINT_FINALISED
         );
+        let wrong_owner = Did::new(
+            b"did:layerx:0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
+        )
+        .expect("different owner DID");
+        let wrong_owner_trust = BudgetProofTrust {
+            owner: &wrong_owner,
+            ..trust
+        };
+        assert!(matches!(
+            verify_budget_proof(
+                &serde_json::to_vec(&document).expect("export"),
+                budget_id(),
+                &wrong_owner_trust,
+            ),
+            Err(BudgetProofError::Refused)
+        ));
         for name in ["budget_call", "remaining_call"] {
             let mut changed = document.clone();
             let mut result =
@@ -811,8 +827,8 @@ mod tests {
         assert!(verify(&document, &trust).is_err(), "stale time");
         assert_eq!(
             replay.finish(),
-            7,
-            "valid proof and altered results must execute eth_call"
+            9,
+            "valid proof, owner refusal and altered results must execute eth_call"
         );
     }
 }
