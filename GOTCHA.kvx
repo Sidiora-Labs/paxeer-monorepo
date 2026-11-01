@@ -12421,3 +12421,8 @@ fix = "treat components without deleted_trees as outside the inventory's domain.
 title = "A schema edit without a regenerated client fails the api-gen drift test on every later main"
 symptom = "10.0.3 (63aee3813) extended services/human/schema/human-api and left apps/web/src/api/generated at its earlier shape; make human-build was red until 14.0.5."
 fix = "a task that touches the human-api schema regenerates the client in the same change, or the spec names the web task that does and sequences the aggregate gates behind it."
+
+[gotcha.2521]
+title = "A browser test that sees an empty document must prove the server serves the app before touching the test"
+symptom = "12.35.2 spent attempts 7 to 9 refining diagnostics while no test had ever rendered the wallet shell under the app config."
+fix = "fetch the page from the test process, run the simplest existing test under the same config, and only then decide whether the config or the test is at fault."
