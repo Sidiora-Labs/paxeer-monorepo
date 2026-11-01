@@ -151926,7 +151926,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.27.5]
 title = "Delete the explorer index indexer library root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1"]
@@ -151959,7 +151959,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.27.6]
 title = "Delete the explorer index freshness and mirror reports"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1153.1", "18.1297.1"]
@@ -151993,7 +151993,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.27.7]
 title = "Delete the explorer index naming reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1"]
@@ -152027,7 +152027,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.27.8]
 title = "Delete the explorer index public query layer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1"]
@@ -152059,7 +152059,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.27.9]
 title = "Delete the explorer index program view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1"]
