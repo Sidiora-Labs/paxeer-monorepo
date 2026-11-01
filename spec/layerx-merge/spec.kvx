@@ -154152,7 +154152,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.21.4]
 title = "Retire the kernel activity re-exports and the owner activity envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["10.21.3", "10.0.3", "10.0.4", "10.11.5", "10.11.7", "10.13.5", "10.25.4", "9.0.4", "9.97.4", "10.97.1", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154218,7 +154218,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.21.6]
 title = "Replace the kernel activity session fixtures test with a session grant compile test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["10.21.3", "10.0.3", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
