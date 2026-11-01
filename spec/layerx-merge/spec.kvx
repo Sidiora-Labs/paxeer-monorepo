@@ -188905,7 +188905,7 @@ qualification = "UNRUN"
 
 [task.18.1412.1]
 title = "Issue #1412: Cite the enforcing xweb code in the D12 decision record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189097,7 +189097,7 @@ qualification = "UNRUN"
 
 [task.18.769.1]
 title = "Issue #769: Refuse launchpad markets whose optical the optical registry has not approved"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190012,7 +190012,7 @@ qualification = "UNRUN"
 
 [task.18.1327.1]
 title = "Issue #1327: Pin the distribution withdrawal gas on calls that actually pay out"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190056,7 +190056,7 @@ qualification = "UNRUN"
 
 [task.18.1328.1]
 title = "Issue #1328: Carry the receipt context on every micro-batch accept"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190389,7 +190389,7 @@ qualification = "UNRUN"
 
 [task.18.1339.1]
 title = "Issue #1339: Gate every 0x1014 method before decoding once the anchor store-delete step has run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191463,7 +191463,7 @@ qualification = "UNRUN"
 
 [task.18.1370.1]
 title = "Issue #1370: Expect the Go agent transport to refuse the retired faucet.claim operation locally"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191558,7 +191558,7 @@ qualification = "UNRUN"
 
 [task.18.1373.1]
 title = "Issue #1373: Expect durable standby acknowledgements in the standby role replication test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191602,7 +191602,7 @@ qualification = "UNRUN"
 
 [task.18.1374.1]
 title = "Issue #1374: Refresh the attestor's embedded layerxauth ABI with recordLifecycle"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192046,7 +192046,7 @@ qualification = "UNRUN"
 
 [task.18.1387.1]
 title = "Issue #1387: Answer a malformed percent-escape on a site host with the shell's 400 invalid_site_path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192089,7 +192089,7 @@ qualification = "UNRUN"
 
 [task.18.1388.1]
 title = "Issue #1388: Ignore the names shell's Next build output like the web app's"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192410,7 +192410,7 @@ qualification = "UNRUN"
 
 [task.18.1403.1]
 title = "Issue #1403: Default the wallet name reads to the /wallet/api/pns proxy under the wallet basePath"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192538,7 +192538,7 @@ qualification = "UNRUN"
 
 [task.18.1409.1]
 title = "Issue #1409: Make the go/no-go rehearsal item name the programme rehearsal gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192580,7 +192580,7 @@ qualification = "UNRUN"
 
 [task.18.1410.1]
 title = "Issue #1410: State the post-upgrade view calldata for 0x1015, 0x1016 and 0x1017 in the fork runbook"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192622,7 +192622,7 @@ qualification = "UNRUN"
 
 [task.18.1417.1]
 title = "Issue #1417: Describe the decision index's carried scope and line count in the docs README"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
