@@ -24,7 +24,7 @@ afterEach(() => {
 
 async function pns_helpers_parse_the_committed_indexer_vector() {
   const fetchIndexer = vi.fn<typeof fetch>(async (input) => {
-    const path = String(input).slice('/api/pns'.length);
+    const path = String(input).slice('/wallet/api/pns'.length);
     if (!Object.hasOwn(vector, path)) throw new Error(`Unexpected indexer path: ${path}`);
     return Response.json(vector[path as keyof typeof vector]);
   });
@@ -77,12 +77,12 @@ async function pns_helpers_parse_the_committed_indexer_vector() {
   }
   await expect(fetchAddressName(OWNER)).resolves.toBeNull();
   expect(fetchIndexer.mock.calls.map(([input]) => input)).toEqual([
-    `/api/pns${OWNED_PATH}`,
-    `/api/pns${DETAIL_PATH}`,
-    `/api/pns${EVENTS_PATH}`,
-    `/api/pns${ADDRESS_PATH}`,
-    `/api/pns${LOOKUP_PATH}`,
-    `/api/pns/api/v1/addresses/${OWNER}`,
+    `/wallet/api/pns${OWNED_PATH}`,
+    `/wallet/api/pns${DETAIL_PATH}`,
+    `/wallet/api/pns${EVENTS_PATH}`,
+    `/wallet/api/pns${ADDRESS_PATH}`,
+    `/wallet/api/pns${LOOKUP_PATH}`,
+    `/wallet/api/pns/api/v1/addresses/${OWNER}`,
   ]);
 }
 
@@ -105,11 +105,11 @@ async function pns_helpers_return_empty_when_the_proxy_is_not_configured() {
   await expect(fetchAddressName(ADDRESS)).resolves.toBeNull();
   await expect(lookupDomain(NAME)).resolves.toEqual([]);
   expect(fetchIndexer.mock.calls.map(([input]) => input)).toEqual([
-    `/api/pns${OWNED_PATH}`,
-    `/api/pns${DETAIL_PATH}`,
-    `/api/pns${EVENTS_PATH}`,
-    `/api/pns${ADDRESS_PATH}`,
-    `/api/pns${LOOKUP_PATH}`,
+    `/wallet/api/pns${OWNED_PATH}`,
+    `/wallet/api/pns${DETAIL_PATH}`,
+    `/wallet/api/pns${EVENTS_PATH}`,
+    `/wallet/api/pns${ADDRESS_PATH}`,
+    `/wallet/api/pns${LOOKUP_PATH}`,
   ]);
 }
 
