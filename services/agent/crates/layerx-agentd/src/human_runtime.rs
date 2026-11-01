@@ -18388,9 +18388,8 @@ fn fee_estimate_error(error: layerx_client::fee::FeeEstimateError) -> HumanOpera
             HumanOperationError::Typed(crate::human::HumanRefusal::FeeSnapshotSkew)
         }
         layerx_client::fee::FeeEstimateError::Read(
-            layerx_client::read::ReadError::UnavailableCapability
-            | layerx_client::read::ReadError::Disconnected
-            | layerx_client::read::ReadError::Transport(_),
+            layerx_client::sequencer::SequencerError::Tls
+            | layerx_client::sequencer::SequencerError::Unavailable,
         ) => HumanOperationError::Unavailable,
         layerx_client::fee::FeeEstimateError::MeterOutOfRange { .. }
         | layerx_client::fee::FeeEstimateError::Read(_) => HumanOperationError::Refused,
