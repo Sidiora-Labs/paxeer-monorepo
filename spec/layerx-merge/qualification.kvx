@@ -16483,3 +16483,59 @@ symbol = "store_native_owner_if_absent"
 observed = "Attempt 2 (18acfb47d) removed the sites do_6 lists, and the daemon library still fails on the import at human_runtime/native_receipt.rs:3 and the call at :81, on context() returning NativeOwnerOutcomeContext at human_runtime.rs:960-961 and native_receipt.rs:48-49, on the native parameters at native_receipt.rs:75 and human_runtime.rs:12849, :12886, :13274, and on tests/native_owner_receipts.rs; the --tests build then stops in tests/outbox_recover.rs (E0061 at :155, :453, :466), the pre-existing break task 9.25.17 owns, which the dependent-crate check (cargo check --all-targets) meets as well."
 assumption = "The task enumerates the remaining sites, declares the two files, and runs again once task 9.25.17 is on main."
 severity = "major"
+
+[finding.6.96.4.2]
+task = "6.96.4"
+file = "modules/layerxcustody/keeper/keeper_test.go:764"
+symbol = "TestGenesisRoundTrip"
+observed = "Attempt 2 (fefea2cea) deleted TestWithdrawalPaysOnceAndReplayIsRefused as do_5 asks and go test ./modules/layerxcustody/keeper/ passed; the graph check then refused the task because the symbols and tests lists still named the deleted test (symbol TestWithdrawalPaysOnceAndReplayIsRefused not defined in the graph); attempt 3 relaunched before this ruling and fails the same way."
+assumption = "Spec lists only: the symbols and tests lists name the two retained tests TestGenesisRoundTrip (keeper_test.go:764) and TestSolvencyInvariantHoldsAcrossTheMergePlan (merge_release_test.go:132); the attempt 2 tree is unchanged."
+severity = "minor"
+
+[finding.10.92.1.4]
+task = "10.92.1"
+file = "services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs:1"
+symbol = "evidence_get_returns_receipt_proof_v2"
+observed = "Attempt 3 (63499d479) landed the production_reads.rs evidence path and the manifest changes, then wrote tests/receipt_evidence_v2.rs to read a protected fixture file named by LAYERX_RECEIPT_EVIDENCE_V2_FIXTURE, build NodeRpcConfig::from_environment and open a live agent socket, none of which the qualification environment has, so the test cannot run; attempt 4 relaunched before this ruling and fails the same way. The in-tree fixture tests/support/production_fixture.rs (task 10.20.5, on main at ab940a8ef) already serves the node and agent sides, but its pax_sequencerReceipt arm answers rung submitted only."
+assumption = "The test is rewritten over the in-tree fixture, which gains receipted and committed receipt answers; the attempt 3 production code stands."
+severity = "major"
+
+[finding.9.25.17.1]
+task = "9.25.17"
+file = "services/agent/crates/layerx-client/src/rpc/evidence.rs:1"
+symbol = "RootSelector"
+observed = "Attempt 1 (5b4648003) built, then the --tests build failed at services/agent/crates/layerx-agentd/tests/history.rs:71 (root_selector: RootSelector::Latest, expected layerx_client::evidence::RootSelector, found RootSelector) because the attempt defined a second RootSelector in layerx-client/src/rpc/evidence.rs while ReadContext.root_selector (layerx-client/src/read.rs:71, read/module.rs, evidence/module_state.rs) still names crate::evidence::RootSelector (evidence.rs:68 with its pub(crate) encode and decode impl); the attempt treated evidence.rs as out of scope."
+assumption = "The enum is defined once in rpc/evidence.rs and re-exported from evidence.rs, which joins the touches; the rest of attempt 1 stands."
+severity = "major"
+
+[finding.9.25.19.2]
+task = "9.25.19"
+file = "programs/crates/layerx-programs-registry/src/chain_proof.rs:83"
+symbol = "ChainProofError"
+observed = "Attempt 2 (0d7269ae1 on 4f1f19da8) built and passed both greps; the --tests build then failed in the layerx-agentd-host test serve_routes (services/agent/crates/layerx-agentd/host-tests/serve_routes.rs:91, :94, :96) with ChainProofError: StdError is not satisfied, because 0461a4f71 (task 13.4.6) rewrote the fixture to apply ? to ValidatorSet::new, TrustRoot::canonical_bytes and TrustRoot::decode inside a Box<dyn Error> function while ChainProofError (chain_proof.rs:82-83) derives Debug only and implements neither Display nor std::error::Error. The failure is on main independent of this task."
+assumption = "ChainProofError gains Display and std::error::Error in the registry crate; the file joins this task's touches and the attempt 2 tree otherwise stands."
+severity = "major"
+
+[finding.10.10.1.1]
+task = "10.10.1"
+file = "services/human/crates/layerx-human-movement-provider/src/evidence_export.rs"
+symbol = "human_crates_declare_no_movement_provider_crate"
+observed = "Attempt 1 (c36b094f3) deleted the five remaining files and its test passed; the graph check refused the task because the touched path src/evidence_export.rs showed no change: ad92aa7fc (task 10.20.3) had already deleted it; attempt 2 relaunched before this ruling and fails the same way. The crate's tests/retired_client_modules.rs belongs to no task, and task 10.10.2's recursive directory test (wave 19) fails on the three source files this task (wave 29) deletes."
+assumption = "evidence_export.rs leaves the touches; this task takes tests/retired_client_modules.rs and the directory-level assertion, and requires 10.10.2 so the crate directory is empty when its test runs."
+severity = "major"
+
+[finding.10.10.2.1]
+task = "10.10.2"
+file = "services/human/tools/boundary-check/tests/retired_movement_sources.rs:24"
+symbol = "movement_provider_directory_holds_no_rust_source"
+observed = "Attempt 1 (c1eb237bf) deleted the ten listed files and built; movement_provider_directory_holds_no_rust_source scanned the crate directory recursively and failed on src/config.rs, src/journal.rs, src/main.rs and tests/retired_client_modules.rs, which task 10.10.1 (wave 29) deletes."
+assumption = "The test asserts the absence of the ten paths this task deletes; the directory-level assertion moves to task 10.10.1."
+severity = "minor"
+
+[finding.10.96.1.1]
+task = "10.96.1"
+file = "services/human/Cargo.lock:1"
+symbol = "data-encoding"
+observed = "Attempt 1 (1ab1b4d6c) implemented the four files; the build command failed before compiling with no matching package named data-encoding found because it passes --offline and the qualification environment's registry cache lacks the package that entered services/human/Cargo.lock with the lock refresh of task 9.25.16; attempt 2 relaunched before this ruling and fails the same way."
+assumption = "Qualification commands only: the build and verify commands drop --offline; the attempt 1 tree stands."
+severity = "minor"
