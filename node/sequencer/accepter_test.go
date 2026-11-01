@@ -215,6 +215,15 @@ type accepterSealAfterSnapshot struct {
 	sealed    *sequencer.Batch
 }
 
+func (s *accepterSealAfterSnapshot) Accept(txBytes []byte) (*sequencer.Accepted, error) {
+	acc, err := s.Executor.Accept(txBytes)
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.Snapshot()
+	return acc, err
+}
+
 func (s *accepterSealAfterSnapshot) Snapshot() (sdk.Context, error) {
 	ctx, err := s.Executor.Snapshot()
 	if err != nil {
@@ -225,6 +234,88 @@ func (s *accepterSealAfterSnapshot) Snapshot() (sdk.Context, error) {
 		s.sealed, err = s.Executor.Seal(ctx.BlockHeight())
 	}
 	return ctx, err
+}
+
+type accepterSealAfterAccept struct {
+	sequencer.Executor
+	sealed *sequencer.Batch
+}
+
+func (s *accepterSealAfterAccept) Accept(txBytes []byte) (*sequencer.Accepted, error) {
+	acc, err := s.Executor.Accept(txBytes)
+	if err != nil {
+		return nil, err
+	}
+	if s.sealed == nil {
+		s.sealed, err = s.Executor.Seal(acc.Height)
+	}
+	return acc, err
+}
+
+func TestAccepterReceiptsASendSealedBeforeItsReceipt(t *testing.T) {
+	sender := utils.NewSigner()
+	to := utils.NewSigner().EvmAddress
+	var sealing *accepterSealAfterAccept
+	h := newAccepterHarnessWithExecutor(t, func(exec sequencer.Executor) sequencer.Executor {
+		sealing = &accepterSealAfterAccept{Executor: exec}
+		return sealing
+	}, sender)
+	h.serve()
+	tx, bz := transfer(t, sender, 0, to, big.NewInt(onePaxInWei))
+	receipt, err := h.a.Accept(bz)
+	require.NoError(t, err)
+	require.NotNil(t, sealing.sealed)
+	require.Equal(t, [][]byte{bz}, sealing.sealed.Txs)
+	require.Equal(t, openHeight, receipt.Height)
+	require.NotNil(t, receipt.Exec)
+	verified, err := verify.ReceiptSignature(receipt.Receipt, h.key.PublicKey())
+	require.NoError(t, err)
+	require.Equal(t, startSeq+1, verified.Receipt.GlobalSequence)
+	send, err := h.src.SequencerSend(tx.Hash())
+	require.NoError(t, err)
+	require.NotNil(t, send)
+	require.Equal(t, receipt.Receipt, send.Receipt)
+	require.Equal(t, accepterWALEntries(t, h.dir), accepterWALEntries(t, h.sdir))
+	_, err = h.a.Accept(bz)
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	require.NotErrorIs(t, err, sequencer.ErrReplicationHalted)
+	ack, err := h.rep.Release(context.Background(), &wal.Seal{
+		Height: uint64(openHeight), FromSeq: sealing.sealed.FromSeq,
+		ToSeq: sealing.sealed.LastSeq, LastSeqHash: sealing.sealed.LastSeqHash,
+	})
+	require.NoError(t, err)
+	require.Equal(t, sequencer.AckOK, ack.Status)
+	require.NotNil(t, h.replay.sealed)
+	for i, fixture := range []*harness{h.h, h.sh} {
+		batch := []*sequencer.Batch{sealing.sealed, h.replay.sealed}[i]
+		batch.Store.Write()
+		require.Equal(t, openHeight, fixture.app.CommitMultiStore().Commit(true).Version)
+	}
+	nextMs := sealing.sealed.TimestampMs + 1
+	require.NoError(t, h.h.exec.Open(openHeight+1, nextMs))
+	ack, err = h.rep.Release(context.Background(),
+		&wal.Committed{
+			Height: uint64(openHeight), LastSeq: startSeq + 1,
+			AppHash: [32]byte(h.h.app.CommitMultiStore().LastCommitID().Hash),
+		},
+		&wal.Open{Height: uint64(openHeight + 1), OpenTimeMs: uint64(nextMs), BaseFee: uint256.NewInt(0)},
+	)
+	require.NoError(t, err)
+	require.Equal(t, sequencer.AckOK, ack.Status)
+	nextTx, next := transfer(t, sender, 1, to, big.NewInt(onePaxInWei))
+	nextReceipt, err := h.a.Accept(next)
+	require.NoError(t, err)
+	require.Equal(t, openHeight+1, nextReceipt.Height)
+	require.NotNil(t, nextReceipt.Exec)
+	nextVerified, err := verify.ReceiptSignature(nextReceipt.Receipt, h.key.PublicKey())
+	require.NoError(t, err)
+	require.Equal(t, startSeq+2, nextVerified.Receipt.GlobalSequence)
+	require.Equal(t, startSeq+2, h.sb.LastSeq())
+	require.NoError(t, h.sb.Err())
+	nextSend, err := h.src.SequencerSend(nextTx.Hash())
+	require.NoError(t, err)
+	require.NotNil(t, nextSend)
+	require.Equal(t, nextReceipt.Receipt, nextSend.Receipt)
 }
 
 func TestAccepterReceiptsASendAcrossASeal(t *testing.T) {

@@ -15,6 +15,17 @@ _MAX_EFFECT_BODY = 256
 _MAX_U128 = 0xFFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF_FFFF
 
 
+def _ed25519():
+    try:
+        from cryptography.exceptions import InvalidSignature
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    except ImportError as error:
+        raise ImportError(
+            "sequencer receipt verification needs the 'cryptography' package: pip install 'layerx-sdk[derivation]'"
+        ) from error
+    return InvalidSignature, Ed25519PublicKey
+
+
 class ReceiptVerificationError(PlatformSdkError):
     __slots__ = ("check",)
 
@@ -348,8 +359,7 @@ def verify_sequencer_receipt(
     raw_transaction: bytes,
     receipt_keys: tuple[ReceiptKey, ...] | list[ReceiptKey],
 ) -> SequencerReceiptVerification:
-    from cryptography.exceptions import InvalidSignature
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
+    InvalidSignature, Ed25519PublicKey = _ed25519()
 
     canonical_bytes = bytes(signed_receipt)
     transaction_hash = keccak256(bytes(raw_transaction))

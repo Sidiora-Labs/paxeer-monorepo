@@ -16123,3 +16123,19 @@ symbol = "platform-sdk-check"
 observed = "Attempt 19 (7dce00fca) kept the earlier test unchanged, built, and the wave 0 aggregate stopped in platform-sdk-check: the sdkgen drift gate reports the platform-sdkgen generator root changed after the last generation, because d57ae5e20 (task 8.46.11) edited sdk/platform/generators/generate_jvm.py and regenerated the JVM schema without resealing sdk/platform/pipeline.kvx."
 assumption = "Task 8.46.12 reseals the lock; this task requires it and continues unchanged."
 severity = "major"
+
+[finding.18.1214.1.1]
+task = "18.1214.1"
+file = "services/interop/Cargo.lock:1"
+symbol = "layerx-client"
+observed = "Attempt 1 (f-series, base d90e6b826) edited only services/interop/crates/layerx-migrate and its build stopped before compiling: cargo refused with the lock file services/interop/Cargo.lock needs to be updated but --locked was passed, because 021ce67fb (task 9.25.11) added base64 and layerx-programs-registry to layerx-client's manifest without refreshing the lock."
+assumption = "Task 9.25.16 refreshes the 17 lock files that pin layerx-client; every open task whose gate runs cargo --locked in one of those workspaces now requires it and continues from its last attempt once the refresh lands."
+severity = "major"
+
+[finding.18.1408.1.1]
+task = "18.1408.1"
+file = "spec/layerx-merge/programme/data/parity.kvx:157"
+symbol = "construct.existing-web-search-sidecar-and-402lxp-payment"
+observed = "Attempt 1 (f428d6ca4) repointed the Kernel replay corpus row and its new test passed, but test_every_row_has_exact_selectors failed on a_request_record_decodes_only_in_its_canonical_form: the Web search sidecar row still selects eight tests of services/interop/crates/x-websearch/tests/kernel.rs, deleted by 79aec7611 (task 11.36.1), and the Mirror row selects mirror_checkpoint_identity_and_freshness_follow_the_shared_vectors of layerx-mirror/tests/checkpoint_vectors.rs, deleted by edd77cf4a (task 11.26.4); the failure predates this task."
+assumption = "The same task lists those nine retired selectors as dropped, points the Web search sidecar row at six tests that still exist in its surviving source files, and points the Mirror row at five existing mirror tests, so the selector test passes for every row at HEAD."
+severity = "major"
