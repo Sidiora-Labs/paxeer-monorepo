@@ -16395,3 +16395,147 @@ symbol = "send_leg_denom"
 observed = "Attempt 4 (1913a5b04) answers px_listAssets with asset_id 0x followed by the hex of ASSET as do_2 says and the plan request fails with 403 forbidden at intent_plan_evm.rs:1127, because 8677d280c (task 18.1423.1, after do_2 and do_3 were written) made send_leg_denom match an asset table entry only when its asset_id equals denom:<denom> and sha256(denom) equals the leg's asset bytes (send_leg_denom_resolves_a_producer_shaped_bank_asset refuses the 0x form at production_components.rs:9031-9035); ASSET at intent_plan_evm.rs:137 is [0x31; 32], which is no denom digest."
 assumption = "The node double answers the catalog shape the producer serves today (asset_id denom:alxp) and the plan's asset is the digest of that denom; the production lookup stays as 18.1423.1 left it."
 severity = "major"
+
+[finding.10.2.11.4]
+task = "10.2.11"
+file = "services/wallet/attestor/internal/policy/policy.go:700"
+symbol = "inspectCall"
+observed = "Attempt 5 (ce3d20d5b) lists the ledger precompile methods and the quorum test now fails with policy_denied no_cap: inspectCall records a layerxledger.send as a spend of the asset hex of the envelope's 32-byte asset id (policy.go:700), the test's debit uses asset [0; 32] (tests/attestor.rs:924, :950) with amount TRANSFER = 5000, and the test policy carries caps for native only, so the cap check (policy.go:553) refuses the asset with no cap configured; parseAsset (policy.go:237-249) accepts a lowercase 64-hex asset id as a cap key."
+assumption = "The test policy caps the one asset the test moves; the daemon stays unchanged."
+severity = "major"
+
+[finding.10.2.4.6]
+task = "10.2.4"
+file = "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs:185"
+symbol = "ReceiptMaterial"
+observed = "Attempt 8 (c1a4b4366) ports tests/wallet_identity_e2e.rs and the crate-wide test build fails at tests/agent_runtime_rungs.rs:185 (ReceiptMaterial without inclusion_height, receipt_key and signed_receipt); the implementer stopped there because the file is outside the declared paths, and tests/move_money.rs and tests/spend.rs also construct AgentPreparation, ReceiptMaterial, AgentPreparationContext::new or AgentStageOutcome::Executed and are not declared either."
+assumption = "Every file of the crate that constructs the widened types is declared on the task, so the port finishes in one attempt."
+severity = "major"
+
+[finding.10.2.11.5]
+task = "10.2.11"
+file = "services/human/crates/layerx-human-kms/tests/attestor.rs:1203"
+symbol = "unsigned_evm_transaction"
+observed = "Attempt 6 (afda45641) reached the repeat request and every daemon answered 400 policy_denied decode_error 'undecodable transaction: rlp: too few elements for types.DynamicFeeTx': the kind evm_tx handler decodes the transaction field with evm.DecodeTransaction (services/wallet/attestor/internal/server/sign.go:578, services/wallet/attestor/internal/policy/evm/decode.go:134), whose UnmarshalBinary needs the twelve-item EIP-1559 list, while unsigned_evm_transaction (services/human/crates/layerx-human-kms/src/attestor.rs:1339) emits the nine signing fields. The client's evm_transaction (src/attestor.rs:1423-1470) appends three empty items (0x80 0x80 0x80) to the nine fields and re-wraps them as a type-2 list before posting."
+assumption = "The test posts the same wire shape the client posts; the daemon stays unchanged."
+severity = "major"
+
+[finding.6.96.4.1]
+task = "6.96.4"
+file = "modules/layerxcustody/keeper/claims.go:231"
+symbol = "VerifyWithdrawal"
+observed = "Attempt 1 (45bf28aab) failed 24 tests across keeper_test.go, release_test.go, retire_claims_test.go, merge_release_test.go, retire_msg_server_test.go, retire_test.go, genesis_retire_test.go, migrations_test.go and deposit_root_test.go, every one with ErrModuleRetired from a RequestWithdrawal, FinaliseWithdrawal, RequestForcedExit or ExecuteForcedExit call in its setup or assertions; VerifyWithdrawal (:231) and VerifyForcedExit (:320) refuse unconditionally since task 6.96.2, so finding 6.96.3.1 and the shared-application premise of do_1 to do_4 do not describe these failures."
+assumption = "The tests port to the retired paths per decision 2231; the keeper stays unchanged."
+severity = "major"
+
+[finding.9.25.13.1]
+task = "9.25.13"
+file = "services/agent/crates/layerx-agentd/src/human_node.rs:4"
+symbol = "HumanNode"
+observed = "Attempt 1 (caacf43b9) deleted AccountProof per do_1 and the daemon library failed to build: human_node.rs:4 imports AccountProof, the HumanNode trait declares account_proof at :17-22 and NodeRpc implements it at :82-88; the file is not declared on the task, so the implementer stopped."
+assumption = "The trait follows do_2: it exposes storage_witness instead of account_proof."
+severity = "major"
+
+[finding.9.27.5.1]
+task = "9.27.5"
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence/native_owner.rs:6"
+symbol = "verify_native_owner_outcome"
+observed = "Attempt 1 (205576fc3) deleted owner_module and the dependent-crate check failed in layerx-client: services/agent/crates/layerx-client/src/receipt.rs:9 imports verify_native_owner_outcome, NativeOwnerOutcomeContext and NativeOwnerOutcomeFailure for ReceiptError::NativeOwnerVerification (:169) and lookup_native_owner (:231-241, no caller); the daemon names them too at services/agent/crates/layerx-agentd/src/receipt.rs:5, :97, :111 and :337-350 (store_native_owner_if_absent), in protocol_evidence/native_owner.rs (verify_authorized_native_owner, 105 lines, with native_owner/tests.rs), at protocol_evidence.rs:31 (mod) and :1292 (ReceiptEvidenceError::NativeOwner) and at human_runtime.rs:12867 and :12926, where a NativeOwnerOutcomeContext passed as `native` selects that verifier."
+assumption = "The consumers retire with the verifier (decision.929): receipts verify through verify_outcome."
+severity = "major"
+
+[finding.9.25.1.2]
+task = "9.25.1"
+file = "services/agent/crates/layerx-client/src/fee.rs:1"
+symbol = "FeeObservation"
+observed = "Attempt 1 (3169533e2) deleted the nine modules and the client failed to build on fee.rs:1-3 (crate::head::Head, crate::payments::{CommittedSnapshot, FeeEstimate}, crate::read::ReadError), rpc/payments.rs:7 (crate::payments::FeeEstimate) and rpc/withdrawal.rs:8 (crate::withdrawal::WithdrawalConfigurationError); behind them the daemon, SDK and agent API name the deleted modules in 40 more files, so the requires list did not deliver the ports it assumed."
+assumption = "Decision 2232: the ports land first as tasks 9.25.17 to 9.25.19 and this task requires them."
+severity = "critical"
+
+[finding.9.25.13.2]
+task = "9.25.13"
+file = "services/agent/crates/layerx-agentd/tests/outbox_recover.rs:155"
+symbol = "module_witness"
+observed = "Attempt 2 (df2fe641b) completed the HumanNode port and the build with tests stopped in the outbox_recover test binary: RawStateEvidence::module_witness takes one CommittedCall since task 9.25.6 (0e916bb08, services/agent/crates/layerx-agentd/src/protocol_evidence.rs:1732) while tests/outbox_recover.rs:155, :453 and :466 still pass the six kernel-era arguments including RootSelector::Latest. The file is declared on task 9.25.17, which ports the daemon off layerx_client::evidence and builds the daemon with tests."
+assumption = "Task 9.25.17 leaves outbox_recover.rs compiling or deletes it; this task waits for it."
+severity = "major"
+
+[finding.10.2.11.6]
+task = "10.2.11"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:51"
+symbol = "RuntimeClock::from_environment"
+observed = "Attempt 7 (999b0c06a) passes the three attestor tests; the provider target then fails 14 of its 15 tests in 0.03s with a bare Error: Unavailable because every provider test samples the runtime clock from the environment (tests/provider.rs:42, :206, :376, :422), and LAYERX_RUNTIME_CLOCK_SOCKET is only set when the target runs under the layerx-runtime-clock service; task 18.1156.1 met the same 1-passed/14-failed result at its attempts 3 and 4 and qualified with the target run through that service."
+assumption = "Qualification command only: the verify and build commands run the kms test targets through the runtime clock service as task 18.1156.1 does; the attempt 7 code is unchanged."
+severity = "major"
+
+[finding.9.25.19.1]
+task = "9.25.19"
+file = "services/agent/crates/layerx-agentd/tests/approval_events.rs:37"
+symbol = "layerx_client::head::Head"
+observed = "Attempt 1 (3d881b4878) built the four crates and the verify grep stopped only on the four layerx_client::head::Head imports of the daemon tests (approval_events.rs:37, gaps.rs:35, history.rs:10, subscription_ops_cursor.rs:20), which task 9.25.18 declares and ports; no payments consumer remains."
+assumption = "The verify grep of this task names payments only; head consumers stay with task 9.25.18, which requires this task."
+severity = "minor"
+
+[finding.9.27.5.2]
+task = "9.27.5"
+file = "services/agent/crates/layerx-agentd/src/human_runtime/native_receipt.rs:81"
+symbol = "store_native_owner_if_absent"
+observed = "Attempt 2 (18acfb47d) removed the sites do_6 lists, and the daemon library still fails on the import at human_runtime/native_receipt.rs:3 and the call at :81, on context() returning NativeOwnerOutcomeContext at human_runtime.rs:960-961 and native_receipt.rs:48-49, on the native parameters at native_receipt.rs:75 and human_runtime.rs:12849, :12886, :13274, and on tests/native_owner_receipts.rs; the --tests build then stops in tests/outbox_recover.rs (E0061 at :155, :453, :466), the pre-existing break task 9.25.17 owns, which the dependent-crate check (cargo check --all-targets) meets as well."
+assumption = "The task enumerates the remaining sites, declares the two files, and runs again once task 9.25.17 is on main."
+severity = "major"
+
+[finding.6.96.4.2]
+task = "6.96.4"
+file = "modules/layerxcustody/keeper/keeper_test.go:764"
+symbol = "TestGenesisRoundTrip"
+observed = "Attempt 2 (fefea2cea) deleted TestWithdrawalPaysOnceAndReplayIsRefused as do_5 asks and go test ./modules/layerxcustody/keeper/ passed; the graph check then refused the task because the symbols and tests lists still named the deleted test (symbol TestWithdrawalPaysOnceAndReplayIsRefused not defined in the graph); attempt 3 relaunched before this ruling and fails the same way."
+assumption = "Spec lists only: the symbols and tests lists name the two retained tests TestGenesisRoundTrip (keeper_test.go:764) and TestSolvencyInvariantHoldsAcrossTheMergePlan (merge_release_test.go:132); the attempt 2 tree is unchanged."
+severity = "minor"
+
+[finding.10.92.1.4]
+task = "10.92.1"
+file = "services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs:1"
+symbol = "evidence_get_returns_receipt_proof_v2"
+observed = "Attempt 3 (63499d479) landed the production_reads.rs evidence path and the manifest changes, then wrote tests/receipt_evidence_v2.rs to read a protected fixture file named by LAYERX_RECEIPT_EVIDENCE_V2_FIXTURE, build NodeRpcConfig::from_environment and open a live agent socket, none of which the qualification environment has, so the test cannot run; attempt 4 relaunched before this ruling and fails the same way. The in-tree fixture tests/support/production_fixture.rs (task 10.20.5, on main at ab940a8ef) already serves the node and agent sides, but its pax_sequencerReceipt arm answers rung submitted only."
+assumption = "The test is rewritten over the in-tree fixture, which gains receipted and committed receipt answers; the attempt 3 production code stands."
+severity = "major"
+
+[finding.9.25.17.1]
+task = "9.25.17"
+file = "services/agent/crates/layerx-client/src/rpc/evidence.rs:1"
+symbol = "RootSelector"
+observed = "Attempt 1 (5b4648003) built, then the --tests build failed at services/agent/crates/layerx-agentd/tests/history.rs:71 (root_selector: RootSelector::Latest, expected layerx_client::evidence::RootSelector, found RootSelector) because the attempt defined a second RootSelector in layerx-client/src/rpc/evidence.rs while ReadContext.root_selector (layerx-client/src/read.rs:71, read/module.rs, evidence/module_state.rs) still names crate::evidence::RootSelector (evidence.rs:68 with its pub(crate) encode and decode impl); the attempt treated evidence.rs as out of scope."
+assumption = "The enum is defined once in rpc/evidence.rs and re-exported from evidence.rs, which joins the touches; the rest of attempt 1 stands."
+severity = "major"
+
+[finding.9.25.19.2]
+task = "9.25.19"
+file = "programs/crates/layerx-programs-registry/src/chain_proof.rs:83"
+symbol = "ChainProofError"
+observed = "Attempt 2 (0d7269ae1 on 4f1f19da8) built and passed both greps; the --tests build then failed in the layerx-agentd-host test serve_routes (services/agent/crates/layerx-agentd/host-tests/serve_routes.rs:91, :94, :96) with ChainProofError: StdError is not satisfied, because 0461a4f71 (task 13.4.6) rewrote the fixture to apply ? to ValidatorSet::new, TrustRoot::canonical_bytes and TrustRoot::decode inside a Box<dyn Error> function while ChainProofError (chain_proof.rs:82-83) derives Debug only and implements neither Display nor std::error::Error. The failure is on main independent of this task."
+assumption = "ChainProofError gains Display and std::error::Error in the registry crate; the file joins this task's touches and the attempt 2 tree otherwise stands."
+severity = "major"
+
+[finding.10.10.1.1]
+task = "10.10.1"
+file = "services/human/crates/layerx-human-movement-provider/src/evidence_export.rs"
+symbol = "human_crates_declare_no_movement_provider_crate"
+observed = "Attempt 1 (c36b094f3) deleted the five remaining files and its test passed; the graph check refused the task because the touched path src/evidence_export.rs showed no change: ad92aa7fc (task 10.20.3) had already deleted it; attempt 2 relaunched before this ruling and fails the same way. The crate's tests/retired_client_modules.rs belongs to no task, and task 10.10.2's recursive directory test (wave 19) fails on the three source files this task (wave 29) deletes."
+assumption = "evidence_export.rs leaves the touches; this task takes tests/retired_client_modules.rs and the directory-level assertion, and requires 10.10.2 so the crate directory is empty when its test runs."
+severity = "major"
+
+[finding.10.10.2.1]
+task = "10.10.2"
+file = "services/human/tools/boundary-check/tests/retired_movement_sources.rs:24"
+symbol = "movement_provider_directory_holds_no_rust_source"
+observed = "Attempt 1 (c1eb237bf) deleted the ten listed files and built; movement_provider_directory_holds_no_rust_source scanned the crate directory recursively and failed on src/config.rs, src/journal.rs, src/main.rs and tests/retired_client_modules.rs, which task 10.10.1 (wave 29) deletes."
+assumption = "The test asserts the absence of the ten paths this task deletes; the directory-level assertion moves to task 10.10.1."
+severity = "minor"
+
+[finding.10.96.1.1]
+task = "10.96.1"
+file = "services/human/Cargo.lock:1"
+symbol = "data-encoding"
+observed = "Attempt 1 (1ab1b4d6c) implemented the four files; the build command failed before compiling with no matching package named data-encoding found because it passes --offline and the qualification environment's registry cache lacks the package that entered services/human/Cargo.lock with the lock refresh of task 9.25.16; attempt 2 relaunched before this ruling and fails the same way."
+assumption = "Qualification commands only: the build and verify commands drop --offline; the attempt 1 tree stands."
+severity = "minor"

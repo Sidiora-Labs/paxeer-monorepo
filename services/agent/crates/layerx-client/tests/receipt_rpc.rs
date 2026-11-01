@@ -5,7 +5,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_client::client::ReconnectPolicy;
+use layerx_client::rpc::receipt::ReconnectPolicy;
 use layerx_client::rpc::receipt::{
     lookup, lookup_authenticated, resolve_unknown, AuthenticatedReceipt, Lookup, LookupContext,
     ReceiptError, Resolution, Rung,
