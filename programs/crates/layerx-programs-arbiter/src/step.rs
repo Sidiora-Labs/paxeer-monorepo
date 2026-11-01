@@ -180,7 +180,7 @@ pub struct AuthenticatedCatalogue {
 }
 impl AuthenticatedCatalogue {
     pub fn verify(
-        admission: &layerx_client::evidence::VerifiedAdmissionPrestate,
+        admission: &crate::AdmissionEvidence,
         code_blobs: &BTreeMap<[u8; 32], Vec<u8>>,
     ) -> Result<Self, ReplayError> {
         let records: BTreeMap<&[u8], &[u8]> = admission
@@ -281,7 +281,7 @@ impl AuthenticatedCatalogue {
         })
     }
     pub fn verify_with_module(
-        admission: &layerx_client::evidence::VerifiedAdmissionPrestate,
+        admission: &crate::AdmissionEvidence,
         commit: &ChainCommitProof,
         host_store_root: [u8; 32],
         host_multistore_proof: &[u8],
@@ -465,7 +465,7 @@ impl VerifiedStep {
 impl VerifiedReplay {
     pub fn verify_with_batch_context(
         receipt: &VerifiedReceipt,
-        admission: &layerx_client::evidence::VerifiedAdmissionPrestate,
+        admission: &crate::AdmissionEvidence,
         header: &VerifiedBatchHeader,
         commit: &ChainCommitProof,
         host_store_root: [u8; 32],
@@ -493,7 +493,7 @@ impl VerifiedReplay {
 
     pub fn verify(
         receipt: &VerifiedReceipt,
-        admission: &layerx_client::evidence::VerifiedAdmissionPrestate,
+        admission: &crate::AdmissionEvidence,
         commit: &ChainCommitProof,
         host_store_root: [u8; 32],
         host_multistore_proof: &[u8],

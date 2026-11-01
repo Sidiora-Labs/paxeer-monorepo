@@ -5,9 +5,7 @@ mod trust;
 
 use chain_receipt::{ChainReceipts, ReceiptSource};
 
-use layerx_client::lni::handshake::{perform, HandshakeConfig};
-use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope, Version};
-use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
+use layerx_client::sequencer::SequencerEndpoint;
 use layerx_platform_authority::{
     authorized_batch_by_activity, hex, receipt_locator, EvidenceRefusal,
 };
@@ -22,11 +20,12 @@ use std::fs;
 use std::io::{Read, Write};
 use std::net::{Ipv6Addr, SocketAddr, TcpListener, TcpStream};
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 use subtle::ConstantTimeEq;
+use trust::CommittedCheckpoint;
 use zeroize::{Zeroize, Zeroizing};
 
 const MAX_REQUEST_BYTES: usize = 16 * 1024;
@@ -37,12 +36,9 @@ const REPLICA_TIMEOUT: Duration = Duration::from_secs(8);
 const READINESS_TIMEOUT: Duration = Duration::from_secs(2);
 const MAX_CONNECTIONS: usize = 128;
 const MAX_REQUESTS_PER_CONNECTION: usize = 64;
-const MAX_LNI_CONNECTIONS: usize = 16;
-const LNI_FRAME_BYTES: usize = 1_212_416;
-const ERROR_RESPONSE: u16 = 25;
+const MAX_READINESS_CHECKS: usize = 16;
 const ZERO_HEX32: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
-static CORRELATION: AtomicU64 = AtomicU64::new(1);
 
 const USAGE: &str = "layerx-receipt-authority serves verified authorised-batch facts over TLS.
 
@@ -68,14 +64,11 @@ Environment:
   LAYERX_AUTHORITY_REPLICA_ID                64-hex replica identity every evidence document must carry
   LAYERX_AUTHORITY_CHAIN_RPC_URL             loopback http://host:port endpoint serving pax_sequencerReceipt
   LAYERX_AUTHORITY_RECEIPT_KEYS_FILE         protected ReceiptKeyList JSON with pinned keys and height ranges
-  LAYERX_AUTHORITY_LNI_SOCKET                LNI unix socket used for checkpoint reads
   LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID       numeric protocol network id expected in signed receipt evidence
   LAYERX_AUTHORITY_NETWORK_ID                deployment network identifier echoed in every answer
   LAYERX_AUTHORITY_WIRE_VERSION              wire version echoed in every answer, must be the built protocol version (default 3)
   LAYERX_AUTHORITY_SEQUENCER_ID              64-hex sequencer identity pinned for header verification
   LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY      64-hex sequencer public key pinned for header and receipt signatures
-  LAYERX_AUTHORITY_GENESIS_TRUST             protected native genesis trust artifact; requires HANDOVER_FINALITY
-  LAYERX_AUTHORITY_HANDOVER_FINALITY         protected independent Paxeer verification policy
   LAYERX_AUTHORITY_FIRST_BATCH               first authorised batch number
   LAYERX_AUTHORITY_LAST_BATCH                last authorised batch number
 ";
@@ -91,15 +84,13 @@ struct Config {
     evidence_read_token: Option<Zeroizing<Vec<u8>>>,
     replica_id: [u8; 32],
     chain_receipts: ChainReceipts,
-    lni_socket: PathBuf,
-    lni_gate: ConnectionGate,
+    chain_rpc_url: String,
     chain_endpoint: layerx_paxeer_verifier::EndpointConfig,
     protocol_network_id: u32,
     network_id: String,
     wire_version: String,
     authorization: SequencerAuthorization,
     sequencer_public_key: [u8; 32],
-    trust: Option<trust::Trust>,
 }
 
 struct Request {
@@ -285,12 +276,6 @@ fn config() -> Result<Config, String> {
     let receipt_keys_file = env::var("LAYERX_AUTHORITY_RECEIPT_KEYS_FILE")
         .map_err(|_| "LAYERX_AUTHORITY_RECEIPT_KEYS_FILE is required")?;
     let chain_receipts = ChainReceipts::load(&chain_rpc_url, &PathBuf::from(receipt_keys_file))?;
-    let lni_socket = env::var("LAYERX_AUTHORITY_LNI_SOCKET")
-        .map(PathBuf::from)
-        .map_err(|_| "LAYERX_AUTHORITY_LNI_SOCKET is required".to_owned())?;
-    if !lni_socket.is_absolute() {
-        return Err("LAYERX_AUTHORITY_LNI_SOCKET must be an absolute path".to_owned());
-    }
     let protocol_network_id = parse_u64("LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID")?;
     let protocol_network_id = u32::try_from(protocol_network_id)
         .ok()
@@ -324,7 +309,6 @@ fn config() -> Result<Config, String> {
         );
     }
     Ok(Config {
-        trust: trust::Trust::load(protocol_network_id, sequencer_id, sequencer_public_key)?,
         listen,
         tls,
         human: human::Human::load(&human_peers)?,
@@ -335,9 +319,8 @@ fn config() -> Result<Config, String> {
         evidence_read_token,
         replica_id,
         chain_receipts,
-        lni_socket,
-        lni_gate: ConnectionGate::new(MAX_LNI_CONNECTIONS),
         chain_endpoint: trust::chain_endpoint(&chain_rpc_url, READINESS_TIMEOUT),
+        chain_rpc_url,
         protocol_network_id,
         network_id,
         wire_version,
@@ -671,57 +654,73 @@ fn lookup_receipt(
     config.chain_receipts.lookup(activity_id)
 }
 
-fn checkpoint_header(
-    config: &Config,
-    batch: u64,
-) -> Result<layerx_client::evidence::VerifiedCheckpoint, ()> {
+fn checkpoint_header(config: &Config, batch: u64) -> Result<CommittedCheckpoint, ()> {
     checkpoint_for(config, Some(batch))
 }
 
-fn checkpoint_for(
-    config: &Config,
-    batch: Option<u64>,
-) -> Result<layerx_client::evidence::VerifiedCheckpoint, ()> {
-    let deadline = Instant::now().checked_add(IO_TIMEOUT).ok_or(())?;
-    let mut transport = Uds::connect(
-        &config.lni_socket,
-        &config.lni_gate,
-        trust::limits(deadline)?,
-    )
-    .map_err(|_| ())?;
-    let handshake = perform(
-        &mut transport,
-        &HandshakeConfig {
-            built_interface_version: Version::V1_5,
-            expected_protocol_version: PROTOCOL_VERSION,
-            expected_network_id: config.protocol_network_id,
-        },
-        None,
-    )
-    .map_err(|_| ())?;
-    let history = trust::snapshot(
-        config,
-        handshake.node().latest_sealed_batch,
-        handshake.node().authorised_sequencer_key,
-        deadline,
-    )?;
-    let verified = trust::checkpoint(
-        config,
-        &mut transport,
-        batch.unwrap_or(handshake.node().latest_sealed_batch),
-        handshake.node().interface_version,
-        history.as_ref(),
-    )?;
-    if batch.is_none() {
-        let header = layerx_wire::receipt::decode_batch_header(verified.canonical_header())
-            .map_err(|_| ())?;
-        if header.last_sequence() != handshake.node().chain_head_sequence
-            || header.batch_number() != handshake.node().latest_sealed_batch
-        {
+fn checkpoint_for(config: &Config, batch: Option<u64>) -> Result<CommittedCheckpoint, ()> {
+    const ANCHOR: [u8; 20] = [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x14,
+    ];
+    fn word(bytes: &[u8], index: usize) -> Result<[u8; 32], ()> {
+        bytes
+            .get(index * 32..(index + 1) * 32)
+            .ok_or(())?
+            .try_into()
+            .map_err(|_| ())
+    }
+    fn number(bytes: &[u8], index: usize) -> Result<u64, ()> {
+        let value = word(bytes, index)?;
+        if value[..24] != [0; 24] {
             return Err(());
         }
+        Ok(u64::from_be_bytes(value[24..].try_into().map_err(|_| ())?))
     }
-    Ok(verified)
+    let sequencer = SequencerEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
+    let committed_height = sequencer.block_number().map_err(|_| ())?;
+    let batch_number = match batch {
+        Some(batch) => batch,
+        None => {
+            let selector = layerx_crypto::evm_transaction::transaction_hash(b"latestFinalized()");
+            let latest = sequencer
+                .call_at(committed_height, &ANCHOR, &selector[..4])
+                .map_err(|_| ())?;
+            if latest.len() != 64 || number(&latest, 1)? != 1 {
+                return Err(());
+            }
+            number(&latest, 0)?
+        }
+    };
+    let mut data =
+        layerx_crypto::evm_transaction::transaction_hash(b"checkpoint(uint64)")[..4].to_vec();
+    data.extend_from_slice(&[0; 24]);
+    data.extend_from_slice(&batch_number.to_be_bytes());
+    let checkpoint_call = sequencer
+        .call_at(committed_height, &ANCHOR, &data)
+        .map_err(|_| ())?;
+    if checkpoint_call.len() != 18 * 32
+        || number(&checkpoint_call, 0)? != batch_number
+        || number(&checkpoint_call, 12)? != 2
+    {
+        return Err(());
+    }
+    let checkpoint_id = word(&checkpoint_call, 1)?;
+    let state_root = word(&checkpoint_call, 7)?;
+    let finalized_height = number(&checkpoint_call, 17)?;
+    if checkpoint_id == [0; 32] || state_root == [0; 32] || finalized_height > committed_height {
+        return Err(());
+    }
+    Ok(CommittedCheckpoint {
+        batch_number,
+        checkpoint_id,
+        header_digest: word(&checkpoint_call, 2)?,
+        last_sequence: number(&checkpoint_call, 5)?,
+        previous_state_root: word(&checkpoint_call, 6)?,
+        state_root,
+        timestamp_ms: number(&checkpoint_call, 11)?,
+        finalized_height,
+        checkpoint_call,
+    })
 }
 
 fn evidence_refusal(refusal_kind: &EvidenceRefusal) -> Response {
@@ -816,9 +815,6 @@ fn by_activity(config: &Config, requested: &str, wait_publication: bool) -> Resp
     }
     match authorized_batch_by_activity(activity_id, &receipt, &evidence, &authorization) {
         Ok(facts) => {
-            if verify_withdrawal_request(config, &receipt, &evidence.header, deadline).is_err() {
-                return refusal(503, "withdrawal_evidence_unavailable", Some(5));
-            }
             if config
                 .human
                 .as_ref()
@@ -855,110 +851,6 @@ fn by_activity(config: &Config, requested: &str, wait_publication: bool) -> Resp
     }
 }
 
-fn verify_withdrawal_request(
-    config: &Config,
-    receipt: &[u8],
-    header: &[u8],
-    deadline: Instant,
-) -> Result<(), String> {
-    use layerx_client::evidence::{
-        proof_bundle, EvidenceContext, ProofBundleSelector, VerifiedProofBundle,
-    };
-    use layerx_proof::receipt::{withdrawal, AuthorizedBatch};
-    let decoded = layerx_wire::receipt::decode(receipt).map_err(|error| format!("{error:?}"))?;
-    let protocol = decoded.protocol().ok_or("protocol receipt required")?;
-    if protocol.module_id() != 1 || protocol.operation() != 9 {
-        return Ok(());
-    }
-    let remaining = deadline
-        .checked_duration_since(Instant::now())
-        .ok_or("authority deadline expired")?;
-    let limits = Limits {
-        maximum_frame_bytes: LNI_FRAME_BYTES,
-        maximum_connections: MAX_LNI_CONNECTIONS,
-        maximum_streams: 1,
-        maximum_queued_bytes: LNI_FRAME_BYTES,
-        deadline: remaining,
-    };
-    let mut transport = Uds::connect(&config.lni_socket, &config.lni_gate, limits)
-        .map_err(|error| format!("{error:?}"))?;
-    let handshake = perform(
-        &mut transport,
-        &HandshakeConfig {
-            built_interface_version: Version::V1_5,
-            expected_protocol_version: PROTOCOL_VERSION,
-            expected_network_id: config.protocol_network_id,
-        },
-        None,
-    )
-    .map_err(|error| format!("{error:?}"))?;
-    let history = trust::snapshot(
-        config,
-        handshake.node().latest_sealed_batch,
-        handshake.node().authorised_sequencer_key,
-        deadline,
-    )
-    .map_err(|()| "withdrawal sequencer history unavailable".to_owned())?;
-    let authorization = match &history {
-        Some(history) => history
-            .authorization_for_sequence(protocol.global_sequence())
-            .map_err(|error| format!("{error:?}"))?,
-        None => config.authorization,
-    };
-    let context = EvidenceContext {
-        interface_version: handshake.node().interface_version,
-        correlation_id: trust::correlation(1)
-            .map_err(|()| "LNI correlation exhausted".to_owned())?,
-        expected_protocol_version: PROTOCOL_VERSION,
-        expected_network_id: config.protocol_network_id,
-        handshake_sequencer_key: authorization.public_key(),
-    };
-    let registry = withdrawal::registry().map_err(|error| format!("{error:?}"))?;
-    let bundle = if let Some(history) = &history {
-        layerx_client::evidence::proof_bundle_with_history(
-            &mut transport,
-            ProofBundleSelector::Activity(protocol.activity_id()),
-            context,
-            &registry,
-            history,
-        )
-    } else {
-        proof_bundle(
-            &mut transport,
-            ProofBundleSelector::Activity(protocol.activity_id()),
-            context,
-            &registry,
-        )
-    }
-    .map_err(|error| format!("{error:?}"))?;
-    let VerifiedProofBundle::Activity {
-        canonical_bytes,
-        signed_header,
-        ..
-    } = bundle
-    else {
-        return Err("withdrawal activity proof required".to_owned());
-    };
-    if signed_header.canonical_bytes != header {
-        return Err("withdrawal header mismatch".to_owned());
-    }
-    let authorized = AuthorizedBatch::new(
-        protocol.batch_id(),
-        protocol.asset(),
-        protocol.previous_state_root(),
-        protocol.resulting_state_root(),
-        authorization.public_key(),
-    );
-    withdrawal::verify(
-        receipt,
-        &authorized,
-        &canonical_bytes,
-        config.protocol_network_id,
-    )
-    .map_err(|error| format!("{error:?}"))?;
-    Ok(())
-}
-
 fn relay(config: &Config, batch_id: &str, query: Option<&str>) -> Response {
     let Some(digest) = query.and_then(|query| query.strip_prefix("receipt_digest=")) else {
         return refusal(400, "invalid_request", None);
@@ -989,7 +881,7 @@ impl ReadinessPermit {
     fn acquire() -> Option<Arc<Self>> {
         ACTIVE_READINESS
             .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| {
-                (active < MAX_LNI_CONNECTIONS).then_some(active + 1)
+                (active < MAX_READINESS_CHECKS).then_some(active + 1)
             })
             .ok()
             .map(|_| Arc::new(Self))

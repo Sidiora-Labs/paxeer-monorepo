@@ -495,11 +495,6 @@ func TestAgentOperationEnvelopeClientEncoding(t *testing.T) {
 		t.Fatalf("session.open envelope must carry the owner credential and its key: %s", bootstrap)
 	}
 
-	faucet, err := transport.encode(TransportCall{Plane: PlaneAgent, Operation: string(AgentOperationFaucetClaim), Request: json.RawMessage(`{}`)}, "2")
-	if err != nil || decodeStrict(faucet, &fields) != nil || string(fields["operation"]) != `"faucet.claim"` || string(fields["idempotency_key"]) != "null" {
-		t.Fatalf("faucet.claim must reach the daemon refusal as a plain envelope: %s", faucet)
-	}
-
 	refusals := []struct {
 		name string
 		call TransportCall
@@ -507,6 +502,7 @@ func TestAgentOperationEnvelopeClientEncoding(t *testing.T) {
 	}{
 		{"mutation without key", TransportCall{Plane: PlaneAgent, Operation: string(AgentOperationSubmit), Request: json.RawMessage(`{}`)}, ErrorIdempotencyRequired},
 		{"read with key", TransportCall{Plane: PlaneAgent, Operation: string(AgentOperationReadAccount), Request: json.RawMessage(`{}`), IdempotencyKey: key}, ErrorInvalidArgument},
+		{"retired faucet.claim", TransportCall{Plane: PlaneAgent, Operation: "faucet.claim", Request: json.RawMessage(`{}`)}, ErrorInvalidArgument},
 		{"unknown operation", TransportCall{Plane: PlaneAgent, Operation: "read.everything", Request: json.RawMessage(`{}`)}, ErrorInvalidArgument},
 		{"human plane", TransportCall{Plane: PlaneHuman, Operation: string(AgentOperationReadAccount), Request: json.RawMessage(`{}`)}, ErrorInvalidArgument},
 		{"non-object request", TransportCall{Plane: PlaneAgent, Operation: string(AgentOperationReadAccount), Request: json.RawMessage(`[1]`)}, ErrorInvalidArgument},
@@ -518,6 +514,9 @@ func TestAgentOperationEnvelopeClientEncoding(t *testing.T) {
 		var sdkError *SDKError
 		if !errors.As(err, &sdkError) || sdkError.Code != refusal.code {
 			t.Fatalf("%s: expected %s, got %v", refusal.name, refusal.code, err)
+		}
+		if refusal.name == "retired faucet.claim" && sdkError.Retry != RetryNever {
+			t.Fatalf("%s: expected retry %s, got %s", refusal.name, RetryNever, sdkError.Retry)
 		}
 	}
 

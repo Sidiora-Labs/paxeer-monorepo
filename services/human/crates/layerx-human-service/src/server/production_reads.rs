@@ -12,7 +12,7 @@ use crate::journeys::{
 };
 use crate::notify::ActivityEntryId;
 use crate::notify::JourneyId;
-use crate::store::PrincipalScope;
+use crate::store::{PrincipalScope, Table};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
 use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_proof::checkpoint::SettlementDomain;
@@ -174,6 +174,19 @@ pub(super) fn journey_list_with(
 ) -> Result<BackendResponse, ApiFailure> {
     const PAGE_SIZE: usize = 50;
     let mut journeys = public_journeys(scope)?;
+    let mut additional = additional;
+    for key in scope
+        .keys(Table::Journeys)
+        .into_iter()
+        .filter(|key| key.as_str().starts_with("intent-evm-"))
+    {
+        let row = scope
+            .get(Table::Journeys, &key)
+            .ok_or_else(ApiFailure::upstream_degraded)?;
+        let record: Value =
+            serde_json::from_slice(row.bytes()).map_err(|_| ApiFailure::upstream_degraded())?;
+        additional.push((row.written_at(), intent_journey_json(&record)?));
+    }
     for (updated_at, value) in additional {
         let id = value["journey_id"]
             .as_str()
@@ -307,6 +320,57 @@ fn evidence_get(
         ));
     }
     Err(ApiFailure::not_found())
+}
+
+pub(super) fn intent_journey_json(record: &Value) -> Result<Value, ApiFailure> {
+    let id = record["journey_id"]
+        .as_str()
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    JourneyId::new(id.to_owned()).map_err(|_| ApiFailure::upstream_degraded())?;
+    let state = record["state"]
+        .as_str()
+        .filter(|state| matches!(*state, "processing" | "done" | "refused" | "still-checking"))
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    let started_at = record["started_at"]
+        .as_str()
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    let updated_at = record["updated_at"]
+        .as_str()
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    crate::time::seconds_from_rfc3339(started_at).ok_or_else(ApiFailure::upstream_degraded)?;
+    crate::time::seconds_from_rfc3339(updated_at).ok_or_else(ApiFailure::upstream_degraded)?;
+    let legs = record["legs"]
+        .as_array()
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    let mut stages = Vec::with_capacity(legs.len());
+    let mut evidence = Vec::with_capacity(legs.len());
+    for (index, leg) in legs.iter().enumerate() {
+        let hash = leg["tx_hash"]
+            .as_str()
+            .ok_or_else(ApiFailure::upstream_degraded)?;
+        let digest = hash
+            .strip_prefix("0x")
+            .filter(|hex| hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
+            .ok_or_else(ApiFailure::upstream_degraded)?;
+        let nonce = leg["nonce"]
+            .as_u64()
+            .ok_or_else(ApiFailure::upstream_degraded)?;
+        let (phase, stage_state, class, verification) = if leg["refused"] == true {
+            ("refused", "refused", "layerx-receipt", "receipt-verified")
+        } else if leg["verified"] == true {
+            ("confirmed", "done", "layerx-receipt", "receipt-verified")
+        } else {
+            ("submitted", "processing", "submission-record", "unverified")
+        };
+        let reference = json!({"evidence_id": format!("evd_{digest}"), "class": class, "verification": verification});
+        stages.push(json!({"stage_id": format!("stg_{id}_{index}"), "copy_key": format!("journey.stage.{phase}"),
+            "state": stage_state, "evidence": [reference.clone()], "tx_hash": hash, "nonce": nonce}));
+        evidence.push(reference);
+    }
+    Ok(
+        json!({"journey_id": id, "kind": "move", "state": state, "state_copy_key": format!("journey.state.{state}"),
+        "stages": stages, "evidence": evidence, "started_at": started_at, "updated_at": updated_at}),
+    )
 }
 
 pub(super) fn journey_json(

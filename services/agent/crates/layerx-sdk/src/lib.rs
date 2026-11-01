@@ -35,7 +35,7 @@ use layerx_agent_api::subscription::{
 use layerx_agent_api::track::{TrackRequest, TrackedSubmission, WaitRequest};
 
 use layerx_agent_api::{agent_api_schema_v1, ContractVersion, SubmissionState};
-use layerx_client::client::{Client as NodeClient, ClientConfig, ConnectionError};
+use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_types::result::ResultCode;
 pub use layerx_types::rung::Rung;
 
@@ -198,8 +198,7 @@ impl PolicyDryRun {
 }
 
 struct DirectBackend {
-    configuration: ClientConfig,
-    client: Option<NodeClient>,
+    endpoint: SequencerEndpoint,
 }
 
 enum Backend {
@@ -216,10 +215,8 @@ pub struct Client {
 pub enum SdkError {
     EmptyEndpoint,
     ContractMajor { supported: u16, requested: u16 },
-    NodeInterfaceMajor { supported: u16, configured: u16 },
-    InvalidDirectLimits,
     NotDirectNode,
-    DirectConnection(ConnectionError),
+    DirectEndpoint,
     UnverifiedRead,
     InvalidProofBundle,
     VerificationBelowRequested { requested: Rung, achieved: Rung },
@@ -247,46 +244,18 @@ impl Client {
         })
     }
 
-    /// Configures a direct `layerx-client` connection with no daemon dependency.
+    /// Configures a direct sequencer endpoint with caller-pinned trust anchors.
     ///
     /// # Errors
     ///
-    /// Refuses incompatible node-interface configuration or disabled transport limits.
-    pub fn direct_node(configuration: ClientConfig) -> Result<Self, SdkError> {
-        let schema = agent_api_schema_v1();
-        if configuration.handshake.built_interface_version.major != schema.node_interface_major {
-            return Err(SdkError::NodeInterfaceMajor {
-                supported: schema.node_interface_major,
-                configured: configuration.handshake.built_interface_version.major,
-            });
-        }
-        configuration
-            .limits
-            .validate()
-            .map_err(|_| SdkError::InvalidDirectLimits)?;
+    /// Refuses unusable endpoint URLs or trust anchors.
+    pub fn direct_node(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, SdkError> {
+        let endpoint = SequencerEndpoint::new(url, trust_anchors)
+            .map_err(|_: SequencerError| SdkError::DirectEndpoint)?;
         Ok(Self {
-            backend: Backend::DirectNode(Box::new(DirectBackend {
-                configuration,
-                client: None,
-            })),
-            contract: schema.version,
+            backend: Backend::DirectNode(Box::new(DirectBackend { endpoint })),
+            contract: agent_api_schema_v1().version,
         })
-    }
-
-    /// Establishes the configured direct-node boundary using `layerx-client`.
-    ///
-    /// # Errors
-    ///
-    /// Refuses daemon-mode clients and returns the exact `layerx-client` connection error.
-    pub fn connect_direct_node(&mut self) -> Result<(), SdkError> {
-        let Backend::DirectNode(direct) = &mut self.backend else {
-            return Err(SdkError::NotDirectNode);
-        };
-        direct.client = Some(
-            NodeClient::connect(direct.configuration.clone())
-                .map_err(SdkError::DirectConnection)?,
-        );
-        Ok(())
     }
 
     #[must_use]
@@ -318,10 +287,10 @@ impl Client {
     }
 
     #[must_use]
-    pub fn direct_node_client(&mut self) -> Option<&mut NodeClient> {
-        match &mut self.backend {
+    pub fn direct_node_client(&self) -> Option<&SequencerEndpoint> {
+        match &self.backend {
             Backend::Daemon { .. } => None,
-            Backend::DirectNode(direct) => direct.client.as_mut(),
+            Backend::DirectNode(direct) => Some(&direct.endpoint),
         }
     }
 

@@ -26,6 +26,8 @@ keys=$layerx/keys
 genesis=$layerx/genesis
 state=$layerx/value-loop
 lni=$run/node/layerxd.lni.sock
+rpc=${LAYERX_NODE_RPC:-}
+trust_anchor=${LAYERX_NODE_TRUST_ANCHOR_DER:-}
 network_id=${LAYERX_NODE_NETWORK_ID:-125}
 authority=https://127.0.0.1:9445
 
@@ -137,8 +139,14 @@ main() {
 	if [ ! -s "$state/send.activity-id" ]; then
 		rm -f "$state/send.bin"
 		local send_command=write-send
-		if [ "$explicit_asset" = 1 ]; then send_command=write-asset-send; fi
-		activity=$(as_lni layerx-node-probe "$send_command" --socket "$lni" --network-id "$network_id" \
+		local -a send_endpoint=(--socket "$lni")
+		if [ "$explicit_asset" = 1 ]; then
+			[ -n "$rpc" ] || precondition custody-rpc "LAYERX_NODE_RPC must be set for an explicit asset"
+			[ -n "$trust_anchor" ] || precondition custody-trust-anchor "LAYERX_NODE_TRUST_ANCHOR_DER must be set for an explicit asset"
+			send_command=write-asset-send
+			send_endpoint=(--rpc "$rpc" --trust-anchor "$trust_anchor")
+		fi
+		activity=$(as_lni layerx-node-probe "$send_command" "${send_endpoint[@]}" --network-id "$network_id" \
 			--seed-file "$keys/value-loop/sender.key" --destination-did "${dids[recipient]}" \
 			--asset "$asset" --output "$state/send.bin" 2>/dev/null) || failed "activity write-send refused"
 		answer=$(as_lni layerxctl submit --socket "$lni" --network-id "$network_id" --protocol-version 3 \

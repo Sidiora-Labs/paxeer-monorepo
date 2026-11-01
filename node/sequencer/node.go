@@ -59,8 +59,12 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 		n.WAL = n.Standby.wal
 		return n, nil
 	}
-	if _, _, err := net.SplitHostPort(cfg.StandbyAddress); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrConfigStandbyAddress, err)
+	var dial func(context.Context) (net.Conn, error)
+	if cfg.StandbyAddress != "" {
+		if _, _, err := net.SplitHostPort(cfg.StandbyAddress); err != nil {
+			return nil, fmt.Errorf("%w: %v", ErrConfigStandbyAddress, err)
+		}
+		dial = DialStandby(cfg.StandbyAddress, cfg.ReplicationTimeout)
 	}
 	n.WAL, err = wal.OpenWAL(cfg.WALDir, wal.DefaultConfig())
 	if err != nil {
@@ -75,7 +79,7 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 		}
 	}()
 	n.Replicator, err = NewReplicator(ReplicatorConfig{
-		WAL: n.WAL, Dial: DialStandby(cfg.StandbyAddress, cfg.ReplicationTimeout),
+		WAL: n.WAL, Dial: dial, Standalone: cfg.StandbyAddress == "",
 		ReplicationTimeout: cfg.ReplicationTimeout,
 	})
 	if err != nil {
@@ -141,6 +145,7 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 	n.ReceiptLogFeed = evmrpc.NewReceiptLogFeed(height)
 	n.LogFeedPublisher = NewLogFeedPublisher(n.ReceiptLogFeed)
 	n.Accepter = NewAccepter(n.Receipter, n.Replicator, n.ReceiptSource, n.Metrics)
+	n.ConsensusSource.SetAccepter(n.Accepter)
 	n.NonceAdmission, err = NewNonceAdmission(cfg, nodeOpenNonces{a},
 		func(_ common.Address, _ uint64, tx []byte) error {
 			_, err := n.Accepter.Accept(tx)

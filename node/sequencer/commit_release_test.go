@@ -182,7 +182,7 @@ func TestDriverReleasesNextOpenAcrossStandbyCommit(t *testing.T) {
 		_, tx := transfer(t, sender, i, utils.NewSigner().EvmAddress, big.NewInt(1))
 		receipt, err := n.Accepter.Accept(tx)
 		require.NoError(t, err)
-		require.NotEmpty(t, receipt)
+		require.NotEmpty(t, receipt.Receipt)
 		require.Equal(t, startSeq+i+1, s.LastSeq())
 		block, err := n.ConsensusSource.Seal(ctx, height)
 		require.NoError(t, err)

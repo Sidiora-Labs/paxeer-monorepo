@@ -47,7 +47,7 @@ def receipt_protocol_version(canonical_receipt: bytes) -> int:
     envelope = int.from_bytes(canonical_receipt[0:2], "big")
     version = int.from_bytes(canonical_receipt[4:6], "big")
     if envelope != version or version not in PAYMENT_RECEIPT_PROTOCOL_VERSIONS:
-        raise ReceiptVerificationError(ReceiptFailureCode.PROTOCOL_VERSION)
+        raise ReceiptVerificationError(ReceiptFailureCode.RECEIPT_VERSION)
     return version
 
 
@@ -120,7 +120,7 @@ def verify_sequencer_receipt(
     if verified.receipt.result_code != 0:
         if verified.receipt.result_code == 1 and return_data is not None:
             raise decode_revert_reason(return_data)
-        raise ReceiptVerificationError(ReceiptFailureCode.RESULT_CODE)
+        raise ReceiptVerificationError(ReceiptFailureCode.FIELDS)
     return verified
 
 

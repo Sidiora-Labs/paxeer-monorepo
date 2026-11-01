@@ -196,11 +196,6 @@ def main():
         "native-program-wind-down-tombstone-v3": 7,
         "native-program-wind-down-exit-v3": 7,
     }
-    subprocess.run(
-        [str(arguments.encoder.resolve()), "--stored-historical-v3",
-         str(Path(__file__).with_name("receipt-programs-executed-v3.json"))],
-        check=True, timeout=120,
-    )
     for name in expected:
         subprocess.run(
             [str(arguments.encoder.resolve()), "--stored-historical-lifecycle",
@@ -236,9 +231,6 @@ def main():
 
     write_evm_fixtures(arguments.check)
     write_evm_fixtures(arguments.check, wind_down_only=True)
-
-    from generate_executed_program_v4_fixture import main as executed_v4
-    executed_v4()
 
 
 if __name__ == "__main__":

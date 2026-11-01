@@ -1,14 +1,15 @@
 #include "lxp_kernel_case.h"
 
 #include "layerx/programs.h"
-#include "layerx/lx_web.h"
 #include "layerx/lxp_genesis.h"
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_module_ctx.h"
 
+struct lx_web_answer;
+
 extern lxp_result lx_web_committed_read(
     lxp_module_ctx *ctx, const uint8_t program_id[32], uint64_t request_id,
-    lx_web_answer *answer) __attribute__((weak));
+    struct lx_web_answer *answer) __attribute__((weak));
 
 extern lxp_result lxp_bridge_credit_bind_receipt(
     lxp_receipt *receipt, const lxp_module_ctx *ctx) __attribute__((weak));
@@ -158,5 +159,12 @@ int main(int argc, char **argv)
         {"program_web_read_disabled", program_web_read_disabled},
         {"bridge_receipt_bind_absent", bridge_receipt_bind_absent}
     };
+    if (argc <= 1) {
+        size_t index;
+        for (index = 0U; index < sizeof(cases) / sizeof(cases[0]); ++index) {
+            if (cases[index].run() != 0) return 1;
+        }
+        return 0;
+    }
     return lxp_kernel_case_main(cases, sizeof(cases) / sizeof(cases[0]), argc, argv);
 }

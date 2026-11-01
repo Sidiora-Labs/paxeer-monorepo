@@ -1,0 +1,291 @@
+{
+  "names_registry": [
+    {
+      "type": "event",
+      "name": "NewOwner",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "node",
+          "type": "bytes32",
+          "indexed": true
+        },
+        {
+          "name": "label",
+          "type": "bytes32",
+          "indexed": true
+        },
+        {
+          "name": "owner",
+          "type": "address",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "Transfer",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "node",
+          "type": "bytes32",
+          "indexed": true
+        },
+        {
+          "name": "owner",
+          "type": "address",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "NewResolver",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "node",
+          "type": "bytes32",
+          "indexed": true
+        },
+        {
+          "name": "resolver",
+          "type": "address",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "NewTTL",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "node",
+          "type": "bytes32",
+          "indexed": true
+        },
+        {
+          "name": "ttl",
+          "type": "uint64",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "ApprovalForAll",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "owner",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "name": "operator",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "name": "approved",
+          "type": "bool",
+          "indexed": false
+        }
+      ]
+    }
+  ],
+  "names_registrar": [
+    {
+      "type": "event",
+      "name": "Transfer",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "from",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "name": "to",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "name": "tokenId",
+          "type": "uint256",
+          "indexed": true
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "NameRegistered",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "id",
+          "type": "uint256",
+          "indexed": true
+        },
+        {
+          "name": "owner",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "name": "expires",
+          "type": "uint256",
+          "indexed": false
+        }
+      ]
+    }
+  ],
+  "names_controller": [
+    {
+      "type": "event",
+      "name": "NameRegistered",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "label",
+          "type": "string",
+          "indexed": false
+        },
+        {
+          "name": "labelhash",
+          "type": "bytes32",
+          "indexed": true
+        },
+        {
+          "name": "owner",
+          "type": "address",
+          "indexed": true
+        },
+        {
+          "name": "cost",
+          "type": "uint256",
+          "indexed": false
+        },
+        {
+          "name": "expires",
+          "type": "uint256",
+          "indexed": false
+        },
+        {
+          "name": "referrer",
+          "type": "bytes32",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "NameRenewed",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "label",
+          "type": "string",
+          "indexed": false
+        },
+        {
+          "name": "labelhash",
+          "type": "bytes32",
+          "indexed": true
+        },
+        {
+          "name": "cost",
+          "type": "uint256",
+          "indexed": false
+        },
+        {
+          "name": "expires",
+          "type": "uint256",
+          "indexed": false
+        }
+      ]
+    }
+  ],
+  "names_resolver": [
+    {
+      "type": "event",
+      "name": "AddrChanged",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "node",
+          "type": "bytes32",
+          "indexed": true
+        },
+        {
+          "name": "a",
+          "type": "address",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "TextChanged",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "node",
+          "type": "bytes32",
+          "indexed": true
+        },
+        {
+          "name": "indexedKey",
+          "type": "string",
+          "indexed": true
+        },
+        {
+          "name": "key",
+          "type": "string",
+          "indexed": false
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "ContenthashChanged",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "node",
+          "type": "bytes32",
+          "indexed": true
+        },
+        {
+          "name": "hash",
+          "type": "bytes",
+          "indexed": false
+        }
+      ]
+    },
+    {
+      "type": "event",
+      "name": "NameChanged",
+      "anonymous": false,
+      "inputs": [
+        {
+          "name": "node",
+          "type": "bytes32",
+          "indexed": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "indexed": false
+        }
+      ]
+    }
+  ]
+}

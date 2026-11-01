@@ -1160,6 +1160,15 @@ $(BUILD_DIR)/tests/kernel/%: tests/%.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | prog
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
+$(BUILD_DIR)/tools/dump_trading_vectors: tests/modules/dump_trading_vectors.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Itests/codec $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
+
+.PHONY: trading-vectors
+trading-vectors: $(BUILD_DIR)/tools/dump_trading_vectors
+
 $(BUILD_DIR)/tests/test_fuzz_smoke: tests/test_fuzz_smoke.c \
 		tests/fuzz/fuzz_activity.c tests/fuzz/fuzz_signature.c \
 		tests/fuzz/fuzz_transfer_set.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
@@ -1617,6 +1626,13 @@ public-audit:
 agent-build:
 	$(AGENT_CARGO) build --manifest-path $(AGENT_MANIFEST) --locked --workspace
 
+.PHONY: agent-sdk-ts-build
+agent-sdk-ts-build:
+	@if [ ! -d services/agent/sdk/typescript/node_modules ]; then \
+		npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund; \
+	fi
+	npm --prefix services/agent/sdk/typescript run build
+
 .PHONY: human-js-install
 human-js-install:
 	npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund
@@ -1626,6 +1642,7 @@ human-gen-api:
 	$(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked -- services/human/schema/human-api apps/web/src/api/generated
 
 human-build:
+	$(MAKE) agent-sdk-ts-build
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path services/human/tools/api-gen/Cargo.toml --locked
 	$(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked -- --check services/human/schema/human-api apps/web/src/api/generated
 	$(HUMAN_CARGO) build --manifest-path $(HUMAN_MANIFEST) --locked --workspace

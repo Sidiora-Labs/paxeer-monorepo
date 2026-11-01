@@ -12,6 +12,61 @@ from pathlib import Path, PurePosixPath
 from .kvx import KvxValue, load
 
 ROOT = Path(__file__).resolve().parents[3]
+PARITY_PATH = Path(__file__).resolve().parent / "data/parity.kvx"
+DOC_PATH = PARITY_PATH.parents[2] / "docs/parity-inventory.md"
+
+ORACLE_SECTION = """## 1 Parity oracle
+
+### What it replays
+
+| Input | Path | Content |
+|---|---|---|
+| Kernel replay corpus | `tests/vectors/replay_corpus.lxb` | corpus read by the qualification replay (corpus header `tests/qualification/lxp_qual_replay.c:21`, activity type list `tests/qualification/lxp_qual_replay.c:28`) |
+| Replay digest | `tests/vectors/qualification_replay_10m.digest` | expected kernel digest of the long replay |
+| Cross-architecture activity list | `tests/test_replay_crossarch.c` | activity types 0x00010001 to 0x0005000d replayed by `make test-replay-crossarch` (`Makefile:1074`, list at `tests/test_replay_crossarch.c:9-26`) |
+| Kernel goldens and fixtures | `tests/fixtures/`, `tests/replay/golden/history.lxl` (`make test-replay-golden-local`, `Makefile:381`) | receipts, grants, sessions, custody credits, genesis and module tables listed per construct in section 2 |
+| Trading payload vectors | `tests/fixtures/trading-payloads/vectors.json` | 17 perps and spot payload vectors (producer `tests/modules/dump_trading_vectors.c`) |
+| Program vectors | `programs/tests/vectors/`, `programs/fixtures/`, `programs/abi-frozen.sha256` | ABI v1 to v5 manifests, program fixtures, frozen ABI digest |
+| Web preimage vectors | `modules/xweb/types/testdata/preimage-vectors.json`, `tests/fixtures/web/observation-activity.hex` | origin 1 and origin 2 attestation preimages and the canonical observation bytes |
+| Client goldens | `agent/schema/agent-api/golden/`, `sdk/platform/conformance/fixtures/`, `human/schema/human-api/golden/` | wire and receipt goldens consumed by the agent, SDK and human clients in wave 5 |
+
+Each corpus activity runs twice: once through liblayerx (the kernel execution function) and once as the mapped EVM transaction against the chain construct that replaces it (layerxledger 0x101A, layerxpay 0x101B, layerxauth 0x101C, layerxprograms 0x101D, layerxexchange 0x1015, xweb 0x1019).
+
+### What it diffs
+
+| Dimension | Kernel side | Chain side | Equality rule |
+|---|---|---|---|
+| Result | `lxp_result` code (`include/layerx/lxp_result.h`) | transaction status and the mapped error code of the precompile revert | same code for every activity, success and refusal alike |
+| State | per-account, per-asset balances; asset supply; module records | bank balances at the derived addresses; denom supply; keeper store records | equal deltas per account and asset, equal supply deltas, equal record fields |
+| Receipts | kernel receipt | sequencer-signed receipt and `eth_getTransactionReceipt` (`rpc/tx.go:106`) | status, gas used, logs and order equal |
+| Events | kernel events | EVM logs of the construct | same events in the same order with equal fields |
+| Conservation | `LXP_ERR_CONSERVATION` (`include/layerx/lxp_result.h:84`, raised at `src/ledger/lxp_apply.c:412`) | same refusal from the chain construct | a conservation refusal on one side is a conservation refusal on the other |
+
+The comparison follows the pattern already used for parallel execution: `tests/occ/occ_test.go:198-232` runs the same transactions sequentially and under OCC and asserts equal result codes, events (`tests/occ/occ_test.go:55`), transaction results (`tests/occ/occ_test.go:83`) and store state (`tests/occ/occ_test.go:17`).
+
+### Where and when it runs
+
+The parity oracle runs once per wave on the merged wave revision, never per task. Task gates run the focused tests named in sections 2 to 5; the oracle then covers every construct landed up to that wave. Wave 2 adds ledger, pay and auth activities; wave 3 adds programs, origin-2 web and native trading; wave 6 adds the cut-over goldens of section 5.
+
+| Wave | Constructs landed (the oracle starts at wave 2) |
+|---|---|
+| 0 | sequencer execution, signed receipts, pending reads, fee policy, address table |
+| 1 | C-module host shim, account and asset maps, archive proofs |
+| 2 | layerxledger, layerxpay, layerxauth, governance pause and fee parameters |
+| 3 | layerxprograms, program-origin xweb, layerxexchange native perps and spot |
+| 4 | AI and market guests, keeper and sidecar drivers |
+| 5 | re-pointed callers: router, gateway, agent stack, wallet, explorer, bridge relayer |
+| 6 | cut-over: freeze, balance export, upgrade handlers |
+| 7 | retirement of the two-domain components |
+
+### Command shape
+
+| Gate | Command | Path |
+|---|---|---|
+| Parity oracle (planned) | `go test -count=1 ./tests/parity/kernel_chain/` | `tests/parity/kernel_chain/` (planned; same Go test layout as the existing `tests/chain/` package) |
+| Kernel reference side | `make test-replay-crossarch` | `tests/test_replay_crossarch.c` |
+
+"""
 
 
 class ParityError(ValueError):
@@ -161,3 +216,121 @@ def zero_test_commands(
         if count_go_tests(command, root) == 0:
             task_ids.append(section.removeprefix("task."))
     return task_ids
+
+
+def _doc_text(value: KvxValue) -> str:
+    return str(value).replace("|", "\\|").replace("\n", "<br>")
+
+
+def _doc_refs(values: KvxValue) -> str:
+    if not isinstance(values, list):
+        raise ParityError("document references must be a list of strings")
+    return "; ".join(f"`{_doc_text(value)}`" for value in values) or "none"
+
+
+def render_doc(rows: Mapping[str, Mapping[str, KvxValue]]) -> str:
+    """Render the parity inventory from the KVX rows in source order."""
+    entries = [
+        row
+        for name, row in rows.items()
+        if name.startswith(("construct.", "dropped."))
+    ]
+    sections = {
+        number: [row for row in entries if row["source_section"] == number]
+        for number in (2, 3, 5)
+    }
+    dropped = [row for row in entries if "dropped" in row]
+    dropped_count = sum(len(row["dropped"]) for row in dropped)
+    lines = [
+        "# Parity inventory",
+        "",
+        "Requirement 1 (feature parity): every kernel construct folded into Paxeer X "
+        "Network keeps its behaviour, shown by the kernel's own tests and goldens "
+        "re-targeted at the chain and by a differential harness, the parity oracle.",
+        "",
+        "Generated from `programme/data/parity.kvx`. Source paths retain the "
+        "original inventory; exact selectors name the current test targets. "
+        "Planned-by IDs identify the tasks declaring selectors. "
+        "An inventory entry is not evidence that its tests passed.",
+        "Regenerate from the repository root with:",
+        "",
+        "```sh",
+        "PYTHONPATH=spec/layerx-merge python3 -m programme.parity",
+        "```",
+        "",
+        f"Counts: {len(sections[2])} existing construct rows (section 2), "
+        f"{len(sections[3])} new target rows (section 3), "
+        f"{dropped_count} dropped references across {len(dropped)} rows (section 4), "
+        f"{len(sections[5])} cut-over goldens (section 5). "
+        "Dropped reference counts include repeated references across rows.",
+        "",
+        ORACLE_SECTION.rstrip("\n"),
+    ]
+
+    def append_targets(number: int, title: str) -> None:
+        lines.extend(
+            [
+                "",
+                f"## {number} {title}",
+                "",
+                "Source paths are historical references. Run the exact selectors; "
+                "rows without selectors are listed as dropped in section 4.",
+                "",
+                "| Construct | Source paths | Exact selectors | Owner domain | Wave | Planned by |",
+                "|---|---|---|---|---|---|",
+            ]
+        )
+        for row in sections[number]:
+            selectors = (
+                _doc_refs(row["selectors"])
+                if "selectors" in row
+                else "Dropped; see section 4"
+            )
+            planned_by = _doc_refs(row["planned_by"]) if "planned_by" in row else "none"
+            cells = [
+                _doc_text(row["title"]),
+                _doc_refs(row["source_paths"]),
+                selectors,
+                _doc_text(row["owner_domain"]),
+                _doc_text(row["wave"]),
+                planned_by,
+            ]
+            lines.append("| " + " | ".join(cells) + " |")
+
+    append_targets(2, "Existing targets")
+    append_targets(3, "New targets")
+    lines.extend(
+        [
+            "",
+            "## 4 Dropped selectors and targets",
+            "",
+            "These references are excluded from the exact selectors. "
+            "Rows with replacements retain their current selectors in sections 2, 3 or 5. "
+            "The parity oracle description in section 1 is preserved verbatim; "
+            "its planned harness is recorded below as dropped.",
+            "",
+            "| Construct | Dropped references | Source section | Owner domain | Wave | Disposition |",
+            "|---|---|---|---|---|---|",
+        ]
+    )
+    for row in dropped:
+        disposition = (
+            _doc_text(row["reason"])
+            if "reason" in row
+            else f"Superseded; current exact selectors are in section {row['source_section']}."
+        )
+        cells = [
+            _doc_text(row["title"]),
+            _doc_refs(row["dropped"]),
+            _doc_text(row["source_section"]),
+            _doc_text(row["owner_domain"]),
+            _doc_text(row["wave"]),
+            disposition,
+        ]
+        lines.append("| " + " | ".join(cells) + " |")
+    append_targets(5, "Cut-over goldens")
+    return "\n".join(lines) + "\n"
+
+
+if __name__ == "__main__":
+    DOC_PATH.write_bytes(render_doc(load(PARITY_PATH)).encode("utf-8"))
