@@ -5,8 +5,8 @@ IMAGE_NAMES=(layerx-testnet-control layerx-gateway layerx-faucet layerx-program-
     layerx-mirror layerx-interop-gateway layerx-reference-ramp
     paxd-node paxd
     bridge-relayer explorer-backend explorer-elixir-builder explorer-frontend explorer-sig-provider explorer-smart-contract-verifier flyci-controller flyci-runner
-    gas-station hpx-registry kernel layerx localnode platform-indexer platform-registry-builder relay-archive rpcnode
-    search-front wallet-attestor wallet-gateway wallet-pwa x-websearch intent-ingester redis feeder)
+    gas-station hpx-registry kernel layerx localnode platform-indexer platform-registry-builder rpcnode
+    search-front wallet-attestor wallet-gateway wallet-pwa x-websearch redis feeder)
 
 image_source() {
     case "$1" in
@@ -46,14 +46,12 @@ image_source() {
         localnode) printf 'ghcr.io/sidiora-labs/localnode:0.1.0 docker/localnode/Dockerfile' ;;
         platform-indexer) printf 'ghcr.io/sidiora-labs/platform-indexer:0.1.0 docker/platform-indexer/Dockerfile' ;;
         platform-registry-builder) printf 'ghcr.io/sidiora-labs/platform-registry-builder:0.1.0 docker/platform-registry-builder/Dockerfile' ;;
-        relay-archive) printf 'ghcr.io/sidiora-labs/relay-archive:0.1.0 docker/relay-archive/Dockerfile' ;;
         rpcnode) printf 'ghcr.io/sidiora-labs/rpcnode:0.1.0 docker/rpcnode/Dockerfile' ;;
         search-front) printf 'ghcr.io/sidiora-labs/search-front:0.1.0 docker/search-front/Dockerfile' ;;
         wallet-attestor) printf 'ghcr.io/sidiora-labs/wallet-attestor:0.1.0 docker/wallet-attestor/Dockerfile' ;;
         wallet-gateway) printf 'ghcr.io/sidiora-labs/wallet-gateway:0.1.0 docker/wallet-gateway/Dockerfile' ;;
         wallet-pwa) printf 'ghcr.io/sidiora-labs/wallet-pwa:0.1.0 docker/wallet-pwa/Dockerfile' ;;
         x-websearch) printf 'ghcr.io/sidiora-labs/x-websearch:0.1.0 docker/x-websearch/Dockerfile' ;;
-        intent-ingester) printf 'ghcr.io/sidiora-labs/intent-ingester:0.1.0 docker/intent-ingester/Dockerfile' ;;
         redis) printf 'ghcr.io/sidiora-labs/redis:0.1.0 docker/redis/Dockerfile' ;;
         feeder) printf 'ghcr.io/sidiora-labs/feeder:0.1.0 services/platform/hosted/feeder/Dockerfile' ;;
         *) fail "unknown image $1" ;;
