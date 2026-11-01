@@ -129,7 +129,7 @@ struct Capture {
     path: String,
     receipt: VerifiedReceipt,
     header: VerifiedBatchHeader,
-    admission: layerx_client::evidence::VerifiedAdmissionPrestate,
+    admission: layerx_programs_arbiter::AdmissionEvidence,
     commit: ChainCommitProof,
     host_store_root: [u8; 32],
     host_multistore_proof: Vec<u8>,
@@ -221,12 +221,12 @@ impl Fixture {
             .iter()
             .map(|v| {
                 let (receipt, header, _) = verified(&files, admission_directory, v, &authorization);
-                let admission = layerx_client::evidence::verify_arbiter_admission_v3(
-                    &read(&files, admission_directory, v, "v3_path"),
-                    &receipt,
-                    network,
-                )
-                .expect("genuine sealed V3 prestate");
+                let admission = admission_from_proofs(&v["admission"]);
+                assert_eq!(admission.network_id(), network);
+                assert_eq!(
+                    admission.receipt_digest(),
+                    receipt.evidence().receipt_digest().expect("receipt digest")
+                );
                 if admission.activity().activity_type().module()
                     == layerx_types::payload::ModuleId::Programs
                     && admission.activity().activity_type().ordinal() == 1
@@ -1009,4 +1009,34 @@ fn assert_native_field_refusals(authority: &VerifiedReplayAuthority, bytes: &[u8
     let mut trailing = bytes.to_vec();
     trailing.push(0);
     assert!(authority.verify_native(&trailing).is_err());
+}
+
+fn admission_from_proofs(entry: &Value) -> layerx_programs_arbiter::AdmissionEvidence {
+    let records = entry["records"]
+        .as_array()
+        .expect("app-hash admission record proofs");
+    assert!(!records.is_empty());
+    let first = &records[0];
+    let mut proofs = BTreeMap::new();
+    for record in records {
+        assert_eq!(hash(record, "app_hash"), hash(first, "app_hash"));
+        assert_eq!(hash(record, "store_root"), hash(first, "store_root"));
+        assert_eq!(
+            hex(record, "multistore_proof"),
+            hex(first, "multistore_proof")
+        );
+        let proof =
+            decode_existence(&hex(record, "proof")).expect("real admission existence proof");
+        assert_eq!(proof.key, hex(record, "key"));
+        assert_eq!(proof.value, hex(record, "value"));
+        assert!(proofs.insert(proof.key.clone(), proof).is_none());
+    }
+    layerx_programs_arbiter::AdmissionEvidence::verify_under_app_hash(
+        hash(first, "app_hash"),
+        hash(first, "store_root"),
+        &hex(first, "multistore_proof"),
+        &hash(entry, "activity_id"),
+        &proofs,
+    )
+    .expect("admission records authenticated under the block app hash")
 }
