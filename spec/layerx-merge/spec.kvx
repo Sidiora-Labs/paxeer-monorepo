@@ -151208,7 +151208,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.24.3]
 title = "Decode px_getNetwork with the consensus head instead of the anchor head"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["10.24.2", "8.0.4", "18.1119.1", "18.1297.1"]
@@ -178147,7 +178147,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.17.2.6]
 title = "Check the retirement doc and the scan inventory agree after the retirements"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.2.5"]
