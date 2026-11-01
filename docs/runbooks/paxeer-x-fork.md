@@ -315,7 +315,7 @@ For each validator operator (`$PAXD_UNIT`, `$PAXD_HOME` and `$COMET_RPC_PORT` fr
    curl -s -H 'content-type: application/json' "localhost:$EVM_RPC_PORT" \
      --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":"0x0000000000000000000000000000000000001013","data":"0x2dfdf0b5"},"latest"]}'
    ```
-   (0x1014 with `0x42cde4e8`; 0x1015–0x1017 with the calldata used in the rehearsal.)
+   (0x1014 with `0x42cde4e8`; 0x1015 with `0x8162486b` (totalMarkets()); 0x1016 with `0xb187bd26` (isPaused()); 0x1017 with `0x8eec5d70` (getPoolCount()).)
 
 Record per validator, locally: halt log seen (Y/N), upgrade-info.json OK, sha256 OK, restarted at
 (UTC), first signed height after H.
