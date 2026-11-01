@@ -12451,3 +12451,8 @@ fix = "hold the lower-wave consumers by operator hold until the fix publishes, a
 title = "A port ruling must name the committed source of every field of the deleted type"
 symptom = "9.24.5 asked to carry every prestate check onto a balance read and three attempts stopped without a build: the deleted prestate carried eight kinds of fact and the balance read carried two."
 fix = "before ruling a port, list the accessors the consumers call on the deleted type (grep the accessor names and count the call sites) and name the committed source for each one, including the check that has none and is dropped on record."
+
+[gotcha.2527]
+title = "The touches list is the edit scope; an unlisted consumer blocks qualification"
+symptom = "5.98.7 attempt 9 met a type error in a test file the task did not list, asked whether it could edit the file and stopped without a build; the previous ruling had listed the callers go vet had named so far, not every caller in the tree."
+fix = "when ruling on an interface change, enumerate every caller of the changed symbol across the tree with one search (not the ones the compiler has reported so far) and add each consumer file to touches in the same batch, so the implementation never meets an unlisted file."

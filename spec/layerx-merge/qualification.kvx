@@ -15363,3 +15363,11 @@ symbol = "AcceptedSend"
 observed = "Attempt 7 (051f9cda5) ported crash_replay_test.go and go vet reported the next caller, node_start_test.go:158; vet prints one type error per package run, so each attempt has fixed one site and met the next: Accepter.Accept now returns evmrpc.AcceptedSend and the tests still pass the result where []byte is expected at node_start_test.go:158 and :229, node_stop_test.go:35, :74 (stopReceiptResult), commit_release_test.go:185 and tcp_ack_test.go:143 (outcome), and compare it with nil at node_stop_test.go:33, :118 and :152, which a struct value never is."
 assumption = "One attempt ports every site named here and runs go vet ./node/sequencer/ itself until it is silent before the gate."
 severity = "minor"
+
+[finding.5.98.7.5]
+task = "5.98.7"
+file = "node/sequencer/standalone_primary_test.go:243"
+symbol = "AcceptedSend"
+observed = "Attempt 9 (bf14392bc) ported every site do_8 named and go vet then reported node/sequencer/standalone_primary_test.go:243, which passes the evmrpc.AcceptedSend result of Accepter.Accept to verify.ReceiptSignature; the file was not in the task's touches list, so the attempt stopped and reported the blocker instead of editing it. handover_test.go:217 and :237 also compare the AcceptedSend returned by the fenced Accepter with require.Nil, which a struct value never satisfies at run time; both files are consumers of the interface the task changed."
+assumption = "Both files join the touches list, attempt 10 ports the three sites and runs go vet ./node/sequencer/ until silent; a search of the tree for every Accepter.Accept caller shows no other site that treats the result as bytes or nil (daemon/committed-fixture/vector_v1.go:144 and daemon/paxd/cmd/new_app_test.go:144 discard it)."
+severity = "minor"
