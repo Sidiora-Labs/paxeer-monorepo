@@ -731,7 +731,7 @@ fn storage_receipt_kind_attests_the_object_digest_and_refuses_a_mismatch() -> Ou
     object[..6].copy_from_slice(b"\0\xfe\x80\r\n\0");
     let digest: [u8; 32] = Sha256::digest(&object).into();
     let hex = canonical::digest_hex(&digest);
-    let path = format!("/objects/{hex}");
+    let path = format!("/manifests/{hex}.json");
     let body = Arc::new(Mutex::new(object.clone()));
     let served_body = Arc::clone(&body);
     let served_path = path.clone();
@@ -857,6 +857,108 @@ fn storage_receipt_kind_attests_the_object_digest_and_refuses_a_mismatch() -> Ou
             Err(attest::AttestError::InvalidPayload)
         );
     }
+    Ok(())
+}
+
+#[test]
+fn storage_receipt_kind_reads_the_publisher_manifest_key() -> Outcome {
+    let scratch = Scratch::new("publisher-manifest-receipt")?;
+    let store = Arc::new(ContentStore::open(&scratch.0, &[])?);
+    let index = Arc::new(WebIndex::open(&scratch.0)?);
+    let file = b"<html><body>Paxeer</body></html>";
+    let file_digest: [u8; 32] = Sha256::digest(file).into();
+    let file_hex = canonical::digest_hex(&file_digest);
+    let manifest = serde_json::to_vec(&json!({
+        "entries": {
+            "/index.html": { "sha256": file_hex, "size": file.len(), "type": "text/html" }
+        },
+        "name": "site.pax",
+        "version": 1
+    }))?;
+    let digest: [u8; 32] = Sha256::digest(&manifest).into();
+    let hex = canonical::digest_hex(&digest);
+    let manifest_path = format!("/manifests/{hex}.json");
+    let file_path = format!("/objects/{file_hex}");
+    let bucket = Arc::new(Mutex::new(BTreeMap::from([
+        (file_path.clone(), file.to_vec()),
+        (manifest_path.clone(), manifest.clone()),
+    ])));
+    assert!(!bucket
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .contains_key(&format!("/objects/{hex}")));
+    let served_bucket = Arc::clone(&bucket);
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    let base = format!("http://{}", listener.local_addr()?);
+    let server = thread::spawn(move || -> std::io::Result<Vec<String>> {
+        let mut requests = Vec::new();
+        for connection in listener.incoming().take(3) {
+            let mut stream = connection?;
+            stream.set_read_timeout(Some(Duration::from_secs(10)))?;
+            stream.set_write_timeout(Some(Duration::from_secs(10)))?;
+            let (head, _) =
+                read_http(&mut stream).map_err(|error| std::io::Error::other(error.to_string()))?;
+            let target = head.split(' ').nth(1).unwrap_or_default().to_owned();
+            let objects = served_bucket.lock().unwrap_or_else(PoisonError::into_inner);
+            if let Some(bytes) = objects.get(&target) {
+                stream.write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+                        bytes.len()
+                    )
+                    .as_bytes(),
+                )?;
+                stream.write_all(bytes)?;
+            } else {
+                stream.write_all(
+                    b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                )?;
+            }
+            requests.push(target);
+        }
+        Ok(requests)
+    });
+    let attestor = Attestor::new(
+        attestor_key(1)?,
+        CHAIN_ID,
+        Arc::new(loopback_fetcher()?),
+        index,
+        store,
+    );
+    let mut payload = digest.to_vec();
+    payload.extend_from_slice(base.as_bytes());
+    let request = WebRequest {
+        request_id: 20,
+        requester: [0x42; 20],
+        kind: 4,
+        payload,
+        callback_gas: 50_000,
+        paid: [0; 32],
+        timeout_height: 900,
+        block_number: 30,
+    };
+    let answer = attestor.attest(&request)?;
+    let receipt = format!("pns-receipt/v1\n{hex}\n{}\n{base}\n", manifest.len());
+    assert_eq!(answer.response, receipt.as_bytes());
+    {
+        let mut objects = bucket.lock().unwrap_or_else(PoisonError::into_inner);
+        assert_eq!(objects.remove(&manifest_path), Some(manifest));
+        assert_eq!(objects.get(&file_path), Some(&file.to_vec()));
+    }
+    assert!(matches!(
+        attestor.attest(&request),
+        Err(attest::AttestError::Fetch(_))
+    ));
+    assert_eq!(
+        server
+            .join()
+            .map_err(|_| fail("bucket server panicked"))??,
+        vec![
+            "/robots.txt".to_owned(),
+            manifest_path.clone(),
+            manifest_path
+        ]
+    );
     Ok(())
 }
 
