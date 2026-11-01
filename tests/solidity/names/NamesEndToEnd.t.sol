@@ -102,7 +102,44 @@ contract NamesEndToEndTest {
     }
 
     function testDeploymentHandsControlToGovernance() public {
-        NamesDeployment.Addresses memory deployed = _deploy();
+        NamesDeployment.Addresses memory deployed;
+        {
+            NamesDeployment deployment = new NamesDeployment();
+            uint256[3] memory prices = [uint256(500 ether), uint256(100 ether), uint256(5 ether)];
+            require(address(deployment) != TIMELOCK, "factory differs from governance");
+            deployed = deployment.deploy(TIMELOCK, EMERGENCY, TREASURY, prices, GRACE);
+            require(
+                !PaxBaseRegistrar(deployed.registrar).controllers(deployed.controller), "controller awaits governance"
+            );
+            require(
+                PaxPublicResolver(deployed.resolver).registrarController() == address(0), "resolver awaits governance"
+            );
+            (address[] memory targets, bytes[] memory payloads) = deployment.governanceSetup(deployed, prices);
+            require(targets.length == 5 && payloads.length == 5, "five governance setup calls");
+            require(targets[0] == deployed.registrar && targets[1] == deployed.resolver, "setup registrar and resolver");
+            require(
+                keccak256(payloads[0])
+                    == keccak256(abi.encodeCall(PaxBaseRegistrar.addController, (deployed.controller))),
+                "setup adds controller"
+            );
+            require(
+                keccak256(payloads[1])
+                    == keccak256(abi.encodeCall(PaxPublicResolver.setRegistrarController, (deployed.controller))),
+                "setup sets resolver controller"
+            );
+            for (uint8 i; i < 3; ++i) {
+                require(PaxRegistrarController(deployed.controller).yearlyPrices(i + 3) == 0, "price awaits governance");
+                require(targets[i + 2] == deployed.controller, "setup price target");
+                require(
+                    keccak256(payloads[i + 2])
+                        == keccak256(abi.encodeCall(PaxRegistrarController.setPrice, (i + 3, prices[i]))),
+                    "setup price payload"
+                );
+            }
+            _assertGovernanceSetupRejected(address(deployment), targets, payloads);
+            _assertGovernanceSetupRejected(USER, targets, payloads);
+            _executeGovernanceSetup(targets, payloads);
+        }
         PaxRegistry registry = PaxRegistry(deployed.registry);
         PaxBaseRegistrar registrar = PaxBaseRegistrar(deployed.registrar);
         PaxPublicResolver resolver = PaxPublicResolver(deployed.resolver);
@@ -154,6 +191,27 @@ contract NamesEndToEndTest {
 
     function _deploy() private returns (NamesDeployment.Addresses memory) {
         uint256[3] memory prices = [uint256(500 ether), uint256(100 ether), uint256(5 ether)];
-        return new NamesDeployment().deploy(TIMELOCK, EMERGENCY, TREASURY, prices, GRACE);
+        NamesDeployment deployment = new NamesDeployment();
+        NamesDeployment.Addresses memory deployed = deployment.deploy(TIMELOCK, EMERGENCY, TREASURY, prices, GRACE);
+        (address[] memory targets, bytes[] memory payloads) = deployment.governanceSetup(deployed, prices);
+        _executeGovernanceSetup(targets, payloads);
+        return deployed;
+    }
+
+    function _assertGovernanceSetupRejected(address caller, address[] memory targets, bytes[] memory payloads) private {
+        bytes32 governanceOnly = keccak256(abi.encodeWithSelector(Governed.GovernanceOnly.selector));
+        for (uint256 i; i < targets.length; ++i) {
+            vm.prank(caller);
+            (bool success, bytes memory result) = targets[i].call(payloads[i]);
+            require(!success && keccak256(result) == governanceOnly, "unauthorised setup governance only");
+        }
+    }
+
+    function _executeGovernanceSetup(address[] memory targets, bytes[] memory payloads) private {
+        for (uint256 i; i < targets.length; ++i) {
+            vm.prank(TIMELOCK);
+            (bool success,) = targets[i].call(payloads[i]);
+            require(success, "timelock governance setup");
+        }
     }
 }
