@@ -12826,3 +12826,8 @@ fix = "Generate and commit the vector once before the build; build and verify ru
 title = "A struct field changed to Option and the test targets of a sibling crate kept the plain value"
 symptom = "A done task changes two public struct fields to Option<u64> and ports the test file its text names; two other test targets of the same crate still build integer literals and every later task whose build compiles the crate's tests fails before touching its own work."
 fix = "When a public type changes shape, grep every tests/ file of its crate for constructions of that type and port them in the same task."
+
+[gotcha.2602]
+title = "A private copy of a daemon test setup falls behind the daemon's mandatory inputs"
+symptom = "One integration test keeps its own copy of the daemon start sequence while a shared support module carries the maintained one; the daemon gains mandatory inputs, the shared tests keep passing and the private copy's daemons exit at start."
+fix = "Compare the private setup's environment against the shared support's before ruling on a daemon start failure, and prefer building through the shared support."

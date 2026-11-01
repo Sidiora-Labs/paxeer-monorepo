@@ -16347,3 +16347,11 @@ symbol = "HistoryPage"
 observed = "Attempt 6 (96a9e099d on 1c330fd37) fails the crate-wide client test build before its own changes are reached: tests/history_rpc.rs:118-119 and :128-129 and tests/sequencer_reads.rs:217-218 and :226-227 build HistoryPage with integer indexed_height and chain_height while sequencer.rs:242-243 has carried Option<u64> for both since task 18.1238.1 (c98511e6c), whose touches did not include the two test files."
 assumption = "The two test targets are ported in this task, the first task whose build step compiles every layerx-client test; task 18.1376.1 edits a different hunk of tests/history_rpc.rs (:166-230) and lands first, so this task requires it."
 severity = "major"
+
+[finding.10.2.11.2]
+task = "10.2.11"
+file = "services/human/crates/layerx-human-kms/tests/attestor.rs:506"
+symbol = "start"
+observed = "Attempt 3 (14b815ee9) builds and passes two of the three attestor tests; attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum fails because all five daemons exit at start with attestor: pinned custody producer authority: custody authority unavailable or refused: the test's private start function (:506-635) sets no ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, ATTESTOR_AUTHORITY_ISSUER, ATTESTOR_AUTHORITY_TENANT, ATTESTOR_INVENTORY_PUBLIC_KEY_FILE or ATTESTOR_INVENTORY_FILE, while the daemon refuses to start without them (cmd/attestor/main.go:204-218, internal/auth/agent/authority.go:231-235, internal/server/authority.go:49-51) and the shared support tests/support/attestor_cluster.rs provides all five (:479, :545-554, :678-690)."
+assumption = "The quorum test configures its daemons the way the shared support does; the daemon and the shared support stay unchanged."
+severity = "major"
