@@ -8650,13 +8650,15 @@ fn send_leg_denom(
     balances: &layerx_network_gateway::AccountBalances,
     asset: AssetId,
 ) -> Result<String, ApiFailure> {
-    let asset_id = format!("0x{}", hex_bytes(&asset.bytes()));
-    let denom = assets
-        .assets
-        .iter()
-        .find(|entry| entry.asset_id == asset_id)
-        .and_then(|entry| entry.denom.as_ref())
-        .ok_or_else(ApiFailure::forbidden)?;
+    let mut matches = assets.assets.iter().filter_map(|entry| {
+        let denom = entry.denom.as_ref()?;
+        let identifier: [u8; 32] = Sha256::digest(denom.as_bytes()).into();
+        (entry.asset_id == format!("denom:{denom}") && identifier == asset.bytes()).then_some(denom)
+    });
+    let denom = matches.next().ok_or_else(ApiFailure::forbidden)?;
+    if matches.next().is_some() {
+        return Err(ApiFailure::forbidden());
+    }
     balances.asset(denom).ok_or_else(ApiFailure::forbidden)?;
     Ok(denom.clone())
 }
@@ -8925,11 +8927,13 @@ impl ProductionComponents {
             {
                 leg["refused"] = json!(true);
                 leg["receipt_hash"] = json!(format!("0x{}", hex_bytes(&evidence.receipt_hash)));
+                leg["receipt"] = json!(evidence.receipt_bytes);
                 refused = true;
                 break;
             }
             leg["verified"] = json!(true);
             leg["receipt_hash"] = json!(format!("0x{}", hex_bytes(&evidence.receipt_hash)));
+            leg["receipt"] = json!(evidence.receipt_bytes);
         }
         let state = if refused {
             "refused"
@@ -8955,19 +8959,20 @@ impl ProductionComponents {
 
 #[cfg(test)]
 mod send_leg_denom_tests {
-    use super::{send_leg_denom, ApiFailure, AssetId};
+    use super::{bank_send_calldata, hex_bytes, send_leg_denom, ApiFailure, AssetId};
     use layerx_network_gateway::{
         AccountBalances, AssetBalance, AssetEntry, AssetTable, Evidence, ResolvedIdentities,
     };
+    use sha2::{Digest as _, Sha256};
 
     fn asset_and_balances() -> (AssetTable, AccountBalances) {
         (
             AssetTable {
                 height: 16,
                 assets: vec![AssetEntry {
-                    asset_id: format!("0x{}", "ab".repeat(32)),
+                    asset_id: "denom:ulxp".to_owned(),
                     denom: Some("ulxp".to_owned()),
-                    kind: "layerx".to_owned(),
+                    kind: "bank".to_owned(),
                     name: None,
                     symbol: None,
                     decimals: None,
@@ -9000,15 +9005,42 @@ mod send_leg_denom_tests {
     fn send_leg_denom_resolves_through_the_asset_table() {
         let (assets, balances) = asset_and_balances();
         assert_eq!(
-            send_leg_denom(&assets, &balances, AssetId::new([0xab; 32])),
+            send_leg_denom(
+                &assets,
+                &balances,
+                AssetId::new(Sha256::digest(b"ulxp").into())
+            ),
             Ok("ulxp".to_owned())
+        );
+    }
+
+    #[test]
+    fn send_leg_denom_resolves_a_producer_shaped_bank_asset() {
+        let (mut assets, mut balances) = asset_and_balances();
+        assets.assets[0].asset_id = "denom:ubank".to_owned();
+        assets.assets[0].denom = Some("ubank".to_owned());
+        balances.balances[0].denom = "ubank".to_owned();
+        let asset = AssetId::new(Sha256::digest(b"ubank").into());
+        let denom = send_leg_denom(&assets, &balances, asset).expect("bank asset resolves");
+        assert_eq!(denom, "ubank");
+
+        let calldata = bank_send_calldata([0x11; 20], [0x22; 20], &denom, 42);
+        assert_eq!(calldata.len(), 4 + 6 * 32);
+        let tail = &calldata[4 + 5 * 32..];
+        assert_eq!(&tail[..5], b"ubank");
+        assert_eq!(&tail[5..], &[0; 27]);
+
+        assets.assets[0].asset_id = format!("0x{}", hex_bytes(&asset.bytes()));
+        assert_eq!(
+            send_leg_denom(&assets, &balances, asset),
+            Err(ApiFailure::forbidden())
         );
     }
 
     #[test]
     fn send_leg_denom_refuses_an_asset_without_denom_or_balance() {
         let (mut assets, mut balances) = asset_and_balances();
-        let asset = AssetId::new([0xab; 32]);
+        let asset = AssetId::new(Sha256::digest(b"ulxp").into());
         assert_eq!(
             send_leg_denom(&assets, &balances, AssetId::new([0xcd; 32])),
             Err(ApiFailure::forbidden())
@@ -9021,6 +9053,20 @@ mod send_leg_denom_tests {
         );
 
         assets.assets[0].denom = Some("ulxp".to_owned());
+        assets.assets[0].asset_id = "denom:uother".to_owned();
+        assert_eq!(
+            send_leg_denom(&assets, &balances, asset),
+            Err(ApiFailure::forbidden())
+        );
+
+        assets.assets[0].asset_id = "denom:ulxp".to_owned();
+        assets.assets.push(assets.assets[0].clone());
+        assert_eq!(
+            send_leg_denom(&assets, &balances, asset),
+            Err(ApiFailure::forbidden())
+        );
+        assets.assets.pop();
+
         balances.balances[0].denom = "uother".to_owned();
         assert_eq!(
             send_leg_denom(&assets, &balances, asset),

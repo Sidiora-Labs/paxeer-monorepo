@@ -1,6 +1,6 @@
 use super::program_settlement::ProgramSettlementError;
 use crate::protocol_evidence::{
-    verified_program_record, EvidenceAuthority, VerifiedReceiptEvidence,
+    verified_program_record_at, EvidenceAuthority, VerifiedReceiptEvidence,
 };
 use crate::read::{CommittedProgramBalanceFreshness, ProgramBalanceRead, ProgramValueBalance};
 use layerx_client::{
@@ -134,6 +134,55 @@ impl CommittedExecutionState {
     }
 }
 
+fn collect_program_records(
+    program: [u8; 32],
+    accounts: &[[u8; 32]],
+    height: u64,
+    read: &mut dyn FnMut(&[u8], u64) -> Result<Option<Vec<u8>>, ProgramSettlementError>,
+) -> Result<BTreeMap<Vec<u8>, Vec<u8>>, ProgramSettlementError> {
+    let mut program_records = BTreeMap::new();
+    let mut read_record = |key: Vec<u8>| -> Result<Option<Vec<u8>>, ProgramSettlementError> {
+        let value = read(&key, height)?;
+        if let Some(bytes) = &value {
+            program_records.insert(key, bytes.clone());
+        }
+        Ok(value)
+    };
+    for prefix in [
+        b"program\0".as_slice(),
+        b"program-owner\0",
+        b"wind-down\0s",
+        b"interface\0",
+    ] {
+        let mut key = prefix.to_vec();
+        key.extend(program);
+        read_record(key)?;
+    }
+    read_record(b"progfee/active/v1".to_vec())?;
+    for account in accounts {
+        let mut key = b"wind-down\0r".to_vec();
+        key.extend(program);
+        key.extend(account);
+        read_record(key)?;
+        let mut key = b"program-account\0r".to_vec();
+        key.extend(account);
+        if let Some(binding) = read_record(key)? {
+            if binding.len() < 139 || binding[0] != 2 {
+                return Err(ProgramSettlementError::SourceSnapshot);
+            }
+            let length = usize::from(u16::from_be_bytes([binding[97], binding[98]]));
+            if length > 128 || binding.len() != 139 + length {
+                return Err(ProgramSettlementError::SourceSnapshot);
+            }
+            let mut key = b"program-account\0p".to_vec();
+            key.extend(&binding[1..33]);
+            key.extend(Sha256::digest(&binding[139..]));
+            read_record(key)?;
+        }
+    }
+    Ok(program_records)
+}
+
 pub(crate) fn committed_execution_state(
     node: &mut layerx_client::sequencer::SequencerEndpoint,
     verifier: &EvidenceAuthority,
@@ -143,7 +192,7 @@ pub(crate) fn committed_execution_state(
     receipt: &VerifiedReceiptEvidence,
     program: [u8; 32],
     accounts: &[[u8; 32]],
-    correlation: u64,
+    _correlation: u64,
     authorization: SequencerAuthorization,
 ) -> Result<CommittedExecutionState, ProgramSettlementError> {
     let fail = |_| ProgramSettlementError::SourceSnapshot;
@@ -184,63 +233,28 @@ pub(crate) fn committed_execution_state(
         prestate_height,
     )
     .map_err(fail)?;
-    let mut program_records = BTreeMap::new();
-    let mut read_record = |key: Vec<u8>| -> Result<Option<Vec<u8>>, ProgramSettlementError> {
-        let verified = verified_program_record(
-            node,
-            verifier,
-            sequencer_key,
-            correlation,
-            authorization,
-            caps.signed_header(),
-            &key,
-        )
-        .map_err(|_| ProgramSettlementError::SourceSnapshot)?;
-        if verified.level() < VerificationLevel::STATE_PROVEN
-            || verified.observed_head_sequence() < receipt.global_sequence()
-            || verified.observed_head_sequence() != caps.freshness().observed_head_sequence
-        {
-            return Err(ProgramSettlementError::SourceSnapshot);
-        }
-        if verified.canonical_state().is_empty() {
-            return Ok(None);
-        }
-        let bytes = verified.canonical_state().to_vec();
-        program_records.insert(key, bytes.clone());
-        Ok(Some(bytes))
-    };
-    for prefix in [
-        b"program\0".as_slice(),
-        b"program-owner\0",
-        b"wind-down\0s",
-        b"interface\0",
-    ] {
-        let mut key = prefix.to_vec();
-        key.extend(program);
-        read_record(key)?;
-    }
-    read_record(b"progfee/active/v1".to_vec())?;
-    for account in accounts {
-        let mut key = b"wind-down\0r".to_vec();
-        key.extend(program);
-        key.extend(account);
-        read_record(key)?;
-        let mut key = b"program-account\0r".to_vec();
-        key.extend(account);
-        if let Some(binding) = read_record(key)? {
-            if binding.len() < 139 || binding[0] != 2 {
+    let program_records =
+        collect_program_records(program, accounts, prestate_height, &mut |key, height| {
+            let verified = verified_program_record_at(
+                node,
+                verifier,
+                sequencer_key,
+                authorization,
+                caps.signed_header(),
+                key,
+                height,
+            )
+            .map_err(|_| ProgramSettlementError::SourceSnapshot)?;
+            if verified.level() < VerificationLevel::STATE_PROVEN
+                || verified.observed_head_sequence() != prestate_height
+            {
                 return Err(ProgramSettlementError::SourceSnapshot);
             }
-            let length = usize::from(u16::from_be_bytes([binding[97], binding[98]]));
-            if length > 128 || binding.len() != 139 + length {
-                return Err(ProgramSettlementError::SourceSnapshot);
+            if verified.canonical_state().is_empty() {
+                return Ok(None);
             }
-            let mut key = b"program-account\0p".to_vec();
-            key.extend(&binding[1..33]);
-            key.extend(Sha256::digest(&binding[139..]));
-            read_record(key)?;
-        }
-    }
+            Ok(Some(verified.canonical_state().to_vec()))
+        })?;
     if endpoint.block_number().map_err(fail)? != observed_head
         || node.block_number().map_err(fail)? != observed_head
         || endpoint
@@ -297,6 +311,109 @@ mod tests {
             receipt: vec![5],
             signing_key: [6; 32],
         }
+    }
+
+    #[test]
+    fn committed_execution_state_reads_program_records_at_prestate_height() {
+        use layerx_programs::ProgramValueAccountBinding;
+        let height = 7;
+        let prestate_height = height - 1;
+        let program = ProgramId::new([1; 32]).unwrap_or_else(|error| panic!("{error:?}"));
+        let seed = b"vault".to_vec();
+        let account = layerx_programs_runtime::derive_program_account(program, &seed)
+            .unwrap_or_else(|error| panic!("{error:?}"))
+            .bytes();
+        let mut binding = ProgramValueAccountBinding {
+            record_version: 2,
+            program,
+            seed,
+            account_id: account,
+            asset_id: [2; 32],
+            registered_sequence: 1,
+            registration_event_digest: [0; 32],
+        };
+        binding.registration_event_digest =
+            layerx_programs::program_account_registration_commitment(&binding);
+        let binding_value = binding
+            .primary_value()
+            .unwrap_or_else(|error| panic!("{error:?}"));
+        let key = |prefix: &[u8], suffix: &[u8]| {
+            let mut bytes = prefix.to_vec();
+            bytes.extend_from_slice(suffix);
+            bytes
+        };
+        let program_key = key(b"program\0", &program.bytes());
+        let interface_key = key(b"interface\0", &program.bytes());
+        let mut deployed = vec![0];
+        deployed.extend([0; 32]);
+        deployed.extend(Sha256::digest(
+            layerx_programs_runtime::test_support::add_module(),
+        ));
+        deployed.extend(1_u16.to_be_bytes());
+        deployed.extend(1_u32.to_be_bytes());
+        let mut state_by_height = BTreeMap::from([
+            ((height, program_key.clone()), deployed.clone()),
+            ((height, interface_key.clone()), vec![1]),
+            (
+                (prestate_height, key(b"program-account\0r", &account)),
+                binding_value.clone(),
+            ),
+            (
+                (prestate_height, binding.primary_key()),
+                binding_value.clone(),
+            ),
+        ]);
+        let expected_keys = vec![
+            program_key.clone(),
+            key(b"program-owner\0", &program.bytes()),
+            key(b"wind-down\0s", &program.bytes()),
+            interface_key.clone(),
+            b"progfee/active/v1".to_vec(),
+            key(b"wind-down\0r", &[program.bytes(), account].concat()),
+            key(b"program-account\0r", &account),
+            binding.primary_key(),
+        ];
+        let mut reads = Vec::new();
+        let records = collect_program_records(
+            program.bytes(),
+            &[account],
+            prestate_height,
+            &mut |key, at| {
+                reads.push((at, key.to_vec()));
+                Ok(state_by_height.get(&(at, key.to_vec())).cloned())
+            },
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"));
+        assert_eq!(
+            reads,
+            expected_keys
+                .iter()
+                .map(|key| (prestate_height, key.clone()))
+                .collect::<Vec<_>>()
+        );
+        assert!(!records.contains_key(&program_key));
+        assert!(!records.contains_key(&interface_key));
+        assert_eq!(records.get(&binding.primary_key()), Some(&binding_value));
+        state_by_height.insert((prestate_height, program_key.clone()), deployed.clone());
+        let mut reads = Vec::new();
+        let records = collect_program_records(
+            program.bytes(),
+            &[account],
+            prestate_height,
+            &mut |key, at| {
+                reads.push((at, key.to_vec()));
+                Ok(state_by_height.get(&(at, key.to_vec())).cloned())
+            },
+        )
+        .unwrap_or_else(|error| panic!("{error:?}"));
+        assert_eq!(
+            reads,
+            expected_keys
+                .iter()
+                .map(|key| (prestate_height, key.clone()))
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(records.get(&program_key), Some(&deployed));
     }
 
     #[test]
