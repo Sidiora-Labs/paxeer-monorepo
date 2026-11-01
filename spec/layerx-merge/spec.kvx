@@ -117789,7 +117789,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.52.1]
 title = "Drop the platform boundary's development dependency on the retired Paxeer client crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
