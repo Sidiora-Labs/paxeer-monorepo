@@ -119039,7 +119039,7 @@ do_8 = "Finding 9.25.3.4: continue from attempt 9 (6b133f2e8) unchanged. The bui
 
 [task.9.25.18]
 title = "Port the agent daemon off layerx_client::read, head, submit, batch and receipt before the modules retire"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.19", "9.25.3", "9.25.16", "13.8.3"]
