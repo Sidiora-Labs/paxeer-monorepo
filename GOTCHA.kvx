@@ -12431,3 +12431,8 @@ fix = "fetch the page from the test process, run the simplest existing test unde
 title = "go build compiles no _test.go file, so a changed Accept signature passed the build and broke the consumer package's tests"
 symptom = "5.98.7 attempt 1 changed SequencerAccepter.Accept to return AcceptedSend; go build ./rpc/... ./node/... passed and go test ./node/sequencer/ failed to compile on two test callers outside touches."
 fix = "a task that changes a signature test files call adds go vet over those packages to its build gate and names the calling test files in touches."
+
+[gotcha.2523]
+title = "A do-line that names the callers to delete must be written from the file, not from memory"
+symptom = "9.24.3 do_4 named seven facade methods; the client had twelve that referenced the deleted modules, so attempt 3 still failed with sixteen errors."
+fix = "enumerate by the module or type reference (grep the file for crate::<module> and the evidence types) and cite each method with its line."

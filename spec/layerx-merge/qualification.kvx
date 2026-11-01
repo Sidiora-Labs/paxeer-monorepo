@@ -15259,3 +15259,11 @@ symbol = "Accept"
 observed = "Attempt 1 (e5ed55475): go build ./rpc/... ./node/... and the four rpc tests passed, but go test ./node/sequencer/ could not compile: node/sequencer/failover_rehearsal_test.go:193 stores the Accepter's result in an outcome field typed []byte and node/sequencer/receipt_latency_test.go:118 assigns it into a [][]byte, both written for the former byte-slice receipt; neither file was in touches, so the attempt left them."
 assumption = "Both callers read .Receipt from the AcceptedSend value; go build compiles no _test.go file, so the build gate also runs go vet over the two packages whose tests call Accept."
 severity = "major"
+
+[finding.9.24.3.2]
+task = "9.24.3"
+file = "services/agent/crates/layerx-client/src/client.rs:330"
+symbol = "arbiter_admission_v3"
+observed = "Attempt 3 (0b2fde0f6) deleted the seven methods do_4 named and the crate still fails with sixteen errors: arbiter_admission_v3 (services/agent/crates/layerx-client/src/client.rs:330), start_asset_execution_prestate (:504), asset_execution_prestate (:562), start_replay_catalogue (:584) and replay_catalogue (:642) also name crate::arbiter_admission, crate::execution_prestate or the deleted evidence types VerifiedAdmissionPrestate, VerifiedAssetExecutionPrestate and VerifiedReplayCatalogue; do_4 listed the methods from memory instead of from the file."
+assumption = "Every method of Client whose signature or body names one of the three deleted modules or their evidence types retires with them; the twelve are now listed by line."
+severity = "major"
