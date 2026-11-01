@@ -108508,7 +108508,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.7.3]
 title = "Point the wallet's name proxy at the configured indexer and prove the wallet parses its answers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["19.7.2", "19.4.1"]
@@ -151002,7 +151002,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.24.1]
 title = "Decode px_getBalances and px_getAccount as chain-state answers at one height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.1", "8.0.3", "18.1119.1", "18.1297.1"]
@@ -151863,7 +151863,7 @@ do_6 = "Finding 10.27.2.1: continue from attempt 2 (81ee2f825). The retirement t
 
 [task.10.27.3]
 title = "Delete the explorer index unified account join"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "10.27.4"]
@@ -152093,7 +152093,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.27.10]
 title = "Delete the explorer index pasted-evidence verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "10.27.6"]
@@ -152540,7 +152540,7 @@ do_14 = "Attempt 3 left the six src files free of retired paths; tests/evidence_
 
 [task.10.98.6]
 title = "Migrate the layerx-human-test-support callers of wiring.J44.21"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["10.0.2", "9.1.8", "18.1119.1", "10.25.4", "18.1297.1"]
