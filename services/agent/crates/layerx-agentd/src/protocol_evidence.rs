@@ -818,9 +818,9 @@ impl EvidenceAuthority {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RawTimeWindowBatch {
-    activities: Vec<RawActivityReceiptEvidence>,
-    maintenance: RawReceiptEvidence,
+pub struct RawTimeWindowBatch<A = RawActivityReceiptEvidence, M = RawReceiptEvidence> {
+    activities: Vec<A>,
+    maintenance: M,
 }
 
 impl RawTimeWindowBatch {
@@ -1315,15 +1315,15 @@ pub struct CumulativeUseWindow {
 
 /// One exact signed activity paired with its independently authenticated receipt.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RawActivityReceiptEvidence {
-    canonical_activity: Vec<u8>,
-    receipt: CumulativeReceiptEvidence,
+pub struct RawActivityReceiptEvidence<R = RawReceiptEvidence, A = Vec<u8>> {
+    canonical_activity: A,
+    receipt: CumulativeReceiptEvidence<R>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-enum CumulativeReceiptEvidence {
-    Outcome(RawReceiptEvidence),
-    SignedInclusion(RawReceiptEvidence),
+enum CumulativeReceiptEvidence<R = RawReceiptEvidence> {
+    Outcome(R),
+    SignedInclusion(R),
 }
 
 impl RawActivityReceiptEvidence {
@@ -2376,4 +2376,360 @@ mod tests {
         drop(store);
         checked(std::fs::remove_dir_all(directory));
     }
+}
+
+pub(crate) type HistoryActivityEvidence = RawActivityReceiptEvidence<CommittedHistoryReceipt, Did>;
+pub(crate) type HistoryWindowBatch =
+    RawTimeWindowBatch<HistoryActivityEvidence, AuthenticatedCoreTime>;
+
+impl HistoryActivityEvidence {
+    pub(crate) fn from_committed_history(
+        actor: &Did,
+        source: [u8; 32],
+        receipt: CommittedHistoryReceipt,
+    ) -> Result<Self, CumulativeUseError> {
+        let decoded = decode(&receipt.canonical).map_err(|_| CumulativeUseError::Activity)?;
+        let protocol = decoded.protocol().ok_or(CumulativeUseError::Activity)?;
+        if protocol.from() != source {
+            return Err(CumulativeUseError::ActivityReceiptMismatch);
+        }
+        Ok(Self {
+            canonical_activity: actor.clone(),
+            receipt: CumulativeReceiptEvidence::Outcome(receipt),
+        })
+    }
+
+    fn history_receipt(&self) -> &CommittedHistoryReceipt {
+        match &self.receipt {
+            CumulativeReceiptEvidence::Outcome(receipt)
+            | CumulativeReceiptEvidence::SignedInclusion(receipt) => receipt,
+        }
+    }
+}
+
+impl CumulativeUseWindow {
+    pub(crate) fn authenticate_history(
+        self,
+        actor: &Did,
+        checkpoint: &crate::read::ServedCheckpoint,
+        entries: &[HistoryActivityEvidence],
+    ) -> Result<AuthenticatedCumulativeUse, CumulativeUseError> {
+        if self.first == 0
+            || self.first > self.last
+            || self.last > checkpoint.height
+            || self.last - self.first >= MAX_CUMULATIVE_EVIDENCE_ITEMS as u64
+            || entries.len() > MAX_CUMULATIVE_EVIDENCE_ITEMS
+        {
+            return Err(CumulativeUseError::InvalidWindow);
+        }
+        let mut seen = BTreeSet::new();
+        let mut amount = 0u128;
+        let mut count = 0u64;
+        let mut bytes = 0;
+        for entry in entries {
+            let raw = entry.history_receipt();
+            admit_bytes(&mut bytes, raw.canonical.len())
+                .map_err(|_| CumulativeUseError::InvalidWindow)?;
+            let decoded = decode(&raw.canonical).map_err(|_| CumulativeUseError::Activity)?;
+            let receipt = decoded.protocol().ok_or(CumulativeUseError::Activity)?;
+            if entry.canonical_activity != *actor
+                || raw.checkpoint_hash != checkpoint.block_hash
+                || !(self.first..=self.last).contains(&raw.position.block_height)
+            {
+                return Err(CumulativeUseError::Sequence);
+            }
+            if !seen.insert(receipt.activity_id()) {
+                return Err(CumulativeUseError::Duplicate);
+            }
+            if receipt.result_code() == 0 {
+                amount = amount
+                    .checked_add(receipt.amount())
+                    .ok_or(CumulativeUseError::AmountOverflow)?;
+                count = count
+                    .checked_add(1)
+                    .ok_or(CumulativeUseError::CountOverflow)?;
+            }
+        }
+        Ok(AuthenticatedCumulativeUse {
+            actor: actor.clone(),
+            window: self,
+            amount,
+            count,
+        })
+    }
+}
+
+impl HistoryWindowBatch {
+    pub(crate) fn from_committed_history(
+        activities: Vec<HistoryActivityEvidence>,
+        observed: AuthenticatedCoreTime,
+    ) -> Self {
+        Self {
+            activities,
+            maintenance: observed,
+        }
+    }
+
+    pub(crate) fn authenticate_history(
+        &self,
+        actor: &Did,
+        window_seconds: u64,
+        first_covered_sequence: u64,
+    ) -> Result<AuthenticatedTimeWindowUse, TimeWindowUseError> {
+        let observed = &self.maintenance;
+        let window_ms = window_seconds
+            .checked_mul(1000)
+            .filter(|n| *n > 0)
+            .ok_or(TimeWindowUseError::Window)?;
+        let lower = observed.observed_core_ms().saturating_sub(window_ms);
+        if self.activities.len() > MAX_CUMULATIVE_EVIDENCE_ITEMS
+            || first_covered_sequence == 0
+            || first_covered_sequence > observed.through_sequence()
+        {
+            return Err(TimeWindowUseError::Bounds);
+        }
+        let mut count = 0u64;
+        let mut successful_count = 0u64;
+        let mut seen = BTreeSet::new();
+        let mut activity_ids = Vec::new();
+        let mut amounts = std::collections::BTreeMap::<([u8; 32], [u8; 32]), u128>::new();
+        let mut bytes = 0;
+        for entry in &self.activities {
+            let raw = entry.history_receipt();
+            admit_bytes(&mut bytes, raw.canonical.len()).map_err(|_| TimeWindowUseError::Bounds)?;
+            let decoded = decode(&raw.canonical).map_err(|_| TimeWindowUseError::Identity)?;
+            let receipt = decoded.protocol().ok_or(TimeWindowUseError::Identity)?;
+            let timestamp = raw
+                .timestamp
+                .checked_mul(1000)
+                .ok_or(TimeWindowUseError::Overflow)?;
+            if entry.canonical_activity != *actor
+                || raw.checkpoint_hash != observed.observed_batch_id()
+                || raw.position.block_height > observed.through_sequence()
+                || timestamp > observed.observed_core_ms()
+            {
+                return Err(TimeWindowUseError::Identity);
+            }
+            if !seen.insert(receipt.activity_id()) {
+                return Err(TimeWindowUseError::Duplicate);
+            }
+            if timestamp <= lower {
+                continue;
+            }
+            count = count.checked_add(1).ok_or(TimeWindowUseError::Overflow)?;
+            activity_ids.push(receipt.activity_id());
+            if receipt.result_code() == 0 {
+                successful_count = successful_count
+                    .checked_add(1)
+                    .ok_or(TimeWindowUseError::Overflow)?;
+                let amount = amounts
+                    .entry((receipt.asset(), receipt.from()))
+                    .or_default();
+                *amount = amount
+                    .checked_add(receipt.amount())
+                    .ok_or(TimeWindowUseError::Overflow)?;
+            }
+        }
+        Ok(AuthenticatedTimeWindowUse {
+            actor: actor.clone(),
+            observed: observed.clone(),
+            window_seconds,
+            first_covered_sequence,
+            count,
+            successful_count,
+            activity_ids,
+            receipt_amounts: amounts
+                .into_iter()
+                .map(
+                    |((asset, source_account), amount)| AuthenticatedReceiptAmount {
+                        asset,
+                        source_account,
+                        amount,
+                    },
+                )
+                .collect(),
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct CommittedHistoryReceipt {
+    pub(crate) canonical: Vec<u8>,
+    pub(crate) position: crate::read::Cursor,
+    pub(crate) timestamp: u64,
+    pub(crate) checkpoint_hash: [u8; 32],
+}
+
+pub(crate) struct PolicyHistorySource {
+    pub(crate) endpoint: SequencerEndpoint,
+    agent: ureq::Agent,
+    url: String,
+}
+
+impl PolicyHistorySource {
+    pub(crate) fn new(
+        config: &crate::node_rpc::NodeRpcConfig,
+    ) -> Result<Self, crate::read::HistoryReadError> {
+        let certificates = if config.url.starts_with("https://") {
+            let roots = rustls_native_certs::load_native_certs();
+            if !roots.errors.is_empty() || roots.certs.is_empty() {
+                return Err(crate::read::HistoryReadError::Malformed);
+            }
+            roots.certs
+        } else {
+            Vec::new()
+        };
+        let anchors: Vec<_> = certificates.iter().map(|c| c.as_ref()).collect();
+        let endpoint = SequencerEndpoint::new(&config.url, &anchors)
+            .map_err(crate::read::HistoryReadError::Sequencer)?;
+        if endpoint
+            .chain_id()
+            .map_err(crate::read::HistoryReadError::Sequencer)?
+            != config.chain_id
+        {
+            return Err(crate::read::HistoryReadError::Malformed);
+        }
+        let tls = crate::outbound_tls::system(&config.url)
+            .ok_or(crate::read::HistoryReadError::Malformed)?;
+        let agent = ureq::Agent::config_builder()
+            .tls_config(tls)
+            .timeout_global(Some(config.deadline))
+            .max_redirects(0)
+            .build()
+            .into();
+        Ok(Self {
+            endpoint,
+            agent,
+            url: config.url.clone(),
+        })
+    }
+
+    pub(crate) fn page(
+        &self,
+        account: &str,
+        cursor: Option<crate::read::Cursor>,
+        limits: crate::read::HistoryLimits,
+    ) -> Result<crate::read::HistoryPage, crate::read::HistoryReadError> {
+        crate::read::HistoryPage::read_newest(&self.endpoint, account, cursor, limits)
+    }
+
+    pub(crate) fn prove(
+        &self,
+        canonical: &[u8],
+        position: crate::read::Cursor,
+        checkpoint: &crate::read::ServedCheckpoint,
+        keys: &[layerx_client::sequencer::ReceiptKeyEntry],
+        bytes: &mut usize,
+    ) -> Result<CommittedHistoryReceipt, crate::read::HistoryReadError> {
+        use layerx_client::sequencer::SequencerReceipt;
+        let unproven = || crate::read::HistoryReadError::ItemUnproven;
+        let decoded = layerx_wire::receipt::decode(canonical).map_err(|_| unproven())?;
+        let protocol = decoded.protocol().ok_or_else(unproven)?;
+        let hash = protocol.activity_id();
+        let mut response = self.agent.post(&self.url).send_json(serde_json::json!({"jsonrpc":"2.0", "id":1,
+            "method":"eth_getTransactionReceipt", "params":[format!("0x{}", layerx_programs::hex::encode(&hash))]}))
+            .map_err(|_| unproven())?;
+        let body = response
+            .body_mut()
+            .with_config()
+            .limit((16 * 1024 * 1024 + 1) as u64)
+            .read_to_vec()
+            .map_err(|_| unproven())?;
+        admit_bytes(bytes, body.len())?;
+        let envelope: serde_json::Value = serde_json::from_slice(&body).map_err(|_| unproven())?;
+        if envelope["jsonrpc"] != "2.0" || envelope["id"] != 1 || envelope.get("error").is_some() {
+            return Err(unproven());
+        }
+        let landing = &envelope["result"];
+        let quantity = |key: &str| -> Option<u64> {
+            u64::from_str_radix(landing[key].as_str()?.strip_prefix("0x")?, 16).ok()
+        };
+        let fixed = |key: &str| -> Option<[u8; 32]> {
+            layerx_programs::hex::decode(landing[key].as_str()?.strip_prefix("0x")?)
+                .ok()?
+                .try_into()
+                .ok()
+        };
+        let height = quantity("blockNumber").ok_or_else(unproven)?;
+        let mut receipt_height = [0; 32];
+        receipt_height[24..].copy_from_slice(&height.to_be_bytes());
+        if protocol.batch_id() != receipt_height {
+            return Err(unproven());
+        }
+        let block_hash = fixed("blockHash").ok_or_else(unproven)?;
+        if fixed("transactionHash") != Some(hash)
+            || height != position.block_height
+            || height > checkpoint.height
+            || quantity("transactionIndex") != Some(u64::from(position.tx_index))
+            || quantity("status") != Some(u64::from(protocol.result_code() == 0))
+        {
+            return Err(unproven());
+        }
+        let Some(SequencerReceipt::Committed {
+            receipt,
+            block_number,
+            block_hash: rung_hash,
+        }) = self
+            .endpoint
+            .sequencer_receipt(&hash)
+            .map_err(|_| unproven())?
+        else {
+            return Err(unproven());
+        };
+        admit_bytes(bytes, receipt.receipt.len())?;
+        if block_number != height
+            || rung_hash != block_hash
+            || receipt.receipt != canonical
+            || receipt.height != height
+            || receipt.index != u64::from(position.tx_index)
+            || receipt.seq != protocol.global_sequence()
+            || receipt.timestamp != protocol.timestamp()
+            || receipt.success != (protocol.result_code() == 0)
+        {
+            return Err(unproven());
+        }
+        let authorizations: Vec<_> = keys
+            .iter()
+            .map(|key| {
+                layerx_proof::inclusion::SequencerAuthorization::new(
+                    key.key_id,
+                    key.public_key,
+                    key.first_height,
+                    key.last_height,
+                )
+            })
+            .collect();
+        layerx_proof::receipt::verify_sequencer_signature(canonical, authorizations.as_slice())
+            .map_err(|_| unproven())?;
+        let block = self
+            .endpoint
+            .block_by_number(height)
+            .map_err(|_| unproven())?
+            .ok_or_else(unproven)?;
+        admit_bytes(bytes, block.transactions.iter().map(Vec::len).sum())?;
+        if block.hash != block_hash
+            || block.timestamp
+                > u64::try_from(checkpoint.header.time.seconds).map_err(|_| unproven())?
+            || height == checkpoint.height && block.hash != checkpoint.block_hash
+        {
+            return Err(unproven());
+        }
+        Ok(CommittedHistoryReceipt {
+            canonical: canonical.to_vec(),
+            position: position,
+            timestamp: block.timestamp,
+            checkpoint_hash: checkpoint.block_hash,
+        })
+    }
+}
+
+pub(crate) fn admit_bytes(
+    total: &mut usize,
+    additional: usize,
+) -> Result<(), crate::read::HistoryReadError> {
+    *total = total
+        .checked_add(additional)
+        .filter(|n| *n <= 16 * 1024 * 1024)
+        .ok_or(crate::read::HistoryReadError::Oversized)?;
+    Ok(())
 }

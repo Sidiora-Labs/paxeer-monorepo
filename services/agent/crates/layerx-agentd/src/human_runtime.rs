@@ -13959,9 +13959,28 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         prepared: &crate::prepare::Prepared,
         window_seconds: u64,
     ) -> Result<crate::protocol_evidence::AuthenticatedTimeWindowUse, HumanOperationError> {
-        // Decision 2196: task 9.25.5 supplies committed EVM history proofs.
-        let _ = (peer, actor, prepared, window_seconds);
-        Err(HumanOperationError::Unavailable)
+        self.authority.authorize_subject(peer)?;
+        let trust = &self
+            .export_trust
+            .as_ref()
+            .ok_or(HumanOperationError::Unavailable)?
+            .0;
+        let history = read_policy_history(
+            &read_rpc_config()?,
+            actor,
+            trust,
+            PolicyHistoryWindow::Time {
+                head: prepared.observed_head_sequence,
+                seconds: window_seconds,
+            },
+        )
+        .map_err(policy_history_refusal)?;
+        crate::protocol_evidence::HistoryWindowBatch::from_committed_history(
+            history.entries,
+            history.observed,
+        )
+        .authenticate_history(actor, window_seconds, history.first_covered)
+        .map_err(|_| HumanOperationError::Refused)
     }
 
     fn authenticated_policy_usage(
@@ -13971,9 +13990,32 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         capability: &Capability,
         core_sequence: u64,
     ) -> Result<crate::protocol_evidence::AuthenticatedCumulativeUse, HumanOperationError> {
-        // Decision 2196: task 9.25.5 supplies committed EVM history proofs.
-        let _ = (peer, actor, capability, core_sequence);
-        Err(HumanOperationError::Unavailable)
+        self.authority.authorize_subject(peer)?;
+        if capability.tenant.as_str() != peer.tenant {
+            return Err(HumanOperationError::Refused);
+        }
+        let trust = &self
+            .export_trust
+            .as_ref()
+            .ok_or(HumanOperationError::Unavailable)?
+            .0;
+        let width = capability.dimensions.rate_ceiling.window_sequences;
+        let history = read_policy_history(
+            &read_rpc_config()?,
+            actor,
+            trust,
+            PolicyHistoryWindow::Sequence {
+                core: core_sequence,
+                width,
+            },
+        )
+        .map_err(policy_history_refusal)?;
+        crate::protocol_evidence::CumulativeUseWindow {
+            first: core_sequence.saturating_sub(width.saturating_sub(1)).max(1),
+            last: core_sequence,
+        }
+        .authenticate_history(actor, &history.checkpoint, &history.entries)
+        .map_err(|_| HumanOperationError::Refused)
     }
 
     /// The subject agent's protocol budget reconciliation, rebuilt exactly as startup
@@ -21793,5 +21835,651 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .boundary(&self.session_control)
             .map_err(rpc_commit_error)?;
         Ok((raw, response))
+    }
+}
+
+#[derive(Clone, Copy)]
+enum PolicyHistoryWindow {
+    Time { head: u64, seconds: u64 },
+    Sequence { core: u64, width: u64 },
+}
+
+struct PolicyUsageHistory {
+    entries: Vec<crate::protocol_evidence::HistoryActivityEvidence>,
+    checkpoint: crate::read::ServedCheckpoint,
+    observed: crate::protocol_evidence::AuthenticatedCoreTime,
+    first_covered: u64,
+}
+
+fn policy_history_refusal(error: crate::read::HistoryReadError) -> HumanOperationError {
+    match error {
+        crate::read::HistoryReadError::Sequencer(
+            layerx_client::sequencer::SequencerError::Unavailable,
+        ) => HumanOperationError::Unavailable,
+        _ => HumanOperationError::Refused,
+    }
+}
+
+fn read_policy_history(
+    config: &crate::node_rpc::NodeRpcConfig,
+    actor: &Did,
+    trust: &crate::export::ExportTrustSource,
+    window: PolicyHistoryWindow,
+) -> Result<PolicyUsageHistory, crate::read::HistoryReadError> {
+    use crate::protocol_evidence::{admit_bytes, HistoryActivityEvidence, PolicyHistorySource};
+    use crate::read::{HistoryLimits, HistoryReadError};
+    const MAX_SEQUENCES: usize = 4096;
+    const MAX_BYTES: usize = 16 * 1024 * 1024;
+    match window {
+        PolicyHistoryWindow::Time { head, seconds }
+            if head == 0 || seconds == 0 || seconds.checked_mul(1000).is_none() =>
+        {
+            return Err(HistoryReadError::InvalidRange)
+        }
+        PolicyHistoryWindow::Sequence { core, width }
+            if core == 0 || width == 0 || width > MAX_SEQUENCES as u64 =>
+        {
+            return Err(HistoryReadError::InvalidRange)
+        }
+        _ => {}
+    }
+    let source = PolicyHistorySource::new(config)?;
+    let did = std::str::from_utf8(actor.as_bytes()).map_err(|_| HistoryReadError::Malformed)?;
+    let key = did
+        .strip_prefix("did:layerx:")
+        .ok_or(HistoryReadError::Malformed)?;
+    let public: [u8; 32] = layerx_programs::hex::decode(key)
+        .map_err(|_| HistoryReadError::Malformed)?
+        .try_into()
+        .map_err(|_| HistoryReadError::Malformed)?;
+    let address = source
+        .endpoint
+        .bound_address(&public)
+        .map_err(HistoryReadError::Sequencer)?
+        .ok_or(HistoryReadError::Malformed)?;
+    let account = rpc_hex(&address);
+    let mut expected_source = [0; 32];
+    expected_source[12..].copy_from_slice(&address);
+    let limits = HistoryLimits {
+        maximum_items: 256,
+        maximum_response_bytes: MAX_BYTES,
+    };
+    let mut page = source.page(&account, None, limits)?;
+    let head = source
+        .endpoint
+        .block_by_number(page.height)
+        .map_err(HistoryReadError::Sequencer)?
+        .ok_or(HistoryReadError::InvalidRange)?;
+    match window {
+        PolicyHistoryWindow::Time { head: expected, .. } if expected != head.number => {
+            return Err(HistoryReadError::InvalidRange)
+        }
+        PolicyHistoryWindow::Sequence { core, .. } if core > head.number => {
+            return Err(HistoryReadError::InvalidRange)
+        }
+        _ => {}
+    }
+    let checkpoint = crate::read::ServedCheckpoint::acquire_at_committed_block(
+        &source.endpoint,
+        head.number,
+        Some(head.hash),
+        &config.chain_id.to_string(),
+    )
+    .map_err(|_| HistoryReadError::ItemUnproven)?;
+    if checkpoint.validators != trust.validator_set() {
+        return Err(HistoryReadError::ItemUnproven);
+    }
+    let receipt_key = trust
+        .receipt_keys()
+        .first()
+        .ok_or(HistoryReadError::ItemUnproven)?;
+    let authority = EvidenceAuthority::pinned_to_handshake(
+        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+        u32::try_from(config.chain_id).map_err(|_| HistoryReadError::InvalidRange)?,
+        receipt_key.public_key,
+    )
+    .map_err(|_| HistoryReadError::ItemUnproven)?
+    .pin_committed_validators(config.chain_id.to_string(), trust.validator_set().to_vec())
+    .map_err(|_| HistoryReadError::ItemUnproven)?;
+    let observed = authority
+        .authenticate_committed_time(&checkpoint)
+        .map_err(|_| HistoryReadError::ItemUnproven)?;
+    let mut entries = Vec::new();
+    let mut bytes = 0;
+    let mut items = 0usize;
+    let mut first_covered = head.number;
+    let mut previous_timestamp = head.timestamp;
+    let mut seen = std::collections::BTreeSet::new();
+    loop {
+        if page.height != checkpoint.height {
+            return Err(HistoryReadError::InvalidRange);
+        }
+        admit_bytes(&mut bytes, page.response_bytes)?;
+        items = items
+            .checked_add(page.items.len())
+            .filter(|n| *n <= MAX_SEQUENCES)
+            .ok_or(HistoryReadError::Oversized)?;
+        let mut boundary = false;
+        for item in &page.items {
+            if item.kind != layerx_client::read::HistoryKind::Receipt {
+                continue;
+            }
+            let receipt = source.prove(
+                &item.canonical,
+                item.position,
+                &checkpoint,
+                trust.receipt_keys(),
+                &mut bytes,
+            )?;
+            if receipt.timestamp > previous_timestamp {
+                return Err(HistoryReadError::ItemUnproven);
+            }
+            previous_timestamp = receipt.timestamp;
+            first_covered = receipt.position.block_height;
+            let decoded = layerx_wire::receipt::decode(&receipt.canonical)
+                .map_err(|_| HistoryReadError::ItemUnproven)?;
+            let protocol = decoded.protocol().ok_or(HistoryReadError::ItemUnproven)?;
+            if !seen.insert(protocol.activity_id()) {
+                return Err(HistoryReadError::ItemUnproven);
+            }
+            let include = match window {
+                PolicyHistoryWindow::Time { seconds, .. } => {
+                    boundary = receipt.timestamp <= head.timestamp.saturating_sub(seconds);
+                    !boundary
+                }
+                PolicyHistoryWindow::Sequence { core, width } => {
+                    let first = core.saturating_sub(width - 1).max(1);
+                    boundary = receipt.position.block_height < first;
+                    (first..=core).contains(&receipt.position.block_height)
+                }
+            };
+            let entry =
+                HistoryActivityEvidence::from_committed_history(actor, expected_source, receipt)
+                    .map_err(|_| HistoryReadError::ItemUnproven)?;
+            if include {
+                entries.push(entry);
+            }
+            if boundary {
+                break;
+            }
+        }
+        if boundary || page.next_cursor.is_none() {
+            break;
+        }
+        page = source.page(
+            &account,
+            page.next_cursor,
+            HistoryLimits {
+                maximum_response_bytes: MAX_BYTES - bytes,
+                ..limits
+            },
+        )?;
+    }
+    Ok(PolicyUsageHistory {
+        entries,
+        checkpoint,
+        observed,
+        first_covered: first_covered.max(1),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::read::{BlockId, ServedCheckpoint};
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_client::sequencer::ReceiptKeyEntry;
+    use layerx_wire::encode::Encoder;
+    use layerx_wire::hash::receipt_digest;
+    use layerx_wire::limits::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION};
+    use serde_json::json;
+    use std::io::{Read as _, Write as _};
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    const KEY_ID: [u8; 32] = [1; 32];
+    fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
+        result.expect("policy history evidence")
+    }
+    fn sha256(bytes: &[u8]) -> [u8; 32] {
+        Sha256::digest(bytes).into()
+    }
+    fn encoded_receipt(
+        height_number: u64,
+        timestamp: u64,
+        amount: u128,
+        signature: Option<[u8; 64]>,
+    ) -> Vec<u8> {
+        let previous = [4; 32];
+        let mut sequence = b"PAXEER/v1/sequence\0".to_vec();
+        sequence.extend_from_slice(&previous);
+        sequence.extend_from_slice(&7_u64.to_be_bytes());
+        sequence.extend_from_slice(&[height_number as u8; 32]);
+        let mut height = [0; 32];
+        height[24..].copy_from_slice(&height_number.to_be_bytes());
+        let mut from = [0; 32];
+        from[12..].fill(6);
+        let mut to = [0; 32];
+        to[12..].fill(7);
+        let mut summary = Encoder::new(256);
+        must(summary.u64(21_000));
+        must(summary.u64(42_000));
+        must(summary.u64(1));
+        must(summary.u32(1));
+        must(summary.fixed(&[0; 20]));
+        must(summary.fixed(&[0; 20]));
+        must(summary.fixed(&sha256(b"")));
+        must(summary.u32(2));
+        must(summary.u32(1));
+        must(summary.u8(4));
+        must(summary.fixed(b"upax"));
+        let mut log = vec![8; 20];
+        log.push(1);
+        log.extend_from_slice(&[9; 32]);
+        log.extend_from_slice(&sha256(&[10, 11]));
+
+        let mut encoder = Encoder::new(MAX_MESSAGE_BYTES);
+        must(encoder.structure_header_version(0x5201, PROTOCOL_VERSION));
+        must(encoder.u16(PROTOCOL_VERSION));
+        must(encoder.bytes(&[height_number as u8; 32], 32));
+        must(encoder.u64(7));
+        must(encoder.bytes(&previous, 32));
+        must(encoder.bytes(&sha256(&sequence), 32));
+        must(encoder.bytes(&sha256(&[0xab, 0xcd]), 32));
+        must(encoder.i32(0));
+        must(encoder.sequence_length(2, 512));
+        for (ordinal, kind, body) in [(0, 1, summary.finish()), (1, 3, log)] {
+            must(encoder.u16(12));
+            must(encoder.u16(ordinal));
+            must(encoder.u16(0));
+            must(encoder.u8(kind));
+            must(encoder.u8(0));
+            must(encoder.bytes(&[0; 32], 32));
+            must(encoder.bytes(&body, 256));
+        }
+        must(encoder.u128(21_000));
+        must(encoder.bytes(&height, 32));
+        must(encoder.u16(12));
+        must(encoder.u32(1));
+        must(encoder.u32(0));
+        must(encoder.u8(2));
+        must(encoder.bytes(&sha256(b"upax"), 32));
+        must(encoder.u128(amount));
+        must(encoder.bytes(&from, 32));
+        must(encoder.u128(21_002));
+        must(encoder.u128(1));
+        must(encoder.u64(41));
+        must(encoder.bytes(&to, 32));
+        must(encoder.u128(0));
+        must(encoder.u128(1));
+        must(encoder.bytes(&[0; 32], 32));
+        must(encoder.bytes(&[0; 32], 32));
+        must(encoder.bytes(&KEY_ID, 32));
+        must(encoder.u64(timestamp));
+        must(encoder.u8(u8::from(signature.is_some())));
+        if let Some(signature) = signature {
+            must(encoder.bytes(&signature, 64));
+        }
+        encoder.finish()
+    }
+    fn base64(bytes: &[u8]) -> String {
+        const ALPHABET: &[u8; 64] =
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut encoded = String::new();
+        for chunk in bytes.chunks(3) {
+            let word = (u32::from(chunk[0]) << 16)
+                | (u32::from(*chunk.get(1).unwrap_or(&0)) << 8)
+                | u32::from(*chunk.get(2).unwrap_or(&0));
+            encoded.push(ALPHABET[(word >> 18) as usize] as char);
+            encoded.push(ALPHABET[((word >> 12) & 63) as usize] as char);
+            encoded.push(if chunk.len() > 1 {
+                ALPHABET[((word >> 6) & 63) as usize] as char
+            } else {
+                '='
+            });
+            encoded.push(if chunk.len() > 2 {
+                ALPHABET[(word & 63) as usize] as char
+            } else {
+                '='
+            });
+        }
+        encoded
+    }
+
+    fn rpc_commit(signed: &ServedCheckpoint) -> Value {
+        assert_eq!(signed.header.time.seconds, 1_700_000_000);
+        let timestamp = format!("2023-11-14T22:13:20.{:09}Z", signed.header.time.nanos);
+        let hex = |bytes: &[u8]| layerx_programs::hex::encode(bytes);
+        let id = |id: BlockId| {
+            json!({"hash": hex(&id.hash), "parts": {
+            "total": id.part_set_total, "hash": hex(&id.part_set_hash)}})
+        };
+        let h = &signed.header;
+        let mut signatures: Vec<_> = signed
+            .commit
+            .votes
+            .iter()
+            .map(|vote| {
+                json!({
+                    "block_id_flag": 2, "validator_address": hex(&vote.validator_address),
+                    "timestamp": timestamp, "signature": base64(&vote.signature),
+                })
+            })
+            .collect();
+        signatures.push(
+            json!({"block_id_flag": 1, "validator_address": "", "signature": null,
+            "timestamp": "0001-01-01T00:00:00Z"}),
+        );
+        json!({"header": {
+            "version": {"block": "11", "app": "1"}, "chain_id": "125", "height": signed.height.to_string(),
+            "time": timestamp, "last_block_id": id(h.last_block_id.expect("parent")),
+            "last_commit_hash": hex(&[3;32]), "data_hash": hex(&[4;32]),
+            "validators_hash": hex(&h.validators_hash), "next_validators_hash": hex(&h.next_validators_hash),
+            "consensus_hash": hex(&[5;32]), "app_hash": hex(&[6;32]),
+            "last_results_hash": hex(&[7;32]), "evidence_hash": hex(&[8;32]),
+            "proposer_address": hex(&h.proposer_address),
+        }, "commit": {"height": signed.height.to_string(), "round": 1,
+            "block_id": id(signed.commit.block_id), "signatures": signatures}})
+    }
+
+    fn rpc_validators(signed: &ServedCheckpoint) -> Value {
+        json!({"height": signed.height.to_string(), "total": signed.validators.len().to_string(),
+            "validators": signed.validators.iter().map(|validator| json!({
+                "address": layerx_programs::hex::encode(&validator.address),
+                "pubKey": {"type": "tendermint/PubKeyEd25519", "value": base64(&validator.public_key)},
+                "votingPower": validator.voting_power.to_string(),
+            })).collect::<Vec<_>>()})
+    }
+
+    fn signed_item(height: u64, timestamp: u64, amount: u128) -> (Vec<u8>, Value) {
+        let signer = SigningKey::from_bytes(&[8; 32]);
+        let unsigned = encoded_receipt(height, timestamp, amount, None);
+        let signature = signer.sign(&must(receipt_digest(&unsigned))).to_bytes();
+        let bytes = encoded_receipt(height, timestamp, amount, Some(signature));
+        let rung = json!({
+            "rung":"committed", "txHash":rpc_hex(&[height as u8;32]), "nonce":"0x29",
+            "seq":"0x7", "height":format!("{height:#x}"), "index":"0x1", "timestamp":format!("{timestamp:#x}"),
+            "status":"0x1", "returnData":"0xabcd",
+            "logs":[{"address":rpc_hex(&[8;20]), "topics":[rpc_hex(&[9;32])], "data":"0x0a0b", "logIndex":"0x0"}],
+            "gasUsed":"0x5208", "cumulativeGasUsed":"0xa410", "effectiveGasPrice":"0x1",
+            "feeDenom":"upax", "feeAmount":"0x5208", "sponsor":rpc_hex(&[0;20]),
+            "from":rpc_hex(&[6;20]), "to":rpc_hex(&[7;20]), "contractAddress":rpc_hex(&[0;20]),
+            "vmError":"", "keyId":rpc_hex(&KEY_ID), "receipt":rpc_hex(&bytes),
+            "signingKey":rpc_hex(signer.verifying_key().as_bytes()),
+            "blockNumber":format!("{height:#x}"), "blockHash":null
+        });
+        (bytes, rung)
+    }
+
+    struct HistoryRpc {
+        config: crate::node_rpc::NodeRpcConfig,
+        trust: crate::export::ExportTrustSource,
+        calls: Arc<Mutex<Vec<Value>>>,
+        stop: Arc<AtomicBool>,
+        worker: Option<std::thread::JoinHandle<()>>,
+    }
+    impl Drop for HistoryRpc {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::Release);
+            self.worker
+                .take()
+                .expect("server thread")
+                .join()
+                .expect("RPC double");
+        }
+    }
+    impl HistoryRpc {
+        fn start(unproven: bool) -> Self {
+            let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 0);
+            let signer = SigningKey::from_bytes(&[8; 32]);
+            let key = ReceiptKeyEntry {
+                key_id: KEY_ID,
+                public_key: signer.verifying_key().to_bytes(),
+                first_height: 1,
+                last_height: 8,
+            };
+            let trust = must(crate::export::ExportTrustSource::new(
+                vec![key],
+                checkpoint.validators.clone(),
+            ));
+            let listener = must(std::net::TcpListener::bind("127.0.0.1:0"));
+            must(listener.set_nonblocking(true));
+            let config = crate::node_rpc::NodeRpcConfig {
+                url: format!("http://{}", must(listener.local_addr())),
+                chain_id: 125,
+                deadline: Duration::from_secs(3),
+            };
+            let calls = Arc::new(Mutex::new(Vec::new()));
+            let recorded = calls.clone();
+            let stop = Arc::new(AtomicBool::new(false));
+            let signal = stop.clone();
+            let worker = std::thread::spawn(move || {
+                let hex = |b: &[u8]| layerx_programs::hex::encode(b);
+                let block = |height: u64| {
+                    let hash = if height == 8 {
+                        checkpoint.block_hash
+                    } else {
+                        [height as u8; 32]
+                    };
+                    json!({"number":format!("{height:#x}"),"hash":rpc_hex(&hash), "parentHash":rpc_hex(&[1;32]),
+                        "timestamp":format!("{:#x}",1_700_000_000 - (8-height)*5), "transactionsRoot":rpc_hex(&[4;32]),
+                        "receiptsRoot":rpc_hex(&[7;32]),"stateRoot":rpc_hex(&checkpoint.app_hash),"transactions":[]})
+                };
+                let mut rows = BTreeMap::new();
+                let mut rungs = BTreeMap::new();
+                for (height, amount) in [(8, 7), (7, 11), (6, 13)] {
+                    let (bytes, mut rung) =
+                        signed_item(height, 1_700_000_000 - (8 - height) * 5, amount);
+                    rung["blockHash"] = block(height)["hash"].clone();
+                    if unproven && height == 7 {
+                        rung["rung"] = json!("receipted");
+                        rung.as_object_mut().expect("rung").remove("blockHash");
+                        rung.as_object_mut().expect("rung").remove("blockNumber");
+                    }
+                    rows.insert(height,json!({"height":height.to_string(),"txIndex":"1","logIndex":"0","kind":"Receipt","canonical":hex(&bytes),"proof":null}));
+                    rungs.insert(height, rung);
+                }
+                while !signal.load(Ordering::Acquire) {
+                    let (mut stream, _) = match listener.accept() {
+                        Ok(s) => s,
+                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                            std::thread::sleep(Duration::from_millis(2));
+                            continue;
+                        }
+                        Err(e) => panic!("accept RPC: {e}"),
+                    };
+                    must(stream.set_read_timeout(Some(Duration::from_secs(3))));
+                    let mut headers = Vec::new();
+                    while !headers.ends_with(b"\r\n\r\n") {
+                        let mut byte = [0];
+                        must(stream.read_exact(&mut byte));
+                        headers.push(byte[0]);
+                        assert!(headers.len() < 16384);
+                    }
+                    let text = std::str::from_utf8(&headers).expect("HTTP headers");
+                    let length: usize = text
+                        .lines()
+                        .find_map(|line| {
+                            line.split_once(':')
+                                .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+                                .map(|(_, v)| v.trim().parse().expect("body length"))
+                        })
+                        .expect("content length");
+                    let mut body = vec![0; length];
+                    must(stream.read_exact(&mut body));
+                    let request: Value = must(serde_json::from_slice(&body));
+                    must(recorded.lock()).push(request.clone());
+                    let params = &request["params"];
+                    let result = match request["method"].as_str().expect("RPC method") {
+                        "eth_chainId" => json!("0x7d"),
+                        "eth_call" => json!(rpc_hex(&{
+                            let mut word = [0; 32];
+                            word[12..].fill(6);
+                            word
+                        })),
+                        "eth_getBlockByNumber" => block(
+                            u64::from_str_radix(
+                                params[0].as_str().expect("height").trim_start_matches("0x"),
+                                16,
+                            )
+                            .expect("height quantity"),
+                        ),
+                        "px_getCommit" => {
+                            assert_eq!(params, &json!(["8"]));
+                            json!({"height":"8","signedHeader":rpc_commit(&checkpoint)})
+                        }
+                        "px_getValidators" => {
+                            assert_eq!(params, &json!(["8"]));
+                            rpc_validators(&checkpoint)
+                        }
+                        "px_getHistory" => {
+                            assert_eq!(params[0], rpc_hex(&[6; 20]));
+                            assert_eq!(params[2], 256);
+                            if params[1].is_null() {
+                                json!({"items":[rows[&8]],"next_cursor":crate::read::Cursor { block_height:8,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8})
+                            } else {
+                                assert_eq!(
+                                    params[1],
+                                    crate::read::Cursor {
+                                        block_height: 8,
+                                        tx_index: 1,
+                                        log_index: 0
+                                    }
+                                    .to_hex()
+                                );
+                                json!({"items":[rows[&7],rows[&6]],"next_cursor":crate::read::Cursor { block_height:6,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8})
+                            }
+                        }
+                        "pax_sequencerReceipt" | "eth_getTransactionReceipt" => {
+                            let hash = params[0].as_str().expect("transaction hash");
+                            let height = u64::from_str_radix(&hash[2..4], 16).expect("hash height");
+                            if request["method"] == "pax_sequencerReceipt" {
+                                rungs[&height].clone()
+                            } else {
+                                json!({"transactionHash":hash,"blockHash":block(height)["hash"],"blockNumber":format!("{height:#x}"),"transactionIndex":"0x1","status":"0x1","gasUsed":"0x5208","logs":[]})
+                            }
+                        }
+                        method => panic!("unexpected RPC {method}"),
+                    };
+                    let response =
+                        json!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
+                    must(write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",response.len(),response));
+                }
+            });
+            Self {
+                config,
+                trust,
+                calls,
+                stop,
+                worker: Some(worker),
+            }
+        }
+    }
+
+    fn actor() -> Did {
+        must(Did::new(
+            format!("did:layerx:{}", layerx_programs::hex::encode(&[5; 32])).as_bytes(),
+        ))
+    }
+
+    #[test]
+    fn policy_usage_sums_only_proven_receipts_in_the_window() {
+        let rpc = HistoryRpc::start(false);
+        let actor = actor();
+        let history = must(read_policy_history(
+            &rpc.config,
+            &actor,
+            &rpc.trust,
+            PolicyHistoryWindow::Time {
+                head: 8,
+                seconds: 10,
+            },
+        ));
+        let time = must(
+            crate::protocol_evidence::HistoryWindowBatch::from_committed_history(
+                history.entries,
+                history.observed,
+            )
+            .authenticate_history(&actor, 10, history.first_covered),
+        );
+        assert_eq!(time.count(), 2);
+        assert_eq!(time.successful_count(), 2);
+        assert_eq!(
+            time.receipt_amounts()
+                .iter()
+                .map(|a| a.amount())
+                .sum::<u128>(),
+            18
+        );
+        assert_eq!(time.activity_ids(), &[[8; 32], [7; 32]]);
+        let history = must(read_policy_history(
+            &rpc.config,
+            &actor,
+            &rpc.trust,
+            PolicyHistoryWindow::Sequence { core: 8, width: 2 },
+        ));
+        let total = must(
+            crate::protocol_evidence::CumulativeUseWindow { first: 7, last: 8 }
+                .authenticate_history(&actor, &history.checkpoint, &history.entries),
+        );
+        assert_eq!(total.amount(), 18);
+        assert_eq!(total.count(), 2);
+        let calls = must(rpc.calls.lock());
+        for method in [
+            "px_getHistory",
+            "eth_getTransactionReceipt",
+            "pax_sequencerReceipt",
+            "eth_getBlockByNumber",
+            "px_getCommit",
+            "px_getValidators",
+        ] {
+            assert!(
+                calls.iter().any(|call| call["method"] == method),
+                "missing {method}"
+            );
+        }
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|call| call["method"] == "px_getHistory")
+                .count(),
+            4
+        );
+    }
+
+    #[test]
+    fn native_policy_usage_refuses_a_page_without_a_proof() {
+        let rpc = HistoryRpc::start(true);
+        let error = read_policy_history(
+            &rpc.config,
+            &actor(),
+            &rpc.trust,
+            PolicyHistoryWindow::Time {
+                head: 8,
+                seconds: 10,
+            },
+        )
+        .err()
+        .expect("receipted item must refuse whole window");
+        assert_eq!(error.code(), "read.history_item_unproven");
+        assert!(matches!(
+            policy_history_refusal(error),
+            HumanOperationError::Refused
+        ));
+        let calls = must(rpc.calls.lock());
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|call| call["method"] == "px_getHistory")
+                .count(),
+            2
+        );
+        assert!(calls
+            .iter()
+            .any(|call| call["method"] == "pax_sequencerReceipt"
+                && call["params"][0] == rpc_hex(&[7; 32])));
+        assert!(!calls
+            .iter()
+            .any(|call| call["method"] == "pax_sequencerReceipt"
+                && call["params"][0] == rpc_hex(&[6; 32])));
     }
 }
