@@ -189346,7 +189346,7 @@ qualification = "UNRUN"
 
 [task.18.962.1]
 title = "Issue #962: Let the web exchange page place limit, stop-limit and TP/SL orders, partially close and adjust collateral on 0x1015"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
