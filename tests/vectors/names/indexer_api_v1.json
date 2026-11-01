@@ -1,0 +1,126 @@
+{
+  "/api/v1/addresses:lookup?address=0x2222222222222222222222222222222222222222&owned_by=true&only_active=true&sort=registration_date&order=DESC": {
+    "items": [
+      {
+        "id": "0x29acd1c6c0aa8768b0be59851ffbe9b94bfae34512d641d252d4b0c6602cf62f",
+        "name": "alice.pax",
+        "resolved_address": {"hash": "0x1111111111111111111111111111111111111111"},
+        "owner": {"hash": "0x2222222222222222222222222222222222222222"},
+        "wrapped_owner": null,
+        "registration_date": "2027-01-15T08:00:01Z",
+        "expiry_date": "2036-07-18T13:20:00Z",
+        "protocol": {"id": "pax", "short_name": "PNS", "title": "Paxeer Name System", "tld_list": ["pax"]}
+      }
+    ],
+    "next_page_params": null
+  },
+  "/api/v1/domains/alice.pax": {
+    "id": "0x29acd1c6c0aa8768b0be59851ffbe9b94bfae34512d641d252d4b0c6602cf62f",
+    "name": "alice.pax",
+    "resolved_address": {"hash": "0x1111111111111111111111111111111111111111"},
+    "owner": {"hash": "0x2222222222222222222222222222222222222222"},
+    "wrapped_owner": null,
+    "registration_date": "2027-01-15T08:00:01Z",
+    "expiry_date": "2036-07-18T13:20:00Z",
+    "protocol": {"id": "pax", "short_name": "PNS", "title": "Paxeer Name System", "tld_list": ["pax"]},
+    "tokens": [
+      {"id": "70564938991660933374592024341600875602376452319261984317470407481576058979585", "contract_hash": "0x0202020202020202020202020202020202020202", "type": "NATIVE_DOMAIN_TOKEN"}
+    ],
+    "registrant": {"hash": "0x2222222222222222222222222222222222222222"},
+    "resolver_address": {"hash": "0x0404040404040404040404040404040404040404"},
+    "other_addresses": {},
+    "stored_offchain": false
+  },
+  "/api/v1/domains/alice.pax/events?order=DESC": {
+    "items": [
+      {
+        "transaction_hash": "0x0000000000000000000000000000000000000000000000000000000000000067",
+        "timestamp": "2027-01-15T08:00:03Z",
+        "from_address": {"hash": "0x1111111111111111111111111111111111111111"},
+        "action": "set_text"
+      },
+      {
+        "transaction_hash": "0x0000000000000000000000000000000000000000000000000000000000000066",
+        "timestamp": "2027-01-15T08:00:02Z",
+        "from_address": {"hash": "0x1111111111111111111111111111111111111111"},
+        "action": "transfer"
+      },
+      {
+        "transaction_hash": "0x0000000000000000000000000000000000000000000000000000000000000066",
+        "timestamp": "2027-01-15T08:00:02Z",
+        "from_address": {"hash": "0x1111111111111111111111111111111111111111"},
+        "action": "renew"
+      },
+      {
+        "transaction_hash": "0x0000000000000000000000000000000000000000000000000000000000000065",
+        "timestamp": "2027-01-15T08:00:01Z",
+        "from_address": {"hash": "0x3333333333333333333333333333333333333333"},
+        "action": "set_contenthash"
+      },
+      {
+        "transaction_hash": "0x0000000000000000000000000000000000000000000000000000000000000065",
+        "timestamp": "2027-01-15T08:00:01Z",
+        "from_address": {"hash": "0x3333333333333333333333333333333333333333"},
+        "action": "set_addr"
+      },
+      {
+        "transaction_hash": "0x0000000000000000000000000000000000000000000000000000000000000065",
+        "timestamp": "2027-01-15T08:00:01Z",
+        "from_address": {"hash": "0x3333333333333333333333333333333333333333"},
+        "action": "register"
+      },
+      {
+        "transaction_hash": "0x0000000000000000000000000000000000000000000000000000000000000065",
+        "timestamp": "2027-01-15T08:00:01Z",
+        "from_address": {"hash": "0x3333333333333333333333333333333333333333"},
+        "action": "register"
+      },
+      {
+        "transaction_hash": "0x0000000000000000000000000000000000000000000000000000000000000065",
+        "timestamp": "2027-01-15T08:00:01Z",
+        "from_address": {"hash": "0x3333333333333333333333333333333333333333"},
+        "action": "register"
+      }
+    ],
+    "next_page_params": null
+  },
+  "/api/v1/addresses/0x1111111111111111111111111111111111111111": {
+    "domain": {
+      "id": "0x29acd1c6c0aa8768b0be59851ffbe9b94bfae34512d641d252d4b0c6602cf62f",
+      "name": "alice.pax",
+      "resolved_address": {"hash": "0x1111111111111111111111111111111111111111"},
+      "owner": {"hash": "0x2222222222222222222222222222222222222222"},
+      "wrapped_owner": null,
+      "registration_date": "2027-01-15T08:00:01Z",
+      "expiry_date": "2036-07-18T13:20:00Z",
+      "protocol": {"id": "pax", "short_name": "PNS", "title": "Paxeer Name System", "tld_list": ["pax"]},
+      "tokens": [
+        {"id": "70564938991660933374592024341600875602376452319261984317470407481576058979585", "contract_hash": "0x0202020202020202020202020202020202020202", "type": "NATIVE_DOMAIN_TOKEN"}
+      ],
+      "registrant": {"hash": "0x2222222222222222222222222222222222222222"},
+      "resolver_address": {"hash": "0x0404040404040404040404040404040404040404"},
+      "other_addresses": {},
+      "stored_offchain": false
+    },
+    "resolved_domains_count": 1
+  },
+  "/api/v1/domains:lookup?name=alice.pax&only_active=true": {
+    "items": [
+      {
+        "id": "0x29acd1c6c0aa8768b0be59851ffbe9b94bfae34512d641d252d4b0c6602cf62f",
+        "name": "alice.pax",
+        "resolved_address": {"hash": "0x1111111111111111111111111111111111111111"},
+        "owner": {"hash": "0x2222222222222222222222222222222222222222"},
+        "wrapped_owner": null,
+        "registration_date": "2027-01-15T08:00:01Z",
+        "expiry_date": "2036-07-18T13:20:00Z",
+        "protocol": {"id": "pax", "short_name": "PNS", "title": "Paxeer Name System", "tld_list": ["pax"]}
+      }
+    ],
+    "next_page_params": null
+  },
+  "/api/v1/addresses/0x2222222222222222222222222222222222222222": {
+    "domain": null,
+    "resolved_domains_count": 0
+  }
+}
