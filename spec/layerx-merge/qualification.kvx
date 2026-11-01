@@ -15771,3 +15771,19 @@ symbol = "write_jvm_contract"
 observed = "Attempt 1 (18b732a35, base 4505ff22b) ran make platform-sdk-generate, resealed sdk/platform/pipeline.kvx (schema and generator digests, two handwritten TypeScript declarations) and built; platform-sdk-check failed at services/platform/Makefile.inc:233 in generate_jvm.py --check with 'generated JVM contract is stale': sdkgen --write (main.rs:2070 write_jvm_contract) ran after generate_jvm.py and rewrote sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java with its own header line, so the Python generator's check no longer matched; the lock tests were not reached. Both generators render the same contract body and differ only in the header comment."
 assumption = "Decision 2206 makes generate_jvm.py the only generator of the contract; this task deletes the Rust rendering and regenerates once more."
 severity = "major"
+
+[finding.5.5.22.2]
+task = "5.5.22"
+file = "node/sequencer/receipt_source_test.go:92"
+symbol = "TestReceiptSourceRecordsAcceptedSend"
+observed = "Attempt 3 (ddd3719c1, base 4505ff22b) implemented do_5 as written: receipt_source.go retains committed sends and evicts the oldest committed one when the source is full, as do_1 requires, and TestReceiptSourceRecordsAcceptedSend fails at :92 because Record(lastHash, last) at :87 fills the two-slot source whose only committed send is the first one and evicts it before the late record that do_5 said must leave it unchanged; the assertions do_5 kept after Committed(vectorHeight + 3) and on the zero-value source still require nil for sends the retention rule keeps."
+assumption = "The tail of the test from :87 is rewritten to the values the retention and eviction rules produce; receipt_source.go does not change."
+severity = "major"
+
+[finding.9.25.8.2]
+task = "9.25.8"
+file = "services/agent/crates/layerx-agentd/src/read/mod.rs:8"
+symbol = "checkpoint_impl"
+observed = "Attempt 3 (cd428e283, base abd223e8b) added the three client accessors, the committed-block acquisition and seven checkpoint tests against a TcpListener JSON-RPC double, and the verify filter read::checkpoint::tests of do_3 selects no test because read/checkpoint.rs is declared as module read::checkpoint_impl (read/mod.rs:8); the attempt made the seven test functions pub(super) and ran their bodies from one committed_time test so the filter would reach them, and its first verification failed three captured-batch tests whose fixture pinned network 125 while the captured header carries 77, which cd428e283 repairs by pinning header.network_id(), but the rerun was refused by the repair budget."
+assumption = "The verify filter names read::checkpoint_impl::tests and the wrapper is deleted; the repaired fixture passes."
+severity = "major"
