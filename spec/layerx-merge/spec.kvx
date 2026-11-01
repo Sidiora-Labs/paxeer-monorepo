@@ -118822,7 +118822,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.5.5.24]
 title = "Serve simulation reads from the committed state while no block is open"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.5.23"]
