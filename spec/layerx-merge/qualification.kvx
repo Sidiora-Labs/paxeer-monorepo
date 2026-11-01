@@ -16051,3 +16051,27 @@ symbol = "human_plane"
 observed = "Attempt 1 (52df694ac, base c63ef6a23) built after one repair (the Android relay test compiled against a sample-profile class) and the install failed at GeneratedCatalogueJourneysTest.humanOperationsHaveNoRetiredJourneys:60 with 63 of 64 JVM tests passing: the attempt added OPERATION_RETIRED to SchemaErrors.HumanCode so that GoldenVectorTest's parity with GeneratedContract.HUMAN_ERROR_CODES holds, but the journeys test asserts the same set equals GeneratedSchema.HumanModels.ErrorCode, which lacks operation-retired because generate_jvm.py:75-79 appends it to the retired variants of the enum while :511 builds the contract set from the raw schema entries; the two generated sets have disagreed since bb6dde223 (task 8.46.10) carried the hand-made shape of b574c9f9f into the generator, and the Spring and Android suites never ran."
 assumption = "Decision 2215: the generator stops retiring operation-retired, GeneratedSchema.java is regenerated, both tests agree on the schema's live codes, and the install proceeds to the Spring and Android suites."
 severity = "major"
+
+[finding.18.670.1.14]
+task = "18.670.1"
+file = "rpc/info.go:392"
+symbol = "pendingBaseFee"
+observed = "Attempt 16 (afb1fe953, base 9c3954d07) kept attempt 15's changes, built, started the local node fixture, observed the first FundingSettled log after 6.8 s and failed at the first order of the end-to-end test with 'gas price: pending block unavailable: sequencer: no block is open': ethclient SuggestGasPrice calls eth_gasPrice, whose pendingBaseFee resolves the pending watermark with a bare Snapshot (rpc/watermark_manager.go:103) that fails between the seal of one block and the next open, while decision 2172's PendingOpenWait covers only the send path; no file of this task can change that."
+assumption = "Task 5.5.23 (decision 2216) makes eth_gasPrice fall back to the committed base fee while no block is open; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.12.35.3.4]
+task = "12.35.3"
+file = "apps/wallet/e2e/send.spec.ts:716"
+symbol = "send_reaches_committed_only_with_a_matching_explorer_answer"
+observed = "Attempt 5 (35369dbf5, base 725fc6e22 with task 12.34.11 on main) built, and the test passed the mismatched-block and matching-block checks including data-source explorer at :713-715, then failed at :716: expect(page.getByRole('alert')).toHaveCount(0) resolved one element fourteen times, the empty aria-live announcer the Next.js app router mounts on every page with role alert, which is not an error the page shows; the page shows Transfer Completed and no error alert."
+assumption = "The assertion counts the alerts a user can read, so the always-present empty announcer is excluded and a real error alert still fails it."
+severity = "minor"
+
+[finding.10.2.4.2]
+task = "10.2.4"
+file = "services/human/crates/layerx-human-service/tests/reclaim_nonces.rs:42"
+symbol = "ReclaimAgentContext"
+observed = "Attempt 2 (a4d305cf1) ported the eleven callers of finding 10.2.4.1 and the library built; the test-target compile of the build command failed at tests/reclaim_nonces.rs:42 with E0063 missing field account_sequence in the ReclaimAgentContext initializer, because the attempt added pub account_sequence: u64 to ReclaimAgentContext (src/agents/reclaim.rs:66-76) and set it in src and in tests/agent_controls_rungs.rs but tests/reclaim_nonces.rs and tests/reclaim.rs, which also construct the struct, are outside the touches."
+assumption = "Both test files set account_sequence from their fixture's binding, as agent_controls_rungs.rs does with its constant, and the build's --no-run compile passes."
+severity = "minor"

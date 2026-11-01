@@ -6405,6 +6405,12 @@ value = "services/human/schema/human-api/errors.kvx declares operation-retired a
 basis = "The generator rendered two human error sets that disagreed: the enum dropped operation-retired while the contract set kept it, so GoldenVectorTest and GeneratedCatalogueJourneysTest could not both pass (finding 8.46.11.1) and the SDK could not decode the one code the retired operations answer with. The producer-and-consumer defect class."
 affects = ["8.46.11"]
 
+[decision.2216]
+title = "eth_gasPrice answers from the latest committed base fee while the sequencer has no open block"
+value = "rpc/info.go pendingBaseFee returns a nil fee (as it does on a node that is neither sequencer nor standby) when resolvePending or BaseFeePerGas reports an error that errors.Is ErrLayerNotOpen, so GasPrice and every other reader of pendingBaseFee fall back to GetNextBaseFeePerGas at the latest committed height; any other error still fails the call. A suggestion RPC never depends on a block being open; decision 2172's wait stays confined to the send path."
+basis = "Between the seal of one block and the open of the next the sequencer has no open block, and eth_gasPrice failed with 'pending block unavailable: sequencer: no block is open' (perps-data TestEndToEnd, finding 18.670.1.14; the wallet test of 12.35.2 was taught to poll past it in finding 12.35.2.10). Ethereum clients treat the pending tag as the latest block when nothing is pending; a fee suggestion that errors between blocks breaks every ethclient SuggestGasPrice caller. The producer-and-consumer defect class."
+affects = ["5.5.23", "18.670.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -16183,6 +16189,10 @@ ac_1 = "layerx-client and layerx-agentd compile with no AccountProof, StoragePro
 [req.5090]
 title = "Committed sends stay readable by hash until capacity evicts them"
 ac_1 = "After Committed(height), ReceiptSource.SequencerSend still returns the recorded send of a hash at or below height, and a full source evicts the oldest committed send before an uncommitted one."
+
+[req.5092]
+title = "eth_gasPrice is served between blocks"
+ac_1 = "On the sequencer, eth_gasPrice answers from GetNextBaseFeePerGas at the latest committed height when no block is open, and from the open block's base fee otherwise (rpc/info.go:384)."
 
 [req.5023]
 title = "A receipt is returned only once it is durable on the primary and the standby"
@@ -33425,6 +33435,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.5.5.23]
+title = "Serve eth_gasPrice from the committed base fee while no block is open"
+reqs = ["5092.1"]
+touches = ["rpc/info.go", "rpc/pending_block_test.go"]
+tests = ["rpc/pending_block_test.go::TestGasPriceWithoutOpenBlockUsesLatestBaseFee"]
+verification_contract = "go test -count=1 -v ./rpc/ -run '^(TestPendingBlockGasPriceFromOpenBlock|TestGasPriceWithoutOpenBlockUsesLatestBaseFee)$' 2>&1 | tee /dev/stderr | grep -c -- '^--- PASS: ' | grep -qx 2"
+do_1 = "Decision 2216. In rpc/info.go pendingBaseFee (:384-401) returns (nil, 0, nil) when i.watermarks.resolvePending() or source.BaseFeePerGas() fails with an error that errors.Is ErrLayerNotOpen; every other error is returned as now. Its doc comment states that a nil fee is also the answer while no block is open, and GasPrice (:105-111) is unchanged: the nil fee already routes it to GetNextBaseFeePerGas at LatestCtxHeight."
+symbols = ["pendingBaseFee", "GasPrice", "ErrLayerNotOpen", "TestGasPriceWithoutOpenBlockUsesLatestBaseFee"]
 
 [capability.8.46.11]
 title = "Make the JVM SDK suite pass under the Maven install of the platform dependency step"
@@ -118333,6 +118352,36 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.5.5.23]
+title = "Serve eth_gasPrice from the committed base fee while no block is open"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["5.5.22"]
+reqs = ["5092.1"]
+capabilities = ["5.5.23"]
+interfaces = []
+do_1 = "Decision 2216. In rpc/info.go pendingBaseFee (:384-401) returns (nil, 0, nil) when i.watermarks.resolvePending() or source.BaseFeePerGas() fails with an error that errors.Is ErrLayerNotOpen; every other error is returned as now. Its doc comment states that a nil fee is also the answer while no block is open, and GasPrice (:105-111) is unchanged: the nil fee already routes it to GetNextBaseFeePerGas at LatestCtxHeight."
+do_2 = "In rpc/pending_block_test.go add TestGasPriceWithoutOpenBlockUsesLatestBaseFee beside TestPendingBlockGasPriceFromOpenBlock (:169): build the sequencer InfoAPI the way that test does, put its pending source into the state where Snapshot returns ErrLayerNotOpen (seal the fixture's open layer, or a pending double whose Snapshot and BaseFeePerGas return ErrLayerNotOpen and that satisfies PendingBaseFee), and assert GasPrice answers the committed next base fee plus ten percent plus the default priority fee, exactly what committedAPI answers in the existing test; assert a pending source failing with another error still fails GasPrice with that error. TestPendingBlockGasPriceFromOpenBlock keeps passing unchanged."
+do_3 = "The perps-data TestEndToEnd of task 18.670.1 is the consumer gate: its ethclient SuggestGasPrice calls land between blocks and must answer."
+symbols = ["pendingBaseFee", "GasPrice", "ErrLayerNotOpen", "TestGasPriceWithoutOpenBlockUsesLatestBaseFee"]
+touches = ["rpc/info.go", "rpc/pending_block_test.go"]
+tests = ["rpc/pending_block_test.go::TestGasPriceWithoutOpenBlockUsesLatestBaseFee"]
+planned_paths = []
+build_cmd = "go build ./rpc/..."
+verify_cmd = "go test -count=1 -v ./rpc/ -run '^(TestPendingBlockGasPriceFromOpenBlock|TestGasPriceWithoutOpenBlockUsesLatestBaseFee)$' 2>&1 | tee /dev/stderr | grep -c -- '^--- PASS: ' | grep -qx 2"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Restore rpc/info.go pendingBaseFee from 5b446cd27; eth_gasPrice fails between blocks again and 18.670.1 cannot pass."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.5.98.8]
 title = "Admit the consensus mempool into the sequencer's open layer at each proposal"
 status = "done"
@@ -150825,7 +150874,7 @@ do_3 = "`JourneyEngine::verified_leg_evidence` (services/human/crates/layerx-hum
 do_4 = "`AgentPreparationContext` (services/human/crates/layerx-human-service/src/onboarding/mod.rs:295) and `AgentPreparationContext::new` (services/human/crates/layerx-human-service/src/onboarding/mod.rs:310) carry the pending nonce; `AgentStageOutcome` (services/human/crates/layerx-human-service/src/onboarding/mod.rs:374) carries a tx hash and rung instead of an `AuthorizedBatch`."
 do_5 = "Create services/human/crates/layerx-human-service/tests/journey_receipts.rs (planned) driving the public journeys API."
 symbols = ["JourneyLeg", "JourneyKind", "AgentPreparationContext", "AgentStageOutcome"]
-touches = ["services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/journeys/mod.rs", "services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/src/agents/reclaim.rs", "services/human/crates/layerx-human-service/src/event_producer_tls.rs", "services/human/crates/layerx-human-service/src/onboarding/mod.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/tests/journey_receipts.rs", "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/journeys/move_money.rs", "services/human/crates/layerx-human-service/src/journeys/router.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/notify/links.rs", "services/human/crates/layerx-human-service/src/audit/event.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs", "services/human/crates/layerx-human-service/tests/audit.rs", "services/human/crates/layerx-human-service/tests/audit_retired_kinds.rs"]
+touches = ["services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/journeys/mod.rs", "services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/src/agents/reclaim.rs", "services/human/crates/layerx-human-service/src/event_producer_tls.rs", "services/human/crates/layerx-human-service/src/onboarding/mod.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/tests/journey_receipts.rs", "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/journeys/move_money.rs", "services/human/crates/layerx-human-service/src/journeys/router.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/notify/links.rs", "services/human/crates/layerx-human-service/src/audit/event.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs", "services/human/crates/layerx-human-service/tests/audit.rs", "services/human/crates/layerx-human-service/tests/audit_retired_kinds.rs", "services/human/crates/layerx-human-service/tests/reclaim_nonces.rs", "services/human/crates/layerx-human-service/tests/reclaim.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/journey_receipts.rs::stored_journey_of_a_retired_kind_reads_as_closed"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/journey_receipts.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --no-run"
@@ -150844,6 +150893,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "ReceiptMaterial (services/human/crates/layerx-human-service/src/journeys/engine.rs:229-237, decoded by decode_receipt at src/server/agent_runtime.rs:4256-4285) and VerifiedLegEvidence (engine.rs:243-249) also carry signed_receipt: Vec<u8>, the signing ReceiptKeys entry (key id, ed25519 public key, first and last height) and the inclusion height, taken from the rung evidence 9.4.1 reports; production_reads.rs:378-392 keeps answering from VerifiedLegEvidence and 10.92.1 consumes the new fields (decision.1816)."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_7 = "Finding 10.2.4.1: continue from attempt 1 (38d228c7d) keeping every change and port the callers the build and the crate's tests name. Pass the pending nonce at the three JourneyLeg::new calls of intent_submit.rs:432, move_money.rs:1250 and router.rs:1915 (and router.rs:2700) from the value each path already holds for the leg; add the Closed arm to the JourneyState matches at intent_submit.rs:505, move_money.rs:1174, notify/links.rs:398 and production_components.rs:2669 with the wire word closed where a state is serialised and the terminal treatment of Done where a state is acted on; at production_components.rs:8310-8313 and audit/event.rs replace the four retired JourneyKind variants by the closed historical reading of do_2 (a stored journey of a retired kind is read, never constructed). Port the six integration tests to the new signatures and to the closed reading, keeping each test's assertion; audit_retired_kinds.rs asserts that a stored retired kind reads as closed. The build command now also compiles every test target of the crate. Build once, verify once."
+do_8 = "Finding 10.2.4.2: continue from attempt 2 (a4d305cf1) keeping every file of it. Set account_sequence in the ReclaimAgentContext initializers of tests/reclaim_nonces.rs:42 and tests/reclaim.rs to the account sequence of the binding each test registers (the value agent_controls_rungs.rs now passes), and in any other test target the --no-run compile of the build command names; the tests' assertions are unchanged. Build once, verify once."
 
 [task.10.2.5]
 title = "Carry rungs in activity entry detail and finality references"
@@ -162809,6 +162859,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Finding 12.35.3.1: continue from attempt 1 (6920ab6ad) keeping the rewrites of do_1 to do_3. In send_reaches_committed_only_with_a_matching_explorer_answer drop the three environment requirements, the readExplorerStatus call against a real explorer and the otherHash transaction: the page.route handler for **/api/v2/transactions/*/status fulfils every request itself with a JSON document of the shape explorerAnswers.committed in apps/wallet/src/account/StatusLadder.test.tsx carries (rung committed, the requested hash, a block_number), built from the sent transfer's node receipt once readSequencerReceipt reports rung committed with a block: in the first phase block_number is the receipt block plus one and the test asserts li[data-rung=committed] keeps data-reached false after at least one served answer; in the second phase block_number equals the receipt block and the test asserts the committed step is reached with data-source explorer. Record the served answers and assert both phases answered at least once. WRONG_RPC and the manifest stay as the other tests use them; the test needs nothing beyond the fixture manifest and the node RPC the other send tests read. Build once, verify once."
 do_5 = "Finding 12.35.3.2: continue from attempt 2 (2981acb82) unchanged; the build command now builds the node binary and the verify command starts the local node fixture under --sequencer and sets the four WALLET_TRANSFER_TRUTH lines of 12.35.2 before the committed test. Build once, verify once."
 do_6 = "Finding 12.35.3.3: continue from attempt 4 (27e6d68db) unchanged once task 12.34.11 (decision 2213) is on main, so the committed rung renders data-source explorer from the saved observation. Rebase onto main, change nothing, build once and verify once."
+do_7 = "Finding 12.35.3.4: continue from attempt 5 (35369dbf5) changing one assertion: at apps/wallet/e2e/send.spec.ts:716 count page.getByRole('alert').filter({ hasText: /\S/ }) instead of every role alert element, because the Next.js app router mounts an empty announcer with role alert on every page; a send error or layout error alert carries text and still fails the count. Build once, verify once."
 
 [task.12.35.4]
 title = "Start the in-tree node as a sequencer primary with a standby for local qualification"
@@ -181426,7 +181477,7 @@ title = "Issue #670: Keep the restarted perps data gateway and socket alive thro
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["5.98.2", "5.98.3", "5.98.5", "5.98.7", "5.98.8"]
+requires = ["5.98.2", "5.98.3", "5.98.5", "5.98.7", "5.98.8", "5.5.23"]
 reqs = ["18670.1"]
 capabilities = []
 interfaces = []
@@ -181464,6 +181515,7 @@ do_14 = "Decision 2180: continue from attempt 10 (1e16b9165), keeping the restar
 do_15 = "Finding 18.670.1.11: continue from attempt 11 (d96dda6ec). In tools/qualification/localnode/v6120-node.sh the feed loop writes one line to feeder.log per iteration before and after each broadcast (height, transaction hash, broadcast code, commit height and code), the fresh-price wait rises from 30 to 90 seconds, and on timeout the failure prints the pricefeed price 0 and price 11 queries, the pricefeed params and the latest block time. Build once, verify once."
 do_16 = "Finding 18.670.1.12: attempt 12 (e1ba002bf) failed in the fixture's setup sends on the receipt-height refusal of rpc/send.go:360, which task 5.98.7 (now required) removes; continue from attempt 12, keeping the restart-lifetime fix and the feeder diagnostics, on a main that carries 5.98.7."
 do_17 = "Finding 18.670.1.13, decision 2212: continue from attempt 15 (1ee69fb2b) unchanged once task 5.98.8 is on main; rebase onto main, change nothing in the script or the test, build once and verify once. If the feed loop still fails, record the first feeder.log line pair and the node.log lines of the height it names in the finding, and stop."
+do_18 = "Finding 18.670.1.14: continue from attempt 16 (afb1fe953) unchanged once task 5.5.23 (decision 2216) is on main, so eth_gasPrice answers between blocks and the end-to-end test reaches its restart checks. Rebase onto main, change nothing, build once and verify once."
 
 [req.18670]
 title = "Keep the restarted perps data gateway alive through the post-restart end-to-end checks"

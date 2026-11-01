@@ -12691,3 +12691,13 @@ fix = "after a rebase of a task that commits a generated vector, regenerate it w
 title = "A generator that filters one rendering of a schema set but not another breaks parity tests"
 symptom = "generate_jvm.py appended operation-retired to the retired variants used for the human ErrorCode enum but built the contract set HUMAN_ERROR_CODES from the raw schema, so GoldenVectorTest (parity with the contract set) and GeneratedCatalogueJourneysTest (parity with the enum) demanded different SchemaErrors.HumanCode sets and no edit of the hand-kept enum could satisfy both"
 fix = "every rendering of one schema set in a generator reads the same filtered model; when two generated views of a set disagree, fix the generator and regenerate, never the hand-kept mirror"
+
+[gotcha.2575]
+title = "getByRole alert counts the Next.js route announcer"
+symptom = "a wallet end-to-end test asserted zero role alert elements after a successful send and found one: the empty aria-live announcer the Next.js app router mounts on every page carries role alert"
+fix = "assert the alerts a user can read, getByRole('alert').filter({ hasText: /\S/ }), or a data-role the page's own alerts carry"
+
+[gotcha.2576]
+title = "Pending-tag reads outside the send path fail between blocks"
+symptom = "eth_gasPrice on the sequencer resolved the pending watermark with a bare Snapshot and answered 'pending block unavailable: sequencer: no block is open' to an ethclient SuggestGasPrice call that landed between a seal and the next open; the send path had been given a bounded wait, the suggestion path had not"
+fix = "a suggestion or read RPC that consults the open block falls back to committed values when no block is open; only the send path waits for the next open"
