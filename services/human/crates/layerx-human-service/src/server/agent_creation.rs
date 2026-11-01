@@ -442,7 +442,11 @@ impl<'a> ProductionAgentCreation<'a> {
         if signed.disclosure != prepared.disclosure
             || signed.owner_public_key[12..] != wallet
             || signed.network_id != binding.network_id()
-            || signed.disclosure.idempotency_key != action.action_key
+            || signed.disclosure.idempotency_key
+                != ProtocolEvidence::creation_idempotency_key(
+                    &signed.disclosure,
+                    action.action_key,
+                )?
         {
             return Err(AgentFailure::Refused("signed creation action differs"));
         }
@@ -494,7 +498,8 @@ impl<'a> ProductionAgentCreation<'a> {
         let signed = SignedCreationTransaction::decode(&signed_activity)?;
         if signed.disclosure.actor != signed.owner_public_key[12..]
             || signed.owner_public_key != public_key
-            || signed.disclosure.idempotency_key != action_key
+            || signed.disclosure.idempotency_key
+                != ProtocolEvidence::creation_idempotency_key(&signed.disclosure, action_key)?
             || signed.network_id != network_id
             || signed.activity_id != activity_id
         {
