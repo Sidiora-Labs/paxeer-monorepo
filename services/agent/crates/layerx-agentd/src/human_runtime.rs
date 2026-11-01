@@ -990,6 +990,23 @@ fn human_receipt_key(
     Ok(*key)
 }
 
+pub(crate) fn receipt_lookup_not_ready_bytes(
+    lookup: &layerx_client::rpc::receipt::Lookup,
+) -> Option<Vec<u8>> {
+    use layerx_client::rpc::receipt::Lookup;
+    let mut out = Encoder::new();
+    match lookup {
+        Lookup::Absent => out.u8(0),
+        Lookup::Submitted { tx_hash, nonce } => {
+            out.u8(2);
+            out.fixed(tx_hash);
+            out.u64(*nonce);
+        }
+        Lookup::Verified(_) => return None,
+    }
+    Some(out.0)
+}
+
 pub fn lookup_human_receipt_by_outbox_hash(
     chain: &dyn HumanNode,
     endpoint: &layerx_client::sequencer::SequencerEndpoint,
@@ -13133,7 +13150,11 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         use layerx_client::rpc::receipt::Lookup;
         let mut out = Encoder::new();
         match lookup {
-            Lookup::Absent | Lookup::Submitted { .. } => out.u8(0),
+            lookup @ (Lookup::Absent | Lookup::Submitted { .. }) => {
+                let bytes =
+                    receipt_lookup_not_ready_bytes(&lookup).ok_or(HumanOperationError::Refused)?;
+                out.fixed(&bytes);
+            }
             Lookup::Verified(receipt) => {
                 let protocol = receipt
                     .receipt()
@@ -22026,6 +22047,25 @@ mod tests {
     use serde_json::json;
     use std::io::{Read as _, Write as _};
     use std::sync::atomic::{AtomicBool, Ordering};
+
+    #[test]
+    fn receipt_lookup_not_ready_bytes_distinguish_submitted_from_absent() {
+        use layerx_client::rpc::receipt::Lookup;
+
+        let submitted = receipt_lookup_not_ready_bytes(&Lookup::Submitted {
+            tx_hash: [0xab; 32],
+            nonce: 0x0102_0304_0506_0708,
+        })
+        .expect("submitted lookup has a not-ready encoding");
+        let mut expected = vec![2];
+        expected.extend_from_slice(&[0xab; 32]);
+        expected.extend_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8]);
+        assert_eq!(submitted, expected);
+        let absent = receipt_lookup_not_ready_bytes(&Lookup::Absent)
+            .expect("absent lookup has a not-ready encoding");
+        assert_eq!(absent, vec![0]);
+        assert_ne!(submitted, absent);
+    }
 
     const KEY_ID: [u8; 32] = [1; 32];
     fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
