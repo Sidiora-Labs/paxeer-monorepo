@@ -189683,7 +189683,7 @@ qualification = "UNRUN"
 
 [task.18.1315.1]
 title = "Issue #1315: Resolve Swift lifecycle receipts by the signed EVM transaction hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191506,7 +191506,7 @@ qualification = "UNRUN"
 
 [task.18.1371.1]
 title = "Issue #1371: Decode the scheduler getJob result with the node's flat output layout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
