@@ -122,7 +122,7 @@ func (g GenesisState) Validate() error {
 	for _, entry := range g.ProgramPending {
 		record := entry.Record
 		if len(record) != ProgramPendingRecordBytes || record[0] != 1 ||
-			(record[1] != KindFetch && record[1] != KindSearch) || record[122] > 1 {
+			(record[1] != KindFetch && record[1] != KindSearch && record[1] != KindStorageReceipt) || record[122] > 1 {
 			return ErrInvalidGenesis.Wrapf("malformed program record %s/%d", entry.ProgramID.Hex(), entry.RequestID)
 		}
 		key := programRequestKey{entry.ProgramID, entry.RequestID}

@@ -189,7 +189,13 @@ pub fn verify_bindings(
         if binding.fee_limit < leg.fee() || binding.fee_limit > constraints.max_fee() {
             return Err(SubmitRefusal::FeeLimitMismatch { index });
         }
-        if binding.account_sequence != expectation.account_sequence
+        if binding.account_sequence
+            != expectation
+                .account_sequence
+                .checked_add(
+                    u64::try_from(index).map_err(|_| SubmitRefusal::StaleSequence { index })?,
+                )
+                .ok_or(SubmitRefusal::StaleSequence { index })?
             || !sender_nonces.insert((binding.actor.as_str(), binding.account_sequence))
         {
             return Err(SubmitRefusal::StaleSequence { index });
@@ -237,9 +243,8 @@ pub struct KernelStart<'a> {
     pub registry: &'a ModuleRegistry,
 }
 
-/// Creates the durable engine journey for a verified plan whose legs all run
-/// inside `LayerX`. Each leg's relationship material must resolve to exactly
-/// the planned mechanism, term, endpoints, asset and amount.
+/// Persists a verified plan's signed EIP-1559 legs with their nonces and hashes.
+/// Each signed transaction must match its exact authorization and submitted binding.
 ///
 /// # Errors
 ///
@@ -251,9 +256,87 @@ pub fn start_kernel_journey(
     plan: &UnifiedPlan,
     request: &SubmitPlanRequest,
     expectation: &BindingExpectation,
-    start: KernelStart<'_>,
-) -> Result<JourneyEngine, SubmitRefusal> {
-    start_kernel_profile(scope, plan, request, expectation, start, false)
+    journey_id: JourneyId,
+    transactions: &[crate::custody::EvmAction],
+) -> Result<IntentSubmission, SubmitRefusal> {
+    verify_bindings(plan, request, expectation)?;
+    if plan.executable_shape() != ExecutableShape::Kernel || transactions.len() != plan.legs().len()
+    {
+        return Err(SubmitRefusal::UnsupportedPlan);
+    }
+    let mut legs = Vec::with_capacity(transactions.len());
+    for (index, (action, binding)) in transactions.iter().zip(&request.bindings).enumerate() {
+        let authorization = &action.authorization;
+        let (call, signature) =
+            layerx_crypto::evm_transaction::decode_signed(&action.raw_transaction)
+                .map_err(|_| SubmitRefusal::LegMismatch { index })?;
+        let hash = layerx_crypto::evm_transaction::transaction_hash(&action.raw_transaction);
+        if authorization.principal != scope.principal().as_str()
+            || authorization.tenant != scope.tenant().as_str()
+            || authorization.plan_id != plan.digest()
+            || authorization.action_key != binding.action_key
+            || authorization.not_before != binding.not_before
+            || authorization.not_after != binding.not_after
+            || authorization.transaction.nonce != binding.account_sequence
+            || call.nonce != binding.account_sequence
+            || call.to != authorization.transaction.to
+            || call.data != authorization.transaction.calldata
+            || call.chain_id != authorization.transaction.chain_id
+            || call.gas_limit != authorization.transaction.gas_limit
+            || call.max_fee_per_gas != u128::from(authorization.transaction.max_fee_per_gas)
+            || call.max_priority_fee_per_gas
+                != u128::from(authorization.transaction.max_priority_fee_per_gas)
+            || authorization.transaction.value != [0; 32]
+            || action.transaction_hash != Some(hash)
+            || layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                .map_err(|_| SubmitRefusal::LegMismatch { index })?
+                != authorization.wallet
+        {
+            return Err(SubmitRefusal::LegMismatch { index });
+        }
+        legs.push(
+            json!({"index": index, "nonce": call.nonce, "tx_hash": format!("0x{}", hex(&hash)),
+            "action_key": hex(&binding.action_key), "submitted": action.acknowledged,
+            "raw_transaction": action.raw_transaction}),
+        );
+    }
+    let record = json!({"journey_id": journey_id.as_str(), "plan_digest": hex(&plan.digest()),
+        "state": "processing", "state_copy_key": "journey.state.processing", "legs": legs,
+        "started_at": crate::time::rfc3339(expectation.now),
+        "updated_at": crate::time::rfc3339(expectation.now)});
+    let key = crate::store::RowKey::new(format!("intent-evm-{}", journey_id.as_str()))
+        .map_err(|_| SubmitRefusal::JourneyUnavailable)?;
+    let bytes = serde_json::to_vec(&record).map_err(|_| SubmitRefusal::JourneyUnavailable)?;
+    if let Some(previous) = scope.get(crate::store::Table::Journeys, &key) {
+        let retained: Value = serde_json::from_slice(previous.bytes())
+            .map_err(|_| SubmitRefusal::JourneyUnavailable)?;
+        let retained_legs = retained["legs"]
+            .as_array()
+            .ok_or(SubmitRefusal::JourneyUnavailable)?;
+        let new_legs = record["legs"]
+            .as_array()
+            .ok_or(SubmitRefusal::JourneyUnavailable)?;
+        if retained["journey_id"] != record["journey_id"]
+            || retained["plan_digest"] != record["plan_digest"]
+            || retained_legs.len() != new_legs.len()
+            || retained_legs.iter().zip(new_legs).any(|(old, new)| {
+                ["index", "nonce", "tx_hash", "action_key", "raw_transaction"]
+                    .iter()
+                    .any(|field| old[field] != new[field])
+            })
+        {
+            return Err(SubmitRefusal::AlreadySubmitted);
+        }
+    } else {
+        scope
+            .put(crate::store::Table::Journeys, key, expectation.now, bytes)
+            .map_err(|_| SubmitRefusal::JourneyUnavailable)?;
+    }
+    Ok(IntentSubmission {
+        journey_id,
+        plan_digest: plan.digest(),
+        state: "processing",
+    })
 }
 
 pub fn start_native_kernel_journey(

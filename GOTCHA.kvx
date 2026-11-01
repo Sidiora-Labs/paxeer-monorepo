@@ -12241,3 +12241,73 @@ fix = "When a route is removed, list the tests that reach it through plan() and 
 title = "A refusal that folds several comparisons into one string needs test-side named assertions"
 symptom = "A creation test failed with 'lifecycle transaction binding differs' twice; the production check compares eight fields and names none, so neither attempt could tell which binding of the EVM-form owner was wrong."
 fix = "Have the test support recompute and assert each binding with its own message before calling the production check, so the next failure names the field."
+
+[gotcha.2485]
+title = "A retired contract imported by a test breaks a scoped Foundry profile"
+symptom = "A names-only Foundry profile still failed to build because one test imported the governance timelock, whose own imports were retired earlier in the feature."
+fix = "Scoped profiles compile every import of their tests; govern Governed components in tests through a pranked plain address and never import sources outside the profile's own directory."
+
+[gotcha.2486]
+title = "budgetCreate carries no idempotency word; its disclosure word is the budget id"
+symptom = "A lifecycle binding compared the disclosure idempotency word against the stage action key for every method; for budgetCreate the word is the budget id by construction, so the budget-creation stage could never pass on any owner path."
+fix = "When a disclosure derives the idempotency word from a method-specific field, bind that field to what the payload comparison already pins and keep the action-key comparison for the methods that carry one."
+
+[gotcha.2487]
+title = "A test that writes under the repository root leaves untracked files behind every run"
+symptom = "An integration test rooted its TLS fixture tree at qual-logs/hm2 under the repository; the gate passed and the attempt was still refused for sixty untracked files outside the task's scope."
+fix = "Root test fixtures at env!(CARGO_TARGET_TMPDIR) (or an equivalent build-output directory) and never under a source path that git does not ignore."
+
+[gotcha.2488]
+title = "A mode guard around test-node setup leaves the sequenced node without prices or collateral"
+symptom = "The local node script skipped its price feed and collateral setup in sequencer mode; the perps end-to-end test then saw getMarkPriceDetails revert with a zero mark on a market whose funding was already settling."
+fix = "Gate only the steps a mode truly cannot run (here activate_merge on an already-activated export) and run every state-setup step in every mode; check the script's own mode-neutral tests against each start form."
+
+[gotcha.2489]
+title = "A handler result that fails the response schema is answered as upstream-degraded with no reason"
+symptom = "The human service answered 503 upstream-degraded on every read of a new journey kind; nothing in the logs named a cause. finish_response validates each result against the operation's declared response type and maps a schema refusal to upstream-degraded silently."
+fix = "When a new handler answers 503 with no chain or store error in sight, check the result against the operation's response type in the schema first; the service now logs one line per schema refusal naming the operation, trace and SchemaError."
+
+[gotcha.2490]
+title = "A pending-block RPC read between Seal and Open crashed the handler"
+symptom = "eth_sendRawTransaction on the node holding the open block answered method handler crashed; the node log showed the handler panicking with sequencer: no block is open because the context provider panics when the open layer is nil in the few milliseconds between sealing one block and opening the next."
+fix = "Send-path pending reads go through WatermarkManager.PendingContext, which waits up to PendingOpenWait for the next open block and answers the retriable ErrPendingBlockClosed; the app's provider performs the same bounded wait before it panics."
+
+[gotcha.2491]
+title = "The Next development server keeps the configured basePath and the browser harness must follow it"
+symptom = "A browser harness started the wallet's development server with a basePath override in conf and probed the root URL; the app served under /wallet, every probe answered 404 and the harness timed out after ten minutes."
+fix = "Point webServer.url and baseURL at the product base path with a trailing slash and write page navigations as relative paths (./?screen=...), never with a leading slash."
+
+[gotcha.2492]
+title = "eth_getProof answered a store-level proof that cannot reach the app hash"
+symptom = "A test verified the eth_getProof answer against the committed app hash and failed with calculated root hash is invalid: the handler queried the evm store directly and returned only the ics23:iavl op, missing the ics23:simple op that links the store root to the app hash."
+fix = "Prove storage slots through the root multistore (path /<store>/key with Prove) so the proof carries both ops; a client with a signed header can then verify it with the ics23 codec alone."
+
+[gotcha.2493]
+title = "A new struct field needs every initializer site in the touches, including test helpers in other modules"
+symptom = "Adding a field to the indexer's Unit broke the build in a test helper of another module that constructs a Unit literally; that file was outside the task's touches, so two attempts stopped at the same compile error."
+fix = "Before adding a field to a struct, list every literal initializer (grep for the type name followed by a brace) and put each file in the task's touches."
+
+[gotcha.2494]
+title = "A fixture that signs lifecycle calls must cover every stage's construct"
+symptom = "The agent creation test fixture built budgetCreate calldata for every Budget-module payload and panicked on the funding stage's ordinal 2 once the creation stage finally bound"
+fix = "Enumerate the stages a flow compiles (the compile.rs arms) before writing a fixture's calldata builder, and give the decoder a construct for each precompile method the flow signs"
+
+[gotcha.2495]
+title = "Retiring enum variants must carry every test target that names them"
+symptom = "A gateway lib-only gate let an integration test keep nine deleted ProductionRoute variants, and unrelated tasks failed their dependent-crate check against the gateway test target"
+fix = "When a task deletes variants or routes, grep the crate's tests directory and put every file that names them in touches; qualify with --all-targets or the test target itself"
+
+[gotcha.2496]
+title = "testify require.Same needs pointers"
+symptom = "require.Same on two sdk.Context MultiStore() interface values failed with both arguments must be pointers after the behaviour under test already passed"
+fix = "Assert header and height equality on contexts; reserve require.Same for pointer values"
+
+[gotcha.2497]
+title = "Browser-session reads need the session cookie in test fixtures"
+symptom = "An intent journey list read answered 401 while the detail read passed, because the list route is a browser-session read and the fixture carried only the bearer"
+fix = "Check each route's authentication kind before writing a fixture; open the passkey session once and send its cookie with every request"
+
+[gotcha.2498]
+title = "A leaf pnpm install walks up to the root workspace"
+symptom = "pnpm --dir sdk/names install resolved all workspace projects and failed on an unpublished dependency of another package once the names manifest changed"
+fix = "Install leaf packages that keep their own lockfile with --ignore-workspace, or add them to the workspace deliberately"
