@@ -117594,6 +117594,8 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 10.2.11.1. In tests/attestor.rs the start function (:506) builds activity_types (:545-556) from the registry; keep only the kind whose value is 65541 (0x10005, the asset send, the one type the attestor admits since task 12.12.1) and assert the list is exactly ['65541'] before the daemons start; apply the same filter wherever tests/support/attestor_cluster.rs or tests/provider.rs derives the variable from the registry (callers that pass an empty list stay). Change nothing in services/wallet/attestor. Continue from attempt 1 (b7e4544c0), build once and verify once."
+do_5 = "Finding 10.2.11.2. In the start function of tests/attestor.rs (:506) give the five daemons the custody authority and the approved wallet inventory exactly as tests/support/attestor_cluster.rs does: write root/authority.pem from the test TokenSigner's P-256 verifying key in the SPKI PEM form of attestor_cluster.rs:328-338, set ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE to it, ATTESTOR_AUTHORITY_ISSUER to the test ISSUER and ATTESTOR_AUTHORITY_TENANT to attestor-test (:545-549); sign an inventory document with the same signer (header alg ES256, typ wallet-custody-inventory+jwt, claims version 1, iss ISSUER, aud wallet-custody-inventory, tenant attestor-test, sequence 1, members = the five node ids with their pins, keys empty, as publish_inventory and sign_inventory build it at :340 and :678-690), write it to root/inventory.jwt and set ATTESTOR_INVENTORY_PUBLIC_KEY_FILE to authority.pem and ATTESTOR_INVENTORY_FILE to that file (:551-554). If the shared start function of tests/support/attestor_cluster.rs, given this test's activity-type list, already provides the chain double, policies and token signer this test needs, the test may build its daemons through it instead of the private copy; either way services/wallet/attestor and tests/support/attestor_cluster.rs stay unchanged and every assertion of the three tests stays. Continue from attempt 3 (14b815ee9), build once and verify once."
+do_6 = "Finding 10.2.11.3. In the policy.json the start function of tests/attestor.rs writes, add under defaults a selectors map with the single key 0x000000000000000000000000000000000000101a and the list [0x2bb1ae7c, 0x78ea11db, 0x2e89490f], exactly as services/wallet/deploy/attestor-policy.json lists the layerxledger precompile; keep chain_id, kinds, caps and rate_per_minute as they are. services/wallet/attestor and tests/support/attestor_cluster.rs stay unchanged (no test the verify step runs signs a ledger call through the shared support), and every assertion of the three attestor tests and of tests/provider.rs stays. Continue from attempt 4 (4c854144d), build once and verify once."
 
 [task.10.2.10]
 title = "Port the human-service evidence test off the retired account proof"
@@ -118822,7 +118824,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.5.5.24]
 title = "Serve simulation reads from the committed state while no block is open"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.5.23"]
@@ -118914,7 +118916,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.96.3]
 title = "Port the custody keeper tests off the retired checkpoint submission"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.96.1"]
@@ -118943,6 +118945,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Finding 6.96.3.1. Before the second build establish why Keeper.Retired is true at height 7 for the anchor reader test: print the upgrade keeper's done height for types.MergePlanUpgrade at the start of the test and after the anchor genesis import; if the import (ExportGenesis followed by InitGenesis on the cached context) or a sibling test writes the plan as done on the shared test application outside a cache context, isolate that write (a CacheContext of its own, or an import that does not carry the plan) and name the writer in the qualification record; the three tests then run under the retirement state they had at main. The verify gate runs the three tests by name; the other 22 failures are task 6.96.4."
+do_6 = "Finding 6.96.3.2. Rewrite the withdrawal expectations of TestWithdrawalReadsAnchorFinalizedCheckpoint against the retired path: every VerifyWithdrawal and FinaliseWithdrawal call of the test (the one before the finalized import, the two after it and the one on the ambiguous cached context) asserts types.ErrModuleRetired with require.ErrorIs; drop the batch, nullifier and CLAIM_STATUS_PAID assertions that depend on a verified withdrawal; keep unchanged the custody-registered checkpoint step, the genesis import of the final checkpoint, the FinalizedStateRoot and LatestFinalizedBatch reads and the solvency check. Update the test's leading comment to say the withdrawal path is retired and the test proves the anchor-side read. Remove the two probe t.Logf lines added for finding 6.96.3.1. Test names, the file set and the two deposit-root tests stay as attempt 3 left them. Continue from attempt 3 (5bfe3cc9e), build once and verify once."
 
 [task.2.24.7]
 title = "Retire budgetPull of the pay precompile with the payer grants"
@@ -151532,7 +151535,7 @@ do_3 = "`JourneyEngine::verified_leg_evidence` (services/human/crates/layerx-hum
 do_4 = "`AgentPreparationContext` (services/human/crates/layerx-human-service/src/onboarding/mod.rs:295) and `AgentPreparationContext::new` (services/human/crates/layerx-human-service/src/onboarding/mod.rs:310) carry the pending nonce; `AgentStageOutcome` (services/human/crates/layerx-human-service/src/onboarding/mod.rs:374) carries a tx hash and rung instead of an `AuthorizedBatch`."
 do_5 = "Create services/human/crates/layerx-human-service/tests/journey_receipts.rs (planned) driving the public journeys API."
 symbols = ["JourneyLeg", "JourneyKind", "AgentPreparationContext", "AgentStageOutcome"]
-touches = ["services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/journeys/mod.rs", "services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/src/agents/reclaim.rs", "services/human/crates/layerx-human-service/src/event_producer_tls.rs", "services/human/crates/layerx-human-service/src/onboarding/mod.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/tests/journey_receipts.rs", "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/journeys/move_money.rs", "services/human/crates/layerx-human-service/src/journeys/router.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/notify/links.rs", "services/human/crates/layerx-human-service/src/audit/event.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs", "services/human/crates/layerx-human-service/tests/audit.rs", "services/human/crates/layerx-human-service/tests/audit_retired_kinds.rs", "services/human/crates/layerx-human-service/tests/reclaim_nonces.rs", "services/human/crates/layerx-human-service/tests/reclaim.rs", "services/human/crates/layerx-human-service/tests/onboarding.rs", "services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs"]
+touches = ["services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/journeys/mod.rs", "services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/src/agents/reclaim.rs", "services/human/crates/layerx-human-service/src/event_producer_tls.rs", "services/human/crates/layerx-human-service/src/onboarding/mod.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/tests/journey_receipts.rs", "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/journeys/move_money.rs", "services/human/crates/layerx-human-service/src/journeys/router.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/notify/links.rs", "services/human/crates/layerx-human-service/src/audit/event.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs", "services/human/crates/layerx-human-service/tests/audit.rs", "services/human/crates/layerx-human-service/tests/audit_retired_kinds.rs", "services/human/crates/layerx-human-service/tests/reclaim_nonces.rs", "services/human/crates/layerx-human-service/tests/reclaim.rs", "services/human/crates/layerx-human-service/tests/onboarding.rs", "services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/journey_receipts.rs::stored_journey_of_a_retired_kind_reads_as_closed"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/journey_receipts.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --no-run"
@@ -151555,6 +151558,7 @@ do_8 = "Finding 10.2.4.2: continue from attempt 2 (a4d305cf1) keeping every file
 do_9 = "Finding 10.2.4.3: continue from attempt 3 (dc4a70118) unchanged once task 9.25.16 is on main, so the human workspace resolves under --locked. Rebase onto main, change nothing, build once and verify once."
 do_10 = "Attempt 5 (704efdccd) adds pending_nonce as the fourth argument of AgentPreparationContext::new (src/onboarding/mod.rs:311-324, seven arguments) and replaces authorised_batch in AgentStageOutcome::Executed with tx_hash, rung and receipt_key, but tests/onboarding.rs:107 (fn context) and :296, :558 and :580 still use the old shapes, so the test build this task's build step runs fails. Port those four sites in this task: context passes the pending nonce the fixture tracks (the account sequence when none is tracked) and the three Executed values carry the receipt's transaction hash, rung and receipt key exactly as the production path fills them; every assertion of tests/onboarding.rs stays. Continue from attempt 5."
 do_11 = "Finding 10.2.4.4. Port the two remaining consumers in this task: at tests/receipt_material_rungs.rs:124 the ReceiptMaterial literal carries inclusion_height, receipt_key and signed_receipt with the values the production path fills for that fixture receipt, and the pattern at :153 names the three fields (or ends with ..); at tests/native_onboarding_rungs.rs:117 AgentPreparationContext::new receives the pending nonce as its fourth argument exactly as tests/onboarding.rs now passes it. Every assertion of both files stays. Before the build, grep the crate's tests/ directory for every other use of ReceiptMaterial, AgentPreparationContext::new and AgentStageOutcome::Executed and port those too, so the crate-wide --no-run build of the declared build step passes on the first run. Continue from attempt 6 (29813f720)."
+do_12 = "Finding 10.2.4.5. Port the last consumer in this task: at tests/wallet_identity_e2e.rs:488 the AgentPreparation literal carries pending_nonce with the value the production path fills for that fixture (the pending nonce the fixture tracks, the account sequence when none is tracked), and at :701 the ReceiptMaterial literal carries inclusion_height, receipt_key and signed_receipt with the values the production path fills for that fixture receipt, as tests/receipt_material_rungs.rs now does. Every assertion of the file stays. Before the build, grep the whole crate (src/ and tests/, including every file under tests/support) for every struct literal and pattern of AgentPreparation and ReceiptMaterial and for every call of AgentPreparationContext::new and AgentStageOutcome::Executed, and port each remaining one, so the crate-wide --no-run build of the declared build step passes on the first run. Continue from attempt 7 (234bcda46)."
 
 [task.10.2.5]
 title = "Carry rungs in activity entry detail and finality references"
@@ -153362,7 +153366,7 @@ do_1 = "services/human/crates/layerx-human-service/src/server/production_compone
 do_2 = "Delete `movement_account_address` (services/human/crates/layerx-human-service/src/server/production_components.rs:7978), which derives a Paxeer movement account, and the `layerx_paxeer_client` imports left at services/human/crates/layerx-human-service/src/server/production_components.rs:22-24."
 do_3 = "Delete services/human/crates/layerx-human-service/src/server/movement_provider.rs, which reads `LAYERX_HUMAN_MOVEMENT_SOCKET`, `_PEER_UID`, `_PEER_GID`, `_MAX_FRAME_BYTES` and `_DEADLINE_SECONDS` at services/human/crates/layerx-human-service/src/server/movement_provider.rs:57-64, and `pub mod movement_provider;` at services/human/crates/layerx-human-service/src/server/mod.rs:14."
 do_4 = "Create services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs (planned) committing a quoted move through a real `Router` over `ProductionComponents` opened without movement environment."
-symbols = ["ProductionComponents", "UnixMovementProvider", "movement_account_address"]
+symbols = ["ProductionComponents"]
 touches = ["services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/server/mod.rs", "services/human/crates/layerx-human-service/src/server/movement_provider.rs", "services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs::move_commit_submits_a_bank_transfer_without_a_movement_provider"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs"]
@@ -153383,6 +153387,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 do_5 = "Finding 10.20.5.1: continue from attempt 1 (e5b827065) keeping the production changes and replace the test. Move the fixture of services/human/crates/layerx-human-service/tests/intent_plan_evm.rs (SerialClock, ClockServer, the agent runtime double, the events and node RPC servers, Fixture with open, configure_services, bootstrap, reopen, close_router, request, plan, journey_record, submission and the loader environment, :36-1247 and :1445-1530) into services/human/crates/layerx-human-service/tests/support/production_fixture.rs as pub(crate) items, included from both test files the way tests/support/canonical_owner.rs is included, and drop the movement socket and the movement environment variables from it since ProductionComponentsConfig no longer reads them; intent_plan_evm.rs keeps its two tests byte-identical in behaviour. Rewrite services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs on that fixture: open it, quote a Move of a non-zero amount to an EVM recipient through the Router, commit it with an Idempotency-Key, and assert that the node RPC double received exactly one signed EIP-1559 bank transfer whose sender is the wallet, whose nonce is the pending nonce the double answered and whose recipient and amount are the quote's, that the journey record carries that transaction hash on its leg, and that no movement socket, movement environment variable or layerx_paxeer_client symbol is referenced by the test or by production_components.rs. The test reads no environment variable the fixture did not set and opens no network connection beyond the loopback doubles. The build command now also compiles every test target of the crate; the verify runs this test and 10.0.3's two tests. Build once, verify once."
 do_6 = "Finding 10.20.5.2: continue from attempt 2 (108c869b4) unchanged once task 9.25.16 is on main. Rebase onto main, change nothing, build once and verify once; a browser-session request to a mutating route carries the CSRF cookie and header, as the repair already does."
 do_7 = "Finding 10.20.5.3: the layerx-human-service test targets fail to compile at main until task 10.2.10 is on main; this task requires it and continues from its latest attempt unchanged, rebased onto main, one build and one verify."
+do_8 = "Finding 10.20.5.4. No code change: the task's symbols list now names ProductionComponents only, since UnixMovementProvider and movement_account_address are deleted by do_1 and do_2. Continue from attempt 5 (b186692b7) with the same candidate, build once and verify once."
 
 [task.10.20.7]
 title = "Drop the retired Paxeer component and settings from the service integration tests"
@@ -189324,7 +189329,7 @@ qualification = "UNRUN"
 
 [task.18.1408.1]
 title = "Issue #1408: Point the kernel replay corpus parity row at the qualification replay driver"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189373,7 +189378,7 @@ qualification = "UNRUN"
 
 [task.18.1406.1]
 title = "Issue #1406: Check parity rows against a frozen copy of the original inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1408.1"]
@@ -189459,7 +189464,7 @@ qualification = "UNRUN"
 
 [task.18.1413.1]
 title = "Issue #1413: Render every decision record from one programme helper with a basis verified at its stated revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190006,7 +190011,7 @@ qualification = "UNRUN"
 
 [task.18.1311.1]
 title = "Issue #1311: Hand the metered grant to the receiver instead of submitting the draw with the payer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -190297,7 +190302,7 @@ qualification = "UNRUN"
 
 [task.18.1317.1]
 title = "Issue #1317: Verify registry journal deployment proofs against the lxphost store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16", "13.3.12"]
@@ -190713,7 +190718,7 @@ qualification = "UNRUN"
 
 [task.18.1331.1]
 title = "Issue #1331: Resync the CLI published-contract fixture with the gateway OpenRPC document and restore the byte-equality check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16", "8.94.10"]
@@ -191079,7 +191084,7 @@ qualification = "UNRUN"
 
 [task.18.1347.1]
 title = "Issue #1347: Describe the SDK verification page as sequencer receipt verification on every inbound page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192226,7 +192231,7 @@ qualification = "UNRUN"
 
 [task.18.1376.1]
 title = "Issue #1376: Resolve a DID's EVM address for the core sequence and custody-source reads from the gateway account document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16", "8.94.9"]
@@ -192919,6 +192924,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Finding 10.20.5.3: the layerx-human-service test targets fail to compile at main until task 10.2.10 is on main; this task requires it and continues from its latest attempt unchanged, rebased onto main, one build and one verify."
+do_6 = "Finding 18.1402.1.1. Supersedes the asset_id wording of do_2 and do_3: in the px_listAssets arm answer asset_id denom:alxp (denom alxp, kind bank, the null fields as do_2 lists them), and set ASSET (intent_plan_evm.rs:137) to the 32 bytes of sha256 of the ASCII string alxp, which are 80face2b4a14308e329326ee2f8141d24907ae847554cbbab64854c6ecc911f7, with a comment naming the derivation and one assertion at the start of intent_plan_answers_eip1559_legs that Sha256::digest(b'alxp') equals ASSET; every other use of ASSET in the file (the plan request, the px_getBalances answer, the leg assertions) keeps reading the constant. production_components.rs stays unchanged. Continue from attempt 4 (1913a5b04), build once and verify once."
 
 [req.181402]
 title = "The intent plan node double answers balances and assets in the gateway's current shapes"
