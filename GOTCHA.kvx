@@ -12456,3 +12456,8 @@ fix = "before ruling a port, list the accessors the consumers call on the delete
 title = "The touches list is the edit scope; an unlisted consumer blocks qualification"
 symptom = "5.98.7 attempt 9 met a type error in a test file the task did not list, asked whether it could edit the file and stopped without a build; the previous ruling had listed the callers go vet had named so far, not every caller in the tree."
 fix = "when ruling on an interface change, enumerate every caller of the changed symbol across the tree with one search (not the ones the compiler has reported so far) and add each consumer file to touches in the same batch, so the implementation never meets an unlisted file."
+
+[gotcha.2528]
+title = "A verify command that selects tests by name passes with zero matches"
+symptom = "27 acceptance tests named by done tasks were never written: go test -run, cargo test -- --exact, swift test --filter, node --test-name-pattern and vitest -t all exit 0 when nothing matches, or when one alternative of a regex matches, so the gates passed and the parity check found the names missing weeks later (finding 17.4.5.2)."
+fix = "pin the pass to the named test in the verify command (tee the output and grep '--- PASS: Name ' for go, 'test result: ok. N passed' for cargo, 'Executed N tests, with 0 failures' for swift, '# pass N' for node --test, 'Tests N passed' for vitest), or use a runner that refuses an unknown selector; never let a single alternation cover several names."

@@ -6273,6 +6273,18 @@ value = "The daemon derives its chain facts from the committed chain, never from
 basis = "The first attempt of 9.25.3 failed with E0599 on the twelve Client accessors above because decision 1813 named the read twins but left the derived checks (head, handshake, caps, native fee policy) to the attempt, which stopped rather than invent sources; gotcha 2526 requires a port ruling to name a committed source for every accessor of the deleted type and to record the checks it drops."
 affects = ["9.25.3", "9.25.2"]
 
+[decision.2194]
+title = "Acceptance selectors are matched by test grammar and an acceptance with a pending owner is planned"
+value = "The parity check reads an acceptance selector path::name as follows. A name containing a dot after the last :: is a unittest dotted name and is present when each dotted component appears as a whole word in the file. For .exs, .ts, .tsx, .mjs and .js files the name is a title and is present when it appears literally or when a describe title followed by a test title in the same file concatenate with one space to it. A path whose base name is not a test source (not *_test.go, not a .rs file under tests/ or src/, not .exs, not *.test.ts or *.test.mjs, not test_*.py, not *Tests.swift) is a document check and is present when the path exists. An acceptance whose req appears in the reqs of a task that is not done is planned, not stale, whatever the file holds. Every other selector whose file exists and lacks the name is stale, and the check prints each stale selector with its owning tasks. A verify command that selects tests by name must fail when no test matches: it pins the pass to the named test (go: '--- PASS: Name ', cargo: 'test result: ok. N passed', swift: 'Executed N tests, with 0 failures', node --test: '# pass N', vitest: 'Tests N passed') or uses a runner that refuses an unknown selector (pytest node ids, ExUnit with the test present in the file)."
+basis = "Attempt 2 of 17.4.5 marked 136 selectors stale with a literal word search; 109 of them exist under another grammar or belong to pending owners, and the 27 that were truly absent slipped through because every name-selecting runner exits 0 on zero matches."
+affects = ["17.4.5", "2.90.1", "8.90.1", "8.90.2", "8.90.3", "10.90.1", "9.90.2", "16.90.1", "18.90.1"]
+
+[decision.2195]
+title = "Six acceptance selectors follow the behaviour the tree implements"
+value = "13.264.2: a second registerAccount with the same inputs succeeds, returns the existing account and creates no second account (13.25.2 do_7); its test is TestProgramsRegisterAccountDuplicateIsIdempotent. 9.52.2: grant.draw targets layerxledger 0x101A with ordinal 6 (18.1240.1); its test is grant_draw_targets_the_ledger_precompile. 9.1.2: the legacy Level type is gone from layerx-agent-api, so the acceptance proves that Rung and RungStatus are exported from the verify contract (rung_and_rung_status_are_exported_from_the_verify_contract). 18.974.1: the test is checkpoint_evidence_rung_follows_the_finality_rung. 18.1043.1: the test lives in core/deps/geth/rpc/deny_list_batch_test.go. 5.483.1: the anchor store key stays declared and mounted until the v7.0 plan deletes the store (5.7.5), so the acceptance proves that with TestAnchorStoreKeyStaysMountedUntilDelete; 5.41.3's retirement of the constant was reversed by 5.7.5 and its verify command passed on an unmatched name."
+basis = "The six selectors named tests that were never written because the behaviour they described was superseded by a later ruling or a rename; writing them would contradict the tree."
+affects = ["17.4.5", "13.25.2", "18.1240.1", "9.0.1", "18.974.1", "18.1043.1", "5.41.3", "5.7.5"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -33217,6 +33229,78 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.18.90.1]
+title = "Write the OpenAPI anchors page schema test the merged spec names"
+reqs = ["181081.1"]
+touches = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs"]
+tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs::reject an anchors page that lost a field"]
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs 2>&1 | tee /dev/stderr | grep -qE '[1-9][0-9]* tests?, 0 failures'"
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. In services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs add, inside describe 'the declared response schemas', a test titled exactly 'reject an anchors page that lost a field': the archive anchors page answer casts against its declared schema and the cast rejects the document once a required field is removed (acceptance 18.1081.1), in the form of 'reject a unified account document that lost a field'."
+symbols = ["openapi_spec_test"]
+
+[capability.16.90.1]
+title = "Write the two tooling acceptance tests the merged spec names"
+reqs = ["16044.1", "16966.4"]
+touches = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tests/ci/test_requested_suites_absent.py"]
+tests = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid", "tests/ci/test_requested_suites_absent.py::test_bridge_credit_suites_absent"]
+verification_contract = "python3 -m pytest tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest::test_deleted_trees_absent_and_catalogue_valid tests/ci/test_requested_suites_absent.py::test_bridge_credit_suites_absent -q"
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add test_deleted_trees_absent_and_catalogue_valid to RetiredCatalogueDeletedTest in tools/paxeer-x/tests/test_retired_catalogue_deleted.py: with the catalogue listing the deleted daemon trees, the scanner run with --self-test and then with --deleted for those components exits 0 both times (acceptance 16.44.1), beside test_catalogue_valid_and_self_test_passes. Add test_bridge_credit_suites_absent to tests/ci/test_requested_suites_absent.py: the three bridge credit suite paths are absent from the tree and make -n build test exits 0 (16.966.4), in the form of test_arbiter_native_authority_absent."
+symbols = ["test_deleted_trees_absent_and_catalogue_valid", "test_bridge_credit_suites_absent"]
+
+[capability.9.90.2]
+title = "Write the three TypeScript acceptance tests the merged spec names"
+reqs = ["9372.1", "18800.1", "18804.1"]
+touches = ["services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/wallet/gateway/test/precompiles.test.ts"]
+tests = ["services/agent/sdk/typescript/test/receipt-fixture.test.ts::verifyReceipt_reports_the_submitted_rung_under_an_authority_key", "services/wallet/gateway/test/precompiles.test.ts::probes the chain for code before serving a linked agent precompile", "services/wallet/gateway/test/precompiles.test.ts::lists every 0x09xx route while no node package links a layerxagent precompile"]
+verification_contract = "node --test --test-name-pattern='^verifyReceipt_reports_the_submitted_rung_under_an_authority_key$' services/agent/sdk/typescript/dist/test/receipt-fixture.test.js 2>&1 | tee /dev/stderr | grep -q '^# pass 1' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'probes the chain for code before serving a linked agent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'lists every 0x09xx route while no node package links a layerxagent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed'"
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add the node:test case verifyReceipt_reports_the_submitted_rung_under_an_authority_key to services/agent/sdk/typescript/test/receipt-fixture.test.ts: verifying the receipt fixture against its authorized batch through the SDK's receipt verification entry (services/agent/sdk/typescript/src/agent-http.ts, the Rung.Submitted status at :534) reports rung Rung.Submitted and leaves the receipt fields unchanged (acceptance 9.372.1)."
+symbols = ["verifyReceipt_reports_the_submitted_rung_under_an_authority_key", "ensureServed", "PrecompileNotServedError"]
+
+[capability.10.90.1]
+title = "Write the intent nonce reuse refusal test the merged spec names"
+reqs = ["10033.2"]
+touches = ["services/human/crates/layerx-human-service/tests/intent_nonces.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/intent_nonces.rs::intent_legs_reusing_a_nonce_are_refused"]
+verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test intent_nonces -- --exact intent_legs_reusing_a_nonce_are_refused 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add intent_legs_reusing_a_nonce_are_refused to services/human/crates/layerx-human-service/tests/intent_nonces.rs: an intent with two legs of one sender both bound to nonce 9 is refused by the binding verifier (acceptance 10.33.2), built with the helpers intent_leg_binding_matches_the_pending_nonce uses."
+symbols = ["intent_legs_reusing_a_nonce_are_refused"]
+
+[capability.8.90.3]
+title = "Write the three Swift SDK acceptance tests the merged spec names"
+reqs = ["8502.1", "8502.2", "181264.1"]
+touches = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionTwo", "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeRefusesVersionOneResponse", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptCarriesIdempotencyResult"]
+verification_contract = "swift test --package-path sdk/platform/swift --filter '^LayerXSDKTests.AgentEnvelopeMajor2Tests/(testAgentEnvelopeEncodesVersionTwo|testAgentEnvelopeRefusesVersionOneResponse)$' 2>&1 | tee /dev/stderr | grep -q 'Executed 2 tests, with 0 failures' && swift test --package-path sdk/platform/swift --filter '^LayerXSDKTests.ProgramsEvmTests/testProgramReceiptCarriesIdempotencyResult$' 2>&1 | tee /dev/stderr | grep -q 'Executed 1 test, with 0 failures'"
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add testAgentEnvelopeEncodesVersionTwo and testAgentEnvelopeRefusesVersionOneResponse to sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift: encoding an agent operation request yields a JSON envelope whose version field equals 2, and decoding a recorded response envelope with version 1 fails with the version error and returns no result (acceptances 8.502.1 and 8.502.2), beside testAgentEnvelopeEncodesVersionOne."
+symbols = ["testAgentEnvelopeEncodesVersionTwo", "testAgentEnvelopeRefusesVersionOneResponse", "testProgramReceiptCarriesIdempotencyResult"]
+
+[capability.8.90.2]
+title = "Write the two Go SDK agent envelope version tests the merged spec names"
+reqs = ["8484.1", "8484.2"]
+touches = ["sdk/platform/go/agent_envelope_major2_test.go"]
+tests = ["sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesVersionTwo", "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeRefusesVersionOneResponse"]
+verification_contract = "go -C sdk/platform/go test -count=1 -v . -run '^TestAgentEnvelopeEncodesVersionTwo$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAgentEnvelopeEncodesVersionTwo ' && go -C sdk/platform/go test -count=1 -v . -run '^TestAgentEnvelopeRefusesVersionOneResponse$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAgentEnvelopeRefusesVersionOneResponse '"
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add TestAgentEnvelopeEncodesVersionTwo to sdk/platform/go/agent_envelope_major2_test.go: encoding an agent operation request produces a JSON envelope whose version field equals 2 (acceptance 8.484.1). Add TestAgentEnvelopeRefusesVersionOneResponse: decoding a recorded response envelope with version 1 fails with the version error and returns no result (8.484.2). Both use the goldens TestAgentEnvelopeEncodesDaemonRequestGolden and TestAgentEnvelopeDecodesDaemonResponseGoldens already read."
+symbols = ["TestAgentEnvelopeEncodesVersionTwo", "TestAgentEnvelopeRefusesVersionOneResponse"]
+
+[capability.8.90.1]
+title = "Write the three platform acceptance tests the merged spec names and the tree lacks"
+reqs = ["8113.1", "8145.1", "8182.2"]
+touches = ["services/platform/hosted/authority/tests/chain_receipts.rs", "services/platform/hosted/webhooks/src/events.rs", "services/platform/hosted/indexer/src/config.rs"]
+tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::authority_starts_without_an_lni_socket", "services/platform/hosted/webhooks/src/events.rs::block_committed_orders_between_receipt_and_checkpoint", "services/platform/hosted/indexer/src/config.rs::environment_builds_both_sources"]
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test chain_receipts -- --exact authority_starts_without_an_lni_socket 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --lib -- --exact events::tests::block_committed_orders_between_receipt_and_checkpoint 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib -- --exact config::tests::environment_builds_both_sources 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add authority_starts_without_an_lni_socket to services/platform/hosted/authority/tests/chain_receipts.rs: with no LNI variable in the environment and a chain listener, the authority starts, reports ready and admits a receipt (acceptance 8.113.1), built on the fixtures receipt_admission_needs_no_kernel_socket uses. Add block_committed_orders_between_receipt_and_checkpoint to the tests module of services/platform/hosted/webhooks/src/events.rs: every Verification value renders, parses back and compares with at_least so that block-committed sits strictly between receipt-verified and checkpoint-finalised (8.145.1)."
+symbols = ["authority_starts_without_an_lni_socket", "block_committed_orders_between_receipt_and_checkpoint", "environment_builds_both_sources"]
+
+[capability.2.90.1]
+title = "Write the five Go acceptance tests the merged spec names and the tree lacks"
+reqs = ["2020.2", "2035.1", "2058.4", "5045.2", "18814.1"]
+touches = ["modules/layerxledger/keeper/execute_test.go", "modules/layerxauth/keeper/execute_test.go", "precompiles/layerxauth/surface_test.go", "node/commit_listener_test.go", "modules/layerxanchor/keeper/keeper_test.go"]
+tests = ["modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay", "modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay", "precompiles/layerxauth/surface_test.go::TestPrecompileSurface", "node/commit_listener_test.go::TestCommitSurvivesPanickingListener", "modules/layerxanchor/keeper/keeper_test.go::TestResubmittedCheckpointKeepsChallengeWindow"]
+verification_contract = "go test -count=1 -v ./modules/layerxledger/keeper/ -run '^TestExecuteIdempotentReplay$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestExecuteIdempotentReplay ' && go test -count=1 -v ./modules/layerxauth/keeper/ -run '^TestAuthExecuteIdempotentReplay$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAuthExecuteIdempotentReplay ' && go test -count=1 -v ./precompiles/layerxauth/ -run '^TestPrecompileSurface$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestPrecompileSurface ' && go test -count=1 -v ./node/ -run '^TestCommitSurvivesPanickingListener$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestCommitSurvivesPanickingListener ' && go test -count=1 -v ./modules/layerxanchor/keeper/ -run '^TestResubmittedCheckpointKeepsChallengeWindow$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestResubmittedCheckpointKeepsChallengeWindow '"
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add TestExecuteIdempotentReplay to modules/layerxledger/keeper/execute_test.go: given a completed openAccount with idempotency key K, a second submission by the same actor with K returns types.ErrIdempotentReplay and the stored receipt for K is the first one (acceptance 2.20.2). Add TestAuthExecuteIdempotentReplay to modules/layerxauth/keeper/execute_test.go: given a granted session with key K, a resubmission with K returns ErrIdempotentReplay and the stored receipt is unchanged (2.35.1). Add TestPrecompileSurface to precompiles/layerxauth/surface_test.go: enumerating the layerxauth precompile ABI finds resultByIdempotency absent and the remaining methods with their gas rows as decision 1932 fixed them (2.58.4)."
+symbols = ["TestExecuteIdempotentReplay", "TestAuthExecuteIdempotentReplay", "TestPrecompileSurface", "TestCommitSurvivesPanickingListener", "TestResubmittedCheckpointKeepsChallengeWindow"]
 
 [capability.17.5.12]
 title = "Build the agent TypeScript SDK before the web build and give its exports a default condition"
@@ -61729,9 +61813,9 @@ qualification = "UNRUN"
 [acceptance.5.483.1]
 feature = "5"
 req = "5483.1"
-scenario = "Given HEAD where storage/common/keys/store_keys.go:35 declares LayerXAnchorStoreKey and :76 mounts it, when TestAnchorStoreKeyIsNotMounted runs after the constant and list entry are deleted, then IsMemIAVLStoreKey(\"layerxanchor\") is false and AllModulesExcept(\"layerxanchor\") returns an error"
+scenario = "Given storage/common/keys/store_keys.go declaring LayerXAnchorStoreKey and listing it in MemIAVLStoreKeys, when the store-key tests run before the v7.0 plan deletes the store, then IsMemIAVLStoreKey('layerxanchor') is true and AllModulesExcept('layerxanchor') omits exactly that key (decision.2195)"
 contract = "contracts/sequencer.md#node-storage"
-test = "storage/common/keys/store_keys_test.go::TestAnchorStoreKeyIsNotMounted (planned)"
+test = "storage/common/keys/store_keys_test.go::TestAnchorStoreKeyStaysMountedUntilDelete"
 qualification = "UNRUN"
 
 [acceptance.5.484.1]
@@ -69622,9 +69706,9 @@ qualification = "UNRUN"
 [acceptance.9.1.2]
 feature = "9"
 req = "9001.2"
-scenario = "Given the six Level variants declared at services/agent/crates/layerx-agent-api/src/error.rs:129, when Level::rung is called on each, then the result equals the decision.907 table and SettlementAnchored yields None."
+scenario = "Given the verify contract of layerx-agent-api, when the rung module is imported, then Rung and RungStatus are exported and no legacy Level type remains (decision.2195)"
 contract = "contracts/agent-api.md#type-rung"
-test = "services/agent/crates/layerx-agent-api/tests/rung.rs::legacy_level_maps_onto_rungs_by_decision (planned)"
+test = "services/agent/crates/layerx-agent-api/tests/rung.rs::rung_and_rung_status_are_exported_from_the_verify_contract"
 qualification = "UNRUN"
 
 [acceptance.9.2.1]
@@ -70510,9 +70594,9 @@ qualification = "UNRUN"
 [acceptance.9.52.2]
 feature = "9"
 req = "9052.2"
-scenario = "Given a budget b-1, when grant.draw is invoked for 3 units, then the prepared call target is 0x101B with selector draw and arguments b-1 and 3."
+scenario = "Given a budget b-1, when grant.draw is invoked for 3 units, then the prepared call target is layerxledger 0x101A with ordinal 6 and arguments b-1 and 3 (decision.2195)"
 contract = "contracts/mcp-tools.md#grant-draw"
-test = "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs::grant_draw_targets_the_pay_precompile (planned)"
+test = "services/agent/crates/layerx-mcp/tests/alias_precompiles.rs::grant_draw_targets_the_ledger_precompile"
 qualification = "UNRUN"
 
 [acceptance.9.53.1]
@@ -77960,9 +78044,9 @@ qualification = "UNRUN"
 [acceptance.13.264.2]
 feature = "13"
 req = "13264.2"
-scenario = "Given an account registered once, when registerAccount runs again with the same inputs, then the call reverts with an LXP_ reason"
+scenario = "Given an account registered once, when registerAccount runs again with the same inputs, then the call succeeds, returns the existing account and creates no second account (decision.2195)"
 contract = "contracts/programs.md#layerxprograms-0x101d"
-test = "precompiles/layerxprograms/method_account_test.go::TestProgramsRegisterAccountDuplicateReverts (planned)"
+test = "precompiles/layerxprograms/method_account_test.go::TestProgramsRegisterAccountDuplicateIsIdempotent"
 qualification = "UNRUN"
 
 [acceptance.13.265.1]
@@ -100153,6 +100237,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.2.90.1]
+title = "Write the five Go acceptance tests the merged spec names and the tree lacks"
+status = "pending"
+mode = "BUILD"
+wave = 31
+requires = ["2.3.4", "2.6.4", "2.11.4", "5.5.6", "18.814.1"]
+reqs = ["2020.2", "2035.1", "2058.4", "5045.2", "18814.1"]
+capabilities = ["2.90.1"]
+interfaces = []
+wiring = ["wiring.J23.1"]
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add TestExecuteIdempotentReplay to modules/layerxledger/keeper/execute_test.go: given a completed openAccount with idempotency key K, a second submission by the same actor with K returns types.ErrIdempotentReplay and the stored receipt for K is the first one (acceptance 2.20.2). Add TestAuthExecuteIdempotentReplay to modules/layerxauth/keeper/execute_test.go: given a granted session with key K, a resubmission with K returns ErrIdempotentReplay and the stored receipt is unchanged (2.35.1). Add TestPrecompileSurface to precompiles/layerxauth/surface_test.go: enumerating the layerxauth precompile ABI finds resultByIdempotency absent and the remaining methods with their gas rows as decision 1932 fixed them (2.58.4)."
+do_2 = "Add TestCommitSurvivesPanickingListener to node/commit_listener_test.go: an App whose commit listener panics commits a block with no error and the height advances (5.45.2), built the way TestCommitReturnsListenerFailure builds its App. Add TestResubmittedCheckpointKeepsChallengeWindow to modules/layerxanchor/keeper/keeper_test.go: a checkpoint submitted under a 50 second challenge window and resubmitted identically 30 seconds later keeps its submitted time and finalizes 50 seconds after the first submission (18.814.1)."
+do_3 = "Each test proves its acceptance scenario against the real keeper or precompile, uses the fixtures its file already has, and changes no production file; the verify command runs each test alone and fails unless its own PASS line appears."
+symbols = ["TestExecuteIdempotentReplay", "TestAuthExecuteIdempotentReplay", "TestPrecompileSurface", "TestCommitSurvivesPanickingListener", "TestResubmittedCheckpointKeepsChallengeWindow"]
+touches = ["modules/layerxledger/keeper/execute_test.go", "modules/layerxauth/keeper/execute_test.go", "precompiles/layerxauth/surface_test.go", "node/commit_listener_test.go", "modules/layerxanchor/keeper/keeper_test.go"]
+tests = ["modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay", "modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay", "precompiles/layerxauth/surface_test.go::TestPrecompileSurface", "node/commit_listener_test.go::TestCommitSurvivesPanickingListener", "modules/layerxanchor/keeper/keeper_test.go::TestResubmittedCheckpointKeepsChallengeWindow"]
+planned_paths = []
+build_cmd = "go vet ./modules/layerxledger/keeper/ ./modules/layerxauth/keeper/ ./precompiles/layerxauth/ ./node/ ./modules/layerxanchor/keeper/"
+verify_cmd = "go test -count=1 -v ./modules/layerxledger/keeper/ -run '^TestExecuteIdempotentReplay$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestExecuteIdempotentReplay ' && go test -count=1 -v ./modules/layerxauth/keeper/ -run '^TestAuthExecuteIdempotentReplay$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAuthExecuteIdempotentReplay ' && go test -count=1 -v ./precompiles/layerxauth/ -run '^TestPrecompileSurface$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestPrecompileSurface ' && go test -count=1 -v ./node/ -run '^TestCommitSurvivesPanickingListener$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestCommitSurvivesPanickingListener ' && go test -count=1 -v ./modules/layerxanchor/keeper/ -run '^TestResubmittedCheckpointKeepsChallengeWindow$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestResubmittedCheckpointKeepsChallengeWindow '"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-parity"
+rollback = "Delete the added tests; the parity check then lists their selectors as stale again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.2.3.5]
 title = "Mirror kernel asset supply and transfers into bank under the layerx denom"
 status = "done"
@@ -108620,6 +108735,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.90.2]
+title = "Write the three TypeScript acceptance tests the merged spec names"
+status = "pending"
+mode = "BUILD"
+wave = 31
+requires = ["9.34.2", "18.800.1", "18.804.1"]
+reqs = ["9372.1", "18800.1", "18804.1"]
+capabilities = ["9.90.2"]
+interfaces = []
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add the node:test case verifyReceipt_reports_the_submitted_rung_under_an_authority_key to services/agent/sdk/typescript/test/receipt-fixture.test.ts: verifying the receipt fixture against its authorized batch through the SDK's receipt verification entry (services/agent/sdk/typescript/src/agent-http.ts, the Rung.Submitted status at :534) reports rung Rung.Submitted and leaves the receipt fields unchanged (acceptance 9.372.1)."
+do_2 = "In services/wallet/gateway/test/precompiles.test.ts add, inside describe('unserved agent precompiles'), a test titled exactly 'probes the chain for code before serving a linked agent precompile': with eth_getCode answering 0x for 0x0902, ensureServed('clearing') rejects with PrecompileNotServedError, and after eth_getCode answers runtime code it resolves (18.800.1); and a test titled exactly 'lists every 0x09xx route while no node package links a layerxagent precompile': without git metadata the unserved-precompile check walks the tree with node:fs and checks each route key against its own layerxagent package import (18.804.1). Titles are string literals in the test call so the parity check finds them."
+do_3 = "No production file changes; the verify command builds the SDK, runs each test by name and fails unless the runner reports exactly one passing test."
+symbols = ["verifyReceipt_reports_the_submitted_rung_under_an_authority_key", "ensureServed", "PrecompileNotServedError"]
+touches = ["services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/wallet/gateway/test/precompiles.test.ts"]
+tests = ["services/agent/sdk/typescript/test/receipt-fixture.test.ts::verifyReceipt_reports_the_submitted_rung_under_an_authority_key", "services/wallet/gateway/test/precompiles.test.ts::probes the chain for code before serving a linked agent precompile", "services/wallet/gateway/test/precompiles.test.ts::lists every 0x09xx route while no node package links a layerxagent precompile"]
+planned_paths = []
+build_cmd = "npm --prefix services/agent/sdk/typescript run build"
+verify_cmd = "node --test --test-name-pattern='^verifyReceipt_reports_the_submitted_rung_under_an_authority_key$' services/agent/sdk/typescript/dist/test/receipt-fixture.test.js 2>&1 | tee /dev/stderr | grep -q '^# pass 1' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'probes the chain for code before serving a linked agent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'lists every 0x09xx route while no node package links a layerxagent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-parity"
+rollback = "Delete the added tests; the parity check then lists their selectors as stale again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.19.7.3]
 title = "Point the wallet's name proxy at the configured indexer and prove the wallet parses its answers"
 status = "done"
@@ -116545,6 +116690,65 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.10.90.1]
+title = "Write the intent nonce reuse refusal test the merged spec names"
+status = "pending"
+mode = "BUILD"
+wave = 31
+requires = ["10.7.1"]
+reqs = ["10033.2"]
+capabilities = ["10.90.1"]
+interfaces = []
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add intent_legs_reusing_a_nonce_are_refused to services/human/crates/layerx-human-service/tests/intent_nonces.rs: an intent with two legs of one sender both bound to nonce 9 is refused by the binding verifier (acceptance 10.33.2), built with the helpers intent_leg_binding_matches_the_pending_nonce uses."
+do_2 = "No production file changes; the verify command runs the test alone with --exact and fails unless cargo reports exactly one passed test."
+symbols = ["intent_legs_reusing_a_nonce_are_refused"]
+touches = ["services/human/crates/layerx-human-service/tests/intent_nonces.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/intent_nonces.rs::intent_legs_reusing_a_nonce_are_refused"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test intent_nonces"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test intent_nonces -- --exact intent_legs_reusing_a_nonce_are_refused 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-parity"
+rollback = "Delete the added tests; the parity check then lists their selectors as stale again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.8.90.1]
+title = "Write the three platform acceptance tests the merged spec names and the tree lacks"
+status = "pending"
+mode = "BUILD"
+wave = 31
+requires = ["8.11.3", "8.13.1", "8.16.2"]
+reqs = ["8113.1", "8145.1", "8182.2"]
+capabilities = ["8.90.1"]
+interfaces = []
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add authority_starts_without_an_lni_socket to services/platform/hosted/authority/tests/chain_receipts.rs: with no LNI variable in the environment and a chain listener, the authority starts, reports ready and admits a receipt (acceptance 8.113.1), built on the fixtures receipt_admission_needs_no_kernel_socket uses. Add block_committed_orders_between_receipt_and_checkpoint to the tests module of services/platform/hosted/webhooks/src/events.rs: every Verification value renders, parses back and compares with at_least so that block-committed sits strictly between receipt-verified and checkpoint-finalised (8.145.1)."
+do_2 = "Add environment_builds_both_sources to the tests module of services/platform/hosted/indexer/src/config.rs: relay and EVM endpoints with a 30 second window parse into both sources with a paxeer depth of 0 (8.182.2), beside environment_builds_evm_and_comet_sources."
+do_3 = "Each test proves its scenario against the real crate code and changes no production file; the verify command runs each test alone with --exact and fails unless cargo reports exactly one passed test."
+symbols = ["authority_starts_without_an_lni_socket", "block_committed_orders_between_receipt_and_checkpoint", "environment_builds_both_sources"]
+touches = ["services/platform/hosted/authority/tests/chain_receipts.rs", "services/platform/hosted/webhooks/src/events.rs", "services/platform/hosted/indexer/src/config.rs"]
+tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::authority_starts_without_an_lni_socket", "services/platform/hosted/webhooks/src/events.rs::block_committed_orders_between_receipt_and_checkpoint", "services/platform/hosted/indexer/src/config.rs::environment_builds_both_sources"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority -p layerx-platform-webhooks -p layerx-indexer --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test chain_receipts -- --exact authority_starts_without_an_lni_socket 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --lib -- --exact events::tests::block_committed_orders_between_receipt_and_checkpoint 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --lib -- --exact config::tests::environment_builds_both_sources 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-parity"
+rollback = "Delete the added tests; the parity check then lists their selectors as stale again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.13.30.6]
 title = "Own the arbiter's admission evidence in the arbiter crate and prove it under the app hash"
 status = "done"
@@ -116910,6 +117114,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.8.90.2]
+title = "Write the two Go SDK agent envelope version tests the merged spec names"
+status = "pending"
+mode = "BUILD"
+wave = 31
+requires = ["8.41.4"]
+reqs = ["8484.1", "8484.2"]
+capabilities = ["8.90.2"]
+interfaces = []
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add TestAgentEnvelopeEncodesVersionTwo to sdk/platform/go/agent_envelope_major2_test.go: encoding an agent operation request produces a JSON envelope whose version field equals 2 (acceptance 8.484.1). Add TestAgentEnvelopeRefusesVersionOneResponse: decoding a recorded response envelope with version 1 fails with the version error and returns no result (8.484.2). Both use the goldens TestAgentEnvelopeEncodesDaemonRequestGolden and TestAgentEnvelopeDecodesDaemonResponseGoldens already read."
+do_2 = "No production file changes; the verify command runs each test alone and fails unless its own PASS line appears."
+symbols = ["TestAgentEnvelopeEncodesVersionTwo", "TestAgentEnvelopeRefusesVersionOneResponse"]
+touches = ["sdk/platform/go/agent_envelope_major2_test.go"]
+tests = ["sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesVersionTwo", "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeRefusesVersionOneResponse"]
+planned_paths = []
+build_cmd = "go -C sdk/platform/go vet ."
+verify_cmd = "go -C sdk/platform/go test -count=1 -v . -run '^TestAgentEnvelopeEncodesVersionTwo$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAgentEnvelopeEncodesVersionTwo ' && go -C sdk/platform/go test -count=1 -v . -run '^TestAgentEnvelopeRefusesVersionOneResponse$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAgentEnvelopeRefusesVersionOneResponse '"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-parity"
+rollback = "Delete the added tests; the parity check then lists their selectors as stale again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.5.98.7]
 title = "Record the receipt's logs at the receipt's height when the layer seals after Accept"
@@ -141175,6 +141408,36 @@ gate_kind = "planned"
 sandbox_profile = "swift"
 owner_role = "fm-platform"
 rollback = "Revert sdk/platform/swift/Sources/LayerXSDK/Transport.swift to version 1."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.8.90.3]
+title = "Write the three Swift SDK acceptance tests the merged spec names"
+status = "pending"
+mode = "BUILD"
+wave = 31
+requires = ["8.44.4", "18.1264.1"]
+reqs = ["8502.1", "8502.2", "181264.1"]
+capabilities = ["8.90.3"]
+interfaces = []
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add testAgentEnvelopeEncodesVersionTwo and testAgentEnvelopeRefusesVersionOneResponse to sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift: encoding an agent operation request yields a JSON envelope whose version field equals 2, and decoding a recorded response envelope with version 1 fails with the version error and returns no result (acceptances 8.502.1 and 8.502.2), beside testAgentEnvelopeEncodesVersionOne."
+do_2 = "Add testProgramReceiptCarriesIdempotencyResult to sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift: against an RPC double that does not know the expected transaction, the receipt lookup by idempotency key with level pending returns a submission in state unknown whose idempotencyKey equals the key, and no resultByIdempotency call is issued (18.1264.1), using the RPC double testProgramReceiptResolvesByTransaction uses."
+do_3 = "No production file changes; the verify command runs the filtered tests and fails unless XCTest reports exactly the expected number of tests executed with 0 failures."
+symbols = ["testAgentEnvelopeEncodesVersionTwo", "testAgentEnvelopeRefusesVersionOneResponse", "testProgramReceiptCarriesIdempotencyResult"]
+touches = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionTwo", "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeRefusesVersionOneResponse", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptCarriesIdempotencyResult"]
+planned_paths = []
+build_cmd = "swift build --package-path sdk/platform/swift --build-tests"
+verify_cmd = "swift test --package-path sdk/platform/swift --filter '^LayerXSDKTests.AgentEnvelopeMajor2Tests/(testAgentEnvelopeEncodesVersionTwo|testAgentEnvelopeRefusesVersionOneResponse)$' 2>&1 | tee /dev/stderr | grep -q 'Executed 2 tests, with 0 failures' && swift test --package-path sdk/platform/swift --filter '^LayerXSDKTests.ProgramsEvmTests/testProgramReceiptCarriesIdempotencyResult$' 2>&1 | tee /dev/stderr | grep -q 'Executed 1 test, with 0 failures'"
+gate_kind = "planned"
+sandbox_profile = "swift"
+owner_role = "fm-parity"
+rollback = "Delete the added tests; the parity check then lists their selectors as stale again."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -178711,7 +178974,7 @@ title = "Check that every acceptance test of the merged spec has a parity row or
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["17.4.4", "1.0.9", "2.0.9", "3.0.9", "4.0.9", "5.0.9", "6.0.9", "7.0.9", "8.0.9", "9.0.9", "10.0.9", "11.0.9", "12.0.9", "13.0.9", "14.0.9", "15.0.9", "16.0.9"]
+requires = ["17.4.4", "1.0.9", "2.0.9", "3.0.9", "4.0.9", "5.0.9", "6.0.9", "7.0.9", "8.0.9", "9.0.9", "10.0.9", "11.0.9", "12.0.9", "13.0.9", "14.0.9", "15.0.9", "16.0.9", "2.90.1", "8.90.1", "8.90.2", "8.90.3", "10.90.1", "9.90.2", "16.90.1", "18.90.1"]
 reqs = ["17043.1"]
 capabilities = ["17.4.5"]
 interfaces = []
@@ -178736,6 +178999,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 17.4.5.1: this check runs over the installed spec and is green only when every acceptance test exists, so the task now follows the sixteen domain completion gates; continue from attempt 1 (0afa1228f) and report any selector still stale then as a finding against its task."
+do_5 = "Finding 17.4.5.2 and decisions 2194 and 2195: continue from attempt 2 (8aeb2ac23). Rewrite the stale check of uncovered() in spec/layerx-merge/programme/parity.py to the grammar of decision 2194: a name with a dot after the last :: is a dotted unittest name present when each component appears as a whole word in the file; for .exs, .ts, .tsx, .mjs and .js files the name is a title present when it appears literally or when a describe title and a test title in the file concatenate with one space to it; a path whose base name is not a test source (*_test.go, a .rs file under tests/ or src/, .exs, *.test.ts, *.test.mjs, test_*.py, *Tests.swift) is a document check present when the path exists; an acceptance whose req appears in the reqs of a task that is not done is planned and never stale; every other selector whose file exists and lacks the name is stale and is printed with its owning tasks. Make test_installed_spec_has_no_uncovered_acceptance assert that both the missing list and the stale list are empty. The 20 absent tests are written by tasks 2.90.1, 8.90.1, 8.90.2, 8.90.3, 10.90.1, 9.90.2, 16.90.1, 18.90.1, which this task now requires, and the six selector corrections of decision 2195 are in the spec already, so on the merged revision the check is green or names a real gap."
 
 [task.17.4.6]
 title = "Run the parity inventory once on the merged revision"
@@ -183140,7 +183404,7 @@ feature = "18"
 req = "18974.1"
 scenario = "Given a receipted entry with a Receipted finality reference and a committed entry with a Committed reference, when EntryDetail::assemble runs, then the checkpoint evidence levels are BatchIncluded and CheckpointFinalised respectively"
 contract = "contracts/agent-human-peer.md#evidence"
-test = "services/human/crates/layerx-human-service/tests/detail_rungs.rs::checkpoint_evidence_level_follows_the_finality_rung"
+test = "services/human/crates/layerx-human-service/tests/detail_rungs.rs::checkpoint_evidence_rung_follows_the_finality_rung"
 qualification = "UNRUN"
 
 [task.18.1023.1]
@@ -186918,6 +187182,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.16.90.1]
+title = "Write the two tooling acceptance tests the merged spec names"
+status = "pending"
+mode = "BUILD"
+wave = 31
+requires = ["16.9.4", "16.97.2"]
+reqs = ["16044.1", "16966.4"]
+capabilities = ["16.90.1"]
+interfaces = []
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add test_deleted_trees_absent_and_catalogue_valid to RetiredCatalogueDeletedTest in tools/paxeer-x/tests/test_retired_catalogue_deleted.py: with the catalogue listing the deleted daemon trees, the scanner run with --self-test and then with --deleted for those components exits 0 both times (acceptance 16.44.1), beside test_catalogue_valid_and_self_test_passes. Add test_bridge_credit_suites_absent to tests/ci/test_requested_suites_absent.py: the three bridge credit suite paths are absent from the tree and make -n build test exits 0 (16.966.4), in the form of test_arbiter_native_authority_absent."
+do_2 = "No production file changes; pytest refuses an unknown node id, so the verify command fails when either test is missing."
+symbols = ["test_deleted_trees_absent_and_catalogue_valid", "test_bridge_credit_suites_absent"]
+touches = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py", "tests/ci/test_requested_suites_absent.py"]
+tests = ["tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest.test_deleted_trees_absent_and_catalogue_valid", "tests/ci/test_requested_suites_absent.py::test_bridge_credit_suites_absent"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/paxeer-x/tests/test_retired_catalogue_deleted.py tests/ci/test_requested_suites_absent.py"
+verify_cmd = "python3 -m pytest tools/paxeer-x/tests/test_retired_catalogue_deleted.py::RetiredCatalogueDeletedTest::test_deleted_trees_absent_and_catalogue_valid tests/ci/test_requested_suites_absent.py::test_bridge_credit_suites_absent -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-parity"
+rollback = "Delete the added tests; the parity check then lists their selectors as stale again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"
 status = "done"
@@ -189790,7 +190083,7 @@ feature = "18"
 req = "181043.1"
 scenario = "Given an HTTP listener with eth_chainId denied, when a batch of eth_chainId and eth_blockNumber is posted, then the answer is an array whose first member is the -32601 error for eth_chainId and whose second member carries the block number, matching the WebSocket answer."
 contract = "contracts/evm-rpc.md#ws-transport"
-test = "rpc/http_ws_parity_test.go::TestHTTPAppliesDenyListMixedBatches"
+test = "core/deps/geth/rpc/deny_list_batch_test.go::TestHTTPAppliesDenyListMixedBatches"
 qualification = "UNRUN"
 
 [acceptance.18.1209.1]
@@ -193219,6 +193512,35 @@ gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
 rollback = "Revert the test file; the OpenAPI test again requires the removed /v2/paxeer-x/anchors and /v2/paxeer-x/receipts paths and fails against the router."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.90.1]
+title = "Write the OpenAPI anchors page schema test the merged spec names"
+status = "pending"
+mode = "BUILD"
+wave = 31
+requires = ["18.1081.1"]
+reqs = ["181081.1"]
+capabilities = ["18.90.1"]
+interfaces = []
+do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. In services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs add, inside describe 'the declared response schemas', a test titled exactly 'reject an anchors page that lost a field': the archive anchors page answer casts against its declared schema and the cast rejects the document once a required field is removed (acceptance 18.1081.1), in the form of 'reject a unified account document that lost a field'."
+do_2 = "No production file changes; the build gate checks the title is present in the file and the verify gate runs the file and fails unless ExUnit reports tests with 0 failures."
+symbols = ["openapi_spec_test"]
+touches = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs"]
+tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs::reject an anchors page that lost a field"]
+planned_paths = []
+build_cmd = "grep -q 'test 'reject an anchors page that lost a field'' services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs 2>&1 | tee /dev/stderr | grep -qE '[1-9][0-9]* tests?, 0 failures'"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-parity"
+rollback = "Delete the added tests; the parity check then lists their selectors as stale again."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
