@@ -16579,3 +16579,11 @@ symbol = "verification"
 observed = "Attempt 5 (540b80d97) built, rewrote the test over the production fixture as finding 10.92.1.4 asked, drove the real submission route to a receipted and to a committed leg, and both GETs of /v1/evidence/{id} were refused by the response schema with 503 upstream-degraded: response.result.verification is not a declared VerificationLevel variant. EvidenceMaterial.verification (journeys.kvx:51) is a VerificationLevel whose variants are unverified, receipt-verified and checkpoint-finalised with rung_mapping receipted:receipt-verified and committed:checkpoint-finalised (journeys.kvx:25-28); do_1, do_4 and ac_2 of req.10961 named the Rung values receipted and committed as the verification value, which the attempt wrote faithfully, and the test also asserted a rung field that EvidenceMaterial does not declare."
 assumption = "verification carries the VerificationLevel the rung maps to; EvidenceMaterial gains the optional rung field AccountBalance already has, serving the Rung name; the task text and ac_2 are corrected and the attempt continues."
 severity = "major"
+
+[finding.9.25.13.3]
+task = "9.25.13"
+file = "services/agent/crates/layerx-client/tests/sequencer_reads.rs:176"
+symbol = "history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms"
+observed = "Attempt 3 (80a40a077) rebased onto main with 9.25.17 present, built, passed the grep and the storage-witness test, and the sequencer_reads test target then failed in history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms with Malformed at :17. The test still fixtures the pre-18.1238.1 page {items, next_cursor, indexedHeight, chainHeight, account, freshness} and serves no eth_blockNumber, while c98511e6c (task 18.1238.1, done) made decode_history_page (sequencer.rs:917) accept exactly the served keys items, next_cursor and indexedHeight (gateway history.rs:496-500), indexedHeight null as None, and history() (sequencer.rs:381-395) read chain_height from eth_blockNumber after each page; 18.1238.1 touched sequencer.rs but not this test, which only this task owns among pending tasks."
+assumption = "This task ports the history test to the served contract; the attempt 3 tree stands."
+severity = "major"
