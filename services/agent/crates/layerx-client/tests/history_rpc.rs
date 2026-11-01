@@ -164,23 +164,27 @@ fn history_pages_px_get_history_and_carries_the_next_cursor() {
 
 #[test]
 fn did_accounts_reads_px_get_account_for_the_did() {
-    let did = "did:layerx:abc";
-    let rows = vec![
-        json!({"account_id": "12".repeat(32), "name": format!("agent:{did}:main"),
-            "balance": "12345678901234567890", "metadata": {"tags": [true, null]}}),
-        json!({"account_id": "34".repeat(32), "name": format!("agent:{did}:asset:upax"),
-            "balance": "42", "locked": "7"}),
-    ];
-    let result = json!({
-        "account": {"evm_address": null, "pax_address": null, "layerx_did": null,
-            "layerx_account": null, "bound": false},
-        "paxeer": null,
-        "layerx": {"did": did, "accounts": rows}
+    let did = format!("did:layerx:{}", "ab".repeat(32));
+    let document = json!({
+        "evm_address": format!("0x{}", "12".repeat(20)),
+        "pax_address": "pax1boundidentity",
+        "layerx_did": did,
+        "layerx_account": "34".repeat(32),
+        "bound": true
     });
-    let mut empty = result.clone();
-    empty["layerx"]["accounts"] = json!([]);
-    let mut unavailable = result.clone();
-    unavailable["layerx"] = Value::Null;
+    let result = json!({
+        "account": document,
+        "paxeer": {"address": document["evm_address"], "balance": "0x7b", "nonce": "0x7", "height": 42}
+    });
+    let mut unbound = result.clone();
+    unbound["account"]["bound"] = json!(false);
+    unbound["account"]["evm_address"] = Value::Null;
+    unbound["account"]["pax_address"] = Value::Null;
+    unbound["paxeer"] = Value::Null;
+    let mut foreign = result.clone();
+    foreign["account"]["layerx_did"] = json!(format!("did:layerx:{}", "cd".repeat(32)));
+    let mut explicit_null = result.clone();
+    explicit_null["layerx"] = Value::Null;
     let refusal = RpcRefusal {
         code: -32001,
         message: "Read unavailable".to_owned(),
@@ -188,18 +192,15 @@ fn did_accounts_reads_px_get_account_for_the_did() {
     };
     let mut exchanges = vec![
         ("px_getAccount", json!([did]), json!({"result": result})),
-        ("px_getAccount", json!([did]), json!({"result": empty})),
+        ("px_getAccount", json!([did]), json!({"result": unbound})),
+        ("px_getAccount", json!([did]), json!({"result": foreign})),
         (
             "px_getAccount",
             json!([did]),
-            json!({"result": unavailable}),
+            json!({"result": explicit_null}),
         ),
     ];
-    for layerx in [
-        json!({"did": did}),
-        json!({"accounts": null}),
-        json!({"accounts": {}}),
-    ] {
+    for layerx in [json!(false), json!([]), json!("invalid")] {
         let mut malformed = result.clone();
         malformed["layerx"] = layerx;
         exchanges.push(("px_getAccount", json!([did]), json!({"result": malformed})));
@@ -214,17 +215,18 @@ fn did_accounts_reads_px_get_account_for_the_did() {
     let count = exchanges.len();
     let (url, server) = serve(exchanges);
     let endpoint = PxEndpoint::new(&url, &[]).must();
-    assert_eq!(did_accounts(&endpoint, did).must(), rows);
-    assert!(did_accounts(&endpoint, did).must().is_empty());
-    assert_eq!(
-        did_accounts(&endpoint, did),
-        Err(SequencerError::Unavailable)
-    );
+    assert_eq!(did_accounts(&endpoint, &did).must(), vec![document.clone()]);
+    assert!(did_accounts(&endpoint, &did).must().is_empty());
+    assert!(did_accounts(&endpoint, &did).must().is_empty());
+    assert_eq!(did_accounts(&endpoint, &did).must(), vec![document]);
     for _ in 0..3 {
-        assert_eq!(did_accounts(&endpoint, did), Err(SequencerError::Malformed));
+        assert_eq!(
+            did_accounts(&endpoint, &did),
+            Err(SequencerError::Malformed)
+        );
     }
     assert_eq!(
-        did_accounts(&endpoint, did),
+        did_accounts(&endpoint, &did),
         Err(SequencerError::Rpc(refusal))
     );
     assert_eq!(server.join().must(), count);
