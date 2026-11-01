@@ -6519,6 +6519,12 @@ value = "apps/perps/public/Paxify.png has been truncated at 524288 bytes in ever
 basis = "Issue #963; apps/perps/src/app/modals/SettingsModal.tsx:62-70 declares bgImage /Paxify.png with a gradient fallback and apps/perps/src/app/globals.css:631 and :933 reference the same file."
 affects = ["18.963.1"]
 
+[decision.2235]
+title = "The Paxeer boundary's real-chain test runs its Python qualification only"
+value = "real_paxd_boundary in services/platform/hosted/paxeer/tests/real_chain.rs runs tests/real_chain.py against the boundary binary unconditionally; the branch that called the retired Paxeer client over LAYERX_PAXEER_TEST_CLIENT_URL is deleted with the client dependency rather than re-targeted, because the boundary admits chain-125 reads through the sequencer receipt path (task 8.14.5) and the client crate is deleted by tasks 10.26.1 to 10.26.16."
+basis = "services/platform/hosted/paxeer/tests/real_chain.rs:1 imports raw_call, EndpointConfig and EndpointTransport from layerx_paxeer_client only for lines 7-23; services/platform/hosted/paxeer/Cargo.toml:19 lists the crate under [dev-dependencies] alone; services/platform/Cargo.toml:52 declares it by path to a manifest deleted by a47a944f9."
+affects = ["8.52.1", "13.8.3", "10.26.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -18744,6 +18750,10 @@ ac_2 = "The Funding, Payment and ReceiptInspection journeys declare exactly thei
 [req.8151]
 title = "The paxeer chain boundary relays pax_sequencerReceipt for the hosted receipt readers"
 ac_1 = "method_allowed admits pax_sequencerReceipt, eth_getTransactionReceipt and net_version and refuses pax_unknownMethod, eth_sendTransaction and eth_sign."
+
+[req.85201]
+title = "The platform workspace loads without the retired Paxeer client crate"
+ac_1 = "services/platform/Cargo.toml and services/platform/hosted/paxeer/Cargo.toml name no layerx-paxeer-client dependency, the boundary's real-chain test imports nothing from it, cargo metadata --locked of the platform workspace succeeds and the boundary crate builds with its test targets under --locked."
 
 [req.8152]
 title = "Every router method answers from the chain and consensus endpoints of one deployment"
@@ -33632,6 +33642,15 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.8.52.1]
+title = "Drop the platform boundary's development dependency on the retired Paxeer client crate"
+reqs = ["85201.1"]
+touches = ["services/platform/Cargo.toml", "services/platform/hosted/paxeer/Cargo.toml", "services/platform/hosted/paxeer/tests/real_chain.rs", "services/platform/Cargo.lock"]
+tests = []
+verification_contract = "cargo metadata --locked --manifest-path services/platform/Cargo.toml --format-version 1 >/dev/null && ! grep -q layerx-paxeer-client services/platform/Cargo.toml services/platform/hosted/paxeer/Cargo.toml services/platform/hosted/paxeer/tests/real_chain.rs"
+do_1 = "Task 10.26.1 (a47a944f9) deleted services/human/crates/layerx-paxeer-client/Cargo.toml, but services/platform/Cargo.toml:52 still declares the workspace dependency layerx-paxeer-client by path and services/platform/hosted/paxeer/Cargo.toml:19 lists it under [dev-dependencies] for services/platform/hosted/paxeer/tests/real_chain.rs:1, so the platform workspace no longer loads and every gate rooted in it fails at cargo metadata before any crate builds."
+symbols = ["real_paxd_boundary"]
+
 [capability.13.8.4]
 title = "Retire the kernel-format refusal tests of the programs test crate"
 reqs = ["13084.1"]
@@ -33648,7 +33667,7 @@ touches = ["cmd/layerxctl/Cargo.lock", "services/agent/Cargo.lock", "services/ag
 tests = []
 verification_contract = "cargo metadata --locked --manifest-path cmd/layerxctl/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/agent/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/agent/fuzz/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/agent/tests/boundary/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/agent/tests/isolation/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/agent/tests/parity/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/agent/tests/qualify/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/agent/tools/audit-verify/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/agent/tools/policy-harness/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/human/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/human/crates/layerx-intents/fuzz/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/interop/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/platform/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/platform/docs/samples/verify-receipt-rust/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/platform/hosted/gateway/tests/local/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml --format-version 1 >/dev/null && cargo metadata --locked --manifest-path tools/platform/Cargo.toml --format-version 1 >/dev/null"
 do_1 = "68a345924 (task 13.8.2) removed layerx-proof and layerx-wire from [dependencies] of programs/crates/layerx-programs-registry/Cargo.toml and regenerated programs/Cargo.lock only, so every other Cargo.lock that resolves layerx-programs-registry still lists the two crates under its dependency rows and cargo refuses each --locked build and test of those workspaces before compiling: observed at main 8db301807 with cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service (10.1.2 attempt 1) and -p layerx-human-test-support (10.26.2 to 10.26.16, attempt 1 each). The lock files are cmd/layerxctl/Cargo.lock, services/agent/Cargo.lock, services/agent/fuzz/Cargo.lock, services/agent/tests/boundary/Cargo.lock, services/agent/tests/isolation/Cargo.lock, services/agent/tests/parity/Cargo.lock, services/agent/tests/qualify/Cargo.lock, services/agent/tools/audit-verify/Cargo.lock, services/agent/tools/policy-harness/Cargo.lock, services/human/Cargo.lock, services/human/crates/layerx-intents/fuzz/Cargo.lock, services/interop/Cargo.lock, services/platform/Cargo.lock, services/platform/docs/samples/verify-receipt-rust/Cargo.lock, services/platform/hosted/gateway/tests/local/Cargo.lock, services/platform/hosted/node/tests/probe/Cargo.lock, tools/platform/Cargo.lock."
-symbols = ["layerx-programs-registry"]
+symbols = []
 
 [capability.9.25.20]
 title = "Prove startup budget recovery over committed budget-state evidence after the handshake-pinned module-witness tests retire"
@@ -117768,9 +117787,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.8.52.1]
+title = "Drop the platform boundary's development dependency on the retired Paxeer client crate"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["85201.1"]
+capabilities = ["8.52.1"]
+interfaces = []
+do_1 = "Task 10.26.1 (a47a944f9) deleted services/human/crates/layerx-paxeer-client/Cargo.toml, but services/platform/Cargo.toml:52 still declares the workspace dependency layerx-paxeer-client by path and services/platform/hosted/paxeer/Cargo.toml:19 lists it under [dev-dependencies] for services/platform/hosted/paxeer/tests/real_chain.rs:1, so the platform workspace no longer loads and every gate rooted in it fails at cargo metadata before any crate builds."
+do_2 = "Remove the workspace dependency row at services/platform/Cargo.toml:52 and the dev-dependency row at services/platform/hosted/paxeer/Cargo.toml:19; in services/platform/hosted/paxeer/tests/real_chain.rs delete the layerx_paxeer_client import at line 1 and the LAYERX_PAXEER_TEST_CLIENT_URL branch of real_paxd_boundary at lines 7-23 so the test runs tests/real_chain.py against the boundary binary unconditionally (decision 2235); settlement_domains and the other dev-dependencies stay as they are."
+do_3 = "Regenerate services/platform/Cargo.lock with cargo metadata --manifest-path services/platform/Cargo.toml --format-version 1 >/dev/null (without --locked); the intended lock changes are the removal of the layerx-paxeer-client package with its dependency rows and the removal of the layerx-proof and layerx-wire rows under layerx-programs-registry that 68a345924 (task 13.8.2) dropped; any other package version move is recorded as a finding naming the package. The build gate compiles the boundary crate with its test targets under --locked; the verify gate re-reads the locked metadata and asserts the retired crate name is gone from the two manifests and the test file."
+symbols = ["real_paxd_boundary"]
+touches = ["services/platform/Cargo.toml", "services/platform/hosted/paxeer/Cargo.toml", "services/platform/hosted/paxeer/tests/real_chain.rs", "services/platform/Cargo.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --tests"
+verify_cmd = "cargo metadata --locked --manifest-path services/platform/Cargo.toml --format-version 1 >/dev/null && ! grep -q layerx-paxeer-client services/platform/Cargo.toml services/platform/hosted/paxeer/Cargo.toml services/platform/hosted/paxeer/tests/real_chain.rs"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Restore services/platform/Cargo.toml, services/platform/hosted/paxeer/Cargo.toml, services/platform/hosted/paxeer/tests/real_chain.rs and services/platform/Cargo.lock from 95c9dd670; the platform workspace refuses to load again until the client crate manifest returns."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.13.8.4]
 title = "Retire the kernel-format refusal tests of the programs test crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117803,14 +117852,14 @@ title = "Refresh the dependent lock files after the programs registry dropped th
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["8.52.1"]
 reqs = ["13083.1"]
 capabilities = ["13.8.3"]
 interfaces = []
 do_1 = "68a345924 (task 13.8.2) removed layerx-proof and layerx-wire from [dependencies] of programs/crates/layerx-programs-registry/Cargo.toml and regenerated programs/Cargo.lock only, so every other Cargo.lock that resolves layerx-programs-registry still lists the two crates under its dependency rows and cargo refuses each --locked build and test of those workspaces before compiling: observed at main 8db301807 with cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service (10.1.2 attempt 1) and -p layerx-human-test-support (10.26.2 to 10.26.16, attempt 1 each). The lock files are cmd/layerxctl/Cargo.lock, services/agent/Cargo.lock, services/agent/fuzz/Cargo.lock, services/agent/tests/boundary/Cargo.lock, services/agent/tests/isolation/Cargo.lock, services/agent/tests/parity/Cargo.lock, services/agent/tests/qualify/Cargo.lock, services/agent/tools/audit-verify/Cargo.lock, services/agent/tools/policy-harness/Cargo.lock, services/human/Cargo.lock, services/human/crates/layerx-intents/fuzz/Cargo.lock, services/interop/Cargo.lock, services/platform/Cargo.lock, services/platform/docs/samples/verify-receipt-rust/Cargo.lock, services/platform/hosted/gateway/tests/local/Cargo.lock, services/platform/hosted/node/tests/probe/Cargo.lock, tools/platform/Cargo.lock."
 do_2 = "Regenerate each lock against its current manifests with cargo metadata --manifest-path <workspace>/Cargo.toml --format-version 1 >/dev/null (without --locked); the only intended change is that layerx-proof and layerx-wire leave the layerx-programs-registry dependency rows, and the layerx-proof and layerx-wire package entries (with what only they pulled in) leave a lock where no remaining package depends on them, with no version moves of other packages and no Cargo.toml change."
 do_3 = "Then cargo metadata --locked passes for all seventeen workspaces, which is the build and verify command; a lock whose regeneration moves any other package version is recorded as a finding naming the lock and the package."
-symbols = ["layerx-programs-registry"]
+symbols = []
 touches = ["cmd/layerxctl/Cargo.lock", "services/agent/Cargo.lock", "services/agent/fuzz/Cargo.lock", "services/agent/tests/boundary/Cargo.lock", "services/agent/tests/isolation/Cargo.lock", "services/agent/tests/parity/Cargo.lock", "services/agent/tests/qualify/Cargo.lock", "services/agent/tools/audit-verify/Cargo.lock", "services/agent/tools/policy-harness/Cargo.lock", "services/human/Cargo.lock", "services/human/crates/layerx-intents/fuzz/Cargo.lock", "services/interop/Cargo.lock", "services/platform/Cargo.lock", "services/platform/docs/samples/verify-receipt-rust/Cargo.lock", "services/platform/hosted/gateway/tests/local/Cargo.lock", "services/platform/hosted/node/tests/probe/Cargo.lock", "tools/platform/Cargo.lock"]
 tests = []
 planned_paths = []
@@ -117827,6 +117876,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 13.8.3.1: continue from attempt 1 (7fa157518), whose build passed and whose seventeen regenerated locks moved no package version, rebased onto main once task 8.52.1 is on it; take main's services/platform/Cargo.lock (regenerated by 8.52.1) over the attempt's copy and keep the other sixteen; the declared build and verify then run as written."
+do_5 = "Finding 13.8.3.2: continue from attempt 2 (b88301ce2), whose build and all seventeen locked metadata reads passed, rebased onto current main with the tree unchanged; the task declares no code symbol because lock files define none, and the declared build and verify run once as written."
 
 [task.9.25.20]
 title = "Prove startup budget recovery over committed budget-state evidence after the handshake-pinned module-witness tests retire"
@@ -164294,7 +164345,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.0.9]
 title = "Gate domain 13 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["13.0.1", "13.0.2", "13.0.3", "13.0.4", "13.4.6", "13.7.5", "13.8.1", "13.8.2", "13.9.1", "13.9.2", "13.9.3", "13.9.4", "13.9.5", "13.9.6", "13.9.7", "13.34.1", "13.34.2", "13.34.10", "8.4.5", "13.3.12", "13.8.4"]
@@ -188463,6 +188514,14 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.8.52.1]
+feature = "19"
+req = "85201.1"
+scenario = "Given main after a47a944f9 deleted the Paxeer client crate manifest, when the platform workspace metadata is read under --locked and the boundary crate is built with its test targets, then both succeed and neither platform manifest nor the boundary's real-chain test names layerx-paxeer-client."
+contract = "contracts/platform.md#paxeer-boundary"
+test = "cargo metadata --locked over services/platform plus the manifest grep of task 8.52.1 (its verify_cmd)"
 qualification = "UNRUN"
 
 [acceptance.13.8.4]
