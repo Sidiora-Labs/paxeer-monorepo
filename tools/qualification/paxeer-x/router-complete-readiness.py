@@ -212,7 +212,37 @@ def inputs():
     return revision, binaries, fixture
 
 
-def readiness_document(status, body, unavailable=frozenset(), chain_only=False):
+def readiness_document(
+    status, body, unavailable=frozenset(), chain_only=False, unconfigured=frozenset()
+):
+    if chain_only:
+        require(status == 200, "gateway readiness status mismatch")
+        backends = body["backends"]
+        roster = ROSTER - KERNEL - unconfigured
+        require(
+            set(backends) == roster,
+            "chain-only dependency roster omitted or added a backend",
+        )
+        require(
+            set(body["components"]) == {"durable_store"},
+            "chain-only readiness includes a kernel component",
+        )
+        for name in roster:
+            expected = (
+                {"state": "unavailable", "reason": "unreachable"}
+                if name in unavailable
+                else {"state": "ready", "reason": "ready"}
+            )
+            require(backends[name] == expected, "backend state mismatch: " + name)
+        require(
+            body["status"] == ("degraded" if unavailable else "ready"),
+            "complete readiness status mismatch",
+        )
+        require(
+            body["valid_until_ms"] > body["observed_at_ms"],
+            "readiness freshness invalid",
+        )
+        return body
     require(
         status == (503 if unavailable and not chain_only else 200),
         "gateway readiness status mismatch",
@@ -534,7 +564,15 @@ class Run:
         status, body = self.request(
             "gateway", "/readyz/core" if not chain_only else "/readyz"
         )
-        result = readiness_document(status, body, unavailable, chain_only)
+        unconfigured = set()
+        if (
+            chain_only
+            and "LAYERX_EVENTS_PAYMENT_UPSTREAM_URL" not in self.environments["gateway"]
+        ):
+            unconfigured.add("event_producer")
+        result = readiness_document(
+            status, body, unavailable, chain_only, unconfigured=unconfigured
+        )
         if not chain_only:
             product_status, product = self.request("gateway", "/readyz")
             require(

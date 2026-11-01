@@ -10,6 +10,7 @@ use std::time::{Duration, Instant};
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
+use layerx_agentd::human::{decode_request, HumanRequest};
 use layerx_human_service::agents::{
     AgentCreationContract, AgentEvidence, AgentFailure, CapabilityProvision, CreationStage,
 };
@@ -17,6 +18,7 @@ use layerx_human_service::custody::{
     CustodySigner, EnvelopeKms, KeyClass, KeyEntropy, KeyId, Keystore, SigningLimits,
 };
 use layerx_human_service::frame::{read_frame, write_frame, Limits};
+use layerx_human_service::journeys::AgentBoundary as _;
 use layerx_human_service::server::agent_creation::{
     CreationBounds, ProductionAgentCreation, ProtocolEvidence, Rung,
 };
@@ -25,11 +27,11 @@ use layerx_human_service::store::{PrincipalStore, RowKey, Table};
 use layerx_human_service::trace::TraceId;
 use layerx_human_test_support as support;
 use layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION;
-use layerx_intents::{BudgetCreate, Intent, IntentKind};
+use layerx_intents::{BudgetCreate, BudgetFund, Intent, IntentKind};
 use layerx_sdk::Client;
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, Did};
+use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{BudgetId, PeriodLength, PurposeHash, RolloverPolicy, TimestampSeconds};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use sha2::{Digest as _, Sha256};
@@ -55,8 +57,12 @@ fn frame(opcode: u8, body: &[u8]) -> Vec<u8> {
 }
 
 fn intent() -> Intent {
+    budget_create(ACTION)
+}
+
+fn budget_create(budget_id: [u8; 32]) -> Intent {
     Intent::v1(IntentKind::BudgetCreate(checked(BudgetCreate::new(
-        BudgetId::new(ACTION),
+        BudgetId::new(budget_id),
         checked(AccountId::parse(
             "agent:did:layerx:owner-receipt-fixture:main",
         )),
@@ -76,7 +82,10 @@ fn intent() -> Intent {
 fn registry() -> ModuleRegistry {
     checked(ModuleRegistry::new(&[checked(ModuleRegistration::new(
         ModuleId::Budget,
-        &[checked(ActivityType::new(ModuleId::Budget, 1))],
+        &[
+            checked(ActivityType::new(ModuleId::Budget, 1)),
+            checked(ActivityType::new(ModuleId::Budget, 2)),
+        ],
     ))]))
 }
 
@@ -204,10 +213,16 @@ struct Fixture {
     server: Option<JoinHandle<()>>,
     owner: canonical_owner::SignedOwner,
     receipt: Vec<u8>,
+    intent: Intent,
+    fresh: bool,
 }
 
 impl Fixture {
     fn new(rung_byte: u8, legacy_verification: u8) -> Self {
+        Self::with_intent(rung_byte, legacy_verification, intent(), false)
+    }
+
+    fn with_intent(rung_byte: u8, legacy_verification: u8, intent: Intent, fresh: bool) -> Self {
         let root = support::directory("agent-creation-rungs");
         checked(std::fs::create_dir_all(&root));
         let (store, _) = support::install_and_open(
@@ -235,14 +250,18 @@ impl Fixture {
             registry(),
             checked(SigningLimits::new(10, 60)),
         );
-        let compiled = checked(layerx_intents::compile(&intent(), &registry()));
+        let compiled = checked(layerx_intents::compile(&intent, &registry()));
+        let signing_key = match intent.kind() {
+            IntentKind::BudgetCreate(_) => checked(compiled.payload().as_bytes()[2..34].try_into()),
+            _ => ACTION,
+        };
         let owner = canonical_owner::sign_transaction(
             compiled.payload(),
-            ACTION,
+            signing_key,
             STATE_COMMITMENT_PROTOCOL_VERSION,
             77,
         );
-        {
+        if !fresh {
             let mut store = checked(store.lock());
             let mut scope = checked(store.principal(&support::principal("alice")));
             checked(scope.put(
@@ -265,10 +284,53 @@ impl Fixture {
         answer.extend_from_slice(&<[u8; 32]>::from(Sha256::digest(&receipt)));
         answer.extend_from_slice(&HEIGHT.to_be_bytes());
         answer.push(rung_byte);
-        let exchanges = vec![
-            (frame(4, &request), frame(0, &answer)),
-            capability_exchange(rung_byte),
-        ];
+        let mut exchanges = Vec::new();
+        if fresh {
+            let mut nonce_request = Vec::new();
+            bytes(&mut nonce_request, b"did:layerx:owner-receipt-fixture");
+            bytes(&mut nonce_request, hex(&owner.public_key).as_bytes());
+            let mut nonce_answer = 1_u64.to_be_bytes().to_vec();
+            nonce_answer.push(rung_byte);
+            exchanges.push((Some(frame(13, &nonce_request)), frame(0, &nonce_answer)));
+
+            let (call, _) = checked(layerx_crypto::evm_transaction::decode_signed(&owner.bytes));
+            let mut preparation = Vec::new();
+            bytes(&mut preparation, b"budget-preparation");
+            preparation.push(2);
+            preparation.extend_from_slice(&call.chain_id.to_be_bytes());
+            preparation.extend_from_slice(&call.nonce.to_be_bytes());
+            preparation.extend_from_slice(&call.max_priority_fee_per_gas.to_be_bytes());
+            preparation.extend_from_slice(&call.max_fee_per_gas.to_be_bytes());
+            preparation.extend_from_slice(&call.gas_limit.to_be_bytes());
+            preparation.extend_from_slice(&call.to);
+            bytes(&mut preparation, &call.data);
+            preparation.extend_from_slice(&compiled.activity_type().value().to_be_bytes());
+            bytes(&mut preparation, b"did:layerx:owner-receipt-fixture");
+            bytes(&mut preparation, hex(&owner.public_key).as_bytes());
+            for coordinate in [1_u64, 1_000_000, 1_030_000] {
+                preparation.extend_from_slice(&coordinate.to_be_bytes());
+            }
+            preparation.extend_from_slice(&1_000_000_u128.to_be_bytes());
+            bytes(&mut preparation, compiled.payload().as_bytes());
+            preparation.extend_from_slice(&compiled.payload_hash());
+            preparation.extend_from_slice(&ACTION);
+            exchanges.push((None, frame(0, &preparation)));
+
+            let mut submitted = owner.id.to_vec();
+            bytes(&mut submitted, b"budget-submission");
+            submitted.push(6);
+            bytes(&mut submitted, b"budget-receipt");
+            submitted.extend_from_slice(&[rung_byte, 0, 0]);
+            submitted.extend_from_slice(&answer);
+            exchanges.push((None, frame(0, &submitted)));
+        } else {
+            exchanges.push((Some(frame(4, &request)), frame(0, &answer)));
+        }
+        let (request, answer) = capability_exchange(rung_byte);
+        exchanges.push((Some(request), answer));
+        let expected_owner_bytes = owner.bytes.clone();
+        let expected_owner_id = owner.id;
+        let expected_owner_key = owner.public_key;
         let socket = root.join("peer.sock");
         let listener = checked(UnixListener::bind(&socket));
         checked(listener.set_nonblocking(true));
@@ -287,11 +349,41 @@ impl Fixture {
                 };
                 checked(stream.set_read_timeout(Some(Duration::from_secs(5))));
                 checked(stream.set_write_timeout(Some(Duration::from_secs(5))));
-                assert_eq!(checked(read_frame(&mut stream, MAX_FRAME)), request);
+                let received = checked(read_frame(&mut stream, MAX_FRAME));
+                if let Some(request) = request {
+                    assert_eq!(received, request);
+                } else {
+                    match checked(decode_request(received)) {
+                        HumanRequest::Prepare(request) => {
+                            assert_eq!(request.key, ACTION);
+                            assert_eq!(request.operation.idempotency_key, hex(&ACTION));
+                            assert_eq!(request.operation.payload, compiled.payload().as_bytes());
+                            assert_eq!(request.operation.payload_hash, compiled.payload_hash());
+                        }
+                        HumanRequest::Submit(request) => {
+                            assert_eq!(request.key, ACTION);
+                            assert_eq!(request.operation.preparation_ref, "budget-preparation");
+                            assert_eq!(request.operation.signer_public_key, expected_owner_key);
+                            let (call, _) = checked(layerx_crypto::evm_transaction::decode_signed(
+                                &expected_owner_bytes,
+                            ));
+                            let signed = checked(layerx_intents::owner_activity::attach_signature(
+                                &call,
+                                checked(request.operation.signature.as_slice().try_into()),
+                                checked(expected_owner_key[12..].try_into()),
+                            ));
+                            assert_eq!(
+                                layerx_crypto::evm_transaction::transaction_hash(&signed),
+                                expected_owner_id,
+                            );
+                        }
+                        _ => panic!("unexpected budget creation request"),
+                    }
+                }
                 checked(write_frame(&mut stream, &answer, MAX_FRAME));
             }
         });
-        let runtime = checked(AgentRuntime::new(
+        let mut runtime = checked(AgentRuntime::new(
             &socket,
             Limits {
                 maximum_frame_bytes: MAX_FRAME,
@@ -302,6 +394,9 @@ impl Fixture {
             },
             registry(),
         ));
+        if fresh {
+            checked(runtime.bind_transaction_sender(checked(owner.actor.as_slice().try_into())));
+        }
         Self {
             root,
             store,
@@ -310,6 +405,8 @@ impl Fixture {
             server: Some(server),
             owner,
             receipt,
+            intent,
+            fresh,
         }
     }
 
@@ -329,13 +426,11 @@ impl Fixture {
             &client,
             &self.custody,
             &trace,
-            checked(AgentDid::new(checked(std::str::from_utf8(
-                &self.owner.actor,
-            )))),
+            checked(AgentDid::new(canonical_owner::OWNER_DID)),
             checked(AuthorityRef::new(hex(&self.owner.public_key))),
             CreationBounds {
                 timestamp_span: 30,
-                fee_limit: 10,
+                fee_limit: if self.fresh { 1_000_000 } else { 10 },
             },
         ));
         let mut store = checked(self.store.lock());
@@ -344,7 +439,7 @@ impl Fixture {
             .prepare_lifecycle_intent(
                 &mut scope,
                 &registry(),
-                intent(),
+                self.intent.clone(),
                 ACTION,
                 checked(KeyId::new("human-primary")),
                 1000,
@@ -367,6 +462,59 @@ impl Drop for Fixture {
 
 fn hex(value: &[u8]) -> String {
     value.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+#[test]
+fn budget_stages_with_a_distinct_budget_id_pass_the_signed_creation_check() {
+    let budget_id = [0x62; 32];
+    assert_ne!(budget_id, ACTION);
+    let funding = Intent::v1(IntentKind::BudgetFund(checked(BudgetFund::new(
+        BudgetId::new(budget_id),
+        checked(AccountId::parse(
+            "agent:did:layerx:owner-receipt-fixture:main",
+        )),
+        checked(AccountId::parse(
+            "agent:did:layerx:owner-receipt-fixture:budget:62626262",
+        )),
+        AssetId::new([0x22; 32]),
+        Amount::from_u128(500),
+        IdempotencyKey::new(ACTION),
+    ))));
+    for (intent, ordinal, expected_key) in [
+        (budget_create(budget_id), 1, budget_id),
+        (funding, 2, [0; 32]),
+    ] {
+        let mut fixture = Fixture::with_intent(2, 2, intent, true);
+        let (evidence, capability) = fixture.evidence();
+        let evidence = checked(evidence);
+        let expected = checked(ActivityType::new(ModuleId::Budget, ordinal));
+        checked(evidence.bound_activity(expected));
+        let (call, signature) = checked(layerx_crypto::evm_transaction::decode_signed(
+            &evidence.signed_activity,
+        ));
+        let sender = checked(layerx_crypto::evm_transaction::recover_sender(
+            &call, &signature,
+        ));
+        let mut disclosure = checked(layerx_crypto::disclosure::call::bind_call(&call, sender));
+        assert_eq!(disclosure.idempotency_key, expected_key);
+        assert_eq!(
+            checked(ProtocolEvidence::creation_idempotency_key(
+                &disclosure,
+                ACTION
+            )),
+            expected_key,
+        );
+        disclosure.idempotency_key = [0x63; 32];
+        assert_ne!(
+            disclosure.idempotency_key,
+            checked(ProtocolEvidence::creation_idempotency_key(
+                &disclosure,
+                ACTION
+            )),
+        );
+        checked(capability);
+        fixture.finish();
+    }
 }
 
 #[test]

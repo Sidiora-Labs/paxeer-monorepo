@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import ast
 import sqlite3
 from dataclasses import replace
 from hashlib import sha256
+from pathlib import Path
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -14,8 +16,13 @@ from layerx_sdk.revert import RevertReasonError
 from layerx_sdk.verifier import (
     ReceiptVerificationError,
     SequencerReceiptVerificationError,
+    _decode_sequencer_receipt,
 )
-from layerx_sdk.x402 import verify_payment_receipt, verify_sequencer_receipt
+from layerx_sdk.x402 import (
+    receipt_protocol_version,
+    verify_payment_receipt,
+    verify_sequencer_receipt,
+)
 from layerx_sdk.x402_draw import PreparedGrantDraws
 from layerx_sdk.x402_http import ConfiguredReceiptAuthority, PaymentEvidence
 from layerx_sdk.x402_receive import (
@@ -89,7 +96,7 @@ def test_x402_draw_verifies_the_sequencer_receipt():
     raw = _bytes(reverted["rawTransaction"])
     with pytest.raises(ReceiptVerificationError) as raised:
         verify_sequencer_receipt(signed, raw, [_key(reverted)])
-    assert raised.value.check == ReceiptFailureCode.RESULT_CODE
+    assert raised.value.check == ReceiptFailureCode.FIELDS
     with pytest.raises(RevertReasonError) as raised:
         verify_sequencer_receipt(
             signed,
@@ -98,6 +105,50 @@ def test_x402_draw_verifies_the_sequencer_receipt():
             return_data=_bytes(reverted["receiptJson"]["returnData"]),
         )
     assert raised.value.code == "LXP_INSUFFICIENT_BALANCE"
+
+
+def test_x402_failure_paths_use_current_receipt_codes():
+    reverted = next(vector for vector in VECTORS if vector["vector"] == "V2")
+    signed = _bytes(reverted["signedReceipt"])
+    raw = _bytes(reverted["rawTransaction"])
+    key = _key(reverted)
+
+    with pytest.raises(ReceiptVerificationError) as raised:
+        verify_sequencer_receipt(signed, raw, [key])
+    assert raised.value.check == ReceiptFailureCode.FIELDS
+
+    with pytest.raises(RevertReasonError) as raised:
+        verify_sequencer_receipt(
+            signed,
+            raw,
+            [key],
+            return_data=_bytes(reverted["receiptJson"]["returnData"]),
+        )
+    assert raised.value.code == "LXP_INSUFFICIENT_BALANCE"
+
+    with pytest.raises(ReceiptVerificationError) as raised:
+        receipt_protocol_version(b"\x00\x02\x52\x01\x00\x03")
+    assert raised.value.check == ReceiptFailureCode.RECEIPT_VERSION
+
+    for malformed in (b"", signed[:4] + b"\x00\x03" + signed[6:]):
+        with pytest.raises(ReceiptVerificationError) as raised:
+            _decode_sequencer_receipt(malformed)
+        assert raised.value.check == ReceiptFailureCode.DECODE
+
+    package = Path(__file__).resolve().parents[1] / "layerx_sdk"
+    for path in sorted(package.rglob("*.py")):
+        module = ast.parse(path.read_text(), filename=str(path))
+        references = {
+            node.attr
+            for node in ast.walk(module)
+            if isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == "ReceiptFailureCode"
+        }
+        assert references <= ReceiptFailureCode.__members__.keys(), (
+            path.relative_to(package),
+            references - ReceiptFailureCode.__members__.keys(),
+        )
 
 
 def test_x402_draw_refuses_a_receipt_under_an_unknown_key():

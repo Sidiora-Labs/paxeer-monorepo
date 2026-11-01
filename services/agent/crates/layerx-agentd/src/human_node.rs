@@ -3,7 +3,6 @@ use std::fmt::Debug;
 use layerx_client::sequencer::{
     AccountProof, CallRequest, ReceiptKeyEntry, SequencerBlock, SequencerError, SequencerReceipt,
 };
-use serde_json::Value;
 
 use crate::node_rpc::{NodeRpc, NodeRpcError};
 
@@ -27,11 +26,6 @@ pub trait HumanNode: Send + Sync + Debug {
         &self,
         tx_hash: &[u8; 32],
     ) -> Result<Option<SequencerReceipt>, NodeRpcError>;
-    fn history_page(
-        &self,
-        params: Value,
-        maximum_response_bytes: usize,
-    ) -> Result<Vec<u8>, NodeRpcError>;
 
     fn committed_block(&self, height: u64) -> Result<SequencerBlock, NodeRpcError> {
         let head = self.head()?;
@@ -104,12 +98,5 @@ impl HumanNode for NodeRpc {
         tx_hash: &[u8; 32],
     ) -> Result<Option<SequencerReceipt>, NodeRpcError> {
         NodeRpc::sequencer_receipt(self, tx_hash)
-    }
-    fn history_page(
-        &self,
-        params: Value,
-        maximum_response_bytes: usize,
-    ) -> Result<Vec<u8>, NodeRpcError> {
-        NodeRpc::history_page(self, params, maximum_response_bytes)
     }
 }

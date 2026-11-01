@@ -21,7 +21,7 @@ use layerx_types::rung::Rung;
 
 fn usage() -> ExitCode {
     eprintln!(
-        "usage: layerx-node-probe handshake --socket PATH --network-id N\n       layerx-node-probe balance --socket PATH --network-id N --account NAME --asset HEX64\n       layerx-node-probe did-accounts --socket PATH --network-id N --did DID\n       layerx-node-probe supervisor --socket PATH --request reset|status\n       layerx-node-probe custody-asset-profile --rpc URL --trust-anchor PATH --network-id N --asset HEX64 [--source-did DID --destination-did DID --profile-output ABS]\n       layerx-node-probe write-asset-send --rpc URL --trust-anchor PATH --network-id N --seed-file PATH --destination-did DID --asset HEX64 --output PATH [--source-did DID --amount N]"
+        "usage: layerx-node-probe handshake --rpc URL --trust-anchor PATH --network-id N\n       layerx-node-probe balance --rpc URL --trust-anchor PATH --network-id N --account NAME --asset HEX64\n       layerx-node-probe did-accounts --rpc URL --trust-anchor PATH --network-id N --did DID\n       layerx-node-probe supervisor --socket PATH --request reset|status\n       layerx-node-probe write-send --rpc URL --trust-anchor PATH --network-id N --seed-file PATH --destination-did DID --asset HEX64 --output PATH\n       layerx-node-probe custody-asset-profile --rpc URL --trust-anchor PATH --network-id N --asset HEX64 [--source-did DID --destination-did DID --profile-output ABS]\n       layerx-node-probe write-asset-send --rpc URL --trust-anchor PATH --network-id N --seed-file PATH --destination-did DID --asset HEX64 --output PATH [--source-did DID --amount N]"
     );
     ExitCode::from(2)
 }
@@ -73,7 +73,7 @@ fn hex32(text: &str) -> Result<[u8; 32], String> {
 fn rpc_session(
     parsed: &BTreeMap<String, String>,
 ) -> Result<(SequencerEndpoint, PxEndpoint, PxNetworkHead), String> {
-    let url = required(parsed, "socket")?;
+    let url = required(parsed, "rpc")?;
     let anchor = parsed
         .get("trust-anchor")
         .map(std::fs::read)

@@ -1,6 +1,7 @@
 include!("../src/main.rs");
 
 use ed25519_dalek::Signer as _;
+use sha2::Digest as _;
 use std::io::{BufRead as _, BufReader};
 use std::os::unix::fs::{FileTypeExt as _, PermissionsExt as _};
 use std::path::Path;
@@ -565,6 +566,100 @@ fn receipt_signed_by_an_unpinned_key_is_refused() {
 }
 
 #[test]
+fn trust_accepts_genesis_receipt_key_ids() {
+    let document = receipt_vectors();
+    let template = vector(&document, "V1-pax-transfer");
+    let original_bytes = hex_bytes(&template["signedReceipt"]);
+    let decoded = must(layerx_wire::receipt::decode(&original_bytes));
+    let original = decoded.protocol().unwrap();
+    let signer = ed25519_dalek::SigningKey::from_bytes(&[0x51; 32]);
+    let public_key = signer.verifying_key().to_bytes();
+    let key_id = <[u8; 32]>::from(sha2::Sha256::digest(public_key));
+    let handover_id = must(layerx_wire::handover::sequencer_id(&public_key));
+    assert_ne!(key_id, handover_id);
+    let mut cases = Vec::new();
+    for (index, seed) in [0x51, 0x52, 0x53].into_iter().enumerate() {
+        let signing_key = ed25519_dalek::SigningKey::from_bytes(&[seed; 32]);
+        let claimed_public_key = if index == 1 {
+            signing_key.verifying_key().to_bytes()
+        } else {
+            public_key
+        };
+        let claimed_id = <[u8; 32]>::from(sha2::Sha256::digest(claimed_public_key));
+        let activity = [0x41 + index as u8; 32];
+        let mut bytes = original_bytes.clone();
+        for (old, new) in [
+            (original.context_hash(), claimed_id),
+            (original.activity_id(), activity),
+        ] {
+            let offset = bytes.windows(32).position(|value| value == old).unwrap();
+            bytes[offset..offset + 32].copy_from_slice(&new);
+        }
+        let unsigned = must(layerx_wire::receipt::encode_unsigned(&must(
+            layerx_wire::receipt::decode(&bytes),
+        )));
+        let signature = signing_key.sign(&must(layerx_wire::hash::receipt_digest(&unsigned)));
+        let offset = bytes.len() - 64;
+        bytes[offset..].copy_from_slice(&signature.to_bytes());
+        let mut case = template.clone();
+        case["pinnedKey"]["publicKey"] =
+            serde_json::json!(format!("0x{}", hex::encode(&claimed_public_key)));
+        case["pinnedKey"]["keyId"] = serde_json::json!(format!("0x{}", hex::encode(&claimed_id)));
+        case["signedReceipt"] = serde_json::json!(format!("0x{}", hex::encode(&bytes)));
+        case["receiptJson"]["receipt"] = case["signedReceipt"].clone();
+        case["receiptJson"]["keyId"] = case["pinnedKey"]["keyId"].clone();
+        case["receiptJson"]["txHash"] = serde_json::json!(format!("0x{}", hex::encode(&activity)));
+        cases.push(case);
+    }
+    let mut harness = ReceiptHarness::start(&cases, &cases[0]);
+    let pin = SequencerAuthorization::new(key_id, public_key, 1000, 1999);
+    assert_eq!(must(trust::current(&harness.config)), vec![pin]);
+    let receipt = hex_bytes(&cases[0]["signedReceipt"]);
+    assert_eq!(
+        must(layerx_wire::receipt::decode(&receipt))
+            .protocol()
+            .unwrap()
+            .context_hash(),
+        key_id
+    );
+    match lookup_receipt(&harness.config, [0x41; 32], false) {
+        ReceiptSource::Found(bytes) => assert_eq!(bytes, receipt),
+        other => panic!("genesis receipt key was not admitted: {other:?}"),
+    }
+    for activity in [[0x42; 32], [0x43; 32]] {
+        assert!(matches!(
+            lookup_receipt(&harness.config, activity, false),
+            ReceiptSource::KeyMismatch
+        ));
+    }
+    harness.config.protocol_network_id = 0;
+    assert!(trust::current(&harness.config).is_err());
+    harness.config.protocol_network_id = 125;
+
+    let noncanonical = [0xff; 32];
+    assert!(layerx_wire::handover::sequencer_id(&noncanonical).is_err());
+    for (id, key) in [
+        (handover_id, public_key),
+        (
+            <[u8; 32]>::from(sha2::Sha256::digest(noncanonical)),
+            noncanonical,
+        ),
+    ] {
+        let keys_file = harness.directory.join("receipt-keys.json");
+        let entries = serde_json::json!([{
+            "keyId": base64(&id), "publicKey": base64(&key),
+            "firstHeight": 1000, "lastHeight": 1999,
+        }]);
+        must(fs::write(&keys_file, entries.to_string()));
+        harness.config.chain_receipts = must(ChainReceipts::load(
+            &harness.config.chain_rpc_url,
+            &keys_file,
+        ));
+        assert!(trust::current(&harness.config).is_err());
+    }
+}
+
+#[test]
 fn trust_snapshot_is_the_pinned_key_list() {
     use std::os::unix::net::UnixListener;
 
@@ -583,7 +678,7 @@ fn trust_snapshot_is_the_pinned_key_list() {
     for (index, seed) in [0x51, 0x52, 0x53].into_iter().enumerate() {
         let signer = ed25519_dalek::SigningKey::from_bytes(&[seed; 32]);
         let public_key = signer.verifying_key().to_bytes();
-        let key_id = must(layerx_wire::handover::sequencer_id(&public_key));
+        let key_id = <[u8; 32]>::from(sha2::Sha256::digest(public_key));
         let pin = serde_json::json!({"pinnedKey": {
             "keyId": format!("0x{}", hex::encode(&key_id)),
             "publicKey": format!("0x{}", hex::encode(&public_key)),

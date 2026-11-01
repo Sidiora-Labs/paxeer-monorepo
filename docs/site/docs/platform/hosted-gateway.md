@@ -478,16 +478,44 @@ verified success (`services/platform/hosted/gateway/src/main.rs:1403-1421`;
 
 ## Readiness
 
-Gateway `GET /readyz` is ready only when Redis `PING` is `PONG`, the
-agent-boundary `/readyz` is 200 JSON with `ready`, matching
-`network_id` and `wire_version`, and `synchronous_receipts` plus
-`state_snapshot`, the authority `/readyz` is 200 JSON with `ready` and
-matching network/wire (route flags not required), and registry
-`GET /healthz` is 200 JSON `status=ready`, `service=program-registry`
-(`services/platform/hosted/gateway/src/main.rs:1660-1711`;
-`services/platform/hosted/gateway/src/main.rs:2799-2831`). Identity is not a
-`/readyz` component. `principal_state_boundary` is always the string
-`unavailable` (`services/platform/hosted/gateway/src/main.rs:2828`).
+A gateway with no kernel backend configured reports a chain-only readiness
+document: `backends` lists only configured backends plus `paxeer_chain`
+(`services/platform/hosted/gateway/src/main.rs:3575-3592`). Its `status` is
+`ready` when every listed backend and `chain_serving` are ready
+(`services/platform/hosted/gateway/src/main.rs:3718-3719`). Its `components`
+contains only `durable_store`; it omits the five kernel components and
+`principal_state_boundary`
+(`services/platform/hosted/gateway/src/main.rs:3732-3740`; decision.1982).
+
+When any `KernelBackend` is configured, `backends` gains all five kernel
+entries: `core_agent_boundary`, `public_core`, `independent_receipt_authority`,
+`identity` and `program_registry`
+(`services/platform/hosted/gateway/src/main.rs:138-144`,
+`services/platform/hosted/gateway/src/main.rs:3593-3609`). In this case,
+`components` gains those same five entries and `principal_state_boundary`
+with the string `unavailable`; that field is present only when a kernel
+backend is configured
+(`services/platform/hosted/gateway/src/main.rs:3735-3740`). Redis readiness
+requires `PING` to return `PONG`. The agent-boundary `/readyz` must be 200
+JSON with `ready`, matching `network_id` and `wire_version`, and
+`synchronous_receipts` plus `state_snapshot`; the authority `/readyz` must
+be 200 JSON with `ready` and matching network/wire (route flags not
+required); registry `GET /healthz` must be 200 JSON `status=ready`,
+`service=program-registry`
+(`services/platform/hosted/gateway/src/main.rs:3101-3129`,
+`services/platform/hosted/gateway/src/main.rs:461-472`,
+`services/platform/hosted/gateway/src/main.rs:3189-3219`).
+
+`GET /readyz` (`services/platform/hosted/gateway/src/main.rs:3292-3293`)
+answers HTTP 200 when every configured backend is ready.
+`GET /readyz/core` (`services/platform/hosted/gateway/src/main.rs:3295-3296`)
+answers HTTP 200 only when its readiness document is complete; otherwise
+these routes answer HTTP 503
+(`services/platform/hosted/gateway/src/main.rs:3742-3747`). A 200 response
+from `/readyz` can still have `status` set to `degraded`: completeness
+requires every listed backend to be ready and, with a kernel configured
+in product scope, `product_routes.complete` to be true
+(`services/platform/hosted/gateway/src/main.rs:3710-3725`).
 
 Probes: Deployment `readinessProbe` HTTPS `/readyz` every 5s,
 `livenessProbe` HTTPS `/livez` every 15s

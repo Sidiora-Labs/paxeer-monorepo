@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import ast
 import json
+import sys
 from dataclasses import FrozenInstanceError, replace
 from hashlib import sha256
 from pathlib import Path
@@ -23,6 +25,36 @@ VECTORS = json.loads(
 )["cases"]
 
 
+def test_package_root_exports_sequencer_receipt_api():
+    import layerx_sdk
+    from layerx_sdk import (
+        ReceiptKey,
+        SequencerReceiptVerification,
+        SequencerReceiptVerificationError,
+        verifier,
+        verify_sequencer_receipt,
+    )
+
+    stub = Path(layerx_sdk.__file__).with_suffix(".pyi")
+    declarations = ast.parse(stub.read_text())
+    aliases = {
+        alias.asname
+        for node in ast.walk(declarations)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    exports = {
+        "ReceiptKey": ReceiptKey,
+        "SequencerReceiptVerification": SequencerReceiptVerification,
+        "SequencerReceiptVerificationError": SequencerReceiptVerificationError,
+        "verify_sequencer_receipt": verify_sequencer_receipt,
+    }
+    assert exports.keys() <= aliases
+    for name, exported in exports.items():
+        assert exported is getattr(verifier, name)
+        assert name in layerx_sdk.__all__
+
+
 def _bytes(value: str) -> bytes:
     return bytes.fromhex(value.removeprefix("0x"))
 
@@ -35,6 +67,21 @@ def _key(vector: dict) -> ReceiptKey:
         key["firstHeight"],
         key["lastHeight"],
     )
+
+
+def test_verify_sequencer_receipt_without_cryptography_names_the_extra(monkeypatch):
+    for module in (
+        "cryptography",
+        "cryptography.exceptions",
+        "cryptography.hazmat.primitives.asymmetric.ed25519",
+    ):
+        monkeypatch.setitem(sys.modules, module, None)
+    with pytest.raises(ImportError) as raised:
+        verify_sequencer_receipt(b"", b"", [])
+    assert str(raised.value) == (
+        "sequencer receipt verification needs the 'cryptography' package: pip install 'layerx-sdk[derivation]'"
+    )
+    assert isinstance(raised.value.__cause__, ImportError)
 
 
 def test_verify_sequencer_receipt_pinned_key():
