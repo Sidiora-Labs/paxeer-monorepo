@@ -13011,3 +13011,8 @@ fix = "Before a do deletes a pub item, git grep its name across the repository a
 title = "An acceptance that asserts no reference remains must require every task that deletes a referencing file"
 symptom = "A module deletion whose acceptance test scans the workspace for the module name failed because a sibling deletion task in the same wave still owned the one remaining importer; the scan is only satisfiable after that sibling lands."
 fix = "When a do or acceptance scans for a retired name across sources, git grep the name at authoring time and add every task that deletes or ports a hit to the task's requires, or move the scan to the last deletion of the series."
+
+[gotcha.2639]
+title = "A precondition grep over a crate must skip files that the module tree no longer reaches"
+symptom = "A module-retirement task required a repository grep to print nothing before its build; the grep matched an import inside an orphaned submodule file that the compiler never reads once the parent module declaration is gone, the file sat outside the task's touches, and the attempt stopped without running a single gate."
+fix = "Scope a precondition grep to the files cargo compiles, or name the orphaned files the grep must skip and the task that deletes them; a task's gates run regardless, and a precondition hit outside the touches is a finding, not a reason to skip the build."
