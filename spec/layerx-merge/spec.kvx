@@ -118555,7 +118555,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.5.98.9]
 title = "Port the App seams test fixture to the Admit method of the sequencer source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.98.8"]
@@ -188886,7 +188886,7 @@ qualification = "UNRUN"
 
 [task.18.1333.1]
 title = "Issue #1333: Align the gateway readiness tests and qualification check with the chain-only readiness document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -189453,7 +189453,7 @@ qualification = "UNRUN"
 
 [task.18.1238.1]
 title = "Issue #1238: Decode the served px_getHistory page in the agent history reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -190465,7 +190465,7 @@ qualification = "UNRUN"
 
 [task.18.1338.1]
 title = "Issue #1338: Build the agent creation rung fixture DID from the owner fixture DID instead of the raw sender bytes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
@@ -191390,7 +191390,7 @@ qualification = "UNRUN"
 
 [task.18.1365.1]
 title = "Issue #1365: Expect the wallet-rebinding grant in the retained custody step-up audit assertion"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
