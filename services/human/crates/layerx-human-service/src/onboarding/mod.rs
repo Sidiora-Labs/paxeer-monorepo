@@ -13,15 +13,19 @@ use layerx_agent_api::identity::{AgentDid, AuthorityRef, ContractError};
 use layerx_agent_api::prepare::{IdempotencyRef, PayloadBytes, PrepareRequest, TimestampBound};
 use layerx_agent_api::track::TrackedSubmission;
 use layerx_agent_api::{Amount, Sequence, SubmissionState, TimestampSeconds};
+use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_intents::{
     compile, CompileError, DidRegistration, DisclosureCheck, DisclosureCheckError, Intent,
     IntentError, IntentKind, RecoveryRegistration,
 };
-use layerx_proof::receipt::{verify, AuthorizedBatch, VerificationFailure};
+use layerx_proof::receipt::{
+    verify, verify_sequencer_signature, AuthorizedBatch, VerificationFailure,
+};
 use layerx_sdk::{Call, Client as AgentClient, SdkError, SubmissionOutcome};
 use layerx_types::ids::Did;
 use layerx_types::intent::{ApprovalThreshold, PublicKey, RecoveryRoot};
 use layerx_types::payload::ModuleRegistry;
+use layerx_types::rung::Rung;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
@@ -297,6 +301,7 @@ pub struct AgentPreparationContext {
     actor: AgentDid,
     authority: AuthorityRef,
     account_sequence: u64,
+    pending_nonce: u64,
     not_before: u64,
     not_after: u64,
     fee_limit: u128,
@@ -312,6 +317,7 @@ impl AgentPreparationContext {
         actor: AgentDid,
         authority: AuthorityRef,
         account_sequence: u64,
+        pending_nonce: u64,
         not_before: u64,
         not_after: u64,
         fee_limit: u128,
@@ -326,6 +332,7 @@ impl AgentPreparationContext {
             actor,
             authority,
             account_sequence,
+            pending_nonce,
             not_before,
             not_after,
             fee_limit,
@@ -341,9 +348,15 @@ pub struct AgentPrepareAction {
     intent: Intent,
     disclosure: DisclosureCheck,
     call: Call<IdempotentMutation<PrepareRequest>>,
+    pending_nonce: u64,
 }
 
 impl AgentPrepareAction {
+    #[must_use]
+    pub const fn pending_nonce(&self) -> u64 {
+        self.pending_nonce
+    }
+
     #[must_use]
     pub const fn stage(&self) -> ProtocolStage {
         self.stage
@@ -383,7 +396,9 @@ pub enum AgentStageOutcome<'a> {
         submission: &'a TrackedSubmission,
         activity_id: [u8; 32],
         receipt_bytes: &'a [u8],
-        authorised_batch: &'a AuthorizedBatch,
+        tx_hash: [u8; 32],
+        rung: Rung,
+        receipt_key: &'a ReceiptKeyEntry,
     },
 }
 
@@ -440,6 +455,7 @@ struct StoredPreparation {
     actor: String,
     authority: String,
     account_sequence: u64,
+    pending_nonce: u64,
     not_before: u64,
     not_after: u64,
     fee_limit: u128,
@@ -451,6 +467,7 @@ impl From<&AgentPreparationContext> for StoredPreparation {
             actor: value.actor.as_str().to_owned(),
             authority: value.authority.as_str().to_owned(),
             account_sequence: value.account_sequence,
+            pending_nonce: value.pending_nonce,
             not_before: value.not_before,
             not_after: value.not_after,
             fee_limit: value.fee_limit,
@@ -520,6 +537,7 @@ impl OnboardingJourney {
         actor: AgentDid,
         authority: AuthorityRef,
         account_sequence: u64,
+        pending_nonce: u64,
         not_before: u64,
         not_after: u64,
         fee_limit: u128,
@@ -534,6 +552,7 @@ impl OnboardingJourney {
                 actor.clone(),
                 authority.clone(),
                 account_sequence,
+                pending_nonce,
                 not_before,
                 not_after,
                 fee_limit,
@@ -545,6 +564,9 @@ impl OnboardingJourney {
                 actor,
                 authority,
                 account_sequence
+                    .checked_add(1)
+                    .ok_or(OnboardingError::InvalidAgentContext)?,
+                pending_nonce
                     .checked_add(1)
                     .ok_or(OnboardingError::InvalidAgentContext)?,
                 not_before,
@@ -754,7 +776,9 @@ impl OnboardingJourney {
                 submission,
                 activity_id,
                 receipt_bytes,
-                authorised_batch,
+                tx_hash,
+                rung,
+                receipt_key,
             } => {
                 self.apply_executed(
                     scope,
@@ -762,7 +786,9 @@ impl OnboardingJourney {
                     submission,
                     *activity_id,
                     receipt_bytes,
-                    authorised_batch,
+                    *tx_hash,
+                    *rung,
+                    receipt_key,
                     now,
                 )?;
                 self.ensure_activation_audit(scope, audit, trace, update.stage, now)?;
@@ -1012,6 +1038,7 @@ impl OnboardingJourney {
             operation: request,
         };
         Ok(AgentPrepareAction {
+            pending_nonce: stored.pending_nonce,
             stage,
             action_key,
             intent,
@@ -1057,14 +1084,34 @@ impl OnboardingJourney {
         submission: &TrackedSubmission,
         expected_activity_id: [u8; 32],
         receipt_bytes: &[u8],
-        authorised_batch: &AuthorizedBatch,
+        tx_hash: [u8; 32],
+        rung: Rung,
+        receipt_key: &ReceiptKeyEntry,
         now: u64,
     ) -> Result<(), OnboardingError> {
         match AgentClient::submission_outcome(submission.clone())? {
             SubmissionOutcome::Executed(_) => {}
             _ => return Err(OnboardingError::ReceiptRequired),
         }
-        let verified = verify(receipt_bytes, authorised_batch)?;
+        if tx_hash != expected_activity_id || rung < Rung::Receipted {
+            return Err(OnboardingError::ReceiptActivityMismatch);
+        }
+        let key = layerx_proof::inclusion::SequencerAuthorization::new(
+            receipt_key.key_id,
+            receipt_key.public_key,
+            receipt_key.first_height,
+            receipt_key.last_height,
+        );
+        let receipt = verify_sequencer_signature(receipt_bytes, &[key][..])?;
+        let protocol = receipt.protocol().ok_or(OnboardingError::ReceiptShape)?;
+        let authority = AuthorizedBatch::new(
+            protocol.batch_id(),
+            protocol.asset(),
+            protocol.previous_state_root(),
+            protocol.resulting_state_root(),
+            receipt_key.public_key,
+        );
+        let verified = verify(receipt_bytes, &authority)?;
         let protocol = verified
             .receipt()
             .protocol()
@@ -1075,7 +1122,7 @@ impl OnboardingJourney {
         if protocol.operation() != stage.expected_operation() {
             return Err(OnboardingError::ReceiptOperationMismatch);
         }
-        let digest: [u8; 32] = Sha256::digest(verified.canonical_bytes()).into();
+        let digest: [u8; 32] = Sha256::digest(receipt_bytes).into();
         let other = match stage {
             ProtocolStage::DidRegistration => &self.record.recovery_registration,
             ProtocolStage::RecoveryRegistration => &self.record.did_registration,
@@ -1095,7 +1142,7 @@ impl OnboardingJourney {
             }
         }
         let row = receipt_row(stage)?;
-        put_exact(scope, row, now, verified.canonical_bytes().to_vec())?;
+        put_exact(scope, row, now, receipt_bytes.to_vec())?;
         let record = self.stage_mut(stage);
         record.state = ProtocolState::Verified;
         record.unavailable = None;

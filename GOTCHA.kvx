@@ -12866,3 +12866,78 @@ fix = "When a test moves a non-native asset through the daemon, add a cap keyed 
 title = "A crate-wide grep instruction does not override the declared paths"
 symptom = "A ruling asks the implementer to grep the whole crate and port every construction site, but the path policy limits edits to the declared paths, so the implementer ports the declared files and stops at the next undeclared one."
 fix = "Grep the crate yourself when ruling on a widened type and declare every constructing file on the task in the same batch."
+
+[gotcha.2610]
+title = "A retired keeper path refuses before any fixture can be built through it"
+symptom = "Tests that create their fixtures through message paths (RequestWithdrawal, RequestForcedExit) all fail with the retirement error once the verifier refuses unconditionally, and a shared-state hypothesis looks plausible because the failures span every test file."
+fix = "Read one trace per file first: when each ends in the same retired call, rule on fixtures written directly into the store with the exported key helpers and delete the pure path tests the retirement test already covers."
+
+[gotcha.2611]
+title = "An unsigned EIP-1559 body is not what a signer daemon decodes"
+symptom = "The daemon decodes the posted transaction with the signed-transaction binary decoder, which needs twelve list items, while the unsigned signing body has nine; a raw test request built from the unsigned encoder fails with 'rlp: too few elements'."
+fix = "Post the wire shape the client posts: the nine signing fields plus three empty items, re-wrapped as a type-2 list; read the client's encoder before writing a raw request."
+
+[gotcha.2612]
+title = "A module deletion task inherits unported consumers from its requires list"
+symptom = "A deletion task listed twenty-two requires on the assumption that they had ported every consumer; forty files still named the modules and the first attempt stopped at the first three compile errors."
+fix = "Before launching a deletion task, grep the workspace for the module paths it deletes; when consumers remain, author port tasks per module group with grep-and-build verifies and make the deletion require them."
+
+[gotcha.2613]
+title = "A verifier deletion fails the dependent-crate check in the crates that re-export it"
+symptom = "Deleting a proof verifier passed the crate's own build and failed the dependents check in the client crate that wrapped it; the daemon wrapped it too, two crates deep."
+fix = "Grep every crate of the workspace for the deleted symbol names and declare each consumer file on the task with the exact retirement of its wrapper, variant and callers."
+
+[gotcha.2614]
+title = "A trait that mirrors a request method keeps the deleted type alive"
+symptom = "A node request method was replaced on the concrete type while the trait that mirrors it for callers kept the old signature and the deleted return type, in a file the task did not declare."
+fix = "When replacing a method on a type that also implements a trait exposing it, declare the trait file and rename the trait method and its implementation in the same task."
+
+[gotcha.2615]
+title = "A build-with-tests gate inherits every stale test binary of the crate"
+symptom = "A task that builds a crate with --tests failed in a test file it never touched: an earlier task changed a constructor's signature and left the kernel-era test calling the old six-argument form."
+fix = "When a task changes a signature, grep the crate's tests directory for callers in the same task; when a later task inherits the break, point it at the task that declares the stale file and make it require that task."
+
+[gotcha.2616]
+title = "A kms provider test target fails fast with Unavailable outside the runtime clock service"
+symptom = "A task that added the provider target to its verify saw 14 of 15 tests fail in 0.03s with a bare Error: Unavailable while the attestor tests passed; the target samples the runtime clock from the environment."
+fix = "Run every layerx-human-kms provider verify through cargo run -p layerx-runtime-clock -- --runtime-dir /tmp -- <cargo test ...> and build the clock crate in the build command; a 1-passed/14-failed result in a few milliseconds is this, not a provider break."
+
+[gotcha.2617]
+title = "A verify grep that spans two tasks' consumers fails the first task on the second's files"
+symptom = "A module split across two port tasks gave the first task a grep over a symbol family the second task's test files still import; the first task's code was complete and its verify failed anyway."
+fix = "Give each port task a grep over exactly the symbols it ports and let the dependent task carry the rest of the family in its own verify."
+
+[gotcha.2618]
+title = "A removal ruling must list the submodule and test files of the owning module"
+symptom = "A do listing the call sites of a removed receipt helper named the module file but missed a submodule file holding the actual call, a context() method building the removed type, three Option parameters and a test file dedicated to the helper."
+fix = "Before writing a removal do, grep the symbol and its type across the whole crate including src/<module>/ submodules and tests/, and list every hit with its line."
+
+[gotcha.2619]
+title = "A port that introduces a type's twin must re-export it from the old module in the same task"
+symptom = "A port defined a selector enum anew in the rpc module while the retained read context still named the old module's enum; the --tests build failed on the ported test with expected old::Type, found Type, and the attempt treated the old module as out of scope."
+fix = "Define the type once in the new module and make the old module pub use it, keeping any inherent impl there; list the old module file in the touches when the task introduces the twin."
+
+[gotcha.2620]
+title = "A test that reads an environment-named protected fixture file is not a proof"
+symptom = "A receipt evidence test demanded an environment variable naming an external fixture file, a configuration from the environment and a live socket; nothing in qualification could satisfy it and the production code it covered stayed unqualified."
+fix = "Write the test over the in-tree fixture the crate already has, extending the fixture's doubles where an answer is missing; a test may read no environment variable and open no socket the fixture did not start."
+
+[gotcha.2621]
+title = "The symbols and tests lists must not name a test the task deletes"
+symptom = "A retirement task's do deleted a keeper test while the symbols and tests lists still named it; go test passed and the graph check refused the task because the symbol was not defined in the graph."
+fix = "When a do deletes a test, remove it from symbols and tests in the same ruling and name only retained tests there."
+
+[gotcha.2622]
+title = "A touched path another task already deleted fails the graph check"
+symptom = "A deletion task listed a source file in its touches that an earlier task had already removed; the implementation deleted everything else and the graph check refused the task on the one path with no change."
+fix = "Before listing a deletion, run git log -1 -- <path> on main; a path with a deleting commit leaves the touches and the do notes which task removed it."
+
+[gotcha.2623]
+title = "In a split deletion the directory-level test belongs to the last deleting task"
+symptom = "Two tasks deleted one crate's files in different waves; the earlier task's test scanned the whole directory recursively and failed on the files the later task owns."
+fix = "The earlier task asserts the absence of exactly its own paths; the task that removes the last file requires the others and asserts the directory is gone."
+
+[gotcha.2624]
+title = "A --offline build fails once a lock refresh adds a package the registry cache lacks"
+symptom = "A build command carried --offline; after a lock refresh added data-encoding to the workspace lock, cargo refused with no matching package found before compiling anything."
+fix = "Qualification build and verify commands never pass --offline; --locked alone pins the resolution."
