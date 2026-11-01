@@ -16595,3 +16595,27 @@ symbol = "tenant_budget_recovery_reconciles_over_committed_budget_state"
 observed = "Attempt 1 (2d9533ab8) wrote both tests over a budget_recovery_fixture that acquires the getBudget CommittedCall at the fixture checkpoint, removed the uncalled module_witness constructor, built, and the refusal test passed; the success test failed at assertion accounting.reconciled, because do_2 told it to expect protocol_consumed Some(25) from the shared budget_result() answer while supplying no receipts and no holds, and the restart rule (budget/hold.rs:134-138) reconciles only when the protocol spend lies between receipt_consumed and receipt_consumed plus held_unresolved, so a spend of 25 against nothing is correctly unreconciled. The retired test this task replaces served a record with zero spend."
 assumption = "The success test serves a zero-spend record and also proves the unreconciled outcome of the 25-spend record; the attempt 1 tree stands."
 severity = "major"
+
+[finding.10.92.1.6]
+task = "10.92.1"
+file = "services/human/Cargo.toml:8"
+symbol = "layerx-human-movement-provider"
+observed = "Attempt 6 (4e8fb8fbc) of 10.92.1, based on main at d36e3e991, implemented the mapped verification level, the rung field, the schema line and the test assertions of finding 10.92.1.5, and its single build failed before compiling anything: cargo could not load the manifest of the workspace member crates/layerx-human-movement-provider, which 10.10.1 (b55da7a91) had deleted together with the crate while leaving the member line in services/human/Cargo.toml:8, so every build of the human workspace at main between the 10.10.1 landing and 54f32cf9a (10.96.1, which removed the line) failed at manifest load. Main is consistent again at bc550acb1."
+assumption = "The failure is pre-existing and already repaired on main; attempt 6 continues rebased onto current main with its tree unchanged and builds and verifies once."
+severity = "major"
+
+[finding.10.1.2.1]
+task = "10.1.2"
+file = "services/human/Cargo.lock"
+symbol = "layerx-programs-registry"
+observed = "Attempt 1 of 10.1.2 (e3bdfe62c) and attempt 1 of each of the fifteen tasks 10.26.2 to 10.26.16, all based on main 8db301807, implemented their task and stopped at the first build with 'the lock file services/human/Cargo.lock needs to be updated but --locked was passed'. 68a345924 (task 13.8.2) removed layerx-proof and layerx-wire from programs/crates/layerx-programs-registry/Cargo.toml and regenerated programs/Cargo.lock only; the seventeen other lock files that resolve layerx-programs-registry (listed in task 13.8.3) still carry the two dependency rows, so every --locked build of the agent, human, interop, platform, tools and layerxctl workspaces refuses at main since 8db301807, and 9.25.18 attempt 1 (held on an account.rs merge conflict) and 10.92.1 attempt 7 meet the same refusal on relaunch."
+assumption = "Task 13.8.3 refreshes the seventeen lock files the way 9.25.16 did; every open task that builds one of those workspaces requires it, and the sixteen implemented trees continue unchanged once it is on main."
+severity = "critical"
+
+[finding.13.0.9.1]
+task = "13.0.9"
+file = "programs/fixtures/test_workspace_graph.py:27"
+symbol = "test_workspace_graph_has_no_adapter_or_kernel_proof_edges"
+observed = "Attempt 1 (43b5f46eb) implemented the completion gate and its build passed; the dependent-crate check (cargo check --locked --all-targets over the programs workspace) failed because three integration test files of layerx-programs-sandbox still import the crates 68a345924 (task 13.8.2, do_3) removed from that crate's manifest: tests/activity_chain.rs:437 imports layerx_wire::activity and layerx_wire::hash inside the kernel-signed-activity refusal test, tests/expiry_chain.rs:321 calls layerx_proof::receipt::verify_sequencer_signature in terminal_record_refuses_kernel_receipt_bytes, and tests/lease_chain.rs:15 and :403-405 use layerx_wire and layerx_proof::merkle::leaf_hash in lease_transition_refuses_kernel_batch_header_evidence and its helpers. 13.8.2 built library targets only and its verify checked the resolved graph, so the orphaned test targets went unnoticed."
+assumption = "Task 13.8.4 retires the two refusal tests that exist only to build kernel byte formats and keeps the expiry refusal over the fixture bytes without the kernel pre-check; 13.0.9 requires it and continues from attempt 1 unchanged."
+severity = "major"
