@@ -116409,7 +116409,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.7.2]
 title = "Serve the .pax names in the explorer name-service API shape and commit the answer vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["19.7.1"]
