@@ -149694,7 +149694,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.9.27.5]
 title = "Retire the proof verifiers that bind a signed kernel activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.27.1", "9.27.6", "9.25.2", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.2.9", "18.1304.1", "9.25.16", "9.25.17"]
