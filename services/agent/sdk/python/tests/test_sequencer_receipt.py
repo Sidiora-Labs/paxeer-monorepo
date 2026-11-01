@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import sys
 from dataclasses import FrozenInstanceError, replace
@@ -22,6 +23,36 @@ ROOT = Path(__file__).resolve().parents[5]
 VECTORS = json.loads(
     (ROOT / "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json").read_text()
 )["cases"]
+
+
+def test_package_root_exports_sequencer_receipt_api():
+    import layerx_sdk
+    from layerx_sdk import (
+        ReceiptKey,
+        SequencerReceiptVerification,
+        SequencerReceiptVerificationError,
+        verifier,
+        verify_sequencer_receipt,
+    )
+
+    stub = Path(layerx_sdk.__file__).with_suffix(".pyi")
+    declarations = ast.parse(stub.read_text())
+    aliases = {
+        alias.asname
+        for node in ast.walk(declarations)
+        if isinstance(node, ast.ImportFrom)
+        for alias in node.names
+    }
+    exports = {
+        "ReceiptKey": ReceiptKey,
+        "SequencerReceiptVerification": SequencerReceiptVerification,
+        "SequencerReceiptVerificationError": SequencerReceiptVerificationError,
+        "verify_sequencer_receipt": verify_sequencer_receipt,
+    }
+    assert exports.keys() <= aliases
+    for name, exported in exports.items():
+        assert exported is getattr(verifier, name)
+        assert name in layerx_sdk.__all__
 
 
 def _bytes(value: str) -> bytes:
