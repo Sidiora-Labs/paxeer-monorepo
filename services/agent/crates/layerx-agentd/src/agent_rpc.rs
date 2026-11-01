@@ -527,6 +527,7 @@ fn requested_level(request: &serde_json::Map<String, serde_json::Value>) -> Opti
 fn verification_json(
     request_id: RequestId,
     status: Option<&VerificationStatus>,
+    achieved: Option<Rung>,
     requested: Option<Option<Rung>>,
 ) -> Result<serde_json::Value, Rejection> {
     let Some(status) = status else {
@@ -535,12 +536,22 @@ fn verification_json(
                 "state": "achieved",
                 "rung": level_name(Rung::Submitted),
             })),
-            Some(Some(requested)) if requested > Rung::Submitted => Ok(serde_json::json!({
-                "state": "unverified",
-                "requested": level_name(requested),
-                "achieved": level_name(Rung::Submitted),
-                "reason": "owner_payload_carries_no_level",
-            })),
+            Some(Some(requested)) => match achieved {
+                Some(Rung::Submitted) => Ok(serde_json::json!({
+                    "state": "pending",
+                    "requested": level_name(requested),
+                    "achieved": level_name(Rung::Submitted),
+                })),
+                None => Ok(serde_json::json!({
+                    "state": "absent",
+                    "requested": level_name(requested),
+                })),
+                Some(_) => Err(Rejection::new(
+                    ErrorClass::VerificationFailure,
+                    request_id,
+                    "verification.inconsistent",
+                )),
+            },
             Some(_) => Err(Rejection::new(
                 ErrorClass::VerificationFailure,
                 request_id,
@@ -591,8 +602,16 @@ pub fn success_body(
     dispatched: &Dispatched,
     requested: Option<Option<Rung>>,
 ) -> Result<AgentRpcResponse, Rejection> {
-    let verification_status =
-        verification_json(request_id, dispatched.verification.as_ref(), requested)?;
+    let (status, achieved) = match (
+        dispatched.value.get("found"),
+        dispatched.verification.as_ref(),
+    ) {
+        (Some(serde_json::Value::Bool(false)), Some(VerificationStatus::Achieved(level))) => {
+            (None, Some(*level))
+        }
+        (_, status) => (status, None),
+    };
+    let verification_status = verification_json(request_id, status, achieved, requested)?;
     Ok(AgentRpcResponse {
         status: 200,
         body: serde_json::json!({
@@ -1111,7 +1130,7 @@ fn requested_level_refuses_an_unknown_spelling() {
     ] {
         let requested = requested_level(&level_request(name));
         assert_eq!(requested, Some(None));
-        let refusal = verification_json(RequestId(3), None, requested)
+        let refusal = verification_json(RequestId(3), None, None, requested)
             .expect_err("an unknown requested level is refused");
         assert_eq!(refusal.class, ErrorClass::VerificationFailure);
         assert_eq!(refusal.reason, "verification.inconsistent");
