@@ -151859,13 +151859,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Finding 10.27.2.1: continue from attempt 2 (81ee2f825). The retirement test asserts the two files are gone and scans the human sources for the deleted tests' names (authority_config, read_principal_config) and for a launch of the deleted explorer binary, not for the package name, which the package's remaining files carry until the rest of the 10.27 deletions land. Build once, verify once."
 
 [task.10.27.3]
 title = "Delete the explorer index unified account join"
 status = "pending"
 mode = "BUILD"
 wave = 30
-requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1"]
+requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "10.27.4"]
 reqs = ["10273.1"]
 capabilities = ["10.27.3"]
 interfaces = ["interface.10.rs-explorer-index-unified-activity-window", "interface.10.rs-explorer-index-unified-unified-account-query", "interface.10.rs-explorer-index-unified-unified-query-error", "interface.10.rs-explorer-index-unified-unified-account-query-parse", "interface.10.rs-explorer-index-unified-unified-account-reader", "interface.10.rs-explorer-index-unified-unified-account-reader-new", "interface.10.rs-explorer-index-unified-unified-account-json", "interface.10.rs-explorer-index-unified-unified-account-profile", "interface.10.rs-explorer-index-unified-unified-account-profile-from-headers", "interface.10.rs-explorer-index-unified-unified-account-availability-json", "interface.10.rs-explorer-index-unified-unified-account-unavailable-json", "interface.10.rs-explorer-index-unified-unified-availability-failure", "interface.10.rs-explorer-index-unified-account-identifier", "interface.10.rs-explorer-index-unified-gateway-endpoint", "interface.10.rs-explorer-index-unified-custody-precompile-l27-j46", "interface.10.rs-explorer-index-unified-addr-precompile-l33-j46", "interface.10.rs-explorer-index-unified-joined-balance-l45-j46", "interface.10.rs-explorer-index-unified-joined-balances-l61-j46", "interface.10.rs-explorer-index-unified-settlement-ladder-l70-j46", "interface.10.rs-explorer-index-unified-paxeer-event-l87-j46", "interface.10.rs-explorer-index-unified-all-l99-j46", "interface.10.rs-explorer-index-unified-fn-l111-j46", "interface.10.rs-explorer-index-unified-fn-l131-j46", "interface.10.rs-explorer-index-unified-fn-l145-j46", "interface.10.rs-explorer-index-unified-topic-l158-j46", "interface.10.rs-explorer-index-unified-from-topic-l164-j46", "interface.10.rs-explorer-index-unified-paxeer-activity-record-l171-j46", "interface.10.rs-explorer-index-unified-concerns-l188-j46", "interface.10.rs-explorer-index-unified-paxeer-activity-page-l209-j46", "interface.10.rs-explorer-index-unified-fn-l238-j46", "interface.10.rs-explorer-index-unified-chunks-l253-j46", "interface.10.rs-explorer-index-unified-next-before-l276-j46", "interface.10.rs-explorer-index-unified-gateway-error-l284-j46", "interface.10.rs-explorer-index-unified-http-body-l332-j46", "interface.10.rs-explorer-index-unified-rpc-result-l341-j46", "interface.10.rs-explorer-index-unified-quantity-l358-j46", "interface.10.rs-explorer-index-unified-decode-identities-l370-j46", "interface.10.rs-explorer-index-unified-decode-balances-l381-j46", "interface.10.rs-explorer-index-unified-decode-settlement-l406-j46", "interface.10.rs-explorer-index-unified-decode-log-l483-j46", "interface.10.rs-explorer-index-unified-logs-filter-l547-j46", "interface.10.rs-explorer-index-unified-decode-logs-l567-j46", "interface.10.rs-explorer-index-unified-unified-account-join-l596-j46", "interface.10.rs-explorer-index-unified-unified-account-view-l608-j46", "interface.10.rs-explorer-index-unified-join-l698-j46", "interface.10.rs-explorer-index-unified-paxeer-activity-l737-j46"]
@@ -151891,6 +151892,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_5 = "Attempt 1 (ec090cb7d) failed its retirement scan on tests/unified_availability.rs and tests/unified_http.rs, which task 10.27.4 deletes; this task now requires 10.27.4 and continues from attempt 1 on a main that carries it, changing nothing else unless the verify reports it."
 
 [task.10.27.4]
 title = "Delete the explorer index unified HTTP tests"
@@ -152094,7 +152096,7 @@ title = "Delete the explorer index pasted-evidence verifier"
 status = "pending"
 mode = "BUILD"
 wave = 30
-requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1"]
+requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "10.27.6"]
 reqs = ["10280.1"]
 capabilities = ["10.27.10"]
 interfaces = ["interface.10.rs-explorer-index-verify-evidence-kind", "interface.10.rs-explorer-index-verify-pasted-inclusion", "interface.10.rs-explorer-index-verify-verify-error", "interface.10.rs-explorer-index-verify-verifier", "interface.10.rs-explorer-index-verify-verifier-new", "interface.10.rs-explorer-index-verify-verifier-receipt", "interface.10.rs-explorer-index-verify-verifier-inclusion", "interface.10.rs-explorer-index-verify-verification-report-l21-j46", "interface.10.rs-explorer-index-verify-encode-proof-l165-j46"]
@@ -152121,6 +152123,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Attempts 1 and 2 (8c94e0e27, c85e2e8e6) failed their retirement scan on tests/rebuild.rs:3, which task 10.27.6 deletes (its do_2); this task now requires 10.27.6 and continues from attempt 2 on a main that carries it, changing nothing else unless the verify reports it."
 
 [task.10.27.11]
 title = "Delete the explorer index receipt authority reader"
