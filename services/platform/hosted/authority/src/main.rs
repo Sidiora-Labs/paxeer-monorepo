@@ -69,8 +69,6 @@ Environment:
   LAYERX_AUTHORITY_WIRE_VERSION              wire version echoed in every answer, must be the built protocol version (default 3)
   LAYERX_AUTHORITY_SEQUENCER_ID              64-hex sequencer identity pinned for header verification
   LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY      64-hex sequencer public key pinned for header and receipt signatures
-  LAYERX_AUTHORITY_GENESIS_TRUST             protected native genesis trust artifact; requires HANDOVER_FINALITY
-  LAYERX_AUTHORITY_HANDOVER_FINALITY         protected independent Paxeer verification policy
   LAYERX_AUTHORITY_FIRST_BATCH               first authorised batch number
   LAYERX_AUTHORITY_LAST_BATCH                last authorised batch number
 ";
@@ -93,7 +91,6 @@ struct Config {
     wire_version: String,
     authorization: SequencerAuthorization,
     sequencer_public_key: [u8; 32],
-    trust: Option<trust::Trust>,
 }
 
 struct Request {
@@ -312,7 +309,6 @@ fn config() -> Result<Config, String> {
         );
     }
     Ok(Config {
-        trust: trust::Trust::load(protocol_network_id, sequencer_id, sequencer_public_key)?,
         listen,
         tls,
         human: human::Human::load(&human_peers)?,

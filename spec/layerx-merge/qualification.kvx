@@ -15547,3 +15547,123 @@ symbol = "probes the chain for code before serving a linked agent precompile"
 observed = "Attempt 6 passed the receipt test under the TAP reporter and then failed the gateway test with 'spawn anvil ENOENT': the test spawned an external anvil process behind a proxy to answer eth_getCode, a binary the qualification environment does not provide and that do_2 never asked for."
 assumption = "do_2 specifies eth_getCode answering 0x for 0x0902 and then runtime code; an in-process node:http double answers that."
 severity = "minor"
+
+[finding.1.12.5.2]
+task = "1.12.5"
+file = "modules/layerxledger/keeper/issuer_binding_test.go:67"
+symbol = "TestRegisterBindsTokenfactoryDenom"
+observed = "Attempt 3 built and failed verify on the one test the task does not touch: TestRegisterBindsTokenfactoryDenom expects the recorded create call to carry hex.EncodeToString(args.AssetID[:]) as the subdenom, while issuer_binding.go:47 has encoded the asset id as the 43-digit zero-padded base-62 text since ebfccf28b (task 6.22.8, finding 6.22.8), whose verify ran only the tokenfactory test; the ledger keeper package has carried the stale expectation on main since 2026-10-27 and this task's whole-package verify is the first gate to run it."
+assumption = "The base-62 subdenom is the implementation on record; the expectation follows it and the whole-package verify stays."
+severity = "minor"
+
+[finding.9.25.3.4]
+task = "9.25.3"
+file = "services/platform/tests/support/tls_boundary.rs:187"
+symbol = "simulation_tls_checks_the_actual_server_identity"
+observed = "Attempt 9 (6b133f2e8) built all four crates with no dependent-crate regression and verify failed only on ops::program::simulation_tls_checks_the_actual_server_identity, which the ops::program filter includes and which panics 'build the real Paxeer TLS boundary first' because the layerx-paxeer-boundary binary is not built (tls_boundary.rs:177-187); the port changes nothing that check exercises, the same precondition finding 9.1.7.3 met for layerx-sdk."
+assumption = "As 9.1.7 does, the build command also builds layerx-platform-paxeer-boundary and the verify names the binary through LAYERX_PAXEER_BOUNDARY_BIN, so the TLS identity check runs for real."
+severity = "minor"
+
+[finding.10.6.4.2]
+task = "10.6.4"
+file = "services/human/crates/layerx-human-service/tests/evidence_node.rs:419"
+symbol = "AdmissionRecord"
+observed = "Attempt 3 (base fc8c837a9) failed its build gate before touching anything of its own: cargo build --tests of layerx-human-service stops at tests/evidence_node.rs, which still reads AdmissionRecord.activity and .activity_id (finding 10.25.4.2), and cargo reports only the first failing test target, so the three further targets archive, native_onboarding_rungs and native_send_producer that 14.0.6 attempt 8 met were invisible to this attempt."
+assumption = "Every task whose build gate compiles the crate's test targets waits on one port task, 10.6.5, instead of each porting the same files."
+severity = "blocker"
+
+[finding.14.0.6.4]
+task = "14.0.6"
+file = "services/human/crates/layerx-human-service/tests/native_send_producer.rs:565"
+symbol = "load_access"
+observed = "Attempt 8 (8ce7d0acd) ported evidence_node.rs per do_5 and then failed the build on three test targets outside its touches: native_send_producer.rs:565, :572, :680 and :733 call load_access with three arguments after a5c762631 (task 10.13.8) added the &mut AgentRuntime parameter (src/server/native_send.rs:481); native_onboarding_rungs.rs:252 calls owner_activity::attach_signature in the four-argument Ed25519 form after 335bb6dfd (task 10.98.14) made it the EIP-1559 form (layerx-intents/src/owner_activity.rs:178) and kept the Ed25519 form as attach_native_signature (:110), as do layerx-intents/tests/owner_bootstrap.rs:93 and :121; and the archive target, which includes reclaim.rs and through it journey_faults.rs textually (archive.rs:1, reclaim.rs:4), imports PrincipalScope and Table twice since 886bdaf0f added them to journey_faults.rs:40 while archive.rs:31 already had them."
+assumption = "Four done producers changed a signature without compiling the consumers' test targets; 10.6.5 ports the consumers and 14.0.6 waits on it."
+severity = "blocker"
+
+[finding.8.98.16.1]
+task = "8.98.16"
+file = "services/platform/hosted/authority/src/trust.rs:27"
+symbol = "binds_header"
+observed = "The published CommittedCheckpoint::binds_header (1fe095a0b) binds an evidence header to the committed anchor checkpoint by batch number, last sequence and the two state roots but ignores the checkpoint view's headerDigest word (precompiles/layerxanchor/layerxanchor.go:74, word 2), which the view carries for exactly this binding and which identity_evidence_binds_to_the_committed_anchor_checkpoint already fills from batch_header_digest."
+assumption = "8.90.1, which continues in the same crate, adds the digest comparison; the four field checks stay."
+severity = "minor"
+
+[finding.8.90.1.1]
+task = "8.90.1"
+file = "services/platform/hosted/webhooks/src/events.rs:678"
+symbol = "block_committed_orders_between_receipt_and_checkpoint"
+observed = "Attempt 5 (ebee14bb3) passed authority_starts_without_an_lni_socket and failed the webhooks test at events.rs:678, which parses 'checkpoint-finalised' as a Verification level: d269e10c9 (task 8.13.2 do_1) deleted CheckpointFinalised and PaxeerFinalised so that both words answer InvalidRequest, and kernel_finality_words_are_refused asserts that refusal, while acceptance 8.145.1 still described block-committed as sitting below checkpoint-finalised."
+assumption = "8.13.2 is the ruling on record: a receipt on the merged chain is final once its block is committed, so BlockCommitted is the top level; the acceptance and the test are reworded and no production file changes."
+severity = "major"
+
+[finding.12.35.2.11]
+task = "12.35.2"
+file = "apps/wallet/e2e/send.spec.ts:746"
+symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+observed = "Attempt 13 (dcddfd4f1) got past the idle-chain wordings and transaction discovery and failed at :746 expecting data-truth 'pending': the heading rendered 'submitted' twice and then 'included', because the node commits blocks on its own and had included the transfer before the page first looked, so the pending state the anvil-driven test at :95 holds by withholding blocks never exists here."
+assumption = "The transient assertions before the receipt give way to a membership check; everything from the receipt poll onward stays."
+severity = "minor"
+
+[finding.10.6.5.1]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/spend.rs:280"
+symbol = "raw_receipt_evidence"
+observed = "Attempt 1 (c3e36d484) ported the six declared test files and enumerated the remaining broken targets of layerx-human-service with --keep-going: one remains, tests/spend.rs, whose call at :280 still passes an AuthorizedBatch as the second argument of support::raw_receipt_evidence, while 351e3da14 (task 10.25.2) changed that helper (layerx-human-test-support/src/lib.rs:374) to take the pinned receipt key and the previous and resulting state roots, as tests/move_money.rs:523, journey_faults.rs:921 and agent_controls_rungs.rs:1780 already pass them; spend.rs was outside the task's touches, so the attempt left it and the build gate stopped there with verification never run."
+assumption = "spend.rs joins the touches and its call takes the three values the other callers pass; no src file changes."
+severity = "major"
+
+[finding.10.6.5.2]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:629"
+symbol = "load_access"
+observed = "Attempt 2 (base 0b189cb1e) ported the seven declared test files and the build gate then stopped at tests/native_journey_approval.rs:629 and :776, where load_access is still called with three arguments while task 10.13.8 made it take (scope, &mut AgentRuntime, capability_id, now) (src/native_send.rs:481), the same producer change do_4 ported in tests/native_send_producer.rs; the file was outside the touches so the attempt left it and verification never ran."
+assumption = "native_journey_approval.rs joins the touches and its two calls pass the runtime the way do_4 did; no src file changes."
+severity = "major"
+
+[finding.12.35.2.12]
+task = "12.35.2"
+file = "apps/wallet/e2e/send.spec.ts:777"
+symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+observed = "Attempt 14 (base 0b189cb1e) failed both verify runs on the five-second default expect.poll timeout: the first at the eth_gasPrice poll (:714), which tolerates both idle-chain wordings but carries no timeout of its own, the second at :777, where the receipt rung poll read undefined for five seconds and the assertions at :779-780 then require the literal rung 'receipted' together with a blockHash; the node commits blocks on its own and answers px_getSequencerReceipt with the rung 'committed' once the block is in (rpc/sequencer_receipt.go:34-38), and only committed answers carry blockNumber and blockHash (:305), so 'receipted' is a rung the node may already have passed and a receipt at that rung never has the hash the test demands."
+assumption = "Every poll of the test takes a 60 second timeout, the receipt poll waits for an answer carrying blockHash with its rung receipted or committed, and the saved step stays receipted:<blockHash> because the page records the sequencer receipt under the receipted rung (StatusLadder.tsx:85 filters committed receipt steps)."
+severity = "minor"
+
+[finding.2.90.1.1]
+task = "2.90.1"
+file = "modules/layerxledger/keeper/execute_test.go:268"
+symbol = "TestExecuteIdempotentReplay"
+observed = "Attempt 3 (base d4f0a794f) wrote the five tests and the first failed at execute_test.go:268: the second openAccount by the same actor with key K returned LXP_CONTEXT_MISMATCH, not ErrIdempotentReplay, because Keeper.execute (execute.go:33-62) reads the actor's next identity sequence for every call and the kernel admits on the sequence (src/sequencer/lxp_admission.c:33-37) with no idempotency lookup since task 1.2.1 (decision.101), and the host's 0x04 receipt rows and ReadIdempotentReceipt went with task 1.25.2 (decision.1718); acceptances 2.20.2 and 2.35.1 and req.2020 ac_2 and req.2035 ac_1 still describe that table."
+assumption = "The two acceptances are restated on the actor-sequence replay guard, as decisions 1795 and 1810 restated 2.14.5 and 13.34.4; the test names and the verify command stay."
+severity = "major"
+
+[finding.9.25.4.1]
+task = "9.25.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs:238"
+symbol = "simulation_tls_checks_the_actual_server_identity"
+observed = "Attempts 1 and 2 (bases 7438bbd0a and ffa589f28) built, passed the dependent-crate check and then failed the verify in simulation_tls_checks_the_actual_server_identity at services/platform/tests/support/tls_boundary.rs:187 ('build the real Paxeer TLS boundary first'): the test needs the layerx-paxeer-boundary binary of services/platform/hosted/paxeer at LAYERX_PAXEER_BOUNDARY_BIN, which task 9.25.3 (do_8) builds in its build command and names in its verify command, while this task's commands inherited neither."
+assumption = "9.25.4 takes 9.25.3's gate form; the implementation is unchanged."
+severity = "minor"
+
+[finding.10.6.5.3]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/custody.rs:600"
+symbol = "EmergencyExit"
+observed = "Attempt 4 (6d056d649) ported the seven declared test files and the build gate stopped at a ninth target: tests/custody.rs:600, :610 and :620 still name custody::Operation::EmergencyExit, the variant a39f1dd90 (task 10.17.1) deleted from src/custody/signer.rs after 10.8.3 deleted the exit journey; cargo build --tests stops at the first broken target, so the file stayed hidden behind the eight that attempts 2 to 4 surfaced one at a time."
+assumption = "custody.rs joins the touches; the fresh and replayed step-up segment signs under Operation::WalletRebinding, the variant the expired segment at :591 already uses, so the test keeps proving StepUpExpired, an accepted fresh step-up and StepUpReplayed; no src file changes."
+severity = "major"
+
+[finding.9.25.2.2]
+task = "9.25.2"
+file = "services/agent/crates/layerx-client/src/read.rs:349"
+symbol = "*_with_history"
+observed = "Attempt 4 (base ffa589f28) deleted the seven modules do_1 to do_5 name and added src/fee.rs, and the build then failed with unresolved imports of the deleted modules in src/batch.rs:199, src/evidence/module_state.rs:74 and :92, src/read.rs:349, :386, :406, :460, :662 and :730, src/read/module.rs:2 and :25, src/receipt.rs:12, src/rpc/account.rs:5 and src/rpc/module_state.rs:9, the files do_7 names but the touches do not, so the attempt could not edit them; tests/receipt_rpc.rs:8 imports ReconnectPolicy from the deleted client module and layerx-agentd/tests/fee_projection_program_state.rs:17 imports MAX_FEE_METER_CANONICAL_BYTES from it; and outside the task the SDK (src/lib.rs:38 and :286, src/rpc_verification.rs:137 to :387, tests/sdk.rs:12 to :40), nine daemon test and example files and the authority's src/trust.rs:2 and :77 still name Client, ClientConfig or handover::SequencerHistory, against do_7's premise that no other crate names them."
+assumption = "The seven source files and the two test files join the touches; the consumer ports are tasks 9.25.9 (agent) and 8.98.17 (authority), which this task now requires (decisions 2200 and 2201)."
+severity = "major"
+
+[finding.2.90.1.2]
+task = "2.90.1"
+file = "node/abci.go:334"
+symbol = "commitListener"
+observed = "Attempt 5 (a772c6010, base 21c2ab6ee) passed the build gate and the two restated replay tests, and verification stopped at TestCommitSurvivesPanickingListener (node/commit_listener_test.go:122): Commit returned 'commit listener at height 1 panicked: commit listener failed', because commitListener (node/abci.go:331-340) recovers a listener panic and returns it as an error, while req 5045 ac_2 and acceptance 5.45.2 require that a panicking listener does not fail Commit; node/abci.go was outside the touches."
+assumption = "node/abci.go joins the touches: a recovered panic is logged at error level with the height and the panic value and Commit returns no error, since the store commit and the height advance precede the listener call; a listener returning an error keeps failing Commit as TestCommitReturnsListenerFailure proves."
+severity = "major"

@@ -135,7 +135,7 @@ impl CommittedExecutionState {
 }
 
 pub(crate) fn committed_execution_state(
-    node: &mut layerx_client::Client,
+    node: &mut layerx_client::sequencer::SequencerEndpoint,
     verifier: &EvidenceAuthority,
     sequencer_key: [u8; 32],
     endpoint: &SequencerEndpoint,
@@ -147,6 +147,13 @@ pub(crate) fn committed_execution_state(
     authorization: SequencerAuthorization,
 ) -> Result<CommittedExecutionState, ProgramSettlementError> {
     let fail = |_| ProgramSettlementError::SourceSnapshot;
+    let observed_head = endpoint.block_number().map_err(fail)?;
+    if node.chain_id().map_err(fail)? != endpoint.chain_id().map_err(fail)?
+        || node.block_number().map_err(fail)? != observed_head
+        || caps.freshness().observed_head_sequence != observed_head
+    {
+        return Err(ProgramSettlementError::SourceSnapshot);
+    }
     let observed = endpoint
         .sequencer_receipt(&receipt.activity_id())
         .map_err(fail)?
@@ -157,13 +164,16 @@ pub(crate) fn committed_execution_state(
         receipt.activity_id(),
         receipt.global_sequence(),
         caps.level(),
-        caps.freshness().observed_head_sequence,
+        observed_head,
     )?;
     let block = endpoint
         .block_by_number(block_number)
         .map_err(fail)?
         .ok_or(ProgramSettlementError::SourceSnapshot)?;
-    if block.hash != block_hash {
+    if block.number != block_number
+        || block.hash != block_hash
+        || node.block_by_number(block_number).map_err(fail)?.as_ref() != Some(&block)
+    {
         return Err(ProgramSettlementError::SourceSnapshot);
     }
     let prestate_height = block_number - 1;
@@ -182,6 +192,7 @@ pub(crate) fn committed_execution_state(
             sequencer_key,
             correlation,
             authorization,
+            caps.signed_header(),
             &key,
         )
         .map_err(|_| ProgramSettlementError::SourceSnapshot)?;
@@ -230,6 +241,17 @@ pub(crate) fn committed_execution_state(
             read_record(key)?;
         }
     }
+    if endpoint.block_number().map_err(fail)? != observed_head
+        || node.block_number().map_err(fail)? != observed_head
+        || endpoint
+            .block_by_number(block_number)
+            .map_err(fail)?
+            .as_ref()
+            != Some(&block)
+        || node.block_by_number(block_number).map_err(fail)?.as_ref() != Some(&block)
+    {
+        return Err(ProgramSettlementError::SourceSnapshot);
+    }
     let state = CommittedExecutionState {
         block_number,
         block_hash,
@@ -237,7 +259,7 @@ pub(crate) fn committed_execution_state(
         balances,
         program_records,
         accounts: caps.all_accounts().clone(),
-        observed_head_sequence: caps.freshness().observed_head_sequence,
+        observed_head_sequence: observed_head,
         activity_id: receipt.activity_id(),
         global_sequence: receipt.global_sequence(),
         receipt_ref: receipt.receipt_ref(),

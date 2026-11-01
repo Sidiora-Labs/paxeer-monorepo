@@ -312,12 +312,12 @@ fn budget_charge_rows(
 }
 
 pub fn read_program_budget_sources(
-    node: &mut layerx_client::Client,
+    node: &mut layerx_client::sequencer::SequencerEndpoint,
     programs: &mut ProgramOperations,
     prepared: &Prepared,
     caps: &VerifiedCaps,
     now: u64,
-    fee_correlation_id: u64,
+    _fee_correlation_id: u64,
 ) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> {
     validate_prepared(prepared)?;
     if !matches!(
@@ -348,8 +348,14 @@ pub fn read_program_budget_sources(
         || freshness.global_sequence != prepared.observed_head_sequence
         || freshness.observed_head_sequence != prepared.observed_head_sequence
         || freshness.batch_number != header.batch_number()
-        || node.head().chain_sequence != prepared.observed_head_sequence
-        || node.head().sealed_batch != header.batch_number()
+        || node
+            .block_number()
+            .map_err(|_| ProgramSourceError::Snapshot)?
+            != prepared.observed_head_sequence
+        || node
+            .block_number()
+            .map_err(|_| ProgramSourceError::Snapshot)?
+            != header.batch_number()
     {
         return Err(ProgramSourceError::Snapshot);
     }
@@ -419,30 +425,17 @@ pub fn read_program_budget_sources(
     }
     let maximum_fee = prepared.envelope.fee_limit().value();
     if maximum_fee != 0 {
-        let fee = node
-            .native_fee_policy(fee_correlation_id)
-            .map_err(|_| ProgramSourceError::FeeUnavailable)?;
-        if fee.state_root != caps.state_root()
-            || fee.observed_sequence != prepared.observed_head_sequence
-        {
-            return Err(ProgramSourceError::Snapshot);
-        }
-        let asset = fee.value.asset.asset_id;
-        let account = principal_source(
-            caps.all_accounts(),
-            prepared.envelope.actor_did(),
-            prepared.envelope.protocol_version(),
-            asset,
-        )?;
-        charges.push(ResolvedProgramCharge {
-            source: ResolvedProgramSource::Fee { account },
-            asset,
-            destination: None,
-            maximum_amount: maximum_fee,
-        });
+        // Decision 2199: task 9.25.7 ports native fee policy.
+        return Err(ProgramSourceError::FeeUnavailable);
     }
-    if node.head().chain_sequence != prepared.observed_head_sequence
-        || node.head().sealed_batch != header.batch_number()
+    if node
+        .block_number()
+        .map_err(|_| ProgramSourceError::Snapshot)?
+        != prepared.observed_head_sequence
+        || node
+            .block_number()
+            .map_err(|_| ProgramSourceError::Snapshot)?
+            != header.batch_number()
     {
         return Err(ProgramSourceError::Snapshot);
     }
@@ -457,11 +450,11 @@ pub fn read_program_budget_sources(
 }
 
 pub fn read_native_effect_budget_sources(
-    node: &mut layerx_client::Client,
+    node: &mut layerx_client::sequencer::SequencerEndpoint,
     prepared: &Prepared,
     caps: &VerifiedCaps,
     now: u64,
-    fee_correlation_id: u64,
+    _fee_correlation_id: u64,
     profile: crate::capability::NativeAdmissionProfile,
 ) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> {
     validate_prepared(prepared)?;
@@ -484,8 +477,14 @@ pub fn read_native_effect_budget_sources(
         || freshness.global_sequence != prepared.observed_head_sequence
         || freshness.observed_head_sequence != prepared.observed_head_sequence
         || freshness.batch_number != header.batch_number()
-        || node.head().chain_sequence != prepared.observed_head_sequence
-        || node.head().sealed_batch != header.batch_number()
+        || node
+            .block_number()
+            .map_err(|_| ProgramSourceError::Snapshot)?
+            != prepared.observed_head_sequence
+        || node
+            .block_number()
+            .map_err(|_| ProgramSourceError::Snapshot)?
+            != header.batch_number()
     {
         return Err(ProgramSourceError::Snapshot);
     }
@@ -590,34 +589,17 @@ pub fn read_native_effect_budget_sources(
     }
     let maximum_fee = prepared.envelope.fee_limit().value();
     if maximum_fee != 0 {
-        let fee = node
-            .native_fee_policy(fee_correlation_id)
-            .map_err(|_| ProgramSourceError::FeeUnavailable)?;
-        if fee.state_root != caps.state_root()
-            || fee.observed_sequence != prepared.observed_head_sequence
-        {
-            return Err(ProgramSourceError::Snapshot);
-        }
-        let asset = fee.value.asset.asset_id;
-        if matches!(profile, crate::capability::NativeAdmissionProfile::Registration { fee_asset } if fee_asset != asset)
-        {
-            return Err(ProgramSourceError::Snapshot);
-        }
-        let account = principal_source(
-            caps.all_accounts(),
-            prepared.envelope.actor_did(),
-            prepared.envelope.protocol_version(),
-            asset,
-        )?;
-        charges.push(ResolvedProgramCharge {
-            source: ResolvedProgramSource::Fee { account },
-            asset,
-            destination: None,
-            maximum_amount: maximum_fee,
-        });
+        // Decision 2199: task 9.25.7 ports native fee policy.
+        return Err(ProgramSourceError::FeeUnavailable);
     }
-    if node.head().chain_sequence != prepared.observed_head_sequence
-        || node.head().sealed_batch != header.batch_number()
+    if node
+        .block_number()
+        .map_err(|_| ProgramSourceError::Snapshot)?
+        != prepared.observed_head_sequence
+        || node
+            .block_number()
+            .map_err(|_| ProgramSourceError::Snapshot)?
+            != header.batch_number()
     {
         return Err(ProgramSourceError::Snapshot);
     }
@@ -768,6 +750,26 @@ mod tests {
 
     fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
         value.unwrap_or_else(|error| panic!("Program source: {error:?}"))
+    }
+
+    #[test]
+    fn program_budget_sources_bind_the_sequencer_endpoint() {
+        let endpoint = layerx_client::sequencer::SequencerEndpoint::new("http://127.0.0.1:1", &[])
+            .expect("loopback sequencer endpoint");
+        let _: fn(
+            &mut layerx_client::sequencer::SequencerEndpoint,
+            &mut ProgramOperations,
+            &Prepared,
+            &VerifiedCaps,
+            u64,
+            u64,
+        ) -> Result<VerifiedResolvedProgramCharges, ProgramSourceError> =
+            read_program_budget_sources;
+        assert!(matches!(
+            layerx_client::sequencer::SequencerEndpoint::new("http://example.com", &[]),
+            Err(layerx_client::sequencer::SequencerError::Endpoint)
+        ));
+        drop(endpoint);
     }
 
     fn canonical_account(did: &str, asset: [u8; 32], kind: u8, frozen: bool) -> CanonicalAccount {
