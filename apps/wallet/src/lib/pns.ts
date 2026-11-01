@@ -55,7 +55,7 @@ export const PNS_CHAIN_ID = PAXEER_CONFIG.chainId;
 export const REGISTRATION_DURATION_1Y = 365 * 24 * 60 * 60;
 
 // BENS indexer base
-const BENS_API = (process.env.NEXT_PUBLIC_PNS_API_BASE ?? '').replace(/\/+$/, '');
+const BENS_API = (process.env.NEXT_PUBLIC_PNS_API_BASE ?? '/api/pns').replace(/\/+$/, '');
 
 // ── ABIs (minimal, only what we need) ───────────────────────────────────────
 
