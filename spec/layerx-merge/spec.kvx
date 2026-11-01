@@ -117564,7 +117564,7 @@ do_5 = "Finding 10.6.4.2: the test-target port belongs to task 10.6.5 (now requi
 
 [task.9.25.5]
 title = "Port the human runtime's policy-usage reads to history pages proven by receipt bundles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.3", "9.25.8", "5.5.22"]
