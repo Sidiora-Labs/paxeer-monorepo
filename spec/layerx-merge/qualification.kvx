@@ -16547,3 +16547,11 @@ symbol = "--theme-bg-image"
 observed = "Attempt 1 (c4577e759) deleted the image and switched the Paxify preview in SettingsModal.tsx to its gradient, and tsc passed; the verify grep then found the two stylesheet references still present because the task named the stylesheet as apps/perps/src/app/globals.css, a path that does not exist, while the file is apps/perps/src/styles/globals.css (the comment at :631 and --theme-bg-image: url(/Paxify.png) at :933)."
 assumption = "The touches and do_3 name the real stylesheet; the attempt 1 tree stands and gains the two stylesheet edits."
 severity = "minor"
+
+[finding.9.25.19.3]
+task = "9.25.19"
+file = "services/agent/crates/layerx-agentd/tests/outbox_recover.rs:155"
+symbol = "module_witness"
+observed = "Attempt 3 (7b81963c7) added Display and Error for ChainProofError and built; the --tests build then failed in the daemon test outbox_recover.rs at :155, :453 and :466, which still call RawStateEvidence::module_witness with six arguments while 0e916bb08 (task 9.25.6, done) changed it to take one CommittedCall (protocol_evidence.rs:1732) without porting that test. Task 9.25.17 owns tests/outbox_recover.rs and its attempt 1 (5b4648003) already removes those call sites, so the break on main closes when 9.25.17 lands."
+assumption = "This task requires 9.25.17 (same wave) and continues from attempt 3 unchanged."
+severity = "major"
