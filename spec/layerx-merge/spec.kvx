@@ -118680,7 +118680,7 @@ do_4 = "Finding 18.1326.1.1: the node test package fails to compile at main unti
 
 [task.5.5.23]
 title = "Serve eth_gasPrice from the committed base fee while no block is open"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.5.22"]
@@ -191432,7 +191432,7 @@ qualification = "UNRUN"
 
 [task.18.1366.1]
 title = "Issue #1366: Forward a supported EVM or DID selector from the core account and account-proof routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
