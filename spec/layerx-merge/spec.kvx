@@ -117264,7 +117264,7 @@ interfaces = []
 do_1 = "In services/platform/Makefile.inc:41 the pip install line of platform-sample-install still names $(CURDIR)/agent/sdk/python; 3422bafe2 moved the SDK to services/agent/sdk/python and rewrote :112, :277 and :350 but not this $(CURDIR)-prefixed path, so the recipe fails before anything is installed and platform-sample-dependencies-ready then reports that layerx-sdk has no metadata (17.5.5 attempt 13). Change the path to $(CURDIR)/services/agent/sdk/python; the $(CURDIR)/sdk/integrations/fastapi argument stays."
 do_2 = "Confirm no other recipe of services/platform/Makefile.inc or the root Makefile names a root-anchored agent/ path: grep for '$(CURDIR)/agent/' and for ' agent/' not preceded by services/, and fix any hit the same way, naming it in the done record."
 do_3 = "The verify gate runs the pip line of the recipe with its two paths against a throwaway target directory (python3 -m pip install --no-index --no-deps --no-build-isolation --target build/platform-python-check) and checks the two package versions exactly as platform-sample-dependencies-ready does, so the recipe's install step is exercised without the Swift and dotnet toolchains; the wave 4 aggregate of task 17.5.5 reaches platform-sample-dependencies-ready and is the consumer gate."
-symbols = ["platform-sample-install", "platform-sample-dependencies-ready"]
+symbols = []
 touches = ["services/platform/Makefile.inc"]
 tests = []
 planned_paths = []
@@ -117282,6 +117282,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 17.5.13.1: continue from attempt 2 (3931793285b) unchanged; the verify command now passes the two package names as arguments to a python3 -c that holds only single quotes. Build once, verify once."
+do_5 = "Finding 17.5.13.2: continue from attempt 3 (99cc5fb56) unchanged; the task no longer declares make targets as symbols. Rebase onto main, change nothing, build once and verify once."
 
 [task.9.25.14]
 title = "Give the budget proof v2 fixture an owner DID the client decoder accepts"

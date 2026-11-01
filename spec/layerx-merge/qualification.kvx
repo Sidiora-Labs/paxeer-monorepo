@@ -15971,3 +15971,11 @@ symbol = "retired_crypto_codec_w3"
 observed = "Attempt 11 (e8ce6786a, base 1a371e60b) carries the intent_submit.rs port of do_3 and do_4, compiles every test target of layerx-human-service and passes all eight tests of intent_submit; the done record was refused only by the touched check for tests/retired_crypto_codec_w3.rs, which task 10.6.5 (2dc2c17ab, now on main) had already deleted, so this task has no change left to make there. The code of attempt 11 is correct."
 assumption = "The deleted file leaves the touches; do_4 is satisfied by 10.6.5 and attempt 11 continues unchanged."
 severity = "minor"
+
+[finding.17.5.13.2]
+task = "17.5.13"
+file = "services/platform/Makefile.inc:41"
+symbol = "platform-sample-install"
+observed = "Attempt 3 (99cc5fb56, base 1da31ece9) carries the path change, its build gate confirmed the recipe names services/agent/sdk/python and no root-anchored agent/ path remains, and the rewritten verify gate installed both packages and matched the two versions; the done record was refused by the symbol check alone, because the symbol list named the make targets platform-sample-install and platform-sample-dependencies-ready, which the symbol graph does not index (it holds functions, types and tests, not Makefile rules). The change of attempt 3 is correct."
+assumption = "The task declares no symbols; the touched check on services/platform/Makefile.inc remains. Attempt 3 continues unchanged."
+severity = "minor"
