@@ -145,6 +145,7 @@ func NewNode(cfg Config, a *app.App) (_ *Node, err error) {
 	n.ReceiptLogFeed = evmrpc.NewReceiptLogFeed(height)
 	n.LogFeedPublisher = NewLogFeedPublisher(n.ReceiptLogFeed)
 	n.Accepter = NewAccepter(n.Receipter, n.Replicator, n.ReceiptSource, n.Metrics)
+	n.ConsensusSource.SetAccepter(n.Accepter)
 	n.NonceAdmission, err = NewNonceAdmission(cfg, nodeOpenNonces{a},
 		func(_ common.Address, _ uint64, tx []byte) error {
 			_, err := n.Accepter.Accept(tx)

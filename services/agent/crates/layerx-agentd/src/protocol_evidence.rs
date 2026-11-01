@@ -1859,26 +1859,6 @@ impl VerifiedStateEvidence {
 #[path = "protocol_evidence_native_tests.rs"]
 mod native_terminal_tests;
 
-const PROGRAM_OWNER_PREFIX: &[u8; 14] = b"program-owner\0";
-
-pub(crate) fn program_owner_key(program_id: &[u8; 32]) -> [u8; 46] {
-    let mut key = [0_u8; 46];
-    key[..14].copy_from_slice(PROGRAM_OWNER_PREFIX);
-    key[14..].copy_from_slice(program_id);
-    key
-}
-
-pub(crate) fn decode_program_owner(value: &[u8]) -> Result<[u8; 32], HumanOperationError> {
-    let [1, owner @ ..] = value else {
-        return Err(HumanOperationError::Refused);
-    };
-    let owner: [u8; 32] = owner.try_into().map_err(|_| HumanOperationError::Refused)?;
-    if owner == [0_u8; 32] {
-        return Err(HumanOperationError::Refused);
-    }
-    Ok(owner)
-}
-
 pub(crate) fn verified_program_owner(
     node: &mut SequencerEndpoint,
     verifier: &EvidenceAuthority,
@@ -1888,6 +1868,9 @@ pub(crate) fn verified_program_owner(
     signed_header: &layerx_client::evidence::SignedHeader,
     program_id: &[u8; 32],
 ) -> Result<[u8; 32], HumanOperationError> {
+    let selector = layerx_crypto::evm_transaction::transaction_hash(b"getProgramOwner(bytes32)");
+    let mut calldata = selector[..4].to_vec();
+    calldata.extend_from_slice(program_id);
     let verified = verified_program_record(
         node,
         verifier,
@@ -1895,9 +1878,16 @@ pub(crate) fn verified_program_owner(
         correlation_id,
         authorization,
         signed_header,
-        &program_owner_key(program_id),
+        &calldata,
     )?;
-    decode_program_owner(verified.canonical_state())
+    let owner: [u8; 32] = verified
+        .canonical_state()
+        .try_into()
+        .map_err(|_| HumanOperationError::Refused)?;
+    if owner == [0; 32] {
+        return Err(HumanOperationError::Refused);
+    }
+    Ok(owner)
 }
 
 pub(crate) fn verified_program_record(
@@ -1907,9 +1897,8 @@ pub(crate) fn verified_program_record(
     _correlation_id: u64,
     authorization: SequencerAuthorization,
     signed_header: &layerx_client::evidence::SignedHeader,
-    key: &[u8],
+    calldata: &[u8],
 ) -> Result<VerifiedStateEvidence, HumanOperationError> {
-    let module_id = ModuleId::Programs as u16;
     let (header, trusted_authorization) = verifier
         .verifier
         .authorization_for(&signed_header.canonical_bytes)
@@ -1939,31 +1928,38 @@ pub(crate) fn verified_program_record(
     if block.number != height || block.hash == [0; 32] {
         return Err(HumanOperationError::Refused);
     }
+    let checkpoint = crate::read::ServedCheckpoint::acquire_at_committed_block(
+        node,
+        height,
+        None,
+        &header.network_id().to_string(),
+    )
+    .map_err(|error| match error {
+        crate::read::CheckpointReadError::Rpc(_) => HumanOperationError::Unavailable,
+        _ => HumanOperationError::Refused,
+    })?;
     let mut precompile = [0; 20];
     precompile[18..].copy_from_slice(&[0x10, 0x1d]);
     let value = layerx_client::rpc::module_state::module_state(
         node,
-        module_id,
-        key,
+        calldata,
         layerx_client::rpc::module_state::ModuleReadContext {
             precompile,
             committed_height: height,
-            signed_header,
-            policy: AccountEvidencePolicy {
-                expected_protocol_version: verifier.verifier.expected_protocol_version,
-                expected_network_id: verifier.verifier.expected_network_id,
-                handshake_sequencer_key: sequencer_key,
-                root_selector: RootSelector::Batch(height),
-            },
+            block_hash: checkpoint.block_hash,
+            app_hash: checkpoint.app_hash,
         },
     )
-    .map_err(|_| HumanOperationError::Refused)?;
-    if value.evidence().level() < VerificationLevel::STATE_PROVEN
-        || value.evidence().state_root() != header.resulting_state_root()
-        || node
-            .block_number()
-            .map_err(|_| HumanOperationError::Unavailable)?
-            != height
+    .map_err(|error| match error {
+        layerx_client::rpc::module_state::ModuleReadError::Rpc(_) => {
+            HumanOperationError::Unavailable
+        }
+        _ => HumanOperationError::Refused,
+    })?;
+    if node
+        .block_number()
+        .map_err(|_| HumanOperationError::Unavailable)?
+        != height
         || layerx_client::rpc::evidence::checkpoint(node, height)
             .map_err(|_| HumanOperationError::Unavailable)?
             != block
@@ -1972,69 +1968,9 @@ pub(crate) fn verified_program_record(
     }
     Ok(VerifiedStateEvidence {
         canonical_state: value.canonical_bytes().to_vec(),
-        level: value.evidence().level(),
+        level: VerificationLevel::STATE_PROVEN,
         observed_head_sequence: height,
     })
-}
-
-#[cfg(test)]
-mod program_owner_tests {
-    use super::{decode_program_owner, program_owner_key};
-    use crate::human::HumanOperationError;
-
-    fn record(version: u8, owner: [u8; 32]) -> Vec<u8> {
-        let mut value = vec![version];
-        value.extend_from_slice(&owner);
-        value
-    }
-
-    #[test]
-    fn program_owner_key_is_prefix_nul_and_program_id() {
-        let program_id = [0xa7_u8; 32];
-        let key = program_owner_key(&program_id);
-        let mut expected = b"program-owner".to_vec();
-        expected.push(0);
-        expected.extend_from_slice(&program_id);
-        assert_eq!(expected.len(), 46);
-        assert_eq!(key.to_vec(), expected);
-    }
-
-    #[test]
-    fn decode_program_owner_accepts_versioned_nonzero_owner() {
-        let owner = [0x3c_u8; 32];
-        assert_eq!(decode_program_owner(&record(1, owner)), Ok(owner));
-    }
-
-    #[test]
-    fn decode_program_owner_refuses_wrong_length() {
-        let mut long = record(1, [0x3c; 32]);
-        long.push(0);
-        let short = &record(1, [0x3c; 32])[..32];
-        for value in [&long[..], short, &[1_u8][..], &[][..]] {
-            assert_eq!(
-                decode_program_owner(value),
-                Err(HumanOperationError::Refused)
-            );
-        }
-    }
-
-    #[test]
-    fn decode_program_owner_refuses_wrong_version() {
-        for version in [0_u8, 2, 0xff] {
-            assert_eq!(
-                decode_program_owner(&record(version, [0x3c; 32])),
-                Err(HumanOperationError::Refused)
-            );
-        }
-    }
-
-    #[test]
-    fn decode_program_owner_refuses_zero_owner() {
-        assert_eq!(
-            decode_program_owner(&record(1, [0; 32])),
-            Err(HumanOperationError::Refused)
-        );
-    }
 }
 
 #[cfg(test)]
