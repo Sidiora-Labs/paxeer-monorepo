@@ -155471,7 +155471,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.92.1]
 title = "Serve layerx-receipt evidence as receipt-proof v2 from evidence.get"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.1", "8.0.1", "9.1.8", "18.1119.1", "10.2.4", "10.2.8", "18.1297.1", "9.25.16", "10.20.5", "13.8.3", "10.99.2"]
