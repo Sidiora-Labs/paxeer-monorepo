@@ -12376,3 +12376,18 @@ fix = "Delete it with its tests once its consumer moved to the real RPC; keep th
 title = "A retirement scan for a package name fails while sibling tasks still delete the package's other files"
 symptom = "10.27.2's test scanned for layerx-explorer-index and found the package's own sources and the tests of 10.27.4, 10.27.5 and 10.27.7."
 fix = "Scan for the deleted files' names and the symbol they exercised; order the tasks whose scans hit each other's files with requires."
+
+[gotcha.2512]
+title = "A sequencer send refused -32000 'receipted but its logs are not recorded ... pending height H+1, receipt height H' is a send-path race, not a consumer fault"
+symptom = "rpc/send.go recordReceiptLogs compared the pending height with the receipt's height after Accept; a layer sealing between the two refused a transaction the sequencer had receipted (18.670.1 a12, 10.6.1 a3, 5.47.4, 18.997.1, 11.37.3)."
+fix = "task 5.98.7 records the logs from the AcceptedSend the accepter returns and orders Committed after in-flight sends; consumers must not retry the send (the nonce is spent) nor mask the refusal."
+
+[gotcha.2513]
+title = "A touches entry for a file another task deleted on main fails the done gate as 'no matching change'"
+symptom = "10.98.10 attempt 4 listed tests/deposit.rs in touches after 10.20.x deleted it at ad92aa7fc; the gate found no change for the path."
+fix = "drop the path from touches and withdraw the do line that named it; the attempt's remaining work stands."
+
+[gotcha.2514]
+title = "Playwright body.innerText of '' against a Next dev server usually means a client exception swallowed by the dev overlay"
+symptom = "12.35.2 attempt 8 printed body '' although the init script ran; the Next dev overlay lives in a nextjs-portal element outside body text."
+fix = "attach page.on('pageerror') and page.on('console') before goto and print locator('nextjs-portal') text with the navigation response status before changing product code."
