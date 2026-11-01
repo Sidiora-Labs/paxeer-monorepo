@@ -151959,7 +151959,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.1.2]
 title = "Trim the human workspace manifest and gate the retired workspace members"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.10.1", "10.10.2", "10.20.5", "10.96.1", "10.26.1", "10.27.1", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154570,7 +154570,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.26.2]
 title = "Delete the Paxeer client JSON-RPC transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154888,7 +154888,7 @@ do_9 = "Finding 10.1.2.2: continue from attempt 2 (37bbe23b7) rebased onto main 
 
 [task.10.26.11]
 title = "Delete the Paxeer client withdrawal boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -155029,7 +155029,7 @@ do_7 = "Finding 10.1.2.2: continue from attempt 2 (e8f1a7db5) rebased onto main 
 
 [task.10.26.15]
 title = "Delete the Paxeer client native custody profile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
