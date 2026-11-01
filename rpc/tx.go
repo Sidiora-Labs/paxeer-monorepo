@@ -243,7 +243,7 @@ func (t *TransactionAPI) getTransactionByBlockNumberAndIndex(ctx context.Context
 		if !ok {
 			return nil, fmt.Errorf("pending transaction %s unavailable", hashes[txIndex].Hex())
 		}
-		return t.encodePendingTransaction(ptx)
+		return t.encodePendingTransaction(ctx, ptx)
 	}
 	blockNumber, err := getBlockNumber(ctx, t.tmClient, t.watermarks, blockNr)
 	if err != nil {
@@ -294,7 +294,7 @@ func (t *TransactionAPI) GetTransactionByHash(ctx context.Context, hash common.H
 	}()
 	if t.watermarks != nil && t.watermarks.pending != nil {
 		if ptx, ok := t.watermarks.pending.PendingTx(hash); ok {
-			return t.encodePendingTransaction(ptx)
+			return t.encodePendingTransaction(ctx, ptx)
 		}
 	}
 	sdkCtx := t.ctxProvider(LatestCtxHeight)
@@ -366,7 +366,7 @@ func (t *TransactionAPI) GetTransactionByHash(ctx context.Context, hash common.H
 // encodePendingTransaction encodes a receipted transaction of the open block:
 // blockNumber is the open height, transactionIndex its position in the block and
 // blockHash null, since the open block has no hash before it is sealed.
-func (t *TransactionAPI) encodePendingTransaction(ptx PendingTx) (*export.RPCTransaction, error) {
+func (t *TransactionAPI) encodePendingTransaction(ctx context.Context, ptx PendingTx) (*export.RPCTransaction, error) {
 	if ptx.Height < 1 {
 		return nil, fmt.Errorf("pending transaction height %d is not positive", ptx.Height)
 	}
@@ -377,7 +377,10 @@ func (t *TransactionAPI) encodePendingTransaction(ptx PendingTx) (*export.RPCTra
 	if etx == nil {
 		return nil, errors.New("transaction is not an EVM transaction and thus cannot be represented in _getTransaction* endpoints")
 	}
-	sdkCtx := t.ctxProvider(PendingCtxHeight)
+	sdkCtx, err := t.watermarks.PendingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	from, err := rpcutils.RecoverEVMSenderWithContext(sdkCtx, etx)
 	if err != nil {
 		return nil, err
@@ -428,16 +431,16 @@ func (t *TransactionAPI) GetTransactionCount(ctx context.Context, address common
 	}()
 
 	pending := blockNrOrHash.BlockHash == nil && blockNrOrHash.BlockNumber != nil && *blockNrOrHash.BlockNumber == rpc.PendingBlockNumber
-	if pending && (t.watermarks == nil || t.watermarks.pending == nil) {
-		return t.forwardPendingNonce(ctx, address)
+	if pending {
+		if t.watermarks == nil || t.watermarks.pending == nil {
+			return t.forwardPendingNonce(ctx, address)
+		}
+		return t.pendingNonce(ctx, address)
 	}
 
 	height, err := t.watermarks.ResolveHeight(ctx, blockNrOrHash)
 	if err != nil {
 		return nil, err
-	}
-	if height == PendingCtxHeight {
-		return t.pendingNonce(address), nil
 	}
 	sdkCtx := t.ctxProvider(height)
 	if err := CheckVersion(sdkCtx, t.keeper); err != nil {
@@ -450,9 +453,13 @@ func (t *TransactionAPI) GetTransactionCount(ctx context.Context, address common
 // pendingNonce is the sequencer's next nonce for address on the open block. Held
 // future nonces never move it: the nonce queue drains them into the open block
 // only once the gap fills, so the open-block nonce is the next executable one.
-func (t *TransactionAPI) pendingNonce(address common.Address) *hexutil.Uint64 {
-	nonce := t.keeper.GetNonce(t.ctxProvider(PendingCtxHeight), address)
-	return (*hexutil.Uint64)(&nonce)
+func (t *TransactionAPI) pendingNonce(ctx context.Context, address common.Address) (*hexutil.Uint64, error) {
+	sdkCtx, err := t.watermarks.PendingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	nonce := t.keeper.GetNonce(sdkCtx, address)
+	return (*hexutil.Uint64)(&nonce), nil
 }
 
 // forwardPendingNonce asks the sequencer for the pending nonce from a node that

@@ -36,11 +36,9 @@ use layerx_agentd::read::{
 use layerx_agentd::session::{SessionId, SessionRegistry};
 use layerx_agentd::session_keys::SessionKeyRegistry;
 use layerx_agentd::store::{Store, TenantId};
-use layerx_client::client::{ClientConfig, ReconnectPolicy};
-use layerx_client::lni::handshake::HandshakeConfig;
-use layerx_client::lni::schema::Version;
 use layerx_client::lni::transport::Limits;
-use layerx_client::Client;
+type PxEndpoint = layerx_client::px::PxEndpoint;
+type SequencerEndpoint = layerx_client::sequencer::SequencerEndpoint;
 use layerx_programs::{
     hex, DeploymentProof, DeploymentRecord, ProgramId, ProgramLifecycle,
     ProtocolDeploymentVerifier, Registry,
@@ -689,61 +687,49 @@ fn human_lni_limits(deadline: Duration) -> Result<Limits, String> {
     .map_err(|_| "human LNI limits are invalid".to_owned())
 }
 
-fn connect_human_node(node_path: PathBuf, node_limits: Limits) -> Result<Client, String> {
-    let execution_prestate = match env::var("LAYERX_AGENT_EXECUTION_PRESTATE") {
-        Err(env::VarError::NotPresent) => false,
-        Ok(value) if value == "0" => false,
-        Ok(value) if value == "1" => true,
-        _ => return Err("LAYERX_AGENT_EXECUTION_PRESTATE must be 0 or 1".to_owned()),
-    };
+fn connect_human_node() -> Result<SequencerEndpoint, String> {
     let human_protocol_version = required("LAYERX_AGENT_HUMAN_PROTOCOL_VERSION")?
         .parse()
         .map_err(|_| "human protocol version is invalid")?;
-    if !layerx_wire::limits::protocol_version_uses_occupancy(human_protocol_version) {
+    if !layerx_wire::limits::protocol_version_uses_occupancy(human_protocol_version)
+        || human_protocol_version != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
+    {
         return Err("human protocol version is not the current beta protocol".to_owned());
     }
-    let node = Client::connect(ClientConfig {
-        endpoint: node_path,
-        handshake: HandshakeConfig {
-            built_interface_version: if execution_prestate {
-                Version::V1_9
-            } else {
-                Version::V1_3
-            },
-            expected_protocol_version: human_protocol_version,
-            expected_network_id: required("LAYERX_AGENT_HUMAN_NETWORK_ID")?
-                .parse()
-                .map_err(|_| "human network id is invalid")?,
-        },
-        limits: node_limits,
-        reconnect: ReconnectPolicy {
-            maximum_attempts: required("LAYERX_AGENT_HUMAN_RECONNECT_ATTEMPTS")?
-                .parse()
-                .map_err(|_| "human reconnect attempts are invalid")?,
-            base_delay: Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_RECONNECT_BASE_MS")?),
-            maximum_delay: Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_RECONNECT_MAX_MS")?),
-            jitter_percent: required("LAYERX_AGENT_HUMAN_RECONNECT_JITTER_PERCENT")?
-                .parse()
-                .map_err(|_| "human reconnect jitter is invalid")?,
-        },
-    })
-    .map_err(|error| format!("human node LNI is unavailable: {error:?}"))?;
-    if execution_prestate {
-        let handshake = node.handshake();
-        let version = handshake.node().interface_version;
-        if version.major != 1
-            || version.minor < 9
-            || !handshake
-                .capabilities()
-                .contains(layerx_client::lni::schema::Capability::CapsDiscovery)
-            || !handshake
-                .capabilities()
-                .contains(layerx_client::lni::schema::Capability::ExecutionPrestate)
-        {
-            return Err("LAYERX_AGENT_EXECUTION_PRESTATE requires negotiated LNI1.9 and execution_prestate capability".to_owned());
-        }
+    let expected_network_id: u32 = required("LAYERX_AGENT_HUMAN_NETWORK_ID")?
+        .parse()
+        .map_err(|_| "human network id is invalid")?;
+    let config = NodeRpcConfig::from_environment()
+        .map_err(|error| format!("human node RPC configuration is invalid: {error}"))?;
+    if config.chain_id != u64::from(expected_network_id) {
+        return Err("human node RPC network id mismatch".to_owned());
     }
-    Ok(node)
+    let certificates = if config.url.starts_with("https://") {
+        let loaded = rustls_native_certs::load_native_certs();
+        if loaded.certs.is_empty() || !loaded.errors.is_empty() {
+            return Err("human node RPC trust roots are unavailable".to_owned());
+        }
+        loaded.certs
+    } else {
+        Vec::new()
+    };
+    let roots: Vec<&[u8]> = certificates.iter().map(AsRef::as_ref).collect();
+    let network = PxEndpoint::new(&config.url, &roots)
+        .and_then(|endpoint| endpoint.network())
+        .map_err(|error| format!("human PX network head is unavailable: {error:?}"))?;
+    if network.paxeer.chain_id != config.chain_id {
+        return Err("human node RPC chain id mismatch".to_owned());
+    }
+    let endpoint = SequencerEndpoint::new(&config.url, &roots)
+        .map_err(|error| format!("human sequencer endpoint is invalid: {error:?}"))?;
+    if endpoint
+        .chain_id()
+        .map_err(|error| format!("human sequencer chain id is unavailable: {error:?}"))?
+        != config.chain_id
+    {
+        return Err("human sequencer chain id mismatch".to_owned());
+    }
+    Ok(endpoint)
 }
 
 fn configured_registry_source(
@@ -971,27 +957,19 @@ fn start_shared_owner(
     }
     let deadline = Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_DEADLINE_MS")?);
     let human_limits = human_lni_limits(deadline)?;
-    let node_limits = Limits {
-        maximum_frame_bytes: human_limits
-            .maximum_frame_bytes
-            .max(layerx_client::evidence::MINIMUM_FINALITY_FRAME_BYTES),
-        ..human_limits
-    };
-    let node_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_NODE_LNI")?);
     let store_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_STORE")?);
     let socket_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_SOCKET")?);
     let session_key_root = PathBuf::from(required("LAYERX_AGENT_HUMAN_SESSION_KEY_ROOT")?);
     let session_secret_path =
         PathBuf::from(required("LAYERX_AGENT_HUMAN_SESSION_OPERATOR_SECRET_FILE")?);
-    if !node_path.is_absolute()
-        || !store_path.is_absolute()
+    if !store_path.is_absolute()
         || !socket_path.is_absolute()
         || !session_key_root.is_absolute()
         || !session_secret_path.is_absolute()
     {
         return Err("human daemon paths must be absolute".to_owned());
     }
-    let node: Client = connect_human_node(node_path, node_limits)?;
+    let node = connect_human_node()?;
     let mut authority = connect_human_authority(deadline, &peers)?;
     let shared_store =
         Arc::new(Mutex::new(Store::open(&store_path).map_err(|error| {

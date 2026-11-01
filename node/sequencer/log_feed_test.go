@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/local"
+	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
@@ -23,12 +24,20 @@ import (
 )
 
 type logFeedReceipter struct {
-	r *sequencer.Receipter
+	r   *sequencer.Receipter
+	evm *evmkeeper.Keeper
 }
 
-func (a logFeedReceipter) Accept(txBytes []byte) ([]byte, error) {
-	_, signed, err := a.r.Accept(txBytes)
-	return signed, err
+func (a logFeedReceipter) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
+	acc, signed, err := a.r.Accept(txBytes)
+	if err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
+	exec, err := a.evm.GetTransientReceipt(acc.ReceiptContext, common.Hash(acc.ActivityID), uint64(acc.TxIndex))
+	if err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
+	return evmrpc.AcceptedSend{Receipt: signed, Height: acc.Height, Exec: exec}, nil
 }
 
 type publishedReceiptLog struct {
@@ -54,7 +63,7 @@ func logFeedRPC(t *testing.T, rh *receiptHarness, feed *evmrpc.ReceiptLogFeed) *
 		rh.app.BaseApp, rh.app.TracerAnteHandler, ctxProvider,
 		func(int64) client.TxConfig { return app.MakeEncodingConfig().TxConfig },
 		t.TempDir(), nil,
-		evmrpc.NewSequencerOption(logFeedReceipter{rh.r}, feed),
+		evmrpc.NewSequencerOption(logFeedReceipter{r: rh.r, evm: &rh.app.EvmKeeper}, feed),
 	)
 	require.NoError(t, err)
 	require.NoError(t, server.Start())

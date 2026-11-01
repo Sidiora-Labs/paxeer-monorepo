@@ -79,22 +79,30 @@ func TestReceiptSourceRecordsAcceptedSend(t *testing.T) {
 	source.Committed(vectorHeight)
 	got, err = source.SequencerSend(hash)
 	require.NoError(t, err)
-	require.Nil(t, got)
+	require.Equal(t, &send, got)
 	got, err = source.SequencerSend(nextHash)
 	require.NoError(t, err)
 	require.Equal(t, &next, got)
 
 	source.Record(lastHash, last)
+	got, err = source.SequencerSend(hash)
+	require.NoError(t, err)
+	require.Nil(t, got, "a full source evicts its oldest committed send to admit a pending one")
+	for hash, want := range map[common.Hash]evmrpc.SequencerSend{nextHash: next, lastHash: last} {
+		got, err := source.SequencerSend(hash)
+		require.NoError(t, err)
+		require.Equal(t, &want, got)
+	}
 	source.Committed(vectorHeight - 1)
 	source.Record(hash, send)
 	got, err = source.SequencerSend(hash)
 	require.NoError(t, err)
-	require.Nil(t, got, "a late record must not restore a committed receipt")
+	require.Nil(t, got, "a record at or below the watermark records nothing and never restores an evicted send")
 	source.Committed(vectorHeight + 3)
-	for _, hash := range []common.Hash{nextHash, lastHash} {
+	for hash, want := range map[common.Hash]evmrpc.SequencerSend{nextHash: next, lastHash: last} {
 		got, err := source.SequencerSend(hash)
 		require.NoError(t, err)
-		require.Nil(t, got)
+		require.Equal(t, &want, got)
 	}
 
 	var zero sequencer.ReceiptSource
@@ -105,7 +113,7 @@ func TestReceiptSourceRecordsAcceptedSend(t *testing.T) {
 	zero.Committed(vectorHeight + 1)
 	got, err = zero.SequencerSend(nextHash)
 	require.NoError(t, err)
-	require.Nil(t, got)
+	require.Equal(t, &next, got)
 }
 
 func TestReceiptSourceUnknownHashNil(t *testing.T) {
@@ -123,4 +131,111 @@ func TestReceiptSourceUnknownHashNil(t *testing.T) {
 	got, err = source.SequencerSend(unknown)
 	require.NoError(t, err)
 	require.Nil(t, got)
+}
+
+func TestReceiptSourceServesCommittedSend(t *testing.T) {
+	hash, send := receiptSourceAcceptedSend(t, 7)
+	source := sequencer.NewReceiptSource(2)
+	source.Record(hash, send)
+	for _, height := range []int64{7, 9} {
+		source.Committed(height)
+		got, err := source.SequencerSend(hash)
+		require.NoError(t, err)
+		require.Equal(t, &send, got)
+	}
+}
+
+func TestReceiptSourceEvictsOldestCommittedSendAtCapacity(t *testing.T) {
+	firstHash, first := receiptSourceAcceptedSend(t, 1)
+	secondHash, second := receiptSourceAcceptedSend(t, 2)
+	thirdHash, third := receiptSourceAcceptedSend(t, 3)
+	fourthHash, fourth := receiptSourceAcceptedSend(t, 4)
+
+	assertSend := func(source *sequencer.ReceiptSource, hash common.Hash, want *evmrpc.SequencerSend) {
+		t.Helper()
+		got, err := source.SequencerSend(hash)
+		require.NoError(t, err)
+		require.Equal(t, want, got)
+	}
+
+	source := sequencer.NewReceiptSource(2)
+	source.Record(firstHash, first)
+	source.Record(secondHash, second)
+	source.Committed(2)
+	source.Record(thirdHash, third)
+	assertSend(source, firstHash, nil)
+	assertSend(source, secondHash, &second)
+	assertSend(source, thirdHash, &third)
+	source.Record(fourthHash, fourth)
+	assertSend(source, firstHash, nil)
+	assertSend(source, secondHash, nil)
+	assertSend(source, thirdHash, &third)
+	assertSend(source, fourthHash, &fourth)
+	require.PanicsWithValue(t, "sequencer: receipt source capacity exhausted before commit", func() {
+		source.Record(firstHash, first)
+		// A late record is ignored even when no committed send remains to evict.
+		source.Record(secondHash, second)
+		nextHash, next := receiptSourceAcceptedSend(t, 5)
+		source.Record(nextHash, next)
+	})
+	assertSend(source, thirdHash, &third)
+	assertSend(source, fourthHash, &fourth)
+
+	uncommitted := sequencer.NewReceiptSource(2)
+	uncommitted.Record(firstHash, first)
+	uncommitted.Record(secondHash, second)
+	require.PanicsWithValue(t, "sequencer: receipt source capacity exhausted before commit", func() {
+		uncommitted.Record(thirdHash, third)
+	})
+	assertSend(uncommitted, firstHash, &first)
+	assertSend(uncommitted, secondHash, &second)
+	assertSend(uncommitted, thirdHash, nil)
+
+	t.Run("height order precedes insertion order", func(t *testing.T) {
+		source := sequencer.NewReceiptSource(2)
+		source.Record(secondHash, second)
+		source.Record(firstHash, first)
+		source.Committed(2)
+		source.Record(thirdHash, third)
+		got, err := source.SequencerSend(firstHash)
+		require.NoError(t, err)
+		require.Nil(t, got)
+		got, err = source.SequencerSend(secondHash)
+		require.NoError(t, err)
+		require.Equal(t, &second, got)
+	})
+
+	t.Run("insertion order breaks height ties", func(t *testing.T) {
+		in := vectorInput()
+		in.Accepted.Height = 1
+		in.Accepted.ActivityID[0] ^= 0x80
+		in.Accepted.SeqHash = expectedSeqHash(in.Accepted.PrevSeqHash, in.Accepted.Seq, in.Accepted.ActivityID)
+		in.EVM.Status = 0
+		in.EVM.VmError = "execution reverted"
+		receipt, err := vectorKey(t).SignReceipt(in)
+		require.NoError(t, err)
+		sameHeightHash := common.Hash(in.Accepted.ActivityID)
+		sameHeight := first
+		sameHeight.Receipt = receipt
+		source := sequencer.NewReceiptSource(2)
+		source.Record(firstHash, first)
+		source.Record(sameHeightHash, sameHeight)
+		source.Record(firstHash, first)
+		source.Committed(1)
+		source.Committed(2)
+		source.Record(thirdHash, third)
+		got, err := source.SequencerSend(firstHash)
+		require.NoError(t, err)
+		require.Nil(t, got)
+		got, err = source.SequencerSend(sameHeightHash)
+		require.NoError(t, err)
+		require.Equal(t, &sameHeight, got)
+		source.Record(fourthHash, fourth)
+		got, err = source.SequencerSend(sameHeightHash)
+		require.NoError(t, err)
+		require.Nil(t, got)
+		got, err = source.SequencerSend(thirdHash)
+		require.NoError(t, err)
+		require.Equal(t, &third, got)
+	})
 }

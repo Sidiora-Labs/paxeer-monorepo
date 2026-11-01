@@ -38,6 +38,11 @@ public final class GeneratedCatalogueProgramsTest {
             "program.receipt", "eth_getLogs",
             "program.simulate", "eth_call");
         assertEquals(53, GeneratedContract.AGENT_OPERATIONS.size());
+        assertEquals(Set.class, GeneratedContract.class.getDeclaredField("AGENT_OPERATIONS").getType());
+        assertEquals(0, GeneratedContract.class.getDeclaredClasses().length);
+        assertEquals(Set.of("HUMAN_ROUTES"), Arrays.stream(GeneratedContract.class.getDeclaredFields())
+            .filter(field -> Map.class.isAssignableFrom(field.getType()))
+            .map(java.lang.reflect.Field::getName).collect(Collectors.toSet()));
         assertFalse(GeneratedContract.AGENT_OPERATIONS.contains("faucet.claim"));
         assertEquals(GeneratedContract.AGENT_OPERATIONS, GeneratedSchema.AGENT.keySet());
         assertEquals(calls.keySet(), GeneratedContract.AGENT_OPERATIONS.stream()
