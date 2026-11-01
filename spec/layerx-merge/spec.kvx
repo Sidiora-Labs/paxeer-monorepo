@@ -118202,7 +118202,7 @@ do_5 = "Finding 9.25.7.2: continue from attempt 4 (51ee92afc) keeping fee_policy
 
 [task.9.25.6]
 title = "Restore the daemon's capability, account and budget-state reads from committed chain state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.3", "9.25.8", "9.25.11", "9.25.16"]
@@ -191051,7 +191051,7 @@ qualification = "UNRUN"
 
 [task.18.1348.1]
 title = "Issue #1348: Retire the wiki relay and archive operator guide and its Home link"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191146,7 +191146,7 @@ qualification = "UNRUN"
 
 [task.18.1350.1]
 title = "Issue #1350: List block-committed instead of the retired words in the webhook displayed-levels tables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -193222,7 +193222,7 @@ qualification = "UNRUN"
 
 [task.18.1425.1]
 title = "Issue #1425: Drop the panic case from the returned-error commit listener test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.98.9"]
