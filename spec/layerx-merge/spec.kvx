@@ -16144,6 +16144,10 @@ ac_1 = "verify_native_budget_proof accepts an export whose finality block hash a
 title = "The budget proof v2 fixture's owner DID decodes in layerx-client"
 ac_1 = "Every layerx_did in tests/vectors/budget-proof-v2/node-answers.json is did:layerx: followed by 64 lowercase hexadecimal characters, the generator test asserts it, and the regenerated fixture equals the generator's output byte for byte."
 
+[req.92515]
+title = "Every test target of layerx-agentd compiles against the rewritten budget proof module"
+ac_1 = "cargo build --locked -p layerx-agentd --tests succeeds, tests/budget_mutations_layerxpay.rs no longer names CommittedBudgetProofTrust, and the budget proof v2 verification, tampering and owner refusal are covered by the lib tests of budget_proof.rs."
+
 [req.92511]
 title = "EVM storage slots are proven as ICS23 witnesses through the app root"
 ac_1 = "verify_storage_witness accepts the node's eth_getProof answer for a slot under the block's stateRoot and refuses a changed value, a changed key, a foreign store root and a foreign app hash."
@@ -33389,6 +33393,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.9.25.15]
+title = "Port the layerxpay budget mutation test off the budget proof trust that 9.25.10 replaced"
+reqs = ["92515.1"]
+touches = ["services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering", "services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs::budget_create_prepares_create_budget_calldata"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test budget_mutations_layerxpay 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --exact budget::budget_proof::tests::budget_proof_v2_node_answers_fixture_is_current budget::budget_proof::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 2 passed'"
+do_1 = "Task 9.25.10 (9f2f0adf8) rewrote services/agent/crates/layerx-agentd/src/budget/budget_proof.rs: CommittedBudgetProofTrust, which carried a tenant, a principal, an owner account and a decoded ProtocolBudgetState, is gone, and verify_budget_proof now takes a BudgetProofVerifier, whose implementation BudgetProofTrust (:20-31) re-executes the getBudget call against a ServedCheckpoint and a node endpoint. services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs:2 still imports CommittedBudgetProofTrust and the test budget_proof_v2_carries_the_committed_height (:212-290) builds one, so every --tests build of layerx-agentd fails at that import (9.25.11 attempt 3). Delete that test function and the budget_proof import line it alone used (BudgetProofError and verify_budget_proof are used nowhere else in the file; check with grep before removing them); budget_create_prepares_create_budget_calldata (:93) and everything else in the file stay."
+symbols = ["budget_proof_v2_carries_the_committed_height", "CommittedBudgetProofTrust", "BudgetProofTrust", "budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
 
 [capability.17.5.13]
 title = "Install the Python SDK from its services/agent path in make platform-sample-install"
@@ -110571,7 +110584,7 @@ title = "Decode and verify the node's eth_getProof ICS23 storage witness in laye
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.8"]
+requires = ["9.25.8", "9.25.15"]
 reqs = ["92511.1"]
 capabilities = ["9.25.11"]
 interfaces = []
@@ -110599,6 +110612,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 9.25.11.1 and decision 2207: continue from attempt 1 (3d00000a8) keeping storage_witness.rs, the vector, the generator test, the ported module_state.rs, rpc/evidence.rs, proof_bundle.rs and the three client tests. In sequencer.rs restore AccountProof, StorageProof, account_proof and decode_account_proof exactly as 7c9d46e36 has them, with one doc comment on AccountProof naming task 9.25.13 as the task that retires them; the pub type StorageProof re-export of module_state.rs:12 stays deleted. Port services/agent/crates/layerx-agentd/tests/proof_bundle_v2.rs onto the new AccountState: its node double answers eth_getProof for the vector's address and slot with the ops of programs/tests/vectors/ics23-evm-storage-app-hash.json and the checkpoint under test carries that vector's height and app_hash; the AccountProof at :46 and :129-134 and every balance, nonce, code_hash and storage_hash expectation leave; the tampering cases become a flipped storage value and a foreign app hash, each refused with its own error, and the refusal-before-eth_getProof case at :350 stays. A shape the vector cannot express is a finding naming the field and the owning task, not a local fixture. The verify gate adds the proof bundle test target. Build once, verify once."
 do_7 = "Finding 9.25.11.2 and decision 2209: continue from attempt 2 (61529eece) keeping every file of it, rebased onto main (task 9.25.5 changed protocol_evidence.rs and read/checkpoint.rs outside the lines named here). In read/checkpoint.rs replace the AccountProof import at :6 with StorageWitness from layerx_client::sequencer, declare ProofBundleRequest.account_proof (:460) as Option<&'a [StorageWitness]> and ServedProofBundle.account_proof (:483) as Option<super::proof_bundle_owner::AccountState>, so read/proof_bundle.rs:127-278 compiles as attempt 2 wrote it. In protocol_evidence.rs port verified_program_record (:1903): its last parameter is calldata: &[u8] in place of key; after the existing header and height checks it acquires crate::read::ServedCheckpoint::acquire_at_committed_block(node, height), mapping CheckpointReadError::Rpc to Unavailable and every other variant to Refused, and calls layerx_client::rpc::module_state::module_state(node, calldata, ModuleReadContext { precompile (eighteen zero bytes then 0x10, 0x1d, as :1943 builds it), committed_height: height, block_hash: checkpoint.block_hash, app_hash: checkpoint.app_hash }), mapping ModuleReadError::Rpc to Unavailable and the other variants to Refused; the evidence().level() and state_root() comparisons at :1961-1962 leave together with the AccountEvidencePolicy and RootSelector construction, the re-read of block_number and the block at :1963-1968 stays, and the result is VerifiedStateEvidence { canonical_state: value.canonical_bytes().to_vec(), level: VerificationLevel::STATE_PROVEN, observed_head_sequence: height }. verified_program_owner (:1882) passes the calldata of getProgramOwner(bytes32), the first four bytes of the keccak of the signature then the program id as read/program_node.rs programs_call builds it, and decodes the 32-byte result as the owner, Refused when the result is not 32 bytes or is zero; program_owner_key and decode_program_owner are deleted with their four tests at :1992-2034 and the record helper of that tests module. budget/execution_state.rs:189 compiles unchanged because it passes a byte slice; task 9.25.6 ports it (decision 2209) and this task does not touch it. Keep the build and verify commands; build once, verify once."
+do_8 = "Finding 9.25.11.3: continue from attempt 3 (99b0818b8) unchanged once task 9.25.15 is on main, so the --tests build of layerx-agentd compiles; rebase onto main, change nothing, build once and verify once."
 
 [task.17.5.12]
 title = "Build the agent TypeScript SDK before the web build and give its exports a default condition"
@@ -117188,6 +117202,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.25.15]
+title = "Port the layerxpay budget mutation test off the budget proof trust that 9.25.10 replaced"
+status = "pending"
+mode = "BUILD"
+wave = 36
+requires = []
+reqs = ["92515.1"]
+capabilities = ["9.25.15"]
+interfaces = []
+do_1 = "Task 9.25.10 (9f2f0adf8) rewrote services/agent/crates/layerx-agentd/src/budget/budget_proof.rs: CommittedBudgetProofTrust, which carried a tenant, a principal, an owner account and a decoded ProtocolBudgetState, is gone, and verify_budget_proof now takes a BudgetProofVerifier, whose implementation BudgetProofTrust (:20-31) re-executes the getBudget call against a ServedCheckpoint and a node endpoint. services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs:2 still imports CommittedBudgetProofTrust and the test budget_proof_v2_carries_the_committed_height (:212-290) builds one, so every --tests build of layerx-agentd fails at that import (9.25.11 attempt 3). Delete that test function and the budget_proof import line it alone used (BudgetProofError and verify_budget_proof are used nowhere else in the file; check with grep before removing them); budget_create_prepares_create_budget_calldata (:93) and everything else in the file stay."
+do_2 = "The deleted test's coverage lives in the lib tests of services/agent/crates/layerx-agentd/src/budget/budget_proof.rs: budget_proof_v2_node_answers_fixture_is_current (:593) and budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering (:776). Read the second test's refusal cases: if no case yet verifies the fixture export with a BudgetProofTrust whose owner is a different DID and asserts Err(BudgetProofError::Refused), add that case to the test (the owner comparison the deleted test asserted); otherwise change nothing in the lib."
+do_3 = "The build gate compiles every test target of layerx-agentd, which is what 9.25.11 and every later agent task builds; the verify gate runs the remaining test of the file and the two lib tests."
+symbols = ["budget_proof_v2_carries_the_committed_height", "CommittedBudgetProofTrust", "BudgetProofTrust", "budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
+touches = ["services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering", "services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs::budget_create_prepares_create_budget_calldata"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test budget_mutations_layerxpay 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --exact budget::budget_proof::tests::budget_proof_v2_node_answers_fixture_is_current budget::budget_proof::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 2 passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore tests/budget_mutations_layerxpay.rs from b6d91116d; the layerx-agentd test targets fail to compile again and 9.25.11 stays blocked."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.17.5.13]
 title = "Install the Python SDK from its services/agent path in make platform-sample-install"
 status = "pending"
@@ -117280,7 +117324,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.25.12]
 title = "Verify the authority's committed budget proof v2 export in the daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["9.25.10", "8.98.18"]
@@ -117309,7 +117353,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.98.18]
 title = "Bind the authority's human budget proof v2 to the committed block and commit its fixture export"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["8.98.17", "9.25.10", "9.25.14"]
@@ -162598,6 +162642,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 12.35.3.1: continue from attempt 1 (6920ab6ad) keeping the rewrites of do_1 to do_3. In send_reaches_committed_only_with_a_matching_explorer_answer drop the three environment requirements, the readExplorerStatus call against a real explorer and the otherHash transaction: the page.route handler for **/api/v2/transactions/*/status fulfils every request itself with a JSON document of the shape explorerAnswers.committed in apps/wallet/src/account/StatusLadder.test.tsx carries (rung committed, the requested hash, a block_number), built from the sent transfer's node receipt once readSequencerReceipt reports rung committed with a block: in the first phase block_number is the receipt block plus one and the test asserts li[data-rung=committed] keeps data-reached false after at least one served answer; in the second phase block_number equals the receipt block and the test asserts the committed step is reached with data-source explorer. Record the served answers and assert both phases answered at least once. WRONG_RPC and the manifest stay as the other tests use them; the test needs nothing beyond the fixture manifest and the node RPC the other send tests read. Build once, verify once."
 
 [task.12.35.4]
 title = "Start the in-tree node as a sequencer primary with a standby for local qualification"
