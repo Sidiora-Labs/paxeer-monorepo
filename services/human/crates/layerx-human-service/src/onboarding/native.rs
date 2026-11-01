@@ -1,6 +1,6 @@
 use super::*;
 use crate::agents::{NativeFundingEvidence, ProtocolEvidence};
-use layerx_crypto::onboarding::{OnboardingConsent, SponsoredRegistration};
+use layerx_crypto::payments::{OnboardingConsent, SponsoredRegistration};
 use layerx_types::account::AccountId;
 use layerx_types::payload::{ActivityType, ModuleId};
 use layerx_types::rung::Rung;
