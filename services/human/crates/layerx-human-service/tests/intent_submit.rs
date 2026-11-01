@@ -1,3 +1,6 @@
+#[path = "retired_crypto_codec_2.rs"]
+mod retired_crypto_codec_2;
+
 use layerx_human_test_support as support;
 
 use std::collections::BTreeMap;
@@ -25,10 +28,6 @@ use layerx_agentd::prepare::{
 use layerx_agentd::receipt::{self as daemon_receipt, ReceiptLookupKey as DaemonReceiptKey};
 use layerx_agentd::sign::{attach_kernel_signature, verify_kernel_before_submit};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
-use layerx_human_service::binding::{
-    AgentBindingContract, AgentBindingError, AgentBindingReceipt, AgentSubmission,
-    BindingAgentRequest, BindingJourney,
-};
 use layerx_human_service::custody::{
     CustodySigner, EnvelopeKms, KeyClass, KeyEntropy, KeyId, Keystore, SigningLimits,
 };
@@ -147,16 +146,6 @@ fn evm_address(key: &EvmSigningKey) -> EvmAddress {
     let mut address = [0_u8; 20];
     address.copy_from_slice(&hash[12..]);
     EvmAddress::new(address)
-}
-
-fn ownership_signature(key: &EvmSigningKey, digest: [u8; 32]) -> [u8; 65] {
-    let (signature, recovery) = key
-        .sign_prehash_recoverable(&digest)
-        .unwrap_or_else(|error| panic!("ownership signature: {error}"));
-    let mut bytes = [0_u8; 65];
-    bytes[..64].copy_from_slice(&signature.to_bytes());
-    bytes[64] = recovery.to_byte().saturating_add(27);
-    bytes
 }
 
 fn fees() -> FeeSchedule {
@@ -309,18 +298,42 @@ impl CorePreparationBoundary for RecordedCore {
     }
 }
 
-fn raw_transaction(nonce: usize, data: u8) -> Vec<u8> {
-    layerx_crypto::evm_transaction::Eip1559Call {
-        chain_id: 125,
-        nonce: u64::try_from(nonce).unwrap_or_else(|error| panic!("nonce: {error:?}")),
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 10,
-        gas_limit: 100_000,
-        to: [0x22; 20],
-        data: vec![data],
-    }
-    .sign(&[0xa5; 32])
-    .unwrap_or_else(|error| panic!("sign transaction: {error:?}"))
+fn raw_transaction(nonce: usize, payload: &[u8]) -> Vec<u8> {
+    use layerx_crypto::account_derivation::derive_from_seed;
+    use layerx_crypto::disclosure::call::bind_call;
+    use layerx_crypto::local::LocalSigner;
+    use layerx_crypto::send::{ledger_payment_call, CallOptions};
+    use layerx_crypto::signer::sign_disclosed_call;
+
+    let account = derive_from_seed(&[0xa5; 32], 0)
+        .unwrap_or_else(|error| panic!("transaction account: {error:?}"));
+    let signer = LocalSigner::from_derived_account(&account);
+    let from = account.evm_address();
+    let disclosed = ledger_payment_call(
+        payload,
+        &CallOptions {
+            from,
+            chain_id: 125,
+            nonce: u64::try_from(nonce).unwrap_or_else(|error| panic!("nonce: {error:?}")),
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 10,
+            gas_limit: 100_000,
+        },
+    )
+    .unwrap_or_else(|error| panic!("payment call: {error:?}"));
+    assert_eq!(
+        bind_call(&disclosed.call, from)
+            .unwrap_or_else(|error| panic!("call disclosure: {error:?}")),
+        disclosed.disclosure,
+    );
+    let signature = ready(sign_disclosed_call(
+        &signer,
+        &disclosed.call,
+        &disclosed.disclosure,
+        from,
+    ))
+    .unwrap_or_else(|error| panic!("sign transaction: {error:?}"));
+    layerx_crypto::evm_transaction::assemble(&disclosed.call, &signature)
 }
 
 struct RealAgentLayer {
@@ -489,7 +502,10 @@ impl AgentBoundary for RealAgentLayer {
                 .map_err(|_| AgentBoundaryError::CorruptResponse)?
                 .to_vec()
         } else {
-            raw_transaction(self.outbox_submissions.len(), key[0])
+            raw_transaction(
+                self.outbox_submissions.len(),
+                prepared.envelope.payload().as_bytes(),
+            )
         };
         let submission_id = match self
             .outbox
@@ -697,153 +713,6 @@ fn push_bytes(output: &mut Vec<u8>, value: &[u8]) {
     output.extend_from_slice(value);
 }
 
-struct BindingCore {
-    registry: ModuleRegistry,
-}
-
-impl CorePreparationBoundary for BindingCore {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(CorePreparationState {
-            network_id: NETWORK_ID,
-            account_sequence: 5,
-            protocol_timestamp: 100,
-            observed_head_sequence: 91,
-            module_registry: self.registry.clone(),
-        })
-    }
-}
-
-struct BindingAgent {
-    signer: layerx_crypto::local::LocalSigner,
-    store: AgentStore,
-    outbox: Outbox,
-    outbox_submissions: BTreeMap<[u8; 32], [u8; 32]>,
-    tenant: TenantId,
-}
-
-impl AgentBindingContract for BindingAgent {
-    fn submit_binding(
-        &mut self,
-        request: BindingAgentRequest<'_>,
-    ) -> Result<AgentSubmission, AgentBindingError> {
-        use layerx_crypto::signer::{sign_disclosed, Signer as _};
-        let registry = registry();
-        let mut core = BindingCore {
-            registry: registry.clone(),
-        };
-        let prepared = prepare_activity(
-            &mut core,
-            PreparationDefaults {
-                timestamp_span: 30,
-                fee_limit: Amount::from_u128(1),
-                maximum_payload_bytes: 512,
-            },
-            PrepareRequest {
-                actor: request.actor.clone(),
-                authority: Authority::owner(&self.signer.public_key())
-                    .map_err(|_| AgentBindingError::ContractViolation)?,
-                activity_type: request.compiled.activity_type(),
-                expected_account_sequence: Some(5),
-                timestamp_bound: None,
-                fee_limit: Some(Amount::from_u128(1)),
-                idempotency_key: request.idempotency_key,
-                payload: request.compiled.payload().as_bytes().to_vec(),
-                declared_payload_limit: 512,
-            },
-        )
-        .map_err(|_| AgentBindingError::ContractViolation)?;
-        let signature = ready(sign_disclosed(
-            &self.signer,
-            &prepared.canonical_bytes,
-            &prepared.disclosure,
-            &registry,
-        ))
-        .map_err(|_| AgentBindingError::Refused)?;
-        let signed = attach_kernel_signature(&prepared, *signature.as_bytes())
-            .map_err(|_| AgentBindingError::ContractViolation)?;
-        let verified =
-            verify_kernel_before_submit(&signed, &prepared, &self.signer.public_key(), &registry)
-                .map_err(|_| AgentBindingError::ContractViolation)?;
-        let key = request.idempotency_key.bytes();
-        let activity_id = verified.activity_id();
-        let raw = if let Some(id) = self.outbox_submissions.get(&key) {
-            self.outbox
-                .exact_signed_bytes(*id)
-                .map_err(|_| AgentBindingError::ContractViolation)?
-                .to_vec()
-        } else {
-            raw_transaction(self.outbox_submissions.len(), key[0])
-        };
-        let submission_id = self
-            .outbox
-            .enqueue(&mut self.store, self.tenant.clone(), raw)
-            .map_err(|_| AgentBindingError::Unavailable)?;
-        self.outbox_submissions.insert(key, submission_id);
-        Ok(AgentSubmission {
-            submission_id,
-            activity_id,
-        })
-    }
-}
-
-fn binding_receipt(submission: AgentSubmission, address: EvmAddress) -> AgentBindingReceipt {
-    let signer = SigningKey::from_bytes(&[0x35; 32]);
-    let encode = |signature: Option<[u8; 64]>| {
-        let mut output = Vec::new();
-        push_u16(&mut output, layerx_intents::canonical::PROTOCOL_VERSION);
-        push_u16(&mut output, 0x5201);
-        push_u16(&mut output, layerx_intents::canonical::PROTOCOL_VERSION);
-        push_bytes(&mut output, &submission.activity_id);
-        push_u64(&mut output, 9);
-        push_bytes(&mut output, &[2; 32]);
-        push_bytes(&mut output, &[3; 32]);
-        push_bytes(&mut output, &[8; 32]);
-        output.extend_from_slice(&0_i32.to_be_bytes());
-        output.extend_from_slice(&0_u32.to_be_bytes());
-        output.extend_from_slice(&0_u128.to_be_bytes());
-        push_bytes(&mut output, &[4; 32]);
-        push_u16(&mut output, ModuleId::Governance as u16);
-        output.extend_from_slice(&1_u32.to_be_bytes());
-        output.extend_from_slice(&1_u32.to_be_bytes());
-        output.push(4);
-        push_bytes(&mut output, &[5; 32]);
-        output.extend_from_slice(&0_u128.to_be_bytes());
-        push_bytes(&mut output, &[6; 32]);
-        output.extend_from_slice(&100_u128.to_be_bytes());
-        output.extend_from_slice(&100_u128.to_be_bytes());
-        push_u64(&mut output, 1);
-        let mut recorded = [0_u8; 32];
-        recorded[12..].copy_from_slice(&address.bytes());
-        push_bytes(&mut output, &recorded);
-        output.extend_from_slice(&10_u128.to_be_bytes());
-        output.extend_from_slice(&10_u128.to_be_bytes());
-        push_bytes(&mut output, &[9; 32]);
-        push_bytes(&mut output, &[10; 32]);
-        push_bytes(&mut output, &[11; 32]);
-        push_u64(&mut output, 1_000);
-        output.push(u8::from(signature.is_some()));
-        if let Some(signature) = signature {
-            push_bytes(&mut output, &signature);
-        }
-        output
-    };
-    let mut digest = Sha256::new();
-    digest.update(b"LXP/v1/receipt\0");
-    digest.update(encode(None));
-    let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
-    AgentBindingReceipt {
-        submission_id: submission.submission_id,
-        canonical_receipt: encode(Some(signature.to_bytes())),
-        authorized_batch: AuthorizedBatch::new(
-            [4; 32],
-            [5; 32],
-            [2; 32],
-            [3; 32],
-            signer.verifying_key().to_bytes(),
-        ),
-    }
-}
-
 struct Fixture {
     root: std::path::PathBuf,
     store_root: std::path::PathBuf,
@@ -984,47 +853,6 @@ impl Fixture {
             asset: leg.asset(),
             amount: leg.amount(),
         }
-    }
-
-    fn bind_wallet(&self, key: &EvmSigningKey) -> BindingJourney {
-        let binding = BindingJourney::new(registry());
-        let wallet = evm_address(key);
-        let mut store = self.store();
-        let mut scope = store
-            .principal(&self.principal)
-            .unwrap_or_else(|error| panic!("binding scope: {error}"));
-        let did = Did::new(b"did:layerx:human").unwrap_or_else(|error| panic!("DID: {error:?}"));
-        let network =
-            NetworkId::new(NETWORK_ID).unwrap_or_else(|error| panic!("network: {error:?}"));
-        let statement = BindingJourney::issue_statement(&did, network, wallet, 100, 60)
-            .unwrap_or_else(|error| panic!("binding statement: {error}"));
-        let mut agent = BindingAgent {
-            signer: layerx_crypto::local::LocalSigner::new([0xa5; 32]),
-            store: AgentStore::open(&self.root.join("binding-agent"))
-                .unwrap_or_else(|error| panic!("binding agent store: {error}")),
-            outbox: Outbox::default(),
-            outbox_submissions: BTreeMap::new(),
-            tenant: TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}")),
-        };
-        let submission = binding
-            .submit_initial(
-                &mut scope,
-                &statement,
-                &ownership_signature(key, statement.signing_digest()),
-                IdempotencyKey::new([0x41; 32]),
-                &mut agent,
-                101,
-            )
-            .unwrap_or_else(|error| panic!("binding submit: {error}"));
-        let _ = binding
-            .finalize(
-                &mut scope,
-                &binding_receipt(submission, wallet),
-                102,
-                &TraceId::mint([0x19; 16]),
-            )
-            .unwrap_or_else(|error| panic!("binding finalize: {error}"));
-        binding
     }
 }
 
@@ -1173,7 +1001,6 @@ fn intent_submit_custody_deposit_creates_a_deposit_journey_past_getting_ready() 
     let fixture = Fixture::new("intent-submit-deposit");
     let key = evm_key();
     let wallet = evm_address(&key);
-    let binding = fixture.bind_wallet(&key);
     let plan = deposit_plan_of(wallet);
     assert_eq!(
         plan.legs()
@@ -1192,15 +1019,8 @@ fn intent_submit_custody_deposit_creates_a_deposit_journey_past_getting_ready() 
     let mut scope = store
         .principal(&fixture.principal)
         .unwrap_or_else(|error| panic!("scope: {error}"));
-    let journey = start_deposit_journey(
-        &mut scope,
-        &plan,
-        &request,
-        &expectation,
-        &deposit,
-        &binding,
-    )
-    .unwrap_or_else(|error| panic!("start deposit: {error}"));
+    let journey = start_deposit_journey(&mut scope, &plan, &request, &expectation, &deposit)
+        .unwrap_or_else(|error| panic!("start deposit: {error}"));
     let status = journey
         .status()
         .unwrap_or_else(|error| panic!("status: {error}"));
@@ -1214,15 +1034,7 @@ fn intent_submit_custody_deposit_creates_a_deposit_journey_past_getting_ready() 
     altered.journey_id =
         JourneyId::new("jrn_altereddeposit").unwrap_or_else(|error| panic!("id: {error}"));
     assert_eq!(
-        start_deposit_journey(
-            &mut scope,
-            &plan,
-            &request,
-            &expectation,
-            &altered,
-            &binding
-        )
-        .err(),
+        start_deposit_journey(&mut scope, &plan, &request, &expectation, &altered,).err(),
         Some(SubmitRefusal::DepositMismatch)
     );
 }
@@ -1676,7 +1488,6 @@ fn unified_shape_deposit_forward_keeps_one_parent_and_gates_forwarding_on_the_cr
     let fixture = Fixture::new("unified-shape-forward");
     let key = evm_key();
     let wallet = evm_address(&key);
-    let binding = fixture.bind_wallet(&key);
     let plan = planned(
         Endpoint::PaxeerWallet,
         worker(),
@@ -1699,15 +1510,7 @@ fn unified_shape_deposit_forward_keeps_one_parent_and_gates_forwarding_on_the_cr
             .principal(&fixture.principal)
             .unwrap_or_else(|error| panic!("scope: {error}"));
         assert_eq!(
-            start_deposit_journey(
-                &mut scope,
-                &plan,
-                &request,
-                &expectation,
-                &deposit,
-                &binding
-            )
-            .err(),
+            start_deposit_journey(&mut scope, &plan, &request, &expectation, &deposit,).err(),
             Some(SubmitRefusal::UnsupportedPlan)
         );
         assert_eq!(
@@ -1731,7 +1534,6 @@ fn unified_shape_deposit_forward_keeps_one_parent_and_gates_forwarding_on_the_cr
                 request,
                 &expectation,
                 deposit,
-                &binding,
                 kernel_start(routes, journey_id.clone(), &registry),
             )
             .err()
@@ -1777,7 +1579,6 @@ fn unified_shape_deposit_forward_keeps_one_parent_and_gates_forwarding_on_the_cr
             &request,
             &expectation,
             &deposit,
-            &binding,
             kernel_start(&routes, journey_id.clone(), &registry),
         )
         .unwrap_or_else(|error| panic!("start forward: {error}"));
@@ -1799,7 +1600,6 @@ fn unified_shape_deposit_forward_keeps_one_parent_and_gates_forwarding_on_the_cr
             &request,
             &expectation,
             &deposit,
-            &binding,
             kernel_start(&routes, journey_id.clone(), &registry),
         )
         .unwrap_or_else(|error| panic!("repeat forward: {error}"));
@@ -1819,7 +1619,6 @@ fn unified_shape_deposit_forward_keeps_one_parent_and_gates_forwarding_on_the_cr
                 &request,
                 &expectation,
                 &deposit,
-                &binding,
                 kernel_start(&routes, other.clone(), &registry),
             )
             .err(),
@@ -1844,7 +1643,6 @@ fn unified_shape_deposit_forward_keeps_one_parent_and_gates_forwarding_on_the_cr
                 &resized_request,
                 &expectation,
                 &deposit_for(&resized, &resized_request, wallet),
-                &binding,
                 kernel_start(&resized_routes, journey_id.clone(), &registry),
             )
             .err(),

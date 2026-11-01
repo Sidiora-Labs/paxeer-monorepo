@@ -15147,3 +15147,19 @@ symbol = "human_sources_containing"
 observed = "Attempts 1 and 2 (27e792250, 81ee2f825) deleted both configuration tests and built, but the new retirement test scans the human sources for the package name layerx-explorer-index and fails on the package's own src/lib.rs, src/reads.rs and the unified tests, which tasks 10.27.4, 10.27.5 and 10.27.7 delete."
 assumption = "The acceptance of this task is the two files; scanning for their names and the deleted binary's launch instead of the package name passes while the sibling deletions land."
 severity = "minor"
+
+[finding.18.1156.1.7]
+task = "18.1156.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "bound_activity"
+observed = "Attempt 11 (de1e21af6) implemented the task on a base without the PayBudgetFund arms of services/human/crates/layerx-human-service/src/agents/create.rs:555 and :624, so the build of layerx-human-service failed on the non-exhaustive match at :558 and no verify ran."
+assumption = "A fresh attempt on current main builds; the attempt's own work continues on a rebased tree."
+severity = "minor"
+
+[finding.18.1151.1.7]
+task = "18.1151.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:558"
+symbol = "bound_activity"
+observed = "Attempt 11 (a0df4e1cd) implemented the task on a base without the PayBudgetFund arms of services/human/crates/layerx-human-service/src/agents/create.rs:555 and :624, so the build of layerx-human-service failed on the non-exhaustive match at :558 and no verify ran."
+assumption = "A fresh attempt on current main builds; the attempt's own work continues on a rebased tree."
+severity = "minor"
