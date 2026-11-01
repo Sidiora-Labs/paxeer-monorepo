@@ -15883,3 +15883,19 @@ symbol = "OWNER"
 observed = "Attempt 1 (a88af5bbc, base ccffcb531) implemented decision 2205 in budget_state.rs and the fixture test; the build passed and the test failed at :440 with budget_proof_export_unavailable: Session::identity (budget_state.rs:96) reads px_getAccount through layerx_client PxEndpoint::account, whose identities decoder (layerx-client/src/px.rs:189-199) accepts a layerx_did only as did:layerx: followed by 64 hexadecimal characters, while the fixture carries did:layerx:budget-owner from the generator constant OWNER (task 9.25.10); the decode fails, no identity binds, produce_at returns Err(()) and the handler reports unavailable. The replay double, the session and the export code of this task are correct, and the daemon's fixture tests never ran the client's decoder."
 assumption = "Task 9.25.14 (decision 2210) regenerates the fixture with a conforming DID; this task requires it and continues unchanged."
 severity = "major"
+
+[finding.10.6.5.9]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/src/onboarding/native.rs:234"
+symbol = "accept_bootstrap_owner"
+observed = "Attempt 10 (5141249e7, base 0cc7a738e) applied the canonical owner port of do_13, built the test targets of both crates, passed the durable admission test and the intent_submit target, and native_onboarding_completes_only_at_committed failed at tests/native_onboarding_rungs.rs:320 unwrapping Err(EvidenceConflict): accept_bootstrap_owner (services/human/crates/layerx-human-service/src/onboarding/native.rs:234-235) compares evidence.actor with the record's DID bytes and evidence.owner_public_key with the ed25519 bootstrap key, while the EVM owner form that task 10.97.1 established and tests/support/canonical_owner.rs:146-152 produces carries the 20-byte sender as actor and the sender's authority word as owner_public_key; the same comparisons sit at :104-105, :398-399 and :433-434 and no file in the touches of this task can change them. The test and the port are correct."
+assumption = "Decision 2211: the four comparisons go and the signed transaction plus the payload bind the owner, as agents/create.rs run_protocol already does since 10.97.1; the onboarding source joins this task because its only consumer gate is the test this task ports."
+severity = "major"
+
+[finding.17.5.5.6]
+task = "17.5.5"
+file = "services/platform/Makefile.inc:41"
+symbol = "platform-sample-install"
+observed = "Attempt 13 (fe9f54c21, base 0cc7a738e) built, and the wave 4 aggregate failed in platform-sample-dependencies-ready (services/platform/Makefile.inc:60): the Platform Python environment had no layerx-sdk metadata because make platform-sample-install exits at its pip step within seconds, its line :41 installing from $(CURDIR)/agent/sdk/python, a path that 3422bafe2 moved to services/agent/sdk/python while rewriting :112, :277 and :350; the aggregate and the test of this task are unchanged and correct."
+assumption = "Task 17.5.13 (req.17513) corrects the path and proves the install step; this task requires it and continues unchanged."
+severity = "major"

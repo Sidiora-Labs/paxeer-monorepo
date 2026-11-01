@@ -12596,3 +12596,13 @@ fix = "before rewriting a pub API, grep the dependent crates for every use of th
 title = "Fixture DIDs take the form did:layerx: plus 64 hex characters"
 symptom = "a shared JSON-RPC fixture used the readable owner DID did:layerx:budget-owner; the daemon's generator and verifier tests passed, but the authority's export through layerx-client PxEndpoint refused with budget_proof_export_unavailable because px.rs identities() decodes a layerx_did only as did:layerx: followed by 64 hexadecimal characters, and produce_at hides which check returned Err(())"
 fix = "generate fixture identifiers in the node's rendered form and assert that form in the generator test; when a consumer collapses errors to Err(()), read every decoder on its path before ruling"
+
+[gotcha.2556]
+title = "A directory move left one $(CURDIR)-prefixed path behind in a recipe no gate ran"
+symptom = "3422bafe2 moved agent/ to services/agent/ and rewrote every root-anchored reference it matched, but services/platform/Makefile.inc:41 kept $(CURDIR)/agent/sdk/python because the $(CURDIR)/ prefix did not match the rewrite, and the only gate that runs make platform-sample-install is the wave 4 aggregate, which stayed red on other product checks for weeks before reaching it"
+fix = "after a directory move grep the old path in every prefix form ($(CURDIR)/, $PWD/, ./, bare) across Makefiles and scripts, and run every recipe that installs from the moved tree, not only the gates that compile it"
+
+[gotcha.2557]
+title = "EVM owner evidence refused by consumers that compare the actor with a DID"
+symptom = "after a producer switched ProtocolEvidence to the EVM owner form (actor = the 20-byte sender, owner_public_key = the sender's authority word), onboarding/native.rs kept four comparisons of evidence.actor with DID bytes and of evidence.owner_public_key with ed25519 keys and refused every ported test with EvidenceConflict, found only when the test port of a different task reached that site"
+fix = "when a producer changes the encoding of an identity field, enumerate every consumer that compares that field (grep for the field name) and port them in the same task or in tasks the test port requires; a comparison that can never be true in the new form is a product defect, not a test fault"
