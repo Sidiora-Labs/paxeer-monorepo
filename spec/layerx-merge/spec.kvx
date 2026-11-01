@@ -117600,7 +117600,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.94.10]
 title = "Map the wire envelope error in the estimate-fee test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117629,7 +117629,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.94.9]
 title = "Serve the landing block from the core public proof read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189988,7 +189988,7 @@ qualification = "UNRUN"
 
 [task.18.1312.1]
 title = "Issue #1312: Carry agent stream address metadata through pay genesis export and import"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["2.24.7"]
@@ -192633,7 +192633,7 @@ qualification = "UNRUN"
 
 [task.18.1391.1]
 title = "Issue #1391: Prove resolveContent returns a verified digest before showing a tampered commit blocks it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
