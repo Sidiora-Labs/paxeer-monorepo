@@ -60,7 +60,6 @@ reads its configuration from the environment; `--help` prints the same list:
 | `LAYERX_AUTHORITY_NETWORK_ID`, `LAYERX_AUTHORITY_WIRE_VERSION` | Values echoed in every answer; the wire version must equal the built protocol version |
 | `LAYERX_AUTHORITY_SEQUENCER_ID`, `LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY` | Pinned sequencer identity and key |
 | `LAYERX_AUTHORITY_FIRST_BATCH`, `LAYERX_AUTHORITY_LAST_BATCH` | Inclusive authorised batch range |
-| `LAYERX_AUTHORITY_GENESIS_TRUST`, `LAYERX_AUTHORITY_HANDOVER_FINALITY` | Protected native genesis trust artifact and the independent Paxeer verification policy it requires |
 
 ## Human agent contract
 

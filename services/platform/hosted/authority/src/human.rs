@@ -435,7 +435,7 @@ fn verify(
         &serde_json::to_vec(&record.replica_document).map_err(|_| ())?,
     )
     .map_err(|_| ())?;
-    if config.trust.is_none() && derived != *authorization {
+    if derived != *authorization {
         return Err(());
     }
     let facts = authorized_batch_by_activity(locator.activity_id, &receipt, &evidence, &derived)
