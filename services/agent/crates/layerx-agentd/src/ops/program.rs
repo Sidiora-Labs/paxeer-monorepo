@@ -1,12 +1,8 @@
 //! First-class program discovery, interface, simulation, and call operations.
 
-use layerx_client::evidence::{EvidenceError, ProgramStateSelector};
 use layerx_client::submit::{Submission, SubmitError};
 use layerx_crypto::ed25519;
-use layerx_programs::{
-    ProgramBundleError, ProgramId, ProgramInterface, ProgramLifecycle, ProtocolEvidenceError,
-    VerifiedProgramBundle,
-};
+use layerx_programs::{ProgramId, ProgramInterface, ProgramLifecycle, VerifiedProgramBundle};
 use layerx_programs_runtime::terminal::DecodedTerminal;
 use layerx_programs_runtime::{BudgetMeterRefusal, ProgramFailure};
 use layerx_proof::program::{
@@ -15,7 +11,7 @@ use layerx_proof::program::{
 use layerx_types::intent::{CapabilityRequest, ProgramCall, ProgramCallOutcome};
 use layerx_types::payload::{ModuleId, ModuleRegistry};
 use layerx_types::program_call::NativeProgramCall;
-use layerx_types::result::{KnownResult, ResultCode};
+use layerx_types::result::ResultCode;
 use layerx_wire::activity::decode_signed;
 use layerx_wire::hash::activity_id;
 use sha2::{Digest as _, Sha256};
@@ -395,7 +391,7 @@ impl NativeProgramSimulationTransport for EmulatorProgramSimulationTransport {
 }
 
 pub struct NodeProgramSimulationTransport<'a> {
-    client: &'a mut layerx_client::Client,
+    client: &'a mut layerx_client::sequencer::SequencerEndpoint,
     registry: ModuleRegistry,
     correlation_id: u64,
 }
@@ -403,7 +399,7 @@ pub struct NodeProgramSimulationTransport<'a> {
 impl<'a> NodeProgramSimulationTransport<'a> {
     #[must_use]
     pub fn new(
-        client: &'a mut layerx_client::Client,
+        client: &'a mut layerx_client::sequencer::SequencerEndpoint,
         registry: ModuleRegistry,
         correlation_id: u64,
     ) -> Self {
@@ -418,10 +414,9 @@ impl<'a> NodeProgramSimulationTransport<'a> {
         &mut self,
         signed_activity: &[u8],
     ) -> Result<RawProgramSimulation, ProgramOperationError> {
-        self.client
-            .simulate(&self.registry, signed_activity, self.correlation_id)
-            .map(raw_program_simulation)
-            .map_err(legacy_simulation_error)
+        // Decision 2196: task 9.25.4 ports program simulation to EVM calls.
+        let _ = signed_activity;
+        Err(ProgramOperationError::Unavailable)
     }
 }
 
@@ -443,46 +438,6 @@ impl NativeProgramSimulationTransport for NodeProgramSimulationTransport<'_> {
         signed_activity: &[u8],
     ) -> Result<RawProgramSimulation, ProgramOperationError> {
         self.simulate_signed_activity(signed_activity)
-    }
-}
-
-fn raw_program_simulation(simulation: layerx_client::lni::Simulation) -> RawProgramSimulation {
-    let layerx_client::lni::Simulation {
-        execution,
-        evidence,
-    } = simulation;
-    RawProgramSimulation {
-        receipt: execution.receipt,
-        terminal_payload: execution.terminal_payload,
-        call_graph: execution.call_graph,
-        evidence: ProgramSimulationEvidence {
-            boundary_id: evidence.boundary_id,
-            activity_id: evidence.activity_id,
-            previous_state_root: evidence.previous_state_root,
-            hypothetical_state_root: evidence.hypothetical_state_root,
-            observed_sequence: evidence.observed_sequence,
-            observed_at: evidence.observed_at,
-            committed: false,
-        },
-        evidence_signature: evidence.signature,
-    }
-}
-
-const fn legacy_simulation_error(
-    error: layerx_client::lni::SimulateError,
-) -> ProgramOperationError {
-    use layerx_client::lni::SimulateError;
-    match error {
-        SimulateError::UnavailableCapability | SimulateError::InterfaceVersion(_) => {
-            ProgramOperationError::Unavailable
-        }
-        SimulateError::CoreRefusal { class, result } => {
-            ProgramOperationError::CoreRefusal { class, result }
-        }
-        SimulateError::MalformedRequest | SimulateError::InvalidCorrelation => {
-            ProgramOperationError::InvalidRequest
-        }
-        _ => ProgramOperationError::UnverifiedReceipt,
     }
 }
 
@@ -727,74 +682,24 @@ pub struct ProgramSubmission<'a> {
 }
 
 #[cfg(test)]
-mod simulation_rejection_vectors {
-    use super::ProgramSimulationEvidence;
-
-    fn evidence() -> ProgramSimulationEvidence {
-        ProgramSimulationEvidence {
-            boundary_id: [1; 32],
-            activity_id: [2; 32],
-            previous_state_root: [3; 32],
-            hypothetical_state_root: [4; 32],
-            observed_sequence: 5,
-            observed_at: 6,
-            committed: false,
-        }
-    }
-
-    #[test]
-    fn committed_lie_is_refused_before_signature_authority() {
-        let mut value = evidence();
-        value.committed = true;
-        assert!(!value.matches_context([1; 32], [2; 32], [3; 32], [4; 32], 5, 6));
-    }
-
-    #[test]
-    fn stale_discovery_root_is_refused() {
-        assert!(!evidence().matches_context([1; 32], [2; 32], [9; 32], [4; 32], 5, 6));
-    }
-
-    #[test]
-    fn stale_sequence_and_freshness_are_refused() {
-        assert!(!evidence().matches_context([1; 32], [2; 32], [3; 32], [4; 32], 7, 8));
-    }
-}
-
-#[cfg(test)]
 mod node_simulation_transport_contract {
-    use super::{legacy_simulation_error, ProgramOperationError};
-    use layerx_client::lni::simulate::SimulateError;
-    use layerx_types::result::ResultCode;
+    use super::ProgramSimulationTransport;
 
     #[test]
-    fn node_simulation_refusals_keep_their_existing_paths() {
-        assert_eq!(
-            legacy_simulation_error(SimulateError::UnavailableCapability),
-            ProgramOperationError::Unavailable
-        );
-        let result = ResultCode::from_raw(7);
-        assert_eq!(
-            legacy_simulation_error(SimulateError::CoreRefusal { class: 2, result }),
-            ProgramOperationError::CoreRefusal { class: 2, result }
-        );
-        assert_eq!(
-            legacy_simulation_error(SimulateError::InvalidCorrelation),
-            ProgramOperationError::InvalidRequest
-        );
-        for error in [
-            SimulateError::Disconnected,
-            SimulateError::MalformedResponse,
-            SimulateError::ActivityMismatch,
-            SimulateError::ArtifactMismatch,
-            SimulateError::SequencerKeyMismatch,
-            SimulateError::EvidenceBinding,
-            SimulateError::EvidenceSignature,
-        ] {
-            assert_eq!(
-                legacy_simulation_error(error),
-                ProgramOperationError::UnverifiedReceipt
-            );
-        }
+    fn node_simulation_transport_holds_a_sequencer_endpoint() {
+        let mut endpoint =
+            layerx_client::sequencer::SequencerEndpoint::new("http://127.0.0.1:1", &[])
+                .expect("loopback sequencer endpoint");
+        let registry =
+            layerx_types::payload::ModuleRegistry::new(&[]).expect("empty module registry");
+        let endpoint_ptr = &endpoint as *const _;
+        let mut transport = super::NodeProgramSimulationTransport::new(&mut endpoint, registry, 42);
+        assert_eq!(transport.correlation_id, 42);
+        assert!(std::ptr::eq(transport.client, endpoint_ptr));
+        assert!(matches!(
+            transport.simulate_signed_activity(&[]),
+            Err(super::ProgramOperationError::Unavailable)
+        ));
     }
 }
 
@@ -1019,48 +924,14 @@ impl ProgramOperations {
     /// different program, and `UnverifiedReceipt` for every other refusal.
     pub fn current_program(
         &mut self,
-        client: &mut layerx_client::Client,
+        client: &mut layerx_client::sequencer::SequencerEndpoint,
         program: ProgramId,
         now: u64,
         correlation_id: u64,
     ) -> Result<VerifiedProgramBundle, ProgramOperationError> {
-        let chain = self.reader.read_chain_head(now).map_err(|error| {
-            if error.is_stale() {
-                ProgramOperationError::Stale
-            } else {
-                ProgramOperationError::UnverifiedReceipt
-            }
-        })?;
-        let selector = ProgramStateSelector::new(
-            program.bytes(),
-            chain.freshness().observed_sequence,
-            chain.receipt_digest(),
-            chain.state_root(),
-        )
-        .map_err(|_| ProgramOperationError::InvalidRequest)?;
-        let response = client
-            .program_state_bundle(selector, correlation_id)
-            .map_err(|error| match error {
-                EvidenceError::CoreRefusal { class, result } => match result.known() {
-                    Some(KnownResult::ProjectionStale) => ProgramOperationError::HeadAdvanced,
-                    Some(KnownResult::UnknownField) => ProgramOperationError::ProgramStateAbsent,
-                    _ => ProgramOperationError::CoreRefusal { class, result },
-                },
-                EvidenceError::Unavailable => ProgramOperationError::Unavailable,
-                _ => ProgramOperationError::UnverifiedReceipt,
-            })?;
-        if response.selector() != selector {
-            return Err(ProgramOperationError::UnverifiedReceipt);
-        }
-        self.reader
-            .verify_program_bundle(response.canonical_payload(), &chain, program, now)
-            .map_err(|error| match error {
-                ProgramBundleError::Evidence(ProtocolEvidenceError::Stale) => {
-                    ProgramOperationError::Stale
-                }
-                ProgramBundleError::ProgramMismatch => ProgramOperationError::UnknownProgram,
-                _ => ProgramOperationError::UnverifiedReceipt,
-            })
+        // Decision 2196: task 9.25.4 ports program state to the EVM precompile.
+        let _ = (client, program, now, correlation_id);
+        Err(ProgramOperationError::Unavailable)
     }
 
     ///
@@ -1186,7 +1057,7 @@ impl ProgramOperations {
     /// Returns an error if the request, program metadata, or execution evidence is invalid, or transport fails.
     pub fn submit(
         &mut self,
-        client: &mut layerx_client::Client,
+        client: &mut layerx_client::sequencer::SequencerEndpoint,
         registry: &ModuleRegistry,
         call: &ProgramCall,
         submission: ProgramSubmission<'_>,
@@ -1203,15 +1074,9 @@ impl ProgramOperations {
             .map_err(|_| ProgramOperationError::InvalidRequest)?;
         self.discover(program, now, bound)?;
         validate_call_activity(registry, call, signed_activity)?;
-        client
-            .submit_signed(
-                registry,
-                signer_public_key,
-                correlation_id,
-                attempt,
-                signed_activity,
-            )
-            .map_err(ProgramOperationError::Submit)
+        // Decision 2196: task 9.25.4 ports submission to EVM transactions.
+        let _ = (client, signer_public_key, correlation_id, attempt);
+        Err(ProgramOperationError::Unavailable)
     }
     ///
     /// # Errors
@@ -1259,7 +1124,7 @@ impl ProgramOperations {
     /// Returns an error if the request, program metadata, or execution evidence is invalid, or transport fails.
     pub fn submit_native(
         &mut self,
-        client: &mut layerx_client::Client,
+        client: &mut layerx_client::sequencer::SequencerEndpoint,
         registry: &ModuleRegistry,
         call_with_fee: (NativeProgramCall<'_>, u128),
         submission: ProgramSubmission<'_>,
@@ -1277,15 +1142,9 @@ impl ProgramOperations {
             .map_err(|_| ProgramOperationError::InvalidRequest)?;
         self.discover(program, now, bound)?;
         validate_native_call_activity(registry, call, fee_limit, signed_activity)?;
-        client
-            .submit_signed(
-                registry,
-                signer_public_key,
-                correlation_id,
-                attempt,
-                signed_activity,
-            )
-            .map_err(ProgramOperationError::Submit)
+        // Decision 2196: task 9.25.4 ports submission to EVM transactions.
+        let _ = (client, signer_public_key, correlation_id, attempt);
+        Err(ProgramOperationError::Unavailable)
     }
 }
 
