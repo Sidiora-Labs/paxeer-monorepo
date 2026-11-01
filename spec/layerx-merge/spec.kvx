@@ -118922,7 +118922,7 @@ do_7 = "Finding 9.25.17.2: the ChainProofError impls of do_5 land with task 9.25
 
 [task.9.25.17]
 title = "Port the agent daemon and the SDK off layerx_client::evidence before the module retires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.3", "9.25.11", "9.25.16"]
