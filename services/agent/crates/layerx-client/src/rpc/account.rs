@@ -2,7 +2,7 @@
 
 use layerx_types::amount::Amount;
 
-use crate::sequencer::{AccountProof, SequencerEndpoint, SequencerError};
+use crate::sequencer::{SequencerEndpoint, SequencerError};
 
 pub type Rung = layerx_types::rung::Rung;
 
@@ -67,12 +67,4 @@ pub fn balance(
         .try_into()
         .map_err(|_| ReadError::MalformedValue)?;
     Ok(Amount::from_be_bytes(amount))
-}
-
-pub fn account(
-    endpoint: &SequencerEndpoint,
-    address: [u8; 20],
-    context: ReadContext,
-) -> Result<AccountProof, ReadError> {
-    Ok(endpoint.account_proof(&address, &[], context.committed_height)?)
 }

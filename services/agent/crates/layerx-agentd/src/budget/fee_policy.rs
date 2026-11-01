@@ -11,9 +11,9 @@ const FEE_TOKEN: [u8; 20] = precompile(0x18);
 const LEDGER: [u8; 20] = precompile(0x1a);
 const BANK: [u8; 20] = precompile(0x01);
 
-use layerx_client::payments::{AssetMetadata, NativeFeePolicy as FeePolicyValue};
+use layerx_client::rpc::payments::{AssetMetadata, NativeFeePolicy as FeePolicyValue};
 
-pub type NativeFeePolicy = layerx_client::payments::CommittedSnapshot<FeePolicyValue>;
+pub type NativeFeePolicy = layerx_client::rpc::payments::CommittedSnapshot<FeePolicyValue>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum FeeReadError {

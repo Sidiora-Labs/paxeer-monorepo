@@ -1,44 +1,11 @@
 use crate::lni::refusal::decode_core_refusal;
-use crate::lni::schema::{decode_envelope, encode_envelope, Envelope, Version};
+use crate::lni::schema::{decode_envelope, encode_envelope, Envelope};
 use crate::lni::transport::FrameTransport;
 use crate::read::ReadError;
 
-#[derive(Clone, Copy, Debug)]
-pub struct SnapshotContext {
-    pub interface_version: Version,
-    pub correlation_id: u64,
-    pub minimum_sequence: u64,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CommittedSnapshot<T> {
-    pub observed_sequence: u64,
-    pub state_root: [u8; 32],
-    pub value: T,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AssetMetadata {
-    pub asset_id: [u8; 32],
-    pub symbol: Vec<u8>,
-    pub name: String,
-    pub decimals: u8,
-    pub custody_kind: u8,
-    pub custody_reference: Vec<u8>,
-    pub paused: bool,
-    pub supply_cap: u128,
-    pub issuer_did: [u8; 32],
-    pub issuer_kind: u8,
-    pub total_units: u128,
-    pub salt: [u8; 32],
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct FeeEstimate {
-    pub parameter_version: u32,
-    pub fee: u128,
-    pub canonical_schedule: Vec<u8>,
-}
+pub use crate::rpc::payments::{
+    AssetMetadata, CommittedSnapshot, FeeEstimate, NativeFeePolicy, SnapshotContext,
+};
 
 fn take<'a>(bytes: &mut &'a [u8], count: usize) -> Result<&'a [u8], ReadError> {
     if count > bytes.len() {
@@ -334,12 +301,6 @@ mod tests {
             assert_eq!(canonical_fee_schedule(&invalid), version == 3);
         }
     }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct NativeFeePolicy {
-    pub version: u8,
-    pub asset: AssetMetadata,
 }
 
 /// # Errors

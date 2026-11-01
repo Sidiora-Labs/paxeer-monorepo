@@ -176,11 +176,11 @@ impl CommittedIssuance {
 
 #[derive(Clone, Debug)]
 pub struct CommittedAsset {
-    metadata: layerx_client::payments::AssetMetadata,
+    metadata: layerx_client::rpc::payments::AssetMetadata,
     call: CommittedCall,
 }
 impl CommittedAsset {
-    pub fn metadata(&self) -> &layerx_client::payments::AssetMetadata {
+    pub fn metadata(&self) -> &layerx_client::rpc::payments::AssetMetadata {
         &self.metadata
     }
     pub const fn registered(&self) -> bool {
@@ -349,7 +349,7 @@ impl<'a> CommittedReads<'a> {
         let call = self.call(precompile(0x1a), &calldata(b"getAsset(bytes32)", &asset))?;
         let bytes = call.canonical_bytes();
         let paused = uint(bytes, 10, 1)?;
-        let metadata = layerx_client::payments::AssetMetadata {
+        let metadata = layerx_client::rpc::payments::AssetMetadata {
             asset_id: word(bytes, 0)?,
             symbol: dynamic(bytes, 1, 12, 16)?,
             name: String::from_utf8(dynamic(bytes, 2, 12, 32)?)
@@ -1047,12 +1047,16 @@ pub(crate) mod tests {
         worker.join().expect("RPC server");
     }
     pub(crate) fn budget_result() -> Vec<u8> {
+        budget_result_with_spend(25)
+    }
+
+    pub(crate) fn budget_result_with_spend(spent: u64) -> Vec<u8> {
         let mut result = vec![0; 20 * 32];
         for (index, amount) in [
             (0, 32_u64),
             (5, 100),
             (6, 100),
-            (8, 25),
+            (8, spent),
             (10, 1000),
             (11, 1),
             (12, 10000),
@@ -1094,6 +1098,149 @@ pub(crate) mod tests {
         assert_eq!(verified.observed_head_sequence(), 8);
         assert!(crate::protocol_evidence::RawStateEvidence::budget_witness(call, [8; 32]).is_err());
         worker.join().expect("RPC server");
+    }
+
+    fn budget_recovery_fixture(
+        record: &[u8],
+    ) -> (
+        std::path::PathBuf,
+        crate::store::Store,
+        crate::store::TenantId,
+        CommittedCall,
+    ) {
+        let mut nonce = [0; 16];
+        getrandom::fill(&mut nonce).expect("temporary directory nonce");
+        let root = std::env::temp_dir().join(format!(
+            "layerx-committed-budget-recovery-{}-{}",
+            std::process::id(),
+            hex::encode(&nonce)
+        ));
+        std::fs::create_dir(&root).expect("fresh temporary directory");
+        let store = crate::store::Store::open(&root).expect("recovery store");
+        let tenant = crate::store::TenantId::new("committed-budget-recovery").expect("tenant");
+        let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
+        let mut answers = open_answers(&checkpoint);
+        stable_call(&mut answers, &checkpoint, record);
+        let (endpoint, worker) = endpoint(answers);
+        let reads = CommittedReads::open(&endpoint, 8).expect("checkpoint");
+        let mut pay = [0; 20];
+        pay[18..].copy_from_slice(&[0x10, 0x1b]);
+        let mut data =
+            layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)")[..4].to_vec();
+        data.extend([9; 32]);
+        let call = reads.budget_state(pay, &data).expect("budget call");
+        assert_eq!(call.checkpoint(), &checkpoint);
+        assert_eq!(call.canonical_bytes(), call.repeated());
+        worker.join().expect("RPC server");
+        (root, store, tenant, call)
+    }
+
+    fn recover_tenant_budget(
+        store: &mut crate::store::Store,
+        tenant: &crate::store::TenantId,
+        call: CommittedCall,
+    ) -> Result<crate::human_runtime::TenantBudgetRecovery, crate::human_runtime::RecoveryRefusal>
+    {
+        let protocol_budget = crate::budget::ProtocolBudgetState {
+            evidence: crate::protocol_evidence::RawStateEvidence::budget_witness(call, [9; 32])
+                .expect("budget evidence"),
+        };
+        crate::human_runtime::recover_tenant_budget(
+            store,
+            tenant,
+            &crate::human_runtime::BudgetRecoveryRequest {
+                budget_id: [9; 32],
+                protocol_budget,
+                verifier: crate::protocol_evidence::EvidenceAuthority::pinned_to_handshake(
+                    3, 125, [1; 32],
+                )
+                .expect("authority"),
+                receipts_with_evidence: &[],
+                receipts_without_evidence: &[],
+                ceiling_maximum: 1_000,
+                current_sequence: 1,
+            },
+        )
+    }
+
+    #[test]
+    fn tenant_budget_recovery_reconciles_over_committed_budget_state() {
+        let (root, mut store, tenant, call) = budget_recovery_fixture(&budget_result_with_spend(0));
+        drop(store);
+        store = crate::store::Store::open(&root).expect("reopen recovery store");
+        let recovery = recover_tenant_budget(&mut store, &tenant, call)
+            .unwrap_or_else(|error| panic!("recover committed budget: {error:?}"));
+        let accounting = recovery.recovered.budget_accounting;
+        assert_eq!(accounting.protocol_consumed, Some(0));
+        assert_eq!(accounting.receipt_consumed, 0);
+        assert_eq!(accounting.held_unresolved, 0);
+        assert_eq!(accounting.unresolved_count, 0);
+        assert!(accounting.reconciled);
+        assert!(
+            recovery
+                .recovered
+                .ceiling
+                .snapshot()
+                .expect("ceiling snapshot")
+                .reconciled
+        );
+        assert!(recovery.recovered.require_write_ready().is_ok());
+        assert!(recovery.admission.is_ok());
+        drop(recovery);
+        drop(store);
+        std::fs::remove_dir_all(root).expect("remove recovery store");
+
+        let (root, mut store, tenant, call) = budget_recovery_fixture(&budget_result());
+        drop(store);
+        store = crate::store::Store::open(&root).expect("reopen recovery store");
+        let recovery = recover_tenant_budget(&mut store, &tenant, call)
+            .unwrap_or_else(|error| panic!("recover committed budget: {error:?}"));
+        let accounting = recovery.recovered.budget_accounting;
+        assert_eq!(accounting.protocol_consumed, Some(25));
+        assert_eq!(accounting.receipt_consumed, 0);
+        assert_eq!(accounting.held_unresolved, 0);
+        assert_eq!(accounting.unresolved_count, 0);
+        assert!(!accounting.reconciled);
+        assert!(recovery.recovered.require_write_ready().is_err());
+        assert!(recovery.admission.is_err());
+        drop(recovery);
+        drop(store);
+        std::fs::remove_dir_all(root).expect("remove recovery store");
+    }
+
+    #[test]
+    fn tenant_budget_recovery_refuses_committed_evidence_whose_state_changed() {
+        let (root, mut store, tenant, mut call) = budget_recovery_fixture(&budget_result());
+        let original =
+            crate::protocol_evidence::RawStateEvidence::budget_witness(call.clone(), [9; 32])
+                .expect("original budget evidence");
+        call.canonical_bytes[8 * 32 + 31] ^= 1;
+        assert_ne!(call.canonical_bytes(), call.repeated());
+        let changed =
+            crate::protocol_evidence::RawStateEvidence::budget_witness(call.clone(), [9; 32])
+                .expect("changed budget evidence remains decodable");
+        assert_ne!(changed.canonical_state(), original.canonical_state());
+        assert!(matches!(
+            recover_tenant_budget(&mut store, &tenant, call),
+            Err(crate::human_runtime::RecoveryRefusal::BudgetState { budget_id, reason })
+                if budget_id == [9; 32] && reason == "Committed"
+        ));
+        assert!(store
+            .list_object_ids(&tenant, crate::store::ObjectKind::Budget)
+            .is_empty());
+        assert!(store
+            .list_object_ids(&tenant, crate::store::ObjectKind::Capability)
+            .is_empty());
+        drop(store);
+        let reopened = crate::store::Store::open(&root).expect("reopen refused recovery store");
+        assert!(reopened
+            .list_object_ids(&tenant, crate::store::ObjectKind::Budget)
+            .is_empty());
+        assert!(reopened
+            .list_object_ids(&tenant, crate::store::ObjectKind::Capability)
+            .is_empty());
+        drop(reopened);
+        std::fs::remove_dir_all(root).expect("remove recovery store");
     }
 
     #[test]

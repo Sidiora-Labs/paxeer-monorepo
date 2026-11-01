@@ -12941,3 +12941,58 @@ fix = "The earlier task asserts the absence of exactly its own paths; the task t
 title = "A --offline build fails once a lock refresh adds a package the registry cache lacks"
 symptom = "A build command carried --offline; after a lock refresh added data-encoding to the workspace lock, cargo refused with no matching package found before compiling anything."
 fix = "Qualification build and verify commands never pass --offline; --locked alone pins the resolution."
+
+[gotcha.2625]
+title = "A touched path written from memory must be checked with ls before the task is published"
+symptom = "A task named a stylesheet under src/app/ while the file lives under src/styles/; the attempt made every other change, declined to edit a file outside its touches, and failed its verify grep on the two references in the real file."
+fix = "Run ls or git ls-files on every touches entry when authoring a task; a path that does not exist on main is a spec defect, not an implementation gap."
+
+[gotcha.2626]
+title = "A task that changes a constructor signature must build its crate's tests before it is done"
+symptom = "A done task narrowed a witness constructor from six arguments to one and left three call sites in a same-crate integration test unported; its verify built the library only, and every later task whose verify builds the crate with --tests inherited the compile error."
+fix = "A signature-changing task's verify includes cargo build --tests for its own crate, and its touches list every test file that calls the changed item; a later task that meets the break requires the task that owns the test file instead of patching it."
+
+[gotcha.2627]
+title = "Two tasks whose test builds each need the other's fix deadlock unless the shared fix moves to the first in requires order"
+symptom = "Task A's --tests build failed on a missing error impl assigned to task B, and task B's --tests build failed on a test file task A owns; after B was made to require A, A still could not pass, because the impl stayed in B."
+fix = "When a later task's finding sequences it after an earlier one, move every fix the earlier task's verify needs into the earlier task in the same batch, and leave the later task a do that drops its duplicate hunk on rebase."
+
+[gotcha.2628]
+title = "A task that removes a crate from a workspace manifest must list every file that names that crate"
+symptom = "A task deleted a crate from the human workspace manifest and the dependent service manifest, with its touches limited to the two manifests, the lock file and a boundary test; the service build failed on an uncalled method and a test that still imported the removed crate."
+fix = "Before authoring a dependency removal, grep the crate's snake_case identifier across the workspace sources and tests, add every hit to the touches with a do that ports or deletes it, and make the verify compile the test targets that named it."
+
+[gotcha.2629]
+title = "A spec that names a wire enum value must quote it from the schema type's variants list"
+symptom = "A task told the service to answer verification receipted or committed; the response type declares verification as a VerificationLevel whose variants are receipt-verified and checkpoint-finalised, with the rung names mapped beside them, so the faithful implementation was refused by the response schema at runtime and the test asserted an undeclared field."
+fix = "Before writing a wire value into a do or acceptance criterion, open the schema type the operation's response names and copy the variant spelling; when the task wants the rung as well, declare it as the schema already does for sibling types."
+
+[gotcha.2630]
+title = "A decoder contract change must port the crate's own fixture test, not only the consumer it was written for"
+symptom = "A done task changed the history page decoder to the served three-key shape and added a head read after each page, verified by a new daemon test, and left the client crate's integration test fixturing the old six-key page without a head exchange; the next task whose verify ran that test target failed on it."
+fix = "A task that changes what a decoder accepts lists every test in its own crate that fixtures the old shape in its touches and runs that test target in its verify; a later task that meets the stale test ports it when it owns the file, or requires the owner when it does not."
+
+[gotcha.2631]
+title = "A recovery fixture's protocol spend must be covered by the receipts and holds the test supplies"
+symptom = "A task text told a recovery test to expect the shared fixture record's spend of 25 to reconcile while the request carried no receipts and no holds; the restart rule reconciles only a spend between the receipt total and the receipt total plus unresolved holds, so the faithful test failed."
+fix = "When a do names the expected accounting of a recovery, read the reconcile rule first and either serve a record whose spend the supplied receipts cover or assert the unreconciled outcome; the retired test being replaced shows which record it used."
+
+[gotcha.2632]
+title = "A task that deletes a crate must also drop its workspace member line in the same tree"
+symptom = "A retirement task deleted a crate directory and its manifest but left the crate listed under [workspace] members, so every build of that workspace at main failed at manifest load until a later task removed the line; an unrelated attempt in the window was charged a failed build."
+fix = "When a do deletes a crate, name the workspace manifest among the touches and say the member line goes with it; when an attempt fails at manifest load, check whether main at its base revision is consistent before reading further."
+
+[gotcha.2633]
+title = "Dropping a dependency from a crate's manifest stales every workspace lock that resolves that crate"
+symptom = "A retirement removed two dependencies from a registry crate's manifest and regenerated only its own workspace lock; seventeen other lock files that resolve the crate by path still listed the two rows, so every --locked build of six other workspaces refused at main and sixteen implemented attempts failed before compiling."
+fix = "When a do edits [dependencies] of a crate other workspaces resolve by path, list every Cargo.lock that names the crate in the touches and regenerate them in the same task, as task 9.25.16 did; when many attempts fail at once with 'lock file needs to be updated', look for the manifest change on main before reading any attempt."
+
+[gotcha.2634]
+title = "A manifest dependency removal is qualified with the crate's test targets, not its library alone"
+symptom = "A task removed two crates from a test crate's manifest, built only the library target and verified the resolved dependency graph; three integration test files still imported the removed crates, and the workspace-wide dependent-crate check of the next programs task failed on them."
+fix = "When a do removes a dependency, make the build gate cargo build --tests (or cargo check --all-targets) of the edited crate and grep the removed crate names out of its tests directory in the verify."
+
+[gotcha.2635]
+title = "Deleting a crate manifest must sweep the path dependency rows of every other workspace"
+symptom = "A retirement deleted a crate's Cargo.toml inside its own workspace and verified only that workspace's metadata; another workspace still declared the crate as a path dependency for a member's test target, so that whole workspace stopped loading and every gate rooted in it failed at cargo metadata before building anything."
+fix = "Before a do deletes a crate manifest, git grep the crate name across every Cargo.toml in the repository; list the dependent manifests, their test files and locks in the same task's touches or make a same-wave task that the deletion requires retire those consumers first, and make the deleting task's verify read cargo metadata --locked of every workspace that named the crate."

@@ -3,9 +3,9 @@ use std::net::TcpListener;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use layerx_client::sequencer::{
-    AccountProof, HistoryPage, SequencerEndpoint, SequencerError, StorageProof,
-};
+use base64::Engine as _;
+use layerx_client::sequencer::{HistoryPage, SequencerEndpoint, SequencerError};
+use layerx_client::storage_witness::verify_storage_witness;
 use serde_json::{json, Value};
 
 trait Must<T> {
@@ -68,108 +68,111 @@ fn hex(data: &[u8]) -> String {
 }
 
 #[test]
-fn account_proof_sends_eth_get_proof_at_the_height_and_decodes_every_node() {
-    let address = [0x12; 20];
-    let slots = [[0; 32], [0xab; 32]];
-    let result = json!({
-        "address": hex(&address),
-        "balance": "0x123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        "nonce": "0x100000001",
-        "codeHash": hex(&[0x34; 32]),
-        "storageHash": hex(&[0x56; 32]),
-        "accountProof": ["0xf801", "0x00Abcd", "0x80"],
-        "storageProof": [
-            {"key": hex(&slots[0]), "value": "0x0", "proof": ["0x0102", "0xc0"]},
-            {"key": hex(&slots[1]), "value": "0xabc", "proof": ["0xaabbcc", "0x03"]}
-        ]
-    });
-    let mut exchanges = vec![("eth_getProof", result.clone())];
-    for node in [
-        json!("abcd"),
-        json!("0x0"),
-        json!("0xgg"),
-        json!("0X00"),
-        json!(7),
-        Value::Null,
-    ] {
-        let mut account = result.clone();
-        account["accountProof"][1] = node.clone();
-        exchanges.push(("eth_getProof", account));
-        let mut storage = result.clone();
-        storage["storageProof"][1]["proof"][1] = node;
-        exchanges.push(("eth_getProof", storage));
+fn storage_witness_replaces_the_account_proof() {
+    fn decode<const N: usize>(value: &Value) -> [u8; N] {
+        let text = value.as_str().unwrap_or_else(|| panic!("hex string"));
+        assert_eq!(text.len(), N * 2);
+        text.as_bytes()
+            .chunks_exact(2)
+            .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).must(), 16).must())
+            .collect::<Vec<_>>()
+            .try_into()
+            .must()
     }
-    let mut malformed = result.clone();
-    malformed["accountProof"] = json!("0xc0");
-    exchanges.push(("eth_getProof", malformed));
-    let mut malformed = result.clone();
-    malformed["storageProof"][1]["proof"] = Value::Null;
-    exchanges.push(("eth_getProof", malformed));
-    let mut malformed = result.clone();
-    malformed["codeHash"] = json!("0x01");
-    exchanges.push(("eth_getProof", malformed));
-    let mut malformed = result.clone();
-    malformed["nonce"] = json!("0x10000000000000000");
-    exchanges.push(("eth_getProof", malformed));
-    let malformed_count = exchanges.len() - 1;
-    let mut empty = result;
-    empty["accountProof"] = json!([]);
-    empty["storageProof"] = json!([]);
-    empty["balance"] = json!("0x0");
-    empty["nonce"] = json!("0x0");
-    exchanges.push(("eth_getProof", empty));
-    let (url, handle) = serve(exchanges);
-    let endpoint = SequencerEndpoint::new(&url, &[]).must();
-    let balance = [
-        0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd,
-        0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x01, 0x23, 0x45, 0x67, 0x89, 0xab,
-        0xcd, 0xef,
-    ];
-    let mut stored = [0_u8; 32];
-    stored[30..].copy_from_slice(&[0x0a, 0xbc]);
+
+    let vector: Value = serde_json::from_str(include_str!(
+        "../../../../../programs/tests/vectors/ics23-evm-storage-app-hash.json"
+    ))
+    .must();
     assert_eq!(
-        endpoint.account_proof(&address, &slots, 0x1234).must(),
-        AccountProof {
-            address,
-            balance,
-            nonce: 0x1_0000_0001,
-            code_hash: [0x34; 32],
-            storage_hash: [0x56; 32],
-            account_proof: vec![vec![0xf8, 0x01], vec![0x00, 0xab, 0xcd], vec![0x80]],
-            storage: vec![
-                StorageProof {
-                    key: slots[0],
-                    value: [0; 32],
-                    proof: vec![vec![1, 2], vec![0xc0]]
-                },
-                StorageProof {
-                    key: slots[1],
-                    value: stored,
-                    proof: vec![vec![0xaa, 0xbb, 0xcc], vec![3]]
-                },
-            ],
-        }
+        vector["source"]["generator"],
+        "modules/sequencer/keeper/ics23_evm_storage_vector_test.go::TestEvmStorageAppHashVector"
     );
-    for _ in 0..malformed_count {
+    let entries = vector["entries"]
+        .as_array()
+        .unwrap_or_else(|| panic!("entries"));
+    assert!(!entries.is_empty());
+    for entry in entries {
+        let address = decode::<20>(&entry["address"]);
+        let slot = decode::<32>(&entry["slot"]);
+        let slots = [slot];
+        let height = entry["height"].as_u64().unwrap_or_else(|| panic!("height"));
+        let response = entry["response"].clone();
+        let mut exchanges = vec![("eth_getProof", response.clone())];
+        for values in [json!([]), json!([entry["value"], entry["value"]])] {
+            let mut malformed = response.clone();
+            malformed["hexValues"] = values;
+            exchanges.push(("eth_getProof", malformed));
+        }
+        let mut wrong_address = response.clone();
+        wrong_address["address"] = json!(hex(&[0; 20]));
+        exchanges.push(("eth_getProof", wrong_address));
+        let mut missing_proof = response.clone();
+        missing_proof["storageProof"] = json!([]);
+        exchanges.push(("eth_getProof", missing_proof));
+        for node in [json!("!"), json!(7), Value::Null] {
+            let mut malformed = response.clone();
+            malformed["storageProof"][0]["ops"][0]["data"] = node;
+            exchanges.push(("eth_getProof", malformed));
+        }
+        let malformed_count = exchanges.len() - 1;
+        let (url, handle) = serve(exchanges);
+        let endpoint = SequencerEndpoint::new(&url, &[]).must();
+        let witnesses = endpoint.storage_witness(&address, &slots, height).must();
+        assert_eq!(witnesses.len(), slots.len());
+        for (witness, slot) in witnesses.iter().zip(slots) {
+            assert_eq!(witness.address, address);
+            assert_eq!(witness.slot, slot);
+            assert_eq!(witness.value, decode::<32>(&entry["value"]));
+            assert_eq!(witness.ops.len(), 2);
+            for (op, encoded) in witness.ops.iter().zip(
+                response["storageProof"][0]["ops"]
+                    .as_array()
+                    .unwrap_or_else(|| panic!("ops")),
+            ) {
+                assert_eq!(
+                    op.op_type,
+                    encoded["type"].as_str().unwrap_or_else(|| panic!("type"))
+                );
+                assert_eq!(
+                    op.key,
+                    base64::engine::general_purpose::STANDARD
+                        .decode(encoded["key"].as_str().unwrap_or_else(|| panic!("key")))
+                        .must()
+                );
+                assert_eq!(
+                    op.data,
+                    base64::engine::general_purpose::STANDARD
+                        .decode(encoded["data"].as_str().unwrap_or_else(|| panic!("data")))
+                        .must()
+                );
+            }
+            assert_eq!(
+                verify_storage_witness(witness, decode::<32>(&entry["app_hash"])),
+                Ok(())
+            );
+        }
+        for _ in 0..malformed_count {
+            assert_eq!(
+                endpoint.storage_witness(&address, &slots, height),
+                Err(SequencerError::Malformed)
+            );
+        }
         assert_eq!(
-            endpoint.account_proof(&address, &slots, 0x1234),
-            Err(SequencerError::Malformed)
+            handle.join().must(),
+            vec![json!([hex(&address), [hex(&slot)], format!("{height:#x}")]); malformed_count + 1]
+        );
+
+        let listener = TcpListener::bind("127.0.0.1:0").must();
+        listener.set_nonblocking(true).must();
+        let endpoint =
+            SequencerEndpoint::new(&format!("http://{}/", listener.local_addr().must()), &[])
+                .must();
+        assert_eq!(endpoint.storage_witness(&address, &[], height), Ok(vec![]));
+        assert!(
+            matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
         );
     }
-    let empty = endpoint.account_proof(&address, &[], 0).must();
-    assert!(empty.account_proof.is_empty());
-    assert!(empty.storage.is_empty());
-    assert_eq!(empty.balance, [0; 32]);
-    assert_eq!(empty.nonce, 0);
-    let seen = handle.join().must();
-    assert_eq!(seen.len(), malformed_count + 2);
-    for params in &seen[..=malformed_count] {
-        assert_eq!(
-            params,
-            &json!([hex(&address), [hex(&slots[0]), hex(&slots[1])], "0x1234"])
-        );
-    }
-    assert_eq!(seen[malformed_count + 1], json!([hex(&address), [], "0x0"]));
 }
 
 #[test]
@@ -182,37 +185,41 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
         json!({"kind": "call"}),
     ];
     let result = json!({
-        "items": items, "next_cursor": next, "indexedHeight": 43982, "chainHeight": 44000,
-        "account": account, "freshness": {"status": "ready"}
+        "items": items, "next_cursor": next, "indexedHeight": 43982
     });
     let mut exchanges = vec![
         ("px_getHistory", result.clone()),
+        ("eth_blockNumber", json!("0xabe0")),
         (
             "px_getHistory",
             json!({
-                "items": [], "next_cursor": null, "indexedHeight": 0, "chainHeight": 0
+                "items": [], "next_cursor": null, "indexedHeight": 0
             }),
         ),
+        ("eth_blockNumber", json!("0x0")),
     ];
     for (field, invalid) in [
         ("items", json!({})),
         ("next_cursor", json!("a".repeat(112))),
         ("next_cursor", json!(cursor.to_uppercase())),
         ("indexedHeight", json!("0xabce")),
-        ("indexedHeight", Value::Null),
         ("chainHeight", json!(-1)),
     ] {
         let mut malformed = result.clone();
         malformed[field] = invalid;
         exchanges.push(("px_getHistory", malformed));
     }
-    let malformed_count = exchanges.len() - 2;
+    let malformed_count = exchanges.len() - 4;
+    let mut unindexed = result.clone();
+    unindexed["indexedHeight"] = Value::Null;
+    exchanges.push(("px_getHistory", unindexed));
+    exchanges.push(("eth_blockNumber", json!("0xabe0")));
     let (url, handle) = serve(exchanges);
     let endpoint = SequencerEndpoint::new(&url, &[]).must();
     assert_eq!(
         endpoint.history(account, Some(cursor), 2).must(),
         HistoryPage {
-            items,
+            items: items.clone(),
             next_cursor: Some(next.to_owned()),
             indexed_height: Some(43982),
             chain_height: Some(44000),
@@ -233,7 +240,19 @@ fn history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms() {
             Err(SequencerError::Malformed)
         );
     }
-    let seen = handle.join().must();
+    assert_eq!(
+        endpoint.history(account, Some(cursor), 2).must(),
+        HistoryPage {
+            items,
+            next_cursor: Some(next.to_owned()),
+            indexed_height: None,
+            chain_height: Some(44000),
+        }
+    );
+    let mut seen = handle.join().must();
+    assert_eq!(seen.pop(), Some(json!([])));
+    assert_eq!(seen.remove(3), json!([]));
+    assert_eq!(seen.remove(1), json!([]));
     assert_eq!(seen[0], json!([account, cursor, 2]));
     assert_eq!(seen[1], json!([account, null, 50]));
     for params in &seen[2..] {
