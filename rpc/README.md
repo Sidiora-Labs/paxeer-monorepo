@@ -26,6 +26,11 @@ The `pax2_` namespace exposes the same block shape as the `pax_` block methods w
    - `eth_` endpoints: Index only EVM transactions
    - `pax_` endpoints: Index all transactions in sequence
 
+## Pending
+
+Pending reads on the sequencer and standby wait up to `PendingOpenWait` (two seconds) for the next open block during the seal-to-open window, respect request cancellation, and return `ErrPendingBlockClosed` (`-32000`, `no block is open; retry`) if no block opens in time.
+When `eth_sendRawTransaction` encounters a sealed layer, it uses the same bounded wait and retries acceptance once, returning the transaction hash on success or `ErrPendingBlockClosed` if the next layer is still closed.
+
 ## Legacy gate and deprecation
 
 All `pax_*` and `pax2_*` methods are deprecated and scheduled for removal; new integrations should use `eth_*`. On the EVM HTTP endpoint every one of them is gated by the `enabled_legacy_pax_apis` list in the `[evm]` section of `app.toml` ([`pax_legacy.go`](pax_legacy.go), [`pax_legacy_http.go`](pax_legacy_http.go)):
