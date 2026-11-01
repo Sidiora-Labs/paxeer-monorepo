@@ -331,7 +331,7 @@ func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error
 func commitListener(app *App, height int64, appHash []byte) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			err = fmt.Errorf("commit listener at height %d panicked: %v", height, r)
+			logger.Error("commit listener panicked", "height", height, "panic", r)
 		}
 	}()
 	if err := app.commitListener(height, appHash); err != nil {

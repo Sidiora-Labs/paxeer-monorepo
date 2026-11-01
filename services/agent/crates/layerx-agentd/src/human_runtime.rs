@@ -838,7 +838,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .chain
             .receipt_key_at_head()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        human_receipt_commit_material(u64::from(network_id), &block)?;
+        human_receipt_commit_material(&operations.node, u64::from(network_id), &block)?;
         // Decision 2199: task 9.25.8 ports head and checkpoint evidence reads.
         Err(HumanOperationError::Unavailable)
     }
@@ -1170,6 +1170,7 @@ fn human_receipt_history_evidence(
 }
 
 fn human_receipt_commit_material(
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
     chain_id: u64,
     block: &layerx_client::sequencer::SequencerBlock,
 ) -> Result<Value, HumanOperationError> {
@@ -1177,74 +1178,21 @@ fn human_receipt_commit_material(
     if config.chain_id != chain_id {
         return Err(HumanOperationError::Refused);
     }
-    let roots = if config.url.starts_with("https://") {
-        let roots = rustls_native_certs::load_native_certs();
-        if !roots.errors.is_empty() || roots.certs.is_empty() {
-            return Err(HumanOperationError::Unavailable);
-        }
-        roots.certs
-    } else {
-        Vec::new()
-    };
-    let certificates: Vec<_> = roots
-        .iter()
-        .map(|root| ureq::tls::Certificate::from_der(root.as_ref()).to_owned())
-        .collect();
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(config.deadline))
-        .max_redirects(0)
-        .http_status_as_error(false)
-        .tls_config(
-            ureq::tls::TlsConfig::builder()
-                .provider(ureq::tls::TlsProvider::Rustls)
-                .root_certs(ureq::tls::RootCerts::new_with_certs(&certificates))
-                .build(),
-        )
-        .build()
-        .into();
-    let mut response = agent.post(&config.url).send_json(serde_json::json!({
-        "jsonrpc": "2.0", "id": 1, "method": "px_getCommit", "params": [block.number.to_string()],
-    })).map_err(|_| HumanOperationError::Unavailable)?;
-    if response.status().as_u16() != 200 {
-        return Err(HumanOperationError::Unavailable);
-    }
-    let bytes = response
-        .body_mut()
-        .with_config()
-        .limit(MAX_RESPONSE as u64)
-        .read_to_vec()
+    let result = endpoint
+        .commit_material(block.number)
         .map_err(|_| HumanOperationError::Unavailable)?;
-    let response: Value =
-        serde_json::from_slice(&bytes).map_err(|_| HumanOperationError::Refused)?;
-    if response.as_object().map(|object| object.len()) != Some(3)
-        || response["jsonrpc"] != "2.0"
-        || response["id"] != 1
-    {
-        return Err(HumanOperationError::Refused);
-    }
-    if response.get("error").is_some() {
-        return Err(HumanOperationError::Unavailable);
-    }
-    let result = &response["result"];
-    let signed = &result["signedHeader"];
-    let hash = signed["commit"]["block_id"]["hash"]
+    let hash = result["signedHeader"]["commit"]["block_id"]["hash"]
         .as_str()
         .and_then(digest_from_hex)
         .ok_or(HumanOperationError::Refused)?;
-    let height = block.number.to_string();
-    if result["height"].as_str() != Some(height.as_str())
-        || signed["header"]["height"].as_str() != Some(height.as_str())
-        || signed["commit"]["height"].as_str() != Some(height.as_str())
-        || hash != block.hash
-    {
+    if hash != block.hash {
         return Err(HumanOperationError::Refused);
     }
     Ok(serde_json::json!({
-        "height": height, "blockHash": rpc_hex(&block.hash),
+        "height": block.number.to_string(), "blockHash": rpc_hex(&block.hash),
         "parentHash": rpc_hex(&block.parent_hash),
         "transactionsRoot": rpc_hex(&block.transactions_root),
-        "receiptsRoot": rpc_hex(&block.receipts_root),
-        "commitMaterial": result,
+        "receiptsRoot": rpc_hex(&block.receipts_root), "commitMaterial": result,
     }))
 }
 
@@ -9462,7 +9410,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             .chain
             .receipt_key_at_head()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        human_receipt_commit_material(u64::from(network_id), &block)?;
+        human_receipt_commit_material(&operations.node, u64::from(network_id), &block)?;
         // Decision 2199: task 9.25.8 ports head and checkpoint evidence reads.
         Err(HumanOperationError::Unavailable)
     }
@@ -12221,6 +12169,51 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         Ok(Ok(budget))
     }
 
+    fn committed_checkpoint(
+        &self,
+        block: &layerx_client::sequencer::SequencerBlock,
+        identifier: Option<[u8; 32]>,
+    ) -> Result<crate::read::ServedCheckpoint, HumanOperationError> {
+        let chain_id = self
+            .chain
+            .chain_id()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let (trust, _) = self
+            .export_trust
+            .as_ref()
+            .ok_or(HumanOperationError::Unavailable)?;
+        let checkpoint = crate::read::ServedCheckpoint::acquire_at_committed_block(
+            &self.node,
+            block.number,
+            identifier,
+            &chain_id.to_string(),
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
+        if checkpoint.validators != trust.validator_set() || checkpoint.block_hash != block.hash {
+            return Err(HumanOperationError::Refused);
+        }
+        Ok(checkpoint)
+    }
+
+    fn committed_time_authority(
+        &self,
+        network_id: u32,
+        receipt_key: [u8; 32],
+    ) -> Result<EvidenceAuthority, HumanOperationError> {
+        let (trust, _) = self
+            .export_trust
+            .as_ref()
+            .ok_or(HumanOperationError::Unavailable)?;
+        EvidenceAuthority::pinned_to_handshake(
+            layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+            network_id,
+            receipt_key,
+        )
+        .map_err(|_| HumanOperationError::Refused)?
+        .pin_committed_validators(network_id.to_string(), trust.validator_set().to_vec())
+        .map_err(|_| HumanOperationError::Refused)
+    }
+
     fn budget_read_parts(
         &mut self,
         peer: &HumanPeer,
@@ -13559,7 +13552,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 {
                     return Err(HumanOperationError::Refused);
                 }
-                human_receipt_commit_material(chain_id, &block)
+                human_receipt_commit_material(&self.node, chain_id, &block)
             })
             .transpose()?;
         let registry = self.authority.registry(peer).map_err(map_core)?;
@@ -13863,14 +13856,33 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         if head == 0 || snapshot.observed_head_sequence != head {
             return Err(HumanOperationError::Unavailable);
         }
-        let (_, _, _, _, _, _, authorization) = self.authority.balance_context(peer)?;
-        let account = &peer
-            .subject
-            .as_ref()
-            .ok_or(HumanOperationError::Refused)?
-            .account;
-        // Decision 2199: task 9.25.8 ports the batch header read.
-        Err(HumanOperationError::Unavailable)
+        peer.subject.as_ref().ok_or(HumanOperationError::Refused)?;
+        let block = self
+            .node
+            .block_by_number(head)
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .ok_or(HumanOperationError::Unavailable)?;
+        let checkpoint = self.committed_checkpoint(&block, None)?;
+        let network_id = u32::try_from(
+            self.chain
+                .chain_id()
+                .map_err(|_| HumanOperationError::Unavailable)?,
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
+        let key = self
+            .chain
+            .receipt_key_at_head()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let observation = self
+            .committed_time_authority(network_id, key.public_key)?
+            .authenticate_committed_time(&checkpoint)
+            .map_err(|_| HumanOperationError::Refused)?;
+        if observation.observed_core_ms() != snapshot.protocol_timestamp
+            || snapshot.network_id != network_id
+        {
+            return Err(HumanOperationError::Refused);
+        }
+        Ok((observation, snapshot.module_registry, network_id))
     }
 
     fn recover_native_expiry(

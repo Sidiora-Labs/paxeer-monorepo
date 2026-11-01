@@ -12531,3 +12531,13 @@ fix = "put the consumer test in the verify command of the task that implements t
 title = "A producer gated without --tests breaks the crate's test targets silently"
 symptom = "an integration task changed a public function signature and removed a custody method under a build gate of the library alone; two integration test files calling the old forms broke and were only found by a later task whose build compiles every test target"
 fix = "a task that changes a public signature builds the crate with --tests, and greps its callers in tests/ into its touches"
+
+[gotcha.2543]
+title = "A schema change without regeneration fails platform-sdk-check later"
+symptom = "a task edited services/human/schema/human-api under a build gate of its own crate; the platform SDK pipeline lock still carried the old source digest and every later wave 4 aggregate failed in sdkgen --check while the editing task was long done"
+fix = "a task that edits a pipeline source (agent-api, human-api, mirror-v2 in sdk/platform/pipeline.kvx) runs make platform-sdk-generate and commits the regenerated outputs and the resealed lock, and its verify command includes make platform-sdk-check"
+
+[gotcha.2544]
+title = "Two generators owning one generated file fight over its header"
+symptom = "make platform-sdk-generate ran a Python generator and then the Rust pipeline generator, both rendering sdk/platform/jvm GeneratedContract.java with different header comments, so whichever --check ran against the other's output reported the file stale and the aggregate failed after a correct regeneration"
+fix = "one generator owns each generated file; the pipeline lock digests files rendered by another generator without rendering them itself, and a task that adds rendering of an existing output first removes the previous renderer"

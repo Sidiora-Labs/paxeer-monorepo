@@ -586,11 +586,15 @@ pub enum VerifierPolicyError {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EvidenceAuthority {
     verifier: ProtocolEvidenceVerifier,
+    committed_validators: Option<(String, Vec<crate::read::CommitValidator>)>,
 }
 
 impl EvidenceAuthority {
     pub(crate) const fn new(verifier: ProtocolEvidenceVerifier) -> Self {
-        Self { verifier }
+        Self {
+            verifier,
+            committed_validators: None,
+        }
     }
 
     pub(crate) const fn verifier(&self) -> &ProtocolEvidenceVerifier {
@@ -834,24 +838,22 @@ impl RawTimeWindowBatch {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AuthenticatedCoreTime {
-    header: BatchHeader,
-    canonical_header: Vec<u8>,
-    signature: [u8; 64],
-    batch_id: [u8; 32],
+    checkpoint: crate::read::ServedCheckpoint,
+    timestamp_ms: u64,
 }
 
 impl AuthenticatedCoreTime {
     #[must_use]
     pub const fn observed_core_ms(&self) -> u64 {
-        self.header.timestamp_ms()
+        self.timestamp_ms
     }
     #[must_use]
     pub const fn observed_batch_id(&self) -> [u8; 32] {
-        self.batch_id
+        self.checkpoint.block_hash
     }
     #[must_use]
     pub const fn through_sequence(&self) -> u64 {
-        self.header.last_sequence()
+        self.checkpoint.height
     }
 }
 
@@ -950,33 +952,58 @@ pub enum TimeWindowUseError {
 }
 
 impl EvidenceAuthority {
-    pub fn authenticate_core_time(
-        &self,
-        canonical_header: &[u8],
-        signature: &[u8; 64],
-        expected_batch_number: u64,
-        expected_last_sequence: u64,
-    ) -> Result<AuthenticatedCoreTime, TimeWindowUseError> {
-        let (header, authorization) = self
-            .verifier
-            .authorization_for(canonical_header)
-            .map_err(TimeWindowUseError::Policy)?;
-        let verified =
-            layerx_proof::inclusion::verify_header(canonical_header, signature, &authorization)
-                .map_err(TimeWindowUseError::Inclusion)?;
-        if header.batch_number() != expected_batch_number
-            || header.last_sequence() != expected_last_sequence
-            || header.first_sequence() == 0
-            || header.timestamp_ms() == 0
-            || header.last_sequence() == u64::MAX
+    pub fn pin_committed_validators(
+        mut self,
+        chain_id: String,
+        validators: Vec<crate::read::CommitValidator>,
+    ) -> Result<Self, TimeWindowUseError> {
+        let mut addresses = BTreeSet::new();
+        if chain_id.is_empty()
+            || chain_id.len() > 50
+            || validators.is_empty()
+            || validators.iter().any(|v| {
+                v.voting_power == 0
+                    || v.address != crate::read::CommitValidator::address_for_key(&v.public_key)
+                    || !addresses.insert(v.address)
+            })
         {
             return Err(TimeWindowUseError::Observation);
         }
+        self.committed_validators = Some((chain_id, validators));
+        Ok(self)
+    }
+
+    pub fn authenticate_committed_time(
+        &self,
+        checkpoint: &crate::read::ServedCheckpoint,
+    ) -> Result<AuthenticatedCoreTime, TimeWindowUseError> {
+        let (chain_id, validators) = self
+            .committed_validators
+            .as_ref()
+            .ok_or(TimeWindowUseError::Observation)?;
+        if *chain_id != self.verifier.expected_network_id.to_string() {
+            return Err(TimeWindowUseError::Observation);
+        }
+        let verified = crate::read::checkpoint(
+            checkpoint.height,
+            chain_id,
+            &checkpoint.header,
+            &checkpoint.commit,
+            validators,
+        )
+        .map_err(|_| TimeWindowUseError::Observation)?;
+        if verified != *checkpoint || checkpoint.height == u64::MAX {
+            return Err(TimeWindowUseError::Observation);
+        }
+        let timestamp_ms = u64::try_from(checkpoint.header.time.seconds)
+            .ok()
+            .and_then(|seconds| seconds.checked_mul(1_000))
+            .and_then(|ms| ms.checked_add(u64::from(checkpoint.header.time.nanos / 1_000_000)))
+            .filter(|ms| *ms > 0)
+            .ok_or(TimeWindowUseError::Observation)?;
         Ok(AuthenticatedCoreTime {
-            header,
-            canonical_header: canonical_header.to_vec(),
-            signature: *signature,
-            batch_id: verified.digest(),
+            checkpoint: verified,
+            timestamp_ms,
         })
     }
 
@@ -994,12 +1021,7 @@ impl EvidenceAuthority {
         if batches.is_empty() || batches.len() > MAX_CUMULATIVE_EVIDENCE_ITEMS {
             return Err(TimeWindowUseError::Bounds);
         }
-        let pinned = self.authenticate_core_time(
-            &observed.canonical_header,
-            &observed.signature,
-            observed.header.batch_number(),
-            observed.header.last_sequence(),
-        )?;
+        let pinned = self.authenticate_committed_time(&observed.checkpoint)?;
         if pinned != *observed {
             return Err(TimeWindowUseError::Observation);
         }
@@ -1165,8 +1187,8 @@ impl EvidenceAuthority {
                 }
             }
             if position + 1 == batches.len()
-                && (raw.canonical_header() != observed.canonical_header.as_slice()
-                    || raw.header_signature() != observed.signature)
+                && (header.last_sequence() != observed.through_sequence()
+                    || header.resulting_state_root() != observed.checkpoint.app_hash)
             {
                 return Err(TimeWindowUseError::Observation);
             }
@@ -2016,5 +2038,342 @@ mod program_owner_tests {
 }
 
 #[cfg(test)]
-#[path = "protocol_evidence_time_tests.rs"]
-mod time_window_tests;
+mod tests {
+    use super::*;
+
+    #[track_caller]
+    fn checked<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
+        result.unwrap_or_else(|error| panic!("native time-window evidence: {error:?}"))
+    }
+
+    fn captured_batch() -> (
+        EvidenceAuthority,
+        Did,
+        RawTimeWindowBatch,
+        AuthenticatedCoreTime,
+    ) {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../../tests/fixtures/custody/daemon-light-credit-receipt");
+        let read = |name: &str| checked(std::fs::read(root.join(name)));
+        let header_bytes = read("header");
+        let header = checked(decode_batch_header(&header_bytes));
+        let signature = checked(read("header.signature").try_into());
+        let public = checked(read("sequencer.public").try_into());
+        let authority = checked(EvidenceAuthority::pinned_to_handshake(
+            header.protocol_version(),
+            header.network_id(),
+            public,
+        ));
+        let kind = checked(ActivityType::new(ModuleId::Bridge, 1));
+        let registration = checked(ModuleRegistration::new(ModuleId::Bridge, &[kind]));
+        let registry = checked(ModuleRegistry::new(&[registration]));
+        let activity_bytes = read("activity");
+        let activity = checked(decode_signed(&activity_bytes, &registry));
+        let actor = checked(Did::new(activity.actor_did()));
+        let receipt = RawReceiptEvidence::new(
+            read("credit.receipt"),
+            checked(layerx_proof::merkle::decode_proof(&read("receipt.proof"))),
+            header_bytes.clone(),
+            signature,
+        );
+        let maintenance = RawReceiptEvidence::new(
+            read("maintenance.receipt"),
+            checked(layerx_proof::merkle::decode_proof(&read(
+                "maintenance.proof",
+            ))),
+            header_bytes,
+            signature,
+        );
+        let mut checkpoint = crate::read::ServedCheckpoint::test_fixture(
+            header.last_sequence(),
+            (header.timestamp_ms() / 1_000) as i64,
+            (header.timestamp_ms() % 1_000) as u32 * 1_000_000,
+        );
+        checkpoint.header.chain_id = header.network_id().to_string();
+        checkpoint.header.app_hash = header.resulting_state_root();
+        checkpoint.commit.block_id.hash = checkpoint.header.block_hash();
+        use ed25519_dalek::Signer as _;
+        for index in 0..checkpoint.commit.votes.len() {
+            let vote = checkpoint.commit.votes[index];
+            let key = ed25519_dalek::SigningKey::from_bytes(&[index as u8 + 1; 32]);
+            checkpoint.commit.votes[index].signature = key
+                .sign(
+                    &checkpoint
+                        .commit
+                        .vote_sign_bytes(&checkpoint.header.chain_id, vote.timestamp),
+                )
+                .to_bytes();
+        }
+        checkpoint = checked(crate::read::checkpoint(
+            checkpoint.height,
+            &checkpoint.header.chain_id,
+            &checkpoint.header,
+            &checkpoint.commit,
+            &checkpoint.validators,
+        ));
+        let authority = checked(authority.pin_committed_validators(
+            checkpoint.header.chain_id.clone(),
+            checkpoint.validators.clone(),
+        ));
+        let observed = checked(authority.authenticate_committed_time(&checkpoint));
+        (
+            authority,
+            actor,
+            RawTimeWindowBatch::new(
+                vec![RawActivityReceiptEvidence::from_signed_inclusion(
+                    activity_bytes,
+                    receipt,
+                )],
+                maintenance,
+            ),
+            observed,
+        )
+    }
+
+    #[test]
+    fn committed_time_native_batch_proves_count_and_exact_receipt_denomination() {
+        let (authority, actor, batch, observed) = captured_batch();
+        let header = checked(decode_batch_header(batch.maintenance.canonical_header()));
+        assert_eq!(header.batch_number(), 1);
+        assert_eq!(header.first_sequence(), 1);
+        let seconds = observed.observed_core_ms() / 1_000 + 1;
+        let facts = checked(authority.authenticate_cumulative_time_use(
+            &actor,
+            seconds,
+            &observed,
+            std::slice::from_ref(&batch),
+        ));
+        assert_eq!(facts.actor(), &actor);
+        assert_eq!(facts.count(), 1);
+        assert_eq!(facts.successful_count(), 1);
+        assert_eq!(facts.observed_core_ms(), header.timestamp_ms());
+        assert_eq!(facts.observed_batch_id(), observed.observed_batch_id());
+        assert_eq!(facts.first_covered_sequence(), 1);
+        assert_eq!(facts.through_sequence(), header.last_sequence());
+        assert_eq!(facts.window_seconds(), seconds);
+        let decoded = checked(decode(batch.activities[0].receipt().canonical_receipt()));
+        let receipt = decoded
+            .protocol()
+            .unwrap_or_else(|| panic!("native protocol receipt"));
+        assert_eq!(facts.receipt_amounts().len(), 1);
+        assert_eq!(facts.receipt_amounts()[0].asset(), receipt.asset());
+        assert_eq!(facts.receipt_amounts()[0].source_account(), receipt.from());
+        assert_eq!(facts.receipt_amounts()[0].amount(), receipt.amount());
+        let other = checked(Did::new(b"did:layerx:time-window-other"));
+        let empty = checked(authority.authenticate_cumulative_time_use(
+            &other,
+            seconds,
+            &observed,
+            &[batch],
+        ));
+        assert_eq!(empty.count(), 0);
+        assert_eq!(empty.successful_count(), 0);
+        assert!(empty.receipt_amounts().is_empty());
+    }
+
+    #[test]
+    fn committed_time_native_window_refuses_missing_duplicate_and_altered_material() {
+        let (authority, actor, batch, observed) = captured_batch();
+        let seconds = observed.observed_core_ms() / 1_000 + 1;
+        let refused = |batches: &[RawTimeWindowBatch]| {
+            assert!(authority
+                .authenticate_cumulative_time_use(&actor, seconds, &observed, batches)
+                .is_err());
+        };
+        refused(&[]);
+        refused(&[batch.clone(), batch.clone()]);
+        let mut missing = batch.clone();
+        missing.activities.clear();
+        refused(&[missing]);
+        let mut duplicate = batch.clone();
+        duplicate.activities.push(duplicate.activities[0].clone());
+        refused(&[duplicate]);
+        let mut bad = batch.clone();
+        bad.maintenance.canonical_receipt[0] ^= 1;
+        refused(&[bad]);
+        let mut bad = batch.clone();
+        bad.maintenance.header_signature[0] ^= 1;
+        refused(&[bad]);
+        let mut bad = batch.clone();
+        bad.activities[0].canonical_activity[0] ^= 1;
+        refused(&[bad]);
+        let mut bad = batch.clone();
+        match &mut bad.activities[0].receipt {
+            CumulativeReceiptEvidence::SignedInclusion(raw)
+            | CumulativeReceiptEvidence::Outcome(raw) => {
+                raw.canonical_receipt[0] ^= 1;
+            }
+        }
+        refused(&[bad]);
+        let mut bad = batch.clone();
+        bad.maintenance.proof = checked(Proof::new(
+            0,
+            batch.maintenance.proof.leaf_count(),
+            batch.maintenance.proof.siblings().to_vec(),
+        ));
+        refused(&[bad]);
+        assert!(authority
+            .authenticate_cumulative_time_use(&actor, 0, &observed, std::slice::from_ref(&batch))
+            .is_err());
+        assert!(authority
+            .authenticate_cumulative_time_use(&actor, u64::MAX, &observed, &[batch])
+            .is_err());
+    }
+
+    fn authority(checkpoint: &crate::read::ServedCheckpoint) -> EvidenceAuthority {
+        checked(
+            checked(EvidenceAuthority::pinned_to_handshake(3, 125, [7; 32]))
+                .pin_committed_validators("125".into(), checkpoint.validators.clone()),
+        )
+    }
+
+    #[test]
+    fn committed_time_checkpoint_reads_verify_router_material_and_refuse_substitution() {
+        crate::read::ServedCheckpoint::test_committed_reads();
+    }
+
+    #[test]
+    fn committed_time_is_the_signed_block_timestamp_in_milliseconds() {
+        let checkpoint = crate::read::ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_456_789);
+        let observed = checked(authority(&checkpoint).authenticate_committed_time(&checkpoint));
+        assert_eq!(observed.observed_core_ms(), 1_700_000_000_123);
+        assert_eq!(observed.observed_batch_id(), checkpoint.header.block_hash());
+        assert_eq!(observed.through_sequence(), 8);
+    }
+
+    #[test]
+    fn committed_time_requires_the_handshake_network_and_receipt_authority() {
+        let (authority, actor, batch, observed) = captured_batch();
+        let header = checked(decode_batch_header(batch.maintenance.canonical_header()));
+        let wrong_network = checked(
+            checked(EvidenceAuthority::pinned_to_handshake(
+                header.protocol_version(),
+                header.network_id() + 1,
+                authority.verifier.handshake_pin.expect("fixture pin"),
+            ))
+            .pin_committed_validators(
+                observed.checkpoint.header.chain_id.clone(),
+                observed.checkpoint.validators.clone(),
+            ),
+        );
+        assert!(wrong_network
+            .authenticate_committed_time(&observed.checkpoint)
+            .is_err());
+        let wrong_key = checked(
+            checked(EvidenceAuthority::pinned_to_handshake(
+                header.protocol_version(),
+                header.network_id(),
+                [1; 32],
+            ))
+            .pin_committed_validators(
+                observed.checkpoint.header.chain_id.clone(),
+                observed.checkpoint.validators.clone(),
+            ),
+        );
+        assert!(wrong_key
+            .authenticate_cumulative_time_use(&actor, 1, &observed, &[batch])
+            .is_err());
+    }
+
+    #[test]
+    fn committed_time_requires_pinned_validators_and_an_unaltered_quorum() {
+        let checkpoint = crate::read::ServedCheckpoint::test_fixture(8, 1_700_000_000, 0);
+        let unpinned = checked(EvidenceAuthority::pinned_to_handshake(3, 125, [7; 32]));
+        assert!(unpinned.authenticate_committed_time(&checkpoint).is_err());
+        let mut wrong_set = checkpoint.validators.clone();
+        wrong_set[0].voting_power += 1;
+        let wrong = checked(
+            unpinned
+                .clone()
+                .pin_committed_validators("125".into(), wrong_set),
+        );
+        assert!(wrong.authenticate_committed_time(&checkpoint).is_err());
+        let wrong = checked(
+            unpinned.pin_committed_validators("other-chain".into(), checkpoint.validators.clone()),
+        );
+        assert!(wrong.authenticate_committed_time(&checkpoint).is_err());
+        let verifier = authority(&checkpoint);
+        for changed in [
+            "timestamp",
+            "signature",
+            "quorum",
+            "hash",
+            "height",
+            "app",
+            "rung",
+            "validators",
+        ] {
+            let mut bad = checkpoint.clone();
+            match changed {
+                "timestamp" => bad.header.time.seconds += 1,
+                "signature" => bad.commit.votes[0].signature[0] ^= 1,
+                "quorum" => {
+                    bad.commit.votes.pop();
+                }
+                "hash" => bad.block_hash[0] ^= 1,
+                "height" => bad.height += 1,
+                "app" => bad.app_hash[0] ^= 1,
+                "rung" => bad.rung = layerx_types::rung::Rung::Receipted,
+                "validators" => bad.validators.reverse(),
+                _ => unreachable!(),
+            }
+            assert!(
+                verifier.authenticate_committed_time(&bad).is_err(),
+                "{changed}"
+            );
+        }
+        for (seconds, nanos) in [(-1, 0), (0, 0)] {
+            let bad = crate::read::ServedCheckpoint::test_fixture(8, seconds, nanos);
+            assert!(authority(&bad).authenticate_committed_time(&bad).is_err());
+        }
+    }
+
+    #[test]
+    fn committed_time_refuses_budget_expiry_before_or_at_the_committed_timestamp() {
+        use crate::budget::{
+            create_daemon_limit, daemon_limit_id, BudgetLimiter, CoreTimestampMs, DaemonLimitError,
+            DaemonLimitRecord,
+        };
+        use crate::store::{Store, TenantId};
+        let checkpoint = crate::read::ServedCheckpoint::test_fixture(8, 1_700_000_000, 123_000_000);
+        let observed = checked(authority(&checkpoint).authenticate_committed_time(&checkpoint));
+        let now = observed.observed_core_ms();
+        let directory =
+            std::env::temp_dir().join(format!("committed-expiry-{}-{}", std::process::id(), now));
+        let mut store = checked(Store::open(&directory));
+        let limiter = checked(BudgetLimiter::new(Vec::new()));
+        let record = DaemonLimitRecord {
+            tenant: checked(TenantId::new("committed-clock")),
+            budget_id: [1; 32],
+            limit_id: daemon_limit_id([1; 32]),
+            agent_digest: [2; 32],
+            asset: [3; 32],
+            ceiling: 100,
+            consumed: 0,
+            expiry_ms: now - 1,
+            revoked: false,
+            mutation_key: [4; 32],
+            body_digest: [5; 32],
+            revoke_key: [0; 32],
+        };
+        for expiry_ms in [now - 1, now] {
+            let mut expired = record.clone();
+            expired.expiry_ms = expiry_ms;
+            assert!(matches!(
+                create_daemon_limit(&mut store, &limiter, expired, CoreTimestampMs(now)),
+                Err(DaemonLimitError::Expired)
+            ));
+        }
+        let mut live = record;
+        live.expiry_ms = now + 1;
+        let installed = checked(create_daemon_limit(
+            &mut store,
+            &limiter,
+            live.clone(),
+            CoreTimestampMs(now),
+        ));
+        assert_eq!(installed, live);
+        drop(store);
+        checked(std::fs::remove_dir_all(directory));
+    }
+}

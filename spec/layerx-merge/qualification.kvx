@@ -15747,3 +15747,27 @@ symbol = "start_kernel_journey"
 observed = "Attempt 5 (068452fa2, base 5b446cd27) ported the nine declared files and the build stopped on two further targets: tests/retired_crypto_codec_w3.rs includes tests/binding.rs by path and include_str, a file 2772a218f (task 10.9.1) deleted, so the test has no input left; and the wallet identity end-to-end test calls the custody method authorize_kernel_send (:264) and the five-argument KernelStart form of start_kernel_journey (:1088) that 63aee3813 (task 10.0.3) replaced with start_kernel_journey(scope, plan, request, expectation, journey_id, &[EvmAction]) returning an IntentSubmission, and drives the returned value as a JourneyEngine (:1103, :1131, :1173); tests/intent_submit.rs:918 calls the same retired form and was not reached by the build. 10.0.3 was gated without --tests, so the crate's test targets broke unnoticed."
 assumption = "The codec test is deleted with its input, and both kernel tests are ported to the EIP-1559 path 63aee3813 established; no src file changes."
 severity = "major"
+
+[finding.17.5.5.4]
+task = "17.5.5"
+file = "sdk/platform/pipeline.kvx:11"
+symbol = "platform-sdk-check"
+observed = "Attempt 11 (1c4e6df2a, base 5b868c74f) built and the wave 4 aggregate failed in platform-sdk-check at services/platform/Makefile.inc:234, where sdkgen --check reports that the human API schema (sdk/platform/pipeline.kvx source human-api, services/human/schema/human-api) changed after the lock was sealed: 63aee3813 (task 10.0.3) edited the schema on 2026-11-01 and c11d15c58 (task 8.45.4) sealed the lock on 2026-10-31, and no task regenerated the outputs or resealed the lock since; the JVM check of finding 17.5.5.3 passed and the test of this task is unchanged and correct."
+assumption = "Task 8.45.5 (req.84505) regenerates the outputs and reseals the lock; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.10.6.5.5]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/intent_submit.rs:1000"
+symbol = "intent_submit_custody_deposit_creates_a_deposit_journey_past_getting_ready"
+observed = "Attempt 6 (d0bc7723f, base 771f7e17b) kept the nine ports and the build reached tests/intent_submit.rs first, with 22 errors: besides the six retired five-argument start_kernel_journey calls and the three status() calls of finding 10.6.5.4, the file names Mechanism::BridgeDepositCredit and Mechanism::BridgeWithdrawRequest, which ec7c4dc54 (task 10.6.2) removed from the resolver's Mechanism (resolver.rs:582 keeps BudgetCreate, BudgetFund, Send, BudgetDefund and ReceiveUnderPayerGrant), and start_deposit_journey, start_deposit_forward_journey, start_withdrawal_intent, IntentSubmission::from_deposit, from_deposit_forward and from_withdrawal, which ad92aa7fc (task 10.20.3) unhooked and no src file defines; those tests describe journeys the service no longer has."
+assumption = "The tests of retired journeys and mechanisms are deleted with their helpers, and the kernel send and refusal tests are ported as do_10 says."
+severity = "major"
+
+[finding.8.45.5.1]
+task = "8.45.5"
+file = "sdk/platform/generators/src/main.rs:1627"
+symbol = "write_jvm_contract"
+observed = "Attempt 1 (18b732a35, base 4505ff22b) ran make platform-sdk-generate, resealed sdk/platform/pipeline.kvx (schema and generator digests, two handwritten TypeScript declarations) and built; platform-sdk-check failed at services/platform/Makefile.inc:233 in generate_jvm.py --check with 'generated JVM contract is stale': sdkgen --write (main.rs:2070 write_jvm_contract) ran after generate_jvm.py and rewrote sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java with its own header line, so the Python generator's check no longer matched; the lock tests were not reached. Both generators render the same contract body and differ only in the header comment."
+assumption = "Decision 2206 makes generate_jvm.py the only generator of the contract; this task deletes the Rust rendering and regenerates once more."
+severity = "major"
