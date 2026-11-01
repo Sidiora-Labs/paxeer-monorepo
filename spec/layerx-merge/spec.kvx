@@ -117451,7 +117451,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.46.12]
 title = "Reseal the platform SDK pipeline lock after the JVM generator change"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
