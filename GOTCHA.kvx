@@ -12636,3 +12636,8 @@ fix = "copy the sibling task's build and verify prelude and change only the -g p
 title = "Wave aggregate gates need the full SDK toolchain environment"
 symptom = "a wave gate task ran in the mixed-language environment, whose image has no Maven, Swift or dotnet, and make workspace-build stopped in platform-sample-dependencies-ready with 'run make platform-sample-install first' after every earlier target had passed"
 fix = "every task whose gate runs make workspace-build, workspace-test or a platform-* target takes the sdk-all environment profile, which installs the platform sample dependencies before the gate"
+
+[gotcha.2564]
+title = "A task that deletes a symbol must not list it among its symbols"
+symptom = "a port task that removed a stale import and its test passed its build and both verify runs and was refused at the done record because the symbol check wanted the two deleted names defined"
+fix = "list only symbols that exist on the qualified revision; name a deleted symbol in the do text, never in symbols"
