@@ -179184,7 +179184,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.17.8.6]
 title = "Check every decision binds existing tasks of the installed spec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.8.5"]
