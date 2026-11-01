@@ -109591,7 +109591,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.963.1]
 title = "Issue #963: Drop the truncated Paxify theme-preview image and keep the gradient"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
