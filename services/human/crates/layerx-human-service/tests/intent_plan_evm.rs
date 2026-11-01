@@ -24,6 +24,7 @@ use layerx_human_service::server::{
 };
 use layerx_types::clock::Clock;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
 
@@ -134,7 +135,11 @@ impl Drop for IdentityServer {
     }
 }
 
-const ASSET: [u8; 32] = [0x31; 32];
+// Bank asset identifiers are the SHA-256 digest of the ASCII denom "alxp".
+const ASSET: [u8; 32] = [
+    0x80, 0xfa, 0xce, 0x2b, 0x4a, 0x14, 0x30, 0x8e, 0x32, 0x93, 0x26, 0xee, 0x2f, 0x81, 0x41, 0xd2,
+    0x49, 0x07, 0xae, 0x84, 0x75, 0x54, 0xcb, 0xba, 0xb6, 0x48, 0x54, 0xc6, 0xec, 0xc9, 0x11, 0xf7,
+];
 const HEAD: u64 = 88;
 const NONCE: u64 = 19;
 const MAX_FRAME: usize = 1_048_576;
@@ -538,14 +543,21 @@ impl RpcServer {
                                 "layerx_did": did, "layerx_account": identity,
                                 "bound": identity.is_some()
                             },
+                            "height": HEAD.to_string(),
                             "balances": [{
-                                "asset_id": cluster::hex(&ASSET), "denom": "alxp", "custody": null,
-                                "paxeer": {"denom": "alxp", "amount": "1000000000000000000"},
-                                "layerx": {"asset_id": cluster::hex(&ASSET), "balance": "1000000000000000000"}
-                            }],
-                            "joined_limit": 16
+                                "denom": "alxp", "amount": "1000000000000000000"
+                            }]
                         })
                     }
+                    "px_listAssets" => json!({
+                        "height": HEAD.to_string(),
+                        "joined_limit": 16,
+                        "assets": [{
+                            "asset_id": "denom:alxp",
+                            "denom": "alxp", "kind": "bank",
+                            "name": null, "symbol": null, "decimals": null, "supply": null
+                        }]
+                    }),
                     "eth_sendRawTransaction" => {
                         let raw = unhex(request["params"][0].as_str().expect("raw transaction"));
                         let (call, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)
@@ -1247,6 +1259,7 @@ impl Drop for Fixture {
 
 #[test]
 fn intent_plan_answers_eip1559_legs() -> Result<()> {
+    assert_eq!(<[u8; 32]>::from(Sha256::digest(b"alxp")), ASSET);
     let _guard = ENVIRONMENT
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
