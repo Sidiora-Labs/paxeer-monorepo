@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use layerx_client::evidence::VerifiedAdmissionPrestate;
+use crate::AdmissionEvidence;
 
 use layerx_program_sdk::arbiter::{MarketBillingCommitment, MarketSandboxProfile};
 use layerx_program_sdk::AccountId;
@@ -152,7 +152,7 @@ impl NativeNamespaceProof<'_> {
 }
 
 pub struct MarketAdmissionEvidence<'a> {
-    pub prestate: &'a VerifiedAdmissionPrestate,
+    pub prestate: &'a AdmissionEvidence,
     pub header: &'a VerifiedBatchHeader,
 }
 
@@ -665,7 +665,7 @@ impl VerifiedMarketSandbox {
 
 fn check_receipt(
     receipt: &VerifiedReceipt,
-    admission: &VerifiedAdmissionPrestate,
+    admission: &AdmissionEvidence,
 ) -> Result<(), MarketEvidenceError> {
     let value = receipt
         .receipt()
@@ -685,7 +685,7 @@ fn check_receipt(
     Ok(())
 }
 fn market_calldata(
-    admission: &VerifiedAdmissionPrestate,
+    admission: &AdmissionEvidence,
     expected: [u8; 32],
 ) -> Result<&[u8], MarketEvidenceError> {
     let mut call = admission.activity().payload();
@@ -747,7 +747,7 @@ fn cell<'a>(
         .ok_or(MarketEvidenceError::Storage)
 }
 fn selected_fees(
-    admission: &VerifiedAdmissionPrestate,
+    admission: &AdmissionEvidence,
     version: u32,
     batch: u64,
 ) -> Result<FeeSchedule, MarketEvidenceError> {

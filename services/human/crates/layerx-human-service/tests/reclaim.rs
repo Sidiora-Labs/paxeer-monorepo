@@ -1,3 +1,6 @@
+#[path = "retired_crypto_codec_2.rs"]
+mod reclaim_retired_crypto_codec_2;
+
 include!("journey_faults.rs");
 
 use layerx_human_service::activity::{ActivityKind, Feed, FilterDraft, PageRequest};

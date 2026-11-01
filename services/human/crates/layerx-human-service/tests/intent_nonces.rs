@@ -1,8 +1,9 @@
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_human_service::journeys::{
-    authority_label, plan, verify_bindings, BalanceEntry, BindingExpectation, Constraints,
-    Endpoint, ExecutableShape, FeeSchedule, IntentLegBinding, LegMechanism, Mechanism,
-    ObservedState, SubmitPlanRequest, SubmitRefusal, UnifiedIntent, UnifiedPlan,
+    authority_label, plan, verify_bindings, AllowanceId, AllowanceKind, AllowanceScope,
+    BalanceEntry, BindingExpectation, Constraints, Endpoint, ExecutableShape, FeeSchedule,
+    IntentLegBinding, LegMechanism, Mechanism, ObservedState, SignedAllowance, SubmitPlanRequest,
+    SubmitRefusal, UnifiedIntent, UnifiedPlan,
 };
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
@@ -10,23 +11,41 @@ use layerx_types::ids::AssetId;
 use layerx_types::intent::TimestampSeconds;
 use serde_json::{json, Value};
 
-fn nonce_plan(_: bool) -> UnifiedPlan {
+fn nonce_plan(allow_top_up: bool) -> UnifiedPlan {
     let home_account = AccountId::parse("agent:did:layerx:human:main").unwrap();
     let home = Endpoint::human(home_account.clone()).unwrap();
     let asset = AssetId::new([0x33; 32]);
-    let source = home;
+    let source = if allow_top_up {
+        Endpoint::agent(AccountId::parse("agent:did:layerx:relay:main").unwrap()).unwrap()
+    } else {
+        home.clone()
+    };
+    let allowances = if allow_top_up {
+        vec![SignedAllowance::new(
+            AllowanceId::new([1; 32]).unwrap(),
+            AllowanceKind::DelegatedCapability,
+            AllowanceScope::new(
+                home.clone(),
+                source.clone(),
+                asset,
+                LegMechanism::Protocol(Mechanism::Send),
+            ),
+            Amount::from_u128(500),
+            Amount::from_u128(500),
+            TimestampSeconds::from_u64(1_200),
+        )
+        .unwrap()]
+    } else {
+        Vec::new()
+    };
     let destination =
         Endpoint::agent(AccountId::parse("agent:did:layerx:worker:main").unwrap()).unwrap();
     let observed = ObservedState::new(
         TimestampSeconds::from_u64(1_000),
         home_account,
         None,
-        vec![BalanceEntry::new(
-            source.clone(),
-            asset,
-            Amount::from_u128(500),
-        )],
-        Vec::new(),
+        vec![BalanceEntry::new(home, asset, Amount::from_u128(500))],
+        allowances,
         Vec::new(),
         FeeSchedule::new(vec![(LegMechanism::Protocol(Mechanism::Send), 2)]).unwrap(),
     )
@@ -36,7 +55,7 @@ fn nonce_plan(_: bool) -> UnifiedPlan {
         destination,
         asset,
         Amount::from_u128(25),
-        Constraints::new(TimestampSeconds::from_u64(1_200), 20, false),
+        Constraints::new(TimestampSeconds::from_u64(1_200), 20, allow_top_up),
     )
     .unwrap();
     plan(&intent, &observed).unwrap()
@@ -118,4 +137,24 @@ fn intent_leg_binding_matches_the_pending_nonce() {
             field: "account_sequence"
         })
     );
+}
+
+#[test]
+fn intent_legs_reusing_a_nonce_are_refused() {
+    let plan = nonce_plan(true);
+    assert_eq!(plan.legs().len(), 2);
+    assert_eq!(plan.executable_shape(), ExecutableShape::Kernel);
+    let expectation = pending_expectation(9);
+    let mut request = bound_request(&plan, 9);
+    for binding in &request.bindings {
+        assert_eq!(binding.actor, expectation.actor.as_str());
+        assert_eq!(binding.account_sequence, 9);
+    }
+    assert_eq!(
+        verify_bindings(&plan, &request, &expectation),
+        Err(SubmitRefusal::StaleSequence { index: 1 })
+    );
+
+    request.bindings[1].account_sequence = 10;
+    assert_eq!(verify_bindings(&plan, &request, &expectation), Ok(()));
 }

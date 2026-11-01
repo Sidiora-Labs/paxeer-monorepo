@@ -261,8 +261,6 @@ impl ReceiptHarness {
                 &keys_file,
             )),
             chain_rpc_url: format!("http://{address}/evm"),
-            lni_socket: directory.join("absent-lni.sock"),
-            lni_gate: ConnectionGate::new(MAX_LNI_CONNECTIONS),
             chain_endpoint: trust::chain_endpoint(
                 &format!("http://{address}/evm"),
                 READINESS_TIMEOUT,
@@ -370,7 +368,6 @@ impl AuthorityProcess {
                         "LAYERX_AUTHORITY_RECEIPT_KEYS_FILE",
                         harness.directory.join("receipt-keys.json"),
                     )
-                    .env("LAYERX_AUTHORITY_LNI_SOCKET", &harness.config.lni_socket)
                     .env("LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID", "125")
                     .env("LAYERX_AUTHORITY_NETWORK_ID", "chain-receipts-test")
                     .env(
@@ -665,20 +662,13 @@ fn trust_snapshot_is_the_pinned_key_list() {
         Some(expected.clone())
     );
     for key in &expected_keys {
-        for target in [0, 1, 1000, u64::MAX] {
-            assert_eq!(
-                must(trust::snapshot(
-                    &harness.config,
-                    target,
-                    key.public_key(),
-                    Instant::now(),
-                )),
-                Some(expected.clone())
-            );
-        }
+        assert_eq!(
+            must(trust::snapshot(&harness.config, key.public_key())),
+            Some(expected.clone())
+        );
     }
     for claimed in [[0; 32], harness.config.sequencer_public_key] {
-        assert!(trust::snapshot(&harness.config, 1, claimed, Instant::now()).is_err());
+        assert!(trust::snapshot(&harness.config, claimed).is_err());
     }
     for case in &cases {
         let activity = hex_bytes(&case["receiptJson"]["txHash"])
@@ -777,13 +767,7 @@ fn trust_snapshot_is_the_pinned_key_list() {
         &keys_file,
     ));
     assert_ne!(must(trust::current(&harness.config)), Some(expected));
-    assert!(trust::snapshot(
-        &harness.config,
-        1,
-        expected_keys[1].public_key(),
-        Instant::now()
-    )
-    .is_err());
+    assert!(trust::snapshot(&harness.config, expected_keys[1].public_key()).is_err());
 
     assert!(SequencerHistory::from_pinned_keys(0, &expected_keys).is_err());
     assert!(SequencerHistory::from_pinned_keys(125, &[]).is_err());
@@ -837,17 +821,8 @@ fn receipt_admission_needs_no_kernel_socket() {
     let document = receipt_vectors();
     let case = vector(&document, "V1-pax-transfer");
     let harness = ReceiptHarness::start(&[case.clone()], &case);
-    assert!(harness.config.lni_socket.is_absolute());
-    assert!(!harness.config.lni_socket.exists());
-    assert_eq!(
-        std::os::unix::net::UnixStream::connect(&harness.config.lni_socket)
-            .expect_err("the kernel socket must have no listener")
-            .kind(),
-        std::io::ErrorKind::NotFound
-    );
     let authority =
         AuthorityProcess::start_with_replica(&harness, Some(harness.config.replica_address));
-    assert!(!harness.directory.join("absent-lni.sock").exists());
     let (status, body) = authority.get("/readyz");
     assert_eq!(status, 200);
     assert_eq!(
@@ -903,5 +878,4 @@ fn receipt_admission_needs_no_kernel_socket() {
     for call in receipt_calls {
         assert_eq!(call["params"], serde_json::json!([format!("0x{activity}")]));
     }
-    assert!(!harness.config.lni_socket.exists());
 }
