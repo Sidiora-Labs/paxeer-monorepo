@@ -182,6 +182,34 @@ fn every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity() {
         let repeated = Reclaim::start(&mut scope, request, &registry(), 300)
             .unwrap_or_else(|error| panic!("repeat reclaim: {error}"));
         assert_eq!(first, repeated);
+        let records: Vec<serde_json::Value> = scope
+            .keys(Table::Journeys)
+            .iter()
+            .filter(|key| key.as_str().starts_with("journey-"))
+            .map(|key| {
+                serde_json::from_slice(
+                    scope
+                        .get(Table::Journeys, key)
+                        .unwrap_or_else(|| panic!("journey row missing"))
+                        .bytes(),
+                )
+                .unwrap_or_else(|error| panic!("stored journey JSON: {error}"))
+            })
+            .filter(|record: &serde_json::Value| {
+                record["journey_id"].as_str() == Some(request.journey_id.as_str())
+            })
+            .collect();
+        assert_eq!(records.len(), 1);
+        let legs = records[0]["legs"]
+            .as_array()
+            .unwrap_or_else(|| panic!("journey legs missing"));
+        assert_eq!(legs.len(), 1);
+        for leg in legs {
+            assert_eq!(
+                leg["preparation"]["account_sequence"].as_u64(),
+                Some(request.agent.nonce())
+            );
+        }
         assert_eq!(
             layerx_human_service::agents::ReclaimStatus::movement_term(),
             MovementTerm::Return
