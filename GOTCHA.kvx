@@ -12941,3 +12941,8 @@ fix = "The earlier task asserts the absence of exactly its own paths; the task t
 title = "A --offline build fails once a lock refresh adds a package the registry cache lacks"
 symptom = "A build command carried --offline; after a lock refresh added data-encoding to the workspace lock, cargo refused with no matching package found before compiling anything."
 fix = "Qualification build and verify commands never pass --offline; --locked alone pins the resolution."
+
+[gotcha.2625]
+title = "A touched path written from memory must be checked with ls before the task is published"
+symptom = "A task named a stylesheet under src/app/ while the file lives under src/styles/; the attempt made every other change, declined to edit a file outside its touches, and failed its verify grep on the two references in the real file."
+fix = "Run ls or git ls-files on every touches entry when authoring a task; a path that does not exist on main is a spec defect, not an implementation gap."

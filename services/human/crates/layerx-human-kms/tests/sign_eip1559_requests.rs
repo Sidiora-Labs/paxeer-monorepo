@@ -12,6 +12,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
+use zeroize::{Zeroize, Zeroizing};
 
 #[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
 mod runtime_clock_server;
@@ -294,6 +295,44 @@ impl Host {
         checked(write_frame(&mut tls, request, MAX))?;
         checked(read_frame(&mut tls, MAX))
     }
+    fn sender(&self, handle: &[u8; 32]) -> Result<[u8; 20]> {
+        use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
+        #[derive(serde::Deserialize)]
+        struct SigningRecord {
+            handle: [u8; 32],
+            seed: [u8; 32],
+        }
+        impl Drop for SigningRecord {
+            fn drop(&mut self) {
+                self.seed.zeroize();
+            }
+        }
+        #[derive(serde::Deserialize)]
+        struct SigningState {
+            records: std::collections::BTreeMap<String, SigningRecord>,
+        }
+        let seal = Zeroizing::new(fs::read(self.root.join("seal"))?);
+        let mut encrypted = Zeroizing::new(fs::read(self.root.join("state/state.aead"))?);
+        let nonce = encrypted[..12].try_into()?;
+        let key = checked(UnboundKey::new(&AES_256_GCM, &seal))?;
+        let mut aad = b"LXKP/state/v1\0beta-kms".to_vec();
+        aad.extend(125_u32.to_be_bytes());
+        let plain = checked(LessSafeKey::new(key).open_in_place(
+            Nonce::assume_unique_for_key(nonce),
+            Aad::from(&aad),
+            &mut encrypted[12..],
+        ))?;
+        let state: SigningState = serde_json::from_slice(plain)?;
+        let record = state
+            .records
+            .values()
+            .find(|record| &record.handle == handle)
+            .ok_or("missing signing record")?;
+        let key = k256::ecdsa::SigningKey::from_slice(&record.seed)?;
+        checked(layerx_crypto::secp256k1::evm_address(
+            key.verifying_key().to_encoded_point(false).as_bytes(),
+        ))
+    }
 }
 fn blob(out: &mut Vec<u8>, value: &[u8]) -> Result<()> {
     out.extend(u32::try_from(value.len())?.to_be_bytes());
@@ -385,10 +424,17 @@ fn unsigned(call: &layerx_crypto::evm_transaction::Eip1559Call) -> Result<Vec<u8
     Ok(out)
 }
 
-fn signing_request(handle: &[u8], canonical: &[u8], disclosure: &[u8]) -> Result<Vec<u8>> {
+fn signing_request(
+    handle: &[u8],
+    from: [u8; 20],
+    canonical: &[u8],
+    disclosure: &[u8],
+) -> Result<Vec<u8>> {
     use sha3::{Digest, Keccak256};
     let mut out = request(5, [31; 32], handle, None)?;
+    out[4..6].copy_from_slice(&7_u16.to_be_bytes());
     out.extend(Keccak256::digest(canonical));
+    out.extend(from);
     blob(&mut out, canonical)?;
     blob(&mut out, disclosure)?;
     Ok(out)
@@ -413,25 +459,29 @@ fn decode_unsigned_activity(
 #[test]
 fn lxkp_sign_accepts_an_unsigned_type2_transaction() -> Result<()> {
     let host = Host::new()?;
-    let (handle, public) = facts(&host.call(&request(1, [31; 32], &[], None)?)?)?;
+    let (handle, _) = facts(&host.call(&request(1, [31; 32], &[], None)?)?)?;
+    let from = host.sender(&handle)?;
     let call = call();
     let canonical = unsigned(&call)?;
-    let disclosure = checked(layerx_crypto::disclosure::call::bind_call(&call, [4; 20]))?;
+    let disclosure = checked(layerx_crypto::disclosure::call::bind_call(&call, from))?;
     let encoded = checked(wire::disclosure(&disclosure))?;
-    let sign = signing_request(&handle, &canonical, &encoded)?;
+    let sign = signing_request(&handle, from, &canonical, &encoded)?;
     let response = host.call(&sign)?;
-    assert_eq!(&response[..8], b"LXKP\0\x01\x05\0");
-    assert_eq!(response.len(), 72);
-    checked(
-        ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public)
-            .verify(&call.signing_hash(), &response[8..]),
-    )?;
+    assert_eq!(&response[..8], b"LXKP\0\x07\x05\0");
+    assert_eq!(response.len(), 8 + 65);
+    let signature: [u8; 65] = response[8..].try_into()?;
+    let signature = checked(layerx_crypto::signer::AgentSignature::new(signature))?;
+    assert_eq!(
+        layerx_crypto::evm_transaction::recover_sender(&call, &signature)?,
+        from
+    );
 
     let mut mismatch = disclosure.clone();
     mismatch.asset[0] ^= 1;
     assert_eq!(
         host.call(&signing_request(
             &handle,
+            from,
             &canonical,
             &checked(wire::disclosure(&mismatch))?
         )?)?[7],
@@ -442,6 +492,7 @@ fn lxkp_sign_accepts_an_unsigned_type2_transaction() -> Result<()> {
     assert_eq!(
         host.call(&signing_request(
             &handle,
+            from,
             &canonical,
             &checked(wire::disclosure(&mismatch))?
         )?)?[7],
@@ -452,6 +503,7 @@ fn lxkp_sign_accepts_an_unsigned_type2_transaction() -> Result<()> {
     assert_eq!(
         host.call(&signing_request(
             &handle,
+            from,
             &canonical,
             &checked(wire::disclosure(&mismatch))?
         )?)?[7],
@@ -461,25 +513,45 @@ fn lxkp_sign_accepts_an_unsigned_type2_transaction() -> Result<()> {
     let mut changed = call.clone();
     changed.chain_id = 126;
     assert_eq!(
-        host.call(&signing_request(&handle, &unsigned(&changed)?, &encoded)?)?[7],
+        host.call(&signing_request(
+            &handle,
+            from,
+            &unsigned(&changed)?,
+            &encoded
+        )?)?[7],
         1
     );
     changed = call.clone();
     changed.to[0] ^= 1;
     assert_eq!(
-        host.call(&signing_request(&handle, &unsigned(&changed)?, &encoded)?)?[7],
+        host.call(&signing_request(
+            &handle,
+            from,
+            &unsigned(&changed)?,
+            &encoded
+        )?)?[7],
         1
     );
     changed = call.clone();
     changed.data[0] ^= 1;
     assert_eq!(
-        host.call(&signing_request(&handle, &unsigned(&changed)?, &encoded)?)?[7],
+        host.call(&signing_request(
+            &handle,
+            from,
+            &unsigned(&changed)?,
+            &encoded
+        )?)?[7],
         1
     );
     changed = call.clone();
     changed.data[4] ^= 1;
     assert_eq!(
-        host.call(&signing_request(&handle, &unsigned(&changed)?, &encoded)?)?[7],
+        host.call(&signing_request(
+            &handle,
+            from,
+            &unsigned(&changed)?,
+            &encoded
+        )?)?[7],
         1
     );
 
@@ -492,12 +564,12 @@ fn lxkp_sign_accepts_an_unsigned_type2_transaction() -> Result<()> {
     assert_eq!(value[destination + 21], 0x80);
     value[destination + 21] = 1;
     assert_eq!(
-        host.call(&signing_request(&handle, &value, &encoded)?)?[7],
+        host.call(&signing_request(&handle, from, &value, &encoded)?)?[7],
         1
     );
 
     let mut bad_digest = sign.clone();
-    let digest_offset = bad_digest.len() - canonical.len() - encoded.len() - 8 - 32;
+    let digest_offset = bad_digest.len() - canonical.len() - encoded.len() - 8 - 20 - 32;
     bad_digest[digest_offset] ^= 1;
     assert_eq!(host.call(&bad_digest)?[7], 5);
     let mut wrong_network = sign;
@@ -518,10 +590,73 @@ fn lxkp_sign_accepts_an_unsigned_type2_transaction() -> Result<()> {
         },
     ] {
         assert_eq!(
-            host.call(&signing_request(&handle, &invalid, &encoded)?)?[7],
+            host.call(&signing_request(&handle, from, &invalid, &encoded)?)?[7],
             1
         );
     }
+    Ok(())
+}
+
+#[test]
+fn lxkp_sign_refuses_the_version_1_frame() -> Result<()> {
+    use sha3::{Digest, Keccak256};
+    let host = Host::new()?;
+    let (handle, _) = facts(&host.call(&request(1, [31; 32], &[], None)?)?)?;
+    let from = host.sender(&handle)?;
+    let call = call();
+    let canonical = unsigned(&call)?;
+    let disclosure = checked(layerx_crypto::disclosure::call::bind_call(&call, from))?;
+    let mut legacy = request(5, [31; 32], &handle, None)?;
+    legacy.extend(Keccak256::digest(&canonical));
+    blob(&mut legacy, &canonical)?;
+    blob(&mut legacy, &checked(wire::disclosure(&disclosure))?)?;
+    let refusal = wire::Request::decode(&legacy)
+        .err()
+        .ok_or("version 1 SIGN admitted")?;
+    assert_eq!(refusal, wire::Error::Refused);
+    assert_eq!(refusal as u8, 1);
+    assert!(host.call(&legacy).is_err());
+    Ok(())
+}
+
+#[test]
+fn lxkp_sign_refuses_a_foreign_sender() -> Result<()> {
+    let host = Host::new()?;
+    let (handle, _) = facts(&host.call(&request(1, [31; 32], &[], None)?)?)?;
+    let from = host.sender(&handle)?;
+    let mut foreign = from;
+    foreign[0] ^= 1;
+    assert_ne!(foreign, from);
+    let call = call();
+    let disclosure = checked(layerx_crypto::disclosure::call::bind_call(&call, foreign))?;
+    let request = signing_request(
+        &handle,
+        foreign,
+        &unsigned(&call)?,
+        &checked(wire::disclosure(&disclosure))?,
+    )?;
+    assert_eq!(host.call(&request)?, b"LXKP\0\x07\x05\x05");
+    Ok(())
+}
+
+#[test]
+fn lxkp_sign_refuses_a_zero_sender() -> Result<()> {
+    let host = Host::new()?;
+    let (handle, _) = facts(&host.call(&request(1, [31; 32], &[], None)?)?)?;
+    let from = host.sender(&handle)?;
+    let call = call();
+    let disclosure = checked(layerx_crypto::disclosure::call::bind_call(&call, from))?;
+    let request = signing_request(
+        &handle,
+        [0; 20],
+        &unsigned(&call)?,
+        &checked(wire::disclosure(&disclosure))?,
+    )?;
+    assert!(matches!(
+        wire::Request::decode(&request),
+        Err(wire::Error::Refused)
+    ));
+    assert!(host.call(&request).is_err());
     Ok(())
 }
 
@@ -535,6 +670,7 @@ fn lxkp_sign_refuses_a_kernel_activity_envelope() -> Result<()> {
     };
     let host = Host::new()?;
     let (handle, public) = facts(&host.call(&request(1, [31; 32], &[], None)?)?)?;
+    let from = host.sender(&handle)?;
     let kind = checked(ActivityType::new(ModuleId::Asset, 4))?;
     let registry = checked(ModuleRegistry::new(&[checked(ModuleRegistration::new(
         ModuleId::Asset,
@@ -570,13 +706,18 @@ fn lxkp_sign_refuses_a_kernel_activity_envelope() -> Result<()> {
     let disclosure = checked(layerx_crypto::disclosure::bind(&canonical, &registry))?;
     let mut request = signing_request(
         &handle,
+        from,
         &canonical,
         &checked(wire::disclosure(&disclosure))?,
     )?;
-    assert_eq!(host.call(&request)?, b"LXKP\0\x01\x05\x01");
-    let offset =
-        request.len() - canonical.len() - checked(wire::disclosure(&disclosure))?.len() - 8 - 32;
+    assert_eq!(host.call(&request)?, b"LXKP\0\x07\x05\x01");
+    let offset = request.len()
+        - canonical.len()
+        - checked(wire::disclosure(&disclosure))?.len()
+        - 8
+        - 20
+        - 32;
     request[offset..offset + 32].copy_from_slice(&layerx_human_kms::attestor::preimage(&canonical));
-    assert_eq!(host.call(&request)?, b"LXKP\0\x01\x05\x01");
+    assert_eq!(host.call(&request)?, b"LXKP\0\x07\x05\x01");
     Ok(())
 }

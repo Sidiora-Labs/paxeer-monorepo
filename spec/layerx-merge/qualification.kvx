@@ -16539,3 +16539,11 @@ symbol = "data-encoding"
 observed = "Attempt 1 (1ab1b4d6c) implemented the four files; the build command failed before compiling with no matching package named data-encoding found because it passes --offline and the qualification environment's registry cache lacks the package that entered services/human/Cargo.lock with the lock refresh of task 9.25.16; attempt 2 relaunched before this ruling and fails the same way."
 assumption = "Qualification commands only: the build and verify commands drop --offline; the attempt 1 tree stands."
 severity = "minor"
+
+[finding.18.963.1.1]
+task = "18.963.1"
+file = "apps/perps/src/styles/globals.css:933"
+symbol = "--theme-bg-image"
+observed = "Attempt 1 (c4577e759) deleted the image and switched the Paxify preview in SettingsModal.tsx to its gradient, and tsc passed; the verify grep then found the two stylesheet references still present because the task named the stylesheet as apps/perps/src/app/globals.css, a path that does not exist, while the file is apps/perps/src/styles/globals.css (the comment at :631 and --theme-bg-image: url(/Paxify.png) at :933)."
+assumption = "The touches and do_3 name the real stylesheet; the attempt 1 tree stands and gains the two stylesheet edits."
+severity = "minor"
