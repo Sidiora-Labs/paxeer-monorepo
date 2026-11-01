@@ -10,7 +10,7 @@ use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use sha3::Keccak256;
 use zeroize::Zeroizing;
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine as _;
 use layerx_crypto::disclosure::call::bind_call;
 use layerx_crypto::disclosure::Disclosure;
@@ -106,6 +106,36 @@ fn openssl(dir: &Path, args: &[&str]) -> Result<()> {
 
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn wire_transaction(unsigned: &[u8]) -> Vec<u8> {
+    assert_eq!(unsigned[0], 0x02);
+    let list = &unsigned[1..];
+    let (header_length, payload_length) = match list[0] {
+        0xc0..=0xf7 => (1, usize::from(list[0] - 0xc0)),
+        0xf8..=0xff => {
+            let length_bytes = usize::from(list[0] - 0xf7);
+            let length = list[1..1 + length_bytes]
+                .iter()
+                .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
+            (1 + length_bytes, length)
+        }
+        _ => panic!("unsigned transaction must contain an RLP list"),
+    };
+    assert_eq!(list.len(), header_length + payload_length);
+    let mut payload = list[header_length..].to_vec();
+    payload.extend_from_slice(&[0x80, 0x80, 0x80]);
+    let mut wire = vec![0x02];
+    if payload.len() < 56 {
+        wire.push(0xc0 + payload.len() as u8);
+    } else {
+        let length = payload.len().to_be_bytes();
+        let first = length.iter().position(|byte| *byte != 0).unwrap();
+        wire.push(0xf7 + (length.len() - first) as u8);
+        wire.extend_from_slice(&length[first..]);
+    }
+    wire.extend_from_slice(&payload);
+    wire
 }
 
 struct Pki {
@@ -429,6 +459,29 @@ struct TokenSigner {
 }
 
 impl TokenSigner {
+    fn public_pem(&self) -> String {
+        let mut spki = vec![
+            0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06,
+            0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00,
+        ];
+        spki.extend_from_slice(self.key.verifying_key().to_encoded_point(false).as_bytes());
+        format!(
+            "-----BEGIN PUBLIC KEY-----\n{}\n-----END PUBLIC KEY-----\n",
+            STANDARD.encode(spki)
+        )
+    }
+
+    fn sign_inventory(&self, claims: &Value) -> String {
+        let header = json!({"alg": "ES256", "typ": "wallet-custody-inventory+jwt"});
+        let input = format!(
+            "{}.{}",
+            URL_SAFE_NO_PAD.encode(header.to_string()),
+            URL_SAFE_NO_PAD.encode(claims.to_string())
+        );
+        let signature: Signature = self.key.sign(input.as_bytes());
+        format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature.to_bytes()))
+    }
+
     fn generate(key_id: &str) -> Result<Self> {
         loop {
             let mut scalar = [0_u8; 32];
@@ -490,6 +543,9 @@ struct Cluster {
     tokens: TokenSigner,
     keys: JsonServer,
     chain: JsonServer,
+    inventory_members: Vec<Value>,
+    inventory_keys: Vec<Value>,
+    inventory_sequence: u64,
 }
 
 impl Drop for Cluster {
@@ -518,6 +574,8 @@ impl Cluster {
             pins.push(pki.pin(id)?);
         }
         let tokens = TokenSigner::generate("attestor-test-key")?;
+        fs::write(root.join("authority.pem"), tokens.public_pem())?;
+        let inventory_file = root.join("inventory.jwt");
         let keys = JsonServer::key_set(json!({ "keys": [tokens.jwk()?] }).to_string())?;
         let chain = JsonServer::bind_nonces(BIND_NONCE)?;
         fs::write(
@@ -527,7 +585,17 @@ impl Cluster {
                 "defaults": {
                     "chain_id": 125,
                     "kinds": ["lx_activity", "evm_tx"],
-                    "caps": {"native": {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"}},
+                    "selectors": {
+                        "0x000000000000000000000000000000000000101a": [
+                            "0x2bb1ae7c", "0x78ea11db", "0x2e89490f"
+                        ]
+                    },
+                    "caps": {
+                        "native": {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"},
+                        "0000000000000000000000000000000000000000000000000000000000000000": {
+                            "per_transaction": "1000000", "daily": "100000000"
+                        }
+                    },
                     "rate_per_minute": 1000
                 }
             }))?,
@@ -549,9 +617,11 @@ impl Cluster {
                 module
                     .activity_types()
                     .iter()
+                    .filter(|kind| kind.value() == 65541)
                     .map(|kind| kind.value().to_string())
             })
             .collect();
+        assert_eq!(activity_types, ["65541"]);
         let addresses = free_addresses(NODES * 2)?;
         let nodes: Vec<(String, SocketAddr)> = ids
             .iter()
@@ -567,7 +637,15 @@ impl Cluster {
             tokens,
             keys,
             chain,
+            inventory_members: ids
+                .iter()
+                .zip(&pins)
+                .map(|(id, pin)| json!({"id": id, "spki_sha256": pin}))
+                .collect(),
+            inventory_keys: Vec::new(),
+            inventory_sequence: 0,
         };
+        cluster.publish_inventory()?;
         for (index, id) in ids.iter().enumerate() {
             let others: Vec<usize> = (0..NODES).filter(|other| *other != index).collect();
             let peer_list = others
@@ -601,6 +679,17 @@ impl Cluster {
                 .env("ATTESTOR_JWT_ISSUER", ISSUER)
                 .env("ATTESTOR_JWT_AUDIENCE", AUDIENCE)
                 .env("ATTESTOR_JWT_MAX_AGE", JWT_MAX_AGE)
+                .env(
+                    "ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE",
+                    root.join("authority.pem"),
+                )
+                .env("ATTESTOR_AUTHORITY_ISSUER", ISSUER)
+                .env("ATTESTOR_AUTHORITY_TENANT", "attestor-test")
+                .env(
+                    "ATTESTOR_INVENTORY_PUBLIC_KEY_FILE",
+                    root.join("authority.pem"),
+                )
+                .env("ATTESTOR_INVENTORY_FILE", &inventory_file)
                 .env("ATTESTOR_POLICY_FILE", root.join("policy.json"))
                 .env(
                     "ATTESTOR_KERNEL_POLICY_FILE",
@@ -629,6 +718,41 @@ impl Cluster {
         }
         cluster.wait_ready()?;
         Ok(cluster)
+    }
+
+    fn publish_inventory(&mut self) -> Result<()> {
+        self.inventory_sequence += 1;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        let claims = json!({
+            "version": 1, "iss": ISSUER, "aud": "wallet-custody-inventory",
+            "tenant": "attestor-test", "sequence": self.inventory_sequence.to_string(),
+            "iat": now - 1, "exp": now + 3600, "protocol": "wallet", "threshold": 3,
+            "members": self.inventory_members, "keys": self.inventory_keys,
+        });
+        let pending = self.root.join("inventory.pending");
+        fs::write(&pending, self.tokens.sign_inventory(&claims))?;
+        fs::set_permissions(&pending, fs::Permissions::from_mode(0o600))?;
+        fs::rename(pending, self.root.join("inventory.jwt"))?;
+        Ok(())
+    }
+
+    fn approve_generate(&mut self, key_id: &str, curve: &str, owner: &str) -> Result<()> {
+        self.inventory_keys.push(json!({
+            "key_id": key_id, "epoch": 0, "curve": curve, "public_key": "",
+            "owner": owner, "operations": ["generate"],
+        }));
+        self.publish_inventory()
+    }
+
+    fn approve_sign(&mut self, key_id: &str, public_key: &[u8]) -> Result<()> {
+        let entry = self
+            .inventory_keys
+            .iter_mut()
+            .find(|entry| entry["key_id"] == key_id)
+            .ok_or("missing inventory key")?;
+        entry["public_key"] = json!(hex(public_key));
+        entry["operations"] = json!(["sign"]);
+        self.publish_inventory()
     }
 
     fn client(&self) -> Result<AttestorClient> {
@@ -921,7 +1045,10 @@ fn assert_verified(
     let invalid = layerx_crypto::signer::AgentSignature::new(tampered).and_then(|signature| {
         recover_sender(call, &signature).map_err(|_| layerx_crypto::VerifyError::BadSignature)
     });
-    assert!(invalid.is_err() || invalid? != signer.evm_address());
+    match invalid {
+        Ok(address) => assert_ne!(address, signer.evm_address()),
+        Err(_) => {}
+    }
     Ok(())
 }
 
@@ -948,7 +1075,7 @@ fn sign_approved(
 
 #[test]
 fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Result<()> {
-    let cluster = Cluster::start()?;
+    let mut cluster = Cluster::start()?;
     let denied = cluster
         .operator()?
         .generate_ed25519("lx-operator-key", OWNER, ACCOUNT);
@@ -959,6 +1086,7 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
         ),
         "{denied:?}"
     );
+    cluster.approve_generate("lx-user-key", "ed25519", OWNER)?;
     let generated = checked(
         cluster
             .client()?
@@ -966,6 +1094,8 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
     )?;
     assert_eq!(generated.audit.len(), NODES);
     assert!(generated.audit.values().all(|sequence| *sequence > 0));
+    cluster.approve_sign("lx-user-key", &generated.public_key)?;
+    cluster.approve_generate(EVM_KEY, "secp256k1", OWNER)?;
     let generated_evm = serde_json::to_vec(&json!({
         "session_id": "generate-evm-owner", "key_id": EVM_KEY,
         "curve": "secp256k1", "owner": OWNER, "account": "",
@@ -987,6 +1117,7 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
         }
     }
     let public = wallet_public.ok_or("missing EVM key generation responses")?;
+    cluster.approve_sign(EVM_KEY, &public)?;
     let point = k256::ecdsa::VerifyingKey::from_sec1_bytes(&public)?.to_encoded_point(false);
     let wallet: [u8; 20] = Keccak256::digest(&point.as_bytes()[1..])[12..].try_into()?;
     cluster.pki.certificate_der("gateway-ca")?;
@@ -1099,7 +1230,7 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
         "key_id": EVM_KEY,
         "kind": "evm_tx",
         "signers": SIGNERS,
-        "transaction": hex(&layerx_human_kms::attestor::unsigned_evm_transaction(&repeat_canonical)),
+        "transaction": hex(&wire_transaction(&layerx_human_kms::attestor::unsigned_evm_transaction(&repeat_canonical))),
     }))?;
     assert_eq!(
         repeat_disclosure.signing_digest()?,

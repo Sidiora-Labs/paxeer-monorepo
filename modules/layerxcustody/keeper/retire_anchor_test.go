@@ -10,6 +10,7 @@ import (
 
 func TestCheckpointRegistrationIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	e := newEnvWithoutCheckpoint(t, 0)
+	e.ctx, _ = e.ctx.CacheContext()
 	testkeeper.EVMTestApp.UpgradeKeeper.SetDone(e.ctx.WithBlockHeight(20), types.MergePlanUpgrade)
 	stateRoot := vectorArray(t, e.withdrawal, "header_state_root")
 	receiptRoot := vectorArray(t, e.withdrawal, "header_receipt_root")

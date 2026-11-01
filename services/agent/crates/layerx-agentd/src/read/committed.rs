@@ -176,11 +176,11 @@ impl CommittedIssuance {
 
 #[derive(Clone, Debug)]
 pub struct CommittedAsset {
-    metadata: layerx_client::payments::AssetMetadata,
+    metadata: layerx_client::rpc::payments::AssetMetadata,
     call: CommittedCall,
 }
 impl CommittedAsset {
-    pub fn metadata(&self) -> &layerx_client::payments::AssetMetadata {
+    pub fn metadata(&self) -> &layerx_client::rpc::payments::AssetMetadata {
         &self.metadata
     }
     pub const fn registered(&self) -> bool {
@@ -349,7 +349,7 @@ impl<'a> CommittedReads<'a> {
         let call = self.call(precompile(0x1a), &calldata(b"getAsset(bytes32)", &asset))?;
         let bytes = call.canonical_bytes();
         let paused = uint(bytes, 10, 1)?;
-        let metadata = layerx_client::payments::AssetMetadata {
+        let metadata = layerx_client::rpc::payments::AssetMetadata {
             asset_id: word(bytes, 0)?,
             symbol: dynamic(bytes, 1, 12, 16)?,
             name: String::from_utf8(dynamic(bytes, 2, 12, 32)?)

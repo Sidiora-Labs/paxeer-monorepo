@@ -9,10 +9,10 @@ use layerx_proof::receipt::{
     verify_native_owner_outcome, NativeOwnerOutcomeContext, NativeOwnerOutcomeFailure,
 };
 
-use crate::client::ReconnectPolicy;
 use crate::lni::refusal::decode_core_refusal;
 use crate::lni::schema::{decode_envelope, encode_envelope, Envelope, SchemaError, Version};
 use crate::lni::transport::{FrameTransport, TransportError};
+use crate::rpc::receipt::ReconnectPolicy;
 use crate::submit::Unknown;
 use layerx_types::result::ResultCode;
 use layerx_wire::receipt::Receipt;

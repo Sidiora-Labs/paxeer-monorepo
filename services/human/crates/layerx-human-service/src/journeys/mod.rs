@@ -8,6 +8,8 @@ mod resolver;
 mod router;
 mod wire;
 
+pub use layerx_client::sequencer::ReceiptKeyEntry;
+
 pub use engine::{
     AgentBoundary, AgentBoundaryError, AgentObservation, AgentPreparation, JourneyEngine,
     JourneyError, JourneyKind, JourneyLeg, JourneyPhase, JourneyPlan, JourneyProgress,

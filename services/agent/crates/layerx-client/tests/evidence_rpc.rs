@@ -30,8 +30,7 @@ fn hex(bytes: &[u8]) -> String {
 fn proof_bundle_reads_eth_get_proof_and_the_landing_block() {
     type BundleRead =
         fn(&SequencerEndpoint, [u8; 20], &[[u8; 32]], u64) -> Result<ProofBundle, EvidenceError>;
-    let bundle_reads: [BundleRead; 2] =
-        [evidence::proof_bundle, evidence::proof_bundle_with_history];
+    let bundle_reads: [BundleRead; 1] = [evidence::proof_bundle];
     let height = 0x1234;
     let address = [0x12; 20];
     let slots = [[0x34; 32]];
