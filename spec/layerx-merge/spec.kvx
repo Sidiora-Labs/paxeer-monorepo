@@ -151867,7 +151867,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.27.4]
 title = "Delete the explorer index unified HTTP tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1"]
@@ -152097,7 +152097,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.27.11]
 title = "Delete the explorer index receipt authority reader"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1"]
