@@ -560,16 +560,27 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
     let case = &fixture["case"];
     let principal = checked(PrincipalId::new(text(&fixture, "principal")));
     let capability = id(text(case, "capability_id"));
+    let mut agent = runtime(
+        &fixture,
+        principal.as_str(),
+        text(&fixture, "owner"),
+        text(&fixture, "account"),
+    );
     let mut retained = store(&fixture);
     let mut scope = checked(retained.principal(&principal));
-    assert!(load_access(&scope, capability, clock(&fixture).0).is_err());
+    assert!(load_access(&scope, &mut agent, capability, clock(&fixture).0).is_err());
     drop(scope);
     drop(retained);
     println!("NATIVE_SEND_PRODUCER_CASE denied-before-consent");
     public_access(&fixture, case);
     let mut retained = store(&fixture);
     let mut scope = checked(retained.principal(&principal));
-    let context = checked(load_access(&scope, capability, clock(&fixture).0));
+    let context = checked(load_access(
+        &scope,
+        &mut agent,
+        capability,
+        clock(&fixture).0,
+    ));
     assert_eq!(context.session.owner, text(&fixture, "owner"));
     assert_eq!(context.session.principal, principal.as_str());
     assert_eq!(context.session.tenant, text(&fixture, "agent_tenant"));
@@ -587,12 +598,6 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
         &digest,
         &ed25519_dalek::Signature::from_bytes(&grant.signature),
     ));
-    let mut agent = runtime(
-        &fixture,
-        principal.as_str(),
-        text(&fixture, "owner"),
-        text(&fixture, "account"),
-    );
     let owner =
         checked(agent.native_send_owner_context(&context.session, number(&fixture, "request_id")));
     assert_eq!(owner.generation, context.session.generation);
@@ -677,7 +682,7 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
     let foreign = checked(PrincipalId::new(text(&fixture, "foreign_principal")));
     let mut foreign_store = store(&fixture);
     let foreign_scope = checked(foreign_store.principal(&foreign));
-    assert!(load_access(&foreign_scope, capability, clock(&fixture).0).is_err());
+    assert!(load_access(&foreign_scope, &mut agent, capability, clock(&fixture).0).is_err());
     assert!(context
         .session
         .validate(&foreign_scope, clock(&fixture).0)
@@ -730,16 +735,21 @@ fn genuine_human_owner_session_consent_preview_and_reopen() {
     drop(agent);
     let mut reopened = store(&fixture);
     let scope = checked(reopened.principal(&principal));
-    let context = checked(load_access(&scope, capability, clock(&fixture).0));
-    assert_eq!(
-        serde_json::to_vec(&context.session).expect("actual reopened session serialization"),
-        original_session
-    );
     let mut agent = runtime(
         &fixture,
         principal.as_str(),
         text(&fixture, "owner"),
         text(&fixture, "account"),
+    );
+    let context = checked(load_access(
+        &scope,
+        &mut agent,
+        capability,
+        clock(&fixture).0,
+    ));
+    assert_eq!(
+        serde_json::to_vec(&context.session).expect("actual reopened session serialization"),
+        original_session
     );
     let resumed = checked(preview_send_v2(
         &scope,

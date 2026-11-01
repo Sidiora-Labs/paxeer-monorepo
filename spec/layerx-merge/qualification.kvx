@@ -15859,3 +15859,147 @@ symbol = "platform-sample-dependencies-ready"
 observed = "Attempt 12 (585053d5f, base 2dc8523b6) built, passed platform-sdk-check, and the wave 4 aggregate failed in platform-sample-dependencies-ready (services/platform/Makefile.inc:58-66) with 'run make platform-sample-install first': the qualification environment had neither run make platform-sample-install nor carried Maven, Swift and dotnet, which platform-sample-preflight (:30-36) and the readiness check require; the test of this task is unchanged and correct."
 assumption = "The qualification environment now provides Maven, Swift and dotnet and runs make platform-sample-install before the gate; this task continues unchanged."
 severity = "minor"
+
+[finding.9.25.11.2]
+task = "9.25.11"
+file = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs:460"
+symbol = "ProofBundleRequest"
+observed = "Attempt 2 (61529eece, base ccffcb531) restored the account proof items with the decision 2207 doc comment, ported proof_bundle_v2.rs and the three client tests, and the build of layerx-agentd failed with eleven errors: read/proof_bundle.rs:127, :132, :220, :260 and :278 pass StorageWitness slices and AccountState where read/checkpoint.rs:460 declares ProofBundleRequest.account_proof as Option<&AccountProof> and :483 ServedProofBundle.account_proof as Option<AccountProof>, and protocol_evidence.rs:1961, :1962 and :1975 call evidence() on the ModuleStateValue of the rewritten module_state, which no longer carries a VerifiedModuleEvidence; both files were outside the touches, so the attempt stopped at the build and the verify gate never ran."
+assumption = "read/checkpoint.rs and protocol_evidence.rs join the touches; the two field types follow the daemon's AccountState and StorageWitness, and verified_program_record is ported onto the new module_state with the ServedCheckpoint per decision 2209."
+severity = "major"
+
+[finding.9.25.6.2]
+task = "9.25.6"
+file = "services/agent/crates/layerx-agentd/src/budget/execution_state.rs:214"
+symbol = "read_record"
+observed = "The keys read_record builds at :214-230 (program NUL, program-owner NUL, wind-down NUL s, interface NUL, progfee/active/v1, wind-down NUL r, program-account NUL r) name module-store records the node does not serve as EVM storage: the retired module_state proved a 32-byte slot while the binding check at :229 needs at least 139 bytes, and after task 9.25.11 (decision 2209) verified_program_record takes precompile calldata, so these calls compile but every read fails at the precompile's selector check and settlement refuses with SourceSnapshot."
+assumption = "This task ports read_record onto the precompile's view functions with the ServedCheckpoint it already acquires; verified_program_record and verified_program_owner lose their LNI parameters here."
+severity = "major"
+
+[finding.8.98.18.1]
+task = "8.98.18"
+file = "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:450"
+symbol = "OWNER"
+observed = "Attempt 1 (a88af5bbc, base ccffcb531) implemented decision 2205 in budget_state.rs and the fixture test; the build passed and the test failed at :440 with budget_proof_export_unavailable: Session::identity (budget_state.rs:96) reads px_getAccount through layerx_client PxEndpoint::account, whose identities decoder (layerx-client/src/px.rs:189-199) accepts a layerx_did only as did:layerx: followed by 64 hexadecimal characters, while the fixture carries did:layerx:budget-owner from the generator constant OWNER (task 9.25.10); the decode fails, no identity binds, produce_at returns Err(()) and the handler reports unavailable. The replay double, the session and the export code of this task are correct, and the daemon's fixture tests never ran the client's decoder."
+assumption = "Task 9.25.14 (decision 2210) regenerates the fixture with a conforming DID; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.10.6.5.9]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/src/onboarding/native.rs:234"
+symbol = "accept_bootstrap_owner"
+observed = "Attempt 10 (5141249e7, base 0cc7a738e) applied the canonical owner port of do_13, built the test targets of both crates, passed the durable admission test and the intent_submit target, and native_onboarding_completes_only_at_committed failed at tests/native_onboarding_rungs.rs:320 unwrapping Err(EvidenceConflict): accept_bootstrap_owner (services/human/crates/layerx-human-service/src/onboarding/native.rs:234-235) compares evidence.actor with the record's DID bytes and evidence.owner_public_key with the ed25519 bootstrap key, while the EVM owner form that task 10.97.1 established and tests/support/canonical_owner.rs:146-152 produces carries the 20-byte sender as actor and the sender's authority word as owner_public_key; the same comparisons sit at :104-105, :398-399 and :433-434 and no file in the touches of this task can change them. The test and the port are correct."
+assumption = "Decision 2211: the four comparisons go and the signed transaction plus the payload bind the owner, as agents/create.rs run_protocol already does since 10.97.1; the onboarding source joins this task because its only consumer gate is the test this task ports."
+severity = "major"
+
+[finding.17.5.5.6]
+task = "17.5.5"
+file = "services/platform/Makefile.inc:41"
+symbol = "platform-sample-install"
+observed = "Attempt 13 (fe9f54c21, base 0cc7a738e) built, and the wave 4 aggregate failed in platform-sample-dependencies-ready (services/platform/Makefile.inc:60): the Platform Python environment had no layerx-sdk metadata because make platform-sample-install exits at its pip step within seconds, its line :41 installing from $(CURDIR)/agent/sdk/python, a path that 3422bafe2 moved to services/agent/sdk/python while rewriting :112, :277 and :350; the aggregate and the test of this task are unchanged and correct."
+assumption = "Task 17.5.13 (req.17513) corrects the path and proves the install step; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.9.25.11.3]
+task = "9.25.11"
+file = "services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs:2"
+symbol = "CommittedBudgetProofTrust"
+observed = "Attempt 3 (99b0818b8, base a46c1fbdd) implemented do_7, and the build gate failed compiling the test target budget_mutations_layerxpay of layerx-agentd: its line 2 imports layerx_agentd::budget::budget_proof::CommittedBudgetProofTrust, a type that 9f2f0adf8 (task 9.25.10) removed when it rewrote budget_proof.rs around BudgetProofTrust and the BudgetProofVerifier trait, under a build gate that compiled the lib and three crates but no test target; the file is outside the touches of this task and nothing in them can repair it."
+assumption = "Task 9.25.15 (req.92515) removes the stale test and keeps its coverage in the lib tests; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.12.35.3.1]
+task = "12.35.3"
+file = "apps/wallet/e2e/send.spec.ts:589"
+symbol = "send_reaches_committed_only_with_a_matching_explorer_answer"
+observed = "Attempt 1 (6920ab6ad, base a46c1fbdd) rewrote the three tests of do_1 to do_3 and type-checked, and the verify gate failed at the first line of the new test: it throws unless PAXEER_X_EXPLORER_STATUS_URL, PAXEER_X_EXPLORER_COMMITTED_TX and WALLET_TRANSFER_TRUTH_WRONG_RPC_URL name a real explorer and a committed transaction of another block, and its route handler proxies every explorer status request to that explorer; the fixture of 12.35.4 (tools/qualification/paxeer-x/wallet-injected-fixture.py) provides the two chains and the manifest and no explorer, so the test can never run under its gate. The page needs no explorer service for this rung: StatusLadder.tsx:90-93 reaches Committed when the status document says rung committed and its block_number equals the receipt's blockNumber, which the test can serve itself."
+assumption = "do_4 makes the route handler the explorer: it answers from the status document shape the unit test serves, mismatching the receipt block first and matching it second, without environment variables."
+severity = "major"
+
+[finding.18.670.1.13]
+task = "18.670.1"
+file = "tools/qualification/localnode/v6120-node.sh:211"
+symbol = "feed_loop"
+observed = "Attempts 14 (e4535d43f) and 15 (1ee69fb2b, base 0265dac80) built, ran the fixture under --sequencer through the setup sends and failed in the feed loop: the first MsgSubmitPrices broadcast with paxd tx broadcast -b sync (:204) returned code 0 (hash 046D01AA at height 34742436 in attempt 15) and paxd q tx never found it within the thirty-second wait while the node committed about three hundred further blocks. At a sequenced height CreateProposalBlock takes only the sealed slice (consensus/internal/state/execution.go:267) and nothing moves a mempool transaction into it, so the hash could never commit; the script and the test are correct. The bootstrap-peer /status failure in the evidence dump is the fixture's own stop of that peer (:693) and the goroutine dump is its evidence capture, neither a crash."
+assumption = "Task 5.98.8 (decision 2212) admits the mempool into the open layer at each proposal; the script and the test change nothing."
+severity = "major"
+
+[finding.17.5.13.1]
+task = "17.5.13"
+file = "services/platform/Makefile.inc:41"
+symbol = "platform-sample-install"
+observed = "Attempt 2 (3931793285b, base 712c7ea58) carries the Makefile.inc:41 path change and its build gate passed; the verify gate installed both packages into the throwaway target and then failed inside the python3 -c of the version print before any check ran: the two escaped double quotes of the command text reached the shell as backslash-quote and python reported 'unexpected character after line continuation character'. The recipe change is correct."
+assumption = "The verify command is rewritten without double quotes (the package names travel as arguments and the print maps metadata.version over them); the change of attempt 2 stands."
+severity = "minor"
+
+[finding.12.35.3.2]
+task = "12.35.3"
+file = "apps/wallet/e2e/send.spec.ts:716"
+symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+observed = "Attempt 2 (2981acb82, base 712c7ea58) implemented do_4, type-checked, and the verify gate failed at send.spec.ts:718: the committed test first runs the receipted send of 12.35.2 (:621), which needs WALLET_TRANSFER_TRUTH_SEQUENCER_RPC_URL and WALLET_TRANSFER_TRUTH_SEQUENCER_KEY, and this task's verify command ran playwright alone, without the local node fixture and the four environment lines the verify command of 12.35.2 sets; the test file is correct."
+assumption = "This task's build and verify commands take the fixture prelude and environment lines of 12.35.2 with their own -g pattern."
+severity = "minor"
+
+[finding.17.5.1.15]
+task = "17.5.1"
+file = "services/platform/Makefile.inc:59"
+symbol = "platform-sample-dependencies-ready"
+observed = "Attempt 17 (96271000a, base 0585894e1) carries the attempt 16 test, passes step 1, and in step 2 (make workspace-build) build, agent-build and human-build pass for the first time, including the web build that attempts 15 and 16 stopped at; platform-build-all (Makefile.inc:104) then stops in platform-sample-dependencies-ready because the Python environment of platform-sample-install does not exist: the qualification environment of this task carried no Maven, Swift or dotnet toolchain, so make platform-sample-install, which the environment runs before a wave gate when those toolchains are present, was skipped, and the recipe itself still fails at its pip path until task 17.5.13 is on main. The gate script and the test are unchanged and correct."
+assumption = "The task runs in the environment profile that carries the JVM, Swift and dotnet toolchains, as the wave 4 gate (17.5.5) already does, and requires 17.5.13 (moved to wave 18); the wave 1 to 3 and 5 to 6 gates take the same profile since every wave script runs make workspace-build."
+severity = "major"
+
+[finding.9.25.15.1]
+task = "9.25.15"
+file = "services/agent/crates/layerx-agentd/tests/budget_mutations_layerxpay.rs:2"
+symbol = "budget_proof_v2_carries_the_committed_height"
+observed = "Attempt 1 (145aa044047, base 712c7ea58) deleted the import and the test as do_1 asks, built every test target of layerx-agentd, and both verify runs passed (one test of budget_mutations_layerxpay, two lib tests of budget_proof); the done record was refused by the symbol check because the task's symbol list named CommittedBudgetProofTrust and budget_proof_v2_carries_the_committed_height, the two symbols the task exists to remove, so they can never be defined on the qualified revision. The code of attempt 1 is correct."
+assumption = "The symbol list keeps only the two symbols that remain, BudgetProofTrust and the tampering test; attempt 1 continues unchanged."
+severity = "minor"
+
+[finding.10.6.1.4]
+task = "10.6.1"
+file = "services/human/crates/layerx-human-service/tests/move_money_bank_send.rs:1"
+symbol = "move_leg_completes_from_its_receipt"
+observed = "Attempt 7 (f3b8d7be0, base 06564825a of 05:12Z) built and ran move_money_bank_send against the local node: the sibling test passed and move_leg_completes_from_its_receipt failed with 'planned bank transfer reverted' and an empty revert string, the defect finding 10.6.1.3 and decision 2197 already assign to the missing native pointer that task 10.6.4 registers; the attempt ran before 10.6.4 (published 11:57Z) was on main, so it could not pass."
+assumption = "Attempt 7 continues once 10.6.4 is on main with the do_9 steps unchanged."
+severity = "minor"
+
+[finding.14.0.6.5]
+task = "14.0.6"
+file = "services/human/crates/layerx-human-service/tests/retired_crypto_codec_w3.rs:1"
+symbol = "retired_crypto_codec_w3"
+observed = "Attempt 11 (e8ce6786a, base 1a371e60b) carries the intent_submit.rs port of do_3 and do_4, compiles every test target of layerx-human-service and passes all eight tests of intent_submit; the done record was refused only by the touched check for tests/retired_crypto_codec_w3.rs, which task 10.6.5 (2dc2c17ab, now on main) had already deleted, so this task has no change left to make there. The code of attempt 11 is correct."
+assumption = "The deleted file leaves the touches; do_4 is satisfied by 10.6.5 and attempt 11 continues unchanged."
+severity = "minor"
+
+[finding.17.5.13.2]
+task = "17.5.13"
+file = "services/platform/Makefile.inc:41"
+symbol = "platform-sample-install"
+observed = "Attempt 3 (99cc5fb56, base 1da31ece9) carries the path change, its build gate confirmed the recipe names services/agent/sdk/python and no root-anchored agent/ path remains, and the rewritten verify gate installed both packages and matched the two versions; the done record was refused by the symbol check alone, because the symbol list named the make targets platform-sample-install and platform-sample-dependencies-ready, which the symbol graph does not index (it holds functions, types and tests, not Makefile rules). The change of attempt 3 is correct."
+assumption = "The task declares no symbols; the touched check on services/platform/Makefile.inc remains. Attempt 3 continues unchanged."
+severity = "minor"
+
+[finding.5.98.8.1]
+task = "5.98.8"
+file = "consensus/internal/state/sequencer_proposal_test.go:72"
+symbol = "TestSequencerProposalHeaderTime"
+observed = "Attempt 1 (abec5fdf9, base 3fee695f2) implemented Admit in the six files, built and vetted, and both verify runs failed in the first package on two tests this task did not write: TestSequencerProposalHeaderTime (:52-73) seals with an open time two seconds before now and TestSequencerProposalBelowActivationReaps (:76-93) with the fixed open time 1700000000000 ms, while the fixture state from makeState carries the current time as its last block time (genesis time defaults to now, consensus/types/genesis.go:160), so CreateProposalBlock refuses both with 'sealed block open time is not after the last block time' (execution.go:276). That check came from task 5.33.3 (1c7d966b2), whose verify gate ran only its own TestSequencerProposalRefusesStaleOpenTime; the two sibling tests have failed on main since then and no gate ran them until this task's. The node tests of this task never ran because the first package failed."
+assumption = "The two pre-existing tests are repaired in this task, whose touches already hold the file: their open times move after the fixture's last block time; the implementation of attempt 1 stands."
+severity = "major"
+
+[finding.12.35.3.3]
+task = "12.35.3"
+file = "apps/wallet/e2e/send.spec.ts:713"
+symbol = "send_reaches_committed_only_with_a_matching_explorer_answer"
+observed = "Attempt 4 (27e6d68db, base 3ac75bac9) built, repaired the saved-identity read of the first verify, and the second verify reached the committed rung with the saved observation steps [committed from receipt, committed from explorer] as decision 2208 specifies, then failed at :713 because li[data-rung=committed] rendered data-source receipt: StatusLadder takes the first step of the rung (apps/wallet/src/account/StatusLadder.tsx:37) and observeTransfer puts the receipt step first, while TransactionLadder drops the receipt's committed step before rendering; the test asserts what do_4 and req.12295 require and no file of this task can change the component."
+assumption = "Task 12.34.11 (decision 2213) makes the component prefer the explorer step at the committed rung; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.5.98.8.2]
+task = "5.98.8"
+file = "consensus/internal/state/sequencer_proposal_test.go:169"
+symbol = "TestSequencerProposalUsesSealedSlice"
+observed = "Attempt 2 (b70ca9f7c, base abec5fdf9) built, vetted, repaired the two tests of finding 5.98.8.1 and the two new consensus tests passed; the verify then failed in TestSequencerProposalUsesSealedSlice (:169), TestSequencerProposalHeaderTimeIsOpenTime (:225) and TestSequencerProposalIgnoresMempoolOrder (:248) with 'sealed block open time is not after the last block time', because the three seal their blocks at the fixed epoch 1700000000 while makeState leaves LastBlockTime at the genesis time, which defaults to now (consensus/types/genesis.go:160); the open-time check of 1c7d966b2 (task 5.33.3) was qualified against TestSequencerProposalRefusesStaleOpenTime alone and these tests failed since then. The node tests of the verify were not reached."
+assumption = "Open times are taken relative to f.state.LastBlockTime, as the other proposal tests already do, and the header-time test moves the last block time behind its fixed open time instead."
+severity = "major"

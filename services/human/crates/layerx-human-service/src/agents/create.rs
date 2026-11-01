@@ -657,6 +657,11 @@ impl ProtocolEvidence {
                 | layerx_crypto::disclosure::call::ConstructMethod::PayBudgetDefund { .. }
                 | layerx_crypto::disclosure::call::ConstructMethod::BankSend { .. },
             ) => (disclosure.canonical_payload().to_vec(), 3),
+            Some(layerx_crypto::disclosure::call::ConstructMethod::PointerTransfer { .. }) => {
+                return Err(AgentFailure::Refused(
+                    "lifecycle transaction is a pointer transfer",
+                ))
+            }
             None => {
                 return Err(AgentFailure::Refused(
                     "missing lifecycle transaction method",
