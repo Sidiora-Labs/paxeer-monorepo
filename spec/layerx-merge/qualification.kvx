@@ -16395,3 +16395,19 @@ symbol = "send_leg_denom"
 observed = "Attempt 4 (1913a5b04) answers px_listAssets with asset_id 0x followed by the hex of ASSET as do_2 says and the plan request fails with 403 forbidden at intent_plan_evm.rs:1127, because 8677d280c (task 18.1423.1, after do_2 and do_3 were written) made send_leg_denom match an asset table entry only when its asset_id equals denom:<denom> and sha256(denom) equals the leg's asset bytes (send_leg_denom_resolves_a_producer_shaped_bank_asset refuses the 0x form at production_components.rs:9031-9035); ASSET at intent_plan_evm.rs:137 is [0x31; 32], which is no denom digest."
 assumption = "The node double answers the catalog shape the producer serves today (asset_id denom:alxp) and the plan's asset is the digest of that denom; the production lookup stays as 18.1423.1 left it."
 severity = "major"
+
+[finding.10.2.11.4]
+task = "10.2.11"
+file = "services/wallet/attestor/internal/policy/policy.go:700"
+symbol = "inspectCall"
+observed = "Attempt 5 (ce3d20d5b) lists the ledger precompile methods and the quorum test now fails with policy_denied no_cap: inspectCall records a layerxledger.send as a spend of the asset hex of the envelope's 32-byte asset id (policy.go:700), the test's debit uses asset [0; 32] (tests/attestor.rs:924, :950) with amount TRANSFER = 5000, and the test policy carries caps for native only, so the cap check (policy.go:553) refuses the asset with no cap configured; parseAsset (policy.go:237-249) accepts a lowercase 64-hex asset id as a cap key."
+assumption = "The test policy caps the one asset the test moves; the daemon stays unchanged."
+severity = "major"
+
+[finding.10.2.4.6]
+task = "10.2.4"
+file = "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs:185"
+symbol = "ReceiptMaterial"
+observed = "Attempt 8 (c1a4b4366) ports tests/wallet_identity_e2e.rs and the crate-wide test build fails at tests/agent_runtime_rungs.rs:185 (ReceiptMaterial without inclusion_height, receipt_key and signed_receipt); the implementer stopped there because the file is outside the declared paths, and tests/move_money.rs and tests/spend.rs also construct AgentPreparation, ReceiptMaterial, AgentPreparationContext::new or AgentStageOutcome::Executed and are not declared either."
+assumption = "Every file of the crate that constructs the widened types is declared on the task, so the port finishes in one attempt."
+severity = "major"

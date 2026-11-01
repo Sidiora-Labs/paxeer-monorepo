@@ -12856,3 +12856,13 @@ fix = "For deletion tasks list only the symbols that remain after the change; au
 title = "A sibling task re-shapes the lookup a ruling describes before the ruling runs"
 symptom = "A ruling tells the test double to answer the 0x form a production lookup accepted on the day it was written; a later task changes the lookup to a denom-prefixed form and the double's answer is refused."
 fix = "Before relaunching a task whose ruling names a production function, read that function's latest commit and re-check the ruling against it."
+
+[gotcha.2608]
+title = "A precompile call needs a cap for its own asset, not only the native one"
+symptom = "After the method allow-list is in place the daemon refuses the ledger send with no_cap: the spend is recorded against the 32-byte asset id the envelope carries, and the test policy caps only native."
+fix = "When a test moves a non-native asset through the daemon, add a cap keyed by that asset's lowercase 64-hex id alongside the method allow-list."
+
+[gotcha.2609]
+title = "A crate-wide grep instruction does not override the declared paths"
+symptom = "A ruling asks the implementer to grep the whole crate and port every construction site, but the path policy limits edits to the declared paths, so the implementer ports the declared files and stops at the next undeclared one."
+fix = "Grep the crate yourself when ruling on a widened type and declare every constructing file on the task in the same batch."
