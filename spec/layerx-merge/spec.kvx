@@ -109893,7 +109893,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.0.5]
 title = "Regenerate the web human-api client after the EIP-1559 schema additions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["10.0.3", "14.0.3", "10.0.4"]
