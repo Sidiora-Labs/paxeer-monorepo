@@ -15531,3 +15531,19 @@ symbol = "caps_discovery"
 observed = "Attempts 5 and 6 (dd41e646e and its identical successor) ended with the same 28 E0599 errors: human_runtime.rs and budget/program_sources.rs call caps_discovery (seven sites), native_fee_policy (thirteen), account (one), head (two), checkpoint_evidence (two), batch_header (one) and module_state (two) on SequencerEndpoint, which offers none of them; decisions 2192, 2193 and 2196 covered the other accessors only. rpc::module_state needs a SignedHeader whose batch number is signed by the handshake key, which the EVM chain never issues, and VerifiedCaps, NativeFeePolicy and the batch-header expiry clock have no committed source yet."
 assumption = "Decision 2199: the 28 sites answer Unavailable in 9.25.3 and three port tasks at wave 36 give each read its committed source."
 severity = "major"
+
+[finding.12.35.2.10]
+task = "12.35.2"
+file = "apps/wallet/e2e/send.spec.ts:701"
+symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+observed = "Attempt 12 reaches the gas-price poll of the new test and fails at rpcAt with 'eth_gasPrice: pending block unavailable: sequencer: no block is open': the node answers eth_gasPrice from the open block (rpc/watermark_manager.go:103 wraps rpc/utils.go:54 ErrLayerNotOpen as 'pending block unavailable') and the poll's catch only keeps polling on the wording 'pending base fee unavailable: sequencer: no block is open', so the first idle-chain answer ends the test instead of being retried as tools/qualification/localnode/v6120_test.go:218 retries both wordings."
+assumption = "Between blocks the node has no open block and the test must poll until one opens; the catch matches the shared suffix."
+severity = "minor"
+
+[finding.9.90.2.1]
+task = "9.90.2"
+file = "services/wallet/gateway/test/precompiles.test.ts:365"
+symbol = "probes the chain for code before serving a linked agent precompile"
+observed = "Attempt 6 passed the receipt test under the TAP reporter and then failed the gateway test with 'spawn anvil ENOENT': the test spawned an external anvil process behind a proxy to answer eth_getCode, a binary the qualification environment does not provide and that do_2 never asked for."
+assumption = "do_2 specifies eth_getCode answering 0x for 0x0902 and then runtime code; an in-process node:http double answers that."
+severity = "minor"
