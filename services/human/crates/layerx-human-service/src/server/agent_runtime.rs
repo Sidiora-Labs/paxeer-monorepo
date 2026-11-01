@@ -44,6 +44,33 @@ pub(crate) fn validate_call(
     let mut target = [0; 20];
     target[18] = 0x10;
     let data = match (activity_type.module(), activity_type.ordinal()) {
+        (ModuleId::Budget, 1) if payload.len() == 211 && payload[..2] == [0, 1] => {
+            target[19] = 0x1b;
+            let mut data = ledger_selector(
+                "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
+            )
+            .to_vec();
+            data.extend_from_slice(&payload[2..130]);
+            for amount in payload[130..178].chunks_exact(16) {
+                data.extend_from_slice(&[0; 16]);
+                data.extend_from_slice(amount);
+            }
+            for coordinate in payload[178..210].chunks_exact(8) {
+                data.extend_from_slice(&[0; 24]);
+                data.extend_from_slice(coordinate);
+            }
+            data.extend_from_slice(&[0; 31]);
+            data.push(payload[210]);
+            data
+        }
+        (ModuleId::Budget, 2) if payload.len() == 50 && payload[..2] == [0, 1] => {
+            target[19] = 0x1b;
+            let mut data = ledger_selector("budgetFund(bytes32,uint128)").to_vec();
+            data.extend_from_slice(&payload[2..34]);
+            data.extend_from_slice(&[0; 16]);
+            data.extend_from_slice(&payload[34..]);
+            data
+        }
         (ModuleId::Budget, 8) if payload.len() == 50 && payload[..2] == [0, 1] => {
             target[19] = 0x1b;
             let mut data = ledger_selector("budgetDefund(bytes32,uint128)").to_vec();

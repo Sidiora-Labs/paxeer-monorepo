@@ -522,39 +522,28 @@ impl ProtocolEvidenceVerifier {
                 })
             }
             StateEvidenceShape::ModuleWitness {
-                module_id,
-                key,
-                proof_material,
-                root_selector,
-                handshake_sequencer_key,
+                committed,
+                budget_id,
             } => {
-                let verified = verify_module_evidence(
-                    &raw.canonical_state,
-                    proof_material,
-                    *module_id,
-                    key,
-                    AccountEvidencePolicy {
-                        expected_protocol_version: self.expected_protocol_version,
-                        expected_network_id: self.expected_network_id,
-                        handshake_sequencer_key: *handshake_sequencer_key,
-                        root_selector: *root_selector,
-                    },
+                let checkpoint = committed.checkpoint();
+                let verified = crate::read::checkpoint(
+                    checkpoint.height,
+                    &self.expected_network_id.to_string(),
+                    &checkpoint.header,
+                    &checkpoint.commit,
+                    &checkpoint.validators,
                 )
-                .map_err(StateEvidenceError::Module)?;
-                let (header, authorization) = self
-                    .authorization_for(&verified.signed_header().canonical_bytes)
-                    .map_err(StateEvidenceError::Policy)?;
-                if authorization.public_key() != *handshake_sequencer_key
-                    || !self.accepts_handshake_key(header.batch_number(), *handshake_sequencer_key)
+                .map_err(|_| StateEvidenceError::Committed)?;
+                if verified != *checkpoint
+                    || committed.canonical_bytes() != committed.repeated()
+                    || raw.canonical_state != committed_state_bytes(committed, *budget_id)?
                 {
-                    return Err(StateEvidenceError::Policy(
-                        VerifierPolicyError::HandshakeKey,
-                    ));
+                    return Err(StateEvidenceError::Committed);
                 }
                 Ok(VerifiedStateEvidence {
                     canonical_state: raw.canonical_state.clone(),
-                    level: verified.level(),
-                    observed_head_sequence: header.last_sequence(),
+                    level: committed.level(),
+                    observed_head_sequence: checkpoint.height,
                 })
             }
         }
@@ -1713,11 +1702,8 @@ enum StateEvidenceShape {
         header_signature: [u8; 64],
     },
     ModuleWitness {
-        module_id: u16,
-        key: Vec<u8>,
-        proof_material: Vec<u8>,
-        root_selector: RootSelector,
-        handshake_sequencer_key: [u8; 32],
+        committed: crate::read::committed::CommittedCall,
+        budget_id: Option<[u8; 32]>,
     },
 }
 
@@ -1741,27 +1727,31 @@ impl RawStateEvidence {
         }
     }
 
-    /// Wraps exact module-state bytes with the witness material the node
-    /// returned for them and the handshake key that material must verify under.
+    /// Wraps a checked call and its repeated answer at one committed checkpoint.
     #[must_use]
-    pub fn module_witness(
-        canonical_state: Vec<u8>,
-        module_id: u16,
-        key: Vec<u8>,
-        proof_material: Vec<u8>,
-        root_selector: RootSelector,
-        handshake_sequencer_key: [u8; 32],
-    ) -> Self {
+    pub fn module_witness(committed: crate::read::committed::CommittedCall) -> Self {
         Self {
-            canonical_state,
+            canonical_state: committed.canonical_bytes().to_vec(),
             shape: StateEvidenceShape::ModuleWitness {
-                module_id,
-                key,
-                proof_material,
-                root_selector,
-                handshake_sequencer_key,
+                committed,
+                budget_id: None,
             },
         }
+    }
+
+    /// Decodes the getBudget result, retaining the call that establishes each record field.
+    pub fn budget_witness(
+        committed: crate::read::committed::CommittedCall,
+        budget_id: [u8; 32],
+    ) -> Result<Self, StateEvidenceError> {
+        let canonical_state = committed_state_bytes(&committed, Some(budget_id))?;
+        Ok(Self {
+            canonical_state,
+            shape: StateEvidenceShape::ModuleWitness {
+                committed,
+                budget_id: Some(budget_id),
+            },
+        })
     }
 
     #[must_use]
@@ -1812,19 +1802,45 @@ impl RawStateEvidence {
         }
     }
 
-    /// Returns the exact module-state proof material of module-witness evidence.
+    /// Committed calls carry checkpoint coordinates rather than a serialized LNI witness.
     #[must_use]
     pub fn proof_material(&self) -> Option<&[u8]> {
         match &self.shape {
-            StateEvidenceShape::ModuleWitness { proof_material, .. } => Some(proof_material),
+            StateEvidenceShape::ModuleWitness { .. } => None,
             StateEvidenceShape::Leaf { .. } => None,
         }
     }
 }
 
+fn committed_state_bytes(
+    committed: &crate::read::committed::CommittedCall,
+    budget_id: Option<[u8; 32]>,
+) -> Result<Vec<u8>, StateEvidenceError> {
+    let Some(budget_id) = budget_id else {
+        return Ok(committed.canonical_bytes().to_vec());
+    };
+    let mut pay = [0; 20];
+    pay[18..].copy_from_slice(&[0x10, 0x1b]);
+    let mut calldata =
+        layerx_crypto::evm_transaction::transaction_hash(b"getBudget(bytes32)")[..4].to_vec();
+    calldata.extend(budget_id);
+    if committed.precompile() != pay || committed.calldata() != calldata {
+        return Err(StateEvidenceError::Committed);
+    }
+    let budget = crate::budget::ProtocolBudgetState::decode_get_budget(
+        budget_id,
+        committed.checkpoint().height,
+        committed.canonical_bytes(),
+    )
+    .map_err(|_| StateEvidenceError::Committed)?;
+    crate::human_runtime::canonical_budget_record(budget.record())
+        .map_err(|_| StateEvidenceError::Committed)
+}
+
 /// Exact verification stage which refused raw state evidence.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StateEvidenceError {
+    Committed,
     Policy(VerifierPolicyError),
     Inclusion(InclusionError),
     Module(ModuleEvidenceError),
@@ -1860,26 +1876,14 @@ impl VerifiedStateEvidence {
 mod native_terminal_tests;
 
 pub(crate) fn verified_program_owner(
-    node: &mut SequencerEndpoint,
-    verifier: &EvidenceAuthority,
-    sequencer_key: [u8; 32],
-    correlation_id: u64,
-    authorization: SequencerAuthorization,
-    signed_header: &layerx_client::evidence::SignedHeader,
+    node: &SequencerEndpoint,
+    checkpoint: &crate::read::ServedCheckpoint,
     program_id: &[u8; 32],
 ) -> Result<[u8; 32], HumanOperationError> {
     let selector = layerx_crypto::evm_transaction::transaction_hash(b"getProgramOwner(bytes32)");
     let mut calldata = selector[..4].to_vec();
     calldata.extend_from_slice(program_id);
-    let verified = verified_program_record(
-        node,
-        verifier,
-        sequencer_key,
-        correlation_id,
-        authorization,
-        signed_header,
-        &calldata,
-    )?;
+    let verified = verified_program_record(node, checkpoint, &calldata)?;
     let owner: [u8; 32] = verified
         .canonical_state()
         .try_into()
@@ -1891,110 +1895,32 @@ pub(crate) fn verified_program_owner(
 }
 
 pub(crate) fn verified_program_record(
-    node: &mut SequencerEndpoint,
-    verifier: &EvidenceAuthority,
-    sequencer_key: [u8; 32],
-    _correlation_id: u64,
-    authorization: SequencerAuthorization,
-    signed_header: &layerx_client::evidence::SignedHeader,
+    node: &SequencerEndpoint,
+    checkpoint: &crate::read::ServedCheckpoint,
     calldata: &[u8],
 ) -> Result<VerifiedStateEvidence, HumanOperationError> {
-    let height = node
-        .block_number()
-        .map_err(|_| HumanOperationError::Unavailable)?;
-    verified_program_record_at(
-        node,
-        verifier,
-        sequencer_key,
-        authorization,
-        signed_header,
-        calldata,
-        height,
-    )
-}
-
-pub(crate) fn verified_program_record_at(
-    node: &mut SequencerEndpoint,
-    verifier: &EvidenceAuthority,
-    sequencer_key: [u8; 32],
-    authorization: SequencerAuthorization,
-    signed_header: &layerx_client::evidence::SignedHeader,
-    calldata: &[u8],
-    height: u64,
-) -> Result<VerifiedStateEvidence, HumanOperationError> {
-    let (header, trusted_authorization) = verifier
-        .verifier
-        .authorization_for(&signed_header.canonical_bytes)
-        .map_err(|_| HumanOperationError::Refused)?;
-    let head_height = node
-        .block_number()
-        .map_err(|_| HumanOperationError::Unavailable)?;
-    if height > head_height
-        || header.batch_number() != head_height
-        || header.last_sequence() != head_height
-        || trusted_authorization.public_key() != sequencer_key
-        || authorization.public_key() != sequencer_key
-        || authorization.sequencer_id() != header.sequencer_id()
-        || !(authorization.first_batch_number()..=authorization.last_batch_number())
-            .contains(&head_height)
-        || !verifier
-            .verifier
-            .accepts_handshake_key(head_height, sequencer_key)
-        || node
-            .chain_id()
-            .map_err(|_| HumanOperationError::Unavailable)?
-            != u64::from(header.network_id())
-    {
-        return Err(HumanOperationError::Refused);
-    }
-    let block = layerx_client::rpc::evidence::checkpoint(node, height)
-        .map_err(|_| HumanOperationError::Unavailable)?;
-    if block.number != height || block.hash == [0; 32] {
-        return Err(HumanOperationError::Refused);
-    }
-    let checkpoint = crate::read::ServedCheckpoint::acquire_at_committed_block(
-        node,
-        height,
-        None,
-        &header.network_id().to_string(),
-    )
-    .map_err(|error| match error {
-        crate::read::CheckpointReadError::Rpc(_) => HumanOperationError::Unavailable,
-        _ => HumanOperationError::Refused,
-    })?;
+    let reads = crate::read::CommittedReads::at_checkpoint(node, checkpoint)
+        .map_err(committed_read_error)?;
     let mut precompile = [0; 20];
     precompile[18..].copy_from_slice(&[0x10, 0x1d]);
-    let value = layerx_client::rpc::module_state::module_state(
-        node,
-        calldata,
-        layerx_client::rpc::module_state::ModuleReadContext {
-            precompile,
-            committed_height: height,
-            block_hash: checkpoint.block_hash,
-            app_hash: checkpoint.app_hash,
-        },
-    )
-    .map_err(|error| match error {
-        layerx_client::rpc::module_state::ModuleReadError::Rpc(_) => {
+    let value = reads
+        .budget_state(precompile, calldata)
+        .map_err(committed_read_error)?;
+    Ok(VerifiedStateEvidence {
+        canonical_state: value.canonical_bytes().to_vec(),
+        level: value.level(),
+        observed_head_sequence: value.freshness().observed_head_sequence,
+    })
+}
+
+pub(crate) fn committed_read_error(error: crate::read::CommittedReadError) -> HumanOperationError {
+    match error {
+        crate::read::CommittedReadError::Rpc(_)
+        | crate::read::CommittedReadError::Checkpoint(crate::read::CheckpointReadError::Rpc(_)) => {
             HumanOperationError::Unavailable
         }
         _ => HumanOperationError::Refused,
-    })?;
-    if node
-        .block_number()
-        .map_err(|_| HumanOperationError::Unavailable)?
-        != head_height
-        || layerx_client::rpc::evidence::checkpoint(node, height)
-            .map_err(|_| HumanOperationError::Unavailable)?
-            != block
-    {
-        return Err(HumanOperationError::Refused);
     }
-    Ok(VerifiedStateEvidence {
-        canonical_state: value.canonical_bytes().to_vec(),
-        level: VerificationLevel::STATE_PROVEN,
-        observed_head_sequence: height,
-    })
 }
 
 #[cfg(test)]

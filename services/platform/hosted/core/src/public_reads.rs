@@ -420,6 +420,17 @@ fn sequence(config: &Config, did: &str) -> Response {
     }))
 }
 
+fn landing_block_json(block: &layerx_client::sequencer::SequencerBlock) -> serde_json::Value {
+    serde_json::json!({
+        "number": block.number,
+        "hash": hex_encode(&block.hash),
+        "parent_hash": hex_encode(&block.parent_hash),
+        "timestamp": block.timestamp,
+        "transactions_root": hex_encode(&block.transactions_root),
+        "receipts_root": hex_encode(&block.receipts_root)
+    })
+}
+
 fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Response {
     let Ok(identifier) = fixed_hex::<32>("activity_id", id) else {
         return refusal(400, "invalid_proof_selector", None);
@@ -494,17 +505,9 @@ fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Respon
     let Ok(bundle) = bundle else {
         return refusal(503, "proof_evidence_unavailable", Some(5));
     };
-    let Ok(account_proof) =
-        config
-            .sequencer
-            .account_proof(&address, &[], bundle.landing_block.number)
-    else {
-        return refusal(503, "proof_evidence_unavailable", Some(5));
-    };
     let mut result = serde_json::json!({
         "kind": kind, "activity_id": id, "account_id": account,
-        "proof": {"address": hex_encode(&account_proof.address),
-            "account_proof": account_proof.account_proof.iter().map(|node| hex_encode(node)).collect::<Vec<_>>()},
+        "landing_block": landing_block_json(&bundle.landing_block),
         "verification": verification_label(receipt.rung())
     });
     if kind == "receipt" {
@@ -586,6 +589,30 @@ fn valid_fee_request(body: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn landing_block_json_names_the_six_header_fields() {
+        let block = layerx_client::sequencer::SequencerBlock {
+            number: 42,
+            hash: [0xab; 32],
+            parent_hash: [0xcd; 32],
+            timestamp: 1_700_000_000,
+            transactions_root: [0xef; 32],
+            receipts_root: [0x01; 32],
+            transactions: vec![vec![0x02; 64]],
+        };
+        assert_eq!(
+            super::landing_block_json(&block),
+            serde_json::json!({
+                "number": 42,
+                "hash": "ab".repeat(32),
+                "parent_hash": "cd".repeat(32),
+                "timestamp": 1_700_000_000,
+                "transactions_root": "ef".repeat(32),
+                "receipts_root": "01".repeat(32)
+            })
+        );
+    }
+
     #[test]
     fn account_selector_forwards_only_supported_identities() {
         for selector in [

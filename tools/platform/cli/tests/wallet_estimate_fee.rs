@@ -375,7 +375,8 @@ fn estimate_fee_refuses_kernel_activity_hex() -> Result<(), Box<dyn std::error::
         .map_err(|e| format!("{e:?}"))?;
     let kernel = layerx_wire::activity::encode_unsigned_envelope(
         &builder.build().map_err(|e| format!("{e:?}"))?,
-    )?
+    )
+    .map_err(|e| format!("{e:?}"))?
     .iter()
     .map(|byte| format!("{byte:02x}"))
     .collect::<String>();
