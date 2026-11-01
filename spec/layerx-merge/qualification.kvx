@@ -15163,3 +15163,75 @@ symbol = "bound_activity"
 observed = "Attempt 11 (a0df4e1cd) implemented the task on a base without the PayBudgetFund arms of services/human/crates/layerx-human-service/src/agents/create.rs:555 and :624, so the build of layerx-human-service failed on the non-exhaustive match at :558 and no verify ran."
 assumption = "A fresh attempt on current main builds; the attempt's own work continues on a rebased tree."
 severity = "minor"
+
+[finding.18.670.1.12]
+task = "18.670.1"
+file = "rpc/send.go:360"
+symbol = "recordReceiptLogs"
+observed = "Attempt 12 (e1ba002bf) failed inside the fixture's setup sends: eth_sendRawTransaction answered -32000 'transaction 0x39f3b7cb... is receipted but its logs are not recorded: sequencer receipt: JSON view differs from receipt bytes: pending height 34742411, receipt height 34742410'. acceptOnSequencer (rpc/send.go:293-305) receipts the transaction at the open height H, then recordReceiptLogs (:329-367) reads s.watermarks.PendingContext and refuses when that height is no longer H (:356-361); when the layer seals between the two reads the client is told the send failed while the sequencer holds its receipt. The same refusal ended 10.6.1 attempt 3 (move_money_bank_send.rs:330), 5.47.4 attempts 1-5, 18.997.1 attempts 2-4 and 11.37.3 attempt 5."
+assumption = "The race is a product defect of the send path, not of any consumer; task 5.98.7 removes it and the node-fixture consumers require it."
+severity = "major"
+
+[finding.10.98.10.3]
+task = "10.98.10"
+file = "services/human/crates/layerx-human-service/tests/deposit.rs"
+symbol = "deposit"
+observed = "Attempt 4 (276542970) built and passed the declared test; the done gate refused because the touches list services/human/crates/layerx-human-service/tests/deposit.rs while the attempt changed nothing there: 10.20.x deleted the file on main at ad92aa7fc, before attempt 4 branched."
+assumption = "do_11 has no object left; the touches drop the path and the attempt's work stands."
+severity = "minor"
+
+[finding.12.35.2.8]
+task = "12.35.2"
+file = "apps/wallet/e2e/send.spec.ts:637"
+symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+observed = "Attempt 8 (ce231d838): the do_11 diagnostics print body '' with the fixture signer present in the announced providers, so the document loaded and the init script ran but the shell rendered no text node at all and no 'Loading wallet' label; the heading 'Paxeer Wallet' never appears. Next dev (basePath /wallet) answers the navigation, so the shell's client tree unmounted or never mounted."
+assumption = "A client-side exception during hydration (shown only in the Next dev overlay portal, which body.innerText does not include) or an empty document; the next attempt records the page errors and the navigation response before touching product code."
+severity = "major"
+
+[finding.10.24.1.1]
+task = "10.24.1"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:4648"
+symbol = "AssetBalance"
+observed = "10.24.1 (684838ce3) reshaped layerx_network_gateway::AssetBalance to {denom: String, amount: u128} (services/human/crates/layerx-network-gateway/src/lib.rs:307) and ported journeys/observed.rs, but services/human/crates/layerx-human-service/src/server/production_components.rs:4648-4649 still reads row.asset_id and row.denom.as_deref(); since 684838ce3 every cargo build of layerx-human-service on main fails E0609/E0599 there (10.95.1 a4, 18.1156.1 a12, 18.1151.1 a12, 10.27.2 a4). The task's build_cmd compiled only the gateway test target, so the consumer crate was never built before publication."
+assumption = "A port task restores the send-leg denomination lookup through the asset table; every task that builds layerx-human-service requires it."
+severity = "major"
+
+[finding.9.24.3.1]
+task = "9.24.3"
+file = "services/agent/crates/layerx-client/src/client.rs:204"
+symbol = "start_arbiter_prestate_v2"
+observed = "Attempt 1 (d43235998) deleted the six reader and verifier files, and the build of layerx-client failed with 36 errors in services/agent/crates/layerx-client/src/client.rs, which still defines start_arbiter_prestate_v2 (:204), arbiter_prestate_v2 (:257), start_arbiter_admission_v3 (:279), start_execution_prestate (:348), execution_prestate (:404), start_native_execution_prestate (:426) and native_execution_prestate (:482) over the deleted modules, and names evidence::VerifiedReplayCatalogue (:487) and evidence::VerifiedNativeExecutionPrestate (:647)."
+assumption = "The client methods are the readers' public surface and retire with them; their callers outside the crate are the wiring tasks do_3 names."
+severity = "major"
+
+[finding.10.24.3.1]
+task = "10.24.3"
+file = "services/human/crates/layerx-network-gateway/src/lib.rs:415"
+symbol = "AnchorHead"
+observed = "Attempt 1 (74df7dd90) built and passed both declared tests; the done gate refused 'symbol AnchorHead — not defined in the graph' because the symbols list names the struct do_1 deletes."
+assumption = "The symbols list drops AnchorHead; the attempt's work stands."
+severity = "minor"
+
+[finding.17.2.6.1]
+task = "17.2.6"
+file = "spec/layerx-merge/programme/data/retired.kvx:385"
+symbol = "requires-sei-wasm"
+observed = "Attempt 1 (976b455f3): stale_rows reported [component.requires-sei-wasm], a refusal row with deleted_trees = [] whose callers are shell scripts named in the row itself; tools/paxeer-x/retired_callers.json lists only components with source trees, so the row can never appear there."
+assumption = "A component without deleted_trees is a refusal-only row and is outside the callers inventory's domain."
+severity = "minor"
+
+[finding.17.4.5.1]
+task = "17.4.5"
+file = "spec/layerx-merge/programme/parity.py:262"
+symbol = "uncovered"
+observed = "Attempt 1 (0afa1228f) implemented uncovered() and the test; the test fails on the installed spec with 127 stale acceptance selectors (77 in feature 16, 17 in 18, 11 in 8, 10 in 9, 12 across 2, 5, 10, 12, 13, 15 and 17), test names that pending tasks have not written yet."
+assumption = "The check passes only once the domain completion gates pass; the task moves behind them and the attempt's code stands."
+severity = "major"
+
+[finding.17.5.5.1]
+task = "17.5.5"
+file = "scripts/gates/wave-4.sh"
+symbol = "human-build"
+observed = "Attempt 1 (2cd0c587f): the wave-4 gate exits 2 in make human-build (Makefile:1637-1641): the api-gen test committed_client_matches_regeneration (services/human/tools/api-gen/tests/generation.rs:315) fails and the human workspace build stops at production_components.rs:4648 (finding 10.24.1.1)."
+assumption = "The aggregate gate requalifies unchanged once the human workspace builds (10.24.4) and the committed client matches regeneration; the regeneration drift needs its own task when it survives 10.24.4."
+severity = "major"
