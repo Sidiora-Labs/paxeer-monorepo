@@ -117188,7 +117188,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.25.10]
 title = "Verify the human budget proof v2 against the ServedCheckpoint and re-executed calls in the daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.8", "9.25.9"]
