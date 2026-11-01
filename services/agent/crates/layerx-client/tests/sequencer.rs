@@ -96,6 +96,31 @@ fn endpoint(url: &str) -> SequencerEndpoint {
     SequencerEndpoint::new(url, &[]).must()
 }
 
+#[test]
+fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
+    assert_eq!(
+        SequencerEndpoint::new("http://router.example/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("https://router.example/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("https://router.example/", &[&[]]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("ftp://127.0.0.1/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
+    assert_eq!(
+        SequencerEndpoint::new("http://router.railway.internal:9443", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+}
+
 fn receipted_members() -> String {
     format!(
         r#""rung":"receipted","txHash":"{TX_HASH}","nonce":"0x7","seq":"0x2a","height":"0x3e8","index":"0x3","timestamp":"0x67a1b2c3","status":"0x1","returnData":"0x0000000000000000000000000000000000000000000000000000000000000001","logs":[{{"address":"0x000000000000000000000000000000000000101a","topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x00000000000000000000000011223344556677889900aabbccddeeff00112233"],"data":"0x0de0b6b3a7640000","logIndex":"0x0"}},{{"address":"0x000000000000000000000000000000000000101A","topics":[],"data":"0x","logIndex":"0x1"}}],"gasUsed":"0x5208","cumulativeGasUsed":"0xa410","effectiveGasPrice":"0x3b9aca00","feeDenom":"upax","feeAmount":"0x1312d00000000","sponsor":"0x0000000000000000000000000000000000000000","from":"0x11223344556677889900aabbccddeeff00112233","to":"0x000000000000000000000000000000000000101a","contractAddress":"0x0000000000000000000000000000000000000000","vmError":"","keyId":"0x0101010101010101010101010101010101010101010101010101010101010101","receipt":"0x00025201000200aabbccdd","signingKey":"0x{}""#,
@@ -635,31 +660,6 @@ fn unusable_send_answer_is_unavailable() {
         Err(SequencerError::Malformed)
     );
     assert_eq!(server.join().must().len(), 4);
-}
-
-#[test]
-fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
-    assert_eq!(
-        SequencerEndpoint::new("http://router.example/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("https://router.example/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("https://router.example/", &[&[]]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("ftp://127.0.0.1/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
-    assert_eq!(
-        SequencerEndpoint::new("http://router.railway.internal:9443", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
 }
 
 #[test]

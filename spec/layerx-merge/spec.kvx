@@ -148989,7 +148989,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.9.25.2]
 title = "Delete Client, the handover policy and caps readers and every paxeer-verifier use"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.24.2", "9.24.3", "9.12.5", "9.3.3", "9.5.3", "9.23.6", "9.23.5", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "9.27.7", "8.16.4", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "9.25.3", "13.30.6", "9.25.9", "8.98.17", "9.25.6", "9.25.7", "9.25.16", "18.1376.1"]
@@ -149351,7 +149351,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.27.8]
 title = "Delete the guarantor finality evidence vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.27.7", "9.1.7", "9.25.2", "16.32.11", "16.5.2", "16.37.1"]
@@ -192897,7 +192897,7 @@ qualification = "UNRUN"
 
 [task.18.1402.1]
 title = "Issue #1402: Serve the current px_getBalances and px_listAssets shapes from the intent plan node double"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16", "10.2.10"]
