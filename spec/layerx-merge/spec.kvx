@@ -117849,7 +117849,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.8.3]
 title = "Refresh the dependent lock files after the programs registry dropped the kernel proof and wire crates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["8.52.1"]
