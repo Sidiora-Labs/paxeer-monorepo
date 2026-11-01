@@ -91,6 +91,34 @@ CREATE TABLE IF NOT EXISTS events(
 );
 CREATE INDEX IF NOT EXISTS events_account ON events(account, id);
 CREATE INDEX IF NOT EXISTS events_chain_position ON events(chain, height_or_seq);
+CREATE TABLE IF NOT EXISTS name_events(
+    chain TEXT NOT NULL,
+    position INTEGER NOT NULL,
+    height INTEGER NOT NULL,
+    tx_hash TEXT NOT NULL,
+    log_index INTEGER NOT NULL,
+    node TEXT NOT NULL,
+    action TEXT NOT NULL,
+    from_address TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    data JSON NOT NULL,
+    PRIMARY KEY(tx_hash, log_index)
+);
+CREATE INDEX IF NOT EXISTS name_events_position ON name_events(chain, position);
+CREATE INDEX IF NOT EXISTS name_events_node ON name_events(node, height, log_index);
+CREATE TABLE IF NOT EXISTS names(
+    node TEXT PRIMARY KEY,
+    label TEXT,
+    name TEXT,
+    owner TEXT,
+    registrant TEXT,
+    resolver TEXT,
+    resolved_address TEXT,
+    contenthash TEXT,
+    registered_at INTEGER,
+    expires_at TEXT,
+    token_id TEXT
+);
 CREATE TABLE IF NOT EXISTS explorer_transfers(
     account TEXT NOT NULL,
     key INTEGER NOT NULL,
@@ -284,6 +312,18 @@ pub struct EventRow {
     pub decoded: Value,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct NameEventRow {
+    pub height: u64,
+    pub tx_hash: String,
+    pub log_index: u64,
+    pub node: String,
+    pub action: String,
+    pub from_address: String,
+    pub timestamp: u64,
+    pub data: Value,
+}
+
 /// One budget or grant record event, keyed by the transaction sender as
 /// its holder.
 #[derive(Clone, Debug, PartialEq)]
@@ -327,6 +367,7 @@ pub struct Unit {
     pub boundary: u64,
     pub transfers: Vec<TransferRow>,
     pub events: Vec<EventRow>,
+    pub name_events: Vec<NameEventRow>,
     pub holders: Vec<HolderRow>,
     pub assets: Vec<AssetRow>,
     pub accounts: Vec<String>,
@@ -1067,6 +1108,33 @@ impl Store {
                 accounts.push(account);
             }
         }
+        let mut nodes = Vec::new();
+        for event in &unit.name_events {
+            if event.height > unit.boundary {
+                return Err(IndexError::Integrity(
+                    "name event exceeds unit boundary".to_owned(),
+                ));
+            }
+            transaction.execute(
+                "INSERT INTO name_events(chain, position, height, tx_hash, log_index, node,
+                    action, from_address, timestamp, data)
+                 VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                params![
+                    unit.chain,
+                    position,
+                    signed(event.height)?,
+                    event.tx_hash,
+                    signed(event.log_index)?,
+                    event.node,
+                    event.action,
+                    event.from_address,
+                    signed(event.timestamp)?,
+                    event.data.to_string()
+                ],
+            )?;
+            nodes.push(event.node.clone());
+        }
+        Self::rebuild_names(transaction, &nodes)?;
         accounts.sort_unstable();
         accounts.dedup();
         for account in accounts {
@@ -1109,6 +1177,58 @@ impl Store {
             )?;
         }
         Ok((finalized, finalized_boundary))
+    }
+
+    fn rebuild_names(connection: &Connection, nodes: &[String]) -> Result<(), IndexError> {
+        let nodes: std::collections::BTreeSet<_> = nodes.iter().collect();
+        for node in nodes {
+            connection.execute("DELETE FROM names WHERE node = ?1", params![node])?;
+            let mut statement = connection.prepare(
+                "SELECT data FROM name_events WHERE node = ?1 ORDER BY height, log_index",
+            )?;
+            let records = statement.query_map(params![node], |row| row.get::<_, String>(0))?;
+            let mut state = serde_json::Map::new();
+            let mut found = false;
+            for record in records {
+                let data: Value = serde_json::from_str(&record?)
+                    .map_err(|error| IndexError::Store(format!("name event JSON: {error}")))?;
+                let changes = data
+                    .get("changes")
+                    .and_then(Value::as_object)
+                    .ok_or_else(|| {
+                        IndexError::Store("name event has no changes object".to_owned())
+                    })?;
+                state.extend(changes.clone());
+                found = true;
+            }
+            if found {
+                let text = |key: &str| state.get(key).and_then(Value::as_str);
+                let registered_at = state
+                    .get("registered_at")
+                    .and_then(Value::as_u64)
+                    .map(signed)
+                    .transpose()?;
+                connection.execute(
+                    "INSERT INTO names(node, label, name, owner, registrant, resolver,
+                        resolved_address, contenthash, registered_at, expires_at, token_id)
+                     VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                    params![
+                        node,
+                        text("label"),
+                        text("name"),
+                        text("owner"),
+                        text("registrant"),
+                        text("resolver"),
+                        text("resolved_address"),
+                        text("contenthash"),
+                        registered_at,
+                        text("expires_at"),
+                        text("token_id")
+                    ],
+                )?;
+            }
+        }
+        Ok(())
     }
 
     /// Recomputes one asset's observed projection from its surviving
@@ -1312,6 +1432,20 @@ impl Store {
                 -1
             }
         };
+        let nodes = {
+            let mut statement = transaction.prepare(
+                "SELECT DISTINCT node FROM name_events WHERE chain = ?1 AND position > ?2",
+            )?;
+            let nodes = statement
+                .query_map(params![chain, above], |row| row.get::<_, String>(0))?
+                .collect::<Result<Vec<_>, _>>()?;
+            nodes
+        };
+        transaction.execute(
+            "DELETE FROM name_events WHERE chain = ?1 AND position > ?2",
+            params![chain, above],
+        )?;
+        Self::rebuild_names(&transaction, &nodes)?;
         Self::rewind_projections(&transaction, chain, above)?;
         transaction.commit()?;
         Ok(())

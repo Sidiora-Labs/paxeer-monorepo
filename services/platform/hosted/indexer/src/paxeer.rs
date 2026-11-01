@@ -303,6 +303,7 @@ pub fn decode_block(block: &Value, inputs: &BlockInputs<'_>) -> Result<Unit, Ind
                 tx_hash: &tx_hash,
                 tx_index,
                 sender: &from,
+                timestamp: block.get("timestamp").and_then(Value::as_str),
             };
             decode_log(&mut unit, log, &source, inputs)?;
         }
@@ -320,6 +321,7 @@ struct LogSource<'a> {
     tx_index: u32,
     /// The transaction sender, the holder of the records it touches.
     sender: &'a str,
+    timestamp: Option<&'a str>,
 }
 
 fn decode_log(
@@ -333,6 +335,7 @@ fn decode_log(
         tx_hash,
         tx_index,
         sender,
+        timestamp,
     } = *source;
     let emitter = unhex_fixed::<20>(field_str(log, "address")?)?;
     let emitter_text = address_text(emitter);
@@ -466,6 +469,26 @@ fn decode_log(
             return Ok(());
         }
     };
+    let bound_names = inputs.registry.abis().iter().any(|abi| {
+        abi.address == Some(emitter)
+            && abi.contract == decoded.contract
+            && matches!(
+                abi.contract.as_str(),
+                "names_registry" | "names_registrar" | "names_controller" | "names_resolver"
+            )
+    });
+    if bound_names {
+        let timestamp = quantity_u64(
+            timestamp
+                .ok_or_else(|| IndexError::Decode("names block has no timestamp".to_owned()))?,
+        )?;
+        if let Some(mut row) = crate::names::decode(&decoded, sender, timestamp) {
+            row.height = height;
+            row.tx_hash = tx_hash.to_owned();
+            row.log_index = log_index;
+            unit.name_events.push(row);
+        }
+    }
     let account = decoded
         .first_address(&event.params)
         .or_else(|| decoded.arg("account").and_then(bare_bytes32))
