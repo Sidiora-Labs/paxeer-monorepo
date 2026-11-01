@@ -15787,3 +15787,19 @@ symbol = "checkpoint_impl"
 observed = "Attempt 3 (cd428e283, base abd223e8b) added the three client accessors, the committed-block acquisition and seven checkpoint tests against a TcpListener JSON-RPC double, and the verify filter read::checkpoint::tests of do_3 selects no test because read/checkpoint.rs is declared as module read::checkpoint_impl (read/mod.rs:8); the attempt made the seven test functions pub(super) and ran their bodies from one committed_time test so the filter would reach them, and its first verification failed three captured-batch tests whose fixture pinned network 125 while the captured header carries 77, which cd428e283 repairs by pinning header.network_id(), but the rerun was refused by the repair budget."
 assumption = "The verify filter names read::checkpoint_impl::tests and the wrapper is deleted; the repaired fixture passes."
 severity = "major"
+
+[finding.10.6.5.6]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/native_send_producer.rs:555"
+symbol = "genuine_human_owner_session_consent_preview_and_reopen"
+observed = "Attempt 7 (6b961c625, base 4505ff22b) ported the twelve test files, every test target of both crates built, the evidence node test passed, and the second verify segment failed before any assertion: genuine_human_owner_session_consent_preview_and_reopen reads PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, the protected release-gate fixture of decision 1806 that finding 10.4.3.2 already recorded as absent from every qualification run, so the three segments after it never ran."
+assumption = "The verify gate drops that segment, build_cmd keeps compiling the target, and the intent_submit target the task ports takes its place."
+severity = "major"
+
+[finding.10.6.5.7]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/intent_submit.rs:858"
+symbol = "JourneyEngine::load"
+observed = "The kernel send test attempt 7 ported per do_10 loads the started journey with JourneyEngine::load, which scans only keys prefixed journey- (src/journeys/engine.rs:38, :803) and decodes the engine's record, while start_kernel_journey persists a flat record under RowKey intent-evm-<journey_id> (src/journeys/intent_submit.rs:303-333) that only ProductionComponents::advance_evm_intent (production_components.rs:8838) and the journey.get and list routes read; the ported test therefore panics 'persisted kernel journey missing' and the three refusal tests assert emptiness of a loader nothing feeds, and the verify gate of this task never ran the target, so the port was never exercised."
+assumption = "do_10 is corrected: the kernel test reads the intent-evm row and the replay rule; the engine-driving steps are deleted; the intent_submit target joins the verify gate."
+severity = "major"

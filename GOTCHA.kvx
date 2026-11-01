@@ -12546,3 +12546,8 @@ fix = "one generator owns each generated file; the pipeline lock digests files r
 title = "A ruling that rewrites part of a test must replay the fixture state"
 symptom = "a ruling changed two assertions of a receipt-source test to the new retention rule but kept the Record call before them, which fills the two-slot source and evicts the very send the new assertion requires; the attempt followed the ruling and failed on it"
 fix = "before dictating an assertion, walk the test's calls with the capacity and watermark in hand and state the expected value at each read"
+
+[gotcha.2546]
+title = "A port the task gate never runs can assert against a loader the producer stopped feeding"
+symptom = "a test-port ruling told the implementer to load an EVM intent journey through the legacy journey engine; the producer had moved to a flat intent-evm row the engine's prefix scan never sees, the verify gate ran a fixture-gated release test instead of the ported target, and the port compiled, failed at runtime and was never exercised"
+fix = "when a task ports a test target, its verify command runs that target; before dictating a read path, follow the producer's write to the row it persists and name the reader that serves it in production"
