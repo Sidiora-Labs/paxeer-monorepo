@@ -191804,7 +191804,7 @@ qualification = "UNRUN"
 
 [task.18.1378.1]
 title = "Issue #1378: Implement setNameForAddr on the reverse registrar so registrations with a reverse record complete"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1377.1"]
@@ -192003,7 +192003,7 @@ qualification = "UNRUN"
 
 [task.18.1383.1]
 title = "Issue #1383: Decode the consensus header app_hash as hex in the names HeaderSource"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1381.1"]
