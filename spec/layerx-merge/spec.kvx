@@ -152669,7 +152669,7 @@ do_6 = "Finding 10.10.1.1: continue from attempt 1 (c36b094f3) once task 10.10.2
 
 [task.10.10.2]
 title = "Delete the movement provider execution, service and test sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.20.5", "18.1119.1", "9.25.16"]
@@ -190350,7 +190350,7 @@ qualification = "UNRUN"
 
 [task.18.1271.1]
 title = "Issue #1271: Serve the version 7 LXKP SIGN frame with a 65-byte EVM signature in the KMS provider"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16", "10.2.11"]
