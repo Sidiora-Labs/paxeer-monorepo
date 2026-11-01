@@ -8,7 +8,6 @@ use layerx_agent_api::export::{FactRef, OfflineExport};
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::proof::ProofBundle;
 use layerx_agent_api::read::{Freshness, RelativeTo, VerifiedRead};
-use layerx_client::evidence::EvidenceError;
 use layerx_client::sequencer::ReceiptKeyEntry;
 pub type SequencerError = layerx_client::sequencer::SequencerError;
 use layerx_crypto::evm_transaction::transaction_hash;
@@ -130,10 +129,6 @@ pub enum ExportProduceError {
     },
     Store,
     Correlation,
-    Evidence {
-        fact: usize,
-        error: EvidenceError,
-    },
     ReceiptEvidence {
         fact: usize,
         error: ReceiptEvidenceError,
