@@ -51,6 +51,12 @@ const PendingCtxHeight int64 = -2
 // no open block. It maps to JSON-RPC error -32000.
 var ErrPendingServedBySequencer error = &ErrEVMNotSupported{Msg: "pending served by sequencer"}
 
+var ErrLayerNotOpen = errors.New("sequencer: no block is open")
+
+var ErrPendingBlockClosed error = &ErrEVMNotSupported{Msg: "no block is open; retry"}
+
+const PendingOpenWait = 2 * time.Second
+
 // PendingSnapshot is the open block the sequencer and standby execute
 // transactions into; sequencer.Executor satisfies it.
 type PendingSnapshot interface {
