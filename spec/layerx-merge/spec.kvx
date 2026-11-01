@@ -118888,7 +118888,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.25.19]
 title = "Move the committed fee and asset value types to the payments rpc twin and retire the withdrawal alias"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.3", "9.25.16", "9.25.17"]
