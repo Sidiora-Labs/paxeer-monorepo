@@ -1155,45 +1155,11 @@ impl crate::receipt::ReceiptIngress for layerx_client::rpc::receipt::Authenticat
 }
 
 fn human_receipt_history_evidence(
-    chain: &mut dyn HumanNode,
-    height: u64,
-    receipt: &[u8],
+    _chain: &mut dyn HumanNode,
+    _height: u64,
+    _receipt: &[u8],
 ) -> Result<crate::protocol_evidence::RawReceiptEvidence, HumanOperationError> {
-    let mut cursor = None;
-    let mut total = 0_usize;
-    loop {
-        let page = crate::read::history(
-            chain,
-            height,
-            height,
-            cursor,
-            crate::read::HistoryLimits {
-                maximum_items: 256,
-                maximum_response_bytes: 16_777_216,
-            },
-            None,
-        )
-        .map_err(|_| HumanOperationError::Unavailable)?;
-        total = total
-            .checked_add(page.response_bytes)
-            .filter(|total| *total <= 16_777_216)
-            .ok_or(HumanOperationError::Refused)?;
-        for item in page.items {
-            if item.kind == layerx_client::read::HistoryKind::Receipt && item.canonical == receipt {
-                let proof = layerx_client::read::HistoryProof::decode(
-                    item.proof.as_deref().ok_or(HumanOperationError::Refused)?,
-                )
-                .map_err(|_| HumanOperationError::Refused)?;
-                return Ok(crate::protocol_evidence::RawReceiptEvidence::new(
-                    item.canonical,
-                    proof.proof,
-                    proof.header,
-                    proof.header_signature,
-                ));
-            }
-        }
-        cursor = Some(page.next_cursor.ok_or(HumanOperationError::Unavailable)?);
-    }
+    Err(HumanOperationError::Unavailable)
 }
 
 fn human_receipt_commit_material(
@@ -12980,93 +12946,11 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
 
     fn maintained_receipt_history(
         &mut self,
-        raw: &crate::protocol_evidence::RawReceiptEvidence,
-        header: &layerx_wire::receipt::BatchHeader,
-        authorization: &layerx_proof::inclusion::SequencerAuthorization,
+        _raw: &crate::protocol_evidence::RawReceiptEvidence,
+        _header: &layerx_wire::receipt::BatchHeader,
+        _authorization: &layerx_proof::inclusion::SequencerAuthorization,
     ) -> Result<Vec<(Vec<u8>, layerx_client::read::HistoryProof)>, HumanOperationError> {
-        let count = header
-            .last_sequence()
-            .checked_sub(header.first_sequence())
-            .filter(|count| *count > 0 && *count <= 64)
-            .ok_or(HumanOperationError::Refused)?;
-        let mut items = Vec::new();
-        let mut next = header.first_sequence();
-        let mut total = 0_usize;
-        let mut cursor = None;
-        loop {
-            let page = crate::read::history(
-                self.chain.as_mut(),
-                header.batch_number(),
-                header.batch_number(),
-                cursor,
-                crate::read::HistoryLimits {
-                    maximum_items: 256,
-                    maximum_response_bytes: 16_777_216,
-                },
-                None,
-            )
-            .map_err(|_| HumanOperationError::Unavailable)?;
-            total = total
-                .checked_add(page.response_bytes)
-                .filter(|total| *total <= 16_777_216)
-                .ok_or(HumanOperationError::Refused)?;
-            for item in page.items {
-                if item.kind != layerx_client::read::HistoryKind::Receipt {
-                    continue;
-                }
-                if next > header.last_sequence() {
-                    return Err(HumanOperationError::Refused);
-                }
-                let sequence = if next == header.last_sequence() {
-                    let maintenance =
-                        layerx_wire::batch_maintenance::decode_maintenance(&item.canonical)
-                            .map_err(|_| HumanOperationError::Refused)?;
-                    maintenance
-                        .verify_header(header)
-                        .map_err(|_| HumanOperationError::Refused)?;
-                    maintenance.occupancy().global_sequence
-                } else {
-                    let receipt = layerx_wire::receipt::decode(&item.canonical)
-                        .map_err(|_| HumanOperationError::Refused)?;
-                    receipt
-                        .protocol()
-                        .ok_or(HumanOperationError::Refused)?
-                        .global_sequence()
-                };
-                if sequence != next {
-                    return Err(HumanOperationError::Refused);
-                }
-                let proof = layerx_client::read::HistoryProof::decode(
-                    item.proof.as_deref().ok_or(HumanOperationError::Refused)?,
-                )
-                .map_err(|_| HumanOperationError::Refused)?;
-                if proof.header != raw.canonical_header()
-                    || proof.header_signature != raw.header_signature()
-                {
-                    return Err(HumanOperationError::Refused);
-                }
-                if next != header.last_sequence() {
-                    layerx_proof::inclusion::verify_receipt(
-                        &item.canonical,
-                        &proof.proof,
-                        &proof.header,
-                        &proof.header_signature,
-                        authorization,
-                    )
-                    .map_err(|_| HumanOperationError::Refused)?;
-                }
-                items.push((item.canonical, proof));
-                next = next.checked_add(1).ok_or(HumanOperationError::Refused)?;
-            }
-            match page.next_cursor {
-                Some(next_cursor) => cursor = Some(next_cursor),
-                None => break,
-            }
-        }
-        if u64::try_from(items.len()).ok() != count.checked_add(1) {
-            return Err(HumanOperationError::Refused);
-        }
-        Ok(items)
+        Err(HumanOperationError::Unavailable)
     }
 
     fn retained_activity(
