@@ -100552,7 +100552,7 @@ do_5 = "Finding 1.12.5.2: continue from the latest attempt with do_4 kept. In mo
 
 [task.2.90.1]
 title = "Write the five Go acceptance tests the merged spec names and the tree lacks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["2.3.4", "2.6.4", "2.11.4", "5.5.6", "18.814.1", "1.12.5"]
@@ -117231,7 +117231,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.25.9]
 title = "Port the SDK's direct-node deployment and the daemon's tests and examples off the LNI client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["9.25.3"]
