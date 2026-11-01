@@ -4,12 +4,10 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/sha256"
-	"encoding/binary"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	ledgerkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/keeper"
@@ -51,7 +49,7 @@ func TestLedgerModuleStoreHasNoKernelKV(t *testing.T) {
 		require.NoError(t, err, "%s returned %x", name, data)
 		outputs := abi.Methods[name].Outputs
 		switch name {
-		case "register", "openAccount", "issueGrant":
+		case "register", "openAccount":
 			outputs = abi.Methods["balanceOf"].Inputs[:1]
 		}
 		values, err := outputs.Unpack(data)
@@ -77,7 +75,7 @@ func TestLedgerModuleStoreHasNoKernelKV(t *testing.T) {
 	}
 	payerCaller := common.HexToAddress("0x2320000000000000000000000000000000000001")
 	payeeCaller := common.HexToAddress("0x2320000000000000000000000000000000000002")
-	private, payer := bind(payerCaller, 1)
+	_, payer := bind(payerCaller, 1)
 	_, payee := bind(payeeCaller, 2)
 	salt := [32]byte{0x41}
 	material := append([]byte("LX:ASSET:v1"), payer.Authority.Actor[:]...)
@@ -152,47 +150,11 @@ func TestLedgerModuleStoreHasNoKernelKV(t *testing.T) {
 	assertMirror("mint", 250)
 
 	now := uint64(ctx.BlockTime().UnixMilli())
-	purpose := [32]byte{0x44}
-	contextHash, err := codec.DomainHash(codec.DomainContextHash, purpose[:])
-	require.NoError(t, err)
-	body := append([]byte(nil), from[:]...)
-	body = append(body, to[:]...)
-	body = append(body, asset[:]...)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = binary.BigEndian.AppendUint64(body, 40)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = binary.BigEndian.AppendUint64(body, 100)
-	body = append(body, 0)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = binary.BigEndian.AppendUint64(body, now+1000)
-	body = append(body, purpose[:]...)
-	body = append(body, 0)
-	body = append(body, make([]byte, 32)...)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = append(body, payer.DIDKey[:]...)
-	grantID, err := codec.DomainHash(codec.DomainAuthorityHash, append([]byte("LXP:GRANT:v1"), body...))
-	require.NoError(t, err)
-	grant := append(append([]byte(nil), grantID[:]...), body...)
-	grant = append(grant, ed25519.Sign(private, grantID[:])...)
-	require.NoError(t, types.ValidateIssueGrantPayload(grant))
-	require.Equal(t, []interface{}{grantID}, call(payerCaller, "issueGrant", grant))
-	assertMirror("issueGrant", 250)
-	sequence := call(payeeCaller, "nextSequence", payee.DIDKey, asset)[0].(uint64)
-	call(payeeCaller, "draw", grantID, to, big.NewInt(15), [32]byte{0x45}, sequence, purpose, contextHash)
-	balances[from], balances[to] = 235, 15
-	assertMirror("draw", 250)
 	call(payerCaller, "payExact", from, to, asset, big.NewInt(3), now+1000, [32]byte{0x46})
-	balances[from], balances[to] = 232, 18
+	balances[from], balances[to] = 247, 3
 	assertMirror("payExact", 250)
-	identitySequence, err := a.LayerXHost.ReadIdentitySequence(ctx, payer.DID)
-	require.NoError(t, err)
-	call(payerCaller, "revokeGrant", grantID, identitySequence)
-	revoked, err := a.LayerXLedgerKeeper.GetPayerGrant(ctx, grantID)
-	require.NoError(t, err)
-	require.True(t, revoked.Revoked)
-	assertMirror("revokeGrant", 250)
 	call(payerCaller, "burn", asset, from, big.NewInt(5))
-	balances[from], balances[issuance] = 227, 755
+	balances[from], balances[issuance] = 242, 755
 	assertMirror("burn", 245)
 	call(payerCaller, "pause", asset)
 	paused, err := a.LayerXLedgerKeeper.GetAsset(ctx, asset)

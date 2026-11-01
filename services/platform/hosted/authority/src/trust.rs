@@ -1,46 +1,39 @@
-use super::{
-    protected, Config, CORRELATION, LNI_FRAME_BYTES, MAX_LNI_CONNECTIONS, PROTOCOL_VERSION,
-};
-use layerx_client::evidence::{
-    checkpoint as read_checkpoint, CheckpointSelector, EvidenceContext, VerifiedCheckpoint,
-};
+use super::{protected, Config, PROTOCOL_VERSION};
 use layerx_client::handover::SequencerHistory;
-use layerx_client::lni::schema::Version;
-use layerx_client::lni::transport::{FrameTransport, Limits};
 use layerx_platform_authority::{parse_replica_evidence, BatchEvidence, EvidenceRefusal};
 use layerx_proof::inclusion::SequencerAuthorization;
 use std::env;
 use std::path::Path;
-use std::sync::atomic::Ordering;
 use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 pub(super) struct Trust {
     history: Mutex<SequencerHistory>,
 }
 
-pub(super) fn correlation(count: u64) -> Result<u64, ()> {
-    CORRELATION
-        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |value| {
-            value
-                .checked_add(count)
-                .filter(|_| value != 0 && count != 0)
-        })
-        .map_err(|_| ())
+pub(crate) struct CommittedCheckpoint {
+    pub batch_number: u64,
+    pub checkpoint_id: [u8; 32],
+    pub header_digest: [u8; 32],
+    pub last_sequence: u64,
+    pub previous_state_root: [u8; 32],
+    pub state_root: [u8; 32],
+    pub timestamp_ms: u64,
+    pub finalized_height: u64,
+    pub checkpoint_call: Vec<u8>,
 }
 
-pub(super) fn limits(deadline: Instant) -> Result<Limits, ()> {
-    let remaining = deadline.checked_duration_since(Instant::now()).ok_or(())?;
-    if remaining.is_zero() {
-        return Err(());
+impl CommittedCheckpoint {
+    pub(crate) fn binds_header(&self, canonical: &[u8]) -> bool {
+        layerx_wire::receipt::decode_batch_header(canonical).is_ok_and(|header| {
+            header.batch_number() == self.batch_number
+                && header.last_sequence() == self.last_sequence
+                && header.previous_state_root() == self.previous_state_root
+                && header.resulting_state_root() == self.state_root
+                && layerx_wire::hash::batch_header_digest(canonical)
+                    .is_ok_and(|digest| digest == self.header_digest)
+        })
     }
-    Ok(Limits {
-        maximum_frame_bytes: LNI_FRAME_BYTES,
-        maximum_connections: MAX_LNI_CONNECTIONS,
-        maximum_streams: 1,
-        maximum_queued_bytes: LNI_FRAME_BYTES,
-        deadline: remaining,
-    })
 }
 
 impl Trust {
@@ -103,9 +96,7 @@ impl Trust {
 
 pub(super) fn snapshot(
     config: &Config,
-    _target: u64,
     claimed_key: [u8; 32],
-    _deadline: Instant,
 ) -> Result<Option<SequencerHistory>, ()> {
     if !config
         .chain_receipts
@@ -170,46 +161,6 @@ pub(super) fn authorization(
         .find(|key| key.sequencer_id() == header.header().sequencer_id())
         .copied()
         .ok_or(())
-}
-
-pub(super) fn checkpoint(
-    config: &Config,
-    transport: &mut dyn FrameTransport,
-    batch: u64,
-    version: Version,
-    history: Option<&SequencerHistory>,
-) -> Result<VerifiedCheckpoint, ()> {
-    let key = match history {
-        Some(history) => history
-            .authorization_for_batch(batch)
-            .map_err(|_| ())?
-            .public_key(),
-        None => config.sequencer_public_key,
-    };
-    let checkpoint = read_checkpoint(
-        transport,
-        CheckpointSelector::Batch(batch),
-        EvidenceContext {
-            interface_version: version,
-            correlation_id: correlation(1)?,
-            expected_protocol_version: PROTOCOL_VERSION,
-            expected_network_id: config.protocol_network_id,
-            handshake_sequencer_key: key,
-        },
-    )
-    .map_err(|_| ())?;
-    if let Some(history) = history {
-        let header =
-            layerx_client::batch::lookup_untrusted(transport, version, batch, correlation(1)?)
-                .map_err(|_| ())?;
-        history
-            .verify_header(header.canonical_bytes(), header.signature())
-            .map_err(|_| ())?;
-        if header.canonical_bytes() != checkpoint.canonical_header() {
-            return Err(());
-        }
-    }
-    Ok(checkpoint)
 }
 
 #[cfg(test)]

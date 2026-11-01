@@ -12486,3 +12486,8 @@ fix = "when a ruling renames or deletes a tests entry, rewrite symbols in the sa
 title = "node --test prints the spec reporter in the gate, so grep for '# pass 1' never matches"
 symptom = "9.90.2 attempt 3 ran its receipt test under node --test, the test passed and the gate still failed: in the qualification environment node chose the spec reporter (pass 1 with an info glyph) while the verify command grepped for the TAP line '# pass 1' (decision 2194's node form)."
 fix = "pass --test-reporter=tap to node --test whenever the verify command greps '# pass N'; the decision 2194 node form reads node --test --test-reporter=tap."
+
+[gotcha.2534]
+title = "A cargo --tests build gate shows one broken test target per attempt"
+symptom = "10.6.4 attempt 3 saw only tests/evidence_node.rs fail to compile; 14.0.6 attempt 8 fixed that file and then met three more broken targets (archive, native_onboarding_rungs, native_send_producer) the first log never showed, because cargo stops scheduling targets after the first compile error"
+fix = "when a crate's test targets are broken on main, enumerate them once with cargo build --tests --keep-going and give the whole port to one task that the consumers require, instead of letting each consumer discover the next target"
