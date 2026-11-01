@@ -152153,7 +152153,7 @@ do_7 = "Decision 2181: continue from attempt 1 (ef9779700), keeping the deletion
 
 [task.10.27.2]
 title = "Delete the explorer index configuration tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "10.24.4"]
