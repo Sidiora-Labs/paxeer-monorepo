@@ -154350,7 +154350,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.26.1]
 title = "Delete the Paxeer client manifest, crate root and example"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["10.20.5", "10.0.3", "10.25.5", "10.96.1", "16.0.4", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16"]
@@ -165922,7 +165922,7 @@ do_10 = "Decision 1947 narrows decision.1938: task 13.27.5 (867cb1560) maps kern
 
 [task.13.8.2]
 title = "Retire the protocol adapter crate and the kernel proof and wire dependencies"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["13.4.6", "13.6.5", "13.6.6", "13.6.7", "13.7.5", "13.9.6", "13.9.7", "13.9.1", "8.96.4", "9.94.1", "10.96.1", "8.4.5"]
