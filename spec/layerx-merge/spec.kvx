@@ -117987,7 +117987,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1431.1]
 title = "Issue #1431: Accept same-position history rows and the last-position overflow group in HistoryPage::read_account"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.18", "13.8.3"]
@@ -154640,7 +154640,7 @@ do_7 = "Finding 10.1.2.2: continue from attempt 2 (25d184b4e) rebased onto main 
 
 [task.10.26.4]
 title = "Delete the Paxeer client checkpoint evidence module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154676,7 +154676,7 @@ do_7 = "Finding 10.1.2.2: continue from attempt 2 (9a3239495) rebased onto main 
 
 [task.10.26.5]
 title = "Delete the Paxeer client endpoint status model"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154748,7 +154748,7 @@ do_9 = "Finding 10.26.6.1: continue from attempt 3 (a275ad8a9), whose build pass
 
 [task.10.26.7]
 title = "Delete the Paxeer client deposit proof builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154783,7 +154783,7 @@ do_7 = "Finding 10.1.2.2: continue from attempt 2 (b97ac666c) rebased onto main 
 
 [task.10.26.8]
 title = "Delete the Paxeer client deposit and account vector tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154852,7 +154852,7 @@ do_6 = "Finding 10.1.2.2: continue from attempt 2 (0a80a9db7) rebased onto main 
 
 [task.10.26.10]
 title = "Delete the Paxeer client custody ABI fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154959,7 +154959,7 @@ do_6 = "Finding 10.1.2.2: continue from attempt 2 (a7406880e) rebased onto main 
 
 [task.10.26.13]
 title = "Delete the Paxeer client finality tracker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154995,7 +154995,7 @@ do_8 = "Finding 10.1.2.2: continue from attempt 2 (b24d242a6) rebased onto main 
 
 [task.10.26.14]
 title = "Delete the Paxeer client emergency exit planner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
