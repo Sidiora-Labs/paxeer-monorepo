@@ -163,6 +163,94 @@ func TestCreateMarketRefusalEmitsNoMarketCreated(t *testing.T) {
 	}
 }
 
+func TestCreateMarketRefusesUnapprovedOptical(t *testing.T) {
+	c := newCustodyEnv(t)
+	c.fund(recordedCreator, 2*creationFee)
+	evm := &testkeeper.EVMTestApp.EvmKeeper
+	roles := c.k.Generation2()
+	optical := address("reviewed optical")
+	evm.SetCode(c.ctx, optical, common.FromHex("0x600060005260206000f3"))
+	token := tokenAddress(t, roles.SidioraFactory,
+		tokenSalt(recordedCreator, recordedName, recordedSymbol, 0), recordedName, recordedSymbol)
+	pool, err := c.k.PredictPoolAddress(c.ctx, token, recordedCreator, optical)
+	require.NoError(t, err)
+	denom := types.ModuleName + "/" + pool.Hex()
+	before := c.k.GetMarketCount(c.ctx)
+	approvalRuntime := func(response string) []byte {
+		code := common.FromHex("0x366000600037366000207f")
+		code = append(code, crypto.Keccak256(calldata("isApproved(address)", addressWord(optical)))...)
+		return append(code, common.FromHex("0x1460345760006000fd5b"+response)...)
+	}
+	for _, tc := range []struct {
+		name, response string
+	}{
+		{"unapproved", "600060005260206000f3"},
+		{"registry reverts", "60006000fd"},
+		{"empty response", "00"},
+		{"short true", "60016000526001601ff3"},
+		{"oversized true", "600160005260406000f3"},
+		{"noncanonical bool", "600260005260206000f3"},
+		{"nonzero high byte", "60016000536001601f5360206000f3"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			evm.SetCode(c.ctx, roles.OpticalRegistry, approvalRuntime(tc.response))
+			ctx, _ := c.ctx.CacheContext()
+			ctx, market, err := c.k.CreateMarket(ctx, c.caller, nil, recordedCreator, recordedName,
+				recordedSymbol, types.FeeStrategyClaim, optical)
+			require.ErrorIs(t, err, types.ErrOpticalNotApproved)
+			require.Equal(t, types.Market{}, market)
+			require.Equal(t, before, c.k.GetMarketCount(ctx))
+			require.Zero(t, c.k.FactoryNonce(ctx, recordedCreator))
+			require.Empty(t, evm.GetCode(ctx, token))
+			require.Zero(t, evm.GetNonce(ctx, token))
+			require.Empty(t, evm.GetCode(ctx, pool))
+			require.Zero(t, evm.GetNonce(ctx, pool))
+			_, found, err := c.k.GetSurface(ctx, pool)
+			require.NoError(t, err)
+			require.False(t, found)
+			_, found, err = c.k.GetFeeRight(ctx, roles.SidioraNFT, 1)
+			require.NoError(t, err)
+			require.False(t, found)
+			require.Zero(t, c.k.FeeRightPoolTokenID(ctx, roles.SidioraNFT, pool))
+			require.False(t, c.k.HasRole(ctx, roles.FeeAccumulator, keeper.PoolRole, pool))
+			_, found, err = c.k.GetPoolMetadata(ctx, pool)
+			require.NoError(t, err)
+			require.False(t, found)
+			_, found = c.k.PoolByToken(ctx, token)
+			require.False(t, found)
+			_, found = c.k.GetMarket(ctx, denom)
+			require.False(t, found)
+			_, found = c.k.GetMarketByIndex(ctx, before+1)
+			require.False(t, found)
+		})
+	}
+	evm.SetCode(c.ctx, roles.OpticalRegistry, approvalRuntime("600160005260206000f3"))
+	market, err := c.createMarket(recordedCreator, recordedName, recordedSymbol, types.FeeStrategyClaim, optical)
+	require.NoError(t, err)
+	require.Equal(t, before+1, c.k.GetMarketCount(c.ctx))
+	require.Equal(t, optical.Hex(), market.Optical)
+	require.Equal(t, token.Hex(), market.TokenAddress)
+	require.Equal(t, pool.Hex(), market.PoolAddress)
+	stored, found := c.k.GetMarket(c.ctx, denom)
+	require.True(t, found)
+	requireSameMarket(t, market, stored)
+	metadata, found, err := c.k.GetPoolMetadata(c.ctx, pool)
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, optical, metadata.Optical)
+	contractError, found := types.ContractErrorOf(types.ErrOpticalNotApproved)
+	require.True(t, found)
+	require.Equal(t, "OpticalNotApproved()", contractError.Signature())
+	require.Equal(t, uint32(76), types.ErrOpticalNotApproved.ABCICode())
+
+	evm.SetCode(c.ctx, roles.OpticalRegistry, common.FromHex("0x60006000fd"))
+	market, err = c.createMarket(recordedCreator, recordedName, recordedSymbol, types.FeeStrategyClaim,
+		common.Address{})
+	require.NoError(t, err)
+	require.Equal(t, before+2, c.k.GetMarketCount(c.ctx))
+	require.Equal(t, common.Address{}.Hex(), market.Optical)
+}
+
 func TestCreateMarket(t *testing.T) {
 	t.Run("derives the recorded generation 2 token salt and pool address", func(t *testing.T) {
 		e := newEnv(t)
