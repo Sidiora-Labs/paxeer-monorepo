@@ -12436,3 +12436,13 @@ fix = "a task that changes a signature test files call adds go vet over those pa
 title = "A do-line that names the callers to delete must be written from the file, not from memory"
 symptom = "9.24.3 do_4 named seven facade methods; the client had twelve that referenced the deleted modules, so attempt 3 still failed with sixteen errors."
 fix = "enumerate by the module or type reference (grep the file for crate::<module> and the evidence types) and cite each method with its line."
+
+[gotcha.2524]
+title = "A deletion task's gate must compile the crates that import the deleted items"
+symptom = "9.24.3 passed cargo build -p layerx-client --test sequencer and left layerx-agentd with thirteen errors on main; every agent and human workspace build failed afterwards on a break none of them touched."
+fix = "give every task that deletes or renames a library item a build gate that compiles the dependent crates (decision 2190), and when an attempt fails on such a break, author the port task rather than rerunning the consumer."
+
+[gotcha.2525]
+title = "A fix at a higher wave than its broken consumers cannot be expressed as a requires"
+symptom = "the agent daemon fix 9.24.5 sits at wave 35 while the human tasks that fail on the break sit at wave 19; a task may not require a higher-wave task."
+fix = "hold the lower-wave consumers by operator hold until the fix publishes, and write the dependency into the consumers' do-lines instead of their requires."

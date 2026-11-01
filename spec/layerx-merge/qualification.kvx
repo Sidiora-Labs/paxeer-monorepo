@@ -15267,3 +15267,51 @@ symbol = "arbiter_admission_v3"
 observed = "Attempt 3 (0b2fde0f6) deleted the seven methods do_4 named and the crate still fails with sixteen errors: arbiter_admission_v3 (services/agent/crates/layerx-client/src/client.rs:330), start_asset_execution_prestate (:504), asset_execution_prestate (:562), start_replay_catalogue (:584) and replay_catalogue (:642) also name crate::arbiter_admission, crate::execution_prestate or the deleted evidence types VerifiedAdmissionPrestate, VerifiedAssetExecutionPrestate and VerifiedReplayCatalogue; do_4 listed the methods from memory instead of from the file."
 assumption = "Every method of Client whose signature or body names one of the three deleted modules or their evidence types retires with them; the twelve are now listed by line."
 severity = "major"
+
+[finding.9.24.3.3]
+task = "9.24.3"
+file = "services/agent/crates/layerx-agentd/src/budget/program_settlement.rs:248"
+symbol = "VerifiedExecutionPrestate"
+observed = "Task 9.24.3 (9671c613b, merged c32a35184) passed its gate, cargo build -p layerx-client --test sequencer, and left layerx-agentd on main with thirteen errors: program_settlement.rs:248, :262, :307, :397 and :406, program_lifecycle_settlement.rs:3, program_sources.rs:479 and :535 and human_runtime.rs:3812, :3953, :3969 and :3997 still name the deleted execution_prestate module and the Verified*ExecutionPrestate evidence types, and main.rs:741 names Capability::ExecutionPrestate; every build of the agent or human workspace since (18.1156.1 attempt 15, 18.1151.1 attempt 15, the wave-4 gate of 17.5.5) fails on them."
+assumption = "The gate of a deletion task must compile the crates that import the deleted items; task 9.24.5 ports the consumers to the committed program balance read of 9.94.1 and decision 2190 makes the dependent-crate check part of every layerx-client deletion gate."
+severity = "major"
+
+[finding.9.25.2.1]
+task = "9.25.2"
+file = "services/agent/crates/layerx-client/src/rpc/receipt.rs:11"
+symbol = "ReconnectPolicy"
+observed = "Attempt 2 (8fa29d7a6) deleted client.rs and the crate no longer builds: rpc/receipt.rs:11 and receipt.rs:12 import crate::client::ReconnectPolicy; read.rs, read/module.rs, evidence.rs, evidence/module_state.rs, batch.rs, rpc/account.rs and rpc/module_state.rs keep *_with_history functions whose history parameter comes from the deleted module and tests/batch_rpc.rs:59, tests/evidence_rpc.rs:36 and tests/module_reads_rpc.rs:8-10 call them; layerx-agent-api/src/read.rs:670-709 and layerx-agentd human_runtime.rs:18932-18943 import FeeMeter, FeeObservation, FeeEstimateError and MAX_FEE_METER_CANONICAL_BYTES from crate::client, and layerx-agentd holds Client, ClientConfig and availability::FetchError in nineteen places."
+assumption = "Deleting client.rs is a crate-wide and workspace-wide edit: the in-crate callers move or go with it, the fee items move to their own module, and the daemon's holders are ported first by 9.24.5 and 9.25.3."
+severity = "major"
+
+[finding.10.0.3.13]
+task = "10.0.3"
+file = "services/human/crates/layerx-human-service/tests/intent_submit.rs:918"
+symbol = "start_kernel_journey"
+observed = "63aee3813 changed start_kernel_journey to the six-argument EIP-1559 form returning IntentSubmission and removed AttestorKms::authorize_kernel_send, while tests/intent_submit.rs:918, :977, :1096, :1166, :1517 and :1755 (drive at :952) and tests/wallet_identity_e2e.rs:262-270 and :1088 still call the KernelStart form, read .status() and authorize through authorize_kernel_send; the crate's test targets do not compile on main and 18.1151.1 attempt 14 (d81cb029f) failed on them."
+assumption = "A signature change in a library crate ports its test callers in the same task or hands them to a named task; 14.0.6 ports intent_submit.rs and 18.1151.1 do_12 ports wallet_identity_e2e.rs."
+severity = "major"
+
+[finding.18.1151.1.8]
+task = "18.1151.1"
+file = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:262"
+symbol = "authorize_kernel_send"
+observed = "Attempt 14 (d81cb029f) fails the build: send_route at :232-296 calls owner.kms.authorize_kernel_send on AttestorKms, removed by 63aee3813, and :1175-1268 calls start_kernel_journey with a KernelStart, reads .status() and drives journey.advance, none of which the six-argument EIP-1559 form offers; attempt 15 (ee51bedf2) then failed on the layerx-agentd break of 9.24.3 before reaching this file."
+assumption = "The test signs its send legs through the attestor EVM path of do_8 and submits them through the EIP-1559 form; the kernel-native journey drive goes."
+severity = "major"
+
+[finding.18.1156.1.8]
+task = "18.1156.1"
+file = "services/human/crates/layerx-human-kms/tests/native_setup.rs:193"
+symbol = "from_signed_consent"
+observed = "Attempt 14 (d5d905d4d) ran the provider test to twelve passed and three failed with Error: 'Signature': native_setup.rs:193-198 hands the KMS signature to SponsoredRegistration::from_signed_consent, owner_bootstrap.rs:63-66 to attach_native_signature and owner_activity::verify, and owner_rotation.rs sign() (:88-133) to the kernel envelope driver; all three verify Ed25519 over the envelope's SignaturePreimage while the KMS of 10.11.7 (server.rs:158-184) signs only the Keccak digest of a type-2 call, so no signature satisfies both; 10.98.8 do_7 states that native_setup.rs and owner_rotation.rs were already deleted, which is not so."
+assumption = "The kernel-envelope consumers retire in 10.21.4 (owner_activity.rs, owner_bootstrap.rs) and 9.35.1 (kernel activity codec); until then the provider tests assert the KMS contract on the KMS side only."
+severity = "major"
+
+[finding.5.98.7.2]
+task = "5.98.7"
+file = "node/sequencer/crash_replay_test.go:56"
+symbol = "ReceiptSignature"
+observed = "Attempts 3 (7c9c83d50) and 4 (e1015b351) fix the two callers do_5 named and go vet reports the third: crash_replay_test.go:56 passes the Accept result (evmrpc.AcceptedSend) to verify.ReceiptSignature, which takes []byte."
+assumption = "Every test caller of Accepter.Accept in node/sequencer that treats the result as bytes is ported in this task; the three are now named."
+severity = "minor"
