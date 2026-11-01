@@ -12816,3 +12816,13 @@ fix = "Fall back to the latest committed state when the open-layer error is retu
 title = "Porting one test consumer of a changed producer type and leaving its siblings"
 symptom = "A task changes a struct and a constructor, ports the one test file its text names and runs the crate-wide test build; two sibling test targets of the same crate still build the old shape and the build fails after the port."
 fix = "Before building, grep the crate's tests for every use of each changed symbol and port them all in the same attempt."
+
+[gotcha.2600]
+title = "Build step that regenerates a committed vector"
+symptom = "A task's build command runs a producer test in writing mode; the test rewrites the committed vector file, the verification then runs on a candidate the build never saw and the attempt ends with build_on_verified unmet although every step passed."
+fix = "Generate and commit the vector once before the build; build and verify run the producer in checking mode and never write a tracked file."
+
+[gotcha.2601]
+title = "A struct field changed to Option and the test targets of a sibling crate kept the plain value"
+symptom = "A done task changes two public struct fields to Option<u64> and ports the test file its text names; two other test targets of the same crate still build integer literals and every later task whose build compiles the crate's tests fails before touching its own work."
+fix = "When a public type changes shape, grep every tests/ file of its crate for constructions of that type and port them in the same task."

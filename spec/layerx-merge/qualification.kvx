@@ -16331,3 +16331,19 @@ symbol = "ReceiptMaterial construction of the rung test"
 observed = "Attempt 6 (29813f720) ports tests/onboarding.rs and the crate-wide test build then stops in two other test targets of the same crate: receipt_material_rungs.rs:124 builds a ReceiptMaterial without the inclusion_height, receipt_key and signed_receipt fields the task added and :153 destructures it without them, and native_onboarding_rungs.rs:117 calls AgentPreparationContext::new with six arguments where the task's signature (src/onboarding/mod.rs:316) takes seven."
 assumption = "Every test target of the crate that consumes a type this task changes is ported in this task."
 severity = "major"
+
+[finding.18.1382.1.2]
+task = "18.1382.1"
+file = "tests/vectors/names/storage_absence_v1.json"
+symbol = "NAMES_WRITE_VECTOR"
+observed = "Attempt 5 (cd8fb7493) passes the build (native libraries, the Go producer test with NAMES_WRITE_VECTOR=1, the sdk/names type check) and the vitest consumer, yet the Go run rewrote tests/vectors/names/storage_absence_v1.json so the verified candidate differs from the built one and the attempt ends with build_on_verified unmet."
+assumption = "Decision 2230: the vector is generated once and committed; the build runs the Go producer test in checking mode (no NAMES_WRITE_VECTOR) so no tracked file changes between the build and the verification."
+severity = "major"
+
+[finding.9.25.2.4]
+task = "9.25.2"
+file = "services/agent/crates/layerx-client/tests/sequencer_reads.rs:217"
+symbol = "HistoryPage"
+observed = "Attempt 6 (96a9e099d on 1c330fd37) fails the crate-wide client test build before its own changes are reached: tests/history_rpc.rs:118-119 and :128-129 and tests/sequencer_reads.rs:217-218 and :226-227 build HistoryPage with integer indexed_height and chain_height while sequencer.rs:242-243 has carried Option<u64> for both since task 18.1238.1 (c98511e6c), whose touches did not include the two test files."
+assumption = "The two test targets are ported in this task, the first task whose build step compiles every layerx-client test; task 18.1376.1 edits a different hunk of tests/history_rpc.rs (:166-230) and lands first, so this task requires it."
+severity = "major"
