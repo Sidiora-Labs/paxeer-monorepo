@@ -678,15 +678,18 @@ public final class ProgramsClient {
         if (key == null || !canonicalLowerHex(key.value(), 32)) invalid();
         NativeProgramCall nativeCall = nativeCall(call);
         byte[] signed = call.signedActivity();
-        if (!Arrays.equals(Programs.transactionData(signed), nativeCall.calldata(call.budget().feeLimit()))) invalid();
+        requireSignedCallData(call, nativeCall, signed);
         return broadcast(signed).thenApply(result -> pendingSubmission(result.transactionHash(), key.value(), signed, object()));
+    }
+    private static void requireSignedCallData(Call call, NativeProgramCall nativeCall, byte[] signed) {
+        if (!Arrays.equals(Programs.transactionData(signed), nativeCall.calldata(call.budget().feeLimit()))) invalid();
     }
     private static Submission pendingSubmission(byte[] hash, String key, byte[] raw, ObjectNode value) {
         return new Submission(SubmissionState.UNKNOWN, hash, key, raw, null, value);
     }
     public CompletionStage<Submission> receipt(Call call, IdempotencyKey key) {
         byte[] signed = call.signedActivity();
-        nativeCall(call).bindSignedActivity(signed);
+        requireSignedCallData(call, nativeCall(call), signed);
         submittedTransactions.put(hex(Programs.transactionHash(signed)), signed.clone());
         return receipt(key, Programs.transactionHash(signed));
     }

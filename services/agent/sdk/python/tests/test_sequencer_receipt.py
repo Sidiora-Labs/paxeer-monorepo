@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from dataclasses import FrozenInstanceError, replace
 from hashlib import sha256
 from pathlib import Path
@@ -35,6 +36,21 @@ def _key(vector: dict) -> ReceiptKey:
         key["firstHeight"],
         key["lastHeight"],
     )
+
+
+def test_verify_sequencer_receipt_without_cryptography_names_the_extra(monkeypatch):
+    for module in (
+        "cryptography",
+        "cryptography.exceptions",
+        "cryptography.hazmat.primitives.asymmetric.ed25519",
+    ):
+        monkeypatch.setitem(sys.modules, module, None)
+    with pytest.raises(ImportError) as raised:
+        verify_sequencer_receipt(b"", b"", [])
+    assert str(raised.value) == (
+        "sequencer receipt verification needs the 'cryptography' package: pip install 'layerx-sdk[derivation]'"
+    )
+    assert isinstance(raised.value.__cause__, ImportError)
 
 
 def test_verify_sequencer_receipt_pinned_key():
