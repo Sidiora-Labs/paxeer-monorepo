@@ -117777,7 +117777,7 @@ do_6 = "Finding 9.25.20.1: continue from attempt 1 (2d9533ab8). Add pub(crate) f
 
 [task.18.1432.1]
 title = "Issue #1432: Open the settlement capability snapshot at the current head while preparation keeps its retained height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.17"]
@@ -155322,7 +155322,7 @@ do_6 = "Finding 10.24.1.1: attempt 4 (fcfb22618) stopped on main's layerx-human-
 
 [task.10.96.1]
 title = "Remove the Paxeer client and explorer index from the human workspace at wave 5"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["10.0.4", "10.20.5", "10.27.1", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1", "9.25.16"]
