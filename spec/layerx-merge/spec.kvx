@@ -117959,7 +117959,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.5.5.22]
 title = "Retain committed sends in the receipt source so pax_sequencerReceipt answers the committed rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.5.3"]
