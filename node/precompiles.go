@@ -5,6 +5,7 @@ import (
 	launchpadv610keeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/legacy/v610/keeper"
 	launchpadtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	layerxagentkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/keeper"
+	layerxanchorkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/keeper"
 	layerxauthkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/keeper"
 	layerxbridgekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/keeper"
 	layerxcustodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
@@ -58,6 +59,7 @@ type PrecompileKeepers struct {
 	putils.ConnectionKeeper
 	putils.ChannelKeeper
 	txConf          client.TxConfig
+	layerxAnchor    *layerxanchorkeeper.Keeper
 	layerxCustody   *layerxcustodykeeper.Keeper
 	layerxExchange  *layerxexchangekeeper.Keeper
 	layerxLedger    *layerxledgerkeeper.Keeper
@@ -93,6 +95,7 @@ func NewPrecompileKeepers(a *App) *PrecompileKeepers {
 		ConnectionKeeper:   a.IBCKeeper.ConnectionKeeper,
 		ChannelKeeper:      a.IBCKeeper.ChannelKeeper,
 		txConf:             a.GetTxConfig(),
+		layerxAnchor:       &a.LayerXAnchorKeeper,
 		layerxCustody:      a.LayerXCustodyKeeper,
 		layerxExchange:     a.LayerXExchangeKeeper,
 		layerxLedger:       a.LayerXLedgerKeeper,
@@ -127,7 +130,7 @@ func (pk *PrecompileKeepers) TransferK() putils.TransferKeeper         { return 
 func (pk *PrecompileKeepers) ClientK() putils.ClientKeeper             { return pk.ClientKeeper }
 func (pk *PrecompileKeepers) ConnectionK() putils.ConnectionKeeper     { return pk.ConnectionKeeper }
 func (pk *PrecompileKeepers) ChannelK() putils.ChannelKeeper           { return pk.ChannelKeeper }
-func (pk *PrecompileKeepers) AnchorK() putils.AnchorKeeper             { return nil }
+func (pk *PrecompileKeepers) AnchorK() putils.AnchorKeeper             { return pk.layerxAnchor }
 func (pk *PrecompileKeepers) TxConfig() client.TxConfig                { return pk.txConf }
 func (pk *PrecompileKeepers) LayerXCustodyK() *layerxcustodykeeper.Keeper {
 	return pk.layerxCustody
