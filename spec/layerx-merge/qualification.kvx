@@ -16155,3 +16155,27 @@ symbol = "TestBudgetPullWithPayerGrant"
 observed = "Attempt 1 (9fc6234b1) added the agent stream metadata genesis handling and its two tests and built, then go test ./modules/layerxpay/keeper/ failed with [build failed]: budget_pull_test.go:85 and :181 call h.host.ReadPayerGrant, which 7fbf93cdd (task 1.12.4) removed from lxphost.Host, so no test in the package can run at main."
 assumption = "Task 2.24.7 ports budget_pull_test.go off the retired read; this task requires it and continues from attempt 1 unchanged."
 severity = "major"
+
+[finding.18.1325.1.1]
+task = "18.1325.1"
+file = "precompiles/layerxanchor/retire_read_gate_test.go:106"
+symbol = "TestReadsRevertFromStoreDelete"
+observed = "Attempt 1 (base 64679b4d6) fails before the new assertions: h.submit(batch_1_quorum) at :106 (unchanged since deeff8f13) reverts with execution reverted because Keeper.SubmitCheckpoint has refused with ErrModuleRetired since afcc3485c (task 6.96.1, modules/layerxanchor/keeper/checkpoints.go:58); the test was red at main before this task touched it."
+assumption = "Attempt 2 (published) resolved it inside the task; recorded so the retirement of the checkpoint path is traceable to this consumer."
+severity = "minor"
+
+[finding.18.1326.1.1]
+task = "18.1326.1"
+file = "node/sequencer_seams_test.go:47"
+symbol = "seamsSequencerSource"
+observed = "Attempt 1 (1033f1b9c) and 18.1425.1 attempt 1 fail with FAIL github.com/Sidiora-Labs/Paxeer-X-Network/node [build failed]: node/sequencer_seams_test.go:47 passes *seamsSequencerSource to app.SetSequencerSource but the type lacks Admit, which 88e4603c6 (task 5.98.8) added to consensus/types.SequencerSource (consensus/types/sequencer.go:18); every test of package node has failed to compile at main since that merge."
+assumption = "Task 5.98.9 ports the fixture; 18.1326.1 and 18.1425.1 require it and continue unchanged."
+severity = "major"
+
+[finding.2.24.7.1]
+task = "2.24.7"
+file = "modules/layerxpay/keeper/budget_pull_test.go:84"
+symbol = "TestBudgetPullWithPayerGrant"
+observed = "Attempt 1 (0445b0874) removed the two retired reads as told; the test then fails at the grant issue: HostExecute of activity 0x00010007 answers LXP_ERR_UNKNOWN_ACTIVITY (execute_test.go:44), so no payer grant can be issued and budgetPull has no kernel type to reach."
+assumption = "Decision 2226 retires budgetPull on the Go side; this task implements it."
+severity = "owner"
