@@ -30,8 +30,6 @@ const MAXIMUM_JOINED_ASSETS: usize = 1_024;
 pub const PAX_ADDRESS_LIMIT: usize = 128;
 /// Longest accepted asset denomination text.
 pub const DENOM_LIMIT: usize = 128;
-/// Longest accepted anchor status name.
-pub const STATUS_NAME_LIMIT: usize = 64;
 /// Longest accepted network identifier text.
 pub const NETWORK_ID_LIMIT: usize = 64;
 
@@ -364,15 +362,17 @@ pub struct AssetTable {
     pub evidence: Evidence,
 }
 
-/// The anchor rung of the settlement ladder.
+/// The consensus head reported by the gateway.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct AnchorHead {
-    /// The newest batch the anchor reports as finalised, when one exists.
-    pub latest_finalized_batch: Option<u64>,
-    /// The anchor's own status code for that batch.
-    pub status: Option<u64>,
-    /// The anchor's own name for that status.
-    pub status_name: Option<String>,
+pub struct ConsensusHead {
+    /// The latest consensus block height.
+    pub latest_height: u64,
+    /// The latest consensus block hash.
+    pub latest_block_hash: [u8; 32],
+    /// The latest consensus application hash.
+    pub latest_app_hash: [u8; 32],
+    /// Whether the consensus node is catching up.
+    pub catching_up: bool,
 }
 
 /// One head for the whole network, as `px_getNetwork` reports it.
@@ -384,8 +384,8 @@ pub struct NetworkHead {
     pub chain_id: u64,
     /// The Paxeer block the gateway currently reports as latest.
     pub latest_block: u64,
-    /// The anchor rung.
-    pub anchor: AnchorHead,
+    /// The consensus head, absent when consensus is unavailable.
+    pub consensus: Option<ConsensusHead>,
     /// How this fact reached the caller.
     pub evidence: Evidence,
 }
@@ -835,13 +835,6 @@ pub fn counted(value: &Value) -> Result<u64, GatewayError> {
     u64::try_from(quantity(value)?).map_err(|_| GatewayError::MalformedAnswer)
 }
 
-fn optional_counted(value: &Value) -> Result<Option<u64>, GatewayError> {
-    if value.is_null() {
-        return Ok(None);
-    }
-    counted(value).map(Some)
-}
-
 /// Decodes the `px_resolveAccount` result.
 ///
 /// # Errors
@@ -977,16 +970,29 @@ pub fn decode_assets(result: &Value) -> Result<AssetTable, GatewayError> {
 /// Refuses a document that is not the declared shape.
 pub fn decode_network(result: &Value) -> Result<NetworkHead, GatewayError> {
     let paxeer = &result["paxeer"];
-    let anchor = &result["anchor"];
+    let consensus = match result.get("consensus") {
+        Some(Value::Null) if result["reason"] == "consensus_unavailable" => None,
+        Some(head @ Value::Object(_)) => Some(ConsensusHead {
+            latest_height: counted(&head["latest_height"])?,
+            latest_block_hash: digest(
+                head["latest_block_hash"]
+                    .as_str()
+                    .ok_or(GatewayError::MalformedAnswer)?,
+            )?,
+            latest_app_hash: digest(
+                head["latest_app_hash"]
+                    .as_str()
+                    .ok_or(GatewayError::MalformedAnswer)?,
+            )?,
+            catching_up: boolean(&head["catching_up"])?,
+        }),
+        _ => return Err(GatewayError::MalformedAnswer),
+    };
     Ok(NetworkHead {
         network_id: required_text(&result["network_id"], NETWORK_ID_LIMIT)?,
         chain_id: counted(&paxeer["chain_id"])?,
         latest_block: counted(&paxeer["latest_block"])?,
-        anchor: AnchorHead {
-            latest_finalized_batch: optional_counted(&anchor["latest_finalized_batch"])?,
-            status: optional_counted(&anchor["status"])?,
-            status_name: optional_text(&anchor["status_name"], STATUS_NAME_LIMIT)?,
-        },
+        consensus,
         evidence: Evidence::GatewayReported,
     })
 }
@@ -1085,20 +1091,26 @@ mod tests {
         let result = json!({
             "network_id": "paxeer-x",
             "paxeer": {"chain_id": "0x1f", "latest_block": 4_096},
-            "anchor": {
-                "latest_finalized_batch": 12,
-                "status": 2,
-                "status_name": "final",
-                "status_ladder": {"0": "unknown", "1": "submitted", "2": "final"}
-            },
-            "layerx": {"node_info": {}}
+            "consensus": {
+                "latest_height": "4096",
+                "latest_block_hash": "A1".repeat(32),
+                "latest_app_hash": "B2".repeat(32),
+                "catching_up": false
+            }
         });
         let head = decode_network(&result).unwrap_or_else(|error| panic!("network: {error}"));
         assert_eq!(head.network_id, "paxeer-x");
         assert_eq!(head.chain_id, 31);
         assert_eq!(head.latest_block, 4_096);
-        assert_eq!(head.anchor.latest_finalized_batch, Some(12));
-        assert_eq!(head.anchor.status_name.as_deref(), Some("final"));
+        assert_eq!(
+            head.consensus,
+            Some(ConsensusHead {
+                latest_height: 4_096,
+                latest_block_hash: [0xa1; 32],
+                latest_app_hash: [0xb2; 32],
+                catching_up: false,
+            })
+        );
     }
 
     #[test]

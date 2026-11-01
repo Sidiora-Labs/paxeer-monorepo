@@ -3736,7 +3736,6 @@ fn native_settlement_preparation(
 }
 
 fn settle_retained_native_effect(
-    node: &mut layerx_client::Client,
     registry: &layerx_types::payload::ModuleRegistry,
     budgets: &BudgetLimiter,
     store: &mut Store,
@@ -3802,19 +3801,6 @@ fn settle_retained_native_effect(
             tenant,
         ) {
             Ok(value) => value,
-            Err(crate::budget::program_settlement::ProgramSettlementError::SourceSnapshot) => {
-                let correlation = u64::from_be_bytes(
-                    id[..8]
-                        .try_into()
-                        .map_err(|_| HumanOperationError::Refused)?,
-                ) | 1;
-                let prestate = node
-                    .asset_execution_prestate(terminal.execution_receipt(), correlation)
-                    .map_err(|_| HumanOperationError::Unavailable)?;
-                crate::budget::program_settlement::read_retained_native_effect_debit_settlement_at_execution(
-                registry, &prepared, &submission, terminal, authority, store, tenant, &prestate,
-            ).map_err(|_| HumanOperationError::Refused)?
-            }
             Err(_) => return Err(HumanOperationError::Refused),
         };
     if witness.terminal_receipt() != terminal.receipt_ref() {
@@ -3858,6 +3844,9 @@ fn settle_retained_native_program_call(
     preparation_id: [u8; 32],
     terminal: &crate::protocol_evidence::VerifiedReceiptEvidence,
     authority: &AuthorizedBatch,
+    verifier: &EvidenceAuthority,
+    sequencer_key: [u8; 32],
+    authorization: SequencerAuthorization,
 ) -> Result<bool, HumanOperationError> {
     use crate::prepare::{DurablePreparation, LifecycleState};
     let refused = || HumanOperationError::Refused;
@@ -3946,12 +3935,72 @@ fn settle_retained_native_program_call(
             ),
             _ => false,
         };
-    let (reservation, witness) = if lifecycle_exit {
+    let committed_state = if lifecycle_exit || remaining_lifecycle {
+        use layerx_types::program_lifecycle::{
+            NativeProgramDeploy, NativeProgramUpgrade, NativeProgramWindDown,
+            ProgramWindDownOperation,
+        };
+        let (program, accounts) = match signed_activity.activity_type().ordinal() {
+            1 => (
+                NativeProgramDeploy::decode(signed_activity.payload())
+                    .map_err(|_| refused())?
+                    .program_id
+                    .bytes(),
+                Vec::new(),
+            ),
+            2 => (
+                NativeProgramUpgrade::decode(signed_activity.payload())
+                    .map_err(|_| refused())?
+                    .program_id
+                    .bytes(),
+                Vec::new(),
+            ),
+            7 => {
+                let value = NativeProgramWindDown::decode(signed_activity.payload())
+                    .map_err(|_| refused())?;
+                let accounts = match value.operation {
+                    ProgramWindDownOperation::Exit { account }
+                    | ProgramWindDownOperation::BoundedExit { account, .. }
+                    | ProgramWindDownOperation::Route { account, .. } => vec![account],
+                    _ => Vec::new(),
+                };
+                (value.program_id.bytes(), accounts)
+            }
+            _ => return Err(refused()),
+        };
         let correlation =
             u64::from_be_bytes(preparation_id[..8].try_into().map_err(|_| refused())?) | 1;
-        let prestate = node
-            .native_execution_prestate(terminal.execution_receipt(), correlation)
+        let actor = layerx_wire::hash::did_id_for_protocol(prepared.envelope.actor_did(), 3)
+            .map_err(|_| refused())?;
+        let caps = node
+            .caps_discovery(
+                actor,
+                VerificationLevel::STATE_PROVEN,
+                correlation,
+                authorization,
+                None,
+            )
             .map_err(|_| HumanOperationError::Unavailable)?;
+        let endpoint = read_rpc_endpoint(&read_rpc_config()?)?;
+        Some(
+            crate::budget::execution_state::committed_execution_state(
+                node,
+                verifier,
+                sequencer_key,
+                &endpoint,
+                &caps,
+                terminal,
+                program,
+                &accounts,
+                correlation,
+                authorization,
+            )
+            .map_err(|_| refused())?,
+        )
+    } else {
+        None
+    };
+    let (reservation, witness) = if lifecycle_exit {
         crate::budget::program_settlement::read_retained_wind_down_debit_settlement_at_execution(
             registry,
             &prepared,
@@ -3959,15 +4008,10 @@ fn settle_retained_native_program_call(
             terminal,
             store,
             tenant,
-            &prestate,
+            committed_state.as_ref().ok_or_else(refused)?,
         )
         .map_err(|_| refused())?
     } else if remaining_lifecycle {
-        let correlation =
-            u64::from_be_bytes(preparation_id[..8].try_into().map_err(|_| refused())?) | 1;
-        let prestate = node
-            .native_execution_prestate(terminal.execution_receipt(), correlation)
-            .map_err(|_| HumanOperationError::Unavailable)?;
         crate::budget::program_settlement::read_retained_lifecycle_debit_settlement_at_execution(
             registry,
             &prepared,
@@ -3975,7 +4019,7 @@ fn settle_retained_native_program_call(
             terminal,
             store,
             tenant,
-            &prestate,
+            committed_state.as_ref().ok_or_else(refused)?,
         )
         .map_err(|_| refused())?
     } else {
@@ -3990,16 +4034,6 @@ fn settle_retained_native_program_call(
             tenant,
         ) {
             Ok(value) => value,
-            Err(crate::budget::program_settlement::ProgramSettlementError::SourceSnapshot) => {
-                let correlation =
-                    u64::from_be_bytes(preparation_id[..8].try_into().map_err(|_| refused())?) | 1;
-                let prestate = node
-                    .execution_prestate(terminal.execution_receipt(), correlation)
-                    .map_err(|_| HumanOperationError::Unavailable)?;
-                crate::budget::program_settlement::read_retained_program_debit_settlement_at_execution(
-                    programs, registry, &prepared, &submission, terminal, authority, store, tenant, &prestate,
-                ).map_err(|_| refused())?
-            }
             Err(_) => return Err(refused()),
         }
     };
@@ -13662,6 +13696,12 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 &execution.receipt,
             )?;
             let terminal = self.terminal_receipt_evidence(&raw_evidence, authority, native)?;
+            let program_state_policy = if native_preparation.is_some() {
+                Some(self.budget_read_parts(peer)?)
+            } else {
+                None
+            };
+
             let mut store = self
                 .store
                 .lock()
@@ -13681,7 +13721,6 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     && !preparation.extensions.contains_key(&7)
                 {
                     settle_retained_native_effect(
-                        &mut self.node,
                         &registry,
                         settlement.budgets,
                         &mut store,
@@ -13691,6 +13730,9 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                         authority,
                     )?;
                 } else {
+                    let (verifier, sequencer_key, authorization) = program_state_policy
+                        .as_ref()
+                        .ok_or(HumanOperationError::Unavailable)?;
                     settle_retained_native_program_call(
                         &mut self.node,
                         settlement
@@ -13703,6 +13745,9 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                         preparation_id,
                         &terminal,
                         authority,
+                        verifier,
+                        *sequencer_key,
+                        *authorization,
                     )?;
                 }
             }

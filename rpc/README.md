@@ -30,6 +30,7 @@ The `pax2_` namespace exposes the same block shape as the `pax_` block methods w
 
 Pending reads on the sequencer and standby wait up to `PendingOpenWait` (two seconds) for the next open block during the seal-to-open window, respect request cancellation, and return `ErrPendingBlockClosed` (`-32000`, `no block is open; retry`) if no block opens in time.
 When `eth_sendRawTransaction` encounters a sealed layer, it uses the same bounded wait and retries acceptance once, returning the transaction hash on success or `ErrPendingBlockClosed` if the next layer is still closed.
+An accepted transaction's logs are recorded at its receipt's height even if the next layer has opened, and commit waits for in-flight sends to record their logs before advancing the receipt log feed.
 
 ## Legacy gate and deprecation
 
