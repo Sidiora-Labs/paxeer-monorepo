@@ -109609,7 +109609,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1429.1]
 title = "Issue #1429: Port the shared names RPC double to the pinned-height proof request and hex app_hash header the resolver sends"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -119179,7 +119179,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.18.1134.1]
 title = "Issue #1134: Re-pin libwasmvm-linux.sha256 to the committed libwasmvm.aarch64.so"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
