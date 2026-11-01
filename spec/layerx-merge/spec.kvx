@@ -13899,7 +13899,7 @@ ac_2 = "With Paused true revokeGrant passes the check because the ledger exit se
 [req.2020]
 title = "Ledger activities run through HostExecute with a fresh global sequence and kernel idempotency"
 ac_1 = "execute in modules/layerxledger/keeper/execute.go (planned) builds an lxphost.Activity (modules/lxphost/host.go:555) from the Actor, sets ctx.WithSequence (modules/lxphost/ctx.go:71) to the host NextSequence export requested by wiring J23.1 against modules/lxphost/ctx.go:111, calls Host.Execute (modules/lxphost/host.go:669) and maps a nonzero receipt code with FromKernel."
-ac_2 = "A second execute with the same actor and idempotency key returns ErrIdempotentReplay (modules/layerxledger/types/errors.go:19) and the stored receipt that ReadIdempotentReceipt (modules/lxphost/read.go:444) returns equals the first receipt."
+ac_2 = "A second execution of the identical activity (same actor, consumed account sequence, same key and payload) is refused by the kernel with LXP_ERR_SEQUENCE_REUSED (-301) and leaves the first execution's state in place; the same idempotency key with the next sequence executes, since decision.101 retired the idempotency table and task 1.25.2 removed ReadIdempotentReceipt."
 
 [req.2021]
 title = "Bank balances under layerx denoms track kernel balances"
@@ -13971,7 +13971,7 @@ ac_2 = "revokeGrant passes while paused because the auth exit set at modules/lay
 
 [req.2035]
 title = "Auth activities run through HostExecute with kernel-owned idempotency"
-ac_1 = "execute in modules/layerxauth/keeper/execute.go (planned) submits the governance activity with the actor authority, sequences it with the NextSequence export of wiring J23.1 (modules/lxphost/ctx.go:111), and a repeat with the same idempotency key returns ErrIdempotentReplay (modules/layerxauth/types/errors.go:16)."
+ac_1 = "execute in modules/layerxauth/keeper/execute.go submits the governance activity with the actor authority, sequences it with the NextSequence export of wiring J23.1 (modules/lxphost/ctx.go:111), and a repeat of the same payload with the same idempotency key returns ErrSequenceReused (-301) with the stored grant unchanged (decision.101: no idempotency table)."
 ac_2 = "An activity whose account sequence was already consumed returns ErrSequenceReused (modules/layerxauth/types/errors.go:13), the kernel SEQUENCE_REUSED refusal of src/modules/governance/lxp_governance.c:543."
 
 [req.2036]
@@ -33351,7 +33351,7 @@ title = "Port the agent daemon's program simulation, submission and state reads 
 reqs = ["9283.1"]
 touches = ["services/agent/crates/layerx-agentd/src/ops/program.rs"]
 tests = ["services/agent/crates/layerx-agentd/src/ops/program.rs"]
-verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- ops::program 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed'"
+verification_contract = "LAYERX_PAXEER_BOUNDARY_BIN=${CARGO_TARGET_DIR:-$PWD/services/platform/target}/debug/layerx-paxeer-boundary cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- ops::program 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed'"
 do_1 = "Decision 2196: task 9.25.3 left the three program transports of services/agent/crates/layerx-agentd/src/ops/program.rs returning ProgramOperationError::Unavailable. Port them to the EVM form over layerx_client::sequencer::SequencerEndpoint: simulate_signed_activity decodes the signed call with layerx_crypto::evm_transaction::decode_signed, recovers the sender, and builds RawProgramSimulation from SequencerEndpoint::estimate_gas and call_pending_from of (sender, to, data), mapping an RpcRefusal to the existing ProgramOperationError paths; submit sends the raw transaction with send_raw_transaction and reads sequencer_receipt at the Submitted rung, returning the receipt's execution result as the submission result; the program state read calls the layerxprograms precompile state methods named in precompiles/layerxprograms/abi.json through call_at at the height the discovery pinned and refuses a reply whose block_by_number hash differs from the pinned block."
 symbols = ["RawProgramSimulation", "ProgramOperations", "simulate_signed_activity"]
 
@@ -54076,7 +54076,7 @@ qualification = "UNRUN"
 [acceptance.2.20.2]
 feature = "2"
 req = "2020.2"
-scenario = "Given a completed openAccount with key K, when the same actor submits again with K, then execute returns ErrIdempotentReplay and ReadIdempotentReceipt returns the first receipt"
+scenario = "Given a completed openAccount by an actor with key K, when the identical activity (the actor's consumed account sequence, K and the same payload) is executed again through the host, then the kernel refuses it with LXP_ERR_SEQUENCE_REUSED, the account owner is unchanged, and a different activity by the same actor carrying K and the next sequence executes, since the kernel keeps no idempotency table (decision.101)"
 contract = "contracts/ledger-auth.md#idempotency"
 test = "modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay (planned)"
 qualification = "UNRUN"
@@ -54292,7 +54292,7 @@ qualification = "UNRUN"
 [acceptance.2.35.1]
 feature = "2"
 req = "2035.1"
-scenario = "Given a granted session with key K, when the same actor resubmits with K, then ErrIdempotentReplay is returned and the stored receipt is unchanged"
+scenario = "Given a granted session with key K, when the same actor resubmits the same payload with K, then ErrSequenceReused is returned, the stored grant is unchanged, and a fresh grant payload by that actor carrying K executes"
 contract = "contracts/ledger-auth.md#idempotency"
 test = "modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay (planned)"
 qualification = "UNRUN"
@@ -100426,6 +100426,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 1.12.4.2: go vet of modules/layerxledger/keeper fails on main until task 1.12.5 ports its tests off the deleted payer-grant reads, so this task requires 1.12.5; continue from attempt 1 (94b92ebe6) with the five tests already written and change nothing else."
+do_5 = "Finding 2.90.1.1: continue from attempt 3 (base d4f0a794f) keeping the four passing tests. Acceptances 2.20.2 and 2.35.1 are restated on the actor-sequence guard of decision.101, since ReadIdempotentReceipt and the 0x04 receipt rows no longer exist: TestExecuteIdempotentReplay keeps its name and proves, after a successful openAccount through k.execute, that executing the identical lxphost.Activity again through k.host.Execute on a WithSequence context (protocol version 3, the same type, actor DID, authority key, the consumed AccountSequence, the block timestamp bounds, key K and payload, built as Keeper.execute builds it at execute.go:45-55) is refused with kernel code -301 LXP_ERR_SEQUENCE_REUSED (read it from the returned error or the receipt's ResultCode as modules/lxphost/execute_test.go:93 and modules_test.go:121 do), that ReadAccountOwner still answers the actor, and that an openAccount of a second asset by the same actor with key K through k.execute succeeds; drop the ReadIdempotentReceipt interface assertion. TestAuthExecuteIdempotentReplay keeps its name and proves that resubmitting the same payload with K through Keeper().Execute returns types.ErrSequenceReused with ResultCode -301 (the pattern at modules/layerxauth/keeper/execute_test.go:96-101), that GetGrant is unchanged and that a fresh grant payload with K executes. Change no production file; build once, verify once."
 
 [task.2.3.5]
 title = "Mirror kernel asset supply and transfers into bank under the layerx denom"
@@ -116871,7 +116872,7 @@ do_4 = "In tests/native_send_producer.rs pass a &mut AgentRuntime as the second 
 do_5 = "In tests/native_onboarding_rungs.rs:252 and in services/human/crates/layerx-intents/tests/owner_bootstrap.rs:93 and :121 call owner_activity::attach_native_signature with the same four arguments (unsigned, signature, owner key, registry): these tests sign the native Ed25519 owner envelope that attach_native_signature (owner_activity.rs:110) still binds and verify (:76) still checks; do not convert them to EIP-1559 calls, which attach_signature (:178) now serves for the send path."
 do_6 = "This task edits only the six test files in its touches and no src file. Build once with the task's build command, which compiles every test target of both crates, then verify once; the five named tests run against the real load_access, attach_native_signature and AdmissionRecord paths."
 symbols = ["load_access", "attach_native_signature", "AdmissionRecord", "native_onboarding_completes_only_at_committed"]
-touches = ["services/human/crates/layerx-human-service/tests/evidence_node.rs", "services/human/crates/layerx-human-service/tests/journey_family_projections.rs", "services/human/crates/layerx-human-service/tests/archive.rs", "services/human/crates/layerx-human-service/tests/native_send_producer.rs", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs", "services/human/crates/layerx-human-service/tests/spend.rs"]
+touches = ["services/human/crates/layerx-human-service/tests/evidence_node.rs", "services/human/crates/layerx-human-service/tests/journey_family_projections.rs", "services/human/crates/layerx-human-service/tests/archive.rs", "services/human/crates/layerx-human-service/tests/native_send_producer.rs", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs", "services/human/crates/layerx-human-service/tests/spend.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/evidence_node.rs::advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission", "services/human/crates/layerx-human-service/tests/native_send_producer.rs::genuine_human_owner_session_consent_preview_and_reopen", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs::native_onboarding_completes_only_at_committed", "services/human/crates/layerx-human-service/tests/archive.rs::archive_requires_real_reclaim_and_step_up_then_retires_authority_once", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs::native_owner_bootstrap_is_disclosed_signed_and_bound_to_every_envelope_field"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-intents --tests"
@@ -116879,7 +116880,7 @@ verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p l
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
-rollback = "Restore the seven test files from fc8c837a9; the test targets of both crates fail to compile again and 10.6.4 and 14.0.6 stay blocked behind them."
+rollback = "Restore the eight test files from fc8c837a9; the test targets of both crates fail to compile again and 10.6.4 and 14.0.6 stay blocked behind them."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -116888,6 +116889,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Finding 10.6.5.1: continue from attempt 1 (c3e36d484) keeping every port. In tests/spend.rs:280 replace the authorized_batch argument of support::raw_receipt_evidence with signer.verifying_key().to_bytes(), fields.previous_state_root and fields.resulting_state_root, so the call passes canonical_receipt.clone(), the pinned key, the two roots, sequence and &signer as tests/move_money.rs:523 does; authorized_batch stays for the ReceiptMaterial built below it. spend.rs is the seventh and last test file of this task: if the build then reports a further broken target, record it as a finding rather than widening the task. Build once, verify once."
+do_8 = "Finding 10.6.5.2: continue from attempt 2 keeping every port. In tests/native_journey_approval.rs:629 and :776 pass the AgentRuntime as the second argument of load_access exactly as do_4 did in tests/native_send_producer.rs (tests/native_send_nonces.rs is the exemplar). native_journey_approval.rs is the eighth and last test file: every stale caller of the three changed helpers in layerx-human-service is now in the touches (load_access in native_journey_approval.rs and native_send_producer.rs, raw_receipt_evidence in spend.rs, attach_signature in native_onboarding_rungs.rs:252 and owner_bootstrap.rs:93 and :121), so a further broken target is recorded as a finding, never ported here. Build once, verify once."
 
 [task.9.25.8]
 title = "Restore the daemon's head, checkpoint and expiry-clock reads from the committed block commit"
@@ -117087,8 +117089,8 @@ symbols = ["RawProgramSimulation", "ProgramOperations", "simulate_signed_activit
 touches = ["services/agent/crates/layerx-agentd/src/ops/program.rs"]
 tests = ["services/agent/crates/layerx-agentd/src/ops/program.rs"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- ops::program 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed'"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary"
+verify_cmd = "LAYERX_PAXEER_BOUNDARY_BIN=${CARGO_TARGET_DIR:-$PWD/services/platform/target}/debug/layerx-paxeer-boundary cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- ops::program 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed'"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -117100,6 +117102,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 9.25.4.1: continue from attempt 2 (base ffa589f28) unchanged. The build command now also builds the boundary binary and the verify command names it through LAYERX_PAXEER_BOUNDARY_BIN, exactly as task 9.25.3's gates do, so the TLS identity check in ops::program runs against the real boundary instead of refusing; port nothing further, build once, verify once."
 
 [task.10.90.1]
 title = "Write the intent nonce reuse refusal test the merged spec names"
@@ -161902,6 +161905,7 @@ do_12 = "Finding 12.35.2.8: before page.goto in send_shows_receipted_from_the_se
 do_13 = "Finding 12.35.2.9: continue from attempt 9 (a68e1a226). First run the existing welcome-screen test (apps/wallet/e2e/sign-in.spec.ts, 'offers the embedded wallet on the welcome screen') under apps/wallet/playwright.wallet-app.config.ts with the same environment and record its result in the attempt notes. Then, in the new test, before page.goto fetch the page URL from the test process (Node fetch) and print status, every response header and the first 300 bytes of the body, and print the dev server's piped stdout lines in the diagnostics together with navigation.headers(). When the server itself answers an empty or non-HTML document, or the welcome-screen test fails too, the fault is the dev-server start: repair webServer.command, webServer.url, baseURL and APP_ENV in apps/wallet/playwright.wallet-app.config.ts and apps/wallet/e2e/environment.ts until a Node fetch of the page URL returns HTML containing 'Paxeer Wallet' (assert this in the test before the browser navigates), and change nothing in the test's flow. When the server answers that HTML and the welcome-screen test passes, the fault is in the new test: register the provider without clearing storage first, re-announce after load only, and reduce the init script until the welcome screen appears, then restore the receipted assertions unchanged. Build once, verify once."
 do_14 = "Finding 12.35.2.10: continue from attempt 12. In the eth_gasPrice poll of send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload make the catch keep polling whenever error.message includes 'no block is open' (the node's 'pending block unavailable' and 'pending base fee unavailable' wordings alike, as tools/qualification/localnode/v6120_test.go:218 does) and rethrow anything else; apply the same tolerance to the eth_sendRawTransaction poll that follows if it matches a single wording. Change nothing else; build once and verify once."
 do_15 = "Finding 12.35.2.11: continue from attempt 13 (dcddfd4f1) keeping its eth_getTransactionByHash poll and the two idle-chain wordings. The node commits blocks on its own, so the page may show submitted or included before the test looks and never pending: at send.spec.ts:746 replace the pending assertion with expect.poll over title(page).getAttribute('data-truth') being one of 'pending', 'submitted' or 'included' (never 'reverted', 'replaced' or 'unknown'), and delete the two assertions at :764-765 that the receipted rung is unreached and no 'Transfer Completed' text exists before the receipt, since the receipt may already be in by then. The assertions from the receipt poll onward, including the unreached committed rung, the absent completion text and the reload, stay as they are. Change nothing else; build once, verify once."
+do_16 = "Finding 12.35.2.12: continue from attempt 14 (base 0b189cb1e) keeping everything it landed. In send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload give every expect.poll the option timeout: 60_000 next to its intervals (the eth_gasPrice poll at :714, the eth_sendRawTransaction and eth_getTransactionByHash polls, the data-truth poll and the receipt poll at :777). Make the receipt poll wait until readSequencerReceipt answers a receipt whose blockHash is defined, then assert that receipt with toMatchObject({ txHash: hash, status: '0x1' }) and its rung with toMatch(/^(receipted|committed)$/) instead of the literal 'receipted'; keep the blockHash regex and the thrown error at :780-782 and keep the saved step object and its receipted:<blockHash> state exactly as written. Change nothing else; build once, verify once."
 
 [task.12.35.3]
 title = "Assert the committed rung needs a matching explorer answer in the send e2e test"

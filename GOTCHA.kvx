@@ -12496,3 +12496,8 @@ fix = "when a crate's test targets are broken on main, enumerate them once with 
 title = "apps/web build type-checks the wallet SDK sources"
 symptom = "make human-build runs the apps/web production build, whose TypeScript pass follows the tsconfig paths alias into ../../sdk/wallet/src and fails with TS2307 on viem and @supabase/supabase-js when sdk/wallet has no node_modules of its own, even though apps/web's install carries both packages"
 fix = "install the services/wallet pnpm workspace, whose pnpm-workspace.yaml lists ../../sdk/wallet, and build sdk/wallet before make human-build; apps/web's node_modules is not on the resolution path of files under sdk/wallet"
+
+[gotcha.2536]
+title = "Platform make targets build and test offline"
+symptom = "make workspace-build reaches platform-build-all, whose cargo builds and tests pass --offline on services/platform, tools/platform and sdk/platform/generators plus the marketplace program for wasm32-unknown-unknown, whose go build runs with GOPROXY=off, whose mvn runs with -o and whose dotnet build passes --no-restore, so the first uncached dependency fails the aggregate (failed to download anstream v1.0.0 at services/platform/Makefile.inc:98)"
+fix = "warm every cache before the gate: cargo fetch --locked for the four manifests, rustup target add wasm32-unknown-unknown, go mod download in sdk/platform/go, mvn install of sdk/platform/jvm then dependency:go-offline of sdk/integrations/spring/example, and dotnet restore of sdk/platform/dotnet/LayerX.Sdk.csproj"

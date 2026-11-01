@@ -15611,3 +15611,35 @@ symbol = "raw_receipt_evidence"
 observed = "Attempt 1 (c3e36d484) ported the six declared test files and enumerated the remaining broken targets of layerx-human-service with --keep-going: one remains, tests/spend.rs, whose call at :280 still passes an AuthorizedBatch as the second argument of support::raw_receipt_evidence, while 351e3da14 (task 10.25.2) changed that helper (layerx-human-test-support/src/lib.rs:374) to take the pinned receipt key and the previous and resulting state roots, as tests/move_money.rs:523, journey_faults.rs:921 and agent_controls_rungs.rs:1780 already pass them; spend.rs was outside the task's touches, so the attempt left it and the build gate stopped there with verification never run."
 assumption = "spend.rs joins the touches and its call takes the three values the other callers pass; no src file changes."
 severity = "major"
+
+[finding.10.6.5.2]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:629"
+symbol = "load_access"
+observed = "Attempt 2 (base 0b189cb1e) ported the seven declared test files and the build gate then stopped at tests/native_journey_approval.rs:629 and :776, where load_access is still called with three arguments while task 10.13.8 made it take (scope, &mut AgentRuntime, capability_id, now) (src/native_send.rs:481), the same producer change do_4 ported in tests/native_send_producer.rs; the file was outside the touches so the attempt left it and verification never ran."
+assumption = "native_journey_approval.rs joins the touches and its two calls pass the runtime the way do_4 did; no src file changes."
+severity = "major"
+
+[finding.12.35.2.12]
+task = "12.35.2"
+file = "apps/wallet/e2e/send.spec.ts:777"
+symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+observed = "Attempt 14 (base 0b189cb1e) failed both verify runs on the five-second default expect.poll timeout: the first at the eth_gasPrice poll (:714), which tolerates both idle-chain wordings but carries no timeout of its own, the second at :777, where the receipt rung poll read undefined for five seconds and the assertions at :779-780 then require the literal rung 'receipted' together with a blockHash; the node commits blocks on its own and answers px_getSequencerReceipt with the rung 'committed' once the block is in (rpc/sequencer_receipt.go:34-38), and only committed answers carry blockNumber and blockHash (:305), so 'receipted' is a rung the node may already have passed and a receipt at that rung never has the hash the test demands."
+assumption = "Every poll of the test takes a 60 second timeout, the receipt poll waits for an answer carrying blockHash with its rung receipted or committed, and the saved step stays receipted:<blockHash> because the page records the sequencer receipt under the receipted rung (StatusLadder.tsx:85 filters committed receipt steps)."
+severity = "minor"
+
+[finding.2.90.1.1]
+task = "2.90.1"
+file = "modules/layerxledger/keeper/execute_test.go:268"
+symbol = "TestExecuteIdempotentReplay"
+observed = "Attempt 3 (base d4f0a794f) wrote the five tests and the first failed at execute_test.go:268: the second openAccount by the same actor with key K returned LXP_CONTEXT_MISMATCH, not ErrIdempotentReplay, because Keeper.execute (execute.go:33-62) reads the actor's next identity sequence for every call and the kernel admits on the sequence (src/sequencer/lxp_admission.c:33-37) with no idempotency lookup since task 1.2.1 (decision.101), and the host's 0x04 receipt rows and ReadIdempotentReceipt went with task 1.25.2 (decision.1718); acceptances 2.20.2 and 2.35.1 and req.2020 ac_2 and req.2035 ac_1 still describe that table."
+assumption = "The two acceptances are restated on the actor-sequence replay guard, as decisions 1795 and 1810 restated 2.14.5 and 13.34.4; the test names and the verify command stay."
+severity = "major"
+
+[finding.9.25.4.1]
+task = "9.25.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs:238"
+symbol = "simulation_tls_checks_the_actual_server_identity"
+observed = "Attempts 1 and 2 (bases 7438bbd0a and ffa589f28) built, passed the dependent-crate check and then failed the verify in simulation_tls_checks_the_actual_server_identity at services/platform/tests/support/tls_boundary.rs:187 ('build the real Paxeer TLS boundary first'): the test needs the layerx-paxeer-boundary binary of services/platform/hosted/paxeer at LAYERX_PAXEER_BOUNDARY_BIN, which task 9.25.3 (do_8) builds in its build command and names in its verify command, while this task's commands inherited neither."
+assumption = "9.25.4 takes 9.25.3's gate form; the implementation is unchanged."
+severity = "minor"
