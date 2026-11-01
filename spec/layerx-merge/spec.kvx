@@ -154187,7 +154187,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.21.5]
 title = "Delete the bridge credit receipt test vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["10.21.3", "10.26.8", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154819,7 +154819,7 @@ do_7 = "Finding 10.1.2.2: continue from attempt 2 (c299416f0) rebased onto main 
 
 [task.10.26.9]
 title = "Delete the Paxeer client custody ABI codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2", "10.26.6", "10.26.10", "10.26.11", "10.26.14"]
