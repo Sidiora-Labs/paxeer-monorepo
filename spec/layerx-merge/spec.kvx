@@ -117484,7 +117484,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.8.90.2]
 title = "Write the two Go SDK agent envelope version tests the merged spec names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["8.41.4"]
@@ -141787,7 +141787,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.90.3]
 title = "Write the three Swift SDK acceptance tests the merged spec names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["8.44.4", "18.1264.1"]
