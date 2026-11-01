@@ -12286,3 +12286,28 @@ fix = "Prove storage slots through the root multistore (path /<store>/key with P
 title = "A new struct field needs every initializer site in the touches, including test helpers in other modules"
 symptom = "Adding a field to the indexer's Unit broke the build in a test helper of another module that constructs a Unit literally; that file was outside the task's touches, so two attempts stopped at the same compile error."
 fix = "Before adding a field to a struct, list every literal initializer (grep for the type name followed by a brace) and put each file in the task's touches."
+
+[gotcha.2494]
+title = "A fixture that signs lifecycle calls must cover every stage's construct"
+symptom = "The agent creation test fixture built budgetCreate calldata for every Budget-module payload and panicked on the funding stage's ordinal 2 once the creation stage finally bound"
+fix = "Enumerate the stages a flow compiles (the compile.rs arms) before writing a fixture's calldata builder, and give the decoder a construct for each precompile method the flow signs"
+
+[gotcha.2495]
+title = "Retiring enum variants must carry every test target that names them"
+symptom = "A gateway lib-only gate let an integration test keep nine deleted ProductionRoute variants, and unrelated tasks failed their dependent-crate check against the gateway test target"
+fix = "When a task deletes variants or routes, grep the crate's tests directory and put every file that names them in touches; qualify with --all-targets or the test target itself"
+
+[gotcha.2496]
+title = "testify require.Same needs pointers"
+symptom = "require.Same on two sdk.Context MultiStore() interface values failed with both arguments must be pointers after the behaviour under test already passed"
+fix = "Assert header and height equality on contexts; reserve require.Same for pointer values"
+
+[gotcha.2497]
+title = "Browser-session reads need the session cookie in test fixtures"
+symptom = "An intent journey list read answered 401 while the detail read passed, because the list route is a browser-session read and the fixture carried only the bearer"
+fix = "Check each route's authentication kind before writing a fixture; open the passkey session once and send its cookie with every request"
+
+[gotcha.2498]
+title = "A leaf pnpm install walks up to the root workspace"
+symptom = "pnpm --dir sdk/names install resolved all workspace projects and failed on an unpublished dependency of another package once the names manifest changed"
+fix = "Install leaf packages that keep their own lockfile with --ignore-workspace, or add them to the workspace deliberately"
