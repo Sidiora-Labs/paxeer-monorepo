@@ -10,7 +10,7 @@ use crate::{
 
 const STATUS_KEY_PREFIX: &[u8] = b"wind-down\0s";
 const STATUS_RECORD_BYTES: usize = 54;
-const STORE_NAME: &str = "layerx";
+pub(crate) use crate::chain_evidence::HOST_STORE_NAME as STORE_NAME;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ChainWindDownProof {

@@ -16267,3 +16267,147 @@ symbol = "validate_call"
 observed = "Attempt 1 (a28f16af0) implements the shared idempotency check, then the new test fails at agent_creation_rungs.rs:380 and :44 with Refused: validate_call maps only the Budget ordinal 8 (budgetDefund) and the Asset ordinals to a ledger call and refuses every other budget method, so a signed budget creation or funding never reaches the submission checks the task fixes."
 assumption = "validate_call learns the budget creation and funding methods; agent_runtime.rs is in scope."
 severity = "major"
+
+[finding.13.3.12.1]
+task = "13.3.12"
+file = "programs/crates/layerx-programs-registry/src/account_state.rs:563"
+symbol = "store name of the account state verifier"
+observed = "Attempt 1 (568cc7943) replaced the literal in the eight files that exist and stopped: do_2 names chain_evidence/account_state.rs:563 and chain_evidence/protocol_evidence.rs:336, but those two readers live at src/account_state.rs:563 and src/protocol_evidence.rs:336 beside chain_evidence.rs, outside the declared scope, so the literal store name survives there."
+assumption = "The two files join the scope under their real paths and the attempt continues."
+severity = "major"
+
+[finding.10.2.11.1]
+task = "10.2.11"
+file = "services/human/crates/layerx-human-kms/tests/attestor.rs:545"
+symbol = "activity types of the daemon start"
+observed = "Attempt 1 (b7e4544c0) compiles both targets; attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum then fails before any request because every daemon exits at start: the test derives ATTESTOR_ACTIVITY_TYPES from every registration of the activity registry (65537 among them) and services/wallet/attestor/internal/config/config.go:297 (eec0db612, task 12.12.1) admits only the asset send 0x10005, so the daemons report that 65537 is not the asset send."
+assumption = "The test passes only the asset send type; the daemon config is right."
+severity = "major"
+
+[finding.18.1311.1.2]
+task = "18.1311.1"
+file = "services/agent/crates/layerx-mcp/src/tools/web.rs:1442"
+symbol = "check_grant"
+observed = "Attempt 4 (5e7d74b2c) kept the recorded-receipt lookup of attempt 3 and fails the same way: services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json holds no pax_sequencerReceipt whose log is PayerGrantIssued for any grant (its six receipts carry PaymentExact and PaymentDrawn logs), and check_grant (web.rs:1442-1470) accepts an issue receipt only when layerx_proof::receipt::verify_sequencer_signature verifies it under the configured sequencer authorization, its activity id is the payment's tx_hash and verify_logs authenticates the logs, so a recording written by hand cannot pass."
+assumption = "The test signs its own issue receipt with a test key the config trusts, as the client receipt tests do; the fixture is not changed."
+severity = "major"
+
+[finding.18.1408.1.3]
+task = "18.1408.1"
+file = "spec/layerx-merge/programme/tests/test_parity_rows.py:201"
+symbol = "test_every_row_has_exact_selectors"
+observed = "Attempt 4 (7f142e34c) applies do_9 and fails on construct.existing-asset-ledger at :201: the planned dropped selectors draw_test.go::TestDrawWithinGrant and draw_test.go::TestDrawWithoutGrant name modules/layerxledger/keeper/draw_test.go, which 7d9310759 (task 1.12.5) kept for its remaining tests, so the file-absence rule of do_9 refuses them although neither function is declared any more."
+assumption = "A planned dropped selector is accepted when its file is absent or no longer declares the test."
+severity = "major"
+
+[finding.18.670.1.15]
+task = "18.670.1"
+file = "rpc/simulate.go:389"
+symbol = "StateAndHeaderByNumberOrHash"
+observed = "Attempt 17 (7d151e916) rebased onto 5.5.23 passes the fixture setup and fails at e2e_test.go:1098 (estimate approve): the client's gas estimate carries no block tag, defaultEstimateTag (simulate.go:316) picks pending on the proposer, and pendingStateAndHeader fails with pending block unavailable: sequencer: no block is open because the estimate landed between a seal and the next open."
+assumption = "Decision 2229: task 5.5.24 serves the committed state in that window; this task requires it and continues unchanged."
+severity = "owner"
+
+[finding.17.5.1.18]
+task = "17.5.1"
+file = "services/platform/middleware/seller/src/rpc.ts:1"
+symbol = "MerkleProof import"
+observed = "Attempt 20 (855a3c350) kept the earlier test unchanged, built, and the wave 0 aggregate stopped in platform-build-all (services/platform/Makefile.inc:105): the seller imports type MerkleProof from @sidiora/layerx-sdk, which no longer exports it; task 8.22.6 (pending, wave 29, eleven requirements) retires that seller export."
+assumption = "This task runs again only once 8.22.6 is on main; nothing in it changes."
+severity = "major"
+
+[finding.17.5.5.9]
+task = "17.5.5"
+file = "services/platform/middleware/seller/src/rpc.ts:1"
+symbol = "MerkleProof import"
+observed = "Attempt 16 (39a35b83c) kept the earlier test unchanged, built, and the wave 4 aggregate stopped in platform-build-all (services/platform/Makefile.inc:105): the seller imports type MerkleProof from @sidiora/layerx-sdk, which no longer exports it; task 8.22.6 (pending, wave 29, eleven requirements) retires that seller export."
+assumption = "This task runs again only once 8.22.6 is on main; nothing in it changes."
+severity = "major"
+
+[finding.10.2.4.4]
+task = "10.2.4"
+file = "services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs:124"
+symbol = "ReceiptMaterial construction of the rung test"
+observed = "Attempt 6 (29813f720) ports tests/onboarding.rs and the crate-wide test build then stops in two other test targets of the same crate: receipt_material_rungs.rs:124 builds a ReceiptMaterial without the inclusion_height, receipt_key and signed_receipt fields the task added and :153 destructures it without them, and native_onboarding_rungs.rs:117 calls AgentPreparationContext::new with six arguments where the task's signature (src/onboarding/mod.rs:316) takes seven."
+assumption = "Every test target of the crate that consumes a type this task changes is ported in this task."
+severity = "major"
+
+[finding.18.1382.1.2]
+task = "18.1382.1"
+file = "tests/vectors/names/storage_absence_v1.json"
+symbol = "NAMES_WRITE_VECTOR"
+observed = "Attempt 5 (cd8fb7493) passes the build (native libraries, the Go producer test with NAMES_WRITE_VECTOR=1, the sdk/names type check) and the vitest consumer, yet the Go run rewrote tests/vectors/names/storage_absence_v1.json so the verified candidate differs from the built one and the attempt ends with build_on_verified unmet."
+assumption = "Decision 2230: the vector is generated once and committed; the build runs the Go producer test in checking mode (no NAMES_WRITE_VECTOR) so no tracked file changes between the build and the verification."
+severity = "major"
+
+[finding.9.25.2.4]
+task = "9.25.2"
+file = "services/agent/crates/layerx-client/tests/sequencer_reads.rs:217"
+symbol = "HistoryPage"
+observed = "Attempt 6 (96a9e099d on 1c330fd37) fails the crate-wide client test build before its own changes are reached: tests/history_rpc.rs:118-119 and :128-129 and tests/sequencer_reads.rs:217-218 and :226-227 build HistoryPage with integer indexed_height and chain_height while sequencer.rs:242-243 has carried Option<u64> for both since task 18.1238.1 (c98511e6c), whose touches did not include the two test files."
+assumption = "The two test targets are ported in this task, the first task whose build step compiles every layerx-client test; task 18.1376.1 edits a different hunk of tests/history_rpc.rs (:166-230) and lands first, so this task requires it."
+severity = "major"
+
+[finding.10.2.11.2]
+task = "10.2.11"
+file = "services/human/crates/layerx-human-kms/tests/attestor.rs:506"
+symbol = "start"
+observed = "Attempt 3 (14b815ee9) builds and passes two of the three attestor tests; attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum fails because all five daemons exit at start with attestor: pinned custody producer authority: custody authority unavailable or refused: the test's private start function (:506-635) sets no ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, ATTESTOR_AUTHORITY_ISSUER, ATTESTOR_AUTHORITY_TENANT, ATTESTOR_INVENTORY_PUBLIC_KEY_FILE or ATTESTOR_INVENTORY_FILE, while the daemon refuses to start without them (cmd/attestor/main.go:204-218, internal/auth/agent/authority.go:231-235, internal/server/authority.go:49-51) and the shared support tests/support/attestor_cluster.rs provides all five (:479, :545-554, :678-690)."
+assumption = "The quorum test configures its daemons the way the shared support does; the daemon and the shared support stay unchanged."
+severity = "major"
+
+[finding.10.2.4.5]
+task = "10.2.4"
+file = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:488"
+symbol = "AgentPreparation"
+observed = "Attempt 7 (234bcda46) ports tests/receipt_material_rungs.rs and tests/native_onboarding_rungs.rs as do_11 asked, but the crate-wide test build still fails in tests/wallet_identity_e2e.rs: the AgentPreparation literal at :488 lacks pending_nonce and the ReceiptMaterial literal at :701 lacks inclusion_height, receipt_key and signed_receipt; the grep do_11 asked for named ReceiptMaterial, AgentPreparationContext::new and AgentStageOutcome::Executed but not literals of AgentPreparation itself."
+assumption = "Every construction of the widened producer types across the crate's tests is ported in this task; the production shapes stay as attempt 5 made them."
+severity = "major"
+
+[finding.6.96.3.2]
+task = "6.96.3"
+file = "modules/layerxcustody/keeper/claims.go:230"
+symbol = "VerifyWithdrawal"
+observed = "Attempt 3 (5bfe3cc9e) passes the two deposit-root tests and its trace prints the merge-plan done height 0 and Keeper.Retired false at both probe points, so finding 6.96.3.1 does not apply; TestWithdrawalReadsAnchorFinalizedCheckpoint fails at anchor_reader_test.go:124 because Keeper.VerifyWithdrawal has returned types.ErrModuleRetired unconditionally since 8fe2607dd (task 6.96.2, do_2) and FinaliseWithdrawal reaches it through withdrawalClaim (claims.go:235), so the test's ErrNotFinalized, NoError, CLAIM_STATUS_PAID and ErrNotAuthorized expectations on the withdrawal path cannot hold at main."
+assumption = "The custody withdrawal path is retired for good; the anchor reader test keeps proving the anchor-side finalized read and asserts the retirement on every withdrawal call."
+severity = "major"
+
+[finding.10.2.11.3]
+task = "10.2.11"
+file = "services/wallet/attestor/internal/policy/policy.go:606"
+symbol = "checkDestination"
+observed = "Attempt 4 (4c854144d) starts the five daemons with the custody authority and the signed inventory and passes the two other attestor tests; attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum now fails with policy_denied selector_not_allowed because the test's policy.json (tests/attestor.rs:550-560, the same document the shared support writes) carries no selectors entry while checkDestination refuses every call to a precompile whose methods are not listed, and the disclosed activity is a layerxledger.send (selector 0x2bb1ae7c) to precompile 0x000000000000000000000000000000000000101a (services/agent/crates/layerx-crypto/src/send.rs:182-193); the deployed policy services/wallet/deploy/attestor-policy.json lists that precompile with 0x2bb1ae7c, 0x78ea11db and 0x2e89490f."
+assumption = "The test's policy mirrors the deployed policy's method allow-list for the ledger precompile; the daemon stays unchanged."
+severity = "major"
+
+[finding.10.20.5.4]
+task = "10.20.5"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "[task.10.20.5] symbols"
+observed = "Attempt 5 (b186692b7) builds, passes move_commit_submits_a_bank_transfer_without_a_movement_provider and the two other declared tests on its second verify run, and the done check refuses with two graph checks: symbol UnixMovementProvider and symbol movement_account_address are not defined in the graph, because the task's symbols list names them while do_1 and do_2 delete them."
+assumption = "A deleted symbol is not a symbol the task defines; the list keeps ProductionComponents only."
+severity = "minor"
+
+[finding.18.1402.1.1]
+task = "18.1402.1"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:8648"
+symbol = "send_leg_denom"
+observed = "Attempt 4 (1913a5b04) answers px_listAssets with asset_id 0x followed by the hex of ASSET as do_2 says and the plan request fails with 403 forbidden at intent_plan_evm.rs:1127, because 8677d280c (task 18.1423.1, after do_2 and do_3 were written) made send_leg_denom match an asset table entry only when its asset_id equals denom:<denom> and sha256(denom) equals the leg's asset bytes (send_leg_denom_resolves_a_producer_shaped_bank_asset refuses the 0x form at production_components.rs:9031-9035); ASSET at intent_plan_evm.rs:137 is [0x31; 32], which is no denom digest."
+assumption = "The node double answers the catalog shape the producer serves today (asset_id denom:alxp) and the plan's asset is the digest of that denom; the production lookup stays as 18.1423.1 left it."
+severity = "major"
+
+[finding.10.2.11.4]
+task = "10.2.11"
+file = "services/wallet/attestor/internal/policy/policy.go:700"
+symbol = "inspectCall"
+observed = "Attempt 5 (ce3d20d5b) lists the ledger precompile methods and the quorum test now fails with policy_denied no_cap: inspectCall records a layerxledger.send as a spend of the asset hex of the envelope's 32-byte asset id (policy.go:700), the test's debit uses asset [0; 32] (tests/attestor.rs:924, :950) with amount TRANSFER = 5000, and the test policy carries caps for native only, so the cap check (policy.go:553) refuses the asset with no cap configured; parseAsset (policy.go:237-249) accepts a lowercase 64-hex asset id as a cap key."
+assumption = "The test policy caps the one asset the test moves; the daemon stays unchanged."
+severity = "major"
+
+[finding.10.2.4.6]
+task = "10.2.4"
+file = "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs:185"
+symbol = "ReceiptMaterial"
+observed = "Attempt 8 (c1a4b4366) ports tests/wallet_identity_e2e.rs and the crate-wide test build fails at tests/agent_runtime_rungs.rs:185 (ReceiptMaterial without inclusion_height, receipt_key and signed_receipt); the implementer stopped there because the file is outside the declared paths, and tests/move_money.rs and tests/spend.rs also construct AgentPreparation, ReceiptMaterial, AgentPreparationContext::new or AgentStageOutcome::Executed and are not declared either."
+assumption = "Every file of the crate that constructs the widened types is declared on the task, so the port finishes in one attempt."
+severity = "major"

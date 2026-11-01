@@ -2668,7 +2668,7 @@ fn journey_status_json(status: &crate::journeys::JourneyStatus) -> serde_json::V
     json!({"journey_id": status.journey_id().as_str(), "kind":"wallet-binding",
         "state": match status.state() { JourneyState::GettingReady => "getting-ready", JourneyState::Sending => "sending",
             JourneyState::Processing => "processing", JourneyState::StillChecking => "still-checking",
-            JourneyState::Done => "done", JourneyState::Refused => "refused" },
+            JourneyState::Done => "done", JourneyState::Refused => "refused", JourneyState::Closed => "closed" },
         "current_leg": status.current_leg(),
         "receipt_verified": status.receipt_digests().iter().all(Option::is_some)})
 }
@@ -8307,10 +8307,6 @@ const fn intent_authority_label(authority: crate::journeys::RequiredAuthority) -
 const fn intent_journey_kind_label(kind: crate::journeys::JourneyKind) -> &'static str {
     match kind {
         crate::journeys::JourneyKind::Onboarding => "onboarding",
-        crate::journeys::JourneyKind::WalletBinding => "wallet-binding",
-        crate::journeys::JourneyKind::Deposit => "deposit",
-        crate::journeys::JourneyKind::Withdraw => "withdraw",
-        crate::journeys::JourneyKind::Exit => "exit",
         crate::journeys::JourneyKind::Move => "move",
         crate::journeys::JourneyKind::AgentCreate => "agent-create",
         crate::journeys::JourneyKind::AgentFund => "agent-fund",

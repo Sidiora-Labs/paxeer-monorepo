@@ -1,4 +1,4 @@
-use crate::chain_evidence::programs_state_key;
+use crate::chain_evidence::{programs_state_key, HOST_STORE_NAME};
 use crate::chain_proof::{
     decode::ProofOp,
     ics23::ExistenceProof,
@@ -86,7 +86,7 @@ impl ChainProgramStateProof {
         let mut kernel_key = PROGRAM_KEY_PREFIX.to_vec();
         kernel_key.extend_from_slice(&self.program.bytes());
         let key = programs_state_key(&kernel_key);
-        let state_height = verify_state(next, "layerx", &key, &existence.value, &self.ops)
+        let state_height = verify_state(next, HOST_STORE_NAME, &key, &existence.value, &self.ops)
             .map_err(|_| ProtocolEvidenceError::StateProof)?;
         Ok(VerifiedProgramRecord {
             record,
