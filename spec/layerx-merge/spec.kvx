@@ -192475,7 +192475,7 @@ qualification = "UNRUN"
 
 [task.18.1382.1]
 title = "Issue #1382: Return null from resolveContent for a name whose contenthash slot is proven absent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1381.1"]
