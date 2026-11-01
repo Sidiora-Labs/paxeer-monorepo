@@ -12391,3 +12391,13 @@ fix = "drop the path from touches and withdraw the do line that named it; the at
 title = "Playwright body.innerText of '' against a Next dev server usually means a client exception swallowed by the dev overlay"
 symptom = "12.35.2 attempt 8 printed body '' although the init script ran; the Next dev overlay lives in a nextjs-portal element outside body text."
 fix = "attach page.on('pageerror') and page.on('console') before goto and print locator('nextjs-portal') text with the navigation response status before changing product code."
+
+[gotcha.2515]
+title = "A task reshaping a shared struct must build every consumer crate in its own build_cmd, not only its test target"
+symptom = "10.24.1 changed AssetBalance in layerx-network-gateway and built only the gateway test; production_components.rs in layerx-human-service kept the old fields and main stopped building for every human-service task (10.95.1 a4, 18.1156.1 a12, 18.1151.1 a12, 10.27.2 a4)."
+fix = "a port task (10.24.4) repairs the consumer and the human-service builders require it; when writing a producer task, put cargo build -p <consumer crate> into build_cmd."
+
+[gotcha.2516]
+title = "Deleting a module's files is not enough when the crate's facade still defines methods over it"
+symptom = "9.24.3 deleted the arbiter and execution prestate readers but client.rs kept seven methods and two evidence type names over them (36 errors)."
+fix = "list the facade file in touches and name the methods to delete; the callers in other crates belong to the wiring tasks."

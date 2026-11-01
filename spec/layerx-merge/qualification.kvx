@@ -15187,3 +15187,19 @@ symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload
 observed = "Attempt 8 (ce231d838): the do_11 diagnostics print body '' with the fixture signer present in the announced providers, so the document loaded and the init script ran but the shell rendered no text node at all and no 'Loading wallet' label; the heading 'Paxeer Wallet' never appears. Next dev (basePath /wallet) answers the navigation, so the shell's client tree unmounted or never mounted."
 assumption = "A client-side exception during hydration (shown only in the Next dev overlay portal, which body.innerText does not include) or an empty document; the next attempt records the page errors and the navigation response before touching product code."
 severity = "major"
+
+[finding.10.24.1.1]
+task = "10.24.1"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:4648"
+symbol = "AssetBalance"
+observed = "10.24.1 (684838ce3) reshaped layerx_network_gateway::AssetBalance to {denom: String, amount: u128} (services/human/crates/layerx-network-gateway/src/lib.rs:307) and ported journeys/observed.rs, but services/human/crates/layerx-human-service/src/server/production_components.rs:4648-4649 still reads row.asset_id and row.denom.as_deref(); since 684838ce3 every cargo build of layerx-human-service on main fails E0609/E0599 there (10.95.1 a4, 18.1156.1 a12, 18.1151.1 a12, 10.27.2 a4). The task's build_cmd compiled only the gateway test target, so the consumer crate was never built before publication."
+assumption = "A port task restores the send-leg denomination lookup through the asset table; every task that builds layerx-human-service requires it."
+severity = "major"
+
+[finding.9.24.3.1]
+task = "9.24.3"
+file = "services/agent/crates/layerx-client/src/client.rs:204"
+symbol = "start_arbiter_prestate_v2"
+observed = "Attempt 1 (d43235998) deleted the six reader and verifier files, and the build of layerx-client failed with 36 errors in services/agent/crates/layerx-client/src/client.rs, which still defines start_arbiter_prestate_v2 (:204), arbiter_prestate_v2 (:257), start_arbiter_admission_v3 (:279), start_execution_prestate (:348), execution_prestate (:404), start_native_execution_prestate (:426) and native_execution_prestate (:482) over the deleted modules, and names evidence::VerifiedReplayCatalogue (:487) and evidence::VerifiedNativeExecutionPrestate (:647)."
+assumption = "The client methods are the readers' public surface and retire with them; their callers outside the crate are the wiring tasks do_3 names."
+severity = "major"

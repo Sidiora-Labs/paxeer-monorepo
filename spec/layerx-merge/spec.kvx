@@ -6237,6 +6237,12 @@ value = "SequencerAccepter.Accept returns the execution it already performed: Ac
 basis = "Finding 18.670.1.12: the pending-height comparison of rpc/send.go:356-361 was written for a node whose open block outlives the send; on the live sequencer blocks close every 100-300 ms during setup bursts, and decision 2180 guarded only the Accept call, not the log recording after it."
 affects = ["5.98.7", "18.670.1", "10.6.1", "12.35.2"]
 
+[decision.2188]
+title = "The send leg's bank denomination comes from the asset table, not from the balance row"
+value = "In production_components.rs the Protocol Send leg resolves its bank denomination by reading gateway.list_assets() (AssetTable, services/human/crates/layerx-network-gateway/src/lib.rs:601) and taking the denom of the AssetEntry whose asset_id names leg.asset(); an asset without a denom, or whose denom has no row in gateway.get_balances() (AccountBalances::asset, services/human/crates/layerx-network-gateway/src/lib.rs:330), is refused forbidden as before. The lookup lives in a pure helper send_leg_denom(assets, balances, asset) with unit tests, so the rule is proven without a gateway."
+basis = "Finding 10.24.1.1: AssetBalance no longer carries an asset id; the asset table of 10.24.2 (98bfc53ee) is the only chain source joining asset ids to bank denominations."
+affects = ["10.24.4", "10.24.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -33181,6 +33187,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.10.24.4]
+title = "Resolve the send leg's bank denomination through the asset table"
+reqs = ["10247.1"]
+touches = ["services/human/crates/layerx-human-service/src/server/production_components.rs"]
+tests = ["services/human/crates/layerx-human-service/src/server/production_components.rs::send_leg_denom_tests::send_leg_denom_resolves_through_the_asset_table", "services/human/crates/layerx-human-service/src/server/production_components.rs::send_leg_denom_tests::send_leg_denom_refuses_an_asset_without_denom_or_balance"]
+verification_contract = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib -- --exact server::production_components::send_leg_denom_tests::send_leg_denom_resolves_through_the_asset_table server::production_components::send_leg_denom_tests::send_leg_denom_refuses_an_asset_without_denom_or_balance"
+do_1 = "Decision 2188: in services/human/crates/layerx-human-service/src/server/production_components.rs add fn send_leg_denom(assets: &layerx_network_gateway::AssetTable, balances: &layerx_network_gateway::AccountBalances, asset: crate::journeys::AssetId) -> Result<String, ApiFailure> that finds the AssetEntry (services/human/crates/layerx-network-gateway/src/lib.rs:336) whose asset_id names the asset (the same spelling the fixtures of services/human/crates/layerx-network-gateway/tests/chain_assets.rs give asset ids; confirm it there), refuses ApiFailure::forbidden() when no entry matches or entry.denom is None or balances.asset(&denom) is None, and returns the denom."
+symbols = ["send_leg_denom", "AssetTable", "AccountBalances"]
 
 [capability.5.98.7]
 title = "Record the receipt's logs at the receipt's height when the layer seals after Accept"
@@ -116386,6 +116401,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.10.24.4]
+title = "Resolve the send leg's bank denomination through the asset table"
+status = "pending"
+mode = "BUILD"
+wave = 19
+requires = ["10.24.1", "10.24.2"]
+reqs = ["10247.1"]
+capabilities = ["10.24.4"]
+interfaces = []
+do_1 = "Decision 2188: in services/human/crates/layerx-human-service/src/server/production_components.rs add fn send_leg_denom(assets: &layerx_network_gateway::AssetTable, balances: &layerx_network_gateway::AccountBalances, asset: crate::journeys::AssetId) -> Result<String, ApiFailure> that finds the AssetEntry (services/human/crates/layerx-network-gateway/src/lib.rs:336) whose asset_id names the asset (the same spelling the fixtures of services/human/crates/layerx-network-gateway/tests/chain_assets.rs give asset ids; confirm it there), refuses ApiFailure::forbidden() when no entry matches or entry.denom is None or balances.asset(&denom) is None, and returns the denom."
+do_2 = "Replace the broken lookup at services/human/crates/layerx-human-service/src/server/production_components.rs:4645-4650 (.find(|row| row.asset_id == leg.asset().bytes()).and_then(|row| row.denom.as_deref())) with a gateway.list_assets() read mapped to ApiFailure::upstream_degraded() on error, followed by send_leg_denom(&assets, &balances, leg.asset())?, and pass &denom to bank_send_calldata; change nothing else in the file."
+do_3 = "Add #[cfg(test)] mod send_leg_denom_tests at the end of services/human/crates/layerx-human-service/src/server/production_components.rs with send_leg_denom_resolves_through_the_asset_table (an AssetTable with one entry carrying a denom and an AccountBalances with that denom's row answers the denom) and send_leg_denom_refuses_an_asset_without_denom_or_balance (an entry without denom, and an entry whose denom has no balance row, both answer forbidden); build the fixtures from the public struct literals of services/human/crates/layerx-network-gateway/src/lib.rs (AssetTable, AssetEntry, AccountBalances, AssetBalance, Evidence, ResolvedIdentities) only."
+symbols = ["send_leg_denom", "AssetTable", "AccountBalances"]
+touches = ["services/human/crates/layerx-human-service/src/server/production_components.rs"]
+tests = ["services/human/crates/layerx-human-service/src/server/production_components.rs::send_leg_denom_tests::send_leg_denom_resolves_through_the_asset_table", "services/human/crates/layerx-human-service/src/server/production_components.rs::send_leg_denom_tests::send_leg_denom_refuses_an_asset_without_denom_or_balance"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib -- --exact server::production_components::send_leg_denom_tests::send_leg_denom_resolves_through_the_asset_table server::production_components::send_leg_denom_tests::send_leg_denom_refuses_an_asset_without_denom_or_balance"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Restore the asset_id lookup; layerx-human-service does not build until another port lands."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.8.7.5]
 title = "Remove the retired program route assertions from the gateway browser profile test"
 status = "done"
@@ -146260,7 +146305,7 @@ do_1 = "Delete services/agent/crates/layerx-client/src/execution_prestate.rs, se
 do_2 = "Remove `pub mod execution_prestate;`, `pub mod arbiter_admission;` and `pub mod arbiter_prestate;` from services/agent/crates/layerx-client/src/lib.rs (services/agent/crates/layerx-client/src/lib.rs:30, services/agent/crates/layerx-client/src/lib.rs:32) and the three `mod` lines with their `pub use` re-exports from services/agent/crates/layerx-client/src/evidence.rs (services/agent/crates/layerx-client/src/evidence.rs:3, services/agent/crates/layerx-client/src/evidence.rs:11)."
 do_3 = "Run the existing call_at_sends_the_explicit_height_and_keeps_a_revert_at_that_height (services/agent/crates/layerx-client/tests/sequencer.rs:718), the program state read path, unchanged; the platform, human, interop, programs and CLI dependents are wiring.J44.20, wiring.J44.21, wiring.J44.22, wiring.J44.23, wiring.J44.24."
 symbols = ["call_at_sends_the_explicit_height_and_keeps_a_revert_at_that_height"]
-touches = ["services/agent/crates/layerx-client/src/execution_prestate.rs", "services/agent/crates/layerx-client/src/arbiter_admission.rs", "services/agent/crates/layerx-client/src/arbiter_prestate.rs", "services/agent/crates/layerx-client/src/evidence/execution_prestate.rs", "services/agent/crates/layerx-client/src/evidence/arbiter_admission.rs", "services/agent/crates/layerx-client/src/evidence/arbiter_prestate.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/evidence.rs", "services/agent/crates/layerx-client/tests/sequencer.rs"]
+touches = ["services/agent/crates/layerx-client/src/execution_prestate.rs", "services/agent/crates/layerx-client/src/arbiter_admission.rs", "services/agent/crates/layerx-client/src/arbiter_prestate.rs", "services/agent/crates/layerx-client/src/evidence/execution_prestate.rs", "services/agent/crates/layerx-client/src/evidence/arbiter_admission.rs", "services/agent/crates/layerx-client/src/evidence/arbiter_prestate.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/evidence.rs", "services/agent/crates/layerx-client/tests/sequencer.rs", "services/agent/crates/layerx-client/src/client.rs"]
 tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::call_at_sends_the_explicit_height_and_keeps_a_revert_at_that_height"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer"
@@ -146277,6 +146322,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Finding 9.24.3.1: delete from services/agent/crates/layerx-client/src/client.rs the methods start_arbiter_prestate_v2, arbiter_prestate_v2, start_arbiter_admission_v3, start_execution_prestate, execution_prestate, start_native_execution_prestate and native_execution_prestate, their uses of evidence::VerifiedReplayCatalogue and evidence::VerifiedNativeExecutionPrestate, and the imports they alone used (lni_schema_arbiter_prestate_v2 at :32); keep every other method; continue from attempt 1 (d43235998)."
 
 [task.9.24.4]
 title = "Delete the LNI and kernel read and stream test suites"
@@ -149389,7 +149435,7 @@ title = "Plan and execute Move money as bank 0x1001 sends completed from receipt
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.6.2", "10.0.3", "9.1.8", "18.1119.1", "10.2.8", "10.2.9", "18.1297.1", "5.98.7"]
+requires = ["10.6.2", "10.0.3", "9.1.8", "18.1119.1", "10.2.8", "10.2.9", "18.1297.1", "5.98.7", "10.24.4"]
 reqs = ["10052.1", "10052.2"]
 capabilities = ["10.6.1"]
 interfaces = ["interface.10.rs-human-service-journeys-move-money-move-leg-execution", "interface.10.rs-human-service-journeys-move-money-move-leg-execution-new", "interface.10.rs-human-service-journeys-move-money-move-plan"]
@@ -149418,6 +149464,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 do_5 = "Finding 10.6.1.1: continue from attempt 1 (6333ecb03), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
 do_6 = "Finding 10.6.1.2: continue from attempt 2 (4428c4d24); the fixture's JourneyId at tests/move_money_bank_send.rs:79 becomes a jrn_-prefixed lowercase identifier (as tests/agent_runtime_eip1559.rs:274 does). Change nothing else unless the verify reports it. Build once, verify once."
 do_7 = "A -32000 refusal 'receipted but its logs are not recorded' from the node (attempt 3, move_money_bank_send.rs:330) is the send-path race that task 5.98.7 (now required) removes, not a fault of the move plan; do not retry or mask it in the test."
+do_8 = "Finding 10.24.1.1: layerx-human-service does not build on main between 684838ce3 and task 10.24.4 (now required); an attempt that stops on production_components.rs:4648 continues unchanged once 10.24.4 is on main."
 
 [task.10.6.2]
 title = "Remove bridge mechanisms from send routing and executable shapes"
@@ -151880,7 +151927,7 @@ title = "Delete the explorer index configuration tests"
 status = "pending"
 mode = "BUILD"
 wave = 30
-requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1"]
+requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "10.24.4"]
 reqs = ["10272.1"]
 capabilities = ["10.27.2"]
 interfaces = []
@@ -151907,6 +151954,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 10.27.2.1: continue from attempt 2 (81ee2f825). The retirement test asserts the two files are gone and scans the human sources for the deleted tests' names (authority_config, read_principal_config) and for a launch of the deleted explorer binary, not for the package name, which the package's remaining files carry until the rest of the 10.27 deletions land. Build once, verify once."
+do_7 = "Finding 10.24.1.1: attempt 4 (6a664d917) stopped on main's layerx-human-service build break at production_components.rs:4648, which task 10.24.4 (now required) repairs; continue from that attempt, keeping every change, on a main that carries 10.24.4."
 
 [task.10.27.3]
 title = "Delete the explorer index unified account join"
@@ -152242,7 +152290,7 @@ title = "Rebuild the observed journey balances on the denom and amount AssetBala
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.0.3", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1", "10.24.1"]
+requires = ["10.0.3", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1", "10.24.1", "10.24.4"]
 reqs = ["10963.1"]
 capabilities = []
 interfaces = []
@@ -152269,6 +152317,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 10.95.1.1: continue from attempt 1 (8aabe4ba8), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
 do_5 = "Decision 2183 and finding 10.95.1.2: this task now requires 10.24.1. Continue from attempt 2 (4b6acfd3b) on a main that carries 10.24.1, keep its observed.rs changes only where 10.24.1 did not already make them, and land the test. Build once, verify once."
+do_6 = "Finding 10.24.1.1: attempt 4 (fcfb22618) stopped on main's layerx-human-service build break at production_components.rs:4648, which task 10.24.4 (now required) repairs; continue from that attempt, keeping every change, on a main that carries 10.24.4."
 
 [task.10.96.1]
 title = "Remove the Paxeer client and explorer index from the human workspace at wave 5"
@@ -152729,7 +152778,7 @@ title = "Migrate the layerx-human-service callers of wiring.J44.25 (part 1)"
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.0.3", "9.1.8", "18.1119.1", "18.1172.1", "10.98.7", "10.98.13", "10.2.8", "10.2.9", "18.1297.1"]
+requires = ["10.0.3", "9.1.8", "18.1119.1", "18.1172.1", "10.98.7", "10.98.13", "10.2.8", "10.2.9", "18.1297.1", "10.24.4"]
 reqs = ["10950.1"]
 capabilities = ["10.98.10"]
 interfaces = []
@@ -152771,6 +152820,7 @@ do_17 = "The attach and verify calls at services/human/crates/layerx-human-servi
 do_18 = "Finding 10.98.10.1: continue from attempt 1 (c6b3c7c55), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
 do_19 = "Decision 2186 and finding 10.98.10.2: continue from attempt 2 (7bc7cb27e). Create services/human/crates/layerx-human-service/src/server/owner_identity.rs with OwnerIdentityState and a decode that parses the 223-byte LXGI1 record exactly as services/agent/crates/layerx-crypto/src/rotation.rs:26-60 does (same owner check through layerx_wire::hash::did_id_for_protocol, same fields), point validate_owner_identity (services/human/crates/layerx-human-service/src/server/production_owner.rs:68) and checked_identity (services/human/crates/layerx-human-service/src/server/production_rotation.rs:163) at it, and delete the two layerx_crypto::rotation imports. Build once, verify once."
 do_20 = "Finding 10.98.10.3: do_11 is withdrawn, services/human/crates/layerx-human-service/tests/deposit.rs was deleted on main at ad92aa7fc and the touches no longer list it; continue from attempt 4 (276542970), whose build and declared test passed, changing nothing else."
+do_21 = "Finding 10.24.1.1: layerx-human-service does not build on main between 684838ce3 and task 10.24.4 (now required); an attempt that stops on production_components.rs:4648 continues unchanged once 10.24.4 is on main."
 
 [task.10.98.11]
 title = "Migrate the layerx-human-service callers of wiring.J44.25 (part 2)"
@@ -193299,7 +193349,7 @@ title = "Issue #1151: Start the wallet identity end-to-end attestor nodes with t
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["18.1147.1", "10.0.3", "18.1172.1", "10.2.8", "10.2.9", "18.1297.1"]
+requires = ["18.1147.1", "10.0.3", "18.1172.1", "10.2.8", "10.2.9", "18.1297.1", "10.24.4"]
 reqs = ["181151.1"]
 capabilities = []
 interfaces = []
@@ -193330,6 +193380,7 @@ do_7 = "authorize_kernel_send (src/server/production_components.rs:8630-8658) re
 do_8 = "The send leg (tests/wallet_identity_e2e.rs:236-290) authorizes a kernel SendPlanAuthorization through authorize_kernel_send (src/server/production_components.rs:8630-8658) and Keystore::authorize_send (src/custody/evm.rs:212-227, KMS operation 11); since 10.11.5 (4bbccf849, decision.1005) both the attestor custody's sign_send_now (:8701-8760) and the local KMS send::digest parse that operation as an EIP-1559 send authorization and refuse the kernel payload at the parse step, which is the Kms(Refused) with no quorum code of attempt 10 (issue #1169). This task now follows 10.0.3, whose do_6 ports the service's send authorization to that shape: keep the attempt-10 work (dd4aaed6a) and port the send leg to authorize the EIP-1559 bank transfer through the attestors and verify the receipt of its tx_hash. Never add a kernel-send bypass."
 do_9 = "Decision 2130: 10.0.3, a requirement of this task, adds approve_generate and approve_sign to services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs and makes Keystore::binding pub; do_4 and do_5 use them as present and re-add nothing. If they are absent at this task's base, stop and record the finding."
 do_10 = "Finding 18.1151.1.7: continue from attempt 11 (a0df4e1cd), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
+do_11 = "Finding 10.24.1.1: attempt 12 (a563e1e1c) stopped on main's layerx-human-service build break at production_components.rs:4648, which task 10.24.4 (now required) repairs; continue from that attempt, keeping every change, on a main that carries 10.24.4."
 
 [task.18.1152.1]
 title = "Issue #1152: Add the golang.org/x/term v0.15.0 go.sum lines the module graph needs so the chain image's go mod download completes"
@@ -193453,7 +193504,7 @@ title = "Issue #1156: layerx-human-kms provider test writes a registry the KMS r
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.0.3", "18.1159.1", "18.1297.1"]
+requires = ["10.0.3", "18.1159.1", "18.1297.1", "10.24.4"]
 reqs = ["181156.1"]
 capabilities = []
 interfaces = []
@@ -193488,6 +193539,7 @@ do_11 = "Since 843ee0252 (10.11.7) sign (services/human/crates/layerx-human-kms/
 do_12 = "The RemoteKmsProvider deadline of 2 s (tests/provider.rs:270) and LAYERX_HUMAN_KMS_DEADLINE_SECONDS=2 (:196) bound every EVM operation that waits on the 5-node attestor quorum (tests/support/attestor_cluster.rs:25) while fifteen tests run their own clusters; map_transport (layerx-human-service/src/custody/provider.rs:1332) reports the exceeded deadline as Kms(Timeout), which moved from evm_authorization_nonce_dedup_and_acknowledgement_recovery (attempt 7) to external_signature_verification_and_executor_journey_recovery (attempt 8). Raise both, and the raw socket timeouts at :283-284, to 30 s (config.rs:138 admits 1..=60); no assertion of the target observes a timeout, so no check changes."
 do_13 = "native_send_authorization_is_scoped_and_durable (tests/provider.rs:1285-1349) authorizes through Keystore::authorize_send (layerx-human-service/src/custody/evm.rs:212-223), which still serializes a SendPlanAuthorization as operation 11 while validate_sign (src/server.rs:148-150) has parsed operation 11 as send::SendAuthorization since 4bbccf849 (10.11.5), so the call returns Kms(Refused) (issue #1169). 10.0.3 do_6 ports that caller and this task now requires 10.0.3; do not rewrite the test as a raw operation-11 request, which would duplicate authorize_canonical_send (:634-715) and stop testing the service path. Once 10.0.3 is in the base, port the test to the landed Keystore::authorize_send shape: authorize the EIP-1559 bank 0x...1001 transfer, verify the returned signed transaction's sender and plan binding as authorize_canonical_send does, and keep the replay, mutation-refusal and restart assertions. The Ed25519 check over owner_send_authorization (:1322-1340) belongs to the signer 10.11.5 do_2 deleted and follows the port."
 do_14 = "Finding 18.1156.1.7: continue from attempt 11 (de1e21af6), keeping every change; rebase onto a main that carries 18.1272.1 (merge ef19f3b1b), whose PayBudgetFund arms in services/human/crates/layerx-human-service/src/agents/create.rs fix the build, and change nothing else unless the gate reports it."
+do_15 = "Finding 10.24.1.1: attempt 12 (6e7d801aa) stopped on main's layerx-human-service build break at production_components.rs:4648, which task 10.24.4 (now required) repairs; continue from that attempt, keeping every change, on a main that carries 10.24.4."
 
 [task.18.1157.1]
 title = "Issue #1157: x402 buyer cannot capture a metered settlement: capture_settlement accepts only PaymentExact logs while sellers settle draws with PaymentDrawn"
