@@ -159799,7 +159799,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.0.9]
 title = "Gate domain 12 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["12.0.1", "12.0.2", "12.0.3", "12.0.4", "12.2.3", "12.3.3", "12.12.1", "12.13.2", "12.13.3", "12.13.4", "12.13.5", "12.13.6", "12.14.2", "12.14.3", "12.14.4", "12.18.1", "12.18.2", "12.19.1", "12.19.2", "12.19.3", "12.21.3", "12.24.6", "12.27.2", "12.28.1", "12.28.2", "12.28.3", "12.33.6", "12.34.2", "12.34.8", "12.34.9", "12.34.10", "12.35.3"]
