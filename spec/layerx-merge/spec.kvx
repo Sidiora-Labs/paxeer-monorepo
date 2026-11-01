@@ -118921,7 +118921,7 @@ do_5 = "Record in the qualification record the exact error text observed for 0x0
 
 [task.18.1326.1]
 title = "Issue #1326: Carry the constructed anchor keeper in the node's precompile keepers so the retirement heights alone gate layerxAnchor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.98.9"]
