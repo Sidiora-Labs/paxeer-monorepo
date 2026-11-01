@@ -3,7 +3,7 @@
 use crate::human_node::HumanNode;
 use crate::node_rpc::NodeRpcError;
 use layerx_client::lni::transport::FrameTransport;
-use layerx_client::read::{HistoryKind, ReadContext, ReadError};
+use layerx_client::rpc::history::{HistoryKind, ReadContext};
 use layerx_client::sequencer::{RpcRefusal, SequencerEndpoint, SequencerError};
 use serde_json::{json, Value};
 
@@ -201,7 +201,6 @@ impl HistoryPage {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum HistoryReadError {
-    Read(ReadError),
     Node(NodeRpcError),
     Rpc(RpcRefusal),
     Sequencer(SequencerError),

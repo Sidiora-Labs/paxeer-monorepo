@@ -4,7 +4,7 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use layerx_agentd::read::{Cursor, HistoryLimits, HistoryPage, HistoryReadError};
-use layerx_client::read::HistoryKind;
+use layerx_client::rpc::history::HistoryKind;
 use layerx_client::sequencer::{RpcRefusal, SequencerEndpoint, SequencerError};
 use serde_json::{json, Value};
 

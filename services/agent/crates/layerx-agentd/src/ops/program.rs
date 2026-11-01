@@ -1,9 +1,9 @@
 //! First-class program discovery, interface, simulation, and call operations.
 
+use layerx_client::rpc::submit::SubmitError;
 use layerx_client::sequencer::{
     ExecutedReceipt, SequencerEndpoint, SequencerError, SequencerReceipt,
 };
-use layerx_client::submit::SubmitError;
 use layerx_crypto::ed25519;
 use layerx_programs::{ProgramId, ProgramInterface, ProgramLifecycle, VerifiedProgramBundle};
 use layerx_programs_runtime::terminal::DecodedTerminal;
