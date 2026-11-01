@@ -209,25 +209,6 @@ pub struct SequencerBlock {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StorageProof {
-    pub key: [u8; 32],
-    pub value: [u8; 32],
-    pub proof: Vec<Vec<u8>>,
-}
-
-/// Compatibility account proof; task 9.25.13 retires this type and its readers.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AccountProof {
-    pub address: [u8; 20],
-    pub balance: [u8; 32],
-    pub nonce: u64,
-    pub code_hash: [u8; 32],
-    pub storage_hash: [u8; 32],
-    pub account_proof: Vec<Vec<u8>>,
-    pub storage: Vec<StorageProof>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct StorageWitness {
     pub address: [u8; 20],
     pub slot: [u8; 32],
@@ -330,30 +311,15 @@ impl SequencerEndpoint {
         quantity_u256(&result).ok_or(SequencerError::Malformed)
     }
 
-    pub fn account_proof(
-        &self,
-        address: &[u8; 20],
-        slots: &[[u8; 32]],
-        height: u64,
-    ) -> Result<AccountProof, SequencerError> {
-        let slots: Vec<_> = slots.iter().map(|slot| hex(slot)).collect();
-        let result = self.call(
-            "eth_getProof",
-            &json!([hex(address), slots, format!("{height:#x}")]),
-        )?;
-        let proof = decode_account_proof(&result).ok_or(SequencerError::Malformed)?;
-        if proof.address != *address {
-            return Err(SequencerError::Malformed);
-        }
-        Ok(proof)
-    }
-
     pub fn storage_witness(
         &self,
         address: &[u8; 20],
         slots: &[[u8; 32]],
         height: u64,
     ) -> Result<Vec<StorageWitness>, SequencerError> {
+        if slots.is_empty() {
+            return Ok(Vec::new());
+        }
         let encoded_slots: Vec<_> = slots.iter().map(|slot| hex(slot)).collect();
         let result = self.call(
             "eth_getProof",
@@ -817,42 +783,6 @@ fn word_u64(word: &[u8]) -> Option<u64> {
         return None;
     }
     Some(u64::from_be_bytes(low.try_into().ok()?))
-}
-
-fn proof_nodes(value: &Value) -> Option<Vec<Vec<u8>>> {
-    value
-        .as_array()?
-        .iter()
-        .map(|node| bytes(node.as_str()?))
-        .collect()
-}
-
-fn decode_storage_proof(value: &Value) -> Option<StorageProof> {
-    let fields = Fields(value.as_object()?);
-    Some(StorageProof {
-        key: fields.fixed("key")?,
-        value: quantity_u256(fields.0.get("value")?)?,
-        proof: proof_nodes(fields.0.get("proof")?)?,
-    })
-}
-
-fn decode_account_proof(value: &Value) -> Option<AccountProof> {
-    let fields = Fields(value.as_object()?);
-    Some(AccountProof {
-        address: fields.fixed("address")?,
-        balance: quantity_u256(fields.0.get("balance")?)?,
-        nonce: fields.u64("nonce")?,
-        code_hash: fields.fixed("codeHash")?,
-        storage_hash: fields.fixed("storageHash")?,
-        account_proof: proof_nodes(fields.0.get("accountProof")?)?,
-        storage: fields
-            .0
-            .get("storageProof")?
-            .as_array()?
-            .iter()
-            .map(decode_storage_proof)
-            .collect::<Option<_>>()?,
-    })
 }
 
 fn decode_storage_witness(

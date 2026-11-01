@@ -3,7 +3,8 @@
 use std::collections::BTreeSet;
 
 use layerx_agent_api::proof::ProofBundleTarget;
-use layerx_client::sequencer::{SequencerEndpoint, SequencerError, StorageWitness};
+use layerx_client::sequencer::StorageWitness;
+use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_types::rung::Rung;
 
 use crate::receipt::TransactionReceiptEvidence;
