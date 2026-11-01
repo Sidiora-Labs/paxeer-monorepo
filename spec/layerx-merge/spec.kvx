@@ -119241,7 +119241,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.96.4]
 title = "Port the custody keeper tests to the retired withdrawal and exit paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["6.96.3"]
