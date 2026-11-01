@@ -16635,3 +16635,11 @@ symbol = "layerx-programs-registry"
 observed = "Attempt 2 (b88301ce2 on bc97b8b38) kept the seventeen regenerated lock files, its build passed and all seventeen cargo metadata --locked reads passed; the completion record was refused by the graph check 'symbol layerx-programs-registry — not defined in the graph' because the task declared the package name as a code symbol while its touches are lock files, which define no symbol."
 assumption = "Spec defect: a lock-only task declares no symbols, as 9.25.16 did; the symbols list is emptied and the task continues from attempt 2 unchanged."
 severity = "major"
+
+[finding.10.1.2.2]
+task = "10.1.2"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:8718"
+symbol = "verify_native_owner_outcome"
+observed = "Attempt 2 of 10.1.2 (4348ac32c on 8ee7a26e1), attempt 2 of each of 10.26.2 to 10.26.16 and attempt 8 of 10.92.1 (012e45a08) rebased their implemented trees onto main with the refreshed locks and all stopped at the first build: layerx-human-service fails with E0425 and E0422 at production_components.rs:8718, :8721, :8800 and :8803 because 2455fbc51 (task 9.27.5, decision 929) deleted layerx_proof::receipt::verify_native_owner_outcome and NativeOwnerOutcomeContext with owner_module.rs and ported only the agent-side consumers; the human service's two call sites were never ported."
+assumption = "Task 10.99.2 deletes the two calls, since both sites already bind the receipt through ProductionAgentCreation::protocol_evidence and verify it through verify_outcome or finalization_evidence; every open task whose gates compile the human workspace requires it and the seventeen implemented trees continue unchanged once it is on main."
+severity = "critical"

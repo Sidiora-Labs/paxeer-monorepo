@@ -20948,6 +20948,10 @@ title = "Serve layerx-receipt evidence as receipt-proof v2 from evidence.get"
 ac_1 = "evidence.get of a layerx-receipt answers the v2 content type and PortableReceiptV2 bytes."
 ac_2 = "A receipt whose covering block commit verifies answers verification checkpoint-finalised and rung committed; one whose sequencer receipt alone verifies answers receipt-verified and rung receipted."
 
+[req.10992]
+title = "The human service compiles without the retired native owner outcome verifier"
+ac_1 = "production_components.rs names neither verify_native_owner_outcome nor NativeOwnerOutcomeContext, layerx-human-service builds under --locked, and the budget defund and EVM intent paths still bind their receipts through protocol_evidence and verify them through verify_outcome or finalization_evidence."
+
 [req.10962]
 title = "Remove the Paxeer client and explorer index from the human workspace at wave 5"
 ac_1 = "The human workspace manifest, the human service manifest and the lock name none of layerx-paxeer-client, layerx-explorer-index and layerx-human-movement-provider."
@@ -33641,6 +33645,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.10.99.2]
+title = "Retire the human service's calls into the deleted native owner outcome verifier"
+reqs = ["10992.1"]
+touches = ["services/human/crates/layerx-human-service/src/server/production_components.rs"]
+tests = []
+verification_contract = "cargo check --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib && ! grep -q -e verify_native_owner_outcome -e NativeOwnerOutcomeContext services/human/crates/layerx-human-service/src/server/production_components.rs"
+do_1 = "2455fbc51 (task 9.27.5, decision 929) deleted services/agent/crates/layerx-proof/src/receipt/owner_module.rs with verify_native_owner_outcome and NativeOwnerOutcomeContext and ported the agent-side consumers, but services/human/crates/layerx-human-service/src/server/production_components.rs:8718-8730 in submit_budget_defund and :8800-8812 in advance_evm_intent still call them, so layerx-human-service no longer compiles and every gate of the human workspace fails at the build."
+symbols = ["submit_budget_defund", "advance_evm_intent"]
 
 [capability.8.52.1]
 title = "Drop the platform boundary's development dependency on the retired Paxeer client crate"
@@ -117787,6 +117800,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.10.99.2]
+title = "Retire the human service's calls into the deleted native owner outcome verifier"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["10992.1"]
+capabilities = ["10.99.2"]
+interfaces = []
+do_1 = "2455fbc51 (task 9.27.5, decision 929) deleted services/agent/crates/layerx-proof/src/receipt/owner_module.rs with verify_native_owner_outcome and NativeOwnerOutcomeContext and ported the agent-side consumers, but services/human/crates/layerx-human-service/src/server/production_components.rs:8718-8730 in submit_budget_defund and :8800-8812 in advance_evm_intent still call them, so layerx-human-service no longer compiles and every gate of the human workspace fails at the build."
+do_2 = "Delete both calls with their NativeOwnerOutcomeContext literals and the map_err that follows each. Both sites already continue into ProductionAgentCreation::protocol_evidence(raw, owner, agent.registry(), material) (agent_creation.rs:615), which decodes the signed creation transaction and binds the receipt material; advance_evm_intent then verifies the evidence through verify_outcome(disclosure.activity_type) at :8822-8824 and the two callers of submit_budget_defund take its receipt through ProductionAgentCreation::finalization_evidence (:3593-3600, :6911-6913), so no replacement check is added. Keep the bind_call check at :8717 as a statement whose binding is no longer named, and keep the owner bytes that protocol_evidence still takes."
+do_3 = "The build gate compiles layerx-human-service under --locked; the verify gate checks the library and asserts that production_components.rs names neither retired identifier."
+symbols = ["submit_budget_defund", "advance_evm_intent"]
+touches = ["services/human/crates/layerx-human-service/src/server/production_components.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
+verify_cmd = "cargo check --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib && ! grep -q -e verify_native_owner_outcome -e NativeOwnerOutcomeContext services/human/crates/layerx-human-service/src/server/production_components.rs"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Restore production_components.rs from 8ee7a26e1; layerx-human-service fails to compile again until owner_module.rs returns to layerx-proof."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.8.52.1]
 title = "Drop the platform boundary's development dependency on the retired Paxeer client crate"
 status = "done"
@@ -151919,7 +151962,7 @@ title = "Trim the human workspace manifest and gate the retired workspace member
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.10.1", "10.10.2", "10.20.5", "10.96.1", "10.26.1", "10.27.1", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.10.1", "10.10.2", "10.20.5", "10.96.1", "10.26.1", "10.27.1", "9.1.8", "18.1119.1", "10.2.8", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10059.1"]
 capabilities = ["10.1.2"]
 interfaces = ["interface.10.rs-human-service-human-workspace-manifest-j45"]
@@ -151945,6 +151988,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "Finding 10.1.2.1: continue from attempt 1 (e3bdfe62c) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_5 = "Finding 10.1.2.2: continue from attempt 2 (4348ac32c) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.1.3]
 title = "Ban the retired crates in the human dependency policy script"
@@ -153909,7 +153953,7 @@ title = "Prove the human service production startup against the merged node"
 status = "pending"
 mode = "BUILD"
 wave = 45
-requires = ["10.20.3", "5.50.7", "5.98.4", "9.25.16", "13.8.3"]
+requires = ["10.20.3", "5.50.7", "5.98.4", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10034.1", "10034.2", "10034.3"]
 capabilities = ["10.20.6"]
 interfaces = ["interface.10.rs-human-service-server-production-components-production-components-config", "interface.10.rs-human-service-server-production-components-production-components-config-from-environment", "interface.10.env-layerx-human-onboarding-sponsor-principal", "interface.10.env-layerx-human-binding-statement-ttl-seconds", "interface.10.env-layerx-human-paxeer-rpc-url", "interface.10.env-layerx-human-paxeer-rpc-timeout-seconds", "interface.10.env-layerx-human-paxeer-trust-anchor-der", "interface.10.env-layerx-human-paxeer-chain-id", "interface.10.env-layerx-human-exit-required-confirmations", "interface.10.env-layerx-human-exit-poll-cadence-seconds", "interface.10.env-layerx-human-exit-delayed-after-polls", "interface.10.rs-human-service-server-production-components-production-components", "interface.10.rs-human-service-server-production-components-production-components-open", "interface.10.env-layerx-human-protocol-version", "interface.10.env-layerx-human-paxeer-minimum-agreement", "interface.10.env-layerx-human-paxeer-rpc-urls", "interface.10.rs-human-service-journeys-intent-submit-start-withdrawal-intent", "interface.10.fmt-human-recipient-packet", "interface.10.env-layerx-human-recipient-socket", "interface.10.env-layerx-human-recipient-caller-uid", "interface.10.env-layerx-human-recipient-caller-gid", "interface.10.env-layerx-human-recipient-deadline-seconds"]
@@ -154074,7 +154118,7 @@ title = "Retire the bridge, payout-binding and custody-credit intent kinds"
 status = "pending"
 mode = "BUILD"
 wave = 33
-requires = ["10.21.2", "10.6.2", "10.20.5", "10.9.1", "10.8.2", "10.12.2", "10.26.7", "10.26.8", "10.26.15", "8.96.1", "10.96.2", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.21.2", "10.6.2", "10.20.5", "10.9.1", "10.8.2", "10.12.2", "10.26.7", "10.26.8", "10.26.15", "8.96.1", "10.96.2", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10243.1", "10243.2", "10243.3"]
 capabilities = ["10.21.3"]
 interfaces = ["interface.10.rs-intents-native-custody-native-custody-credit", "interface.10.rs-intents-native-custody-native-custody-credit-new", "interface.10.rs-intents-native-custody-native-custody-credit-payload", "interface.10.rs-intents-native-custody-native-custody-credit-reserve", "interface.10.rs-intents-native-custody-native-custody-credit-recipient", "interface.10.rs-intents-native-custody-native-custody-credit-deposit-id", "interface.10.rs-intents-native-custody-native-custody-credit-nullifier", "interface.10.rs-intents-reject-intent-kind-tag", "interface.10.rs-intents-reject-inspect-intent", "interface.10.rs-intents-vocabulary-evm-payout-binding", "interface.10.rs-intents-vocabulary-evm-payout-binding-new", "interface.10.rs-intents-vocabulary-bridge-deposit-credit", "interface.10.rs-intents-vocabulary-bridge-deposit-credit-to-wire-parts", "interface.10.rs-intents-vocabulary-bridge-deposit-credit-new", "interface.10.rs-intents-vocabulary-bridge-withdraw-request", "interface.10.rs-intents-vocabulary-bridge-withdraw-request-to-wire-parts", "interface.10.rs-intents-vocabulary-bridge-withdraw-request-new", "interface.10.rs-intents-lib-native-custody-credit-l24-j46", "interface.10.rs-intents-native-custody-fn-l95-j46", "interface.10.rs-intents-native-custody-fn-l100-j46"]
@@ -154110,7 +154154,7 @@ title = "Retire the kernel activity re-exports and the owner activity envelope"
 status = "pending"
 mode = "BUILD"
 wave = 34
-requires = ["10.21.3", "10.0.3", "10.0.4", "10.11.5", "10.11.7", "10.13.5", "10.25.4", "9.0.4", "9.97.4", "10.97.1", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.21.3", "10.0.3", "10.0.4", "10.11.5", "10.11.7", "10.13.5", "10.25.4", "9.0.4", "9.97.4", "10.97.1", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10244.1"]
 capabilities = ["10.21.4"]
 interfaces = ["interface.10.rs-intents-owner-activity-owner-envelope-context", "interface.10.rs-intents-owner-activity-unsigned-native", "interface.10.rs-intents-owner-activity-attach-signature", "interface.10.rs-intents-canonical-decode-signed-activity", "interface.10.rs-intents-canonical-decode-unsigned-activity", "interface.10.rs-intents-canonical-signed-envelope-bytes", "interface.10.rs-intents-canonical-unsigned-activity-bytes", "interface.10.rs-intents-canonical-unsigned-envelope-bytes", "interface.10.rs-intents-canonical-activity", "interface.10.rs-intents-owner-activity-verify", "interface.10.rs-intents-lib-owner-activity-l12-j46", "interface.10.rs-intents-owner-activity-owner-activity-error-l10-j46"]
@@ -154145,7 +154189,7 @@ title = "Delete the bridge credit receipt test vector"
 status = "pending"
 mode = "BUILD"
 wave = 34
-requires = ["10.21.3", "10.26.8", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.21.3", "10.26.8", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10245.1"]
 capabilities = ["10.21.5"]
 interfaces = ["interface.10.rs-intents-vectors-credit-credit-receipt-fields", "interface.10.rs-intents-vectors-credit-credit-receipt", "interface.10.rs-intents-vectors-credit-receipt-l118-j46"]
@@ -154176,7 +154220,7 @@ title = "Replace the kernel activity session fixtures test with a session grant 
 status = "pending"
 mode = "BUILD"
 wave = 34
-requires = ["10.21.3", "10.0.3", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.21.3", "10.0.3", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10246.1", "10246.2"]
 capabilities = ["10.21.6"]
 interfaces = []
@@ -154529,7 +154573,7 @@ title = "Delete the Paxeer client JSON-RPC transport"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10256.1"]
 capabilities = ["10.26.2"]
 interfaces = ["interface.10.rs-paxeer-client-client-transaction-hash", "interface.10.rs-paxeer-client-client-transaction-hash-new", "interface.10.rs-paxeer-client-client-transaction-hash-bytes", "interface.10.rs-paxeer-client-client-transaction-hash-from-hex", "interface.10.rs-paxeer-client-client-transaction-hash-to-hex", "interface.10.rs-paxeer-client-client-block-ref", "interface.10.rs-paxeer-client-client-execution-outcome", "interface.10.rs-paxeer-client-client-transaction-inclusion", "interface.10.rs-paxeer-client-client-log-record", "interface.10.rs-paxeer-client-client-endpoint-error", "interface.10.rs-paxeer-client-client-client-config-error", "interface.10.rs-paxeer-client-client-paxeer-client", "interface.10.rs-paxeer-client-client-paxeer-client-new", "interface.10.rs-paxeer-client-client-paxeer-client-head-number", "interface.10.rs-paxeer-client-client-paxeer-client-block-by-number", "interface.10.rs-paxeer-client-client-paxeer-client-transaction-receipt", "interface.10.rs-paxeer-client-client-paxeer-client-chain-id", "interface.10.rs-paxeer-client-client-paxeer-client-transaction-logs", "interface.10.rs-paxeer-client-client-paxeer-client-transaction", "interface.10.rs-paxeer-client-client-transaction-hash-error-l14-j46", "interface.10.rs-paxeer-client-client-transaction-view-l108-j46", "interface.10.rs-paxeer-client-client-call-contract-l684-j46"]
@@ -154556,13 +154600,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "Finding 10.1.2.1: continue from attempt 1 (d2c00f21f) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_6 = "Finding 10.1.2.2: continue from attempt 2 (ce7bc0e51) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.3]
 title = "Delete the Paxeer client verifier re-export modules"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10257.1"]
 capabilities = ["10.26.3"]
 interfaces = ["interface.10.rs-paxeer-client-deposit-agent-call-l2048-j46"]
@@ -154591,13 +154636,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_6 = "Finding 10.1.2.1: continue from attempt 1 (5cb3f11ff) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_7 = "Finding 10.1.2.2: continue from attempt 2 (25d184b4e) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.4]
 title = "Delete the Paxeer client checkpoint evidence module"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10258.1"]
 capabilities = ["10.26.4"]
 interfaces = ["interface.10.rs-paxeer-client-evidence-take-l119-j46", "interface.10.rs-paxeer-client-evidence-array-l124-j46", "interface.10.rs-paxeer-client-evidence-finish-l127-j46"]
@@ -154626,13 +154672,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_6 = "Finding 10.1.2.1: continue from attempt 1 (8dcafc9cc) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_7 = "Finding 10.1.2.2: continue from attempt 2 (9a3239495) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.5]
 title = "Delete the Paxeer client endpoint status model"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10259.1"]
 capabilities = ["10.26.5"]
 interfaces = ["interface.10.rs-paxeer-client-status-delay-expectation", "interface.10.rs-paxeer-client-status-endpoint-status", "interface.10.rs-paxeer-client-status-chain-status", "interface.10.rs-paxeer-client-status-contract-status", "interface.10.rs-paxeer-client-status-boundary-health", "interface.10.rs-paxeer-client-status-boundary-status", "interface.10.rs-paxeer-client-status-finality-tracker-boundary-status", "interface.10.rs-paxeer-client-status-from-report-l56-j46"]
@@ -154660,13 +154707,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_6 = "Finding 10.1.2.1: continue from attempt 1 (dd24c9f68) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_7 = "Finding 10.1.2.2: continue from attempt 2 (7392b9390) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.6]
 title = "Delete the Paxeer client state proof module and vectors"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10260.1"]
 capabilities = ["10.26.6"]
 interfaces = ["interface.10.rs-paxeer-client-state-proof-account-path", "interface.10.rs-paxeer-client-state-proof-state-proof-error", "interface.10.rs-paxeer-client-state-proof-state-witness"]
@@ -154695,13 +154743,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_7 = "Finding 10.1.2.1: continue from attempt 1 (3cd678589) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_8 = "Finding 10.1.2.2: continue from attempt 2 (02b4f941a) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.7]
 title = "Delete the Paxeer client deposit proof builder"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10261.1"]
 capabilities = ["10.26.7"]
 interfaces = ["interface.10.rs-paxeer-client-deposit-account-address", "interface.10.rs-paxeer-client-deposit-account-address-for-protocol", "interface.10.rs-paxeer-client-deposit-custody-deposit", "interface.10.rs-paxeer-client-deposit-deposit-root-registration", "interface.10.rs-paxeer-client-deposit-published-deposit-proof", "interface.10.rs-paxeer-client-deposit-custody-fault", "interface.10.rs-paxeer-client-deposit-proof-fault", "interface.10.rs-paxeer-client-deposit-credit-fault", "interface.10.rs-paxeer-client-deposit-deposit-failure", "interface.10.rs-paxeer-client-deposit-deposit-proof-config", "interface.10.rs-paxeer-client-deposit-deposit-proof-verifier", "interface.10.rs-paxeer-client-deposit-deposit-proof-verifier-new", "interface.10.rs-paxeer-client-deposit-deposit-proof-verifier-admit-custody", "interface.10.rs-paxeer-client-deposit-deposit-proof-verifier-obtain", "interface.10.rs-paxeer-client-deposit-deposit-proof", "interface.10.rs-paxeer-client-deposit-deposit-proof-transaction", "interface.10.rs-paxeer-client-deposit-deposit-proof-inclusion", "interface.10.rs-paxeer-client-deposit-deposit-proof-confirmations", "interface.10.rs-paxeer-client-deposit-deposit-proof-required", "interface.10.rs-paxeer-client-deposit-deposit-proof-chain-id", "interface.10.rs-paxeer-client-deposit-deposit-proof-vault", "interface.10.rs-paxeer-client-deposit-deposit-proof-custody", "interface.10.rs-paxeer-client-deposit-deposit-proof-checkpoint-id", "interface.10.rs-paxeer-client-deposit-deposit-proof-checkpoint-state-root", "interface.10.rs-paxeer-client-deposit-deposit-proof-deposit-root", "interface.10.rs-paxeer-client-deposit-deposit-proof-custody-reference", "interface.10.rs-paxeer-client-deposit-deposit-proof-network-id", "interface.10.rs-paxeer-client-deposit-deposit-proof-protocol-version", "interface.10.rs-paxeer-client-deposit-deposit-proof-registration-signature", "interface.10.rs-paxeer-client-deposit-deposit-proof-inclusion-proof", "interface.10.rs-paxeer-client-deposit-deposit-proof-leaf-hash", "interface.10.rs-paxeer-client-deposit-deposit-proof-nullifier", "interface.10.rs-paxeer-client-deposit-deposit-proof-idempotency-key", "interface.10.rs-paxeer-client-deposit-deposit-proof-credit-intent", "interface.10.rs-paxeer-client-deposit-deposit-proof-compile-credit", "interface.10.rs-paxeer-client-deposit-deposit-proof-accept-credit", "interface.10.rs-paxeer-client-deposit-deposit-proof-with-native-credit", "interface.10.rs-paxeer-client-deposit-credit-path", "interface.10.rs-paxeer-client-deposit-credit-path-prepare", "interface.10.rs-paxeer-client-deposit-credit-path-idempotency-key", "interface.10.rs-paxeer-client-deposit-deposit-root-registration-message", "interface.10.rs-paxeer-client-deposit-deposit-leaf-bytes", "interface.10.rs-paxeer-client-deposit-published-deposit-proof-fetch-published", "interface.10.rs-paxeer-client-deposit-account-address-error-l59-j46", "interface.10.rs-paxeer-client-deposit-deposit-proof-config-error-l939-j46", "interface.10.rs-paxeer-client-deposit-admitted-custody-l971-j46", "interface.10.rs-paxeer-client-deposit-fn-l987-j46", "interface.10.rs-paxeer-client-deposit-fn-l992-j46", "interface.10.rs-paxeer-client-deposit-fn-l997-j46", "interface.10.rs-paxeer-client-deposit-fn-l1002-j46", "interface.10.rs-paxeer-client-deposit-fn-l1007-j46", "interface.10.rs-paxeer-client-deposit-fn-l1012-j46", "interface.10.rs-paxeer-client-deposit-fn-l1017-j46", "interface.10.rs-paxeer-client-deposit-fn-l1022-j46", "interface.10.rs-paxeer-client-deposit-fn-l1027-j46", "interface.10.rs-paxeer-client-deposit-fn-l1032-j46", "interface.10.rs-paxeer-client-deposit-fn-l1037-j46", "interface.10.rs-paxeer-client-deposit-fn-l1687-j46", "interface.10.rs-paxeer-client-deposit-native-credit-l1814-j46", "interface.10.rs-paxeer-client-deposit-agent-credit-context-l1953-j46"]
@@ -154729,13 +154778,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_6 = "Finding 10.1.2.1: continue from attempt 1 (7daed2a8b) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_7 = "Finding 10.1.2.2: continue from attempt 2 (b97ac666c) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.8]
 title = "Delete the Paxeer client deposit and account vector tests"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10262.1"]
 capabilities = ["10.26.8"]
 interfaces = ["interface.10.rs-paxeer-client-deposit-agent-prepare-l2012-j46"]
@@ -154763,13 +154813,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_6 = "Finding 10.1.2.1: continue from attempt 1 (89f22f15e) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_7 = "Finding 10.1.2.2: continue from attempt 2 (c299416f0) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.9]
 title = "Delete the Paxeer client custody ABI codec"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10263.1"]
 capabilities = ["10.26.9"]
 interfaces = ["interface.10.rs-paxeer-client-custody-custody-precompile", "interface.10.rs-paxeer-client-custody-wei-per-base-unit", "interface.10.rs-paxeer-client-custody-max-evidence-bytes", "interface.10.rs-paxeer-client-custody-selector-deposit", "interface.10.rs-paxeer-client-custody-selector-deposit-token", "interface.10.rs-paxeer-client-custody-selector-request-withdrawal", "interface.10.rs-paxeer-client-custody-selector-finalise-withdrawal", "interface.10.rs-paxeer-client-custody-selector-request-forced-exit", "interface.10.rs-paxeer-client-custody-selector-execute-forced-exit", "interface.10.rs-paxeer-client-custody-selector-get-claim", "interface.10.rs-paxeer-client-custody-selector-nullifier-status", "interface.10.rs-paxeer-client-custody-selector-get-asset", "interface.10.rs-paxeer-client-custody-selector-exit-eligible", "interface.10.rs-paxeer-client-custody-selector-native-asset-id", "interface.10.rs-paxeer-client-custody-custody-deposit-topic", "interface.10.rs-paxeer-client-custody-claim-queued-topic", "interface.10.rs-paxeer-client-custody-claim-finalised-topic", "interface.10.rs-paxeer-client-custody-custody-release-topic", "interface.10.rs-paxeer-client-custody-emergency-exit-executed-topic", "interface.10.rs-paxeer-client-custody-custody-abi-error", "interface.10.rs-paxeer-client-custody-withdrawal-material", "interface.10.rs-paxeer-client-custody-forced-exit-material", "interface.10.rs-paxeer-client-custody-custody-claim", "interface.10.rs-paxeer-client-custody-custody-asset", "interface.10.rs-paxeer-client-custody-claim-queued", "interface.10.rs-paxeer-client-custody-claim-finalised", "interface.10.rs-paxeer-client-custody-custody-release", "interface.10.rs-paxeer-client-custody-emergency-exit-executed", "interface.10.rs-paxeer-client-custody-native-value-wei", "interface.10.rs-paxeer-client-custody-base-units-from-wei", "interface.10.rs-paxeer-client-custody-deposit-calldata", "interface.10.rs-paxeer-client-custody-deposit-token-calldata", "interface.10.rs-paxeer-client-custody-withdrawal-material-from-inclusion", "interface.10.rs-paxeer-client-custody-withdrawal-material-validated", "interface.10.rs-paxeer-client-custody-withdrawal-material-request-calldata", "interface.10.rs-paxeer-client-custody-withdrawal-material-finalise-calldata", "interface.10.rs-paxeer-client-custody-forced-exit-material-validated", "interface.10.rs-paxeer-client-custody-forced-exit-material-request-calldata", "interface.10.rs-paxeer-client-custody-forced-exit-material-execute-calldata", "interface.10.rs-paxeer-client-custody-get-claim-calldata", "interface.10.rs-paxeer-client-custody-nullifier-status-calldata", "interface.10.rs-paxeer-client-custody-get-asset-calldata", "interface.10.rs-paxeer-client-custody-exit-eligible-calldata", "interface.10.rs-paxeer-client-custody-native-asset-id-calldata", "interface.10.rs-paxeer-client-custody-withdrawal-nullifier", "interface.10.rs-paxeer-client-custody-exit-withdrawal-id", "interface.10.rs-paxeer-client-custody-withdrawal-claim-id", "interface.10.rs-paxeer-client-custody-exit-claim-id", "interface.10.rs-paxeer-client-custody-exit-recipient-message", "interface.10.rs-paxeer-client-custody-decode-claim", "interface.10.rs-paxeer-client-custody-decode-asset", "interface.10.rs-paxeer-client-custody-decode-status", "interface.10.rs-paxeer-client-custody-decode-bool", "interface.10.rs-paxeer-client-custody-decode-claim-queued", "interface.10.rs-paxeer-client-custody-decode-claim-finalised", "interface.10.rs-paxeer-client-custody-decode-custody-release", "interface.10.rs-paxeer-client-custody-decode-emergency-exit-executed", "interface.10.rs-paxeer-client-custody-unique-custody-log", "interface.10.rs-paxeer-client-custody-wire-merkle-proof"]
@@ -154796,13 +154847,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "Finding 10.1.2.1: continue from attempt 1 (4603492ef) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_6 = "Finding 10.1.2.2: continue from attempt 2 (0a80a9db7) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.10]
 title = "Delete the Paxeer client custody ABI fixtures"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10264.1"]
 capabilities = ["10.26.10"]
 interfaces = ["interface.10.rs-paxeer-client-deposit-fn-l2001-j46"]
@@ -154832,13 +154884,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_8 = "Finding 10.1.2.1: continue from attempt 1 (d4d69bc68) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_9 = "Finding 10.1.2.2: continue from attempt 2 (37bbe23b7) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.11]
 title = "Delete the Paxeer client withdrawal boundary"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10265.1"]
 capabilities = ["10.26.11"]
 interfaces = ["interface.10.rs-paxeer-client-withdraw-anchor-precompile", "interface.10.rs-paxeer-client-withdraw-withdrawal-config", "interface.10.rs-paxeer-client-withdraw-debit-expectation", "interface.10.rs-paxeer-client-withdraw-debit-expectation-validated", "interface.10.rs-paxeer-client-withdraw-debit-fault", "interface.10.rs-paxeer-client-withdraw-committed-withdrawal-debit", "interface.10.rs-paxeer-client-withdraw-committed-withdrawal-debit-verify", "interface.10.rs-paxeer-client-withdraw-committed-withdrawal-debit-expectation", "interface.10.rs-paxeer-client-withdraw-committed-withdrawal-debit-receipt-reference", "interface.10.rs-paxeer-client-withdraw-claim-refusal", "interface.10.rs-paxeer-client-withdraw-withdrawal-error", "interface.10.rs-paxeer-client-withdraw-withdrawal-claim", "interface.10.rs-paxeer-client-withdraw-withdrawal-claim-contract", "interface.10.rs-paxeer-client-withdraw-withdrawal-claim-debit", "interface.10.rs-paxeer-client-withdraw-withdrawal-claim-material", "interface.10.rs-paxeer-client-withdraw-withdrawal-claim-batch-number", "interface.10.rs-paxeer-client-withdraw-withdrawal-claim-anchor", "interface.10.rs-paxeer-client-withdraw-withdrawal-claim-nullifier", "interface.10.rs-paxeer-client-withdraw-withdrawal-claim-claim-id", "interface.10.rs-paxeer-client-withdraw-withdrawal-claim-calldata", "interface.10.rs-paxeer-client-withdraw-submitted-withdrawal-claim", "interface.10.rs-paxeer-client-withdraw-submitted-withdrawal-claim-claim", "interface.10.rs-paxeer-client-withdraw-submitted-withdrawal-claim-claim-id", "interface.10.rs-paxeer-client-withdraw-submitted-withdrawal-claim-available-at", "interface.10.rs-paxeer-client-withdraw-submitted-withdrawal-claim-submission-transaction", "interface.10.rs-paxeer-client-withdraw-submitted-withdrawal-claim-submission-inclusion", "interface.10.rs-paxeer-client-withdraw-submitted-withdrawal-claim-finalise-calldata", "interface.10.rs-paxeer-client-withdraw-paxeer-funds-disposition", "interface.10.rs-paxeer-client-withdraw-protocol-debit-disposition", "interface.10.rs-paxeer-client-withdraw-cancelled-funds-disposition", "interface.10.rs-paxeer-client-withdraw-claim-progress", "interface.10.rs-paxeer-client-withdraw-payout-evidence", "interface.10.rs-paxeer-client-withdraw-cancellation-evidence", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary-new", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary-new-for-protocol", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary-custody-precompile", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary-protocol-version", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary-construct-claim", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary-restore-claim", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary-track", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary-accept-submission", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary-restore-submission", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary-progress", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary-verify-payout", "interface.10.rs-paxeer-client-withdraw-withdrawal-boundary-verify-cancellation", "interface.10.rs-paxeer-client-withdraw-withdrawal-config-error-l55-j46", "interface.10.rs-paxeer-client-withdraw-fn-l185-j46"]
@@ -154867,13 +154920,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_7 = "Finding 10.1.2.1: continue from attempt 1 (235de0061) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_8 = "Finding 10.1.2.2: continue from attempt 2 (1816045fb) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.12]
 title = "Delete the Paxeer client debit wire codec"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10266.1"]
 capabilities = ["10.26.12"]
 interfaces = ["interface.10.rs-paxeer-client-wire-max-deposit-proof-bytes", "interface.10.rs-paxeer-client-wire-encode-deposit-proof", "interface.10.rs-paxeer-client-wire-decode-deposit-proof", "interface.10.rs-paxeer-client-wire-encode-deposit-failure", "interface.10.rs-paxeer-client-wire-decode-deposit-failure", "interface.10.rs-paxeer-client-wire-encode-finality-report", "interface.10.rs-paxeer-client-wire-decode-finality-report", "interface.10.rs-paxeer-client-wire-encode-debit-expectation", "interface.10.rs-paxeer-client-wire-decode-debit-expectation", "interface.10.rs-paxeer-client-wire-encode-withdrawal-material", "interface.10.rs-paxeer-client-wire-decode-withdrawal-material", "interface.10.rs-paxeer-client-wire-encode-forced-exit-material", "interface.10.rs-paxeer-client-wire-decode-forced-exit-material", "interface.10.rs-paxeer-client-wire-max-deposit-failure-bytes-l22-j46", "interface.10.rs-paxeer-client-wire-native-wire-error-l29-j46"]
@@ -154900,13 +154954,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "Finding 10.1.2.1: continue from attempt 1 (e55b48ff0) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_6 = "Finding 10.1.2.2: continue from attempt 2 (a7406880e) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.13]
 title = "Delete the Paxeer client finality tracker"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10267.1"]
 capabilities = ["10.26.13"]
 interfaces = ["interface.10.rs-paxeer-client-finality-tracker-config", "interface.10.rs-paxeer-client-finality-tracker-config-error", "interface.10.rs-paxeer-client-finality-finality-stage", "interface.10.rs-paxeer-client-finality-chain-signal", "interface.10.rs-paxeer-client-finality-endpoint-signal", "interface.10.rs-paxeer-client-finality-confirmation-progress", "interface.10.rs-paxeer-client-finality-finality-report", "interface.10.rs-paxeer-client-finality-finality-report-transaction", "interface.10.rs-paxeer-client-finality-finality-report-stage", "interface.10.rs-paxeer-client-finality-finality-report-signal", "interface.10.rs-paxeer-client-finality-finality-report-endpoint", "interface.10.rs-paxeer-client-finality-finality-report-progress", "interface.10.rs-paxeer-client-finality-finality-report-displacements", "interface.10.rs-paxeer-client-finality-finality-report-polls", "interface.10.rs-paxeer-client-finality-finality-tracker", "interface.10.rs-paxeer-client-finality-finality-tracker-new", "interface.10.rs-paxeer-client-finality-finality-tracker-transaction", "interface.10.rs-paxeer-client-finality-finality-tracker-required-confirmations", "interface.10.rs-paxeer-client-finality-finality-tracker-poll-cadence", "interface.10.rs-paxeer-client-finality-finality-tracker-latest", "interface.10.rs-paxeer-client-finality-receipt-logs-l211-j46", "interface.10.rs-paxeer-client-finality-poll-l308-j46"]
@@ -154935,13 +154990,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_7 = "Finding 10.1.2.1: continue from attempt 1 (75fea65bd) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_8 = "Finding 10.1.2.2: continue from attempt 2 (b24d242a6) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.14]
 title = "Delete the Paxeer client emergency exit planner"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10268.1"]
 capabilities = ["10.26.14"]
 interfaces = ["interface.10.rs-paxeer-client-exit-exit-config", "interface.10.rs-paxeer-client-exit-exit-config-error", "interface.10.rs-paxeer-client-exit-exit-evidence", "interface.10.rs-paxeer-client-exit-exit-eligibility", "interface.10.rs-paxeer-client-exit-exit-refusal", "interface.10.rs-paxeer-client-exit-exit-error", "interface.10.rs-paxeer-client-exit-exit-claim", "interface.10.rs-paxeer-client-exit-exit-progress", "interface.10.rs-paxeer-client-exit-exit-progress-of", "interface.10.rs-paxeer-client-exit-emergency-exit", "interface.10.rs-paxeer-client-exit-emergency-exit-new", "interface.10.rs-paxeer-client-exit-emergency-exit-contract", "interface.10.rs-paxeer-client-exit-emergency-exit-network-id", "interface.10.rs-paxeer-client-exit-emergency-exit-required-confirmations", "interface.10.rs-paxeer-client-exit-emergency-exit-eligibility", "interface.10.rs-paxeer-client-exit-emergency-exit-construct-claim", "interface.10.rs-paxeer-client-exit-emergency-exit-claim-record", "interface.10.rs-paxeer-client-exit-emergency-exit-verify-executed", "interface.10.rs-paxeer-client-exit-emergency-exit-track", "interface.10.rs-paxeer-client-exit-verify-exit-balance"]
@@ -154969,13 +155025,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_6 = "Finding 10.1.2.1: continue from attempt 1 (e5f42f5b1) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_7 = "Finding 10.1.2.2: continue from attempt 2 (e8f1a7db5) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.15]
 title = "Delete the Paxeer client native custody profile"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10269.1"]
 capabilities = ["10.26.15"]
 interfaces = ["interface.10.rs-paxeer-client-native-custody-native-custody-profile-bytes", "interface.10.rs-paxeer-client-native-custody-native-custody-credit-head-bytes", "interface.10.rs-paxeer-client-native-custody-native-custody-credit-max-bytes", "interface.10.rs-paxeer-client-native-custody-native-custody-expectation", "interface.10.rs-paxeer-client-native-custody-native-custody-credit", "interface.10.rs-paxeer-client-native-custody-validate-native-custody-profile", "interface.10.rs-paxeer-client-native-custody-native-custody-credit-verify", "interface.10.rs-paxeer-client-native-custody-native-custody-credit-nullifier", "interface.10.rs-paxeer-client-native-custody-native-custody-credit-canonical-bytes", "interface.10.rs-paxeer-client-native-custody-native-custody-credit-head-bytes-2", "interface.10.rs-paxeer-client-native-custody-native-custody-credit-bundle-bytes", "interface.10.rs-paxeer-client-native-custody-native-custody-credit-custody", "interface.10.rs-paxeer-client-native-custody-native-custody-credit-evidence", "interface.10.rs-paxeer-client-native-custody-native-custody-error-l13-j46", "interface.10.rs-paxeer-client-native-custody-native-custody-evidence-l27-j46", "interface.10.rs-paxeer-client-native-custody-fn-l272-j46"]
@@ -155002,13 +155059,14 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "Finding 10.1.2.1: continue from attempt 1 (8d2b5b428) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_6 = "Finding 10.1.2.2: continue from attempt 2 (f0caf6b5b) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.26.16]
 title = "Delete the disposable custody harness"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3"]
+requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
 reqs = ["10270.1"]
 capabilities = ["10.26.16"]
 interfaces = ["interface.10.rs-paxeer-client-deposit-fn-l1991-j46"]
@@ -155037,6 +155095,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_6 = "Finding 10.1.2.1: continue from attempt 1 (f83cc75f1) rebased onto main once task 13.8.3 is on it, keeping the tree unchanged; the declared build and verify then run as written."
+do_7 = "Finding 10.1.2.2: continue from attempt 2 (e10162e43) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.27.1]
 title = "Delete the explorer index manifest and binary entry point"
@@ -155411,7 +155470,7 @@ title = "Serve layerx-receipt evidence as receipt-proof v2 from evidence.get"
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["10.0.1", "8.0.1", "9.1.8", "18.1119.1", "10.2.4", "10.2.8", "18.1297.1", "9.25.16", "10.20.5", "13.8.3"]
+requires = ["10.0.1", "8.0.1", "9.1.8", "18.1119.1", "10.2.4", "10.2.8", "18.1297.1", "9.25.16", "10.20.5", "13.8.3", "10.99.2"]
 reqs = ["10961.1", "10961.2"]
 capabilities = []
 interfaces = []
@@ -155440,6 +155499,7 @@ do_4 = "The receipt bytes are PortableReceiptV2::export(signed_receipt, &key_ent
 do_5 = "Finding 10.92.1.4: continue from attempt 3 (63499d479), keeping production_reads.rs and the manifest changes, and rewrite tests/receipt_evidence_v2.rs over tests/support/production_fixture.rs: the test reads no environment variable, opens no socket the fixture did not start, and builds no NodeRpcConfig::from_environment. Extend the fixture's RpcServer so pax_sequencerReceipt can answer rung receipted and rung committed with a receipt signed by a fixture receipt key, and serve that key's public half through the receipt-keys answer the service reads via NodeRpc::receipt_keys (SequencerEndpoint::receipt_keys in layerx-client); evidence_get_returns_receipt_proof_v2 opens Fixture, drives the real submission route to a receipted leg, GETs /v1/evidence/{id} and asserts the content type application/receipt-proof-v2+json and that PortableReceiptV2::verify_json accepts the body against the fixture key; evidence_get_marks_committed_receipts answers rung committed with an inclusion height and asserts the evidence marks the receipt committed at that height. The verify command no longer passes --offline."
 do_6 = "Finding 10.92.1.5: continue from attempt 5 (540b80d97). Wherever do_1, do_4 and the tests say verification receipted or committed, read the VerificationLevel the schema maps the rung to: receipt-verified for Rung::Receipted and checkpoint-finalised for Rung::Committed (journeys.kvx:28 rung_mapping), and keep unverified refusing as attempt 5 does for a submitted rung. In services/human/schema/human-api/journeys.kvx add rung:Rung to the optional list of [type.EvidenceMaterial] at :52, the way [type.AccountBalance] declares it (home.kvx:14), and serve rung as the Rung name (receipted or committed) beside verification, so a reader keeps both the achieved rung and the declared verification level. The two tests assert verification equals the mapped level and rung equals the rung name; the schema.rs loader includes journeys.kvx at build time, so no other file changes."
 do_7 = "Finding 10.92.1.6: continue from attempt 6 (4e8fb8fbc) rebased onto current main, keeping its production_reads.rs, journeys.kvx, fixture and test changes as written; the human workspace manifest on main no longer lists the deleted movement provider crate, so the declared build and verify run as the task states."
+do_8 = "Finding 10.1.2.2: continue from attempt 8 (012e45a08) rebased onto main once task 10.99.2 is on it, keeping the tree unchanged; the declared build and verify then run as written."
 
 [task.10.95.1]
 title = "Rebuild the observed journey balances on the denom and amount AssetBalance"
@@ -188514,6 +188574,14 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.10.99.2]
+feature = "19"
+req = "10992.1"
+scenario = "Given main after 2455fbc51 removed the native owner outcome verifier from layerx-proof, when layerx-human-service is built under --locked, then it compiles, production_components.rs names neither verify_native_owner_outcome nor NativeOwnerOutcomeContext, and the budget defund and EVM intent paths still bind their receipts through protocol_evidence and verify them through verify_outcome or finalization_evidence."
+contract = "contracts/agent-rust-api.md#receipt-verify-outcome"
+test = "cargo check --locked of layerx-human-service plus the identifier grep of task 10.99.2 (its verify_cmd)"
 qualification = "UNRUN"
 
 [acceptance.8.52.1]
