@@ -42,6 +42,10 @@ pub enum ConstructMethod {
     PayBudgetCreate {
         payload: Vec<u8>,
     },
+    PayBudgetFund {
+        budget: [u8; 32],
+        amount: u128,
+    },
     PayBudgetDefund {
         budget: [u8; 32],
         amount: u128,
@@ -373,6 +377,19 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
                 Ok(ConstructMethod::PayBudgetCreate { payload })
             }
             value
+                if value == ledger_selector("budgetFund(bytes32,uint128)")
+                    && args.len() == 64 =>
+            {
+                let amount = u128::from_be_bytes(uint(word(args, 1)?)?);
+                if amount == 0 {
+                    return Err(DisclosureError::MalformedPayload);
+                }
+                Ok(ConstructMethod::PayBudgetFund {
+                    budget: word(args, 0)?,
+                    amount,
+                })
+            }
+            value
                 if value == ledger_selector("budgetDefund(bytes32,uint128)")
                     && args.len() == 64 =>
             {
@@ -434,12 +451,15 @@ pub(super) fn fields(
         ConstructMethod::LedgerIssueGrant { .. } => 7,
         ConstructMethod::LedgerDraw { .. } => 6,
         ConstructMethod::LedgerRevokeGrant { .. } => 8,
+        ConstructMethod::PayBudgetFund { .. } => 2,
         ConstructMethod::PayBudgetDefund { .. } => 8,
         ConstructMethod::AuthLifecycle { payload, .. } => u16::from(payload[1]),
     };
     let module = if matches!(
         &method,
-        ConstructMethod::PayBudgetCreate { .. } | ConstructMethod::PayBudgetDefund { .. }
+        ConstructMethod::PayBudgetCreate { .. }
+            | ConstructMethod::PayBudgetFund { .. }
+            | ConstructMethod::PayBudgetDefund { .. }
     ) {
         ModuleId::Budget
     } else if matches!(&method, ConstructMethod::AuthLifecycle { .. }) {
@@ -564,6 +584,10 @@ pub(super) fn fields(
                     .try_into()
                     .map_err(|_| DisclosureError::MalformedPayload)?,
             );
+            disclose_amount(&mut fields.amounts, AmountRole::Transfer, amount);
+        }
+        ConstructMethod::PayBudgetFund { budget, amount } => {
+            disclose_party(&mut fields.counterparties, CounterpartyRole::Payer, budget);
             disclose_amount(&mut fields.amounts, AmountRole::Transfer, amount);
         }
         ConstructMethod::PayBudgetDefund { budget, amount } => {
