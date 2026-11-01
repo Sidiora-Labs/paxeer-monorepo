@@ -215,12 +215,14 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
     async (req, reply) => {
       const { id } = req.params as { id: string };
       if (!/^\d{1,80}$/.test(id)) return reply.code(400).send({ error: 'invalid_job_id' });
-      const job = await scheduler.getJob(BigInt(id)).catch((err) => {
+      try {
+        const job = await scheduler.getJob(BigInt(id));
+        if (job === null) return reply.code(404).send({ error: 'not_found' });
+        return reply.send({ job });
+      } catch (err) {
         req.log.warn({ err }, 'getJob failed');
-        return null;
-      });
-      if (!job) return reply.code(404).send({ error: 'not_found' });
-      return reply.send({ job });
+        return reply.code(502).send({ error: 'read_failed' });
+      }
     }
   );
 
