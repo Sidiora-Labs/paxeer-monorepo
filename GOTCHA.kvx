@@ -12416,3 +12416,8 @@ fix = "sequence such checks behind the domain completion gates (N.0.9) instead o
 title = "Refusal-only retired components never appear in the callers inventory"
 symptom = "17.2.6's stale_rows flagged requires-sei-wasm, a row with deleted_trees = [] whose callers are shell scripts."
 fix = "treat components without deleted_trees as outside the inventory's domain."
+
+[gotcha.2520]
+title = "A schema edit without a regenerated client fails the api-gen drift test on every later main"
+symptom = "10.0.3 (63aee3813) extended services/human/schema/human-api and left apps/web/src/api/generated at its earlier shape; make human-build was red until 14.0.5."
+fix = "a task that touches the human-api schema regenerates the client in the same change, or the spec names the web task that does and sequences the aggregate gates behind it."
