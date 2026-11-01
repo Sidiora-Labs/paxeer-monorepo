@@ -16371,3 +16371,27 @@ symbol = "VerifyWithdrawal"
 observed = "Attempt 3 (5bfe3cc9e) passes the two deposit-root tests and its trace prints the merge-plan done height 0 and Keeper.Retired false at both probe points, so finding 6.96.3.1 does not apply; TestWithdrawalReadsAnchorFinalizedCheckpoint fails at anchor_reader_test.go:124 because Keeper.VerifyWithdrawal has returned types.ErrModuleRetired unconditionally since 8fe2607dd (task 6.96.2, do_2) and FinaliseWithdrawal reaches it through withdrawalClaim (claims.go:235), so the test's ErrNotFinalized, NoError, CLAIM_STATUS_PAID and ErrNotAuthorized expectations on the withdrawal path cannot hold at main."
 assumption = "The custody withdrawal path is retired for good; the anchor reader test keeps proving the anchor-side finalized read and asserts the retirement on every withdrawal call."
 severity = "major"
+
+[finding.10.2.11.3]
+task = "10.2.11"
+file = "services/wallet/attestor/internal/policy/policy.go:606"
+symbol = "checkDestination"
+observed = "Attempt 4 (4c854144d) starts the five daemons with the custody authority and the signed inventory and passes the two other attestor tests; attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum now fails with policy_denied selector_not_allowed because the test's policy.json (tests/attestor.rs:550-560, the same document the shared support writes) carries no selectors entry while checkDestination refuses every call to a precompile whose methods are not listed, and the disclosed activity is a layerxledger.send (selector 0x2bb1ae7c) to precompile 0x000000000000000000000000000000000000101a (services/agent/crates/layerx-crypto/src/send.rs:182-193); the deployed policy services/wallet/deploy/attestor-policy.json lists that precompile with 0x2bb1ae7c, 0x78ea11db and 0x2e89490f."
+assumption = "The test's policy mirrors the deployed policy's method allow-list for the ledger precompile; the daemon stays unchanged."
+severity = "major"
+
+[finding.10.20.5.4]
+task = "10.20.5"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "[task.10.20.5] symbols"
+observed = "Attempt 5 (b186692b7) builds, passes move_commit_submits_a_bank_transfer_without_a_movement_provider and the two other declared tests on its second verify run, and the done check refuses with two graph checks: symbol UnixMovementProvider and symbol movement_account_address are not defined in the graph, because the task's symbols list names them while do_1 and do_2 delete them."
+assumption = "A deleted symbol is not a symbol the task defines; the list keeps ProductionComponents only."
+severity = "minor"
+
+[finding.18.1402.1.1]
+task = "18.1402.1"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:8648"
+symbol = "send_leg_denom"
+observed = "Attempt 4 (1913a5b04) answers px_listAssets with asset_id 0x followed by the hex of ASSET as do_2 says and the plan request fails with 403 forbidden at intent_plan_evm.rs:1127, because 8677d280c (task 18.1423.1, after do_2 and do_3 were written) made send_leg_denom match an asset table entry only when its asset_id equals denom:<denom> and sha256(denom) equals the leg's asset bytes (send_leg_denom_resolves_a_producer_shaped_bank_asset refuses the 0x form at production_components.rs:9031-9035); ASSET at intent_plan_evm.rs:137 is [0x31; 32], which is no denom digest."
+assumption = "The node double answers the catalog shape the producer serves today (asset_id denom:alxp) and the plan's asset is the digest of that denom; the production lookup stays as 18.1423.1 left it."
+severity = "major"
