@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"math"
+	"sort"
 	"sync"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
@@ -21,13 +22,16 @@ type receiptSourceEntry struct {
 	send   evmrpc.SequencerSend
 }
 
-// ReceiptSource retains accepted sends until their receipt heights commit.
+// ReceiptSource retains accepted sends after their receipt heights commit,
+// evicting the oldest committed sends only when capacity is needed.
 // The zero value is ready for use and holds at most 65,536 sends.
 type ReceiptSource struct {
-	mu        sync.RWMutex
-	entries   map[common.Hash]receiptSourceEntry
-	capacity  int
-	committed int64
+	mu             sync.RWMutex
+	entries        map[common.Hash]receiptSourceEntry
+	capacity       int
+	committed      int64
+	pendingOrder   []common.Hash
+	committedOrder []common.Hash
 }
 
 // NewReceiptSource sets the maximum number of retained sends. Capacity must be positive.
@@ -39,8 +43,9 @@ func NewReceiptSource(capacity int) *ReceiptSource {
 }
 
 // Record stores an owned copy of an accepted, signed send. Invalid input or
-// exhausted capacity panics: this void API cannot report a lost accepted receipt.
-// Sends at already committed heights are not retained.
+// capacity exhausted before commit panics: this void API cannot report a lost
+// accepted receipt. Retained committed sends are evicted oldest first as needed.
+// Sends recorded at already committed heights are not retained.
 func (s *ReceiptSource) Record(hash common.Hash, send evmrpc.SequencerSend) {
 	send = cloneReceiptSourceSend(send)
 	receipt, err := codec.DecodeReceipt(send.Receipt)
@@ -64,8 +69,24 @@ func (s *ReceiptSource) Record(hash common.Hash, send evmrpc.SequencerSend) {
 	if capacity == 0 {
 		capacity = defaultReceiptSourceCapacity
 	}
-	if _, exists := s.entries[hash]; !exists && len(s.entries) >= capacity {
-		panic("sequencer: receipt source capacity exhausted before commit")
+	entry, exists := s.entries[hash]
+	if !exists && len(s.entries) >= capacity {
+		if len(s.committedOrder) == 0 {
+			panic("sequencer: receipt source capacity exhausted before commit")
+		}
+		delete(s.entries, s.committedOrder[0])
+		s.committedOrder = s.committedOrder[1:]
+	}
+	if exists && entry.height <= s.committed {
+		for i, committedHash := range s.committedOrder {
+			if committedHash == hash {
+				s.committedOrder = append(s.committedOrder[:i], s.committedOrder[i+1:]...)
+				break
+			}
+		}
+	}
+	if !exists || entry.height <= s.committed {
+		s.pendingOrder = append(s.pendingOrder, hash)
 	}
 	if s.entries == nil {
 		s.entries = make(map[common.Hash]receiptSourceEntry)
@@ -85,7 +106,8 @@ func (s *ReceiptSource) SequencerSend(hash common.Hash) (*evmrpc.SequencerSend, 
 	return &send, nil
 }
 
-// Committed drops all sends at or below height. The commit watermark never decreases.
+// Committed retains sends at or below height for lookup until capacity eviction,
+// ordered by height and then insertion order. The commit watermark never decreases.
 func (s *ReceiptSource) Committed(height int64) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -93,11 +115,20 @@ func (s *ReceiptSource) Committed(height int64) {
 		return
 	}
 	s.committed = height
-	for hash, entry := range s.entries {
-		if entry.height <= height {
-			delete(s.entries, hash)
+	var newlyCommitted []common.Hash
+	pending := s.pendingOrder[:0]
+	for _, hash := range s.pendingOrder {
+		if s.entries[hash].height <= height {
+			newlyCommitted = append(newlyCommitted, hash)
+		} else {
+			pending = append(pending, hash)
 		}
 	}
+	s.pendingOrder = pending
+	sort.SliceStable(newlyCommitted, func(i, j int) bool {
+		return s.entries[newlyCommitted[i]].height < s.entries[newlyCommitted[j]].height
+	})
+	s.committedOrder = append(s.committedOrder, newlyCommitted...)
 }
 
 func cloneReceiptSourceSend(send evmrpc.SequencerSend) evmrpc.SequencerSend {
