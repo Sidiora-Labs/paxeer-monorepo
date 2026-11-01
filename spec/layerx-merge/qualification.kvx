@@ -15835,3 +15835,51 @@ symbol = "account_proof"
 observed = "Attempt 1 (3d00000a8, base 7c9d46e36) wrote storage_witness.rs, the vector, the generator test and the module_state.rs, rpc/evidence.rs and proof_bundle.rs ports, go vet passed, and the Rust build failed with E0432 and E0599 at rpc/account.rs:6 and :79 because do_1 deletes AccountProof, StorageProof, account_proof and decode_account_proof while rpc/account.rs:79, tests/sequencer_reads.rs:131-159, tests/reads_rpc.rs:8, node_rpc.rs:217, read/checkpoint.rs:6, human_runtime.rs:14997 and :15356 and tests/proof_bundle_v2.rs:9 and :129 still use them; rpc/account.rs, read/checkpoint.rs and human_runtime.rs are touches of 9.25.2, 9.25.10 and 9.25.6. tests/proof_bundle_v2.rs also builds the AccountProof with balance, nonce, code_hash and storage_hash that do_4 removes from AccountState, so the ported proof bundle has no passing consumer test."
 assumption = "Decision 2207: the four items stay until task 9.25.13; tests/proof_bundle_v2.rs joins this task and is ported onto the ICS23 witness."
 severity = "major"
+
+[finding.12.35.2.14]
+task = "12.35.2"
+file = "sdk/wallet/src/ladder.ts:425"
+symbol = "observeTransfer"
+observed = "Attempt 16 (b7fe731c1, base fc4d63a40) built, changed nothing, and the receipt poll of do_16 passed: pax_sequencerReceipt answered the sent transfer with rung committed and a block hash within seconds (task 5.5.22 landed). The page then showed the title Transfer Included and no reached rung for the sixty-second poll because observeTransfer (sdk/wallet/src/ladder.ts:425-434) pushes the receipt step only when the node's rung is not committed or the explorer confirms committed for the same block; the local profile has no explorer, so steps stayed empty and TransferSuccess.tsx:242 derived no Receipted. The test file is correct against req.12295 and no file of this task can change the ladder."
+assumption = "Task 12.22.6 (decision 2208) pushes the receipted receipt step for a committed node answer the explorer does not corroborate; the page then shows Receipted with data-source receipt and data-evidence receipted:<blockHash>, which the test and its saved observation expect."
+severity = "major"
+
+[finding.10.6.5.8]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs:252"
+symbol = "setup_evidence"
+observed = "Attempt 9 (53735609e, base 2dc8523b6) built every test target of both crates and passed the whole intent_submit target; the verify gate then failed in native_onboarding_completes_only_at_committed at tests/native_onboarding_rungs.rs:287 with Refused('invalid signed lifecycle transaction'): setup_evidence still signs a native owner envelope (owner_activity::unsigned_native, SignatureMessage, an ed25519 key, attach_native_signature) while ProtocolEvidence::bound_activity (src/agents/create.rs:534-536, c4739fc6c, task 10.97.1) decodes signed_activity as an EVM signed transaction, recovers its sender and binds the call disclosure; tests/agent_create.rs:637-694 already builds this evidence through tests/support/canonical_owner.rs sign_transaction, and native_onboarding_rungs.rs was outside the touches of 10.97.1."
+assumption = "setup_evidence signs through canonical_owner::sign_transaction as agent_create.rs does; no src file changes."
+severity = "major"
+
+[finding.17.5.5.5]
+task = "17.5.5"
+file = "services/platform/Makefile.inc:59"
+symbol = "platform-sample-dependencies-ready"
+observed = "Attempt 12 (585053d5f, base 2dc8523b6) built, passed platform-sdk-check, and the wave 4 aggregate failed in platform-sample-dependencies-ready (services/platform/Makefile.inc:58-66) with 'run make platform-sample-install first': the qualification environment had neither run make platform-sample-install nor carried Maven, Swift and dotnet, which platform-sample-preflight (:30-36) and the readiness check require; the test of this task is unchanged and correct."
+assumption = "The qualification environment now provides Maven, Swift and dotnet and runs make platform-sample-install before the gate; this task continues unchanged."
+severity = "minor"
+
+[finding.9.25.11.2]
+task = "9.25.11"
+file = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs:460"
+symbol = "ProofBundleRequest"
+observed = "Attempt 2 (61529eece, base ccffcb531) restored the account proof items with the decision 2207 doc comment, ported proof_bundle_v2.rs and the three client tests, and the build of layerx-agentd failed with eleven errors: read/proof_bundle.rs:127, :132, :220, :260 and :278 pass StorageWitness slices and AccountState where read/checkpoint.rs:460 declares ProofBundleRequest.account_proof as Option<&AccountProof> and :483 ServedProofBundle.account_proof as Option<AccountProof>, and protocol_evidence.rs:1961, :1962 and :1975 call evidence() on the ModuleStateValue of the rewritten module_state, which no longer carries a VerifiedModuleEvidence; both files were outside the touches, so the attempt stopped at the build and the verify gate never ran."
+assumption = "read/checkpoint.rs and protocol_evidence.rs join the touches; the two field types follow the daemon's AccountState and StorageWitness, and verified_program_record is ported onto the new module_state with the ServedCheckpoint per decision 2209."
+severity = "major"
+
+[finding.9.25.6.2]
+task = "9.25.6"
+file = "services/agent/crates/layerx-agentd/src/budget/execution_state.rs:214"
+symbol = "read_record"
+observed = "The keys read_record builds at :214-230 (program NUL, program-owner NUL, wind-down NUL s, interface NUL, progfee/active/v1, wind-down NUL r, program-account NUL r) name module-store records the node does not serve as EVM storage: the retired module_state proved a 32-byte slot while the binding check at :229 needs at least 139 bytes, and after task 9.25.11 (decision 2209) verified_program_record takes precompile calldata, so these calls compile but every read fails at the precompile's selector check and settlement refuses with SourceSnapshot."
+assumption = "This task ports read_record onto the precompile's view functions with the ServedCheckpoint it already acquires; verified_program_record and verified_program_owner lose their LNI parameters here."
+severity = "major"
+
+[finding.8.98.18.1]
+task = "8.98.18"
+file = "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs:450"
+symbol = "OWNER"
+observed = "Attempt 1 (a88af5bbc, base ccffcb531) implemented decision 2205 in budget_state.rs and the fixture test; the build passed and the test failed at :440 with budget_proof_export_unavailable: Session::identity (budget_state.rs:96) reads px_getAccount through layerx_client PxEndpoint::account, whose identities decoder (layerx-client/src/px.rs:189-199) accepts a layerx_did only as did:layerx: followed by 64 hexadecimal characters, while the fixture carries did:layerx:budget-owner from the generator constant OWNER (task 9.25.10); the decode fails, no identity binds, produce_at returns Err(()) and the handler reports unavailable. The replay double, the session and the export code of this task are correct, and the daemon's fixture tests never ran the client's decoder."
+assumption = "Task 9.25.14 (decision 2210) regenerates the fixture with a conforming DID; this task requires it and continues unchanged."
+severity = "major"

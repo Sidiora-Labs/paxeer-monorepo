@@ -12571,3 +12571,28 @@ fix = "when a task adds a chain read on a path an anvil-backed test exercises, t
 title = "A changed type's integration tests belong to the task that changes it"
 symptom = "a task rewrote the daemon's proof bundle AccountState onto an ICS23 storage witness and deleted the client's account proof type; the integration test that built the old proof with balance, nonce and hashes sat outside the touches, and readers in three sibling tasks' files still called the deleted method, so the build failed before any gate"
 fix = "before scheduling a type change, grep every constructor and reader in src and tests; tests of the changed shape join the touches, readers owned by sibling tasks move the deletion into a follow-up that requires them"
+
+[gotcha.2551]
+title = "A changed evidence encoding leaves consumer tests outside the producer's touches stale"
+symptom = "a done task moved the lifecycle evidence check from the native owner envelope to the EVM signed transaction (create.rs bound_activity) with only its own crate's tests in the touches; the onboarding rung test still signed the native envelope and failed with Refused('invalid signed lifecycle transaction') attempts later inside an unrelated porting task"
+fix = "a task that changes how a service decodes evidence lists every test that builds that evidence in its touches and verifies one of them; a porting task that meets such a fixture signs it through the shared support helper the already-ported tests use"
+
+[gotcha.2552]
+title = "The wallet ladder dropped a committed node receipt the explorer could not corroborate"
+symptom = "once the node kept committed sends readable (5.5.22), pax_sequencerReceipt answered committed seconds after inclusion and observeTransfer pushed no receipt step at all for a committed answer without explorer evidence, so the send page showed Transfer Included with an empty ladder instead of Receipted"
+fix = "a node answer above a rung proves that rung: present the highest rung the evidence supports (receipted from the receipt) and reserve the higher rung for the corroborating source"
+
+[gotcha.2553]
+title = "The wave 4 aggregate needs make platform-sample-install and the Platform toolchains before its readiness check"
+symptom = "platform-sample-dependencies-ready (services/platform/Makefile.inc:58) exits with 'run make platform-sample-install first' when the Platform Python environment under build/platform-python is absent, and platform-sample-preflight also demands Maven, Swift and dotnet"
+fix = "run make platform-sample-install in an environment that has mvn, swift and dotnet before any target that depends on platform-sample-dependencies-ready (platform-build-all, platform-verify-sdks, platform-test-middleware)"
+
+[gotcha.2554]
+title = "A client API rewrite lists the consumers of the removed items as touches"
+symptom = "a task rewrote a client module's read API per a decision and the daemon's build failed on two files outside its touches that declared the removed proof type in request and result structs and called the removed evidence accessor; the attempt stopped at the build"
+fix = "before rewriting a pub API, grep the dependent crates for every use of the removed items and add those files to the task's touches or write a decision naming the owning task"
+
+[gotcha.2555]
+title = "Fixture DIDs take the form did:layerx: plus 64 hex characters"
+symptom = "a shared JSON-RPC fixture used the readable owner DID did:layerx:budget-owner; the daemon's generator and verifier tests passed, but the authority's export through layerx-client PxEndpoint refused with budget_proof_export_unavailable because px.rs identities() decodes a layerx_did only as did:layerx: followed by 64 hexadecimal characters, and produce_at hides which check returned Err(())"
+fix = "generate fixture identifiers in the node's rendered form and assert that form in the generator test; when a consumer collapses errors to Err(()), read every decoder on its path before ruling"
