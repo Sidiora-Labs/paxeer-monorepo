@@ -117220,7 +117220,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.25.14]
 title = "Give the budget proof v2 fixture an owner DID the client decoder accepts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["9.25.10"]
