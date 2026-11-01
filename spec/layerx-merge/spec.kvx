@@ -117744,7 +117744,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.25.20]
 title = "Prove startup budget recovery over committed budget-state evidence after the handshake-pinned module-witness tests retire"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.17", "9.25.6"]
