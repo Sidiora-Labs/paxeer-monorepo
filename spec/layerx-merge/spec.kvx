@@ -100364,7 +100364,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.12.5]
 title = "Port the ledger keeper tests off the deleted payer-grant state reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["1.12.4"]
