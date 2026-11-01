@@ -15643,3 +15643,27 @@ symbol = "simulation_tls_checks_the_actual_server_identity"
 observed = "Attempts 1 and 2 (bases 7438bbd0a and ffa589f28) built, passed the dependent-crate check and then failed the verify in simulation_tls_checks_the_actual_server_identity at services/platform/tests/support/tls_boundary.rs:187 ('build the real Paxeer TLS boundary first'): the test needs the layerx-paxeer-boundary binary of services/platform/hosted/paxeer at LAYERX_PAXEER_BOUNDARY_BIN, which task 9.25.3 (do_8) builds in its build command and names in its verify command, while this task's commands inherited neither."
 assumption = "9.25.4 takes 9.25.3's gate form; the implementation is unchanged."
 severity = "minor"
+
+[finding.10.6.5.3]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/custody.rs:600"
+symbol = "EmergencyExit"
+observed = "Attempt 4 (6d056d649) ported the seven declared test files and the build gate stopped at a ninth target: tests/custody.rs:600, :610 and :620 still name custody::Operation::EmergencyExit, the variant a39f1dd90 (task 10.17.1) deleted from src/custody/signer.rs after 10.8.3 deleted the exit journey; cargo build --tests stops at the first broken target, so the file stayed hidden behind the eight that attempts 2 to 4 surfaced one at a time."
+assumption = "custody.rs joins the touches; the fresh and replayed step-up segment signs under Operation::WalletRebinding, the variant the expired segment at :591 already uses, so the test keeps proving StepUpExpired, an accepted fresh step-up and StepUpReplayed; no src file changes."
+severity = "major"
+
+[finding.9.25.2.2]
+task = "9.25.2"
+file = "services/agent/crates/layerx-client/src/read.rs:349"
+symbol = "*_with_history"
+observed = "Attempt 4 (base ffa589f28) deleted the seven modules do_1 to do_5 name and added src/fee.rs, and the build then failed with unresolved imports of the deleted modules in src/batch.rs:199, src/evidence/module_state.rs:74 and :92, src/read.rs:349, :386, :406, :460, :662 and :730, src/read/module.rs:2 and :25, src/receipt.rs:12, src/rpc/account.rs:5 and src/rpc/module_state.rs:9, the files do_7 names but the touches do not, so the attempt could not edit them; tests/receipt_rpc.rs:8 imports ReconnectPolicy from the deleted client module and layerx-agentd/tests/fee_projection_program_state.rs:17 imports MAX_FEE_METER_CANONICAL_BYTES from it; and outside the task the SDK (src/lib.rs:38 and :286, src/rpc_verification.rs:137 to :387, tests/sdk.rs:12 to :40), nine daemon test and example files and the authority's src/trust.rs:2 and :77 still name Client, ClientConfig or handover::SequencerHistory, against do_7's premise that no other crate names them."
+assumption = "The seven source files and the two test files join the touches; the consumer ports are tasks 9.25.9 (agent) and 8.98.17 (authority), which this task now requires (decisions 2200 and 2201)."
+severity = "major"
+
+[finding.2.90.1.2]
+task = "2.90.1"
+file = "node/abci.go:334"
+symbol = "commitListener"
+observed = "Attempt 5 (a772c6010, base 21c2ab6ee) passed the build gate and the two restated replay tests, and verification stopped at TestCommitSurvivesPanickingListener (node/commit_listener_test.go:122): Commit returned 'commit listener at height 1 panicked: commit listener failed', because commitListener (node/abci.go:331-340) recovers a listener panic and returns it as an error, while req 5045 ac_2 and acceptance 5.45.2 require that a panicking listener does not fail Commit; node/abci.go was outside the touches."
+assumption = "node/abci.go joins the touches: a recovered panic is logged at error level with the height and the panic value and Commit returns no error, since the store commit and the height advance precede the listener call; a listener returning an error keeps failing Commit as TestCommitReturnsListenerFailure proves."
+severity = "major"

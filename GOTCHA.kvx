@@ -12501,3 +12501,8 @@ fix = "install the services/wallet pnpm workspace, whose pnpm-workspace.yaml lis
 title = "Platform make targets build and test offline"
 symptom = "make workspace-build reaches platform-build-all, whose cargo builds and tests pass --offline on services/platform, tools/platform and sdk/platform/generators plus the marketplace program for wasm32-unknown-unknown, whose go build runs with GOPROXY=off, whose mvn runs with -o and whose dotnet build passes --no-restore, so the first uncached dependency fails the aggregate (failed to download anstream v1.0.0 at services/platform/Makefile.inc:98)"
 fix = "warm every cache before the gate: cargo fetch --locked for the four manifests, rustup target add wasm32-unknown-unknown, go mod download in sdk/platform/go, mvn install of sdk/platform/jvm then dependency:go-offline of sdk/integrations/spring/example, and dotnet restore of sdk/platform/dotnet/LayerX.Sdk.csproj"
+
+[gotcha.2537]
+title = "cargo build --tests stops at the first broken test target"
+symptom = "a port of stale integration tests surfaced one more broken target per attempt (10.6.5 attempts 2, 3 and 4 each found a single new file) because cargo stops compiling after the first failing target and reports only that one"
+fix = "run the build command once with --keep-going before porting, so every broken target is listed in one pass and all of them join the touches together"
