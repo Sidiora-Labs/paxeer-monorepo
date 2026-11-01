@@ -193708,7 +193708,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.90.1]
 title = "Write the OpenAPI anchors page schema test the merged spec names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["18.1081.1"]
