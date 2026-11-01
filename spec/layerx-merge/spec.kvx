@@ -193783,7 +193783,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1156.1]
 title = "Issue #1156: layerx-human-kms provider test writes a registry the KMS refuses: network_id 77 where it requires chain_id 125"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.3", "18.1159.1", "18.1297.1", "10.24.4"]
