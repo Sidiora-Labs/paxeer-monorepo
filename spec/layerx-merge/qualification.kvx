@@ -15811,3 +15811,27 @@ symbol = "platform-sdk-check"
 observed = "Attempt 3 (4ccbabda0, base de1dbe1b8) deleted the Rust rendering of GeneratedContract.java, regenerated the outputs and resealed the lock; the build passed, make platform-sdk-check passed and both pipeline_reseal tests passed, and the qualification was refused only by two graph checks: the declared symbols platform-sdk-generate and platform-sdk-check are Makefile targets, which the code graph never indexes, so they can never be found."
 assumption = "The task's symbols name only pipeline_lock_matches_repository; the attempt continues unchanged."
 severity = "minor"
+
+[finding.9.25.2.3]
+task = "9.25.2"
+file = "services/agent/crates/layerx-agentd/src/budget/execution_state.rs:142"
+symbol = "VerifiedCaps"
+observed = "Attempt 5 (faf586fdb, base de1dbe1b8) ported the twenty-seven files of do_8, layerx-client and its test targets built, and layerx-agentd failed with nine errors naming layerx_client::evidence::VerifiedCaps, the type of the evidence/caps.rs this task deletes: budget/execution_state.rs:7 and :142, budget/program_sources.rs:3 and its four caps parameters, and the seven human_runtime.rs Unavailable stubs (:187, :3923, :5776, :6637, :7087, :8120, :8334) that name it as the type of the capability value; tasks 9.25.6 (execution_state.rs, human_runtime.rs) and 9.25.7 (program_sources.rs) port those consumers, and this task did not require them."
+assumption = "This task requires 9.25.6 and 9.25.7 and moves to their wave with its wave-35 dependents; attempt 5 continues unchanged once they are on main."
+severity = "major"
+
+[finding.9.25.7.2]
+task = "9.25.7"
+file = "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:841"
+symbol = "chain_peer"
+observed = "Attempt 4 (51ee92afc, base 7c9d46e36) replaced both app_hash reads with endpoint.state_root(height) as do_4 asks, the build and the twelve fee-policy and program-sources unit tests passed, and the preview test panicked at native_send_preview_evm.rs:841 with Unavailable: native_send_owner_preview_on_surface (human_runtime.rs:6236) now reads native_fee_policy at the observed head, whose getFeeDenom(address) eth_call goes to the fee token precompile 0x0000000000000000000000000000000000001018; the test's chain peer answers only the account-binding precompile itself and forwards every other call to anvil, which holds no code at that address and returns empty data, so text() fails with FeeReadError::Denomination and the preview maps it to Unavailable. No file of the task's touches can make anvil answer a precompile."
+assumption = "The chain peer of the preview test answers the fee token and bank reads with the values of the fee_policy.rs unit fixture, and the test file joins the touches."
+severity = "major"
+
+[finding.9.25.11.1]
+task = "9.25.11"
+file = "services/agent/crates/layerx-client/src/rpc/account.rs:79"
+symbol = "account_proof"
+observed = "Attempt 1 (3d00000a8, base 7c9d46e36) wrote storage_witness.rs, the vector, the generator test and the module_state.rs, rpc/evidence.rs and proof_bundle.rs ports, go vet passed, and the Rust build failed with E0432 and E0599 at rpc/account.rs:6 and :79 because do_1 deletes AccountProof, StorageProof, account_proof and decode_account_proof while rpc/account.rs:79, tests/sequencer_reads.rs:131-159, tests/reads_rpc.rs:8, node_rpc.rs:217, read/checkpoint.rs:6, human_runtime.rs:14997 and :15356 and tests/proof_bundle_v2.rs:9 and :129 still use them; rpc/account.rs, read/checkpoint.rs and human_runtime.rs are touches of 9.25.2, 9.25.10 and 9.25.6. tests/proof_bundle_v2.rs also builds the AccountProof with balance, nonce, code_hash and storage_hash that do_4 removes from AccountState, so the ported proof bundle has no passing consumer test."
+assumption = "Decision 2207: the four items stay until task 9.25.13; tests/proof_bundle_v2.rs joins this task and is ported onto the ICS23 witness."
+severity = "major"

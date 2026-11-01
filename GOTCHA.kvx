@@ -12556,3 +12556,18 @@ fix = "when a task ports a test target, its verify command runs that target; bef
 title = "Makefile targets are not code-graph symbols"
 symptom = "a task listed two Makefile targets in its symbols; the attempt built, passed every gate and was refused by the graph check with 'symbol not defined in the graph' for both"
 fix = "symbols name functions, types, methods or enums the graph extracts; name a Makefile target in the verify command or the do text, never in symbols"
+
+[gotcha.2548]
+title = "A deletion task must require the tasks that port its consumers"
+symptom = "a task deleting a client crate's capability evidence type listed three done tasks as the place the daemon stopped using it, but two newer porting tasks still owned the remaining consumers; the client built and the daemon failed with nine errors on the deleted type"
+fix = "before scheduling a type or module deletion, grep every consumer at the current base and require the task whose touches hold each one; the build gate compiles the consumer crates"
+
+[gotcha.2549]
+title = "A daemon test against anvil answers precompile reads in its own RPC proxy"
+symptom = "a task moved the daemon's fee read onto the fee token precompile and the preview test that gates it panicked Unavailable: the test's chain peer forwarded the eth_call to anvil, which holds no code at the precompile address and returned empty data"
+fix = "when a task adds a chain read on a path an anvil-backed test exercises, the test joins the touches and its proxy answers that read with the unit fixture's values; anvil never stands in for a precompile"
+
+[gotcha.2550]
+title = "A changed type's integration tests belong to the task that changes it"
+symptom = "a task rewrote the daemon's proof bundle AccountState onto an ICS23 storage witness and deleted the client's account proof type; the integration test that built the old proof with balance, nonce and hashes sat outside the touches, and readers in three sibling tasks' files still called the deleted method, so the build failed before any gate"
+fix = "before scheduling a type change, grep every constructor and reader in src and tests; tests of the changed shape join the touches, readers owned by sibling tasks move the deletion into a follow-up that requires them"
