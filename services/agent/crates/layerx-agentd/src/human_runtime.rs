@@ -188,13 +188,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let asset = caps
                 .effective_asset(asset_id)
                 .map_err(|_| HumanOperationError::Refused)?;
-            // Decision 2199: task 9.25.7 ports native fee policy.
-            let fee = Err::<
-                layerx_client::payments::CommittedSnapshot<
-                    layerx_client::payments::NativeFeePolicy,
-                >,
-                _,
-            >(HumanOperationError::Unavailable)?;
+            let fee = crate::budget::native_fee_policy(&ops.node, head)
+                .map_err(|_| HumanOperationError::Unavailable)?;
             if caps.freshness().observed_head_sequence != head
                 || asset.freshness().observed_head_sequence != head
                 || caps.state_root() == [0; 32]
@@ -291,13 +286,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 context.peer(),
                 &actor,
             )?;
-            // Decision 2199: task 9.25.7 ports native fee policy.
-            let fee = Err::<
-                layerx_client::payments::CommittedSnapshot<
-                    layerx_client::payments::NativeFeePolicy,
-                >,
-                _,
-            >(HumanOperationError::Unavailable)?;
+            let fee = crate::budget::native_fee_policy(&ops.node, head)
+                .map_err(|_| HumanOperationError::Unavailable)?;
             if snapshot.observed_head_sequence != head
                 || fee.observed_sequence != head
                 || fee.state_root == [0; 32]
@@ -5988,13 +5978,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let disclosure =
                 layerx_crypto::disclosure::call::bind_call(&prepared.call, signing.actor_address)
                     .map_err(|_| HumanOperationError::Refused)?;
-            // Decision 2199: task 9.25.7 ports native fee policy.
-            let fee = Err::<
-                layerx_client::payments::CommittedSnapshot<
-                    layerx_client::payments::NativeFeePolicy,
-                >,
-                _,
-            >(HumanOperationError::Unavailable)?;
+            let fee = crate::budget::native_fee_policy(&ops.node, snapshot.observed_head_sequence)
+                .map_err(|_| HumanOperationError::Unavailable)?;
             if authorization.envelope.payload_hash() != human.payload_hash
                 || prepared.observed_head_height != snapshot.observed_head_sequence
                 || fee.observed_sequence != snapshot.observed_head_sequence
@@ -6248,13 +6233,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let disclosure =
                 layerx_crypto::disclosure::call::bind_call(&prepared.call, signing.actor_address)
                     .map_err(|_| HumanOperationError::Refused)?;
-            // Decision 2199: task 9.25.7 ports native fee policy.
-            let fee = Err::<
-                layerx_client::payments::CommittedSnapshot<
-                    layerx_client::payments::NativeFeePolicy,
-                >,
-                _,
-            >(HumanOperationError::Unavailable)?;
+            let fee = crate::budget::native_fee_policy(&ops.node, snapshot.observed_head_sequence)
+                .map_err(|_| HumanOperationError::Unavailable)?;
             if authorization.envelope.payload_hash() != human.payload_hash
                 || prepared.observed_head_height != snapshot.observed_head_sequence
                 || fee.observed_sequence != snapshot.observed_head_sequence
@@ -6583,13 +6563,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             // Decision 2199: task 9.25.6 ports capability discovery.
             let caps =
                 Err::<layerx_client::evidence::VerifiedCaps, _>(HumanOperationError::Unavailable)?;
-            // Decision 2199: task 9.25.7 ports native fee policy.
-            let fee = Err::<
-                layerx_client::payments::CommittedSnapshot<
-                    layerx_client::payments::NativeFeePolicy,
-                >,
-                _,
-            >(HumanOperationError::Unavailable)?;
+            let fee =
+                crate::budget::native_fee_policy(&operations.node, prepared.observed_head_sequence)
+                    .map_err(|_| HumanOperationError::Unavailable)?;
             if fee.observed_sequence != prepared.observed_head_sequence || fee.state_root == [0; 32]
             {
                 return Err(HumanOperationError::Refused);
@@ -7033,13 +7009,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             // Decision 2199: task 9.25.6 ports capability discovery.
             let caps =
                 Err::<layerx_client::evidence::VerifiedCaps, _>(HumanOperationError::Unavailable)?;
-            // Decision 2199: task 9.25.7 ports native fee policy.
-            let fee = Err::<
-                layerx_client::payments::CommittedSnapshot<
-                    layerx_client::payments::NativeFeePolicy,
-                >,
-                _,
-            >(HumanOperationError::Unavailable)?;
+            let fee =
+                crate::budget::native_fee_policy(&operations.node, prepared.observed_head_sequence)
+                    .map_err(|_| HumanOperationError::Unavailable)?;
             if fee.observed_sequence != prepared.observed_head_sequence || fee.state_root == [0; 32]
             {
                 return Err(HumanOperationError::Refused);
@@ -8066,13 +8038,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             // Decision 2199: task 9.25.6 ports capability discovery.
             let caps =
                 Err::<layerx_client::evidence::VerifiedCaps, _>(HumanOperationError::Unavailable)?;
-            // Decision 2199: task 9.25.7 ports native fee policy.
-            let fee = Err::<
-                layerx_client::payments::CommittedSnapshot<
-                    layerx_client::payments::NativeFeePolicy,
-                >,
-                _,
-            >(HumanOperationError::Unavailable)?;
+            let fee =
+                crate::budget::native_fee_policy(&operations.node, snapshot.observed_head_sequence)
+                    .map_err(|_| HumanOperationError::Unavailable)?;
             if fee.observed_sequence != snapshot.observed_head_sequence || fee.state_root == [0; 32]
             {
                 return Err(HumanOperationError::Refused);
@@ -8280,13 +8248,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             // Decision 2199: task 9.25.6 ports capability discovery.
             let caps =
                 Err::<layerx_client::evidence::VerifiedCaps, _>(HumanOperationError::Unavailable)?;
-            // Decision 2199: task 9.25.7 ports native fee policy.
-            let fee = Err::<
-                layerx_client::payments::CommittedSnapshot<
-                    layerx_client::payments::NativeFeePolicy,
-                >,
-                _,
-            >(HumanOperationError::Unavailable)?;
+            let fee =
+                crate::budget::native_fee_policy(&operations.node, snapshot.observed_head_sequence)
+                    .map_err(|_| HumanOperationError::Unavailable)?;
             if fee.observed_sequence != snapshot.observed_head_sequence || fee.state_root == [0; 32]
             {
                 return Err(HumanOperationError::Refused);
@@ -8964,13 +8928,8 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             )?;
             let snapshot =
                 core_preparation_snapshot(ops.chain.as_ref(), &ops.authority, peer, &actor)?;
-            // Decision 2199: task 9.25.7 ports native fee policy.
-            let fee = Err::<
-                layerx_client::payments::CommittedSnapshot<
-                    layerx_client::payments::NativeFeePolicy,
-                >,
-                _,
-            >(HumanOperationError::Unavailable)?;
+            let fee = crate::budget::native_fee_policy(&ops.node, snapshot.observed_head_sequence)
+                .map_err(|_| HumanOperationError::Unavailable)?;
             if fee.observed_sequence != snapshot.observed_head_sequence
                 || fee.state_root == [0; 32]
                 || fee.value.asset.asset_id == [0; 32]
@@ -9952,13 +9911,8 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             return Err(HumanOperationError::Refused);
         }
         if record.held_activity.fee_limit.0 != 0 {
-            // Decision 2199: task 9.25.7 ports native fee policy.
-            let fee = Err::<
-                layerx_client::payments::CommittedSnapshot<
-                    layerx_client::payments::NativeFeePolicy,
-                >,
-                _,
-            >(HumanOperationError::Unavailable)?;
+            let fee = crate::budget::native_fee_policy(&operations.node, current_sequence)
+                .map_err(|_| HumanOperationError::Unavailable)?;
             if fee.value.asset.asset_id != state.asset {
                 return Err(HumanOperationError::Refused);
             }
@@ -14431,11 +14385,12 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
     }
 
     fn native_fee_policy(&mut self) -> Result<HumanResponse, HumanOperationError> {
-        // Decision 2199: task 9.25.7 ports native fee policy.
-        let snapshot = Err::<
-            layerx_client::payments::CommittedSnapshot<layerx_client::payments::NativeFeePolicy>,
-            _,
-        >(HumanOperationError::Unavailable)?;
+        let height = self
+            .node
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let snapshot = crate::budget::native_fee_policy(&self.node, height)
+            .map_err(|_| HumanOperationError::Unavailable)?;
         let policy = snapshot.value;
         let currency =
             std::str::from_utf8(&policy.asset.symbol).map_err(|_| HumanOperationError::Refused)?;
