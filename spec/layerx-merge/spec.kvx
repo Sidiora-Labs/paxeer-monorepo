@@ -193055,7 +193055,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1149.1]
 title = "Issue #1149: Sign the reclaim journey legs as EIP-1559 budgetDefund transactions so the reclaim test target passes against the live submit contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["18.1142.1", "18.1186.1", "18.1188.1", "10.13.5", "10.0.3", "10.2.8", "10.2.9", "18.1297.1"]
