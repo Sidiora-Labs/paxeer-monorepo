@@ -16003,3 +16003,27 @@ symbol = "TestSequencerProposalUsesSealedSlice"
 observed = "Attempt 2 (b70ca9f7c, base abec5fdf9) built, vetted, repaired the two tests of finding 5.98.8.1 and the two new consensus tests passed; the verify then failed in TestSequencerProposalUsesSealedSlice (:169), TestSequencerProposalHeaderTimeIsOpenTime (:225) and TestSequencerProposalIgnoresMempoolOrder (:248) with 'sealed block open time is not after the last block time', because the three seal their blocks at the fixed epoch 1700000000 while makeState leaves LastBlockTime at the genesis time, which defaults to now (consensus/types/genesis.go:160); the open-time check of 1c7d966b2 (task 5.33.3) was qualified against TestSequencerProposalRefusesStaleOpenTime alone and these tests failed since then. The node tests of the verify were not reached."
 assumption = "Open times are taken relative to f.state.LastBlockTime, as the other proposal tests already do, and the header-time test moves the last block time behind its fixed open time instead."
 severity = "major"
+
+[finding.17.5.1.16]
+task = "17.5.1"
+file = "services/platform/Makefile.inc:70"
+symbol = "platform-install-local-artifacts"
+observed = "Attempt 18 (a116f00c2) built and the gate stopped in make workspace-build at platform-sample-dependencies-ready (services/platform/Makefile.inc:66, 'run make platform-dependencies-install to install the local Spring integration'): the qualification environment now carries Maven, Swift and dotnet and ran make platform-sample-install before the gate, and that install failed at :70 because mvn install of sdk/platform/jvm ran its suite and 7 of 64 tests failed (GoldenVectorTest, ReceiptFixtureTest, ProgramsContractTest); the test of this task is unchanged and correct."
+assumption = "Task 8.46.11 (decision 2214) makes the three JVM suites pass under the install; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.17.5.5.7]
+task = "17.5.5"
+file = "services/platform/Makefile.inc:70"
+symbol = "platform-install-local-artifacts"
+observed = "Attempt 14 (e4609dad6) built and the gate stopped in make workspace-build at platform-sample-dependencies-ready (services/platform/Makefile.inc:66, 'run make platform-dependencies-install to install the local Spring integration'): the qualification environment now carries Maven, Swift and dotnet and ran make platform-sample-install before the gate, and that install failed at :70 because mvn install of sdk/platform/jvm ran its suite and 7 of 64 tests failed (GoldenVectorTest, ReceiptFixtureTest, ProgramsContractTest); the test of this task is unchanged and correct."
+assumption = "Task 8.46.11 (decision 2214) makes the three JVM suites pass under the install; this task requires it and continues unchanged."
+severity = "major"
+
+[finding.10.2.4.1]
+task = "10.2.4"
+file = "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs:432"
+symbol = "JourneyLeg::new"
+observed = "Attempt 1 (38d228c7d) implemented do_1 to do_6 in the eight declared files and the build of layerx-human-service failed with eleven errors in files outside the touches: JourneyLeg::new now takes nine arguments and intent_submit.rs:432, move_money.rs:1250 and router.rs:1915 pass eight; JourneyKind lost WalletBinding, Deposit, Withdraw and Exit and production_components.rs:8310-8313 still names them; JourneyState gained Closed and the matches at intent_submit.rs:505, move_money.rs:1174, notify/links.rs:398 and production_components.rs:2669 are not exhaustive. The same signatures are used by router.rs:2700, audit/event.rs and six integration tests of the crate (native_journey_approval.rs:295, journey_faults.rs:1198, agent_runtime_eip1559.rs:263, agent_controls_rungs.rs:2057, audit.rs, audit_retired_kinds.rs) that the verify did not compile."
+assumption = "The task that changes a type ports every caller in the crate, including its integration tests, in the same change (the producer-and-consumer defect class); the twelve files join the touches and the build compiles the crate's tests."
+severity = "major"

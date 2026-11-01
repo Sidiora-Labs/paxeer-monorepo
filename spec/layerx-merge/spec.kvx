@@ -6393,6 +6393,12 @@ value = "StatusLadder (apps/wallet/src/account/StatusLadder.tsx:37) chooses the 
 basis = "Attempt 4 of 12.35.3 (27e6d68db) reached the committed rung with the saved steps [committed/receipt, committed/explorer] and the page rendered data-source receipt because StatusLadder takes the first step of the rung and observeTransfer puts the receipt step first; TransactionLadder filters the receipt's committed step out before rendering, so the two product paths through the same component disagreed on the committed rung's source. The component owns the rule once."
 affects = ["12.34.11", "12.35.3"]
 
+[decision.2214]
+title = "The JVM SDK, Spring and Android test suites pass under the Maven install that platform-install-local-artifacts runs"
+value = "services/platform/Makefile.inc:70 installs sdk/platform/jvm, sdk/integrations/spring and sdk/integrations/android with mvn install, which runs every test of the three poms, and platform-sample-dependencies-ready (:66) accepts the environment only after that install succeeds; the three suites are therefore product gates of every wave aggregate, and task 8.46.11 makes them pass on main. Where a test encodes a shape a done task retired (the /v1/programs transport and decodeSignedCall by 8.42.3, the hand-kept error-code enums against the generated contract by 8.46.7 and 8.46.10, program.receipt by the retained transaction by 18.1308.2) the test follows that task's decision; where a test encodes behaviour no done task retired and the production code violates it, the production code is repaired and the finding names the test. A JVM task's verify from now on runs the suite of every pom it touches, never a -Dtest selection alone."
+basis = "Attempt 18 of 17.5.1 and attempt 14 of 17.5.5, the first to run with the Maven, Swift and dotnet toolchains, stopped at Makefile.inc:66 ('run make platform-dependencies-install to install the local Spring integration') because make platform-sample-install had failed at :70 in the JVM install: mvn install ran the suite and 7 of 64 tests failed (GoldenVectorTest.testTypedSchemaContracts:185, ReceiptFixtureTest.nativeLifecycleCFixtures:22 and nativeSignedBinding:58, ProgramsContractTest at :63, :186, :219 and :240). Every JVM task since 8.42.3 (4ef5848f4) qualified with -Dtest of its own tests, so the suite was never run whole and the consumers of the moved program path, the regenerated error sets and the removed decodeSignedCall stayed red. The producer-and-consumer defect class (gotcha 2538)."
+affects = ["8.46.11", "17.5.1", "17.5.5"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -33413,6 +33419,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.8.46.11]
+title = "Make the JVM SDK suite pass under the Maven install of the platform dependency step"
+reqs = ["8549.1"]
+touches = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GoldenVectorTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ReceiptFixtureTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/SchemaErrors.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramLifecycleRequest.java", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/sample/RelayReceiptResolverTest.java"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GoldenVectorTest.java::testTypedSchemaContracts", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ReceiptFixtureTest.java::nativeLifecycleCFixtures", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java::programCallBoundsAndCanonicalCapabilitiesFailClosed"]
+verification_contract = "make platform-install-local-artifacts PLATFORM_MAVEN_OFFLINE="
+do_1 = "Decision 2214. Run mvn -q -f sdk/platform/jvm/pom.xml test and repair every failing test on the rule of the decision. sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GoldenVectorTest.java:182-187 compares OperationCatalog.AGENT_ERROR_CLASSES and HUMAN_ERROR_CODES (GeneratedContract, generator output since 8.46.10) with the hand-kept enums sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/SchemaErrors.java AgentClass (:18) and HumanCode (:40), last edited by 7cb145e21: bring both enums to the generated sets, adding a wire value the contract has and removing one it lacks, and never edit GeneratedContract or GeneratedSchema by hand (gotcha 2538)."
+symbols = ["GoldenVectorTest", "ReceiptFixtureTest", "ProgramsContractTest", "SchemaErrors", "ProgramsClient"]
 
 [capability.12.34.11]
 title = "Prefer the explorer step for the committed rung in StatusLadder"
@@ -117270,6 +117285,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.8.46.11]
+title = "Make the JVM SDK suite pass under the Maven install of the platform dependency step"
+status = "pending"
+mode = "BUILD"
+wave = 18
+requires = ["17.5.13"]
+reqs = ["8549.1"]
+capabilities = ["8.46.11"]
+interfaces = []
+do_1 = "Decision 2214. Run mvn -q -f sdk/platform/jvm/pom.xml test and repair every failing test on the rule of the decision. sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GoldenVectorTest.java:182-187 compares OperationCatalog.AGENT_ERROR_CLASSES and HUMAN_ERROR_CODES (GeneratedContract, generator output since 8.46.10) with the hand-kept enums sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/SchemaErrors.java AgentClass (:18) and HumanCode (:40), last edited by 7cb145e21: bring both enums to the generated sets, adding a wire value the contract has and removing one it lacks, and never edit GeneratedContract or GeneratedSchema by hand (gotcha 2538)."
+do_2 = "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ReceiptFixtureTest.java:58 reflects on ProgramsClient.decodeSignedCall(Call), removed by 4ef5848f4 (task 8.42.3) when program submission moved to the layerxprograms precompile; rewrite nativeSignedBinding against the public API 8.42.3 left (the binding sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsEvmTest.java exercises for a signed program call), or delete the test when no public method binds a Call to its signed activity any more, naming the choice in the commit message. nativeLifecycleCFixtures:22 and the four ProgramsContractTest tests at :63, :186, :219 and :240 fail with INVALID_ARGUMENT from the validation 8.42.3 and 18.1308.2 (ef56c7194) added to ProgramsClient: for each, decide by the rule of decision 2214 whether the test still asserts the live contract (then repair ProgramsClient.java or NativeProgramLifecycleRequest.java and say which assertion was right) or asserts the retired transport shape (then port the test to the precompile path the way ProgramsEvmTest builds its calls and receipts)."
+do_3 = "Then run mvn -q -f sdk/integrations/spring/pom.xml install and mvn -q -f sdk/integrations/android/pom.xml install (the JVM artifact must be installed first) and repair their tests on the same rule; the four test files of the two poms are in the touches for that case only. A failure in production code of those two poms is a new finding naming the file and the owning task, not a repair here."
+do_4 = "The verify gate is the Makefile target itself with the network allowed for dependency resolution, so the three suites run exactly as the platform dependency step runs them; the wave aggregates of 17.5.1 and 17.5.5 are its consumer gates."
+symbols = ["GoldenVectorTest", "ReceiptFixtureTest", "ProgramsContractTest", "SchemaErrors", "ProgramsClient"]
+touches = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GoldenVectorTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ReceiptFixtureTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/SchemaErrors.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/ProgramsClient.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/NativeProgramLifecycleRequest.java", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/ReceiptKeysConfigTest.java", "sdk/integrations/spring/src/test/java/com/sidiora/layerx/spring/SellerReceiptsTest.java", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/ReceiptGateTest.java", "sdk/integrations/android/src/test/java/com/sidiora/layerx/android/sample/RelayReceiptResolverTest.java"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GoldenVectorTest.java::testTypedSchemaContracts", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ReceiptFixtureTest.java::nativeLifecycleCFixtures", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java::programCallBoundsAndCanonicalCapabilitiesFailClosed"]
+planned_paths = []
+build_cmd = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests install && mvn -q -f sdk/integrations/spring/pom.xml -DskipTests test-compile && mvn -q -f sdk/integrations/android/pom.xml -DskipTests test-compile"
+verify_cmd = "make platform-install-local-artifacts PLATFORM_MAVEN_OFFLINE="
+gate_kind = "planned"
+sandbox_profile = "sdk-all"
+owner_role = "fm-platform"
+rollback = "Restore the six JVM files and the four integration tests from bb6dde223; make platform-sample-install fails in the JVM install again and no wave aggregate passes platform-sample-dependencies-ready."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.9.25.15]
 title = "Port the layerxpay budget mutation test off the budget proof trust that 9.25.10 replaced"
 status = "done"
@@ -150771,10 +150817,10 @@ do_3 = "`JourneyEngine::verified_leg_evidence` (services/human/crates/layerx-hum
 do_4 = "`AgentPreparationContext` (services/human/crates/layerx-human-service/src/onboarding/mod.rs:295) and `AgentPreparationContext::new` (services/human/crates/layerx-human-service/src/onboarding/mod.rs:310) carry the pending nonce; `AgentStageOutcome` (services/human/crates/layerx-human-service/src/onboarding/mod.rs:374) carries a tx hash and rung instead of an `AuthorizedBatch`."
 do_5 = "Create services/human/crates/layerx-human-service/tests/journey_receipts.rs (planned) driving the public journeys API."
 symbols = ["JourneyLeg", "JourneyKind", "AgentPreparationContext", "AgentStageOutcome"]
-touches = ["services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/journeys/mod.rs", "services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/src/agents/reclaim.rs", "services/human/crates/layerx-human-service/src/event_producer_tls.rs", "services/human/crates/layerx-human-service/src/onboarding/mod.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/tests/journey_receipts.rs"]
+touches = ["services/human/crates/layerx-human-service/src/journeys/engine.rs", "services/human/crates/layerx-human-service/src/journeys/mod.rs", "services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/src/agents/reclaim.rs", "services/human/crates/layerx-human-service/src/event_producer_tls.rs", "services/human/crates/layerx-human-service/src/onboarding/mod.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/tests/journey_receipts.rs", "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/journeys/move_money.rs", "services/human/crates/layerx-human-service/src/journeys/router.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/notify/links.rs", "services/human/crates/layerx-human-service/src/audit/event.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs", "services/human/crates/layerx-human-service/tests/audit.rs", "services/human/crates/layerx-human-service/tests/audit_retired_kinds.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/journey_receipts.rs::stored_journey_of_a_retired_kind_reads_as_closed"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/journey_receipts.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --no-run"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test journey_receipts -- --exact stored_journey_of_a_retired_kind_reads_as_closed"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -150789,6 +150835,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "ReceiptMaterial (services/human/crates/layerx-human-service/src/journeys/engine.rs:229-237, decoded by decode_receipt at src/server/agent_runtime.rs:4256-4285) and VerifiedLegEvidence (engine.rs:243-249) also carry signed_receipt: Vec<u8>, the signing ReceiptKeys entry (key id, ed25519 public key, first and last height) and the inclusion height, taken from the rung evidence 9.4.1 reports; production_reads.rs:378-392 keeps answering from VerifiedLegEvidence and 10.92.1 consumes the new fields (decision.1816)."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_7 = "Finding 10.2.4.1: continue from attempt 1 (38d228c7d) keeping every change and port the callers the build and the crate's tests name. Pass the pending nonce at the three JourneyLeg::new calls of intent_submit.rs:432, move_money.rs:1250 and router.rs:1915 (and router.rs:2700) from the value each path already holds for the leg; add the Closed arm to the JourneyState matches at intent_submit.rs:505, move_money.rs:1174, notify/links.rs:398 and production_components.rs:2669 with the wire word closed where a state is serialised and the terminal treatment of Done where a state is acted on; at production_components.rs:8310-8313 and audit/event.rs replace the four retired JourneyKind variants by the closed historical reading of do_2 (a stored journey of a retired kind is read, never constructed). Port the six integration tests to the new signatures and to the closed reading, keeping each test's assertion; audit_retired_kinds.rs asserts that a stored retired kind reads as closed. The build command now also compiles every test target of the crate. Build once, verify once."
 
 [task.10.2.5]
 title = "Carry rungs in activity entry detail and finality references"
@@ -180285,7 +180332,7 @@ title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 18
-requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5", "9.12.11", "10.99.1", "17.5.10", "12.35.2", "17.5.13"]
+requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1", "9.98.1", "8.48.1", "17.5.9", "18.1301.1", "18.1310.1", "10.16.4", "10.16.5", "9.12.11", "10.99.1", "17.5.10", "12.35.2", "17.5.13", "8.46.11"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
 interfaces = []
@@ -180321,6 +180368,7 @@ do_11 = "Attempt 14 (befea813e on c833996dd) fails test_wave_0_gate_passes becau
 do_12 = "Attempt 15 (682092ffd on 29f8a5dc1) fails in the web app build: next build stops on apps/web/src/app/exchange/exchange-client.tsx importing the server-only ../../api/gateway and on the packages sdk/wallet/src imports that apps/web/package.json does not declare. Task 17.5.10 owns that repair and this task requires it; re-run the gate unchanged on a base that carries 17.5.10."
 do_13 = "Decision 2155: attempt 16 (e378dbed1) fails in step 2, make workspace-build, on apps/web's next build resolving '@sidiora/layerx-sdk/browser' (the exports-condition defect decision 2153 assigns to 12.35.2). Continue from attempt 16 on a base that carries 12.35.2, keep the gate script and the test's structure, and make the failure message of test_wave_0_gate_passes name the failing step and quote the last forty lines of its log. Build once and verify once; if step 2 still fails, record the first error line of the step log in the finding and stop."
 do_14 = "Finding 17.5.1.15: continue from attempt 17 (96271000a) unchanged once task 17.5.13 is on main; the qualification environment now carries the Maven, Swift and dotnet toolchains and installs the platform sample dependencies before the gate, so platform-sample-dependencies-ready passes. Rebase onto main, change nothing, build once and verify once; if step 2 stops in a later target, record the target, its Makefile line and the owning task as a new finding."
+do_15 = "Finding 17.5.1.16: continue from attempt 18 (a116f00c2) unchanged once task 8.46.11 (decision 2214) is on main, so make platform-sample-install completes and platform-sample-dependencies-ready passes. Rebase onto main, change nothing, build once and verify once; if the aggregate stops in a later target, record the target, its Makefile line and the owning task as a new finding."
 
 [task.17.5.2]
 title = "Run the wave 1 aggregate gate once on the merged wave revision"
@@ -180434,7 +180482,7 @@ title = "Run the wave 4 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["17.5.8", "17.0.3", "1.0.3", "2.0.3", "3.0.3", "4.0.3", "5.0.3", "6.0.3", "7.0.3", "8.0.3", "9.0.3", "10.0.3", "11.0.3", "12.0.3", "13.0.3", "14.0.3", "15.0.3", "16.0.3", "16.1.5", "18.1121.1", "10.24.4", "14.0.5", "17.5.12", "8.46.10", "8.45.5", "17.5.13"]
+requires = ["17.5.8", "17.0.3", "1.0.3", "2.0.3", "3.0.3", "4.0.3", "5.0.3", "6.0.3", "7.0.3", "8.0.3", "9.0.3", "10.0.3", "11.0.3", "12.0.3", "13.0.3", "14.0.3", "15.0.3", "16.0.3", "16.1.5", "18.1121.1", "10.24.4", "14.0.5", "17.5.12", "8.46.10", "8.45.5", "17.5.13", "8.46.11"]
 reqs = ["17058.1"]
 capabilities = ["17.5.5"]
 interfaces = []
@@ -180466,6 +180514,7 @@ do_7 = "Finding 17.5.5.3: continue from attempt 10 (d82dce494) unchanged once ta
 do_8 = "Finding 17.5.5.4: continue from attempt 11 (1c4e6df2a) unchanged once task 8.45.5 is on main, so platform-sdk-check passes sdkgen --check; rebase onto main, change nothing, build once and verify once. A later failure of the aggregate in another product check is a new finding naming the check, its Makefile line and the owning task."
 do_9 = "Finding 17.5.5.5: continue from attempt 12 (585053d5f) unchanged; the environment now runs make platform-sample-install with Maven, Swift and dotnet present before the aggregate. Rebase onto main, change nothing, build once and verify once. A later failure of the aggregate in another product check is a new finding naming the check, its Makefile line and the owning task."
 do_10 = "Finding 17.5.5.6: continue from attempt 13 (fe9f54c21) unchanged once task 17.5.13 is on main, so make platform-sample-install installs the Python SDK and platform-sample-dependencies-ready passes; rebase onto main, change nothing, build once and verify once. A later failure of the aggregate in another product check is a new finding naming the check, its Makefile line and the owning task."
+do_11 = "Finding 17.5.5.7: continue from attempt 14 (e4609dad6) unchanged once task 8.46.11 (decision 2214) is on main, so make platform-sample-install completes and platform-sample-dependencies-ready passes. Rebase onto main, change nothing, build once and verify once; if the aggregate stops in a later target, record the target, its Makefile line and the owning task as a new finding."
 
 [task.17.5.6]
 title = "Run the wave 5 aggregate gate once on the merged wave revision"
@@ -201624,6 +201673,10 @@ ac_1 = "make platform-sample-install installs layerx-sdk 0.1.0 from services/age
 [req.8548]
 title = "The committed JVM schema equals the generator's output"
 ac_1 = "generate_jvm.py --check passes on the committed GeneratedSchema.java and GeneratedContract.java, and the three generated-catalogue tests pass on them."
+
+[req.8549]
+title = "The platform JVM artifacts install with their tests passing"
+ac_1 = "make platform-install-local-artifacts PLATFORM_MAVEN_OFFLINE= exits 0 on main: the sdk/platform/jvm, sdk/integrations/spring and sdk/integrations/android suites pass under mvn install (services/platform/Makefile.inc:70)."
 
 [task.8.46.9]
 title = "JVM generated contract returns to the generator's shape and the human verification levels follow the human schema"

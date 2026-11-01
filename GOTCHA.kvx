@@ -12666,3 +12666,13 @@ fix = "take open times relative to f.state.LastBlockTime in proposal tests, and 
 title = "Two renderers of one ladder disagreed on the committed rung's source"
 symptom = "TransactionLadder dropped the receipt's committed step before rendering while the saved observation of observeTransfer kept it first, so the shared StatusLadder showed data-source explorer on one page and receipt on the other and the send test failed at its committed assertion"
 fix = "put a presentation rule in the shared component once, with a unit test of the mixed-source steps, instead of shaping the steps differently in each caller"
+
+[gotcha.2570]
+title = "A Maven suite qualified only with -Dtest selections went red under mvn install"
+symptom = "every JVM SDK task verified with -Dtest of its own tests while the platform dependency step runs mvn install, which runs the whole suite; seven tests left behind by three earlier tasks failed the install and stopped two wave aggregates at the readiness check"
+fix = "a task that touches a Maven module runs that module's whole suite in its verify command, and an install target that runs tests is itself a product gate"
+
+[gotcha.2571]
+title = "A type change compiled against the declared touches only"
+symptom = "a task widened a constructor, removed enum variants and added an enum state in its declared files, and eleven callers in five undeclared files plus six integration tests of the same crate broke at build time"
+fix = "before declaring touches for a type change, grep the crate for every constructor call, retired variant and exhaustive match, including tests/, and put each file in the touches; the build command compiles the crate's tests with cargo test --no-run"
