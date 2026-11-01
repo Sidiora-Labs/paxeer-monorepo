@@ -3,7 +3,7 @@
 use crate::human_node::HumanNode;
 use crate::node_rpc::NodeRpcError;
 use layerx_client::lni::transport::FrameTransport;
-use layerx_client::read::{HistoryKind, ReadContext, ReadError};
+use layerx_client::rpc::history::{HistoryKind, ReadContext};
 use layerx_client::sequencer::{RpcRefusal, SequencerEndpoint, SequencerError};
 use serde_json::{json, Value};
 
@@ -145,9 +145,7 @@ impl HistoryPage {
         }))
         .map_err(|_| HistoryReadError::Malformed)?
         .len();
-        if response_bytes > limits.maximum_response_bytes
-            || page.items.len() > usize::from(limits.maximum_items)
-        {
+        if response_bytes > limits.maximum_response_bytes {
             return Err(HistoryReadError::Oversized);
         }
         let next_cursor = page
@@ -155,8 +153,9 @@ impl HistoryPage {
             .as_deref()
             .map(Cursor::from_hex)
             .transpose()?;
-        let mut items = Vec::with_capacity(page.items.len());
-        let mut previous = cursor;
+        let mut items: Vec<HistoryItem> = Vec::with_capacity(page.items.len());
+        let maximum_items = usize::from(limits.maximum_items);
+        let mut previous = None;
         for row in page.items {
             let position = Cursor {
                 block_height: row
@@ -175,9 +174,13 @@ impl HistoryPage {
                     .ok_or(HistoryReadError::Malformed)?,
             };
             if !(from_height..=to_height).contains(&position.block_height)
-                || previous.is_some_and(|previous| position <= previous)
+                || cursor.is_some_and(|cursor| position <= cursor)
+                || previous.is_some_and(|previous| position < previous)
             {
                 return Err(HistoryReadError::Cursor);
+            }
+            if items.len() >= maximum_items && position != items[maximum_items - 1].position {
+                return Err(HistoryReadError::Oversized);
             }
             items.push(HistoryItem {
                 position,
@@ -201,7 +204,6 @@ impl HistoryPage {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum HistoryReadError {
-    Read(ReadError),
     Node(NodeRpcError),
     Rpc(RpcRefusal),
     Sequencer(SequencerError),

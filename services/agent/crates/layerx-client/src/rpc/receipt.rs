@@ -141,6 +141,18 @@ pub enum ReceiptError {
     InvalidTransactionHash,
 }
 
+impl ReceiptError {
+    #[must_use]
+    pub const fn is_unavailable(&self) -> bool {
+        matches!(
+            self,
+            Self::Sequencer(
+                SequencerError::Endpoint | SequencerError::Tls | SequencerError::Unavailable
+            )
+        )
+    }
+}
+
 impl From<SequencerError> for ReceiptError {
     fn from(value: SequencerError) -> Self {
         Self::Sequencer(value)
