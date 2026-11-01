@@ -152726,7 +152726,7 @@ do_19 = "Decision 2186 and finding 10.98.10.2: continue from attempt 2 (7bc7cb27
 
 [task.10.98.11]
 title = "Migrate the layerx-human-service callers of wiring.J44.25 (part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.3", "9.1.8", "18.1119.1", "18.1172.1", "10.2.8", "10.2.9", "18.1297.1"]
@@ -178964,7 +178964,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.8.2]
 title = "Rewrite decision records D1 to D11 from the carry-forward index"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.8.1", "17.0.3"]
@@ -178994,7 +178994,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.8.3]
 title = "Rewrite decision records D12 to D22 from the carry-forward index"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.8.1", "17.0.3"]
@@ -179024,7 +179024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.8.4]
 title = "Rewrite decision records D23 to D33 from the carry-forward index"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.8.1", "17.0.3"]
@@ -179054,7 +179054,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.8.5]
 title = "Index every carried decision and the new venue decisions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.8.1", "17.0.3"]
@@ -179146,7 +179146,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.9.2]
 title = "Regenerate the off-chain service narrative from the catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.9.1", "17.0.3"]
@@ -186538,7 +186538,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["19.1.1", "19.1.2", "19.1.3", "19.2.1", "19.2.2", "19.2.3", "19.3.1", "19.3.2", "19.4.1", "19.4.2", "19.4.3", "19.4.4", "19.5.1", "19.5.2", "19.6.1", "19.6.2", "19.7.1", "19.7.2", "19.7.3"]
