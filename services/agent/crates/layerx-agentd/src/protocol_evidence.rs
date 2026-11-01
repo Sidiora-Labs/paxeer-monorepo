@@ -2,10 +2,6 @@
 
 use std::collections::BTreeSet;
 
-use layerx_client::evidence::{
-    verify_module_evidence, AccountEvidencePolicy, EvidenceError as ModuleEvidenceError,
-    RootSelector,
-};
 use layerx_programs::hex;
 use layerx_proof::inclusion::{
     verify_receipt as verify_receipt_inclusion, verify_state, InclusionError, InclusionEvidence,
@@ -1843,7 +1839,6 @@ pub enum StateEvidenceError {
     Committed,
     Policy(VerifierPolicyError),
     Inclusion(InclusionError),
-    Module(ModuleEvidenceError),
 }
 
 /// State bytes available only after configured policy and canonical proof verification.

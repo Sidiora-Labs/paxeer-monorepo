@@ -7,7 +7,6 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
-use layerx_client::evidence::{EvidenceError, ProofBundleSelector, RootSelector};
 use layerx_client::submit::Submission;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::AuthorizedBatch;
@@ -15,7 +14,6 @@ use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
 use layerx_types::ids::{Did, IdempotencyKey};
 use layerx_types::payload::{ActivityType, ModuleRegistry};
-use layerx_types::result::Retriability;
 use layerx_types::verify::VerificationLevel;
 type FeeProjection = layerx_agent_api::read::FeeProjection;
 use serde_json::Value;
@@ -16935,26 +16933,6 @@ fn live_protocol_budget<S>(
         .is_ok_and(|(record, _)| record.budget_id == budget_id && !record.closed && !record.revoked)
 }
 
-fn raw_receipt_evidence(
-    bundle: &layerx_client::evidence::VerifiedProofBundle,
-) -> Result<crate::protocol_evidence::RawReceiptEvidence, HumanOperationError> {
-    let layerx_client::evidence::VerifiedProofBundle::Receipt {
-        canonical_bytes,
-        proof,
-        signed_header,
-        ..
-    } = bundle
-    else {
-        return Err(HumanOperationError::Refused);
-    };
-    Ok(crate::protocol_evidence::RawReceiptEvidence::new(
-        canonical_bytes.clone(),
-        proof.clone(),
-        signed_header.canonical_bytes.clone(),
-        signed_header.signature,
-    ))
-}
-
 fn native_response(
     value: &impl crate::agent_rpc_wire::Canonical,
 ) -> Result<HumanResponse, HumanOperationError> {
@@ -17164,16 +17142,6 @@ fn read_committed_history(
         cursor = next;
     }
     Err(SequencerError::Unavailable)
-}
-
-fn evidence_unavailable(error: &EvidenceError) -> bool {
-    match error {
-        EvidenceError::Unavailable | EvidenceError::Transport(_) => true,
-        EvidenceError::CoreRefusal { result, .. } => {
-            result.retriability() == Retriability::Retriable
-        }
-        _ => false,
-    }
 }
 
 /// Converts the issued owner grant's verified not-after instant (unix milliseconds) into the
@@ -18646,16 +18614,11 @@ fn export_refusal(error: crate::export::ExportProduceError) -> HumanOperationErr
         Produce::Store
         | Produce::StaleHead
         | Produce::Availability { .. }
-        | Produce::AvailabilityIncomplete { .. }
-        | Produce::Evidence {
-            error: layerx_client::evidence::EvidenceError::Unavailable,
-            ..
-        } => HumanOperationError::Unavailable,
+        | Produce::AvailabilityIncomplete { .. } => HumanOperationError::Unavailable,
         Produce::Facts(_)
         | Produce::NotOwned { .. }
         | Produce::AccountNotBound { .. }
         | Produce::Correlation
-        | Produce::Evidence { .. }
         | Produce::ReceiptEvidence { .. }
         | Produce::Binding { .. }
         | Produce::MaintenanceLink { .. }

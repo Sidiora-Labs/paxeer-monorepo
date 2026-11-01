@@ -89,3 +89,19 @@ pub enum ChainProofError {
     Expired,
     Absent,
 }
+
+impl std::fmt::Display for ChainProofError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Truncated => f.write_str("truncated proof"),
+            Self::NonCanonical => f.write_str("non-canonical encoding"),
+            Self::UnknownField => f.write_str("unknown field"),
+            Self::Mismatch => f.write_str("mismatch"),
+            Self::InsufficientPower => f.write_str("insufficient power"),
+            Self::Expired => f.write_str("expired"),
+            Self::Absent => f.write_str("absent"),
+        }
+    }
+}
+
+impl std::error::Error for ChainProofError {}
