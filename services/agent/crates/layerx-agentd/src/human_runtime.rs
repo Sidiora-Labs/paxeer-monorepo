@@ -9225,23 +9225,27 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             owner.active_budget_id
         };
         let proof = self.verified_program_budget_proof(peer, budget_id)?;
-        let mut out = Encoder::new();
-        out.u16(4)?;
-        out.text(proof.owner())?;
-        out.fixed(&proof.budget_id());
-        out.fixed(&proof.asset());
-        out.fixed(&proof.source_account());
-        out.u64(proof.observed_head_sequence());
-        out.u128(proof.remaining());
-        out.u8(layerx_types::rung::Rung::Committed.wire_rank());
-        out.fixed(&proof.evidence_digest());
-        out.fixed(&proof.receipt_digest());
-        out.fixed(&proof.checkpoint_digest());
-        out.u64(proof.age_sequences());
-        out.u64(proof.maximum_age_sequences());
-        out.fixed(&proof.digest());
-        out.bytes(proof.canonical_export_bytes())?;
-        out.finish()
+        if proof.observed_head_sequence() != sequence {
+            return Err(HumanOperationError::Refused);
+        }
+        let row = {
+            let store = self
+                .store
+                .lock()
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            crate::budget::program_settlement::read_owned_program_budget(
+                &store,
+                peer,
+                id,
+                digest,
+                &registry,
+                &self.budgets,
+                &proof,
+                sequence,
+            )
+            .map_err(|_| HumanOperationError::Refused)?
+        };
+        encode_program_approval_budget_v5(id, digest, proof.owner(), &row)
     }
     fn native_program_approval_decide(
         &mut self,
@@ -17433,6 +17437,34 @@ fn encode_native_effect_approval_facts(
     }
     Ok(())
 }
+fn encode_program_approval_budget_v5(
+    id: [u8; 32],
+    digest: [u8; 32],
+    owner: &str,
+    row: &crate::budget::program_settlement::VerifiedProgramApprovalBudgetRow,
+) -> Result<HumanResponse, HumanOperationError> {
+    let mut out = Encoder::new();
+    out.u16(5)?;
+    out.fixed(&id);
+    out.fixed(&digest);
+    out.text(owner)?;
+    out.fixed(&row.budget_id());
+    out.fixed(&row.asset());
+    out.fixed(&row.source());
+    out.u64(row.observed_sequence());
+    out.u128(row.remaining_after_reservations());
+    out.u8(u8::from(row.terminal()));
+    out.u8(layerx_types::rung::Rung::Committed.wire_rank());
+    out.fixed(&row.evidence_digest());
+    out.fixed(&row.receipt_digest());
+    out.fixed(&row.checkpoint_digest());
+    out.u64(row.age_sequences());
+    out.u64(row.maximum_age_sequences());
+    out.fixed(&row.proof_digest());
+    out.bytes(row.verified_proof_bytes())?;
+    out.finish()
+}
+
 fn encode_program_approval_v5(
     out: &mut Encoder,
     held: &crate::approval::native_program_presentation::OwnedNativeProgramPresentation,
@@ -21953,6 +21985,68 @@ mod tests {
     fn sha256(bytes: &[u8]) -> [u8; 32] {
         Sha256::digest(bytes).into()
     }
+
+    #[test]
+    fn native_program_approval_budget_frame_is_revision_five_with_bindings() {
+        use crate::budget::program_settlement::VerifiedProgramApprovalBudgetRow;
+        use layerx_wire::decode::Decoder;
+
+        let id = [1; 32];
+        let held_digest = [2; 32];
+        let owner = "did:layerx:program-owner";
+        let proof_bytes = b"verified program budget proof";
+        let proof_digest = sha256(proof_bytes);
+        for terminal in [false, true] {
+            let row = VerifiedProgramApprovalBudgetRow::for_test(
+                id,
+                held_digest,
+                [3; 32],
+                [4; 32],
+                [5; 32],
+                123,
+                (1_u128 << 80) + 456,
+                terminal,
+                VerificationLevel::CHECKPOINT_FINALISED,
+                [6; 32],
+                [7; 32],
+                [8; 32],
+                9,
+                10,
+                proof_digest,
+                proof_bytes.to_vec(),
+            );
+            let response = must(encode_program_approval_budget_v5(
+                id,
+                held_digest,
+                owner,
+                &row,
+            ));
+            let mut reader = Decoder::new(response.bytes(), MAX_RESPONSE);
+            assert_eq!(must(reader.u16()), 5);
+            assert_eq!(must(reader.fixed(32)), id);
+            assert_eq!(must(reader.fixed(32)), held_digest);
+            assert_eq!(must(reader.text(MAX_RESPONSE)), owner);
+            assert_eq!(must(reader.fixed(32)), [3; 32]);
+            assert_eq!(must(reader.fixed(32)), [4; 32]);
+            assert_eq!(must(reader.fixed(32)), [5; 32]);
+            assert_eq!(must(reader.u64()), 123);
+            assert_eq!(must(reader.u128()), (1_u128 << 80) + 456);
+            assert_eq!(must(reader.u8()), u8::from(terminal));
+            assert_eq!(must(reader.u8()), 2);
+            assert_eq!(must(reader.fixed(32)), [6; 32]);
+            assert_eq!(must(reader.fixed(32)), [7; 32]);
+            assert_eq!(must(reader.fixed(32)), [8; 32]);
+            assert_eq!(must(reader.u64()), 9);
+            assert_eq!(must(reader.u64()), 10);
+            let decoded_proof_digest = must(reader.fixed(32));
+            assert_eq!(decoded_proof_digest, proof_digest);
+            let decoded_proof_bytes = must(reader.bytes(MAX_RESPONSE));
+            assert_eq!(decoded_proof_bytes, proof_bytes);
+            assert_eq!(sha256(decoded_proof_bytes), decoded_proof_digest);
+            must(reader.finish());
+        }
+    }
+
     fn encoded_receipt(
         height_number: u64,
         timestamp: u64,
