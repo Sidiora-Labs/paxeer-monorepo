@@ -447,7 +447,8 @@ mod tests {
         Arc,
     };
 
-    const OWNER: &str = "did:layerx:budget-owner";
+    const OWNER: &str =
+        "did:layerx:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
     const HEIGHT: u64 = 8;
     fn budget_id() -> [u8; 32] {
         let mut id = [0; 32];
@@ -590,7 +591,39 @@ mod tests {
     }
     #[test]
     fn budget_proof_v2_node_answers_fixture_is_current() {
-        let mut generated = serde_json::to_vec_pretty(&generated_answers()).expect("answers JSON");
+        fn assert_layerx_dids(value: &Value) {
+            match value {
+                Value::Object(fields) => {
+                    for (name, value) in fields {
+                        if name == "layerx_did" {
+                            let suffix = value
+                                .as_str()
+                                .expect("layerx_did string")
+                                .strip_prefix("did:layerx:")
+                                .expect("layerx_did prefix");
+                            assert_eq!(suffix.len(), 64, "layerx_did hex length");
+                            assert!(
+                                suffix
+                                    .bytes()
+                                    .all(|byte| byte.is_ascii_hexdigit()
+                                        && !byte.is_ascii_uppercase()),
+                                "layerx_did must contain lowercase ASCII hexadecimal characters"
+                            );
+                        }
+                        assert_layerx_dids(value);
+                    }
+                }
+                Value::Array(values) => {
+                    for value in values {
+                        assert_layerx_dids(value);
+                    }
+                }
+                _ => {}
+            }
+        }
+        let answers = generated_answers();
+        assert_layerx_dids(&answers);
+        let mut generated = serde_json::to_vec_pretty(&answers).expect("answers JSON");
         generated.push(b'\n');
         if std::env::var("LAYERX_WRITE_VECTORS").as_deref() == Ok("1") {
             std::fs::create_dir_all(fixture_path().parent().expect("fixture directory"))
