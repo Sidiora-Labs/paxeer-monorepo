@@ -12126,3 +12126,368 @@ fix = "When adding a layerxauth method, raise the pinned counts in gas_test.go a
 title = "Store row keys are limited to 128 identifier characters, and two 32-byte hex fields plus a prefix exceed it"
 symptom = "A handler built a Cache row key from a prefix and two 64-character hex digests (148 characters); RowKey::new refused it as InvalidKey and the handler reported upstream-degraded on every request."
 fix = "Key rows by one digest of the inputs (prefix plus 64 hex characters) and keep RowKey::new's IDENTIFIER_LIMIT in mind whenever a key concatenates hashes."
+
+[gotcha.2463]
+title = "A panic inside an evmrpc handler is reported only as 'method handler crashed' and the node log shows nothing"
+symptom = "A client saw 'method handler crashed' from eth_sendRawTransaction; the JSON-RPC server recovers handler panics and logs them through its own logger, which the node does not route, and the handler's deferred recordMetricsWithError re-panicked without logging, so node.log held no error, no stack and the goroutine dump had already unwound."
+fix = "Log the panic value and debug.Stack() in recordMetricsWithError before re-raising (task 12.35.11), and reproduce handler paths in process with the production SendConfig instead of only through a started binary."
+
+[gotcha.2464]
+title = "A retired-module scan list is per crate, and extending it before that crate's own port fails the port's neighbour"
+symptom = "A core task added 'read' to the authority crate's retired-module list because an early do-line bundled the authority reader with the core port; the core port passed its own scan and the task failed on the authority crate's unchanged import."
+fix = "Keep each crate's retired list with the task that ports that crate; a cross-crate clause in a do-line is a second task, not a line item."
+
+[gotcha.2465]
+title = "The agent creation lifecycle binding matches the disclosure construct method exhaustively"
+symptom = "A task added a variant to layerx_crypto::disclosure::call::ConstructMethod, built and tested layerx-crypto, and landed; every later build of the layerx-human-service library failed with error[E0004] non-exhaustive patterns in agents/create.rs bound_activity."
+fix = "When adding a ConstructMethod variant, add its bound_activity arm in the same change and build layerx-human-service as part of the gate; the two crates live in different workspaces, so the human service build must be named explicitly."
+
+[gotcha.2466]
+title = "The human service's component server validates every response against the declared schema and answers upstream-degraded on an undeclared key"
+symptom = "A handler emitted fields the schema file did not declare; the service built and the peers answered, and every request still got 503 upstream-degraded with no log of the cause, because encode_response refuses an undeclared object key after the backend has executed."
+fix = "When a handler emits a new response field, declare it in services/human/schema/human-api (optional lists are additive within a major), regenerate baseline.kvx with the refresh command in its manifest, and run the schema-check conformance test with the handler's test."
+
+[gotcha.2467]
+title = "Test wrappers start with Block.MaxGasWanted zero and the sequencer admission then refuses every transaction"
+symptom = "An rpc test harness built app.NewTestWrapper, funded accounts and sent a transaction; the sequencer answered 'transaction does not fit the block limits: gas wanted 21000 exceeds Block.MaxGasWanted 0' from node/sequencer/limits.go, because the admission check reads the stored consensus params and the wrapper never stores any."
+fix = "Store consensus params with Block.MaxGasWanted set (50000000 is the production genesis value) through App.StoreConsensusParams before the harness's first block, as node/genesis_sequenced_test.go does."
+
+[gotcha.2468]
+title = "Removing a variant from a human-service enum left two test targets uncompilable on main"
+symptom = "A task removed two variants from journeys::resolver::Mechanism, built and tested its own targets and landed; tests/intent_nonces.rs and tests/resolver.rs still named the variants and every later --all-targets build of layerx-human-service failed on them."
+fix = "When removing or renaming an enum variant in services/human, grep the crate's tests directory for the variant and build the crate with --all-targets in the gate; the resolver's refusal for custody routes is pinned in tests/send_routes.rs, so do not duplicate it elsewhere."
+
+[gotcha.2469]
+title = "The authority's Config is built literally in more than one test, so a new field breaks tests outside the task that added it"
+symptom = "A task added chain_rpc_url to the hosted authority's Config and updated the tests it owned; cargo build --tests then failed in tests/chain_receipts.rs, which constructs Config with a struct literal and was not in the task's touches."
+fix = "When adding a field to services/platform/hosted/authority's Config, grep the crate's tests for 'Config {' and add every literal to the touches before the build."
+
+[gotcha.2469]
+title = "The wallet's .pax name widget targets contract addresses that hold no code on chain 125"
+symptom = "apps/wallet/src/lib/pns.ts pins a controller, resolver and reverse registrar address and the widget drives registrations against them; eth_getCode for each returns empty on the live chain and the repository holds no name-service contract source."
+fix = "Treat a client with pinned addresses as a specification of the ABI, not as evidence of a deployment; check eth_getCode before building on a pinned address, and prefer environment-configured addresses with a not-configured state."
+
+[gotcha.2470]
+title = "A cargo gate that names a test target another task has yet to create exits 101 before any test runs"
+symptom = "A verify command listed --test intent_plan_evm for a crate whose tests/intent_plan_evm.rs is a planned path of a different task; cargo refused with no test target named intent_plan_evm and the task could not qualify although its own change built."
+fix = "Name only test targets that exist at the task's base or that the task itself creates; leave another task's planned target to that task's gate."
+
+[gotcha.2471]
+title = "A status-only assertion against the authority hides which refusal code produced a 503"
+symptom = "Three TLS tests failed with 503 where 200 was expected and the attempt could only report pre-existing; the authority's refusal body carries error.code and server.log carries the eprintln reasons, neither of which the assertions printed."
+fix = "Assert on status and body together and print the server log tail on failure, so a refused route names its cause in the first run."
+
+[gotcha.2472]
+title = "An ES-module package whose exports declare only import and types conditions cannot be required by Playwright's CommonJS loader"
+symptom = "A Playwright suite in a package without 'type': 'module' imported a workspace library that imports @sidiora/layerx-sdk/browser; Node failed with Package subpath './browser' is not defined by exports because the map had no require or default condition, while Vitest over the same files passed."
+fix = "Give every exports entry a default condition (Node 24 can require an ES module), and when a Playwright webServer never becomes ready, pipe its stdout and fetch the probe URL by hand: Playwright treats a 500 as not ready and says nothing about why."
+
+[gotcha.2473]
+title = "A fresh perps node emits its first FundingSettled only at the first whole hour after its first block, and end-block failures surface as Cosmos events"
+symptom = "An end-to-end test waited six minutes for FundingSettled on a freshly started node and passed or failed depending on where its window fell against the wall-clock hour; the perps funding step records the first hour it sees and emits nothing, and a market whose end-block step fails is skipped with a perps_endblock_error event that eth_getLogs never shows."
+fix = "Give a local genesis perps market states whose last_index_hour is one hour before genesis so the first block settles, and read /block_results for perps_endblock_error before concluding that a settlement is late."
+
+[gotcha.2474]
+title = "An exports map with only types and import conditions breaks every bundler and CommonJS consumer"
+symptom = "A webpack build and a CommonJS loader both failed to resolve a package subpath whose exports entry declared only types and import; the ESM consumers passed, so the defect surfaced only in aggregate builds."
+fix = "Give every exports entry a default (or require) condition beside import, and make aggregate gate tests print the failing step's log tail so the owning module is visible from the test output."
+
+[gotcha.2475]
+title = "The root Foundry project does not build as a whole, so new contracts need their own profile"
+symptom = "forge build --root . under the default profile failed on retired kernel contracts whose libraries no longer exist and on tests importing an unpopulated contracts/lib; the new contracts themselves were fine."
+fix = "Build and test new Solidity work under a dedicated [profile.<name>] in foundry.toml (its own src, test, out and cache_path) and prefix the commands with FOUNDRY_PROFILE=<name>."
+
+[gotcha.2476]
+title = "Every declared touch path must exist and change, and the xweb kind admissions live under types/"
+symptom = "A task declared modules/xweb/observation.go and modules/xweb/genesis.go; the files live in modules/xweb/types, so the done check refused the otherwise passing attempt for two unchanged paths."
+fix = "Check each touch path exists on main before committing a task block, and expect the done check to refuse any declared path that no commit changed."
+
+[gotcha.2477]
+title = "pnpm install inside the repository resolves the root workspace unless told otherwise"
+symptom = "pnpm --dir <package> install for a package outside pnpm-workspace.yaml still found the repository workspace file and tried to install all twenty members, one of which depends on a registry package that does not exist."
+fix = "Pass --ignore-workspace to pnpm install for packages that are not workspace members, and keep their file: dependencies on sibling packages."
+
+[gotcha.2478]
+title = "A pinned receipt key is selected by the receipt's context_hash, so kernel-era signed fixtures cannot be pinned"
+symptom = "A server-launching test pinned the fixture's sequencer id as a receipt key; the authority refused every state record as state_evidence_refused because the signed receipt's context_hash was another value, and a zero key id is refused outright."
+fix = "Derive test receipts from the committed fixture at run time: write the key id into context_hash, re-encode unsigned, re-sign the receipt digest and the batch header digest with the test key, and pin that key."
+
+[gotcha.2479]
+title = "The wallet already consumes a name indexer in the explorer name-service shape"
+symptom = "A name system planned without an indexer would have left the wallet's My Names tab and the explorer's name display empty: apps/wallet/src/lib/pns.ts and apps/explorer/configs/app/apis.ts both read the explorer name-service API, and the wallet proxy pointed at a literal origin serving nothing."
+fix = "When a feature replaces a hosted dependency, grep the consumers for the API shape they already speak and serve that shape; commit one answer vector that the producer test and the consumer test both assert against."
+
+[gotcha.2480]
+title = "A Next custom server ignores edits to the imported config object"
+symptom = "An embedded dev server set basePath to the empty string on the object imported from next.config.mjs and still served the product basePath, so every probe on the root answered 404 and the Playwright web server never became ready."
+fix = "Pass the adjusted object as next({ conf }) explicitly, and install the Playwright browser in the gate's build command when the environment has none."
+
+[gotcha.2481]
+title = "The v6120 export is past the sequencer activation height, so a plain local node rejects its own proposals"
+symptom = "A local node started from the v6120 export without sequencer mode produced its first block and then rejected every proposal with 'sequenced proposal tx 0 is not a sequence batch'; a test waiting for a transaction receipt timed out with no error from the RPC."
+fix = "Start v6120-node.sh with --sequencer for any test that sends a transaction; look for the proposal rejection in the node log whenever a receipt never arrives."
+
+[gotcha.2482]
+title = "An advance error mapped to one opaque code is unbisectable; log it with the journey id"
+symptom = "A journey read advanced an intent journey and mapped every error to upstream-degraded, so a failing test saw only the code after the node double had accepted the transaction and served no receipt."
+fix = "Log the error's Debug form with the journey id before mapping it, and make test doubles serve the receipt and block reads for every transaction they accept."
+
+[gotcha.2483]
+title = "Retiring a planner route also retires the tests that needed its multi-leg plans"
+symptom = "After the planner began refusing every custody endpoint, a nonce-reuse test that built a two-leg deposit plan failed with NoRoute; no remaining route yields more than one leg and the plan type has no test constructor."
+fix = "When a route is removed, list the tests that reach it through plan() and remove or rewrite them in the same wave; keep the single-leg assertions."
+
+[gotcha.2484]
+title = "A refusal that folds several comparisons into one string needs test-side named assertions"
+symptom = "A creation test failed with 'lifecycle transaction binding differs' twice; the production check compares eight fields and names none, so neither attempt could tell which binding of the EVM-form owner was wrong."
+fix = "Have the test support recompute and assert each binding with its own message before calling the production check, so the next failure names the field."
+
+[gotcha.2485]
+title = "A retired contract imported by a test breaks a scoped Foundry profile"
+symptom = "A names-only Foundry profile still failed to build because one test imported the governance timelock, whose own imports were retired earlier in the feature."
+fix = "Scoped profiles compile every import of their tests; govern Governed components in tests through a pranked plain address and never import sources outside the profile's own directory."
+
+[gotcha.2486]
+title = "budgetCreate carries no idempotency word; its disclosure word is the budget id"
+symptom = "A lifecycle binding compared the disclosure idempotency word against the stage action key for every method; for budgetCreate the word is the budget id by construction, so the budget-creation stage could never pass on any owner path."
+fix = "When a disclosure derives the idempotency word from a method-specific field, bind that field to what the payload comparison already pins and keep the action-key comparison for the methods that carry one."
+
+[gotcha.2487]
+title = "A test that writes under the repository root leaves untracked files behind every run"
+symptom = "An integration test rooted its TLS fixture tree at qual-logs/hm2 under the repository; the gate passed and the attempt was still refused for sixty untracked files outside the task's scope."
+fix = "Root test fixtures at env!(CARGO_TARGET_TMPDIR) (or an equivalent build-output directory) and never under a source path that git does not ignore."
+
+[gotcha.2488]
+title = "A mode guard around test-node setup leaves the sequenced node without prices or collateral"
+symptom = "The local node script skipped its price feed and collateral setup in sequencer mode; the perps end-to-end test then saw getMarkPriceDetails revert with a zero mark on a market whose funding was already settling."
+fix = "Gate only the steps a mode truly cannot run (here activate_merge on an already-activated export) and run every state-setup step in every mode; check the script's own mode-neutral tests against each start form."
+
+[gotcha.2489]
+title = "A handler result that fails the response schema is answered as upstream-degraded with no reason"
+symptom = "The human service answered 503 upstream-degraded on every read of a new journey kind; nothing in the logs named a cause. finish_response validates each result against the operation's declared response type and maps a schema refusal to upstream-degraded silently."
+fix = "When a new handler answers 503 with no chain or store error in sight, check the result against the operation's response type in the schema first; the service now logs one line per schema refusal naming the operation, trace and SchemaError."
+
+[gotcha.2490]
+title = "A pending-block RPC read between Seal and Open crashed the handler"
+symptom = "eth_sendRawTransaction on the node holding the open block answered method handler crashed; the node log showed the handler panicking with sequencer: no block is open because the context provider panics when the open layer is nil in the few milliseconds between sealing one block and opening the next."
+fix = "Send-path pending reads go through WatermarkManager.PendingContext, which waits up to PendingOpenWait for the next open block and answers the retriable ErrPendingBlockClosed; the app's provider performs the same bounded wait before it panics."
+
+[gotcha.2491]
+title = "The Next development server keeps the configured basePath and the browser harness must follow it"
+symptom = "A browser harness started the wallet's development server with a basePath override in conf and probed the root URL; the app served under /wallet, every probe answered 404 and the harness timed out after ten minutes."
+fix = "Point webServer.url and baseURL at the product base path with a trailing slash and write page navigations as relative paths (./?screen=...), never with a leading slash."
+
+[gotcha.2492]
+title = "eth_getProof answered a store-level proof that cannot reach the app hash"
+symptom = "A test verified the eth_getProof answer against the committed app hash and failed with calculated root hash is invalid: the handler queried the evm store directly and returned only the ics23:iavl op, missing the ics23:simple op that links the store root to the app hash."
+fix = "Prove storage slots through the root multistore (path /<store>/key with Prove) so the proof carries both ops; a client with a signed header can then verify it with the ics23 codec alone."
+
+[gotcha.2493]
+title = "A new struct field needs every initializer site in the touches, including test helpers in other modules"
+symptom = "Adding a field to the indexer's Unit broke the build in a test helper of another module that constructs a Unit literally; that file was outside the task's touches, so two attempts stopped at the same compile error."
+fix = "Before adding a field to a struct, list every literal initializer (grep for the type name followed by a brace) and put each file in the task's touches."
+
+[gotcha.2494]
+title = "A fixture that signs lifecycle calls must cover every stage's construct"
+symptom = "The agent creation test fixture built budgetCreate calldata for every Budget-module payload and panicked on the funding stage's ordinal 2 once the creation stage finally bound"
+fix = "Enumerate the stages a flow compiles (the compile.rs arms) before writing a fixture's calldata builder, and give the decoder a construct for each precompile method the flow signs"
+
+[gotcha.2495]
+title = "Retiring enum variants must carry every test target that names them"
+symptom = "A gateway lib-only gate let an integration test keep nine deleted ProductionRoute variants, and unrelated tasks failed their dependent-crate check against the gateway test target"
+fix = "When a task deletes variants or routes, grep the crate's tests directory and put every file that names them in touches; qualify with --all-targets or the test target itself"
+
+[gotcha.2496]
+title = "testify require.Same needs pointers"
+symptom = "require.Same on two sdk.Context MultiStore() interface values failed with both arguments must be pointers after the behaviour under test already passed"
+fix = "Assert header and height equality on contexts; reserve require.Same for pointer values"
+
+[gotcha.2497]
+title = "Browser-session reads need the session cookie in test fixtures"
+symptom = "An intent journey list read answered 401 while the detail read passed, because the list route is a browser-session read and the fixture carried only the bearer"
+fix = "Check each route's authentication kind before writing a fixture; open the passkey session once and send its cookie with every request"
+
+[gotcha.2498]
+title = "A leaf pnpm install walks up to the root workspace"
+symptom = "pnpm --dir sdk/names install resolved all workspace projects and failed on an unpublished dependency of another package once the names manifest changed"
+fix = "Install leaf packages that keep their own lockfile with --ignore-workspace, or add them to the workspace deliberately"
+
+[gotcha.2499]
+title = "Deleting a file must carry every include_str! of it"
+symptom = "A Python-gated task deleted services/platform/relay_archive/runtime.py while a Rust integration test still include_str!-ed it, so every later build of the gateway test target failed with 'couldn't read' on an unrelated task"
+fix = "Before deleting a file, grep the repository for its path (include_str!, include_bytes!, fixtures) and put every referrer in touches; a deletion's gate must compile the crates that embed the file"
+
+[gotcha.2500]
+title = "A build command fix must sweep every task that shares the command"
+symptom = "Decision 2178 repaired the names SDK install command on one task while a sibling task kept the old command and failed on the identical root-workspace resolution one attempt later"
+fix = "When a ruling changes a build_cmd or verify_cmd, grep the spec for every task carrying the same command and change them in the same batch"
+
+[gotcha.2501]
+title = "A pending-window fix must cover the send itself"
+symptom = "The RPC send path waited for an open block on its nonce read and receipt record but handed the transaction to Accept unguarded, so a fixture's first call during a sealed layer failed with the raw sequencer error"
+fix = "When a wait is added for a closed window, list every call on the handler path that touches the open layer, including the final hand-off, and guard each one"
+
+[gotcha.2502]
+title = "Adding an enum variant must carry the exhaustive matches of dependent crates"
+symptom = "A decoder task added ConstructMethod::PayBudgetFund with a layerx-crypto-only gate while the human service matched the enum exhaustively, so every human workspace build failed until the consumer task landed its arms half an hour later"
+fix = "A task that adds a variant to a public enum puts every exhaustive match in dependent crates in touches, or the consumer task that adds them merges in the same step"
+
+[gotcha.2503]
+title = "Deleting a crate must carry its workspace manifest and lockfile"
+symptom = "A deletion task's touches named only the crate's files, so the workspace manifest kept the member and every cargo command in the human workspace failed with a missing manifest"
+fix = "Grep the workspace Cargo.toml members and the Cargo.lock package list for a crate before deleting it and put both in touches"
+
+[gotcha.2504]
+title = "A task that edits the specification document cannot be compared by raw tree after its done record"
+symptom = "A task whose touches include the specification document verified, then the done record rewrote the task's own status line inside that allowed file, so the measured candidate never matched the verified one and two attempts failed with the same unmet check"
+fix = "Mask the task's own status line in the comparison hash when the specification document is an allowed path; the published commit keeps the real content"
+
+[gotcha.2505]
+title = "A native envelope binder has no call-name port to an EVM call binder"
+symptom = "A migration task ordered call-name ports of every binder use, but two sites bind unsigned native kernel envelopes, which the EVM call binder cannot take; two attempts failed the retirement scan on them"
+fix = "When a retired function has no same-shape replacement, retire its callers with the task that deletes their file and order the deletion of the definition behind them"
+
+[gotcha.2506]
+title = "A consumer task cannot precede the producer whose fields it reads"
+symptom = "10.95.1 read AccountBalances.height and AssetBalance.amount while 10.24.1, which adds them, required 10.95.1; neither order built."
+fix = "Point the requirement from consumer to producer and let the producer port the single dependent call site in the same change."
+
+[gotcha.2507]
+title = "A test fixture built on a deleted module falls with the module"
+symptom = "intent_submit.rs still imported layerx_human_service::binding after 10.9.1 deleted it, so a later task could not port the signatures inside that fixture."
+fix = "Delete the fixture and the cases' binding steps; decide what the product still reads and write that record directly."
+
+[gotcha.2508]
+title = "A journey identifier in a test must carry the jrn_ prefix"
+symptom = "JourneyId::new('move-bank-send') refused with InvalidIdentifier kind journey and both tests panicked before asserting anything."
+fix = "Use jrn_-prefixed lowercase identifiers (notify/event.rs:73), as the other tests do."
+
+[gotcha.2509]
+title = "A fixture loop that logs only on failure leaves an empty log when its parent times out"
+symptom = "feeder.log was empty after the 30 second price wait killed the feeder, so the first failing step was invisible."
+fix = "Log every iteration before and after the broadcast and size the wait to the first commit and aggregate."
+
+[gotcha.2510]
+title = "A test-support server for a retired protocol is deleted, not re-encoded"
+symptom = "The evidence node spoke LNI frames; the retired-module scan refused lni paths while a do-line asked to keep the handshake."
+fix = "Delete it with its tests once its consumer moved to the real RPC; keep the journal types the consumer still uses."
+
+[gotcha.2511]
+title = "A retirement scan for a package name fails while sibling tasks still delete the package's other files"
+symptom = "10.27.2's test scanned for layerx-explorer-index and found the package's own sources and the tests of 10.27.4, 10.27.5 and 10.27.7."
+fix = "Scan for the deleted files' names and the symbol they exercised; order the tasks whose scans hit each other's files with requires."
+
+[gotcha.2512]
+title = "A sequencer send refused -32000 'receipted but its logs are not recorded ... pending height H+1, receipt height H' is a send-path race, not a consumer fault"
+symptom = "rpc/send.go recordReceiptLogs compared the pending height with the receipt's height after Accept; a layer sealing between the two refused a transaction the sequencer had receipted (18.670.1 a12, 10.6.1 a3, 5.47.4, 18.997.1, 11.37.3)."
+fix = "task 5.98.7 records the logs from the AcceptedSend the accepter returns and orders Committed after in-flight sends; consumers must not retry the send (the nonce is spent) nor mask the refusal."
+
+[gotcha.2513]
+title = "A touches entry for a file another task deleted on main fails the done gate as 'no matching change'"
+symptom = "10.98.10 attempt 4 listed tests/deposit.rs in touches after 10.20.x deleted it at ad92aa7fc; the gate found no change for the path."
+fix = "drop the path from touches and withdraw the do line that named it; the attempt's remaining work stands."
+
+[gotcha.2514]
+title = "Playwright body.innerText of '' against a Next dev server usually means a client exception swallowed by the dev overlay"
+symptom = "12.35.2 attempt 8 printed body '' although the init script ran; the Next dev overlay lives in a nextjs-portal element outside body text."
+fix = "attach page.on('pageerror') and page.on('console') before goto and print locator('nextjs-portal') text with the navigation response status before changing product code."
+
+[gotcha.2515]
+title = "A task reshaping a shared struct must build every consumer crate in its own build_cmd, not only its test target"
+symptom = "10.24.1 changed AssetBalance in layerx-network-gateway and built only the gateway test; production_components.rs in layerx-human-service kept the old fields and main stopped building for every human-service task (10.95.1 a4, 18.1156.1 a12, 18.1151.1 a12, 10.27.2 a4)."
+fix = "a port task (10.24.4) repairs the consumer and the human-service builders require it; when writing a producer task, put cargo build -p <consumer crate> into build_cmd."
+
+[gotcha.2516]
+title = "Deleting a module's files is not enough when the crate's facade still defines methods over it"
+symptom = "9.24.3 deleted the arbiter and execution prestate readers but client.rs kept seven methods and two evidence type names over them (36 errors)."
+fix = "list the facade file in touches and name the methods to delete; the callers in other crates belong to the wiring tasks."
+
+[gotcha.2517]
+title = "A symbols entry for a type the task deletes fails the done gate as 'not defined in the graph'"
+symptom = "10.24.3 attempt 1 listed AnchorHead in symbols while do_1 deleted it."
+fix = "list only symbols that exist after the task; deleted names belong in the do lines."
+
+[gotcha.2518]
+title = "A programme check over the installed spec is green only when the features it checks are complete"
+symptom = "17.4.5's uncovered-selector test failed with 127 selectors for tests pending tasks have not written."
+fix = "sequence such checks behind the domain completion gates (N.0.9) instead of running them mid-programme."
+
+[gotcha.2519]
+title = "Refusal-only retired components never appear in the callers inventory"
+symptom = "17.2.6's stale_rows flagged requires-sei-wasm, a row with deleted_trees = [] whose callers are shell scripts."
+fix = "treat components without deleted_trees as outside the inventory's domain."
+
+[gotcha.2520]
+title = "A schema edit without a regenerated client fails the api-gen drift test on every later main"
+symptom = "10.0.3 (63aee3813) extended services/human/schema/human-api and left apps/web/src/api/generated at its earlier shape; make human-build was red until 14.0.5."
+fix = "a task that touches the human-api schema regenerates the client in the same change, or the spec names the web task that does and sequences the aggregate gates behind it."
+
+[gotcha.2521]
+title = "A browser test that sees an empty document must prove the server serves the app before touching the test"
+symptom = "12.35.2 spent attempts 7 to 9 refining diagnostics while no test had ever rendered the wallet shell under the app config."
+fix = "fetch the page from the test process, run the simplest existing test under the same config, and only then decide whether the config or the test is at fault."
+
+[gotcha.2522]
+title = "go build compiles no _test.go file, so a changed Accept signature passed the build and broke the consumer package's tests"
+symptom = "5.98.7 attempt 1 changed SequencerAccepter.Accept to return AcceptedSend; go build ./rpc/... ./node/... passed and go test ./node/sequencer/ failed to compile on two test callers outside touches."
+fix = "a task that changes a signature test files call adds go vet over those packages to its build gate and names the calling test files in touches."
+
+[gotcha.2523]
+title = "A do-line that names the callers to delete must be written from the file, not from memory"
+symptom = "9.24.3 do_4 named seven facade methods; the client had twelve that referenced the deleted modules, so attempt 3 still failed with sixteen errors."
+fix = "enumerate by the module or type reference (grep the file for crate::<module> and the evidence types) and cite each method with its line."
+
+[gotcha.2524]
+title = "A deletion task's gate must compile the crates that import the deleted items"
+symptom = "9.24.3 passed cargo build -p layerx-client --test sequencer and left layerx-agentd with thirteen errors on main; every agent and human workspace build failed afterwards on a break none of them touched."
+fix = "give every task that deletes or renames a library item a build gate that compiles the dependent crates (decision 2190), and when an attempt fails on such a break, author the port task rather than rerunning the consumer."
+
+[gotcha.2525]
+title = "A fix at a higher wave than its broken consumers cannot be expressed as a requires"
+symptom = "the agent daemon fix 9.24.5 sits at wave 35 while the human tasks that fail on the break sit at wave 19; a task may not require a higher-wave task."
+fix = "hold the lower-wave consumers by operator hold until the fix publishes, and write the dependency into the consumers' do-lines instead of their requires."
+
+[gotcha.2526]
+title = "A port ruling must name the committed source of every field of the deleted type"
+symptom = "9.24.5 asked to carry every prestate check onto a balance read and three attempts stopped without a build: the deleted prestate carried eight kinds of fact and the balance read carried two."
+fix = "before ruling a port, list the accessors the consumers call on the deleted type (grep the accessor names and count the call sites) and name the committed source for each one, including the check that has none and is dropped on record."
+
+[gotcha.2527]
+title = "The touches list is the edit scope; an unlisted consumer blocks qualification"
+symptom = "5.98.7 attempt 9 met a type error in a test file the task did not list, asked whether it could edit the file and stopped without a build; the previous ruling had listed the callers go vet had named so far, not every caller in the tree."
+fix = "when ruling on an interface change, enumerate every caller of the changed symbol across the tree with one search (not the ones the compiler has reported so far) and add each consumer file to touches in the same batch, so the implementation never meets an unlisted file."
+
+[gotcha.2528]
+title = "A verify command that selects tests by name passes with zero matches"
+symptom = "27 acceptance tests named by done tasks were never written: go test -run, cargo test -- --exact, swift test --filter, node --test-name-pattern and vitest -t all exit 0 when nothing matches, or when one alternative of a regex matches, so the gates passed and the parity check found the names missing weeks later (finding 17.4.5.2)."
+fix = "pin the pass to the named test in the verify command (tee the output and grep '--- PASS: Name ' for go, 'test result: ok. N passed' for cargo, 'Executed N tests, with 0 failures' for swift, '# pass N' for node --test, 'Tests N passed' for vitest), or use a runner that refuses an unknown selector; never let a single alternation cover several names."
+
+[gotcha.2529]
+title = "A wallet-signed bank 0x1001 send executes with success false"
+symptom = "move_leg_completes_from_its_receipt submitted send(address,address,string,uint256) to bank 0x1001 from the node key and the receipt reported execution.success false: pointerSend (precompiles/bank/bank.go:306) refuses any caller but the denom's ERC20 native pointer, so no externally signed transaction can call send."
+fix = "route wallet moves of a denom through its ERC20 native pointer (pointerview 0x100A getNativePointer, then transfer(address,uint256) to the pointer) as decision 2197 rules, and prove every executable call shape against the real chain before asserting it in a route test."
+
+[gotcha.2530]
+title = "A verify command written with single quotes inside a single-quoted node -e argument never runs"
+symptom = "17.5.12 attempts 1 and 2 failed at node -e 'require.resolve('@sidiora/...')': the shell closed the quote at the inner one and node parsed an unquoted module id (SyntaxError: Invalid or unexpected token)."
+fix = "quote a node -e program with double quotes in the spec string (escaped as \' in the kvx value) and keep single quotes inside it, as the merchant-shop build command does."
+
+[gotcha.2531]
+title = "A double quote inside a spec command is written out as a single quote"
+symptom = "The build gate of 18.90.1 (grep -q 'test 'reject an anchors page that lost a field'') and the verify gate of 17.5.12 (node -e 'require.resolve('@sidiora/layerx-sdk/browser', ...)') lost their inner double quotes when the spec was written, the shell split the commands at the inner quotes and both attempts failed on a command that never ran as intended."
+fix = "Write commands that need no nested quoting: pass values to node -e as arguments read from process.argv, and match quoted test titles with grep -E and a single-character wildcard in place of each quote."
+
+[gotcha.2532]
+title = "A task's symbols list is checked against the code graph after verify passes"
+symptom = "8.90.2, 8.90.3, 9.90.2 and 17.5.12 passed their verify commands and were still not marked done: the completion check resolves every symbols entry in the code graph and failed on test names a ruling had renamed in the tests list but not in symbols (testAgentEnvelopeEncodesVersionTwo, verifyReceipt_reports_the_submitted_rung_under_an_authority_key) and on Makefile target names (agent-sdk-ts-build, human-build), which are not functions."
+fix = "when a ruling renames or deletes a tests entry, rewrite symbols in the same batch; list only functions, methods, classes and test functions that exist after the task (Go Test functions, Swift test methods, pytest functions, Rust test functions, TypeScript functions) and never Makefile targets, file names or test titles with spaces; an empty symbols list is valid."
+
+[gotcha.2533]
+title = "node --test prints the spec reporter in the gate, so grep for '# pass 1' never matches"
+symptom = "9.90.2 attempt 3 ran its receipt test under node --test, the test passed and the gate still failed: in the qualification environment node chose the spec reporter (pass 1 with an info glyph) while the verify command grepped for the TAP line '# pass 1' (decision 2194's node form)."
+fix = "pass --test-reporter=tap to node --test whenever the verify command greps '# pass N'; the decision 2194 node form reads node --test --test-reporter=tap."
+
+[gotcha.2534]
+title = "A cargo --tests build gate shows one broken test target per attempt"
+symptom = "10.6.4 attempt 3 saw only tests/evidence_node.rs fail to compile; 14.0.6 attempt 8 fixed that file and then met three more broken targets (archive, native_onboarding_rungs, native_send_producer) the first log never showed, because cargo stops scheduling targets after the first compile error"
+fix = "when a crate's test targets are broken on main, enumerate them once with cargo build --tests --keep-going and give the whole port to one task that the consumers require, instead of letting each consumer discover the next target"

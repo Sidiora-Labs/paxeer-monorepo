@@ -96,3 +96,16 @@ def check_format(path: str | PathLike[str]) -> dict[str, dict[str, KvxValue]]:
     if type(version) is not int or version != 1:
         raise KvxError(f"{path}: [meta] format_version must be integer 1")
     return sections
+
+
+def check_spec(path: str | PathLike[str]) -> dict[int, int]:
+    sections = load(path)
+    counts: dict[int, int] = {}
+    for name, section in sections.items():
+        if not name.startswith("task."):
+            continue
+        wave = section.get("wave")
+        if type(wave) is not int or wave < 0:
+            raise KvxError(f"{path}: [{name}] wave must be a non-negative integer")
+        counts[wave] = counts.get(wave, 0) + 1
+    return counts

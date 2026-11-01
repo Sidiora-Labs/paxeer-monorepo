@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -24,11 +25,12 @@ var ErrBlockHeightNotYetAvailable = errors.New("block height not yet available")
 // requests only target heights where all backing data sources are fully
 // synchronized.
 type WatermarkManager struct {
-	tmClient     client.LocalClient
-	ctxProvider  func(int64) sdk.Context
-	stateStore   types.StateStore
-	receiptStore receipt.ReceiptStore
-	pending      PendingSnapshot
+	tmClient        client.LocalClient
+	ctxProvider     func(int64) sdk.Context
+	stateStore      types.StateStore
+	receiptStore    receipt.ReceiptStore
+	pending         PendingSnapshot
+	pendingOpenWait time.Duration
 }
 
 func NewWatermarkManager(
@@ -50,6 +52,44 @@ func NewWatermarkManager(
 // requests; every other node refuses pending with ErrPendingServedBySequencer.
 func (m *WatermarkManager) SetPendingSnapshot(pending PendingSnapshot) {
 	m.pending = pending
+}
+
+func (m *WatermarkManager) SetPendingOpenWait(wait time.Duration) {
+	m.pendingOpenWait = wait
+}
+
+func (m *WatermarkManager) PendingContext(ctx context.Context) (sdk.Context, error) {
+	if m == nil || m.pending == nil {
+		return sdk.Context{}, ErrPendingServedBySequencer
+	}
+	wait := m.pendingOpenWait
+	if wait <= 0 {
+		wait = PendingOpenWait
+	}
+	bounded, cancel := context.WithTimeout(ctx, wait)
+	defer cancel()
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	for {
+		if bounded.Err() != nil {
+			if err := ctx.Err(); err != nil {
+				return sdk.Context{}, err
+			}
+			return sdk.Context{}, ErrPendingBlockClosed
+		}
+		snapshot, err := m.pending.Snapshot()
+		if !errors.Is(err, ErrLayerNotOpen) {
+			return snapshot, err
+		}
+		select {
+		case <-bounded.Done():
+			if err := ctx.Err(); err != nil {
+				return sdk.Context{}, err
+			}
+			return sdk.Context{}, ErrPendingBlockClosed
+		case <-ticker.C:
+		}
+	}
 }
 
 // resolvePending returns the height of the open block. The snapshot it takes is

@@ -30,9 +30,9 @@ func TestNodeStopClosesWALAndRefusesAccept(t *testing.T) {
 			for _, input := range [][]byte{next, nil} {
 				got, err := f.n.Accepter.Accept(input)
 				require.ErrorIs(t, err, sequencer.ErrReplicationHalted)
-				require.Nil(t, got)
+				require.Zero(t, got)
 			}
-			pending, err := f.n.WAL.Append(&wal.Accept{Height: uint64(openHeight), Seq: sourceLastSeq + 2, Tx: next, Receipt: receipt})
+			pending, err := f.n.WAL.Append(&wal.Accept{Height: uint64(openHeight), Seq: sourceLastSeq + 2, Tx: next, Receipt: receipt.Receipt})
 			require.ErrorIs(t, err, wal.ErrClosed)
 			require.Nil(t, pending)
 			_, err = f.n.WAL.GroupSync()
@@ -41,7 +41,7 @@ func TestNodeStopClosesWALAndRefusesAccept(t *testing.T) {
 			reopened, err := wal.OpenWAL(f.cfg.WALDir, wal.DefaultConfig())
 			require.NoError(t, err, "Stop must release the WAL file lock")
 			t.Cleanup(reopened.Close)
-			require.Equal(t, receipt, before[len(before)-1].(*wal.Accept).Receipt)
+			require.Equal(t, receipt.Receipt, before[len(before)-1].(*wal.Accept).Receipt)
 		})
 	}
 
@@ -71,7 +71,7 @@ func TestNodeStopClosesWALAndRefusesAccept(t *testing.T) {
 		accepted := make(chan stopReceiptResult, 1)
 		go func() {
 			receipt, err := n.Accepter.Accept(bz)
-			accepted <- stopReceiptResult{receipt, err}
+			accepted <- stopReceiptResult{receipt.Receipt, err}
 		}()
 		select {
 		case <-synced:
@@ -115,7 +115,7 @@ func TestNodeStopClosesWALAndRefusesAccept(t *testing.T) {
 		require.Equal(t, result.receipt, send.Receipt)
 		got, err := n.Accepter.Accept(bz)
 		require.ErrorIs(t, err, sequencer.ErrReplicationHalted)
-		require.Nil(t, got)
+		require.Zero(t, got)
 		_, err = n.WAL.GroupSync()
 		require.ErrorIs(t, err, wal.ErrClosed)
 	})
@@ -149,7 +149,7 @@ func TestNodeStopIsIdempotent(t *testing.T) {
 	}
 	receipt, err := f.n.Accepter.Accept(nil)
 	require.ErrorIs(t, err, sequencer.ErrReplicationHalted)
-	require.Nil(t, receipt)
+	require.Zero(t, receipt)
 	_, err = f.n.WAL.GroupSync()
 	require.ErrorIs(t, err, wal.ErrClosed)
 }

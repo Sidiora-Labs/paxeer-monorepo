@@ -623,6 +623,58 @@ impl Cluster {
         self.wait_ready()
     }
 
+    pub fn provision_kms_evm(&mut self, directory: &Path) -> Result<()> {
+        let owner = "provider-wallet-owner";
+        let public: [u8; 32] = self
+            .generate_key(
+                "provider-native",
+                "ed25519",
+                owner,
+                "0x1111111111111111111111111111111111111111",
+            )?
+            .try_into()
+            .map_err(|_| "Ed25519 key length")?;
+        let evm_public = self.generate_key("provider-evm", "secp256k1", owner, "")?;
+        let group = k256::ecdsa::VerifyingKey::from_sec1_bytes(&evm_public)?;
+        let point = group.to_encoded_point(false);
+        let address: [u8; 20] = sha3::Keccak256::digest(&point.as_bytes()[1..])[12..].try_into()?;
+        assert_ne!(address, [0; 20]);
+        for (name, bytes) in [
+            ("attestor-ca.der", self.pki.certificate_der("node-ca")?),
+            ("attestor-client.der", self.pki.certificate_der("gateway")?),
+            ("attestor-client.pk8", self.pki.key_der("gateway")?),
+            ("evm-assertion.jwt", self.tokens.mint(owner)?.into_bytes()),
+        ] {
+            let path = directory.join(name);
+            fs::write(&path, bytes)?;
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        }
+        let nodes: Vec<_> = self
+            .nodes
+            .iter()
+            .map(|(id, address)| json!({"id": id, "address": address}))
+            .collect();
+        let path = directory.join("attestor.json");
+        fs::write(
+            &path,
+            serde_json::to_vec(&json!({
+                "nodes": nodes,
+                "trust_anchors": [directory.join("attestor-ca.der")],
+                "client_certificate_chain": [directory.join("attestor-client.der")],
+                "client_private_key_pkcs8": directory.join("attestor-client.pk8"),
+                "key_id": "provider-native",
+                "public_key": public,
+                "evm_key_id": "provider-evm",
+                "evm_address": address,
+                "signers": SIGNERS,
+                "network_id": 125,
+                "timeout_seconds": 60,
+            }))?,
+        )?;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        Ok(())
+    }
+
     fn publish_inventory(&mut self) -> Result<()> {
         self.inventory_sequence += 1;
         let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
@@ -639,6 +691,25 @@ impl Cluster {
         Ok(())
     }
 
+    pub fn approve_generate(&mut self, key_id: &str, curve: &str, owner: &str) -> Result<()> {
+        self.inventory_keys.push(json!({
+            "key_id": key_id, "epoch": 0, "curve": curve, "public_key": "",
+            "owner": owner, "operations": ["generate"],
+        }));
+        self.publish_inventory()
+    }
+
+    pub fn approve_sign(&mut self, key_id: &str, public_key: &[u8]) -> Result<()> {
+        let entry = self
+            .inventory_keys
+            .iter_mut()
+            .find(|entry| entry["key_id"] == key_id)
+            .ok_or("missing inventory key")?;
+        entry["public_key"] = json!(hex(public_key));
+        entry["operations"] = json!(["sign"]);
+        self.publish_inventory()
+    }
+
     pub fn generate_key(
         &mut self,
         key_id: &str,
@@ -646,11 +717,7 @@ impl Cluster {
         owner: &str,
         account: &str,
     ) -> Result<Vec<u8>> {
-        self.inventory_keys.push(json!({
-            "key_id": key_id, "epoch": 0, "curve": curve, "public_key": "",
-            "owner": owner, "operations": ["generate"],
-        }));
-        self.publish_inventory()?;
+        self.approve_generate(key_id, curve, owner)?;
         let trusted =
             ureq::tls::Certificate::from_der(&self.pki.certificate_der("node-ca")?).to_owned();
         let certificate =
@@ -731,13 +798,7 @@ impl Cluster {
         }
         let public = public.ok_or("no key generation responses")?;
         assert_eq!(public.len(), if curve == "secp256k1" { 65 } else { 32 });
-        let entry = self
-            .inventory_keys
-            .last_mut()
-            .ok_or("missing inventory key")?;
-        entry["public_key"] = json!(hex(&public));
-        entry["operations"] = json!(["sign"]);
-        self.publish_inventory()?;
+        self.approve_sign(key_id, &public)?;
         Ok(public)
     }
 

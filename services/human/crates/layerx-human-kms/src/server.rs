@@ -1,6 +1,7 @@
 use crate::config::Config;
 use crate::store::Store;
 use crate::wire::{self, Error, Operation, Request, Result};
+use layerx_crypto::disclosure::call::bind_call;
 use rustls::{ServerConnection, StreamOwned};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
@@ -171,8 +172,7 @@ fn sign(request: &Request<'_>, config: &Config, network: u32) -> Result<Option<[
         .ok_or(Error::Refused)?
         .try_into()
         .map_err(|_| Error::Refused)?;
-    let disclosure =
-        layerx_crypto::disclosure::call::bind_call(&call, sender).map_err(|_| Error::Refused)?;
+    let disclosure = bind_call(&call, sender).map_err(|_| Error::Refused)?;
     if wire::disclosure(&disclosure)? != request.disclosure {
         return Err(Error::Refused);
     }

@@ -108,10 +108,14 @@ func (n *Node) Start(ctx context.Context) (err error) {
 		if overflow {
 			return errors.New("sequencer: open base fee exceeds uint256")
 		}
-		if _, err := n.Replicator.Release(ctx, &wal.Open{
+		ack, err := n.Replicator.Release(ctx, &wal.Open{
 			Height: uint64(height + 1), OpenTimeMs: uint64(openTime), BaseFee: fee,
-		}); err != nil {
+		})
+		if err != nil {
 			return err
+		}
+		if ack.Status != AckOK {
+			return fmt.Errorf("%w: OPEN status %d", ErrStandbyRefused, ack.Status)
 		}
 	} else if err != nil {
 		return err
