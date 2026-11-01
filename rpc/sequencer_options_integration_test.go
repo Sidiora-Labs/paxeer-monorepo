@@ -56,35 +56,31 @@ type sequencerOptionsAccepter struct {
 	source *sequencer.ReceiptSource
 }
 
-func (a *sequencerOptionsAccepter) Accept(txBytes []byte) ([]byte, error) {
+func (a *sequencerOptionsAccepter) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	accepted, receipt, err := a.r.Accept(txBytes)
 	if err != nil {
-		return nil, err
+		return evmrpc.AcceptedSend{}, err
 	}
 	decoded, err := codec.DecodeReceipt(receipt)
 	if err != nil {
-		return nil, err
+		return evmrpc.AcceptedSend{}, err
 	}
-	snapshot, err := a.s.exec.Snapshot()
+	transient, err := a.s.app.EvmKeeper.GetTransientReceipt(accepted.ReceiptContext, common.Hash(accepted.ActivityID), uint64(accepted.TxIndex))
 	if err != nil {
-		return nil, err
-	}
-	transient, err := a.s.app.EvmKeeper.GetTransientReceipt(snapshot, common.Hash(accepted.ActivityID), uint64(accepted.TxIndex))
-	if err != nil {
-		return nil, err
+		return evmrpc.AcceptedSend{}, err
 	}
 	var msgData sdk.TxMsgData
 	if err := msgData.Unmarshal(accepted.Result.Data); err != nil {
-		return nil, err
+		return evmrpc.AcceptedSend{}, err
 	}
 	if len(msgData.Data) != 1 {
-		return nil, fmt.Errorf("want one EVM response, got %d", len(msgData.Data))
+		return evmrpc.AcceptedSend{}, fmt.Errorf("want one EVM response, got %d", len(msgData.Data))
 	}
 	var response evmtypes.MsgEVMTransactionResponse
 	if err := response.Unmarshal(msgData.Data[0].Data); err != nil {
-		return nil, err
+		return evmrpc.AcceptedSend{}, err
 	}
 	send := evmrpc.SequencerSend{
 		Nonce: decoded.FromSequence, Receipt: receipt, ReturnData: response.ReturnData,
@@ -94,7 +90,7 @@ func (a *sequencerOptionsAccepter) Accept(txBytes []byte) ([]byte, error) {
 		send.LogData[i] = log.Data
 	}
 	a.source.Record(common.Hash(accepted.ActivityID), send)
-	return receipt, nil
+	return evmrpc.AcceptedSend{Receipt: receipt, Height: accepted.Height, Exec: transient}, nil
 }
 
 type sequencerOptionsServers struct {
