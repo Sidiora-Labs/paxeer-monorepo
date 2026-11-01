@@ -150450,7 +150450,7 @@ title = "Remove layerx-paxeer-verifier from the agent workspace and its dependen
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.2", "9.5.7", "9.27.2", "8.20.3", "5.96.1", "10.26.1", "10.26.3", "10.26.4", "10.27.1", "16.0.4", "11.22.2", "9.1.8", "18.1131.1", "18.1206.1", "18.1304.1", "9.25.16", "13.8.3"]
+requires = ["9.25.2", "9.5.7", "9.27.2", "8.20.3", "5.96.1", "10.26.1", "10.26.3", "10.26.4", "10.27.1", "16.0.4", "11.22.2", "9.1.8", "18.1131.1", "18.1206.1", "18.1304.1", "9.25.16", "13.8.3", "9.27.9"]
 reqs = ["9306.1"]
 capabilities = ["9.28.1"]
 interfaces = ["interface.9.rs-paxeer-verifier-checkpoint-paxeercheckpointpolicy", "interface.9.rs-paxeer-verifier-checkpoint-paxeercheckpointverifier", "interface.9.rs-paxeer-verifier-checkpoint-verifiedcheckpointpublication", "interface.9.rs-paxeer-verifier-rpc-endpointtransport", "interface.9.rs-paxeer-verifier-rpc-endpointconfig", "interface.9.rs-paxeer-verifier-rpc-endpointfault", "interface.9.rs-paxeer-verifier-rpc-endpointfailure", "interface.9.rs-paxeer-verifier-rpc-canonical-endpoint-identity", "interface.9.rs-paxeer-verifier-rpc-raw-call", "interface.9.rs-paxeer-verifier-json-json", "interface.9.rs-paxeer-verifier-json-jsonerrorreason", "interface.9.rs-paxeer-verifier-json-jsonerror", "interface.9.rs-paxeer-verifier-json-parse", "interface.9.rs-paxeer-verifier-publication-publication", "interface.9.rs-paxeer-verifier-publication-publication-at", "interface.9.rs-paxeer-verifier-publication-blockanchor-j44", "interface.9.rs-paxeer-verifier-publication-publication-type-j44"]
@@ -150480,6 +150480,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_6 = "Decision 2201: task 9.25.9 deletes examples/native_handover_reads.rs first, so do_3 is satisfied when the file is already absent and this task changes nothing there."
 do_7 = "Finding 9.28.1.1: examples/native_handover_reads.rs is no longer a declared touch; continue from attempt 1 (46665c3c6), or a later attempt with the same six changed files, rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
+do_8 = "Finding 9.28.1.2: attempt 3 (d2ca8c3792c) completed the six manifest changes and failed only on the layerx-agentd build that task 9.27.9 repairs; once 9.27.9 is on main, continue from attempt 3 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.9.28.2]
 title = "Delete the layerx-paxeer-verifier crate sources"
