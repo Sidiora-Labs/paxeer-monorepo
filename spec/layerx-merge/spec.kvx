@@ -108882,7 +108882,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.90.2]
 title = "Write the three TypeScript acceptance tests the merged spec names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["9.34.2", "18.800.1", "18.804.1"]
