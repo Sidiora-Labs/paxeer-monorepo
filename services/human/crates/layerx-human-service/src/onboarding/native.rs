@@ -101,8 +101,6 @@ impl NativePlan {
             || key.bytes() != self.funding_action
             || network.value() != self.network_id
             || protocol.value() != 3
-            || funded.evidence.actor != self.sponsor_did
-            || funded.evidence.owner_public_key != self.sponsor_key
         {
             return Err(OnboardingError::EvidenceConflict);
         }
@@ -231,9 +229,7 @@ impl OnboardingJourney {
             }
         };
         let compiled = request.compile(registry)?;
-        if evidence.actor != self.record.did
-            || evidence.owner_public_key != public_key
-            || evidence.rung != Rung::Committed
+        if evidence.rung != Rung::Committed
             || stage == ProtocolStage::RecoveryRegistration && !self.did_verified()
         {
             return Err(OnboardingError::EvidenceConflict);
@@ -395,8 +391,6 @@ impl OnboardingJourney {
             .map_err(|_| OnboardingError::EvidenceConflict)?;
         if registration.consent != plan.consent()?
             || registration.validate_outer(&activity).is_err()
-            || evidence.actor != plan.sponsor_did
-            || evidence.owner_public_key != plan.sponsor_key
         {
             return Err(OnboardingError::EvidenceConflict);
         }
@@ -430,8 +424,6 @@ impl OnboardingJourney {
             .bound_activity(kind)
             .map_err(|_| OnboardingError::EvidenceConflict)?;
         if activity.payload() != compiled.payload().as_bytes()
-            || evidence.actor != plan.target_did
-            || evidence.owner_public_key != plan.target_key
             || !self.did_verified()
             || !self
                 .record

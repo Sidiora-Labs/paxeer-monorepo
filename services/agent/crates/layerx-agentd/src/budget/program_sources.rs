@@ -424,9 +424,17 @@ pub fn read_program_budget_sources(
         return Err(ProgramSourceError::Preparation);
     }
     let maximum_fee = prepared.envelope.fee_limit().value();
-    if maximum_fee != 0 {
-        // Decision 2199: task 9.25.7 ports native fee policy.
-        return Err(ProgramSourceError::FeeUnavailable);
+    if let Some(charge) = read_fee_charge(
+        node,
+        caps.all_accounts(),
+        prepared.envelope.actor_did(),
+        prepared.envelope.protocol_version(),
+        prepared.observed_head_sequence,
+        caps.state_root(),
+        maximum_fee,
+        None,
+    )? {
+        charges.push(charge);
     }
     if node
         .block_number()
@@ -588,9 +596,22 @@ pub fn read_native_effect_budget_sources(
         return Err(ProgramSourceError::Preparation);
     }
     let maximum_fee = prepared.envelope.fee_limit().value();
-    if maximum_fee != 0 {
-        // Decision 2199: task 9.25.7 ports native fee policy.
-        return Err(ProgramSourceError::FeeUnavailable);
+    if let Some(charge) = read_fee_charge(
+        node,
+        caps.all_accounts(),
+        prepared.envelope.actor_did(),
+        prepared.envelope.protocol_version(),
+        prepared.observed_head_sequence,
+        caps.state_root(),
+        maximum_fee,
+        match profile {
+            crate::capability::NativeAdmissionProfile::Registration { fee_asset } => {
+                Some(fee_asset)
+            }
+            _ => None,
+        },
+    )? {
+        charges.push(charge);
     }
     if node
         .block_number()
@@ -611,6 +632,40 @@ pub fn read_native_effect_budget_sources(
         preparation_digest: Sha256::digest(&prepared.canonical_bytes).into(),
         charges,
     })
+}
+
+fn read_fee_charge(
+    node: &layerx_client::sequencer::SequencerEndpoint,
+    accounts: &BTreeMap<[u8; 32], CanonicalAccount>,
+    actor: &Did,
+    protocol: u16,
+    height: u64,
+    state_root: [u8; 32],
+    maximum_fee: u128,
+    expected_asset: Option<[u8; 32]>,
+) -> Result<Option<ResolvedProgramCharge>, ProgramSourceError> {
+    if maximum_fee == 0 {
+        return Ok(None);
+    }
+    let fee =
+        super::native_fee_policy(node, height).map_err(|_| ProgramSourceError::FeeUnavailable)?;
+    let asset = fee.value.asset.asset_id;
+    if fee.state_root != state_root
+        || fee.observed_sequence != height
+        || expected_asset.is_some_and(|expected| expected != asset)
+    {
+        return Err(ProgramSourceError::Snapshot);
+    }
+    if fee.value.asset.paused {
+        return Err(ProgramSourceError::FrozenSource);
+    }
+    let account = principal_source(accounts, actor, protocol, asset)?;
+    Ok(Some(ResolvedProgramCharge {
+        source: ResolvedProgramSource::Fee { account },
+        asset,
+        destination: None,
+        maximum_amount: maximum_fee,
+    }))
 }
 
 fn validate_prepared(prepared: &Prepared) -> Result<(), ProgramSourceError> {
@@ -942,6 +997,204 @@ mod tests {
                 super::super::LimitId([5; 16])
             ]))
             .is_err()
+        );
+    }
+
+    #[test]
+    fn program_fee_sources_resolve_nonzero_fees_from_registry_and_bank() {
+        use super::super::fee_policy::tests::{asset_result, FeeFixture};
+        let actor = must(Did::new(b"did:layerx:alice"));
+        let registry_id = [1; 32];
+        let bank_id = layerx_crypto::evm_transaction::transaction_hash(b"upax");
+        for (denom, asset) in [
+            (format!("layerx/{}", hex::encode(registry_id)), registry_id),
+            ("upax".to_owned(), bank_id),
+        ] {
+            let account = canonical_account("did:layerx:alice", asset, 1, false);
+            let accounts = BTreeMap::from([(account.account_id, account.clone())]);
+            let fixture = FeeFixture::new(&denom, [7; 32], asset_result(asset, b"PAX", 18, false));
+            let charge = must(read_fee_charge(
+                &fixture.endpoint,
+                &accounts,
+                &actor,
+                3,
+                7,
+                [7; 32],
+                17,
+                None,
+            ))
+            .expect("nonzero fee charge");
+            assert_eq!(
+                charge,
+                ResolvedProgramCharge {
+                    source: ResolvedProgramSource::Fee {
+                        account: account.account_id
+                    },
+                    asset,
+                    destination: None,
+                    maximum_amount: 17,
+                }
+            );
+            let rows = must(budget_charge_rows(&[charge], |_| {
+                Ok(vec![super::super::LimitId([8; 16])])
+            }));
+            assert_eq!(rows.len(), 1);
+            assert_eq!(rows[0].kind, super::super::ProgramChargeKind::Fee);
+            assert_eq!(rows[0].source, account.account_id);
+            assert_eq!(rows[0].asset, asset);
+            assert_eq!(rows[0].amount, 17);
+            assert_eq!(
+                rows[0].applicable_limits,
+                vec![super::super::LimitId([8; 16])]
+            );
+        }
+    }
+
+    #[test]
+    fn program_fee_sources_refuse_snapshot_registration_and_ownership_mismatches() {
+        use super::super::fee_policy::tests::{asset_result, FeeFixture};
+        let actor = must(Did::new(b"did:layerx:alice"));
+        let asset = [1; 32];
+        let denom = format!("layerx/{}", hex::encode(asset));
+        let fixture = FeeFixture::new(&denom, [7; 32], asset_result(asset, b"PAX", 18, false));
+        let account = canonical_account("did:layerx:alice", asset, 1, false);
+        let accounts = BTreeMap::from([(account.account_id, account.clone())]);
+        assert_eq!(
+            read_fee_charge(
+                &fixture.endpoint,
+                &accounts,
+                &actor,
+                3,
+                7,
+                [8; 32],
+                17,
+                None
+            ),
+            Err(ProgramSourceError::Snapshot)
+        );
+        assert_eq!(
+            read_fee_charge(
+                &fixture.endpoint,
+                &accounts,
+                &actor,
+                3,
+                7,
+                [7; 32],
+                17,
+                Some([2; 32])
+            ),
+            Err(ProgramSourceError::Snapshot)
+        );
+        assert!(must(read_fee_charge(
+            &fixture.endpoint,
+            &accounts,
+            &actor,
+            3,
+            7,
+            [7; 32],
+            17,
+            Some(asset)
+        ))
+        .is_some());
+        assert_eq!(
+            read_fee_charge(
+                &fixture.endpoint,
+                &BTreeMap::new(),
+                &actor,
+                3,
+                7,
+                [7; 32],
+                17,
+                None
+            ),
+            Err(ProgramSourceError::MissingSource)
+        );
+        let foreign = canonical_account("did:layerx:other", asset, 1, false);
+        let foreign_accounts = BTreeMap::from([(foreign.account_id, foreign)]);
+        assert_eq!(
+            read_fee_charge(
+                &fixture.endpoint,
+                &foreign_accounts,
+                &actor,
+                3,
+                7,
+                [7; 32],
+                17,
+                None
+            ),
+            Err(ProgramSourceError::MissingSource)
+        );
+        let frozen = canonical_account("did:layerx:alice", asset, 1, true);
+        let frozen_accounts = BTreeMap::from([(frozen.account_id, frozen)]);
+        assert_eq!(
+            read_fee_charge(
+                &fixture.endpoint,
+                &frozen_accounts,
+                &actor,
+                3,
+                7,
+                [7; 32],
+                17,
+                None
+            ),
+            Err(ProgramSourceError::FrozenSource)
+        );
+        let second = canonical_account("did:layerx:alice", asset, 14, false);
+        let ambiguous =
+            BTreeMap::from([(account.account_id, account), (second.account_id, second)]);
+        assert_eq!(
+            read_fee_charge(
+                &fixture.endpoint,
+                &ambiguous,
+                &actor,
+                3,
+                7,
+                [7; 32],
+                17,
+                None
+            ),
+            Err(ProgramSourceError::AmbiguousSource)
+        );
+        let fixture = FeeFixture::new(&denom, [7; 32], asset_result(asset, b"PAX", 18, true));
+        assert_eq!(
+            read_fee_charge(
+                &fixture.endpoint,
+                &accounts,
+                &actor,
+                3,
+                7,
+                [7; 32],
+                17,
+                None
+            ),
+            Err(ProgramSourceError::FrozenSource)
+        );
+        let fixture = FeeFixture::new(&denom, [7; 32], Vec::new());
+        assert_eq!(
+            read_fee_charge(
+                &fixture.endpoint,
+                &accounts,
+                &actor,
+                3,
+                7,
+                [7; 32],
+                17,
+                None
+            ),
+            Err(ProgramSourceError::FeeUnavailable)
+        );
+    }
+
+    #[test]
+    fn program_zero_fee_does_not_require_a_fee_read() {
+        let endpoint = must(layerx_client::sequencer::SequencerEndpoint::new(
+            "http://127.0.0.1:1",
+            &[],
+        ));
+        let actor = must(Did::new(b"did:layerx:alice"));
+        assert_eq!(
+            read_fee_charge(&endpoint, &BTreeMap::new(), &actor, 3, 7, [7; 32], 0, None),
+            Ok(None)
         );
     }
 }

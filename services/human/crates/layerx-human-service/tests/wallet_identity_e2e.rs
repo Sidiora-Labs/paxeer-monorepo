@@ -35,20 +35,20 @@ use layerx_agentd::sign::{attach_kernel_signature, verify_kernel_before_submit};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
 use layerx_human_identity_provider::{AssertionConfig, AssertionVerifier, Policy, State};
 use layerx_human_service::custody::{
-    CustodyError, CustodySigner, KeyId, Keystore, KmsError, SendPlanAuthorization, SigningLimits,
+    CustodyError, CustodySigner, EvmAction, EvmPlanAuthorization, EvmTransaction, KeyId, Keystore,
+    KmsError, Operation, SignAuthorization, SignRequest, SigningLimits,
 };
 use layerx_human_service::journeys::{
     authority_label, drive_intent_journey, intent_journey_id, plan, start_kernel_journey,
     verify_bindings, AgentBoundary, AgentBoundaryError, AgentObservation, AgentPreparation,
     BalanceEntry, BindingExpectation, Constraints, Endpoint, FeeSchedule, IntentDriver,
-    IntentSubmission, JourneyPhase, JourneyState, KernelStart, LegMechanism, Mechanism,
-    ObservedState, ReceiptLookup, ReceiptMaterial, Relationship, RouteRequest, SendRoute,
-    SubmitPlanRequest, UnifiedIntent, UnifiedPlan,
+    IntentSubmission, JourneyEngine, JourneyPhase, JourneyState, LegMechanism, Mechanism,
+    ObservedState, ReceiptLookup, ReceiptMaterial, SubmitPlanRequest, UnifiedIntent, UnifiedPlan,
 };
 use layerx_human_service::server::production_components::{
     AttestorCustodyConfig, AttestorKms, ProductionComponentsConfig,
 };
-use layerx_human_service::store::{PrincipalId, PrincipalStore};
+use layerx_human_service::store::{PrincipalId, PrincipalScope, PrincipalStore};
 use layerx_human_service::trace::TraceId;
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_sdk::{Call, Client as AgentClient};
@@ -56,10 +56,7 @@ use layerx_types::account::AccountId;
 use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, Did, IdempotencyKey};
-use layerx_types::intent::{
-    AuthorizationSignature, ContextHash, NetworkId, ProtocolVersion, PublicKey, SendAuthorization,
-    SendAuthorizationKind, Sequence, TimestampSeconds,
-};
+use layerx_types::intent::TimestampSeconds;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::rung::Rung;
 use serde_json::{json, Value};
@@ -223,80 +220,120 @@ struct SendAuthority<'a> {
     kms: &'a AttestorKms,
     signer: &'a CustodySigner,
     principal: &'a PrincipalId,
-    public_key: [u8; 32],
 }
 
-fn send_route(
+fn signed_actions(
+    scope: &mut PrincipalScope<'_>,
     plan: &UnifiedPlan,
     request: &SubmitPlanRequest,
-    home: &str,
     owner: &SendAuthority<'_>,
-) -> RouteRequest {
-    let binding = &request.bindings[0];
-    let protocol = SEND_PROTOCOL;
-    let authorization = SendPlanAuthorization {
-        plan_id: binding.action_key,
-        action_key: binding.action_key,
-        principal: owner.principal.as_str().to_owned(),
-        tenant: "tenant-a".to_owned(),
-        binding_digest: owner
-            .signer
-            .evm_binding(owner.principal, &custody_key())
-            .unwrap_or_else(|error| panic!("custody binding: {error:?}"))
-            .digest(),
-        from: layerx_intents::canonical::account_id_for_protocol(&account(home), protocol)
-            .unwrap_or_else(|error| panic!("source account: {error:?}")),
-        to: layerx_intents::canonical::account_id_for_protocol(&account(WORKER), protocol)
-            .unwrap_or_else(|error| panic!("destination account: {error:?}")),
-        asset: ASSET,
-        amount: AMOUNT,
-        sequence: binding.account_sequence,
-        idempotency_key: binding.action_key,
-        expires_at: binding.not_after,
-        context: [0x55; 32],
-        network: NETWORK_ID,
-        protocol,
-        not_before: binding.not_before,
-        not_after: binding.not_after,
-    };
-    let signature = owner
-        .kms
-        .authorize_kernel_send(
-            owner.signer,
-            owner.principal,
-            &custody_key(),
-            &authorization,
-            binding.fee_limit,
-        )
-        .unwrap_or_else(|error| {
-            panic!(
-                "owner send authorization: {error}: {:?}: {}",
-                owner.kms.last_refusal_code(),
-                owner.cluster.logs()
-            )
-        });
-    let leg = &plan.legs()[0];
-    RouteRequest {
-        source: leg.source().clone(),
-        destination: leg.destination().clone(),
-        relationship: Relationship::Direct(SendRoute {
-            account_sequence: Sequence::from_u64(binding.account_sequence),
-            idempotency_key: IdempotencyKey::new(binding.action_key),
-            expires_at: TimestampSeconds::from_u64(binding.not_after),
-            context_hash: ContextHash::new([0x55; 32]),
-            authorization: SendAuthorization::new(
-                SendAuthorizationKind::Owner,
-                PublicKey::new(owner.public_key),
-                AuthorizationSignature::new(signature),
-            ),
-            network_id: NetworkId::new(NETWORK_ID)
-                .unwrap_or_else(|error| panic!("network: {error:?}")),
-            protocol_version: ProtocolVersion::new(protocol)
-                .unwrap_or_else(|error| panic!("protocol: {error:?}")),
-        }),
-        asset: leg.asset(),
-        amount: leg.amount(),
-    }
+    now: u64,
+) -> Vec<EvmAction> {
+    let wallet = owner
+        .signer
+        .evm_wallet(owner.principal, &custody_key())
+        .unwrap_or_else(|error| panic!("attestor wallet: {error:?}: {}", owner.cluster.logs()));
+    plan.legs()
+        .iter()
+        .zip(&request.bindings)
+        .map(|(leg, binding)| {
+            let mut source = [0; 32];
+            source[12..].copy_from_slice(&wallet);
+            let mut recipient = [0; 32];
+            recipient[12..].copy_from_slice(&[0x6b; 20]);
+            let word = |amount: u128| {
+                let mut bytes = [0; 32];
+                bytes[16..].copy_from_slice(&amount.to_be_bytes());
+                bytes
+            };
+            let denom = "LXP";
+            let mut data = [
+                vec![0x5c, 0x05, 0x96, 0x1b],
+                source.to_vec(),
+                recipient.to_vec(),
+                word(128).to_vec(),
+                word(leg.amount().value()).to_vec(),
+                word(denom.len() as u128).to_vec(),
+                denom.as_bytes().to_vec(),
+            ]
+            .concat();
+            data.resize(4 + (data.len() - 4).div_ceil(32) * 32, 0);
+            let mut to = [0; 20];
+            to[18..].copy_from_slice(&0x1001_u16.to_be_bytes());
+            let call = layerx_crypto::evm_transaction::Eip1559Call {
+                chain_id: u64::from(NETWORK_ID),
+                nonce: binding.account_sequence,
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 10,
+                gas_limit: 100_000,
+                to,
+                data,
+            };
+            let disclosure = layerx_crypto::disclosure::call::bind_call(&call, wallet)
+                .unwrap_or_else(|error| panic!("send disclosure: {error:?}"));
+            let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(&call);
+            let key = custody_key();
+            let trace = TraceId::mint([0x44; 16]);
+            let grant = ready(owner.signer.sign_in_scope(
+                scope,
+                SignRequest::new(
+                    owner.principal,
+                    &key,
+                    &trace,
+                    SignAuthorization::new(Operation::ProtocolMutation, None),
+                    &unsigned,
+                    &disclosure,
+                    now,
+                ),
+            ))
+            .unwrap_or_else(|error| {
+                panic!(
+                    "attestor EIP-1559 signature: {error:?}: {:?}: {}",
+                    owner.kms.last_refusal_code(),
+                    owner.cluster.logs()
+                )
+            });
+            let signature = layerx_crypto::signer::AgentSignature::new(*grant.signature())
+                .unwrap_or_else(|error| panic!("EVM signature: {error:?}"));
+            assert_eq!(
+                layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                    .unwrap_or_else(|error| panic!("recover wallet: {error}")),
+                wallet
+            );
+            let raw_transaction = layerx_crypto::evm_transaction::assemble(&call, &signature);
+            EvmAction {
+                authorization: EvmPlanAuthorization {
+                    plan_id: plan.digest(),
+                    action_key: binding.action_key,
+                    principal: scope.principal().as_str().to_owned(),
+                    tenant: scope.tenant().as_str().to_owned(),
+                    binding_digest: owner
+                        .signer
+                        .evm_binding(owner.principal, &key)
+                        .unwrap_or_else(|error| panic!("custody binding: {error:?}"))
+                        .digest(),
+                    wallet,
+                    not_before: binding.not_before,
+                    not_after: binding.not_after,
+                    transaction: EvmTransaction {
+                        chain_id: call.chain_id,
+                        nonce: call.nonce,
+                        max_priority_fee_per_gas: 1,
+                        max_fee_per_gas: 10,
+                        gas_limit: call.gas_limit,
+                        to: call.to,
+                        value: [0; 32],
+                        calldata: call.data,
+                    },
+                },
+                transaction_hash: Some(layerx_crypto::evm_transaction::transaction_hash(
+                    &raw_transaction,
+                )),
+                raw_transaction,
+                acknowledged: false,
+            }
+        })
+        .collect()
 }
 
 #[derive(Clone, Copy)]
@@ -1065,18 +1102,6 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
     let audit_before = cluster
         .audit(&client)
         .unwrap_or_else(|error| panic!("audit before: {error}"));
-    let routes = vec![send_route(
-        &plan,
-        &request,
-        &home,
-        &SendAuthority {
-            cluster: &cluster,
-            kms: &kms,
-            signer: &signer,
-            principal: &principal_id,
-            public_key,
-        },
-    )];
     let journey_id = intent_journey_id("kernel-submit", plan.digest())
         .unwrap_or_else(|error| panic!("journey id: {error}"));
 
@@ -1085,19 +1110,31 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
     let mut scope = store
         .principal(&principal_id)
         .unwrap_or_else(|error| panic!("scope: {error}"));
-    let mut journey = start_kernel_journey(
+    let actions = signed_actions(
+        &mut scope,
+        &plan,
+        &request,
+        &SendAuthority {
+            cluster: &cluster,
+            kms: &kms,
+            signer: &signer,
+            principal: &principal_id,
+        },
+        now,
+    );
+    let initial = start_kernel_journey(
         &mut scope,
         &plan,
         &request,
         &expectation,
-        KernelStart {
-            routes: &routes,
-            journey_id: journey_id.clone(),
-            custody_key: custody_key(),
-            registry: &registry(),
-        },
+        journey_id.clone(),
+        &actions,
     )
     .unwrap_or_else(|error| panic!("start: {error}"));
+    assert_eq!(initial.to_json()["state"], "processing");
+    let mut journey = JourneyEngine::load(&scope, &journey_id)
+        .unwrap_or_else(|error| panic!("load: {error}"))
+        .unwrap_or_else(|| panic!("persisted kernel journey missing"));
     assert_eq!(
         journey
             .status()

@@ -9,7 +9,7 @@ digest = "effc729037f27202fb97aabb1e5d4e8f6744776858d1060295c9c18c92c25d38"
 
 [source.human-api]
 root = "services/human/schema/human-api"
-digest = "6d0bb9b654e70b483791d8b89c1534185a5e962c255b15efab9350cce3176fff"
+digest = "50ca4a1362ce7c1fe8994ec117e108a88087a38a208827da44911739d3f041ee"
 
 [source.mirror-v2]
 root = "sdk/platform/schema"
@@ -17,7 +17,7 @@ digest = "de5e350540972ac952d0235bb0d27ce83f391457eee74178bda8642a044d2655"
 
 [generator.platform-sdkgen]
 root = "sdk/platform/generators"
-digest = "f0ed8cc45b8a45f681079682983687e19109ea8faf607c3515229068b1057f89"
+digest = "46d4b5511f2e1a8fd54245f9c51d6cd0c6b901ac092f7e5a4a26a4bb91d1547b"
 
 [generator.agent-sdk-gen]
 root = "services/agent/tools/sdk-gen"
@@ -197,6 +197,7 @@ root = "services/agent/sdk"
 "typescript/src/intent.ts" = "handwritten"
 "typescript/src/launchpad.ts" = "handwritten"
 "typescript/src/mirror.ts" = "handwritten"
+"typescript/src/names.ts" = "handwritten"
 "typescript/src/native-capabilities.ts" = "handwritten"
 "typescript/src/native-effect.ts" = "handwritten"
 "typescript/src/native-program-call.ts" = "handwritten"
@@ -240,6 +241,7 @@ root = "services/agent/sdk"
 "typescript/test/intent-legs.test.ts" = "handwritten"
 "typescript/test/intent.test.ts" = "handwritten"
 "typescript/test/launchpad-approval.test.ts" = "handwritten"
+"typescript/test/names.test.ts" = "handwritten"
 "typescript/test/native-abi5.test.ts" = "handwritten"
 "typescript/test/native-capabilities.test.ts" = "handwritten"
 "typescript/test/native-effect.test.ts" = "handwritten"
@@ -270,7 +272,7 @@ root = "apps/web/src/api/generated"
 
 [files.human-typescript]
 "conformance.ts" = "f7ff440373fe69a137696de98ba88cc4ae499b0710a344031bf99dfdfe7ff6e7"
-"index.ts" = "cf88cbedc08f1548633716692aedd2f0d3df612139f8a5f1b70d5a56071ba729"
+"index.ts" = "89fa16eb0e4e0a7d8e0927261f1826a148cf3aaefcdfa0d3417c8be895f4938c"
 
 [output.platform-go]
 language = "go"
@@ -329,8 +331,8 @@ root = "sdk/platform/jvm"
 [files.platform-jvm]
 "pom.xml" = "ce36a2fa8463c0fbf915f5ba1fb44e5d880b014e6bc22ae446029b0b3516a8f1"
 "src/main/java/com/sidiora/layerx/sdk/HttpProductionTransport.java" = "c05aa3e779e6b43211d26b8ac9338f10b4e0e6869271b61a729b5e8f3cda6793"
-"src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java" = "f91d42db6a37dfcf93161c8f466dbae46c00ea604085fd09b74b58e74858d693"
-"src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java" = "76a49a0d6b6c1aa98e376e6949d1f0cc9e20b23f2398f34c3c56f73485ce4990"
+"src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java" = "c8717feda31a337917d4209c212a2f906bab5a2b3a854731fb494e89f42efede"
+"src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java" = "4f4e73b4e6a1a6a830df45b9abdb360acc687fe2179bd22417388f67cfaed424"
 "src/main/java/com/sidiora/layerx/sdk/GeneratedMirror.java" = "81b5e4ccb7174db995a9f72b53e08126b65ae1ecdc4e391ed30beea66c6510c5"
 "src/main/java/com/sidiora/layerx/sdk/IdempotencyKey.java" = "2cfba7826e4bb7a6f0d4af63530f43c7aece547cf9f64ff1664b781cc431f6a4"
 "src/main/java/com/sidiora/layerx/sdk/OperationCatalog.java" = "477843c32935ffbc9ecff6dd6a35b78693b059c3d29a59aa021349b4a868e8e3"

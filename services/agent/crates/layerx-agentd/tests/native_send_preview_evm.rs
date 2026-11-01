@@ -221,6 +221,14 @@ fn rpc(url: &str, request: &Value) -> Value {
 }
 
 fn chain_peer(node: &Node, binding: SignedBinding, writes: Arc<AtomicUsize>) -> (String, Peer) {
+    fn abi_string(value: &[u8]) -> Vec<u8> {
+        let mut result = vec![0; 64 + value.len().div_ceil(32) * 32];
+        result[31] = 32;
+        result[56..64].copy_from_slice(&(value.len() as u64).to_be_bytes());
+        result[64..64 + value.len()].copy_from_slice(value);
+        result
+    }
+
     must(binding.verify());
     let listener = must(TcpListener::bind("127.0.0.1:0"));
     let url = format!("http://{}/", must(listener.local_addr()));
@@ -270,6 +278,48 @@ fn chain_peer(node: &Node, binding: SignedBinding, writes: Arc<AtomicUsize>) -> 
                     other => panic!("unsupported binding read: {other:?}"),
                 }
                 json!({"jsonrpc":"2.0", "id":request["id"], "result":format!("0x{}", hex::encode(word))})
+            } else if method == "eth_call"
+                && request["params"][0]["to"] == "0x0000000000000000000000000000000000001018"
+            {
+                let call = &request["params"][0];
+                let data = call
+                    .get("data")
+                    .or_else(|| call.get("input"))
+                    .and_then(Value::as_str)
+                    .expect("ABI call data");
+                let data = must(hex::decode(data.trim_start_matches("0x")));
+                assert!(
+                    data.starts_with(
+                        &layerx_crypto::evm_transaction::transaction_hash(b"getFeeDenom(address)")
+                            [..4]
+                    ),
+                    "unsupported fee read"
+                );
+                json!({"jsonrpc":"2.0", "id":request["id"], "result":format!("0x{}", hex::encode(abi_string(b"upax")))})
+            } else if method == "eth_call"
+                && request["params"][0]["to"] == "0x0000000000000000000000000000000000001001"
+            {
+                let call = &request["params"][0];
+                let data = call
+                    .get("data")
+                    .or_else(|| call.get("input"))
+                    .and_then(Value::as_str)
+                    .expect("ABI call data");
+                let data = must(hex::decode(data.trim_start_matches("0x")));
+                let answer = if data.starts_with(
+                    &layerx_crypto::evm_transaction::transaction_hash(b"symbol(string)")[..4],
+                ) {
+                    abi_string(b"PAX")
+                } else if data.starts_with(
+                    &layerx_crypto::evm_transaction::transaction_hash(b"decimals(string)")[..4],
+                ) {
+                    let mut word = vec![0; 32];
+                    word[31] = 6;
+                    word
+                } else {
+                    panic!("unsupported fee read");
+                };
+                json!({"jsonrpc":"2.0", "id":request["id"], "result":format!("0x{}", hex::encode(answer))})
             } else {
                 rpc(&upstream, &request)
             };
@@ -481,7 +531,7 @@ impl Fixture {
                 transport_principal: "bootstrap-owner".to_owned(),
                 owner: account.did(),
                 account: format!("agent:{}:main", account.did()),
-                asset: [7; 32],
+                asset: layerx_crypto::evm_transaction::transaction_hash(b"upax"),
                 registration: None,
             }),
         };
@@ -636,7 +686,7 @@ impl Fixture {
         };
         use layerx_agentd::session::NativeSessionScopeV1;
         use layerx_crypto::send::{send_context_hash, SendDebit};
-        let asset = [7; 32];
+        let asset = layerx_crypto::evm_transaction::transaction_hash(b"upax");
         let from = must(layerx_wire::hash::account_id_for_protocol(
             &must(AccountId::for_asset(&self.account.did(), asset, asset)),
             3,
