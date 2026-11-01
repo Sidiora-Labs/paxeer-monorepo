@@ -117802,7 +117802,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.99.2]
 title = "Retire the human service's calls into the deleted native owner outcome verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
