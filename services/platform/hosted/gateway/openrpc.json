@@ -3,7 +3,7 @@
   "info": {
     "title": "LayerX public JSON-RPC",
     "version": "0.1.0",
-    "description": "Public JSON-RPC reads, authenticated activity submission and scoped WebSocket subscriptions. Native DID enumeration, asset listing/detail and canonical fee estimation forward to authenticated core reads; unavailable evidence is returned explicitly and balances, metadata or fees are never fabricated. The same endpoint relays the Paxeer EVM JSON-RPC namespaces eth_, net_ and web3_ to the chain's node byte for byte, including eth_sendRawTransaction and batches that mix EVM and LayerX calls; node-side signing methods (eth_accounts, eth_coinbase, eth_sendTransaction, eth_sign, eth_signTransaction, eth_signTypedData, eth_signTypedData_v4, eth_mining) and eth_subscribe/eth_unsubscribe are refused here rather than at the node. The px_ namespace resolves accounts through addr (0x1004), reads balances through bank (0x1001), and exposes consensus reads for signed commits, validator sets and sequence batches with transaction inclusion proofs. Receipt signing keys are published by px_getReceiptKeys; pax_sequencerReceipt relays the node receipt and commitment rung unchanged. eth_sendRawTransaction and eth_sendRawTransactionSync whose transaction is addressed to the exchange (0x0000000000000000000000000000000000001015), bridge (0x0000000000000000000000000000000000001016) or launchpad (0x0000000000000000000000000000000000001017) precompile are refused with -32003 surface_unavailable while px_getCapabilities reports that surface false."
+    "description": "Public JSON-RPC reads, authenticated activity submission and scoped WebSocket subscriptions. Native DID enumeration, asset listing/detail and canonical fee estimation forward to authenticated core reads; unavailable evidence is returned explicitly and balances, metadata or fees are never fabricated. The same endpoint relays the Paxeer EVM JSON-RPC namespaces eth_, net_ and web3_ to the chain's node byte for byte, including eth_sendRawTransaction and batches that mix EVM and LayerX calls; node-side signing methods (eth_accounts, eth_coinbase, eth_sendTransaction, eth_sign, eth_signTransaction, eth_signTypedData, eth_signTypedData_v4, eth_mining) and eth_subscribe/eth_unsubscribe are refused here rather than at the node. The px_ namespace resolves accounts through addr (0x1004), reads balances through bank (0x1001), and exposes consensus reads for signed commits, validator sets and sequence batches with transaction inclusion proofs. Receipt signing keys are published by px_getReceiptKeys; pax_sequencerReceipt relays the node receipt and commitment rung unchanged. eth_sendRawTransaction and eth_sendRawTransactionSync whose transaction is addressed to the exchange (0x0000000000000000000000000000000000001015), bridge (0x0000000000000000000000000000000000001016), launchpad (0x0000000000000000000000000000000000001017), ledger (0x000000000000000000000000000000000000101a), pay (0x000000000000000000000000000000000000101b), auth (0x000000000000000000000000000000000000101c) or programs (0x000000000000000000000000000000000000101d) precompile are refused with -32003 surface_unavailable while px_getCapabilities reports that surface false."
   },
   "methods": [
     {
@@ -2302,6 +2302,11 @@
             "exchange",
             "bridge",
             "launchpad",
+            "ledger",
+            "pay",
+            "auth",
+            "programs",
+            "addresses",
             "probed_at",
             "rpc_height"
           ],
@@ -2317,6 +2322,57 @@
             "launchpad": {
               "type": "boolean",
               "description": "True when eth_call of getPoolCount() at the launchpad precompile 0x0000000000000000000000000000000000001017 decodes as the view's uint256 return value; false when the call reverts or answers a malformed value."
+            },
+            "ledger": {
+              "type": "boolean",
+              "description": "True when eth_call of accountId(bytes32,bytes32) at the ledger precompile 0x000000000000000000000000000000000000101a using two zero bytes32 arguments decodes as the view's bytes32 return value; false when the call reverts or answers a malformed value."
+            },
+            "pay": {
+              "type": "boolean",
+              "description": "True when eth_call of budgetRemaining(bytes32) at the pay precompile 0x000000000000000000000000000000000000101b using a zero bytes32 argument decodes as the view's uint128 return value; false when the call reverts or answers a malformed value."
+            },
+            "auth": {
+              "type": "boolean",
+              "description": "True when eth_call of isLive(bytes32,uint64,uint64) at the auth precompile 0x000000000000000000000000000000000000101c using a zero bytes32 and two zero uint64 arguments decodes as the view's bool and string return values; false when the call reverts or answers a malformed value."
+            },
+            "programs": {
+              "type": "boolean",
+              "description": "True when eth_call of getCurrentFeeSchedule() at the programs precompile 0x000000000000000000000000000000000000101d decodes as the view's uint32, uint64[7] and bytes32 return values; false when the call reverts or answers a malformed value."
+            },
+            "addresses": {
+              "type": "object",
+              "required": [
+                "exchange",
+                "bridge",
+                "launchpad",
+                "ledger",
+                "pay",
+                "auth",
+                "programs"
+              ],
+              "properties": {
+                "exchange": {
+                  "type": "string"
+                },
+                "bridge": {
+                  "type": "string"
+                },
+                "launchpad": {
+                  "type": "string"
+                },
+                "ledger": {
+                  "type": "string"
+                },
+                "pay": {
+                  "type": "string"
+                },
+                "auth": {
+                  "type": "string"
+                },
+                "programs": {
+                  "type": "string"
+                }
+              }
             },
             "probed_at": {
               "type": "integer",

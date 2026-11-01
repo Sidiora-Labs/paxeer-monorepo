@@ -6465,6 +6465,12 @@ value = "acceptance.18.911.3 reads: the market guest's fraud-provable lease reco
 basis = "settle_call_occupancy charges namespace byte sizes (programs/crates/layerx-programs-runtime/src/ffi_call.rs:2567, storage.namespace_sizes()) against the occupancy ledger (src/occupancy.rs:1257) and never parses the market guest's claim, claim id or billing rows, so no guest byte is an input it could refuse; the shipped settle_call_occupancy_refuses_a_non_canonical_record (ffi_call.rs:4437) mutates the ledger's finalized-batch counter and asserts the refusal and the unchanged state."
 affects = ["18.911.2"]
 
+[decision.2226]
+title = "budgetPull of the pay precompile is retired with the payer grants"
+value = "The kernel no longer knows activity 0x00010007 (payer grant issue) or 0x0003000b (budget pull): tasks 1.12.1 and 1.12.2 retired both types and 2.24.7 attempt 1 (0445b0874) observed LXP_ERR_UNKNOWN_ACTIVITY at the grant issue. Keeper.BudgetPull (modules/layerxpay/keeper/budget_pull.go:17) refuses with a registered ErrBudgetPullRetired before encoding any payload, the budgetPull method of precompiles/layerxpay/layerxpay.go reverts with the retired revert data of pcommon.RetiredRevert before any keeper call, the ABI entry at precompiles/layerxpay/abi.json:12 stays so the selector set is stable, and the keeper and precompile tests assert the refusal. This resolves finding 2.28.5.1."
+basis = "Finding 2.24.7.1 (LXP_ERR_UNKNOWN_ACTIVITY at modules/layerxpay/keeper/budget_pull_test.go:84), finding 2.28.5.1, src/modules/programs/registration.c:101, include/layerx/lx_asset.h:27, modules/layerxpay/types/activity.go:22"
+affects = ["2.24.7", "18.1312.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -6492,13 +6498,13 @@ completion_task = "4.0.9"
 [feature.5]
 name = "node-runtime"
 scope = "Node runtime: node/, modules/sequencer/, modules/store/, storage/, engine/, consensus/, wasm-runtime/, cmd/, daemon/, admin/, go.mod, go.sum, tests/chain, tests/daemon, occ_tests/; application assembly, upgrade plans, the sequencer runtime, receipts, WAL and standby, proposal validation and node persistence."
-requirements = ["5001", "5002", "5003", "5004", "5005", "5006", "5007", "5008", "5009", "5010", "5011", "5012", "5013", "5014", "5015", "5016", "5017", "5018", "5019", "5020", "5021", "5022", "5023", "5024", "5025", "5026", "5027", "5028", "5029", "5030", "5031", "5032", "5033", "5034", "5035", "5036", "5037", "5038", "5039", "5040", "5041", "5042", "5043", "5044", "5045", "5046", "5047", "5048", "5049", "5050", "5051", "5052", "5053", "5054", "5055", "5056", "5057", "5058", "5059", "5060", "5061", "5062", "5063", "5064", "5065", "5066", "5067", "5068", "5069", "5070", "5071", "5072", "5073", "5074", "5075", "5076", "5077", "5078", "5079", "5080", "5241", "5242", "5243", "5244", "5245", "5246", "5247", "5248", "5249", "5250", "5251", "5252", "5253", "5254", "5255", "5256", "5257", "5258", "5259", "5260", "5261", "5262", "5263", "5264", "5265", "5266", "5267", "5268", "5269", "5270", "5271", "5272", "5273", "5274", "5275", "5481", "5482", "5483", "5484", "5485", "5486", "5487", "5488", "5489", "5490", "5491", "5492", "5493", "5494", "5495", "5496", "5497", "5498", "5499", "5500", "5501", "5502", "5503", "5504", "5505", "5506", "5507", "5508", "5509", "5510", "5511", "5512", "5513", "5514", "5515", "5516", "5517", "5518", "5519", "5520", "5521", "5522", "5523", "5524", "5525", "5526", "5527", "5528", "5529", "5530", "5531", "5532", "5533", "5534", "5535", "5536", "5537", "5538", "5539", "5540", "5541", "5542", "5543", "5544", "5545", "5546", "5961", "5962", "5963", "5964", "5965", "5966", "5967", "5969", "5970", "5971", "5972", "5973", "5974", "5975", "5999", "5081", "5983", "5089"]
+requirements = ["5001", "5002", "5003", "5004", "5005", "5006", "5007", "5008", "5009", "5010", "5011", "5012", "5013", "5014", "5015", "5016", "5017", "5018", "5019", "5020", "5021", "5022", "5023", "5024", "5025", "5026", "5027", "5028", "5029", "5030", "5031", "5032", "5033", "5034", "5035", "5036", "5037", "5038", "5039", "5040", "5041", "5042", "5043", "5044", "5045", "5046", "5047", "5048", "5049", "5050", "5051", "5052", "5053", "5054", "5055", "5056", "5057", "5058", "5059", "5060", "5061", "5062", "5063", "5064", "5065", "5066", "5067", "5068", "5069", "5070", "5071", "5072", "5073", "5074", "5075", "5076", "5077", "5078", "5079", "5080", "5241", "5242", "5243", "5244", "5245", "5246", "5247", "5248", "5249", "5250", "5251", "5252", "5253", "5254", "5255", "5256", "5257", "5258", "5259", "5260", "5261", "5262", "5263", "5264", "5265", "5266", "5267", "5268", "5269", "5270", "5271", "5272", "5273", "5274", "5275", "5481", "5482", "5483", "5484", "5485", "5486", "5487", "5488", "5489", "5490", "5491", "5492", "5493", "5494", "5495", "5496", "5497", "5498", "5499", "5500", "5501", "5502", "5503", "5504", "5505", "5506", "5507", "5508", "5509", "5510", "5511", "5512", "5513", "5514", "5515", "5516", "5517", "5518", "5519", "5520", "5521", "5522", "5523", "5524", "5525", "5526", "5527", "5528", "5529", "5530", "5531", "5532", "5533", "5534", "5535", "5536", "5537", "5538", "5539", "5540", "5541", "5542", "5543", "5544", "5545", "5546", "5961", "5962", "5963", "5964", "5965", "5966", "5967", "5969", "5970", "5971", "5972", "5973", "5974", "5975", "5999", "5081", "5983", "5089", "5097"]
 completion_task = "5.0.9"
 
 [feature.6]
 name = "chain-modules"
 scope = "Chain modules: modules/evm/, modules/tokenfactory/, modules/layerxgov/, modules/layerxbridge/, modules/layerxcustody/, modules/layerxanchor/, modules/xweb/, every precompiles/ subdirectory not owned by domains 2, 3, 4 or 13 including precompiles/setup.go, interchain/, wasm/, contracts/ (Solidity except contracts/launchpad/), their api protos and tests/bridge; precompile registration, the merge gate and the retired executors 0x1012-0x1014."
-requirements = ["6001", "6002", "6003", "6004", "6005", "6006", "6007", "6008", "6009", "6010", "6011", "6012", "6013", "6014", "6015", "6016", "6017", "6018", "6019", "6020", "6021", "6022", "6023", "6024", "6025", "6026", "6027", "6028", "6029", "6030", "6031", "6032", "6033", "6034", "6035", "6036", "6037", "6038", "6039", "6040", "6041", "6042", "6043", "6044", "6045", "6046", "6047", "6048", "6049", "6050", "6051", "6052", "6053", "6054", "6055", "6056", "6057", "6058", "6059", "6060", "6061", "6062", "6063", "6064", "6065", "6066", "6067", "6068", "6069", "6070", "6071", "6072", "6073", "6074", "6075", "6241", "6242", "6243", "6244", "6245", "6246", "6247", "6248", "6249", "6250", "6251", "6252", "6253", "6254", "6255", "6256", "6257", "6258", "6259", "6260", "6261", "6262", "6263", "6264", "6265", "6266", "6267", "6268", "6269", "6270", "6271", "6272", "6273", "6274", "6275", "6276", "6277", "6278", "6279", "6280", "6281", "6282", "6283", "6284", "6285", "6286", "6287", "6288", "6481", "6482", "6483", "6484", "6485", "6486", "6487", "6488", "6489", "6490", "6491", "6492", "6493", "6494", "6495", "6496", "6497", "6721", "6722", "6723", "6733", "6745", "6746", "6747", "6757", "6758", "6759", "6760", "6769", "6770", "6771", "6781", "6793", "6805", "6817", "6818", "6819", "6820", "6829", "6830", "6831", "6841", "6853", "6865", "6866", "6867", "6877", "6889", "6901", "6902", "6903", "6913", "6951", "6952", "6953", "6961", "6962", "6963", "6964", "6965", "6966", "6967", "6968", "6969", "6970", "6971", "6972", "6973", "6974", "6999"]
+requirements = ["6001", "6002", "6003", "6004", "6005", "6006", "6007", "6008", "6009", "6010", "6011", "6012", "6013", "6014", "6015", "6016", "6017", "6018", "6019", "6020", "6021", "6022", "6023", "6024", "6025", "6026", "6027", "6028", "6029", "6030", "6031", "6032", "6033", "6034", "6035", "6036", "6037", "6038", "6039", "6040", "6041", "6042", "6043", "6044", "6045", "6046", "6047", "6048", "6049", "6050", "6051", "6052", "6053", "6054", "6055", "6056", "6057", "6058", "6059", "6060", "6061", "6062", "6063", "6064", "6065", "6066", "6067", "6068", "6069", "6070", "6071", "6072", "6073", "6074", "6075", "6241", "6242", "6243", "6244", "6245", "6246", "6247", "6248", "6249", "6250", "6251", "6252", "6253", "6254", "6255", "6256", "6257", "6258", "6259", "6260", "6261", "6262", "6263", "6264", "6265", "6266", "6267", "6268", "6269", "6270", "6271", "6272", "6273", "6274", "6275", "6276", "6277", "6278", "6279", "6280", "6281", "6282", "6283", "6284", "6285", "6286", "6287", "6288", "6481", "6482", "6483", "6484", "6485", "6486", "6487", "6488", "6489", "6490", "6491", "6492", "6493", "6494", "6495", "6496", "6497", "6721", "6722", "6723", "6733", "6745", "6746", "6747", "6757", "6758", "6759", "6760", "6769", "6770", "6771", "6781", "6793", "6805", "6817", "6818", "6819", "6820", "6829", "6830", "6831", "6841", "6853", "6865", "6866", "6867", "6877", "6889", "6901", "6902", "6903", "6913", "6951", "6952", "6953", "6961", "6962", "6963", "6964", "6965", "6966", "6967", "6968", "6969", "6970", "6971", "6972", "6973", "6974", "6999", "5096"]
 completion_task = "6.0.9"
 
 [feature.7]
@@ -16244,9 +16250,17 @@ ac_1 = "layerx-client and layerx-agentd compile with no AccountProof, StoragePro
 title = "Committed sends stay readable by hash until capacity evicts them"
 ac_1 = "After Committed(height), ReceiptSource.SequencerSend still returns the recorded send of a hash at or below height, and a full source evicts the oldest committed send before an uncommitted one."
 
+[req.5097]
+title = "The node package tests compile with the Admit method on the sequencer source"
+ac_1 = "node/sequencer_seams_test.go declares Admit on seamsSequencerSource so the fixture satisfies consensus/types.SequencerSource, go vet ./node/ passes, and TestSetSequencerSourceReturnsInstalledSource proves the installed source admits at a sequenced height and refuses below the activation height."
+
+[req.5096]
+title = "The custody keeper tests run against anchor checkpoints imported through genesis"
+ac_1 = "modules/layerxcustody/keeper tests build no checkpoint through Keeper.SubmitCheckpoint; TestDepositRootRegistration, TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight and TestWithdrawalReadsAnchorFinalizedCheckpoint import the vector checkpoint as final through the anchor InitGenesis and keep every later assertion; go test ./modules/layerxcustody/keeper/ passes."
+
 [req.5095]
-title = "The pay keeper test package compiles without the retired payer-grant read"
-ac_1 = "modules/layerxpay/keeper/budget_pull_test.go references no Host.ReadPayerGrant or PayerGrantState, go vet ./modules/layerxpay/keeper/ passes, and TestBudgetPullWithPayerGrant and TestBudgetPullRefusesMalformedGrant run to a verdict."
+title = "budgetPull is retired on the Go side with the payer grants"
+ac_1 = "Keeper.BudgetPull returns ErrBudgetPullRetired without encoding a payload, the budgetPull precompile method reverts with the retired revert data before any keeper call, the abi.json entry stays, and TestBudgetPullIsRetired, TestBudgetPullRefusesMalformedGrant and TestPrecompileBudgetNativeAndPull prove the refusals."
 
 [req.181326]
 title = "The node's precompile keepers carry the anchor keeper"
@@ -33506,14 +33520,32 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.5.98.9]
+title = "Port the App seams test fixture to the Admit method of the sequencer source"
+reqs = ["5097.1"]
+touches = ["node/sequencer_seams_test.go"]
+tests = ["node/sequencer_seams_test.go::TestSetSequencerSourceReturnsInstalledSource"]
+verification_contract = "go test -count=1 ./node/ -run '^(TestSetSequencerSourceReturnsInstalledSource|TestSetSequencerRPCKeepsOptions|TestSetCommitListenerKeepsListener)$'"
+do_1 = "88e4603c6 (task 5.98.8) added Admit(ctx context.Context, height int64, txs Txs) (admitted int, err error) to consensus/types.SequencerSource (consensus/types/sequencer.go:18), but the test double seamsSequencerSource in node/sequencer_seams_test.go:20-30 implements only Sequenced and Seal, so node/sequencer_seams_test.go:47 fails to compile and go test ./node/ reports [build failed] for every test of the package."
+symbols = ["TestSetSequencerSourceReturnsInstalledSource"]
+
+[capability.6.96.3]
+title = "Port the custody keeper tests off the retired checkpoint submission"
+reqs = ["5096.1"]
+touches = ["modules/layerxcustody/keeper/deposit_root_test.go", "modules/layerxcustody/keeper/retire_deposit_root_test.go", "modules/layerxcustody/keeper/anchor_reader_test.go"]
+tests = ["modules/layerxcustody/keeper/deposit_root_test.go::TestDepositRootRegistration", "modules/layerxcustody/keeper/retire_deposit_root_test.go::TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight", "modules/layerxcustody/keeper/anchor_reader_test.go::TestWithdrawalReadsAnchorFinalizedCheckpoint"]
+verification_contract = "go test -count=1 ./modules/layerxcustody/keeper/"
+do_1 = "afcc3485c (task 6.96.1) made Keeper.SubmitCheckpoint refuse with ErrModuleRetired (modules/layerxanchor/keeper/checkpoints.go:58), but modules/layerxcustody/keeper/deposit_root_test.go:94, retire_deposit_root_test.go:67 and anchor_reader_test.go:134 still call anchor.SubmitCheckpoint and require NoError, so TestDepositRootRegistration, TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight and TestWithdrawalReadsAnchorFinalizedCheckpoint fail at main with ErrModuleRetired."
+symbols = ["TestDepositRootRegistration", "TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight", "TestWithdrawalReadsAnchorFinalizedCheckpoint"]
+
 [capability.2.24.7]
 title = "Port the budget pull tests off the retired payer-grant read"
 reqs = ["5095.1"]
-touches = ["modules/layerxpay/keeper/budget_pull_test.go"]
-tests = ["modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullWithPayerGrant", "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullRefusesMalformedGrant"]
-verification_contract = "go test -count=1 ./modules/layerxpay/keeper/ -run '^(TestBudgetPullWithPayerGrant|TestBudgetPullRefusesMalformedGrant)$'"
+touches = ["modules/layerxpay/keeper/budget_pull_test.go", "modules/layerxpay/keeper/budget_pull.go", "modules/layerxpay/types/errors.go", "precompiles/layerxpay/layerxpay.go", "precompiles/layerxpay/budget_test.go"]
+tests = ["modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullIsRetired", "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullRefusesMalformedGrant", "precompiles/layerxpay/budget_test.go::TestPrecompileBudgetNativeAndPull"]
+verification_contract = "go test -count=1 ./modules/layerxpay/keeper/ -run '^(TestBudgetPullIsRetired|TestBudgetPullRefusesMalformedGrant)$' && go test -count=1 ./precompiles/layerxpay/ -run '^TestPrecompileBudgetNativeAndPull$'"
 do_1 = "7fbf93cdd (task 1.12.4) deleted Host.ReadPayerGrant and PayerGrantState from modules/lxphost with their tests and ported precompiles/layerxpay/budget_test.go, but modules/layerxpay/keeper/budget_pull_test.go:85 and :181 (108ec8345, task 2.24.3) still call h.host.ReadPayerGrant, so go test ./modules/layerxpay/keeper/ reports [build failed] for every test in the package: observed at main d90e6b826 by the 18.1312.1 gate."
-symbols = ["TestBudgetPullWithPayerGrant", "TestBudgetPullRefusesMalformedGrant"]
+symbols = ["Keeper.BudgetPull", "ErrBudgetPullRetired", "TestBudgetPullIsRetired", "TestPrecompileBudgetNativeAndPull"]
 
 [capability.18.1326.1]
 title = "Issue #1326: Carry the constructed anchor keeper in the node's precompile keepers so the retirement heights alone gate layerxAnchor"
@@ -116806,7 +116838,7 @@ title = "Gate domain 5 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["5.0.1", "5.0.2", "5.0.3", "5.0.4", "5.7.1", "5.41.3", "5.42.3", "5.47.4", "5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.1", "5.52.2", "5.52.3", "5.52.4", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.7", "5.54.8", "5.54.9", "5.54.10", "5.54.11", "5.55.5", "5.62.6", "5.64.16", "5.69.1", "5.97.1", "5.97.3", "8.47.7", "5.7.3", "5.98.5"]
+requires = ["5.0.1", "5.0.2", "5.0.3", "5.0.4", "5.7.1", "5.41.3", "5.42.3", "5.47.4", "5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.1", "5.52.2", "5.52.3", "5.52.4", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.7", "5.54.8", "5.54.9", "5.54.10", "5.54.11", "5.55.5", "5.62.6", "5.64.16", "5.69.1", "5.97.1", "5.97.3", "8.47.7", "5.7.3", "5.98.5", "5.98.9"]
 reqs = ["5999.1"]
 capabilities = ["5.0.9"]
 interfaces = []
@@ -117447,6 +117479,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1 (98f2843b2) resealed sdk/platform/pipeline.kvx and every command of the verify passed, so continue from attempt 1 unchanged; the task's symbol list now names only the drift gate and the reseal test."
+do_5 = "Attempt 2 (4ff6e342c) failed only because --check reports services/agent/sdk/typescript/test/agent-http-daemon-envelope.test.ts, added by 82e8bcdb1 (task 18.1316.1), as an untracked file in the generated markdown root. Declare it in sdk/platform/pipeline.kvx under [handwritten.agent-compatibility] (:113) as typescript/test/agent-http-daemon-envelope.test.ts = handwritten beside the other typescript/test entries (:224-226), and declare the same way any other handwritten file --check reports at the current main, naming each in the qualification record. Continue from attempt 2."
 
 [task.9.25.16]
 title = "Refresh the Cargo lock files that pin layerx-client after it gained base64 and the programs registry"
@@ -118520,28 +118553,29 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
-[task.2.24.7]
-title = "Port the budget pull tests off the retired payer-grant read"
+[task.5.98.9]
+title = "Port the App seams test fixture to the Admit method of the sequencer source"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
-reqs = ["5095.1"]
-capabilities = ["2.24.7"]
+wave = 5
+requires = ["5.98.8"]
+reqs = ["5097.1"]
+capabilities = ["5.98.9"]
 interfaces = []
-do_1 = "7fbf93cdd (task 1.12.4) deleted Host.ReadPayerGrant and PayerGrantState from modules/lxphost with their tests and ported precompiles/layerxpay/budget_test.go, but modules/layerxpay/keeper/budget_pull_test.go:85 and :181 (108ec8345, task 2.24.3) still call h.host.ReadPayerGrant, so go test ./modules/layerxpay/keeper/ reports [build failed] for every test in the package: observed at main d90e6b826 by the 18.1312.1 gate."
-do_2 = "In TestBudgetPullWithPayerGrant remove the before read at :85-89 and the after read at :181-185 with their five grant-state assertions (Grant, DrawnTotal, DrawnThisPeriod), and keep every other step and assertion, including the grant issue through paySubmitExecute, the budgetPull call, its receipt and transient-store checks; TestBudgetPullRefusesMalformedGrant is unchanged. Add no replacement read: the payer-grant state has no host read since 1.12.1 and the draw accounting is proven by the receipt and balance assertions that remain."
-do_3 = "If TestBudgetPullWithPayerGrant then fails at runtime because the kernel refuses activity 0x00010007 or 0x0003000b, record the exact refusal as a finding against this task and finding 2.28.5.1 and stop; do not skip or delete the test."
-symbols = ["TestBudgetPullWithPayerGrant", "TestBudgetPullRefusesMalformedGrant"]
-touches = ["modules/layerxpay/keeper/budget_pull_test.go"]
-tests = ["modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullWithPayerGrant", "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullRefusesMalformedGrant"]
+do_1 = "88e4603c6 (task 5.98.8) added Admit(ctx context.Context, height int64, txs Txs) (admitted int, err error) to consensus/types.SequencerSource (consensus/types/sequencer.go:18), but the test double seamsSequencerSource in node/sequencer_seams_test.go:20-30 implements only Sequenced and Seal, so node/sequencer_seams_test.go:47 fails to compile and go test ./node/ reports [build failed] for every test of the package."
+do_2 = "Add func (s *seamsSequencerSource) Admit(ctx context.Context, height int64, txs tmtypes.Txs) (int, error) to node/sequencer_seams_test.go: below s.activation it returns 0 and an error naming the height as not sequenced; at or above it returns len(txs), nil and records the admitted transactions per height in a new admitted map[int64]tmtypes.Txs field so a test can read what was admitted."
+do_3 = "Extend TestSetSequencerSourceReturnsInstalledSource (node/sequencer_seams_test.go:35): through app.SequencerSource() call Admit at height 10 and require the error and 0, call Admit at height 11 with the block's Txs and require 1 and no error, and require source.admitted[11] equals those Txs, so the test proves the installed source is the one consensus calls with Admit."
+do_4 = "Change no file outside node/sequencer_seams_test.go; the two other tests of the file stay as they are."
+symbols = ["TestSetSequencerSourceReturnsInstalledSource"]
+touches = ["node/sequencer_seams_test.go"]
+tests = ["node/sequencer_seams_test.go::TestSetSequencerSourceReturnsInstalledSource"]
 planned_paths = []
-build_cmd = "go vet ./modules/layerxpay/keeper/"
-verify_cmd = "go test -count=1 ./modules/layerxpay/keeper/ -run '^(TestBudgetPullWithPayerGrant|TestBudgetPullRefusesMalformedGrant)$'"
+build_cmd = "go vet ./node/"
+verify_cmd = "go test -count=1 ./node/ -run '^(TestSetSequencerSourceReturnsInstalledSource|TestSetSequencerRPCKeepsOptions|TestSetCommitListenerKeepsListener)$'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
-owner_role = "fm-ledger-auth-pay"
-rollback = "Restore budget_pull_test.go from d90e6b826; the pay keeper test package fails to build again."
+owner_role = "fm-node-runtime"
+rollback = "Restore node/sequencer_seams_test.go from 64679b4d6; the node test package fails to compile again."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -118550,12 +118584,75 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
-[task.18.1326.1]
-title = "Issue #1326: Carry the constructed anchor keeper in the node's precompile keepers so the retirement heights alone gate layerxAnchor"
+[task.6.96.3]
+title = "Port the custody keeper tests off the retired checkpoint submission"
+status = "pending"
+mode = "BUILD"
+wave = 29
+requires = ["6.96.1"]
+reqs = ["5096.1"]
+capabilities = ["6.96.3"]
+interfaces = []
+do_1 = "afcc3485c (task 6.96.1) made Keeper.SubmitCheckpoint refuse with ErrModuleRetired (modules/layerxanchor/keeper/checkpoints.go:58), but modules/layerxcustody/keeper/deposit_root_test.go:94, retire_deposit_root_test.go:67 and anchor_reader_test.go:134 still call anchor.SubmitCheckpoint and require NoError, so TestDepositRootRegistration, TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight and TestWithdrawalReadsAnchorFinalizedCheckpoint fail at main with ErrModuleRetired."
+do_2 = "In each of the three tests replace the SubmitCheckpoint call and its two checkpoint assertions with a genesis import: build anchortypes.Checkpoint from the vector header (BatchNumber, CheckpointID codec.CheckpointHash(headerBytes, nil), HeaderDigest, ProtocolVersion, NetworkID, Epoch, FirstSequence, LastSequence, PreviousStateRoot, StateRoot header.ResultingStateRoot, ReceiptRoot, DataAvailabilityRoot, SequencerID, TimestampMs as the header carries them, Status anchortypes.CheckpointFinal, Submitter operator.String(), the guarantor list and declared threshold of the certificate), set genesis.Checkpoints to that one checkpoint, genesis.HasLatestFinalized true and genesis.LatestFinalized to its batch number, and pass the genesis to the anchor.InitGenesis call each test already makes (deposit_root_test.go:69), so modules/layerxanchor/keeper/genesis.go:52-56 writes the final checkpoint the way a chain import does."
+do_3 = "Keep every later step and assertion of the three tests unchanged, including the ErrDepositRootProposer refusal at deposit_root_test.go:104-105, the merge-plan refusal of the retire test and the FinalizedStateRoot read of the anchor reader test; if a field of the imported checkpoint is not derivable from the vector, read it from the vector file the test already loads and name the field in the qualification record rather than inventing a value."
+do_4 = "Add no test and delete none; the three test names stay as they are."
+symbols = ["TestDepositRootRegistration", "TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight", "TestWithdrawalReadsAnchorFinalizedCheckpoint"]
+touches = ["modules/layerxcustody/keeper/deposit_root_test.go", "modules/layerxcustody/keeper/retire_deposit_root_test.go", "modules/layerxcustody/keeper/anchor_reader_test.go"]
+tests = ["modules/layerxcustody/keeper/deposit_root_test.go::TestDepositRootRegistration", "modules/layerxcustody/keeper/retire_deposit_root_test.go::TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight", "modules/layerxcustody/keeper/anchor_reader_test.go::TestWithdrawalReadsAnchorFinalizedCheckpoint"]
+planned_paths = []
+build_cmd = "go vet ./modules/layerxcustody/keeper/"
+verify_cmd = "go test -count=1 ./modules/layerxcustody/keeper/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Restore the three test files from 64679b4d6; the three tests fail with ErrModuleRetired again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.2.24.7]
+title = "Retire budgetPull of the pay precompile with the payer grants"
 status = "pending"
 mode = "BUILD"
 wave = 1
 requires = []
+reqs = ["5095.1"]
+capabilities = ["2.24.7"]
+interfaces = []
+symbols = ["Keeper.BudgetPull", "ErrBudgetPullRetired", "TestBudgetPullIsRetired", "TestPrecompileBudgetNativeAndPull"]
+touches = ["modules/layerxpay/keeper/budget_pull_test.go", "modules/layerxpay/keeper/budget_pull.go", "modules/layerxpay/types/errors.go", "precompiles/layerxpay/layerxpay.go", "precompiles/layerxpay/budget_test.go"]
+tests = ["modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullIsRetired", "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullRefusesMalformedGrant", "precompiles/layerxpay/budget_test.go::TestPrecompileBudgetNativeAndPull"]
+planned_paths = []
+build_cmd = "go vet ./modules/layerxpay/keeper/ ./precompiles/layerxpay/"
+verify_cmd = "go test -count=1 ./modules/layerxpay/keeper/ -run '^(TestBudgetPullIsRetired|TestBudgetPullRefusesMalformedGrant)$' && go test -count=1 ./precompiles/layerxpay/ -run '^TestPrecompileBudgetNativeAndPull$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Restore the five files from 64679b4d6; budgetPull reaches the kernel again and is refused there with LXP_ERR_UNKNOWN_ACTIVITY."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_1 = "Decision 2226 (finding 2.24.7.1). In modules/layerxpay/types/errors.go register ErrBudgetPullRetired with the next free code and the text budgetPull is retired with the payer grants; Keeper.BudgetPull (modules/layerxpay/keeper/budget_pull.go:17) returns lxphost.Receipt{} and ErrBudgetPullRetired as its first statement, so no payload is encoded, no ordinal is taken and no kernel call happens."
+do_2 = "In precompiles/layerxpay/layerxpay.go make the budgetPull method return pcommon.RetiredRevert(PrecompileName) with vm.ErrExecutionReverted before any keeper call, the way precompiles/layerxanchor/layerxanchor.go:181 reverts an unwired anchor; the abi.json entry at :12 and the method name stay so the selector set does not change; every other pay method is untouched."
+do_3 = "Replace TestBudgetPullWithPayerGrant in modules/layerxpay/keeper/budget_pull_test.go with TestBudgetPullIsRetired on the same harness: budgetCreate succeeds as before, h.host.HostExecute of the 0x00010007 grant activity answers LXP_ERR_UNKNOWN_ACTIVITY (assert the exact code through the path execute_test.go:44 uses, without requiring NoError), k.BudgetPull returns ErrBudgetPullRetired, and the budget's balance and the pay call ordinal for the transaction are unchanged afterwards. TestBudgetPullRefusesMalformedGrant asserts ErrBudgetPullRetired as the error for a malformed grant too, since the retirement check runs first."
+do_4 = "In precompiles/layerxpay/budget_test.go port the budgetPull steps of TestPrecompileBudgetNativeAndPull (:318-332): each budgetPull call reverts with the retired revert data and the budget balance is unchanged; keep the native steps as they are."
+do_5 = "Record in the qualification record the exact error text observed for 0x00010007 and 0x0003000b so finding 2.28.5.1 closes against this task."
+
+[task.18.1326.1]
+title = "Issue #1326: Carry the constructed anchor keeper in the node's precompile keepers so the retirement heights alone gate layerxAnchor"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["5.98.9"]
 reqs = ["181326.1"]
 capabilities = ["18.1326.1"]
 interfaces = []
@@ -118579,6 +118676,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 18.1326.1.1: the node test package fails to compile at main until task 5.98.9 is on main; this task requires it and continues from its latest attempt unchanged, rebased onto main, one build and one verify."
 
 [task.5.5.23]
 title = "Serve eth_gasPrice from the committed base fee while no block is open"
@@ -118610,6 +118708,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 5.5.23.1: continue from attempt 2 (ceebd4ab4) changing only TestPendingBlockGasPriceFromOpenBlock in rpc/pending_block_test.go: expect 1077000000 for the open block (77000000 base fee plus ten percent plus the 1 gwei default priority fee of rpc/info.go:24) and committedFee*110/100 + 1000000000 for the committed API, the formula of gasPriceHelper (rpc/info.go:131-145) since 8a79a1125; nothing else changes and the verify command is unchanged. Build once, verify once."
+do_5 = "The last step of TestPendingBlockGasPriceFromOpenBlock (rpc/pending_block_test.go:216-220 at main) seals the layer and requires GasPrice to fail with ErrLayerNotOpen; do_1 defines a nil pending fee as the answer while no block is open, so that assertion inverts: after floor.Seal(MockHeight8 + 1) GasPrice answers with no error and equals committedFee*110/100 + 1000000000, the committed API's answer. Attempts 2 and 3 (ceebd4ab4, 756600b6a) failed only on this assertion; continue from attempt 3 changing nothing but those lines."
 
 [task.5.98.8]
 title = "Admit the consensus mempool into the sequencer's open layer at each proposal"
@@ -126130,7 +126229,7 @@ title = "Gate domain 6 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 40
-requires = ["6.0.1", "6.0.2", "6.0.3", "6.0.4", "6.2.3", "6.2.4", "6.13.1", "6.32.3", "6.34.1", "6.52.1", "6.52.2", "6.52.3", "6.52.4", "6.52.5", "6.53.1", "6.53.2", "6.53.3", "6.53.4", "6.54.1", "6.54.2", "6.54.3", "6.54.4", "6.55.1", "6.55.2", "6.56.1", "6.56.3", "6.56.4", "6.57.1", "6.57.2", "6.57.3", "6.57.4", "6.57.5", "6.57.6", "6.57.7", "6.57.8", "6.57.9", "6.57.10", "6.58.1", "6.58.2", "6.58.4", "6.58.5", "6.58.7", "6.58.8", "6.58.9", "6.59.1", "6.59.2", "6.59.3", "6.59.4", "6.59.5", "6.59.6", "6.59.7", "6.59.8", "6.60.2", "6.60.3", "6.60.4", "6.60.5", "6.71.1", "6.80.1", "6.80.2", "6.80.4", "6.80.5", "6.97.2"]
+requires = ["6.0.1", "6.0.2", "6.0.3", "6.0.4", "6.2.3", "6.2.4", "6.13.1", "6.32.3", "6.34.1", "6.52.1", "6.52.2", "6.52.3", "6.52.4", "6.52.5", "6.53.1", "6.53.2", "6.53.3", "6.53.4", "6.54.1", "6.54.2", "6.54.3", "6.54.4", "6.55.1", "6.55.2", "6.56.1", "6.56.3", "6.56.4", "6.57.1", "6.57.2", "6.57.3", "6.57.4", "6.57.5", "6.57.6", "6.57.7", "6.57.8", "6.57.9", "6.57.10", "6.58.1", "6.58.2", "6.58.4", "6.58.5", "6.58.7", "6.58.8", "6.58.9", "6.59.1", "6.59.2", "6.59.3", "6.59.4", "6.59.5", "6.59.6", "6.59.7", "6.59.8", "6.60.2", "6.60.3", "6.60.4", "6.60.5", "6.71.1", "6.80.1", "6.80.2", "6.80.4", "6.80.5", "6.97.2", "6.96.3"]
 reqs = ["6999.1"]
 capabilities = ["6.0.9"]
 interfaces = []
@@ -187469,12 +187568,28 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.5.98.9]
+feature = "5"
+req = "5097.1"
+scenario = "Given the node package at main, when go vet and the three App seams tests run, then the package compiles, the installed sequencer source refuses Admit below the activation height and admits the block's transactions at a sequenced height."
+contract = "contracts/sequencer.md#consensus-source"
+test = "node/sequencer_seams_test.go::TestSetSequencerSourceReturnsInstalledSource"
+qualification = "UNRUN"
+
+[acceptance.6.96.3]
+feature = "6"
+req = "5096.1"
+scenario = "Given the custody keeper test package at main, when its tests run, then the three tests that needed a final anchor checkpoint import it through the anchor genesis and every assertion after the import holds unchanged."
+contract = "contracts/anchor.md#checkpoints"
+test = "modules/layerxcustody/keeper/deposit_root_test.go::TestDepositRootRegistration"
+qualification = "UNRUN"
+
 [acceptance.2.24.7]
 feature = "2"
 req = "5095.1"
-scenario = "Given the pay keeper test package at main, when go vet and the two budget pull tests run, then the package compiles without the retired payer-grant read and both tests reach a verdict."
+scenario = "Given the pay keeper and precompile at main, when a budget is created and a budgetPull is attempted, then the kernel refuses the payer grant issue with LXP_ERR_UNKNOWN_ACTIVITY, the keeper refuses with ErrBudgetPullRetired, the precompile reverts with the retired revert data and the budget balance is unchanged."
 contract = "contracts/ledger-auth-pay.md#budget-pull"
-test = "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullWithPayerGrant"
+test = "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullIsRetired"
 qualification = "UNRUN"
 
 [acceptance.18.1326.1]
@@ -188847,6 +188962,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "In [construct.existing-web-search-sidecar-and-402lxp-payment] of spec/layerx-merge/programme/data/parity.kvx:151-158 all eight selectors (:157) name services/interop/crates/x-websearch/tests/kernel.rs, deleted by 79aec7611 (task 11.36.1): move those eight into a dropped list on the same row and set selectors to six tests that exist in the row's surviving source files, services/interop/crates/x-websearch/tests/submit.rs::the_kernel_network_id_is_read_from_the_xweb_precompile, submit.rs::fulfil_calldata_and_the_signed_transaction_match_an_independent_encoder, payment.rs::a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once, attest.rs::the_watcher_follows_requested_logs_to_the_confirmation_depth, attest.rs::scanned_requests_stay_journalled_across_restart_until_retired and api.rs::the_api_payload_codec_matches_every_pinned_vector_and_refusal (each a #[test] or #[tokio::test] fn at HEAD), all written with the full services/interop/... path; keep title, source_section, source_paths, wave, owner_domain and planned_by unchanged."
 do_6 = "In [construct.existing-mirror] of the same file (:214-221) the only selector names services/interop/crates/layerx-mirror/tests/checkpoint_vectors.rs, deleted by edd77cf4a (task 11.26.4): move it into a dropped list on that row and set selectors to five tests that exist in the row's surviving source file and its sibling mirror tests, services/interop/crates/layerx-mirror/tests/publish.rs::confirms_and_retrieves_the_same_archive_on_both_test_networks, publish.rs::publishes_pure_archives_without_custody_semantics, sequencer_vectors.rs::every_shared_receipted_case_verifies_in_the_mirror, sequencer_vectors.rs::every_shared_refusal_case_is_refused_by_the_mirror and committed_freshness.rs::freshness_reports_committed_lag_in_blocks, all with the full services/interop/... path; keep the other fields unchanged, and regenerate spec/layerx-merge/docs/parity-inventory.md once more so section 4 lists all ten dropped selectors and the counts line matches."
 do_7 = "Extend test_kernel_replay_corpus_row_selects_the_qualification_replay to assert that no construct selector anywhere in parity.kvx names a file absent from the repository, listing the kernel.rs and checkpoint_vectors.rs selectors among the dropped entries of their rows; then continue from attempt 1 (f428d6ca4), whose replay-row change and regenerated document stand."
+do_8 = "Attempt 2 (2c67628d9) fails on [construct.existing-asset-ledger]: its selectors name grants_test.go::TestIssuePayerGrant, grants_test.go::TestRevokePayerGrant, draw_test.go::TestDrawWithinGrant and draw_test.go::TestDrawWithoutGrant under modules/layerxledger/keeper/, tests 7d9310759 (task 1.12.5) removed with the payer grants (grants_test.go is deleted, draw_test.go kept only its remaining tests). Move those four selectors to a dropped list on the row with the deleting commit and task in its reason, keep the other thirteen selectors, and treat every further selector the parity test reports as absent the same way, naming each moved selector in the qualification record; regenerate parity-inventory.md after the row edits. Continue from attempt 2."
 
 [req.181408]
 title = "Point the kernel replay corpus parity row at the qualification replay driver"
@@ -189140,7 +189256,7 @@ qualification = "UNRUN"
 
 [task.18.813.1]
 title = "Issue #813: Accept a deposit-root registration on the deposit root authority's signature, not on the checkpoint submitter"
-status = "pending"
+status = "superseded"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189168,6 +189284,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+superseded_by = "6.96.1"
+superseded_reason = "afcc3485c (task 6.96.1) retired Keeper.SubmitCheckpoint, so no new anchor checkpoint can be submitted and the front-run of a checkpoint submission that issue #813 describes can no longer happen; task 6.96.3 ports the custody keeper tests that still called SubmitCheckpoint."
 
 [req.18813]
 title = "A front-run checkpoint submission cannot lock the operator out of deposit-root registration"
@@ -189212,6 +189330,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Keep every pre-existing case of tools/bringup/check-live.test.sh passing, in particular ca_issue_every_service (:962): attempt 1 (423c22262) changed how the ca issue path resolves the box rows and the hosted rows and that case failed wanting 33 issued lines, the box rows' certificates on their boxes and the hosted rows' identities as variables of every service of the row. The ca issue path's row resolution is out of scope and must behave exactly as before the change; continue from attempt 1 and fix the regression inside the functions this task rewrote."
 
 [req.18821]
 title = "Live checks of rolled-out services probe the deployed service"
@@ -189683,7 +189802,7 @@ qualification = "UNRUN"
 
 [task.18.1315.1]
 title = "Issue #1315: Resolve Swift lifecycle receipts by the signed EVM transaction hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189969,7 +190088,7 @@ qualification = "UNRUN"
 
 [task.18.1325.1]
 title = "Issue #1325: Run the anchor store-delete read gate test against a precompile with a real anchor keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191419,7 +191538,7 @@ qualification = "UNRUN"
 
 [task.18.1369.1]
 title = "Issue #1369: Keep the module-retirement kernel test buildable without the retired web header"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191506,7 +191625,7 @@ qualification = "UNRUN"
 
 [task.18.1371.1]
 title = "Issue #1371: Decode the scheduler getJob result with the node's flat output layout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -191804,7 +191923,7 @@ qualification = "UNRUN"
 
 [task.18.1378.1]
 title = "Issue #1378: Implement setNameForAddr on the reverse registrar so registrations with a reverse record complete"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1377.1"]
@@ -192003,7 +192122,7 @@ qualification = "UNRUN"
 
 [task.18.1383.1]
 title = "Issue #1383: Decode the consensus header app_hash as hex in the names HeaderSource"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1381.1"]
@@ -192453,7 +192572,7 @@ qualification = "UNRUN"
 
 [task.18.1404.1]
 title = "Issue #1404: Treat an empty name base as unset so the built wallet image reaches the name proxy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1403.1"]
@@ -192495,7 +192614,7 @@ qualification = "UNRUN"
 
 [task.18.1405.1]
 title = "Issue #1405: Stop building and exporting the explorer core fixture for the Human test targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -192773,8 +192892,8 @@ qualification = "UNRUN"
 title = "Issue #1425: Drop the panic case from the returned-error commit listener test"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 5
+requires = ["5.98.9"]
 reqs = ["181425.1"]
 capabilities = []
 interfaces = []
@@ -192799,6 +192918,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Finding 18.1326.1.1: the node test package fails to compile at main until task 5.98.9 is on main; this task requires it and continues from its latest attempt unchanged, rebased onto main, one build and one verify."
 
 [req.181425]
 title = "The commit listener tests agree on returned errors and recovered panics"
