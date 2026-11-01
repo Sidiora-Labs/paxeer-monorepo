@@ -116496,7 +116496,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.30.6]
 title = "Own the arbiter's admission evidence in the arbiter crate and prove it under the app hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["9.24.3", "13.30.4", "13.30.5"]
