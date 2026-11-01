@@ -117132,7 +117132,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.90.1]
 title = "Write the three platform acceptance tests the merged spec names and the tree lacks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["8.11.3", "8.13.1", "8.16.2", "8.98.16"]
