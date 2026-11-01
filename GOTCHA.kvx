@@ -12966,3 +12966,13 @@ fix = "Before authoring a dependency removal, grep the crate's snake_case identi
 title = "A spec that names a wire enum value must quote it from the schema type's variants list"
 symptom = "A task told the service to answer verification receipted or committed; the response type declares verification as a VerificationLevel whose variants are receipt-verified and checkpoint-finalised, with the rung names mapped beside them, so the faithful implementation was refused by the response schema at runtime and the test asserted an undeclared field."
 fix = "Before writing a wire value into a do or acceptance criterion, open the schema type the operation's response names and copy the variant spelling; when the task wants the rung as well, declare it as the schema already does for sibling types."
+
+[gotcha.2630]
+title = "A decoder contract change must port the crate's own fixture test, not only the consumer it was written for"
+symptom = "A done task changed the history page decoder to the served three-key shape and added a head read after each page, verified by a new daemon test, and left the client crate's integration test fixturing the old six-key page without a head exchange; the next task whose verify ran that test target failed on it."
+fix = "A task that changes what a decoder accepts lists every test in its own crate that fixtures the old shape in its touches and runs that test target in its verify; a later task that meets the stale test ports it when it owns the file, or requires the owner when it does not."
+
+[gotcha.2631]
+title = "A recovery fixture's protocol spend must be covered by the receipts and holds the test supplies"
+symptom = "A task text told a recovery test to expect the shared fixture record's spend of 25 to reconcile while the request carried no receipts and no holds; the restart rule reconciles only a spend between the receipt total and the receipt total plus unresolved holds, so the faithful test failed."
+fix = "When a do names the expected accounting of a recovery, read the reconcile rule first and either serve a record whose spend the supplied receipts cover or assert the unreconciled outcome; the retired test being replaced shows which record it used."

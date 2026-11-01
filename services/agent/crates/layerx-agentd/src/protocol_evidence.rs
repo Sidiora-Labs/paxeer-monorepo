@@ -1721,18 +1721,6 @@ impl RawStateEvidence {
         }
     }
 
-    /// Wraps a checked call and its repeated answer at one committed checkpoint.
-    #[must_use]
-    pub fn module_witness(committed: crate::read::committed::CommittedCall) -> Self {
-        Self {
-            canonical_state: committed.canonical_bytes().to_vec(),
-            shape: StateEvidenceShape::ModuleWitness {
-                committed,
-                budget_id: None,
-            },
-        }
-    }
-
     /// Decodes the getBudget result, retaining the call that establishes each record field.
     pub fn budget_witness(
         committed: crate::read::committed::CommittedCall,
