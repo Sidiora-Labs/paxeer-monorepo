@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-import type { PaxeerXAnchorsItem } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveAnchor } from 'types/api/paxeerXArchive';
 
 import { PAXEER_X_ANCHORS_ITEM } from 'stubs/paxeerXLists';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
@@ -17,7 +17,7 @@ vi.setConfig({ testTimeout: 60_000 });
 
 import PaxeerXAnchors from './PaxeerXAnchors';
 
-const second: PaxeerXAnchorsItem = {
+const second: PaxeerXArchiveAnchor = {
   ...PAXEER_X_ANCHORS_ITEM,
   batch_number: PAXEER_X_ANCHORS_ITEM.batch_number - 1,
   checkpoint_id: '0x4b3c2d1e0f9a8b7c6d5e4f30211223344556677889900aabbccddeeff00112233',
@@ -26,12 +26,25 @@ const second: PaxeerXAnchorsItem = {
 
 const items = [ PAXEER_X_ANCHORS_ITEM, second ];
 
-const mockItems = (payload: Array<PaxeerXAnchorsItem>) => {
+const mockItems = (payload: Array<PaxeerXArchiveAnchor>) => {
   fetchMock.mockResponse(
     JSON.stringify({ items: payload, next_page_params: null }),
     { headers: { 'Content-Type': 'application/json' } },
   );
 };
+
+async function anchors_page_shows_archive_notice() {
+  const { container } = render(<PaxeerXAnchors/>);
+
+  await waitFor(() => {
+    expect(Array.from(container.querySelectorAll('[data-anchor]')).map((row) => row.getAttribute('data-anchor')))
+      .toEqual(items.map((item) => item.checkpoint_id));
+  });
+
+  expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('Anchor checkpoints (archive)');
+  expect(container.querySelector('[data-archive-notice]')?.textContent)
+    .toBe('This archive is frozen. No new anchor checkpoints will be added.');
+}
 
 describe('PaxeerXAnchors', () => {
   beforeEach(() => {
@@ -40,6 +53,8 @@ describe('PaxeerXAnchors', () => {
     fetchMock.resetMocks();
     mockItems(items);
   });
+
+  it(anchors_page_shows_archive_notice);
 
   it('heads the page with the anchor checkpoints title', async() => {
     render(<PaxeerXAnchors/>);

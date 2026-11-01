@@ -62,6 +62,49 @@ enum Verdict {
     Refuse,
 }
 
+fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
+    fn take<'a>(input: &mut &'a [u8]) -> &'a [u8] {
+        let prefix = input[0];
+        let (offset, length) = match prefix {
+            0x00..=0x7f => (0, 1),
+            0x80..=0xb7 => (1, usize::from(prefix - 0x80)),
+            0xb8..=0xbf | 0xf8..=0xff => {
+                let width = usize::from(if prefix < 0xc0 {
+                    prefix - 0xb7
+                } else {
+                    prefix - 0xf7
+                });
+                let length = input[1..1 + width]
+                    .iter()
+                    .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
+                (1 + width, length)
+            }
+            0xc0..=0xf7 => (1, usize::from(prefix - 0xc0)),
+        };
+        let value = &input[offset..offset + length];
+        *input = &input[offset + length..];
+        value
+    }
+    let (mut envelope, data_index) = match raw[0] {
+        0x02 => (&raw[1..], 7),
+        0xc0..=0xff => (raw, 5),
+        _ => panic!("unsupported recorded transaction envelope"),
+    };
+    let mut fields = take(&mut envelope);
+    assert!(envelope.is_empty());
+    for _ in 0..data_index {
+        take(&mut fields);
+    }
+    let calldata = take(&mut fields);
+    assert_eq!(calldata.len(), 4 + 6 * 32);
+    assert_eq!(&calldata[..4], &[0x78, 0xea, 0x11, 0xdb]);
+    std::array::from_fn(|index| {
+        calldata[4 + index * 32..4 + (index + 1) * 32]
+            .try_into()
+            .unwrap()
+    })
+}
+
 fn sequenced_settlement_vectors() -> Vec<Vector> {
     let vectors: Vec<Vector> = serde_json::from_str(SEQUENCED_SETTLEMENT_SUITE)
         .expect("sequenced settlement vectors decode as PAYMENT-RESPONSE bodies");
@@ -262,9 +305,9 @@ fn receipt_keys(case: &Value) -> Vec<SequencerAuthorization> {
 }
 
 fn request(transaction: &str) -> FacilitatorRequest {
-    let account = "agent:did:layerx:merchant:main";
+    let account = "agent:did:layerx:payee:main";
     let pay_to = account_identifiers(account).unwrap_or_else(|error| panic!("merchant: {error}"))
-        [0]
+        [1]
     .iter()
     .map(|byte| format!("{byte:02x}"))
     .collect::<String>();
@@ -580,6 +623,8 @@ fn x402_committed_vector_settles_as_committed() {
     // retaining its activity, sequence chain and recorded consensus proof.
     let mut topics = log.topics().to_vec();
     let recorded_topics = topics.concat();
+    let words = pay_exact_words(&bytes(text(&case["rawTransaction"])));
+    topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
     topics[1] = identity.idempotency_key;
     topics[3] = array(&format!("0x{}", request.payment_requirements.pay_to));
     replace(

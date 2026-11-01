@@ -184,7 +184,7 @@ fn replay_settled_on_the_node_maps_to_idempotent_replay() {
         ));
         store
             .record_node_result(key, b"original-request", 105, [0x44; 32], result())
-            .unwrap_or_else(|error| panic!("record resultByIdempotency result: {error:?}"));
+            .unwrap_or_else(|error| panic!("record node-settled result: {error:?}"));
     }
     let store = directory.open();
     assert_eq!(

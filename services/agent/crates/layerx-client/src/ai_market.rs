@@ -12,11 +12,11 @@ use layerx_crypto::evm_transaction::{self, Eip1559Call, EvmTransactionError};
 use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};
 use layerx_crypto::VerifyError;
 use layerx_programs_ai_market::codec::{
-    decode_envelope, decode_roster, encode_envelope, Envelope, RosterView,
+    decode_envelope, decode_roster, encode_envelope, Envelope, Reader, RosterView,
 };
 use layerx_programs_ai_market::dispatch::{self, CallBoundary, Operation};
 use layerx_programs_ai_market::errors::{
-    ApplicationError, F06_CONTRIBUTION_CONSENT_REQUIRED, F06_FUNDING_POLICY_MISMATCH,
+    ApplicationError, BAD_VERSION, F06_CONTRIBUTION_CONSENT_REQUIRED, F06_FUNDING_POLICY_MISMATCH,
     F06_INVALID_AMOUNT, F06_NOTHING_TO_CLAIM, F06_REFUND_RECIPIENT_MISMATCH,
     F06_UNKNOWN_WORKER_ENTITLEMENT, F06_WRONG_CLAIM_RECIPIENT, NON_CANONICAL, NOT_FOUND,
     UNAUTHORIZED, WRONG_CONFIG, WRONG_MARKET, WRONG_ROSTER,
@@ -25,7 +25,7 @@ use layerx_programs_ai_market::policy::{TaskPolicyV1, TASK_POLICY_BYTES};
 use layerx_programs_ai_market::queries::{
     bind_snapshot, participant_rows, read_header, Availability, CaptureFacts, FinalityEvidence,
     ParticipantKind, ParticipantRow, QueryError, ReadProof, RewardField, ScoreField, ScoreStatus,
-    SnapshotBinding, StateCapture, FINALIZED_RANK,
+    SnapshotBinding, StateCapture, BINDING_MAX_BYTES, FINALIZED_RANK,
 };
 use layerx_programs_ai_market::registry::{market_clock, MarketClock, MarketHeader};
 use layerx_programs_ai_market::registry_ops::PolicySection;
@@ -35,7 +35,7 @@ use layerx_programs_ai_market::rewards::{
 use layerx_programs_ai_market::state::{decode_shared_state, Section};
 use layerx_programs_ai_market::types::{
     AccountId, AssetId, Authentication, ChainDomain, Digest32, MarketId, PolicyDigest, Presence,
-    PrincipalId, ProgramId, RequestDigest, RequestId, RosterDigest, Version, WorkerId,
+    PrincipalId, ProgramId, RequestDigest, RequestId, RosterDigest, StateDigest, Version, WorkerId,
     WorkerRosterEntry,
 };
 use layerx_programs_ai_market::{MAX_ENVELOPE_BYTES, MAX_EVALUATORS, MAX_STATE_BYTES, MAX_WORKERS};
@@ -294,6 +294,49 @@ impl ObservedSnapshot {
 fn market_header(state: &[u8]) -> Result<MarketHeader, AiClientError> {
     let shared = decode_shared_state(state)?;
     Ok(PolicySection::decode(shared.section(Section::PolicyLifecycle)?)?.header)
+}
+
+/// Decodes a canonical v2 binding, including its block-commit evidence.
+///
+/// # Errors
+/// `BAD_VERSION` for a schema version other than 1; `NON_CANONICAL` for a length
+/// other than `BINDING_MAX_BYTES`, malformed bytes, invalid identities, revision zero
+/// or a rank above 4.
+pub fn decode_snapshot_binding(bytes: &[u8]) -> Result<SnapshotBinding, AiClientError> {
+    let mut input = Reader::new(bytes);
+    if input.u16()? != 1 {
+        return Err(BAD_VERSION.into());
+    }
+    if bytes.len() != BINDING_MAX_BYTES {
+        return Err(NON_CANONICAL.into());
+    }
+    let binding = SnapshotBinding {
+        chain: ChainDomain::new(input.fixed()?)?,
+        program: ProgramId::new(input.fixed()?)?,
+        market: MarketId::new(input.fixed()?)?,
+        observed_sequence: input.u64()?,
+        execution_height: input.u64()?,
+        batch_id: Digest32::new(input.fixed()?)?,
+        native_state_root: Digest32::new(input.fixed()?)?,
+        revision: input.u64()?,
+        state_digest: StateDigest::new(input.fixed()?)?,
+        epoch: input.presence(Reader::u64)?,
+        config: Version::new(input.u64()?)?,
+        policy: PolicyDigest::new(input.fixed()?)?,
+        roster: input.presence(|reader| RosterDigest::new(reader.fixed()?))?,
+        block_height: input.u64()?,
+        block_hash: Digest32::new(input.fixed()?)?,
+        app_hash: Digest32::new(input.fixed()?)?,
+        store_proof_digest: Digest32::new(input.fixed()?)?,
+        rank: input.u8()?,
+        publication_time_ms: input.u64()?,
+    };
+    input.reserved(8)?;
+    input.finish()?;
+    if binding.revision == 0 || binding.rank > FINALIZED_RANK {
+        return Err(NON_CANONICAL.into());
+    }
+    Ok(binding)
 }
 
 /// Public inspection of a finalized snapshot; staleness is labelled, never hidden.

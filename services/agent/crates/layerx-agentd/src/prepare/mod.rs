@@ -463,37 +463,27 @@ pub mod legacy {
         Refused { class: u8, result: ResultCode },
     }
 
-    /// Production adapter from the authenticated LNI client into preparation.
-    /// Correlation identifiers are boundary-local and never supply protocol state.
+    /// Production adapter from the human node and authenticated module registry.
     pub struct ProductionCorePreparationBoundary<'a> {
-        client: &'a mut layerx_client::Client,
-        next_correlation_id: u64,
+        node: &'a dyn crate::human_node::HumanNode,
+        module_registry: ModuleRegistry,
         last_state: Option<CorePreparationState>,
     }
 
     impl<'a> ProductionCorePreparationBoundary<'a> {
-        /// Creates a production boundary with a non-zero first correlation id.
-        ///
-        /// # Errors
-        ///
-        /// Refuses zero, which is reserved for the LNI handshake.
+        #[must_use]
         pub fn new(
-            client: &'a mut layerx_client::Client,
-            first_correlation_id: u64,
-        ) -> Result<Self, CoreStateError> {
-            if first_correlation_id == 0 {
-                return Err(CoreStateError::Unavailable);
-            }
-            Ok(Self {
-                client,
-                next_correlation_id: first_correlation_id,
+            node: &'a dyn crate::human_node::HumanNode,
+            module_registry: ModuleRegistry,
+        ) -> Self {
+            Self {
+                node,
+                module_registry,
                 last_state: None,
-            })
+            }
         }
 
-        /// Returns the exact node snapshot consumed by the most recent successful
-        /// preparation call. Callers retain its registry for later signature
-        /// verification instead of querying a second authority.
+        /// Returns the exact node snapshot consumed by the most recent successful call.
         #[must_use]
         pub const fn last_state(&self) -> Option<&CorePreparationState> {
             self.last_state.as_ref()
@@ -505,46 +495,62 @@ pub mod legacy {
             &mut self,
             actor: &Did,
         ) -> Result<CorePreparationState, CoreStateError> {
-            let correlation_id = self.next_correlation_id;
-            if correlation_id == 0 {
-                return Err(CoreStateError::Unavailable);
+            self.last_state = None;
+            let chain_id = self.node.chain_id().map_err(map_preparation_state_error)?;
+            let network_id = u32::try_from(chain_id).map_err(|_| CoreStateError::Refused {
+                class: 1,
+                result: layerx_types::result::KnownResult::Overflow.into(),
+            })?;
+            let actor =
+                std::str::from_utf8(actor.as_bytes()).map_err(|_| CoreStateError::Unverified)?;
+            let public = actor
+                .strip_prefix("did:layerx:")
+                .ok_or(CoreStateError::Unverified)?;
+            if public.len() != 64
+                || !public
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+            {
+                return Err(CoreStateError::Unverified);
             }
-            self.next_correlation_id = correlation_id.checked_add(1).unwrap_or(0);
-            let state = self
-                .client
-                .preparation_state(actor, correlation_id)
+            let mut public_key = [0; 32];
+            for (index, byte) in public_key.iter_mut().enumerate() {
+                *byte = u8::from_str_radix(&public[index * 2..index * 2 + 2], 16)
+                    .map_err(|_| CoreStateError::Unverified)?;
+            }
+            let address = self
+                .node
+                .bound_address(&public_key)
+                .map_err(map_preparation_state_error)?
+                .ok_or(CoreStateError::Refused {
+                    class: 1,
+                    result: layerx_types::result::KnownResult::UnknownDid.into(),
+                })?;
+            let account_sequence = self
+                .node
+                .pending_nonce(&address)
                 .map_err(map_preparation_state_error)?;
+            let head = self.node.head().map_err(map_preparation_state_error)?;
             let state = CorePreparationState {
-                network_id: state.network_id,
-                account_sequence: state.account_sequence,
-                protocol_timestamp: state.protocol_timestamp,
-                observed_head_sequence: state.observed_head_sequence,
-                module_registry: state.module_registry,
+                network_id,
+                account_sequence,
+                protocol_timestamp: head.timestamp,
+                observed_head_sequence: head.number,
+                module_registry: self.module_registry.clone(),
             };
             self.last_state = Some(state.clone());
             Ok(state)
         }
     }
 
-    fn map_preparation_state_error(
-        error: layerx_client::lni::PreparationStateError,
-    ) -> CoreStateError {
-        use layerx_client::lni::PreparationStateError;
+    fn map_preparation_state_error(error: crate::node_rpc::NodeRpcError) -> CoreStateError {
         match error {
-            PreparationStateError::Transport(_)
-            | PreparationStateError::UnavailableCapability
-            | PreparationStateError::Disconnected => CoreStateError::Unavailable,
-            PreparationStateError::CoreRefusal { class, result } => {
-                CoreStateError::Refused { class, result }
-            }
-            PreparationStateError::Envelope(_)
-            | PreparationStateError::InvalidCorrelation
-            | PreparationStateError::InterfaceVersion(_)
-            | PreparationStateError::MalformedRequest
-            | PreparationStateError::MalformedResponse
-            | PreparationStateError::ActorMismatch
-            | PreparationStateError::Network { .. }
-            | PreparationStateError::StaleSnapshot { .. } => CoreStateError::Unverified,
+            crate::node_rpc::NodeRpcError::Unavailable
+            | crate::node_rpc::NodeRpcError::Sequencer(
+                layerx_client::sequencer::SequencerError::Unavailable
+                | layerx_client::sequencer::SequencerError::Tls,
+            ) => CoreStateError::Unavailable,
+            _ => CoreStateError::Unverified,
         }
     }
 

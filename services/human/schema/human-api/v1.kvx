@@ -71,6 +71,13 @@ prefix = "evd_"
 rust = "String"
 typescript = "string"
 
+[scalar.TransactionHash]
+json = "string"
+prefix = "0x"
+rust = "String"
+typescript = "string"
+encoding = "A 0x-prefixed 32-byte hexadecimal transaction hash."
+
 [scalar.TraceId]
 json = "string"
 prefix = "trc_"

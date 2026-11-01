@@ -28,12 +28,8 @@ export const PRECOMPILE_ADDRESSES = {
   p256: '0x0000000000000000000000000000000000001011',
 } as const satisfies Record<string, `0x${string}`>;
 
-/** Route keys without a linked constructor in node/precompiles.go. */
-export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES> = new Set([
-  'oracle',
-  'scheduler',
-  'streams',
-] as const);
+/** Route keys without a registered merge constructor under precompiles/. */
+export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES> = new Set();
 
 export function unservedPrecompileAt(
   to: string | undefined,
@@ -64,8 +60,14 @@ const servedPrecompiles = new Set<keyof typeof PRECOMPILE_ADDRESSES>();
 export async function ensureServed(key: keyof typeof PRECOMPILE_ADDRESSES): Promise<void> {
   const address = servedAddress(key);
   if (servedPrecompiles.has(key)) return;
-  const code = await publicClient().getCode({ address });
-  if (!code || code === '0x') throw new PrecompileNotServedError(key);
+  try {
+    const { data } = await publicClient().call({ to: address, data: '0xffffffff' });
+    if (!data || data === '0x') throw new PrecompileNotServedError(key);
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes('LXP_PRECOMPILE_UNKNOWN_METHOD')) {
+      throw error;
+    }
+  }
   servedPrecompiles.add(key);
 }
 
@@ -132,20 +134,14 @@ export const SCHEDULER_ABI = [
     stateMutability: 'view',
     inputs: [{ name: 'jobId', type: 'uint256' }],
     outputs: [
-      {
-        name: 'job',
-        type: 'tuple',
-        components: [
-          { name: 'id', type: 'uint256' },
-          { name: 'creator', type: 'address' },
-          { name: 'target', type: 'address' },
-          { name: 'callData', type: 'bytes' },
-          { name: 'executeAtBlock', type: 'uint64' },
-          { name: 'gasLimit', type: 'uint64' },
-          { name: 'deposit', type: 'uint256' },
-          { name: 'active', type: 'bool' },
-        ],
-      },
+      { name: 'id', type: 'uint256' },
+      { name: 'creator', type: 'address' },
+      { name: 'target', type: 'address' },
+      { name: 'callData', type: 'bytes' },
+      { name: 'executeAtBlock', type: 'uint64' },
+      { name: 'gasLimit', type: 'uint64' },
+      { name: 'deposit', type: 'uint256' },
+      { name: 'active', type: 'bool' },
     ],
   },
   {
@@ -380,31 +376,23 @@ export const scheduler = {
     active: boolean;
   } | null> {
     await ensureServed('scheduler');
-    const r = (await publicClient().readContract({
-      address: servedAddress('scheduler'),
-      abi: SCHEDULER_ABI,
-      functionName: 'getJob',
-      args: [jobId],
-    })) as {
-      id: bigint;
-      creator: string;
-      target: string;
-      callData: string;
-      executeAtBlock: bigint;
-      gasLimit: bigint;
-      deposit: bigint;
-      active: boolean;
-    };
-    if (r.id === 0n && !r.active) return null;
+    const [id, creator, target, callData, executeAtBlock, gasLimit, deposit, active] =
+      await publicClient().readContract({
+        address: servedAddress('scheduler'),
+        abi: SCHEDULER_ABI,
+        functionName: 'getJob',
+        args: [jobId],
+      });
+    if (id === 0n && active === false) return null;
     return {
-      id: r.id.toString(),
-      creator: r.creator,
-      target: r.target,
-      callData: r.callData,
-      executeAtBlock: r.executeAtBlock.toString(),
-      gasLimit: r.gasLimit.toString(),
-      deposit: r.deposit.toString(),
-      active: r.active,
+      id: id.toString(),
+      creator,
+      target,
+      callData,
+      executeAtBlock: executeAtBlock.toString(),
+      gasLimit: gasLimit.toString(),
+      deposit: deposit.toString(),
+      active,
     };
   },
   async pending(creator: `0x${string}`): Promise<string[]> {

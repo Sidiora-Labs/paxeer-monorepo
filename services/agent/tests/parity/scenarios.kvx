@@ -5,7 +5,7 @@ languages = ["rust","typescript","python"]
 [scenario.unknown_submission]
 state = "Unknown"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "Original"
 result_code = "none"
 receipt_count = 0
@@ -14,7 +14,7 @@ economic_effects = 0
 [scenario.terminal_rejection]
 state = "Failed"
 error = "CoreRejection"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "Original"
 result_code = "-77777"
 receipt_count = 0
@@ -23,7 +23,7 @@ economic_effects = 0
 [scenario.proven_read]
 state = "Value"
 error = "None"
-verification = "StateProven"
+verification = "committed"
 idempotency = "None"
 result_code = "none"
 receipt_count = 0
@@ -32,7 +32,7 @@ economic_effects = 0
 [scenario.availability_failure]
 state = "Refused"
 error = "UnavailableCapability"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "None"
 result_code = "none"
 receipt_count = 0
@@ -41,7 +41,7 @@ economic_effects = 0
 [scenario.subscription_gap]
 state = "Gap"
 error = "None"
-verification = "SequencerSigned"
+verification = "receipted"
 idempotency = "None"
 result_code = "none"
 receipt_count = 0
@@ -50,7 +50,7 @@ economic_effects = 0
 [scenario.idempotency_repeat]
 state = "Executed"
 error = "None"
-verification = "SequencerSigned"
+verification = "receipted"
 idempotency = "RepeatedOriginal"
 result_code = "0"
 receipt_count = 1
@@ -59,7 +59,7 @@ economic_effects = 1
 [scenario.idempotency_concurrent]
 state = "Executed"
 error = "None"
-verification = "SequencerSigned"
+verification = "receipted"
 idempotency = "Deduplicated"
 result_code = "0"
 receipt_count = 1
@@ -68,7 +68,7 @@ economic_effects = 1
 [scenario.idempotency_restart]
 state = "Executed"
 error = "None"
-verification = "SequencerSigned"
+verification = "receipted"
 idempotency = "RestoredOriginal"
 result_code = "0"
 receipt_count = 1
@@ -77,7 +77,7 @@ economic_effects = 1
 [scenario.approval_list]
 state = "approval.list"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "None"
 result_code = "none"
 receipt_count = 0
@@ -86,7 +86,7 @@ economic_effects = 0
 [scenario.approval_get]
 state = "approval.get"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "None"
 result_code = "none"
 receipt_count = 0
@@ -95,7 +95,7 @@ economic_effects = 0
 [scenario.approval_approve]
 state = "approval.approve"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "Original"
 result_code = "none"
 receipt_count = 0
@@ -104,7 +104,7 @@ economic_effects = 0
 [scenario.approval_reject]
 state = "approval.reject"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "Original"
 result_code = "none"
 receipt_count = 0
@@ -113,7 +113,7 @@ economic_effects = 0
 [scenario.approval_event_created]
 state = "Created"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "None"
 result_code = "none"
 receipt_count = 0
@@ -122,7 +122,7 @@ economic_effects = 0
 [scenario.approval_event_granted]
 state = "Granted"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "None"
 result_code = "none"
 receipt_count = 0
@@ -131,7 +131,7 @@ economic_effects = 0
 [scenario.approval_event_rejected]
 state = "Rejected"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "None"
 result_code = "none"
 receipt_count = 0
@@ -140,7 +140,7 @@ economic_effects = 0
 [scenario.approval_event_expired]
 state = "Expired"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "None"
 result_code = "none"
 receipt_count = 0
@@ -149,7 +149,7 @@ economic_effects = 0
 [scenario.approval_event_defective]
 state = "Defective"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "None"
 result_code = "none"
 receipt_count = 0
@@ -158,7 +158,7 @@ economic_effects = 0
 [scenario.approval_outcome_expired]
 state = "Expired"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "Original"
 result_code = "none"
 receipt_count = 0
@@ -167,7 +167,7 @@ economic_effects = 0
 [scenario.approval_outcome_defective]
 state = "Defective"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "Original"
 result_code = "none"
 receipt_count = 0
@@ -176,7 +176,7 @@ economic_effects = 0
 [scenario.approval_outcome_already_decided]
 state = "AlreadyDecided"
 error = "None"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "RepeatedOriginal"
 result_code = "none"
 receipt_count = 0
@@ -185,7 +185,7 @@ economic_effects = 0
 [scenario.approval_outcome_conflict]
 state = "Conflict"
 error = "IdempotencyConflict"
-verification = "Unverified"
+verification = "submitted"
 idempotency = "Conflict"
 result_code = "none"
 receipt_count = 0

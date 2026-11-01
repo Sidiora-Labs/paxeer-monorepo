@@ -711,6 +711,46 @@ fn rung(value: u8) -> Option<Rung> {
     })
 }
 
+#[cfg(test)]
+mod receipt_rung_wire_tests {
+    use super::{rung, HumanOperationError, Rung};
+    use layerx_types::verify::VerificationLevel;
+
+    #[test]
+    fn batch_included_and_state_proven_receipts_decode_as_receipted(
+    ) -> Result<(), HumanOperationError> {
+        for level in [
+            VerificationLevel::BATCH_INCLUDED,
+            VerificationLevel::STATE_PROVEN,
+        ] {
+            assert_eq!(
+                rung(crate::human_runtime::receipt_rung_code(level)?),
+                Some(Rung::Receipted)
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn checkpoint_finalised_receipt_decodes_as_committed() -> Result<(), HumanOperationError> {
+        assert_eq!(
+            rung(crate::human_runtime::receipt_rung_code(
+                VerificationLevel::CHECKPOINT_FINALISED
+            )?),
+            Some(Rung::Committed)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn settlement_anchored_receipt_level_is_refused() {
+        assert_eq!(
+            crate::human_runtime::receipt_rung_code(VerificationLevel::SETTLEMENT_ANCHORED),
+            Err(HumanOperationError::Refused)
+        );
+    }
+}
+
 pub(crate) fn rung_name(value: Rung) -> &'static str {
     value.name()
 }
@@ -1118,6 +1158,35 @@ fn decode_approval_list(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)
 
 fn decode_approval_get(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     Some((decode_approval(reader)?, None))
+}
+
+pub fn merge_tracked_approval(
+    id: RequestId,
+    mut approval: Value,
+    tracked: Value,
+) -> Result<Value, Rejection> {
+    let invalid = || rejection(ErrorClass::InternalFault, id, "owner.response_malformed");
+    let reference = approval
+        .get("submission_ref")
+        .and_then(Value::as_str)
+        .ok_or_else(invalid)?;
+    if approval.get("state").and_then(Value::as_str) != Some("Approved")
+        || hex32(reference, id).is_err()
+        || tracked.get("submission_ref").and_then(Value::as_str) != Some(reference)
+        || tracked.get("tx_hash").and_then(Value::as_str) != Some(reference)
+    {
+        return Err(invalid());
+    }
+    let rung = tracked
+        .get("rung")
+        .and_then(Value::as_str)
+        .and_then(Rung::from_name)
+        .ok_or_else(invalid)?;
+    let tx_hash = tracked.get("tx_hash").cloned().ok_or_else(invalid)?;
+    let fields = approval.as_object_mut().ok_or_else(invalid)?;
+    fields.insert("tx_hash".into(), tx_hash);
+    fields.insert("rung".into(), Value::String(rung.name().into()));
+    Ok(approval)
 }
 
 /// Decodes the owner payload with the operation's bounded decoder. A payload that does not
@@ -1776,11 +1845,24 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
             let _ = (request.tenant, request.agent);
             let approval_id = hex32(&request.approval_id, id)?;
             let current_sequence = decimal_u64(&request.current_sequence, id)?;
-            dispatched(
+            let mut approval = dispatched(
                 id,
                 owner.approval_get(peer, approval_id, current_sequence),
                 decode_approval_get,
-            )
+            )?;
+            if approval.value.get("state").and_then(Value::as_str) == Some("Approved") {
+                let reference = approval
+                    .value
+                    .get("submission_ref")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| {
+                        rejection(ErrorClass::InternalFault, id, "owner.response_malformed")
+                    })?;
+                submission_key(reference, id)?;
+                let tracked = dispatched(id, owner.track(peer, reference), decode_tracked)?;
+                approval.value = merge_tracked_approval(id, approval.value, tracked.value)?;
+            }
+            Ok(approval)
         }
         Operation::ProgramReceipt => {
             let request: ActivityLookupRequest = decode(request, id)?;

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Owned disposable xweb fixture: a source-bound paxd chain with four real web attestors."""
+import argparse
 from functools import partial
 import hashlib
 import base64
@@ -8,7 +9,10 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 import secrets
+import socket
+import stat
 import subprocess
 import sys
 import threading
@@ -32,13 +36,66 @@ def load(name, path):
     return loaded
 
 
-runtime = load("paxeer_x_runtime_fixture", ROOT / "tests/daemon/paxeer_x_runtime_fixture.py")
 evm = load("paxeer_evm", ROOT / "services/platform/hosted/paxeer/evm.py")
 
 
 def require(condition, reason):
     if not condition:
         raise RuntimeError("xweb fixture refused: " + reason)
+
+
+def digest(path):
+    with Path(path).open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest()
+
+
+def private(path):
+    path = Path(path)
+    info = path.lstat()
+    require(stat.S_ISREG(info.st_mode) and not path.is_symlink() and info.st_nlink == 1,
+            "manifest is not a regular unlinked file")
+    require(stat.S_IMODE(info.st_mode) == 0o600 and info.st_uid == os.geteuid(),
+            "manifest owner or mode")
+
+
+def artifacts(path):
+    require(bool(path), "artifact manifest required")
+    private(path)
+    bundle = json.loads(Path(path).read_text())
+    require(bundle.get("version") == 1, "artifact schema")
+    revision = bundle.get("source_revision", "")
+    require(re.fullmatch("[a-f0-9]{40}", revision), "source revision")
+    require(git("rev-parse", revision + "^{tree}") == bundle.get("source_tree"),
+            "source tree mismatch")
+    require(not git("status", "--porcelain"), "dirty selected source")
+    row = bundle["artifacts"]["paxd"]
+    target = Path(row.get("path", ""))
+    require(target.is_absolute() and target.is_file() and not target.is_symlink()
+            and os.access(target, os.X_OK), "missing paxd executable")
+    require(row.get("source_revision") == revision and row.get("sha256") == digest(target),
+            "paxd source/digest mismatch")
+    paths = row.get("source_paths")
+    require(isinstance(paths, list) and paths and all(
+        isinstance(item, str) and item and not item.startswith("/")
+        and ".." not in Path(item).parts for item in paths), "missing/invalid paxd source binding")
+    require(not git("diff", "--name-only", revision, "HEAD", "--", *paths),
+            "selected paxd dependency differs")
+    for library in bundle.get("runtime_libraries", []):
+        target = Path(library["path"])
+        require(target.is_absolute() and target.is_file() and not target.is_symlink(),
+                "runtime library missing")
+        require(library["source_revision"] == revision and digest(target) == library["sha256"],
+                "runtime library binding")
+    return bundle
+
+
+def reserve_ports(count):
+    sockets = []
+    for _ in range(count):
+        sock = socket.socket()
+        sock.bind(("127.0.0.1", 0))
+        sockets.append(sock)
+    return sockets
 
 
 def private_write(path, text):
@@ -87,7 +144,7 @@ class XWebFixture:
     def __init__(self, manifest, evidence):
         self.revision = manifest["source"]["revision"]
         require(git("rev-parse", "HEAD") == self.revision, "checkout is not the candidate revision")
-        self.bundle = runtime.artifacts(os.environ.get("PAXEER_X_RUNTIME_ARTIFACTS", ""))
+        self.bundle = artifacts(os.environ.get("PAXEER_X_RUNTIME_ARTIFACTS", ""))
         require(self.bundle["source_revision"] == self.revision,
                 "runtime bundle is bound to another source revision")
         binary = os.environ.get("PAXEER_X_XWEB_BINARY", "")
@@ -97,7 +154,7 @@ class XWebFixture:
                 "x-websearch binary absent or not executable")
         metadata = os.environ.get("PAXEER_X_XWEB_ARTIFACT", "")
         require(metadata, "PAXEER_X_XWEB_ARTIFACT is not set")
-        runtime.private(metadata)
+        private(metadata)
         self.binary_artifact = json.loads(Path(metadata).read_text())
         source = load("paid_web_source_binding", ROOT / "tools/qualification/paxeer-x/paid-web-contract.py")
         revision, source_digest = source.source_identity()
@@ -106,7 +163,7 @@ class XWebFixture:
                 and self.binary_artifact.get("build_exit") == 0
                 and Path(self.binary_artifact.get("path", "")).resolve() == self.binary,
                 "x-websearch build/source provenance missing")
-        self.binary_sha256 = runtime.digest(self.binary)
+        self.binary_sha256 = digest(self.binary)
         require(self.binary_sha256 == self.binary_artifact.get("sha256"), "x-websearch artifact digest mismatch")
         self.directory = Path(evidence) / ("xweb-19.1-" + time.strftime("%Y%m%dT%H%M%SZ", time.gmtime()))
         self.directory.mkdir(mode=0o700)
@@ -151,7 +208,7 @@ class XWebFixture:
                 slot["submitter_secret"] = new_key(slot["submitter"])
             slot["signer"] = evm.address_of(slot["secret"]).hex()
             self.slots.append(slot)
-        reservations = runtime.reserve_ports(len(CHAIN_PORTS) + ATTESTORS + 2)
+        reservations = reserve_ports(len(CHAIN_PORTS) + ATTESTORS + 2)
         ports = [sock.getsockname()[1] for sock in reservations]
         self.endpoint = f"http://127.0.0.1:{ports[0]}"
         self.chain = self.directory / "chain"
@@ -176,7 +233,7 @@ class XWebFixture:
             "threshold": THRESHOLD}
         genesis_path.write_text(json.dumps(genesis, indent=1) + "\n", encoding="utf-8")
         self.run("validate-genesis", [self.paxd(), "validate-genesis", genesis_path, "--home", self.chain])
-        self.genesis_sha256 = runtime.digest(genesis_path)
+        self.genesis_sha256 = digest(genesis_path)
         for sock in reservations:
             sock.close()
         log = (self.directory / "paxd.log").open("ab")
@@ -264,7 +321,7 @@ class XWebFixture:
     def config_digest(self):
         combined = hashlib.sha256()
         for slot in self.slots:
-            combined.update(bytes.fromhex(runtime.digest(slot["config"])))
+            combined.update(bytes.fromhex(digest(slot["config"])))
         combined.update(bytes.fromhex(self.genesis_sha256))
         return "sha256:" + combined.hexdigest()
 
@@ -290,7 +347,7 @@ class XWebFixture:
             "candidate_manifest_ref": str(manifest_path), "scope": "isolated-real-process",
             "runtime_binary_or_image_refs": [str(self.binary), self.paxd()],
             "x_websearch_artifact": self.binary_artifact,
-            "config_refs_and_digests": {str(slot["config"]): runtime.digest(slot["config"])
+            "config_refs_and_digests": {str(slot["config"]): digest(slot["config"])
                                         for slot in self.slots},
             "isolated_chain_id_and_genesis_identity": {"chain_id": CHAIN_ID,
                                                        "genesis_sha256": self.genesis_sha256},
@@ -359,8 +416,19 @@ class XWebFixture:
                     process.wait()
 
 
-if __name__ == "__main__":
+def main():
     sys.dont_write_bytecode = True
-    require(len(sys.argv) == 6 and sys.argv[1] == "produce",
-            "usage: xweb_fixture.py produce <endpoint> <requester key> <url> <fee wei>")
-    print(produce(sys.argv[2], sys.argv[3], sys.argv[4], int(sys.argv[5])))
+    parser = argparse.ArgumentParser(description=__doc__)
+    commands = parser.add_subparsers(dest="command", required=True)
+    producer = commands.add_parser("produce", help="send one real xweb request")
+    producer.add_argument("endpoint")
+    producer.add_argument("requester_key")
+    producer.add_argument("url")
+    producer.add_argument("fee_wei", type=int)
+    arguments = parser.parse_args()
+    print(produce(arguments.endpoint, arguments.requester_key, arguments.url, arguments.fee_wei))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

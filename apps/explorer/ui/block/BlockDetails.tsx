@@ -118,8 +118,9 @@ const BlockDetails = ({ query }: Props) => {
   })();
 
   const txsNum = (() => {
+    // transactions_count already counts the price updates; price_update_count is their share
     const priceUpdateCount = data.price_update_count ?? 0;
-    const txsCount = data.transactions_count + priceUpdateCount;
+    const txsCount = data.transactions_count;
     const blockTxsNum = (
       <Link href={ route({ pathname: '/block/[height_or_hash]', query: { height_or_hash: heightOrHash, tab: 'txs' } }, multichainContext) }>
         { txsCount } txn{ txsCount === 1 ? '' : 's' }

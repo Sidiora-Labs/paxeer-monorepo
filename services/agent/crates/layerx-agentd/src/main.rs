@@ -36,11 +36,9 @@ use layerx_agentd::read::{
 use layerx_agentd::session::{SessionId, SessionRegistry};
 use layerx_agentd::session_keys::SessionKeyRegistry;
 use layerx_agentd::store::{Store, TenantId};
-use layerx_client::client::{ClientConfig, ReconnectPolicy};
-use layerx_client::lni::handshake::HandshakeConfig;
-use layerx_client::lni::schema::Version;
 use layerx_client::lni::transport::Limits;
-use layerx_client::Client;
+type PxEndpoint = layerx_client::px::PxEndpoint;
+type SequencerEndpoint = layerx_client::sequencer::SequencerEndpoint;
 use layerx_programs::{
     hex, DeploymentProof, DeploymentRecord, ProgramId, ProgramLifecycle,
     ProtocolDeploymentVerifier, Registry,
@@ -264,7 +262,7 @@ struct Config {
     authority_bearer: String,
     authority_ca_der: Vec<u8>,
     authority_replica_id: [u8; 32],
-    sequencer_trust_history: String,
+    chain_trust_root: PathBuf,
     staleness_ms: u64,
     deployment_journal: String,
     probe_program: ProgramId,
@@ -476,14 +474,27 @@ fn mcp_listener(peer_uid: u32) -> Result<ListenerDeclaration, String> {
 
 /// Reads the web sidecar the published binding references, when `LAYERX_AGENT_MCP_WEB_ENDPOINT`
 /// enables it; every other web key is then required.
-fn mcp_web() -> Result<Option<WebDeclaration>, String> {
+fn mcp_web(config: &Config) -> Result<Option<WebDeclaration>, String> {
     let Some(endpoint) = optional("LAYERX_AGENT_MCP_WEB_ENDPOINT") else {
         return Ok(None);
     };
+    let index = usize::try_from(parse_u64("LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX")?)
+        .map_err(|_| "LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX is out of range")?;
+    let client = layerx_client::sequencer::SequencerEndpoint::new(
+        &config.node_endpoint,
+        &[&config.authority_ca_der],
+    )
+    .map_err(|error| format!("MCP receipt key endpoint is invalid: {error:?}"))?;
+    let keys = NativeReadRoute::new(client, config.expected_chain_id)
+        .signed_authority()
+        .map_err(|error| format!("MCP receipt keys unavailable: {error:?}"))?;
+    let key = keys
+        .get(index)
+        .ok_or("LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX has no px_getReceiptKeys entry")?;
     WebDeclaration::new(
         endpoint,
         required("LAYERX_AGENT_MCP_WEB_NETWORK")?,
-        parse_digest("LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY")?,
+        key.public_key,
         parse_u64("LAYERX_AGENT_MCP_WEB_TIMEOUT_MS")?,
         required("LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS")?
             .parse()
@@ -499,7 +510,7 @@ fn mcp_web() -> Result<Option<WebDeclaration>, String> {
 /// Reads the model context protocol enrolment this daemon publishes at boot, when one is
 /// configured. `LAYERX_AGENT_MCP_BINDING_ROOT` selects the binding directory and every other
 /// key is then required.
-fn mcp_enrolment() -> Result<Option<McpEnrolment>, String> {
+fn mcp_enrolment(config: &Config) -> Result<Option<McpEnrolment>, String> {
     if optional("LAYERX_AGENT_MCP_BINDING_ROOT").is_none() {
         return Ok(None);
     }
@@ -522,16 +533,16 @@ fn mcp_enrolment() -> Result<Option<McpEnrolment>, String> {
             capability_id: CapabilityId(parse_digest("LAYERX_AGENT_MCP_CAPABILITY_ID")?),
             permitted_activity_types: mcp_activity_types()?,
             scopes: mcp_scopes()?,
-            expiry_sequence: parse_u64("LAYERX_AGENT_MCP_EXPIRY_SEQUENCE")?,
+            expiry_sequence: parse_u64("LAYERX_AGENT_MCP_EXPIRY_HEIGHT")?,
             opening_client: required("LAYERX_AGENT_MCP_OPENING_CLIENT")?,
             policy_version: required("LAYERX_AGENT_MCP_POLICY_VERSION")?,
-            core_sequence: parse_u64("LAYERX_AGENT_MCP_CORE_SEQUENCE")?,
+            core_sequence: parse_u64("LAYERX_AGENT_MCP_CORE_HEIGHT")?,
         },
         limit: mcp_limit()?,
         deadline: Duration::from_millis(parse_u64("LAYERX_AGENT_MCP_DEADLINE_MS")?),
         mode,
         listener: mcp_listener(peer_uid)?,
-        web: mcp_web()?,
+        web: mcp_web(config)?,
     }))
 }
 
@@ -676,61 +687,49 @@ fn human_lni_limits(deadline: Duration) -> Result<Limits, String> {
     .map_err(|_| "human LNI limits are invalid".to_owned())
 }
 
-fn connect_human_node(node_path: PathBuf, node_limits: Limits) -> Result<Client, String> {
-    let execution_prestate = match env::var("LAYERX_AGENT_EXECUTION_PRESTATE") {
-        Err(env::VarError::NotPresent) => false,
-        Ok(value) if value == "0" => false,
-        Ok(value) if value == "1" => true,
-        _ => return Err("LAYERX_AGENT_EXECUTION_PRESTATE must be 0 or 1".to_owned()),
-    };
+fn connect_human_node() -> Result<SequencerEndpoint, String> {
     let human_protocol_version = required("LAYERX_AGENT_HUMAN_PROTOCOL_VERSION")?
         .parse()
         .map_err(|_| "human protocol version is invalid")?;
-    if !layerx_wire::limits::protocol_version_uses_occupancy(human_protocol_version) {
+    if !layerx_wire::limits::protocol_version_uses_occupancy(human_protocol_version)
+        || human_protocol_version != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
+    {
         return Err("human protocol version is not the current beta protocol".to_owned());
     }
-    let node = Client::connect(ClientConfig {
-        endpoint: node_path,
-        handshake: HandshakeConfig {
-            built_interface_version: if execution_prestate {
-                Version::V1_9
-            } else {
-                Version::V1_3
-            },
-            expected_protocol_version: human_protocol_version,
-            expected_network_id: required("LAYERX_AGENT_HUMAN_NETWORK_ID")?
-                .parse()
-                .map_err(|_| "human network id is invalid")?,
-        },
-        limits: node_limits,
-        reconnect: ReconnectPolicy {
-            maximum_attempts: required("LAYERX_AGENT_HUMAN_RECONNECT_ATTEMPTS")?
-                .parse()
-                .map_err(|_| "human reconnect attempts are invalid")?,
-            base_delay: Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_RECONNECT_BASE_MS")?),
-            maximum_delay: Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_RECONNECT_MAX_MS")?),
-            jitter_percent: required("LAYERX_AGENT_HUMAN_RECONNECT_JITTER_PERCENT")?
-                .parse()
-                .map_err(|_| "human reconnect jitter is invalid")?,
-        },
-    })
-    .map_err(|error| format!("human node LNI is unavailable: {error:?}"))?;
-    if execution_prestate {
-        let handshake = node.handshake();
-        let version = handshake.node().interface_version;
-        if version.major != 1
-            || version.minor < 9
-            || !handshake
-                .capabilities()
-                .contains(layerx_client::lni::schema::Capability::CapsDiscovery)
-            || !handshake
-                .capabilities()
-                .contains(layerx_client::lni::schema::Capability::ExecutionPrestate)
-        {
-            return Err("LAYERX_AGENT_EXECUTION_PRESTATE requires negotiated LNI1.9 and execution_prestate capability".to_owned());
-        }
+    let expected_network_id: u32 = required("LAYERX_AGENT_HUMAN_NETWORK_ID")?
+        .parse()
+        .map_err(|_| "human network id is invalid")?;
+    let config = NodeRpcConfig::from_environment()
+        .map_err(|error| format!("human node RPC configuration is invalid: {error}"))?;
+    if config.chain_id != u64::from(expected_network_id) {
+        return Err("human node RPC network id mismatch".to_owned());
     }
-    Ok(node)
+    let certificates = if config.url.starts_with("https://") {
+        let loaded = rustls_native_certs::load_native_certs();
+        if loaded.certs.is_empty() || !loaded.errors.is_empty() {
+            return Err("human node RPC trust roots are unavailable".to_owned());
+        }
+        loaded.certs
+    } else {
+        Vec::new()
+    };
+    let roots: Vec<&[u8]> = certificates.iter().map(AsRef::as_ref).collect();
+    let network = PxEndpoint::new(&config.url, &roots)
+        .and_then(|endpoint| endpoint.network())
+        .map_err(|error| format!("human PX network head is unavailable: {error:?}"))?;
+    if network.paxeer.chain_id != config.chain_id {
+        return Err("human node RPC chain id mismatch".to_owned());
+    }
+    let endpoint = SequencerEndpoint::new(&config.url, &roots)
+        .map_err(|error| format!("human sequencer endpoint is invalid: {error:?}"))?;
+    if endpoint
+        .chain_id()
+        .map_err(|error| format!("human sequencer chain id is unavailable: {error:?}"))?
+        != config.chain_id
+    {
+        return Err("human sequencer chain id mismatch".to_owned());
+    }
+    Ok(endpoint)
 }
 
 fn configured_registry_source(
@@ -958,27 +957,19 @@ fn start_shared_owner(
     }
     let deadline = Duration::from_millis(parse_u64("LAYERX_AGENT_HUMAN_DEADLINE_MS")?);
     let human_limits = human_lni_limits(deadline)?;
-    let node_limits = Limits {
-        maximum_frame_bytes: human_limits
-            .maximum_frame_bytes
-            .max(layerx_client::evidence::MINIMUM_FINALITY_FRAME_BYTES),
-        ..human_limits
-    };
-    let node_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_NODE_LNI")?);
     let store_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_STORE")?);
     let socket_path = PathBuf::from(required("LAYERX_AGENT_HUMAN_SOCKET")?);
     let session_key_root = PathBuf::from(required("LAYERX_AGENT_HUMAN_SESSION_KEY_ROOT")?);
     let session_secret_path =
         PathBuf::from(required("LAYERX_AGENT_HUMAN_SESSION_OPERATOR_SECRET_FILE")?);
-    if !node_path.is_absolute()
-        || !store_path.is_absolute()
+    if !store_path.is_absolute()
         || !socket_path.is_absolute()
         || !session_key_root.is_absolute()
         || !session_secret_path.is_absolute()
     {
         return Err("human daemon paths must be absolute".to_owned());
     }
-    let node = connect_human_node(node_path, node_limits)?;
+    let node = connect_human_node()?;
     let mut authority = connect_human_authority(deadline, &peers)?;
     let shared_store =
         Arc::new(Mutex::new(Store::open(&store_path).map_err(|error| {
@@ -997,6 +988,15 @@ fn start_shared_owner(
     let mut operations = ProductionHumanOperations::new(
         authority,
         node,
+        Box::new({
+            let config = NodeRpcConfig::from_environment().map_err(|error| {
+                format!(
+                    "human node RPC requires LAYERX_AGENT_NODE_RPC_URL and LAYERX_AGENT_NODE_CHAIN_ID: {error}"
+                )
+            })?;
+            NodeRpc::connect(&config)
+                .map_err(|error| format!("human node RPC is unavailable: {error}"))?
+        }),
         Arc::clone(&shared_store),
         &peers,
         required("LAYERX_AGENT_HUMAN_MAX_PAYLOAD_BYTES")?
@@ -1238,6 +1238,18 @@ fn attach_mcp_payers(
             .map_err(|_| "MCP payer EVM assertion is invalid")?;
         let endpoint = required("LAYERX_AGENT_NODE_ENDPOINT")?;
         let ca_der = read_ca("LAYERX_AGENT_AUTHORITY_CA_DER")?;
+        let node = NodeRpc::connect_with_ca(
+            &NodeRpcConfig {
+                url: endpoint.clone(),
+                chain_id: 125,
+                deadline: Duration::from_secs(30),
+            },
+            &ca_der,
+        )
+        .map_err(|_| "MCP payer node connection is unavailable")?;
+        let receipt_keys = node
+            .receipt_keys()
+            .map_err(|_| "MCP payer receipt keys are unavailable")?;
         let payer = mcp_payer::ProductionWebPayer::from_owner(
             owner.clone(),
             credential,
@@ -1245,6 +1257,7 @@ fn attach_mcp_payers(
             Arc::new(signer),
             &endpoint,
             &[&ca_der],
+            receipt_keys,
         )
         .map_err(|_| "MCP payer owner authority is unavailable")?;
         let approvals = owner
@@ -1742,7 +1755,7 @@ fn config() -> Result<Config, String> {
         authority_bearer,
         authority_ca_der: read_ca("LAYERX_AGENT_AUTHORITY_CA_DER")?,
         authority_replica_id: parse_digest("LAYERX_AGENT_AUTHORITY_REPLICA_ID")?,
-        sequencer_trust_history: required("LAYERX_AGENT_SEQUENCER_TRUST_HISTORY")?,
+        chain_trust_root: absolute_path("LAYERX_AGENT_CHAIN_TRUST_ROOT")?,
         staleness_ms,
         deployment_journal: required("LAYERX_AGENT_DEPLOYMENT_JOURNAL")?,
         probe_program: ProgramId::new(parse_digest("LAYERX_AGENT_PROGRAM_PROBE_ID")?)
@@ -1750,7 +1763,7 @@ fn config() -> Result<Config, String> {
     })
 }
 
-fn load_registry(root: &Path, verifier: &ProtocolDeploymentVerifier) -> Result<Registry, String> {
+fn load_registry(root: &Path, reader: &LayerxdProgramBalanceReader) -> Result<Registry, String> {
     let mut paths = fs::read_dir(root)
         .map_err(|error| format!("deployment journal is unavailable: {error}"))?
         .map(|entry| entry.map(|value| value.path()))
@@ -1764,9 +1777,9 @@ fn load_registry(root: &Path, verifier: &ProtocolDeploymentVerifier) -> Result<R
             .map_err(|error| format!("{} is unreadable: {error}", path.display()))?;
         let proof = DeploymentProof::decode(&bytes)
             .map_err(|error| format!("{} is corrupt: {error}", path.display()))?;
-        let evidence = verifier
-            .verify_historical_deployment(&proof)
-            .map_err(|error| format!("{} is unverified: {error}", path.display()))?;
+        let evidence = reader
+            .verify_journal_admission(&proof, now_ms()?)
+            .map_err(|error| format!("{} is unverified: {error:?}", path.display()))?;
         let expected = hex::encode(&evidence.receipt_digest());
         if path.file_stem().and_then(|value| value.to_str()) != Some(expected.as_str()) {
             return Err(format!(
@@ -2078,31 +2091,38 @@ fn route_request(
     }
 }
 
-fn native_handover_sources() -> Result<Option<(PathBuf, PathBuf)>, String> {
-    let genesis_trust = match std::env::var("LAYERX_AGENT_GENESIS_TRUST") {
-        Ok(path) => Some(path),
-        Err(std::env::VarError::NotPresent) => None,
-        Err(std::env::VarError::NotUnicode(_)) => {
-            return Err("native genesis trust path is not UTF-8".to_owned())
-        }
-    };
-    let handover_finality = match std::env::var("LAYERX_AGENT_HANDOVER_FINALITY") {
-        Ok(path) => Some(path),
-        Err(std::env::VarError::NotPresent) => None,
-        Err(std::env::VarError::NotUnicode(_)) => {
-            return Err("handover finality policy path is not UTF-8".to_owned())
-        }
-    };
-    match (genesis_trust, handover_finality) {
-        (None, None) => Ok(None),
-        (Some(genesis), Some(finality)) => {
-            Ok(Some((PathBuf::from(genesis), PathBuf::from(finality))))
-        }
-        _ => Err(
-            "native genesis trust and handover finality policy must be configured together"
-                .to_owned(),
-        ),
+fn load_chain_trust_root(
+    path: &Path,
+) -> Result<layerx_programs::chain_proof::trust_store::TrustRoot, String> {
+    use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
+
+    const SETTING: &str = "LAYERX_AGENT_CHAIN_TRUST_ROOT";
+    const MAX_BYTES: u64 = 1_048_576;
+    let unavailable = || format!("{SETTING} must be a protected regular file");
+    let link = fs::symlink_metadata(path).map_err(|_| unavailable())?;
+    if !link.is_file() || link.permissions().mode() & 0o077 != 0 {
+        return Err(unavailable());
     }
+    let file = fs::File::open(path).map_err(|_| unavailable())?;
+    let metadata = file.metadata().map_err(|_| unavailable())?;
+    if !metadata.is_file()
+        || metadata.permissions().mode() & 0o077 != 0
+        || link.dev() != metadata.dev()
+        || link.ino() != metadata.ino()
+        || metadata.len() == 0
+        || metadata.len() > MAX_BYTES
+    {
+        return Err(unavailable());
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .map_err(|_| unavailable())?;
+    if bytes.len() as u64 != metadata.len() {
+        return Err(unavailable());
+    }
+    layerx_programs::chain_proof::trust_store::TrustRoot::decode(&bytes)
+        .map_err(|error| format!("{SETTING} is invalid: {error:?}"))
 }
 
 struct ProgramAuthorityBoot {
@@ -2115,8 +2135,10 @@ fn program_authority_boot(
     config: &Config,
     native: &mut Option<NativeReadRoute>,
 ) -> Result<ProgramAuthorityBoot, String> {
-    let verifier = ProtocolDeploymentVerifier::from_protected_history(
-        Path::new(&config.sequencer_trust_history),
+    let trust = load_chain_trust_root(&config.chain_trust_root)?;
+    let verifier = ProtocolDeploymentVerifier::from_chain_trust(
+        trust.chain_id,
+        trust.validators.validators().to_vec(),
         config.staleness_ms,
     )
     .map_err(|error| format!("agent deployment verifier is invalid: {error}"))?;
@@ -2125,7 +2147,8 @@ fn program_authority_boot(
         .map(NativeReadRoute::signed_authority)
         .transpose()
         .map_err(|error| format!("program receipt keys unavailable: {error:?}"))?;
-    let registry = load_registry(Path::new(&config.deployment_journal), &verifier)?;
+    let journal = program_reader(config, verifier.clone(), Registry::new())?;
+    let registry = load_registry(Path::new(&config.deployment_journal), &journal)?;
     Ok(ProgramAuthorityBoot {
         verifier,
         registry,
@@ -2198,12 +2221,9 @@ pub(crate) fn serve_read_routes(
 }
 
 fn serve(config: Config) -> Result<(), String> {
-    let mcp = mcp_enrolment()?
+    let mcp = mcp_enrolment(&config)?
         .map(|enrolment| mcp_boot(&config, enrolment))
         .transpose()?;
-    if native_handover_sources()?.is_some() {
-        return Err("native handover trust is retired; configure node receipt keys".to_owned());
-    }
     let runtime_clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
         .map_err(|error| format!("runtime clock unavailable: {error}"))?;
 
@@ -2342,7 +2362,26 @@ fn mcp_evidence_mode() -> Option<Result<(), String>> {
     })())
 }
 
+fn refuse_retired_environment() -> Result<(), String> {
+    for name in [
+        "LAYERX_AGENT_HUMAN_EXPORT_SETTLEMENT_DOMAIN",
+        "LAYERX_AGENT_SEQUENCER_TRUST_HISTORY",
+        "LAYERX_AGENT_GENESIS_TRUST",
+        "LAYERX_AGENT_HANDOVER_FINALITY",
+        "LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY",
+    ] {
+        if env::var_os(name).is_some() {
+            return Err(format!("{name} is retired"));
+        }
+    }
+    Ok(())
+}
+
 fn main() {
+    if let Err(error) = refuse_retired_environment() {
+        eprintln!("layerx-agentd: {}", Redacted::boot_diagnostic(&error));
+        std::process::exit(2);
+    }
     if let Some(result) = mcp_evidence_mode() {
         if result.is_err() {
             eprintln!("layerx-agentd: MCP evidence refused");

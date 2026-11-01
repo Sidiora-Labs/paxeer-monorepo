@@ -17,6 +17,16 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 const ROUTER_METHODS: [&str; 17] = layerx_platform_gateway::ROUTER_METHODS;
 const ACCOUNT: &str = "0x102132435465768798a9bacbdcedfe0f1e2d3c4b";
 const CHAIN_HEIGHT: u64 = 6699;
+const KERNEL_SIDE_VARIABLES: [&str; 8] = [
+    "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12",
+    "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE",
+    "LAYERX_GATEWAY_SEQUENCER_PUBLIC_KEY_FILE",
+    "LAYERX_GATEWAY_SEQUENCER_ID_FILE",
+    "LAYERX_GATEWAY_SEQUENCER_FIRST_BATCH_FILE",
+    "LAYERX_GATEWAY_SEQUENCER_LAST_BATCH_FILE",
+    "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE",
+    "LAYERX_GATEWAY_MODULE_REGISTRY_FILE",
+];
 
 fn command(program: &str, arguments: &[&str]) {
     let output = Command::new(program)
@@ -352,7 +362,12 @@ impl Gateway {
                 | "LAYERX_GATEWAY_CONSENSUS_RPC_URL"
                 | "LAYERX_GATEWAY_INDEXER_URL"
         )));
-        let child = gateway_command(&environment)
+        let mut command = gateway_command(&environment);
+        for variable in KERNEL_SIDE_VARIABLES {
+            assert!(environment.iter().all(|(name, _)| name != variable));
+            command.env_remove(variable);
+        }
+        let child = command
             .stdout(Stdio::null())
             .stderr(Stdio::inherit())
             .spawn()
@@ -453,11 +468,22 @@ fn precompile_answers() -> Vec<(String, String)> {
         ("0x8162486b".to_owned(), 1),
         ("0xb187bd26".to_owned(), 1),
         ("0x8eec5d70".to_owned(), 1),
+        (format!("0x3f050cbc{}", "00".repeat(64)), 1),
         (format!("0xd7778749{}", "00".repeat(32)), 1),
         ("0xbbe2e42d".to_owned(), 9),
     ] {
         answers.push((calldata, format!("0x{}", "00".repeat(words * 32))));
     }
+    answers.push((
+        format!("0xd4a03b3d{}", "00".repeat(96)),
+        format!(
+            "0x{}{:064x}{:064x}{:0<64}",
+            "00".repeat(32),
+            64,
+            "LXP_UNKNOWN_FIELD".len(),
+            hex(b"LXP_UNKNOWN_FIELD")
+        ),
+    ));
     answers
 }
 
@@ -723,7 +749,15 @@ fn router_answers_every_listed_method() {
         assert_surface_answer(method, entry, &answer);
         if method == "px_getCapabilities" {
             assert!(answer.get("error").is_none(), "{method}: {answer}");
-            for surface in ["exchange", "bridge", "launchpad", "pay", "programs"] {
+            for surface in [
+                "exchange",
+                "bridge",
+                "launchpad",
+                "ledger",
+                "pay",
+                "auth",
+                "programs",
+            ] {
                 assert_eq!(answer["result"][surface], true, "{method}: {answer}");
             }
             assert_eq!(answer["result"]["rpc_height"], CHAIN_HEIGHT.to_string());
@@ -777,4 +811,216 @@ fn router_answers_every_listed_method() {
     drop(indexer);
     drop(consensus);
     drop(chain);
+}
+
+#[test]
+fn chain_only_router_serves_receipts_balances_and_assets() {
+    use layerx_platform_gateway::evm;
+
+    let fixture = Fixture::start();
+    let mut answers = precompile_answers();
+    for (selector, text) in [
+        (evm::SELECTOR_BANK_NAME, "LayerX"),
+        (evm::SELECTOR_BANK_SYMBOL, "LXP"),
+    ] {
+        answers.push((
+            format!("0x{}", hex(&evm::calldata_string(selector, "ulxp"))),
+            format!("0x{}", hex(&evm::calldata_string([0; 4], text)[4..])),
+        ));
+    }
+    for (selector, value) in [
+        (evm::SELECTOR_BANK_DECIMALS, 18_u64),
+        (evm::SELECTOR_BANK_SUPPLY, 1_000_000_u64),
+    ] {
+        answers.push((
+            format!("0x{}", hex(&evm::calldata_string(selector, "ulxp"))),
+            format!("0x{value:064x}"),
+        ));
+    }
+    let chain_calls = Arc::new(Mutex::new(Vec::new()));
+    let calls = Arc::clone(&chain_calls);
+    let chain = Listener::start(Arc::clone(&fixture.tls), move |request| {
+        let call: Value = serde_json::from_slice(&request.body).expect("chain request JSON");
+        calls.lock().expect("chain calls").push(call);
+        chain_answer(&answers, request)
+    });
+    let consensus_calls = Arc::new(Mutex::new(Vec::new()));
+    let calls = Arc::clone(&consensus_calls);
+    let consensus = Listener::start(Arc::clone(&fixture.tls), move |request| {
+        assert_eq!(request.method, "POST");
+        assert_eq!(request.path, "/consensus");
+        let call: Value = serde_json::from_slice(&request.body).expect("consensus request JSON");
+        assert_eq!(call["jsonrpc"], "2.0");
+        assert_eq!(call["method"], "status");
+        assert_eq!(call["params"], json!({}));
+        calls.lock().expect("consensus calls").push(call.clone());
+        http::json(
+            200,
+            &json!({
+                "jsonrpc": "2.0", "id": call["id"],
+                "result": {"sync_info": {"catching_up": false}}
+            }),
+        )
+    });
+    let store = layerx_indexer::store::Store::open_in_memory().expect("real indexer database");
+    store
+        .register_assets(&[layerx_indexer::store::AssetRow {
+            asset: "paxeer:ulxp".to_owned(),
+            chain: "paxeer".to_owned(),
+            kind: "bank".to_owned(),
+            address: None,
+            denom: Some("ulxp".to_owned()),
+            metadata: json!({}),
+        }])
+        .expect("register indexed bank asset");
+    let indexer_paths = Arc::new(Mutex::new(Vec::new()));
+    let paths = Arc::clone(&indexer_paths);
+    let indexer = Listener::start(Arc::clone(&fixture.tls), move |request| {
+        paths
+            .lock()
+            .expect("indexer paths")
+            .push(request.path.clone());
+        layerx_indexer::api::route(&store, &request.method, &request.path)
+    });
+    let gateway = Gateway::start(&fixture, &chain, &consensus, &indexer);
+
+    let balances = gateway.rpc("px_getBalances", json!([ACCOUNT]));
+    assert!(balances.get("error").is_none(), "{balances}");
+    assert_eq!(balances["result"]["height"], CHAIN_HEIGHT);
+    assert_eq!(balances["result"]["account"]["evm_address"], ACCOUNT);
+    assert_eq!(balances["result"]["account"]["bound"], true);
+    let vectors: Value = serde_json::from_str(include_str!("fixtures/paxeer-abi-vectors.json"))
+        .expect("ABI vectors JSON");
+    let bank = vectors["cases"]
+        .as_array()
+        .expect("ABI cases")
+        .iter()
+        .find(|case| case["name"] == "bank.all_balances")
+        .expect("bank balance vector");
+    assert_eq!(balances["result"]["balances"], bank["out"]["response"]);
+
+    let assets = gateway.rpc("px_listAssets", json!([]));
+    assert!(assets.get("error").is_none(), "{assets}");
+    assert_eq!(
+        assets["result"],
+        json!({
+            "height": CHAIN_HEIGHT, "joined_limit": 16,
+            "assets": [{"asset_id": "paxeer:ulxp", "denom": "ulxp", "kind": "bank",
+                "name": "LayerX", "symbol": "LXP", "decimals": 18, "supply": "1000000"}]
+        })
+    );
+
+    let capabilities = gateway.rpc("px_getCapabilities", json!([]));
+    assert!(capabilities.get("error").is_none(), "{capabilities}");
+    for surface in [
+        "exchange",
+        "bridge",
+        "launchpad",
+        "ledger",
+        "pay",
+        "auth",
+        "programs",
+    ] {
+        assert_eq!(
+            capabilities["result"][surface], true,
+            "{surface}: {capabilities}"
+        );
+    }
+    assert_eq!(
+        capabilities["result"]["rpc_height"],
+        CHAIN_HEIGHT.to_string()
+    );
+    assert!(capabilities["result"]["probed_at"]
+        .as_u64()
+        .is_some_and(|time| time > 0));
+
+    let receipt_params = method_params("pax_sequencerReceipt", CHAIN_HEIGHT);
+    let receipt = gateway.rpc("pax_sequencerReceipt", receipt_params.clone());
+    assert_eq!(
+        receipt,
+        json!({"jsonrpc": "2.0", "id": "router-surface", "result": null})
+    );
+
+    let (status, body) = gateway
+        .exchange("GET", "/readyz", b"")
+        .expect("readiness exchange");
+    let readiness: Value = serde_json::from_slice(&body).expect("readiness JSON");
+    assert_eq!(status, 200, "{readiness}");
+    for backend in ["durable_store", "paxeer_chain", "consensus"] {
+        assert_eq!(
+            readiness["backends"][backend],
+            json!({"state": "ready", "reason": "ready"}),
+            "{backend}: {readiness}"
+        );
+    }
+    assert_eq!(readiness["capabilities"]["chain_serving"]["state"], "ready");
+    assert_eq!(consensus_calls.lock().expect("consensus calls").len(), 1);
+    assert_eq!(
+        *indexer_paths.lock().expect("indexer paths"),
+        vec!["/v1/assets?limit=500"]
+    );
+    {
+        let calls = chain_calls.lock().expect("chain calls");
+        assert!(calls.iter().any(|call| call["method"] == "eth_chainId"));
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|call| call["method"] == "pax_sequencerReceipt"
+                    && call["params"] == receipt_params)
+                .count(),
+            1,
+            "{calls:?}"
+        );
+        let bank_calldata = format!("0x{}", bank["calldata"].as_str().expect("balance calldata"));
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|call| call["method"] == "eth_call"
+                    && call["params"][0]["to"] == evm::address_hex(&evm::BANK_PRECOMPILE)
+                    && call["params"][0]["data"] == bank_calldata)
+                .count(),
+            1,
+            "{calls:?}"
+        );
+        for call in calls.iter().filter(|call| call["method"] == "eth_call") {
+            assert_eq!(call["params"][1], format!("0x{CHAIN_HEIGHT:x}"), "{call}");
+        }
+        for (address, calldata) in [
+            (
+                evm::LEDGER_PRECOMPILE,
+                format!("0x3f050cbc{}", "00".repeat(64)),
+            ),
+            (
+                evm::AUTH_PRECOMPILE,
+                format!("0xd4a03b3d{}", "00".repeat(96)),
+            ),
+        ] {
+            assert_eq!(
+                calls
+                    .iter()
+                    .filter(|call| call["method"] == "eth_call"
+                        && call["params"][0]["to"] == evm::address_hex(&address)
+                        && call["params"][0]["data"] == calldata)
+                    .count(),
+                1,
+                "{calls:?}"
+            );
+        }
+    }
+    assert_eq!(readiness["status"], "ready", "{readiness}");
+    let backends = readiness["backends"]
+        .as_object()
+        .expect("readiness backends");
+    for kernel in [
+        "core_agent_boundary",
+        "public_core",
+        "independent_receipt_authority",
+        "identity",
+        "program_registry",
+    ] {
+        assert!(
+            !backends.contains_key(kernel),
+            "kernel backend {kernel}: {readiness}"
+        );
+    }
 }

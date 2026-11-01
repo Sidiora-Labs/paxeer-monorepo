@@ -628,6 +628,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
         )));
         let context = checked(layerx_human_service::server::native_send::load_access(
             &scope,
+            &mut agent,
             id(text(case, "capability_id")),
             clock(&fixture).0,
         ));
@@ -775,6 +776,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
         assert_eq!(journal(&scope, case), original);
         let context = checked(layerx_human_service::server::native_send::load_access(
             &scope,
+            &mut agent,
             id(text(case, "capability_id")),
             clock(&fixture).0,
         ));

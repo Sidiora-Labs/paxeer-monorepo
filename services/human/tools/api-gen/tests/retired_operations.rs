@@ -35,7 +35,13 @@ impl Fixture {
         fs::create_dir(&root).unwrap_or_else(|error| panic!("create {}: {error}", root.display()));
         let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../schema/human-api");
         copy_tree(&source, &root.join("schema"));
-        Self(root)
+        let fixture = Self(root);
+        fixture.rewrite(
+            "movement.kvx",
+            "[operation.deposit.start]\nretired = \"true\"",
+            "[operation.deposit.start]",
+        );
+        fixture
     }
 
     fn rewrite(&self, relative: &str, from: &str, to: &str) {
@@ -70,7 +76,7 @@ impl Drop for Fixture {
 fn retired_operation_has_no_generated_client_method() {
     let fixture = Fixture::from_real_schema();
     let baseline = fixture.generate();
-    assert_eq!(baseline.retired(), 0);
+    assert_eq!(baseline.retired(), 10);
     let original = &baseline.files["index.ts"];
     assert!(original.contains("  depositStart("));
     assert!(original.contains("\"/v1/deposits\""));
@@ -82,32 +88,39 @@ fn retired_operation_has_no_generated_client_method() {
         "[operation.deposit.start]\nretired = \"true\"",
     );
     let generated = fixture.generate();
-    assert_eq!(generated.retired(), 1);
-    assert_eq!(generated.retired, 1);
+    assert_eq!(generated.retired(), baseline.retired() + 1);
+    assert_eq!(generated.retired, baseline.retired + 1);
+    assert_eq!(generated.operations + 1, baseline.operations);
     assert_eq!(
         generated.operations + generated.retired(),
-        baseline.operations
+        baseline.operations + baseline.retired()
     );
     assert_eq!(generated.types, baseline.types);
     for body in generated.files.values() {
         assert!(!body.contains("depositStart"));
-        assert!(!body.contains("\"deposit.start\""));
-        assert!(!body.contains("\"/v1/deposits\""));
+        assert!(!body.contains("deposit.start"));
+        assert!(!body.contains("/v1/deposits"));
     }
     let index = &generated.files["index.ts"];
-    assert!(index.contains("  depositConfirm("));
-    assert!(index.contains("\"/v1/deposits/{journey_id}/confirm\""));
-    assert!(generated.files["conformance.ts"].contains("run.client.depositConfirm("));
+    assert!(index.contains("  moveCommit("));
+    assert!(index.contains("\"/v1/moves\""));
+    assert!(generated.files["conformance.ts"].contains("run.client.moveCommit("));
 }
 
 #[test]
 fn retired_variant_stays_in_the_generated_union() {
     let fixture = Fixture::from_real_schema();
-    let baseline = fixture.generate();
     fixture.rewrite(
         "journeys.kvx",
-        "[type.JourneyKind]",
-        "[type.JourneyKind]\nretired_variants = [\"deposit\"]",
+        "retired_variants = [\"wallet-binding\",\"deposit\",\"withdraw\",\"exit\"]",
+        "retired_variants = [\"wallet-binding\",\"withdraw\",\"exit\"]",
+    );
+    let baseline = fixture.generate();
+    assert_eq!(baseline.retired(), 10);
+    fixture.rewrite(
+        "journeys.kvx",
+        "retired_variants = [\"wallet-binding\",\"withdraw\",\"exit\"]",
+        "retired_variants = [\"wallet-binding\",\"deposit\",\"withdraw\",\"exit\"]",
     );
     let generated = fixture.generate();
     let index = &generated.files["index.ts"];
@@ -130,5 +143,5 @@ fn retired_variant_stays_in_the_generated_union() {
     assert_eq!(generated.files, baseline.files);
     assert_eq!(generated.operations, baseline.operations);
     assert_eq!(generated.types, baseline.types);
-    assert_eq!(generated.retired(), 0);
+    assert_eq!(generated.retired(), baseline.retired());
 }

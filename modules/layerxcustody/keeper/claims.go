@@ -226,48 +226,9 @@ func atomically[T any](ctx sdk.Context, run func(sdk.Context) (T, error)) (T, er
 	return out, nil
 }
 
-// VerifyWithdrawal proves evidence against AnchorReader material: the batch
-// must have an authorised sequencer and be a finalized checkpoint whose roots
-// equal the signed header's, the receipt must be included under the header's
-// receipt root and signed by the sequencer, and it must be an exact successful
-// native withdrawal on this module's LayerX network.
-func (k *Keeper) VerifyWithdrawal(ctx sdk.Context, evidence WithdrawalEvidence) (*verify.WithdrawalEffect, *codec.BatchHeader, error) {
-	if len(evidence.HeaderSignature) != 64 {
-		return nil, nil, sdkerrors.Wrap(types.ErrInvalidProof, "header signature must be 64 bytes")
-	}
-	var signature [64]byte
-	copy(signature[:], evidence.HeaderSignature)
-	header, err := codec.DecodeBatchHeader(evidence.Header)
-	if err != nil {
-		return nil, nil, sdkerrors.Wrap(types.ErrInvalidProof, err.Error())
-	}
-	params := k.GetParams(ctx)
-	if params.NetworkId == 0 || header.NetworkID != params.NetworkId {
-		return nil, nil, types.ErrWrongNetwork
-	}
-	anchor := k.Anchor()
-	authorization, ok := anchor.SequencerAuthorization(ctx, header.BatchNumber)
-	if !ok {
-		return nil, nil, types.ErrNotAuthorized
-	}
-	stateRoot, stateOK := anchor.FinalizedStateRoot(ctx, header.BatchNumber)
-	receiptRoot, receiptOK := anchor.FinalizedReceiptRoot(ctx, header.BatchNumber)
-	if !stateOK || !receiptOK || stateRoot != header.ResultingStateRoot || receiptRoot != header.ReceiptMerkleRoot {
-		return nil, nil, types.ErrNotFinalized
-	}
-	proof, err := codec.DecodeMerkleProof(evidence.Proof)
-	if err != nil {
-		return nil, nil, sdkerrors.Wrap(types.ErrInvalidProof, err.Error())
-	}
-	_, verified, effect, err := verify.WithdrawalInclusion(evidence.Receipt, proof, evidence.Header, signature, authorization)
-	if err != nil {
-		return nil, nil, sdkerrors.Wrap(types.ErrInvalidProof, err.Error())
-	}
-	if effect.NetworkID != params.NetworkId ||
-		effect.Nullifier != types.WithdrawalNullifier(effect.NetworkID, effect.WithdrawalID, effect.Account, effect.Asset, effect.Amount, effect.Anchor) {
-		return nil, nil, types.ErrWrongNetwork
-	}
-	return effect, verified.Header, nil
+// VerifyWithdrawal refuses the retired withdrawal inclusion path.
+func (k *Keeper) VerifyWithdrawal(_ sdk.Context, _ WithdrawalEvidence) (*verify.WithdrawalEffect, *codec.BatchHeader, error) {
+	return nil, nil, types.ErrModuleRetired
 }
 
 func (k *Keeper) withdrawalClaim(ctx sdk.Context, evidence WithdrawalEvidence) (pendingClaim, error) {
@@ -354,49 +315,9 @@ func (k *Keeper) ExitEligible(ctx sdk.Context) bool {
 		ctx.BlockTime().Unix() >= finalizedAt+int64(k.GetParams(ctx).LivenessBoundSeconds) //nolint:gosec
 }
 
-// VerifyForcedExit proves the whole account balance under the latest
-// finalized state root. The anchor of a forced exit is that state root: it is
-// the request anchor of the authority's recipient signature, of the required
-// withdrawal identifier and of the nullifier.
-func (k *Keeper) VerifyForcedExit(ctx sdk.Context, evidence ExitEvidence) (pendingClaim, error) {
-	if !k.ExitEligible(ctx) {
-		return pendingClaim{}, types.ErrExitNotEligible
-	}
-	params := k.GetParams(ctx)
-	latest, _, _ := k.Anchor().LatestFinalizedBatch(ctx)
-	exitBatch, frozen := k.ExitCheckpoint(ctx)
-	stateRoot, ok := k.Anchor().FinalizedStateRoot(ctx, evidence.BatchNumber)
-	if !ok || (evidence.BatchNumber != latest && (!frozen || evidence.BatchNumber != exitBatch)) {
-		return pendingClaim{}, types.ErrNotFinalized
-	}
-	if len(evidence.RecipientSignature) != 64 || params.NetworkId == 0 {
-		return pendingClaim{}, sdkerrors.Wrap(types.ErrInvalidExit, "recipient signature or network")
-	}
-	var signature [64]byte
-	copy(signature[:], evidence.RecipientSignature)
-	account, err := verify.ExitBalance(evidence.Witness, stateRoot, params.NetworkId, evidence.Account,
-		evidence.AssetID, evidence.Recipient, stateRoot, signature)
-	if err != nil {
-		return pendingClaim{}, sdkerrors.Wrap(types.ErrInvalidProof, err.Error())
-	}
-	if account.Balance.IsZero() {
-		return pendingClaim{}, sdkerrors.Wrap(types.ErrInvalidExit, "zero balance")
-	}
-	withdrawalID := types.ExitWithdrawalID(params.NetworkId, evidence.Account, evidence.AssetID, stateRoot)
-	nullifier := types.WithdrawalNullifier(params.NetworkId, withdrawalID, evidence.Account, evidence.AssetID, account.Balance, stateRoot)
-	return pendingClaim{
-		kind:         types.ClaimKind_CLAIM_KIND_FORCED_EXIT,
-		claimID:      types.ExitClaimID(k.evmKeeper.ChainID(ctx), nullifier),
-		nullifier:    nullifier,
-		withdrawalID: withdrawalID,
-		account:      evidence.Account,
-		assetID:      evidence.AssetID,
-		anchor:       stateRoot,
-		recipient:    evidence.Recipient,
-		amount:       account.Balance,
-		batchNumber:  evidence.BatchNumber,
-		delay:        params.ForcedExitDelaySeconds,
-	}, nil
+// VerifyForcedExit refuses the retired exit-balance path.
+func (k *Keeper) VerifyForcedExit(_ sdk.Context, _ ExitEvidence) (pendingClaim, error) {
+	return pendingClaim{}, types.ErrModuleRetired
 }
 
 // queueExit queues the part of the proven balance that no earlier forced exit

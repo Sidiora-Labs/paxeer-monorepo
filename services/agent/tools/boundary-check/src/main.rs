@@ -96,10 +96,8 @@ fn source_rule(
     None
 }
 
-fn direct_core_connection(body: &str) -> bool {
-    body.contains("lni::transport::Uds")
-        || body.contains("lni::transport::Tls")
-        || body.contains("lni::abi::Handle")
+fn lni_reference(body: &str) -> bool {
+    body.contains("layerx_client::lni")
 }
 
 fn allowlisted_paths(agent_root: &Path, name: &str) -> Result<Vec<PathBuf>, String> {
@@ -123,20 +121,13 @@ fn allowlisted_paths(agent_root: &Path, name: &str) -> Result<Vec<PathBuf>, Stri
 
 fn agent_boundary_purity_check(agent_root: &Path) -> Result<(), Vec<Violation>> {
     let crate_root = agent_root.join("crates");
-    let Ok(allowlist) = allowlisted_paths(agent_root, "stable-abi-allowlist.toml") else {
-        return Err(vec![Violation {
-            path: agent_root.join("stable-abi-allowlist.toml"),
-            rule: "missing-stable-abi-allowlist",
-        }]);
-    };
     let Ok(unsafe_allowlist) = allowlisted_paths(agent_root, "unsafe-allowlist.toml") else {
         return Err(vec![Violation {
             path: agent_root.join("unsafe-allowlist.toml"),
             rule: "missing-unsafe-allowlist",
         }]);
     };
-    let Ok(clock_allowlist) = allowlisted_paths(agent_root, "nondeterminism-allowlist.toml")
-    else {
+    let Ok(clock_allowlist) = allowlisted_paths(agent_root, "nondeterminism-allowlist.toml") else {
         return Err(vec![Violation {
             path: agent_root.join("nondeterminism-allowlist.toml"),
             rule: "missing-nondeterminism-allowlist",
@@ -166,18 +157,13 @@ fn agent_boundary_purity_check(agent_root: &Path) -> Result<(), Vec<Violation>> 
                 });
             }
         } else {
-            if let Some(rule) = source_rule(
-                &body,
-                allowlist.contains(&path),
-                clock_allowlist.contains(&path),
-            ) {
+            if let Some(rule) = source_rule(&body, false, clock_allowlist.contains(&path)) {
                 violations.push(Violation {
                     path: path.clone(),
                     rule,
                 });
             }
-            let layerx_client_root = agent_root.join("crates/layerx-client");
-            if direct_core_connection(&body) && !path.starts_with(layerx_client_root) {
+            if lni_reference(&body) {
                 violations.push(Violation {
                     path: path.clone(),
                     rule: "direct-core-connection",

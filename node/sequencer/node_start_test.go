@@ -3,6 +3,7 @@ package sequencer_test
 import (
 	"context"
 	"crypto/ed25519"
+	"fmt"
 	"math/big"
 	"net"
 	"os"
@@ -154,7 +155,7 @@ func TestStartReplaysWALBeforeAccepting(t *testing.T) {
 			_, next := transfer(t, sender, 3, sender.EvmAddress, big.NewInt(1))
 			receipt, err := f.n.Accepter.Accept(next)
 			require.NoError(t, err)
-			verified, err := verify.ReceiptSignature(receipt, f.n.ReceiptKey.PublicKey())
+			verified, err := verify.ReceiptSignature(receipt.Receipt, f.n.ReceiptKey.PublicKey())
 			require.NoError(t, err)
 			require.Equal(t, sourceLastSeq+4, verified.Receipt.GlobalSequence)
 			require.Equal(t, sourceLastSeq+4, sb.LastSeq())
@@ -225,7 +226,7 @@ func TestStartInstallsOpenBlockAndSource(t *testing.T) {
 			_, tx := transfer(t, sender, 0, sender.EvmAddress, big.NewInt(1))
 			receipt, err := f.n.Accepter.Accept(tx)
 			require.NoError(t, err)
-			decoded, err := codec.DecodeReceipt(receipt)
+			decoded, err := codec.DecodeReceipt(receipt.Receipt)
 			require.NoError(t, err)
 			require.Equal(t, sourceLastSeq+1, decoded.GlobalSequence)
 			block, err := f.app.SequencerSource().Seal(t.Context(), openHeight)
@@ -250,6 +251,42 @@ func TestStartInstallsOpenBlockAndSource(t *testing.T) {
 			require.Error(t, f.n.Start(t.Context()), "starting twice must not replay over a live runtime")
 		})
 	}
+	t.Run("commit driver failure halts admission and fences execution", func(t *testing.T) {
+		sender := utils.NewSigner()
+		f := newStartHarness(t, sequencer.ModeSequential, sender)
+		f.restart(t, nil)
+		require.NoError(t, f.n.Start(t.Context()))
+		_, tx := transfer(t, sender, 0, sender.EvmAddress, big.NewInt(1))
+		_, err := f.n.Accepter.Accept(tx)
+		require.NoError(t, err)
+		block, err := f.app.SequencerSource().Seal(t.Context(), openHeight)
+		require.NoError(t, err)
+		response, err := f.app.FinalizeBlock(t.Context(), &abci.RequestFinalizeBlock{
+			Header: &tmproto.Header{ChainID: f.app.ChainID, Height: openHeight, Time: block.OpenTime, ProposerAddress: f.pv.Key.PubKey.Address()},
+			Txs:    append([][]byte{block.Batch}, block.Txs.ToSliceOfBytes()...),
+		})
+		require.NoError(t, err)
+		for _, result := range response.TxResults {
+			require.Zero(t, result.Code, result.Log)
+		}
+		f.app.SetDeliverStateToCommit()
+		f.n.WAL.Close()
+		committed, err := f.app.Commit(t.Context())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "release committed")
+		require.Contains(t, err.Error(), "closed")
+		require.Contains(t, err.Error(), fmt.Sprintf("height %d", openHeight))
+		require.NotContains(t, err.Error(), "panicked")
+		require.NotNil(t, committed)
+		require.Equal(t, openHeight, f.app.LastBlockHeight())
+		require.Equal(t, response.AppHash, f.app.LastCommitID().Hash)
+		_, err = f.n.Accepter.Accept(tx)
+		require.ErrorIs(t, err, sequencer.ErrReplicationHalted)
+		require.ErrorIs(t, f.n.Executor.Open(openHeight+1, time.Now().UnixMilli()), sequencer.ErrLeaseFenced)
+		err = f.n.Driver.OnCommit(openHeight, f.app.LastCommitID().Hash)
+		require.ErrorIs(t, err, sequencer.ErrDriverHalted)
+		require.Contains(t, err.Error(), "release committed")
+	})
 	t.Run("key is loaded again at startup", func(t *testing.T) {
 		f := newStartHarness(t, sequencer.ModeSequential, utils.NewSigner())
 		require.NoError(t, os.Remove(f.cfg.ReceiptKeyFile))

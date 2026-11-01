@@ -154,17 +154,38 @@ fn fixture_fixed<const N: usize>(value: &Value) -> [u8; N] {
         .expect("fixture field length")
 }
 
-fn recorded_legacy_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 32]) {
+fn recorded_case() -> Value {
     let fixture: Value = serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
     .expect("recorded sequencer fixture");
-    let case = fixture["cases"]
+    fixture["cases"]
         .as_array()
         .expect("fixture cases")
         .iter()
         .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .expect("recorded payExact case");
+        .expect("recorded payExact case")
+        .clone()
+}
+
+fn recorded_payment_topics(case: &Value) -> [[u8; 32]; 3] {
+    let transaction = fixture_bytes(&case["rawTransaction"]);
+    let offsets: Vec<_> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact calldata selector");
+    let start = offsets[0] + 4;
+    [5, 0, 1].map(|word| {
+        transaction[start + word * 32..start + (word + 1) * 32]
+            .try_into()
+            .expect("recorded payExact calldata word")
+    })
+}
+
+fn recorded_legacy_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 32]) {
+    let case = recorded_case();
     let receipt = &case["receiptJson"];
     assert_eq!(receipt["rung"], "receipted");
     assert_eq!(receipt["receipt"], case["signedReceipt"]);
@@ -216,7 +237,7 @@ fn recorded_payment() -> (SequencerEvidence, [SequencerAuthorization; 1], [u8; 3
     assert_eq!(evidence.logs.len(), 1);
     let original = &evidence.logs[0];
     let mut topics = original.topics().to_vec();
-    topics[1..].rotate_right(1);
+    topics[1..].copy_from_slice(&recorded_payment_topics(&recorded_case()));
     let payment = SequencerLog::new(
         original.address(),
         topics,
@@ -270,7 +291,7 @@ fn middleware_operation_result_uses_the_recorded_receipt() {
                 "0x1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769"
             )),
             to: fixture_fixed(&Value::from(
-                "0x84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985"
+                "0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4"
             )),
             asset: fixture_fixed(&Value::from(
                 "0x4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28"

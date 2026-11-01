@@ -306,6 +306,134 @@ func TestStandbyAckBeforeRelease(t *testing.T) {
 	require.Equal(t, a.Receipt, res.LastAccept.Receipt)
 }
 
+type standbyCommitReplayer struct {
+	appReplayer
+	host             *app.App
+	mu               sync.Mutex
+	opens            []uint64
+	committedHeights []int64
+}
+
+func (r *standbyCommitReplayer) LastBlockHeight() int64 {
+	return r.host.LastBlockHeight()
+}
+
+func (r *standbyCommitReplayer) Apply(e wal.Entry) error {
+	if err := r.appReplayer.Apply(e); err != nil {
+		return err
+	}
+	if open, ok := e.(*wal.Open); ok {
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		r.opens = append(r.opens, open.Height)
+		r.committedHeights = append(r.committedHeights, r.host.LastBlockHeight())
+	}
+	return nil
+}
+
+func TestStandbyAcksOpenBeforePriorCommitApplies(t *testing.T) {
+	sender := utils.NewSigner()
+	recipient := utils.NewSigner().EvmAddress
+	l := listen(t)
+	p := newPrimary(t, l.Addr().String(), replicationTimeout, sender)
+	sb := newStandby(t, p, sender)
+	ctx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	replayer := &standbyCommitReplayer{appReplayer: appReplayer{exec: sb.h.exec}, host: sb.h.app}
+	primaryPub, err := p.pv.GetPubKey(ctx)
+	require.NoError(t, err)
+	sb.s, err = sequencer.NewStandby(ctx, sequencer.StandbyConfig{
+		WAL: sb.wal, Executor: replayer,
+		ConsensusKey: sb.s.ConsensusKey(), ReceiptKey: sb.s.ReceiptKey(),
+		PrimaryConsensusKey: primaryPub, PrimaryReceiptKey: p.receipt,
+		CommittedHeight: uint64(committedTip), LastSeq: startSeq, ReplicationTimeout: replicationTimeout,
+	})
+	require.NoError(t, err)
+	sb.serve(t, l)
+
+	open := p.open()
+	batch, err := p.h.exec.Seal(openHeight)
+	require.NoError(t, err)
+	seal := &wal.Seal{Height: uint64(openHeight), FromSeq: batch.FromSeq, ToSeq: batch.LastSeq, LastSeqHash: batch.LastSeqHash}
+	ack, err := p.repl.Release(ctx, open, seal)
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: startSeq}, ack)
+	require.Equal(t, openHeight+1, commitBlock(p.h, func(sdk.Context) {}))
+	committed := &wal.Committed{Height: uint64(openHeight), LastSeq: batch.LastSeq}
+	ack, err = p.repl.Release(ctx, committed)
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: startSeq}, ack)
+
+	nextOpen := &wal.Open{Height: uint64(openHeight + 1), OpenTimeMs: uint64(p.openMs + 1000), BaseFee: uint256.NewInt(0)}
+	require.NoError(t, p.h.exec.Open(openHeight+1, p.openMs+1000))
+	_, tx := transfer(t, sender, 0, recipient, big.NewInt(onePaxInWei))
+	first := p.accept(tx)
+	started := time.Now()
+	releaseCtx, releaseCancel := context.WithTimeout(ctx, replicationTimeout/2)
+	ack, err = p.repl.Release(releaseCtx, nextOpen, first)
+	releaseCancel()
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: first.Seq}, ack)
+	require.Less(t, time.Since(started), replicationTimeout/2)
+	require.Equal(t, committedTip, sb.h.app.LastBlockHeight())
+	require.Equal(t, startSeq, sb.s.LastSeq())
+	_, err = sb.h.exec.Snapshot()
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+
+	_, tx = transfer(t, sender, 1, recipient, big.NewInt(2*onePaxInWei))
+	second := p.accept(tx)
+	started = time.Now()
+	releaseCtx, releaseCancel = context.WithTimeout(ctx, replicationTimeout/2)
+	ack, err = p.repl.Release(releaseCtx, second)
+	releaseCancel()
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: second.Seq}, ack)
+	require.Less(t, time.Since(started), replicationTimeout/2)
+	require.Equal(t, committedTip, sb.h.app.LastBlockHeight())
+	require.Equal(t, startSeq, sb.s.LastSeq())
+	var durable []byte
+	for _, entry := range []wal.Entry{open, seal, committed, nextOpen, first, second} {
+		frame, err := wal.NewFrame(entry)
+		require.NoError(t, err)
+		durable = append(durable, frame...)
+	}
+	onDisk, err := os.ReadFile(filepath.Join(sb.dir, "head.seg"))
+	require.NoError(t, err)
+	require.Equal(t, durable, onDisk)
+
+	require.Equal(t, openHeight+1, commitBlock(sb.h, func(sdk.Context) {}))
+	require.Eventually(t, func() bool { return sb.s.LastSeq() == second.Seq }, replicationTimeout, time.Millisecond)
+	require.NoError(t, sb.s.Err())
+	replayer.mu.Lock()
+	opens := append([]uint64(nil), replayer.opens...)
+	committedHeights := append([]int64(nil), replayer.committedHeights...)
+	replayer.mu.Unlock()
+	require.Equal(t, []uint64{uint64(openHeight), uint64(openHeight + 1)}, opens)
+	require.Equal(t, []int64{committedTip, openHeight}, committedHeights)
+	requireStandbyState(t, p, sb, sender.EvmAddress, recipient)
+	requireWei(t, big.NewInt(3*onePaxInWei), sb.h.weiBalance(sb.h.openCtx(), recipient))
+	require.Equal(t, uint64(2), sb.h.app.EvmKeeper.GetNonce(sb.h.openCtx(), sender.EvmAddress))
+
+	p.repl.Close()
+	require.NoError(t, l.Close())
+	sb.wal.Close()
+	fresh := newHarness(t, sender)
+	require.Equal(t, openHeight+1, commitBlock(fresh, func(sdk.Context) {}))
+	w, err := wal.OpenWAL(sb.dir, wal.DefaultConfig())
+	require.NoError(t, err)
+	t.Cleanup(w.Close)
+	recovered, err := sequencer.NewStandby(ctx, sequencer.StandbyConfig{
+		WAL: w, Executor: appReplayer{exec: fresh.exec},
+		ConsensusKey: sb.s.ConsensusKey(), ReceiptKey: sb.s.ReceiptKey(),
+		PrimaryConsensusKey: primaryPub, PrimaryReceiptKey: p.receipt,
+		CommittedHeight: uint64(openHeight), LastSeq: startSeq, ReplicationTimeout: replicationTimeout,
+	})
+	require.NoError(t, err)
+	require.Equal(t, second.Seq, recovered.LastSeq())
+	require.Equal(t, uint64(2), fresh.app.EvmKeeper.GetNonce(fresh.openCtx(), sender.EvmAddress))
+	requireWei(t, big.NewInt(3*onePaxInWei), fresh.weiBalance(fresh.openCtx(), recipient))
+}
+
 func TestStandbyTimeoutRefusesSend(t *testing.T) {
 	sender := utils.NewSigner()
 	recipient := utils.NewSigner().EvmAddress

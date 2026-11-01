@@ -4,6 +4,9 @@ use layerx_human_test_support as support;
 #[path = "../../layerx-human-kms/tests/support/attestor_cluster.rs"]
 mod cluster;
 
+#[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
+mod runtime_clock_server;
+
 use std::collections::BTreeMap;
 use std::env;
 use std::fs;
@@ -11,9 +14,10 @@ use std::future::Future;
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::Path;
 use std::pin::pin;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use ed25519_dalek::{Signer as _, SigningKey};
@@ -33,35 +37,32 @@ use layerx_agentd::prepare::{
 use layerx_agentd::receipt::{self as daemon_receipt, ReceiptLookupKey as DaemonReceiptKey};
 use layerx_agentd::sign::{attach_kernel_signature, verify_kernel_before_submit};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
-use layerx_human_identity_provider::{AssertionConfig, AssertionVerifier, Policy, State};
+use layerx_human_identity_provider::{AssertionConfig, AssertionVerifier, Policy, Server, State};
 use layerx_human_service::custody::{
-    CustodyError, CustodySigner, KeyId, Keystore, KmsError, SendPlanAuthorization, SigningLimits,
+    CustodyError, EvmAction, EvmPlanAuthorization, EvmTransaction, KeyClass, KeyId, Keystore,
+    KmsError,
 };
 use layerx_human_service::journeys::{
-    authority_label, drive_intent_journey, intent_journey_id, plan, start_kernel_journey,
-    verify_bindings, AgentBoundary, AgentBoundaryError, AgentObservation, AgentPreparation,
-    BalanceEntry, BindingExpectation, Constraints, Endpoint, FeeSchedule, IntentDriver,
-    IntentSubmission, JourneyPhase, JourneyState, KernelStart, LegMechanism, Mechanism,
-    ObservedState, ReceiptLookup, ReceiptMaterial, Relationship, RouteRequest, SendRoute,
-    SubmitPlanRequest, UnifiedIntent, UnifiedPlan,
+    authority_label, intent_journey_id, plan, start_kernel_journey, verify_bindings, AgentBoundary,
+    AgentBoundaryError, AgentObservation, AgentPreparation, BalanceEntry, BindingExpectation,
+    Constraints, Endpoint, FeeSchedule, LegMechanism, Mechanism, ObservedState, ReceiptLookup,
+    ReceiptMaterial, SubmitPlanRequest, UnifiedIntent, UnifiedPlan,
 };
 use layerx_human_service::server::production_components::{
     AttestorCustodyConfig, AttestorKms, ProductionComponentsConfig,
 };
-use layerx_human_service::store::{PrincipalId, PrincipalStore};
-use layerx_human_service::trace::TraceId;
+use layerx_human_service::store::{PrincipalId, PrincipalScope, PrincipalStore, RowKey, Table};
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_sdk::{Call, Client as AgentClient};
 use layerx_types::account::AccountId;
 use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
+use layerx_types::clock::{Clock, ClockError, ClockReading};
 use layerx_types::ids::{AssetId, Did, IdempotencyKey};
-use layerx_types::intent::{
-    AuthorizationSignature, ContextHash, NetworkId, ProtocolVersion, PublicKey, SendAuthorization,
-    SendAuthorizationKind, Sequence, TimestampSeconds,
-};
+use layerx_types::intent::TimestampSeconds;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::rung::Rung;
+use p256::ecdsa::{Signature as BindingSignature, SigningKey as BindingSigningKey};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
@@ -71,6 +72,7 @@ const NETWORK_ID: u32 = 125;
 const ASSET: [u8; 32] = [0x33; 32];
 const WORKER: &str = "agent:did:layerx:worker:main";
 const SUBJECT: &str = "wallet-user-0001";
+const BINDING_TENANT: &str = "tenant-a";
 const WALLET_ACCOUNT: &str = "0x00000000000000000000000000000000000000a1";
 const SEQUENCE: u64 = 7;
 const SEND_FEE: u128 = 2;
@@ -120,6 +122,7 @@ fn activity_types() -> Vec<String> {
     registry()
         .registrations()
         .iter()
+        .filter(|module| module.module() == ModuleId::Asset)
         .flat_map(|module| {
             module
                 .activity_types()
@@ -221,82 +224,115 @@ fn submit_request(plan: &UnifiedPlan, actor: &AgentDid, window: (u64, u64)) -> S
 struct SendAuthority<'a> {
     cluster: &'a cluster::Cluster,
     kms: &'a AttestorKms,
-    signer: &'a CustodySigner,
+    keystore: &'a Keystore,
     principal: &'a PrincipalId,
-    public_key: [u8; 32],
 }
 
-fn send_route(
+fn signed_actions(
+    scope: &mut PrincipalScope<'_>,
     plan: &UnifiedPlan,
     request: &SubmitPlanRequest,
-    home: &str,
     owner: &SendAuthority<'_>,
-) -> RouteRequest {
-    let binding = &request.bindings[0];
-    let protocol = SEND_PROTOCOL;
-    let authorization = SendPlanAuthorization {
-        plan_id: binding.action_key,
-        action_key: binding.action_key,
-        principal: owner.principal.as_str().to_owned(),
-        tenant: "tenant-a".to_owned(),
-        binding_digest: owner
-            .signer
-            .evm_binding(owner.principal, &custody_key())
-            .unwrap_or_else(|error| panic!("custody binding: {error:?}"))
-            .digest(),
-        from: layerx_intents::canonical::account_id_for_protocol(&account(home), protocol)
-            .unwrap_or_else(|error| panic!("source account: {error:?}")),
-        to: layerx_intents::canonical::account_id_for_protocol(&account(WORKER), protocol)
-            .unwrap_or_else(|error| panic!("destination account: {error:?}")),
-        asset: ASSET,
-        amount: AMOUNT,
-        sequence: binding.account_sequence,
-        idempotency_key: binding.action_key,
-        expires_at: binding.not_after,
-        context: [0x55; 32],
-        network: NETWORK_ID,
-        protocol,
-        not_before: binding.not_before,
-        not_after: binding.not_after,
-    };
-    let signature = owner
-        .kms
-        .authorize_kernel_send(
-            owner.signer,
-            owner.principal,
-            &custody_key(),
-            &authorization,
-            binding.fee_limit,
-        )
-        .unwrap_or_else(|error| {
-            panic!(
-                "owner send authorization: {error}: {:?}: {}",
-                owner.kms.last_refusal_code(),
-                owner.cluster.logs()
-            )
-        });
-    let leg = &plan.legs()[0];
-    RouteRequest {
-        source: leg.source().clone(),
-        destination: leg.destination().clone(),
-        relationship: Relationship::Direct(SendRoute {
-            account_sequence: Sequence::from_u64(binding.account_sequence),
-            idempotency_key: IdempotencyKey::new(binding.action_key),
-            expires_at: TimestampSeconds::from_u64(binding.not_after),
-            context_hash: ContextHash::new([0x55; 32]),
-            authorization: SendAuthorization::new(
-                SendAuthorizationKind::Owner,
-                PublicKey::new(owner.public_key),
-                AuthorizationSignature::new(signature),
-            ),
-            network_id: NetworkId::new(NETWORK_ID)
-                .unwrap_or_else(|error| panic!("network: {error:?}")),
-            protocol_version: ProtocolVersion::new(protocol)
-                .unwrap_or_else(|error| panic!("protocol: {error:?}")),
-        }),
-        asset: leg.asset(),
-        amount: leg.amount(),
-    }
+) -> Vec<EvmAction> {
+    let wallet = owner
+        .keystore
+        .evm_wallet(owner.principal, &custody_key())
+        .unwrap_or_else(|error| panic!("attestor wallet: {error:?}: {}", owner.cluster.logs()));
+    plan.legs()
+        .iter()
+        .zip(&request.bindings)
+        .map(|(leg, binding)| {
+            let mut source = [0; 32];
+            source[12..].copy_from_slice(&wallet);
+            let mut recipient = [0; 32];
+            recipient[12..].copy_from_slice(&[0x6b; 20]);
+            let word = |amount: u128| {
+                let mut bytes = [0; 32];
+                bytes[16..].copy_from_slice(&amount.to_be_bytes());
+                bytes
+            };
+            let denom = "LXP";
+            let mut data = [
+                vec![0x5c, 0x05, 0x96, 0x1b],
+                source.to_vec(),
+                recipient.to_vec(),
+                word(128).to_vec(),
+                word(leg.amount().value()).to_vec(),
+                word(denom.len() as u128).to_vec(),
+                denom.as_bytes().to_vec(),
+            ]
+            .concat();
+            data.resize(4 + (data.len() - 4).div_ceil(32) * 32, 0);
+            let mut to = [0; 20];
+            to[18..].copy_from_slice(&0x1001_u16.to_be_bytes());
+            let call = layerx_crypto::evm_transaction::Eip1559Call {
+                chain_id: u64::from(NETWORK_ID),
+                nonce: binding.account_sequence,
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 10,
+                gas_limit: 100_000,
+                to,
+                data,
+            };
+            let authorization = EvmPlanAuthorization {
+                plan_id: plan.digest(),
+                action_key: binding.action_key,
+                principal: scope.principal().as_str().to_owned(),
+                tenant: scope.tenant().as_str().to_owned(),
+                binding_digest: owner
+                    .keystore
+                    .evm_binding(owner.principal, &custody_key())
+                    .unwrap_or_else(|error| panic!("custody binding: {error:?}"))
+                    .digest(),
+                wallet,
+                not_before: binding.not_before,
+                not_after: binding.not_after,
+                transaction: EvmTransaction {
+                    chain_id: call.chain_id,
+                    nonce: call.nonce,
+                    max_priority_fee_per_gas: 1,
+                    max_fee_per_gas: 10,
+                    gas_limit: call.gas_limit,
+                    to: call.to,
+                    value: [0; 32],
+                    calldata: call.data,
+                },
+            };
+            let raw_transaction = owner
+                .keystore
+                .authorize_send_transaction(
+                    owner.principal,
+                    &custody_key(),
+                    &authorization,
+                    [0x6b; 20],
+                    denom.to_owned(),
+                    word(leg.amount().value()),
+                )
+                .unwrap_or_else(|error| {
+                    panic!(
+                        "authorize send: {error:?}: {:?}: {}",
+                        owner.kms.last_refusal_code(),
+                        owner.cluster.logs()
+                    )
+                });
+            let (signed_call, signature) =
+                layerx_crypto::evm_transaction::decode_signed(&raw_transaction)
+                    .unwrap_or_else(|error| panic!("signed send: {error:?}"));
+            assert_eq!(
+                layerx_crypto::evm_transaction::recover_sender(&signed_call, &signature)
+                    .unwrap_or_else(|error| panic!("recover wallet: {error}")),
+                wallet
+            );
+            EvmAction {
+                authorization,
+                transaction_hash: Some(layerx_crypto::evm_transaction::transaction_hash(
+                    &raw_transaction,
+                )),
+                raw_transaction,
+                acknowledged: false,
+            }
+        })
+        .collect()
 }
 
 #[derive(Clone, Copy)]
@@ -876,21 +912,6 @@ fn loader_environment(
         ),
         ("LAYERX_HUMAN_AGENT_RECOVERY_ROOT", secret(0x63)),
         ("LAYERX_HUMAN_AGENT_RECOVERY_THRESHOLD", "1".to_owned()),
-        (
-            "LAYERX_HUMAN_PAXEER_RPC_URL",
-            "https://127.0.0.1:9443".to_owned(),
-        ),
-        ("LAYERX_HUMAN_PAXEER_RPC_TIMEOUT_SECONDS", "5".to_owned()),
-        (
-            "LAYERX_HUMAN_PAXEER_TRUST_ANCHOR_DER",
-            path("attestor-ca.der"),
-        ),
-        ("LAYERX_HUMAN_PAXEER_CHAIN_ID", "125".to_owned()),
-        (
-            "LAYERX_HUMAN_PAXEER_RPC_URLS",
-            json!(["https://127.0.0.1:9443", "https://127.0.0.2:9443"]).to_string(),
-        ),
-        ("LAYERX_HUMAN_PAXEER_MINIMUM_AGREEMENT", "2".to_owned()),
         ("LAYERX_HUMAN_EXIT_REQUIRED_CONFIRMATIONS", "12".to_owned()),
         ("LAYERX_HUMAN_ACTIVITY_FRESHNESS_SECONDS", "300".to_owned()),
         (
@@ -935,16 +956,138 @@ fn kernel_policy() -> Value {
     })
 }
 
-fn identity_state(root: &std::path::Path, key_set_url: String) -> State {
-    let mut state = State::open(
-        root,
-        Policy {
-            root: [0x43; 32],
-            threshold: 1,
-            delay_seconds: 86_400,
-        },
+struct SigningClock {
+    original: Vec<(&'static str, Option<std::ffi::OsString>)>,
+    shutdown: Arc<AtomicBool>,
+    worker: Option<std::thread::JoinHandle<std::io::Result<()>>>,
+}
+impl SigningClock {
+    fn start(root: &std::path::Path) -> Self {
+        let mut server = runtime_clock_server::Server::bind(root)
+            .unwrap_or_else(|error| panic!("signing clock: {error}"));
+        let socket = server.socket().to_owned();
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let stop = Arc::clone(&shutdown);
+        let worker = std::thread::spawn(move || {
+            while !stop.load(Ordering::Acquire) {
+                server.poll()?;
+                std::thread::sleep(Duration::from_millis(1));
+            }
+            Ok(())
+        });
+        let original = [
+            ("LAYERX_RUNTIME_CLOCK_SOCKET", socket.into_os_string()),
+            (
+                "LAYERX_RUNTIME_CLOCK_PID",
+                std::process::id().to_string().into(),
+            ),
+            (
+                "LAYERX_RUNTIME_CLOCK_UID",
+                rustix::process::getuid().as_raw().to_string().into(),
+            ),
+        ]
+        .into_iter()
+        .map(|(name, value)| {
+            let previous = std::env::var_os(name);
+            std::env::set_var(name, value);
+            (name, previous)
+        })
+        .collect();
+        Self {
+            original,
+            shutdown,
+            worker: Some(worker),
+        }
+    }
+}
+
+impl Drop for SigningClock {
+    fn drop(&mut self) {
+        for (name, value) in self.original.iter().rev() {
+            match value {
+                Some(value) => std::env::set_var(name, value),
+                None => std::env::remove_var(name),
+            }
+        }
+        self.shutdown.store(true, Ordering::Release);
+        if let Some(worker) = self.worker.take() {
+            worker
+                .join()
+                .unwrap_or_else(|_| panic!("signing clock panicked"))
+                .unwrap_or_else(|error| panic!("signing clock: {error}"));
+        }
+    }
+}
+
+struct SystemClock {
+    origin: Instant,
+    generation: [u8; 16],
+}
+
+impl Clock for SystemClock {
+    fn sample(&self, budget: Duration) -> Result<ClockReading, ClockError> {
+        if budget.is_zero() {
+            return Err(ClockError::Unavailable);
+        }
+        Ok(ClockReading {
+            generation: self.generation,
+            unix_milliseconds: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|_| ClockError::Regression)?
+                .as_millis()
+                .try_into()
+                .map_err(|_| ClockError::Overflow)?,
+            monotonic_nanoseconds: self
+                .origin
+                .elapsed()
+                .as_nanos()
+                .try_into()
+                .map_err(|_| ClockError::Overflow)?,
+        })
+    }
+}
+
+fn wallet_binding(producer: &BindingSigningKey, did: &str) -> String {
+    let header = json!({"alg": "ES256", "typ": "layerx-wallet-binding+jwt"});
+    let claims = json!({
+        "iss": cluster::ISSUER, "sub": SUBJECT, "did": did, "tenant": BINDING_TENANT,
+    });
+    let input = format!(
+        "{}.{}",
+        URL_SAFE_NO_PAD.encode(header.to_string()),
+        URL_SAFE_NO_PAD.encode(claims.to_string())
+    );
+    let signature: BindingSignature = producer.sign(input.as_bytes());
+    format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature.to_bytes()))
+}
+
+fn identity_state(root: &Path, key_set_url: String, producer: &BindingSigningKey) -> State {
+    let policy = Policy {
+        root: [0x43; 32],
+        threshold: 1,
+        delay_seconds: 86_400,
+    };
+    let state =
+        State::open(root, policy.clone()).unwrap_or_else(|error| panic!("identity state: {error}"));
+    let uid = rustix::process::geteuid().as_raw();
+    let mut generation = [0; 16];
+    getrandom::fill(&mut generation).unwrap_or_else(|error| panic!("clock generation: {error}"));
+    let server = Server::bind(
+        &root.join("identity.sock"),
+        state,
+        uid,
+        Duration::from_secs(1),
+        Arc::new(SystemClock {
+            origin: Instant::now(),
+            generation,
+        }),
     )
-    .unwrap_or_else(|error| panic!("identity state: {error}"));
+    .unwrap_or_else(|error| panic!("identity server: {error}"))
+    .with_binding_reader(&root.join("binding.sock"), BINDING_TENANT, &[uid])
+    .unwrap_or_else(|error| panic!("pin binding tenant: {error}"));
+    drop(server);
+    let mut state =
+        State::open(root, policy).unwrap_or_else(|error| panic!("identity state: {error}"));
     state
         .enable_assertion(
             AssertionVerifier::new(AssertionConfig {
@@ -954,7 +1097,12 @@ fn identity_state(root: &std::path::Path, key_set_url: String) -> State {
                 clock_skew_seconds: 60,
                 refresh_interval_seconds: 300,
             })
-            .unwrap_or_else(|error| panic!("assertion verifier: {error}")),
+            .unwrap_or_else(|error| panic!("assertion verifier: {error}"))
+            .with_binding_producer_key(&hex(producer
+                .verifying_key()
+                .to_encoded_point(false)
+                .as_bytes()))
+            .unwrap_or_else(|error| panic!("binding producer key: {error}")),
         )
         .unwrap_or_else(|error| panic!("enable assertion: {error}"));
     state
@@ -970,14 +1118,21 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
         kms_variables.is_empty(),
         "the attestor-only path must run without the KMS group: {kms_variables:?}"
     );
-    let cluster = cluster::Cluster::start_with_kernel_policy(&activity_types(), &kernel_policy())
-        .unwrap_or_else(|error| panic!("attestor cluster: {error}"));
+    let mut cluster =
+        cluster::Cluster::start_with_kernel_policy(&activity_types(), &kernel_policy())
+            .unwrap_or_else(|error| panic!("attestor cluster: {error}"));
     let root = directory("wallet-identity-e2e");
     fs::create_dir_all(&root).unwrap_or_else(|error| panic!("fixture root: {error}"));
     fs::set_permissions(&root, fs::Permissions::from_mode(0o700))
         .unwrap_or_else(|error| panic!("fixture root permissions: {error}"));
 
-    let mut identity = identity_state(&root.join("identity"), cluster.key_set_url());
+    let _clock = SigningClock::start(&root);
+    let mut producer_scalar = [0; 32];
+    getrandom::fill(&mut producer_scalar)
+        .unwrap_or_else(|error| panic!("binding producer entropy: {error}"));
+    let producer = BindingSigningKey::from_slice(&producer_scalar)
+        .unwrap_or_else(|error| panic!("binding producer: {error}"));
+    let mut identity = identity_state(&root.join("identity"), cluster.key_set_url(), &producer);
     let assertion = cluster
         .tokens
         .mint(SUBJECT)
@@ -993,7 +1148,7 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
         .unwrap_or_else(|error| panic!("principal: {error}"));
 
     let store_root = root.join("human-store");
-    let tenancy_digest = tenancy(&[(principal.principal(), "tenant-a")])
+    let tenancy_digest = tenancy(&[(principal.principal(), BINDING_TENANT)])
         .install(&store_root)
         .unwrap_or_else(|error| panic!("tenancy: {error}"));
 
@@ -1002,23 +1157,41 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
         .unwrap_or_else(|error| panic!("attestor custody: {error}"));
     let keystore = Keystore::open_production(root.join("custody"), NETWORK_ID, kms.clone())
         .unwrap_or_else(|error| panic!("production keystore: {error}"));
+    let wallet_public = cluster
+        .generate_key("wallet-identity", "secp256k1", SUBJECT, "")
+        .unwrap_or_else(|error| panic!("wallet generation: {error}: {}", cluster.logs()));
+    let wallet = layerx_crypto::secp256k1::evm_address(&wallet_public)
+        .unwrap_or_else(|error| panic!("wallet address: {error:?}"));
+    let wallet_account = format!("0x{}", hex(&wallet));
+    let binding_digest = keystore
+        .binding(&principal_id, &custody_key(), KeyClass::HumanPrimary)
+        .unwrap_or_else(|error| panic!("custody binding: {error}"))
+        .digest();
+    let key_id = format!("lx-{}", hex(&binding_digest[..16]));
+    cluster
+        .approve_generate(&key_id, "ed25519", SUBJECT)
+        .unwrap_or_else(|error| panic!("approve key generation: {error}"));
     let public_key = kms
         .create_owned_key(
             &keystore,
             &principal_id,
             &custody_key(),
             principal.subject(),
-            WALLET_ACCOUNT,
+            &wallet_account,
         )
         .unwrap_or_else(|error| panic!("attestor key: {error}: {}", cluster.logs()));
+    cluster
+        .approve_sign(&key_id, &public_key)
+        .unwrap_or_else(|error| panic!("approve key signing: {error}"));
     let descriptor = keystore
         .describe(&principal_id, &custody_key())
         .unwrap_or_else(|error| panic!("describe key: {error:?}"));
     assert_eq!(descriptor.public_key, public_key);
 
     let did = format!("did:layerx:{}", hex(&public_key));
+    let binding = wallet_binding(&producer, &did);
     let (reopened, created) = identity
-        .open_or_create_by_assertion(&assertion, Some(&did), wall_clock())
+        .open_or_create_by_assertion(&assertion, Some(&binding), wall_clock())
         .unwrap_or_else(|error| panic!("wallet DID: {error}"));
     assert!(!created);
     assert_eq!(reopened.principal(), principal.principal());
@@ -1034,23 +1207,11 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
         .unwrap_or_else(|error| panic!("signing assertion: {error}"));
     kms.admit_assertion(resolved.subject(), &signing_assertion)
         .unwrap_or_else(|error| panic!("admit assertion: {error}"));
-    let signer_store = PrincipalStore::open(&store_root, retention_uniform(10_000), tenancy_digest)
-        .unwrap_or_else(|error| panic!("signer store: {error}"));
-    let signer = CustodySigner::new(
-        keystore,
-        signer_store,
-        registry(),
-        SigningLimits::new(1_000, 10_000).unwrap_or_else(|error| panic!("limits: {error}")),
-    );
-
-    let primary_key =
-        KeyId::new("human-primary").unwrap_or_else(|error| panic!("primary key: {error}"));
-    assert!(
-        signer
-            .public_wallet_identity(&principal_id, &primary_key)
-            .is_err(),
-        "native-only attestor fixture has no approved secp256k1 wallet identity"
-    );
+    let (approved_wallet, approved_binding, _) = keystore
+        .public_wallet_identity(&principal_id, &custody_key())
+        .unwrap_or_else(|error| panic!("public wallet identity: {error}"));
+    assert_eq!(approved_wallet, wallet);
+    assert_eq!(approved_binding.digest(), binding_digest);
 
     let home = format!("agent:{did}:main");
     let actor = AgentDid::new(did.clone()).unwrap_or_else(|error| panic!("actor: {error:?}"));
@@ -1080,18 +1241,6 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
     let audit_before = cluster
         .audit(&client)
         .unwrap_or_else(|error| panic!("audit before: {error}"));
-    let routes = vec![send_route(
-        &plan,
-        &request,
-        &home,
-        &SendAuthority {
-            cluster: &cluster,
-            kms: &kms,
-            signer: &signer,
-            principal: &principal_id,
-            public_key,
-        },
-    )];
     let journey_id = intent_journey_id("kernel-submit", plan.digest())
         .unwrap_or_else(|error| panic!("journey id: {error}"));
 
@@ -1100,76 +1249,106 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
     let mut scope = store
         .principal(&principal_id)
         .unwrap_or_else(|error| panic!("scope: {error}"));
-    let mut journey = start_kernel_journey(
+    let actions = signed_actions(
+        &mut scope,
+        &plan,
+        &request,
+        &SendAuthority {
+            cluster: &cluster,
+            kms: &kms,
+            keystore: &keystore,
+            principal: &principal_id,
+        },
+    );
+    let initial = start_kernel_journey(
         &mut scope,
         &plan,
         &request,
         &expectation,
-        KernelStart {
-            routes: &routes,
-            journey_id: journey_id.clone(),
-            custody_key: custody_key(),
-            registry: &registry(),
-        },
+        journey_id.clone(),
+        &actions,
     )
     .unwrap_or_else(|error| panic!("start: {error}"));
-    assert_eq!(
-        journey
-            .status()
-            .unwrap_or_else(|error| panic!("status: {error}"))
-            .state(),
-        JourneyState::GettingReady
-    );
-
-    let key = plan
-        .action_key(0)
-        .unwrap_or_else(|error| panic!("key: {error:?}"));
-    let mut agent = RealAgentLayer::new(
-        &root.join("agent-store"),
-        public_key,
-        BTreeMap::from([(
-            key,
+    assert_eq!(initial.to_json()["state"], "processing");
+    assert_eq!(initial.journey_id(), &journey_id);
+    let record_key = RowKey::new(format!("intent-evm-{}", journey_id.as_str()))
+        .unwrap_or_else(|error| panic!("journey key: {error}"));
+    let record: Value = serde_json::from_slice(
+        scope
+            .get(Table::Journeys, &record_key)
+            .unwrap_or_else(|| panic!("persisted kernel journey missing"))
+            .bytes(),
+    )
+    .unwrap_or_else(|error| panic!("journey record: {error}"));
+    assert_eq!(record["journey_id"], journey_id.as_str());
+    assert_eq!(record["plan_digest"], hex(&plan.digest()));
+    assert_eq!(record["state"], "processing");
+    let legs = record["legs"]
+        .as_array()
+        .unwrap_or_else(|| panic!("recorded legs missing"));
+    assert_eq!(legs.len(), actions.len());
+    let mut agent_store = AgentStore::open(root.join("agent-store"))
+        .unwrap_or_else(|error| panic!("agent store: {error}"));
+    let tenant =
+        TenantId::new(BINDING_TENANT).unwrap_or_else(|error| panic!("receipt tenant: {error}"));
+    let mut outbox = Outbox::default();
+    for (index, (leg, action)) in legs.iter().zip(&actions).enumerate() {
+        let tx_hash = layerx_crypto::evm_transaction::transaction_hash(&action.raw_transaction);
+        assert_eq!(action.transaction_hash, Some(tx_hash));
+        assert_eq!(leg["tx_hash"], format!("0x{}", hex(&tx_hash)));
+        assert_eq!(leg["nonce"], action.authorization.transaction.nonce);
+        assert_eq!(leg["action_key"], hex(&action.authorization.action_key));
+        assert_eq!(leg["raw_transaction"], json!(action.raw_transaction));
+        let submission_id = outbox
+            .enqueue(
+                &mut agent_store,
+                tenant.clone(),
+                action.raw_transaction.clone(),
+            )
+            .unwrap_or_else(|error| panic!("enqueue signed send: {error:?}"));
+        assert_eq!(submission_id, tx_hash);
+        assert_eq!(
+            outbox
+                .exact_signed_bytes(submission_id)
+                .unwrap_or_else(|error| panic!("signed send bytes: {error:?}")),
+            action.raw_transaction
+        );
+        let material = receipt(
+            tx_hash,
+            u8::try_from(index).unwrap_or_else(|error| panic!("leg: {error}")),
             ReceiptSpec {
                 activity: asset_send(),
                 amount: AMOUNT,
                 fee: SEND_FEE,
             },
-        )]),
-    );
-    let contract = AgentClient::daemon(
-        "/run/layerx-agentd.sock",
-        layerx_agent_api::agent_api_schema_v1().version,
-    )
-    .unwrap_or_else(|error| panic!("agent SDK: {error:?}"));
-    let trace = TraceId::mint([0x44; 16]);
-    let mut status = ready(drive_intent_journey(
-        &mut journey,
-        &mut scope,
-        &mut agent,
-        &IntentDriver {
-            agent_contract: &contract,
-            custody: &signer,
-            registry: &registry(),
-            trace: &trace,
-            now,
-        },
-    ))
-    .unwrap_or_else(|error| {
-        panic!(
-            "drive: {error}: {:?}: {}",
-            kms.last_refusal_code(),
-            cluster.logs()
+        );
+        let key = action.authorization.action_key;
+        let verified = daemon_receipt::store(
+            &mut agent_store,
+            tenant.clone(),
+            key,
+            &material.canonical_bytes,
+            &material.authorised_batch,
         )
-    });
-    assert!(
-        !matches!(
-            status.state(),
-            JourneyState::GettingReady | JourneyState::Refused
-        ),
-        "journey did not progress: {:?}",
-        status.state()
-    );
-    assert_eq!(agent.signers, vec![public_key]);
+        .unwrap_or_else(|error| panic!("verify send receipt: {error:?}"));
+        assert_eq!(verified.activity_id, tx_hash);
+        assert_eq!(verified.verification_level, material.verification_level);
+        assert_eq!(material.tx_hash, tx_hash);
+        assert_eq!(
+            material.receipt_hash,
+            <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
+        );
+        assert_eq!(material.block_height, index as u64);
+        assert_eq!(material.rung, Rung::Receipted);
+        let served = daemon_receipt::serve(
+            &agent_store,
+            tenant.clone(),
+            DaemonReceiptKey::Idempotency(key),
+        )
+        .unwrap_or_else(|error| panic!("verified send receipt: {error:?}"));
+        assert_eq!(served.metadata, verified);
+        assert_eq!(served.canonical_bytes, material.canonical_bytes);
+    }
     let audit_after = cluster
         .audit(&client)
         .unwrap_or_else(|error| panic!("audit after: {error}"));
@@ -1180,28 +1359,6 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
             .all(|(after, before)| after > before),
         "attestor audit did not advance: {audit_before:?} -> {audit_after:?}"
     );
-
-    for step in 1..=8_u64 {
-        if status.state() == JourneyState::Done {
-            break;
-        }
-        status = ready(journey.advance(
-            &mut scope,
-            &contract,
-            &mut agent,
-            &signer,
-            &registry(),
-            &trace,
-            now.saturating_add(step),
-        ))
-        .unwrap_or_else(|error| panic!("advance: {error}"));
-    }
-    assert_eq!(status.state(), JourneyState::Done);
-    assert_eq!(status.phases(), [JourneyPhase::ReceiptVerified]);
-    assert!(status.receipt_digests().iter().all(Option::is_some));
-    assert_eq!(agent.signers, vec![public_key]);
-    let submission = IntentSubmission::from_kernel(&status, plan.digest());
-    assert_eq!(submission.journey_id(), &journey_id);
 
     env::remove_var("LAYERX_HUMAN_ATTESTOR_NODES");
     let refused = ProductionComponentsConfig::from_environment()

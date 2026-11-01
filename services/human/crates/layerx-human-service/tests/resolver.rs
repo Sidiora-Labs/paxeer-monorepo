@@ -73,29 +73,6 @@ fn request(
 
 #[test]
 fn resolver_selects_every_normative_mechanism_and_vocabulary_term() {
-    let deposit = request(
-        Endpoint::PaxeerWallet,
-        Endpoint::Human(human()),
-        Relationship::Custody(CustodyRoute::Deposit {
-            deposit_proof: DepositProofId::new([1; 32]),
-            checkpoint: CheckpointId::new([2; 32]),
-            reserve: account("system:treasury"),
-            idempotency_key: key(3),
-        }),
-        50,
-    );
-    let withdrawal = request(
-        Endpoint::Human(human()),
-        Endpoint::PaxeerWallet,
-        Relationship::Custody(CustodyRoute::Withdrawal {
-            request_anchor: CheckpointId::new([18; 32]),
-            fee_limit: 100,
-            withdrawals_account: account("system:paxeer-withdrawals"),
-            payout_address: EvmAddress::new([5; 20]),
-            idempotency_key: key(6),
-        }),
-        40,
-    );
     let transfer = request(
         Endpoint::Human(human()),
         Endpoint::Agent(agent()),
@@ -122,16 +99,6 @@ fn resolver_selects_every_normative_mechanism_and_vocabulary_term() {
     );
 
     let cases = [
-        (
-            deposit,
-            MovementTerm::Deposit,
-            Mechanism::BridgeDepositCredit,
-        ),
-        (
-            withdrawal,
-            MovementTerm::Withdrawal,
-            Mechanism::BridgeWithdrawRequest,
-        ),
         (transfer, MovementTerm::Transfer, Mechanism::Send),
         (allocate, MovementTerm::Allocate, Mechanism::Send),
         (returned, MovementTerm::Return, Mechanism::Send),

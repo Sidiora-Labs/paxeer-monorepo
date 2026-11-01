@@ -369,6 +369,22 @@ fn fixture_hex(value: &Value) -> Vec<u8> {
         .collect()
 }
 
+fn payment_exact_words(case: &Value) -> [[u8; 32]; 3] {
+    let transaction = fixture_hex(&case["rawTransaction"]);
+    let offsets: Vec<usize> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact selector");
+    let calldata = &transaction[offsets[0] + 4..];
+    [5, 0, 1].map(|word| {
+        calldata[word * 32..(word + 1) * 32]
+            .try_into()
+            .unwrap_or_else(|_| panic!("recorded payExact word {word}"))
+    })
+}
+
 fn payment_log(
     key: [u8; 32],
     destination: [u8; 32],
@@ -390,6 +406,7 @@ fn payment_log(
                 .unwrap_or_else(|_| panic!("recorded topic length"))
         })
         .collect();
+    topics[1..].copy_from_slice(&payment_exact_words(&case));
     topics[1] = key;
     topics[2] = TEST_CUSTODY_AUTHORITY;
     topics[3] = destination;

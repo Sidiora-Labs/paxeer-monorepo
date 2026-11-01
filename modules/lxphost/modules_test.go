@@ -121,3 +121,22 @@ func TestHostServiceModuleRegistered(t *testing.T) {
 	require.Equal(t, "LXP_ERR_SEQUENCE_REUSED", receipt.ResultCode.Error())
 	require.Equal(t, record, chain.get(key))
 }
+
+func TestHostServiceDisputeReachesAgreementLookup(t *testing.T) {
+	chain := newTestChain(t)
+	host := chain.host(t)
+	actor := newTestActor(t, 116)
+	payload := make([]byte, 99)
+	payload[1] = 1
+	payload[2], payload[34] = 1, 2
+	payload[66] = 1
+	payload[67] = 3
+
+	require.Equal(t, []uint16{1, 2, 5, 7}, activityModules(5))
+	receipt := execute(t, host, chain.context(1, bindingBlockTime, 1),
+		actor.activity(t, host, 0x0005000c, 0, bindingBlockTime, payload), actor.authority())
+	require.NotEqual(t, Code(-103), receipt.ResultCode)
+	require.Equal(t, Code(-706), receipt.ResultCode)
+	require.Equal(t, "LXP_ERR_AGREEMENT_STATE", receipt.ResultCode.Error())
+	require.NotEmpty(t, receipt.Encoded)
+}

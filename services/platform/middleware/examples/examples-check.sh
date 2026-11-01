@@ -57,7 +57,7 @@ sh "$live" --help > /dev/null
 REQUIRED_INPUTS='LAYERX_GATEWAY_URL LAYERX_FAUCET_URL LAYERX_TEST_CA_FILE
 LAYERX_TEST_AUTH_TOKEN_FILE LAYERX_TEST_SOURCE_DID LAYERX_TEST_SOURCE_PUBLIC_KEY
 LAYERX_EXAMPLE_OFFER_FILE LAYERX_EXAMPLE_PAYER LAYERX_EXAMPLE_NODE_ACTIVITY_FILE
-LAYERX_EXAMPLE_NODE_AUTHORITY_FILE LAYERX_EXAMPLE_PYTHON_ACTIVITY_FILE
+LAYERX_EXAMPLE_NODE_RECEIPT_KEYS_FILE LAYERX_EXAMPLE_PYTHON_ACTIVITY_FILE
 LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE'
 input_count=$(printf '%s\n' $REQUIRED_INPUTS | wc -l | tr -d ' ')
 
@@ -110,8 +110,11 @@ printf '\n' > "$work/blank-token"
 printf 'payment-required-header\n' > "$work/offer"
 printf 'node-activity\n' > "$work/node-activity"
 printf 'python-activity\n' > "$work/python-activity"
-printf '{}\n' > "$work/node-authority"
-printf '{}\n' > "$work/python-authority"
+printf '[]\n' > "$work/node-receipt-keys"
+printf '[]\n' > "$work/python-receipt-keys"
+
+PYTHONPATH=services/agent/sdk/python python3 services/platform/middleware/examples/public_rpc.py \
+    --receipt-keys "$work/python-receipt-keys" --help > /dev/null
 
 complete_run() {
     write_run \
@@ -119,14 +122,14 @@ complete_run() {
         LAYERX_FAUCET_URL=https://faucet.example \
         "LAYERX_TEST_CA_FILE=$work/ca.crt" \
         "LAYERX_TEST_AUTH_TOKEN_FILE=$1" \
-        LAYERX_TEST_SOURCE_DID=did:lxp:example \
+        LAYERX_TEST_SOURCE_DID=did:layerx:0000000000000000000000000000000000000000000000000000000000000001 \
         LAYERX_TEST_SOURCE_PUBLIC_KEY=00 \
         "LAYERX_EXAMPLE_OFFER_FILE=$work/offer" \
         LAYERX_EXAMPLE_PAYER=00 \
         "LAYERX_EXAMPLE_NODE_ACTIVITY_FILE=$2" \
-        "LAYERX_EXAMPLE_NODE_AUTHORITY_FILE=$work/node-authority" \
+        "LAYERX_EXAMPLE_NODE_RECEIPT_KEYS_FILE=$work/node-receipt-keys" \
         "LAYERX_EXAMPLE_PYTHON_ACTIVITY_FILE=$3" \
-        "LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE=$work/python-authority"
+        "LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE=$work/python-receipt-keys"
 }
 
 complete_run "$work/token" "$work/node-activity" "$work/node-activity"

@@ -2,6 +2,8 @@
 mod attestor_cluster;
 #[path = "../src/payer.rs"]
 mod payer;
+#[path = "payer.rs"]
+mod receipt_fixture;
 
 use attestor_cluster::{checked, Cluster, Result, SIGNERS};
 use layerx_agentd::prepare::evm::PrecompileCall;
@@ -23,8 +25,6 @@ const LEDGER_ADDRESS: [u8; 20] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
 ];
 const RECEIVER_SEQUENCE: u64 = 19;
-
-const RECEIPT: &[u8] = include_bytes!("../../../../../tests/fixtures/receipt-supply-v2.bin");
 
 struct SigningFixture {
     _cluster: Cluster,
@@ -139,11 +139,44 @@ fn unhex(value: &Value) -> Vec<u8> {
         .collect()
 }
 
+fn asset_account(owner: [u8; 20], asset: [u8; 32]) -> [u8; 32] {
+    let mut owner_word = [0; 32];
+    owner_word[12..].copy_from_slice(&owner);
+    let name = format!(
+        "agent:did:layerx:{}:asset:{}",
+        attestor_cluster::hex(&owner_word),
+        attestor_cluster::hex(&asset)
+    );
+    let length = u32::try_from(name.len())
+        .expect("account name length")
+        .to_be_bytes();
+    <sha2::Sha256 as sha2::Digest>::digest(
+        [b"LX:ACCOUNT:v1".as_slice(), &length, name.as_bytes()].concat(),
+    )
+    .into()
+}
+
+fn recipient_account(asset: [u8; 32]) -> (String, [u8; 32]) {
+    let name = format!(
+        "agent:did:layerx:receiver:asset:{}",
+        attestor_cluster::hex(&asset)
+    );
+    let length = u32::try_from(name.len())
+        .expect("account name length")
+        .to_be_bytes();
+    let id = <sha2::Sha256 as sha2::Digest>::digest(
+        [b"LX:ACCOUNT:v1".as_slice(), &length, name.as_bytes()].concat(),
+    )
+    .into();
+    (name, id)
+}
+
 struct RpcServer {
     endpoint: String,
     stop: Arc<AtomicBool>,
     raw: Arc<Mutex<Vec<Vec<u8>>>>,
     requests: Arc<Mutex<Vec<String>>>,
+    receipts: Arc<Mutex<Vec<layerx_client::sequencer::ExecutedReceipt>>>,
     thread: Option<JoinHandle<()>>,
 }
 
@@ -155,10 +188,12 @@ impl RpcServer {
         let stop = Arc::new(AtomicBool::new(false));
         let raw = Arc::new(Mutex::new(Vec::<Vec<u8>>::new()));
         let requests = Arc::new(Mutex::new(Vec::new()));
+        let receipts = Arc::new(Mutex::new(Vec::new()));
         let thread = {
             let stop = Arc::clone(&stop);
             let raw = Arc::clone(&raw);
             let requests = Arc::clone(&requests);
+            let receipts = Arc::clone(&receipts);
             thread::spawn(move || {
                 let mut polls = 0;
                 let mut estimate = Vec::new();
@@ -239,18 +274,36 @@ impl RpcServer {
                             assert_eq!(request["params"][0]["to"], hex(&LEDGER_ADDRESS));
                             assert_eq!(request["params"][1], "pending");
                             let data = unhex(&request["params"][0]["data"]);
-                            assert_eq!(
-                                &data[..4],
-                                &Keccak256::digest(b"nextSequence(bytes32,bytes32)")[..4]
-                            );
-                            assert_eq!(data.len(), 4 + 2 * 32);
-                            assert_eq!(&data[4..16], &[0; 12]);
-                            assert_eq!(&data[16..36], &[0x32; 20]);
-                            assert_eq!(&data[36..48], &[0; 12]);
-                            assert_eq!(&data[48..68], &[0x42; 20]);
-                            let mut result = [0; 32];
-                            result[24..].copy_from_slice(&RECEIVER_SEQUENCE.to_be_bytes());
-                            json!(hex(&result))
+                            if data[..4] == [0x3f, 0x05, 0x0c, 0xbc] {
+                                assert_eq!(data.len(), 68);
+                                assert_eq!(&data[4..16], &[0; 12]);
+                                assert_eq!(&data[16..36], &sender);
+                                let asset = data[36..68].try_into().expect("asset word");
+                                json!(hex(&asset_account(sender, asset)))
+                            } else if data[..4] == Keccak256::digest(b"accountOwner(bytes32)")[..4]
+                            {
+                                assert_eq!(data.len(), 36);
+                                let account = &data[4..36];
+                                let mut owner = [0; 32];
+                                if [[0x41; 32], [0x42; 32]]
+                                    .iter()
+                                    .any(|asset| account == asset_account(sender, *asset))
+                                {
+                                    owner[12..].copy_from_slice(&sender);
+                                }
+                                json!(hex(&owner))
+                            } else {
+                                assert_eq!(
+                                    &data[..4],
+                                    &Keccak256::digest(b"nextSequence(bytes32,bytes32)")[..4]
+                                );
+                                assert_eq!(data.len(), 4 + 2 * 32);
+                                assert_eq!(&data[4..36], &recipient_account([0x42; 32]).1);
+                                assert_eq!(&data[36..68], &[0x42; 32]);
+                                let mut result = [0; 32];
+                                result[24..].copy_from_slice(&RECEIVER_SEQUENCE.to_be_bytes());
+                                json!(hex(&result))
+                            }
                         }
                         "eth_gasPrice" => json!("0x3b9aca00"),
                         "eth_sendRawTransaction" => {
@@ -283,15 +336,33 @@ impl RpcServer {
                             if polls == 1 {
                                 json!({"rung":"submitted", "txHash":hex(&hash), "nonce":format!("{nonce:#x}")})
                             } else {
-                                json!({
+                                let (call, _) = decode_signed(transaction)
+                                    .unwrap_or_else(|error| panic!("signed transaction: {error}"));
+                                let execution = receipt_fixture::signed_execution(
+                                    sender,
+                                    hash,
+                                    u64::try_from(nonce).expect("nonce"),
+                                    &call.data,
+                                    [7; 32],
+                                )
+                                .unwrap_or_else(|error| panic!("signed receipt: {error}"));
+                                let result = json!({
                                     "rung":"receipted", "txHash":hex(&hash), "nonce":format!("{nonce:#x}"),
                                     "seq":"0x2a", "height":"0x64", "index":"0x0", "timestamp":"0x123", "status":"0x1",
-                                    "returnData":"0x", "logs":[{"address":hex(&destination), "topics":[hex(&[3;32])], "data":"0x010203", "logIndex":"0x0"}],
+                                    "returnData":"0x", "logs":execution.logs.iter().map(|log| json!({
+                                        "address":hex(&log.address), "topics":log.topics.iter().map(|topic| hex(topic)).collect::<Vec<_>>(),
+                                        "data":hex(&log.data), "logIndex":format!("{:#x}", log.log_index),
+                                    })).collect::<Vec<_>>(),
                                     "gasUsed":"0x10000", "cumulativeGasUsed":"0x10000", "effectiveGasPrice":"0x3b9aca00",
                                     "feeDenom":"upax", "feeAmount":"0x1", "sponsor":hex(&[0;20]), "from":hex(&sender),
                                     "to":hex(&destination), "contractAddress":hex(&[0;20]), "vmError":"",
-                                    "keyId":hex(&[1;32]), "receipt":hex(RECEIPT), "signingKey":hex(&[2;32]),
-                                })
+                                    "keyId":hex(&execution.key_id), "receipt":hex(&execution.receipt), "signingKey":hex(&execution.signing_key),
+                                });
+                                receipts
+                                    .lock()
+                                    .unwrap_or_else(|_| panic!("receipts lock"))
+                                    .push(execution);
+                                result
                             }
                         }
                         _ => panic!("unexpected method {method}"),
@@ -307,6 +378,7 @@ impl RpcServer {
             stop,
             raw,
             requests,
+            receipts,
             thread: Some(thread),
         })
     }
@@ -339,6 +411,7 @@ fn payer(signer: Arc<AttestorSigner>, endpoint: &str) -> Result<payer::Productio
         signer,
         endpoint,
         &[],
+        receipt_fixture::published_keys(),
         Box::new(|| Ok(())),
         Box::new(|_| Err(WebPayerError::Refused)),
     ))
@@ -396,10 +469,10 @@ fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
             "scheme": "exact",
             "network": "eip155:125",
             "amount": "123456",
-            "asset": hex(&[0x41; 20]),
-            "payTo": hex(&[0x31; 20]),
+            "asset": hex(&[0x41; 32]),
+            "payTo": hex(&recipient_account([0x41; 32]).1),
             "maxTimeoutSeconds": 30,
-            "extra": {"layerx": {"currency": "USDC", "receiverDid": "did:layerx:receiver"}},
+            "extra": {"layerx": {"currency": "USDC", "account": recipient_account([0x41; 32]).0}},
         }))?;
         let terms = checked(web_call.exact_terms(&config, &offer, 100))?;
         let mut wrong = terms.clone();
@@ -425,27 +498,35 @@ fn web_pay_exact_submits_a_signed_layerxpay_call() -> Result<()> {
             &data[..4],
             &Keccak256::digest(b"payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)")[..4]
         );
-        assert_eq!(&data[16..36], &terms.payer_account);
-        assert_eq!(&data[48..68], &terms.recipient);
-        assert_eq!(&data[80..100], &terms.asset);
+        assert_eq!(&data[4..36], &terms.payer_account);
+        assert_eq!(&data[36..68], &terms.recipient);
+        assert_eq!(&data[68..100], &terms.asset);
         assert_eq!(&data[116..132], &terms.amount.to_be_bytes());
         assert_eq!(&data[156..164], &terms.expires_at_ms.to_be_bytes());
         assert_eq!(&data[164..196], &terms.idempotency_key);
         assert_eq!(payment.tx_hash, transaction_hash(&submitted[0]));
-        assert_eq!(payment.receipt, RECEIPT);
+        let receipts = rpc.receipts.lock().map_err(|_| "receipts lock")?;
+        assert_eq!(payment.receipt, receipts[0].receipt);
         assert_eq!(
             payment.logs,
-            vec![layerx_proof::sequencer_logs::SequencerLog::new(
-                LEDGER_ADDRESS,
-                vec![[3; 32]],
-                vec![1, 2, 3],
-                0
-            )]
+            receipts[0]
+                .logs
+                .iter()
+                .map(|log| layerx_proof::sequencer_logs::SequencerLog::new(
+                    log.address,
+                    log.topics.clone(),
+                    log.data.clone(),
+                    log.log_index,
+                ))
+                .collect::<Vec<_>>()
         );
         let methods = rpc.requests.lock().map_err(|_| "requests lock")?;
         assert_eq!(
             *methods,
             [
+                "eth_call",
+                "eth_call",
+                "eth_call",
                 "eth_chainId",
                 "eth_getTransactionCount",
                 "eth_estimateGas",
@@ -466,9 +547,9 @@ fn web_grant_submits_a_signed_ledger_issue_grant_call() -> Result<()> {
         let mut payer = payer(Arc::clone(&signer), &rpc.endpoint)?;
         let terms = GrantTerms {
             payer_did: format!("did:layerx:{}", attestor_cluster::hex(&signer.public_key())),
-            payer_account: signer.evm_address(),
-            recipient: [0x32; 20],
-            asset: [0x42; 20],
+            payer_account: asset_account(signer.evm_address(), [0x42; 32]),
+            recipient: recipient_account([0x42; 32]).1,
+            asset: [0x42; 32],
             expires_at_ms: 1_900_000_000_000,
             amount: 654_321,
             purpose_hash: [0x62; 32],
@@ -503,12 +584,9 @@ fn web_grant_submits_a_signed_ledger_issue_grant_call() -> Result<()> {
         let Payment::IssueGrant(grant) = &payment else {
             return Err("expected IssueGrant payload".into());
         };
-        assert_eq!(grant.from[..12], [0; 12]);
-        assert_eq!(grant.from[12..], terms.payer_account);
-        assert_eq!(grant.recipient[..12], [0; 12]);
-        assert_eq!(grant.recipient[12..], terms.recipient);
-        assert_eq!(grant.asset[..12], [0; 12]);
-        assert_eq!(grant.asset[12..], terms.asset);
+        assert_eq!(grant.from, terms.payer_account);
+        assert_eq!(grant.recipient, terms.recipient);
+        assert_eq!(grant.asset, terms.asset);
         assert_eq!(grant.per_draw_maximum, terms.amount);
         assert_eq!(grant.allowance, terms.amount);
         assert!(!grant.recurring);
@@ -562,21 +640,24 @@ fn web_grant_submits_a_signed_ledger_issue_grant_call() -> Result<()> {
             &Keccak256::digest(b"draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)")
                 [..4]
         );
-        assert_eq!(&draw_data[48..68], &terms.recipient);
+        assert_eq!(&draw_data[36..68], &terms.recipient);
         assert_eq!(&draw_data[84..100], &terms.amount.to_be_bytes());
         assert_eq!(&draw_data[100..132], &terms.idempotency_key);
         assert_eq!(&draw_data[4..36], &grant.id);
         assert_eq!(&draw_data[156..164], &RECEIVER_SEQUENCE.to_be_bytes());
         assert_eq!(&draw_data[164..196], &terms.purpose_hash);
         assert_eq!(drawn.tx_hash, transaction_hash(&submitted[1]));
-        assert_eq!(drawn.receipt, RECEIPT);
+        assert_eq!(
+            drawn.receipt,
+            rpc.receipts.lock().map_err(|_| "receipts lock")?[1].receipt
+        );
         let methods = rpc.requests.lock().map_err(|_| "requests lock")?;
         assert_eq!(
             methods
                 .iter()
                 .filter(|method| *method == "eth_call")
                 .count(),
-            1
+            3
         );
         Ok(())
     })

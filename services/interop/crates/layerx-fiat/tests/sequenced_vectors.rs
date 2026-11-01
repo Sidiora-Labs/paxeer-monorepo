@@ -118,6 +118,22 @@ impl ProviderVerifier for SignedProvider {
     }
 }
 
+fn recorded_payment_topics(case: &Value) -> [[u8; 32]; 3] {
+    let transaction = hex(field(case, "rawTransaction"));
+    let offsets: Vec<_> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact calldata selector");
+    let start = offsets[0] + 4;
+    [5, 0, 1].map(|word| {
+        transaction[start + word * 32..start + (word + 1) * 32]
+            .try_into()
+            .expect("recorded payExact calldata word")
+    })
+}
+
 fn recorded_evidence(case: &Value, rung: SettlementRung) -> SequencerEvidence {
     let transaction_hash = array(field(&case["receiptJson"], "txHash"));
     if rung == SettlementRung::Submitted {
@@ -168,8 +184,8 @@ fn resigned_payment(case: &Value, declared: &Value, reference: [u8; 32]) -> Sequ
     let original = &evidence.logs[0];
     assert_eq!(original.topics().len(), 4);
     assert_eq!(reference, array(field(declared, "payment_reference")));
-    let mut topics = original.topics().to_vec();
-    topics[3] = reference;
+    let [_, from, to] = recorded_payment_topics(case);
+    let topics = vec![original.topics()[0], reference, from, to];
     let payment = SequencerLog::new(original.address(), topics, original.data().to_vec(), 0);
     let body = |log: &SequencerLog| {
         let mut bytes = log.address().to_vec();

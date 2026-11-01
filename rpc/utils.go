@@ -19,6 +19,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/rpcutils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/stats"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -49,6 +50,12 @@ const PendingCtxHeight int64 = -2
 // ErrPendingServedBySequencer refuses a pending-tag read on a node that holds
 // no open block. It maps to JSON-RPC error -32000.
 var ErrPendingServedBySequencer error = &ErrEVMNotSupported{Msg: "pending served by sequencer"}
+
+var ErrLayerNotOpen = errors.New("sequencer: no block is open")
+
+var ErrPendingBlockClosed error = &ErrEVMNotSupported{Msg: "no block is open; retry"}
+
+const PendingOpenWait = 2 * time.Second
 
 // PendingSnapshot is the open block the sequencer and standby execute
 // transactions into; sequencer.Executor satisfies it.
@@ -328,6 +335,11 @@ func validateBlockExecutionReceipts(
 	decoder := txConfigProvider(blockHeight).TxDecoder()
 	latestCtx := ctxProvider(LatestCtxHeight)
 	for txIndex, txBytes := range block.Block.Txs {
+		if txIndex == 0 {
+			if _, err := seqtypes.DecodeSequenceBatchTx(txBytes); err == nil {
+				continue
+			}
+		}
 		tx, err := decoder(txBytes)
 		if err != nil {
 			return fmt.Errorf("decode consensus transaction %d in block %d: %w", txIndex, block.Block.Height, err)
@@ -477,6 +489,7 @@ func recordMetricsWithError(ctx context.Context, apiMethod string, connectionTyp
 	stats.RecordAPIInvocation(apiMethod, string(connectionType), startTime, success)
 
 	if panicValue != nil {
+		logger.Error("rpc handler panicked", "method", apiMethod, "panic", fmt.Sprint(panicValue), "stack", string(debug.Stack()))
 		panic(panicValue)
 	}
 }

@@ -25,7 +25,6 @@ public enum PlatformOperation
     AgentCapabilityList,
     AgentCapabilityRevoke,
     AgentExportOffline,
-    AgentFaucetClaim,
     AgentMcpInvoke,
     AgentPolicyDryRun,
     AgentPrepare,
@@ -169,7 +168,6 @@ public static class GeneratedOperationCatalog
             PlatformOperation.AgentCapabilityList => new("http", "POST", null, null, false),
             PlatformOperation.AgentCapabilityRevoke => new("http", "POST", null, null, false),
             PlatformOperation.AgentExportOffline => new("http", "POST", null, null, false),
-            PlatformOperation.AgentFaucetClaim => new("http", "POST", null, null, false),
             PlatformOperation.AgentMcpInvoke => new("http", "POST", null, null, false),
             PlatformOperation.AgentPolicyDryRun => new("http", "POST", null, null, false),
             PlatformOperation.AgentPrepare => new("http", "POST", null, null, false),
@@ -178,7 +176,7 @@ public static class GeneratedOperationCatalog
             PlatformOperation.AgentProgramDeploy => new("evm", "eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", "deploy(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes)", false),
             PlatformOperation.AgentProgramDiscover => new("evm", "eth_call", "0x000000000000000000000000000000000000101d", "getProgram(bytes32)", false),
             PlatformOperation.AgentProgramInterface => new("evm", "eth_call", "0x000000000000000000000000000000000000101d", "getInterface(bytes32)", false),
-            PlatformOperation.AgentProgramReceipt => new("evm", "eth_call", "0x000000000000000000000000000000000000101c", "resultByIdempotency(bytes32,bytes32)", false),
+            PlatformOperation.AgentProgramReceipt => new("evm", "eth_getTransactionByHash", null, null, false),
             PlatformOperation.AgentProgramSimulate => new("evm", "eth_call", "0x000000000000000000000000000000000000101d", "simulateCall(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)", false),
             PlatformOperation.AgentProgramUpgrade => new("evm", "eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", "upgrade(bytes32,uint16,uint8,bytes32,bytes32,bytes,bytes,bytes,uint128)", false),
             PlatformOperation.AgentProgramWindDown => new("evm", "eth_sendRawTransaction", "0x000000000000000000000000000000000000101d", "deprecate(bytes32,bytes32,uint64)", false),
@@ -242,8 +240,8 @@ public static class GeneratedOperationCatalog
             PlatformOperation.HumanAuthenticatorStatus => new("http", "GET", null, null, false),
             PlatformOperation.HumanEvidenceGet => new("http", "GET", null, null, false),
             PlatformOperation.HumanHomeSummary => new("http", "GET", null, null, false),
-            PlatformOperation.HumanIntentPlan => new("evm", "eth_call", null, null, true),
-            PlatformOperation.HumanIntentSubmit => new("evm", "eth_sendRawTransaction", null, null, true),
+            PlatformOperation.HumanIntentPlan => new("http", "POST", null, null, false),
+            PlatformOperation.HumanIntentSubmit => new("http", "POST", null, null, false),
             PlatformOperation.HumanJourneyGet => new("http", "GET", null, null, false),
             PlatformOperation.HumanJourneyList => new("http", "GET", null, null, false),
             PlatformOperation.HumanJourneyPage => new("http", "GET", null, null, false),
@@ -312,7 +310,6 @@ public static class GeneratedOperationCatalog
             PlatformOperation.AgentCapabilityList => new(PlatformPlane.Agent, "capability.list", SdkHttpMethod.Post, "", "object", "AuthorityResponse<CapabilityRecords>", false, false),
             PlatformOperation.AgentCapabilityRevoke => new(PlatformPlane.Agent, "capability.revoke", SdkHttpMethod.Post, "", "object", "AuthorityResponse<CapabilityRecord>", true, false),
             PlatformOperation.AgentExportOffline => new(PlatformPlane.Agent, "export.offline", SdkHttpMethod.Post, "", "object", "VerifiedRead<OfflineExport>", false, false),
-            PlatformOperation.AgentFaucetClaim => new(PlatformPlane.Agent, "faucet.claim", SdkHttpMethod.Post, "", "object", "FaucetGrant", false, false),
             PlatformOperation.AgentMcpInvoke => new(PlatformPlane.Agent, "mcp.invoke", SdkHttpMethod.Post, "", "McpInvokeRequest", "object", true, false),
             PlatformOperation.AgentPolicyDryRun => new(PlatformPlane.Agent, "policy.dry_run", SdkHttpMethod.Post, "", "object", "PolicyDryRunResult", false, false),
             PlatformOperation.AgentPrepare => new(PlatformPlane.Agent, "prepare", SdkHttpMethod.Post, "", "PrepareRequest", "Prepared", true, false),
@@ -385,8 +382,8 @@ public static class GeneratedOperationCatalog
             PlatformOperation.HumanAuthenticatorStatus => new(PlatformPlane.Human, "authenticator.status", SdkHttpMethod.Get, "/v1/security/authenticators", "Empty", "AuthenticatorStatus", false, true),
             PlatformOperation.HumanEvidenceGet => new(PlatformPlane.Human, "evidence.get", SdkHttpMethod.Get, "/v1/evidence/{evidence_id}", "Empty", "EvidenceMaterial", false, true),
             PlatformOperation.HumanHomeSummary => new(PlatformPlane.Human, "home.summary", SdkHttpMethod.Get, "/v1/home", "Empty", "HomeSummary", false, true),
-            PlatformOperation.HumanIntentPlan => new(PlatformPlane.Human, "intent.plan", SdkHttpMethod.Post, "", "PlanIntentRequest", "IntentPlan", false, false),
-            PlatformOperation.HumanIntentSubmit => new(PlatformPlane.Human, "intent.submit", SdkHttpMethod.Post, "", "SubmitPlanRequest", "IntentSubmission", true, false),
+            PlatformOperation.HumanIntentPlan => new(PlatformPlane.Human, "intent.plan", SdkHttpMethod.Post, "/v1/intents/plan", "PlanIntentRequest", "IntentPlan", false, false),
+            PlatformOperation.HumanIntentSubmit => new(PlatformPlane.Human, "intent.submit", SdkHttpMethod.Post, "/v1/intents/submit", "SubmitPlanRequest", "IntentSubmission", true, false),
             PlatformOperation.HumanJourneyGet => new(PlatformPlane.Human, "journey.get", SdkHttpMethod.Get, "/v1/journeys/{journey_id}", "Empty", "Journey", false, true),
             PlatformOperation.HumanJourneyList => new(PlatformPlane.Human, "journey.list", SdkHttpMethod.Get, "/v1/journeys", "Empty", "JourneyPage", false, true),
             PlatformOperation.HumanJourneyPage => new(PlatformPlane.Human, "journey.page", SdkHttpMethod.Get, "/v1/journeys/page/{cursor}", "Empty", "JourneyPage", false, true),
@@ -438,7 +435,7 @@ public static class GeneratedOperationCatalog
 
     public static SdkMetadata platform_sdk_dotnet()
     {
-        return new("LayerX.Sdk", "0.1.0", 54, 84);
+        return new("LayerX.Sdk", "0.1.0", 53, 84);
     }
 }
 
@@ -478,8 +475,6 @@ public static class GeneratedPlatformClientExtensions
         client.MutateAsync(PlatformOperation.AgentCapabilityRevoke, request, idempotencyKey, pathParameters, cancellationToken);
     public static Task<JsonValue> AgentExportOfflineAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
         client.ReadAsync(PlatformOperation.AgentExportOffline, request, pathParameters, cancellationToken);
-    public static Task<JsonValue> AgentFaucetClaimAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
-        client.ReadAsync(PlatformOperation.AgentFaucetClaim, request, pathParameters, cancellationToken);
     public static Task<JsonValue> AgentMcpInvokeAsync(this PlatformClient client, JsonValue request, IdempotencyKey idempotencyKey, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>
         client.MutateAsync(PlatformOperation.AgentMcpInvoke, request, idempotencyKey, pathParameters, cancellationToken);
     public static Task<JsonValue> AgentPolicyDryRunAsync(this PlatformClient client, JsonValue request, IReadOnlyDictionary<string, string>? pathParameters = null, CancellationToken cancellationToken = default) =>

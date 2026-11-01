@@ -48,17 +48,17 @@ describe('ActivityList', () => {
     const { container, rerender } = render(<ActivityList { ...pagination } items={ paxeerXMock.unifiedAccount.activity }/>);
 
     expect(container.querySelectorAll('[data-rung]')).toHaveLength(2);
-    expect(container.querySelector('[data-rung="final"]')).toBeTruthy();
-    expect(container.querySelector('[data-rung="sealed"]')).toBeTruthy();
+    expect(container.querySelector('[data-rung="committed"]')).toBeTruthy();
+    expect(container.querySelector('[data-rung="receipted"]')).toBeTruthy();
 
     rerender(<ActivityList
       { ...pagination }
-      items={ [ { ...paxeerXMock.unifiedAccount.activity[0], status: 'instant' } ] }
+      items={ [ { ...paxeerXMock.unifiedAccount.activity[0], status: 'submitted' } ] }
       total={ 1 }
     />);
 
     expect(container.querySelectorAll('[data-rung]')).toHaveLength(1);
-    expect(container.querySelector('[data-rung="instant"]')).toBeTruthy();
+    expect(container.querySelector('[data-rung="submitted"]')).toBeTruthy();
   });
 
   it('scales amounts by the asset decimals without network-side labels', () => {

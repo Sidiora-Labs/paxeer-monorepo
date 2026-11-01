@@ -1,7 +1,8 @@
-use layerx_agent_api::error::RequestId;
+use layerx_agent_api::error::{ErrorClass, RequestId};
 use layerx_agent_api::verify::RungStatus;
 use layerx_agentd::agent_rpc_dispatch::{
-    decode_write_answer, dispatch_raw_submit, track_write_answer, wait_write_answer,
+    decode_write_answer, dispatch_raw_submit, merge_tracked_approval, track_write_answer,
+    wait_write_answer,
 };
 use layerx_agentd::finality::{wait_for_rung, SubmissionProgress, VerifiedReceipt};
 use layerx_agentd::human_runtime::{accept_raw_write, submit_raw_write, write_submission};
@@ -305,6 +306,71 @@ fn track_reports_state_by_transaction_hash() {
         .unwrap();
     let (restored_answer, _) = track_write_answer(RequestId(6), &restored, &reference).unwrap();
     assert_eq!(restored_answer, answer);
+}
+
+#[test]
+fn approval_get_reports_the_tracked_tx_hash_and_rung() {
+    let mut write = DurableWrite::queued("approval-get");
+    accept_raw_write(&mut write.outbox, &mut write.store, write.hash, write.hash).unwrap();
+    let id = RequestId(7);
+    let reference = hex::encode(write.hash);
+    let approval = serde_json::json!({
+        "approval_id": hex::encode([0x71; 32]),
+        "state": "Approved",
+        "submission_ref": reference,
+    });
+    let (tracked, rung) = track_write_answer(id, &write.outbox, &reference).unwrap();
+    assert_eq!(rung, Rung::Submitted);
+    assert_eq!(tracked["state"], "Submitted");
+    let answer = merge_tracked_approval(id, approval.clone(), tracked.clone()).unwrap();
+    assert_eq!(answer["tx_hash"], tracked["tx_hash"]);
+    assert_eq!(answer["rung"], tracked["rung"]);
+    assert_eq!(answer["tx_hash"], reference);
+    assert_eq!(answer["rung"], rung.name());
+    assert_eq!(answer["state"], "Approved");
+    assert_eq!(answer["approval_id"], approval["approval_id"]);
+    assert_eq!(answer["submission_ref"], approval["submission_ref"]);
+
+    let mut restored = Outbox::default();
+    restored
+        .restore(
+            &write.store,
+            TenantId::new("write-tenant").unwrap(),
+            write.hash,
+        )
+        .unwrap();
+    let (restored_tracked, _) = track_write_answer(id, &restored, &reference).unwrap();
+    assert_eq!(
+        merge_tracked_approval(id, approval.clone(), restored_tracked).unwrap(),
+        answer
+    );
+
+    let missing = track_write_answer(id, &write.outbox, &hex::encode([0x72; 32]));
+    assert_eq!(missing.as_ref().unwrap_err().request_id, id);
+    assert!(missing
+        .and_then(|(tracked, _)| merge_tracked_approval(id, approval.clone(), tracked))
+        .is_err());
+    for invalid_tracked in [
+        serde_json::Value::Null,
+        serde_json::json!({"submission_ref": reference, "rung": "submitted"}),
+        serde_json::json!({"submission_ref": reference, "tx_hash": hex::encode([0x72; 32]), "rung": "submitted"}),
+        serde_json::json!({"submission_ref": hex::encode([0x72; 32]), "tx_hash": reference, "rung": "submitted"}),
+        serde_json::json!({"submission_ref": reference, "tx_hash": reference, "rung": "unknown"}),
+    ] {
+        let refusal = merge_tracked_approval(id, approval.clone(), invalid_tracked).unwrap_err();
+        assert_eq!(refusal.request_id, id);
+        assert_eq!(refusal.class, ErrorClass::InternalFault);
+        assert_eq!(refusal.reason, "owner.response_malformed");
+    }
+    let mut missing_reference = approval.clone();
+    missing_reference
+        .as_object_mut()
+        .unwrap()
+        .remove("submission_ref");
+    assert!(merge_tracked_approval(id, missing_reference, tracked.clone()).is_err());
+    let mut unapproved = approval;
+    unapproved["state"] = serde_json::json!("AwaitingApproval");
+    assert!(merge_tracked_approval(id, unapproved, tracked).is_err());
 }
 
 pub mod fixtures {

@@ -841,7 +841,10 @@ mod tests {
             .try_into()
             .unwrap_or_else(|_| panic!("payee"));
         let recorded_topics = topics.concat();
-        topics = vec![topics[0], [0x74; 32], topics[1], recipient];
+        let words = crate::seller::tests::pay_exact_words(&bytes(&text(&case["rawTransaction"])));
+        topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
+        topics[1] = [0x74; 32];
+        topics[3] = recipient;
         replace(&mut receipt, &recorded_topics, &topics.concat());
         let old_data = bytes(&text(&log["data"]));
         let mut data = bytes(&accepted.asset);

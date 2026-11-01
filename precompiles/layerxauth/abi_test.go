@@ -20,6 +20,10 @@ func TestAuthABIMethods(t *testing.T) {
 		outputs    []string
 	}{
 		{
+			"recordLifecycle", "recordLifecycle(bytes,bytes32)", "0x87d3a067", "nonpayable",
+			[]string{"payload:bytes", "idempotencyKey:bytes32"}, []string{"globalSequence:uint64"},
+		},
+		{
 			"grantSession", "grantSession(bytes,uint64,bytes32)", "0x1107b49e", "nonpayable",
 			[]string{"grant:bytes", "expirySequence:uint64", "actionKey:bytes32"},
 			[]string{"grantId:bytes32"},

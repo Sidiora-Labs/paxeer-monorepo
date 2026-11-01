@@ -4,12 +4,11 @@ use std::pin::pin;
 use std::task::{Context, Poll, Waker};
 
 use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_crypto::disclosure::{bind, bind_budget_mutation, BudgetStateContext};
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::payments::{Grant, Payment, TransferLeg};
-use layerx_crypto::send::{
-    encode_payment_envelope, encode_send_envelope, send_context_hash, EnvelopeOptions,
-    SendCondition, SendDebit,
+use layerx_crypto::payments::{
+    bind_call, ledger_payment_call, send_context_hash, CallOptions, Disclosure, Grant, Payment,
+    SendCondition, SendDebit, TransferLeg,
 };
 use layerx_crypto::SignatureMessage;
 use layerx_types::account::AccountId;
@@ -20,6 +19,8 @@ use layerx_types::limits::{
     IDENTIFIER_BYTES, MAX_AUTHORITY_BYTES, MAX_DID_BYTES, MAX_PAYLOAD_BYTES,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
+use layerx_wire::activity::{decode_unsigned, encode_unsigned};
+use layerx_wire::decode::Decoder;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::{account_id_for_protocol, Domain};
 use layerx_wire::limits::MAX_MESSAGE_BYTES;
@@ -100,22 +101,124 @@ struct Case {
     amount: u128,
 }
 
-fn options(
-    actor: &str,
-    key: [u8; 32],
-    sequence: u64,
-    idempotency_key: [u8; 32],
-) -> EnvelopeOptions<'_> {
-    EnvelopeOptions {
-        actor,
-        public_key: key,
-        protocol_version: PROTOCOL_VERSION,
-        network_id: NETWORK_ID,
-        identity_sequence: sequence,
-        idempotency_key,
-        fee_limit: 1_000,
-        not_before: NOT_BEFORE,
-        not_after: NOT_AFTER,
+fn options(sequence: u64) -> CallOptions {
+    CallOptions {
+        from: [0x11; 20],
+        chain_id: u64::from(NETWORK_ID),
+        nonce: sequence,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 100_000,
+    }
+}
+
+fn checked<T, E: Debug>(value: Result<T, E>) -> Result<T, String> {
+    value.map_err(|error| format!("{error:?}"))
+}
+
+struct VectorFields {
+    from: [u8; 32],
+    to: [u8; 32],
+    asset: [u8; 32],
+    amount: u128,
+    payload: Vec<u8>,
+}
+
+fn call_fields(disclosure: &Disclosure, amount_index: usize, payload: Vec<u8>) -> VectorFields {
+    VectorFields {
+        from: disclosure.counterparties[0].account,
+        to: disclosure.counterparties[1].account,
+        asset: disclosure.asset,
+        amount: disclosure.amounts[amount_index].value,
+        payload,
+    }
+}
+
+fn vector_fields(case: &Case, actor: &str) -> Result<VectorFields, String> {
+    if case.module == ModuleId::Asset && case.ordinal == 5 {
+        let options = options(case.sequence);
+        let built = checked(ledger_payment_call(&case.payload, &options))?;
+        let disclosure = checked(bind_call(&built.call, options.from))?;
+        assert_eq!(
+            disclosure, built.disclosure,
+            "{}: call disclosure",
+            case.name
+        );
+        assert_eq!(disclosure.signing_digest(), Ok(built.call.signing_hash()));
+        assert_eq!(disclosure.idempotency_key, case.idempotency_key);
+        assert_eq!(disclosure.expiry.payload_expires_at, NOT_AFTER);
+        let payload = built.call.data[68..68 + case.payload.len()].to_vec();
+        return Ok(call_fields(&disclosure, 0, payload));
+    }
+    if case.module == ModuleId::Budget && case.ordinal == 2 {
+        let mut decoder = Decoder::new(&case.payload, 0);
+        let version = checked(decoder.u16())?;
+        let budget_id = checked(decoder.fixed(32))?;
+        let amount = checked(decoder.u128())?;
+        checked(decoder.finish())?;
+        if version != 1 || budget_id != [0x42; 32] || amount == 0 {
+            return Err("invalid budget funding payload".into());
+        }
+        let mut encoder = Encoder::new(50);
+        checked(encoder.u16(version))?;
+        checked(encoder.fixed(budget_id))?;
+        checked(encoder.u128(amount))?;
+        return Ok(VectorFields {
+            from: account(&format!("agent:{actor}:main")),
+            to: account(&format!("agent:{actor}:budget:{}", hex(budget_id))),
+            asset: TOKEN_ASSET,
+            amount,
+            payload: encoder.finish(),
+        });
+    }
+    let payment = checked(Payment::decode(
+        case.module,
+        case.ordinal,
+        &case.payload,
+        actor.as_bytes(),
+    ))?;
+    let payload = checked(payment.encode(actor.as_bytes()))?;
+    match payment {
+        Payment::IssueGrant(_) => {
+            let options = options(case.sequence);
+            let mut data = vec![0xd0, 0xd5, 0x34, 0x80];
+            let mut offset = [0; 32];
+            offset[31] = 32;
+            data.extend_from_slice(&offset);
+            let mut length = [0; 32];
+            length[16..].copy_from_slice(&(payload.len() as u128).to_be_bytes());
+            data.extend_from_slice(&length);
+            data.extend_from_slice(&payload);
+            data.resize(68 + payload.len().div_ceil(32) * 32, 0);
+            let mut to = [0; 20];
+            to[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+            let call = Eip1559Call {
+                chain_id: options.chain_id,
+                nonce: options.nonce,
+                max_priority_fee_per_gas: options.max_priority_fee_per_gas,
+                max_fee_per_gas: options.max_fee_per_gas,
+                gas_limit: options.gas_limit,
+                to,
+                data,
+            };
+            let disclosure = checked(bind_call(&call, options.from))?;
+            assert_eq!(disclosure.signing_digest(), Ok(call.signing_hash()));
+            Ok(call_fields(&disclosure, 1, payload))
+        }
+        Payment::ProgramTransfer { program, legs } => {
+            if program != PROGRAM || legs.len() != 1 {
+                return Err("invalid program transfer".into());
+            }
+            let leg = &legs[0];
+            Ok(VectorFields {
+                from: leg.from,
+                to: leg.to,
+                asset: leg.asset,
+                amount: leg.amount,
+                payload,
+            })
+        }
+        _ => Err("unsupported vector payment".into()),
     }
 }
 
@@ -463,19 +566,6 @@ fn generated_vectors() -> String {
     let owner = public_key(&OWNER_SEED);
     let peer = public_key(&PEER_SEED);
     let actor = did(&owner);
-    let budget_context = BudgetStateContext {
-        budget_id: [0x42; 32],
-        owner: main_account(&owner),
-        budget_account: account(&format!("agent:{actor}:budget:{}", hex(&[0x42; 32]))),
-        asset: TOKEN_ASSET,
-        source_account: main_account(&owner),
-        native_source: false,
-        revocation_sequence: 0,
-        balance: 0,
-        state_digest: Sha256::digest(b"kernel vector budget state").into(),
-        observed_head_sequence: 0,
-        purpose_hash: [0; 32],
-    };
     let mut rendered = String::new();
     let _ = writeln!(rendered, "{{");
     let _ = writeln!(
@@ -489,11 +579,7 @@ fn generated_vectors() -> String {
     let all = cases(&owner, &peer, &actor);
     for (index, case) in all.iter().enumerate() {
         let (canonical, registry) = envelope(case, &actor, owner);
-        let disclosure = if case.module == ModuleId::Budget {
-            bind_budget_mutation(&canonical, &registry, &budget_context)
-        } else {
-            bind(&canonical, &registry)
-        };
+        let disclosure = vector_fields(case, &actor);
         assert_eq!(
             disclosure.is_ok(),
             case.accepted,
@@ -501,41 +587,19 @@ fn generated_vectors() -> String {
             case.name
         );
         if case.accepted {
-            let encoded = if case.module == ModuleId::Budget {
-                let disclosure = ok(disclosure, case.name);
-                assert_eq!(disclosure.asset, case.asset, "{}: asset", case.name);
-                assert_eq!(
-                    disclosure.counterparties[0].account, case.from,
-                    "{}: from",
-                    case.name
-                );
-                assert_eq!(
-                    disclosure.counterparties[1].account, case.to,
-                    "{}: to",
-                    case.name
-                );
-                assert_eq!(
-                    disclosure.amounts[0].value, case.amount,
-                    "{}: amount",
-                    case.name
-                );
-                ok(disclosure.reencode(), case.name)
-            } else {
-                let encoded = if case.module == ModuleId::Asset && case.ordinal == 5 {
-                    encode_send_envelope(
-                        &case.payload,
-                        &options(&actor, owner, case.sequence, case.idempotency_key),
-                    )
-                } else {
-                    encode_payment_envelope(
-                        case.module,
-                        case.ordinal,
-                        &case.payload,
-                        &options(&actor, owner, case.sequence, case.idempotency_key),
-                    )
-                };
-                ok(encoded, case.name).canonical
-            };
+            let disclosure = ok(disclosure, case.name);
+            assert_eq!(disclosure.asset, case.asset, "{}: asset", case.name);
+            assert_eq!(disclosure.from, case.from, "{}: from", case.name);
+            assert_eq!(disclosure.to, case.to, "{}: to", case.name);
+            assert_eq!(disclosure.amount, case.amount, "{}: amount", case.name);
+            assert_eq!(
+                disclosure.payload, case.payload,
+                "{}: payload encoder",
+                case.name
+            );
+            let decoded = ok(decode_unsigned(&canonical, &registry), case.name);
+            assert_eq!(decoded.payload(), disclosure.payload);
+            let encoded = ok(encode_unsigned(&decoded), case.name);
             assert_eq!(encoded, canonical, "{}: envelope encoder", case.name);
         }
         let preimage = ok(

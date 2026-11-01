@@ -25,10 +25,9 @@ static const uint8_t root_magic[8] = {
     'L', 'X', 'P', 'Q', 'R', 'L', '0', '1'
 };
 
-static const uint32_t activity_types[LXP_QUAL_ACTIVITY_TYPE_COUNT] = {
+static const uint32_t activity_types[] = {
     UINT32_C(0x00010001), UINT32_C(0x00010002), UINT32_C(0x00010003),
-    UINT32_C(0x00010004), UINT32_C(0x00010005), UINT32_C(0x00010006),
-    UINT32_C(0x00010007), UINT32_C(0x00010008),
+    UINT32_C(0x00010004), UINT32_C(0x00010005),
     UINT32_C(0x00020001), UINT32_C(0x00020002), UINT32_C(0x00020003),
     UINT32_C(0x00020004), UINT32_C(0x00020005), UINT32_C(0x00020006),
     UINT32_C(0x00020007),
@@ -48,6 +47,10 @@ static const uint32_t activity_types[LXP_QUAL_ACTIVITY_TYPE_COUNT] = {
     UINT32_C(0x00060007), UINT32_C(0x00060008), UINT32_C(0x00060009),
     UINT32_C(0x0006000a), UINT32_C(0x0006000b)
 };
+
+_Static_assert(sizeof(activity_types) / sizeof(activity_types[0]) ==
+                   LXP_QUAL_ACTIVITY_TYPE_COUNT,
+               "Qualification activity table must match the header count");
 
 typedef struct qual_header {
     uint64_t activity_count;

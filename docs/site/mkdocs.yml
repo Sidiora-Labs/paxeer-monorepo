@@ -119,7 +119,6 @@ nav:
       - Hosted authority: platform/hosted-authority.md
       - Agent boundary: platform/agent-boundary.md
       - Identity: platform/identity.md
-      - Relay and archive: platform/relay-archive.md
       - Public API transcript: platform/public-api.md
       - CLI: platform/cli.md
   - Interop:

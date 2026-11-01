@@ -378,7 +378,17 @@ defmodule BlockScoutWeb.Schemas.API.V2.Block.Common do
       properties: %{
         height: %Schema{type: :integer, nullable: false, minimum: 0},
         timestamp: General.Timestamp,
-        transactions_count: %Schema{type: :integer, nullable: false},
+        transactions_count: %Schema{
+          type: :integer,
+          nullable: false,
+          description: "Transactions in the block: EVM transactions and native price-feed submissions"
+        },
+        price_update_count: %Schema{
+          type: :integer,
+          minimum: 0,
+          nullable: false,
+          description: "Native price-feed submissions the block carries, included in transactions_count"
+        },
         internal_transactions_count: %Schema{type: :integer, nullable: true},
         miner: Address,
         size: %Schema{type: :integer, nullable: false},

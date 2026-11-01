@@ -4,7 +4,8 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_programs::{
     chain_evidence::{programs_state_key, protocol_head::ChainProtocolHeadProof},
     chain_proof::{
-        decode::decode_commitment_proof, validators::TrustedValidator, vote::vote_sign_bytes,
+        decode::decode_commitment_proof, header::ChainHeader, validators::TrustedValidator,
+        vote::vote_sign_bytes,
     },
     ProgramBundleError, ProgramHeadKind, ProgramStateBundle, ProtocolDeploymentVerifier,
     ProtocolEvidenceError, ProtocolHeadProof, ReceiptEvidenceDigest, VerifiedChainHead,
@@ -170,14 +171,25 @@ fn ordinary_bundle_verifies_only_against_its_independent_chain_head() {
         <[u8; 32]>::from(Sha256::digest(&fixture.proof.state.transaction))
     );
     assert_eq!(
-        chain.global_sequence(),
+        chain.freshness().observed_sequence,
         u64::try_from(fixture.chain.header.height).expect("positive height")
     );
-    assert_eq!(chain.freshness().observed_sequence, chain.global_sequence());
+    assert_eq!(
+        chain.freshness().observed_sequence,
+        u64::try_from(
+            ChainHeader::decode(&fixture.proof.state.commitment.signed_header)
+                .expect("committed header")
+                .height
+        )
+        .expect("positive committed height")
+    );
     assert_eq!(chain.freshness().observed_at, OBSERVED_AT);
     assert_eq!(chain.state_root().as_slice(), fixture.chain.header.app_hash);
     assert_eq!(
-        chain.batch_header_digest(),
+        ChainHeader::decode(&fixture.proof.state.commitment.signed_header)
+            .expect("committed header")
+            .hash()
+            .expect("committed header hash"),
         fixture.chain.header.hash().expect("header hash")
     );
 
@@ -221,7 +233,10 @@ fn ordinary_bundle_verifies_only_against_its_independent_chain_head() {
         foreign.chain.verifier.validators
     );
     assert_eq!(chain.state_root(), foreign_chain.state_root());
-    assert_eq!(chain.global_sequence(), foreign_chain.global_sequence());
+    assert_eq!(
+        chain.freshness().observed_sequence,
+        foreign_chain.freshness().observed_sequence
+    );
     assert_eq!(chain.freshness(), foreign_chain.freshness());
     assert_eq!(chain.receipt_digest(), foreign_chain.receipt_digest());
     assert_eq!(
@@ -231,8 +246,8 @@ fn ordinary_bundle_verifies_only_against_its_independent_chain_head() {
     assert_eq!(decoded.interface_ops, foreign_bundle.interface_ops);
     assert_eq!(decoded.wind_down, foreign_bundle.wind_down);
     assert_ne!(
-        chain.batch_header_digest(),
-        foreign_chain.batch_header_digest()
+        fixture.chain.header.hash().expect("header hash"),
+        foreign.chain.header.hash().expect("foreign header hash")
     );
     assert_eq!(
         foreign_verifier
@@ -313,8 +328,8 @@ fn cross_associated_or_advanced_heads_are_refused() {
     let pinned_chain = ordinary_chain(&verifier, &pinned);
     let advanced_chain = ordinary_chain(&verifier, &advanced);
     assert_ne!(
-        pinned_chain.global_sequence(),
-        advanced_chain.global_sequence()
+        pinned_chain.freshness().observed_sequence,
+        advanced_chain.freshness().observed_sequence
     );
     for (bundle, chain) in [
         (ordinary_bundle(&advanced), &pinned_chain),
@@ -503,10 +518,16 @@ fn native_maintenance_head_is_typed_tagged_and_equal_to_the_protocol_api() {
     );
     assert_eq!(chain.receipt_digest(), protocol.receipt_digest());
     assert_eq!(chain.state_root(), protocol.state_root());
-    assert_eq!(chain.batch_header_digest(), protocol.batch_header_digest());
+    assert_eq!(
+        fixture.chain.header.hash().expect("header hash"),
+        ChainHeader::decode(&proof.commitment.signed_header)
+            .expect("protocol committed header")
+            .hash()
+            .expect("protocol header hash")
+    );
     assert_eq!(chain.freshness(), protocol.freshness());
     assert_eq!(
-        chain.global_sequence(),
+        chain.freshness().observed_sequence,
         u64::try_from(fixture.chain.header.height).expect("height")
     );
 }

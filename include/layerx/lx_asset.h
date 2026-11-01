@@ -115,7 +115,6 @@ typedef struct lx_asset_transfer_request {
     const lx_asset_record *asset;
     lxp_u128 amount;
     lxp_transfer_context context;
-    const lxp_payer_grant *payer_grant;
     bool direct_balance_write;
 } lx_asset_transfer_request;
 
@@ -274,9 +273,6 @@ lxp_result lx_asset_account_open(lx_asset_registry *assets,
 lxp_result lx_asset_total_units(lx_asset_registry *assets,
                                 const lx_account_registry *accounts,
                                 const uint8_t asset_id[32], lxp_u128 *total);
-lxp_result lx_asset_payer_grant_read(const struct lxp_kernel *kernel,
-                                     const uint8_t grant_id[32],
-                                     lxp_grant_state *state);
 lxp_result lx_asset_state_root(const lx_asset_registry *assets,
                                const lx_account_registry *accounts,
                                uint8_t root[32]);
@@ -284,9 +280,6 @@ lxp_result lx_asset_validate(const lx_asset_transfer_request *request);
 lxp_result lx_asset_send_execute(lxp_module_ctx *ctx,
                                  const lx_asset_transfer_request *request,
                                  lxp_receipt *receipt);
-lxp_result lx_asset_receive_execute(lxp_module_ctx *ctx,
-                                    const lx_asset_transfer_request *request,
-                                    lxp_receipt *receipt);
 lxp_result lx_paxeer_deposit_leaf_hash(const lx_deposit_proof *proof,
                                        uint8_t leaf_hash[32]);
 lxp_result lx_paxeer_deposit_root_message(

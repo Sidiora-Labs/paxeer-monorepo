@@ -239,27 +239,29 @@ If `ldd` shows a libwasmvm that is not already on the host, install it next to t
 
 ## 4. Rehearsal (must pass before go)
 
-Run on a spare machine against a copy of a synced full node's data taken while that node was
-stopped. The script takes every path from flags or from the env file (`--env-file`, see
-`fork-rehearsal.sh --help` for the keys); it never contacts a remote host:
+From the repository root on the merged release revision, run the programme rehearsal
+(task 17.3.4):
 
 ```sh
-services/platform/hosted/paxeer/fork-rehearsal.sh --check
-services/platform/hosted/paxeer/fork-rehearsal.sh \
-  --source-data <snapshot-dir>/data --source-genesis <snapshot-dir>/config/genesis.json \
-  --old-bin "$PAXD_BIN.pre-$UPGRADE_NAME" --new-bin "$PAXD_BIN.$UPGRADE_NAME" \
-  --work <rehearsal-dir> --upgrade-height-offset 120 \
-  --view 0x0000000000000000000000000000000000001015=<exchange view calldata> \
-  --view 0x0000000000000000000000000000000000001016=<bridge view calldata> \
-  --view 0x0000000000000000000000000000000000001017=<launchpad view calldata>
+python3 -m pytest spec/layerx-merge/programme/tests/test_rehearsal_run.py::test_rehearsal_passes_on_merged_revision -q
 ```
 
-It exports state with the old binary, rewrites it to one disposable validator with the same chain
-id, passes a `$UPGRADE_NAME` plan, requires the old binary to halt with
-`UPGRADE "$UPGRADE_NAME" NEEDED at height: …`, resumes on the new binary, and checks: height
-advances, `paxd q upgrade applied $UPGRADE_NAME` equals the plan height, every added module is in
-the version map, and a view on each of 0x1013–0x1017 returns without revert. It writes
-`<rehearsal-dir>/rehearsal-result.env` with both binary hashes; the new hash must match section 3.
+This test drives `programme.rehearsal.run_steps` over the four ordered steps in
+`spec/layerx-merge/programme/data/rehearsal.kvx`:
+
+1. Apply v7.0 on a v6.12.0 chain and seal the first sequenced block:
+   `node/merge_rehearsal_test.go::TestMergeRehearsalFirstSequencedBlock`.
+2. Export and re-import after the merge, preserving sequencer state:
+   `node/upgrade_export_test.go::TestExportAfterMergeKeepsSequencerState`.
+3. Activate the gated precompiles with the merge plan:
+   `node/upgrades_merge_activation_test.go::TestMergePlanActivatesGatedPrecompiles`.
+4. Delete the anchor store at the second plan, `v7.0-anchor-store-delete`:
+   `node/store_delete_test.go::TestAnchorStoreDeletedAtStep`.
+
+Any failed step is a no-go: stop the go decision and do not proceed with the upgrade.
+The runner stops at the first failed step; all four steps must pass on the merged release
+revision before go. A missing rehearsal test or any nonzero pytest exit is also a no-go.
+Keep the per-step revision, command, exit code and log path in private qualification evidence.
 
 ## 5. Announcement
 
@@ -313,7 +315,7 @@ For each validator operator (`$PAXD_UNIT`, `$PAXD_HOME` and `$COMET_RPC_PORT` fr
    curl -s -H 'content-type: application/json' "localhost:$EVM_RPC_PORT" \
      --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":"0x0000000000000000000000000000000000001013","data":"0x2dfdf0b5"},"latest"]}'
    ```
-   (0x1014 with `0x42cde4e8`; 0x1015–0x1017 with the calldata used in the rehearsal.)
+   (0x1014 with `0x42cde4e8`; 0x1015 with `0x8162486b` (totalMarkets()); 0x1016 with `0xb187bd26` (isPaused()); 0x1017 with `0x8eec5d70` (getPoolCount()).)
 
 Record per validator, locally: halt log seen (Y/N), upgrade-info.json OK, sha256 OK, restarted at
 (UTC), first signed height after H.
@@ -369,7 +371,7 @@ Lagging or stalled nodes are not upgraded in place:
 
 - [ ] Section 0 table complete and checked by a second person; no key in two homes.
 - [ ] Proposal passed; `paxd q upgrade plan` shows `$UPGRADE_NAME` at the height announced.
-- [ ] Rehearsal passed on the release binary (`rehearsal-result.env` new_bin_sha256 equals section 3).
+- [ ] Rehearsal passed: the section 4 pytest selector exited 0 on the merged release revision, and that revision is the section 3 Source commit.
 - [ ] `sha256sum "$PAXD_BIN.$UPGRADE_NAME"` matches section 3 on every validator and full node host.
 - [ ] Validators holding more than two thirds of the voting power, plus margin, confirmed with the
       new binary staged and operators on call before H.

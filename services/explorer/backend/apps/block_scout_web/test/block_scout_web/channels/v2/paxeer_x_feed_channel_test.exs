@@ -152,7 +152,10 @@ defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
       assert_receive %Broadcast{topic: "blocks:new_block", event: "new_block", payload: %{block: block_item}}
       assert block_item["height"] == 20
       assert block_item["price_update_count"] == 2
-      assert json_response(get(conn, "/api/v2/blocks/20"), 200)["price_update_count"] == 2
+      assert block_item["transactions_count"] == 2
+      block_response = json_response(get(conn, "/api/v2/blocks/20"), 200)
+      assert block_response["price_update_count"] == 2
+      assert block_response["transactions_count"] == 2
 
       refute_receive %Broadcast{topic: "paxeer_x_feed:new_update"}
     end

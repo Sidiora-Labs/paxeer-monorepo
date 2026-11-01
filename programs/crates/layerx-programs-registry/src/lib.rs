@@ -49,11 +49,10 @@ pub use interface::{
 };
 pub use pipeline::{BuildAttempt, BuildPlan, BuildRefusal, BuildRunner, SourceVerifier};
 pub use protocol_evidence::{
-    DeploymentMaintenanceProof, DeploymentProof, ProgramBundleError, ProgramHeadKind,
-    ProgramLifecycleProof, ProgramStateBundle, ProgramStateProof, ProtocolDeploymentVerifier,
-    ProtocolEvidenceError, ProtocolHeadMaintenanceProof, ProtocolHeadProof, ReceiptEvidenceDigest,
-    StateLeafWitness, VerifiedChainHead, VerifiedDeploymentEvidence, VerifiedMaintenanceHead,
-    VerifiedProgramBundle, VerifiedProgramHead, VerifiedProtocolHead,
+    DeploymentProof, ProgramBundleError, ProgramHeadKind, ProgramLifecycleProof,
+    ProgramStateBundle, ProgramStateProof, ProtocolDeploymentVerifier, ProtocolEvidenceError,
+    ProtocolHeadProof, ReceiptEvidenceDigest, StateLeafWitness, VerifiedChainHead,
+    VerifiedDeploymentEvidence, VerifiedProgramBundle, VerifiedProgramHead, VerifiedProtocolHead,
 };
 pub use resolver::{ExecutableAdmissionError, VerifiedProgramCatalog};
 
@@ -477,6 +476,47 @@ impl Registry {
                 program: record.program,
                 number: record.version,
                 old_code_hash: record.old_code_hash,
+                new_code_hash: record.new_code_hash,
+            },
+            &record.program_version(),
+            record.upgrade_policy,
+            evidence.receipt_digest(),
+        )
+    }
+
+    pub fn record_verified_upgrade(
+        &mut self,
+        predecessor: &VerifiedDeploymentEvidence,
+        evidence: &VerifiedDeploymentEvidence,
+    ) -> Result<(), RegistryError> {
+        let prior = predecessor.record();
+        let record = evidence.record();
+        let prior_header = chain_proof::header::ChainHeader::decode(
+            &predecessor.proof().state.commitment.signed_header,
+        )
+        .map_err(|_| RegistryError::VersionHistoryMismatch)?;
+        let header = chain_proof::header::ChainHeader::decode(
+            &evidence.proof().state.commitment.signed_header,
+        )
+        .map_err(|_| RegistryError::VersionHistoryMismatch)?;
+        if prior.program != record.program
+            || prior.version.checked_add(1) != Some(record.version)
+            || prior_header.chain_id != header.chain_id
+            || prior_header.height >= header.height
+            || self
+                .entries
+                .get(&record.program)
+                .and_then(|entry| entry.versions.last())
+                .map(|version| version.code_hash)
+                != Some(prior.new_code_hash)
+        {
+            return Err(RegistryError::VersionHistoryMismatch);
+        }
+        self.record_deployment_version(
+            DeploymentIdentity {
+                program: record.program,
+                number: record.version,
+                old_code_hash: Some(prior.new_code_hash),
                 new_code_hash: record.new_code_hash,
             },
             &record.program_version(),

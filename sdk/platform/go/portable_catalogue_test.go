@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"testing"
 	"unicode"
@@ -52,8 +53,21 @@ func TestPortableCataloguesMatchOperationsJson(t *testing.T) {
 		Schema     int                          `json:"schema"`
 		Operations []portableCatalogueOperation `json:"operations"`
 	}
-	if err := json.Unmarshal(data, &manifest); err != nil {
+	var grouped struct {
+		Schema     int                                     `json:"schema"`
+		Operations map[string][]portableCatalogueOperation `json:"operations"`
+	}
+	if err := json.Unmarshal(data, &grouped); err != nil {
 		t.Fatal(err)
+	}
+	manifest.Schema = grouped.Schema
+	identifiers := make([]string, 0, len(grouped.Operations))
+	for identifier := range grouped.Operations {
+		identifiers = append(identifiers, identifier)
+	}
+	sort.Strings(identifiers)
+	for _, identifier := range identifiers {
+		manifest.Operations = append(manifest.Operations, grouped.Operations[identifier]...)
 	}
 	if manifest.Schema != 1 || len(manifest.Operations) == 0 {
 		t.Fatal("expected a nonempty version 1 operation manifest")

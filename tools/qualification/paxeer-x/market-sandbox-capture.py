@@ -1,24 +1,19 @@
 #!/usr/bin/env python3
 import argparse
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
-import queue
 import signal
 import subprocess
 import sys
-import tempfile
-import threading
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
 TASK = "104.35.34"
 TEST = "genuine_signed_market_profile_claim_steps_and_cryptographic_refusals"
 DECLARED = (
-    "tests/daemon/lxp_test_market_sandbox_profile.c",
-    "programs/crates/layerx-programs-arbiter/examples/market_sandbox_capture.rs",
+    "programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs",
     "tools/qualification/paxeer-x/market-sandbox-capture.py",
 )
 TARGET = Path(
@@ -47,22 +42,12 @@ def sources():
             "ls-files",
             "-z",
             "--",
-            "src",
-            "include",
-            "cmd/layerxd",
             "programs",
             "services/agent/crates/layerx-client",
             "services/agent/crates/layerx-proof",
-            "services/agent/crates/layerx-wire",
             "services/agent/crates/layerx-types",
             "services/agent/crates/layerx-crypto",
-            "tests/daemon/lxp_test_arbiter_admission.c",
-            "tests/programs/test_call_activity.c",
-            "tests/bridge/files.h",
-            "Makefile",
             ".cargo",
-            "tools/qualification/paxeer-x/program-replay-record.py",
-            "tools/qualification/paxeer-x/replay-authority.py",
         ],
         cwd=ROOT,
     )
@@ -154,72 +139,7 @@ def checked(value):
 
 def build():
     inputs = sources()
-    generated = TARGET / "native/generated/replay-authority-fixture-base.inc"
-    module_path = ROOT / "tools/qualification/paxeer-x/replay-authority.py"
-    spec = importlib.util.spec_from_file_location(
-        "genuine_native_authority", module_path
-    )
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    module.prepare_fixture(generated)
-    fragment = EVIDENCE / "build-native.mk"
-    fragment.write_text(""".PHONY: market-capture-build
-market-capture-build: $(BUILD_DIR)/tests/lxp_test_market_sandbox_profile
-$(BUILD_DIR)/tests/lxp_test_market_sandbox_profile: tests/daemon/lxp_test_market_sandbox_profile.c $(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-\t@mkdir -p $(@D)
-\t$(CC) $(CPPFLAGS) $(CFLAGS) -Icmd/layerxd -I$(BUILD_DIR)/generated $< $(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) -lssl -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
-""")
-    native = TARGET / "native/tests/lxp_test_market_sandbox_profile"
-    run(
-        [
-            "make",
-            "-f",
-            "Makefile",
-            "-f",
-            str(fragment),
-            "-j8",
-            "BUILD_DIR=" + str(TARGET / "native"),
-            "PROGRAMS_TARGET_DIR=" + str(TARGET / "rust"),
-            "PROGRAMS_RUNTIME_LIB="
-            + str(TARGET / "rust/debug/liblayerx_programs_sandbox.a"),
-            "market-capture-build",
-        ],
-        "build-native",
-    )
     cargo = "/root/.cargo/bin/cargo"
-    run(
-        [
-            cargo,
-            "build",
-            "--locked",
-            "--manifest-path",
-            "programs/Cargo.toml",
-            "--target",
-            "wasm32-unknown-unknown",
-            "--release",
-            "-p",
-            "layerx-programs-market",
-        ],
-        "build-market-wasm",
-    )
-    provider = executable(
-        run(
-            [
-                cargo,
-                "build",
-                "--locked",
-                "--manifest-path",
-                "programs/Cargo.toml",
-                "-p",
-                "layerx-programs-arbiter",
-                "--example",
-                "market_sandbox_capture",
-                "--message-format=json",
-            ],
-            "build-provider",
-        ),
-        "market_sandbox_capture",
-    )
     verifier = executable(
         run(
             [
@@ -248,12 +168,7 @@ $(BUILD_DIR)/tests/lxp_test_market_sandbox_profile: tests/daemon/lxp_test_market
         ).strip(),
         "inputs": inputs,
         "build_exit": 0,
-        "native": row(native),
-        "provider": provider,
         "verifier": verifier,
-        "market_wasm": row(
-            TARGET / "rust/wasm32-unknown-unknown/release/layerx_programs_market.wasm"
-        ),
     }
     (EVIDENCE / "artifacts.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print("ARTIFACTS " + str(EVIDENCE / "artifacts.json"), flush=True)
@@ -267,84 +182,30 @@ def qualify():
         or manifest["inputs"] != sources()
     ):
         raise RuntimeError("genuine source-bound build required")
-    native, provider, verifier, wasm = (
-        checked(manifest[key])
-        for key in ("native", "provider", "verifier", "market_wasm")
+    verifier = checked(manifest["verifier"])
+    inputs = Path(os.environ["LAYERX_MARKET_SANDBOX_INPUTS"]).resolve(strict=True)
+    env = dict(environment(), LAYERX_MARKET_SANDBOX_INPUTS=str(inputs))
+    output = run(
+        [str(verifier), TEST, "--exact", "--nocapture", "--test-threads=1"],
+        "verify",
+        env,
+        540,
     )
-    fixture = Path(tempfile.mkdtemp(prefix="lxp-market-capture-"))
-    run([str(provider), "modules", str(fixture)], "produce-modules", seconds=120)
-    events = queue.Queue()
-    stream = (EVIDENCE / "produce-native.log").open("w")
-    process = subprocess.Popen(
-        [str(native), str(fixture), str(wasm)],
-        cwd=ROOT,
-        env=environment(),
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
-    )
-
-    def capture():
-        for line in process.stdout:
-            stream.write(line)
-            stream.flush()
-            if line.startswith("MARKET_CAPTURE_READY "):
-                events.put(line.strip())
-        events.put("EXIT")
-
-    reader = threading.Thread(target=capture, daemon=True)
-    reader.start()
-    try:
-        if events.get(timeout=bound(120)) != "MARKET_CAPTURE_READY setup":
-            raise RuntimeError(
-                "real Market setup failed: " + str(EVIDENCE / "produce-native.log")
-            )
-        run(
-            [str(provider), "prepare", str(fixture), str(fixture / "setup.json")],
-            "produce-runtime",
-            seconds=120,
-        )
-        process.stdin.write("continue\n")
-        process.stdin.flush()
-        if process.wait(timeout=bound(120)) != 0:
-            raise RuntimeError("genuine signed Market capture failed")
-        reader.join(timeout=5)
-        run([str(provider), "finish", str(fixture)], "produce-manifest", seconds=120)
-        inputs = fixture / "market-inputs.json"
-        env = dict(environment(), LAYERX_MARKET_SANDBOX_INPUTS=str(inputs))
-        output = run(
-            [str(verifier), TEST, "--exact", "--nocapture", "--test-threads=1"],
-            "verify",
-            env,
-            540,
-        )
-        if "test result: ok. 1 passed; 0 failed; 0 ignored;" not in output:
-            raise RuntimeError("genuine signed Market profile case missing or skipped")
-        if manifest["inputs"] != sources():
-            raise RuntimeError("source changed during verification")
-        result = {
-            "task": TASK,
-            "revision": manifest["revision"],
-            "command": "timeout 10m python3 tools/qualification/paxeer-x/market-sandbox-capture.py",
-            "exit": 0,
-            "fixture_manifest": str(inputs),
-            "fixture_sha256": sha(inputs),
-            "log": str(EVIDENCE / "verify.log"),
-        }
-        (EVIDENCE / "result.json").write_text(json.dumps(result, indent=2) + "\n")
-        print("VERIFIED " + str(EVIDENCE / "result.json"), flush=True)
-    finally:
-        if process.poll() is None:
-            process.terminate()
-            try:
-                process.wait(timeout=5)
-            except subprocess.TimeoutExpired:
-                process.kill()
-                process.wait()
-        reader.join(timeout=5)
-        stream.close()
+    if "test result: ok. 1 passed; 0 failed; 0 ignored;" not in output:
+        raise RuntimeError("genuine signed Market profile case missing or skipped")
+    if manifest["inputs"] != sources():
+        raise RuntimeError("source changed during verification")
+    result = {
+        "task": TASK,
+        "revision": manifest["revision"],
+        "command": "timeout 10m python3 tools/qualification/paxeer-x/market-sandbox-capture.py",
+        "exit": 0,
+        "fixture_manifest": str(inputs),
+        "fixture_sha256": sha(inputs),
+        "log": str(EVIDENCE / "verify.log"),
+    }
+    (EVIDENCE / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+    print("VERIFIED " + str(EVIDENCE / "result.json"), flush=True)
 
 
 def main():
@@ -368,7 +229,6 @@ if __name__ == "__main__":
         ValueError,
         RuntimeError,
         KeyError,
-        queue.Empty,
         subprocess.SubprocessError,
     ) as error:
         print("FAILED " + str(error), file=sys.stderr)

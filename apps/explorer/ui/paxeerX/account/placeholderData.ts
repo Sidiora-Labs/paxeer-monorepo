@@ -28,7 +28,7 @@ export const UNIFIED_ACCOUNT_PLACEHOLDER: PaxeerXUnifiedAccount = {
     hash: PLACEHOLDER_HASH,
     block_number: index,
     ordinal: index,
-    status: 'instant' as const,
+    status: 'submitted' as const,
     timestamp: null,
     asset: null,
     amount: null,

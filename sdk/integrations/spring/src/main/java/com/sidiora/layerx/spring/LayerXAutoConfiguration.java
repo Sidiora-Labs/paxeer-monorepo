@@ -27,15 +27,9 @@ public class LayerXAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public SellerMiddleware.AuthorizedBatchResolver layerXAuthorizedBatchResolver(LayerXDeclaredConfig config) {
-        return SellerMiddleware.staticAuthorizedBatches(config.authorizedBatch());
-    }
-
-    @Bean
-    @ConditionalOnMissingBean
     public SellerMiddleware.PaymentAuthority layerXPaymentAuthority(
-            SellerMiddleware.AuthorizedBatchResolver authorizedBatches) {
-        return new SellerMiddleware.ReceiptPayloadAuthority(authorizedBatches);
+            LayerXDeclaredConfig config) {
+        return new SellerMiddleware.ReceiptPayloadAuthority(config.receiptKeys());
     }
 
     @Bean

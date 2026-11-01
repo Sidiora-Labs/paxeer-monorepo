@@ -92,7 +92,7 @@ func TestXWebStoreKeyFollowsTheV6120StoreKeys(t *testing.T) {
 		"acc", "authz", "bank", "staking", "mint", "distribution", "slashing",
 		"gov", "params", "ibc", "upgrade", "feegrant", "evidence", "transfer",
 		"capability", "oracle", "evm", "wasm", "epoch", "tokenfactory",
-		"layerxcustody", "layerxexchange", "layerxbridge", "launchpad",
+		"layerxcustody", "layerxanchor", "layerxexchange", "layerxbridge", "launchpad",
 		"perps", "spot", "pricefeed",
 		"xweb",
 		"sequencer",
@@ -140,13 +140,15 @@ func TestMergeStoreKeyConstants(t *testing.T) {
 	require.Len(t, seen, 5)
 }
 
-func TestAnchorStoreKeyIsNotMounted(t *testing.T) {
-	require.NotContains(t, MemIAVLStoreKeys, "layerxanchor")
-	require.False(t, IsMemIAVLStoreKey("layerxanchor"))
+func TestAnchorStoreKeyStaysMountedUntilDelete(t *testing.T) {
+	require.Equal(t, "layerxanchor", LayerXAnchorStoreKey)
+	require.Contains(t, MemIAVLStoreKeys, LayerXAnchorStoreKey)
+	require.True(t, IsMemIAVLStoreKey(LayerXAnchorStoreKey))
 
-	got, err := AllModulesExcept("layerxanchor")
-	require.EqualError(t, err, `module "layerxanchor" is not a member of MemIAVLStoreKeys`)
-	require.Nil(t, got)
+	got, err := AllModulesExcept(LayerXAnchorStoreKey)
+	require.NoError(t, err)
+	require.NotContains(t, got, LayerXAnchorStoreKey)
+	require.Len(t, got, len(MemIAVLStoreKeys)-1)
 }
 
 func TestMergeStoreKeysAreMemIAVLStoreKeys(t *testing.T) {

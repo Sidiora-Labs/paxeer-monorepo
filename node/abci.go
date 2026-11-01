@@ -322,17 +322,20 @@ func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error
 			n.PublishStashed()
 		}
 		if app.commitListener != nil {
-			commitListener(app, app.LastBlockHeight(), app.LastCommitID().Hash)
+			err = commitListener(app, app.LastBlockHeight(), app.LastCommitID().Hash)
 		}
 	}
 	return res, err
 }
 
-func commitListener(app *App, height int64, appHash []byte) {
+func commitListener(app *App, height int64, appHash []byte) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Error("panic recovered in commit listener", "height", height, "panic", r)
+			logger.Error("commit listener panicked", "height", height, "panic", r)
 		}
 	}()
-	app.commitListener(height, appHash)
+	if err := app.commitListener(height, appHash); err != nil {
+		return fmt.Errorf("commit listener at height %d: %w", height, err)
+	}
+	return nil
 }

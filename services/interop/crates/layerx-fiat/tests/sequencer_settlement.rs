@@ -55,6 +55,22 @@ fn array<const N: usize>(value: &Value) -> [u8; N] {
         .unwrap_or_else(|_| panic!("fixture field must have {N} bytes"))
 }
 
+fn recorded_payment_topics(case: &Value) -> [[u8; 32]; 3] {
+    let transaction = hex(&case["rawTransaction"]);
+    let offsets: Vec<_> = transaction
+        .windows(4)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == [0x78, 0xea, 0x11, 0xdb]).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one recorded payExact calldata selector");
+    let start = offsets[0] + 4;
+    [5, 0, 1].map(|word| {
+        transaction[start + word * 32..start + (word + 1) * 32]
+            .try_into()
+            .expect("recorded payExact calldata word")
+    })
+}
+
 fn recorded_evidence(case: &Value) -> SequencerEvidence {
     let logs = case["receiptJson"]["logs"]
         .as_array()
@@ -101,7 +117,7 @@ fn receipt_keys(case: &Value) -> [SequencerAuthorization; 1] {
     )]
 }
 
-fn capture_facts(evidence: &SequencerEvidence) -> VerifiedProviderFacts {
+fn capture_facts(case: &Value, evidence: &SequencerEvidence) -> VerifiedProviderFacts {
     let log = &evidence.logs[0];
     let amount = log.data()[48..64]
         .try_into()
@@ -117,7 +133,7 @@ fn capture_facts(evidence: &SequencerEvidence) -> VerifiedProviderFacts {
         asset: log.data()[..32]
             .try_into()
             .unwrap_or_else(|_| panic!("recorded payment asset")),
-        destination: log.topics()[2],
+        destination: recorded_payment_topics(case)[2],
         observed_at: 10,
         hold_until: None,
     }
@@ -221,8 +237,8 @@ fn signed_payment(
 fn fiat_reversal_on_the_capture_receipt_is_refused() {
     let case = recorded_case();
     let original = recorded_evidence(&case);
-    let facts = capture_facts(&original);
-    let payer = original.logs[0].topics()[1];
+    let facts = capture_facts(&case, &original);
+    let payer = recorded_payment_topics(&case)[1];
     let capture_key = FiatAdapter::idempotency_key(&facts);
     let capture = signed_payment(
         &case,
@@ -452,17 +468,12 @@ fn fiat_reversal_on_the_capture_receipt_is_refused() {
 fn fiat_card_capture_settles_receipted_evidence() {
     let case = recorded_case();
     let recorded = recorded_evidence(&case);
-    let facts = capture_facts(&recorded);
+    let facts = capture_facts(&case, &recorded);
     assert_eq!(facts.rail, FiatRail::Card);
     assert_eq!(facts.amount, 1_000_000);
-    let key = recorded.logs[0].topics()[3];
-    let mut evidence = signed_payment(
-        &case,
-        recorded.transaction_hash,
-        recorded.logs[0].topics()[1],
-        recorded.logs[0].topics()[2],
-        key,
-    );
+    let [key, from, to] = recorded_payment_topics(&case);
+    let mut evidence = signed_payment(&case, recorded.transaction_hash, from, to, key);
+    assert_eq!(&evidence.logs[0].topics()[1..], &[key, from, to]);
     let digest = canonical_receipt_digest(&evidence.signed_receipt).unwrap();
     let keys = receipt_keys(&case);
     for rung in [
@@ -531,7 +542,12 @@ fn fiat_card_capture_settles_receipted_evidence() {
             1 => facts.asset[0] ^= 1,
             2 => facts.destination[0] ^= 1,
             3 => evidence.transaction_hash[0] ^= 1,
-            4 => evidence = recorded.clone(),
+            4 => {
+                let mut wrong_reference = key;
+                wrong_reference[0] ^= 1;
+                evidence =
+                    signed_payment(&case, recorded.transaction_hash, from, to, wrong_reference);
+            }
             _ => unreachable!(),
         }
         let before = format!("{gateway:?}");
@@ -556,8 +572,8 @@ fn fiat_card_capture_settles_receipted_evidence() {
 fn fiat_submitted_rung_keeps_the_journey_waiting() {
     let case = recorded_case();
     let mut evidence = recorded_evidence(&case);
-    let mut facts = capture_facts(&evidence);
-    let key = evidence.logs[0].topics()[3];
+    let mut facts = capture_facts(&case, &evidence);
+    let key = recorded_payment_topics(&case)[0];
     evidence.rung = SettlementRung::Submitted;
     evidence.signed_receipt.clear();
     evidence.logs.clear();

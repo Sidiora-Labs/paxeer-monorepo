@@ -301,13 +301,9 @@ public sealed class ProgramsClient
 
     public async Task<ProgramSubmission> ReceiptAsync(IdempotencyKey idempotencyKey, byte[] expectedTransactionHash, string verificationLevel, CancellationToken cancellationToken = default)
     {
-        if (!Hex32(idempotencyKey.Value) || _didId is null) throw Invalid();
+        if (!Hex32(idempotencyKey.Value)) throw Invalid();
         _ = Identifier(expectedTransactionHash); _ = Level(verificationLevel);
-        var data = ProgramsAbi.Encode("2eda9f2b", ProgramsAbi.Fixed(_didId), ProgramsAbi.Fixed(Convert.FromHexString(idempotencyKey.Value)));
-        var output = await Rpc.CallAsync(Programs.AuthAddress, data, cancellationToken).ConfigureAwait(false);
-        var recorded = ProgramsAbi.ReadBytes(output, 0, 32, MaximumProgramBytes);
         var submission = await ActivityAsync(expectedTransactionHash, verificationLevel, cancellationToken).ConfigureAwait(false);
-        if (recorded.Length > 0 && (submission.SequencerReceipt is null || !Fixed(recorded, submission.SequencerReceipt.CanonicalBytes))) throw Verify();
         return new(submission.Value, submission.State, expectedTransactionHash, idempotencyKey.Value,
             submission.RetainedSignedActivity, submission.SequencerReceipt, true);
     }

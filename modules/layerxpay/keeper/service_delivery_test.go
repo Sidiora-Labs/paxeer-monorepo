@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/binary"
 	"testing"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
@@ -80,6 +81,101 @@ func serviceDeliveryRefused(t *testing.T, h *payHarness, call func() (lxphost.Re
 	require.ErrorContains(t, err, reason)
 	require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
 	require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
+}
+
+func TestServiceDefaultOutcomeApplied(t *testing.T) {
+	h, agreementID, _, spec := serviceDeliveryHarness(t)
+	provider, buyer := h.actors[0], h.actors[1]
+	items := []types.ServiceDeliverable{{Hash: spec, ArtifactSize: 1024, AvailabilityReference: [32]byte{50}}}
+	_, err := h.keeper.ServiceDeliver(h.ctx, provider.address, [32]byte{51}, agreementID, items, [32]byte{52})
+	require.NoError(t, err)
+	agreement, found := h.keeper.GetAgreement(h.ctx, agreementID)
+	require.True(t, found)
+	require.Equal(t, uint8(3), agreement.State)
+	require.Equal(t, uint8(1), agreement.DefaultOutcome)
+
+	otherOffer, otherAgreement := [32]byte{53}, [32]byte{54}
+	_, err = h.keeper.ServiceOfferPublish(h.ctx, provider.address, otherOffer, [32]byte{0x86}, codec.U128{Lo: 50},
+		[32]byte{0x84}, spec, uint64(payHarnessTimeMs)+100000, 20000, 30000, 2, uint64(payHarnessTimeMs)+90000)
+	require.NoError(t, err)
+	_, err = h.keeper.ServiceAgreementPropose(h.ctx, buyer.address, otherAgreement, otherOffer, [32]byte{0x84}, [32]byte{55}, [32]byte{56})
+	require.NoError(t, err)
+	_, err = h.keeper.ServiceAgreementAccept(h.ctx, provider.address, otherAgreement, [32]byte{57})
+	require.NoError(t, err)
+	_, err = h.keeper.ServiceCommitTask(h.ctx, provider.address, [32]byte{58}, otherAgreement, [32]byte{59}, [32]byte{}, uint64(payHarnessTimeMs)+100000, 1000, [32]byte{60})
+	require.NoError(t, err)
+	_, err = h.keeper.ServiceDeliver(h.ctx, provider.address, [32]byte{61}, otherAgreement, items, [32]byte{62})
+	require.NoError(t, err)
+
+	h.ctx = h.ctx.WithBlockTime(time.UnixMilli(int64(agreement.AcceptanceWindowEndMs + 1)))
+	serviceDeliveryRefused(t, h, func() (lxphost.Receipt, error) {
+		return h.keeper.ServiceAccept(h.ctx, buyer.address, agreementID, [32]byte{63})
+	}, "LXP_AGREEMENT_STATE")
+	h.keeper.SetParams(h.ctx, types.Params{})
+	serviceDeliveryRefused(t, h, func() (lxphost.Receipt, error) {
+		return h.keeper.ServiceApplyDefaultOutcomes(h.ctx)
+	}, "LXP_MODULE_DISABLED")
+	h.keeper.SetParams(h.ctx, types.Params{ServiceEnabled: true})
+
+	sequence, err := lxphost.NextSequence(h.ctx, h.hostKey)
+	require.NoError(t, err)
+	providerSequence, err := h.host.ReadIdentitySequence(h.ctx, provider.did)
+	require.NoError(t, err)
+	buyerSequence, err := h.host.ReadIdentitySequence(h.ctx, buyer.did)
+	require.NoError(t, err)
+	receipt, err := h.keeper.ServiceApplyDefaultOutcomes(h.ctx)
+	require.NoError(t, err)
+	require.Zero(t, receipt.ResultCode)
+	require.Equal(t, sequence, receipt.GlobalSequence)
+	require.Equal(t, uint64(h.ctx.BlockTime().UnixMilli()), receipt.Timestamp)
+	require.NotEqual(t, receipt.PreviousStateRoot, receipt.ResultingStateRoot)
+	require.Len(t, receipt.Events, 2)
+	decoded, err := codec.DecodeReceipt(receipt.Encoded)
+	require.NoError(t, err)
+	require.Equal(t, types.ServiceModuleID, decoded.ModuleID)
+	require.Equal(t, receipt.GlobalSequence, decoded.GlobalSequence)
+	require.Equal(t, receipt.Timestamp, decoded.Timestamp)
+	require.Equal(t, receipt.PreviousStateRoot, decoded.PreviousStateRoot)
+	require.Equal(t, receipt.ResultingStateRoot, decoded.ResultingStateRoot)
+	require.Len(t, decoded.Effects, 2)
+	for i, id := range [][32]byte{agreementID, otherAgreement} {
+		agreement, found = h.keeper.GetAgreement(h.ctx, id)
+		require.True(t, found)
+		require.Equal(t, uint8(i+1), agreement.DefaultOutcome)
+		require.Equal(t, uint8(i+4), agreement.State)
+		require.True(t, agreement.DefaultApplied)
+		require.Equal(t, receipt.GlobalSequence, agreement.OutcomeSequence)
+		require.Equal(t, uint64(h.ctx.BlockTime().UnixMilli()), agreement.OutcomeTimestampMs)
+	}
+	seen := map[[32]byte]bool{}
+	for i, event := range receipt.Events {
+		require.Equal(t, uint16(14), event.Code)
+		require.Len(t, event.Body, 50)
+		var id [32]byte
+		copy(id[:], event.Body[:32])
+		require.Contains(t, [][32]byte{agreementID, otherAgreement}, id)
+		require.False(t, seen[id])
+		seen[id] = true
+		agreement, found := h.keeper.GetAgreement(h.ctx, id)
+		require.True(t, found)
+		require.Equal(t, agreement.State, event.Body[32])
+		require.Equal(t, byte(1), event.Body[33])
+		require.Equal(t, receipt.GlobalSequence, binary.BigEndian.Uint64(event.Body[34:42]))
+		require.Equal(t, receipt.Timestamp, binary.BigEndian.Uint64(event.Body[42:50]))
+		require.Equal(t, types.ServiceModuleID, decoded.Effects[i].ModuleID)
+		require.Equal(t, uint16(i), decoded.Effects[i].Ordinal)
+		require.Equal(t, event.Code, decoded.Effects[i].EventType)
+		require.Equal(t, event.Body, decoded.Effects[i].Body)
+	}
+	next, err := lxphost.NextSequence(h.ctx, h.hostKey)
+	require.NoError(t, err)
+	require.Equal(t, sequence+1, next)
+	got, err := h.host.ReadIdentitySequence(h.ctx, provider.did)
+	require.NoError(t, err)
+	require.Equal(t, providerSequence, got)
+	got, err = h.host.ReadIdentitySequence(h.ctx, buyer.did)
+	require.NoError(t, err)
+	require.Equal(t, buyerSequence, got)
 }
 
 func TestServiceDeliverAcceptFlow(t *testing.T) {

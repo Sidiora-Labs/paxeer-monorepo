@@ -43,66 +43,6 @@ static lxp_result issuance_find(lxp_module_ctx *ctx, const uint8_t id[32], lx_ac
     return status == LXP_OK ? lxp_ctx_account_find(ctx, account_id, account) : status;
 }
 
-static void grant_key(uint8_t key[38], const uint8_t id[32])
-{
-    (void)memcpy(key, "grant:", 6U);
-    (void)memcpy(key + 6U, id, 32U);
-}
-
-static void asset_u64_write(uint8_t *bytes, uint64_t value)
-{
-    for (size_t i = 0U; i < 8U; ++i) bytes[i] = (uint8_t)(value >> (56U - i * 8U));
-}
-
-static uint64_t asset_u64_read(const uint8_t *bytes)
-{
-    uint64_t value = 0U;
-    for (size_t i = 0U; i < 8U; ++i) value = (value << 8U) | bytes[i];
-    return value;
-}
-
-static lxp_result grant_save(lxp_module_ctx *ctx, const lxp_grant_state *state)
-{
-    uint8_t key[38];
-    uint8_t bytes[512];
-    size_t length;
-    lxp_result status = lxp_payer_grant_encode(&state->grant, bytes, sizeof(bytes) - 50U, &length);
-    if (status != LXP_OK) return status;
-    (void)lxp_u128_to_be(state->drawn_total, bytes + length);
-    (void)lxp_u128_to_be(state->drawn_this_period, bytes + length + 16U);
-    asset_u64_write(bytes + length + 32U, state->window_start);
-    asset_u64_write(bytes + length + 40U, state->revoked_at_sequence);
-    bytes[length + 48U] = state->revoked ? 1U : 0U;
-    bytes[length + 49U] = state->invoice_settled ? 1U : 0U;
-    grant_key(key, state->grant.grant_id);
-    return lxp_ctx_kv_put(ctx, key, sizeof(key), bytes, length + 50U);
-}
-
-static lxp_result grant_load(lxp_module_ctx *ctx, const uint8_t id[32], lxp_grant_state *state)
-{
-    uint8_t key[38];
-    const uint8_t *bytes;
-    size_t length;
-    lxp_result status;
-    grant_key(key, id);
-    status = lxp_ctx_kv_get(ctx, key, sizeof(key), &bytes, &length);
-    if (status == LXP_ERR_UNKNOWN_FIELD) return LXP_ERR_NO_PAYER_GRANT;
-    if (status != LXP_OK) return status;
-    if (length < 50U) return LXP_ERR_NON_CANONICAL;
-    length -= 50U;
-    (void)memset(state, 0, sizeof(*state));
-    status = lxp_payer_grant_decode(bytes, length, &state->grant);
-    if (status != LXP_OK || bytes[length + 48U] > 1U || bytes[length + 49U] > 1U)
-        return LXP_ERR_NON_CANONICAL;
-    (void)lxp_u128_from_be(bytes + length, &state->drawn_total);
-    (void)lxp_u128_from_be(bytes + length + 16U, &state->drawn_this_period);
-    state->window_start = asset_u64_read(bytes + length + 32U);
-    state->revoked_at_sequence = asset_u64_read(bytes + length + 40U);
-    state->revoked = bytes[length + 48U] != 0U;
-    state->invoice_settled = bytes[length + 49U] != 0U;
-    return memcmp(id, state->grant.grant_id, 32U) == 0 ? LXP_OK : LXP_ERR_NON_CANONICAL;
-}
-
 static lxp_result asset_transfer(lxp_module_ctx *ctx, const lxp_activity *activity,
     const lx_asset_record *asset, lx_account *from, lx_account *to,
     lx_account *sequence_account, lxp_u128 amount, const uint8_t context_hash[32],
@@ -168,7 +108,6 @@ static lxp_result asset_execute_typed(lxp_module_ctx *ctx, const lxp_activity *a
     lx_asset_record record;
     lx_account *account;
     lx_account *issuance;
-    lxp_grant_state grant;
     uint8_t context[32];
     uint8_t actor[32];
     uint8_t authorization[32];
@@ -313,100 +252,6 @@ static lxp_result asset_execute_typed(lxp_module_ctx *ctx, const lxp_activity *a
         if (status != LXP_OK) return status;
         record.total_units = total;
         return asset_save(ctx, &record);
-    }
-    if (value->ordinal == 6U) {
-        const lxp_receive *p = &value->typed->receive;
-        lx_account_registry *preview;
-        lxp_grant_store *store;
-        lxp_send_store *idempotency;
-        lxp_receive_environment environment;
-        lxp_send_receipt_projection projection;
-        lxp_transfer_asset_state transfer_asset;
-        lx_account *recipient;
-        uint8_t message[512];
-        size_t message_length;
-        status = asset_load(ctx, p->asset, &record);
-        if (status == LXP_OK) status = grant_load(ctx, p->grant_id, &grant);
-        if (status == LXP_OK) status = lxp_ctx_account_find(ctx, p->from, &account);
-        if (status == LXP_OK) status = lxp_ctx_account_find(ctx, p->to, &recipient);
-        if (status != LXP_OK) return status;
-        if (!source_matches_actor(recipient, activity) ||
-            p->receiver_authorization.kind != LXP_AUTH_OWNER ||
-            memcmp(p->receiver_authorization.public_key, authority->verified_key, 32U) != 0 ||
-            memcmp(p->idempotency_key, activity->idempotency_key, 32U) != 0 ||
-            memcmp(p->from, p->to, 32U) == 0) return LXP_ERR_UNAUTHORIZED_DEBIT;
-        preview = (lx_account_registry *)malloc(sizeof(*preview));
-        store = (lxp_grant_store *)calloc(1U, sizeof(*store));
-        idempotency = (lxp_send_store *)calloc(1U, sizeof(*idempotency));
-        if (preview == NULL || store == NULL || idempotency == NULL) {
-            free(preview); free(store); free(idempotency);
-            return LXP_ERR_ARENA_EXHAUSTED;
-        }
-        status = lx_account_registry_copy(ctx->kernel->state->accounts,
-                                          preview);
-        if (status == LXP_OK) {
-            store->count = 1U;
-            store->grants[0] = grant;
-            (void)memset(&environment, 0, sizeof(environment));
-            (void)lx_asset_transfer_state(&record, &transfer_asset);
-            environment.accounts = preview;
-            environment.assets = &transfer_asset;
-            environment.asset_count = 1U;
-            environment.grants = store;
-            environment.idempotency = idempotency;
-            environment.batch_timestamp = lxp_ctx_batch_timestamp_ms(ctx);
-            environment.global_sequence = ctx->global_sequence;
-            environment.network_id = activity->network_id;
-            environment.protocol_version = activity->protocol_version;
-            environment.binding_authority = runtime->binding_authority;
-            status = lxp_receive_execute(p, &environment, &projection);
-            if (status == LXP_OK) grant = store->grants[0];
-        }
-        lx_account_registry_release(preview);
-        free(preview); free(store); free(idempotency);
-        if (status != LXP_OK) return status;
-        status = lxp_receive_authorization_message(p, message, sizeof(message), &message_length);
-        if (status == LXP_OK) status = lxp_hash_domain(LXP_DOMAIN_SIGNATURE_PREIMAGE,
-            message, message_length, authorization);
-        if (status == LXP_OK) status = asset_transfer(ctx, activity, &record, account,
-            recipient, recipient, p->amount, p->context_hash, authorization);
-        if (status == LXP_OK) status = grant_save(ctx, &grant);
-        return status;
-    }
-    if (value->ordinal == 7U) {
-        const lxp_payer_grant *p = &value->typed->grant;
-        status = grant_load(ctx, p->grant_id, &grant);
-        if (status == LXP_OK) return LXP_ERR_SEQUENCE_REUSED;
-        if (status != LXP_ERR_NO_PAYER_GRANT) return status;
-        status = asset_load(ctx, p->asset, &record);
-        if (status == LXP_OK) status = lxp_ctx_account_find(ctx, p->from, &account);
-        if (status != LXP_OK) return status;
-        if (record.paused) return LXP_ERR_ASSET_PAUSED;
-        if (!source_matches_actor(account, activity) || !account->has_asset ||
-            memcmp(account->asset_id, p->asset, 32U) != 0 ||
-            memcmp(p->public_key, authority->verified_key, 32U) != 0)
-            return LXP_ERR_UNAUTHORIZED_DEBIT;
-        status = lxp_verify_payer_grant(p, account);
-        if (status != LXP_OK) return status;
-        (void)memset(&grant, 0, sizeof(grant));
-        grant.grant = *p;
-        status = grant_save(ctx, &grant);
-        return status == LXP_OK ? lxp_ctx_emit_event(ctx, 7U, p->grant_id, 32U) : status;
-    }
-    if (value->ordinal == 8U) {
-        const lx_asset_grant_revoke_payload *p = &value->typed->revocation;
-        status = grant_load(ctx, p->grant_id, &grant);
-        if (status == LXP_OK) status = lxp_ctx_account_find(ctx, grant.grant.from, &account);
-        if (status != LXP_OK) return status;
-        if (!source_matches_actor(account, activity) || !account->has_authority_key ||
-            memcmp(account->authority_key, authority->verified_key, 32U) != 0)
-            return LXP_ERR_UNAUTHORIZED_DEBIT;
-        if (grant.revoked || p->revocation_sequence < grant.grant.revocation_sequence ||
-            p->revocation_sequence != activity->account_sequence) return LXP_ERR_STALE_REVOCATION;
-        grant.revoked = true;
-        grant.revoked_at_sequence = ctx->global_sequence;
-        status = grant_save(ctx, &grant);
-        return status == LXP_OK ? lxp_ctx_emit_event(ctx, 8U, p->grant_id, 32U) : status;
     }
     return LXP_ERR_UNKNOWN_ACTIVITY;
 }

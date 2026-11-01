@@ -8,7 +8,13 @@ use layerx_agentd::read::{
     LayerxdProgramBalanceReader, NativeReadRoute, ProgramAuthority, ProgramBalanceReadRoute,
 };
 use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint, SequencerError};
-use layerx_programs::{hex, ProtocolDeploymentVerifier, Registry};
+use layerx_programs::{
+    chain_proof::{
+        trust_store::TrustRoot,
+        validators::{TrustedValidator, ValidatorSet},
+    },
+    hex, ProtocolDeploymentVerifier, Registry,
+};
 use serde_json::{json, Value};
 use std::error::Error;
 use std::fs;
@@ -77,22 +83,22 @@ impl Authority {
             first_height: 1,
             last_height: 100,
         };
-        let mut history = b"LayerX/sequencer-trust-history/v1\0".to_vec();
-        history.extend_from_slice(&1_u16.to_be_bytes());
-        history.extend_from_slice(&0_u16.to_be_bytes());
-        history.extend_from_slice(&2_u16.to_be_bytes());
-        history.extend_from_slice(&125_u32.to_be_bytes());
-        history.extend_from_slice(&1_u64.to_be_bytes());
-        history.extend_from_slice(&key.key_id);
-        history.extend_from_slice(&key.public_key);
-        history.extend_from_slice(&key.first_height.to_be_bytes());
-        history.extend_from_slice(&key.last_height.to_be_bytes());
-        history.push(0);
-        history.extend_from_slice(&0_u64.to_be_bytes());
-        let path = root.join("history");
-        fs::write(&path, history)?;
+        let trust = TrustRoot {
+            chain_id: "paxeer-125".to_owned(),
+            height: key.first_height,
+            time_ms: 1,
+            header_hash: key.key_id,
+            validators: ValidatorSet::new(vec![TrustedValidator::new(public_key, 1)])?,
+        };
+        let path = root.join("chain-trust-root");
+        fs::write(&path, trust.canonical_bytes()?)?;
         fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
-        let verifier = ProtocolDeploymentVerifier::from_protected_history(&path, 1000)?;
+        let persisted = TrustRoot::decode(&fs::read(&path)?)?;
+        let verifier = ProtocolDeploymentVerifier::from_chain_trust(
+            persisted.chain_id,
+            persisted.validators.validators().to_vec(),
+            1000,
+        )?;
         Ok(Self {
             ca: fs::read(root.join("ca.der"))?,
             root,

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/ethereum/go-ethereum/common"
@@ -33,12 +34,12 @@ func NewAccepter(r *Receipter, rep *Replicator, src *ReceiptSource, m *Metrics) 
 	return &Accepter{r: r, rep: rep, src: src, m: m}
 }
 
-func (a *Accepter) Accept(txBytes []byte) ([]byte, error) {
+func (a *Accepter) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
 	start := time.Now()
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.halted {
-		return nil, ErrReplicationHalted
+		return evmrpc.AcceptedSend{}, ErrReplicationHalted
 	}
 	acc, receipt, err := a.r.Accept(txBytes)
 	if err != nil {
@@ -46,12 +47,12 @@ func (a *Accepter) Accept(txBytes []byte) ([]byte, error) {
 		if acc != nil {
 			a.halted = true
 		}
-		return nil, err
+		return evmrpc.AcceptedSend{}, err
 	}
-	send, err := a.send(txBytes, acc, receipt)
+	send, exec, err := a.send(txBytes, acc, receipt)
 	if err != nil {
 		a.halted = true
-		return nil, fmt.Errorf("%w: %w", ErrReplicationHalted, err)
+		return evmrpc.AcceptedSend{}, fmt.Errorf("sequencer: accepted send at sequence %d: %w", acc.Seq, err)
 	}
 	ackStart := time.Now()
 	ack, err := a.rep.Release(context.Background(), &wal.Accept{
@@ -63,42 +64,38 @@ func (a *Accepter) Accept(txBytes []byte) ([]byte, error) {
 	}
 	if err != nil {
 		a.halted = true
-		return nil, fmt.Errorf("%w: %w", ErrReplicationHalted, err)
+		return evmrpc.AcceptedSend{}, fmt.Errorf("%w: %w", ErrReplicationHalted, err)
 	}
 	a.src.Record(common.Hash(acc.ActivityID), send)
 	a.m.ObserveReceipt(time.Since(start))
-	return receipt, nil
+	return evmrpc.AcceptedSend{Receipt: receipt, Height: acc.Height, Exec: exec}, nil
 }
 
-func (a *Accepter) send(txBytes []byte, acc *Accepted, receipt []byte) (evmrpc.SequencerSend, error) {
+func (a *Accepter) send(txBytes []byte, acc *Accepted, receipt []byte) (evmrpc.SequencerSend, *evmtypes.Receipt, error) {
 	decoded, err := codec.DecodeReceipt(receipt)
 	if err != nil {
-		return evmrpc.SequencerSend{}, err
+		return evmrpc.SequencerSend{}, nil, err
 	}
 	send := evmrpc.SequencerSend{Nonce: decoded.FromSequence, Receipt: receipt}
 	tx, err := a.r.host.GetTxConfig().TxDecoder()(txBytes)
 	if err != nil {
-		return evmrpc.SequencerSend{}, err
+		return evmrpc.SequencerSend{}, nil, err
 	}
 	if a.r.host.GetEVMMsg(tx) == nil {
-		return send, nil
+		return send, nil, nil
 	}
-	ctx, err := a.r.exec.Snapshot()
+	rcpt, err := a.r.evm.GetTransientReceipt(acc.ReceiptContext, common.Hash(acc.ActivityID), uint64(acc.TxIndex))
 	if err != nil {
-		return evmrpc.SequencerSend{}, err
-	}
-	rcpt, err := a.r.evm.GetTransientReceipt(ctx, common.Hash(acc.ActivityID), uint64(acc.TxIndex))
-	if err != nil {
-		return evmrpc.SequencerSend{}, err
+		return evmrpc.SequencerSend{}, nil, err
 	}
 	send.ReturnData, err = evmReturnData(acc.Result.Data)
 	if err != nil {
-		return evmrpc.SequencerSend{}, err
+		return evmrpc.SequencerSend{}, nil, err
 	}
 	send.VMError = rcpt.VmError
 	send.LogData = make([][]byte, len(rcpt.Logs))
 	for i, log := range rcpt.Logs {
 		send.LogData[i] = log.Data
 	}
-	return send, nil
+	return send, rcpt, nil
 }

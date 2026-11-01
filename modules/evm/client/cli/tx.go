@@ -445,7 +445,10 @@ func CmdCallPrecompile() *cobra.Command {
 		Long:  "",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			pInfo := precompiles.GetPrecompileInfo(args[0])
+			pInfo, err := precompiles.GetPrecompileInfoE(args[0])
+			if err != nil {
+				return err
+			}
 			payload, err := getMethodPayload(pInfo.ABI, args[1:])
 			if err != nil {
 				return err

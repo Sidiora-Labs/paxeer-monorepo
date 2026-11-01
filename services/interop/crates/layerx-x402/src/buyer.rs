@@ -707,9 +707,9 @@ mod tests {
     use layerx_proof::inclusion::SequencerAuthorization;
 
     const TRANSACTION: [u8; 32] = [
-        0x9f, 0x6b, 0xe3, 0xb6, 0xfd, 0xa7, 0xdd, 0x66, 0x4d, 0xdb, 0x83, 0xa9, 0x01, 0xda, 0xd4,
-        0x45, 0x8b, 0x78, 0x29, 0x8b, 0x59, 0xe3, 0x07, 0x15, 0x1c, 0x21, 0x7a, 0x2a, 0x1f, 0x13,
-        0xd2, 0xbb,
+        0xa0, 0xd9, 0x85, 0xd9, 0x43, 0x52, 0x18, 0x92, 0x40, 0x1c, 0x62, 0x3b, 0xd7, 0xb3, 0x2a,
+        0x62, 0x71, 0x47, 0x58, 0x5c, 0xbe, 0x20, 0x6b, 0xad, 0xb4, 0xd2, 0x14, 0xd8, 0x44, 0xb1,
+        0xcc, 0xd1,
     ];
 
     fn settlement() -> Result<
@@ -751,7 +751,9 @@ mod tests {
             .map(word)
             .collect::<Result<Vec<_>, _>>()?;
         let recorded_topics = topics.concat();
-        topics[1..].rotate_right(1);
+        let words = crate::seller::tests::pay_exact_words(&unhex(&text(&case["rawTransaction"])?)?);
+        topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
+        topics[3] = crate::model::account_identifiers("agent:did:layerx:payee:main")?[1];
         let mut receipt = unhex(&text(&case["signedReceipt"])?)?;
         let positions: Vec<_> = receipt
             .windows(recorded_topics.len())
@@ -788,7 +790,7 @@ mod tests {
                             .try_into()
                             .map_err(|_| X402Error::EvidenceMismatch)?)
                     ),
-                    pay_to: text(&log["topics"][2])?,
+                    pay_to: format!("0x{}", hex(&topics[3])),
                     max_timeout_seconds: 90,
                     extra: Some(
                         json!({"layerx": {"account": "agent:did:layerx:payee:main", "currency": "LXP"}}),
@@ -797,12 +799,12 @@ mod tests {
                 payload: json!({}),
                 extensions: BTreeMap::new(),
             },
-            idempotency_key: word(&log["topics"][3])?,
+            idempotency_key: topics[1],
         };
         let response = SettlementResponse {
             success: true,
             error_reason: None,
-            payer: Some(hex(&word(&log["topics"][1])?)),
+            payer: Some(hex(&topics[2])),
             transaction: text(&case["receiptJson"]["txHash"])?,
             network: "eip155:125".to_owned(),
             amount: Some(amount),
@@ -878,7 +880,7 @@ mod tests {
             response.transaction = transaction;
             assert_eq!(
                 capture(&payment, &response, &batch),
-                Err(X402Error::EvidenceMismatch)
+                Err(X402Error::TransactionForm)
             );
         }
         Ok(())

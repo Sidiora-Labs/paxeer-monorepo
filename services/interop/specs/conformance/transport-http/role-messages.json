@@ -20,7 +20,7 @@
       "accepts": [
         {
           "scheme": "exact",
-          "network": "layerx:beta",
+          "network": "eip155:125",
           "amount": "25",
           "asset": "0505050505050505050505050505050505050505050505050505050505050505",
           "payTo": "50ed0f69f4b8ad6a4a4722993ebba1107f34d9b04978a64038dc9d2a95a4ff2b",
@@ -50,7 +50,7 @@
       },
       "accepted": {
         "scheme": "exact",
-        "network": "layerx:beta",
+        "network": "eip155:125",
         "amount": "25",
         "asset": "0505050505050505050505050505050505050505050505050505050505050505",
         "payTo": "50ed0f69f4b8ad6a4a4722993ebba1107f34d9b04978a64038dc9d2a95a4ff2b",
@@ -75,8 +75,8 @@
     "document": {
       "success": false,
       "errorReason": "settlement_pending",
-      "transaction": "pending:provider-reference",
-      "network": "layerx:beta"
+      "transaction": "0x6161616161616161616161616161616161616161616161616161616161616161",
+      "network": "eip155:125"
     }
   },
   {
@@ -94,7 +94,7 @@
         },
         "accepted": {
           "scheme": "exact",
-          "network": "layerx:beta",
+          "network": "eip155:125",
           "amount": "25",
           "asset": "0505050505050505050505050505050505050505050505050505050505050505",
           "payTo": "50ed0f69f4b8ad6a4a4722993ebba1107f34d9b04978a64038dc9d2a95a4ff2b",
@@ -110,7 +110,7 @@
       },
       "paymentRequirements": {
         "scheme": "exact",
-        "network": "layerx:beta",
+        "network": "eip155:125",
         "amount": "25",
         "asset": "0505050505050505050505050505050505050505050505050505050505050505",
         "payTo": "50ed0f69f4b8ad6a4a4722993ebba1107f34d9b04978a64038dc9d2a95a4ff2b",
@@ -148,8 +148,8 @@
     "document": {
       "success": false,
       "errorReason": "settlement_pending",
-      "transaction": "pending:provider-reference",
-      "network": "layerx:beta"
+      "transaction": "0x6161616161616161616161616161616161616161616161616161616161616161",
+      "network": "eip155:125"
     }
   },
   {
@@ -163,12 +163,12 @@
         {
           "x402Version": 2,
           "scheme": "exact",
-          "network": "layerx:beta"
+          "network": "eip155:125"
         }
       ],
       "extensions": [],
       "signers": {
-        "layerx:*": [
+        "eip155:*": [
           "did:layerx:facilitator"
         ]
       }
@@ -194,7 +194,7 @@
       "accepts": [
         {
           "scheme": "exact",
-          "network": "layerx:beta",
+          "network": "eip155:125",
           "amount": "25",
           "asset": "0505050505050505050505050505050505050505050505050505050505050505",
           "payTo": "50ed0f69f4b8ad6a4a4722993ebba1107f34d9b04978a64038dc9d2a95a4ff2b",

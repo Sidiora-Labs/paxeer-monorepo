@@ -24,15 +24,18 @@ public final class GeneratedCatalogueIntentsTest {
     @Test
     void intentPlanProducesPerLegCalls() throws Exception {
         JsonNode vector = fixture("intent-plan-v1.json");
-        JsonNode expected = vector.required("plan_result");
+        ObjectNode expected = vector.required("plan_result").deepCopy();
+        expected.putNull("tx_hash");
         var request = JSON.treeToValue(vector.required("plan_request"),
             GeneratedSchema.HumanOperations.INTENT_PLAN.requestType());
         assertEquals("0x9858effd232b4033e47d90003d41ec34ecaeda94", request.source().evm_address());
         assertEquals(BigInteger.valueOf(125), request.source().resolution().chainId());
-        var plan = JSON.treeToValue(expected, GeneratedSchema.HumanOperations.INTENT_PLAN.responseType());
-        var model = JSON.treeToValue(expected, GeneratedSchema.HumanModels.IntentPlan.class);
+        var plan = JSON.treeToValue(vector.required("plan_result"), GeneratedSchema.HumanOperations.INTENT_PLAN.responseType());
+        var model = JSON.treeToValue(vector.required("plan_result"), GeneratedSchema.HumanModels.IntentPlan.class);
         assertEquals(2, plan.legs().size());
         assertEquals(model.legs(), plan.legs());
+        assertNull(plan.tx_hash());
+        assertNull(model.tx_hash());
         assertEquals(expected, JSON.readTree(JSON.writeValueAsBytes(plan)));
         assertEquals(expected, JSON.readTree(JSON.writeValueAsBytes(model)));
         for (int i = 0; i < plan.legs().size(); i++) {
@@ -66,12 +69,15 @@ public final class GeneratedCatalogueIntentsTest {
         ObjectNode submitted = JSON.createObjectNode().put("journey_id", "journey-per-leg")
             .put("plan_digest", plan.plan_digest()).put("state", "submitted")
             .put("state_copy_key", "intent.submitted");
+        submitted.putNull("tx_hash");
         submitted.set("legs", expected.required("legs"));
         var submission = JSON.treeToValue(submitted, GeneratedSchema.HumanOperations.INTENT_SUBMIT.responseType());
         var submissionModel = JSON.treeToValue(submitted, GeneratedSchema.HumanModels.IntentSubmission.class);
         assertEquals(plan.legs(), submission.legs());
         assertEquals(plan.legs(), submissionModel.legs());
         assertEquals(submitted, JSON.readTree(JSON.writeValueAsBytes(submission)));
+        assertNull(submission.tx_hash());
+        assertNull(submissionModel.tx_hash());
         assertThrows(UnsupportedOperationException.class, () -> submission.legs().clear());
         for (Class<?> type : List.of(GeneratedSchema.HumanModels.IntentPlan.class,
                 GeneratedSchema.HumanOperations.IntentPlanResponse.class,
@@ -89,9 +95,9 @@ public final class GeneratedCatalogueIntentsTest {
     }
 
     @Test
-    void verificationLevelsUseBlockCommitted() throws Exception {
-        var committed = GeneratedSchema.HumanModels.HumanVerificationLevel.BLOCK_COMMITTED;
-        assertEquals(Set.of("unverified", "receipt-verified", "block-committed"),
+    void verificationLevelsFollowTheHumanSchema() throws Exception {
+        var committed = GeneratedSchema.HumanModels.HumanVerificationLevel.CHECKPOINT_FINALISED;
+        assertEquals(Set.of("unverified", "receipt-verified", "checkpoint-finalised"),
             Arrays.stream(GeneratedSchema.HumanModels.HumanVerificationLevel.values())
                 .map(GeneratedSchema.HumanModels.HumanVerificationLevel::wire).collect(Collectors.toSet()));
         for (var level : GeneratedSchema.HumanModels.HumanVerificationLevel.values()) {
@@ -99,14 +105,14 @@ public final class GeneratedCatalogueIntentsTest {
             assertEquals(level, JSON.readValue(JSON.writeValueAsBytes(level),
                 GeneratedSchema.HumanModels.HumanVerificationLevel.class));
         }
-        for (String retired : List.of("checkpoint-finalised", "paxeer-finalised", "settlement-anchored")) {
+        for (String retired : List.of("block-committed", "paxeer-finalised", "settlement-anchored")) {
             assertThrows(IllegalArgumentException.class,
                 () -> GeneratedSchema.HumanModels.HumanVerificationLevel.fromWire(retired));
             assertThrows(DatabindException.class, () -> JSON.readValue(JSON.writeValueAsBytes(retired),
                 GeneratedSchema.HumanModels.HumanVerificationLevel.class));
         }
         ObjectNode evidence = JSON.createObjectNode().put("evidence_id", "receipt-1")
-            .put("class", "layerx-receipt").put("verification", "block-committed");
+            .put("class", "layerx-receipt").put("verification", "checkpoint-finalised");
         var reference = JSON.treeToValue(evidence, GeneratedSchema.HumanModels.EvidenceRef.class);
         assertEquals(committed, reference.verification());
         assertEquals(evidence, JSON.valueToTree(reference));

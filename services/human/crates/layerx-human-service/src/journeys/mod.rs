@@ -1,23 +1,12 @@
 //! Durable, receipt-gated human journeys and their deterministic routing.
 
-mod deposit;
 mod engine;
-mod exit;
 mod intent_submit;
 mod move_money;
 mod observed;
 mod resolver;
 mod router;
 mod wire;
-mod withdraw;
-
-pub use deposit::{
-    claim_receipt, DepositActivity, DepositAgentBoundary, DepositAgentPlan, DepositBoundaryError,
-    DepositFailureKind, DepositForwardFailure, DepositForwardJourney, DepositForwardStage,
-    DepositForwardStatus, DepositJourney, DepositJourneyError, DepositNotification, DepositPlan,
-    DepositProofIdentity, DepositRuntime, DepositStage, DepositStatus, FinalityDelay,
-    WalletCustodyOutcome, WalletCustodyRequest,
-};
 
 pub use engine::{
     AgentBoundary, AgentBoundaryError, AgentObservation, AgentPreparation, JourneyEngine,
@@ -27,23 +16,14 @@ pub use engine::{
 };
 
 pub use intent_submit::{
-    authority_label, drive_intent_journey, intent_journey_id, start_deposit_forward_journey,
-    start_deposit_journey, start_kernel_journey, start_native_kernel_journey,
-    start_withdrawal_intent, verify_bindings, BindingExpectation, IntentDriver, IntentLegBinding,
-    IntentShape, IntentSubmission, KernelStart, SubmitPlanRequest, SubmitRefusal,
+    authority_label, drive_intent_journey, intent_journey_id, start_kernel_journey,
+    start_native_kernel_journey, verify_bindings, BindingExpectation, IntentDriver,
+    IntentLegBinding, IntentShape, IntentSubmission, KernelStart, SubmitPlanRequest, SubmitRefusal,
 };
 
 pub use move_money::{
     MoveAuthorization, MoveJourney, MoveJourneyError, MoveLegExecution, MoveLegProgress, MovePlan,
     MoveQuote, MoveReceiptReference, MoveStage, MoveStatus,
-};
-
-pub use exit::{
-    ExitBoundaryError, ExitConfirmationError, ExitFailureKind, ExitFinalityEvidence, ExitJourney,
-    ExitJourneyError, ExitPlan, ExitStage, ExitStatus, ExitWallet, ExitWalletOutcome,
-    ExitWalletRequest, IrreversibleExitConfirmation, EXIT_CONFIRMATION_PHRASE,
-    EXIT_IRREVERSIBILITY_NOTICE, EXIT_NORMAL_OPERATION_MESSAGE, EXIT_SETTINGS_SURFACE, EXIT_TITLE,
-    ORDINARY_WITHDRAWAL_PATH,
 };
 
 pub use observed::{NetworkObservation, ObservationError, ObservedStateBuilder};
@@ -62,17 +42,6 @@ pub use router::{
     PlannedLeg, Refusal, RequiredAuthority, RouteAdvisor, SignedAllowance, SignedPlan,
     SigningRequirement, TopUpRecord, UnifiedIntent, UnifiedPlan,
 };
-pub use withdraw::{
-    CancellationPolicy, IntentWithdrawalJourney, IntentWithdrawalStage, IntentWithdrawalStatus,
-    PaxeerAction, PaxeerActionOutcome, SettlementConfig, SettlementExpectation,
-    WithdrawalAgentPlan, WithdrawalBoundaryError, WithdrawalJourney, WithdrawalJourneyError,
-    WithdrawalPlan, WithdrawalReminder, WithdrawalRuntime, WithdrawalStage, WithdrawalStatus,
-    WithdrawalTransactionRequest,
-};
-
-pub(crate) use deposit::{decode_deposit_plan, encode_deposit_plan};
-pub(crate) use exit::{decode_exit_plan, encode_exit_plan};
-pub(crate) use withdraw::{decode_withdrawal_plan, encode_withdrawal_plan, MATERIAL_WIRE_BYTES};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct MovementExecutionIdentity {

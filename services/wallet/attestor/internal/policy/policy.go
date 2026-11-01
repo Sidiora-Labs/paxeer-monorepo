@@ -729,8 +729,16 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 		}
 	case call.Destination == "perps" && call.Method == "deposit":
 		err = token("token", "amount")
-	case call.Destination == "perps" && call.Method == "openPosition":
+	case call.Destination == "perps" && (call.Method == "openPosition" || call.Method == "placeLimitOrder" || call.Method == "placeStopLimitOrder"):
 		err = token("collateralToken", "collateralAmount")
+	case call.Destination == "perps" && call.Method == "addCollateral":
+		amount, ok := call.Args["amount"].(*big.Int)
+		if !ok {
+			return Inspection{}, refuse(CodeDecodeError, "perps.addCollateral amount is malformed")
+		}
+		out.Spends = append(out.Spends, Spend{
+			Asset: TokenAsset(common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479")), Amount: amount,
+		})
 	case call.Destination == "launchpad" && call.Method == "swapTokenForTokenWithPermit":
 		asset, ok := call.Args["tokenIn"].(common.Address)
 		if !ok {

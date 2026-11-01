@@ -2858,164 +2858,6 @@ static lxp_result compact_receipt_decode(
     return LXP_OK;
 }
 
-static lxp_result receipt_restore_compact(const uint8_t *bytes, size_t length,
-                                          lxp_receipt *receipt)
-{
-    const compact_receipt *compact;
-    if (bytes == NULL || receipt == NULL)
-        return LXP_FATAL_REPLAY_DIVERGENCE;
-    if (length == COMPACT_RECEIPT_V4_BYTES &&
-        memcmp(bytes, compact_receipt_v4_magic, sizeof(compact_receipt_v4_magic)) == 0)
-        return compact_receipt_decode(bytes, length, true, receipt);
-    if (length == COMPACT_RECEIPT_V3_BYTES &&
-        memcmp(bytes, compact_receipt_v3_magic,
-               sizeof(compact_receipt_v3_magic)) == 0)
-        return compact_receipt_decode(bytes, length, true, receipt);
-    if (length == COMPACT_RECEIPT_V2_BYTES &&
-        memcmp(bytes, compact_receipt_v2_magic,
-               sizeof(compact_receipt_v2_magic)) == 0)
-        return compact_receipt_decode(bytes, length, false, receipt);
-    if (length == sizeof(legacy_compact_receipt)) {
-        const legacy_compact_receipt *legacy =
-            (const legacy_compact_receipt *)bytes;
-        (void)memset(receipt, 0, sizeof(*receipt));
-        receipt->protocol_version = legacy->protocol_version;
-        (void)memcpy(receipt->activity_id, legacy->activity_id, 32U);
-        receipt->global_sequence = legacy->global_sequence;
-        (void)memcpy(receipt->previous_state_root,
-                     legacy->previous_state_root, 32U);
-        (void)memcpy(receipt->resulting_state_root,
-                     legacy->resulting_state_root, 32U);
-        receipt->result_code = legacy->result_code;
-        receipt->fee_charged = legacy->fee_charged;
-        (void)memcpy(receipt->batch_id, legacy->batch_id, 32U);
-        receipt->module_id = legacy->module_id;
-        receipt->module_version = legacy->module_version;
-        receipt->parameter_version = legacy->parameter_version;
-        return LXP_OK;
-    }
-    if (length == sizeof(legacy_program_compact_receipt_v1)) {
-        const legacy_program_compact_receipt_v1 *legacy =
-            (const legacy_program_compact_receipt_v1 *)bytes;
-        (void)memset(receipt, 0, sizeof(*receipt));
-        receipt->protocol_version = legacy->protocol_version;
-        (void)memcpy(receipt->activity_id, legacy->activity_id, 32U);
-        receipt->global_sequence = legacy->global_sequence;
-        (void)memcpy(receipt->previous_state_root,
-                     legacy->previous_state_root, 32U);
-        (void)memcpy(receipt->resulting_state_root,
-                     legacy->resulting_state_root, 32U);
-        (void)memcpy(receipt->activity_root, legacy->activity_root, 32U);
-        receipt->result_code = legacy->result_code;
-        receipt->fee_charged = legacy->fee_charged;
-        (void)memcpy(receipt->batch_id, legacy->batch_id, 32U);
-        receipt->module_id = legacy->module_id;
-        receipt->module_version = legacy->module_version;
-        receipt->parameter_version = legacy->parameter_version;
-        receipt->program_outcome.present = legacy->program_outcome.present;
-        receipt->program_outcome.encoding_version = 1U;
-        receipt->program_outcome.terminal_kind =
-            legacy->program_outcome.terminal_kind;
-        receipt->program_outcome.result_code =
-            legacy->program_outcome.result_code;
-        receipt->program_outcome.runtime_version =
-            legacy->program_outcome.runtime_version;
-        receipt->program_outcome.abi_version =
-            legacy->program_outcome.abi_version;
-        receipt->program_outcome.fee_schedule_version =
-            legacy->program_outcome.fee_schedule_version;
-        receipt->program_outcome.metering_schedule_version =
-            LXP_PROGRAM_METERING_SCHEDULE_VERSION_V1;
-        receipt->program_outcome.cpu_fuel = legacy->program_outcome.cpu_fuel;
-        receipt->program_outcome.memory_bytes =
-            legacy->program_outcome.memory_bytes;
-        receipt->program_outcome.storage_read_bytes =
-            legacy->program_outcome.storage_read_bytes;
-        receipt->program_outcome.storage_write_bytes =
-            legacy->program_outcome.storage_write_bytes;
-        receipt->program_outcome.output_values =
-            legacy->program_outcome.output_values;
-        receipt->program_outcome.output_bytes =
-            legacy->program_outcome.output_bytes;
-        receipt->program_outcome.fee_units = legacy->program_outcome.fee_units;
-        (void)memcpy(receipt->program_outcome.call_graph_root,
-                     legacy->program_outcome.call_graph_root, 32U);
-        (void)memcpy(receipt->program_outcome.terminal_payload_root,
-                     legacy->program_outcome.terminal_payload_root, 32U);
-        (void)memcpy(receipt->program_outcome.transfer_root,
-                     legacy->program_outcome.transfer_root, 32U);
-        return !receipt->program_outcome.present ||
-            lxp_program_outcome_validate_for_protocol(
-                &receipt->program_outcome,
-                receipt->protocol_version) == LXP_OK ?
-                LXP_OK : LXP_FATAL_REPLAY_DIVERGENCE;
-    }
-    if (length != sizeof(*compact)) return LXP_FATAL_REPLAY_DIVERGENCE;
-    compact = (const compact_receipt *)bytes;
-    (void)memset(receipt, 0, sizeof(*receipt));
-    receipt->protocol_version = compact->protocol_version;
-    (void)memcpy(receipt->activity_id, compact->activity_id, 32U);
-    receipt->global_sequence = compact->global_sequence;
-    (void)memcpy(receipt->previous_state_root, compact->previous_state_root,
-                 32U);
-    (void)memcpy(receipt->resulting_state_root, compact->resulting_state_root,
-                 32U);
-    (void)memcpy(receipt->activity_root, compact->activity_root, 32U);
-    receipt->result_code = compact->result_code;
-    receipt->fee_charged = compact->fee_charged;
-    (void)memcpy(receipt->batch_id, compact->batch_id, 32U);
-    receipt->module_id = compact->module_id;
-    receipt->module_version = compact->module_version;
-    receipt->parameter_version = compact->parameter_version;
-    receipt->program_outcome.present = compact->program_outcome.present;
-    receipt->program_outcome.encoding_version =
-        compact->program_outcome.encoding_version;
-    receipt->program_outcome.terminal_kind =
-        compact->program_outcome.terminal_kind;
-    receipt->program_outcome.result_code = compact->program_outcome.result_code;
-    receipt->program_outcome.runtime_version =
-        compact->program_outcome.runtime_version;
-    receipt->program_outcome.abi_version = compact->program_outcome.abi_version;
-    receipt->program_outcome.fee_schedule_version =
-        compact->program_outcome.fee_schedule_version;
-    receipt->program_outcome.metering_schedule_version =
-        LXP_PROGRAM_METERING_SCHEDULE_VERSION_V1;
-    receipt->program_outcome.cpu_fuel = compact->program_outcome.cpu_fuel;
-    receipt->program_outcome.memory_bytes = compact->program_outcome.memory_bytes;
-    receipt->program_outcome.storage_read_bytes =
-        compact->program_outcome.storage_read_bytes;
-    receipt->program_outcome.storage_write_bytes =
-        compact->program_outcome.storage_write_bytes;
-    receipt->program_outcome.output_values =
-        compact->program_outcome.output_values;
-    receipt->program_outcome.output_bytes = compact->program_outcome.output_bytes;
-    receipt->program_outcome.occupancy_byte_batches =
-        compact->program_outcome.occupancy_byte_batches;
-    receipt->program_outcome.occupancy_fee_units =
-        compact->program_outcome.occupancy_fee_units;
-    (void)memcpy(receipt->program_outcome.fee_schedule_prices,
-                 compact->program_outcome.fee_schedule_prices,
-                 sizeof(receipt->program_outcome.fee_schedule_prices));
-    (void)memcpy(receipt->program_outcome.occupancy_asset_id,
-                 compact->program_outcome.occupancy_asset_id, 32U);
-    (void)memcpy(receipt->program_outcome.occupancy_evidence_digest,
-                 compact->program_outcome.occupancy_evidence_digest, 32U);
-    (void)memcpy(receipt->program_outcome.occupancy_transfer_root,
-                 compact->program_outcome.occupancy_transfer_root, 32U);
-    receipt->program_outcome.fee_units = compact->program_outcome.fee_units;
-    (void)memcpy(receipt->program_outcome.call_graph_root,
-                 compact->program_outcome.call_graph_root, 32U);
-    (void)memcpy(receipt->program_outcome.terminal_payload_root,
-                 compact->program_outcome.terminal_payload_root, 32U);
-    (void)memcpy(receipt->program_outcome.transfer_root,
-                 compact->program_outcome.transfer_root, 32U);
-    return !receipt->program_outcome.present ||
-        lxp_program_outcome_validate_for_protocol(
-            &receipt->program_outcome,
-            receipt->protocol_version) == LXP_OK ?
-            LXP_OK : LXP_FATAL_REPLAY_DIVERGENCE;
-}
-
 static lxp_result receipt_compact_projection(const lxp_receipt *receipt,
     uint8_t compact[LXP_STATE_MAX_RECEIPT_BYTES], size_t *length)
 {
@@ -4578,11 +4420,11 @@ static bool kernel_snapshot_matches_live(
 }
 
 static lxp_result kernel_settled_snapshot_validate(
-    const lxp_kernel_batch_snapshot *settled, lxp_byte_span encoded_maintenance)
+    const lxp_kernel_batch_snapshot *base,
+    const lxp_kernel_batch_snapshot *settled, lxp_byte_span encoded_maintenance,
+    const lxp_receipt *chain_tail)
 {
     const lxp_state_store *store;
-    lxp_receipt latest;
-    bool have_latest = false;
     size_t index;
     size_t other;
     uint8_t canonical_root[32];
@@ -4639,36 +4481,32 @@ static lxp_result kernel_settled_snapshot_validate(
     store = lxp_state_snapshot_store(settled->state);
     if (store == NULL || store->next_sequence == 0U)
         return LXP_FATAL_INVARIANT;
-    for (index = 0U; index < store->idempotency_count; ++index) {
-        lxp_receipt candidate;
-        status = receipt_restore_compact(
-            store->idempotency[index].receipt,
-            store->idempotency[index].receipt_length, &candidate);
-        if (status != LXP_OK) return status;
-        if (!have_latest || candidate.global_sequence > latest.global_sequence) {
-            latest = candidate;
-            have_latest = true;
-        }
-    }
     if (encoded_maintenance.length != 0U) {
         lxp_programs_occupancy_receipt maintenance;
+        uint64_t expected_sequence;
+        const uint8_t *expected_previous;
+        if (chain_tail != NULL && chain_tail->global_sequence == UINT64_MAX)
+            return LXP_FATAL_INVARIANT;
+        expected_sequence = chain_tail != NULL ?
+            chain_tail->global_sequence + 1U :
+            lxp_state_snapshot_store(base->state)->next_sequence;
+        expected_previous = chain_tail != NULL ?
+            chain_tail->resulting_state_root : base->kernel.current_state_root;
         status = lxp_batch_maintenance_occupancy_decode(encoded_maintenance.bytes,
             encoded_maintenance.length, &maintenance);
         if (status != LXP_OK) return status;
-        if (!have_latest || latest.global_sequence == UINT64_MAX ||
-            latest.global_sequence + 1U != maintenance.global_sequence ||
+        if (maintenance.global_sequence != expected_sequence ||
             maintenance.global_sequence == UINT64_MAX ||
             maintenance.global_sequence + 1U != store->next_sequence ||
-            lxp_ct_memcmp(latest.resulting_state_root, maintenance.previous_state_root, 32U) != 0 ||
+            lxp_ct_memcmp(maintenance.previous_state_root, expected_previous, 32U) != 0 ||
             lxp_ct_memcmp(maintenance.resulting_state_root, settled->kernel.current_state_root, 32U) != 0 ||
             lxp_ct_memcmp(maintenance.resulting_state_root, canonical_root, 32U) != 0)
             return LXP_FATAL_INVARIANT;
-    } else {
-        if (have_latest &&
-            (latest.global_sequence == UINT64_MAX ||
-             latest.global_sequence + 1U != store->next_sequence ||
-             lxp_ct_memcmp(latest.resulting_state_root,
-                           settled->kernel.current_state_root, 32U) != 0))
+    } else if (chain_tail != NULL) {
+        if (chain_tail->global_sequence == UINT64_MAX ||
+            chain_tail->global_sequence + 1U != store->next_sequence ||
+            lxp_ct_memcmp(chain_tail->resulting_state_root,
+                          settled->kernel.current_state_root, 32U) != 0)
             return LXP_FATAL_INVARIANT;
     }
     return LXP_OK;
@@ -4677,7 +4515,8 @@ static lxp_result kernel_settled_snapshot_validate(
 static lxp_result kernel_batch_snapshot_commit(
     lxp_kernel *kernel, lxp_identity_store *identities,
     const lxp_kernel_batch_snapshot *base,
-    const lxp_kernel_batch_snapshot *settled, lxp_byte_span maintenance)
+    const lxp_kernel_batch_snapshot *settled, lxp_byte_span maintenance,
+    const lxp_receipt *chain_tail)
 {
     uint8_t *blob_bytes[LXP_KERNEL_MAX_BLOBS] = {NULL};
     lxp_state_publication_guard *guard = NULL;
@@ -4692,7 +4531,8 @@ static lxp_result kernel_batch_snapshot_commit(
         return LXP_ERR_NON_CANONICAL;
     if (!kernel_snapshot_matches_live(base, kernel, identities))
         return LXP_ERR_CONTEXT_MISMATCH;
-    status = kernel_settled_snapshot_validate(settled, maintenance);
+    status = kernel_settled_snapshot_validate(base, settled, maintenance,
+                                              chain_tail);
     if (status != LXP_OK) return status;
     for (index = 0U; index < settled->kernel.blob_count; ++index) {
         if (settled->kernel.blobs[index].length == 0U ||
@@ -4771,7 +4611,7 @@ lxp_result lxp_kernel_batch_snapshot_commit(
     const lxp_kernel_batch_snapshot *settled)
 {
     return kernel_batch_snapshot_commit(kernel, identities, base, settled,
-        (lxp_byte_span){NULL, 0U});
+        (lxp_byte_span){NULL, 0U}, NULL);
 }
 
 typedef struct lxp_kernel_prepare_worker {
@@ -5477,7 +5317,7 @@ lxp_result lxp_kernel_finalize_batch_maintenance(lxp_kernel *kernel,
     if (status == LXP_OK) status = lxp_batch_maintenance_events(encoded, NULL, &events);
     if (status == LXP_OK) status = lxp_state_snapshot_seal_level(candidate->state);
     if (status == LXP_OK) status = kernel_batch_snapshot_commit(kernel,
-        execution->identities, base, candidate, encoded);
+        execution->identities, base, candidate, encoded, NULL);
     if (status == LXP_OK) {
         (void)memset(output, 0, sizeof(*output));
         output->result_code = LXP_OK;
@@ -6136,14 +5976,15 @@ lxp_result lxp_kernel_commit_prepared_batch(
     lxp_result status;
     if (kernel == NULL || identities == NULL || batch == NULL ||
         batch->base == NULL || batch->settled == NULL || batch->committed ||
-        batch->simulation ||
+        batch->simulation || batch->count == 0U ||
         fsynced_publication_digest == NULL ||
         lxp_ct_is_zero(fsynced_publication_digest, 32U) ||
         lxp_ct_memcmp(fsynced_publication_digest,
                       batch->publication_digest, 32U) != 0)
         return LXP_ERR_CONTEXT_MISMATCH;
     status = kernel_batch_snapshot_commit(
-        kernel, identities, batch->base, batch->settled, batch->maintenance);
+        kernel, identities, batch->base, batch->settled, batch->maintenance,
+        &batch->receipts[batch->count - 1U]);
     if (status == LXP_OK) {
         batch->committed = true;
         kernel->publication_poisoned = true;
