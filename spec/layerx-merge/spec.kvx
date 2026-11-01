@@ -20932,7 +20932,7 @@ ac_1 = "After the migration no file of layerx-intents listed by task 10.98.14 na
 [req.10961]
 title = "Serve layerx-receipt evidence as receipt-proof v2 from evidence.get"
 ac_1 = "evidence.get of a layerx-receipt answers the v2 content type and PortableReceiptV2 bytes."
-ac_2 = "A receipt whose covering block commit verifies answers verification committed."
+ac_2 = "A receipt whose covering block commit verifies answers verification checkpoint-finalised and rung committed; one whose sequencer receipt alone verifies answers receipt-verified and rung receipted."
 
 [req.10962]
 title = "Remove the Paxeer client and explorer index from the human workspace at wave 5"
@@ -117773,6 +117773,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Finding 9.25.20.1: continue from attempt 1 (2d9533ab8). Add pub(crate) fn budget_result_with_spend(spent: u64) -> Vec<u8> beside budget_result() (services/agent/crates/layerx-agentd/src/read/committed.rs:1049), writing spent at word 8 (the spent_this_period field, budget/reconcile.rs:297) and leaving budget_result() equal to budget_result_with_spend(25); budget_recovery_fixture takes the served record as a parameter. tenant_budget_recovery_reconciles_over_committed_budget_state recovers over the zero-spend record and asserts protocol_consumed Some(0), receipt_consumed 0, held_unresolved 0, unresolved_count 0, reconciled true, the reconciled ceiling snapshot, require_write_ready Ok and admission Ok; then, in the same test over a fresh store, recovers over budget_result() with no receipts and asserts protocol_consumed Some(25), reconciled false and require_write_ready Err, so both outcomes of the restart rule are proved from committed evidence. The refusal test stays as attempt 1 wrote it."
 
 [task.18.1432.1]
 title = "Issue #1432: Open the settlement capability snapshot at the current head while preparation keeps its retained height"
@@ -117837,7 +117838,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1430.1]
 title = "Issue #1430: Answer a submitted-but-unreceipted program.receipt lookup as not ready instead of verification.inconsistent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.17"]
@@ -118241,6 +118242,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 9.25.13.1. In services/agent/crates/layerx-agentd/src/human_node.rs replace the trait method account_proof (:17-22) and its NodeRpc implementation (:82-88) with storage_witness(&self, address: &[u8; 20], slots: &[[u8; 32]], height: u64) -> Result<Vec<StorageWitness>, NodeRpcError> delegating to NodeRpc::storage_witness (do_2), import StorageWitness instead of AccountProof at :4, and port the two human_runtime.rs callers that reach the trait, the module-state read at :15334 and the account export at :14975 (the export builds its canonical JSON from eth_getBalance and eth_getTransactionCount at the height as do_2 describes; the live lines are :14960-14992). Continue from attempt 1 (caacf43b9)."
 do_5 = "Finding 9.25.13.2: this task runs again only once task 9.25.17 is on main; continue from attempt 2 (df2fe641b) rebased onto main, unchanged."
+do_6 = "Finding 9.25.13.3: continue from attempt 3 (80a40a077) and port history_sends_px_get_history_with_a_32_hex_cursor_and_refuses_other_forms (services/agent/crates/layerx-client/tests/sequencer_reads.rs:176-262) to the served contract of task 18.1238.1: the first page is exactly {items, next_cursor: <next>, indexedHeight: 43982} and the empty page {items: [], next_cursor: null, indexedHeight: 0}, each accepted px_getHistory exchange is followed by an eth_blockNumber exchange answering 0xabe0 (44000) and 0x0 respectively, so the expected pages carry chain_height Some(44000) and Some(0) from the head read; the malformed set becomes items {}, next_cursor of 112 a's, the upper-case cursor, indexedHeight 0xabce as a string and an extra chainHeight key, each answered Malformed before any head read, and indexedHeight null is accepted as indexed_height None in a third accepted exchange; the params assertions (:237-241) and the refused-cursor-form loop (:243-262) stay as they are."
 
 [task.9.25.12]
 title = "Verify the authority's committed budget proof v2 export in the daemon"
@@ -118888,7 +118890,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.25.19]
 title = "Move the committed fee and asset value types to the payments rpc twin and retire the withdrawal alias"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.3", "9.25.16", "9.25.17"]
@@ -118922,7 +118924,7 @@ do_7 = "Finding 9.25.17.2: the ChainProofError impls of do_5 land with task 9.25
 
 [task.9.25.17]
 title = "Port the agent daemon and the SDK off layerx_client::evidence before the module retires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.3", "9.25.11", "9.25.16"]
@@ -155264,7 +155266,7 @@ do_1 = "Replace the kernel receipt answer at services/human/crates/layerx-human-
 do_2 = "Derive verification from the receipt rung instead of the fixed Rung::Receipted at production_reads.rs:379: receipted when only the sequencer receipt verifies, committed when the covering block commit also verifies; any other evidence class keeps its answer at services/human/crates/layerx-human-service/src/server/production_reads.rs:343-371."
 do_3 = "Write services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs (planned) with the two tests below."
 symbols = ["evidence_get_returns_receipt_proof_v2", "evidence_get_marks_committed_receipts"]
-touches = ["services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs", "services/human/Cargo.toml", "services/human/Cargo.lock", "services/human/crates/layerx-human-service/Cargo.toml", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs"]
+touches = ["services/human/crates/layerx-human-service/src/server/production_reads.rs", "services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs", "services/human/Cargo.toml", "services/human/Cargo.lock", "services/human/crates/layerx-human-service/Cargo.toml", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs", "services/human/schema/human-api/journeys.kvx"]
 tests = ["services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs::evidence_get_returns_receipt_proof_v2", "services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs::evidence_get_marks_committed_receipts"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
@@ -155282,6 +155284,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "The receipt bytes are PortableReceiptV2::export(signed_receipt, &key_entry, inclusion_height) (services/interop/crates/layerx-portable/src/receipt.rs:168) encoded to JSON, over the signed receipt bytes, the signing ReceiptKeys entry and the inclusion height that 10.2.4 adds to ReceiptMaterial and VerifiedLegEvidence (decision.1816); add layerx-portable as a workspace path dependency (services/human/Cargo.toml, services/human/crates/layerx-human-service/Cargo.toml and services/human/Cargo.lock) the way layerx-mirror is declared at services/human/Cargo.toml:34. The two tests build the evidence through the public journeys API and assert content_type, verification (receipted at Rung::Receipted, committed at Rung::Committed) and that PortableReceiptV2::from_json parses bytes_base64."
 do_5 = "Finding 10.92.1.4: continue from attempt 3 (63499d479), keeping production_reads.rs and the manifest changes, and rewrite tests/receipt_evidence_v2.rs over tests/support/production_fixture.rs: the test reads no environment variable, opens no socket the fixture did not start, and builds no NodeRpcConfig::from_environment. Extend the fixture's RpcServer so pax_sequencerReceipt can answer rung receipted and rung committed with a receipt signed by a fixture receipt key, and serve that key's public half through the receipt-keys answer the service reads via NodeRpc::receipt_keys (SequencerEndpoint::receipt_keys in layerx-client); evidence_get_returns_receipt_proof_v2 opens Fixture, drives the real submission route to a receipted leg, GETs /v1/evidence/{id} and asserts the content type application/receipt-proof-v2+json and that PortableReceiptV2::verify_json accepts the body against the fixture key; evidence_get_marks_committed_receipts answers rung committed with an inclusion height and asserts the evidence marks the receipt committed at that height. The verify command no longer passes --offline."
+do_6 = "Finding 10.92.1.5: continue from attempt 5 (540b80d97). Wherever do_1, do_4 and the tests say verification receipted or committed, read the VerificationLevel the schema maps the rung to: receipt-verified for Rung::Receipted and checkpoint-finalised for Rung::Committed (journeys.kvx:28 rung_mapping), and keep unverified refusing as attempt 5 does for a submitted rung. In services/human/schema/human-api/journeys.kvx add rung:Rung to the optional list of [type.EvidenceMaterial] at :52, the way [type.AccountBalance] declares it (home.kvx:14), and serve rung as the Rung name (receipted or committed) beside verification, so a reader keeps both the achieved rung and the declared verification level. The two tests assert verification equals the mapped level and rung equals the rung name; the schema.rs loader includes journeys.kvx at build time, so no other file changes."
 
 [task.10.95.1]
 title = "Rebuild the observed journey balances on the denom and amount AssetBalance"

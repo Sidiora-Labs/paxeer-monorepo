@@ -7,7 +7,6 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
-use layerx_client::evidence::{EvidenceError, ProofBundleSelector, RootSelector};
 use layerx_client::submit::Submission;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::AuthorizedBatch;
@@ -15,7 +14,6 @@ use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
 use layerx_types::ids::{Did, IdempotencyKey};
 use layerx_types::payload::{ActivityType, ModuleRegistry};
-use layerx_types::result::Retriability;
 use layerx_types::verify::VerificationLevel;
 type FeeProjection = layerx_agent_api::read::FeeProjection;
 use serde_json::Value;
@@ -990,6 +988,23 @@ fn human_receipt_key(
         return Err(HumanOperationError::Refused);
     }
     Ok(*key)
+}
+
+pub(crate) fn receipt_lookup_not_ready_bytes(
+    lookup: &layerx_client::rpc::receipt::Lookup,
+) -> Option<Vec<u8>> {
+    use layerx_client::rpc::receipt::Lookup;
+    let mut out = Encoder::new();
+    match lookup {
+        Lookup::Absent => out.u8(0),
+        Lookup::Submitted { tx_hash, nonce } => {
+            out.u8(2);
+            out.fixed(tx_hash);
+            out.u64(*nonce);
+        }
+        Lookup::Verified(_) => return None,
+    }
+    Some(out.0)
 }
 
 pub fn lookup_human_receipt_by_outbox_hash(
@@ -13135,7 +13150,11 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         use layerx_client::rpc::receipt::Lookup;
         let mut out = Encoder::new();
         match lookup {
-            Lookup::Absent | Lookup::Submitted { .. } => out.u8(0),
+            lookup @ (Lookup::Absent | Lookup::Submitted { .. }) => {
+                let bytes =
+                    receipt_lookup_not_ready_bytes(&lookup).ok_or(HumanOperationError::Refused)?;
+                out.fixed(&bytes);
+            }
             Lookup::Verified(receipt) => {
                 let protocol = receipt
                     .receipt()
@@ -16935,26 +16954,6 @@ fn live_protocol_budget<S>(
         .is_ok_and(|(record, _)| record.budget_id == budget_id && !record.closed && !record.revoked)
 }
 
-fn raw_receipt_evidence(
-    bundle: &layerx_client::evidence::VerifiedProofBundle,
-) -> Result<crate::protocol_evidence::RawReceiptEvidence, HumanOperationError> {
-    let layerx_client::evidence::VerifiedProofBundle::Receipt {
-        canonical_bytes,
-        proof,
-        signed_header,
-        ..
-    } = bundle
-    else {
-        return Err(HumanOperationError::Refused);
-    };
-    Ok(crate::protocol_evidence::RawReceiptEvidence::new(
-        canonical_bytes.clone(),
-        proof.clone(),
-        signed_header.canonical_bytes.clone(),
-        signed_header.signature,
-    ))
-}
-
 fn native_response(
     value: &impl crate::agent_rpc_wire::Canonical,
 ) -> Result<HumanResponse, HumanOperationError> {
@@ -17164,16 +17163,6 @@ fn read_committed_history(
         cursor = next;
     }
     Err(SequencerError::Unavailable)
-}
-
-fn evidence_unavailable(error: &EvidenceError) -> bool {
-    match error {
-        EvidenceError::Unavailable | EvidenceError::Transport(_) => true,
-        EvidenceError::CoreRefusal { result, .. } => {
-            result.retriability() == Retriability::Retriable
-        }
-        _ => false,
-    }
 }
 
 /// Converts the issued owner grant's verified not-after instant (unix milliseconds) into the
@@ -18420,9 +18409,8 @@ fn fee_estimate_error(error: layerx_client::fee::FeeEstimateError) -> HumanOpera
             HumanOperationError::Typed(crate::human::HumanRefusal::FeeSnapshotSkew)
         }
         layerx_client::fee::FeeEstimateError::Read(
-            layerx_client::read::ReadError::UnavailableCapability
-            | layerx_client::read::ReadError::Disconnected
-            | layerx_client::read::ReadError::Transport(_),
+            layerx_client::sequencer::SequencerError::Tls
+            | layerx_client::sequencer::SequencerError::Unavailable,
         ) => HumanOperationError::Unavailable,
         layerx_client::fee::FeeEstimateError::MeterOutOfRange { .. }
         | layerx_client::fee::FeeEstimateError::Read(_) => HumanOperationError::Refused,
@@ -18646,16 +18634,11 @@ fn export_refusal(error: crate::export::ExportProduceError) -> HumanOperationErr
         Produce::Store
         | Produce::StaleHead
         | Produce::Availability { .. }
-        | Produce::AvailabilityIncomplete { .. }
-        | Produce::Evidence {
-            error: layerx_client::evidence::EvidenceError::Unavailable,
-            ..
-        } => HumanOperationError::Unavailable,
+        | Produce::AvailabilityIncomplete { .. } => HumanOperationError::Unavailable,
         Produce::Facts(_)
         | Produce::NotOwned { .. }
         | Produce::AccountNotBound { .. }
         | Produce::Correlation
-        | Produce::Evidence { .. }
         | Produce::ReceiptEvidence { .. }
         | Produce::Binding { .. }
         | Produce::MaintenanceLink { .. }
@@ -22064,6 +22047,25 @@ mod tests {
     use serde_json::json;
     use std::io::{Read as _, Write as _};
     use std::sync::atomic::{AtomicBool, Ordering};
+
+    #[test]
+    fn receipt_lookup_not_ready_bytes_distinguish_submitted_from_absent() {
+        use layerx_client::rpc::receipt::Lookup;
+
+        let submitted = receipt_lookup_not_ready_bytes(&Lookup::Submitted {
+            tx_hash: [0xab; 32],
+            nonce: 0x0102_0304_0506_0708,
+        })
+        .expect("submitted lookup has a not-ready encoding");
+        let mut expected = vec![2];
+        expected.extend_from_slice(&[0xab; 32]);
+        expected.extend_from_slice(&[1, 2, 3, 4, 5, 6, 7, 8]);
+        assert_eq!(submitted, expected);
+        let absent = receipt_lookup_not_ready_bytes(&Lookup::Absent)
+            .expect("absent lookup has a not-ready encoding");
+        assert_eq!(absent, vec![0]);
+        assert_ne!(submitted, absent);
+    }
 
     const KEY_ID: [u8; 32] = [1; 32];
     fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
