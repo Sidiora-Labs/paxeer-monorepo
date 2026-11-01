@@ -7,9 +7,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
-use layerx_client::evidence::{
-    CheckpointSelector, EvidenceError, ProofBundleSelector, RootSelector,
-};
+use layerx_client::evidence::{EvidenceError, ProofBundleSelector, RootSelector};
 use layerx_client::submit::Submission;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::AuthorizedBatch;
@@ -150,7 +148,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         if asset_id == [0; 32] {
             return Err(HumanOperationError::Refused);
         }
-        let head = self.lock_operations()?.node.head().chain_sequence;
+        let head = self
+            .lock_operations()?
+            .node
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?;
         let control = self.session_control.clone();
         let permit = control
             .authorize(
@@ -175,31 +177,18 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 &context.principal().agent,
                 &Authority::owner(&owner_public_key).map_err(|_| HumanOperationError::Refused)?,
             )?;
-            let protocol = ops.node.handshake().node().protocol_version;
+            let protocol = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
             let actor =
                 layerx_wire::hash::did_id_for_protocol(&context.principal().agent, protocol)
                     .map_err(|_| HumanOperationError::Refused)?;
             let (_, _, authorization) = ops.budget_read_parts(context.peer())?;
-            let caps = ops
-                .node
-                .caps_discovery(
-                    actor,
-                    VerificationLevel::STATE_PROVEN,
-                    boundary_correlation(context.peer(), &asset_id, b"mcp-web-search-asset"),
-                    authorization,
-                    None,
-                )
-                .map_err(|_| HumanOperationError::Unavailable)?;
+            // Decision 2199: task 9.25.6 ports capability discovery.
+            let caps =
+                Err::<layerx_client::evidence::VerifiedCaps, _>(HumanOperationError::Unavailable)?;
             let asset = caps
                 .effective_asset(asset_id)
                 .map_err(|_| HumanOperationError::Refused)?;
-            let fee = ops
-                .node
-                .native_fee_policy(boundary_correlation(
-                    context.peer(),
-                    &asset_id,
-                    b"mcp-web-search-native",
-                ))
+            let fee = crate::budget::native_fee_policy(&ops.node, head)
                 .map_err(|_| HumanOperationError::Unavailable)?;
             if caps.freshness().observed_head_sequence != head
                 || asset.freshness().observed_head_sequence != head
@@ -215,7 +204,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 || fee.observed_sequence != head
                 || fee.state_root != caps.state_root()
                 || fee.value.asset.decimals != asset.metadata().decimals
-                || ops.node.head().chain_sequence != head
+                || ops
+                    .node
+                    .block_number()
+                    .map_err(|_| HumanOperationError::Unavailable)?
+                    != head
             {
                 return Err(HumanOperationError::Refused);
             }
@@ -257,7 +250,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         {
             return Err(HumanOperationError::Refused);
         }
-        let head = self.lock_operations()?.node.head().chain_sequence;
+        let head = self
+            .lock_operations()?
+            .node
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?;
         let control = self.session_control.clone();
         let permit = control
             .authorize(
@@ -289,13 +286,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 context.peer(),
                 &actor,
             )?;
-            let fee = ops
-                .node
-                .native_fee_policy(boundary_correlation(
-                    context.peer(),
-                    &idempotency_key,
-                    b"mcp-web-native-context-fee",
-                ))
+            let fee = crate::budget::native_fee_policy(&ops.node, head)
                 .map_err(|_| HumanOperationError::Unavailable)?;
             if snapshot.observed_head_sequence != head
                 || fee.observed_sequence != head
@@ -312,7 +303,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 fee.value.asset.asset_id,
             )
             .map_err(|_| HumanOperationError::Refused)?;
-            let protocol = ops.node.handshake().node().protocol_version;
+            let protocol = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
             let source = layerx_wire::hash::account_id_for_protocol(&account, protocol)
                 .map_err(|_| HumanOperationError::Refused)?;
             let (_, _, _, _, age, maximum_age, authorization) =
@@ -320,26 +311,19 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             if maximum_age == 0 || age > maximum_age || source == recipient {
                 return Err(HumanOperationError::Refused);
             }
-            let value = ops
-                .node
-                .account(
-                    source,
-                    VerificationLevel::STATE_PROVEN,
-                    boundary_correlation(
-                        context.peer(),
-                        &idempotency_key,
-                        b"mcp-web-native-source",
-                    ),
-                    authorization,
-                )
-                .map_err(|_| HumanOperationError::Unavailable)?;
+            // Decision 2199: task 9.25.6 ports committed account reads.
+            let value = Err::<layerx_client::read::ReadValue, _>(HumanOperationError::Unavailable)?;
             let decoded =
                 layerx_proof::state::decode_account_value(source, value.canonical_bytes())
                     .map_err(|_| HumanOperationError::Refused)?;
             if protocol != 3
                 || value.achieved() < VerificationLevel::STATE_PROVEN
                 || value.freshness().observed_head_sequence != head
-                || ops.node.head().chain_sequence != head
+                || ops
+                    .node
+                    .block_number()
+                    .map_err(|_| HumanOperationError::Unavailable)?
+                    != head
                 || decoded.frozen
                 || decoded.asset_id() != asset
                 || decoded.balance() < amount
@@ -446,7 +430,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         context: McpNativeWebContextV1,
         canonical: &[u8],
     ) -> Result<layerx_agent_api::identity::NativeSendPurposeV1, HumanOperationError> {
-        let head = self.lock_operations()?.node.head().chain_sequence;
+        let head = self
+            .lock_operations()?
+            .node
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?;
         let control = self.session_control.clone();
         let permit = control
             .authorize(
@@ -784,7 +772,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         peer: &HumanPeer,
         budget_id: [u8; 32],
     ) -> Result<crate::budget::budget_proof::VerifiedBudgetProof, HumanOperationError> {
-        use crate::budget::budget_proof::{verify_budget_proof, BudgetProofTrust};
+        use crate::budget::{budget_proof_committed_head, verify_budget_proof, BudgetProofTrust};
         let subject = peer.subject.as_ref().ok_or(HumanOperationError::Refused)?;
         if budget_id == [0; 32] {
             return Err(HumanOperationError::Refused);
@@ -824,9 +812,8 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         }
         let block = operations
             .chain
-            .block(chain_head.number)
-            .map_err(|_| HumanOperationError::Unavailable)?
-            .ok_or(HumanOperationError::Unavailable)?;
+            .committed_block(chain_head.number)
+            .map_err(|_| HumanOperationError::Unavailable)?;
         if block != chain_head {
             return Err(HumanOperationError::Refused);
         }
@@ -837,61 +824,47 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| HumanOperationError::Unavailable)?,
         )
         .map_err(|_| HumanOperationError::Refused)?;
-        let key = operations
+        let export = operations
+            .authority
+            .budget_proof_export(&bound, budget_id, &owner_did)?;
+        let (height, hash) =
+            budget_proof_committed_head(&export).map_err(|_| HumanOperationError::Refused)?;
+        let export_block = operations
             .chain
-            .receipt_key_at_head()
+            .committed_block(height)
             .map_err(|_| HumanOperationError::Unavailable)?;
-        human_receipt_commit_material(u64::from(network_id), &block)?;
-        let head = layerx_client::head::Head {
-            chain_sequence: chain_head.number,
-            sealed_batch: chain_head.number,
-            finalised_checkpoint: operations.node.head().finalised_checkpoint,
-        };
+        if export_block.hash != hash {
+            return Err(HumanOperationError::Refused);
+        }
+        let checkpoint = operations.committed_checkpoint(&export_block, Some(hash))?;
         let (_, _, _, _, age_seconds, maximum_age_seconds, _) =
-            operations.authority.balance_context(peer)?;
+            operations.authority.balance_context(&bound)?;
         if maximum_age_seconds == 0 || age_seconds > maximum_age_seconds {
             return Err(HumanOperationError::Refused);
         }
-        let checkpoint = operations
-            .node
-            .checkpoint_evidence(
-                CheckpointSelector::Identifier(head.finalised_checkpoint),
-                boundary_correlation(peer, &budget_id, b"budget-proof-checkpoint"),
-            )
-            .map_err(|_| HumanOperationError::Refused)?;
-        if checkpoint.observed_block_hash() != Some(block.hash) {
-            return Err(HumanOperationError::Refused);
-        }
-        let raw = operations
-            .authority
-            .budget_proof_export(&bound, budget_id, &owner_did)?;
-        let now_ms = u64::try_from(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_err(|_| HumanOperationError::Unavailable)?
-                .as_millis(),
-        )
-        .map_err(|_| HumanOperationError::Unavailable)?;
-        let trust = BudgetProofTrust {
-            tenant: peer.transport_tenant(),
-            principal: &subject.transport_principal,
-            owner: &owner_did,
-            protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
-            network_id,
-            sequencer_key: key.public_key,
-            head,
-            checkpoint: &checkpoint,
-            now_ms,
-            maximum_age_seconds,
-        };
-        let proof = verify_budget_proof(&raw, budget_id, &trust)
-            .map_err(|_| HumanOperationError::Refused)?;
-        if operations
-            .chain
-            .head()
+        let now_ms = operations
+            .clock
+            .sample(Duration::from_secs(1))
             .map_err(|_| HumanOperationError::Unavailable)?
-            != chain_head
-        {
+            .unix_milliseconds;
+        let proof = verify_budget_proof(
+            &export,
+            budget_id,
+            &BudgetProofTrust {
+                tenant: peer.transport_tenant(),
+                principal: &subject.transport_principal,
+                owner: &owner_did,
+                protocol_version: 3,
+                network_id,
+                checkpoint: &checkpoint,
+                endpoint: &operations.node,
+                current_height: chain_head.number,
+                now_ms,
+                maximum_age_seconds,
+            },
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
+        if proof.asset() != subject.asset {
             return Err(HumanOperationError::Refused);
         }
         Ok(proof)
@@ -1224,6 +1197,7 @@ fn human_receipt_history_evidence(
 }
 
 fn human_receipt_commit_material(
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
     chain_id: u64,
     block: &layerx_client::sequencer::SequencerBlock,
 ) -> Result<Value, HumanOperationError> {
@@ -1231,74 +1205,21 @@ fn human_receipt_commit_material(
     if config.chain_id != chain_id {
         return Err(HumanOperationError::Refused);
     }
-    let roots = if config.url.starts_with("https://") {
-        let roots = rustls_native_certs::load_native_certs();
-        if !roots.errors.is_empty() || roots.certs.is_empty() {
-            return Err(HumanOperationError::Unavailable);
-        }
-        roots.certs
-    } else {
-        Vec::new()
-    };
-    let certificates: Vec<_> = roots
-        .iter()
-        .map(|root| ureq::tls::Certificate::from_der(root.as_ref()).to_owned())
-        .collect();
-    let agent: ureq::Agent = ureq::Agent::config_builder()
-        .timeout_global(Some(config.deadline))
-        .max_redirects(0)
-        .http_status_as_error(false)
-        .tls_config(
-            ureq::tls::TlsConfig::builder()
-                .provider(ureq::tls::TlsProvider::Rustls)
-                .root_certs(ureq::tls::RootCerts::new_with_certs(&certificates))
-                .build(),
-        )
-        .build()
-        .into();
-    let mut response = agent.post(&config.url).send_json(serde_json::json!({
-        "jsonrpc": "2.0", "id": 1, "method": "px_getCommit", "params": [block.number.to_string()],
-    })).map_err(|_| HumanOperationError::Unavailable)?;
-    if response.status().as_u16() != 200 {
-        return Err(HumanOperationError::Unavailable);
-    }
-    let bytes = response
-        .body_mut()
-        .with_config()
-        .limit(MAX_RESPONSE as u64)
-        .read_to_vec()
+    let result = endpoint
+        .commit_material(block.number)
         .map_err(|_| HumanOperationError::Unavailable)?;
-    let response: Value =
-        serde_json::from_slice(&bytes).map_err(|_| HumanOperationError::Refused)?;
-    if response.as_object().map(|object| object.len()) != Some(3)
-        || response["jsonrpc"] != "2.0"
-        || response["id"] != 1
-    {
-        return Err(HumanOperationError::Refused);
-    }
-    if response.get("error").is_some() {
-        return Err(HumanOperationError::Unavailable);
-    }
-    let result = &response["result"];
-    let signed = &result["signedHeader"];
-    let hash = signed["commit"]["block_id"]["hash"]
+    let hash = result["signedHeader"]["commit"]["block_id"]["hash"]
         .as_str()
         .and_then(digest_from_hex)
         .ok_or(HumanOperationError::Refused)?;
-    let height = block.number.to_string();
-    if result["height"].as_str() != Some(height.as_str())
-        || signed["header"]["height"].as_str() != Some(height.as_str())
-        || signed["commit"]["height"].as_str() != Some(height.as_str())
-        || hash != block.hash
-    {
+    if hash != block.hash {
         return Err(HumanOperationError::Refused);
     }
     Ok(serde_json::json!({
-        "height": height, "blockHash": rpc_hex(&block.hash),
+        "height": block.number.to_string(), "blockHash": rpc_hex(&block.hash),
         "parentHash": rpc_hex(&block.parent_hash),
         "transactionsRoot": rpc_hex(&block.transactions_root),
-        "receiptsRoot": rpc_hex(&block.receipts_root),
-        "commitMaterial": result,
+        "receiptsRoot": rpc_hex(&block.receipts_root), "commitMaterial": result,
     }))
 }
 
@@ -2335,7 +2256,7 @@ fn retained_activity_owner(
 /// submitted through the sole frozen LNI client.
 pub struct ProductionHumanOperations<A> {
     authority: A,
-    node: layerx_client::Client,
+    node: layerx_client::sequencer::SequencerEndpoint,
     chain: Box<dyn HumanNode>,
     store: Arc<Mutex<Store>>,
     outboxes: BTreeMap<String, Outbox>,
@@ -2684,7 +2605,7 @@ impl<A: HumanAuthorityBoundary> SharedAgentOwner<A> {
         let mut owner = self.lock()?;
         owner.mcp_native_web_registry(credential, owner_public_key)?;
         let ops = owner.lock_operations()?;
-        if ops.node.handshake().node().protocol_version != 3 {
+        if layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION != 3 {
             return Err(HumanOperationError::Refused);
         }
         ops.chain
@@ -3835,7 +3756,7 @@ fn settle_retained_native_effect(
 }
 
 fn settle_retained_native_program_call(
-    node: &mut layerx_client::Client,
+    node: &mut layerx_client::sequencer::SequencerEndpoint,
     programs: &crate::ops::program::ProgramOperations,
     registry: &layerx_types::payload::ModuleRegistry,
     budgets: &BudgetLimiter,
@@ -3972,15 +3893,9 @@ fn settle_retained_native_program_call(
             u64::from_be_bytes(preparation_id[..8].try_into().map_err(|_| refused())?) | 1;
         let actor = layerx_wire::hash::did_id_for_protocol(prepared.envelope.actor_did(), 3)
             .map_err(|_| refused())?;
-        let caps = node
-            .caps_discovery(
-                actor,
-                VerificationLevel::STATE_PROVEN,
-                correlation,
-                authorization,
-                None,
-            )
-            .map_err(|_| HumanOperationError::Unavailable)?;
+        // Decision 2199: task 9.25.6 ports capability discovery.
+        let caps =
+            Err::<layerx_client::evidence::VerifiedCaps, _>(HumanOperationError::Unavailable)?;
         let endpoint = read_rpc_endpoint(&read_rpc_config()?)?;
         Some(
             crate::budget::execution_state::committed_execution_state(
@@ -4265,8 +4180,15 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let activity = layerx_wire::activity::decode_signed(&signed_activity, &registry)
             .map_err(|_| HumanOperationError::Refused)?;
         if activity.actor_did() != context.principal().agent.as_bytes()
-            || activity.network_id() != operations.node.handshake().node().network_id
-            || activity.protocol_version() != operations.node.handshake().node().protocol_version
+            || activity.network_id()
+                != u32::try_from(
+                    operations
+                        .chain
+                        .chain_id()
+                        .map_err(|_| HumanOperationError::Unavailable)?,
+                )
+                .map_err(|_| HumanOperationError::Refused)?
+            || activity.protocol_version() != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
             || activity.idempotency_key() != indexed.idempotency_key
             || layerx_wire::hash::activity_id(&activity)
                 .map_err(|_| HumanOperationError::Refused)?
@@ -4277,23 +4199,31 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             return Err(HumanOperationError::Refused);
         }
         let correlation = boundary_correlation(context.peer(), &activity_id, b"program-activity");
-        let lookup = operations
-            .node
-            .lookup_authenticated_receipt(
-                activity_id,
-                correlation,
-                layerx_client::receipt::ReceiptWaitMode::Immediate,
-            )
-            .map_err(native_receipt::map_lookup_error)?;
+        let lookup = layerx_client::rpc::receipt::lookup_authenticated(
+            &operations.node,
+            activity_id,
+            layerx_client::rpc::receipt::LookupContext {
+                receipt_keys: &operations
+                    .chain
+                    .receipt_keys()
+                    .map_err(human_receipt_node_error)?,
+            },
+        )
+        .map_err(|error| match error {
+            layerx_client::rpc::receipt::ReceiptError::Sequencer(
+                layerx_client::sequencer::SequencerError::Unavailable,
+            ) => HumanOperationError::Unavailable,
+            _ => HumanOperationError::Refused,
+        })?;
         let response = match lookup {
-            layerx_client::receipt::AuthenticatedLookup::Absent => RpcProgramActivity::Unknown {
+            layerx_client::rpc::receipt::Lookup::Absent => RpcProgramActivity::Unknown {
                 idempotency_key: indexed.idempotency_key,
                 signed_activity,
             },
-            layerx_client::receipt::AuthenticatedLookup::TimedOut => {
+            layerx_client::rpc::receipt::Lookup::Submitted { .. } => {
                 return Err(HumanOperationError::Unavailable);
             }
-            layerx_client::receipt::AuthenticatedLookup::Verified(receipt) => {
+            layerx_client::rpc::receipt::Lookup::Verified(receipt) => {
                 let proof_peer = subject::for_activity(
                     &operations.store,
                     context.peer(),
@@ -4371,8 +4301,15 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let activity = layerx_wire::activity::decode_signed(signed, &registry)
             .map_err(|_| HumanOperationError::Refused)?;
         if activity.actor_did() != context.principal().agent.as_bytes()
-            || activity.network_id() != operations.node.handshake().node().network_id
-            || activity.protocol_version() != operations.node.handshake().node().protocol_version
+            || activity.network_id()
+                != u32::try_from(
+                    operations
+                        .chain
+                        .chain_id()
+                        .map_err(|_| HumanOperationError::Unavailable)?,
+                )
+                .map_err(|_| HumanOperationError::Refused)?
+            || activity.protocol_version() != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
             || activity.activity_type().module() != layerx_types::payload::ModuleId::Programs
             || activity.activity_type().ordinal() != 3
         {
@@ -4393,7 +4330,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             current_program_bundle(programs, &mut operations.node, now, context, program)?
         };
         let guest_abi_version = bound.program_head().abi_version();
-        let sequencer_public_key = operations.node.handshake().node().authorised_sequencer_key;
+        let sequencer_public_key = operations
+            .chain
+            .receipt_key_at_head()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .public_key;
         let correlation = boundary_correlation(context.peer(), &program_id, b"program-simulate");
         let mut captured = None;
         let execution = {
@@ -4464,7 +4405,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         }
         let target =
             session_id_hex(request.session_id.as_str()).ok_or(HumanOperationError::Refused)?;
-        let current_sequence = self.lock_operations()?.node.head().chain_sequence;
+        let current_sequence = self
+            .lock_operations()?
+            .node
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?;
         let (replacement, _) = self
             .session_control
             .refresh_session_authorized(context.permit(), SessionId(target), current_sequence)
@@ -4778,7 +4723,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         }
         let target =
             session_id_hex(request.session_id.as_str()).ok_or(HumanOperationError::Refused)?;
-        let current_sequence = self.lock_operations()?.node.head().chain_sequence;
+        let current_sequence = self
+            .lock_operations()?
+            .node
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?;
         self.session_control
             .close_session_authorized(context.permit(), SessionId(target), current_sequence)
             .map_err(Self::session_writer_error)?;
@@ -5448,14 +5397,12 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         }
     }
 
-    /// Reports whether the owner is healthy, with the network id and protocol version the
-    /// node negotiated at handshake.
+    /// Reports owner health, the RPC chain identity and the supported protocol version.
     ///
     /// # Errors
     /// Returns `HumanOperationError::Unavailable` when the operation owner is poisoned.
     pub fn rpc_health(&self) -> Result<(bool, u32, u16), HumanOperationError> {
         let operations = self.lock_operations()?;
-        let node = operations.node.handshake().node();
         Ok((
             self.degraded.status().mode == crate::degraded::Mode::Healthy,
             u32::try_from(
@@ -5465,7 +5412,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     .map_err(|_| HumanOperationError::Unavailable)?,
             )
             .map_err(|_| HumanOperationError::Refused)?,
-            node.protocol_version,
+            layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
         ))
     }
 
@@ -5799,16 +5746,9 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 prepared.envelope.protocol_version(),
             )
             .map_err(|_| HumanOperationError::Refused)?;
-            let caps = operations
-                .node
-                .caps_discovery(
-                    actor,
-                    VerificationLevel::STATE_PROVEN,
-                    boundary_correlation(context.peer(), &preparation_id, b"native-prepare-caps"),
-                    authorization,
-                    None,
-                )
-                .map_err(|_| HumanOperationError::Unavailable)?;
+            // Decision 2199: task 9.25.6 ports capability discovery.
+            let caps =
+                Err::<layerx_client::evidence::VerifiedCaps, _>(HumanOperationError::Unavailable)?;
             let programs = self
                 .programs
                 .as_mut()
@@ -5823,7 +5763,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             )
             .map_err(|_| HumanOperationError::Refused)?;
             if !resolved.matches_prepared(&prepared)
-                || operations.node.head().chain_sequence != prepared.observed_head_sequence
+                || operations
+                    .node
+                    .block_number()
+                    .map_err(|_| HumanOperationError::Unavailable)?
+                    != prepared.observed_head_sequence
             {
                 return Err(HumanOperationError::Refused);
             }
@@ -6071,13 +6015,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let disclosure =
                 layerx_crypto::disclosure::call::bind_call(&prepared.call, signing.actor_address)
                     .map_err(|_| HumanOperationError::Refused)?;
-            let fee = ops
-                .node
-                .native_fee_policy(boundary_correlation(
-                    peer,
-                    actor.as_bytes(),
-                    b"native-send-preview-fee",
-                ))
+            let fee = crate::budget::native_fee_policy(&ops.node, snapshot.observed_head_sequence)
                 .map_err(|_| HumanOperationError::Unavailable)?;
             if authorization.envelope.payload_hash() != human.payload_hash
                 || prepared.observed_head_height != snapshot.observed_head_sequence
@@ -6332,13 +6270,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             let disclosure =
                 layerx_crypto::disclosure::call::bind_call(&prepared.call, signing.actor_address)
                     .map_err(|_| HumanOperationError::Refused)?;
-            let fee = ops
-                .node
-                .native_fee_policy(boundary_correlation(
-                    peer,
-                    actor.as_bytes(),
-                    b"native-send-preview-fee",
-                ))
+            let fee = crate::budget::native_fee_policy(&ops.node, snapshot.observed_head_sequence)
                 .map_err(|_| HumanOperationError::Unavailable)?;
             if authorization.envelope.payload_hash() != human.payload_hash
                 || prepared.observed_head_height != snapshot.observed_head_sequence
@@ -6655,23 +6587,27 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 })
                 .map_err(rpc_commit_error)?;
         }
-        let fee = {
+        let (fee, caps) = {
             let mut operations = operations_shared
                 .lock()
                 .map_err(|_| HumanOperationError::Unavailable)?;
-            let fee = operations
-                .node
-                .native_fee_policy(boundary_correlation(
-                    context.peer(),
-                    &preparation_id,
-                    b"native-effect-fee",
-                ))
-                .map_err(|_| HumanOperationError::Unavailable)?;
+            let (_, _, authorization) = operations.budget_read_parts(context.peer())?;
+            let actor = layerx_wire::hash::did_id_for_protocol(
+                prepared.envelope.actor_did(),
+                prepared.envelope.protocol_version(),
+            )
+            .map_err(|_| HumanOperationError::Refused)?;
+            // Decision 2199: task 9.25.6 ports capability discovery.
+            let caps =
+                Err::<layerx_client::evidence::VerifiedCaps, _>(HumanOperationError::Unavailable)?;
+            let fee =
+                crate::budget::native_fee_policy(&operations.node, prepared.observed_head_sequence)
+                    .map_err(|_| HumanOperationError::Unavailable)?;
             if fee.observed_sequence != prepared.observed_head_sequence || fee.state_root == [0; 32]
             {
                 return Err(HumanOperationError::Refused);
             }
-            fee
+            (fee, caps)
         };
         let profile = if registration {
             crate::capability::NativeAdmissionProfile::Registration {
@@ -6744,22 +6680,6 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     window,
                 )?);
             }
-            let (_, _, authorization) = operations.budget_read_parts(context.peer())?;
-            let actor = layerx_wire::hash::did_id_for_protocol(
-                prepared.envelope.actor_did(),
-                prepared.envelope.protocol_version(),
-            )
-            .map_err(|_| HumanOperationError::Refused)?;
-            let caps = operations
-                .node
-                .caps_discovery(
-                    actor,
-                    VerificationLevel::STATE_PROVEN,
-                    boundary_correlation(context.peer(), &preparation_id, b"native-prepare-caps"),
-                    authorization,
-                    None,
-                )
-                .map_err(|_| HumanOperationError::Unavailable)?;
             if caps.state_root() != fee.state_root
                 || caps.freshness().global_sequence != fee.observed_sequence
             {
@@ -6775,7 +6695,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             )
             .map_err(|_| HumanOperationError::Refused)?;
             if !resolved.matches_prepared(&prepared)
-                || operations.node.head().chain_sequence != prepared.observed_head_sequence
+                || operations
+                    .node
+                    .block_number()
+                    .map_err(|_| HumanOperationError::Unavailable)?
+                    != prepared.observed_head_sequence
             {
                 return Err(HumanOperationError::Refused);
             }
@@ -7109,23 +7033,27 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 })
                 .map_err(rpc_commit_error)?;
         }
-        let fee = {
+        let (fee, caps) = {
             let mut operations = operations_shared
                 .lock()
                 .map_err(|_| HumanOperationError::Unavailable)?;
-            let fee = operations
-                .node
-                .native_fee_policy(boundary_correlation(
-                    context.peer(),
-                    &preparation_id,
-                    b"native-effect-fee",
-                ))
-                .map_err(|_| HumanOperationError::Unavailable)?;
+            let (_, _, authorization) = operations.budget_read_parts(context.peer())?;
+            let actor = layerx_wire::hash::did_id_for_protocol(
+                prepared.envelope.actor_did(),
+                prepared.envelope.protocol_version(),
+            )
+            .map_err(|_| HumanOperationError::Refused)?;
+            // Decision 2199: task 9.25.6 ports capability discovery.
+            let caps =
+                Err::<layerx_client::evidence::VerifiedCaps, _>(HumanOperationError::Unavailable)?;
+            let fee =
+                crate::budget::native_fee_policy(&operations.node, prepared.observed_head_sequence)
+                    .map_err(|_| HumanOperationError::Unavailable)?;
             if fee.observed_sequence != prepared.observed_head_sequence || fee.state_root == [0; 32]
             {
                 return Err(HumanOperationError::Refused);
             }
-            fee
+            (fee, caps)
         };
         let constraints = context
             .permit()
@@ -7190,22 +7118,6 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     window,
                 )?);
             }
-            let (_, _, authorization) = operations.budget_read_parts(context.peer())?;
-            let actor = layerx_wire::hash::did_id_for_protocol(
-                prepared.envelope.actor_did(),
-                prepared.envelope.protocol_version(),
-            )
-            .map_err(|_| HumanOperationError::Refused)?;
-            let caps = operations
-                .node
-                .caps_discovery(
-                    actor,
-                    VerificationLevel::STATE_PROVEN,
-                    boundary_correlation(context.peer(), &preparation_id, b"native-prepare-caps"),
-                    authorization,
-                    None,
-                )
-                .map_err(|_| HumanOperationError::Unavailable)?;
             if caps.state_root() != fee.state_root
                 || caps.freshness().global_sequence != fee.observed_sequence
             {
@@ -7221,7 +7133,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             )
             .map_err(|_| HumanOperationError::Refused)?;
             if !resolved.matches_prepared(&prepared)
-                || operations.node.head().chain_sequence != prepared.observed_head_sequence
+                || operations
+                    .node
+                    .block_number()
+                    .map_err(|_| HumanOperationError::Unavailable)?
+                    != prepared.observed_head_sequence
             {
                 return Err(HumanOperationError::Refused);
             }
@@ -8150,34 +8066,22 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         };
         let fee = {
             let mut operations = self.lock_operations()?;
-            let fee = operations
-                .node
-                .native_fee_policy(boundary_correlation(
-                    peer,
-                    &preparation_id,
-                    b"native-effect-submit-fee",
-                ))
-                .map_err(|_| HumanOperationError::Unavailable)?;
-            if fee.observed_sequence != snapshot.observed_head_sequence || fee.state_root == [0; 32]
-            {
-                return Err(HumanOperationError::Refused);
-            }
             let (_, _, authorization) = operations.budget_read_parts(peer)?;
             let actor = layerx_wire::hash::did_id_for_protocol(
                 cached.prepared.envelope.actor_did(),
                 cached.prepared.envelope.protocol_version(),
             )
             .map_err(|_| HumanOperationError::Refused)?;
-            let caps = operations
-                .node
-                .caps_discovery(
-                    actor,
-                    VerificationLevel::STATE_PROVEN,
-                    boundary_correlation(peer, &preparation_id, b"native-effect-submit-caps"),
-                    authorization,
-                    None,
-                )
-                .map_err(|_| HumanOperationError::Unavailable)?;
+            // Decision 2199: task 9.25.6 ports capability discovery.
+            let caps =
+                Err::<layerx_client::evidence::VerifiedCaps, _>(HumanOperationError::Unavailable)?;
+            let fee =
+                crate::budget::native_fee_policy(&operations.node, snapshot.observed_head_sequence)
+                    .map_err(|_| HumanOperationError::Unavailable)?;
+            if fee.observed_sequence != snapshot.observed_head_sequence || fee.state_root == [0; 32]
+            {
+                return Err(HumanOperationError::Refused);
+            }
             if caps.state_root() != fee.state_root
                 || caps.freshness().global_sequence != fee.observed_sequence
             {
@@ -8372,34 +8276,22 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         };
         let fee = {
             let mut operations = self.lock_operations()?;
-            let fee = operations
-                .node
-                .native_fee_policy(boundary_correlation(
-                    peer,
-                    &preparation_id,
-                    b"native-effect-submit-fee",
-                ))
-                .map_err(|_| HumanOperationError::Unavailable)?;
-            if fee.observed_sequence != snapshot.observed_head_sequence || fee.state_root == [0; 32]
-            {
-                return Err(HumanOperationError::Refused);
-            }
             let (_, _, authorization) = operations.budget_read_parts(peer)?;
             let actor = layerx_wire::hash::did_id_for_protocol(
                 cached.prepared.envelope.actor_did(),
                 cached.prepared.envelope.protocol_version(),
             )
             .map_err(|_| HumanOperationError::Refused)?;
-            let caps = operations
-                .node
-                .caps_discovery(
-                    actor,
-                    VerificationLevel::STATE_PROVEN,
-                    boundary_correlation(peer, &preparation_id, b"native-effect-submit-caps"),
-                    authorization,
-                    None,
-                )
-                .map_err(|_| HumanOperationError::Unavailable)?;
+            // Decision 2199: task 9.25.6 ports capability discovery.
+            let caps =
+                Err::<layerx_client::evidence::VerifiedCaps, _>(HumanOperationError::Unavailable)?;
+            let fee =
+                crate::budget::native_fee_policy(&operations.node, snapshot.observed_head_sequence)
+                    .map_err(|_| HumanOperationError::Unavailable)?;
+            if fee.observed_sequence != snapshot.observed_head_sequence || fee.state_root == [0; 32]
+            {
+                return Err(HumanOperationError::Refused);
+            }
             if caps.state_root() != fee.state_root
                 || caps.freshness().global_sequence != fee.observed_sequence
             {
@@ -9073,9 +8965,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             )?;
             let snapshot =
                 core_preparation_snapshot(ops.chain.as_ref(), &ops.authority, peer, &actor)?;
-            let fee = ops
-                .node
-                .native_fee_policy(request.request_id)
+            let fee = crate::budget::native_fee_policy(&ops.node, snapshot.observed_head_sequence)
                 .map_err(|_| HumanOperationError::Unavailable)?;
             if fee.observed_sequence != snapshot.observed_head_sequence
                 || fee.state_root == [0; 32]
@@ -9335,49 +9225,22 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             owner.active_budget_id
         };
         let proof = self.verified_program_budget_proof(peer, budget_id)?;
-        if proof.observed_head_sequence() != sequence {
-            return Err(HumanOperationError::Refused);
-        }
-        let store = self
-            .store
-            .lock()
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        let row = crate::budget::program_settlement::read_owned_program_budget(
-            &store,
-            peer,
-            id,
-            digest,
-            &registry,
-            &self.budgets,
-            &proof,
-            sequence,
-        )
-        .map_err(|_| HumanOperationError::Refused)?;
         let mut out = Encoder::new();
-        out.u16(5)?;
-        out.fixed(&id);
-        out.fixed(&digest);
-        out.text(
-            &peer
-                .subject
-                .as_ref()
-                .ok_or(HumanOperationError::Refused)?
-                .owner,
-        )?;
-        out.fixed(&row.budget_id());
-        out.fixed(&row.asset());
-        out.fixed(&row.source());
-        out.u64(row.observed_sequence());
-        out.u128(row.remaining_after_reservations());
-        out.u8(u8::from(row.terminal()));
-        out.u8(row.verification().wire_rank());
-        out.fixed(&row.evidence_digest());
-        out.fixed(&row.receipt_digest());
-        out.fixed(&row.checkpoint_digest());
-        out.u64(row.age_sequences());
-        out.u64(row.maximum_age_sequences());
-        out.fixed(&row.proof_digest());
-        out.bytes(row.verified_proof_bytes())?;
+        out.u16(4)?;
+        out.text(proof.owner())?;
+        out.fixed(&proof.budget_id());
+        out.fixed(&proof.asset());
+        out.fixed(&proof.source_account());
+        out.u64(proof.observed_head_sequence());
+        out.u128(proof.remaining());
+        out.u8(layerx_types::rung::Rung::Committed.wire_rank());
+        out.fixed(&proof.evidence_digest());
+        out.fixed(&proof.receipt_digest());
+        out.fixed(&proof.checkpoint_digest());
+        out.u64(proof.age_sequences());
+        out.u64(proof.maximum_age_sequences());
+        out.fixed(&proof.digest());
+        out.bytes(proof.canonical_export_bytes())?;
         out.finish()
     }
     fn native_program_approval_decide(
@@ -9460,131 +9323,8 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         peer: &HumanPeer,
         budget_id: [u8; 32],
     ) -> Result<HumanResponse, HumanOperationError> {
-        use crate::budget::budget_proof::{verify_budget_proof, BudgetProofTrust};
-        let subject = peer.subject.as_ref().ok_or(HumanOperationError::Refused)?;
-        if budget_id == [0; 32] {
-            return Err(HumanOperationError::Refused);
-        }
-        let tenant =
-            TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
-        let owner_did = {
-            let store = self
-                .store
-                .lock()
-                .map_err(|_| HumanOperationError::Unavailable)?;
-            let owners = managed_agent::budget_owners(&store, &tenant)?;
-            let mut matching = owners
-                .iter()
-                .filter(|owner| owner.active_budget_id == budget_id);
-            let (Some(owner), None) = (matching.next(), matching.next()) else {
-                return Err(HumanOperationError::Refused);
-            };
-            Did::new(owner.agent_did.as_bytes()).map_err(|_| HumanOperationError::Refused)?
-        };
-        let mut operations = self.lock_operations()?;
-        operations.authority.authorize_subject(peer)?;
-        let registry = operations.authority.registry(peer).map_err(map_core)?;
-        let bound = subject::for_did(&operations.store, peer, &owner_did, &registry)?;
-        let snapshot = core_preparation_snapshot(
-            operations.chain.as_ref(),
-            &operations.authority,
-            peer,
-            &owner_did,
-        )?;
-        let chain_head = operations
-            .chain
-            .head()
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        if snapshot.observed_head_sequence != chain_head.number {
-            return Err(HumanOperationError::Refused);
-        }
-        let block = operations
-            .chain
-            .block(chain_head.number)
-            .map_err(|_| HumanOperationError::Unavailable)?
-            .ok_or(HumanOperationError::Unavailable)?;
-        if block != chain_head {
-            return Err(HumanOperationError::Refused);
-        }
-        let network_id = u32::try_from(
-            operations
-                .chain
-                .chain_id()
-                .map_err(|_| HumanOperationError::Unavailable)?,
-        )
-        .map_err(|_| HumanOperationError::Refused)?;
-        let key = operations
-            .chain
-            .receipt_key_at_head()
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        human_receipt_commit_material(u64::from(network_id), &block)?;
-        let head = layerx_client::head::Head {
-            chain_sequence: chain_head.number,
-            sealed_batch: chain_head.number,
-            finalised_checkpoint: operations.node.head().finalised_checkpoint,
-        };
-        let (_, _, _, _, age_seconds, maximum_age_seconds, _) =
-            operations.authority.balance_context(peer)?;
-        if maximum_age_seconds == 0 || age_seconds > maximum_age_seconds {
-            return Err(HumanOperationError::Refused);
-        }
-        let checkpoint = operations
-            .node
-            .checkpoint_evidence(
-                CheckpointSelector::Identifier(head.finalised_checkpoint),
-                boundary_correlation(peer, &budget_id, b"budget-proof-checkpoint"),
-            )
-            .map_err(|_| HumanOperationError::Refused)?;
-        if checkpoint.observed_block_hash() != Some(block.hash) {
-            return Err(HumanOperationError::Refused);
-        }
-        let raw = operations
-            .authority
-            .budget_proof_export(&bound, budget_id, &owner_did)?;
-        let now_ms = u64::try_from(
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map_err(|_| HumanOperationError::Unavailable)?
-                .as_millis(),
-        )
-        .map_err(|_| HumanOperationError::Unavailable)?;
-        let trust = BudgetProofTrust {
-            tenant: peer.transport_tenant(),
-            principal: &subject.transport_principal,
-            owner: &owner_did,
-            protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
-            network_id,
-            sequencer_key: key.public_key,
-            head,
-            checkpoint: &checkpoint,
-            now_ms,
-            maximum_age_seconds,
-        };
-        let proof = verify_budget_proof(&raw, budget_id, &trust)
-            .map_err(|_| HumanOperationError::Refused)?;
-        if operations
-            .chain
-            .head()
-            .map_err(|_| HumanOperationError::Unavailable)?
-            != chain_head
-        {
-            return Err(HumanOperationError::Refused);
-        }
+        let proof = self.verified_program_budget_proof(peer, budget_id)?;
         let mut out = Encoder::new();
-        out.u16(4)?;
-        out.text(&subject.owner)?;
-        out.fixed(&proof.budget_id());
-        out.fixed(&proof.asset());
-        out.fixed(&proof.source_account());
-        out.u64(proof.observed_head_sequence());
-        out.u128(proof.remaining());
-        out.u8(proof.verification().wire_rank());
-        out.fixed(&proof.evidence_digest());
-        out.fixed(&proof.receipt_digest());
-        out.fixed(&proof.checkpoint_digest());
-        out.u64(proof.age_sequences());
-        out.u64(proof.maximum_age_sequences());
-        out.fixed(&proof.digest());
         out.bytes(proof.canonical_export_bytes())?;
         out.finish()
     }
@@ -10126,9 +9866,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
             return Err(HumanOperationError::Refused);
         }
         if record.held_activity.fee_limit.0 != 0 {
-            let fee = operations
-                .node
-                .native_fee_policy(39)
+            let fee = crate::budget::native_fee_policy(&operations.node, current_sequence)
                 .map_err(|_| HumanOperationError::Unavailable)?;
             if fee.value.asset.asset_id != state.asset {
                 return Err(HumanOperationError::Refused);
@@ -12340,6 +12078,51 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         Ok(Ok(budget))
     }
 
+    fn committed_checkpoint(
+        &self,
+        block: &layerx_client::sequencer::SequencerBlock,
+        identifier: Option<[u8; 32]>,
+    ) -> Result<crate::read::ServedCheckpoint, HumanOperationError> {
+        let chain_id = self
+            .chain
+            .chain_id()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let (trust, _) = self
+            .export_trust
+            .as_ref()
+            .ok_or(HumanOperationError::Unavailable)?;
+        let checkpoint = crate::read::ServedCheckpoint::acquire_at_committed_block(
+            &self.node,
+            block.number,
+            identifier,
+            &chain_id.to_string(),
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
+        if checkpoint.validators != trust.validator_set() || checkpoint.block_hash != block.hash {
+            return Err(HumanOperationError::Refused);
+        }
+        Ok(checkpoint)
+    }
+
+    fn committed_time_authority(
+        &self,
+        network_id: u32,
+        receipt_key: [u8; 32],
+    ) -> Result<EvidenceAuthority, HumanOperationError> {
+        let (trust, _) = self
+            .export_trust
+            .as_ref()
+            .ok_or(HumanOperationError::Unavailable)?;
+        EvidenceAuthority::pinned_to_handshake(
+            layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+            network_id,
+            receipt_key,
+        )
+        .map_err(|_| HumanOperationError::Refused)?
+        .pin_committed_validators(network_id.to_string(), trust.validator_set().to_vec())
+        .map_err(|_| HumanOperationError::Refused)
+    }
+
     fn budget_read_parts(
         &mut self,
         peer: &HumanPeer,
@@ -12355,7 +12138,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         )
         .map_err(|_| HumanOperationError::Refused)?;
         let verifier = EvidenceAuthority::pinned_to_handshake(
-            layerx_wire::limits::PROTOCOL_VERSION,
+            layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
             chain_id,
             key.public_key,
         )
@@ -12800,7 +12583,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     .chain
                     .chain_id()
                     .map_err(|_| HumanOperationError::Unavailable)?
-            || activity.protocol_version() != self.node.handshake().node().protocol_version
+            || activity.protocol_version() != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
         {
             return Err(HumanOperationError::Refused);
         }
@@ -13678,7 +13461,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 {
                     return Err(HumanOperationError::Refused);
                 }
-                human_receipt_commit_material(chain_id, &block)
+                human_receipt_commit_material(&self.node, chain_id, &block)
             })
             .transpose()?;
         let registry = self.authority.registry(peer).map_err(map_core)?;
@@ -13814,7 +13597,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
     /// Returns an error when the request is invalid, authority is refused, or required state is unavailable.
     pub fn new(
         authority: A,
-        node: layerx_client::Client,
+        node: layerx_client::sequencer::SequencerEndpoint,
         chain: Box<dyn HumanNode>,
         store: Arc<Mutex<Store>>,
         peers: &BTreeMap<u32, (String, String)>,
@@ -13962,46 +13745,53 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         ),
         HumanOperationError,
     > {
-        self.node
-            .reconnect()
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        let snapshot =
-            core_preparation_snapshot(self.chain.as_ref(), &self.authority, peer, actor)?;
-        let head = self.node.head();
-        if head.chain_sequence == 0
-            || head.sealed_batch == 0
-            || snapshot.observed_head_sequence != head.chain_sequence
-        {
-            return Err(HumanOperationError::Unavailable);
-        }
-        let signed = self
+        if self
             .node
-            .batch_header(
-                head.sealed_batch,
-                boundary_correlation(peer, actor.as_bytes(), b"native-expiry-clock"),
-            )
-            .map_err(production_batch_header_error)?;
-        let node = self.node.handshake().node();
-        let authority = EvidenceAuthority::pinned_to_handshake(
-            node.protocol_version,
-            node.network_id,
-            node.authorised_sequencer_key,
-        )
-        .map_err(|_| HumanOperationError::Refused)?;
-        let observed = authority
-            .authenticate_core_time(
-                signed.canonical_bytes(),
-                &signed.signature,
-                head.sealed_batch,
-                head.chain_sequence,
-            )
-            .map_err(|_| HumanOperationError::Refused)?;
-        if observed.observed_core_ms() != snapshot.protocol_timestamp
-            || snapshot.network_id != node.network_id
+            .chain_id()
+            .map_err(|_| HumanOperationError::Unavailable)?
+            != self
+                .chain
+                .chain_id()
+                .map_err(|_| HumanOperationError::Unavailable)?
         {
             return Err(HumanOperationError::Refused);
         }
-        Ok((observed, snapshot.module_registry, snapshot.network_id))
+        let snapshot =
+            core_preparation_snapshot(self.chain.as_ref(), &self.authority, peer, actor)?;
+        let head = self
+            .node
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        if head == 0 || snapshot.observed_head_sequence != head {
+            return Err(HumanOperationError::Unavailable);
+        }
+        peer.subject.as_ref().ok_or(HumanOperationError::Refused)?;
+        let block = self
+            .node
+            .block_by_number(head)
+            .map_err(|_| HumanOperationError::Unavailable)?
+            .ok_or(HumanOperationError::Unavailable)?;
+        let checkpoint = self.committed_checkpoint(&block, None)?;
+        let network_id = u32::try_from(
+            self.chain
+                .chain_id()
+                .map_err(|_| HumanOperationError::Unavailable)?,
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
+        let key = self
+            .chain
+            .receipt_key_at_head()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let observation = self
+            .committed_time_authority(network_id, key.public_key)?
+            .authenticate_committed_time(&checkpoint)
+            .map_err(|_| HumanOperationError::Refused)?;
+        if observation.observed_core_ms() != snapshot.protocol_timestamp
+            || snapshot.network_id != network_id
+        {
+            return Err(HumanOperationError::Refused);
+        }
+        Ok((observation, snapshot.module_registry, network_id))
     }
 
     fn recover_native_expiry(
@@ -14078,270 +13868,28 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         prepared: &crate::prepare::Prepared,
         window_seconds: u64,
     ) -> Result<crate::protocol_evidence::AuthenticatedTimeWindowUse, HumanOperationError> {
-        use crate::protocol_evidence::{
-            RawActivityReceiptEvidence, RawReceiptEvidence, RawTimeWindowBatch,
-        };
-        use layerx_client::read::{HistoryKind, HistoryProof};
-        const MAX_SEQUENCES: u64 = 4096;
-        const MAX_BYTES: usize = 16 * 1024 * 1024;
-        if window_seconds == 0 || prepared.envelope.actor_did() != actor {
-            return Err(HumanOperationError::Refused);
-        }
-        let window_ms = window_seconds
-            .checked_mul(1000)
-            .ok_or(HumanOperationError::Refused)?;
-        let head = self.node.head();
-        if head.chain_sequence != prepared.observed_head_sequence || head.chain_sequence == 0 {
-            return Err(HumanOperationError::Unavailable);
-        }
-        let next_execution_sequence = head
-            .chain_sequence
-            .checked_add(1)
-            .ok_or(HumanOperationError::Refused)?;
-        let registry = self.authority.registry(peer).map_err(map_core)?;
-        let (verifier, _, authorization) = self.budget_read_parts(peer)?;
-        let mut remaining = MAX_SEQUENCES;
-        let mut used_bytes = 0_usize;
-        let mut admit_bytes = |length: usize| -> Result<(), HumanOperationError> {
-            used_bytes = used_bytes
-                .checked_add(length)
-                .filter(|value| *value <= MAX_BYTES)
-                .ok_or(HumanOperationError::Unavailable)?;
-            Ok(())
-        };
-        let mut terminal_sequence = head.chain_sequence;
-        let mut observed = None;
-        let mut lower = None;
-        let mut batches = Vec::new();
-        loop {
-            let terminal_page = self
-                .node
-                .history(
-                    terminal_sequence,
-                    terminal_sequence,
-                    1,
-                    None,
-                    VerificationLevel::BATCH_INCLUDED,
-                    boundary_correlation(
-                        peer,
-                        &terminal_sequence.to_be_bytes(),
-                        b"native-rate-terminal",
-                    ),
-                    authorization,
-                )
-                .map_err(native_rate_read_error)?;
-            if terminal_page.cursor.is_some() || terminal_page.items.len() != 1 {
-                return Err(HumanOperationError::Unavailable);
-            }
-            let terminal = &terminal_page.items[0];
-            if terminal.global_sequence != terminal_sequence
-                || terminal.kind != HistoryKind::Receipt
-            {
-                return Err(HumanOperationError::Refused);
-            }
-            admit_bytes(terminal.canonical_bytes().len())?;
-            admit_bytes(terminal.proof_material().len())?;
-            let proof = HistoryProof::decode(terminal.proof_material())
-                .map_err(|_| HumanOperationError::Refused)?;
-            let header = layerx_wire::receipt::decode_batch_header(&proof.header)
-                .map_err(|_| HumanOperationError::Refused)?;
-            if header.last_sequence() != terminal_sequence || header.first_sequence() == 0 {
-                return Err(HumanOperationError::Refused);
-            }
-            let count = header
-                .last_sequence()
-                .checked_sub(header.first_sequence())
-                .and_then(|value| value.checked_add(1))
-                .ok_or(HumanOperationError::Refused)?;
-            remaining = remaining
-                .checked_sub(count)
-                .ok_or(HumanOperationError::Unavailable)?;
-            if observed.is_none() {
-                let time = verifier
-                    .authenticate_core_time(
-                        &proof.header,
-                        &proof.header_signature,
-                        head.sealed_batch,
-                        head.chain_sequence,
-                    )
-                    .map_err(|_| HumanOperationError::Refused)?;
-                if time.through_sequence().checked_add(1) != Some(next_execution_sequence) {
-                    return Err(HumanOperationError::Refused);
-                }
-                lower = time.observed_core_ms().checked_sub(window_ms);
-                observed = Some(time);
-            }
-            let maintenance = RawReceiptEvidence::new(
-                terminal.canonical_bytes().to_vec(),
-                proof.proof.clone(),
-                proof.header.clone(),
-                proof.header_signature,
-            );
-            let mut activities = Vec::new();
-            let mut expected = header.first_sequence();
-            let mut cursor = None;
-            while expected < terminal_sequence {
-                let page = self
-                    .node
-                    .history(
-                        header.first_sequence(),
-                        terminal_sequence - 1,
-                        1,
-                        cursor,
-                        VerificationLevel::BATCH_INCLUDED,
-                        boundary_correlation(peer, &expected.to_be_bytes(), b"native-rate-history"),
-                        authorization,
-                    )
-                    .map_err(native_rate_read_error)?;
-                if page.items.len() != 1 {
-                    return Err(HumanOperationError::Unavailable);
-                }
-                let item = &page.items[0];
-                if item.global_sequence != expected || item.kind == HistoryKind::Event {
-                    return Err(HumanOperationError::Refused);
-                }
-                admit_bytes(item.canonical_bytes().len())?;
-                admit_bytes(item.proof_material().len())?;
-                let activity_proof = HistoryProof::decode(item.proof_material())
-                    .map_err(|_| HumanOperationError::Refused)?;
-                if activity_proof.header != proof.header
-                    || activity_proof.header_signature != proof.header_signature
-                {
-                    return Err(HumanOperationError::Refused);
-                }
-                let (signed_activity, raw) = match item.kind {
-                    HistoryKind::Activity => {
-                        let activity =
-                            layerx_wire::activity::decode_signed(item.canonical_bytes(), &registry)
-                                .map_err(|_| HumanOperationError::Refused)?;
-                        let id = layerx_wire::hash::activity_id(&activity)
-                            .map_err(|_| HumanOperationError::Refused)?;
-                        let bundle = self
-                            .node
-                            .proof_bundle(
-                                ProofBundleSelector::Receipt(id),
-                                boundary_correlation(peer, &id, b"native-rate-receipt"),
-                                &registry,
-                            )
-                            .map_err(|error| {
-                                if evidence_unavailable(&error) {
-                                    HumanOperationError::Unavailable
-                                } else {
-                                    HumanOperationError::Refused
-                                }
-                            })?;
-                        (
-                            item.canonical_bytes().to_vec(),
-                            raw_receipt_evidence(&bundle)?,
-                        )
-                    }
-                    HistoryKind::Receipt => {
-                        let receipt = layerx_wire::receipt::decode(item.canonical_bytes())
-                            .map_err(|_| HumanOperationError::Refused)?;
-                        let id = receipt
-                            .protocol()
-                            .ok_or(HumanOperationError::Refused)?
-                            .activity_id();
-                        let bundle = self
-                            .node
-                            .proof_bundle(
-                                ProofBundleSelector::Activity(id),
-                                boundary_correlation(peer, &id, b"native-rate-activity"),
-                                &registry,
-                            )
-                            .map_err(|error| {
-                                if evidence_unavailable(&error) {
-                                    HumanOperationError::Unavailable
-                                } else {
-                                    HumanOperationError::Refused
-                                }
-                            })?;
-                        let layerx_client::evidence::VerifiedProofBundle::Activity {
-                            canonical_bytes,
-                            activity_id,
-                            proof: signed_proof,
-                            signed_header,
-                        } = bundle
-                        else {
-                            return Err(HumanOperationError::Refused);
-                        };
-                        if activity_id != id
-                            || signed_header.canonical_bytes != proof.header
-                            || signed_header.signature != proof.header_signature
-                            || signed_proof.leaf_index() != activity_proof.proof.leaf_index()
-                            || signed_proof.leaf_count() != activity_proof.proof.leaf_count()
-                        {
-                            return Err(HumanOperationError::Refused);
-                        }
-                        admit_bytes(canonical_bytes.len())?;
-                        (
-                            canonical_bytes,
-                            RawReceiptEvidence::new(
-                                item.canonical_bytes().to_vec(),
-                                activity_proof.proof.clone(),
-                                proof.header.clone(),
-                                proof.header_signature,
-                            ),
-                        )
-                    }
-                    HistoryKind::Event => return Err(HumanOperationError::Refused),
-                };
-                if raw.canonical_header() != proof.header.as_slice()
-                    || raw.header_signature() != proof.header_signature
-                    || raw.proof().leaf_index() != activity_proof.proof.leaf_index()
-                    || raw.proof().leaf_count() != activity_proof.proof.leaf_count()
-                {
-                    return Err(HumanOperationError::Refused);
-                }
-                admit_bytes(raw.canonical_receipt().len())?;
-                admit_bytes(raw.canonical_header().len())?;
-                admit_bytes(
-                    raw.proof()
-                        .siblings()
-                        .len()
-                        .checked_mul(32)
-                        .and_then(|value| value.checked_add(73))
-                        .ok_or(HumanOperationError::Unavailable)?,
-                )?;
-                activities.push(RawActivityReceiptEvidence::from_signed_inclusion(
-                    signed_activity,
-                    raw,
-                ));
-                expected = expected
-                    .checked_add(1)
-                    .ok_or(HumanOperationError::Refused)?;
-                cursor = page.cursor;
-                if cursor.is_none() != (expected == terminal_sequence) {
-                    return Err(HumanOperationError::Unavailable);
-                }
-            }
-            batches.push(RawTimeWindowBatch::new(activities, maintenance));
-            if (header.batch_number() == 1 && header.first_sequence() == 1)
-                || lower.is_some_and(|bound| header.timestamp_ms() <= bound)
-            {
-                break;
-            }
-            if remaining == 0 {
-                return Err(HumanOperationError::Unavailable);
-            }
-            terminal_sequence = header
-                .first_sequence()
-                .checked_sub(1)
-                .filter(|value| *value > 0)
-                .ok_or(HumanOperationError::Unavailable)?;
-        }
-        if self.node.head() != head {
-            return Err(HumanOperationError::Unavailable);
-        }
-        batches.reverse();
-        verifier
-            .authenticate_cumulative_time_use(
-                actor,
-                window_seconds,
-                observed.as_ref().ok_or(HumanOperationError::Unavailable)?,
-                &batches,
-            )
-            .map_err(|_| HumanOperationError::Refused)
+        self.authority.authorize_subject(peer)?;
+        let trust = &self
+            .export_trust
+            .as_ref()
+            .ok_or(HumanOperationError::Unavailable)?
+            .0;
+        let history = read_policy_history(
+            &read_rpc_config()?,
+            actor,
+            trust,
+            PolicyHistoryWindow::Time {
+                head: prepared.observed_head_sequence,
+                seconds: window_seconds,
+            },
+        )
+        .map_err(policy_history_refusal)?;
+        crate::protocol_evidence::HistoryWindowBatch::from_committed_history(
+            history.entries,
+            history.observed,
+        )
+        .authenticate_history(actor, window_seconds, history.first_covered)
+        .map_err(|_| HumanOperationError::Refused)
     }
 
     fn authenticated_policy_usage(
@@ -14351,173 +13899,32 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         capability: &Capability,
         core_sequence: u64,
     ) -> Result<crate::protocol_evidence::AuthenticatedCumulativeUse, HumanOperationError> {
-        use crate::protocol_evidence::{
-            CumulativeUseError, CumulativeUseWindow, RawActivityReceiptEvidence,
-        };
-        use layerx_client::read::{HistoryKind, HistoryProof, ReadError};
-
-        const MAX_SEQUENCES: u64 = 4_096;
-        const MAX_EVIDENCE_BYTES: usize = 16 * 1024 * 1024;
-        const PAGE_BOUND: u16 = 1;
-
-        let length = capability.dimensions.rate_ceiling.window_sequences;
-        if length == 0 || length > MAX_SEQUENCES {
-            return Err(HumanOperationError::Unavailable);
+        self.authority.authorize_subject(peer)?;
+        if capability.tenant.as_str() != peer.tenant {
+            return Err(HumanOperationError::Refused);
         }
-        let window = CumulativeUseWindow {
-            first: core_sequence
-                .checked_sub(length)
-                .filter(|first| *first > 0)
-                .ok_or(HumanOperationError::Unavailable)?,
-            last: core_sequence
-                .checked_sub(1)
-                .ok_or(HumanOperationError::Unavailable)?,
-        };
-        if window.last > self.node.head().chain_sequence {
-            return Err(HumanOperationError::Unavailable);
+        let trust = &self
+            .export_trust
+            .as_ref()
+            .ok_or(HumanOperationError::Unavailable)?
+            .0;
+        let width = capability.dimensions.rate_ceiling.window_sequences;
+        let history = read_policy_history(
+            &read_rpc_config()?,
+            actor,
+            trust,
+            PolicyHistoryWindow::Sequence {
+                core: core_sequence,
+                width,
+            },
+        )
+        .map_err(policy_history_refusal)?;
+        crate::protocol_evidence::CumulativeUseWindow {
+            first: core_sequence.saturating_sub(width.saturating_sub(1)).max(1),
+            last: core_sequence,
         }
-        let registry = self.authority.registry(peer).map_err(map_core)?;
-        let (verifier, _, authorization) = self.budget_read_parts(peer)?;
-        let mut evidence_bytes = 0_usize;
-        let mut admit_bytes = |length: usize| -> Result<(), HumanOperationError> {
-            evidence_bytes = evidence_bytes
-                .checked_add(length)
-                .filter(|total| *total <= MAX_EVIDENCE_BYTES)
-                .ok_or(HumanOperationError::Unavailable)?;
-            Ok(())
-        };
-        let mut entries = Vec::new();
-        let mut cursor = None;
-        let mut expected = window.first;
-        for _ in 0..MAX_SEQUENCES {
-            let page = self
-                .node
-                .history(
-                    window.first,
-                    window.last,
-                    PAGE_BOUND,
-                    cursor,
-                    VerificationLevel::BATCH_INCLUDED,
-                    boundary_correlation(peer, &expected.to_be_bytes(), b"policy-usage-history"),
-                    authorization,
-                )
-                .map_err(|error| match error {
-                    ReadError::Transport(_)
-                    | ReadError::Disconnected
-                    | ReadError::UnavailableCapability
-                    | ReadError::MissingEvidence { .. } => HumanOperationError::Unavailable,
-                    ReadError::CoreRefusal { result, .. }
-                        if result.retriability() == Retriability::Retriable =>
-                    {
-                        HumanOperationError::Unavailable
-                    }
-                    _ => HumanOperationError::Refused,
-                })?;
-            if page.items.is_empty() {
-                return Err(HumanOperationError::Unavailable);
-            }
-            for item in page.items {
-                if item.global_sequence != expected || expected > window.last {
-                    return Err(HumanOperationError::Refused);
-                }
-                admit_bytes(item.canonical_bytes().len())?;
-                admit_bytes(item.proof_material().len())?;
-                let history_proof = HistoryProof::decode(item.proof_material())
-                    .map_err(|_| HumanOperationError::Refused)?;
-                let header = layerx_wire::receipt::decode_batch_header(&history_proof.header)
-                    .map_err(|_| HumanOperationError::Refused)?;
-                if header.first_sequence() < window.first || header.last_sequence() > window.last {
-                    return Err(HumanOperationError::Unavailable);
-                }
-                match item.kind {
-                    HistoryKind::Activity => {
-                        let activity =
-                            layerx_wire::activity::decode_signed(item.canonical_bytes(), &registry)
-                                .map_err(|_| HumanOperationError::Refused)?;
-                        let id = layerx_wire::hash::activity_id(&activity)
-                            .map_err(|_| HumanOperationError::Refused)?;
-                        let bundle = self
-                            .node
-                            .proof_bundle(
-                                ProofBundleSelector::Receipt(id),
-                                boundary_correlation(peer, &id, b"policy-usage-receipt"),
-                                &registry,
-                            )
-                            .map_err(|error| {
-                                if evidence_unavailable(&error) {
-                                    HumanOperationError::Unavailable
-                                } else {
-                                    HumanOperationError::Refused
-                                }
-                            })?;
-                        let layerx_client::evidence::VerifiedProofBundle::Receipt {
-                            canonical_bytes,
-                            activity_id,
-                            proof,
-                            signed_header,
-                        } = &bundle
-                        else {
-                            return Err(HumanOperationError::Refused);
-                        };
-                        if *activity_id != id
-                            || signed_header.canonical_bytes != history_proof.header
-                            || signed_header.signature != history_proof.header_signature
-                            || proof.leaf_index() != history_proof.proof.leaf_index()
-                        {
-                            return Err(HumanOperationError::Refused);
-                        }
-                        admit_bytes(canonical_bytes.len())?;
-                        admit_bytes(signed_header.canonical_bytes.len())?;
-                        admit_bytes(signed_header.signature.len())?;
-                        admit_bytes(
-                            proof
-                                .siblings()
-                                .len()
-                                .checked_mul(32)
-                                .and_then(|size| size.checked_add(9))
-                                .ok_or(HumanOperationError::Unavailable)?,
-                        )?;
-                        entries.push(RawActivityReceiptEvidence::from_signed_inclusion(
-                            item.canonical_bytes().to_vec(),
-                            raw_receipt_evidence(&bundle)?,
-                        ));
-                    }
-                    HistoryKind::Receipt => {
-                        let maintenance = layerx_wire::batch_maintenance::decode_maintenance(
-                            item.canonical_bytes(),
-                        )
-                        .map_err(|_| HumanOperationError::Refused)?;
-                        maintenance
-                            .verify_header(&header)
-                            .map_err(|_| HumanOperationError::Refused)?;
-                        if item.global_sequence != header.last_sequence()
-                            || history_proof.proof.leaf_index().checked_add(1)
-                                != Some(history_proof.proof.leaf_count())
-                        {
-                            return Err(HumanOperationError::Refused);
-                        }
-                    }
-                    HistoryKind::Event => return Err(HumanOperationError::Refused),
-                }
-                expected = expected
-                    .checked_add(1)
-                    .ok_or(HumanOperationError::Refused)?;
-            }
-            cursor = page.cursor;
-            if cursor.is_none() {
-                if expected != core_sequence {
-                    return Err(HumanOperationError::Unavailable);
-                }
-                return verifier
-                    .authenticate_cumulative_use(actor, window, &entries)
-                    .map_err(|error| match error {
-                        CumulativeUseError::InvalidWindow
-                        | CumulativeUseError::IncompleteWindow => HumanOperationError::Unavailable,
-                        _ => HumanOperationError::Refused,
-                    });
-            }
-        }
-        Err(HumanOperationError::Unavailable)
+        .authenticate_history(actor, &history.checkpoint, &history.entries)
+        .map_err(|_| HumanOperationError::Refused)
     }
 
     /// The subject agent's protocol budget reconciliation, rebuilt exactly as startup
@@ -14565,93 +13972,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         let (committed_record, committed_height) =
             pipeline.read_record(budget_id).map_err(budget_refusal)?;
         let key = budget_state_key(budget_id);
-        let value = self
-            .node
-            .module_state(
-                BUDGET_MODULE_ID,
-                &key,
-                VerificationLevel::STATE_PROVEN,
-                boundary_correlation(peer, &budget_id, b"policy-budget"),
-                authorization,
-            )
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        let protocol = ProtocolBudgetState {
-            evidence: RawStateEvidence::module_witness(
-                value.canonical_bytes().to_vec(),
-                BUDGET_MODULE_ID,
-                key,
-                value.proof_material().to_vec(),
-                RootSelector::Latest,
-                sequencer_key,
-            ),
-        };
-        let verified = verifier
-            .verify_state(&protocol.evidence)
-            .map_err(|_| HumanOperationError::Refused)?;
-        let record = ProtocolBudgetRecord::decode(verified.canonical_state())
-            .map_err(|_| HumanOperationError::Refused)?;
-        if record.budget_id != budget_id
-            || record != committed_record
-            || verified.observed_head_sequence() != committed_height
-        {
-            return Err(HumanOperationError::Refused);
-        }
-        let window = record.period_start..record.window_end_sequence();
-        if without_evidence
-            .iter()
-            .any(|receipt| window.contains(&receipt.global_sequence))
-        {
-            return Ok(None);
-        }
-        let receipts: Vec<PersistedReceipt> = with_evidence
-            .iter()
-            .filter(|receipt| window.contains(&receipt.global_sequence))
-            .map(|receipt| PersistedReceipt {
-                expected_activity_id: receipt.activity_id,
-                evidence: receipt.evidence.clone(),
-            })
-            .collect();
-        let accounting = {
-            let store = self
-                .store
-                .lock()
-                .map_err(|_| HumanOperationError::Unavailable)?;
-            let mut unknown_budget_ids = Vec::new();
-            for object_id in store.list_object_ids(tenant, ObjectKind::Budget) {
-                let Some(id) = object_id.strip_prefix(b"unknown-budget:".as_slice()) else {
-                    continue;
-                };
-                let id: [u8; 32] = id.try_into().map_err(|_| HumanOperationError::Refused)?;
-                unknown_budget_ids.push(id);
-            }
-            crate::budget::rebuild(
-                &store,
-                tenant,
-                &unknown_budget_ids,
-                &receipts,
-                &protocol,
-                &verifier,
-            )
-            .map_err(|_| HumanOperationError::Refused)?
-        };
-        if !accounting.reconciled {
-            return Ok(None);
-        }
-        let spend_receipts: Vec<crate::budget::SpendReceiptEvidence> = receipts
-            .iter()
-            .map(|receipt| crate::budget::SpendReceiptEvidence {
-                expected_activity_id: receipt.expected_activity_id,
-                evidence: receipt.evidence.clone(),
-            })
-            .collect();
-        let mut local = crate::budget::LocalAccounting {
-            consumed: accounting.receipt_consumed,
-            window_start_sequence: 0,
-            last_receipt: None,
-        };
-        crate::budget::reconcile(&mut local, &protocol, &spend_receipts, &verifier)
-            .map(Some)
-            .map_err(|_| HumanOperationError::Refused)
+        // Decision 2199: task 9.25.6 ports committed module state reads.
+        Err(HumanOperationError::Unavailable)
     }
 
     /// Installs the independently configured deployment export trust and the
@@ -14990,101 +14312,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         }
         let correlation = boundary_correlation(peer, &budget_id, b"budget-recovery");
         let key = budget_state_key(budget_id);
-        let outcome = match self.node.module_state(
-            BUDGET_MODULE_ID,
-            &key,
-            VerificationLevel::STATE_PROVEN,
-            correlation,
-            context.authorization,
-        ) {
-            Ok(value) => {
-                let evidence = RawStateEvidence::module_witness(
-                    value.canonical_bytes().to_vec(),
-                    BUDGET_MODULE_ID,
-                    key,
-                    value.proof_material().to_vec(),
-                    RootSelector::Latest,
-                    context.sequencer_key,
-                );
-                let verified = context.verifier.verify_state(&evidence).map_err(|error| {
-                    RecoveryRefusal::BudgetState {
-                        budget_id,
-                        reason: format!("{error:?}"),
-                    }
-                })?;
-                let record =
-                    ProtocolBudgetRecord::decode(verified.canonical_state()).map_err(|error| {
-                        RecoveryRefusal::BudgetState {
-                            budget_id,
-                            reason: format!("{error:?}"),
-                        }
-                    })?;
-                if record != committed_record
-                    || verified.observed_head_sequence() != committed_height
-                {
-                    return Err(RecoveryRefusal::BudgetState {
-                        budget_id,
-                        reason: "budget proof differs from committed getBudget".to_owned(),
-                    });
-                }
-                let request = BudgetRecoveryRequest {
-                    budget_id,
-                    protocol_budget: ProtocolBudgetState { evidence },
-                    verifier: context.verifier.clone(),
-                    receipts_with_evidence: &with_evidence,
-                    receipts_without_evidence: &without_evidence,
-                    ceiling_maximum: context.ceiling_maximum,
-                    current_sequence: context.current_sequence,
-                };
-                let mut store = self
-                    .store
-                    .lock()
-                    .map_err(|_| RecoveryRefusal::Store(HumanOperationError::Unavailable))?;
-                recover_tenant_budget(&mut store, context.tenant_id, &request)
-            }
-            Err(error) => Err(RecoveryRefusal::BudgetState {
-                budget_id,
-                reason: format!("{error:?}"),
-            }),
-        };
-        match outcome {
-            Ok(recovery) => {
-                let accounting = recovery.recovered.budget_accounting;
-                let ceiling_reconciled = recovery
-                    .recovered
-                    .ceiling
-                    .snapshot()
-                    .is_ok_and(|snapshot| snapshot.reconciled);
-                eprintln!(
-                    "layerx-agentd: recovery tenant={} agent={} budget={} queued={} awaiting={} receipts_with_evidence={} receipts_without_evidence={} protocol_consumed={:?} receipt_consumed={} held_unresolved={} unresolved_count={} reconciled={} ceiling_reconciled={ceiling_reconciled} admitted={}",
-                    peer.tenant,
-                    owner.agent_id,
-                    hex(&budget_id),
-                    recovery.recovered.queued_for_transmission.len(),
-                    recovery.recovered.awaiting_receipt_resolution.len(),
-                    with_evidence.len(),
-                    without_evidence.len(),
-                    accounting.protocol_consumed,
-                    accounting.receipt_consumed,
-                    accounting.held_unresolved,
-                    accounting.unresolved_count,
-                    accounting.reconciled,
-                    recovery.admission.is_ok(),
-                );
-                self.outboxes
-                    .insert(peer.tenant.clone(), recovery.recovered.outbox);
-                recovery.admission
-            }
-            Err(refusal) => {
-                eprintln!(
-                    "layerx-agentd: recovery tenant={} agent={} budget={} failed: {refusal:?}",
-                    peer.tenant,
-                    owner.agent_id,
-                    hex(&budget_id),
-                );
-                Err(refusal)
-            }
-        }
+        // Decision 2199: task 9.25.6 ports committed module state reads.
+        Err(RecoveryRefusal::Store(HumanOperationError::Unavailable))
     }
 
     /// Splits a tenant's receipt inventory into the receipts whose signed
@@ -15146,23 +14375,18 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
 
     fn session_fee_state(
         &mut self,
-        grant_id: [u8; 32],
+        _grant_id: [u8; 32],
     ) -> Result<HumanResponse, HumanOperationError> {
-        let snapshot = self
-            .node
-            .session_fee_state(40, grant_id)
-            .map_err(|_| HumanOperationError::Unavailable)?;
-        let mut out = Encoder::new();
-        out.bytes(&snapshot.value)?;
-        out.u64(snapshot.observed_sequence);
-        out.fixed(&snapshot.state_root);
-        out.finish()
+        // Decision 2193: task 9.25.2 supplies the committed session fee read.
+        Err(HumanOperationError::Unavailable)
     }
 
     fn native_fee_policy(&mut self) -> Result<HumanResponse, HumanOperationError> {
-        let snapshot = self
+        let height = self
             .node
-            .native_fee_policy(39)
+            .block_number()
+            .map_err(|_| HumanOperationError::Unavailable)?;
+        let snapshot = crate::budget::native_fee_policy(&self.node, height)
             .map_err(|_| HumanOperationError::Unavailable)?;
         let policy = snapshot.value;
         let currency =
@@ -16352,8 +15576,12 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
                 })
             })
             .transpose()?;
-        let page = crate::read::history(
-            self.chain.as_mut(),
+        let endpoint = read_rpc_endpoint(&read_rpc_config()?)?;
+        let address = self.read_bound_address(peer, &endpoint)?;
+        let account = format!("0x{}", layerx_programs::hex::encode(&address));
+        let page = crate::read::HistoryPage::read_account(
+            &endpoint,
+            &account,
             selector.from_height,
             selector.to_height,
             cursor,
@@ -16362,7 +15590,6 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
                     .map_err(|_| HumanOperationError::Refused)?,
                 maximum_response_bytes: MAX_RESPONSE,
             },
-            None,
         )
         .map_err(|_| HumanOperationError::Unavailable)?;
         let body = serde_json::json!({"height": page.height.to_string(), "cursor": page.next_cursor.map(|p| [p.block_height.to_string(),p.tx_index.to_string(),p.log_index.to_string()]),
@@ -16983,14 +16210,19 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         let trust = source
             .trust(registry.clone())
             .map_err(|_| HumanOperationError::Unavailable)?;
-        let node = self.node.handshake().node().clone();
+        let network_id = u32::try_from(
+            self.chain
+                .chain_id()
+                .map_err(|_| HumanOperationError::Unavailable)?,
+        )
+        .map_err(|_| HumanOperationError::Refused)?;
         let receipt_key = self
             .chain
             .receipt_key_at_head()
             .map_err(|_| HumanOperationError::Unavailable)?;
         let authority = EvidenceAuthority::pinned_to_handshake(
-            node.protocol_version,
-            node.network_id,
+            layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+            network_id,
             receipt_key.public_key,
         )
         .map_err(|_| HumanOperationError::Refused)?;
@@ -17738,20 +16970,172 @@ impl VerifiedNativeOwnerV1 {
     }
 }
 
-fn native_rate_read_error(error: layerx_client::read::ReadError) -> HumanOperationError {
-    use layerx_client::read::ReadError;
-    match error {
-        ReadError::Transport(_)
-        | ReadError::Disconnected
-        | ReadError::UnavailableCapability
-        | ReadError::MissingEvidence { .. } => HumanOperationError::Unavailable,
-        ReadError::CoreRefusal { result, .. }
-            if result.retriability() == Retriability::Retriable =>
-        {
-            HumanOperationError::Unavailable
-        }
-        _ => HumanOperationError::Refused,
+fn native_rate_read_error(error: layerx_client::sequencer::SequencerError) -> HumanOperationError {
+    human_receipt_node_error(error.into())
+}
+
+struct CommittedHistoryItem {
+    global_sequence: u64,
+    kind: layerx_client::read::HistoryKind,
+    canonical: Vec<u8>,
+    proof: Vec<u8>,
+}
+
+impl CommittedHistoryItem {
+    fn canonical_bytes(&self) -> &[u8] {
+        &self.canonical
     }
+
+    fn proof_material(&self) -> &[u8] {
+        &self.proof
+    }
+}
+
+struct CommittedHistoryPage {
+    items: Vec<CommittedHistoryItem>,
+    cursor: Option<crate::read::Cursor>,
+}
+
+fn read_committed_history(
+    endpoint: &layerx_client::sequencer::SequencerEndpoint,
+    peer: &HumanPeer,
+    first: u64,
+    last: u64,
+    maximum_items: u16,
+    mut cursor: Option<crate::read::Cursor>,
+    requested: VerificationLevel,
+    _correlation: u64,
+    authorization: SequencerAuthorization,
+) -> Result<CommittedHistoryPage, layerx_client::sequencer::SequencerError> {
+    use layerx_client::read::{HistoryKind, HistoryProof};
+    use layerx_client::sequencer::SequencerError;
+    if first == 0 || first > last || maximum_items == 0 {
+        return Err(SequencerError::Malformed);
+    }
+    let account = &peer
+        .subject
+        .as_ref()
+        .ok_or(SequencerError::Malformed)?
+        .account;
+    let head = endpoint.block_number()?;
+    let network = u32::try_from(endpoint.chain_id()?).map_err(|_| SequencerError::Malformed)?;
+    let mut total_bytes = 0_usize;
+    for _ in 0..4096 {
+        let page = crate::read::HistoryPage::read_account(
+            endpoint,
+            account,
+            0,
+            head,
+            cursor,
+            crate::read::HistoryLimits {
+                maximum_items,
+                maximum_response_bytes: 16 * 1024 * 1024,
+            },
+        )
+        .map_err(|error| match error {
+            crate::read::HistoryReadError::Sequencer(error) => error,
+            crate::read::HistoryReadError::InvalidRange => SequencerError::Unavailable,
+            _ => SequencerError::Malformed,
+        })?;
+        total_bytes = total_bytes
+            .checked_add(page.response_bytes)
+            .filter(|bytes| *bytes <= 16 * 1024 * 1024)
+            .ok_or(SequencerError::Unavailable)?;
+        let mut items = Vec::new();
+        let mut range_ended = false;
+        let mut previous = None;
+        for item in page.items {
+            let proof_bytes = item.proof.ok_or(SequencerError::Malformed)?;
+            let proof =
+                HistoryProof::decode(&proof_bytes).map_err(|_| SequencerError::Malformed)?;
+            let header = layerx_wire::receipt::decode_batch_header(&proof.header)
+                .map_err(|_| SequencerError::Malformed)?;
+            let sequence = header
+                .first_sequence()
+                .checked_add(u64::from(proof.proof.leaf_index()))
+                .filter(|sequence| *sequence <= header.last_sequence())
+                .ok_or(SequencerError::Malformed)?;
+            if header.protocol_version() != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
+                || header.network_id() != network
+                || header.batch_number() != item.position.block_height
+                || previous.is_some_and(|previous| sequence <= previous)
+            {
+                return Err(SequencerError::Malformed);
+            }
+            previous = Some(sequence);
+            let evidence = match item.kind {
+                HistoryKind::Activity => layerx_proof::inclusion::verify_activity(
+                    &item.canonical,
+                    &proof.proof,
+                    &proof.header,
+                    &proof.header_signature,
+                    &authorization,
+                ),
+                HistoryKind::Receipt => {
+                    let recorded = if item
+                        .canonical
+                        .starts_with(b"LXP/programs/occupancy-receipt/v2\0")
+                        || item.canonical.starts_with(b"LXP/batch-maintenance/v1\0")
+                    {
+                        let maintenance =
+                            layerx_wire::batch_maintenance::decode_maintenance(&item.canonical)
+                                .map_err(|_| SequencerError::Malformed)?;
+                        maintenance
+                            .verify_header(&header)
+                            .map_err(|_| SequencerError::Malformed)?;
+                        maintenance.occupancy().global_sequence
+                    } else {
+                        layerx_wire::receipt::decode(&item.canonical)
+                            .map_err(|_| SequencerError::Malformed)?
+                            .protocol()
+                            .ok_or(SequencerError::Malformed)?
+                            .global_sequence()
+                    };
+                    if recorded != sequence {
+                        return Err(SequencerError::Malformed);
+                    }
+                    layerx_proof::inclusion::verify_receipt(
+                        &item.canonical,
+                        &proof.proof,
+                        &proof.header,
+                        &proof.header_signature,
+                        &authorization,
+                    )
+                }
+                HistoryKind::Event => return Err(SequencerError::Malformed),
+            }
+            .map_err(|_| SequencerError::Malformed)?;
+            if evidence.level() < requested {
+                return Err(SequencerError::Malformed);
+            }
+            if sequence < first {
+                continue;
+            }
+            if sequence > last {
+                range_ended = true;
+                continue;
+            }
+            items.push(CommittedHistoryItem {
+                global_sequence: sequence,
+                kind: item.kind,
+                canonical: item.canonical,
+                proof: proof_bytes,
+            });
+            range_ended |= sequence == last;
+        }
+        if endpoint.block_number()? != head {
+            return Err(SequencerError::Unavailable);
+        }
+        let next = if range_ended { None } else { page.next_cursor };
+        if !items.is_empty() || next.is_none() {
+            return Ok(CommittedHistoryPage {
+                items,
+                cursor: next,
+            });
+        }
+        cursor = next;
+    }
+    Err(SequencerError::Unavailable)
 }
 
 fn evidence_unavailable(error: &EvidenceError) -> bool {
@@ -19139,7 +18523,7 @@ fn policy_refusal(refusal: crate::policy::PolicyDryRunRefusal) -> HumanOperation
 /// authenticated current core time.
 fn current_program_bundle(
     programs: &mut crate::ops::program::ProgramOperations,
-    node: &mut layerx_client::Client,
+    node: &mut layerx_client::sequencer::SequencerEndpoint,
     now: u64,
     context: &crate::agent_rpc_peer::RpcOwnerContext<'_>,
     program: layerx_programs::ProgramId,
@@ -20419,10 +19803,16 @@ mod activity_submission_index_tests {
         let encode = |signature: Option<[u8; 64]>| {
             let mut encoder = Encoder::new(4096);
             assert_eq!(
-                encoder.structure_header_version(0x5201, layerx_wire::limits::PROTOCOL_VERSION,),
+                encoder.structure_header_version(
+                    0x5201,
+                    layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+                ),
                 Ok(())
             );
-            assert_eq!(encoder.u16(layerx_wire::limits::PROTOCOL_VERSION), Ok(()));
+            assert_eq!(
+                encoder.u16(layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION),
+                Ok(())
+            );
             assert_eq!(encoder.bytes(&activity_id, 32), Ok(()));
             assert_eq!(encoder.u64(global_sequence), Ok(()));
             assert_eq!(encoder.bytes(&previous_state_root, 32), Ok(()));
@@ -20475,14 +19865,19 @@ mod activity_submission_index_tests {
         let sequencer_id = key.verifying_key().to_bytes();
         let mut encoder = Encoder::new(354);
         assert_eq!(
-            encoder.structure_header_version(0x1701, layerx_wire::limits::PROTOCOL_VERSION),
+            encoder.structure_header_version(
+                0x1701,
+                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
+            ),
             Ok(())
         );
         assert_eq!(encoder.u8(15), Ok(()));
         let fields: [(u8, Vec<u8>); 15] = [
             (
                 1,
-                layerx_wire::limits::PROTOCOL_VERSION.to_be_bytes().to_vec(),
+                layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
+                    .to_be_bytes()
+                    .to_vec(),
             ),
             (2, 42_u32.to_be_bytes().to_vec()),
             (3, 2_u64.to_be_bytes().to_vec()),
@@ -20553,7 +19948,7 @@ mod activity_submission_index_tests {
             None,
         ));
         let authority = must(EvidenceAuthority::pinned_to_handshake(
-            layerx_wire::limits::PROTOCOL_VERSION,
+            layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
             42,
             ed25519_dalek::SigningKey::from_bytes(&[0x3a; 32])
                 .verifying_key()
@@ -20935,181 +20330,6 @@ mod legacy_policy_purpose_tests {
 mod owner_authority_tests {
     use super::{decode_owner_authority, hex, OwnerAuthorityError};
 
-    fn native_send(
-        actor: &str,
-        key: &ed25519_dalek::SigningKey,
-        asset: [u8; 32],
-        expiry: u64,
-    ) -> Result<Vec<u8>, String> {
-        use ed25519_dalek::Signer;
-        use sha2::{Digest, Sha256};
-        let name = format!("agent:{actor}:main");
-        let mut account = Sha256::new();
-        account.update(b"LX:ACCOUNT:v1");
-        account.update(
-            u32::try_from(name.len())
-                .map_err(|error| format!("account length: {error:?}"))?
-                .to_be_bytes(),
-        );
-        account.update(name.as_bytes());
-        let source: [u8; 32] = account.finalize().into();
-        let idempotency = [0x83; 32];
-        let mut context = Sha256::new();
-        context.update(b"LXP/v1/context-hash\0");
-        context.update(source);
-        context.update(source);
-        context.update(asset);
-        context.update(1_u128.to_be_bytes());
-        context.update(idempotency);
-        let context: [u8; 32] = context.finalize().into();
-        let mut common = Vec::new();
-        common.extend_from_slice(&source);
-        common.extend_from_slice(&source);
-        common.extend_from_slice(&asset);
-        common.extend_from_slice(&1_u128.to_be_bytes());
-        common.extend_from_slice(&0_u64.to_be_bytes());
-        common.extend_from_slice(&idempotency);
-        common.extend_from_slice(&expiry.to_be_bytes());
-        common.extend_from_slice(&context);
-        common.push(0);
-        let mut tail = context.to_vec();
-        tail.extend_from_slice(&77_u32.to_be_bytes());
-        tail.extend_from_slice(&3_u16.to_be_bytes());
-        let mut authorization = b"LXP/v1/signature-preimage\0".to_vec();
-        authorization.extend_from_slice(&0x5301_u16.to_be_bytes());
-        authorization.extend_from_slice(&common);
-        authorization.push(1);
-        authorization.extend_from_slice(&source);
-        authorization.extend_from_slice(&tail);
-        let signature = key.sign(&Sha256::digest(&authorization));
-        let mut payload = vec![0x53, 1, 0, 10];
-        payload.extend_from_slice(&common);
-        payload.push(1);
-        payload.extend_from_slice(&source);
-        payload.extend_from_slice(&key.verifying_key().to_bytes());
-        payload.extend_from_slice(&signature.to_bytes());
-        payload.extend_from_slice(&tail);
-        Ok(payload)
-    }
-
-    fn native_client(socket: String) -> Result<layerx_client::Client, String> {
-        use layerx_client::client::{Client, ClientConfig, ReconnectPolicy};
-        use layerx_client::lni::handshake::HandshakeConfig;
-        use layerx_client::lni::schema::Version;
-        use layerx_client::lni::transport::Limits;
-        use std::path::PathBuf;
-        use std::time::Duration;
-        Client::connect(ClientConfig {
-            endpoint: PathBuf::from(socket),
-            handshake: HandshakeConfig {
-                built_interface_version: Version::V1_3,
-                expected_protocol_version: 3,
-                expected_network_id: 77,
-            },
-            limits: Limits {
-                maximum_frame_bytes: 1_212_416,
-                maximum_connections: 1,
-                maximum_streams: 4,
-                maximum_queued_bytes: 4_849_664,
-                deadline: Duration::from_secs(10),
-            },
-            reconnect: ReconnectPolicy {
-                maximum_attempts: 1,
-                base_delay: Duration::from_millis(50),
-                maximum_delay: Duration::from_millis(50),
-                jitter_percent: 0,
-            },
-        })
-        .map_err(|error| format!("authenticated native client: {error:?}"))
-    }
-
-    #[test]
-    fn real_owner_authority_prepares_over_temp_socket() -> Result<(), String> {
-        use super::{
-            prepare_activity_for_protocol, ActivityType, Amount, Did, IdempotencyKey,
-            PreparationDefaults, PrepareRequest, ProductionCorePreparationBoundary,
-        };
-        let Ok(socket) = std::env::var("LAYERX_TEST_OWNER_AUTHORITY_SOCKET") else {
-            return Ok(());
-        };
-        let public = std::env::var("LAYERX_TEST_OWNER_AUTHORITY_PUBLIC")
-            .map_err(|error| format!("native public key: {error:?}"))?;
-        let actor = std::env::var("LAYERX_TEST_OWNER_AUTHORITY_DID")
-            .map_err(|error| format!("native DID: {error:?}"))?;
-        let mut client = native_client(socket)?;
-        let key = super::digest_from_hex(&public)
-            .ok_or_else(|| "native public key encoding".to_owned())?;
-        let key_file = std::env::var("LAYERX_TEST_OWNER_AUTHORITY_KEY_FILE")
-            .map_err(|error| format!("native signing key path: {error:?}"))?;
-        let seed: [u8; 32] = std::fs::read(key_file)
-            .map_err(|error| format!("native signing key file: {error:?}"))?
-            .try_into()
-            .map_err(|_| "native signing key length".to_owned())?;
-        let signing_key = ed25519_dalek::SigningKey::from_bytes(&seed);
-        assert_eq!(signing_key.verifying_key().to_bytes(), key);
-        let asset = std::env::var("LAYERX_TEST_OWNER_AUTHORITY_ASSET")
-            .map_err(|error| format!("native asset: {error:?}"))?;
-        let asset =
-            super::digest_from_hex(&asset).ok_or_else(|| "native asset encoding".to_owned())?;
-        let native_actor =
-            Did::new(actor.as_bytes()).map_err(|error| format!("native actor: {error:?}"))?;
-        let now = client
-            .preparation_state(&native_actor, 100)
-            .map_err(|error| format!("native clock: {error:?}"))?
-            .protocol_timestamp;
-        let expires = now
-            .checked_add(30_000)
-            .ok_or_else(|| "test clock overflow".to_owned())?;
-        let payload = native_send(&actor, &signing_key, asset, expires)?;
-        let chain = crate::node_rpc::NodeRpc::connect(
-            &crate::node_rpc::NodeRpcConfig::from_environment()
-                .map_err(|error| format!("node config: {error:?}"))?,
-        )
-        .map_err(|error| format!("node connection: {error:?}"))?;
-        let registry = client
-            .preparation_state(&native_actor, 101)
-            .map_err(|error| format!("native registry: {error:?}"))?
-            .module_registry;
-        for reference in [public.clone(), format!("did:layerx:{public}")].iter() {
-            let mut boundary = ProductionCorePreparationBoundary::new(&chain, registry.clone());
-            let authority = decode_owner_authority(reference)
-                .map_err(|error| format!("canonical authority: {error:?}"))?;
-            let prepared = prepare_activity_for_protocol(
-                &mut boundary,
-                PreparationDefaults {
-                    timestamp_span: 60_000,
-                    fee_limit: Amount::ZERO,
-                    maximum_payload_bytes: 1024,
-                },
-                PrepareRequest {
-                    actor: Did::new(actor.as_bytes())
-                        .map_err(|error| format!("native actor: {error:?}"))?,
-                    authority,
-                    activity_type: ActivityType::from_u32(0x0001_0005)
-                        .map_err(|error| format!("Asset SEND: {error:?}"))?,
-                    expected_account_sequence: Some(0),
-                    timestamp_bound: Some(
-                        super::TimestampBound::new(now.saturating_sub(1000), expires)
-                            .map_err(|error| format!("native timestamp bound: {error:?}"))?,
-                    ),
-                    fee_limit: Some(Amount::ZERO),
-                    idempotency_key: IdempotencyKey::new([0x83; 32]),
-                    payload: payload.clone(),
-                    declared_payload_limit: 1024,
-                },
-                3,
-            )
-            .map_err(|error| format!("real node preparation: {error:?}"))?;
-            assert_eq!(prepared.envelope.authority().as_bytes(), key);
-            assert_eq!(prepared.envelope.authority().as_bytes().len(), 32);
-            assert!(!prepared
-                .canonical_bytes
-                .windows(public.len())
-                .any(|window| window == public.as_bytes()));
-        }
-        Ok(())
-    }
-
     #[test]
     fn ed25519_authority_decodes_from_hex_and_did() {
         let signer = ed25519_dalek::SigningKey::from_bytes(&[0x83; 32]);
@@ -21353,8 +20573,15 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             };
             if activity.actor_did() != context.principal().agent.as_bytes()
                 || activity.protocol_version()
-                    != operations.node.handshake().node().protocol_version
-                || activity.network_id() != operations.node.handshake().node().network_id
+                    != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
+                || activity.network_id()
+                    != u32::try_from(
+                        operations
+                            .chain
+                            .chain_id()
+                            .map_err(|_| HumanOperationError::Unavailable)?,
+                    )
+                    .map_err(|_| HumanOperationError::Refused)?
                 || activity.activity_type().module() != layerx_types::payload::ModuleId::Programs
                 || activity.activity_type().ordinal() != ordinal
                 || activity.idempotency_key() != key
@@ -21492,20 +20719,27 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         let mut operations = self.lock_operations()?;
         let correlation =
             boundary_correlation(context.peer(), &activity_id, b"program-submit-receipt");
-        let receipt = match operations
-            .node
-            .lookup_authenticated_receipt(
-                activity_id,
-                correlation,
-                layerx_client::receipt::ReceiptWaitMode::Immediate,
-            )
-            .map_err(native_receipt::map_lookup_error)?
-        {
-            layerx_client::receipt::AuthenticatedLookup::Verified(receipt) => {
+        let receipt = match layerx_client::rpc::receipt::lookup_authenticated(
+            &operations.node,
+            activity_id,
+            layerx_client::rpc::receipt::LookupContext {
+                receipt_keys: &operations
+                    .chain
+                    .receipt_keys()
+                    .map_err(human_receipt_node_error)?,
+            },
+        )
+        .map_err(|error| match error {
+            layerx_client::rpc::receipt::ReceiptError::Sequencer(
+                layerx_client::sequencer::SequencerError::Unavailable,
+            ) => HumanOperationError::Unavailable,
+            _ => HumanOperationError::Refused,
+        })? {
+            layerx_client::rpc::receipt::Lookup::Verified(receipt) => {
                 Some(receipt.canonical_bytes().to_vec())
             }
-            layerx_client::receipt::AuthenticatedLookup::Absent => None,
-            layerx_client::receipt::AuthenticatedLookup::TimedOut => {
+            layerx_client::rpc::receipt::Lookup::Absent => None,
+            layerx_client::rpc::receipt::Lookup::Submitted { .. } => {
                 return Err(HumanOperationError::Unavailable)
             }
         };
@@ -22511,5 +21745,651 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .boundary(&self.session_control)
             .map_err(rpc_commit_error)?;
         Ok((raw, response))
+    }
+}
+
+#[derive(Clone, Copy)]
+enum PolicyHistoryWindow {
+    Time { head: u64, seconds: u64 },
+    Sequence { core: u64, width: u64 },
+}
+
+struct PolicyUsageHistory {
+    entries: Vec<crate::protocol_evidence::HistoryActivityEvidence>,
+    checkpoint: crate::read::ServedCheckpoint,
+    observed: crate::protocol_evidence::AuthenticatedCoreTime,
+    first_covered: u64,
+}
+
+fn policy_history_refusal(error: crate::read::HistoryReadError) -> HumanOperationError {
+    match error {
+        crate::read::HistoryReadError::Sequencer(
+            layerx_client::sequencer::SequencerError::Unavailable,
+        ) => HumanOperationError::Unavailable,
+        _ => HumanOperationError::Refused,
+    }
+}
+
+fn read_policy_history(
+    config: &crate::node_rpc::NodeRpcConfig,
+    actor: &Did,
+    trust: &crate::export::ExportTrustSource,
+    window: PolicyHistoryWindow,
+) -> Result<PolicyUsageHistory, crate::read::HistoryReadError> {
+    use crate::protocol_evidence::{admit_bytes, HistoryActivityEvidence, PolicyHistorySource};
+    use crate::read::{HistoryLimits, HistoryReadError};
+    const MAX_SEQUENCES: usize = 4096;
+    const MAX_BYTES: usize = 16 * 1024 * 1024;
+    match window {
+        PolicyHistoryWindow::Time { head, seconds }
+            if head == 0 || seconds == 0 || seconds.checked_mul(1000).is_none() =>
+        {
+            return Err(HistoryReadError::InvalidRange)
+        }
+        PolicyHistoryWindow::Sequence { core, width }
+            if core == 0 || width == 0 || width > MAX_SEQUENCES as u64 =>
+        {
+            return Err(HistoryReadError::InvalidRange)
+        }
+        _ => {}
+    }
+    let source = PolicyHistorySource::new(config)?;
+    let did = std::str::from_utf8(actor.as_bytes()).map_err(|_| HistoryReadError::Malformed)?;
+    let key = did
+        .strip_prefix("did:layerx:")
+        .ok_or(HistoryReadError::Malformed)?;
+    let public: [u8; 32] = layerx_programs::hex::decode(key)
+        .map_err(|_| HistoryReadError::Malformed)?
+        .try_into()
+        .map_err(|_| HistoryReadError::Malformed)?;
+    let address = source
+        .endpoint
+        .bound_address(&public)
+        .map_err(HistoryReadError::Sequencer)?
+        .ok_or(HistoryReadError::Malformed)?;
+    let account = rpc_hex(&address);
+    let mut expected_source = [0; 32];
+    expected_source[12..].copy_from_slice(&address);
+    let limits = HistoryLimits {
+        maximum_items: 256,
+        maximum_response_bytes: MAX_BYTES,
+    };
+    let mut page = source.page(&account, None, limits)?;
+    let head = source
+        .endpoint
+        .block_by_number(page.height)
+        .map_err(HistoryReadError::Sequencer)?
+        .ok_or(HistoryReadError::InvalidRange)?;
+    match window {
+        PolicyHistoryWindow::Time { head: expected, .. } if expected != head.number => {
+            return Err(HistoryReadError::InvalidRange)
+        }
+        PolicyHistoryWindow::Sequence { core, .. } if core > head.number => {
+            return Err(HistoryReadError::InvalidRange)
+        }
+        _ => {}
+    }
+    let checkpoint = crate::read::ServedCheckpoint::acquire_at_committed_block(
+        &source.endpoint,
+        head.number,
+        Some(head.hash),
+        &config.chain_id.to_string(),
+    )
+    .map_err(|_| HistoryReadError::ItemUnproven)?;
+    if checkpoint.validators != trust.validator_set() {
+        return Err(HistoryReadError::ItemUnproven);
+    }
+    let receipt_key = trust
+        .receipt_keys()
+        .first()
+        .ok_or(HistoryReadError::ItemUnproven)?;
+    let authority = EvidenceAuthority::pinned_to_handshake(
+        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+        u32::try_from(config.chain_id).map_err(|_| HistoryReadError::InvalidRange)?,
+        receipt_key.public_key,
+    )
+    .map_err(|_| HistoryReadError::ItemUnproven)?
+    .pin_committed_validators(config.chain_id.to_string(), trust.validator_set().to_vec())
+    .map_err(|_| HistoryReadError::ItemUnproven)?;
+    let observed = authority
+        .authenticate_committed_time(&checkpoint)
+        .map_err(|_| HistoryReadError::ItemUnproven)?;
+    let mut entries = Vec::new();
+    let mut bytes = 0;
+    let mut items = 0usize;
+    let mut first_covered = head.number;
+    let mut previous_timestamp = head.timestamp;
+    let mut seen = std::collections::BTreeSet::new();
+    loop {
+        if page.height != checkpoint.height {
+            return Err(HistoryReadError::InvalidRange);
+        }
+        admit_bytes(&mut bytes, page.response_bytes)?;
+        items = items
+            .checked_add(page.items.len())
+            .filter(|n| *n <= MAX_SEQUENCES)
+            .ok_or(HistoryReadError::Oversized)?;
+        let mut boundary = false;
+        for item in &page.items {
+            if item.kind != layerx_client::read::HistoryKind::Receipt {
+                continue;
+            }
+            let receipt = source.prove(
+                &item.canonical,
+                item.position,
+                &checkpoint,
+                trust.receipt_keys(),
+                &mut bytes,
+            )?;
+            if receipt.timestamp > previous_timestamp {
+                return Err(HistoryReadError::ItemUnproven);
+            }
+            previous_timestamp = receipt.timestamp;
+            first_covered = receipt.position.block_height;
+            let decoded = layerx_wire::receipt::decode(&receipt.canonical)
+                .map_err(|_| HistoryReadError::ItemUnproven)?;
+            let protocol = decoded.protocol().ok_or(HistoryReadError::ItemUnproven)?;
+            if !seen.insert(protocol.activity_id()) {
+                return Err(HistoryReadError::ItemUnproven);
+            }
+            let include = match window {
+                PolicyHistoryWindow::Time { seconds, .. } => {
+                    boundary = receipt.timestamp <= head.timestamp.saturating_sub(seconds);
+                    !boundary
+                }
+                PolicyHistoryWindow::Sequence { core, width } => {
+                    let first = core.saturating_sub(width - 1).max(1);
+                    boundary = receipt.position.block_height < first;
+                    (first..=core).contains(&receipt.position.block_height)
+                }
+            };
+            let entry =
+                HistoryActivityEvidence::from_committed_history(actor, expected_source, receipt)
+                    .map_err(|_| HistoryReadError::ItemUnproven)?;
+            if include {
+                entries.push(entry);
+            }
+            if boundary {
+                break;
+            }
+        }
+        if boundary || page.next_cursor.is_none() {
+            break;
+        }
+        page = source.page(
+            &account,
+            page.next_cursor,
+            HistoryLimits {
+                maximum_response_bytes: MAX_BYTES - bytes,
+                ..limits
+            },
+        )?;
+    }
+    Ok(PolicyUsageHistory {
+        entries,
+        checkpoint,
+        observed,
+        first_covered: first_covered.max(1),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::read::{BlockId, ServedCheckpoint};
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_client::sequencer::ReceiptKeyEntry;
+    use layerx_wire::encode::Encoder;
+    use layerx_wire::hash::receipt_digest;
+    use layerx_wire::limits::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION};
+    use serde_json::json;
+    use std::io::{Read as _, Write as _};
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    const KEY_ID: [u8; 32] = [1; 32];
+    fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
+        result.expect("policy history evidence")
+    }
+    fn sha256(bytes: &[u8]) -> [u8; 32] {
+        Sha256::digest(bytes).into()
+    }
+    fn encoded_receipt(
+        height_number: u64,
+        timestamp: u64,
+        amount: u128,
+        signature: Option<[u8; 64]>,
+    ) -> Vec<u8> {
+        let previous = [4; 32];
+        let mut sequence = b"PAXEER/v1/sequence\0".to_vec();
+        sequence.extend_from_slice(&previous);
+        sequence.extend_from_slice(&7_u64.to_be_bytes());
+        sequence.extend_from_slice(&[height_number as u8; 32]);
+        let mut height = [0; 32];
+        height[24..].copy_from_slice(&height_number.to_be_bytes());
+        let mut from = [0; 32];
+        from[12..].fill(6);
+        let mut to = [0; 32];
+        to[12..].fill(7);
+        let mut summary = Encoder::new(256);
+        must(summary.u64(21_000));
+        must(summary.u64(42_000));
+        must(summary.u64(1));
+        must(summary.u32(1));
+        must(summary.fixed(&[0; 20]));
+        must(summary.fixed(&[0; 20]));
+        must(summary.fixed(&sha256(b"")));
+        must(summary.u32(2));
+        must(summary.u32(1));
+        must(summary.u8(4));
+        must(summary.fixed(b"upax"));
+        let mut log = vec![8; 20];
+        log.push(1);
+        log.extend_from_slice(&[9; 32]);
+        log.extend_from_slice(&sha256(&[10, 11]));
+
+        let mut encoder = Encoder::new(MAX_MESSAGE_BYTES);
+        must(encoder.structure_header_version(0x5201, PROTOCOL_VERSION));
+        must(encoder.u16(PROTOCOL_VERSION));
+        must(encoder.bytes(&[height_number as u8; 32], 32));
+        must(encoder.u64(7));
+        must(encoder.bytes(&previous, 32));
+        must(encoder.bytes(&sha256(&sequence), 32));
+        must(encoder.bytes(&sha256(&[0xab, 0xcd]), 32));
+        must(encoder.i32(0));
+        must(encoder.sequence_length(2, 512));
+        for (ordinal, kind, body) in [(0, 1, summary.finish()), (1, 3, log)] {
+            must(encoder.u16(12));
+            must(encoder.u16(ordinal));
+            must(encoder.u16(0));
+            must(encoder.u8(kind));
+            must(encoder.u8(0));
+            must(encoder.bytes(&[0; 32], 32));
+            must(encoder.bytes(&body, 256));
+        }
+        must(encoder.u128(21_000));
+        must(encoder.bytes(&height, 32));
+        must(encoder.u16(12));
+        must(encoder.u32(1));
+        must(encoder.u32(0));
+        must(encoder.u8(2));
+        must(encoder.bytes(&sha256(b"upax"), 32));
+        must(encoder.u128(amount));
+        must(encoder.bytes(&from, 32));
+        must(encoder.u128(21_002));
+        must(encoder.u128(1));
+        must(encoder.u64(41));
+        must(encoder.bytes(&to, 32));
+        must(encoder.u128(0));
+        must(encoder.u128(1));
+        must(encoder.bytes(&[0; 32], 32));
+        must(encoder.bytes(&[0; 32], 32));
+        must(encoder.bytes(&KEY_ID, 32));
+        must(encoder.u64(timestamp));
+        must(encoder.u8(u8::from(signature.is_some())));
+        if let Some(signature) = signature {
+            must(encoder.bytes(&signature, 64));
+        }
+        encoder.finish()
+    }
+    fn base64(bytes: &[u8]) -> String {
+        const ALPHABET: &[u8; 64] =
+            b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        let mut encoded = String::new();
+        for chunk in bytes.chunks(3) {
+            let word = (u32::from(chunk[0]) << 16)
+                | (u32::from(*chunk.get(1).unwrap_or(&0)) << 8)
+                | u32::from(*chunk.get(2).unwrap_or(&0));
+            encoded.push(ALPHABET[(word >> 18) as usize] as char);
+            encoded.push(ALPHABET[((word >> 12) & 63) as usize] as char);
+            encoded.push(if chunk.len() > 1 {
+                ALPHABET[((word >> 6) & 63) as usize] as char
+            } else {
+                '='
+            });
+            encoded.push(if chunk.len() > 2 {
+                ALPHABET[(word & 63) as usize] as char
+            } else {
+                '='
+            });
+        }
+        encoded
+    }
+
+    fn rpc_commit(signed: &ServedCheckpoint) -> Value {
+        assert_eq!(signed.header.time.seconds, 1_700_000_000);
+        let timestamp = format!("2023-11-14T22:13:20.{:09}Z", signed.header.time.nanos);
+        let hex = |bytes: &[u8]| layerx_programs::hex::encode(bytes);
+        let id = |id: BlockId| {
+            json!({"hash": hex(&id.hash), "parts": {
+            "total": id.part_set_total, "hash": hex(&id.part_set_hash)}})
+        };
+        let h = &signed.header;
+        let mut signatures: Vec<_> = signed
+            .commit
+            .votes
+            .iter()
+            .map(|vote| {
+                json!({
+                    "block_id_flag": 2, "validator_address": hex(&vote.validator_address),
+                    "timestamp": timestamp, "signature": base64(&vote.signature),
+                })
+            })
+            .collect();
+        signatures.push(
+            json!({"block_id_flag": 1, "validator_address": "", "signature": null,
+            "timestamp": "0001-01-01T00:00:00Z"}),
+        );
+        json!({"header": {
+            "version": {"block": "11", "app": "1"}, "chain_id": "125", "height": signed.height.to_string(),
+            "time": timestamp, "last_block_id": id(h.last_block_id.expect("parent")),
+            "last_commit_hash": hex(&[3;32]), "data_hash": hex(&[4;32]),
+            "validators_hash": hex(&h.validators_hash), "next_validators_hash": hex(&h.next_validators_hash),
+            "consensus_hash": hex(&[5;32]), "app_hash": hex(&[6;32]),
+            "last_results_hash": hex(&[7;32]), "evidence_hash": hex(&[8;32]),
+            "proposer_address": hex(&h.proposer_address),
+        }, "commit": {"height": signed.height.to_string(), "round": 1,
+            "block_id": id(signed.commit.block_id), "signatures": signatures}})
+    }
+
+    fn rpc_validators(signed: &ServedCheckpoint) -> Value {
+        json!({"height": signed.height.to_string(), "total": signed.validators.len().to_string(),
+            "validators": signed.validators.iter().map(|validator| json!({
+                "address": layerx_programs::hex::encode(&validator.address),
+                "pubKey": {"type": "tendermint/PubKeyEd25519", "value": base64(&validator.public_key)},
+                "votingPower": validator.voting_power.to_string(),
+            })).collect::<Vec<_>>()})
+    }
+
+    fn signed_item(height: u64, timestamp: u64, amount: u128) -> (Vec<u8>, Value) {
+        let signer = SigningKey::from_bytes(&[8; 32]);
+        let unsigned = encoded_receipt(height, timestamp, amount, None);
+        let signature = signer.sign(&must(receipt_digest(&unsigned))).to_bytes();
+        let bytes = encoded_receipt(height, timestamp, amount, Some(signature));
+        let rung = json!({
+            "rung":"committed", "txHash":rpc_hex(&[height as u8;32]), "nonce":"0x29",
+            "seq":"0x7", "height":format!("{height:#x}"), "index":"0x1", "timestamp":format!("{timestamp:#x}"),
+            "status":"0x1", "returnData":"0xabcd",
+            "logs":[{"address":rpc_hex(&[8;20]), "topics":[rpc_hex(&[9;32])], "data":"0x0a0b", "logIndex":"0x0"}],
+            "gasUsed":"0x5208", "cumulativeGasUsed":"0xa410", "effectiveGasPrice":"0x1",
+            "feeDenom":"upax", "feeAmount":"0x5208", "sponsor":rpc_hex(&[0;20]),
+            "from":rpc_hex(&[6;20]), "to":rpc_hex(&[7;20]), "contractAddress":rpc_hex(&[0;20]),
+            "vmError":"", "keyId":rpc_hex(&KEY_ID), "receipt":rpc_hex(&bytes),
+            "signingKey":rpc_hex(signer.verifying_key().as_bytes()),
+            "blockNumber":format!("{height:#x}"), "blockHash":null
+        });
+        (bytes, rung)
+    }
+
+    struct HistoryRpc {
+        config: crate::node_rpc::NodeRpcConfig,
+        trust: crate::export::ExportTrustSource,
+        calls: Arc<Mutex<Vec<Value>>>,
+        stop: Arc<AtomicBool>,
+        worker: Option<std::thread::JoinHandle<()>>,
+    }
+    impl Drop for HistoryRpc {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::Release);
+            self.worker
+                .take()
+                .expect("server thread")
+                .join()
+                .expect("RPC double");
+        }
+    }
+    impl HistoryRpc {
+        fn start(unproven: bool) -> Self {
+            let checkpoint = ServedCheckpoint::test_fixture(8, 1_700_000_000, 0);
+            let signer = SigningKey::from_bytes(&[8; 32]);
+            let key = ReceiptKeyEntry {
+                key_id: KEY_ID,
+                public_key: signer.verifying_key().to_bytes(),
+                first_height: 1,
+                last_height: 8,
+            };
+            let trust = must(crate::export::ExportTrustSource::new(
+                vec![key],
+                checkpoint.validators.clone(),
+            ));
+            let listener = must(std::net::TcpListener::bind("127.0.0.1:0"));
+            must(listener.set_nonblocking(true));
+            let config = crate::node_rpc::NodeRpcConfig {
+                url: format!("http://{}", must(listener.local_addr())),
+                chain_id: 125,
+                deadline: Duration::from_secs(3),
+            };
+            let calls = Arc::new(Mutex::new(Vec::new()));
+            let recorded = calls.clone();
+            let stop = Arc::new(AtomicBool::new(false));
+            let signal = stop.clone();
+            let worker = std::thread::spawn(move || {
+                let hex = |b: &[u8]| layerx_programs::hex::encode(b);
+                let block = |height: u64| {
+                    let hash = if height == 8 {
+                        checkpoint.block_hash
+                    } else {
+                        [height as u8; 32]
+                    };
+                    json!({"number":format!("{height:#x}"),"hash":rpc_hex(&hash), "parentHash":rpc_hex(&[1;32]),
+                        "timestamp":format!("{:#x}",1_700_000_000 - (8-height)*5), "transactionsRoot":rpc_hex(&[4;32]),
+                        "receiptsRoot":rpc_hex(&[7;32]),"stateRoot":rpc_hex(&checkpoint.app_hash),"transactions":[]})
+                };
+                let mut rows = BTreeMap::new();
+                let mut rungs = BTreeMap::new();
+                for (height, amount) in [(8, 7), (7, 11), (6, 13)] {
+                    let (bytes, mut rung) =
+                        signed_item(height, 1_700_000_000 - (8 - height) * 5, amount);
+                    rung["blockHash"] = block(height)["hash"].clone();
+                    if unproven && height == 7 {
+                        rung["rung"] = json!("receipted");
+                        rung.as_object_mut().expect("rung").remove("blockHash");
+                        rung.as_object_mut().expect("rung").remove("blockNumber");
+                    }
+                    rows.insert(height,json!({"height":height.to_string(),"txIndex":"1","logIndex":"0","kind":"Receipt","canonical":hex(&bytes),"proof":null}));
+                    rungs.insert(height, rung);
+                }
+                while !signal.load(Ordering::Acquire) {
+                    let (mut stream, _) = match listener.accept() {
+                        Ok(s) => s,
+                        Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                            std::thread::sleep(Duration::from_millis(2));
+                            continue;
+                        }
+                        Err(e) => panic!("accept RPC: {e}"),
+                    };
+                    must(stream.set_read_timeout(Some(Duration::from_secs(3))));
+                    let mut headers = Vec::new();
+                    while !headers.ends_with(b"\r\n\r\n") {
+                        let mut byte = [0];
+                        must(stream.read_exact(&mut byte));
+                        headers.push(byte[0]);
+                        assert!(headers.len() < 16384);
+                    }
+                    let text = std::str::from_utf8(&headers).expect("HTTP headers");
+                    let length: usize = text
+                        .lines()
+                        .find_map(|line| {
+                            line.split_once(':')
+                                .filter(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+                                .map(|(_, v)| v.trim().parse().expect("body length"))
+                        })
+                        .expect("content length");
+                    let mut body = vec![0; length];
+                    must(stream.read_exact(&mut body));
+                    let request: Value = must(serde_json::from_slice(&body));
+                    must(recorded.lock()).push(request.clone());
+                    let params = &request["params"];
+                    let result = match request["method"].as_str().expect("RPC method") {
+                        "eth_chainId" => json!("0x7d"),
+                        "eth_call" => json!(rpc_hex(&{
+                            let mut word = [0; 32];
+                            word[12..].fill(6);
+                            word
+                        })),
+                        "eth_getBlockByNumber" => block(
+                            u64::from_str_radix(
+                                params[0].as_str().expect("height").trim_start_matches("0x"),
+                                16,
+                            )
+                            .expect("height quantity"),
+                        ),
+                        "px_getCommit" => {
+                            assert_eq!(params, &json!(["8"]));
+                            json!({"height":"8","signedHeader":rpc_commit(&checkpoint)})
+                        }
+                        "px_getValidators" => {
+                            assert_eq!(params, &json!(["8"]));
+                            rpc_validators(&checkpoint)
+                        }
+                        "px_getHistory" => {
+                            assert_eq!(params[0], rpc_hex(&[6; 20]));
+                            assert_eq!(params[2], 256);
+                            if params[1].is_null() {
+                                json!({"items":[rows[&8]],"next_cursor":crate::read::Cursor { block_height:8,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8})
+                            } else {
+                                assert_eq!(
+                                    params[1],
+                                    crate::read::Cursor {
+                                        block_height: 8,
+                                        tx_index: 1,
+                                        log_index: 0
+                                    }
+                                    .to_hex()
+                                );
+                                json!({"items":[rows[&7],rows[&6]],"next_cursor":crate::read::Cursor { block_height:6,tx_index:1,log_index:0 }.to_hex(),"indexedHeight":8,"chainHeight":8})
+                            }
+                        }
+                        "pax_sequencerReceipt" | "eth_getTransactionReceipt" => {
+                            let hash = params[0].as_str().expect("transaction hash");
+                            let height = u64::from_str_radix(&hash[2..4], 16).expect("hash height");
+                            if request["method"] == "pax_sequencerReceipt" {
+                                rungs[&height].clone()
+                            } else {
+                                json!({"transactionHash":hash,"blockHash":block(height)["hash"],"blockNumber":format!("{height:#x}"),"transactionIndex":"0x1","status":"0x1","gasUsed":"0x5208","logs":[]})
+                            }
+                        }
+                        method => panic!("unexpected RPC {method}"),
+                    };
+                    let response =
+                        json!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
+                    must(write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",response.len(),response));
+                }
+            });
+            Self {
+                config,
+                trust,
+                calls,
+                stop,
+                worker: Some(worker),
+            }
+        }
+    }
+
+    fn actor() -> Did {
+        must(Did::new(
+            format!("did:layerx:{}", layerx_programs::hex::encode(&[5; 32])).as_bytes(),
+        ))
+    }
+
+    #[test]
+    fn policy_usage_sums_only_proven_receipts_in_the_window() {
+        let rpc = HistoryRpc::start(false);
+        let actor = actor();
+        let history = must(read_policy_history(
+            &rpc.config,
+            &actor,
+            &rpc.trust,
+            PolicyHistoryWindow::Time {
+                head: 8,
+                seconds: 10,
+            },
+        ));
+        let time = must(
+            crate::protocol_evidence::HistoryWindowBatch::from_committed_history(
+                history.entries,
+                history.observed,
+            )
+            .authenticate_history(&actor, 10, history.first_covered),
+        );
+        assert_eq!(time.count(), 2);
+        assert_eq!(time.successful_count(), 2);
+        assert_eq!(
+            time.receipt_amounts()
+                .iter()
+                .map(|a| a.amount())
+                .sum::<u128>(),
+            18
+        );
+        assert_eq!(time.activity_ids(), &[[8; 32], [7; 32]]);
+        let history = must(read_policy_history(
+            &rpc.config,
+            &actor,
+            &rpc.trust,
+            PolicyHistoryWindow::Sequence { core: 8, width: 2 },
+        ));
+        let total = must(
+            crate::protocol_evidence::CumulativeUseWindow { first: 7, last: 8 }
+                .authenticate_history(&actor, &history.checkpoint, &history.entries),
+        );
+        assert_eq!(total.amount(), 18);
+        assert_eq!(total.count(), 2);
+        let calls = must(rpc.calls.lock());
+        for method in [
+            "px_getHistory",
+            "eth_getTransactionReceipt",
+            "pax_sequencerReceipt",
+            "eth_getBlockByNumber",
+            "px_getCommit",
+            "px_getValidators",
+        ] {
+            assert!(
+                calls.iter().any(|call| call["method"] == method),
+                "missing {method}"
+            );
+        }
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|call| call["method"] == "px_getHistory")
+                .count(),
+            4
+        );
+    }
+
+    #[test]
+    fn native_policy_usage_refuses_a_page_without_a_proof() {
+        let rpc = HistoryRpc::start(true);
+        let error = read_policy_history(
+            &rpc.config,
+            &actor(),
+            &rpc.trust,
+            PolicyHistoryWindow::Time {
+                head: 8,
+                seconds: 10,
+            },
+        )
+        .err()
+        .expect("receipted item must refuse whole window");
+        assert_eq!(error.code(), "read.history_item_unproven");
+        assert!(matches!(
+            policy_history_refusal(error),
+            HumanOperationError::Refused
+        ));
+        let calls = must(rpc.calls.lock());
+        assert_eq!(
+            calls
+                .iter()
+                .filter(|call| call["method"] == "px_getHistory")
+                .count(),
+            2
+        );
+        assert!(calls
+            .iter()
+            .any(|call| call["method"] == "pax_sequencerReceipt"
+                && call["params"][0] == rpc_hex(&[7; 32])));
+        assert!(!calls
+            .iter()
+            .any(|call| call["method"] == "pax_sequencerReceipt"
+                && call["params"][0] == rpc_hex(&[6; 32])));
     }
 }

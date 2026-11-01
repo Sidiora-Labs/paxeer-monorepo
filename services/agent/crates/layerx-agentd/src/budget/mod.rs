@@ -3,11 +3,16 @@
 #[path = "reconcile.rs"]
 mod accounting;
 pub mod budget_proof;
+pub use budget_proof::{
+    budget_proof_committed_head, verify_budget_proof, BudgetProofTrust, VerifiedBudgetProof,
+};
 mod create;
 mod daemon;
 #[path = "divergence.rs"]
 mod divergence_reporting;
 pub(crate) mod execution_state;
+pub mod fee_policy;
+pub use fee_policy::{native_fee_policy, FeeReadError, NativeFeePolicy};
 mod mutate;
 mod program_lifecycle_settlement;
 pub mod program_settlement;

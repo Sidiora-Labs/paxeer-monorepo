@@ -422,15 +422,16 @@ export async function observeTransfer(
         warning = error instanceof Error ? error.message : 'Explorer evidence unavailable';
       }
     }
-    if (
-      sequencer !== null &&
-      (sequencer.rung !== 'committed' ||
-        steps.some((step) => step.source === 'explorer' && step.rung === 'committed'))
-    ) {
+    if (sequencer !== null) {
+      const rung =
+        sequencer.rung !== 'committed' ||
+        steps.some((step) => step.source === 'explorer' && step.rung === 'committed')
+          ? sequencer.rung
+          : 'receipted';
       steps.unshift({
-        rung: sequencer.rung,
+        rung,
         source: 'receipt',
-        state: `${sequencer.rung}:${blockHash}`,
+        state: `${rung}:${blockHash}`,
       });
     }
     return {

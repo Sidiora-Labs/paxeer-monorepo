@@ -12456,3 +12456,153 @@ fix = "before ruling a port, list the accessors the consumers call on the delete
 title = "The touches list is the edit scope; an unlisted consumer blocks qualification"
 symptom = "5.98.7 attempt 9 met a type error in a test file the task did not list, asked whether it could edit the file and stopped without a build; the previous ruling had listed the callers go vet had named so far, not every caller in the tree."
 fix = "when ruling on an interface change, enumerate every caller of the changed symbol across the tree with one search (not the ones the compiler has reported so far) and add each consumer file to touches in the same batch, so the implementation never meets an unlisted file."
+
+[gotcha.2528]
+title = "A verify command that selects tests by name passes with zero matches"
+symptom = "27 acceptance tests named by done tasks were never written: go test -run, cargo test -- --exact, swift test --filter, node --test-name-pattern and vitest -t all exit 0 when nothing matches, or when one alternative of a regex matches, so the gates passed and the parity check found the names missing weeks later (finding 17.4.5.2)."
+fix = "pin the pass to the named test in the verify command (tee the output and grep '--- PASS: Name ' for go, 'test result: ok. N passed' for cargo, 'Executed N tests, with 0 failures' for swift, '# pass N' for node --test, 'Tests N passed' for vitest), or use a runner that refuses an unknown selector; never let a single alternation cover several names."
+
+[gotcha.2529]
+title = "A wallet-signed bank 0x1001 send executes with success false"
+symptom = "move_leg_completes_from_its_receipt submitted send(address,address,string,uint256) to bank 0x1001 from the node key and the receipt reported execution.success false: pointerSend (precompiles/bank/bank.go:306) refuses any caller but the denom's ERC20 native pointer, so no externally signed transaction can call send."
+fix = "route wallet moves of a denom through its ERC20 native pointer (pointerview 0x100A getNativePointer, then transfer(address,uint256) to the pointer) as decision 2197 rules, and prove every executable call shape against the real chain before asserting it in a route test."
+
+[gotcha.2530]
+title = "A verify command written with single quotes inside a single-quoted node -e argument never runs"
+symptom = "17.5.12 attempts 1 and 2 failed at node -e 'require.resolve('@sidiora/...')': the shell closed the quote at the inner one and node parsed an unquoted module id (SyntaxError: Invalid or unexpected token)."
+fix = "quote a node -e program with double quotes in the spec string (escaped as \' in the kvx value) and keep single quotes inside it, as the merchant-shop build command does."
+
+[gotcha.2531]
+title = "A double quote inside a spec command is written out as a single quote"
+symptom = "The build gate of 18.90.1 (grep -q 'test 'reject an anchors page that lost a field'') and the verify gate of 17.5.12 (node -e 'require.resolve('@sidiora/layerx-sdk/browser', ...)') lost their inner double quotes when the spec was written, the shell split the commands at the inner quotes and both attempts failed on a command that never ran as intended."
+fix = "Write commands that need no nested quoting: pass values to node -e as arguments read from process.argv, and match quoted test titles with grep -E and a single-character wildcard in place of each quote."
+
+[gotcha.2532]
+title = "A task's symbols list is checked against the code graph after verify passes"
+symptom = "8.90.2, 8.90.3, 9.90.2 and 17.5.12 passed their verify commands and were still not marked done: the completion check resolves every symbols entry in the code graph and failed on test names a ruling had renamed in the tests list but not in symbols (testAgentEnvelopeEncodesVersionTwo, verifyReceipt_reports_the_submitted_rung_under_an_authority_key) and on Makefile target names (agent-sdk-ts-build, human-build), which are not functions."
+fix = "when a ruling renames or deletes a tests entry, rewrite symbols in the same batch; list only functions, methods, classes and test functions that exist after the task (Go Test functions, Swift test methods, pytest functions, Rust test functions, TypeScript functions) and never Makefile targets, file names or test titles with spaces; an empty symbols list is valid."
+
+[gotcha.2533]
+title = "node --test prints the spec reporter in the gate, so grep for '# pass 1' never matches"
+symptom = "9.90.2 attempt 3 ran its receipt test under node --test, the test passed and the gate still failed: in the qualification environment node chose the spec reporter (pass 1 with an info glyph) while the verify command grepped for the TAP line '# pass 1' (decision 2194's node form)."
+fix = "pass --test-reporter=tap to node --test whenever the verify command greps '# pass N'; the decision 2194 node form reads node --test --test-reporter=tap."
+
+[gotcha.2534]
+title = "A cargo --tests build gate shows one broken test target per attempt"
+symptom = "10.6.4 attempt 3 saw only tests/evidence_node.rs fail to compile; 14.0.6 attempt 8 fixed that file and then met three more broken targets (archive, native_onboarding_rungs, native_send_producer) the first log never showed, because cargo stops scheduling targets after the first compile error"
+fix = "when a crate's test targets are broken on main, enumerate them once with cargo build --tests --keep-going and give the whole port to one task that the consumers require, instead of letting each consumer discover the next target"
+
+[gotcha.2535]
+title = "apps/web build type-checks the wallet SDK sources"
+symptom = "make human-build runs the apps/web production build, whose TypeScript pass follows the tsconfig paths alias into ../../sdk/wallet/src and fails with TS2307 on viem and @supabase/supabase-js when sdk/wallet has no node_modules of its own, even though apps/web's install carries both packages"
+fix = "install the services/wallet pnpm workspace, whose pnpm-workspace.yaml lists ../../sdk/wallet, and build sdk/wallet before make human-build; apps/web's node_modules is not on the resolution path of files under sdk/wallet"
+
+[gotcha.2536]
+title = "Platform make targets build and test offline"
+symptom = "make workspace-build reaches platform-build-all, whose cargo builds and tests pass --offline on services/platform, tools/platform and sdk/platform/generators plus the marketplace program for wasm32-unknown-unknown, whose go build runs with GOPROXY=off, whose mvn runs with -o and whose dotnet build passes --no-restore, so the first uncached dependency fails the aggregate (failed to download anstream v1.0.0 at services/platform/Makefile.inc:98)"
+fix = "warm every cache before the gate: cargo fetch --locked for the four manifests, rustup target add wasm32-unknown-unknown, go mod download in sdk/platform/go, mvn install of sdk/platform/jvm then dependency:go-offline of sdk/integrations/spring/example, and dotnet restore of sdk/platform/dotnet/LayerX.Sdk.csproj"
+
+[gotcha.2537]
+title = "cargo build --tests stops at the first broken test target"
+symptom = "a port of stale integration tests surfaced one more broken target per attempt (10.6.5 attempts 2, 3 and 4 each found a single new file) because cargo stops compiling after the first failing target and reports only that one"
+fix = "run the build command once with --keep-going before porting, so every broken target is listed in one pass and all of them join the touches together"
+
+[gotcha.2538]
+title = "Generated SDK files edited by hand fail platform-sdk-check later"
+symptom = "a task edited sdk/platform/jvm GeneratedSchema.java and GeneratedContract.java directly under a gate of mvn tests only, and the wave 4 aggregate failed weeks of attempts later in generate_jvm.py --check with 'generated JVM schema is stale' because the committed files no longer equal the generator's output"
+fix = "change the generator and regenerate; a task that touches a generated file runs that generator's --check in its verify command"
+
+[gotcha.2539]
+title = "eth_getProof on the node is an ICS23 witness, not a trie proof"
+symptom = "a client decoded the node's eth_getProof answer with the go-ethereum shape (accountProof, balance, nonce, codeHash, storageHash) and verified it as an Ethereum trie under the app hash; the node answers {address, hexValues, storageProof: [{ops}]} with an IAVL existence proof and a multistore proof per slot, so the decoder read nothing and the verifier could never match"
+fix = "decode the ops shape and verify with the registry's chain_proof ics23 and multistore functions under the block's stateRoot, which is the app hash"
+
+[gotcha.2540]
+title = "px_ methods are served by the network router, not the node"
+symptom = "daemon code and test doubles posted px_getCommit, px_getValidators, px_getHistory and a px_getProofBundle that does not exist to the node's JSON-RPC, whose namespaces are debug, echo, eth, net, pax, test and txpool"
+fix = "the daemon's endpoint is the router, which serves eth_, pax_ and px_ alike; local doubles answer the px_ methods in the router's shapes, and a method not in the router's published list is not a dependency"
+
+[gotcha.2541]
+title = "A consumer gate that waits on another pending task's placeholder"
+symptom = "a task's second verify segment ran a daemon test whose pass depended on a fee policy another pending task was still implementing, so every attempt failed with its own files correct"
+fix = "put the consumer test in the verify command of the task that implements the producer, and keep the first task's gate to what its own files make true"
+
+[gotcha.2542]
+title = "A producer gated without --tests breaks the crate's test targets silently"
+symptom = "an integration task changed a public function signature and removed a custody method under a build gate of the library alone; two integration test files calling the old forms broke and were only found by a later task whose build compiles every test target"
+fix = "a task that changes a public signature builds the crate with --tests, and greps its callers in tests/ into its touches"
+
+[gotcha.2543]
+title = "A schema change without regeneration fails platform-sdk-check later"
+symptom = "a task edited services/human/schema/human-api under a build gate of its own crate; the platform SDK pipeline lock still carried the old source digest and every later wave 4 aggregate failed in sdkgen --check while the editing task was long done"
+fix = "a task that edits a pipeline source (agent-api, human-api, mirror-v2 in sdk/platform/pipeline.kvx) runs make platform-sdk-generate and commits the regenerated outputs and the resealed lock, and its verify command includes make platform-sdk-check"
+
+[gotcha.2544]
+title = "Two generators owning one generated file fight over its header"
+symptom = "make platform-sdk-generate ran a Python generator and then the Rust pipeline generator, both rendering sdk/platform/jvm GeneratedContract.java with different header comments, so whichever --check ran against the other's output reported the file stale and the aggregate failed after a correct regeneration"
+fix = "one generator owns each generated file; the pipeline lock digests files rendered by another generator without rendering them itself, and a task that adds rendering of an existing output first removes the previous renderer"
+
+[gotcha.2545]
+title = "A ruling that rewrites part of a test must replay the fixture state"
+symptom = "a ruling changed two assertions of a receipt-source test to the new retention rule but kept the Record call before them, which fills the two-slot source and evicts the very send the new assertion requires; the attempt followed the ruling and failed on it"
+fix = "before dictating an assertion, walk the test's calls with the capacity and watermark in hand and state the expected value at each read"
+
+[gotcha.2546]
+title = "A port the task gate never runs can assert against a loader the producer stopped feeding"
+symptom = "a test-port ruling told the implementer to load an EVM intent journey through the legacy journey engine; the producer had moved to a flat intent-evm row the engine's prefix scan never sees, the verify gate ran a fixture-gated release test instead of the ported target, and the port compiled, failed at runtime and was never exercised"
+fix = "when a task ports a test target, its verify command runs that target; before dictating a read path, follow the producer's write to the row it persists and name the reader that serves it in production"
+
+[gotcha.2547]
+title = "Makefile targets are not code-graph symbols"
+symptom = "a task listed two Makefile targets in its symbols; the attempt built, passed every gate and was refused by the graph check with 'symbol not defined in the graph' for both"
+fix = "symbols name functions, types, methods or enums the graph extracts; name a Makefile target in the verify command or the do text, never in symbols"
+
+[gotcha.2548]
+title = "A deletion task must require the tasks that port its consumers"
+symptom = "a task deleting a client crate's capability evidence type listed three done tasks as the place the daemon stopped using it, but two newer porting tasks still owned the remaining consumers; the client built and the daemon failed with nine errors on the deleted type"
+fix = "before scheduling a type or module deletion, grep every consumer at the current base and require the task whose touches hold each one; the build gate compiles the consumer crates"
+
+[gotcha.2549]
+title = "A daemon test against anvil answers precompile reads in its own RPC proxy"
+symptom = "a task moved the daemon's fee read onto the fee token precompile and the preview test that gates it panicked Unavailable: the test's chain peer forwarded the eth_call to anvil, which holds no code at the precompile address and returned empty data"
+fix = "when a task adds a chain read on a path an anvil-backed test exercises, the test joins the touches and its proxy answers that read with the unit fixture's values; anvil never stands in for a precompile"
+
+[gotcha.2550]
+title = "A changed type's integration tests belong to the task that changes it"
+symptom = "a task rewrote the daemon's proof bundle AccountState onto an ICS23 storage witness and deleted the client's account proof type; the integration test that built the old proof with balance, nonce and hashes sat outside the touches, and readers in three sibling tasks' files still called the deleted method, so the build failed before any gate"
+fix = "before scheduling a type change, grep every constructor and reader in src and tests; tests of the changed shape join the touches, readers owned by sibling tasks move the deletion into a follow-up that requires them"
+
+[gotcha.2551]
+title = "A changed evidence encoding leaves consumer tests outside the producer's touches stale"
+symptom = "a done task moved the lifecycle evidence check from the native owner envelope to the EVM signed transaction (create.rs bound_activity) with only its own crate's tests in the touches; the onboarding rung test still signed the native envelope and failed with Refused('invalid signed lifecycle transaction') attempts later inside an unrelated porting task"
+fix = "a task that changes how a service decodes evidence lists every test that builds that evidence in its touches and verifies one of them; a porting task that meets such a fixture signs it through the shared support helper the already-ported tests use"
+
+[gotcha.2552]
+title = "The wallet ladder dropped a committed node receipt the explorer could not corroborate"
+symptom = "once the node kept committed sends readable (5.5.22), pax_sequencerReceipt answered committed seconds after inclusion and observeTransfer pushed no receipt step at all for a committed answer without explorer evidence, so the send page showed Transfer Included with an empty ladder instead of Receipted"
+fix = "a node answer above a rung proves that rung: present the highest rung the evidence supports (receipted from the receipt) and reserve the higher rung for the corroborating source"
+
+[gotcha.2553]
+title = "The wave 4 aggregate needs make platform-sample-install and the Platform toolchains before its readiness check"
+symptom = "platform-sample-dependencies-ready (services/platform/Makefile.inc:58) exits with 'run make platform-sample-install first' when the Platform Python environment under build/platform-python is absent, and platform-sample-preflight also demands Maven, Swift and dotnet"
+fix = "run make platform-sample-install in an environment that has mvn, swift and dotnet before any target that depends on platform-sample-dependencies-ready (platform-build-all, platform-verify-sdks, platform-test-middleware)"
+
+[gotcha.2554]
+title = "A client API rewrite lists the consumers of the removed items as touches"
+symptom = "a task rewrote a client module's read API per a decision and the daemon's build failed on two files outside its touches that declared the removed proof type in request and result structs and called the removed evidence accessor; the attempt stopped at the build"
+fix = "before rewriting a pub API, grep the dependent crates for every use of the removed items and add those files to the task's touches or write a decision naming the owning task"
+
+[gotcha.2555]
+title = "Fixture DIDs take the form did:layerx: plus 64 hex characters"
+symptom = "a shared JSON-RPC fixture used the readable owner DID did:layerx:budget-owner; the daemon's generator and verifier tests passed, but the authority's export through layerx-client PxEndpoint refused with budget_proof_export_unavailable because px.rs identities() decodes a layerx_did only as did:layerx: followed by 64 hexadecimal characters, and produce_at hides which check returned Err(())"
+fix = "generate fixture identifiers in the node's rendered form and assert that form in the generator test; when a consumer collapses errors to Err(()), read every decoder on its path before ruling"
+
+[gotcha.2556]
+title = "A directory move left one $(CURDIR)-prefixed path behind in a recipe no gate ran"
+symptom = "3422bafe2 moved agent/ to services/agent/ and rewrote every root-anchored reference it matched, but services/platform/Makefile.inc:41 kept $(CURDIR)/agent/sdk/python because the $(CURDIR)/ prefix did not match the rewrite, and the only gate that runs make platform-sample-install is the wave 4 aggregate, which stayed red on other product checks for weeks before reaching it"
+fix = "after a directory move grep the old path in every prefix form ($(CURDIR)/, $PWD/, ./, bare) across Makefiles and scripts, and run every recipe that installs from the moved tree, not only the gates that compile it"
+
+[gotcha.2557]
+title = "EVM owner evidence refused by consumers that compare the actor with a DID"
+symptom = "after a producer switched ProtocolEvidence to the EVM owner form (actor = the 20-byte sender, owner_public_key = the sender's authority word), onboarding/native.rs kept four comparisons of evidence.actor with DID bytes and of evidence.owner_public_key with ed25519 keys and refused every ported test with EvidenceConflict, found only when the test port of a different task reached that site"
+fix = "when a producer changes the encoding of an identity field, enumerate every consumer that compares that field (grep for the field name) and port them in the same task or in tasks the test port requires; a comparison that can never be true in the new form is a product defect, not a test fault"
