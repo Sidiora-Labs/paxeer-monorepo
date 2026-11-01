@@ -37,8 +37,6 @@ static size_t v5_callback_module(uint8_t *out)
         0x60U,1U,0x7fU,1U,0x7fU,0x60U,2U,0x7fU,0x7fU,1U,0x7fU};
     static const uint8_t functions[] = {2U,1U,2U};
     static const uint8_t memory[] = {1U,1U,1U,1U};
-    static const uint8_t request[] = {0U,0U,0U,0U,0U,0U,0U,1U,
-        LX_WEB_KIND_FETCH,0U,0U,0U,1U,'x'};
     uint8_t section[256], body[128];
     size_t cursor = 0U, length = 0U, body_length = 0U;
     append_bytes(out, &cursor, header, sizeof(header));
@@ -55,12 +53,22 @@ static size_t v5_callback_module(uint8_t *out)
     append_name(section, &length, "layerx_call"); section[length++] = 0U; section[length++] = 2U;
     append_name(section, &length, "memory"); section[length++] = 2U; section[length++] = 0U;
     append_section(out, &cursor, 7U, section, length);
-    body[body_length++] = 0U;
+    body[body_length++] = 1U; body[body_length++] = 1U; body[body_length++] = 0x7fU;
+    event_bounds_i32(body, &body_length, 15U);
+    body[body_length++] = 0x21U; body[body_length++] = 2U;
+    body[body_length++] = 0x02U; body[body_length++] = 0x40U;
+    body[body_length++] = 0x03U; body[body_length++] = 0x40U;
     event_bounds_i32(body, &body_length, 0U);
-    event_bounds_i32(body, &body_length, LX_WEB_REQUEST_TOPIC_BYTES);
-    event_bounds_i32(body, &body_length, 64U);
-    event_bounds_i32(body, &body_length, (uint32_t)sizeof(request));
+    event_bounds_i32(body, &body_length, 1U);
+    event_bounds_i32(body, &body_length, 0U);
+    event_bounds_i32(body, &body_length, 65536U);
     body[body_length++] = 0x10U; body[body_length++] = 0U; body[body_length++] = 0x1aU;
+    body[body_length++] = 0x20U; body[body_length++] = 2U;
+    event_bounds_i32(body, &body_length, 1U);
+    body[body_length++] = 0x6bU; body[body_length++] = 0x22U; body[body_length++] = 2U;
+    body[body_length++] = 0x45U; body[body_length++] = 0x0dU; body[body_length++] = 1U;
+    body[body_length++] = 0x0cU; body[body_length++] = 0U;
+    body[body_length++] = 0x0bU; body[body_length++] = 0x0bU;
     event_bounds_i32(body, &body_length, 0U); body[body_length++] = 0x0bU;
     length = 0U; section[length++] = 2U;
     section[length++] = 4U; section[length++] = 0U; section[length++] = 0x41U;
@@ -68,15 +76,6 @@ static size_t v5_callback_module(uint8_t *out)
     append_u32_leb(section, &length, (uint32_t)body_length);
     append_bytes(section, &length, body, body_length);
     append_section(out, &cursor, 10U, section, length);
-    length = 0U; section[length++] = 2U;
-    section[length++] = 0U; section[length++] = 0x41U; section[length++] = 0U; section[length++] = 0x0bU;
-    append_u32_leb(section, &length, LX_WEB_REQUEST_TOPIC_BYTES);
-    append_bytes(section, &length, (const uint8_t *)LX_WEB_REQUEST_TOPIC, LX_WEB_REQUEST_TOPIC_BYTES);
-    section[length++] = 0U; section[length++] = 0x41U; section[length++] = 0xc0U;
-    section[length++] = 0U; section[length++] = 0x0bU;
-    append_u32_leb(section, &length, (uint32_t)sizeof(request));
-    append_bytes(section, &length, request, sizeof(request));
-    append_section(out, &cursor, 11U, section, length);
     return cursor;
 }
 
@@ -105,7 +104,7 @@ static int v5_refusal_detail(const lxp_receipt *receipt, unsigned int variant)
         memcmp(detail, settlement, sizeof(settlement)) == 0 && detail[sizeof(settlement)] == 9U);
     else V5_CHECK(variant == 5U && detail_length == sizeof(callback) + 5U &&
         memcmp(detail, callback, sizeof(callback)) == 0 && detail[sizeof(callback)] == 4U &&
-        v5_u32(detail + sizeof(callback) + 1U) == (uint32_t)LXP_ERR_FEE_UNPAYABLE);
+        v5_u32(detail + sizeof(callback) + 1U) == (uint32_t)LXP_ERR_ARENA_EXHAUSTED);
     V5_CHECK(receipt->program_outcome.cpu_fuel != 0U && !lxp_u128_is_zero(receipt->fee_charged));
     return 0;
 }
@@ -137,6 +136,8 @@ static int v5_case(uint16_t abi, const char *outcome, unsigned int variant, bool
     write_u16(f->payload + 32U, abi);
     V5_CHECK(v5_execute(f, LX_PROGRAMS_DEPLOY, length, 1U, &receipt, &activity, signature) == 0 &&
         receipt.result_code == LXP_OK);
+    if (variant == 5U) V5_CHECK(lxp_arena_init(&f->arena, f->arena_bytes,
+        2U * LXP_MAX_ACTIVITY_BYTES + 65536U) == LXP_OK);
     if (variant == 3U || variant == 4U) {
         uint8_t capabilities[83] = {0U, 1U, 5U};
         memcpy(capabilities + 3U, f->fee_asset, 32U);
@@ -156,6 +157,7 @@ static int v5_case(uint16_t abi, const char *outcome, unsigned int variant, bool
         receipt.program_outcome.encoding_version == 4U &&
         lxp_program_outcome_validate_for_protocol(&receipt.program_outcome,
             LXP_PROTOCOL_VERSION_STATE_COMMITMENT) == LXP_OK);
+    if (variant == 5U) f->arena.capacity = sizeof(f->arena_bytes);
     if (variant == 0U || variant == 3U) V5_CHECK(receipt.result_code == LXP_OK &&
         receipt.program_outcome.terminal_kind == LXP_PROGRAM_TERMINAL_SUCCESS);
     else V5_CHECK(receipt.result_code == (variant == 2U ? LXP_ERR_GAS_EXHAUSTED : LXP_ERR_PROGRAM_REFUSED) &&

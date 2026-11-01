@@ -4,7 +4,8 @@ import { waitUntil, blockGasInfo } from './chainUtils';
 
 /**
  * Helpers for the eth_gasPrice parity spec: read the current gas price, sample it
- * against a stable block height, and assert it tracks Pax's base-fee-plus-buffer formula.
+ * against a stable block height, and assert it tracks Pax's base fee plus buffer
+ * and default priority fee.
  */
 
 export async function gasPrice(provider: ethers.JsonRpcProvider): Promise<bigint> {
@@ -39,9 +40,10 @@ export async function gasPriceAtStableBlock(
 }
 
 /**
- * Assert a Pax gas price reading tracks the base fee: uncongested it is exactly 1.1x
- * (floor, matching the node's integer Mul/Div) the base fee of some block in the immediate
- * neighbourhood of B, congested it at least covers the base fee.
+ * Assert a Pax gas price reading is exactly (baseFee * 110) / 100 (rounded down, matching
+ * the node's integer Mul/Div) plus the 1 gwei default priority fee when uncongested. The base
+ * fee must come from a block in the immediate neighbourhood of B; congested readings
+ * must at least cover the base fee.
  */
 export async function assertPaxGasPriceTracks(
     provider: ethers.JsonRpcProvider,
@@ -56,13 +58,21 @@ export async function assertPaxGasPriceTracks(
     const heights = [block - 1, block, block + 1, block + 2].filter(h => h >= 0 && h <= head);
     const infos = await Promise.all(heights.map(h => blockGasInfo(provider, h)));
 
-    if (infos.some(b => (b.baseFee * 110n) / 100n === gasPriceWei)) return;
+    assertPaxGasPriceTracksBlocks(gasPriceWei, block, infos);
+}
+
+export function assertPaxGasPriceTracksBlocks(
+    gasPriceWei: bigint,
+    block: number,
+    infos: Awaited<ReturnType<typeof blockGasInfo>>[],
+): void {
+    if (infos.some(b => (b.baseFee * 110n) / 100n + DEFAULT_PRIORITY_FEE_WEI === gasPriceWei)) return;
 
     const congested = infos.some(b => b.gasUsed > (b.gasLimit * 80n) / 100n);
     const minBase = infos.reduce((m, b) => (b.baseFee < m ? b.baseFee : m), infos[0].baseFee);
     expect(
         congested && gasPriceWei >= minBase,
-        `gasPrice ${gasPriceWei} is not 1.1x any base fee near block ${block} ` +
+        `gasPrice ${gasPriceWei} is not 1.1x any base fee plus the default priority fee near block ${block} ` +
             `(bases: ${infos.map(b => b.baseFee).join(', ')})`,
     ).to.equal(true);
 }

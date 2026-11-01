@@ -36,16 +36,25 @@ import (
 	"github.com/google/uuid"
 )
 
+func connectedIdentityDDL(t *testing.T) string {
+	t.Helper()
+	identity, e := os.ReadFile(filepath.Join("..", "..", "..", "gateway", "internal", "devidentity", "migrations", "00001_identity.sql"))
+	must(t, e)
+	_, up, found := strings.Cut(string(identity), "-- +goose Up")
+	if !found {
+		t.Fatal("identity migration is missing the goose Up boundary")
+	}
+	up, _, found = strings.Cut(up, "-- +goose Down")
+	if !found {
+		t.Fatal("identity migration is missing the goose Down boundary")
+	}
+	return up
+}
+
 func connectedFixture(t *testing.T) Store {
 	t.Helper()
 	s := fixture(t)
-	b, e := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "launchpad", "spec", "production-system", "handoffs", "L35", "phase2", "schema.sql"))
-	must(t, e)
-	_, e = s.DB.Exec(context.Background(), string(b))
-	must(t, e)
-	identity, e := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "launchpad", "spec", "production-system", "handoffs", "L33", "schema-proposal.sql"))
-	must(t, e)
-	_, e = s.DB.Exec(context.Background(), string(identity))
+	_, e := s.DB.Exec(context.Background(), connectedIdentityDDL(t))
 	must(t, e)
 	return s
 }
@@ -605,12 +614,8 @@ func connectedLegacyFixture(t *testing.T) Store {
 	t.Helper()
 	pool := internaltest.NewPostgres(t)
 	ctx := context.Background()
-	for _, relative := range []string{"L35/schema.sql", "L35/phase2/schema.sql", "L33/schema-proposal.sql"} {
-		ddl, e := os.ReadFile(filepath.Join("..", "..", "..", "..", "..", "launchpad", "spec", "production-system", "handoffs", filepath.FromSlash(relative)))
-		must(t, e)
-		_, e = pool.Exec(ctx, string(ddl))
-		must(t, e)
-	}
+	_, e := pool.Exec(ctx, connectedIdentityDDL(t))
+	must(t, e)
 	return Store{DB: pool, Clock: func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) }}
 }
 

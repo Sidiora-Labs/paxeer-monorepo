@@ -130,14 +130,67 @@ public sealed class NativeProgramLifecycleRequest
     private readonly byte[] _signed;
     public ushort Ordinal { get; }
     public byte[] Payload => _payload.ToArray();
-    public byte[] SignedActivity => _signed.ToArray();
-    public byte[] ActivityId => LifecycleWire.Hash(Encoding.UTF8.GetBytes("LXP/v1/activity-id\0"), _signed);
-    public string IdempotencyKey { get; }
-    public NativeProgramLifecycleRequest(INativeProgramLifecycle operation, byte[] signedActivity)
+    public byte[] SignedTransaction => _signed.ToArray();
+    public byte[] SignedActivity => SignedTransaction;
+    public byte[] TransactionHash => Programs.TransactionHash(_signed);
+    public byte[] ActivityId => TransactionHash;
+    public string IdempotencyKey => Convert.ToHexString(TransactionHash).ToLowerInvariant();
+
+    public NativeProgramLifecycleRequest(INativeProgramLifecycle operation, ProtocolAmount feeLimit = default)
     {
-        Ordinal = operation.Ordinal; _payload = LifecycleWire.Decode(Ordinal, operation.Encode()).Encode(); _signed = signedActivity.ToArray();
-        IdempotencyKey = Convert.ToHexString(LifecycleWire.Bind(Ordinal, _payload, _signed)).ToLowerInvariant();
+        ArgumentNullException.ThrowIfNull(operation);
+        Ordinal = operation.Ordinal; _signed = [];
+        var payload = LifecycleWire.Decode(Ordinal, operation.Encode()).Encode();
+        var program = ProgramsAbi.Fixed(payload[..32]);
+        if (Ordinal == 1)
+        {
+            var wasmLength = checked((int)LifecycleWire.Get(payload, 100, 4));
+            var interfaceLength = payload.Length == 104 + wasmLength ? 0 : checked((int)LifecycleWire.Get(payload, 104, 4));
+            var start = interfaceLength == 0 ? 104 : 108;
+            _payload = ProgramsAbi.Encode("bde3ff66", program, ProgramsAbi.Number(LifecycleWire.Get(payload, 32, 2), 16),
+                ProgramsAbi.Number(payload[34], 8), ProgramsAbi.Fixed(payload[36..68]), ProgramsAbi.Fixed(payload[68..100]),
+                ProgramsAbi.Bytes(payload.AsSpan(start, interfaceLength).ToArray()), ProgramsAbi.Bytes(payload[^wasmLength..]));
+        }
+        else if (Ordinal == 2)
+        {
+            var hookLength = checked((int)LifecycleWire.Get(payload, 100, 2));
+            var wasmLength = checked((int)LifecycleWire.Get(payload, 102, 4));
+            var hasInterface = payload.Length != 106 + hookLength + wasmLength || (payload[34] & 2) != 0;
+            var interfaceLength = hasInterface ? checked((int)LifecycleWire.Get(payload, 106, 4)) : 0;
+            var start = hasInterface ? 110 : 106;
+            _payload = ProgramsAbi.Encode("a860929f", program, ProgramsAbi.Number(LifecycleWire.Get(payload, 32, 2), 16),
+                ProgramsAbi.Number(payload[34], 8), ProgramsAbi.Fixed(payload[36..68]), ProgramsAbi.Fixed(payload[68..100]),
+                ProgramsAbi.Bytes(payload.AsSpan(start, hookLength).ToArray()),
+                ProgramsAbi.Bytes(payload.AsSpan(start + hookLength, interfaceLength).ToArray()),
+                ProgramsAbi.Bytes(payload[^wasmLength..]), ProgramsAbi.Number(feeLimit.Value, 128));
+        }
+        else
+        {
+            _payload = payload[32] switch
+            {
+                1 => ProgramsAbi.Encode("23330dd5", program, ProgramsAbi.Fixed(payload[33..65]), ProgramsAbi.Fixed(payload[65..97]),
+                    ProgramsAbi.Fixed(payload[97..129]), ProgramsAbi.Bytes(payload[131..])),
+                2 => ProgramsAbi.Encode("86ba1a99", program, ProgramsAbi.Fixed(payload[33..65]), ProgramsAbi.Number(LifecycleWire.Get(payload, 65, 8), 64)),
+                3 => ProgramsAbi.Encode("a512f1a9", program),
+                4 => ProgramsAbi.Encode("4dc50730", program, ProgramsAbi.Fixed(payload[33..65])),
+                _ => throw new ArgumentException("Wind-down operation")
+            };
+        }
     }
+
+    public NativeProgramLifecycleRequest(INativeProgramLifecycle operation, byte[] signedTransaction)
+        : this(operation, default, signedTransaction) { }
+
+    public NativeProgramLifecycleRequest(INativeProgramLifecycle operation, ProtocolAmount feeLimit, byte[] signedTransaction)
+        : this(operation, feeLimit)
+    {
+        Programs.BindTransaction(signedTransaction, _payload);
+        _signed = signedTransaction.ToArray();
+    }
+
+    public UnsignedProgramTransaction BuildTransaction(string sender, ulong nonce, ulong gas,
+        System.Numerics.BigInteger maxFeePerGas, System.Numerics.BigInteger maxPriorityFeePerGas) =>
+        new(sender, Payload, nonce, gas, maxFeePerGas, maxPriorityFeePerGas);
 }
 
 internal static class LifecycleWire

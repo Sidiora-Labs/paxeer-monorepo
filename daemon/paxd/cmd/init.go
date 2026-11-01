@@ -11,7 +11,6 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/cli"
 	tmos "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/os"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/node/genesis"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	"github.com/cosmos/go-bip39"
 	"github.com/pkg/errors"
@@ -214,7 +213,7 @@ func checkConfigOverwrite(configPath string, overwrite bool) error {
 	return nil
 }
 
-// loadOrWriteGenesis loads existing genesis at genFile if present and !overwrite, else writes embedded (well-known) or default.
+// loadOrWriteGenesis loads existing genesis at genFile if present and !overwrite, else writes default genesis.
 func loadOrWriteGenesis(genFile, chainID string, overwrite bool, mbm module.BasicManager, cdc codec.JSONCodec) (*types.GenesisDoc, error) {
 	if !overwrite && tmos.FileExists(genFile) {
 		if err := ensureGenesisPathIsFile(genFile); err != nil {
@@ -229,20 +228,6 @@ func loadOrWriteGenesis(genFile, chainID string, overwrite bool, mbm module.Basi
 		}
 		if logger != nil {
 			logger.Debug("using existing genesis file (not overwriting)", "path", genFile)
-		}
-		return genDoc, nil
-	}
-
-	if genesis.IsWellKnown(chainID) {
-		genDoc, err := genesis.EmbeddedGenesisDoc(chainID)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to load embedded genesis for %s", chainID)
-		}
-		if logger != nil {
-			logger.Debug("writing genesis file (embedded)", "chain_id", chainID, "path", genFile)
-		}
-		if err := genutil.ExportGenesisFile(genDoc, genFile); err != nil {
-			return nil, errors.Wrap(err, "Failed to export genesis file")
 		}
 		return genDoc, nil
 	}

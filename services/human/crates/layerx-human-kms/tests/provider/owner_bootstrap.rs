@@ -1,6 +1,6 @@
 use super::{checked, encoded_disclosure, facts, registry, request, signing_request, Host, Result};
 use layerx_intents::owner_activity::{
-    attach_signature, unsigned_native, verify, OwnerEnvelopeContext,
+    attach_native_signature, unsigned_native, verify, OwnerEnvelopeContext,
 };
 use layerx_intents::NativeOwnerBootstrap;
 use layerx_types::activity::TimestampBound;
@@ -60,13 +60,15 @@ fn typed_owner_bootstrap_signs_through_real_kms_and_replays_after_restart() -> R
             assert_eq!(response[7], 0);
             assert_eq!(response.len(), 72);
             let signature = response[8..].try_into()?;
-            let signed = checked(attach_signature(&unsigned, signature, public, &registry))?;
+            let signed = checked(attach_native_signature(
+                &unsigned, signature, public, &registry,
+            ))?;
             let activity = checked(verify(&signed, &registry))?;
             assert_eq!(activity.actor_did(), did.as_bytes());
             assert_eq!(activity.authority(), public);
             assert_eq!(activity.payload(), compiled.payload().as_bytes());
             assert_eq!(activity.activity_type(), compiled.activity_type());
-            assert!(attach_signature(&unsigned, signature, pending, &registry).is_err());
+            assert!(attach_native_signature(&unsigned, signature, pending, &registry).is_err());
             for changed in super::native_setup::mutated_native(&disclosure) {
                 let packet =
                     signing_request(binding, &handle, &unsigned, &encoded_disclosure(&changed)?)?.0;

@@ -8,10 +8,19 @@ import (
 
 // LagStatus returns Tendermint lag status, if lag is over a certain threshold
 func (env *Environment) LagStatus(ctx context.Context) (*coretypes.ResultLagStatus, error) {
-	currentHeight := env.BlockStore.Height()
-	maxPeerBlockHeight := int64(0)
-	if reactor, ok := env.BlockSyncReactor.Get(); ok {
-		maxPeerBlockHeight = reactor.GetMaxPeerBlockHeight()
+	var currentHeight, maxPeerBlockHeight int64
+	if giga, ok := env.gigaRouter().Get(); ok {
+		info, err := env.ABCIInfo(ctx)
+		if err != nil {
+			return nil, err
+		}
+		currentHeight = info.Response.LastBlockHeight
+		maxPeerBlockHeight = giga.LastCommittedBlockNumber()
+	} else {
+		currentHeight = env.BlockStore.Height()
+		if reactor, ok := env.BlockSyncReactor.Get(); ok {
+			maxPeerBlockHeight = reactor.GetMaxPeerBlockHeight()
+		}
 	}
 	lag := int64(0)
 

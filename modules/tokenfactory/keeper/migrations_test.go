@@ -58,7 +58,7 @@ func TestMigrate2to3(t *testing.T) {
 	store.Set(oldCreatorSpecificPrefix, []byte("garbage value whitelist creator"))
 	require.True(t, store.Has(oldCreateDenomFeeWhitelistPrefix))
 	require.True(t, store.Has(oldCreatorSpecificPrefix))
-	newKeeper := NewKeeper(cdc, storeKey, paramsSubspace, nil, bankkeeper.NewBaseKeeper(cdc, bankstorekey, nil, paramsSubspace, nil), nil)
+	newKeeper := NewKeeper(cdc, storeKey, paramsSubspace, nil, bankkeeper.NewBaseKeeper(cdc, bankstorekey, nil, paramsSubspace, nil))
 	m := NewMigrator(newKeeper)
 	err := m.Migrate2to3(ctx)
 	require.Nil(t, err)
@@ -126,5 +126,5 @@ func getStoreAndKeeper(t *testing.T) (store.CommitMultiStore, Keeper) {
 		memStoreKey,
 		"TokenfactoryParams",
 	)
-	return stateStore, NewKeeper(nil, nil, paramsSubspace, nil, nil, nil)
+	return stateStore, NewKeeper(nil, nil, paramsSubspace, nil, nil)
 }

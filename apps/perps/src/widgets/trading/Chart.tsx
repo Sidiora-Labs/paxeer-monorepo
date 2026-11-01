@@ -1,5 +1,9 @@
 import { useEffect, useRef, useMemo, useState, useCallback, memo } from "react";
-import type { ResolutionString } from "../../../public/static/charting_library/charting_library";
+import type {
+  ChartingLibraryWidgetOptions,
+  IChartingLibraryWidget,
+  ResolutionString,
+} from "../../../public/static/charting_library/charting_library";
 import { PerpsDatafeed } from "@/core/datafeed/perps";
 import { useTheme } from "next-themes";
 import { useOrderLineStore } from "@/hooks/perps/useOrderLineStore";
@@ -8,6 +12,12 @@ import { BarChart2, Settings2, Maximize2 } from "lucide-react";
 import { PaxSpinner } from "@/ui/atoms/PaxSpinner";
 import { useIsMobile } from "@/hooks/ui/useMobile";
 import { loadTradingView } from "./tradingViewLoader";
+import {
+  chartStateForPair,
+  chartThemeTransition,
+  resolveChartTheme,
+  type ChartSnapshot,
+} from "./chartTheme";
 
 // NOTE: previously this was a module-level singleton. On mobile we observed
 // the TV widget's cleanup not always calling `unsubscribeBars` before the
@@ -15,7 +25,6 @@ import { loadTradingView } from "./tradingViewLoader";
 // on the shared datafeed — causing subsequent widgets to get stuck in the
 // "loading" state. Use a fresh instance per Chart mount instead (see
 // `datafeedRef` inside the component).
-
 
 declare global {
   interface Window {
@@ -32,16 +41,16 @@ const TOOLBAR_H = 34;
 // on the per-symbol candle servers: `1, 2, 3, 5, 15, 30, 60, 240, 480,
 // D, W`. (Monthly is not produced by the candle servers.)
 const INTERVALS: { label: string; value: string }[] = [
-  { label: "1m",  value: "1" },
-  { label: "3m",  value: "3" },
-  { label: "5m",  value: "5" },
+  { label: "1m", value: "1" },
+  { label: "3m", value: "3" },
+  { label: "5m", value: "5" },
   { label: "15m", value: "15" },
   { label: "30m", value: "30" },
-  { label: "1h",  value: "60" },
-  { label: "4h",  value: "240" },
-  { label: "8h",  value: "480" },
-  { label: "1D",  value: "1D" },
-  { label: "1W",  value: "1W" },
+  { label: "1h", value: "60" },
+  { label: "4h", value: "240" },
+  { label: "8h", value: "480" },
+  { label: "1D", value: "1D" },
+  { label: "1W", value: "1W" },
 ];
 
 // ── Isolated toolbar component — renders independently of Chart state ──
@@ -53,7 +62,13 @@ interface ToolbarProps {
   onFullscreen: () => void;
 }
 
-const ChartToolbar = memo(function ChartToolbar({ currentInterval, onInterval, onIndicators, onSettings, onFullscreen }: ToolbarProps) {
+const ChartToolbar = memo(function ChartToolbar({
+  currentInterval,
+  onInterval,
+  onIndicators,
+  onSettings,
+  onFullscreen,
+}: ToolbarProps) {
   return (
     <div
       className="flex items-center px-1.5 border-b border-border bg-card shrink-0"
@@ -68,23 +83,32 @@ const ChartToolbar = memo(function ChartToolbar({ currentInterval, onInterval, o
             "h-[26px] min-w-[28px] px-1.5 text-[11px] font-medium rounded transition-colors",
             currentInterval === iv.value
               ? "bg-primary/10 text-primary font-semibold"
-              : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/50",
           )}
         >
           {iv.label}
         </button>
       ))}
       <div className="flex-1" />
-      <button onClick={onIndicators} title="Indicators"
-        className="h-[26px] w-[28px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors">
+      <button
+        onClick={onIndicators}
+        title="Indicators"
+        className="h-[26px] w-[28px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+      >
         <BarChart2 className="h-3.5 w-3.5" />
       </button>
-      <button onClick={onSettings} title="Chart settings"
-        className="h-[26px] w-[28px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors">
+      <button
+        onClick={onSettings}
+        title="Chart settings"
+        className="h-[26px] w-[28px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+      >
         <Settings2 className="h-3.5 w-3.5" />
       </button>
-      <button onClick={onFullscreen} title="Fullscreen"
-        className="h-[26px] w-[28px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors">
+      <button
+        onClick={onFullscreen}
+        title="Fullscreen"
+        className="h-[26px] w-[28px] flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 rounded transition-colors"
+      >
         <Maximize2 className="h-3.5 w-3.5" />
       </button>
     </div>
@@ -99,24 +123,20 @@ const getFormattedSymbol = (pair: string) => {
 };
 
 function fmtLinePrice(p: number): string {
-  if (p >= 10000) return p.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  if (p >= 1) return p.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
-  return p.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 6 });
-}
-
-// Resolve the TradingView pane background color for the active app theme.
-// NOTE: This color MUST also be re-applied via `widget.applyOverrides` inside
-// `onChartReady` — `load_last_chart: true` restores a saved layout whose pane
-// background (TV's default `#131722` navy) would otherwise overwrite the
-// `overrides` object on symbol-change re-init.
-function resolveChartBg(theme: string | undefined): string {
-  switch (theme) {
-    case "greenify": return "#0a0e18";
-    case "light":    return "#ffffff";
-    case "hotline":  return "#0f0c2c";
-    case "oled":     return "#000000";
-    default:         return "#18191d";
-  }
+  if (p >= 10000)
+    return p.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  if (p >= 1)
+    return p.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    });
+  return p.toLocaleString("en-US", {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 6,
+  });
 }
 
 interface ChartProps {
@@ -127,8 +147,11 @@ interface ChartProps {
   positions?: unknown[];
 }
 
-
-export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: ChartProps) {
+export function Chart({
+  selectedPair = "ETH/USD",
+  height,
+  onHeightChange,
+}: ChartProps) {
   const widgetRef = useRef<any>(null);
   // Per-instance datafeed. Lazy-init so SSR doesn't touch window.
   const datafeedRef = useRef<PerpsDatafeed | null>(null);
@@ -138,8 +161,13 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
   const startHeight = useRef(0);
   const [isChartReady, setIsChartReady] = useState(false);
   const isChartReadyRef = useRef(false);
+  const [chartRevision, setChartRevision] = useState(0);
+  const savedChartRef = useRef<ChartSnapshot | null>(null);
+  const widgetThemeRef = useRef<string | undefined>(undefined);
+  const themeChangeRef = useRef<Promise<void>>(Promise.resolve());
   const [currentInterval, setCurrentInterval] = useState("15");
-  const { theme } = useTheme();
+  const { theme: selectedTheme, resolvedTheme } = useTheme();
+  const theme = resolvedTheme ?? selectedTheme;
   // Always-current ref so loadTradingView (called from a [selectedPair] effect
   // closure) reads the live theme even when next-themes hydrates after the
   // effect first fires — prevents the chart reverting to default TV styling.
@@ -152,52 +180,6 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
   const slLineRef = useRef<any>(null);
   const olStore = useOrderLineStore;
 
-  // Effect for theme changes.
-  // Prefer the TradingView runtime API `widget.changeTheme()` when switching
-  // between the built-in Light/Dark themes — this is ~50ms and does not blank
-  // the chart. Only fall back to a full rebuild for custom themes
-  // (greenify/hotline/oled) whose styling can't be expressed via the runtime
-  // API, and in that case fade the container during the rebuild so the user
-  // sees a smooth crossfade instead of a white flash.
-  const lastThemeRef = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    if (!widgetRef.current) { lastThemeRef.current = theme; return; }
-    const prev = lastThemeRef.current;
-    lastThemeRef.current = theme;
-    const isBuiltIn = (t: string | undefined) => t === "light" || t === "dark";
-
-    if (isBuiltIn(theme) && isBuiltIn(prev)) {
-      try {
-        widgetRef.current.changeTheme?.(theme === "dark" ? "Dark" : "Light");
-        return;
-      } catch {
-        // fall through to rebuild
-      }
-    }
-
-    // Fade-out → rebuild → fade-in
-    const container = document.getElementById("tv_chart_container");
-    if (container) {
-      container.style.transition = "opacity 180ms ease-out";
-      container.style.opacity = "0";
-    }
-    const rebuildTimeout = window.setTimeout(() => {
-      if (widgetRef.current) {
-        widgetRef.current.remove();
-        widgetRef.current = null;
-        isChartReadyRef.current = false;
-      }
-      loadTradingView().finally(() => {
-        const c = document.getElementById("tv_chart_container");
-        if (c) {
-          c.style.transition = "opacity 220ms ease-in";
-          c.style.opacity = "1";
-        }
-      });
-    }, 180);
-    return () => window.clearTimeout(rebuildTimeout);
-  }, [theme]);
-
   // Main chart initialization effect
   const loadTradingViewWidget = async () => {
     try {
@@ -207,12 +189,14 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
 
       // Remove old widget if it exists
       if (widgetRef.current) {
-        try { widgetRef.current.remove(); } catch {}
+        try {
+          widgetRef.current.remove();
+        } catch {}
         widgetRef.current = null;
         isChartReadyRef.current = false;
       }
 
-      const container = document.getElementById('tv_chart_container');
+      const container = document.getElementById("tv_chart_container");
       if (!container) {
         return;
       }
@@ -221,8 +205,21 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
       // `remove()`, which prevents a fresh widget from taking over the same
       // container id. Nuke any residual children before re-init.
       try {
-        while (container.firstChild) container.removeChild(container.firstChild);
+        while (container.firstChild)
+          container.removeChild(container.firstChild);
       } catch {}
+
+      const chartTheme = resolveChartTheme(themeRef.current);
+      const themeOptions = {
+        theme: chartTheme.baseTheme,
+        saved_data: chartStateForPair(savedChartRef.current, selectedPair),
+        custom_css_url: chartTheme.customCssUrl,
+      } satisfies Pick<
+        ChartingLibraryWidgetOptions,
+        "theme" | "saved_data" | "custom_css_url"
+      >;
+      if (savedChartRef.current?.selectedPair !== selectedPair)
+        savedChartRef.current = null;
 
       const widget = new window.TradingView.widget({
         container: "tv_chart_container",
@@ -251,7 +248,7 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
           "symbol_info",
           "timeframes_toolbar",
         ],
-        theme: "dark",
+        ...themeOptions,
         overrides: {
           "paneProperties.backgroundType": "solid",
           "paneProperties.legendProperties.showBackground": false,
@@ -260,15 +257,13 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
           "paneProperties.vertGridProperties.color": "rgba(0, 0, 0, 0)",
           "paneProperties.horzGridProperties.style": 0,
           "paneProperties.vertGridProperties.style": 0,
-          "paneProperties.background": resolveChartBg(themeRef.current),
-          "scalesProperties.backgroundColor": resolveChartBg(themeRef.current),
+          "paneProperties.background": chartTheme.background,
+          "scalesProperties.backgroundColor": chartTheme.background,
         },
-        load_last_chart: true,
-        saved_data: null,
+        load_last_chart: !themeOptions.saved_data,
         auto_save_delay: 0,
         max_bars: 300,
-        range: "1D",
-        custom_css_url: `../${themeRef.current}.css`,
+        range: themeOptions.saved_data ? undefined : "1D",
         allow_symbol_change: false,
         favorites: {
           intervals: [
@@ -282,21 +277,28 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
           ] as ResolutionString[],
         },
         loading_screen: { backgroundColor: "transparent" },
-        visible_range: {
-          from: now - 24 * 60 * 60,
-          to: now,
-        },
-        auto_scale: true,
-        initial_data: {
-          resolution: "15" as ResolutionString,
-          from: now - 24 * 60 * 60,
-          to: now,
-        },
+        visible_range: themeOptions.saved_data
+          ? undefined
+          : {
+              from: now - 24 * 60 * 60,
+              to: now,
+            },
+        auto_scale: themeOptions.saved_data ? undefined : true,
+        initial_data: themeOptions.saved_data
+          ? undefined
+          : {
+              resolution: "15" as ResolutionString,
+              from: now - 24 * 60 * 60,
+              to: now,
+            },
       });
 
       widgetRef.current = widget;
+      widgetThemeRef.current = chartTheme.name;
+      themeChangeRef.current = Promise.resolve();
 
       widget.onChartReady(() => {
+        if (widgetRef.current !== widget) return;
         isChartReadyRef.current = true;
         setIsChartReady(true);
 
@@ -305,7 +307,7 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
         // the saved layout's pane bg (TV's default navy `#131722`) wins
         // over the `overrides` object passed at construction time.
         try {
-          const bg = resolveChartBg(themeRef.current);
+          const bg = resolveChartTheme(themeRef.current).background;
           widget.applyOverrides({
             "paneProperties.backgroundType": "solid",
             "paneProperties.background": bg,
@@ -316,7 +318,9 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
         }
 
         const chart = widget.activeChart();
-        try { setCurrentInterval(chart.resolution()); } catch {}
+        try {
+          setCurrentInterval(chart.resolution());
+        } catch {}
 
         // Custom text watermark via IWatermarkApi
         try {
@@ -332,8 +336,12 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
               },
             ],
           }));
-          try { wm.visibility.setValue(true); } catch {}
-          try { wm.visibility.ticker?.setValue(true); } catch {}
+          try {
+            wm.visibility.setValue(true);
+          } catch {}
+          try {
+            wm.visibility.ticker?.setValue(true);
+          } catch {}
         } catch {}
 
         chart.getSeries().setChartStyleProperties(1, {
@@ -344,7 +352,8 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
           wickUpColor: "#0ebc5f",
           wickDownColor: "#ff4c45",
         });
-        
+        container.style.transition = "opacity 220ms ease-in";
+        container.style.opacity = "1";
       });
     } catch (error) {
       console.error("Error initializing TradingView:", error);
@@ -359,13 +368,15 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
     const tryLoad = (attempt: number) => {
       if (cancelled) return;
       const tvReady = typeof window !== "undefined" && !!window.TradingView;
-      const containerReady = !!document.getElementById('tv_chart_container');
+      const containerReady = !!document.getElementById("tv_chart_container");
       if (tvReady && containerReady) {
         loadTradingViewWidget();
         return;
       }
       if (attempt >= MAX_RETRIES) {
-        console.warn("[Chart] TradingView or container not ready after retries; giving up.");
+        console.warn(
+          "[Chart] TradingView or container not ready after retries; giving up.",
+        );
         return;
       }
       retryTimer = setTimeout(() => tryLoad(attempt + 1), 200);
@@ -382,14 +393,22 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
     return () => {
       cancelled = true;
       if (retryTimer) clearTimeout(retryTimer);
-      try { entryLineRef.current?.remove(); } catch {}
-      try { tpLineRef.current?.remove(); } catch {}
-      try { slLineRef.current?.remove(); } catch {}
+      try {
+        entryLineRef.current?.remove();
+      } catch {}
+      try {
+        tpLineRef.current?.remove();
+      } catch {}
+      try {
+        slLineRef.current?.remove();
+      } catch {}
       entryLineRef.current = null;
       tpLineRef.current = null;
       slLineRef.current = null;
       if (widgetRef.current) {
-        try { widgetRef.current.remove(); } catch (error) {
+        try {
+          widgetRef.current.remove();
+        } catch (error) {
           console.error("Error cleaning up TradingView widget:", error);
         }
         widgetRef.current = null;
@@ -399,13 +418,86 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
       // Also nuke any leftover DOM inside the container as a safety net
       // for mobile / PWA where TV's `remove()` may not fully clean up.
       try {
-        const leftover = document.getElementById('tv_chart_container');
+        const leftover = document.getElementById("tv_chart_container");
         if (leftover) {
           while (leftover.firstChild) leftover.removeChild(leftover.firstChild);
         }
       } catch {}
     };
-  }, [selectedPair]);
+  }, [selectedPair, chartRevision]);
+
+  useEffect(() => {
+    const widget: IChartingLibraryWidget | null = widgetRef.current;
+    if (!widget) return;
+    const transition = chartThemeTransition(widgetThemeRef.current, theme);
+    if (transition === "none") return;
+
+    let cancelled = false;
+    let rebuildTimeout: ReturnType<typeof setTimeout> | undefined;
+    const container = document.getElementById("tv_chart_container");
+    const restoreOpacity = () => {
+      if (container) container.style.opacity = "1";
+    };
+    const rebuild = () => {
+      if (cancelled || widgetRef.current !== widget) return;
+      if (container) {
+        container.style.transition = "opacity 180ms ease-out";
+        container.style.opacity = "0";
+      }
+      rebuildTimeout = setTimeout(() => {
+        if (cancelled || widgetRef.current !== widget) return;
+        const replace = (state?: object) => {
+          if (cancelled || widgetRef.current !== widget) return;
+          if (state) savedChartRef.current = { selectedPair, state };
+          setChartRevision((revision) => revision + 1);
+        };
+        if (!isChartReadyRef.current) {
+          replace();
+          return;
+        }
+        try {
+          widget.save(replace, { includeDrawings: true });
+        } catch (error) {
+          restoreOpacity();
+          console.error(
+            "[Chart] Failed to save chart before theme change:",
+            error,
+          );
+        }
+      }, 180);
+    };
+
+    if (transition === "runtime" && isChartReadyRef.current) {
+      const previousTheme = widgetThemeRef.current;
+      const nextTheme = resolveChartTheme(theme);
+      widgetThemeRef.current = nextTheme.name;
+      themeChangeRef.current = themeChangeRef.current
+        .then(async () => {
+          if (cancelled || widgetRef.current !== widget) return;
+          await widget.changeTheme(nextTheme.baseTheme);
+          if (cancelled || widgetRef.current !== widget) return;
+          widget.applyOverrides({
+            "paneProperties.backgroundType": "solid",
+            "paneProperties.background": nextTheme.background,
+            "scalesProperties.backgroundColor": nextTheme.background,
+          });
+        })
+        .catch((error) => {
+          if (cancelled || widgetRef.current !== widget) return;
+          widgetThemeRef.current = previousTheme;
+          console.warn("[Chart] Failed to change theme in place:", error);
+          rebuild();
+        });
+    } else {
+      rebuild();
+    }
+
+    return () => {
+      cancelled = true;
+      if (rebuildTimeout) clearTimeout(rebuildTimeout);
+      restoreOpacity();
+    };
+  }, [theme, selectedPair, chartRevision]);
 
   // ── Reactive order line state from store ──
   const olOrderType = useOrderLineStore((s) => s.orderType);
@@ -417,7 +509,7 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
 
   // Order lines effect — runs when chart is ready AND store values change
   useEffect(() => {
-    if (!widgetRef.current || !isChartReady) return;
+    if (!widgetRef.current || !isChartReady || !isChartReadyRef.current) return;
 
     const chart = widgetRef.current.activeChart();
     if (!chart) return;
@@ -430,16 +522,23 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
         // Update existing
         try {
           entryLineRef.current.setPrice(olEntryPrice);
-          entryLineRef.current.setText(`Entry @ $${fmtLinePrice(olEntryPrice)}`);
-        } catch { entryLineRef.current = null; }
+          entryLineRef.current.setText(
+            `Entry @ $${fmtLinePrice(olEntryPrice)}`,
+          );
+        } catch {
+          entryLineRef.current = null;
+        }
       }
       if (!entryLineRef.current) {
         try {
           const lineColor = olIsLong ? "#0ebc5f" : "#ff4c45";
-          const bgColor = olIsLong ? "rgba(5, 193, 104, 0.12)" : "rgba(255, 90, 101, 0.12)";
+          const bgColor = olIsLong
+            ? "rgba(5, 193, 104, 0.12)"
+            : "rgba(255, 90, 101, 0.12)";
           const textColor = olIsLong ? "#0ebc5f" : "#ff4c45";
 
-          const line = chart.createOrderLine()
+          const line = chart
+            .createOrderLine()
             .setPrice(olEntryPrice)
             .setText(`Entry @ $${fmtLinePrice(olEntryPrice)}`)
             .setQuantity("")
@@ -467,7 +566,9 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
       }
     } else {
       if (entryLineRef.current) {
-        try { entryLineRef.current.remove(); } catch {}
+        try {
+          entryLineRef.current.remove();
+        } catch {}
         entryLineRef.current = null;
       }
     }
@@ -478,11 +579,14 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
         try {
           tpLineRef.current.setPrice(olTpPrice);
           tpLineRef.current.setText(`TP @ $${fmtLinePrice(olTpPrice)}`);
-        } catch { tpLineRef.current = null; }
+        } catch {
+          tpLineRef.current = null;
+        }
       }
       if (!tpLineRef.current) {
         try {
-          const line = chart.createOrderLine()
+          const line = chart
+            .createOrderLine()
             .setPrice(olTpPrice)
             .setText(`TP @ $${fmtLinePrice(olTpPrice)}`)
             .setQuantity("")
@@ -510,7 +614,9 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
       }
     } else {
       if (tpLineRef.current) {
-        try { tpLineRef.current.remove(); } catch {}
+        try {
+          tpLineRef.current.remove();
+        } catch {}
         tpLineRef.current = null;
       }
     }
@@ -521,11 +627,14 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
         try {
           slLineRef.current.setPrice(olSlPrice);
           slLineRef.current.setText(`SL @ $${fmtLinePrice(olSlPrice)}`);
-        } catch { slLineRef.current = null; }
+        } catch {
+          slLineRef.current = null;
+        }
       }
       if (!slLineRef.current) {
         try {
-          const line = chart.createOrderLine()
+          const line = chart
+            .createOrderLine()
             .setPrice(olSlPrice)
             .setText(`SL @ $${fmtLinePrice(olSlPrice)}`)
             .setQuantity("")
@@ -553,18 +662,35 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
       }
     } else {
       if (slLineRef.current) {
-        try { slLineRef.current.remove(); } catch {}
+        try {
+          slLineRef.current.remove();
+        } catch {}
         slLineRef.current = null;
       }
     }
-  }, [isChartReady, olOrderType, olIsLong, olEntryPrice, olTpPrice, olSlPrice, olTpslEnabled]);
+  }, [
+    isChartReady,
+    chartRevision,
+    olOrderType,
+    olIsLong,
+    olEntryPrice,
+    olTpPrice,
+    olSlPrice,
+    olTpslEnabled,
+  ]);
 
   // Cleanup order lines on unmount
   useEffect(() => {
     return () => {
-      try { entryLineRef.current?.remove(); } catch {}
-      try { tpLineRef.current?.remove(); } catch {}
-      try { slLineRef.current?.remove(); } catch {}
+      try {
+        entryLineRef.current?.remove();
+      } catch {}
+      try {
+        tpLineRef.current?.remove();
+      } catch {}
+      try {
+        slLineRef.current?.remove();
+      } catch {}
       entryLineRef.current = null;
       tpLineRef.current = null;
       slLineRef.current = null;
@@ -579,7 +705,8 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
     // ref was written).
     const trySet = () => {
       try {
-        const chart = widgetRef.current.activeChart?.() ?? widgetRef.current.chart?.();
+        const chart =
+          widgetRef.current.activeChart?.() ?? widgetRef.current.chart?.();
         chart?.setResolution(value as ResolutionString, () => {});
       } catch {}
     };
@@ -590,17 +717,27 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
 
   const handleIndicators = useCallback(() => {
     if (!widgetRef.current) return;
-    try { (widgetRef.current.activeChart?.() ?? widgetRef.current.chart?.())?.executeActionById("insertIndicator"); } catch {}
+    try {
+      (
+        widgetRef.current.activeChart?.() ?? widgetRef.current.chart?.()
+      )?.executeActionById("insertIndicator");
+    } catch {}
   }, []);
 
   const handleChartSettings = useCallback(() => {
     if (!widgetRef.current) return;
-    try { (widgetRef.current.activeChart?.() ?? widgetRef.current.chart?.())?.executeActionById("chartProperties"); } catch {}
+    try {
+      (
+        widgetRef.current.activeChart?.() ?? widgetRef.current.chart?.()
+      )?.executeActionById("chartProperties");
+    } catch {}
   }, []);
 
   const handleFullscreen = useCallback(() => {
     if (!widgetRef.current) return;
-    try { widgetRef.current.startFullscreen?.(); } catch {}
+    try {
+      widgetRef.current.startFullscreen?.();
+    } catch {}
   }, []);
 
   // Also restore the resize handlers
@@ -608,24 +745,27 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
     isDragging.current = true;
     startY.current = e.clientY;
     startHeight.current = height;
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
   };
 
   const handleMouseMove = (e: MouseEvent) => {
     if (!isDragging.current) return;
     const deltaY = e.clientY - startY.current;
-    const newHeight = Math.max(300, Math.min(800, startHeight.current + deltaY));
+    const newHeight = Math.max(
+      300,
+      Math.min(800, startHeight.current + deltaY),
+    );
     onHeightChange(newHeight);
     if (widgetRef.current) {
-      setTimeout(() => window.dispatchEvent(new Event('resize')), 0);
+      setTimeout(() => window.dispatchEvent(new Event("resize")), 0);
     }
   };
 
   const handleMouseUp = () => {
     isDragging.current = false;
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
+    document.removeEventListener("mousemove", handleMouseMove);
+    document.removeEventListener("mouseup", handleMouseUp);
   };
 
   return (
@@ -633,10 +773,10 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
       className="relative border-t border-b bg-[var(--deposit-card-background)] flex flex-col"
       style={{
         height: `${height}px`,
-        overflow: 'hidden',
-        minHeight: '300px',
-        maxHeight: '800px',
-        position: 'relative',
+        overflow: "hidden",
+        minHeight: "300px",
+        maxHeight: "800px",
+        position: "relative",
         zIndex: 10,
       }}
     >
@@ -654,7 +794,7 @@ export function Chart({ selectedPair = "ETH/USD", height, onHeightChange }: Char
       <div
         id="tv_chart_container"
         className="w-full flex-1 relative overflow-hidden"
-        style={{ pointerEvents: 'auto' }}
+        style={{ pointerEvents: "auto" }}
       />
 
       <div
@@ -701,7 +841,7 @@ function ChartLoaderOverlay({ isChartReady }: { isChartReady: boolean }) {
         top: TOOLBAR_H,
         bottom: 0,
         opacity: isChartReady ? 0 : 1,
-        transition: 'opacity 350ms ease-out',
+        transition: "opacity 350ms ease-out",
         zIndex: isChartReady ? -1 : 20,
       }}
     >
@@ -709,11 +849,10 @@ function ChartLoaderOverlay({ isChartReady }: { isChartReady: boolean }) {
         active={!isChartReady}
         speed={0.7}
         style={{
-          width: 'min(50%, 260px)',
-          aspectRatio: '1 / 1',
+          width: "min(50%, 260px)",
+          aspectRatio: "1 / 1",
         }}
       />
     </div>
   );
 }
-

@@ -9,7 +9,6 @@ members = [
     "crates/layerx-intents",
     "crates/layerx-network-gateway",
     "crates/layerx-paxeer-client",
-    "crates/layerx-explorer-index",
 ]
 resolver = "2"
 

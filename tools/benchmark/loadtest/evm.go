@@ -20,8 +20,9 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/contracts/evm/bindings/erc20"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/contracts/evm/bindings/erc721"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/contracts/evm/bindings/univ2_swapper"
 )
+
+const ERC20FundingAmount = 9000000 * 1000000000000
 
 var (
 	DefaultPriorityFee = big.NewInt(1000000000)    // 1gwei
@@ -92,8 +93,6 @@ func (txClient *EvmTxClient) GetTxForMsgType(msgType string) *ethtypes.Transacti
 		return txClient.GenerateERC20TransferTx()
 	case ERC721:
 		return txClient.GenerateERC721Mint()
-	case UNIV2:
-		return txClient.GenerateUniV2SwapTx()
 	default:
 		panic("invalid message type")
 	}
@@ -131,8 +130,21 @@ func (txClient *EvmTxClient) GenerateSendFundsTx() *ethtypes.Transaction {
 	return txClient.sign(tx)
 }
 
-// GenerateERC20TransferTx returns a random ERC20 send
-// the contract it interacts with needs no funding (infinite balances)
+func (txClient *EvmTxClient) GenerateERC20FundingTx() *ethtypes.Transaction {
+	opts := txClient.getTransactOpts()
+	opts.GasLimit = uint64(100000)
+	token, err := erc20.NewErc20(txClient.evmAddresses.ERC20, GetNextEthClient(txClient.ethClients))
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create ERC20 contract: %v \n", err))
+	}
+	tx, err := token.Mint(opts, txClient.accountAddress, big.NewInt(ERC20FundingAmount))
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create ERC20 funding transaction: %v \n", err))
+	}
+	return txClient.sign(tx)
+}
+
+// GenerateERC20TransferTx returns a random self-transfer of the minted balance.
 func (txClient *EvmTxClient) GenerateERC20TransferTx() *ethtypes.Transaction {
 	opts := txClient.getTransactOpts()
 	// override gas limit for an ERC20 transfer
@@ -145,20 +157,6 @@ func (txClient *EvmTxClient) GenerateERC20TransferTx() *ethtypes.Transaction {
 	tx, err := token.Transfer(opts, txClient.accountAddress, randomValue())
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create ERC20 transfer: %v \n", err))
-	}
-	return txClient.sign(tx)
-}
-
-func (txClient *EvmTxClient) GenerateUniV2SwapTx() *ethtypes.Transaction {
-	opts := txClient.getTransactOpts()
-	opts.GasLimit = uint64(200000)
-	univ2Swapper, err := univ2_swapper.NewUniv2Swapper(txClient.evmAddresses.UniV2Swapper, GetNextEthClient(txClient.ethClients))
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create univ2 swapper contract: %v \n", err))
-	}
-	tx, err := univ2Swapper.Swap(opts)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create univ2 swap: %v \n", err))
 	}
 	return txClient.sign(tx)
 }

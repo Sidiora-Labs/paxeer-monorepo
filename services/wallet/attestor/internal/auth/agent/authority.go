@@ -25,6 +25,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/evm"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 var ErrAuthority = errors.New("custody authority unavailable or refused")
@@ -39,6 +40,7 @@ type AuthorityConfig struct {
 	Tenant        string
 	Store         *store.Store
 	ChainID       uint64
+	Paymaster     common.Address
 }
 
 type SignedClaims struct {
@@ -427,34 +429,97 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 	if kind == policy.KindPersonalMessage || kind == policy.KindTypedData {
 		return nil
 	}
-	tx, ok := view.(*evm.Transaction)
-	if !ok || tx == nil || kind != policy.KindEVMTransaction {
+	var value *big.Int
+	var destination *common.Address
+	var data []byte
+	var chainID *big.Int
+	var signingDigest common.Hash
+	switch kind {
+	case policy.KindSponsoredBatch:
+		claim, ok := view.(*evm.SponsoredBatchClaim)
+		if !ok || claim == nil || a.config.Store == nil {
+			return ErrAuthority
+		}
+		record, err := a.config.Store.Get(keyID)
+		if err != nil || record.Curve != store.CurveSecp256k1 {
+			return ErrAuthority
+		}
+		var publicKey *ecdsa.PublicKey
+		if len(record.PublicKey) == 33 {
+			publicKey, err = crypto.DecompressPubkey(record.PublicKey)
+		} else {
+			publicKey, err = crypto.UnmarshalPubkey(record.PublicKey)
+		}
+		if err != nil || claim.Batch.Account != crypto.PubkeyToAddress(*publicKey) {
+			return ErrAuthority
+		}
+		bind, _ := evm.PrecompileAddress("addr")
+		bindABI, err := evm.PrecompileABI("addr")
+		if err != nil {
+			return ErrAuthority
+		}
+		selector := bindABI.Methods["bindLayerX"].ID
+		for _, call := range claim.Batch.Calls {
+			if call.To != bind || call.Value == nil || call.Value.Sign() != 0 || len(call.Data) < 4 || !bytes.Equal(call.Data[:4], selector) {
+				return ErrAuthority
+			}
+		}
+		quote := claim.Batch.Quote
+		maxTx, err := amount256(p.Policy.MaxTx)
+		if err != nil || quote.MaxTokenAmount == nil || quote.TokenAmount == nil || quote.TokenAmount.Cmp(quote.MaxTokenAmount) > 0 || quote.MaxTokenAmount.Cmp(maxTx) > 0 {
+			return ErrAuthority
+		}
+		batchPolicy := policy.New(&policy.Document{Version: policy.Version, Defaults: policy.Rules{
+			ChainID:       &a.config.ChainID,
+			Kinds:         []string{policy.KindSponsoredBatch},
+			RatePerMinute: &p.Policy.Rate,
+			Selectors:     map[string][]string{bind.Hex(): {"0x" + hex.EncodeToString(selector)}},
+			Caps:          map[string]policy.Cap{policy.TokenAsset(quote.Token): {PerTransaction: p.Policy.MaxTx, Daily: p.Policy.MaxDaily}},
+		}})
+		if !batchPolicy.Evaluate(claim.Batch.Account.Hex(), policy.Request{Kind: kind, View: claim}, policy.NewMemoryLedger(time.Now)).Allowed {
+			return ErrAuthority
+		}
+		value, destination, data = quote.TokenAmount, &bind, claim.Batch.Calls[0].Data
+		chainID, signingDigest = claim.Batch.ChainID, claim.ClaimedDigest
+	case policy.KindAuthorization:
+		claim, ok := view.(*evm.AuthorizationClaim)
+		if !ok || claim == nil || a.config.Paymaster == (common.Address{}) || claim.Address != a.config.Paymaster || claim.ChainID == nil || claim.ChainID.Cmp(new(big.Int).SetUint64(a.config.ChainID)) != 0 {
+			return ErrAuthority
+		}
+		if _, err := claim.Verify(); err != nil {
+			return ErrAuthority
+		}
+		return nil
+	case policy.KindEVMTransaction:
+		tx, ok := view.(*evm.Transaction)
+		if !ok || tx == nil || len(tx.Authorizations) != 0 {
+			return ErrAuthority
+		}
+		value, destination, data = tx.Value, tx.To, tx.Data
+		chainID, signingDigest = tx.ChainID, tx.SigningDigest
+	default:
 		return ErrAuthority
 	}
-	if len(tx.Authorizations) != 0 {
-		return ErrAuthority
-	}
-	value := tx.Value
 	if value == nil || value.Sign() < 0 {
 		return ErrAuthority
 	}
 	var to, selector, token, recipient string
 	var tokenAmount *big.Int
 	approve := false
-	if tx.To == nil {
+	if destination == nil {
 		if p.Policy.Mode != "full" {
 			return ErrAuthority
 		}
 	} else {
-		to = strings.ToLower(tx.To.Hex())
-		if len(tx.Data) > 0 && len(tx.Data) < 4 {
+		to = strings.ToLower(destination.Hex())
+		if len(data) > 0 && len(data) < 4 {
 			return ErrAuthority
 		}
-		if len(tx.Data) >= 4 {
-			selector = "0x" + hex.EncodeToString(tx.Data[:4])
+		if len(data) >= 4 {
+			selector = "0x" + hex.EncodeToString(data[:4])
 		}
 		if selector == "0x095ea7b3" || selector == "0xa9059cbb" || selector == "0x23b872dd" {
-			call, err := evm.DecodeCalldata(*tx.To, tx.Data)
+			call, err := evm.DecodeCalldata(*destination, data)
 			if err != nil || call.Kind != evm.CallERC20 {
 				return ErrAuthority
 			}
@@ -479,7 +544,7 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 	hasAllowedContract := false
 	allowedWithdrawal := false
 	withdrawal := recipient
-	if value.Sign() > 0 && len(tx.Data) == 0 {
+	if value.Sign() > 0 && len(data) == 0 {
 		withdrawal = to
 	}
 	for _, r := range p.Rules {
@@ -506,7 +571,7 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 	if p.Policy.WithdrawalOnly && withdrawal != "" && !allowedWithdrawal {
 		return ErrAuthority
 	}
-	if value.Sign() > 0 && len(tx.Data) == 0 && !p.Policy.AllowNative {
+	if value.Sign() > 0 && len(data) == 0 && !p.Policy.AllowNative {
 		return ErrAuthority
 	}
 	if approve {
@@ -515,7 +580,7 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 			return ErrAuthority
 		}
 	}
-	digest := tx.SigningDigest.Hex()
+	digest := signingDigest.Hex()
 	now := time.Now()
 	start := time.Date(now.UTC().Year(), now.UTC().Month(), now.UTC().Day(), p.Policy.ResetHour, 0, 0, 0, time.UTC)
 	if start.After(now) {
@@ -532,11 +597,11 @@ func (a *Authority) Evaluate(keyID, subject, requestID, kind string, view any) e
 		if err != nil {
 			return ErrAuthority
 		}
-		granted, err := evm.DecodeTransaction(raw, tx.ChainID)
+		granted, err := evm.DecodeTransaction(raw, chainID)
 		if err != nil {
 			return ErrAuthority
 		}
-		if granted.SigningDigest == tx.SigningDigest && reservation.Value == value.String() {
+		if granted.SigningDigest == signingDigest && reservation.Value == value.String() {
 			binding = &p.Reservations[n]
 		}
 	}

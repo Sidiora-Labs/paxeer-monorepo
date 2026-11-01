@@ -1,6 +1,7 @@
 import type { GeneratedType } from "@cosmjs/proto-signing";
-import type { BlockID as BlockID_type, BlockMeta as BlockMeta_type, CommitSig as CommitSig_type, Commit as Commit_type, Data as Data_type, ExtendedCommitSig as ExtendedCommitSig_type, ExtendedCommit as ExtendedCommit_type, Header as Header_type, LightBlock as LightBlock_type, PartSetHeader as PartSetHeader_type, Part as Part_type, Proposal as Proposal_type, SignedHeader as SignedHeader_type, TxProof as TxProof_type, Vote as Vote_type } from "../../../types/tendermint/types";
+import type { BlockID as BlockID_type, BlockMeta as BlockMeta_type, CommitSig as CommitSig_type, Commit as Commit_type, Data as Data_type, Header as Header_type, LightBlock as LightBlock_type, PartSetHeader as PartSetHeader_type, Part as Part_type, Proposal as Proposal_type, SignedHeader as SignedHeader_type, TxProof as TxProof_type, Vote as Vote_type } from "../../../types/tendermint/types";
 import { BlockIDFlag, SignedMsgType } from "../../../types/tendermint/types";
+import type { EvidenceList } from "./evidence";
 import type { MessageFns } from "../../common";
 export interface PartSetHeader extends PartSetHeader_type {
 }
@@ -18,11 +19,15 @@ export interface Commit extends Commit_type {
 }
 export interface CommitSig extends CommitSig_type {
 }
-export interface ExtendedCommit extends ExtendedCommit_type {
-}
-export interface ExtendedCommitSig extends ExtendedCommitSig_type {
+export interface TxKey {
+    tx_key: Uint8Array;
 }
 export interface Proposal extends Proposal_type {
+    tx_keys: TxKey[];
+    evidence?: EvidenceList;
+    last_commit?: Commit;
+    header?: Header;
+    proposer_address: Uint8Array;
 }
 export interface SignedHeader extends SignedHeader_type {
 }
@@ -40,8 +45,7 @@ export declare const Data: MessageFns<Data, "tendermint.types.Data">;
 export declare const Vote: MessageFns<Vote, "tendermint.types.Vote">;
 export declare const Commit: MessageFns<Commit, "tendermint.types.Commit">;
 export declare const CommitSig: MessageFns<CommitSig, "tendermint.types.CommitSig">;
-export declare const ExtendedCommit: MessageFns<ExtendedCommit, "tendermint.types.ExtendedCommit">;
-export declare const ExtendedCommitSig: MessageFns<ExtendedCommitSig, "tendermint.types.ExtendedCommitSig">;
+export declare const TxKey: MessageFns<TxKey, "tendermint.types.TxKey">;
 export declare const Proposal: MessageFns<Proposal, "tendermint.types.Proposal">;
 export declare const SignedHeader: MessageFns<SignedHeader, "tendermint.types.SignedHeader">;
 export declare const LightBlock: MessageFns<LightBlock, "tendermint.types.LightBlock">;
@@ -189,38 +193,13 @@ export declare const aminoConverters: {
             signature: Uint8Array;
         };
     };
-    "/tendermint.types.ExtendedCommit": {
+    "/tendermint.types.TxKey": {
         aminoType: string;
-        toAmino: (message: ExtendedCommit) => {
-            height: number;
-            round: number;
-            block_id?: BlockID_type;
-            extended_signatures: ExtendedCommitSig_type[];
+        toAmino: (message: TxKey) => {
+            tx_key: Uint8Array;
         };
-        fromAmino: (object: ExtendedCommit) => {
-            height: number;
-            round: number;
-            block_id?: BlockID_type;
-            extended_signatures: ExtendedCommitSig_type[];
-        };
-    };
-    "/tendermint.types.ExtendedCommitSig": {
-        aminoType: string;
-        toAmino: (message: ExtendedCommitSig) => {
-            block_id_flag: BlockIDFlag;
-            validator_address: Uint8Array;
-            timestamp?: Date;
-            signature: Uint8Array;
-            extension: Uint8Array;
-            extension_signature: Uint8Array;
-        };
-        fromAmino: (object: ExtendedCommitSig) => {
-            block_id_flag: BlockIDFlag;
-            validator_address: Uint8Array;
-            timestamp?: Date;
-            signature: Uint8Array;
-            extension: Uint8Array;
-            extension_signature: Uint8Array;
+        fromAmino: (object: TxKey) => {
+            tx_key: Uint8Array;
         };
     };
     "/tendermint.types.Proposal": {
@@ -233,6 +212,11 @@ export declare const aminoConverters: {
             block_id?: BlockID_type;
             timestamp?: Date;
             signature: Uint8Array;
+            tx_keys: TxKey[];
+            evidence?: EvidenceList;
+            last_commit?: Commit;
+            header?: Header;
+            proposer_address: Uint8Array;
         };
         fromAmino: (object: Proposal) => {
             type: SignedMsgType;
@@ -242,6 +226,11 @@ export declare const aminoConverters: {
             block_id?: BlockID_type;
             timestamp?: Date;
             signature: Uint8Array;
+            tx_keys: TxKey[];
+            evidence?: EvidenceList;
+            last_commit?: Commit;
+            header?: Header;
+            proposer_address: Uint8Array;
         };
     };
     "/tendermint.types.SignedHeader": {

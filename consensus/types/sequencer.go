@@ -15,6 +15,11 @@ type SequencerSource interface {
 	Seal(ctx context.Context, height int64) (SealedBlock, error)
 }
 
+// LeaderSource supplies the leader schedule read from committed chain state.
+type LeaderSource interface {
+	LeaderSchedule(height int64) (activationHeight int64, leaders [][32]byte, err error)
+}
+
 // SealedBlock is a sealed pending block: the encoded MsgSequenceBatch, the
 // executed transactions in seq order and the time Open fixed for the height.
 type SealedBlock struct {

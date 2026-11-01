@@ -1,11 +1,13 @@
+mod chain_receipt;
 mod human;
 mod protected;
 mod trust;
 
-use layerx_client::lni::handshake::{perform, Handshake, HandshakeConfig, HandshakeError};
-use layerx_client::lni::refusal::decode_core_refusal;
-use layerx_client::lni::schema::{decode_envelope, encode_envelope, Capability, Envelope, Version};
-use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
+use chain_receipt::{ChainReceipts, ReceiptSource};
+
+use layerx_client::lni::handshake::{perform, HandshakeConfig};
+use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope, Version};
+use layerx_client::lni::transport::{ConnectionGate, Uds};
 use layerx_platform_authority::{
     authorized_batch_by_activity, hex, receipt_locator, EvidenceRefusal,
 };
@@ -37,8 +39,6 @@ const MAX_CONNECTIONS: usize = 128;
 const MAX_REQUESTS_PER_CONNECTION: usize = 64;
 const MAX_LNI_CONNECTIONS: usize = 16;
 const LNI_FRAME_BYTES: usize = 1_212_416;
-const RECEIPT_LOOKUP_REQUEST: u16 = 5;
-const RECEIPT_LOOKUP_RESPONSE: u16 = 6;
 const ERROR_RESPONSE: u16 = 25;
 const ZERO_HEX32: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
@@ -66,9 +66,10 @@ Environment:
   LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE bearer token the replica requires
   LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE  optional protected file; its distinct bearer may read only /v1/batches/{batch_id}/receipt-authority
   LAYERX_AUTHORITY_REPLICA_ID                64-hex replica identity every evidence document must carry
-  LAYERX_AUTHORITY_LNI_SOCKET                LNI unix socket used as the receipt source (ReceiptLookup by activity id);
-                                             this service takes receipt bytes from the LNI and never an HTTP receipt URL
-  LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID       numeric protocol network id expected in the LNI handshake
+  LAYERX_AUTHORITY_CHAIN_RPC_URL             loopback http://host:port endpoint serving pax_sequencerReceipt
+  LAYERX_AUTHORITY_RECEIPT_KEYS_FILE         protected ReceiptKeyList JSON with pinned keys and height ranges
+  LAYERX_AUTHORITY_LNI_SOCKET                LNI unix socket used for checkpoint reads
+  LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID       numeric protocol network id expected in signed receipt evidence
   LAYERX_AUTHORITY_NETWORK_ID                deployment network identifier echoed in every answer
   LAYERX_AUTHORITY_WIRE_VERSION              wire version echoed in every answer, must be the built protocol version (default 3)
   LAYERX_AUTHORITY_SEQUENCER_ID              64-hex sequencer identity pinned for header verification
@@ -89,8 +90,11 @@ struct Config {
     replica_token: Zeroizing<String>,
     evidence_read_token: Option<Zeroizing<Vec<u8>>>,
     replica_id: [u8; 32],
+    chain_receipts: ChainReceipts,
+    chain_rpc_url: String,
     lni_socket: PathBuf,
     lni_gate: ConnectionGate,
+    chain_endpoint: layerx_paxeer_verifier::EndpointConfig,
     protocol_network_id: u32,
     network_id: String,
     wire_version: String,
@@ -269,15 +273,19 @@ fn config() -> Result<Config, String> {
     let evidence_read_token = read_evidence_read_token(&tokens, &replica_token)?;
     let mut human_peers = tokens.clone();
     if let Some(token) = &evidence_read_token {
-        human_peers.push(Zeroizing::new(
-            String::from_utf8(token.to_vec())
-                .map_err(|_| "LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE is not printable")?,
-        ));
+        human_peers.push(Zeroizing::new(String::from_utf8(token.to_vec()).map_err(
+            |_| "LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE is not printable",
+        )?));
     }
     let replica_id = parse_hex32("LAYERX_AUTHORITY_REPLICA_ID")?;
     if replica_id == [0; 32] {
         return Err("LAYERX_AUTHORITY_REPLICA_ID must not be zero".to_owned());
     }
+    let chain_rpc_url = env::var("LAYERX_AUTHORITY_CHAIN_RPC_URL")
+        .map_err(|_| "LAYERX_AUTHORITY_CHAIN_RPC_URL is required")?;
+    let receipt_keys_file = env::var("LAYERX_AUTHORITY_RECEIPT_KEYS_FILE")
+        .map_err(|_| "LAYERX_AUTHORITY_RECEIPT_KEYS_FILE is required")?;
+    let chain_receipts = ChainReceipts::load(&chain_rpc_url, &PathBuf::from(receipt_keys_file))?;
     let lni_socket = env::var("LAYERX_AUTHORITY_LNI_SOCKET")
         .map(PathBuf::from)
         .map_err(|_| "LAYERX_AUTHORITY_LNI_SOCKET is required".to_owned())?;
@@ -327,8 +335,11 @@ fn config() -> Result<Config, String> {
         replica_token,
         evidence_read_token,
         replica_id,
+        chain_receipts,
         lni_socket,
         lni_gate: ConnectionGate::new(MAX_LNI_CONNECTIONS),
+        chain_endpoint: trust::chain_endpoint(&chain_rpc_url, READINESS_TIMEOUT),
+        chain_rpc_url,
         protocol_network_id,
         network_id,
         wire_version,
@@ -467,8 +478,10 @@ fn write_response(
     });
     let diagnostics = response
         .readiness_headers
-        .map_or_else(String::new, |[replica, lni]| {
-            format!("X-LayerX-Authority-Replica: {replica}\r\nX-LayerX-Authority-LNI: {lni}\r\n")
+        .map_or_else(String::new, |[replica, chain]| {
+            format!(
+                "X-LayerX-Authority-Replica: {replica}\r\nX-LayerX-Authority-Chain: {chain}\r\n"
+            )
         });
     let connection = if keep_alive { "keep-alive" } else { "close" };
     let head = format!(
@@ -617,13 +630,6 @@ fn replica_exchange_until(
     }
 }
 
-enum ReceiptSource {
-    Found(Vec<u8>),
-    Unknown,
-    Unavailable(String),
-    KeyMismatch,
-}
-
 #[derive(Clone, Copy, Debug, serde::Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 enum DependencyReason {
@@ -659,130 +665,12 @@ impl DependencyReadiness {
     }
 }
 
-fn validate_receipt_handshake(
-    handshake: &Handshake,
-    pinned_key: Option<[u8; 32]>,
-    wait_publication: bool,
-) -> Result<(), DependencyReason> {
-    if !handshake.capabilities().contains(Capability::ReceiptLookup) {
-        return Err(DependencyReason::CapabilityMissing);
-    }
-    if wait_publication && handshake.node().interface_version.minor < Version::V1_5.minor {
-        return Err(DependencyReason::ProtocolIncompatible);
-    }
-    if pinned_key.is_some_and(|key| handshake.node().authorised_sequencer_key != key) {
-        return Err(DependencyReason::KeyMismatch);
-    }
-    Ok(())
-}
-
-fn receipt_connection(
+fn lookup_receipt(
     config: &Config,
-    wait_publication: bool,
-    deadline: Instant,
-) -> Result<(Uds, Handshake), DependencyReason> {
-    use layerx_client::lni::transport::TransportError;
-    let transport_error = |error| match error {
-        TransportError::Deadline => DependencyReason::Timeout,
-        TransportError::ConnectionLimit => DependencyReason::ConnectionLimit,
-        _ => DependencyReason::Unavailable,
-    };
-    let limits = trust::limits(deadline).map_err(|_| DependencyReason::Timeout)?;
-    let mut transport =
-        Uds::connect(&config.lni_socket, &config.lni_gate, limits).map_err(transport_error)?;
-    let handshake = perform(
-        &mut transport,
-        &HandshakeConfig {
-            built_interface_version: Version::V1_5,
-            expected_protocol_version: PROTOCOL_VERSION,
-            expected_network_id: config.protocol_network_id,
-        },
-        None,
-    )
-    .map_err(|error| match error {
-        HandshakeError::Transport(error) => transport_error(error),
-        HandshakeError::Network { .. } => DependencyReason::IdentityMismatch,
-        HandshakeError::ProtocolVersion { .. } | HandshakeError::InterfaceIncompatible { .. } => {
-            DependencyReason::ProtocolIncompatible
-        }
-        _ => DependencyReason::Unavailable,
-    })?;
-    if Instant::now() >= deadline {
-        return Err(DependencyReason::Timeout);
-    }
-    validate_receipt_handshake(
-        &handshake,
-        config
-            .trust
-            .is_none()
-            .then_some(config.sequencer_public_key),
-        wait_publication,
-    )?;
-    Ok((transport, handshake))
-}
-
-fn lookup_receipt(config: &Config, activity_id: [u8; 32], wait_publication: bool) -> ReceiptSource {
-    let Some(deadline) = Instant::now().checked_add(IO_TIMEOUT) else {
-        return ReceiptSource::Unavailable("LNI deadline unavailable".to_owned());
-    };
-    let (mut transport, handshake) = match receipt_connection(config, wait_publication, deadline) {
-        Ok(connection) => connection,
-        Err(DependencyReason::KeyMismatch) => return ReceiptSource::KeyMismatch,
-        Err(reason) => return ReceiptSource::Unavailable(format!("LNI admission: {reason:?}")),
-    };
-    let mut selector = Vec::with_capacity(34);
-    selector.push(1);
-    selector.extend_from_slice(&activity_id);
-    if wait_publication {
-        selector.push(1);
-    } else if handshake.node().interface_version.minor >= Version::V1_6.minor {
-        selector.push(0);
-    }
-    let Ok(correlation_id) = trust::correlation(1) else {
-        return ReceiptSource::Unavailable("LNI correlation exhausted".to_owned());
-    };
-    let request = match encode_envelope(Envelope {
-        version: handshake.node().interface_version,
-        message_tag: RECEIPT_LOOKUP_REQUEST,
-        correlation_id,
-        canonical_payload: &selector,
-        proof_material: &[],
-    }) {
-        Ok(request) => request,
-        Err(error) => return ReceiptSource::Unavailable(format!("LNI encode: {error:?}")),
-    };
-    if let Err(error) = transport.send(&request) {
-        return ReceiptSource::Unavailable(format!("LNI send: {error:?}"));
-    }
-    let response = match transport.receive() {
-        Ok(response) => response,
-        Err(error) => return ReceiptSource::Unavailable(format!("LNI receive: {error:?}")),
-    };
-    let envelope = match decode_envelope(&response) {
-        Ok(envelope) => envelope,
-        Err(error) => return ReceiptSource::Unavailable(format!("LNI decode: {error:?}")),
-    };
-    if envelope.version.major != handshake.node().interface_version.major
-        || envelope.correlation_id != correlation_id
-    {
-        return ReceiptSource::Unavailable(
-            "LNI response changed version or correlation".to_owned(),
-        );
-    }
-    match envelope.message_tag {
-        RECEIPT_LOOKUP_RESPONSE if envelope.proof_material.is_empty() => {
-            if envelope.canonical_payload.is_empty() {
-                ReceiptSource::Unknown
-            } else {
-                ReceiptSource::Found(envelope.canonical_payload.to_vec())
-            }
-        }
-        ERROR_RESPONSE => ReceiptSource::Unavailable(format!(
-            "LNI refused the lookup: {:?}",
-            decode_core_refusal(envelope.canonical_payload)
-        )),
-        other => ReceiptSource::Unavailable(format!("LNI answered message tag {other}")),
-    }
+    activity_id: [u8; 32],
+    _wait_publication: bool,
+) -> ReceiptSource {
+    config.chain_receipts.lookup(activity_id)
 }
 
 fn checkpoint_header(
@@ -888,7 +776,7 @@ fn by_activity(config: &Config, requested: &str, wait_publication: bool) -> Resp
         ReceiptSource::Found(receipt) => receipt,
         ReceiptSource::Unknown => return refusal(404, "unknown_activity", None),
         ReceiptSource::KeyMismatch => {
-            eprintln!("layerx-receipt-authority: LNI sequencer key differs from the pinned key");
+            eprintln!("layerx-receipt-authority: chain receipt key differs from the pinned keys");
             return refusal(502, "sequencer_key_mismatch", None);
         }
         ReceiptSource::Unavailable(reason) => {
@@ -930,9 +818,6 @@ fn by_activity(config: &Config, requested: &str, wait_publication: bool) -> Resp
     }
     match authorized_batch_by_activity(activity_id, &receipt, &evidence, &authorization) {
         Ok(facts) => {
-            if verify_withdrawal_request(config, &receipt, &evidence.header, deadline).is_err() {
-                return refusal(503, "withdrawal_evidence_unavailable", Some(5));
-            }
             if config
                 .human
                 .as_ref()
@@ -967,110 +852,6 @@ fn by_activity(config: &Config, requested: &str, wait_publication: bool) -> Resp
         }
         Err(error) => evidence_refusal(&error),
     }
-}
-
-fn verify_withdrawal_request(
-    config: &Config,
-    receipt: &[u8],
-    header: &[u8],
-    deadline: Instant,
-) -> Result<(), String> {
-    use layerx_client::evidence::{
-        proof_bundle, EvidenceContext, ProofBundleSelector, VerifiedProofBundle,
-    };
-    use layerx_proof::receipt::{withdrawal, AuthorizedBatch};
-    let decoded = layerx_wire::receipt::decode(receipt).map_err(|error| format!("{error:?}"))?;
-    let protocol = decoded.protocol().ok_or("protocol receipt required")?;
-    if protocol.module_id() != 1 || protocol.operation() != 9 {
-        return Ok(());
-    }
-    let remaining = deadline
-        .checked_duration_since(Instant::now())
-        .ok_or("authority deadline expired")?;
-    let limits = Limits {
-        maximum_frame_bytes: LNI_FRAME_BYTES,
-        maximum_connections: MAX_LNI_CONNECTIONS,
-        maximum_streams: 1,
-        maximum_queued_bytes: LNI_FRAME_BYTES,
-        deadline: remaining,
-    };
-    let mut transport = Uds::connect(&config.lni_socket, &config.lni_gate, limits)
-        .map_err(|error| format!("{error:?}"))?;
-    let handshake = perform(
-        &mut transport,
-        &HandshakeConfig {
-            built_interface_version: Version::V1_5,
-            expected_protocol_version: PROTOCOL_VERSION,
-            expected_network_id: config.protocol_network_id,
-        },
-        None,
-    )
-    .map_err(|error| format!("{error:?}"))?;
-    let history = trust::snapshot(
-        config,
-        handshake.node().latest_sealed_batch,
-        handshake.node().authorised_sequencer_key,
-        deadline,
-    )
-    .map_err(|()| "withdrawal sequencer history unavailable".to_owned())?;
-    let authorization = match &history {
-        Some(history) => history
-            .authorization_for_sequence(protocol.global_sequence())
-            .map_err(|error| format!("{error:?}"))?,
-        None => config.authorization,
-    };
-    let context = EvidenceContext {
-        interface_version: handshake.node().interface_version,
-        correlation_id: trust::correlation(1)
-            .map_err(|()| "LNI correlation exhausted".to_owned())?,
-        expected_protocol_version: PROTOCOL_VERSION,
-        expected_network_id: config.protocol_network_id,
-        handshake_sequencer_key: authorization.public_key(),
-    };
-    let registry = withdrawal::registry().map_err(|error| format!("{error:?}"))?;
-    let bundle = if let Some(history) = &history {
-        layerx_client::evidence::proof_bundle_with_history(
-            &mut transport,
-            ProofBundleSelector::Activity(protocol.activity_id()),
-            context,
-            &registry,
-            history,
-        )
-    } else {
-        proof_bundle(
-            &mut transport,
-            ProofBundleSelector::Activity(protocol.activity_id()),
-            context,
-            &registry,
-        )
-    }
-    .map_err(|error| format!("{error:?}"))?;
-    let VerifiedProofBundle::Activity {
-        canonical_bytes,
-        signed_header,
-        ..
-    } = bundle
-    else {
-        return Err("withdrawal activity proof required".to_owned());
-    };
-    if signed_header.canonical_bytes != header {
-        return Err("withdrawal header mismatch".to_owned());
-    }
-    let authorized = AuthorizedBatch::new(
-        protocol.batch_id(),
-        protocol.asset(),
-        protocol.previous_state_root(),
-        protocol.resulting_state_root(),
-        authorization.public_key(),
-    );
-    withdrawal::verify(
-        receipt,
-        &authorized,
-        &canonical_bytes,
-        config.protocol_network_id,
-    )
-    .map_err(|error| format!("{error:?}"))?;
-    Ok(())
 }
 
 fn relay(config: &Config, batch_id: &str, query: Option<&str>) -> Response {
@@ -1128,34 +909,22 @@ fn replica_answers(
     }
 }
 
-fn lni_answers(config: &Config, deadline: Instant) -> Result<DependencyReason, DependencyReason> {
-    let (_, handshake) = receipt_connection(config, true, deadline)?;
-    if config.trust.is_some() {
-        let history = trust::snapshot(
-            config,
-            handshake.node().latest_sealed_batch,
-            handshake.node().authorised_sequencer_key,
-            deadline,
-        )
-        .map_err(|_| DependencyReason::IdentityMismatch)?;
-        let next_batch = handshake
-            .node()
-            .latest_sealed_batch
-            .checked_add(1)
-            .ok_or(DependencyReason::IdentityMismatch)?;
-        let key = history
-            .as_ref()
-            .ok_or(DependencyReason::IdentityMismatch)?
-            .signed_authority()
-            .intervals()
-            .iter()
-            .find(|interval| (interval.first_batch()..=interval.last_batch()).contains(&next_batch))
-            .ok_or(DependencyReason::IdentityMismatch)?
-            .public_key();
-        if key != handshake.node().authorised_sequencer_key {
-            return Err(DependencyReason::IdentityMismatch);
+fn chain_answers(config: &Config, deadline: Instant) -> Result<DependencyReason, DependencyReason> {
+    let remaining = deadline
+        .checked_duration_since(Instant::now())
+        .filter(|duration| !duration.is_zero())
+        .ok_or(DependencyReason::Timeout)?;
+    let mut endpoint = config.chain_endpoint.clone();
+    endpoint.request_timeout = remaining;
+    layerx_paxeer_verifier::raw_call(&endpoint, "eth_chainId", &[]).map_err(|error| match error
+        .fault
+    {
+        layerx_paxeer_verifier::EndpointFault::ChainMismatch { .. } => {
+            DependencyReason::IdentityMismatch
         }
-    }
+        _ if Instant::now() >= deadline => DependencyReason::Timeout,
+        _ => DependencyReason::Unavailable,
+    })?;
     if Instant::now() >= deadline {
         return Err(DependencyReason::Timeout);
     }
@@ -1165,7 +934,7 @@ fn lni_answers(config: &Config, deadline: Instant) -> Result<DependencyReason, D
 #[derive(serde::Serialize)]
 struct AuthorityDependencies {
     replica: DependencyReadiness,
-    lni: DependencyReadiness,
+    chain: DependencyReadiness,
 }
 
 #[derive(serde::Serialize)]
@@ -1181,22 +950,22 @@ fn readiness(config: &Arc<Config>) -> Response {
     let unavailable = DependencyReadiness::from_result(Err(DependencyReason::Timeout));
     let mut dependencies = AuthorityDependencies {
         replica: unavailable,
-        lni: unavailable,
+        chain: unavailable,
     };
     if let Some(permit) = ReadinessPermit::acquire() {
         let (send, receive) = std::sync::mpsc::channel();
-        for is_lni in [false, true] {
+        for is_chain in [false, true] {
             let config = Arc::clone(config);
             let send = send.clone();
             let permit = Arc::clone(&permit);
             thread::spawn(move || {
                 let _permit = permit;
-                let result = if is_lni {
-                    lni_answers(&config, deadline)
+                let result = if is_chain {
+                    chain_answers(&config, deadline)
                 } else {
                     replica_answers(&config, deadline)
                 };
-                let _ = send.send((is_lni, DependencyReadiness::from_result(result)));
+                let _ = send.send((is_chain, DependencyReadiness::from_result(result)));
             });
         }
         drop(send);
@@ -1204,11 +973,11 @@ fn readiness(config: &Arc<Config>) -> Response {
             let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
                 break;
             };
-            let Ok((is_lni, result)) = receive.recv_timeout(remaining) else {
+            let Ok((is_chain, result)) = receive.recv_timeout(remaining) else {
                 break;
             };
-            if is_lni {
-                dependencies.lni = result;
+            if is_chain {
+                dependencies.chain = result;
             } else {
                 dependencies.replica = result;
             }
@@ -1217,10 +986,10 @@ fn readiness(config: &Arc<Config>) -> Response {
         let limited = DependencyReadiness::from_result(Err(DependencyReason::ConnectionLimit));
         dependencies = AuthorityDependencies {
             replica: limited,
-            lni: limited,
+            chain: limited,
         };
     }
-    let ready = dependencies.replica.ready && dependencies.lni.ready;
+    let ready = dependencies.replica.ready && dependencies.chain.ready;
     let body = AuthorityReadinessResponse {
         ready,
         network_id: &config.network_id,
@@ -1237,7 +1006,8 @@ fn readiness(config: &Arc<Config>) -> Response {
             "unavailable"
         }
     };
-    response.readiness_headers = Some([category(dependencies.replica), category(dependencies.lni)]);
+    response.readiness_headers =
+        Some([category(dependencies.replica), category(dependencies.chain)]);
     if !ready {
         response.retry_after = Some(5);
     }
@@ -1425,73 +1195,23 @@ fn main() {
 }
 
 #[cfg(test)]
-mod lni_readiness_tests {
+mod chain_readiness_tests {
     use super::*;
-    use layerx_client::lni::handshake::{decode_node_info, validate};
 
     #[test]
     fn actual_node_info_refuses_incompatible_receipt_admission() {
-        let bytes =
-            fs::read(env::var("PAXEER_X_LNI_CAPTURE").expect("actual LNI capture required"))
-                .expect("actual capture file");
-        let node = decode_node_info(&bytes).expect("production NodeInfo decoder");
-        let expected = HandshakeConfig {
-            built_interface_version: Version::V1_5,
-            expected_protocol_version: PROTOCOL_VERSION,
-            expected_network_id: node.network_id,
-        };
-        let key = node.authorised_sequencer_key;
-        let accepted = validate(node.clone(), &expected, None).expect("actual handshake identity");
-        assert_eq!(
-            validate_receipt_handshake(&accepted, Some(key), true),
-            Ok(())
-        );
-        let mut count = 1;
-        let mut wrong = node.clone();
-        wrong.protocol_version += 1;
+        let url =
+            env::var("LAYERX_AUTHORITY_CHAIN_RPC_URL").expect("actual chain RPC endpoint required");
+        let mut endpoint = trust::chain_endpoint(&url, READINESS_TIMEOUT);
+        endpoint.expected_chain_id = u64::MAX;
+        let error = layerx_paxeer_verifier::raw_call(&endpoint, "eth_chainId", &[])
+            .expect_err("another chain id must be refused");
         assert!(matches!(
-            validate(wrong, &expected, None),
-            Err(HandshakeError::ProtocolVersion { .. })
+            error.fault,
+            layerx_paxeer_verifier::EndpointFault::ChainMismatch {
+                expected: u64::MAX,
+                actual: 125
+            }
         ));
-        count += 1;
-        let mut wrong = node.clone();
-        wrong.network_id += 1;
-        assert!(matches!(
-            validate(wrong, &expected, None),
-            Err(HandshakeError::Network { .. })
-        ));
-        count += 1;
-        let mut wrong = node.clone();
-        wrong.interface_version.major += 1;
-        assert!(matches!(
-            validate(wrong, &expected, None),
-            Err(HandshakeError::InterfaceIncompatible { .. })
-        ));
-        count += 1;
-        let mut wrong = node.clone();
-        wrong.advertised_capabilities.clear();
-        let handshake = validate(wrong, &expected, None)
-            .expect("same actual identity without receipt capability");
-        assert_eq!(
-            validate_receipt_handshake(&handshake, Some(key), true),
-            Err(DependencyReason::CapabilityMissing)
-        );
-        count += 1;
-        let mut wrong = node.clone();
-        wrong.interface_version.minor = 4;
-        let handshake = validate(wrong, &expected, None).expect("compatible major");
-        assert_eq!(
-            validate_receipt_handshake(&handshake, Some(key), true),
-            Err(DependencyReason::ProtocolIncompatible)
-        );
-        count += 1;
-        let mut wrong_key = key;
-        wrong_key[0] ^= 1;
-        assert_eq!(
-            validate_receipt_handshake(&accepted, Some(wrong_key), true),
-            Err(DependencyReason::KeyMismatch)
-        );
-        count += 1;
-        println!("PAXEER_X_LNI_CASES={count}");
     }
 }

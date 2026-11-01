@@ -68,6 +68,7 @@ pub(crate) fn abi_error_bytes(error: &AbiError) -> Vec<u8> {
         AbiError::AccessDeclaration => out.push(14),
         AbiError::OracleUnknownMarket => out.push(15),
         AbiError::OracleMarketHalted => out.push(16),
+        AbiError::EffectLimit => out.push(17),
     }
     out
 }

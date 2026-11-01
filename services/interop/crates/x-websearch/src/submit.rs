@@ -5,10 +5,12 @@ use k256::ecdsa::SigningKey;
 use serde_json::{json, Value};
 
 use crate::attest::{sign_digest, signer_address, AttestorSet, Ready, SIGNATURE_LENGTH};
+use crate::program::{ProgramKey, MAX_OBSERVATION_SIGNATURES, OBSERVATION_HEADER_BYTES};
 use crate::watch::{hex0x, keccak, parse_quantity, unhex0x, EvmError, EvmRpc, XWEB_PRECOMPILE};
 
 /// The precompile method every fulfilment calls.
 pub const FULFIL_SIGNATURE: &str = "fulfil(uint64,bytes,bytes32,uint32,bytes[])";
+pub const FULFIL_PROGRAM_SIGNATURE: &str = "fulfilProgram(bytes)";
 
 /// The request views the submitter reads.
 pub const GET_REQUEST_SIGNATURE: &str = "getRequest(uint64)";
@@ -81,6 +83,25 @@ pub fn fulfil_calldata(ready: &Ready) -> Vec<u8> {
     out.extend(response);
     out.extend(signatures);
     out
+}
+
+#[must_use]
+pub fn fulfil_program_calldata(observation: &[u8]) -> Vec<u8> {
+    let mut out = selector(FULFIL_PROGRAM_SIGNATURE).to_vec();
+    out.extend(word(32));
+    out.extend(dynamic(observation));
+    out
+}
+
+#[must_use]
+pub fn fulfil_program_gas_limit(calldata: &[u8], signatures: usize) -> u64 {
+    let length = u64::try_from(calldata.len()).unwrap_or(u64::MAX);
+    let count = u64::try_from(signatures).unwrap_or(u64::MAX);
+    TRANSACTION_BASE_GAS
+        .saturating_add(CALLDATA_BYTE_GAS.saturating_mul(length))
+        .saturating_add(PRECOMPILE_BASE_GAS)
+        .saturating_add(CALLDATA_BYTE_GAS.saturating_mul(length.saturating_sub(4)))
+        .saturating_add(SIGNATURE_GAS.saturating_mul(count))
 }
 
 /// The gas limit of a fulfil transaction: the intrinsic cost, the
@@ -491,6 +512,32 @@ impl JournalEntry {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum JournalKey {
+    Web(u64),
+    Program(ProgramKey),
+}
+
+impl From<u64> for JournalKey {
+    fn from(request_id: u64) -> Self {
+        Self::Web(request_id)
+    }
+}
+
+impl From<ProgramKey> for JournalKey {
+    fn from(key: ProgramKey) -> Self {
+        Self::Program(key)
+    }
+}
+
+impl JournalKey {
+    fn request_id(self) -> u64 {
+        match self {
+            Self::Web(id) | Self::Program((_, id)) => id,
+        }
+    }
+}
+
 /// The submitter's journal: one file per request, written and synced before
 /// any broadcast, so a restart rebroadcasts the same signed bytes.
 pub struct Journal {
@@ -509,9 +556,17 @@ impl Journal {
 
     /// The file holding a request's entry.
     #[must_use]
-    pub fn path(&self, request_id: u64) -> PathBuf {
-        self.directory
-            .join(format!("{request_id}.{JOURNAL_SUFFIX}"))
+    pub fn path(&self, key: impl Into<JournalKey>) -> PathBuf {
+        let name = match key.into() {
+            JournalKey::Web(id) => format!("{id}.{JOURNAL_SUFFIX}"),
+            JournalKey::Program((program_id, id)) => {
+                format!(
+                    "program-{}-{id}.{JOURNAL_SUFFIX}",
+                    crate::payment::hex(&program_id)
+                )
+            }
+        };
+        self.directory.join(name)
     }
 
     /// A request's entry.
@@ -519,8 +574,10 @@ impl Journal {
     /// # Errors
     /// Refuses an unreadable file and one that is not a journal entry for
     /// the request.
-    pub fn load(&self, request_id: u64) -> Result<Option<JournalEntry>, SubmitError> {
-        let text = match std::fs::read(self.path(request_id)) {
+    pub fn load(&self, key: impl Into<JournalKey>) -> Result<Option<JournalEntry>, SubmitError> {
+        let key = key.into();
+        let request_id = key.request_id();
+        let text = match std::fs::read(self.path(key)) {
             Ok(text) => text,
             Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
             Err(_) => return Err(SubmitError::Journal),
@@ -540,7 +597,11 @@ impl Journal {
     /// # Errors
     /// Returns a write, sync or rename that failed.
     pub fn store(&self, entry: &JournalEntry) -> Result<(), SubmitError> {
-        let path = self.path(entry.request_id);
+        self.store_at(JournalKey::Web(entry.request_id), entry)
+    }
+
+    fn store_at(&self, key: JournalKey, entry: &JournalEntry) -> Result<(), SubmitError> {
+        let path = self.path(key);
         let temporary = path.with_extension("tmp");
         std::fs::write(&temporary, entry.to_json().to_string())
             .and_then(|()| std::fs::File::open(&temporary)?.sync_all())
@@ -549,8 +610,8 @@ impl Journal {
             .map_err(|_| SubmitError::Journal)
     }
 
-    fn remove(&self, request_id: u64) -> Result<(), SubmitError> {
-        std::fs::remove_file(self.path(request_id))
+    fn remove(&self, key: impl Into<JournalKey>) -> Result<(), SubmitError> {
+        std::fs::remove_file(self.path(key))
             .and_then(|()| std::fs::File::open(&self.directory)?.sync_all())
             .map_err(|_| SubmitError::Journal)
     }
@@ -606,6 +667,7 @@ impl Outcome {
 
 /// Each rebroadcast request with the result of its broadcast.
 pub type Resumed = Vec<(u64, Result<Outcome, SubmitError>)>;
+pub type Submission = Outcome;
 
 /// Posts fulfil through the precompile with the submitter key.
 pub struct Submitter {
@@ -801,26 +863,26 @@ impl Submitter {
         if let Some(outcome) = self.closed(request_id, status)? {
             return Ok(outcome);
         }
-        match self
-            .rpc
-            .call("eth_sendRawTransaction", &json!([hex0x(&signed.raw)]))
-        {
-            Ok(answer) => {
-                let hash = answer.as_str().and_then(unhex0x);
-                if hash.as_deref() != Some(signed.hash.as_slice()) {
-                    return Err(SubmitError::HashMismatch);
-                }
-                Ok(Outcome::Sent { hash: signed.hash })
-            }
-            Err(EvmError::Rejected { code }) => {
+        match self.broadcast_signed(signed) {
+            Err(SubmitError::Evm(EvmError::Rejected { code })) => {
                 let status = request_status(&self.rpc, request_id)?;
                 match self.closed(request_id, status)? {
                     Some(outcome) => Ok(outcome),
                     None => Err(SubmitError::Evm(EvmError::Rejected { code })),
                 }
             }
-            Err(error) => Err(SubmitError::Evm(error)),
+            outcome => outcome,
         }
+    }
+
+    fn broadcast_signed(&self, signed: &SignedTransaction) -> Result<Outcome, SubmitError> {
+        let answer = self
+            .rpc
+            .call("eth_sendRawTransaction", &json!([hex0x(&signed.raw)]))?;
+        if answer.as_str().and_then(unhex0x).as_deref() != Some(signed.hash.as_slice()) {
+            return Err(SubmitError::HashMismatch);
+        }
+        Ok(Outcome::Sent { hash: signed.hash })
     }
 
     /// Rebroadcasts every journalled transaction that is signed and not yet
@@ -858,6 +920,106 @@ impl Submitter {
             }
         }
         Ok(results)
+    }
+
+    pub fn submit_program(
+        &mut self,
+        key: ProgramKey,
+        observation: &[u8],
+        signatures: usize,
+    ) -> Result<Submission, SubmitError> {
+        if let Some(outcome) = self.resume_program(key)? {
+            return Ok(outcome);
+        }
+        if observation.len() <= OBSERVATION_HEADER_BYTES
+            || observation[0] != crate::attest::ORIGIN_PROGRAM
+            || observation[33..65] != key.0
+            || observation[65..73] != key.1.to_be_bytes()
+            || key.0 == [0; 32]
+            || signatures == 0
+            || signatures > MAX_OBSERVATION_SIGNATURES
+        {
+            return Err(SubmitError::Encode);
+        }
+        let length = u32::from_be_bytes(
+            observation[142..146]
+                .try_into()
+                .map_err(|_| SubmitError::Encode)?,
+        );
+        let count_at = OBSERVATION_HEADER_BYTES
+            .checked_add(length as usize)
+            .ok_or(SubmitError::Encode)?;
+        if observation.get(count_at).copied().map(usize::from) != Some(signatures)
+            || observation.len() != count_at + 1 + signatures * SIGNATURE_LENGTH
+        {
+            return Err(SubmitError::Encode);
+        }
+        let nonce = u64::try_from(self.rpc.quantity(
+            "eth_getTransactionCount",
+            &json!([hex0x(&self.address), "pending"]),
+        )?)
+        .map_err(|_| EvmError::Malformed)?;
+        let data = fulfil_program_calldata(observation);
+        let signed = Transaction {
+            chain_id: self.chain_id,
+            nonce,
+            fees: self.fees()?,
+            gas_limit: fulfil_program_gas_limit(&data, signatures),
+            to: XWEB_PRECOMPILE,
+            data,
+        }
+        .sign(&self.key)?;
+        self.journal.store_at(
+            JournalKey::Program(key),
+            &JournalEntry {
+                request_id: key.1,
+                state: JournalState::Signed,
+                transaction: Some((nonce, signed.clone())),
+            },
+        )?;
+        self.broadcast_signed(&signed)
+    }
+
+    pub fn resume_program(&self, key: ProgramKey) -> Result<Option<Outcome>, SubmitError> {
+        let Some(entry) = self.journal.load(key)? else {
+            return Ok(None);
+        };
+        if entry.state != JournalState::Signed {
+            return Ok(Some(match entry.state {
+                JournalState::Fulfilled => Outcome::Fulfilled,
+                JournalState::AlreadyFulfilled => Outcome::AlreadyFulfilled,
+                JournalState::Refunded => Outcome::Refunded,
+                JournalState::Reorged => Outcome::Reorged,
+                JournalState::Signed => return Err(SubmitError::Journal),
+            }));
+        }
+        let (_, signed) = entry.transaction.as_ref().ok_or(SubmitError::Journal)?;
+        let receipt = self
+            .rpc
+            .call("eth_getTransactionReceipt", &json!([hex0x(&signed.hash)]))?;
+        if receipt.is_null() {
+            return self.broadcast_signed(signed).map(Some);
+        }
+        if !self.receipt_confirmed(&receipt, signed)? {
+            return Ok(Some(Outcome::Sent { hash: signed.hash }));
+        }
+        match receipt.get("status").and_then(Value::as_str) {
+            Some("0x1") => {
+                self.journal.store_at(
+                    JournalKey::Program(key),
+                    &JournalEntry {
+                        state: JournalState::Fulfilled,
+                        ..entry
+                    },
+                )?;
+                Ok(Some(Outcome::Fulfilled))
+            }
+            Some("0x0") => {
+                self.journal.remove(key)?;
+                Ok(Some(Outcome::Reverted))
+            }
+            _ => Err(EvmError::Malformed.into()),
+        }
     }
 
     fn fees(&self) -> Result<Fees, SubmitError> {
@@ -940,6 +1102,48 @@ impl Submitter {
         self.broadcast(request_id, &signed)
     }
 
+    fn receipt_confirmed(
+        &self,
+        receipt: &Value,
+        signed: &SignedTransaction,
+    ) -> Result<bool, SubmitError> {
+        if self.confirmations > 0 {
+            if receipt
+                .get("transactionHash")
+                .and_then(Value::as_str)
+                .and_then(unhex0x)
+                .as_deref()
+                != Some(signed.hash.as_slice())
+            {
+                return Err(SubmitError::HashMismatch);
+            }
+            let mined = receipt
+                .get("blockNumber")
+                .and_then(Value::as_str)
+                .and_then(parse_quantity)
+                .and_then(|value| u64::try_from(value).ok())
+                .ok_or(EvmError::Malformed)?;
+            if self.rpc.block_number()? < mined.saturating_add(self.confirmations) {
+                return Ok(false);
+            }
+            let block = self.rpc.call(
+                "eth_getBlockByNumber",
+                &json!([crate::watch::quantity(u128::from(mined)), false]),
+            )?;
+            let receipt_hash = receipt
+                .get("blockHash")
+                .and_then(Value::as_str)
+                .and_then(unhex0x)
+                .ok_or(EvmError::Malformed)?;
+            if receipt_hash.len() != 32
+                || block.get("hash").and_then(Value::as_str).and_then(unhex0x) != Some(receipt_hash)
+            {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
     /// Reads the receipt of a journalled transaction. `None` means it is not
     /// mined yet or nothing is journalled.
     ///
@@ -980,39 +1184,8 @@ impl Submitter {
             let status = request_status(&self.rpc, request_id)?;
             return self.closed(request_id, status);
         }
-        if self.confirmations > 0 {
-            if receipt
-                .get("transactionHash")
-                .and_then(Value::as_str)
-                .and_then(unhex0x)
-                .as_deref()
-                != Some(signed.hash.as_slice())
-            {
-                return Err(SubmitError::HashMismatch);
-            }
-            let mined = receipt
-                .get("blockNumber")
-                .and_then(Value::as_str)
-                .and_then(parse_quantity)
-                .and_then(|value| u64::try_from(value).ok())
-                .ok_or(EvmError::Malformed)?;
-            if self.rpc.block_number()? < mined.saturating_add(self.confirmations) {
-                return Ok(None);
-            }
-            let block = self.rpc.call(
-                "eth_getBlockByNumber",
-                &json!([crate::watch::quantity(u128::from(mined)), false]),
-            )?;
-            let receipt_hash = receipt
-                .get("blockHash")
-                .and_then(Value::as_str)
-                .and_then(unhex0x)
-                .ok_or(EvmError::Malformed)?;
-            if receipt_hash.len() != 32
-                || block.get("hash").and_then(Value::as_str).and_then(unhex0x) != Some(receipt_hash)
-            {
-                return Ok(None);
-            }
+        if !self.receipt_confirmed(&receipt, &signed)? {
+            return Ok(None);
         }
         match receipt.get("status").and_then(Value::as_str) {
             Some("0x1") => {

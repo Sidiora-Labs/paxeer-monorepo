@@ -27,6 +27,15 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) {
 			panic(err)
 		}
 	}
+
+	for _, denom := range genState.GetPausedDenoms() {
+		if _, err := k.GetAuthorityMetadata(ctx, denom); err != nil || !k.GetDenomPrefixStore(ctx, denom).Has([]byte(types.DenomAuthorityMetadataKey)) {
+			panic(types.ErrDenomDoesNotExist)
+		}
+		if err := k.setDenomPaused(ctx, denom, true); err != nil {
+			panic(err)
+		}
+	}
 }
 
 // ExportGenesis returns the tokenfactory module's exported genesis.
@@ -51,5 +60,6 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState {
 	return &types.GenesisState{
 		FactoryDenoms: genDenoms,
 		Params:        k.GetParams(ctx),
+		PausedDenoms:  k.GetPausedDenoms(ctx),
 	}
 }

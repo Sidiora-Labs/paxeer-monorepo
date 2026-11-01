@@ -33,6 +33,7 @@ use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
 use layerx_types::ids::AssetId;
 use layerx_types::intent::{EvmAddress, TimestampSeconds};
+use sha2::{Digest as _, Sha256};
 
 use super::{
     BalanceEntry, BudgetBinding, CustodyContext, Endpoint, FeeSchedule, ObservedState, Refusal,
@@ -204,23 +205,29 @@ impl NetworkObservation {
         &self.balances
     }
 
+    /// The block height of the bank balance observation.
+    #[must_use]
+    pub const fn height(&self) -> u64 {
+        self.balances.height
+    }
+
     /// The wallet holding of one asset.
     ///
     /// # Errors
     ///
-    /// Refuses rather than reporting zero when the asset has no joined row, or
-    /// when the row carries no Paxeer half. An unobserved holding is never a
-    /// zero holding.
+    /// Refuses rather than reporting zero when no bank denomination hashes to
+    /// the requested asset identifier. An unobserved holding is never zero.
     pub fn wallet_balance(&self, asset: AssetId) -> Result<Amount, ObservationError> {
         let row = self
             .balances
-            .asset(asset.bytes())
+            .balances
+            .iter()
+            .find(|row| {
+                let identifier: [u8; 32] = Sha256::digest(row.denom.as_bytes()).into();
+                identifier == asset.bytes()
+            })
             .ok_or(ObservationError::AssetNotJoined { asset })?;
-        let paxeer = row
-            .paxeer
-            .as_ref()
-            .ok_or(ObservationError::WalletBalanceUnknown { asset })?;
-        Ok(Amount::from_u128(paxeer.amount))
+        Ok(Amount::from_u128(row.amount))
     }
 }
 
@@ -385,12 +392,14 @@ fn endpoint_key(endpoint: &Endpoint) -> (u8, String) {
 mod tests {
     use super::*;
 
-    use layerx_network_gateway::{AssetBalance, Evidence, PaxeerAssetBalance, ResolvedIdentities};
+    use layerx_network_gateway::{AssetBalance, Evidence, ResolvedIdentities};
 
-    use crate::journeys::{plan, Constraints, LegMechanism, Mechanism, UnifiedIntent};
+    use crate::journeys::{Constraints, LegMechanism, Mechanism, UnifiedIntent, plan};
 
-    const ASSET: AssetId = AssetId::new([9; 32]);
-    const OTHER: AssetId = AssetId::new([8; 32]);
+    const ASSET: AssetId = AssetId::new([
+        2, 206, 242, 193, 14, 117, 99, 18, 184, 58, 167, 231, 5, 25, 84, 22, 17, 70, 224, 51, 113,
+        203, 60, 79, 9, 19, 3, 201, 94, 14, 232, 201,
+    ]);
     const OWNER: &str = "agent:did:layerx:alice:main";
     const AGENT: &str = "agent:did:layerx:bob:main";
 
@@ -411,8 +420,6 @@ mod tests {
             (LegMechanism::Protocol(Mechanism::Send), 5),
             (LegMechanism::Protocol(Mechanism::BudgetFund), 2),
             (LegMechanism::Protocol(Mechanism::BudgetDefund), 2),
-            (LegMechanism::Protocol(Mechanism::BridgeDepositCredit), 3),
-            (LegMechanism::Protocol(Mechanism::BridgeWithdrawRequest), 4),
             (LegMechanism::PaxeerCustodyDeposit, 1),
             (LegMechanism::PaxeerWithdrawFinalise, 1),
         ])
@@ -431,16 +438,10 @@ mod tests {
         }
     }
 
-    fn row(asset: AssetId, paxeer: Option<u128>) -> AssetBalance {
+    fn row(denom: &str, amount: u128) -> AssetBalance {
         AssetBalance {
-            asset_id: asset.bytes(),
-            denom: Some("upax".to_owned()),
-            custody: None,
-            paxeer: paxeer.map(|amount| PaxeerAssetBalance {
-                denom: "upax".to_owned(),
-                amount,
-            }),
-            layerx: None,
+            denom: denom.to_owned(),
+            amount,
         }
     }
 
@@ -448,7 +449,7 @@ mod tests {
         AccountBalances {
             account: identities(bound),
             balances,
-            joined_limit: 16,
+            height: 812,
             evidence: Evidence::GatewayReported,
         }
     }
@@ -478,7 +479,7 @@ mod tests {
     #[test]
     fn every_missing_source_names_itself_rather_than_defaulting() {
         let complete = builder()
-            .with_network(network(vec![row(ASSET, Some(400))]))
+            .with_network(network(vec![row("upax", 400)]))
             .with_ledger_balances(Vec::new())
             .with_allowances(Vec::new())
             .with_budget_bindings(Vec::new())
@@ -486,7 +487,7 @@ mod tests {
         assert!(complete.clone().build().is_ok());
 
         let without_ledger = builder()
-            .with_network(network(vec![row(ASSET, Some(400))]))
+            .with_network(network(vec![row("upax", 400)]))
             .with_allowances(Vec::new())
             .with_budget_bindings(Vec::new())
             .with_fees(fees());
@@ -496,7 +497,7 @@ mod tests {
         );
 
         let without_allowances = builder()
-            .with_network(network(vec![row(ASSET, Some(400))]))
+            .with_network(network(vec![row("upax", 400)]))
             .with_ledger_balances(Vec::new())
             .with_budget_bindings(Vec::new())
             .with_fees(fees());
@@ -506,7 +507,7 @@ mod tests {
         );
 
         let without_budgets = builder()
-            .with_network(network(vec![row(ASSET, Some(400))]))
+            .with_network(network(vec![row("upax", 400)]))
             .with_ledger_balances(Vec::new())
             .with_allowances(Vec::new())
             .with_fees(fees());
@@ -516,7 +517,7 @@ mod tests {
         );
 
         let without_fees = builder()
-            .with_network(network(vec![row(ASSET, Some(400))]))
+            .with_network(network(vec![row("upax", 400)]))
             .with_ledger_balances(Vec::new())
             .with_allowances(Vec::new())
             .with_budget_bindings(Vec::new());
@@ -539,7 +540,7 @@ mod tests {
     #[test]
     fn an_unjoined_asset_is_refused_and_never_observed_as_zero() {
         let refusal = builder()
-            .with_network(network(vec![row(OTHER, Some(400))]))
+            .with_network(network(vec![row("uusdc", 400)]))
             .with_ledger_balances(Vec::new())
             .with_allowances(Vec::new())
             .with_budget_bindings(Vec::new())
@@ -553,25 +554,28 @@ mod tests {
     }
 
     #[test]
-    fn a_joined_row_without_a_paxeer_half_is_unknown_not_zero() {
-        let refusal = builder()
-            .with_network(network(vec![row(ASSET, None)]))
-            .with_ledger_balances(Vec::new())
-            .with_allowances(Vec::new())
-            .with_budget_bindings(Vec::new())
-            .with_fees(fees())
-            .requiring(ASSET)
-            .build();
+    fn a_bank_row_without_an_amount_is_unknown_not_zero() {
+        let answer = serde_json::json!({
+            "account": {
+                "evm_address": "0x0707070707070707070707070707070707070707",
+                "pax_address": null,
+                "layerx_did": null,
+                "layerx_account": null,
+                "bound": true
+            },
+            "height": 812,
+            "balances": [{"denom": "upax"}]
+        });
         assert_eq!(
-            refusal,
-            Err(ObservationError::WalletBalanceUnknown { asset: ASSET })
+            layerx_network_gateway::decode_account_balances(&answer),
+            Err(GatewayError::MalformedAnswer)
         );
     }
 
     #[test]
     fn a_wallet_balance_observed_twice_is_refused() {
         let refusal = builder()
-            .with_network(network(vec![row(ASSET, Some(400))]))
+            .with_network(network(vec![row("upax", 400)]))
             .with_ledger_balances(vec![BalanceEntry::new(
                 Endpoint::PaxeerWallet,
                 ASSET,
@@ -591,7 +595,7 @@ mod tests {
     #[test]
     fn the_assembled_snapshot_plans_against_the_real_router() {
         let observed = builder()
-            .with_network(network(vec![row(ASSET, Some(400))]))
+            .with_network(network(vec![row("upax", 400)]))
             .with_ledger_balances(vec![BalanceEntry::new(
                 home(),
                 ASSET,
@@ -620,8 +624,9 @@ mod tests {
 
     #[test]
     fn the_wallet_balance_read_carries_the_gateway_reported_amount() {
-        let observation = network(vec![row(ASSET, Some(4_096))]);
+        let observation = network(vec![row("upax", 4_096)]);
         assert_eq!(observation.wallet(), EvmAddress::new([7; 20]));
+        assert_eq!(observation.height(), 812);
         assert_eq!(
             observation.wallet_balance(ASSET),
             Ok(Amount::from_u128(4_096))

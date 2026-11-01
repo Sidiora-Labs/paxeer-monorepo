@@ -91,6 +91,20 @@ func TestSequencerConfigValidateBasic(t *testing.T) {
 	}
 }
 
+func TestConfigRefusesSequencerWithAutobahn(t *testing.T) {
+	cfg := DefaultConfig()
+	require.NoError(t, cfg.ValidateBasic())
+
+	cfg.AutobahnConfigFile = "autobahn.json"
+	require.NoError(t, cfg.ValidateBasic())
+
+	cfg.Consensus.Sequencer.Enable = true
+	require.EqualError(t, cfg.ValidateBasic(), "error in [consensus] section: sequencer mode does not run with autobahn-config-file")
+
+	cfg.AutobahnConfigFile = ""
+	require.NoError(t, cfg.ValidateBasic())
+}
+
 func TestTLSConfiguration(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.SetRoot("/home/user")

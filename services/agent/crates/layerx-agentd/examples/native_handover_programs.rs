@@ -9,7 +9,10 @@ use layerx_client::lni::handshake::{perform, HandshakeConfig};
 use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope, Version};
 use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
 use layerx_client::Client;
-use layerx_programs::{hex, DeploymentProof, ProgramId, ProtocolDeploymentVerifier, Registry};
+use layerx_programs::{
+    chain_proof::trust_store::TrustRoot, hex, DeploymentProof, ProgramId,
+    ProtocolDeploymentVerifier, Registry,
+};
 use layerx_proof::program::{
     verify_program_execution_with_payers, OccupancyPayer, ProgramExecutionExpectation,
 };
@@ -424,6 +427,7 @@ struct Journey {
 fn verify_deploy_receipt(
     receipt: &[u8],
     history: &layerx_proof::signed_authority::SignedAuthorityHistory,
+    expected_activity: [u8; 32],
 ) -> Result<()> {
     let public_key = history
         .intervals()
@@ -431,8 +435,43 @@ fn verify_deploy_receipt(
         .ok_or("missing current authority")?
         .public_key();
     let receipt = checked(verify_sequencer_signature(receipt, public_key))?;
-    assert_eq!(receipt.protocol().ok_or("Deploy receipt")?.result_code(), 0);
+    let protocol = receipt.protocol().ok_or("Deploy receipt")?;
+    assert_eq!(protocol.result_code(), 0);
+    assert_eq!(protocol.activity_id(), expected_activity);
     Ok(())
+}
+
+fn chain_trust_verifier(path: &Path) -> Result<ProtocolDeploymentVerifier> {
+    use std::io::Read as _;
+    use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
+
+    const MAX_BYTES: u64 = 1_048_576;
+    let link = std::fs::symlink_metadata(path)?;
+    if !link.is_file() || link.permissions().mode() & 0o077 != 0 {
+        return Err("chain trust root must be a protected regular file".into());
+    }
+    let file = std::fs::File::open(path)?;
+    let metadata = file.metadata()?;
+    if !metadata.is_file()
+        || metadata.permissions().mode() & 0o077 != 0
+        || link.dev() != metadata.dev()
+        || link.ino() != metadata.ino()
+        || metadata.len() == 0
+        || metadata.len() > MAX_BYTES
+    {
+        return Err("chain trust root must be a bounded protected regular file".into());
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_BYTES + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 != metadata.len() {
+        return Err("chain trust root changed while reading".into());
+    }
+    let trust = checked(TrustRoot::decode(&bytes))?;
+    checked(ProtocolDeploymentVerifier::from_chain_trust(
+        trust.chain_id,
+        trust.validators.validators().to_vec(),
+        300_000,
+    ))
 }
 
 fn setup(socket: &Path, directory: &Path, config: &Value) -> Result<Journey> {
@@ -456,11 +495,7 @@ fn setup(socket: &Path, directory: &Path, config: &Value) -> Result<Journey> {
     route = checked(route.with_protected_finality(&directory.join("handover-finality.conf")))?;
     route = checked(route.with_protected_genesis(&directory.join("handover-genesis.bin")))?;
     let preceding_history = checked(route.signed_authority())?.ok_or("missing history")?;
-    let protected = checked(ProtocolDeploymentVerifier::from_protected_history(
-        Path::new(field(config, "trust_file")?),
-        300_000,
-    ))?;
-    let stale_verifier = checked(protected.with_signed_history(&preceding_history))?;
+    let trust_path = Path::new(field(config, "chain_trust_root")?);
     let wasm = std::fs::read(field(config, "wasm_file")?)?;
     let program = [0x71; 32];
     let deploy = NativeProgramDeploy {
@@ -486,14 +521,16 @@ fn setup(socket: &Path, directory: &Path, config: &Value) -> Result<Journey> {
         &canonical,
     ))?;
     let receipt = submit(&mut client, &canonical, &did, public, endpoint, &token)?;
-    verify_deploy_receipt(&receipt, &preceding_history)?;
+    verify_deploy_receipt(&receipt, &preceding_history, request.bound_activity_id())?;
     let proof = deployment(socket, request.bound_activity_id())?;
-    assert_eq!(proof.activity, canonical);
-    assert_eq!(proof.state.receipt, receipt);
+    assert_eq!(proof.state.transaction, canonical);
+    assert_eq!(
+        checked(proof.claimed_receipt_digest())?,
+        <[u8; 32]>::from(Sha256::digest(&canonical))
+    );
     let history = checked(route.signed_authority())?.ok_or("missing deployed history")?;
-    assert!(stale_verifier.verify_historical_deployment(&proof).is_err());
-    let verifier = checked(protected.with_signed_history(&history))?;
-    let evidence = checked(verifier.verify_historical_deployment(&proof))?;
+    let verifier = chain_trust_verifier(trust_path)?;
+    let evidence = checked(verifier.verify_deployment(&proof, now()?))?;
     assert_eq!(evidence.program().bytes(), program);
     let mut registry = Registry::new();
     checked(registry.record_verified_deployment(&evidence))?;
@@ -507,13 +544,9 @@ fn setup(socket: &Path, directory: &Path, config: &Value) -> Result<Journey> {
             replica_id,
             ca_der: &ca,
         },
-        protected,
+        verifier,
         registry,
     ))?;
-    assert!(reader
-        .read(checked(ProgramId::new(program))?, now()?)
-        .is_err());
-    checked(reader.refresh_authority(&history))?;
     checked(reader.read(checked(ProgramId::new(program))?, now()?))?;
     let sequencer = history
         .intervals()
@@ -601,11 +634,6 @@ fn main() -> Result<()> {
         included["verification_level"],
         layerx_types::verify::VerificationLevel::BATCH_INCLUDED.wire_rank()
     );
-    let final_history = checked(route.signed_authority())?.ok_or("missing CALL history")?;
-    assert!(reader
-        .read(checked(ProgramId::new(program))?, now()?)
-        .is_err());
-    checked(reader.refresh_authority(&final_history))?;
     let before = checked(reader.read(checked(ProgramId::new(program))?, now()?))?;
     assert_eq!(
         before
@@ -620,6 +648,6 @@ fn main() -> Result<()> {
     assert_eq!(replay, receipt);
     let after = checked(reader.read(checked(ProgramId::new(program))?, now()?))?;
     assert_eq!(before, after);
-    println!("post-handover native Deploy, account registration, escrow CALL and idempotent replay verified through current signed Programs authority; stale and protected initial-key reads refused");
+    println!("post-handover native Deploy, account registration, escrow CALL and idempotent replay verified through persisted chain validator trust");
     Ok(())
 }

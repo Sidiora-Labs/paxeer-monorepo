@@ -17,6 +17,7 @@ var (
 	ErrBatchBlockOnly    = sdkerrors.Register(types.ModuleName, 8, "sequence batch is block-only and refused in CheckTx")
 	ErrUnknownReceiptKey = sdkerrors.Register(types.ModuleName, 9, "no pinned receipt key for keyId at height")
 	ErrCorruptStore      = sdkerrors.Register(types.ModuleName, 10, "corrupt sequencer store entry")
+	ErrNotActivated      = sdkerrors.Register(types.ModuleName, 11, "sequence batch below the activation height")
 )
 
 // lastBatchHeightKey holds the height of the last delivered batch, u64
@@ -50,9 +51,9 @@ func RefuseCheckTx(ctx sdk.Context) error {
 
 // DeliverSequenceBatch applies the batch carried by tx 0 of the block: it
 // refuses it at any other position, a second time in one block, for another
-// height, with a range or prevSeqHash that does not chain from the stored
-// lastSeq and lastSeqHash, or under a receipt key not pinned for the height;
-// then it stores toSeq and lastSeqHash.
+// height, before activation is set and reached, with a range or prevSeqHash
+// that does not chain from the stored lastSeq and lastSeqHash, or under a
+// receipt key not pinned for the height; then it stores toSeq and lastSeqHash.
 func (k Keeper) DeliverSequenceBatch(ctx sdk.Context, msg types.MsgSequenceBatch) error {
 	if err := RefuseCheckTx(ctx); err != nil {
 		return err
@@ -62,6 +63,17 @@ func (k Keeper) DeliverSequenceBatch(ctx sdk.Context, msg types.MsgSequenceBatch
 	}
 	if ctx.BlockHeight() < 1 {
 		return types.ErrInvalidSequenceBatch.Wrapf("block height %d", ctx.BlockHeight())
+	}
+	sequenced, err := k.Sequenced(ctx, ctx.BlockHeight())
+	if err != nil {
+		return err
+	}
+	if !sequenced {
+		activation, err := k.ActivationHeight(ctx)
+		if err != nil {
+			return err
+		}
+		return ErrNotActivated.Wrapf("block height %d, activation height %d", ctx.BlockHeight(), activation)
 	}
 	height := uint64(ctx.BlockHeight())
 	if msg.Height != height {
@@ -155,13 +167,25 @@ func (k Keeper) Leaders(ctx sdk.Context) ([][32]byte, error) {
 	for i := range leaders {
 		copy(leaders[i][:], bz[i*32:])
 	}
+	if len(leaders) > 0 {
+		if err := types.ValidateLeaders(leaders); err != nil {
+			return nil, ErrCorruptStore.Wrap(err.Error())
+		}
+	}
 	return leaders, nil
 }
 
-// InitGenesis writes the genesis: L, the receipt keys, lastSeq and
-// lastSeqHash.
+// InitGenesis writes L, the receipt keys, lastSeq, lastSeqHash and the
+// activation height, defaulting an unset activation to the next block.
 func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error {
 	if err := gs.Validate(); err != nil {
+		return err
+	}
+	activation := int64(gs.ActivationHeight)
+	if gs.ActivationHeight == 0 {
+		activation = ctx.BlockHeight() + 1
+	}
+	if err := k.SetActivationHeight(ctx, activation); err != nil {
 		return err
 	}
 	leaders := make([]byte, 0, len(gs.Leaders)*32)
@@ -194,8 +218,8 @@ func (k Keeper) SetReceiptKeys(ctx sdk.Context, keys ReceiptKeys) error {
 	return nil
 }
 
-// ExportGenesis returns the leader list, the receipt keys, lastSeq and
-// lastSeqHash.
+// ExportGenesis returns the stored activation height, leader list, receipt
+// keys, lastSeq and lastSeqHash for import into a fresh store.
 func (k Keeper) ExportGenesis(ctx sdk.Context) (types.GenesisState, error) {
 	leaders, err := k.Leaders(ctx)
 	if err != nil {
@@ -213,7 +237,11 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) (types.GenesisState, error) {
 	if err != nil {
 		return types.GenesisState{}, err
 	}
-	return types.GenesisState{Leaders: leaders, ReceiptKeys: keys, LastSeq: lastSeq, LastSeqHash: lastSeqHash}, nil
+	activation, err := k.ActivationHeight(ctx)
+	if err != nil {
+		return types.GenesisState{}, err
+	}
+	return types.GenesisState{Leaders: leaders, ReceiptKeys: keys, ActivationHeight: uint64(activation), LastSeq: lastSeq, LastSeqHash: lastSeqHash}, nil
 }
 
 func encodeReceiptKeys(keys []types.ReceiptKey) []byte {

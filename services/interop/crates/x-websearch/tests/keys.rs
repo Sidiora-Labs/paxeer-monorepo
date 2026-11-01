@@ -101,14 +101,10 @@ fn all_three_keys_load_from_the_named_files() -> Result<(), Box<dyn std::error::
             0x5e, 0x21, 0x8d, 0xcc, 0xd6, 0xcf
         ]
     );
-    assert_eq!(
-        keys.receiver().verifying_key().to_bytes(),
-        [
-            0xd7, 0x5a, 0x98, 0x01, 0x82, 0xb1, 0x0a, 0xb7, 0xd5, 0x4b, 0xfe, 0xd3, 0xc9, 0x64,
-            0x07, 0x3a, 0x0e, 0xe1, 0x72, 0xf3, 0xda, 0xa6, 0x23, 0x25, 0xaf, 0x02, 0x1a, 0x68,
-            0xf7, 0x07, 0x51, 0x1a
-        ]
-    );
+    let expected = k256::ecdsa::SigningKey::from_slice(
+        &x_websearch::payment::unhex(RECEIVER_SECRET).ok_or("receiver hex")?,
+    )?;
+    assert_eq!(keys.receiver().verifying_key(), expected.verifying_key());
     let debug = format!("{keys:?}");
     assert_eq!(
         debug,
@@ -332,5 +328,32 @@ fn refusals_never_format_key_material() -> Result<(), Box<dyn std::error::Error>
     let debug = format!("{keys:?}");
     assert!(!debug.contains(RECEIVER_SECRET));
     assert!(!debug.to_ascii_lowercase().contains("9d61b1"));
+    Ok(())
+}
+
+#[test]
+fn the_receiver_key_file_holds_a_secp256k1_key() -> Result<(), Box<dyn std::error::Error>> {
+    let scratch = Scratch::new("receiver-secp256k1")?;
+    let path = scratch.write("receiver.key", RECEIVER_SECRET.as_bytes(), 0o600)?;
+    let files = KeyFiles::from_lookup(lookup(&[(RECEIVER_KEY_FILE, &path)]))?;
+    let keys = files.load()?;
+    let receiver: &k256::ecdsa::SigningKey = keys.receiver();
+    let expected = k256::ecdsa::SigningKey::from_slice(
+        &x_websearch::payment::unhex(RECEIVER_SECRET).ok_or("receiver hex")?,
+    )?;
+    assert_eq!(receiver.verifying_key(), expected.verifying_key());
+    let digest = x_websearch::watch::keccak(b"receiver-signed ledger transaction");
+    let (signature, recovery) = receiver.sign_prehash_recoverable(&digest)?;
+    assert_eq!(
+        k256::ecdsa::VerifyingKey::recover_from_prehash(&digest, &signature, recovery)?,
+        *receiver.verifying_key()
+    );
+    for secret in ["0".repeat(64), SECP_ORDER.to_owned(), "f".repeat(64)] {
+        scratch.write("receiver.key", secret.as_bytes(), 0o600)?;
+        let error = files.load().err().ok_or("invalid scalar accepted")?;
+        assert_eq!(error, refused(KeyRole::Receiver, KeyRefusal::InvalidKey));
+        assert!(error.to_string().contains(RECEIVER_KEY_FILE));
+        assert!(!error.to_string().contains(&secret));
+    }
     Ok(())
 }

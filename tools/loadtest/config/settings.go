@@ -24,6 +24,9 @@ type Settings struct {
 	Prewarm          bool     `json:"prewarm,omitempty"`
 	RampUp           bool     `json:"rampUp,omitempty"`
 	ReportPath       string   `json:"reportPath,omitempty"`
+	MinTPS           float64  `json:"minTps,omitempty"`
+	MaxP99Latency    Duration `json:"maxP99Latency,omitempty"`
+	MinTotalTxs      uint64   `json:"minTotalTxs,omitempty"`
 	TxsDir           string   `json:"txsDir,omitempty"`
 	TargetGas        uint64   `json:"targetGas,omitempty"`
 	NumBlocksToWrite int      `json:"numBlocksToWrite,omitempty"`
@@ -44,6 +47,9 @@ func DefaultSettings() Settings {
 		Prewarm:          false,
 		RampUp:           false,
 		ReportPath:       "",
+		MinTPS:           0,
+		MaxP99Latency:    0,
+		MinTotalTxs:      0,
 		TxsDir:           "",
 		TargetGas:        10_000_000,
 		NumBlocksToWrite: 100,
@@ -66,6 +72,9 @@ func InitializeViper(cmd *cobra.Command) error {
 		"workers":          "workers",
 		"rampUp":           "ramp-up",
 		"reportPath":       "report-path",
+		"minTps":           "min-tps",
+		"maxP99Latency":    "max-p99-latency",
+		"minTotalTxs":      "min-total-txs",
 		"txsDir":           "txs-dir",
 		"targetGas":        "target-gas",
 		"numBlocksToWrite": "num-blocks-to-write",
@@ -91,6 +100,9 @@ func InitializeViper(cmd *cobra.Command) error {
 	viper.SetDefault("workers", defaults.Workers)
 	viper.SetDefault("rampUp", defaults.RampUp)
 	viper.SetDefault("reportPath", defaults.ReportPath)
+	viper.SetDefault("minTps", defaults.MinTPS)
+	viper.SetDefault("maxP99Latency", defaults.MaxP99Latency.ToDuration())
+	viper.SetDefault("minTotalTxs", defaults.MinTotalTxs)
 	viper.SetDefault("txsDir", defaults.TxsDir)
 	viper.SetDefault("targetGas", defaults.TargetGas)
 	viper.SetDefault("numBlocksToWrite", defaults.NumBlocksToWrite)
@@ -132,6 +144,9 @@ func ResolveSettings() Settings {
 		Prewarm:          viper.GetBool("prewarm"),
 		RampUp:           viper.GetBool("rampUp"),
 		ReportPath:       viper.GetString("reportPath"),
+		MinTPS:           viper.GetFloat64("minTps"),
+		MaxP99Latency:    Duration(viper.GetDuration("maxP99Latency")),
+		MinTotalTxs:      viper.GetUint64("minTotalTxs"),
 		TxsDir:           viper.GetString("txsDir"),
 		TargetGas:        viper.GetUint64("targetGas"),
 		NumBlocksToWrite: viper.GetInt("numBlocksToWrite"),

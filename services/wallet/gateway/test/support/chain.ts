@@ -1,4 +1,4 @@
-import { createHash, createPublicKey, verify as edVerify } from 'node:crypto';
+import { createHash, createPublicKey, generateKeyPairSync, sign as edSign, verify as edVerify } from 'node:crypto';
 import { createServer as createHttpServer, type Server } from 'node:http';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -12,9 +12,11 @@ import {
   parseTransaction,
   recoverTransactionAddress,
   toFunctionSelector,
+  toHex,
   type Abi,
   type Hex,
 } from 'viem';
+import type { SequencerReceiptResult } from '../../src/rpc/pool.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '../../../../..');
@@ -26,6 +28,7 @@ export const ANCHOR = '0x0000000000000000000000000000000000001014';
 export const BIND_SELECTOR = toFunctionSelector('bindLayerX(bytes32,bytes)');
 const ED_SPKI = Buffer.from('302a300506032b6570032100', 'hex');
 const PRECOMPILE_RANGE = /^0x0{36}1[0-9a-f]{3}$/;
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export function chainMainAccountId(pubHex: string): string {
   const name = Buffer.from(`agent:did:layerx:${pubHex}:main`, 'utf8');
@@ -54,6 +57,10 @@ export interface SentTx {
   to: string;
   value: bigint;
   data: Hex | undefined;
+  nonce: number;
+  effectiveGasPrice: bigint;
+  seq: bigint;
+  timestamp: bigint;
 }
 
 export class ChainRpcError extends Error {
@@ -67,6 +74,8 @@ export class ChainRpcError extends Error {
 
 export class TestChain {
   readonly chainId: number;
+  private readonly sequencerKey = generateKeyPairSync('ed25519');
+  readonly sequencerPublicKey = this.sequencerKey.publicKey;
   readonly balances = new Map<string, bigint>();
   readonly nonces = new Map<string, number>();
   readonly bindNonces = new Map<string, bigint>();
@@ -200,7 +209,10 @@ export class TestChain {
       this.balances.set(from, this.bal(from) - value);
     }
     this.balances.set(from, this.bal(from) - used * price);
-    this.sent.push({ hash, from, to, value, data: tx.data });
+    this.sent.push({
+      hash, from, to, value, data: tx.data, nonce: expected, effectiveGasPrice: price,
+      seq: BigInt(this.sent.length + 1), timestamp: BigInt(Math.floor(Date.now() / 1_000)),
+    });
     this.receipts.set(hash, {
       transactionHash: hash,
       status: `0x${status.toString(16)}`,
@@ -246,6 +258,27 @@ export class TestChain {
       }
       case 'eth_getTransactionReceipt':
         return this.receipts.get(params[0] as string) ?? null;
+      case 'pax_sequencerReceipt': {
+        const hash = params[0] as Hex;
+        const receipt = this.receipts.get(hash);
+        if (!receipt) return null;
+        const tx = this.sent.find((sent) => sent.hash === hash);
+        if (!tx) throw new Error(`applied transaction ${hash} has no send record`);
+        const result: Omit<Extract<SequencerReceiptResult, { rung: 'receipted' }>, 'receipt'> = {
+          rung: 'receipted', txHash: hash, nonce: toHex(tx.nonce),
+          seq: toHex(tx.seq), height: receipt.blockNumber, index: '0x0', timestamp: toHex(tx.timestamp),
+          status: receipt.status, returnData: '0x', logs: [], gasUsed: receipt.gasUsed,
+          cumulativeGasUsed: receipt.gasUsed, effectiveGasPrice: toHex(tx.effectiveGasPrice),
+          feeDenom: 'PAX', feeAmount: toHex(BigInt(receipt.gasUsed) * tx.effectiveGasPrice),
+          sponsor: ZERO_ADDRESS, from: tx.from as Hex, to: (tx.to || ZERO_ADDRESS) as Hex,
+          contractAddress: ZERO_ADDRESS, vmError: '',
+          keyId: keccak256(toHex(this.sequencerPublicKey.export({ type: 'spki', format: 'der' }))),
+        };
+        return {
+          ...result,
+          receipt: toHex(edSign(null, Buffer.from(JSON.stringify(result)), this.sequencerKey.privateKey)),
+        } satisfies SequencerReceiptResult;
+      }
       default:
         throw new ChainRpcError(-32601, `the method ${method} does not exist/is not available`);
     }

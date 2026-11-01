@@ -143,7 +143,7 @@ func TestResolutionPendingTag(t *testing.T) {
 
 	ctxProvider := resolutionCtxProvider1315(h)
 	fullNode := resolutionInProc1315(t, evmrpc.NewStateAPI(&MockClient{}, &h.app.EvmKeeper, ctxProvider, evmrpc.ConnectionTypeHTTP,
-		evmrpc.NewWatermarkManager(&MockClient{}, ctxProvider, nil, nil)))
+		evmrpc.NewWatermarkManager(&MockClient{}, ctxProvider, nil, nil), nil))
 	var balance hexutil.Big
 	err = fullNode.Call(&balance, "eth_getBalance", to, "pending")
 	requireRPCError1315(t, err, -32000, "pending served by sequencer")
@@ -155,7 +155,7 @@ func TestResolutionPendingTag(t *testing.T) {
 
 	seqWatermarks := evmrpc.NewWatermarkManager(&MockClient{latestOverride: sendSeqCommittedTip}, ctxProvider, nil, nil)
 	seqWatermarks.SetPendingSnapshot(h.exec)
-	seqNode := resolutionInProc1315(t, evmrpc.NewStateAPI(&MockClient{}, &h.app.EvmKeeper, ctxProvider, evmrpc.ConnectionTypeHTTP, seqWatermarks))
+	seqNode := resolutionInProc1315(t, evmrpc.NewStateAPI(&MockClient{}, &h.app.EvmKeeper, ctxProvider, evmrpc.ConnectionTypeHTTP, seqWatermarks, nil))
 	require.NoError(t, seqNode.Call(&balance, "eth_getBalance", to, "pending"))
 	require.Zero(t, big.NewInt(resolutionOnePaxWei1315).Cmp(balance.ToInt()))
 }

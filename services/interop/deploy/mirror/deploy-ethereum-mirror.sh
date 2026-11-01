@@ -12,6 +12,7 @@
 #   LAYERX_MIRROR_PUBLISHER_ADDRESS   the mirror publisher address the contract is constructed with
 #   LAYERX_MIRROR_DEPLOYMENT_RECORD   output path of the deployment record
 #   LAYERX_MIRROR_FOUNDRY_BIN         directory holding the pinned forge and cast
+#   LAYERX_MIRROR_RECEIPT_KEYS_FILE   pinned sequencer receipt keys JSON file
 set -euo pipefail
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -21,11 +22,15 @@ fail() { printf 'deploy-ethereum-mirror: error: %s\n' "$*" >&2; exit 1; }
 
 for variable in LAYERX_MIRROR_RPC_URL LAYERX_MIRROR_RPC_CA_PEM LAYERX_MIRROR_CHAIN_ID \
     LAYERX_MIRROR_DEPLOYER_KEY_FILE LAYERX_MIRROR_PUBLISHER_ADDRESS \
-    LAYERX_MIRROR_DEPLOYMENT_RECORD LAYERX_MIRROR_FOUNDRY_BIN; do
+    LAYERX_MIRROR_DEPLOYMENT_RECORD LAYERX_MIRROR_FOUNDRY_BIN \
+    LAYERX_MIRROR_RECEIPT_KEYS_FILE; do
     [ -n "${!variable:-}" ] || fail "$variable is required"
 done
 [ -r "$LAYERX_MIRROR_RPC_CA_PEM" ] || fail "LAYERX_MIRROR_RPC_CA_PEM is not readable"
 [ -r "$LAYERX_MIRROR_DEPLOYER_KEY_FILE" ] || fail "LAYERX_MIRROR_DEPLOYER_KEY_FILE is not readable"
+[ -r "$LAYERX_MIRROR_RECEIPT_KEYS_FILE" ] || fail "LAYERX_MIRROR_RECEIPT_KEYS_FILE is not readable"
+receipt_keys_sha256=$(sha256sum < "$LAYERX_MIRROR_RECEIPT_KEYS_FILE")
+receipt_keys_sha256=${receipt_keys_sha256%% *}
 [[ $LAYERX_MIRROR_PUBLISHER_ADDRESS =~ ^0x[0-9a-fA-F]{40}$ ]] \
     || fail "LAYERX_MIRROR_PUBLISHER_ADDRESS is not an EVM address"
 [[ $LAYERX_MIRROR_CHAIN_ID =~ ^[1-9][0-9]*$ ]] || fail "LAYERX_MIRROR_CHAIN_ID is not a chain id"
@@ -76,10 +81,12 @@ jq -n --arg contract LayerXMirrorArchive \
     --arg code_hash "$code_hash" \
     --arg transaction "$transaction" \
     --arg block_hash "$block_hash" \
+    --arg receipt_keys_sha256 "$receipt_keys_sha256" \
     '{contract: $contract, source: $source, chain_id: $chain_id, genesis_hash: $genesis_hash,
       contract_address: $contract_address, publisher_secp256k1_address: $publisher,
       runtime_code_keccak256: $code_hash, deployment_transaction: $transaction,
-      deployment_block_hash: $block_hash}' > "$LAYERX_MIRROR_DEPLOYMENT_RECORD"
+      deployment_block_hash: $block_hash,
+      receipt_keys_sha256: $receipt_keys_sha256}' > "$LAYERX_MIRROR_DEPLOYMENT_RECORD"
 
 printf 'deploy-ethereum-mirror: LayerXMirrorArchive %s on chain %s (publisher %s)\n' \
     "$address" "$LAYERX_MIRROR_CHAIN_ID" "$LAYERX_MIRROR_PUBLISHER_ADDRESS" >&2

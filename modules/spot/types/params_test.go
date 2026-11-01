@@ -134,3 +134,105 @@ func TestParamsValidateBounds(t *testing.T) {
 		{"zero token address", func(p *types.Params) { p.Tokens[1].Address = common.Address{} }, types.ErrParamsZeroAddress},
 	})
 }
+
+func TestParamsValidateBoundsBudgets(t *testing.T) {
+	require.Equal(t, 1000, types.MaxActiveOrdersPerUserLimit)
+	require.Equal(t, 2000, types.MaxExpiriesPerBlockLimit)
+	require.Equal(t, 5000, types.MaxScanPerBlockLimit)
+	require.Equal(t, 2000, types.MaxFillsPerBlockLimit)
+	require.Equal(t, 2560, types.MaxFillBackoffBlocksLimit)
+
+	for _, tc := range []struct {
+		name  string
+		limit uint64
+		field func(*types.Params) *uint64
+	}{
+		{"maxActiveOrdersPerUser", types.MaxActiveOrdersPerUserLimit, func(p *types.Params) *uint64 { return &p.MaxActiveOrdersPerUser }},
+		{"maxExpiriesPerBlock", types.MaxExpiriesPerBlockLimit, func(p *types.Params) *uint64 { return &p.MaxExpiriesPerBlock }},
+		{"activationScanPerBlock", types.MaxScanPerBlockLimit, func(p *types.Params) *uint64 { return &p.ActivationScanPerBlock }},
+		{"fillScanPerBlock", types.MaxScanPerBlockLimit, func(p *types.Params) *uint64 { return &p.FillScanPerBlock }},
+		{"maxFillsPerBlock", types.MaxFillsPerBlockLimit, func(p *types.Params) *uint64 { return &p.MaxFillsPerBlock }},
+		{"maxFillBackoffBlocks", types.MaxFillBackoffBlocksLimit, func(p *types.Params) *uint64 { return &p.MaxFillBackoffBlocks }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, boundary := range []struct {
+				name  string
+				value uint64
+				valid bool
+			}{
+				{"zero", 0, false},
+				{"minimum", 1, true},
+				{"limit", tc.limit, true},
+				{"above limit", tc.limit + 1, false},
+				{"max uint64", math.MaxUint64, false},
+			} {
+				t.Run(boundary.name, func(t *testing.T) {
+					p := types.DefaultParams()
+					*tc.field(&p) = boundary.value
+					err := p.Validate()
+					if boundary.valid {
+						require.NoError(t, err)
+						return
+					}
+					require.ErrorIs(t, err, types.ErrParamsInvalid)
+					require.Contains(t, err.Error(), tc.name)
+				})
+			}
+		})
+	}
+}
+
+func TestParamsValidateRequiresMarketID(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		index  int
+		market uint64
+		valid  bool
+	}{
+		{"stablecoin without market", 0, 0, true},
+		{"stablecoin with market", 0, 1, true},
+		{"PAX without market", 1, 0, false},
+		{"PAX with market", 1, types.PAXMarketID, true},
+		{"SID without market", 2, 0, false},
+		{"SID with market", 2, types.SIDMarketID, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := openingParams()
+			p.Tokens[tc.index].MarketID = tc.market
+			err := p.Validate()
+			if tc.valid {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorIs(t, err, types.ErrParamsInvalid)
+			require.Contains(t, err.Error(), "marketID")
+			require.Contains(t, err.Error(), p.Tokens[tc.index].Address.Hex())
+		})
+	}
+}
+
+func TestParamsValidateBoundsTokenCount(t *testing.T) {
+	require.Equal(t, 64, types.MaxRegisteredTokens)
+	p := types.DefaultParams()
+	for i := 0; i < types.MaxRegisteredTokens+1; i++ {
+		p.Tokens = append(p.Tokens, types.TokenParams{
+			Address:           common.BytesToAddress([]byte{byte(i + 1)}),
+			Kind:              types.TokenKindERC20,
+			Decimals:          types.OpeningTokenDecimals,
+			MarketID:          types.PAXMarketID,
+			MaxUtilizationBps: types.DefaultMaxUtilizationBps,
+		})
+	}
+	overLimit := p.Tokens
+	p.Tokens = overLimit[:types.MaxRegisteredTokens]
+	require.NoError(t, p.Validate())
+	p.Tokens = overLimit
+	err := p.Validate()
+	require.ErrorIs(t, err, types.ErrParamsInvalid)
+	require.Contains(t, err.Error(), "tokens count")
+
+	p.Tokens[0].Address = common.Address{}
+	err = p.Validate()
+	require.ErrorIs(t, err, types.ErrParamsInvalid)
+	require.Contains(t, err.Error(), "tokens count")
+}

@@ -1,7 +1,8 @@
 import { Flex, Text } from '@chakra-ui/react';
 import React from 'react';
 
-import type { PaxeerXAnchorsItem, PaxeerXStatusRung } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveAnchor } from 'types/api/paxeerXArchive';
+import type { PaxeerXStatusRung } from 'types/api/paxeerXLists';
 
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { TableCell, TableRow } from 'toolkit/chakra/table';
@@ -13,16 +14,21 @@ import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
 
 // A row of the anchor log is a checkpoint the chain has already accepted, and the payload carries no
 // finality flag of its own, so every row sits on the rung the ladder spells for a submitted checkpoint.
-export const ANCHOR_SETTLEMENT_RUNG: PaxeerXStatusRung = 'sealed';
+export const ANCHOR_SETTLEMENT_RUNG: PaxeerXStatusRung = 'receipted';
 
 interface Props {
-  item: PaxeerXAnchorsItem;
+  item: PaxeerXArchiveAnchor;
   isLoading?: boolean;
 }
 
 const PaxeerXAnchorsTableItem = ({ item, isLoading }: Props) => {
   return (
     <TableRow data-anchor={ item.checkpoint_id }>
+      <TableCell verticalAlign="middle">
+        <Skeleton loading={ isLoading } display="inline-block" fontWeight={ 600 } data-label="batch-number">
+          { item.batch_number }
+        </Skeleton>
+      </TableCell>
       <TableCell verticalAlign="middle">
         <Skeleton loading={ isLoading } display="inline-block" fontWeight={ 600 } data-label="checkpoint-height">
           { item.checkpoint_height ?? <Text as="span" color="text.secondary">—</Text> }

@@ -15,9 +15,6 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/records"
 )
 
-// The market set and the fixed-point scales shared with the socket topics.
-var marketIDs = records.MarketIDs
-
 const (
 	usdScale        = records.USDScale
 	secondsPerHour  = records.SecondsPerHour
@@ -50,17 +47,7 @@ func (s *Symbol) Register(mux *http.ServeMux) {
 }
 
 func (s *Symbol) serve(w http.ResponseWriter, r *http.Request) {
-	path := r.PathValue("symbol")
-	symbol := strings.ToUpper(path)
-	_, ok := marketIDs[symbol]
-	if !ok {
-		writeError(w, http.StatusNotFound, "Unknown symbol: "+symbol)
-		return
-	}
-	if path != strings.ToLower(path) {
-		writeError(w, http.StatusNotFound, "Not found")
-		return
-	}
+	symbol := strings.ToUpper(r.PathValue("symbol"))
 	name, arg, hasArg := strings.Cut(r.PathValue("route"), "/")
 	if hasArg && name != "trades" && name != "perp_trades" {
 		writeError(w, http.StatusNotFound, "Not found")
@@ -100,6 +87,10 @@ func (s *Symbol) serve(w http.ResponseWriter, r *http.Request) {
 		body, err = s.data.Health(ctx, symbol)
 	default:
 		writeError(w, http.StatusNotFound, "Not found")
+		return
+	}
+	if errors.Is(err, records.ErrUnknownSymbol) {
+		writeError(w, http.StatusNotFound, "Unknown symbol: "+symbol)
 		return
 	}
 	if err != nil {

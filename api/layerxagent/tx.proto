@@ -1,0 +1,29 @@
+syntax = "proto3";
+package paxprotocol.paxchain.layerxagent;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types";
+
+service Msg {
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+message Params {
+  uint64 max_jobs_per_creator = 1;
+  uint64 max_schedule_horizon = 2;
+  uint64 min_deposit_factor = 3;
+  uint64 max_jobs_per_block = 4;
+  uint64 max_job_gas_limit = 5;
+  uint64 max_reason_bytes = 6;
+  uint64 max_call_data_bytes = 7;
+  uint64 max_block_gas = 8;
+  bool paused = 9;
+}
+
+message MsgUpdateParams {
+  string authority = 1;
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+
+message MsgUpdateParamsResponse {}

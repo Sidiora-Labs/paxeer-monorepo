@@ -8,11 +8,11 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
-use layerx_client::lni::transport::{Limits, MutualTlsConfig};
 use layerx_human_service::custody::{
     GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, RemoteKmsProvider,
 };
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_human_service::frame::{Limits, MutualTlsConfig};
+use layerx_types::payload::ModuleRegistry;
 use rustix::fs::{Mode, OFlags};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::RootCertStore;
@@ -20,22 +20,14 @@ use serde::Deserialize;
 use zeroize::Zeroizing;
 
 const PREFIX: &str = "LAYERX_HUMAN_KMS_GATEWAY";
+const LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE: &str = "LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE";
 const REMOTE_PROVIDER: &str = "remote-lxkp";
 const MATERIAL_LIMIT: usize = 65_536;
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RegistrySnapshot {
-    network_id: u32,
-    protocol_version: u16,
-    modules: Vec<RegistryModule>,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RegistryModule {
-    module_id: u16,
-    activity_types: Vec<u32>,
+struct ChainSnapshot {
+    chain_id: u32,
 }
 
 fn main() -> ExitCode {
@@ -67,6 +59,7 @@ fn run() -> Result<(), String> {
     if endpoint == listen {
         return Err("the gateway cannot be its own KMS provider".to_owned());
     }
+    let snapshot = chain_snapshot()?;
     let mut roots = RootCertStore::empty();
     roots
         .add(CertificateDer::from(
@@ -108,14 +101,14 @@ fn run() -> Result<(), String> {
             error.refusal_code()
         )
     })?;
-    let (network_id, protocol_version, registry) = registry()?;
     let gateway = LxkpGateway::new(
         Arc::new(provider),
         tls,
         GatewayPolicy {
-            network_id,
-            protocol_version,
-            registry,
+            network_id: snapshot.chain_id,
+            protocol_version: 3,
+            registry: ModuleRegistry::new(&[])
+                .map_err(|_| "the chain snapshot scope was refused".to_owned())?,
             limits: GatewayLimits {
                 maximum_connections: number("MAX_CONNECTIONS")?,
                 maximum_frame_bytes: number("MAX_FRAME_BYTES")?,
@@ -133,33 +126,17 @@ fn run() -> Result<(), String> {
         .map_err(|error| format!("the gateway stopped: {}", error.refusal_code()))
 }
 
-fn registry() -> Result<(u32, u16, ModuleRegistry), String> {
-    let snapshot: RegistrySnapshot = serde_json::from_slice(&material("REGISTRY_FILE", false)?)
-        .map_err(|_| "the registry snapshot is invalid".to_owned())?;
-    if snapshot.network_id == 0 || snapshot.modules.is_empty() || snapshot.modules.len() > 32 {
-        return Err("the registry snapshot scope was refused".to_owned());
+fn chain_snapshot() -> Result<ChainSnapshot, String> {
+    let snapshot: ChainSnapshot = serde_json::from_slice(&material("REGISTRY_FILE", false)?)
+        .map_err(|error| {
+            format!("{LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE} chain snapshot is invalid: {error}")
+        })?;
+    if snapshot.chain_id != 125 {
+        return Err(format!(
+            "{LAYERX_HUMAN_KMS_GATEWAY_REGISTRY_FILE} chain_id must be 125"
+        ));
     }
-    let mut modules = Vec::with_capacity(snapshot.modules.len());
-    for module in snapshot.modules {
-        if module.activity_types.is_empty() || module.activity_types.len() > 256 {
-            return Err("a registry module was refused".to_owned());
-        }
-        let id = ModuleId::from_u16(module.module_id)
-            .map_err(|_| "a registry module is invalid".to_owned())?;
-        let kinds = module
-            .activity_types
-            .into_iter()
-            .map(ActivityType::from_u32)
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|_| "a registry activity type is invalid".to_owned())?;
-        modules.push(
-            ModuleRegistration::new(id, &kinds)
-                .map_err(|_| "a registry registration is invalid".to_owned())?,
-        );
-    }
-    let registry =
-        ModuleRegistry::new(&modules).map_err(|_| "the registry is invalid".to_owned())?;
-    Ok((snapshot.network_id, snapshot.protocol_version, registry))
+    Ok(snapshot)
 }
 
 /// Reads one absolute, owner-held, bounded file without following links.
@@ -221,17 +198,18 @@ mod tests {
     use std::process::{Child, Command, Output, Stdio};
     use std::time::Instant;
 
-    use layerx_client::lni::framing::{read_frame, write_frame};
     use layerx_crypto::disclosure::{AmountRole, CounterpartyRole, Disclosure};
     use layerx_crypto::ed25519::verify_digest;
     use layerx_human_service::custody::{
         CustodyError, EnvelopeKms, KeyClass, KmsError, KmsProvider, PrincipalKeyBinding,
         GATEWAY_FRAME_LIMIT,
     };
+    use layerx_human_service::frame::{read_frame, write_frame};
     use layerx_intents::owner_activity::{unsigned_native, OwnerEnvelopeContext};
     use layerx_intents::NativeOwnerBootstrap;
     use layerx_types::ids::Did;
     use layerx_types::intent::PublicKey;
+    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration};
     use rustls::pki_types::ServerName;
     use rustls::{ClientConfig, ClientConnection, StreamOwned};
     use sha2::{Digest as _, Sha256};
@@ -570,6 +548,7 @@ mod tests {
                     &serde_json::json!({"network_id": NETWORK, "protocol_version": 3, "modules": modules}),
                 )?,
             )?;
+            fs::write(self.root.join("chain.json"), br#"{"chain_id":125}"#)?;
             for entry in fs::read_dir(&self.root)? {
                 fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
             }
@@ -781,7 +760,7 @@ mod tests {
                 command.env(format!("LAYERX_HUMAN_KMS_GATEWAY_{suffix}"), value);
             }
             for (suffix, file) in [
-                ("REGISTRY_FILE", "registry.json"),
+                ("REGISTRY_FILE", "chain.json"),
                 ("CLIENT_CA_DER", "ca.der"),
                 ("TLS_CERT_DER", "gateway.der"),
                 ("TLS_KEY_DER", "gateway-key.der"),

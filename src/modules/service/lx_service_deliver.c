@@ -25,7 +25,7 @@ lxp_result lx_service_deliverable_check(
             return LXP_ERR_DELIVERABLE_MISMATCH;
         if (item->artifact_size == 0U ||
             lxp_ct_is_zero(item->availability_reference, 32U))
-            return LXP_ERR_DA_MISSING;
+            return LXP_ERR_NON_CANONICAL;
     }
     return LXP_OK;
 }

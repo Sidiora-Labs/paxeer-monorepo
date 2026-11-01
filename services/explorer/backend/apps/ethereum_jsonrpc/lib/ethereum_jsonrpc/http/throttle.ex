@@ -389,20 +389,26 @@ defmodule EthereumJSONRPC.HTTP.Throttle do
   end
 
   defp finish(state, %{url: url, class: class, key: key, ref: ref} = ticket, disposition) do
-    Process.demonitor(ref, [:flush])
+    waiter = Map.get(state.waiters, ref)
 
-    state = drop_waiter(state, ref)
-    endpoint = endpoint(state, url)
+    if match?({:running, _, _, _}, waiter) or match?({:leader, _, _, _, _}, waiter) do
+      Process.demonitor(ref, [:flush])
 
-    case key && Map.get(endpoint.leaders, key) do
-      nil ->
-        put_endpoint(state, url, release(endpoint, class))
+      state = drop_waiter(state, ref)
+      endpoint = endpoint(state, url)
 
-      %{ref: leader_ref} when leader_ref != ref ->
-        put_endpoint(state, url, release(endpoint, class))
+      case key && Map.get(endpoint.leaders, key) do
+        nil ->
+          put_endpoint(state, url, release(endpoint, class))
 
-      %{followers: followers} ->
-        resolve_leader(state, url, endpoint, ticket, followers, disposition)
+        %{ref: leader_ref} when leader_ref != ref ->
+          put_endpoint(state, url, release(endpoint, class))
+
+        %{followers: followers} ->
+          resolve_leader(state, url, endpoint, ticket, followers, disposition)
+      end
+    else
+      state
     end
   end
 

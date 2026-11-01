@@ -3,8 +3,10 @@
 This path covers a wallet, custody-credit funding, an Asset transfer, token issuance,
 an LXT20 program, and an HTTP 402 payment. The wallet/token CLI, native Asset
 execution, public RPC, payment signer, and extended 402LXP flow described here
-are served by this tree. The LXT20 example is not: neither
-`programs/sdk/rust/examples` nor `programs/fixtures/pay5` is present here.
+are served by this tree. The LXT20 token and merchant examples live in
+`programs/sdk/rust/examples/token-lxt20` and
+`programs/sdk/rust/examples/payments-merchant`; their replay fixtures live in
+`programs/fixtures/pay5`.
 
 For a shorter environment checklist, start with
 [Getting started](Getting-Started-Beta.md). Wire details are in
@@ -189,19 +191,22 @@ layerx --rpc "$RPC_URL" --gateway-credential beta wallet receipt \
 
 ## 5. Inspect Assets, balances, and fees
 
+Set `FROM_ADDRESS` to the sender's EVM address and `UNSIGNED_TX_HEX` to the
+unsigned EIP-1559 transaction hex to estimate its fee.
+
 ```sh
 layerx --rpc "$RPC_URL" --gateway-credential beta wallet balance \
   --did "$WALLET_DID"
 layerx --rpc "$RPC_URL" --gateway-credential beta token info "$ASSET_ID"
 layerx --rpc "$RPC_URL" --gateway-credential beta token list
-layerx --rpc "$RPC_URL" --gateway-credential beta wallet estimate-fee \
-  "$CANONICAL_HEX"
+layerx --rpc "$RPC_URL" --gateway-credential beta wallet estimate-fee --from "$FROM_ADDRESS" "$UNSIGNED_TX_HEX"
 ```
 
 The corresponding RPC methods are `lx_getBalances`, `lx_getAsset`,
-`lx_listAssets`, and `lx_estimateFee`. Snapshot-authentication labels are not
-finality claims, and a fee estimate neither reserves the fee nor proves that
-the activity will execute.
+`lx_listAssets`, `eth_estimateGas`, and `eth_gasPrice`. Fee estimation multiplies
+the gas estimate at `pending` by the gas price. Snapshot-authentication labels
+are not finality claims, and a fee estimate neither reserves the fee nor proves
+that the transaction will execute.
 
 Live `receipts`, `checkpoints`, and `account` watches are unverified wake-ups.
 Always reconcile with a verified read or `wallet receipt` after a notification
@@ -210,8 +215,7 @@ or stream closure.
 ## 6. Build and deploy the LXT20 example
 
 The LXT20 example is a Programs ABI-v2 token backed by one native Asset. It is
-not a second ledger and does not mint native units. It is not in this tree, so
-the build below has no manifest to read here.
+not a second ledger and does not mint native units.
 
 ```sh
 cargo build \

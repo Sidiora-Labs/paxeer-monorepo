@@ -33,18 +33,16 @@ need RAMP_RECONCILE_SECONDS "$uint"
 need RAMP_CLIENT_TIMEOUT_SECONDS "$uint"
 need RAMP_IDENTITY_ENDPOINT "$url"
 need RAMP_IDENTITY_AUDIENCE "$text"
-need RAMP_RECEIPT_AUTHORITY_ENDPOINT "$url"
-need RAMP_PROTOCOL_VERSION "$uint"
-need RAMP_FEE_LIMIT "$uint"
-need RAMP_RPC_CHAIN_ID "$uint"
-need RAMP_RPC_MINIMUM_AGREEMENT "$uint"
-need RAMP_REQUIRED_CONFIRMATIONS "$uint"
+need RAMP_SEQUENCER_RPC_ENDPOINT "$url"
+need RAMP_RPC_CHAIN_ID '[1-9][0-9]*'
+need RAMP_OPERATOR_ADDRESS '0x[0-9a-fA-F]{40}'
+need RAMP_MAX_FEE_PER_GAS "$uint"
+need RAMP_MAX_PRIORITY_FEE_PER_GAS "$uint"
+need RAMP_GAS_LIMIT_CAP '[1-9][0-9]*'
 need RAMP_POLL_CADENCE_SECONDS "$uint"
-need RAMP_DELAYED_AFTER_POLLS "$uint"
 need RAMP_OPERATOR_PRINCIPAL_ID "$text"
 need RAMP_ACTOR_DID 'did:layerx:[^ "\\:]+'
 need RAMP_LAYERX_SIGNER_KEY_HANDLE "$text"
-need RAMP_LAYERX_SIGNER_PUBLIC_KEY "$hex32"
 need RAMP_PAXEER_SIGNER_KEY_HANDLE "$text"
 need RAMP_COMPLIANCE_ENDPOINT "$url"
 need RAMP_COMPLIANCE_PUBLIC_KEY "$hex32"
@@ -54,22 +52,14 @@ need RAMP_CUSTODY_ENDPOINT "$url"
 need RAMP_WALLET_ADDRESS "$text"
 need RAMP_VAULT_ID "$text"
 need RAMP_SIGNER_ENDPOINT "$url"
-need RAMP_GATEWAY_ENDPOINT "$url"
-need RAMP_NETWORK_ID "$uint"
-need RAMP_SEQUENCER_ID "$text"
-need RAMP_SEQUENCER_PUBLIC_KEY "$hex32"
-need RAMP_SEQUENCER_FIRST_BATCH "$text"
-need RAMP_SEQUENCER_LAST_BATCH "$text"
-need RAMP_RPC_NAMES '[a-z0-9.-]+ [a-z0-9.-]+'
-# shellcheck disable=SC2086 # two validated names, split on purpose
-set -- $RAMP_RPC_NAMES
-if [ "$1" = "$2" ]; then
-	echo "ramp-env-init: RAMP_RPC_NAMES names one RPC name twice" >&2
+if ! printf '%s' "${RAMP_RECEIPT_KEYS_JSON:-}" | jq -e \
+	'type == "array" and length > 0 and all(.[]; type == "object")' >/dev/null 2>&1; then
+	echo "ramp-env-init: RAMP_RECEIPT_KEYS_JSON is unset or malformed" >&2
 	exit 2
 fi
 
 for f in quotes.json outbound-ca.pem outbound-identity.p12 outbound-identity-password paxeer-rpc-ca.der \
-	identity-token compliance-token provider-token gateway-key receipt-authority-token kms-token \
+	identity-token compliance-token provider-token kms-token \
 	paxeer-custody-token operator-control-token; do
 	if [ ! -s "$source_dir/$f" ]; then
 		echo "ramp-env-init: $source_dir/$f is missing or empty" >&2
@@ -78,12 +68,12 @@ for f in quotes.json outbound-ca.pem outbound-identity.p12 outbound-identity-pas
 done
 mkdir -p "$secrets" "$config_dir" "$journal_dir"
 for f in outbound-ca.pem outbound-identity.p12 outbound-identity-password paxeer-rpc-ca.der identity-token \
-	compliance-token provider-token gateway-key receipt-authority-token kms-token paxeer-custody-token \
+	compliance-token provider-token kms-token paxeer-custody-token \
 	operator-control-token; do
 	cp "$source_dir/$f" "$secrets/$f"
 done
 
-jq -n --slurpfile quotes "$source_dir/quotes.json" --arg rpc1 "https://$1" --arg rpc2 "https://$2" --arg s "$secrets" \
+jq -n --slurpfile quotes "$source_dir/quotes.json" --arg s "$secrets" \
 	--arg journal "$journal_dir/journal.jsonl" '{
 	listen: env.RAMP_LISTEN,
 	listener: "plain",
@@ -112,21 +102,17 @@ jq -n --slurpfile quotes "$source_dir/quotes.json" --arg rpc1 "https://$1" --arg
 		status_path: "/layerx-ramp-v1/settlements"
 	},
 	layerx: {
-		gateway_endpoint: env.RAMP_GATEWAY_ENDPOINT,
-		receipt_authority_endpoint: env.RAMP_RECEIPT_AUTHORITY_ENDPOINT,
+		rpc_endpoint: env.RAMP_SEQUENCER_RPC_ENDPOINT,
+		rpc_trust_anchor_der: ($s + "/paxeer-rpc-ca.der"),
+		chain_id: (env.RAMP_RPC_CHAIN_ID | tonumber),
+		operator_address: env.RAMP_OPERATOR_ADDRESS,
+		receipt_keys: (env.RAMP_RECEIPT_KEYS_JSON | fromjson),
+		max_fee_per_gas: (env.RAMP_MAX_FEE_PER_GAS | tonumber),
+		max_priority_fee_per_gas: (env.RAMP_MAX_PRIORITY_FEE_PER_GAS | tonumber),
+		gas_limit_cap: (env.RAMP_GAS_LIMIT_CAP | tonumber),
 		signer_endpoint: env.RAMP_SIGNER_ENDPOINT,
-		gateway_key_file: ($s + "/gateway-key"),
-		authority_token_file: ($s + "/receipt-authority-token"),
 		signer_token_file: ($s + "/kms-token"),
-		actor_did: env.RAMP_ACTOR_DID,
-		protocol_version: (env.RAMP_PROTOCOL_VERSION | tonumber),
-		network_id: (env.RAMP_NETWORK_ID | tonumber),
-		fee_limit: (env.RAMP_FEE_LIMIT | tonumber),
-		signer_public_key: env.RAMP_LAYERX_SIGNER_PUBLIC_KEY,
-		sequencer_id: env.RAMP_SEQUENCER_ID,
-		sequencer_public_key: env.RAMP_SEQUENCER_PUBLIC_KEY,
-		sequencer_first_batch: env.RAMP_SEQUENCER_FIRST_BATCH,
-		sequencer_last_batch: env.RAMP_SEQUENCER_LAST_BATCH
+		actor_did: env.RAMP_ACTOR_DID
 	},
 	paxeer: {
 		custody_endpoint: env.RAMP_CUSTODY_ENDPOINT,
@@ -137,13 +123,7 @@ jq -n --slurpfile quotes "$source_dir/quotes.json" --arg rpc1 "https://$1" --arg
 		wallet_address: env.RAMP_WALLET_ADDRESS,
 		vault_id: env.RAMP_VAULT_ID,
 		signer_key_handle: env.RAMP_PAXEER_SIGNER_KEY_HANDLE,
-		rpc_endpoints: [$rpc1, $rpc2],
-		rpc_trust_anchor_der: ($s + "/paxeer-rpc-ca.der"),
-		rpc_chain_id: (env.RAMP_RPC_CHAIN_ID | tonumber),
-		rpc_minimum_agreement: (env.RAMP_RPC_MINIMUM_AGREEMENT | tonumber),
-		required_confirmations: (env.RAMP_REQUIRED_CONFIRMATIONS | tonumber),
-		poll_cadence_seconds: (env.RAMP_POLL_CADENCE_SECONDS | tonumber),
-		delayed_after_polls: (env.RAMP_DELAYED_AFTER_POLLS | tonumber)
+		poll_cadence_seconds: (env.RAMP_POLL_CADENCE_SECONDS | tonumber)
 	},
 	provider_callback_public_key: env.RAMP_PROVIDER_CALLBACK_PUBLIC_KEY,
 	operator_control_token_file: ($s + "/operator-control-token")

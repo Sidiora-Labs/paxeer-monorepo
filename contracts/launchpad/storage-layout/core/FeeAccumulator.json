@@ -118,6 +118,90 @@
       "offset": 0,
       "slot": "13",
       "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "contract": "contracts/data/FeeAccumulator.sol:FeeAccumulator",
+      "label": "totalLiabilities",
+      "offset": 0,
+      "slot": "14",
+      "type": "t_uint256"
+    },
+    {
+      "contract": "contracts/data/FeeAccumulator.sol:FeeAccumulator",
+      "label": "airdropSnapshotBlock",
+      "offset": 0,
+      "slot": "15",
+      "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))"
+    },
+    {
+      "contract": "contracts/data/FeeAccumulator.sol:FeeAccumulator",
+      "label": "airdropEligibleSupply",
+      "offset": 0,
+      "slot": "16",
+      "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))"
+    },
+    {
+      "contract": "contracts/data/FeeAccumulator.sol:FeeAccumulator",
+      "label": "airdropEpochRemaining",
+      "offset": 0,
+      "slot": "17",
+      "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))"
+    },
+    {
+      "contract": "contracts/data/FeeAccumulator.sol:FeeAccumulator",
+      "label": "airdropClaimedSupply",
+      "offset": 0,
+      "slot": "18",
+      "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))"
+    },
+    {
+      "contract": "contracts/data/FeeAccumulator.sol:FeeAccumulator",
+      "label": "accountingInitialized",
+      "offset": 0,
+      "slot": "19",
+      "type": "t_bool"
+    },
+    {
+      "contract": "contracts/data/FeeAccumulator.sol:FeeAccumulator",
+      "label": "accountingMigrationCursor",
+      "offset": 0,
+      "slot": "20",
+      "type": "t_uint256"
+    },
+    {
+      "contract": "contracts/data/FeeAccumulator.sol:FeeAccumulator",
+      "label": "_accountingMigratedPool",
+      "offset": 0,
+      "slot": "21",
+      "type": "t_mapping(t_address,t_bool)"
+    },
+    {
+      "contract": "contracts/data/FeeAccumulator.sol:FeeAccumulator",
+      "label": "legacyAirdropUnallocated",
+      "offset": 0,
+      "slot": "22",
+      "type": "t_mapping(t_address,t_uint256)"
+    },
+    {
+      "contract": "contracts/data/FeeAccumulator.sol:FeeAccumulator",
+      "label": "legacyAirdropRoot",
+      "offset": 0,
+      "slot": "23",
+      "type": "t_mapping(t_address,t_mapping(t_uint256,t_bytes32))"
+    },
+    {
+      "contract": "contracts/data/FeeAccumulator.sol:FeeAccumulator",
+      "label": "legacyAirdropRemaining",
+      "offset": 0,
+      "slot": "24",
+      "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))"
+    },
+    {
+      "contract": "contracts/data/FeeAccumulator.sol:FeeAccumulator",
+      "label": "airdropTriggeredAt",
+      "offset": 0,
+      "slot": "25",
+      "type": "t_mapping(t_address,t_mapping(t_uint256,t_uint256))"
     }
   ],
   "types": {
@@ -219,6 +303,20 @@
       "encoding": "inplace",
       "label": "uint256",
       "numberOfBytes": "32"
+    },
+    "t_mapping(t_uint256,t_bytes32)": {
+      "encoding": "mapping",
+      "key": "t_uint256",
+      "label": "mapping(uint256 => bytes32)",
+      "numberOfBytes": "32",
+      "value": "t_bytes32"
+    },
+    "t_mapping(t_address,t_mapping(t_uint256,t_bytes32))": {
+      "encoding": "mapping",
+      "key": "t_address",
+      "label": "mapping(address => mapping(uint256 => bytes32))",
+      "numberOfBytes": "32",
+      "value": "t_mapping(t_uint256,t_bytes32)"
     }
   }
 }

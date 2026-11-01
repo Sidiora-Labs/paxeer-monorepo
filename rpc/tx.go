@@ -32,6 +32,7 @@ import (
 var ErrPanicTx = errors.New("transaction is panic tx")
 
 type TransactionAPI struct {
+	namespace          string
 	tmClient           client.LocalClient
 	keeper             *keeper.Keeper
 	ctxProvider        func(int64) sdk.Context
@@ -66,6 +67,7 @@ func NewTransactionAPI(
 ) *TransactionAPI {
 	keyringEnabled := len(enableKeyring) > 0 && enableKeyring[0]
 	return &TransactionAPI{
+		namespace:          "eth",
 		tmClient:           tmClient,
 		keeper:             k,
 		ctxProvider:        ctxProvider,
@@ -96,6 +98,7 @@ func NewPaxTransactionAPI(
 ) *PaxTransactionAPI {
 	baseAPI := NewTransactionAPI(tmClient, k, ctxProvider, txConfigProvider, homeDir, connectionType, methodTimeout, watermarks, globalBlockCache, cacheCreationMutex, enableKeyring...)
 	baseAPI.includeSynthetic = true
+	baseAPI.namespace = "pax"
 	return &PaxTransactionAPI{TransactionAPI: baseAPI, isPanicTx: isPanicTx}
 }
 
@@ -117,7 +120,7 @@ func getTransactionReceipt(
 ) (result map[string]any, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getTransactionReceipt", t.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, t.namespace+"_getTransactionReceipt", t.connectionType, startTime, returnErr, recover())
 	}()
 	sdkctx := t.ctxProvider(LatestCtxHeight)
 
@@ -193,7 +196,7 @@ func getTransactionReceipt(
 func (t *TransactionAPI) GetVMError(ctx context.Context, hash common.Hash) (result string, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getVMError", t.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, t.namespace+"_getVMError", t.connectionType, startTime, returnErr, recover())
 	}()
 	receipt, err := t.keeper.GetReceipt(t.ctxProvider(LatestCtxHeight), hash)
 	if err != nil {
@@ -208,7 +211,7 @@ func (t *TransactionAPI) GetVMError(ctx context.Context, hash common.Hash) (resu
 func (t *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, txIndex hexutil.Uint) (result *export.RPCTransaction, _err error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getTransactionByBlockNumberAndIndex", t.connectionType, startTime, _err, recover())
+		recordMetricsWithError(ctx, t.namespace+"_getTransactionByBlockNumberAndIndex", t.connectionType, startTime, _err, recover())
 		var overflowErr txUint32OverflowError
 		if errors.As(_err, &overflowErr) {
 			_err = nil //not returning error for invalid tx index for complying with Ethereum JSON-RPC spec
@@ -224,6 +227,24 @@ func (t *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context
 }
 
 func (t *TransactionAPI) getTransactionByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, txIndex uint32) (result *export.RPCTransaction, returnErr error) {
+	if blockNr == rpc.PendingBlockNumber && t.watermarks != nil && t.watermarks.pending != nil {
+		snapshot, err := t.watermarks.pending.Snapshot()
+		if err != nil {
+			return nil, fmt.Errorf("pending block unavailable: %w", err)
+		}
+		hashes, err := pendingBlockTxHashes(snapshot)
+		if err != nil {
+			return nil, err
+		}
+		if uint64(txIndex) >= uint64(len(hashes)) {
+			return nil, nil
+		}
+		ptx, ok := t.watermarks.pending.PendingTx(hashes[txIndex])
+		if !ok {
+			return nil, fmt.Errorf("pending transaction %s unavailable", hashes[txIndex].Hex())
+		}
+		return t.encodePendingTransaction(ctx, ptx)
+	}
 	blockNumber, err := getBlockNumber(ctx, t.tmClient, t.watermarks, blockNr)
 	if err != nil {
 		return nil, err
@@ -242,7 +263,7 @@ func (t *TransactionAPI) getTransactionByBlockNumberAndIndex(ctx context.Context
 func (t *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, txIndex hexutil.Uint) (result *export.RPCTransaction, _err error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getTransactionByBlockHashAndIndex", t.connectionType, startTime, _err, recover())
+		recordMetricsWithError(ctx, t.namespace+"_getTransactionByBlockHashAndIndex", t.connectionType, startTime, _err, recover())
 		var overflowErr txUint32OverflowError
 		if errors.As(_err, &overflowErr) {
 			_err = nil //not returning error for invalid tx index for complying with Ethereum JSON-RPC spec
@@ -269,11 +290,11 @@ func (t *TransactionAPI) GetTransactionByBlockHashAndIndex(ctx context.Context, 
 func (t *TransactionAPI) GetTransactionByHash(ctx context.Context, hash common.Hash) (result *export.RPCTransaction, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getTransactionByHash", t.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, t.namespace+"_getTransactionByHash", t.connectionType, startTime, returnErr, recover())
 	}()
 	if t.watermarks != nil && t.watermarks.pending != nil {
 		if ptx, ok := t.watermarks.pending.PendingTx(hash); ok {
-			return t.encodePendingTransaction(ptx)
+			return t.encodePendingTransaction(ctx, ptx)
 		}
 	}
 	sdkCtx := t.ctxProvider(LatestCtxHeight)
@@ -345,7 +366,7 @@ func (t *TransactionAPI) GetTransactionByHash(ctx context.Context, hash common.H
 // encodePendingTransaction encodes a receipted transaction of the open block:
 // blockNumber is the open height, transactionIndex its position in the block and
 // blockHash null, since the open block has no hash before it is sealed.
-func (t *TransactionAPI) encodePendingTransaction(ptx PendingTx) (*export.RPCTransaction, error) {
+func (t *TransactionAPI) encodePendingTransaction(ctx context.Context, ptx PendingTx) (*export.RPCTransaction, error) {
 	if ptx.Height < 1 {
 		return nil, fmt.Errorf("pending transaction height %d is not positive", ptx.Height)
 	}
@@ -356,7 +377,10 @@ func (t *TransactionAPI) encodePendingTransaction(ptx PendingTx) (*export.RPCTra
 	if etx == nil {
 		return nil, errors.New("transaction is not an EVM transaction and thus cannot be represented in _getTransaction* endpoints")
 	}
-	sdkCtx := t.ctxProvider(PendingCtxHeight)
+	sdkCtx, err := t.watermarks.PendingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
 	from, err := rpcutils.RecoverEVMSenderWithContext(sdkCtx, etx)
 	if err != nil {
 		return nil, err
@@ -379,7 +403,7 @@ func (t *TransactionAPI) encodePendingTransaction(ptx PendingTx) (*export.RPCTra
 func (t *TransactionAPI) GetTransactionErrorByHash(ctx context.Context, hash common.Hash) (result string, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getTransactionErrorByHash", t.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, t.namespace+"_getTransactionErrorByHash", t.connectionType, startTime, returnErr, recover())
 	}()
 	receipt, err := t.keeper.GetReceipt(t.ctxProvider(LatestCtxHeight), hash)
 	if err != nil {
@@ -403,20 +427,20 @@ func (t *TransactionAPI) GetTransactionCount(ctx context.Context, address common
 
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getTransactionCount", t.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, t.namespace+"_getTransactionCount", t.connectionType, startTime, returnErr, recover())
 	}()
 
 	pending := blockNrOrHash.BlockHash == nil && blockNrOrHash.BlockNumber != nil && *blockNrOrHash.BlockNumber == rpc.PendingBlockNumber
-	if pending && (t.watermarks == nil || t.watermarks.pending == nil) {
-		return t.forwardPendingNonce(ctx, address)
+	if pending {
+		if t.watermarks == nil || t.watermarks.pending == nil {
+			return t.forwardPendingNonce(ctx, address)
+		}
+		return t.pendingNonce(ctx, address)
 	}
 
 	height, err := t.watermarks.ResolveHeight(ctx, blockNrOrHash)
 	if err != nil {
 		return nil, err
-	}
-	if height == PendingCtxHeight {
-		return t.pendingNonce(address), nil
 	}
 	sdkCtx := t.ctxProvider(height)
 	if err := CheckVersion(sdkCtx, t.keeper); err != nil {
@@ -429,9 +453,13 @@ func (t *TransactionAPI) GetTransactionCount(ctx context.Context, address common
 // pendingNonce is the sequencer's next nonce for address on the open block. Held
 // future nonces never move it: the nonce queue drains them into the open block
 // only once the gap fills, so the open-block nonce is the next executable one.
-func (t *TransactionAPI) pendingNonce(address common.Address) *hexutil.Uint64 {
-	nonce := t.keeper.GetNonce(t.ctxProvider(PendingCtxHeight), address)
-	return (*hexutil.Uint64)(&nonce)
+func (t *TransactionAPI) pendingNonce(ctx context.Context, address common.Address) (*hexutil.Uint64, error) {
+	sdkCtx, err := t.watermarks.PendingContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	nonce := t.keeper.GetNonce(sdkCtx, address)
+	return (*hexutil.Uint64)(&nonce), nil
 }
 
 // forwardPendingNonce asks the sequencer for the pending nonce from a node that
@@ -530,7 +558,7 @@ func replaceFrom(tx *export.RPCTransaction, receipt *types.Receipt) {
 func (t *TransactionAPI) Sign(ctx context.Context, addr common.Address, data hexutil.Bytes) (result hexutil.Bytes, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_sign", t.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, t.namespace+"_sign", t.connectionType, startTime, returnErr, recover())
 	}()
 	if !t.keyringEnabled {
 		return nil, &ErrEVMNotSupported{Msg: "eth_sign is disabled; sign with an external wallet"}

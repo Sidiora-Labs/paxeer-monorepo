@@ -91,6 +91,15 @@ pub struct SequencerLog {
     pub log_index: u64,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TransactionReceipt {
+    pub status: bool,
+    pub block_number: u64,
+    pub transaction_index: u64,
+    pub gas_used: u64,
+    pub logs: Vec<SequencerLog>,
+}
+
 /// The execution fields of a receipted or committed transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExecutedReceipt {
@@ -136,6 +145,8 @@ pub struct ExecutedReceipt {
     pub key_id: [u8; 32],
     /// Canonical signed receipt bytes.
     pub receipt: Vec<u8>,
+    /// Signing public key served with the receipt.
+    pub signing_key: [u8; 32],
 }
 
 /// The answer of `pax_sequencerReceipt` for a known transaction.
@@ -187,9 +198,37 @@ pub struct SequencerBlock {
     pub timestamp: u64,
     /// Root the header commits over the block's transactions.
     pub transactions_root: [u8; 32],
+    /// Root the header commits over the block's receipts.
+    pub receipts_root: [u8; 32],
     /// The signed transactions in block index order, each in the encoding
     /// `eth_sendRawTransaction` takes.
     pub transactions: Vec<Vec<u8>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StorageProof {
+    pub key: [u8; 32],
+    pub value: [u8; 32],
+    pub proof: Vec<Vec<u8>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AccountProof {
+    pub address: [u8; 20],
+    pub balance: [u8; 32],
+    pub nonce: u64,
+    pub code_hash: [u8; 32],
+    pub storage_hash: [u8; 32],
+    pub account_proof: Vec<Vec<u8>>,
+    pub storage: Vec<StorageProof>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HistoryPage {
+    pub items: Vec<Value>,
+    pub next_cursor: Option<String>,
+    pub indexed_height: u64,
+    pub chain_height: u64,
 }
 
 /// A JSON-RPC 2.0 client for the sequencer methods.
@@ -211,11 +250,28 @@ impl SequencerEndpoint {
     /// [`SequencerError::Endpoint`] for another scheme, a non-loopback plain
     /// URL, an `https` URL without trust anchors or an empty anchor.
     pub fn new(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, SequencerError> {
+        Self::new_with_plaintext_policy(url, trust_anchors, false)
+    }
+
+    pub fn new_with_railway_private_network(
+        url: &str,
+        trust_anchors: &[&[u8]],
+    ) -> Result<Self, SequencerError> {
+        Self::new_with_plaintext_policy(url, trust_anchors, true)
+    }
+
+    fn new_with_plaintext_policy(
+        url: &str,
+        trust_anchors: &[&[u8]],
+        allow_railway_private_network: bool,
+    ) -> Result<Self, SequencerError> {
         let uri: ureq::http::Uri = url.parse().map_err(|_| SequencerError::Endpoint)?;
         let host = uri.host().ok_or(SequencerError::Endpoint)?;
         match uri.scheme_str() {
             Some("https") if !trust_anchors.is_empty() => {}
-            Some("http") if matches!(host, "127.0.0.1" | "[::1]" | "localhost") => {}
+            Some("http")
+                if matches!(host, "127.0.0.1" | "[::1]" | "localhost")
+                    || (allow_railway_private_network && railway_private_url(url)) => {}
             _ => return Err(SequencerError::Endpoint),
         }
         if trust_anchors.iter().any(|anchor| anchor.is_empty()) {
@@ -242,6 +298,55 @@ impl SequencerEndpoint {
             url: url.to_owned(),
             next_id: AtomicU64::new(1),
         })
+    }
+
+    /// Chain id reported by the sequencer.
+    ///
+    /// # Errors
+    /// Transport, refusal and decode failures as [`SequencerError`].
+    pub fn chain_id(&self) -> Result<u64, SequencerError> {
+        let result = self.call("eth_chainId", &json!([]))?;
+        quantity_u64(&result).ok_or(SequencerError::Malformed)
+    }
+
+    /// Balance of `address` in the pending state, as a big-endian quantity.
+    ///
+    /// # Errors
+    /// Transport, refusal and decode failures as [`SequencerError`].
+    pub fn balance(&self, address: &[u8; 20]) -> Result<[u8; 32], SequencerError> {
+        let result = self.call("eth_getBalance", &json!([hex(address), "pending"]))?;
+        quantity_u256(&result).ok_or(SequencerError::Malformed)
+    }
+
+    pub fn account_proof(
+        &self,
+        address: &[u8; 20],
+        slots: &[[u8; 32]],
+        height: u64,
+    ) -> Result<AccountProof, SequencerError> {
+        let slots: Vec<_> = slots.iter().map(|slot| hex(slot)).collect();
+        let result = self.call(
+            "eth_getProof",
+            &json!([hex(address), slots, format!("{height:#x}")]),
+        )?;
+        let proof = decode_account_proof(&result).ok_or(SequencerError::Malformed)?;
+        if proof.address != *address {
+            return Err(SequencerError::Malformed);
+        }
+        Ok(proof)
+    }
+
+    pub fn history(
+        &self,
+        account: &str,
+        cursor: Option<&str>,
+        limit: u64,
+    ) -> Result<HistoryPage, SequencerError> {
+        if cursor.is_some_and(|cursor| !history_cursor(cursor)) {
+            return Err(SequencerError::Endpoint);
+        }
+        let result = self.call("px_getHistory", &json!([account, cursor, limit]))?;
+        decode_history_page(&result).ok_or(SequencerError::Malformed)
     }
 
     /// Next nonce of `address` from the sequencer's pending nonce map.
@@ -283,6 +388,22 @@ impl SequencerEndpoint {
     /// failures as [`SequencerError`].
     pub fn call_pending(&self, to: &[u8; 20], data: &[u8]) -> Result<Vec<u8>, SequencerError> {
         self.eth_call(to, data, "pending")
+    }
+
+    pub fn call_pending_from(
+        &self,
+        from: &[u8; 20],
+        to: &[u8; 20],
+        data: &[u8],
+    ) -> Result<Vec<u8>, SequencerError> {
+        let result = self.call(
+            "eth_call",
+            &json!([{"from": hex(from), "to": hex(to), "data": hex(data)}, "pending"]),
+        )?;
+        result
+            .as_str()
+            .and_then(bytes)
+            .ok_or(SequencerError::Malformed)
     }
 
     /// Return data of a read-only call of `to` with `data` against the
@@ -357,6 +478,19 @@ impl SequencerEndpoint {
         Ok(Some(receipt))
     }
 
+    pub fn transaction_receipt(
+        &self,
+        hash: &[u8; 32],
+    ) -> Result<Option<TransactionReceipt>, SequencerError> {
+        let result = self.call("eth_getTransactionReceipt", &json!([hex(hash)]))?;
+        if result.is_null() {
+            return Ok(None);
+        }
+        decode_transaction_receipt(&result)
+            .map(Some)
+            .ok_or(SequencerError::Malformed)
+    }
+
     /// The pinned `ReceiptKeys` list served by the router.
     ///
     /// # Errors
@@ -379,6 +513,16 @@ impl SequencerEndpoint {
         } else {
             Err(SequencerError::Malformed)
         }
+    }
+
+    /// The node's current block height.
+    ///
+    /// # Errors
+    /// Transport and refusal failures as [`SequencerError`];
+    /// [`SequencerError::Malformed`] for an invalid or overflowing quantity.
+    pub fn block_number(&self) -> Result<u64, SequencerError> {
+        let result = self.call("eth_blockNumber", &json!([]))?;
+        quantity_u64(&result).ok_or(SequencerError::Malformed)
     }
 
     /// The committed block at `height` with full transactions; `None` when the
@@ -430,6 +574,10 @@ impl SequencerEndpoint {
         Ok(Some(address))
     }
 
+    pub(crate) fn call_raw(&self, method: &str, params: &Value) -> Result<Value, SequencerError> {
+        self.call(method, params)
+    }
+
     fn call(&self, method: &str, params: &Value) -> Result<Value, SequencerError> {
         let id = self
             .next_id
@@ -461,6 +609,29 @@ impl SequencerEndpoint {
             serde_json::from_slice(&answer).map_err(|_| SequencerError::Malformed)?;
         decode_response(document, id)
     }
+}
+
+fn railway_private_url(url: &str) -> bool {
+    let Some(authority) = url.strip_prefix("http://") else {
+        return false;
+    };
+    let Some((host, port)) = authority.rsplit_once(':') else {
+        return false;
+    };
+    let Some(name) = host.strip_suffix(".railway.internal") else {
+        return false;
+    };
+    !name.is_empty()
+        && name.len() <= 63
+        && name
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+        && !name.starts_with('-')
+        && !name.ends_with('-')
+        && !port.is_empty()
+        && port.len() <= 5
+        && port.bytes().all(|byte| byte.is_ascii_digit())
+        && port.parse::<u16>().is_ok_and(|port| port != 0)
 }
 
 fn transport(error: &ureq::Error) -> SequencerError {
@@ -547,6 +718,63 @@ fn word_u64(word: &[u8]) -> Option<u64> {
     Some(u64::from_be_bytes(low.try_into().ok()?))
 }
 
+fn proof_nodes(value: &Value) -> Option<Vec<Vec<u8>>> {
+    value
+        .as_array()?
+        .iter()
+        .map(|node| bytes(node.as_str()?))
+        .collect()
+}
+
+fn decode_storage_proof(value: &Value) -> Option<StorageProof> {
+    let fields = Fields(value.as_object()?);
+    Some(StorageProof {
+        key: fields.fixed("key")?,
+        value: quantity_u256(fields.0.get("value")?)?,
+        proof: proof_nodes(fields.0.get("proof")?)?,
+    })
+}
+
+fn decode_account_proof(value: &Value) -> Option<AccountProof> {
+    let fields = Fields(value.as_object()?);
+    Some(AccountProof {
+        address: fields.fixed("address")?,
+        balance: quantity_u256(fields.0.get("balance")?)?,
+        nonce: fields.u64("nonce")?,
+        code_hash: fields.fixed("codeHash")?,
+        storage_hash: fields.fixed("storageHash")?,
+        account_proof: proof_nodes(fields.0.get("accountProof")?)?,
+        storage: fields
+            .0
+            .get("storageProof")?
+            .as_array()?
+            .iter()
+            .map(decode_storage_proof)
+            .collect::<Option<_>>()?,
+    })
+}
+
+fn history_cursor(cursor: &str) -> bool {
+    cursor.len() == 32
+        && cursor
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn decode_history_page(value: &Value) -> Option<HistoryPage> {
+    let next_cursor = match value.get("next_cursor")? {
+        Value::Null => None,
+        Value::String(cursor) if history_cursor(cursor) => Some(cursor.clone()),
+        _ => return None,
+    };
+    Some(HistoryPage {
+        items: value.get("items")?.as_array()?.clone(),
+        next_cursor,
+        indexed_height: value.get("indexedHeight")?.as_u64()?,
+        chain_height: value.get("chainHeight")?.as_u64()?,
+    })
+}
+
 fn decode_receipt_key(value: &Value) -> Option<ReceiptKeyEntry> {
     let fields = Fields::exact(value, &["keyId", "publicKey", "firstHeight", "lastHeight"])?;
     let entry = ReceiptKeyEntry {
@@ -562,7 +790,7 @@ fn decode_receipt_key(value: &Value) -> Option<ReceiptKeyEntry> {
 }
 
 const SUBMITTED_FIELDS: [&str; 3] = ["rung", "txHash", "nonce"];
-const RECEIPTED_FIELDS: [&str; 22] = [
+const RECEIPTED_FIELDS: [&str; 23] = [
     "rung",
     "txHash",
     "nonce",
@@ -585,6 +813,7 @@ const RECEIPTED_FIELDS: [&str; 22] = [
     "vmError",
     "keyId",
     "receipt",
+    "signingKey",
 ];
 
 fn decode_receipt(value: &Value) -> Option<SequencerReceipt> {
@@ -659,11 +888,16 @@ fn executed(fields: &Fields<'_>) -> Option<ExecutedReceipt> {
         vm_error: fields.string("vmError")?,
         key_id: fields.fixed("keyId")?,
         receipt,
+        signing_key: fields.fixed("signingKey")?,
     })
 }
 
 fn decode_log(value: &Value) -> Option<SequencerLog> {
     let fields = Fields::exact(value, &["address", "topics", "data", "logIndex"])?;
+    decode_log_fields(&fields)
+}
+
+fn decode_log_fields(fields: &Fields<'_>) -> Option<SequencerLog> {
     let topics = fields.0.get("topics")?.as_array()?;
     if topics.len() > MAX_LOG_TOPICS {
         return None;
@@ -673,6 +907,28 @@ fn decode_log(value: &Value) -> Option<SequencerLog> {
         topics: topics.iter().map(fixed).collect::<Option<_>>()?,
         data: fields.bytes("data")?,
         log_index: fields.u64("logIndex")?,
+    })
+}
+
+fn decode_transaction_receipt(value: &Value) -> Option<TransactionReceipt> {
+    let fields = Fields(value.as_object()?);
+    let status = match fields.u64("status")? {
+        0 => false,
+        1 => true,
+        _ => return None,
+    };
+    Some(TransactionReceipt {
+        status,
+        block_number: fields.u64("blockNumber")?,
+        transaction_index: fields.u64("transactionIndex")?,
+        gas_used: fields.u64("gasUsed")?,
+        logs: fields
+            .0
+            .get("logs")?
+            .as_array()?
+            .iter()
+            .map(|log| decode_log_fields(&Fields(log.as_object()?)))
+            .collect::<Option<_>>()?,
     })
 }
 
@@ -697,6 +953,7 @@ fn decode_block(value: &Value, height: u64) -> Option<SequencerBlock> {
         parent_hash: fields.fixed("parentHash")?,
         timestamp: fields.u64("timestamp")?,
         transactions_root: fields.fixed("transactionsRoot")?,
+        receipts_root: fields.fixed("receiptsRoot")?,
         transactions,
     })
 }

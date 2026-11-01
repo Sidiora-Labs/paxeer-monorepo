@@ -1,5 +1,7 @@
 package types
 
+import "encoding/binary"
+
 const (
 	// ModuleName is the module name and the name of the account that holds
 	// every token's custody, escrow and fee accruals.
@@ -46,3 +48,18 @@ var (
 	FillBackoffPrefix     = []byte{0x13}
 	ActiveCountPrefix     = []byte{0x14}
 )
+
+var ActivePositionPrefix = []byte{0x15}
+var ActiveLengthPrefix = []byte{0x16}
+
+func ActivePositionKey(list []byte, position uint64) []byte {
+	key := make([]byte, 10)
+	key[0] = ActivePositionPrefix[0]
+	key[1] = list[0]
+	binary.BigEndian.PutUint64(key[2:], position)
+	return key
+}
+
+func ActiveLengthKey(list []byte) []byte {
+	return []byte{ActiveLengthPrefix[0], list[0]}
+}

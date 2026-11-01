@@ -101,6 +101,9 @@ fn entry(
             .then_some(ProtocolAuthority::CapabilityGrant([6; 32])),
         submitted_bytes,
         receipt_id,
+        tx_hash: None,
+        nonce: None,
+        rung: None,
     }
 }
 

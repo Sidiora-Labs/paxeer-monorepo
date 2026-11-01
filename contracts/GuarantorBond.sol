@@ -152,7 +152,7 @@ contract GuarantorBond is IGuarantorEligibility, LayerXComponent {
 
     function syncCustodiedValue(uint256 value) external {
         if (msg.sender != vault) revert Unauthorized();
-        if (value == custodiedValue) revert InvalidBondAction();
+        if (value == custodiedValue) return;
         custodiedValue = value;
         uint64 version = _advanceVersion();
         emit CustodiedValueSynchronized(value, version);

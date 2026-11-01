@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useIsMobile } from "@/hooks/ui/useMobile";
-import { PERPS_MARKETS, TRACK_B_STRINGS } from "@/core/perps/config";
+import { TRACK_B_STRINGS } from "@/core/perps/config";
 import { OiChart } from "@/widgets/analytics/OiChart";
 import { MarkPriceChart } from "@/widgets/analytics/MarkPriceChart";
 import { ProtocolTvlChart } from "@/widgets/analytics/ProtocolTvlChart";
@@ -11,11 +12,15 @@ import { GasWeather } from "@/ui/tokens/GasWeather";
 
 export default function AnalyticsPage() {
   const isMobile = useIsMobile();
-  const [selectedMarketId, setSelectedMarketId] = useState<number>(PERPS_MARKETS[0]?.marketId ?? 0);
+  const { catalog, isLoading, error } = usePerpsMarkets();
+  const [marketSelection, setSelectedMarketId] = useState<number>();
+  const selectedMarketId = catalog.some(
+    (market) => market.marketId === marketSelection,
+  ) ? marketSelection : catalog[0]?.marketId;
 
   const marketOptions = useMemo(
-    () => PERPS_MARKETS.map((m) => ({ value: m.marketId, label: `${m.symbol}/USD` })),
-    []
+    () => catalog.map((m) => ({ value: m.marketId, label: `${m.symbol}/USD` })),
+    [catalog],
   );
 
   return (
@@ -53,9 +58,15 @@ export default function AnalyticsPage() {
           <select
             id="analytics-market"
             className="rounded-card bg-surface-2 border border-foreground/10 px-3 py-2 text-sm font-mono tabular-nums shadow-04 focus:outline-none focus:ring-2 focus:ring-long/30 transition ease-data duration-150 w-full sm:w-auto sm:min-w-[200px]"
-            value={selectedMarketId}
+            value={selectedMarketId ?? ""}
+            disabled={catalog.length === 0}
             onChange={(e) => setSelectedMarketId(Number(e.target.value))}
           >
+            {catalog.length === 0 && (
+              <option value="">
+                {error ? "Unable to load markets" : isLoading ? "Loading markets…" : "No markets available"}
+              </option>
+            )}
             {marketOptions.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}

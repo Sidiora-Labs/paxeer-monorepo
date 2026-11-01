@@ -1,13 +1,19 @@
-//! Receipt-only resolution for submissions whose transport outcome is unknown.
+//! Sequencer receipt resolution for submissions whose transport outcome is unknown.
 
+use layerx_client::rpc::receipt::{
+    self, AuthenticatedReceipt, Lookup, LookupContext, ReceiptError,
+};
+use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint, SequencerError};
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use sha2::{Digest, Sha256};
 
-use crate::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence};
 use crate::store::{ObjectKind, Store, StoreError, TenantId, TenantKey};
 
-use super::{Outbox, OutboxError, SubmissionState};
+use super::{
+    encode_record, Outbox, OutboxError, ReceiptEvidence, StateTransition, SubmissionState,
+};
 
-const STATE_MAGIC: &[u8; 4] = b"LXUR";
+const STATE_MAGIC: &[u8; 4] = b"LXU2";
 const INITIAL_BACKOFF_MS: u64 = 1_000;
 const MAX_BACKOFF_MS: u64 = 60_000;
 
@@ -27,30 +33,15 @@ pub enum UnknownBoundaryError {
     InvalidResponse,
 }
 
-/// The only boundary operations unknown-state resolution is permitted to use.
+/// The authenticated sequencer connection used for unknown-state resolution.
 pub trait ReceiptLookup {
-    /// Looks up terminal receipt evidence already recorded under one idempotency key.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Unavailable` when the node cannot be reached and `InvalidResponse` for a reply that
-    /// is not decodable receipt evidence; a reachable node holding no receipt returns `Ok(None)`.
-    fn receipt_by_idempotency_key(
-        &mut self,
-        idempotency_key: [u8; 32],
-    ) -> Result<Option<RawReceiptEvidence>, UnknownBoundaryError>;
+    fn sequencer_endpoint(&self) -> &SequencerEndpoint;
+}
 
-    /// Resends the stored signed bytes unchanged under their original idempotency key.
-    ///
-    /// # Errors
-    ///
-    /// Returns `Unavailable` when the node cannot be reached and `InvalidResponse` for an unusable
-    /// reply; both leave the send indeterminate, so neither may be read as a refusal.
-    fn resend_exact(
-        &mut self,
-        idempotency_key: [u8; 32],
-        signed_canonical_bytes: &[u8],
-    ) -> Result<(), UnknownBoundaryError>;
+impl ReceiptLookup for SequencerEndpoint {
+    fn sequencer_endpoint(&self) -> &SequencerEndpoint {
+        self
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -61,6 +52,7 @@ pub enum ResolutionObservation {
     UnverifiedReceipt,
     ExecutedReceipt,
     FailedReceipt,
+    NonceConsumed,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -87,6 +79,7 @@ pub enum UnknownResolutionError {
     TimeRegressed,
     Arithmetic,
     Corrupt,
+    StateVersion,
 }
 
 impl From<OutboxError> for UnknownResolutionError {
@@ -101,19 +94,32 @@ impl From<StoreError> for UnknownResolutionError {
     }
 }
 
-/// Resolves an unknown submission solely from a receipt lookup by idempotency key.
+impl UnknownResolutionError {
+    #[must_use]
+    pub const fn reason(&self) -> &'static str {
+        match self {
+            Self::StateVersion => "unknown.state_version",
+            Self::Corrupt => "unknown.state_corrupt",
+            Self::NotUnknown => "unknown.not_unknown",
+            Self::TimeRegressed => "unknown.time_regressed",
+            Self::Arithmetic => "unknown.arithmetic",
+            Self::Outbox(_) => "unknown.outbox",
+            Self::Store(_) => "unknown.store",
+        }
+    }
+}
+
+/// Resolves an unknown transaction using published receipt keys and the sender's pending nonce.
 ///
 /// # Errors
-///
-/// Returns `Outbox(NotFound)` for an untracked submission and `NotUnknown` for a record in any
-/// other state, `TimeRegressed`, `Arithmetic` or `Corrupt` from the persisted backoff record, and
-/// `Store` for failed durable writes; lookup and resend failures surface as observations instead.
+/// Refuses legacy or corrupt resolution state, invalid stored transactions, regressed clocks,
+/// non-unknown submissions and failed durable writes.
 pub fn resolve_unknown<B: ReceiptLookup>(
     outbox: &mut Outbox,
     store: &mut Store,
     submission_id: [u8; 32],
     observed_at_ms: u64,
-    verifier: &EvidenceAuthority,
+    receipt_keys: &[ReceiptKeyEntry],
     boundary: &mut B,
 ) -> Result<UnknownResolution, UnknownResolutionError> {
     let record = outbox
@@ -125,9 +131,16 @@ pub fn resolve_unknown<B: ReceiptLookup>(
         return Err(UnknownResolutionError::NotUnknown);
     }
 
+    let (transaction, signature) = decode_signed(&record.signed_canonical_bytes)
+        .map_err(|_| UnknownResolutionError::Corrupt)?;
+    let sender =
+        recover_sender(&transaction, &signature).map_err(|_| UnknownResolutionError::Corrupt)?;
+    if transaction_hash(&record.signed_canonical_bytes) != submission_id {
+        return Err(UnknownResolutionError::Corrupt);
+    }
     let key = state_key(record.tenant.clone(), submission_id)?;
     let mut age = match store.get(&key) {
-        Some(value) => decode_state(value.bytes(), observed_at_ms)?,
+        Some(value) => decode_state(value.bytes(), submission_id, observed_at_ms)?,
         None => UnknownAge {
             first_observed_at_ms: observed_at_ms,
             age_ms: 0,
@@ -155,9 +168,52 @@ pub fn resolve_unknown<B: ReceiptLookup>(
     age.next_attempt_at_ms = observed_at_ms
         .checked_add(backoff_ms(submission_id, age.attempt_count))
         .ok_or(UnknownResolutionError::Arithmetic)?;
-    store.put_local(key.clone(), encode_state(age))?;
+    store.put_local(key.clone(), encode_state(submission_id, age))?;
 
-    let Ok(receipt) = boundary.receipt_by_idempotency_key(submission_id) else {
+    let endpoint = boundary.sequencer_endpoint();
+    let lookup =
+        receipt::lookup_authenticated(endpoint, submission_id, LookupContext { receipt_keys });
+    let observation = match lookup {
+        Ok(Lookup::Verified(receipt)) => {
+            if receipt.execution().nonce != transaction.nonce || receipt.execution().from != sender
+            {
+                ResolutionObservation::UnverifiedReceipt
+            } else {
+                let state = record_authenticated_receipt(outbox, store, submission_id, &receipt)?;
+                store.remove_local(&key)?;
+                return Ok(UnknownResolution {
+                    state,
+                    age,
+                    observation: if state == SubmissionState::Executed {
+                        ResolutionObservation::ExecutedReceipt
+                    } else {
+                        ResolutionObservation::FailedReceipt
+                    },
+                    resend: ResendObservation::NotWarranted,
+                });
+            }
+        }
+        Ok(Lookup::Submitted { tx_hash, nonce })
+            if tx_hash != submission_id || nonce != transaction.nonce =>
+        {
+            ResolutionObservation::UnverifiedReceipt
+        }
+        Ok(Lookup::Absent | Lookup::Submitted { .. }) => ResolutionObservation::ReceiptMissing,
+        Err(ReceiptError::Sequencer(
+            SequencerError::Unavailable | SequencerError::Tls | SequencerError::HttpStatus(_),
+        )) => ResolutionObservation::LookupUnavailable,
+        Err(_) => ResolutionObservation::UnverifiedReceipt,
+    };
+    if observation != ResolutionObservation::ReceiptMissing {
+        return Ok(UnknownResolution {
+            state: SubmissionState::Unknown,
+            age,
+            observation,
+            resend: ResendObservation::NotWarranted,
+        });
+    }
+
+    let Ok(pending_nonce) = endpoint.pending_nonce(&sender) else {
         return Ok(UnknownResolution {
             state: SubmissionState::Unknown,
             age,
@@ -165,45 +221,29 @@ pub fn resolve_unknown<B: ReceiptLookup>(
             resend: ResendObservation::NotWarranted,
         });
     };
-
-    if let Some(receipt) = receipt {
-        let verified_receipt = match verifier.verify_receipt(&receipt) {
-            Ok(candidate) if candidate.activity_id() == record.status.activity_id => candidate,
-            Ok(_) | Err(_) => {
-                return Ok(UnknownResolution {
-                    state: SubmissionState::Unknown,
-                    age,
-                    observation: ResolutionObservation::UnverifiedReceipt,
-                    resend: ResendObservation::NotWarranted,
-                });
-            }
-        };
-        let (state, observation, cause) = if verified_receipt.result_code() == 0 {
-            (
-                SubmissionState::Executed,
-                ResolutionObservation::ExecutedReceipt,
-                "verified receipt found by idempotency key",
-            )
-        } else {
-            (
-                SubmissionState::Failed,
-                ResolutionObservation::FailedReceipt,
-                "verified failure receipt found by idempotency key",
-            )
-        };
-        outbox.transition(store, submission_id, state, cause, Some(verified_receipt))?;
+    if pending_nonce > transaction.nonce {
+        outbox.transition(
+            store,
+            submission_id,
+            SubmissionState::Failed,
+            "submission.nonce_consumed",
+            None,
+        )?;
         store.remove_local(&key)?;
         return Ok(UnknownResolution {
-            state,
+            state: SubmissionState::Failed,
             age,
-            observation,
+            observation: ResolutionObservation::NonceConsumed,
             resend: ResendObservation::NotWarranted,
         });
     }
-
-    let resend = match boundary.resend_exact(submission_id, &record.signed_canonical_bytes) {
-        Ok(()) => ResendObservation::Sent,
-        Err(_) => ResendObservation::Indeterminate,
+    let resend = if pending_nonce == transaction.nonce {
+        match endpoint.send_raw_transaction(&record.signed_canonical_bytes) {
+            Ok(hash) if hash == submission_id => ResendObservation::Sent,
+            Ok(_) | Err(_) => ResendObservation::Indeterminate,
+        }
+    } else {
+        ResendObservation::NotWarranted
     };
     Ok(UnknownResolution {
         state: SubmissionState::Unknown,
@@ -211,6 +251,54 @@ pub fn resolve_unknown<B: ReceiptLookup>(
         observation: ResolutionObservation::ReceiptMissing,
         resend,
     })
+}
+
+fn record_authenticated_receipt(
+    outbox: &mut Outbox,
+    store: &mut Store,
+    submission_id: [u8; 32],
+    receipt: &AuthenticatedReceipt,
+) -> Result<SubmissionState, UnknownResolutionError> {
+    let mut record = outbox
+        .records
+        .get(&submission_id)
+        .cloned()
+        .ok_or(OutboxError::NotFound)?;
+    if record.status.state != SubmissionState::Unknown || receipt.activity_id() != submission_id {
+        return Err(UnknownResolutionError::Corrupt);
+    }
+    let state = if receipt.execution().success {
+        SubmissionState::Executed
+    } else {
+        SubmissionState::Failed
+    };
+    let evidence = ReceiptEvidence {
+        receipt_ref: Sha256::digest(receipt.canonical_bytes()).into(),
+        block_height: receipt.height(),
+        transaction_index: receipt.execution().index,
+    };
+    record.status.state = state;
+    record.status.evidence = Some(evidence);
+    record.status.transitions.push(StateTransition {
+        from: SubmissionState::Unknown,
+        to: state,
+        cause: "verified sequencer receipt found by transaction hash".to_owned(),
+        receipt: Some(evidence),
+    });
+    let receipt_key = TenantKey::new(
+        record.tenant.clone(),
+        ObjectKind::Receipt,
+        evidence.receipt_ref.to_vec(),
+    )?;
+    store.put_local(receipt_key, receipt.canonical_bytes().to_vec())?;
+    let key = TenantKey::new(
+        record.tenant.clone(),
+        ObjectKind::Outbox,
+        submission_id.to_vec(),
+    )?;
+    store.put_local(key, encode_record(&record)?)?;
+    outbox.records.insert(submission_id, record);
+    Ok(state)
 }
 
 fn state_key(tenant: TenantId, submission_id: [u8; 32]) -> Result<TenantKey, StoreError> {
@@ -230,25 +318,33 @@ fn backoff_ms(submission_id: [u8; 32], attempt_count: u32) -> u64 {
     base.saturating_add(jitter).min(MAX_BACKOFF_MS)
 }
 
-fn encode_state(age: UnknownAge) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(24);
+fn encode_state(transaction_hash: [u8; 32], age: UnknownAge) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(56);
     bytes.extend_from_slice(STATE_MAGIC);
+    bytes.extend_from_slice(&transaction_hash);
     bytes.extend_from_slice(&age.first_observed_at_ms.to_be_bytes());
     bytes.extend_from_slice(&age.attempt_count.to_be_bytes());
     bytes.extend_from_slice(&age.next_attempt_at_ms.to_be_bytes());
     bytes
 }
 
-fn decode_state(bytes: &[u8], observed_at_ms: u64) -> Result<UnknownAge, UnknownResolutionError> {
-    if bytes.len() != 24 || &bytes[..4] != STATE_MAGIC {
+fn decode_state(
+    bytes: &[u8],
+    transaction_hash: [u8; 32],
+    observed_at_ms: u64,
+) -> Result<UnknownAge, UnknownResolutionError> {
+    if bytes.starts_with(b"LXUR") {
+        return Err(UnknownResolutionError::StateVersion);
+    }
+    if bytes.len() != 56 || &bytes[..4] != STATE_MAGIC || bytes[4..36] != transaction_hash {
         return Err(UnknownResolutionError::Corrupt);
     }
     let mut first = [0_u8; 8];
-    first.copy_from_slice(&bytes[4..12]);
+    first.copy_from_slice(&bytes[36..44]);
     let mut attempts = [0_u8; 4];
-    attempts.copy_from_slice(&bytes[12..16]);
+    attempts.copy_from_slice(&bytes[44..48]);
     let mut next = [0_u8; 8];
-    next.copy_from_slice(&bytes[16..24]);
+    next.copy_from_slice(&bytes[48..56]);
     let first_observed_at_ms = u64::from_be_bytes(first);
     if observed_at_ms < first_observed_at_ms {
         return Err(UnknownResolutionError::TimeRegressed);

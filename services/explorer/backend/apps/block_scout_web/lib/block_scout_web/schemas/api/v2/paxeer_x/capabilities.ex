@@ -14,18 +14,22 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.Capabilities do
     type: :object,
     properties: %{
       addr: %Schema{type: :boolean, nullable: false, description: "The addr precompile answers getUnifiedAccount"},
-      custody: %Schema{type: :boolean, nullable: false, description: "The custody precompile answers"},
-      anchor: %Schema{type: :boolean, nullable: false, description: "The anchor precompile answers"},
       exchange: %Schema{type: :boolean, nullable: false, description: "The exchange precompile answers"},
       bridge: %Schema{type: :boolean, nullable: false, description: "The bridge precompile answers"},
       launchpad: %Schema{type: :boolean, nullable: false, description: "The launchpad precompile answers"},
+      checked_at: %Schema{
+        type: :string,
+        format: :"date-time",
+        nullable: true,
+        description: "Time of the last successful probe; null before a probe succeeds"
+      },
       price_feed: %Schema{
         type: :boolean,
         nullable: false,
         description: "Native price-feed submissions are indexed; absent while they are not"
       }
     },
-    required: [:addr, :custody, :anchor, :exchange, :bridge, :launchpad],
+    required: [:addr, :exchange, :bridge, :launchpad, :checked_at],
     nullable: false,
     additionalProperties: false
   })

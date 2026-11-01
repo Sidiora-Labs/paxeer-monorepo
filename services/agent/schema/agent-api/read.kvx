@@ -130,7 +130,6 @@ request_required = ["fact_set","requested_verification_level"]
 response = "VerifiedRead<OfflineExport>"
 response_required = ["facts","bundles","height"]
 height = "canonical_decimal_string u64"
-settlement_domain = "Paxeer"
 verification_environment = "layerx-proof_without_daemon_or_network"
 request_type = "ReadRequest<FactRef[]>"
 fact_set = "FactRef[] of 1 through 16 unique references in request order"

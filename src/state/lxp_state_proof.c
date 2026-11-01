@@ -149,16 +149,6 @@ static lxp_result material(const lxp_kernel *state, lxp_byte_span key,
                 }
             }
         }
-        if (key.length == 33U && key.bytes[0] == 2U) {
-            for (size_t i = 0U; i < state->state->idempotency_count; ++i) {
-                const lxp_idempotency_key_state *entry = &state->state->idempotency[i];
-                if (memcmp(key.bytes + 1U, entry->key_hash, 32U) == 0) {
-                    proof->value_length = (uint32_t)entry->receipt_length;
-                    return lxp_kernel_idempotency_state_value(entry->receipt, entry->receipt_length,
-                                                               proof->value, sizeof(proof->value));
-                }
-            }
-        }
         if (key.length == 7U && key.bytes[0] == 3U) {
             bool expanded = false;
             for (size_t i = 0U; i < state->module_count; ++i)

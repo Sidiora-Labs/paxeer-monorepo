@@ -98,6 +98,71 @@ func requireSameMarket(t *testing.T, want, got types.Market) {
 	require.JSONEq(t, string(wantJSON), string(gotJSON))
 }
 
+func TestCreateMarketEmitsMarketCreated(t *testing.T) {
+	c := newCustodyEnv(t)
+	c.fund(recordedCreator, 4*creationFee)
+	c.ctx = c.ctx.WithEventManager(sdk.NewEventManager())
+	for _, tc := range []struct {
+		strategy types.FeeStrategy
+		value    string
+	}{
+		{types.FeeStrategyClaim, "0"},
+		{types.FeeStrategyBurn, "1"},
+		{types.FeeStrategyAirdrop, "2"},
+		{types.FeeStrategyLpRewards, "3"},
+	} {
+		t.Run(tc.value, func(t *testing.T) {
+			before := len(c.ctx.EventManager().Events())
+			market, err := c.createMarket(recordedCreator, recordedName, recordedSymbol, tc.strategy, common.Address{})
+			require.NoError(t, err)
+			stored, found := c.k.GetMarket(c.ctx, market.Denom)
+			require.True(t, found)
+			requireSameMarket(t, market, stored)
+			var created sdk.Events
+			for _, event := range c.ctx.EventManager().Events()[before:] {
+				if event.Type == types.EventTypeMarketCreated {
+					created = append(created, event)
+				}
+			}
+			require.Len(t, created, 1)
+			require.Equal(t, sdk.NewEvent(types.EventTypeMarketCreated,
+				sdk.NewAttribute(types.AttributeKeyDenom, market.Denom),
+				sdk.NewAttribute(types.AttributeKeyPointer, market.TokenAddress),
+				sdk.NewAttribute(types.AttributeKeyCreator, market.Creator),
+				sdk.NewAttribute(types.AttributeKeyStrategy, tc.value)), created[0])
+		})
+	}
+}
+
+func TestCreateMarketRefusalEmitsNoMarketCreated(t *testing.T) {
+	for _, occupy := range []string{"nonce", "code"} {
+		t.Run(occupy, func(t *testing.T) {
+			c := newCustodyEnv(t)
+			c.fund(recordedCreator, creationFee)
+			token := tokenAddress(t, c.k.Generation2().SidioraFactory,
+				tokenSalt(recordedCreator, recordedName, recordedSymbol, 0), recordedName, recordedSymbol)
+			pool, err := c.k.PredictPoolAddress(c.ctx, token, recordedCreator, common.Address{})
+			require.NoError(t, err)
+			evm := &testkeeper.EVMTestApp.EvmKeeper
+			if occupy == "nonce" {
+				evm.SetNonce(c.ctx, pool, 1)
+			} else {
+				evm.SetCode(c.ctx, pool, []byte{0x00})
+			}
+			c.ctx = c.ctx.WithEventManager(sdk.NewEventManager())
+			ctx, _, err := c.k.CreateMarket(c.ctx, c.caller, nil, recordedCreator, recordedName, recordedSymbol,
+				types.FeeStrategyClaim, common.Address{})
+			var taken *keeper.AddressTakenError
+			require.ErrorAs(t, err, &taken)
+			require.Equal(t, pool, taken.Address)
+			require.Zero(t, c.k.GetMarketCount(ctx))
+			for _, event := range ctx.EventManager().Events() {
+				require.NotEqual(t, types.EventTypeMarketCreated, event.Type)
+			}
+		})
+	}
+}
+
 func TestCreateMarket(t *testing.T) {
 	t.Run("derives the recorded generation 2 token salt and pool address", func(t *testing.T) {
 		e := newEnv(t)

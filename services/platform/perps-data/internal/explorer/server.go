@@ -8,6 +8,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"net/netip"
 	"regexp"
 	"strconv"
 	"strings"
@@ -36,6 +37,7 @@ var symbolPattern = regexp.MustCompile(`^[A-Z0-9]{1,32}$`)
 
 // Options configures a Server.
 type Options struct {
+	TrustedProxies []netip.Prefix
 	// LinkBase is PERPS_EXPLORER_TX_BASE; an empty base omits every link.
 	LinkBase string
 	// Requests is the number of requests one client key may make per Window.
@@ -51,11 +53,12 @@ type Options struct {
 // and chain@transactions are served by the gateway socket, including
 // /ws/explorer.
 type Server struct {
-	db      *sql.DB
-	ex      *Explorer
-	metrics *telemetry.Metrics
-	limiter *windowLimiter
-	mux     *http.ServeMux
+	db             *sql.DB
+	ex             *Explorer
+	metrics        *telemetry.Metrics
+	limiter        *windowLimiter
+	mux            *http.ServeMux
+	trustedProxies []netip.Prefix
 }
 
 // NewServer returns the explorer routes reading db.
@@ -71,11 +74,12 @@ func NewServer(db *sql.DB, opts Options) (*Server, error) {
 		return nil, err
 	}
 	s := &Server{
-		db:      db,
-		ex:      ex,
-		metrics: opts.Metrics,
-		limiter: &windowLimiter{max: opts.Requests, window: opts.Window, entries: map[string]windowEntry{}},
-		mux:     http.NewServeMux(),
+		db:             db,
+		ex:             ex,
+		metrics:        opts.Metrics,
+		limiter:        &windowLimiter{max: opts.Requests, window: opts.Window, entries: map[string]windowEntry{}},
+		mux:            http.NewServeMux(),
+		trustedProxies: append([]netip.Prefix(nil), opts.TrustedProxies...),
 	}
 	s.mux.HandleFunc("GET /api/chain/blocks", s.blocks)
 	s.mux.HandleFunc("GET /api/chain/transactions", s.transactions)
@@ -98,7 +102,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if route == "" || route == "/" {
 		route = unmatchedRoute
 	}
-	key := ratelimit.ClientKey(r)
+	key := ratelimit.ClientKey(r, s.trustedProxies)
 	if len(key) > maxClientKeyLen {
 		writeError(sw, http.StatusBadRequest, "invalid request principal")
 	} else if ok, retry := s.limiter.allow(key, time.Now()); !ok {
@@ -209,12 +213,10 @@ type chainStatus struct {
 	connected  bool
 }
 
-// ponytail: count(*) scans both tables on every health read; switch to a
-// maintained counter if the tables outgrow the 2 s cache.
 const chainStatusSQL = `SELECT
   (SELECT max(number) FROM perps.blocks),
-  (SELECT count(*) FROM perps.blocks),
-  (SELECT count(*) FROM perps.tx_actions),
+  (SELECT value FROM perps.chain_counters WHERE name = 'blocks'),
+  (SELECT value FROM perps.chain_counters WHERE name = 'tx_actions'),
   COALESCE((SELECT updated_at > now() - make_interval(secs => $1) FROM perps.cursors WHERE name = 'head'), false)`
 
 func (s *Server) status(ctx context.Context) (chainStatus, error) {

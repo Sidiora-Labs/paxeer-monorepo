@@ -298,6 +298,7 @@ export async function agentRoutes(app: FastifyInstance): Promise<void> {
       tx,
       broadcast: true,
       audit: audit(req, { tx: parsed.data.tx }),
+      label: 'send',
     });
     return reply.code(res.status).send(res.body);
   });

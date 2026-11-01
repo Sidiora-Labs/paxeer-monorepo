@@ -3,6 +3,7 @@ use std::fmt::{Display, Formatter};
 use std::path::Path;
 
 use layerx_types::ids::{ActivityId, Did, IdempotencyKey};
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use sha2::{Digest, Sha256};
 
@@ -14,8 +15,8 @@ use super::log::{read_payloads, AppendReceipt, AuditError, Log};
 use super::redaction::{PayloadEvidence, Redacted, RedactionError};
 
 const ENTRY_MAGIC: &[u8; 4] = b"LXAR";
-const ENTRY_VERSION: u8 = 2;
-const LEGACY_ENTRY_VERSION: u8 = 1;
+const ENTRY_VERSION: u8 = 3;
+const LEGACY_ENTRY_VERSION: u8 = 2;
 const MAX_TEXT_BYTES: usize = 4_096;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -112,6 +113,9 @@ pub struct Entry {
     pub protocol_authority: Option<ProtocolAuthority>,
     pub submitted_bytes: Option<PayloadEvidence>,
     pub receipt_id: Option<[u8; 32]>,
+    pub tx_hash: Option<[u8; 32]>,
+    pub nonce: Option<u64>,
+    pub rung: Option<Rung>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -174,9 +178,10 @@ pub struct Reconstruction {
     pub decisions: Vec<DecisionEvidence>,
     pub submitted_bytes: Vec<u8>,
     pub protocol_authority: ProtocolAuthority,
-    pub resulting_activity_id: ActivityId,
+    pub tx_hash: [u8; 32],
+    pub nonce: u64,
     pub core_receipt_bytes: Vec<u8>,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -190,6 +195,7 @@ pub enum RecordError {
     Audit(AuditError),
     Invalid(&'static str),
     Decode(&'static str),
+    Version,
     Redaction(RedactionError),
     IncompleteCoverage(Vec<EventClass>),
     IncompleteReconstruction(&'static str),
@@ -201,6 +207,7 @@ impl Display for RecordError {
             Self::Audit(error) => write!(formatter, "{error}"),
             Self::Invalid(reason) => write!(formatter, "invalid audit entry: {reason}"),
             Self::Decode(reason) => write!(formatter, "cannot decode audit entry: {reason}"),
+            Self::Version => formatter.write_str("unsupported audit entry version"),
             Self::Redaction(error) => write!(formatter, "cannot redact audit entry: {error}"),
             Self::IncompleteCoverage(classes) => {
                 write!(formatter, "unaudited event classes: {classes:?}")
@@ -252,7 +259,8 @@ pub fn record<T>(
 /// # Errors
 ///
 /// Returns an audit error when the chain cannot be verified or read and `Decode`
-/// when a payload is not a well-formed audit entry.
+/// when a payload is not a well-formed audit entry, or `Version` for versions
+/// other than 2 and 3.
 pub fn read_entries(path: impl AsRef<Path>) -> Result<Vec<Entry>, RecordError> {
     read_payloads(path)?
         .into_iter()
@@ -271,14 +279,15 @@ pub fn reconstruct_session(
     entries: &[Entry],
     receipts: &BTreeMap<[u8; 32], StoredReceiptEvidence>,
     session_id: SessionId,
-    idempotency_key: IdempotencyKey,
+    tx_hash: [u8; 32],
 ) -> Result<Reconstruction, RecordError> {
     let mut decisions = Vec::new();
-    let mut submission: Option<([u8; 32], &ProtocolAuthority)> = None;
-    let mut terminal: Option<(ActivityId, [u8; 32], VerificationLevel)> = None;
-    for entry in entries.iter().filter(|entry| {
-        entry.session == Some(session_id) && entry.idempotency_key == Some(idempotency_key)
-    }) {
+    let mut submission: Option<([u8; 32], &ProtocolAuthority, u64)> = None;
+    let mut terminal: Option<([u8; 32], u64, Rung)> = None;
+    for entry in entries
+        .iter()
+        .filter(|entry| entry.session == Some(session_id) && entry.tx_hash == Some(tx_hash))
+    {
         decisions.push(DecisionEvidence {
             class: entry.class,
             decision: entry.decision,
@@ -299,40 +308,45 @@ pub fn reconstruct_session(
                     .ok_or(RecordError::IncompleteReconstruction(
                         "protocol authority is absent",
                     ))?;
-            if submission.replace((digest, authority)).is_some() {
+            let nonce = entry.nonce.ok_or(RecordError::IncompleteReconstruction(
+                "submission nonce is absent",
+            ))?;
+            if submission.replace((digest, authority, nonce)).is_some() {
                 return Err(RecordError::IncompleteReconstruction(
                     "multiple submission records are ambiguous",
                 ));
             }
         }
         if entry.class == EventClass::TerminalOutcome {
-            let activity_id =
-                entry
-                    .resulting_activity_id
-                    .ok_or(RecordError::IncompleteReconstruction(
-                        "terminal activity identifier is absent",
-                    ))?;
+            let nonce = entry.nonce.ok_or(RecordError::IncompleteReconstruction(
+                "terminal nonce is absent",
+            ))?;
+            let rung = entry.rung.ok_or(RecordError::IncompleteReconstruction(
+                "terminal rung is absent",
+            ))?;
             let receipt_id = entry
                 .receipt_id
                 .ok_or(RecordError::IncompleteReconstruction(
                     "terminal receipt reference is absent",
                 ))?;
-            if terminal
-                .replace((activity_id, receipt_id, entry.verification_level))
-                .is_some()
-            {
+            if terminal.replace((receipt_id, nonce, rung)).is_some() {
                 return Err(RecordError::IncompleteReconstruction(
                     "multiple terminal records are ambiguous",
                 ));
             }
         }
     }
-    let (submitted_digest, protocol_authority) = submission.ok_or(
+    let (submitted_digest, protocol_authority, nonce) = submission.ok_or(
         RecordError::IncompleteReconstruction("submission record is absent"),
     )?;
-    let (resulting_activity_id, receipt_id, verification_level) = terminal.ok_or(
+    let (receipt_id, terminal_nonce, rung) = terminal.ok_or(
         RecordError::IncompleteReconstruction("terminal record is absent"),
     )?;
+    if nonce != terminal_nonce {
+        return Err(RecordError::IncompleteReconstruction(
+            "submission and terminal nonces differ",
+        ));
+    }
     let stored = receipts
         .get(&receipt_id)
         .ok_or(RecordError::IncompleteReconstruction(
@@ -348,14 +362,15 @@ pub fn reconstruct_session(
         decisions,
         submitted_bytes: stored.submitted_bytes.clone(),
         protocol_authority: protocol_authority.clone(),
-        resulting_activity_id,
+        tx_hash,
+        nonce,
         core_receipt_bytes: stored.core_receipt_bytes.clone(),
-        verification_level,
+        rung,
     })
 }
 
 fn encode_entry(entry: &Entry) -> Result<Vec<u8>, RecordError> {
-    validate_entry(entry)?;
+    validate_entry(entry, ENTRY_VERSION)?;
     let mut output = Vec::new();
     output.extend_from_slice(ENTRY_MAGIC);
     output.push(ENTRY_VERSION);
@@ -381,6 +396,21 @@ fn encode_entry(entry: &Entry) -> Result<Vec<u8>, RecordError> {
     push_authority(&mut output, entry.protocol_authority.as_ref());
     push_payload(&mut output, entry.submitted_bytes.as_ref());
     push_optional_fixed(&mut output, entry.receipt_id);
+    push_optional_fixed(&mut output, entry.tx_hash);
+    match entry.nonce {
+        Some(nonce) => {
+            output.push(1);
+            output.extend_from_slice(&nonce.to_be_bytes());
+        }
+        None => output.push(0),
+    }
+    match entry.rung {
+        Some(rung) => {
+            output.push(1);
+            output.push(rung.wire_rank());
+        }
+        None => output.push(0),
+    }
     Ok(output)
 }
 
@@ -391,14 +421,10 @@ pub(crate) fn decode_entry(bytes: &[u8]) -> Result<Entry, RecordError> {
     }
     let version = decoder.byte()?;
     if version != ENTRY_VERSION && version != LEGACY_ENTRY_VERSION {
-        return Err(RecordError::Decode("invalid audit entry version"));
+        return Err(RecordError::Version);
     }
     let class = EventClass::from_byte(decoder.byte()?)?;
-    let observed_at_ms = if version == ENTRY_VERSION {
-        decoder.u64()?
-    } else {
-        0
-    };
+    let observed_at_ms = decoder.u64()?;
     let tenant_text = std::str::from_utf8(decoder.u16_bytes()?)
         .map_err(|_| RecordError::Decode("tenant is not UTF-8"))?;
     let tenant = TenantId::new(tenant_text)
@@ -422,6 +448,27 @@ pub(crate) fn decode_entry(bytes: &[u8]) -> Result<Entry, RecordError> {
     let protocol_authority = decoder.authority()?;
     let submitted_bytes = decoder.payload()?;
     let receipt_id = decoder.optional_fixed()?;
+    let (tx_hash, nonce, rung) = if version == ENTRY_VERSION {
+        let tx_hash = decoder.optional_fixed()?;
+        let nonce = match decoder.byte()? {
+            0 => None,
+            1 => Some(decoder.u64()?),
+            _ => return Err(RecordError::Decode("invalid optional nonce tag")),
+        };
+        let rung = match decoder.byte()? {
+            0 => None,
+            1 => Some(match decoder.byte()? {
+                0 => Rung::Submitted,
+                1 => Rung::Receipted,
+                2 => Rung::Committed,
+                _ => return Err(RecordError::Decode("unknown audit rung")),
+            }),
+            _ => return Err(RecordError::Decode("invalid optional rung tag")),
+        };
+        (tx_hash, nonce, rung)
+    } else {
+        (None, None, None)
+    };
     if !decoder.finished() {
         return Err(RecordError::Decode("trailing audit entry bytes"));
     }
@@ -442,12 +489,15 @@ pub(crate) fn decode_entry(bytes: &[u8]) -> Result<Entry, RecordError> {
         protocol_authority,
         submitted_bytes,
         receipt_id,
+        tx_hash,
+        nonce,
+        rung,
     };
-    validate_entry(&entry)?;
+    validate_entry(&entry, version)?;
     Ok(entry)
 }
 
-fn validate_entry(entry: &Entry) -> Result<(), RecordError> {
+fn validate_entry(entry: &Entry, version: u8) -> Result<(), RecordError> {
     for text in [&entry.policy_version, entry.reason.as_str()] {
         if text.is_empty() || text.len() > MAX_TEXT_BYTES || text.as_bytes().contains(&0) {
             return Err(RecordError::Invalid("required text is empty or invalid"));
@@ -460,12 +510,24 @@ fn validate_entry(entry: &Entry) -> Result<(), RecordError> {
             "submission evidence requires bytes and protocol authority",
         ));
     }
-    if entry.class == EventClass::TerminalOutcome
-        && (entry.resulting_activity_id.is_none() || entry.receipt_id.is_none())
-    {
-        return Err(RecordError::Invalid(
-            "terminal evidence requires activity and receipt identifiers",
-        ));
+    if entry.class == EventClass::TerminalOutcome {
+        if entry.receipt_id.is_none() {
+            return Err(RecordError::Invalid(
+                "terminal evidence requires a receipt identifier",
+            ));
+        }
+        if version == LEGACY_ENTRY_VERSION && entry.resulting_activity_id.is_none() {
+            return Err(RecordError::Invalid(
+                "terminal evidence requires an activity identifier",
+            ));
+        }
+        if version == ENTRY_VERSION
+            && (entry.tx_hash.is_none() || entry.nonce.is_none() || entry.rung.is_none())
+        {
+            return Err(RecordError::Invalid(
+                "terminal evidence requires a transaction hash, nonce and rung",
+            ));
+        }
     }
     Ok(())
 }

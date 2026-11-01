@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/epoch/types"
 	minttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	keepertest "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/stretchr/testify/require"
 
@@ -27,6 +29,46 @@ func getEpoch(genesisTime time.Time, currTime time.Time) types.Epoch {
 		CurrentEpochStartTime: currTime,
 		CurrentEpochHeight:    0,
 	}
+}
+
+func TestEpochMintEventReachesBlock(t *testing.T) {
+	paxApp := keepertest.TestApp(t)
+	releaseTime := getGenesisTime()
+	ctx := paxApp.BaseApp.NewContext(false, tmproto.Header{Time: releaseTime}).
+		WithEventManager(sdk.NewEventManager())
+	mintKeeper := paxApp.MintKeeper
+	mintKeeper.SetParams(ctx, minttypes.NewParams("uhpx", []minttypes.ScheduledTokenRelease{
+		{
+			StartDate:          releaseTime.Format(minttypes.TokenReleaseDateFormat),
+			EndDate:            releaseTime.AddDate(0, 0, 25).Format(minttypes.TokenReleaseDateFormat),
+			TokenReleaseAmount: 2500000,
+		},
+	}))
+	epoch := getEpoch(releaseTime.Add(-time.Hour), releaseTime)
+	supplyBefore := paxApp.BankKeeper.GetSupply(ctx, "uhpx")
+	require.Empty(t, ctx.EventManager().Events())
+
+	types.NewMultiEpochHooks(mintKeeper.Hooks()).AfterEpochEnd(ctx, epoch)
+
+	minter := mintKeeper.GetMinter(ctx)
+	mintedCoin := minter.GetLastMintAmountCoin()
+	require.Equal(t, int64(100000), mintedCoin.Amount.Int64())
+	supplyAfter := paxApp.BankKeeper.GetSupply(ctx, "uhpx")
+	require.Equal(t, mintedCoin, supplyAfter.Sub(supplyBefore))
+
+	var mintEvents sdk.Events
+	for _, event := range ctx.EventManager().Events() {
+		if event.Type == minttypes.EventTypeMint {
+			mintEvents = append(mintEvents, event)
+		}
+	}
+	require.Len(t, mintEvents, 1)
+	require.Equal(t, sdk.NewEvent(
+		minttypes.EventTypeMint,
+		sdk.NewAttribute(minttypes.AttributeMintEpoch, strconv.FormatUint(epoch.CurrentEpoch, 10)),
+		sdk.NewAttribute(minttypes.AttribtueMintDate, releaseTime.Format(minttypes.TokenReleaseDateFormat)),
+		sdk.NewAttribute(sdk.AttributeKeyAmount, mintedCoin.Amount.String()),
+	), mintEvents[0])
 }
 
 func TestEndOfEpochMintedCoinDistribution(t *testing.T) {

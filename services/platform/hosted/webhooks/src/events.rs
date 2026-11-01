@@ -22,10 +22,8 @@ pub enum Verification {
     Unverified,
     /// A sequencer-signed `LayerX` receipt verified.
     ReceiptVerified,
-    /// A threshold checkpoint certificate verified.
-    CheckpointFinalised,
-    /// The settlement reference matched the registered Paxeer anchor.
-    PaxeerFinalised,
+    /// A sequencer receipt included in a committed chain block.
+    BlockCommitted,
 }
 
 impl Verification {
@@ -35,8 +33,7 @@ impl Verification {
         match self {
             Self::Unverified => "unverified",
             Self::ReceiptVerified => "receipt-verified",
-            Self::CheckpointFinalised => "checkpoint-finalised",
-            Self::PaxeerFinalised => "paxeer-finalised",
+            Self::BlockCommitted => "block-committed",
         }
     }
 
@@ -48,8 +45,7 @@ impl Verification {
         match value {
             "unverified" => Ok(Self::Unverified),
             "receipt-verified" => Ok(Self::ReceiptVerified),
-            "checkpoint-finalised" => Ok(Self::CheckpointFinalised),
-            "paxeer-finalised" => Ok(Self::PaxeerFinalised),
+            "block-committed" => Ok(Self::BlockCommitted),
             _ => Err(WebhookError::InvalidRequest),
         }
     }
@@ -57,13 +53,12 @@ impl Verification {
     /// Projects a protocol verification rank onto the human plane vocabulary.
     ///
     /// Sequencer-signed, batch-included and state-proven receipts all present
-    /// as `receipt-verified`; ranks above them present their own finality.
+    /// as `receipt-verified`; ranks 4 and 5 present as `block-committed`.
     #[must_use]
     pub const fn from_wire_rank(rank: u8) -> Self {
         match rank {
             1..=3 => Self::ReceiptVerified,
-            4 => Self::CheckpointFinalised,
-            5 => Self::PaxeerFinalised,
+            4..=5 => Self::BlockCommitted,
             _ => Self::Unverified,
         }
     }
@@ -670,4 +665,63 @@ pub fn settled_payment(draft: PaymentDraft<'_>) -> Result<ProtocolEvent, Webhook
         occurred_at: draft.occurred_at,
         facts,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Verification;
+    use crate::error::WebhookError;
+
+    #[test]
+    fn block_committed_orders_above_receipt() {
+        let committed = Verification::BlockCommitted;
+        assert_eq!(committed.as_str(), "block-committed");
+        assert!(matches!(
+            Verification::parse(committed.as_str()),
+            Ok(Verification::BlockCommitted)
+        ));
+
+        assert!(Verification::ReceiptVerified < committed);
+        assert!(Verification::Unverified < committed);
+        assert!(committed.at_least(Verification::ReceiptVerified));
+        assert!(committed.at_least(committed));
+        assert!(!Verification::ReceiptVerified.at_least(committed));
+        assert!(!Verification::Unverified.at_least(committed));
+        assert!(committed.at_least(Verification::Unverified));
+    }
+
+    #[test]
+    fn kernel_finality_words_are_refused() {
+        for word in ["checkpoint-finalised", "paxeer-finalised"] {
+            assert!(matches!(
+                Verification::parse(word),
+                Err(WebhookError::InvalidRequest)
+            ));
+            assert!(serde_json::from_value::<Verification>(serde_json::json!(word)).is_err());
+        }
+
+        for rank in 1..=3 {
+            assert_eq!(
+                Verification::from_wire_rank(rank),
+                Verification::ReceiptVerified
+            );
+        }
+        for rank in 4..=5 {
+            assert_eq!(
+                Verification::from_wire_rank(rank),
+                Verification::BlockCommitted
+            );
+        }
+        for rank in [0, 6, u8::MAX] {
+            assert_eq!(Verification::from_wire_rank(rank), Verification::Unverified);
+        }
+        for (word, expected) in [
+            ("unverified", Verification::Unverified),
+            ("receipt-verified", Verification::ReceiptVerified),
+            ("block-committed", Verification::BlockCommitted),
+        ] {
+            assert!(matches!(Verification::parse(word), Ok(level) if level == expected));
+            assert_eq!(expected.as_str(), word);
+        }
+    }
 }

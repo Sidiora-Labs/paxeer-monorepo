@@ -6,6 +6,7 @@ import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
 
 import { SocketProvider } from 'lib/socket/context';
 import * as feedMock from 'mocks/paxeerX/feed';
+import { FEED_FALLBACK_REFETCH_INTERVAL } from 'ui/paxeerX/feed/useFeedSocket';
 import { render, routerState } from 'ui/shared/layout/testWrapper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { waitFor } from 'vitest/lib';
@@ -29,8 +30,24 @@ const submission = (blockNumber: number, hashByte: string, overrides?: Partial<P
     ...feedMock.priceUpdate.price_update,
     observation_count: 2,
     observations: [
-      { market_id: 0, symbol: 'BTC-USD', index_price: newBtcIndexPrice, mark_price: feedMock.btcMarkPrice, source_timestamp_ms: 1767323050000, sequence: 9100 },
-      { market_id: 17, symbol: 'SOL-USD', index_price: solIndexPrice, mark_price: solMarkPrice, source_timestamp_ms: 1767323050000, sequence: 9101 },
+      {
+        accepted: true,
+        market_id: 0,
+        symbol: 'BTC-USD',
+        index_price: newBtcIndexPrice,
+        mark_price: feedMock.btcMarkPrice,
+        source_timestamp_ms: 1767323050000,
+        sequence: 9100,
+      },
+      {
+        accepted: true,
+        market_id: 17,
+        symbol: 'SOL-USD',
+        index_price: solIndexPrice,
+        mark_price: solMarkPrice,
+        source_timestamp_ms: 1767323050000,
+        sequence: 9101,
+      },
     ],
   },
   ...overrides,
@@ -48,6 +65,38 @@ describe('PaxeerXFeed live updates', () => {
     routerState.query = {};
     fetchMock.resetMocks();
     fetchMock.mockResponse(JSON.stringify(feedMock.markets), { headers: { 'Content-Type': 'application/json' } });
+  });
+
+  it('shows the socket alert while the feed channel is not joined', async function showsTheSocketAlertWhileTheFeedChannelIsNotJoined() {
+    const socket = await createTestSocket();
+
+    try {
+      const { container, rerender } = render(
+        <SocketProvider>
+          <PaxeerXFeed/>
+        </SocketProvider>,
+      );
+
+      await waitFor(() => {
+        expect(indexPriceOf(container, 0)).toBe(feedMock.btcIndexPrice);
+      });
+      const alert = container.querySelector('[role="alert"]');
+      expect(alert?.textContent).toBe('Connection lost, click to load newer records');
+      expect(alert?.querySelector('a')?.getAttribute('href')).toBe(window.document.location.href);
+      expect(alert?.compareDocumentPosition(container.querySelector('table')!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+      rerender(
+        <SocketProvider url={ socket.url }>
+          <PaxeerXFeed/>
+        </SocketProvider>,
+      );
+      await socket.join(TOPIC);
+      await waitFor(() => {
+        expect(container.querySelector('[role="alert"]')).toBeNull();
+      });
+    } finally {
+      await socket.close();
+    }
   });
 
   it('moves the market rows in place when a submission arrives on the feed topic', async() => {
@@ -91,7 +140,15 @@ describe('PaxeerXFeed live updates', () => {
           ...feedMock.priceUpdate.price_update,
           observation_count: 1,
           observations: [
-            { market_id: 0, symbol: 'BTC-USD', index_price: '1', mark_price: '1', source_timestamp_ms: 1767323049000, sequence: 9099 },
+            {
+              accepted: true,
+              market_id: 0,
+              symbol: 'BTC-USD',
+              index_price: '1',
+              mark_price: '1',
+              source_timestamp_ms: 1767323049000,
+              sequence: 9099,
+            },
           ],
         },
       }));
@@ -101,6 +158,52 @@ describe('PaxeerXFeed live updates', () => {
       });
 
       expect(indexPriceOf(container, 0)).toBe(newBtcIndexPrice);
+    } finally {
+      await socket.close();
+    }
+  });
+
+  it('does not read the markets endpoint again while the feed channel is joined', async() => {
+    const socket = await createTestSocket();
+
+    try {
+      const { container } = render(
+        <SocketProvider url={ socket.url }>
+          <PaxeerXFeed/>
+        </SocketProvider>,
+      );
+
+      await waitFor(() => {
+        expect(indexPriceOf(container, 0)).toBe(feedMock.btcIndexPrice);
+      });
+      await socket.join(TOPIC);
+
+      const marketReads = () => fetchMock.mock.calls.filter(([ url ]) => String(url).includes('/api/v2/paxeer-x/feed/markets')).length;
+      expect(marketReads()).toBe(1);
+      const tableBefore = container.querySelector('[data-scan-table-card]');
+      expect(tableBefore).not.toBeNull();
+
+      socket.send(TOPIC, 'new_update', submission(34800140, 'ab'));
+
+      await waitFor(() => {
+        expect(indexPriceOf(container, 0)).toBe(newBtcIndexPrice);
+      }, { timeout: 10_000 });
+
+      expect(indexPriceOf(container, 17)).toBe(solIndexPrice);
+      expect(row(container, 0)?.querySelector(`a[href="/feed/update/0x${ 'ab'.repeat(32) }"]`)).not.toBeNull();
+      expect(note(container)).toBe(`Latest submitted prices per market at chain head block ${ (34800140).toLocaleString() }`);
+      expect(container.querySelector('[data-scan-table-card]')).toBe(tableBefore);
+      expect(marketReads()).toBe(1);
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, 2 * FEED_FALLBACK_REFETCH_INTERVAL);
+      });
+
+      expect(marketReads()).toBe(1);
+      expect(indexPriceOf(container, 0)).toBe(newBtcIndexPrice);
+      expect(indexPriceOf(container, 17)).toBe(solIndexPrice);
+      expect(container.querySelector('[data-scan-table-card]')).toBe(tableBefore);
+      expect(Array.from(container.querySelectorAll('[data-market]')).map((item) => item.getAttribute('data-market'))).toEqual([ '0', '17' ]);
     } finally {
       await socket.close();
     }

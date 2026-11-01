@@ -96,13 +96,8 @@ impl DisclosureCheck {
         intent: &Intent,
         compiled: &CompiledIntent,
     ) -> Result<Self, DisclosureCheckError> {
-        if intent.kind().settled_on_paxeer() {
-            return Err(DisclosureCheckError::SettledOnPaxeer);
-        }
-        if matches!(
-            intent.kind(),
-            IntentKind::BridgeWithdrawRequest(_) | IntentKind::ExchangeMarginWithdraw(_)
-        ) && intent.version() != crate::IntentVersion::V2
+        if matches!(intent.kind(), IntentKind::BridgeWithdrawRequest(_))
+            && intent.version() != crate::IntentVersion::V2
         {
             return Err(DisclosureCheckError::FieldMismatch(
                 DisclosureField::Version,
@@ -110,9 +105,7 @@ impl DisclosureCheck {
         }
         if (matches!(
             intent.kind(),
-            IntentKind::NativeCustodyCredit(_)
-                | IntentKind::NativeReceive(_)
-                | IntentKind::ExchangeMarginDeposit(_)
+            IntentKind::NativeCustodyCredit(_) | IntentKind::NativeReceive(_)
         ) || intent.kind().perps_payload().is_some())
             && intent.version() != crate::IntentVersion::V1
         {
@@ -125,10 +118,7 @@ impl DisclosureCheck {
                 intent.kind(),
                 IntentKind::SessionGrant(_)
                     | IntentKind::RecoveryRegistration(_)
-                    | IntentKind::NativeOnboarding(_)
-                    | IntentKind::NativeOnboardingConsent(_)
                     | IntentKind::NativeBudgetCreate(_)
-                    | IntentKind::NativeOwnerRotation(_)
                     | IntentKind::NativeAssetAccountOpen(_)
             )
         {
@@ -148,11 +138,7 @@ impl DisclosureCheck {
         let payload = compiled.payload().as_bytes();
         if matches!(
             intent.kind(),
-            IntentKind::NativeOnboarding(_)
-                | IntentKind::NativeOnboardingConsent(_)
-                | IntentKind::NativeBudgetCreate(_)
-                | IntentKind::NativeOwnerRotation(_)
-                | IntentKind::NativeAssetAccountOpen(_)
+            IntentKind::NativeBudgetCreate(_) | IntentKind::NativeAssetAccountOpen(_)
         ) && intent.version() != crate::IntentVersion::V3
         {
             return Err(DisclosureCheckError::FieldMismatch(
@@ -164,42 +150,6 @@ impl DisclosureCheck {
             IntentKind::NativeAssetAccountOpen(asset) => {
                 round_trip.u16(1, DisclosureField::Header)?;
                 round_trip.fixed(&asset.bytes(), DisclosureField::Asset)?;
-            }
-            IntentKind::NativeOnboardingConsent(value) => {
-                let decoded = layerx_crypto::onboarding::OnboardingConsent::decode_payload(
-                    payload,
-                    value.target.clone(),
-                    value.target_public_key,
-                )
-                .map_err(|_| DisclosureCheckError::FieldMismatch(DisclosureField::PayloadBytes))?;
-                require(decoded == *value, DisclosureField::PayloadBytes)?;
-                round_trip.fixed(
-                    &decoded.payload().map_err(|_| {
-                        DisclosureCheckError::FieldMismatch(DisclosureField::PayloadBytes)
-                    })?,
-                    DisclosureField::PayloadBytes,
-                )?;
-            }
-            IntentKind::NativeOnboarding(value) => {
-                let decoded = layerx_crypto::onboarding::SponsoredRegistration::decode(payload)
-                    .map_err(|_| {
-                        DisclosureCheckError::FieldMismatch(DisclosureField::PayloadBytes)
-                    })?;
-                require(decoded == *value, DisclosureField::PayloadBytes)?;
-                round_trip.fixed(
-                    &decoded.payload().map_err(|_| {
-                        DisclosureCheckError::FieldMismatch(DisclosureField::PayloadBytes)
-                    })?,
-                    DisclosureField::PayloadBytes,
-                )?;
-            }
-            IntentKind::NativeOwnerRotation(value) => {
-                round_trip.fixed(
-                    &value.payload().map_err(|_| {
-                        DisclosureCheckError::FieldMismatch(DisclosureField::PayloadBytes)
-                    })?,
-                    DisclosureField::PayloadBytes,
-                )?;
             }
             IntentKind::NativeBudgetCreate(value) => {
                 value.verify_payload(payload).map_err(|_| {
@@ -380,42 +330,40 @@ impl DisclosureCheck {
                 round_trip.fixed(&value.public_key.bytes(), DisclosureField::PrimaryKey)?;
             }
             IntentKind::BudgetCreate(value) => {
-                round_trip.header(0x4201, 10)?;
+                round_trip.u16(1, DisclosureField::Header)?;
                 round_trip.fixed(&value.budget_id.bytes(), DisclosureField::Budget)?;
-                round_trip.account(&value.owner, DisclosureField::From)?;
-                round_trip.account(&value.budget_account, DisclosureField::Account)?;
+                let budget_account = hash::account_id_for_protocol(&value.budget_account, 3)
+                    .map_err(|error| DisclosureCheckError::Wire {
+                        field: DisclosureField::Account,
+                        error,
+                    })?;
+                round_trip.fixed(&budget_account, DisclosureField::Account)?;
                 round_trip.fixed(&value.asset.bytes(), DisclosureField::Asset)?;
-                round_trip.u128(value.per_period_limit.value(), DisclosureField::Amount)?;
-                round_trip.u64(value.period_length.value(), DisclosureField::Period)?;
-                round_trip.rollover(value.rollover)?;
-                round_trip.u128(value.carry_cap.value(), DisclosureField::CarryCap)?;
                 round_trip.fixed(&value.purpose.bytes(), DisclosureField::Purpose)?;
-                round_trip.u64(value.expiry.value(), DisclosureField::Expiration)?;
+                round_trip.u128(value.per_period_limit.value(), DisclosureField::Amount)?;
+                round_trip.u128(value.carry_cap.value(), DisclosureField::CarryCap)?;
+                round_trip.u128(value.per_period_limit.value(), DisclosureField::Amount)?;
+                round_trip.u64(
+                    budget_milliseconds(value.period_length.value(), DisclosureField::Period)?,
+                    DisclosureField::Period,
+                )?;
+                round_trip.u64(0, DisclosureField::Period)?;
+                round_trip.u64(
+                    budget_milliseconds(value.expiry.value(), DisclosureField::Expiration)?,
+                    DisclosureField::Expiration,
+                )?;
+                round_trip.u64(0, DisclosureField::Sequence)?;
+                round_trip.rollover(value.rollover)?;
             }
             IntentKind::BudgetFund(value) => {
-                round_trip.header(0x4202, 6)?;
+                round_trip.u16(1, DisclosureField::Header)?;
                 round_trip.fixed(&value.budget_id.bytes(), DisclosureField::Budget)?;
-                round_trip.account(&value.owner, DisclosureField::From)?;
-                round_trip.account(&value.budget_account, DisclosureField::To)?;
-                round_trip.fixed(&value.asset.bytes(), DisclosureField::Asset)?;
                 round_trip.u128(value.amount.value(), DisclosureField::Amount)?;
-                round_trip.fixed(
-                    &value.idempotency_key.bytes(),
-                    DisclosureField::IdempotencyKey,
-                )?;
             }
             IntentKind::BudgetDefund(value) => {
-                round_trip.header(0x4207, 7)?;
+                round_trip.u16(1, DisclosureField::Header)?;
                 round_trip.fixed(&value.budget_id.bytes(), DisclosureField::Budget)?;
-                round_trip.account(&value.budget_account, DisclosureField::From)?;
-                round_trip.account(&value.owner, DisclosureField::To)?;
-                round_trip.fixed(&value.asset.bytes(), DisclosureField::Asset)?;
                 round_trip.u128(value.amount.value(), DisclosureField::Amount)?;
-                round_trip.u64(value.revocation_sequence.value(), DisclosureField::Sequence)?;
-                round_trip.fixed(
-                    &value.idempotency_key.bytes(),
-                    DisclosureField::IdempotencyKey,
-                )?;
             }
             IntentKind::BridgeDepositCredit(value) => {
                 round_trip.header(0x4801, 7)?;
@@ -430,11 +378,7 @@ impl DisclosureCheck {
                     DisclosureField::IdempotencyKey,
                 )?;
             }
-            IntentKind::NativeCustodyCredit(value)
-            | IntentKind::ExchangeMarginDeposit(crate::precompile::ExchangeMarginDeposit {
-                credit: value,
-                ..
-            }) => {
+            IntentKind::NativeCustodyCredit(value) => {
                 round_trip.fixed(&value.payload()[..43], DisclosureField::Header)?;
                 round_trip.fixed(&value.deposit_id(), DisclosureField::DepositProof)?;
                 round_trip.fixed(&value.asset().bytes(), DisclosureField::Asset)?;
@@ -451,11 +395,7 @@ impl DisclosureCheck {
                 round_trip.u128(value.amount().value(), DisclosureField::Amount)?;
                 round_trip.fixed(&value.payload()[207..], DisclosureField::DepositProof)?;
             }
-            IntentKind::BridgeWithdrawRequest(value)
-            | IntentKind::ExchangeMarginWithdraw(crate::precompile::ExchangeMarginWithdraw {
-                request: value,
-                ..
-            }) => {
+            IntentKind::BridgeWithdrawRequest(value) => {
                 round_trip.fixed(&value.asset.bytes(), DisclosureField::Asset)?;
                 round_trip.u128(value.amount.value(), DisclosureField::Amount)?;
                 round_trip.fixed(
@@ -466,26 +406,6 @@ impl DisclosureCheck {
                 round_trip.u64(value.fee_limit, DisclosureField::FeeLimit)?;
             }
             IntentKind::Perps(expected) => perps_round_trip(&mut round_trip, expected, compiled)?,
-            IntentKind::ExchangeOrder(value) => {
-                perps_round_trip(&mut round_trip, value.payload(), compiled)?;
-            }
-            IntentKind::ExchangeCancel(value) => {
-                perps_round_trip(&mut round_trip, value.payload(), compiled)?;
-            }
-            IntentKind::ExchangeSettle(value) => {
-                perps_round_trip(&mut round_trip, value.payload(), compiled)?;
-            }
-            IntentKind::BridgeIn(_)
-            | IntentKind::BridgeOut(_)
-            | IntentKind::LaunchpadCreate(_)
-            | IntentKind::LaunchpadSwap(_)
-            | IntentKind::LaunchpadAirdropExecute(_)
-            | IntentKind::LaunchpadFeeStrategy(_)
-            | IntentKind::LaunchpadFeesBurn(_)
-            | IntentKind::LaunchpadFeesClaim(_)
-            | IntentKind::LaunchpadLpRewards(_) => {
-                return Err(DisclosureCheckError::SettledOnPaxeer)
-            }
         }
 
         let canonical_payload = round_trip.finish()?;
@@ -537,12 +457,7 @@ impl DisclosureCheck {
                 DisclosureField::PayloadBytes,
             );
         }
-        if let IntentKind::NativeCustodyCredit(credit)
-        | IntentKind::ExchangeMarginDeposit(crate::precompile::ExchangeMarginDeposit {
-            credit,
-            ..
-        }) = intent.kind()
-        {
+        if let IntentKind::NativeCustodyCredit(credit) = intent.kind() {
             return verify_native_agent(credit, disclosure);
         }
         let IntentKind::LxpSend(send) = intent.kind() else {
@@ -765,12 +680,8 @@ impl<'a> RoundTrip<'a> {
 
 fn expected_activity_type(intent: &Intent) -> Result<ActivityType, DisclosureCheckError> {
     let (module, ordinal) = match intent.kind() {
-        IntentKind::DidRegistration(_)
-        | IntentKind::NativeOnboardingConsent(_)
-        | IntentKind::NativeOnboarding(_) => (ModuleId::Governance, 1),
-        IntentKind::KeyRotation(_) | IntentKind::NativeOwnerRotation(_) => {
-            (ModuleId::Governance, 2)
-        }
+        IntentKind::DidRegistration(_) => (ModuleId::Governance, 1),
+        IntentKind::KeyRotation(_) => (ModuleId::Governance, 2),
         IntentKind::RecoveryRegistration(_) => (ModuleId::Governance, 3),
         IntentKind::EvmPayoutBinding(_) => (ModuleId::Governance, 4),
         IntentKind::AuthorityGrant(_) => (ModuleId::Governance, 8),
@@ -782,26 +693,12 @@ fn expected_activity_type(intent: &Intent) -> Result<ActivityType, DisclosureChe
         IntentKind::PayerGrantRegistration(_) => (ModuleId::Budget, 4),
         IntentKind::BudgetCreate(_) | IntentKind::NativeBudgetCreate(_) => (ModuleId::Budget, 1),
         IntentKind::BudgetFund(_) => (ModuleId::Budget, 2),
-        IntentKind::BudgetDefund(_) => (ModuleId::Budget, 7),
-        IntentKind::BridgeDepositCredit(_)
-        | IntentKind::NativeCustodyCredit(_)
-        | IntentKind::ExchangeMarginDeposit(_) => (ModuleId::Bridge, 1),
-        IntentKind::BridgeWithdrawRequest(_) | IntentKind::ExchangeMarginWithdraw(_) => {
-            (ModuleId::Asset, 9)
+        IntentKind::BudgetDefund(_) => (ModuleId::Budget, 8),
+        IntentKind::BridgeDepositCredit(_) | IntentKind::NativeCustodyCredit(_) => {
+            (ModuleId::Bridge, 1)
         }
+        IntentKind::BridgeWithdrawRequest(_) => (ModuleId::Asset, 9),
         IntentKind::Perps(payload) => (ModuleId::Perps, payload.ordinal()),
-        IntentKind::ExchangeOrder(value) => (ModuleId::Perps, value.payload().ordinal()),
-        IntentKind::ExchangeCancel(value) => (ModuleId::Perps, value.payload().ordinal()),
-        IntentKind::ExchangeSettle(value) => (ModuleId::Perps, value.payload().ordinal()),
-        IntentKind::BridgeIn(_)
-        | IntentKind::BridgeOut(_)
-        | IntentKind::LaunchpadCreate(_)
-        | IntentKind::LaunchpadSwap(_)
-        | IntentKind::LaunchpadAirdropExecute(_)
-        | IntentKind::LaunchpadFeeStrategy(_)
-        | IntentKind::LaunchpadFeesBurn(_)
-        | IntentKind::LaunchpadFeesClaim(_)
-        | IntentKind::LaunchpadLpRewards(_) => return Err(DisclosureCheckError::SettledOnPaxeer),
     };
     ActivityType::new(module, ordinal).map_err(|error| DisclosureCheckError::Payload {
         field: DisclosureField::ActivityType,
@@ -881,4 +778,10 @@ fn verify_native_agent(
         disclosure.idempotency_key == credit.nullifier(),
         DisclosureField::IdempotencyKey,
     )
+}
+
+fn budget_milliseconds(seconds: u64, field: DisclosureField) -> Result<u64, DisclosureCheckError> {
+    seconds
+        .checked_mul(1_000)
+        .ok_or(DisclosureCheckError::FieldMismatch(field))
 }

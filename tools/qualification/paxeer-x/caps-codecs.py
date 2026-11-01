@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import hashlib
 import json
 import os
@@ -49,9 +50,7 @@ def codec_gate(runtime):
                 raise RuntimeError('isolated native executable copy mismatch')
     env = dict(os.environ, LAYERX_CAPS_VECTORS=str(vectors), LAYERX_TEST_NATIVE_BIN_DIR=str(native_inputs))
     env.update(LAYERX_TEST_PAXEER_CHAIN_ID=str(runtime.manifest['chain_id']),
-               LAYERX_TEST_PAXEER_RPC_PORT=str(runtime.ports[0]),
-               LAYERX_TEST_SETTLEMENT_CONTRACT='0x0000000000000000000000000000000000001014',
-               LAYERX_TEST_CHECKPOINT_REGISTRY='0x0000000000000000000000000000000000001014')
+               LAYERX_TEST_PAXEER_RPC_PORT=str(runtime.ports[0]))
     if runtime.rpc('eth_chainId') != hex(runtime.manifest['chain_id']):
         raise RuntimeError('actual isolated chain id mismatch')
     counts = {}
@@ -74,12 +73,16 @@ def codec_gate(runtime):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Verify prebuilt capability codec artifacts.')
+    parser.add_argument('--worker', type=Path, metavar='DIRECTORY',
+                        help='run the codec gate inside the isolated runtime directory')
+    args = parser.parse_args()
     os.umask(0o077)
     sys.path.insert(0, str(ROOT / 'tests/daemon'))
     import paxeer_x_runtime_fixture as fixture
     bundle = fixture.artifacts(os.environ['PAXEER_X_RUNTIME_ARTIFACTS'])
     client = fixture.client_artifact(os.environ['PAXEER_X_RUNTIME_CLIENT_MANIFEST'])
-    if len(sys.argv) == 3 and sys.argv[1] == '--worker':
+    if args.worker is not None:
         if os.geteuid() != 0 or os.getegid() != 4020:
             raise RuntimeError('isolated producer requires UID0/GID4020')
         for name in ('net', 'pid', 'mnt'):
@@ -97,7 +100,7 @@ def main():
         subprocess.run(['mount', '--bind', sys.prefix, str(python_root)], check=True)
         subprocess.run(['mount', '-o', 'remount,bind,ro,nosuid,nodev', str(python_root)], check=True)
         os.environ['PATH'] = str(python_root / 'bin') + ':/usr/local/bin:/usr/bin:/bin'
-        runtime = fixture.RuntimeFixture(sys.argv[2], bundle, client)
+        runtime = fixture.RuntimeFixture(str(args.worker), bundle, client)
         try:
             runtime.generate()
             codec_gate(runtime)

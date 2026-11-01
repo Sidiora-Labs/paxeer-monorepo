@@ -22,6 +22,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	seqnode "github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
@@ -377,10 +378,13 @@ func seqVecPayExactCall(t *testing.T, pay seqVecPayExact) []byte {
 	return append(selector, args...)
 }
 
-func seqVecLedgerPay() seqVecPayExact {
+func seqVecLedgerPay(t *testing.T) seqVecPayExact {
+	t.Helper()
+	to, err := codec.DeriveAccountID([]byte("agent:did:layerx:payee:main"))
+	require.NoError(t, err)
 	return seqVecPayExact{
 		from:      crypto.Keccak256Hash([]byte("vector payer account")),
-		to:        crypto.Keccak256Hash([]byte("vector payee account")),
+		to:        common.Hash(to),
 		asset:     crypto.Keccak256Hash([]byte("vector ledger asset")),
 		reference: crypto.Keccak256Hash([]byte("vector payment reference")),
 		amount:    big.NewInt(1_000_000),
@@ -391,21 +395,21 @@ func seqVecLedgerPay() seqVecPayExact {
 // seqVecLedgerPayment is a layerxledger payExact with its PaymentExact log.
 func seqVecLedgerPayment(t *testing.T, nonce uint64) seqVecTx {
 	t.Helper()
-	pay := seqVecLedgerPay()
+	pay := seqVecLedgerPay(t)
 	data, err := seqVecArgs(t, "bytes32", "uint128").Pack([32]byte(pay.asset), pay.amount)
 	require.NoError(t, err)
 	topic := crypto.Keccak256Hash([]byte("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"))
 	return seqVecTx{
 		nonce: nonce, to: seqVecLedger, value: new(big.Int), data: seqVecPayExactCall(t, pay),
 		gasLimit: 90_000, gasUsed: 61_340, status: uint32(ethtypes.ReceiptStatusSuccessful),
-		logs: []*evmtypes.Log{seqVecLog(seqVecLedger, data, topic, pay.from, pay.to, pay.reference)},
+		logs: []*evmtypes.Log{seqVecLog(seqVecLedger, data, topic, pay.reference, pay.from, pay.to)},
 	}
 }
 
 // seqVecLedgerRevert is a layerxledger payExact refused with LXP_INSUFFICIENT_BALANCE.
 func seqVecLedgerRevert(t *testing.T, nonce uint64) seqVecTx {
 	t.Helper()
-	pay := seqVecLedgerPay()
+	pay := seqVecLedgerPay(t)
 	pay.amount = new(big.Int).Lsh(big.NewInt(1), 100)
 	pay.reference = crypto.Keccak256Hash([]byte("vector unfunded payment reference"))
 	return seqVecTx{
@@ -534,6 +538,27 @@ func seqVecCaseOf(id, vector, description string, signed seqVecSigned, raw []byt
 	}
 }
 
+func installSeqVecReceiptKey(t *testing.T, chain *seqReceiptChain9005, pin seqVecPin) {
+	t.Helper()
+	height := chain.latest + 1
+	ctx := chain.writeCtx9005(height)
+	existing, err := chain.keeper.ReceiptKeys(ctx)
+	require.NoError(t, err)
+	keys := make(seqkeeper.ReceiptKeys, 0, len(existing)+1)
+	for _, key := range existing {
+		keys = append(keys, seqkeeper.ReceiptKeyEntry{
+			KeyId: bytes.Clone(key.KeyId[:]), PublicKey: bytes.Clone(key.PublicKey[:]),
+			FirstHeight: key.FirstHeight, LastHeight: key.LastHeight,
+		})
+	}
+	keys = append(keys, seqkeeper.ReceiptKeyEntry{
+		KeyId: bytes.Clone(pin.KeyID[:]), PublicKey: bytes.Clone(pin.PublicKey),
+		FirstHeight: pin.FirstHeight, LastHeight: pin.LastHeight,
+	})
+	require.NoError(t, chain.keeper.SetReceiptKeys(ctx, keys))
+	chain.commit9005(height)
+}
+
 func TestSequencerReceiptVectors(t *testing.T) {
 	dir := t.TempDir()
 	public := [32]byte(ed25519.NewKeyFromSeed(seqVecReceiptSeed).Public().(ed25519.PublicKey))
@@ -543,6 +568,7 @@ func TestSequencerReceiptVectors(t *testing.T) {
 	extended := loadSeqVecKey(t, dir, verify.SequencerAuthorization{SequencerID: seqVecKeyID, PublicKey: public, FirstBatchNumber: seqVecLastHeight + 1, LastBatchNumber: 2 * seqVecLastHeight})
 
 	chain := newSeqReceiptChain9005(t)
+	installSeqVecReceiptKey(t, chain, pin)
 	source := &seqVecSource{sends: map[common.Hash]*evmrpc.SequencerSend{}}
 	port := startSeqReceiptServer9005(t, app.Setup(t, false, false, false), chain.ctxProvider,
 		evmrpc.SequencerReceiptOption{Source: source, Keeper: &chain.keeper})
@@ -583,15 +609,37 @@ func TestSequencerReceiptVectors(t *testing.T) {
 		signed := b.receipt(key, keyID, signedTx, tx, slot, false)
 		return seqVecCaseOf("", "", "", signed, signed.raw, seqVecServe(t, port, source, signed), next.prev, pin)
 	}
+	refusedCase := func(key *seqnode.ReceiptKey, keyID [32]byte, tx seqVecTx, slot seqVecSlot, reason string) seqVecCase {
+		signedTx := b.signTx(tx)
+		signed := b.receipt(key, keyID, signedTx, tx, slot, false)
+		source.put(signed.activity, signed.send)
+		_, rpcErr := callSeqReceipt9005(t, port, evmrpc.SequencerReceiptMethod, signed.activity)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, -32000, rpcErr.Code)
+		require.Contains(t, rpcErr.Message, seqkeeper.ErrReceiptKeyNotPinned.Error())
+		require.Contains(t, rpcErr.Message, reason)
+
+		authorized := b.receipt(primary, seqVecKeyID, signedTx, tx, next, false)
+		answer := seqVecEdit(t, seqVecServe(t, port, source, authorized), func(r *evmrpc.SequencerReceiptResult) {
+			r.KeyID = keyID
+			r.Height = hexutil.Uint64(slot.height)
+			r.Timestamp = hexutil.Uint64(seqVecTimeBase + slot.height*seqVecBlockMs)
+			r.Receipt = signed.signed
+		})
+		var result evmrpc.SequencerReceiptResult
+		require.NoError(t, json.Unmarshal(answer, &result))
+		require.NoError(t, result.Verify())
+		return seqVecCaseOf("", "", "", signed, signed.raw, answer, next.prev, pin)
+	}
 
 	refuse("V3-key-not-pinned", "receipt signed under a keyId outside the pinned ReceiptKeys",
-		nextCase(rogue, seqVecRogueKeyID, seqVecTransfer(5, 2), next),
+		refusedCase(rogue, seqVecRogueKeyID, seqVecTransfer(5, 2), next, fmt.Sprintf("is not in the list at height %d", next.height)),
 		seqVecRefusal{refusedAt: "R3", err: errSeqVecKeyID, verifier: "SequencerSignature"})
 
 	outOfRange := next
 	outOfRange.height = seqVecLastHeight + 1
 	refuse("V3-height-outside-key-range", "receipt at a height above the pinned key's lastHeight",
-		nextCase(extended, seqVecKeyID, seqVecTransfer(5, 3), outOfRange),
+		refusedCase(extended, seqVecKeyID, seqVecTransfer(5, 3), outOfRange, fmt.Sprintf("excludes height %d", outOfRange.height)),
 		seqVecRefusal{refusedAt: "R3", err: errSeqVecHeight, verifier: "SequencerSignature"})
 
 	sentTx := b.signTx(seqVecTransfer(5, 4))
@@ -645,6 +693,47 @@ func TestSequencerReceiptVectors(t *testing.T) {
 	stored, err := os.ReadFile(seqVecFixture)
 	require.NoError(t, err, "run %s to write the fixture", seqVecCommand)
 	require.Equal(t, string(stored), string(rendered), "the fixture differs from the node signer output; run %s", seqVecCommand)
+	t.Run("conformance-copies", TestVectorFilesV1ToV3MatchSequencerReceiptFixture)
+}
+
+func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
+	var source struct {
+		Cases []json.RawMessage `json:"cases"`
+	}
+	stored, err := os.ReadFile(seqVecFixture)
+	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(stored, &source))
+	require.Len(t, source.Cases, 11)
+	for _, group := range []struct {
+		name, vector string
+		count        int
+	}{
+		{"vector-v1-receipted-positive", "V1", 4},
+		{"vector-v2-receipted-revert", "V2", 1},
+		{"vector-v3-receipt-refusals", "V3", 6},
+	} {
+		t.Run(group.vector, func(t *testing.T) {
+			var expected []json.RawMessage
+			for _, raw := range source.Cases {
+				var c seqVecCase
+				require.NoError(t, json.Unmarshal(raw, &c))
+				if c.Vector == group.vector {
+					expected = append(expected, raw)
+				}
+			}
+			var copy struct {
+				Name  string            `json:"name"`
+				Cases []json.RawMessage `json:"cases"`
+			}
+			stored, err := os.ReadFile(filepath.Join(filepath.Dir(seqVecFixture), group.name+".json"))
+			require.NoError(t, err)
+			require.NoError(t, json.Unmarshal(stored, &copy))
+			require.Equal(t, group.name, copy.Name)
+			require.Len(t, expected, group.count)
+			require.Len(t, copy.Cases, group.count)
+			require.Equal(t, expected, copy.Cases, "conformance cases must be byte-identical to the source")
+		})
+	}
 }
 
 // seqVecAssertCases checks every V1 and V2 case through R1-R6 and its decoded fields, and every V3
@@ -713,6 +802,14 @@ func seqVecAssertFields(t *testing.T, c seqVecCase) {
 		require.Len(t, result.Logs, 1, c.ID)
 		require.Equal(t, crypto.Keccak256Hash([]byte(topic)), result.Logs[0].Topics[0], c.ID)
 		require.Equal(t, *tx.To(), result.Logs[0].Address, c.ID)
+		if c.ID == "V1-layerxledger-pay-exact" {
+			require.Len(t, tx.Data(), 4+6*32, c.ID)
+			require.Len(t, result.Logs[0].Topics, 4, c.ID)
+			for index, word := range []int{5, 0, 1} {
+				require.Equal(t, common.BytesToHash(tx.Data()[4+word*32:4+(word+1)*32]), result.Logs[0].Topics[index+1], c.ID)
+			}
+			require.Equal(t, common.HexToHash("0x112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba4"), result.Logs[0].Topics[3], c.ID)
+		}
 	case "V2":
 		require.Equal(t, uint64(0), uint64(result.Status), c.ID)
 		require.Equal(t, int32(1), decoded.ResultCode)

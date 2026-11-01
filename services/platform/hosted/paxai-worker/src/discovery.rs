@@ -10,7 +10,7 @@ use crate::auth::{
     ERROR_BODY_BYTES,
 };
 use crate::metadata::{Endpoint, Manifest};
-use layerx_client::head::Head;
+use layerx_client::px::PxNetworkHead;
 use layerx_programs_ai_market::{
     admission::{AdmissionMeta, AdmissionTable, Participant},
     codec,
@@ -44,7 +44,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use std::sync::Arc;
 use std::time::Duration;
 
-/// A finalized view older than this many sealed batches is stale for new admission.
+/// A finalized view older than this many committed blocks is stale for new admission.
 pub const MAX_FINALITY_LAG: u64 = 8;
 /// A transport or runner observation is current for this long.
 pub const READINESS_TTL_MS: u64 = 30_000;
@@ -62,12 +62,12 @@ pub struct IdentityEvidence {
 }
 
 /// Everything one finalized authority view is built from.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct AuthorityEvidence<'a> {
     pub state: &'a [u8],
     pub facts: &'a CaptureFacts,
     pub finality: &'a FinalityEvidence,
-    pub head: Head,
+    pub head: PxNetworkHead,
     pub owner: IdentityEvidence,
     pub roster: Option<&'a [u8]>,
     pub observed_ms: u64,
@@ -121,8 +121,8 @@ impl FinalizedAuthority {
             return Err(ServiceError::WrongDomain);
         }
         let height = snapshot.execution_height;
-        let sealed = evidence.head.sealed_batch;
-        if sealed < height || sealed - height > MAX_FINALITY_LAG {
+        let committed = evidence.head.latest_committed_height;
+        if committed < height || committed - height > MAX_FINALITY_LAG {
             return Err(ServiceError::StaleAuthority);
         }
         let shared = state::decode_shared_state(evidence.state)?;

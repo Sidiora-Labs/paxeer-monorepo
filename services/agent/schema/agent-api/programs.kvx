@@ -2,7 +2,7 @@
 name = "programs"
 contract_major = 1
 compatibility = "additive_only"
-source_of_truth = "Canonical signed Programs activity payloads and authenticated Programs receipts define this operation family."
+source_of_truth = "layerxprograms 0x101D ABI calls, EIP-1559 transactions and submitted, receipted, committed rungs."
 
 [limit]
 program_id_bytes = 32
@@ -22,30 +22,30 @@ capability_encoding = ["V1","V2","V2","V2","V2"]
 
 [type.NativeProgramDeployRequest]
 required = ["signed_activity"]
-signed_activity = "canonical_signed_activity_bytes_at_most_1048576"
-protocol_version = 3
-module_id = 9
-ordinal = 1
+signed_activity = "canonical_signed_EIP1559_transaction_bytes_at_most_1048576"
+precompile = "0x000000000000000000000000000000000000101d"
+selector = "0xbde3ff66"
 payload = "NativeProgramDeploy"
-identity_binding = "exact_reencoded_payload_and_HTTP_Idempotency_Key_equals_signed_idempotency_key"
+identity_binding = "exact_ABI_calldata_signed_by_the_bound_actor_and_HTTP_Idempotency_Key_equals_transaction_hash"
 
 [type.NativeProgramUpgradeRequest]
 required = ["signed_activity"]
-signed_activity = "canonical_signed_activity_bytes_at_most_1048576"
-protocol_version = 3
-module_id = 9
-ordinal = 2
+signed_activity = "canonical_signed_EIP1559_transaction_bytes_at_most_1048576"
+precompile = "0x000000000000000000000000000000000000101d"
+selector = "0xa860929f"
 payload = "NativeProgramUpgrade"
-identity_binding = "exact_reencoded_payload_and_HTTP_Idempotency_Key_equals_signed_idempotency_key"
+identity_binding = "exact_ABI_calldata_signed_by_the_bound_actor_and_HTTP_Idempotency_Key_equals_transaction_hash"
 
 [type.NativeProgramWindDownRequest]
 required = ["signed_activity"]
-signed_activity = "canonical_signed_activity_bytes_at_most_1048576"
-protocol_version = 3
-module_id = 9
-ordinal = 7
+signed_activity = "canonical_signed_EIP1559_transaction_bytes_at_most_1048576"
+precompile = "0x000000000000000000000000000000000000101d"
+selector_route = "0x23330dd5"
+selector_deprecate = "0x86ba1a99"
+selector_tombstone = "0xa512f1a9"
+selector_exit = "0x4dc50730"
 payload = "NativeProgramWindDown"
-identity_binding = "exact_reencoded_payload_and_HTTP_Idempotency_Key_equals_signed_idempotency_key"
+identity_binding = "exact_ABI_calldata_signed_by_the_bound_actor_and_HTTP_Idempotency_Key_equals_transaction_hash"
 
 [type.NativeProgramDeploy]
 required = ["program_id","guest_abi","policy","authority","new_hash","wasm"]
@@ -87,136 +87,27 @@ exit = "account32"
 exact_lengths = ["131_plus_seed_length","73","33","65"]
 
 [type.ProgramLifecycleResponse]
-variants = ["ProgramLifecycleResultEnvelope","ProgramLifecycleUnknown","ProgramLifecycleErrorEnvelope"]
-transport_outcome = "never_authoritative"
-verification = "local_canonical_sequencer_signature_protocol3_module9_module_version4_operation0_activity_id_binding_no_call_outcome"
-
-[type.ProgramLifecycleResultEnvelope]
-required = ["result"]
-result = "ProgramLifecycleResult"
-http_status = 200
-
-[type.ProgramLifecycleResult]
-required = ["state","activity_id","receipt","terminal_payload","call_graph"]
-states = ["executed","refused"]
-activity_id = "bytes32_equal_to_bound_signed_activity_id"
-receipt = "bounded_canonical_signed_Programs_state_receipt"
-terminal_payload = "empty_string"
-call_graph = "empty_string"
-state_binding = "executed_if_receipt_result_code_zero_otherwise_refused"
-proof = "signature_under_pinned_sequencer_key_no_call_artifacts_or_program_id_field"
-sdk_result_code = "derived_from_verified_receipt_not_a_wire_result_field"
-
-[type.ProgramLifecycleUnknown]
-required = ["state","activity_id","retry","retry_after_seconds"]
-http_status = 202
-state = "unknown"
-activity_id = "bytes32_equal_to_bound_signed_activity_id"
-retry = "after"
-retry_after_seconds = 2
-retention = "SDK_retains_exact_signed_bytes_and_signed_idempotency_key_never_synthesizes_receipt"
-
-[type.ProgramLifecycleErrorEnvelope]
-required = ["error"]
-error = "ProgramLifecycleError"
-http_status = "400_through_599"
-
-[type.ProgramLifecycleError]
-required = ["code","retry"]
-optional = ["retry_after_seconds"]
-code = "bounded_lowercase_ascii_code"
-retry = ["never","after"]
-retry_after_seconds = "positive_u64_present_if_and_only_if_retry_after"
-
-[operation.program.deploy]
-method = "POST"
-path = "/v1/programs/deploy"
-request = "NativeProgramDeployRequest"
-required = ["idempotency_key"]
-response = "ProgramLifecycleResponse"
-scope = "program:deploy"
-content_type = "application/octet-stream"
-idempotency_header = "Idempotency-Key"
-idempotency_binding = "canonical_lowercase_hex_of_signed_activity_idempotency_key"
-unknown_outcome = "retain_signed_activity_and_signed_idempotency_key"
-
-[operation.program.upgrade]
-method = "POST"
-path = "/v1/programs/upgrade"
-request = "NativeProgramUpgradeRequest"
-required = ["idempotency_key"]
-response = "ProgramLifecycleResponse"
-scope = "program:upgrade"
-content_type = "application/octet-stream"
-idempotency_header = "Idempotency-Key"
-idempotency_binding = "canonical_lowercase_hex_of_signed_activity_idempotency_key"
-unknown_outcome = "retain_signed_activity_and_signed_idempotency_key"
-
-[operation.program.wind-down]
-method = "POST"
-path = "/v1/programs/wind-down"
-request = "NativeProgramWindDownRequest"
-required = ["idempotency_key"]
-response = "ProgramLifecycleResponse"
-scope = "program:wind-down"
-content_type = "application/octet-stream"
-idempotency_header = "Idempotency-Key"
-idempotency_binding = "canonical_lowercase_hex_of_signed_activity_idempotency_key"
-unknown_outcome = "retain_signed_activity_and_signed_idempotency_key"
+variants = ["ProgramSubmission"]
+verification = "achieved_rung_from_the_retained_EIP1559_transaction_progress"
 
 [type.ProgramSelector]
-required = ["program_id","requested_verification_level"]
+required = ["program_id","requested_rung"]
 program_id = "bytes32"
+requested_rung = ["submitted","receipted","committed"]
 
 [type.VerifiedProgramDiscovery]
-required = ["program_id","lifecycle","version","code_hash","abi_version","receipt_digest","state_root","observed_sequence","observed_at","valid_through","verification","deployment_receipt_digest"]
-optional = ["discovery_public_key","discovery_signature"]
-proof = "receipt_verified_registry_read_and_independently_pinned_signed_discovery_required_for_ABI_V3_VERSION_and_ABI_V4_VERSION"
-lifecycle = ["active","deprecated","tombstoned"]
-program_id = "bytes32"
-version = "nonzero_u32"
-code_hash = "bytes32"
-abi_version = "ProgramGuestAbi"
-receipt_digest = "sha256_of_LayerX/program-discovery-proof/v1_domain_program_id32_0x01_version_u32be_code_hash32_abi_version_u16be_observed_sequence_u64be_observed_at_u64be_valid_through_u64be_state_root32"
-deployment_receipt_digest = "bytes32"
-discovery_public_key = "bytes32_sequencer_public_key_pinned_by_the_client"
-discovery_signature = "ed25519_64_bytes_over_receipt_digest_by_discovery_public_key"
-signed_discovery_required_for = ["ABI_V3_VERSION","ABI_V4_VERSION"]
-signature_pair = "both_public_key_and_signature_present_or_both_absent_never_partial"
-signed_discovery_binding = "verify_digest_of_exact_program_id_version_code_hash_abi_current_head_window_under_independently_pinned_sequencer_key"
-state_root = "bytes32"
-observed_sequence = "u64_decimal"
-observed_at = "u64_decimal_milliseconds"
-valid_through = "u64_decimal_milliseconds"
-verification = "server_side_receipt_verification_only_at_sdk_boundary_sequencer_signed_when_discovery_signature_verifies"
+required = ["value","achieved_verification_level","freshness"]
+value = "program_id_policy_authority_code_hash_abi_version_version_active_from_layerxprograms_getProgram"
+achieved_verification_level = "null_for_eth_call_at_pending"
+freshness = "chain_head_value_height_relative_to_pending"
+proof = "ordinary_registry_read_has_no_receipt_or_commit_proof"
 
 [type.VerifiedProgramInterface]
-required = ["program_id","version","code_hash","abi_version","interface","interface_digest","receipt_digest","state_root","observed_sequence","observed_at","valid_through","source","verification"]
-proof = "receipt_verified_registry_read_bound_to_the_previously_verified_discovery_head"
-head_binding = "program_id_version_code_hash_abi_state_root_sequence_observation_window_and_deployment_receipt_digest_equal_verified_discovery"
-interface_binding = "sha256_digest_and_canonical_interface_code_hash_abi_equal_authenticated_deployment"
-absence = "typed_absent_only_when_the_verified_version_has_no_interface"
-program_id = "bytes32"
-version = "nonzero_u32"
-code_hash = "bytes32"
-abi_version = "ProgramGuestAbi"
-interface = "canonical_bytes_at_most_952"
-interface_digest = "sha256_of_interface"
-receipt_digest = "bytes32"
-state_root = "bytes32"
-observed_sequence = "u64_decimal"
-observed_at = "u64_decimal_milliseconds"
-valid_through = "u64_decimal_milliseconds"
-source = "ProgramSource"
-verification = "server_side_receipt_verification_only_at_sdk_boundary"
-kind5_limitation = "The kind 5 program-state proof transport proves a present interface under the authenticated chain head only. It cannot establish interface absence: a kind 5 answer without an interface is refused as a missing interface and is never reported as absent. Typed absence remains only the receipt-verified registry read above."
-
-[type.ProgramSource]
-required = ["status:string"]
-optional = ["source_digest:string","environment_digest:string","pipeline:string","expected_code_hash:string","reproduced_artifact_digest:string"]
-status_values = ["unpublished","verified","mismatch"]
-verified_required = ["source_digest","environment_digest","pipeline"]
-mismatch_required = ["expected_code_hash","reproduced_artifact_digest"]
+required = ["value","achieved_verification_level","freshness"]
+value = "program_id_version_interface_digest_interface_from_layerxprograms_getInterface"
+interface_binding = "canonical_interface_bytes_and_sha256_digest"
+achieved_verification_level = "null_for_eth_call_at_pending"
+freshness = "chain_head_value_height_relative_to_pending"
 
 [type.ProgramCallBudget]
 required = ["fuel","fee_limit"]
@@ -230,13 +121,7 @@ ordering = "ascending_unique_tag"
 
 [type.ProgramCallRequest]
 profile = "retained_legacy_call"
-required = ["program_id","calldata","budget","capabilities","signed_activity"]
-program_id = "bytes32"
-calldata = "canonical_bytes_at_most_1048576"
-budget = "ProgramCallBudget"
-capabilities = "bounded_canonical_ProgramCapability_set"
-signed_activity = "bounded_bytes"
-identity_binding = "The signed Programs ordinal-3 activity must carry the exact canonical payload derived from program_id, calldata, budget and capabilities."
+admission = "typed_unavailable_use_native_v1_for_EIP1559_calls"
 
 [type.NativeProgramCallFields]
 required = ["guest_abi","entrypoint","capabilities_hex","access_declaration_hex","response_capacity","resources"]
@@ -255,85 +140,79 @@ payload_encoding = "native-v1"
 program_id = "canonical_lowercase_nonzero_bytes32_hex"
 calldata = "canonical_lowercase_hex_bytes_at_most_1048576"
 budget = "ProgramCallBudget"
-signed_activity = "canonical_lowercase_signed_activity_hex_at_most_1048576_bytes"
+signed_activity = "canonical_lowercase_signed_EIP1559_transaction_hex_at_most_1048576_bytes"
 native_call = "NativeProgramCallFields"
-protocol_version = 3
-module_id = 9
-ordinal = 3
-identity_binding = "exact_NativeProgramCall_reencoding_equals_signed_activity_payload_and_budget_fee_limit_equals_signed_activity_fee_limit_and_nonzero_budget_fuel_equals_resources_index_zero"
-idempotency_binding = "HTTP_Idempotency_Key_equals_signed_activity_idempotency_key"
+precompile = "0x000000000000000000000000000000000000101d"
+identity_binding = "exact_layerxprograms_call_ABI_calldata_equals_signed_EIP1559_transaction_data_and_nonzero_budget_fuel_equals_resources_index_zero"
+idempotency_binding = "HTTP_Idempotency_Key_equals_transaction_hash"
 
 [type.ProgramReceiptSelector]
-required = ["idempotency_key","expected_activity_id","requested_verification_level"]
-idempotency_key = "bytes32"
-expected_activity_id = "bytes32"
+required = ["idempotency_key","expected_activity_id","requested_rung"]
+idempotency_key = "EIP1559_transaction_hash_bytes32"
+expected_activity_id = "EIP1559_transaction_hash_bytes32"
+requested_rung = ["submitted","receipted","committed"]
 
 [type.ProgramReceiptResponse]
-variants = ["ProgramSubmission","ProgramLifecycleReceiptEnvelope"]
-
-[type.ProgramLifecycleReceiptEnvelope]
-required = ["result"]
-result = "ProgramLifecycleReceipt"
-
-[type.ProgramLifecycleReceipt]
-required = ["activity_id","receipt"]
-activity_id = "bytes32_equal_to_retained_signed_activity_id"
-receipt = "bounded_canonical_signed_Programs_state_receipt"
-verification = "local_pinned_sequencer_signature_protocol3_module9_module_version4_operation0_no_call_outcome"
-lookup_binding = "URL_key_is_retained_signed_idempotency_key"
+variants = ["ProgramSubmission"]
 
 [type.ProgramActivitySelector]
-required = ["activity_id","requested_verification_level"]
-activity_id = "bytes32"
-
-[type.ProgramExecutionV4]
-encoding_version = 4
-domain = "LXP/program-execution/v4"
-domain_terminator_hex = "00"
-allowed_guest_abis = ["ABI_V2_VERSION"]
-layout = "frozen_execution_v4_field_order_widths_bounds_and_canonical_outcome_grammar"
-compatibility = "existing_ABI2_bytes_and_all_positive_negative_assertions_unchanged"
-
-[type.ProgramExecutionV5]
-encoding_version = 5
-domain = "LXP/program-execution/v5"
-domain_terminator_hex = "00"
-allowed_guest_abis = ["ABI_V3_VERSION","ABI_V4_VERSION","ABI_V5_VERSION"]
-layout = "execution_v4_field_order_widths_bounds_and_canonical_outcome_grammar_with_distinct_domain_only"
-abi_binding = "embedded_terminal_expected_request_signed_receipt_and_deployed_module_guest_ABI_all_equal_exactly"
-outcomes = ["success","guest_failure","resource"]
-usage_binding = "all_seven_metered_resource_classes_exactly_match_signed_receipt_usage_and_declared_budget"
-graph_binding = "canonical_graph_bytes_and_digest_bound_to_signed_receipt_and_authenticated_terminal"
-attachment_binding = "unchanged_occupancy_transfer_authority_applied_leg_commitments_required_without_missing_proof_fallback"
-failure_binding = "existing_callback_and_settlement_failure_domains_and_typed_refusals_with_exact_native_protocol3_guest_ABI3_ABI4_or_ABI5"
-historical_compatibility = "ABI3_ABI4_or_ABI5_under_execution_v4_remains_refused_never_relabel_or_reinterpret"
-unsupported = "ABI0_ABI1_ABI2_and_every_u16_above_ABI5_refused_under_execution_v5"
-
-[type.ProgramExecutionEvidence]
-required = ["activity_id","receipt","terminal_payload","call_graph","authority"]
-proof = "local_canonical_receipt_signature_and_terminal_commitment_verification"
-execution_profiles = ["ProgramExecutionV4","ProgramExecutionV5"]
-legacy_execution_profiles = "retained_ABI1_execution_v2_and_v3_bytes_and_refusals_unchanged"
-transport_outcome = "never_authoritative"
+required = ["activity_id","requested_rung"]
+activity_id = "EIP1559_transaction_hash_bytes32"
+requested_rung = ["submitted","receipted","committed"]
 
 [type.ProgramSimulation]
-required = ["committed","execution","simulation_evidence"]
+required = ["committed","program_id","terminal_result","terminal_kind","response","block","rung"]
 committed = false
-proof = "boundary_signed_non_commit_evidence_and_locally_verified_ProgramExecutionEvidence"
+block = "pending"
+rung = "null"
+proof = "eth_call_non_committing_result_without_transaction_evidence"
 
 [type.ProgramSubmission]
-required = ["state","activity_id","idempotency_key"]
-states = ["refused","unknown","executed"]
-unknown = "first_class_and_resolved_by_program.receipt_or_program.activity"
-executed = "requires_locally_verified_ProgramExecutionEvidence"
+required = ["tx_hash","submission_ref","state","rung"]
+tx_hash = "keccak256_of_exact_signed_EIP1559_transaction_bytes"
+submission_ref = "transaction_hash"
+state = ["Submitted","Unknown","Executed","Committed","Failed"]
+rung = ["submitted","receipted","committed"]
+submitted = "eth_sendRawTransaction_accepted_the_exact_transaction_hash"
+receipted = "verified_transaction_receipt"
+committed = "verified_block_commit"
+unknown = "retain_exact_signed_EIP1559_bytes_and_resolve_by_transaction_hash"
 
-[type.ProgramOutcome]
-variants = ["completed","legacy_completed","refused"]
-source = "authenticated_terminal_payload_bound_to_canonical_program_outcome_receipt_fields"
+[operation.program.deploy]
+method = "POST"
+path = "/v1/programs/deploy"
+request = "NativeProgramDeployRequest"
+required = ["idempotency_key"]
+response = "ProgramLifecycleResponse"
+scope = "program:deploy"
+content_type = "application/octet-stream"
+idempotency_header = "Idempotency-Key"
+idempotency_binding = "canonical_lowercase_transaction_hash"
+unknown_outcome = "retain_exact_signed_EIP1559_transaction_and_hash"
 
-[type.ProgramFailure]
-variants = ["unknown_program","reentrancy","depth_exceeded","fanout_exceeded","guest_refused","authority","resource","response","fault"]
-source = "canonical_terminal_failure_grammar"
+[operation.program.upgrade]
+method = "POST"
+path = "/v1/programs/upgrade"
+request = "NativeProgramUpgradeRequest"
+required = ["idempotency_key"]
+response = "ProgramLifecycleResponse"
+scope = "program:upgrade"
+content_type = "application/octet-stream"
+idempotency_header = "Idempotency-Key"
+idempotency_binding = "canonical_lowercase_transaction_hash"
+unknown_outcome = "retain_exact_signed_EIP1559_transaction_and_hash"
+
+[operation.program.wind-down]
+method = "POST"
+path = "/v1/programs/wind-down"
+request = "NativeProgramWindDownRequest"
+required = ["idempotency_key"]
+response = "ProgramLifecycleResponse"
+scope = "program:wind-down"
+content_type = "application/octet-stream"
+idempotency_header = "Idempotency-Key"
+idempotency_binding = "canonical_lowercase_transaction_hash"
+unknown_outcome = "retain_exact_signed_EIP1559_transaction_and_hash"
 
 [operation.program.discover]
 method = "GET"
@@ -346,7 +225,7 @@ scope = "program:read"
 method = "GET"
 path = "/v1/programs/registry/{program_id}/interface"
 request = "ProgramSelector"
-request_required = ["program_id","requested_verification_level"]
+request_required = ["program_id","requested_rung"]
 response = "VerifiedProgramInterface"
 scope = "program:read"
 
@@ -369,13 +248,13 @@ native_request = "NativeProgramCallRequest"
 required = ["idempotency_key"]
 response = "ProgramSubmission"
 scope = "program:call"
-unknown_outcome = "retain_signed_activity_and_resolve_by_receipt"
+unknown_outcome = "retain_exact_signed_EIP1559_transaction_and_resolve_by_hash"
 
 [operation.program.receipt]
 method = "GET"
 path = "/v1/programs/receipts/by-idempotency/{idempotency_key}"
 request = "ProgramReceiptSelector"
-request_required = ["idempotency_key","expected_activity_id","requested_verification_level"]
+request_required = ["idempotency_key","expected_activity_id","requested_rung"]
 response = "ProgramReceiptResponse"
 scope = "program:read"
 
@@ -383,6 +262,6 @@ scope = "program:read"
 method = "GET"
 path = "/v1/programs/activities/{activity_id}"
 request = "ProgramActivitySelector"
-request_required = ["activity_id","requested_verification_level"]
+request_required = ["activity_id","requested_rung"]
 response = "ProgramSubmission"
 scope = "program:read"

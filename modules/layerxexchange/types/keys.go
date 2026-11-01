@@ -2,7 +2,8 @@ package types
 
 const (
 	// ModuleName defines the module name.
-	ModuleName = "layerxexchange"
+	ModuleName         = "layerxexchange"
+	RetiredFromUpgrade = "v6.12.0"
 
 	// StoreKey defines the primary module store key.
 	StoreKey = ModuleName

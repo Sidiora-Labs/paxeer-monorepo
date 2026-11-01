@@ -143,8 +143,12 @@ func newSeed(g stateGetter, outputs [][]any) (Seed, error) {
 			return Seed{}, errors.New("getPosition returned no open position")
 		case d.User != head.User || d.MarketId.Cmp(head.MarketId) != 0 || d.IsLong != head.IsLong || d.EntryPrice.Cmp(head.EntryPrice) != 0:
 			return Seed{}, errors.New("getPosition and getPositionDetails disagree")
+		case d.SizeBase == nil || d.SizeBase.Sign() <= 0:
+			return Seed{}, errors.New("getPositionDetails returned no positive base size")
 		}
-		return Seed{Account: head.User, MarketID: head.MarketId.String(), IsLong: head.IsLong, SizeUSD: head.SizeUsd.String(),
+		sizeUSD := new(big.Int).Mul(d.SizeBase, head.EntryPrice)
+		sizeUSD.Quo(sizeUSD, big.NewInt(1_000_000_000_000_000_000))
+		return Seed{Account: head.User, MarketID: head.MarketId.String(), IsLong: head.IsLong, SizeUSD: sizeUSD.String(),
 			Position: &PositionSeed{
 				CollateralUSD: head.CollateralUsd.String(), CollateralAmount: head.CollateralAmount.String(),
 				CollateralToken: head.CollateralToken, EntryPrice: head.EntryPrice.String(), Leverage: d.Leverage.String(),

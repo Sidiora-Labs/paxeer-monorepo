@@ -57,7 +57,7 @@ func (env *Environment) Validators(ctx context.Context, req *coretypes.RequestVa
 	}
 
 	// The latest validator that we know is the NextValidator of the last block.
-	height, err := env.getHeight(env.latestUncommittedHeight(), (*int64)(req.Height))
+	height, err := env.getHeight(env.latestUncommittedHeight(), env.BlockStore.Base(), (*int64)(req.Height))
 	if err != nil {
 		return nil, err
 	}
@@ -90,6 +90,10 @@ func (env *Environment) Validators(ctx context.Context, req *coretypes.RequestVa
 // UNSTABLE
 // More: https://docs.tendermint.com/master/rpc/#/Info/dump_consensus_state
 func (env *Environment) DumpConsensusState(ctx context.Context) (*coretypes.ResultDumpConsensusState, error) {
+	if _, ok := env.gigaRouter().Get(); ok {
+		return nil, coretypes.ErrConsensusStateNotAvailable
+	}
+
 	// Get Peer consensus states.
 	reactor, err := env.requireConsensusReactor()
 	if err != nil {
@@ -144,6 +148,10 @@ func (env *Environment) DumpConsensusState(ctx context.Context) (*coretypes.Resu
 // UNSTABLE
 // More: https://docs.tendermint.com/master/rpc/#/Info/consensus_state
 func (env *Environment) GetConsensusState(ctx context.Context) (*coretypes.ResultConsensusState, error) {
+	if _, ok := env.gigaRouter().Get(); ok {
+		return nil, coretypes.ErrConsensusStateNotAvailable
+	}
+
 	consensusState, err := env.requireConsensusState()
 	if err != nil {
 		return nil, err
@@ -157,9 +165,24 @@ func (env *Environment) GetConsensusState(ctx context.Context) (*coretypes.Resul
 // If no height is provided, it will fetch the latest consensus params.
 // More: https://docs.tendermint.com/master/rpc/#/Info/consensus_params
 func (env *Environment) ConsensusParams(ctx context.Context, req *coretypes.RequestConsensusParams) (*coretypes.ResultConsensusParams, error) {
+	if _, ok := env.gigaRouter().Get(); ok {
+		height, err := env.autobahnCheckAndGetHeight(ctx, (*int64)(req.Height))
+		if err != nil {
+			return nil, err
+		}
+
+		consensusParams := *env.GenDoc.ConsensusParams
+		consensusParams.Synchrony = consensusParams.Synchrony.SynchronyParamsOrDefaults()
+		consensusParams.Timeout = consensusParams.Timeout.TimeoutParamsOrDefaults()
+
+		return &coretypes.ResultConsensusParams{
+			BlockHeight:     height,
+			ConsensusParams: consensusParams}, nil
+	}
+
 	// The latest consensus params that we know is the consensus params after
 	// the last block.
-	height, err := env.getHeight(env.latestUncommittedHeight(), (*int64)(req.Height))
+	height, err := env.getHeight(env.latestUncommittedHeight(), env.BlockStore.Base(), (*int64)(req.Height))
 	if err != nil {
 		return nil, err
 	}

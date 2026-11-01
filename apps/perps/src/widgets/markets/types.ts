@@ -1,13 +1,13 @@
 import type { MarketSnapshot } from "@/hooks/perps/useMarketsStream";
-import type { PerpsMarket } from "@/core/perps/config";
+import type { TradeableMarket } from "@/core/perps/config";
 
 /**
- * A single row in the Markets page table. Combines static per-market
- * config (from `PERPS_MARKETS`) with the live `markets@all` snapshot
+ * A single row in the Markets page table. Combines the gateway market
+ * catalog with the live `markets@all` snapshot
  * and a derived `category` string. The snapshot may be `undefined` on
  * first render before the WS feed lands.
  */
-export interface MarketRow extends PerpsMarket {
+export interface MarketRow extends TradeableMarket {
   /** Oracle / mid price — `0` until the feed responds. */
   price: number;
   /** 24h change as a percentage (e.g. -1.87 for -1.87%). */

@@ -30,7 +30,7 @@ export default async function ProgramPage({
   }
   const verified = (
     <ExplorerVerificationBadge
-      label={verificationLabel("state-proven")}
+      label={verificationLabel("checkpoint-finalised")}
     />
   );
   const policy = program.upgradePolicy.kind === "immutable"

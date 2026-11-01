@@ -46,17 +46,22 @@ directory = Path(tempfile.mkdtemp(prefix='beta-ci-', dir=base))
 archive = directory / 'historical-archive'
 archive.mkdir(mode=0o700)
 revision = 'f17f904928e2dacd38aabb8d4327edf523b8bafe'
+archive_prefix = 'spec/layerx-merge/'
+historical_prefix = 'spec/layerx-beta/'
 pins = {
-    'spec/layerx-beta/spec.kvx': 'b571925104ce6e957e5c654a0636c2f118ab6af88c2fe02ecb50df1da9d8876c',
-    'spec/layerx-beta/qualification.kvx': '179d43198b172571495bf202b0422acdb1b1b966a9d091030876bfa3535d32e7',
+    'spec/layerx-merge/spec.kvx': 'b571925104ce6e957e5c654a0636c2f118ab6af88c2fe02ecb50df1da9d8876c',
+    'spec/layerx-merge/qualification.kvx': '179d43198b172571495bf202b0422acdb1b1b966a9d091030876bfa3535d32e7',
 }
 records = []
 
 def recover(relative):
     path = Path(relative)
-    if path.is_absolute() or '..' in path.parts or any(part.startswith('.env') for part in path.parts):
+    if (not relative.startswith(archive_prefix) or path.is_absolute() or
+            '..' in path.parts or any(part.startswith('.env') for part in path.parts)):
         raise SystemExit('beta-ci-inputs: invalid historical input path')
-    result = subprocess.run(['git', '-C', str(root), 'show', revision + ':' + relative],
+    # The pinned archive predates the rename; retain its original bytes and digests.
+    historical_path = historical_prefix + relative[len(archive_prefix):]
+    result = subprocess.run(['git', '-C', str(root), 'show', revision + ':' + historical_path],
                             stdin=subprocess.DEVNULL, capture_output=True, timeout=20)
     if result.returncode:
         raise SystemExit('beta-ci-inputs: pinned historical input unavailable')
@@ -71,18 +76,19 @@ def recover(relative):
     with destination.open('xb') as stream:
         stream.write(data)
     destination.chmod(0o600)
-    records.append({'path': relative, 'sha256': digest, 'bytes': len(data)})
+    records.append({'path': relative, 'source_path': historical_path,
+                    'sha256': digest, 'bytes': len(data)})
     return data
 
-spec = recover('spec/layerx-beta/spec.kvx')
-ledger = recover('spec/layerx-beta/qualification.kvx')
+spec = recover('spec/layerx-merge/spec.kvx')
+ledger = recover('spec/layerx-merge/qualification.kvx')
 references = re.findall(r'^\s*evidence\s*=\s*"([^"\n]+)"', ledger.decode(), re.M)
 if len(references) != 48 or len(set(references)) != 48:
     raise SystemExit('beta-ci-inputs: historical evidence inventory mismatch')
 for relative in references:
-    if not relative.startswith('spec/layerx-beta/evidence/'):
+    if not relative.startswith(historical_prefix + 'evidence/'):
         raise SystemExit('beta-ci-inputs: historical evidence outside pinned archive')
-    recover(relative)
+    recover(archive_prefix + relative[len(historical_prefix):])
 selected = re.search(r'^\[task\.4\.3\]\s*\n(.*?)(?=^\[|\Z)', spec.decode(), re.M | re.S)
 if selected is None or not re.search(r'^verify_cmd\s*=\s*"make beta-driver-test"\s*$', selected[1], re.M):
     raise SystemExit('beta-ci-inputs: pinned producer task contract mismatch')
@@ -97,7 +103,7 @@ manifest = {'schema': 'layerx-beta-ci-input-provenance-v1', 'historical_revision
 print(directory)
 PY
 )
-spec_file=$input_directory/historical-archive/spec/layerx-beta/spec.kvx
+spec_file=$input_directory/historical-archive/spec/layerx-merge/spec.kvx
 ledger_file=$input_directory/current-qualification.kvx
 candidate=$(cat "$input_directory/candidate")
 bash "$root/scripts/ci/beta-qualify.sh" --spec "$spec_file" --task 4.3 \

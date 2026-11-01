@@ -1,78 +1,52 @@
-use super::*;
-use crate::custody::{Operation, SignAuthorization, SignRequest};
-use crate::store::{PrincipalId, TenancyMap};
-use layerx_intents::owner_activity::OwnerEnvelopeContext;
-use layerx_types::payload::{ActivityType, ModuleRegistration, ModuleRegistry};
-use serde::{Deserialize, Serialize};
+use super::{absolute, read_nonempty, required};
+use crate::onboarding::gas_station::{Call, GasStationClient, QuoteRequest, CHAIN_ID};
+use crate::store::TenancyMap;
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+use layerx_platform_internal::tls::{Origin, Upstream};
+use serde::Deserialize;
+use serde_json::json;
+use sha3::{Digest as _, Keccak256};
+use std::fs;
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Prepare {
-    email: String,
-    display_name: String,
-    idempotency_key: String,
-}
+const LAYERX_HUMAN_GAS_STATION_ENDPOINT: &str = "LAYERX_HUMAN_GAS_STATION_ENDPOINT";
+const STATION_PREFIX: &str = "LAYERX_HUMAN_GAS_STATION";
+const ADDR: &str = "0x0000000000000000000000000000000000001004";
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RegistryDocument {
-    network_id: u32,
-    protocol_version: u16,
-    modules: Vec<RegistryModule>,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct RegistryModule {
-    module_id: u16,
-    activity_types: Vec<u32>,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Owner {
-    principal: String,
-    did: String,
-    public_key: [u8; 32],
-    pending_key: [u8; 32],
-    recovery_root: [u8; 32],
-    recovery_threshold: u16,
-    recovery_delay_seconds: u64,
-    registration_action: [u8; 32],
-    recovery_action: [u8; 32],
-    recipient: [u8; 20],
+    chain_id: u64,
+    gas_station: Option<String>,
 }
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RecipientRequest {
-    principal: String,
-    checkpoint: [u8; 32],
-    asset: [u8; 32],
+struct Prepare {
+    account: String,
+    did_public_key: String,
+    signature: String,
+    bind_nonce: u64,
+    nonce: String,
+    max_token_amount: u128,
+    gas_cost: u128,
+    token: String,
+    decimals: u8,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct SigningRequest {
-    principal: String,
-    operation: String,
-    sequence: u64,
-    not_before_ms: u64,
-    not_after_ms: u64,
-    action_key: [u8; 32],
-    fee_limit: u128,
-    credit: Option<Vec<u8>>,
-    effective_sequence: Option<u64>,
-    policy_start_ms: Option<u64>,
-    policy_end_ms: Option<u64>,
+    batch: serde_json::Value,
+    call: serde_json::Value,
+    authorization: serde_json::Value,
+    #[serde(rename = "accountSignature")]
+    account_signature: String,
+    #[serde(rename = "relayerSignature")]
+    relayer_signature: String,
 }
 
 struct Runtime {
-    clock: Arc<dyn layerx_types::clock::Clock>,
-    store: Arc<Mutex<PrincipalStore>>,
-    custody: CustodySigner,
-    registry: ModuleRegistry,
-    network: u32,
-    native_asset: [u8; 32],
+    station: GasStationClient,
 }
 
 fn refused<E>(_: E) -> String {
@@ -80,8 +54,11 @@ fn refused<E>(_: E) -> String {
 }
 
 /// # Errors
-/// Refuses invalid input, unavailable production authorities, and changed provisioning retries.
+/// Refuses invalid input, unavailable sponsorship and receipts without a matching binding.
 pub fn onboarding_sponsor_command(operation: &str, input: &[u8]) -> Result<Vec<u8>, String> {
+    if !matches!(operation, "initialize-store" | "prepare" | "sign") {
+        return Err("unknown sponsor operation".to_owned());
+    }
     if input.len() > 1_048_576 {
         return Err("sponsor request exceeds bound".to_owned());
     }
@@ -99,9 +76,6 @@ pub fn onboarding_sponsor_command(operation: &str, input: &[u8]) -> Result<Vec<u
     let value = match operation {
         "prepare" => runtime.prepare(&serde_json::from_slice(input).map_err(refused)?)?,
         "sign" => runtime.sign(&serde_json::from_slice(input).map_err(refused)?)?,
-        "settlement-recipient" => {
-            runtime.recipient(&serde_json::from_slice(input).map_err(refused)?)?
-        }
         _ => return Err("unknown sponsor operation".to_owned()),
     };
     serde_json::to_vec(&value).map_err(refused)
@@ -152,386 +126,232 @@ fn initialize_store() -> Result<crate::store::TenancyDigest, String> {
 }
 
 impl Runtime {
-    fn now(&self) -> Result<u64, String> {
-        self.clock
-            .sample(Duration::from_secs(1))
-            .map(layerx_types::clock::ClockReading::unix_seconds)
-            .map_err(refused)
-    }
-
     fn open() -> Result<Self, String> {
-        let network = number("LAYERX_HUMAN_NETWORK_ID")?;
-        let configured_asset = required("LAYERX_HUMAN_ONBOARDING_NATIVE_ASSET")?;
-        if configured_asset.len() != 64
-            || !configured_asset
-                .bytes()
-                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-        {
-            return Err(refused(()));
-        }
-        let native_asset = decode_hex_32(&format!("0x{configured_asset}")).map_err(refused)?;
-        if native_asset == [0; 32] {
-            return Err(refused(()));
-        }
-        let document: RegistryDocument = serde_json::from_slice(&read_nonempty(&absolute(
-            "LAYERX_HUMAN_ONBOARDING_REGISTRY_FILE",
-        )?)?)
-        .map_err(refused)?;
-        if document.network_id != network || document.protocol_version != 3 {
-            return Err(refused(()));
-        }
-        let modules = document
-            .modules
-            .into_iter()
-            .map(|module| {
-                let id = ModuleId::from_u16(module.module_id).map_err(refused)?;
-                let kinds = module
-                    .activity_types
-                    .into_iter()
-                    .map(|kind| ActivityType::from_u32(kind).map_err(refused))
-                    .collect::<Result<Vec<_>, _>>()?;
-                ModuleRegistration::new(id, &kinds).map_err(refused)
-            })
-            .collect::<Result<Vec<_>, String>>()?;
-        let registry = ModuleRegistry::new(&modules).map_err(refused)?;
-        let store = production_principal_store(
-            absolute("LAYERX_HUMAN_STORE_ROOT")?,
-            production_retention_config()?,
-            secret32("LAYERX_HUMAN_TENANCY_DIGEST")?,
-            principal_binding_configuration()?,
-        )?;
-        let tls = mutual_tls(
-            &absolute("LAYERX_HUMAN_KMS_ROOT_CERTIFICATE_DER")?,
-            &absolute("LAYERX_HUMAN_KMS_CLIENT_CERTIFICATE_DER")?,
-            &absolute("LAYERX_HUMAN_KMS_CLIENT_PRIVATE_KEY_DER")?,
-        )?;
-        let limits = Limits {
-            maximum_frame_bytes: number("LAYERX_HUMAN_KMS_MAX_FRAME_BYTES")?,
-            maximum_connections: number("LAYERX_HUMAN_KMS_MAX_CONNECTIONS")?,
-            maximum_streams: number("LAYERX_HUMAN_KMS_MAX_STREAMS")?,
-            maximum_queued_bytes: number("LAYERX_HUMAN_KMS_MAX_QUEUED_BYTES")?,
-            deadline: Duration::from_secs(number("LAYERX_HUMAN_KMS_DEADLINE_SECONDS")?),
-        };
-        let provider = RemoteKmsProvider::new(
-            required("LAYERX_HUMAN_KMS_PROVIDER_REFERENCE")?,
-            required("LAYERX_HUMAN_KMS_ENDPOINT")?
-                .parse()
-                .map_err(refused)?,
-            required("LAYERX_HUMAN_KMS_SERVER_NAME")?,
-            tls,
-            limits,
-        )
-        .map_err(refused)?;
-        let keystore =
-            Keystore::open_production(absolute("LAYERX_HUMAN_CUSTODY_ROOT")?, network, provider)
-                .map_err(refused)?;
-        let custody = CustodySigner::new_shared(
-            keystore,
-            Arc::clone(&store),
-            registry.clone(),
-            SigningLimits::new(
-                number("LAYERX_HUMAN_SIGNING_RATE_MAXIMUM")?,
-                number("LAYERX_HUMAN_SIGNING_RATE_WINDOW_SECONDS")?,
+        let variable = "LAYERX_HUMAN_ONBOARDING_REGISTRY_FILE";
+        let path = absolute(variable)
+            .map_err(|_| format!("{variable} must name an absolute registry file"))?;
+        let invalid = || {
+            format!(
+                "{variable} ({}): expected chain_id 125 and an optional gas_station HTTPS origin",
+                path.display()
             )
-            .map_err(refused)?,
-        );
-        let clock =
-            layerx_client::runtime_clock::RuntimeClock::from_environment().map_err(refused)?;
+        };
+        let document: RegistryDocument =
+            serde_json::from_slice(&read_nonempty(&path).map_err(|_| invalid())?)
+                .map_err(|_| invalid())?;
+        if document.chain_id != CHAIN_ID {
+            return Err(invalid());
+        }
+        let endpoint = match document.gas_station {
+            Some(endpoint) => endpoint,
+            None => required(LAYERX_HUMAN_GAS_STATION_ENDPOINT).map_err(|_| {
+                format!(
+                    "{variable} ({}) and {LAYERX_HUMAN_GAS_STATION_ENDPOINT} name no gas station",
+                    path.display()
+                )
+            })?,
+        };
+        let origin = Origin::parse(&endpoint).map_err(|_| invalid())?;
+        let upstream = Upstream::from_environment(STATION_PREFIX)?;
+        if upstream.origin() != &origin {
+            return Err(
+                "gas station upstream URL differs from the onboarding registry or endpoint"
+                    .to_owned(),
+            );
+        }
         Ok(Self {
-            clock,
-            store,
-            custody,
-            registry,
-            network,
-            native_asset,
+            station: GasStationClient::new(upstream),
         })
     }
 
     fn prepare(&self, request: &Prepare) -> Result<serde_json::Value, String> {
-        let identity = RemoteIdentityProvider::new(IdentityProviderConfig {
-            socket: absolute("LAYERX_HUMAN_IDENTITY_SOCKET")?,
-            deadline: Duration::from_secs(number("LAYERX_HUMAN_IDENTITY_DEADLINE_SECONDS")?),
-            maximum_frame_bytes: number("LAYERX_HUMAN_IDENTITY_MAX_FRAME_BYTES")?,
-            peer_uid: number("LAYERX_HUMAN_IDENTITY_PEER_UID")?,
-            peer_gid: number("LAYERX_HUMAN_IDENTITY_PEER_GID")?,
-        })
-        .map_err(refused)?;
-        let observed = self.now()?;
-        let provisioned = identity
-            .provision(
-                &request.email,
-                &request.display_name,
-                &request.idempotency_key,
-                observed,
-            )
-            .map_err(refused)?;
-        let index = production_auth_index(
-            absolute("LAYERX_HUMAN_AUTH_INDEX_ROOT")?,
-            secret32("LAYERX_HUMAN_AUTH_INDEX_KEY")?,
-        )?;
-        index
-            .bind_account(&request.email, &provisioned.principal)
-            .map_err(refused)?;
-        let mut store = self.store.lock().map_err(refused)?;
-        let mut scope = store.principal(&provisioned.principal).map_err(refused)?;
-        let mut journey = OnboardingJourney::start(&mut scope, &provisioned.onboarding, observed)
-            .map_err(refused)?;
-        self.custody
-            .resume_onboarding_local(&mut journey, &mut scope, observed)
-            .map_err(refused)?;
-        identity_dispatch::update_profile(
-            &mut scope,
-            &json!({"display_name": request.display_name}),
-            observed,
-        )
-        .map_err(refused)?;
-        let (did, public_key, recovery) = journey.bootstrap_identity().map_err(refused)?;
-        let pending_id = KeyId::new("human-owner-pending").map_err(refused)?;
-        let keystore = self.custody.creation_keystore();
-        match keystore.create(scope.principal(), &pending_id, KeyClass::HumanPrimary) {
-            Ok(_) | Err(CustodyError::KeyExists) => (),
-            Err(error) => return Err(refused(error)),
-        }
-        let pending = keystore
-            .describe(scope.principal(), &pending_id)
-            .map_err(refused)?;
-        if pending.class != KeyClass::HumanPrimary || pending.public_key == public_key {
+        let account = fixed_hex::<20>(&request.account)?;
+        let public_key = fixed_hex::<32>(&request.did_public_key)?;
+        let signature = fixed_hex::<64>(&request.signature)?;
+        if account == [0; 20] || public_key == [0; 32] {
             return Err(refused(()));
         }
-        let owner = Owner {
-            principal: scope.principal().as_str().to_owned(),
-            did: std::str::from_utf8(did.as_bytes())
-                .map_err(refused)?
-                .to_owned(),
-            public_key,
-            pending_key: pending.public_key,
-            recovery_root: recovery.root().bytes(),
-            recovery_threshold: recovery.threshold().value(),
-            recovery_delay_seconds: recovery.challenge_delay_secs(),
-            registration_action: journey
-                .bootstrap_action(crate::onboarding::ProtocolStage::DidRegistration),
-            recovery_action: journey
-                .bootstrap_action(crate::onboarding::ProtocolStage::RecoveryRegistration),
-            recipient: self
-                .custody
-                .evm_wallet(
-                    scope.principal(),
-                    &KeyId::new("human-primary").map_err(refused)?,
-                )
-                .map_err(refused)?,
+        let mut message = b"LX:PAXEER-BIND:v1".to_vec();
+        message.extend_from_slice(&word(u128::from(CHAIN_ID)));
+        message.extend_from_slice(&account);
+        message.extend_from_slice(&request.bind_nonce.to_be_bytes());
+        layerx_crypto::ed25519::verify_message(&public_key, &signature, &message)
+            .map_err(refused)?;
+        let quote_request = QuoteRequest {
+            account,
+            nonce: decimal_word(&request.nonce)?,
+            calls: vec![Call {
+                to: fixed_hex::<20>(ADDR)?,
+                value: [0; 32],
+                data: bindLayerX(public_key, signature),
+            }],
+            max_token_amount: request.max_token_amount,
+            gas_cost: request.gas_cost,
+            token: fixed_hex::<20>(&request.token)?,
+            decimals: request.decimals,
         };
-        let row = RowKey::new("onboarding-sponsor-owner").map_err(refused)?;
-        let bytes = serde_json::to_vec(&owner).map_err(refused)?;
-        if let Some(prior) = scope.get(Table::Journeys, &row) {
-            if prior.bytes() != bytes {
-                return Err(refused(()));
-            }
-        } else {
-            scope
-                .put(Table::Journeys, row, observed, bytes)
-                .map_err(refused)?;
-        }
-        serde_json::to_value(owner).map_err(refused)
-    }
-
-    fn recipient(&self, request: &RecipientRequest) -> Result<serde_json::Value, String> {
-        if request.asset != self.native_asset || request.checkpoint == [0; 32] {
-            return Err(refused(()));
-        }
-        let principal = PrincipalId::new(&request.principal).map_err(refused)?;
-        let mut store = self.store.lock().map_err(refused)?;
-        let mut scope = store.principal(&principal).map_err(refused)?;
-        let key = KeyId::new("human-primary").map_err(refused)?;
-        let recipient = self.custody.evm_wallet(&principal, &key).map_err(refused)?;
-        let trace = TraceId::mint(request.checkpoint[..16].try_into().map_err(refused)?);
-        let signature = self
-            .custody
-            .settlement_recipient_in_scope(
-                &mut scope,
-                &key,
-                crate::custody::SettlementRecipientRequest {
-                    checkpoint: request.checkpoint,
-                    asset: request.asset,
-                    recipient,
+        let body =
+            GasStationClient::quote_body(&quote_request).map_err(|error| error.to_string())?;
+        let signed = self
+            .station
+            .quote(&quote_request)
+            .map_err(|error| error.to_string())?;
+        let quote = signed.quote;
+        Ok(json!({
+            "batch": {
+                "chainId": body["chainId"], "account": body["account"],
+                "nonce": body["nonce"], "calls": body["calls"],
+                "quote": {
+                    "sponsor": evm_hex(&quote.sponsor), "token": evm_hex(&quote.token),
+                    "maxTokenAmount": decimal(&quote.max_token_amount),
+                    "tokenAmount": decimal(&quote.token_amount), "deadline": decimal(&quote.deadline),
+                    "quoteNonce": decimal(&quote.nonce), "gasCost": decimal(&quote.gas_cost),
+                    "decimals": signed.decimals,
                 },
-                &trace,
-                self.now()?,
-            )
-            .map_err(refused)?;
-        let journey = OnboardingJourney::load(&scope)
-            .map_err(refused)?
-            .ok_or_else(|| refused(()))?;
-        let did = journey.did().map_err(refused)?;
-        let did_text = std::str::from_utf8(did.as_bytes()).map_err(refused)?;
-        let account = AccountId::parse(&format!("agent:{did_text}:main")).map_err(refused)?;
-        let public_key = self
-            .custody
-            .creation_keystore()
-            .describe(&principal, &key)
-            .map_err(refused)?
-            .public_key;
-        Ok(
-            json!({"network_id": self.network, "principal": principal.as_str(), "did": did_text,
-            "account": hex_bytes(&layerx_intents::canonical::account_id_for_protocol(&account, 3).map_err(refused)?),
-            "public_key": hex_bytes(&public_key), "asset": hex_bytes(&request.asset),
-            "checkpoint": hex_bytes(&request.checkpoint), "recipient": hex_bytes(&recipient),
-            "signature": hex_bytes(&signature)}),
-        )
+            },
+            "relayerSignature": evm_hex(&signed.signature),
+        }))
     }
 
     fn sign(&self, request: &SigningRequest) -> Result<serde_json::Value, String> {
-        let principal = PrincipalId::new(&request.principal).map_err(refused)?;
-        let mut store = self.store.lock().map_err(refused)?;
-        let mut scope = store.principal(&principal).map_err(refused)?;
-        let owner = scope
-            .get(
-                Table::Journeys,
-                &RowKey::new("onboarding-sponsor-owner").map_err(refused)?,
-            )
-            .ok_or_else(|| refused(()))?;
-        let owner: Owner = serde_json::from_slice(owner.bytes()).map_err(refused)?;
-        if owner.principal != request.principal {
+        let batch = &request.batch;
+        let account = fixed_hex::<20>(batch["account"].as_str().ok_or_else(|| refused(()))?)?;
+        let calls = batch["calls"].as_array().ok_or_else(|| refused(()))?;
+        let first = calls.first().ok_or_else(|| refused(()))?;
+        if first["to"] != ADDR || first["value"] != "0" {
             return Err(refused(()));
         }
-        let did = Did::new(owner.did.as_bytes()).map_err(refused)?;
-        let compiled = bootstrap_intent(&owner, request, &self.registry)?;
-        let context = OwnerEnvelopeContext {
-            actor: did,
-            owner_public_key: owner.public_key,
-            network_id: self.network,
-            account_sequence: request.sequence,
-            not_before_ms: request.not_before_ms,
-            not_after_ms: request.not_after_ms,
-            action_key: request.action_key,
-            fee_limit: request.fee_limit,
-        };
-        let (unsigned, disclosure) =
-            layerx_intents::owner_activity::unsigned_native(&compiled, &context, &self.registry)
-                .map_err(refused)?;
-        let row =
-            RowKey::new(format!("onboarding-sponsor-{}", request.operation)).map_err(refused)?;
-        if let Some(prior) = scope.get(Table::Journeys, &row) {
-            let signed = layerx_intents::owner_activity::verify(prior.bytes(), &self.registry)
-                .map_err(refused)?;
-            if layerx_intents::canonical::unsigned_activity_bytes(&signed).map_err(refused)?
-                != unsigned
-            {
-                return Err(refused(()));
-            }
-            return Ok(
-                json!({"activity": hex_bytes(prior.bytes()), "activity_id": hex_bytes(&layerx_intents::canonical::activity_id(&signed).map_err(refused)?)}),
-            );
+        let data = hex_data(first["data"].as_str().ok_or_else(|| refused(()))?)?;
+        if data.len() != 164 || data[..4] != Keccak256::digest(b"bindLayerX(bytes32,bytes)")[..4] {
+            return Err(refused(()));
         }
-        let key = KeyId::new("human-primary").map_err(refused)?;
-        let trace = TraceId::mint(request.action_key[..16].try_into().map_err(refused)?);
-        let signature = super::super::poll_once_ready(self.custody.sign_in_scope(
-            &mut scope,
-            SignRequest::new(
-                &principal,
-                &key,
-                &trace,
-                SignAuthorization::new(Operation::ProtocolMutation, None),
-                &unsigned,
-                &disclosure,
-                self.now()?,
-            ),
-        ))
-        .map_err(refused)?
-        .map_err(refused)?;
-        let signed = layerx_intents::owner_activity::attach_signature(
-            &unsigned,
-            *signature.signature(),
-            signature.signer_public_key(),
-            &self.registry,
-        )
-        .map_err(refused)?;
-        let activity =
-            layerx_intents::owner_activity::verify(&signed, &self.registry).map_err(refused)?;
-        scope
-            .put(
-                Table::Journeys,
-                row,
-                request.not_before_ms / 1_000,
-                signed.clone(),
-            )
-            .map_err(refused)?;
-        Ok(
-            json!({"activity":hex_bytes(&signed), "activity_id":hex_bytes(&layerx_intents::canonical::activity_id(&activity).map_err(refused)?)}),
-        )
+        let public_key: [u8; 32] = data[4..36].try_into().map_err(refused)?;
+        let signature: [u8; 64] = data[100..164].try_into().map_err(refused)?;
+        if data != bindLayerX(public_key, signature) {
+            return Err(refused(()));
+        }
+        let body = json!({
+            "batch": batch, "call": request.call, "authorization": request.authorization,
+            "accountSignature": request.account_signature, "relayerSignature": request.relayer_signature,
+        });
+        let receipt = self
+            .station
+            .submit(&body)
+            .map_err(|error| error.to_string())?;
+        match receipt["rung"].as_str() {
+            Some("submitted") => Ok(json!({"complete": false, "receipt": receipt})),
+            Some("receipted" | "committed") => {
+                if receipt["status"] != "1" || !LayerXBound(&receipt, account, public_key)? {
+                    return Err(
+                        "onboarding receipt has no successful matching LayerXBound log".to_owned(),
+                    );
+                }
+                Ok(json!({"complete": true, "receipt": receipt}))
+            }
+            _ => Err("onboarding gas station returned no batch receipt rung".to_owned()),
+        }
     }
 }
 
-fn bootstrap_intent(
-    owner: &Owner,
-    request: &SigningRequest,
-    registry: &ModuleRegistry,
-) -> Result<layerx_intents::CompiledIntent, String> {
-    use layerx_intents::NativeOwnerBootstrap;
-    use layerx_types::intent::{ApprovalThreshold, PublicKey, RecoveryRoot};
-    let did = Did::new(owner.did.as_bytes()).map_err(refused)?;
-    if request.operation == "identity" && request.action_key != owner.registration_action
-        || request.operation == "recovery" && request.action_key != owner.recovery_action
-    {
-        return Err(refused(()));
-    }
-    if request.operation == "credit" {
-        if request.effective_sequence.is_some()
-            || request.policy_start_ms.is_some()
-            || request.policy_end_ms.is_some()
+#[allow(non_snake_case)]
+fn bindLayerX(public_key: [u8; 32], signature: [u8; 64]) -> Vec<u8> {
+    let mut data = Keccak256::digest(b"bindLayerX(bytes32,bytes)")[..4].to_vec();
+    data.extend_from_slice(&public_key);
+    data.extend_from_slice(&word(64));
+    data.extend_from_slice(&word(64));
+    data.extend_from_slice(&signature);
+    data
+}
+
+#[allow(non_snake_case)]
+fn LayerXBound(
+    receipt: &serde_json::Value,
+    account: [u8; 20],
+    public_key: [u8; 32],
+) -> Result<bool, String> {
+    let topic = evm_hex(&Keccak256::digest(b"LayerXBound(address,bytes32,uint64)"));
+    let mut evm = [0; 32];
+    evm[12..].copy_from_slice(&account);
+    let logs = receipt["logs"].as_array().ok_or_else(|| refused(()))?;
+    for log in logs {
+        let Some(topics) = log["topics"].as_array() else {
+            return Err(refused(()));
+        };
+        if log["address"] == ADDR
+            && topics.len() == 3
+            && topics[0] == topic
+            && topics[1] == evm_hex(&evm)
+            && topics[2] == evm_hex(&public_key)
+            && log.get("removed") != Some(&json!(true))
         {
-            return Err(refused(()));
+            let nonce = fixed_hex::<32>(log["data"].as_str().ok_or_else(|| refused(()))?)?;
+            if nonce[..24] == [0; 24] {
+                return Ok(true);
+            }
         }
-        let raw = request.credit.as_deref().ok_or_else(|| refused(()))?;
-        if raw.get(139..171) != Some(owner.public_key.as_slice()) {
-            return Err(refused(()));
-        }
-        let credit = layerx_intents::NativeCustodyCredit::new(
-            raw,
-            AccountId::parse("system:treasury").map_err(refused)?,
-            AccountId::parse(&format!("agent:{}:main", owner.did)).map_err(refused)?,
-        )
-        .map_err(refused)?;
-        if credit.nullifier() != request.action_key {
-            return Err(refused(()));
-        }
-        let intent = Intent::v1(IntentKind::NativeCustodyCredit(credit));
-        let compiled = layerx_intents::compile(&intent, registry).map_err(refused)?;
-        layerx_intents::DisclosureCheck::verify(&intent, &compiled).map_err(refused)?;
-        return Ok(compiled);
     }
-    if request.credit.is_some() {
+    Ok(false)
+}
+
+fn hex_data(raw: &str) -> Result<Vec<u8>, String> {
+    layerx_platform_internal::secret::unhex(raw.strip_prefix("0x").ok_or_else(|| refused(()))?)
+        .ok_or_else(|| refused(()))
+}
+
+fn fixed_hex<const N: usize>(raw: &str) -> Result<[u8; N], String> {
+    if raw.len() != 2 + N * 2 {
         return Err(refused(()));
     }
-    let operation = match request.operation.as_str() {
-        "identity" => NativeOwnerBootstrap::Identity {
-            did,
-            primary_key: PublicKey::new(owner.public_key),
-        },
-        "rotation" => NativeOwnerBootstrap::RotationPolicy {
-            did,
-            pending_key: PublicKey::new(owner.pending_key),
-            challenge: layerx_types::activity::TimestampBound::new(
-                request.policy_start_ms.ok_or_else(|| refused(()))?,
-                request.policy_end_ms.ok_or_else(|| refused(()))?,
-            )
-            .map_err(refused)?,
-            effective_sequence: request.effective_sequence.ok_or_else(|| refused(()))?,
-        },
-        "recovery" => NativeOwnerBootstrap::RecoveryPolicy {
-            did,
-            root: RecoveryRoot::new(owner.recovery_root),
-            threshold: ApprovalThreshold::new(owner.recovery_threshold).map_err(refused)?,
-            minimum_delay: owner.recovery_delay_seconds,
-            maximum_delay: owner.recovery_delay_seconds,
-        },
-        _ => return Err(refused(())),
-    };
-    if request.operation != "rotation"
-        && (request.effective_sequence.is_some()
-            || request.policy_start_ms.is_some()
-            || request.policy_end_ms.is_some())
+    hex_data(raw)?.try_into().map_err(refused)
+}
+
+fn word(value: u128) -> [u8; 32] {
+    let mut result = [0; 32];
+    result[16..].copy_from_slice(&value.to_be_bytes());
+    result
+}
+
+fn decimal_word(raw: &str) -> Result<[u8; 32], String> {
+    if raw.is_empty()
+        || raw.len() > 78
+        || (raw.len() > 1 && raw.starts_with('0'))
+        || !raw.bytes().all(|byte| byte.is_ascii_digit())
     {
         return Err(refused(()));
     }
-    operation.compile(registry).map_err(refused)
+    let mut result = [0_u8; 32];
+    for digit in raw.bytes() {
+        let mut carry = u16::from(digit - b'0');
+        for byte in result.iter_mut().rev() {
+            let next = u16::from(*byte) * 10 + carry;
+            *byte = next.to_be_bytes()[1];
+            carry = next >> 8;
+        }
+        if carry != 0 {
+            return Err(refused(()));
+        }
+    }
+    Ok(result)
+}
+
+fn decimal(value: &[u8; 32]) -> String {
+    let mut remaining = *value;
+    let mut digits = Vec::new();
+    loop {
+        let mut rest = 0_u16;
+        for byte in &mut remaining {
+            let current = (rest << 8) | u16::from(*byte);
+            *byte = (current / 10).to_be_bytes()[1];
+            rest = current % 10;
+        }
+        digits.push(char::from(b'0' + rest.to_be_bytes()[1]));
+        if remaining == [0; 32] {
+            break;
+        }
+    }
+    digits.iter().rev().collect()
+}
+
+fn evm_hex(bytes: &[u8]) -> String {
+    format!("0x{}", layerx_platform_internal::secret::hex(bytes))
 }

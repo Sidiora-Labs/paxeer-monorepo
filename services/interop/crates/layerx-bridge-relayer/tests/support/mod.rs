@@ -17,10 +17,12 @@ use std::time::Duration;
 
 use k256::ecdsa::SigningKey;
 use layerx_bridge_relayer::hex;
+use layerx_bridge_relayer::journal::Entry;
 use layerx_bridge_relayer::rpc::{JsonRpc, RpcFault, SendOutcome};
 use layerx_mirror::signer::{
     RemoteChainSigner, RemoteSignerConfig, SignerEndpoint, SigningAlgorithm,
 };
+use layerx_proof::inclusion::SequencerAuthorization;
 use serde_json::Value;
 use sha3::{Digest as _, Keccak256};
 
@@ -481,4 +483,39 @@ pub fn work_directory(name: &str) -> PathBuf {
     fs::create_dir_all(&directory)
         .unwrap_or_else(|error| panic!("work directory {}: {error}", directory.display()));
     directory
+}
+
+pub fn receipt_keys() -> Vec<SequencerAuthorization> {
+    let document: Value =
+        serde_json::from_str(include_str!("../fixtures/inbound_sequencer_receipt.json"))
+            .unwrap_or_else(|error| panic!("receipt fixture: {error}"));
+    let pin = &document["receiptKey"];
+    let fixed = |field: &str| {
+        hex::fixed(
+            pin[field]
+                .as_str()
+                .unwrap_or_else(|| panic!("missing {field}")),
+        )
+        .unwrap_or_else(|error| panic!("receipt key {field}: {error:?}"))
+    };
+    vec![SequencerAuthorization::new(
+        fixed("keyId"),
+        fixed("publicKey"),
+        pin["firstHeight"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("firstHeight")),
+        pin["lastHeight"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("lastHeight")),
+    )]
+}
+
+pub fn journal_entries(path: &Path) -> Vec<Entry> {
+    fs::read_to_string(path)
+        .unwrap_or_else(|error| panic!("journal entries: {error}"))
+        .lines()
+        .map(|line| {
+            serde_json::from_str(line).unwrap_or_else(|error| panic!("journal entry: {error}"))
+        })
+        .collect()
 }

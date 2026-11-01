@@ -1,8 +1,5 @@
 //! Source-controlled LNI v1 schema and canonical envelope vectors.
 
-/// Exact LNI schema source checked into the repository.
-pub const LNI_V1_SOURCE: &str = include_str!("../../../../schema/lni/v1.kvx");
-
 /// Node-interface major and minor version.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Version {

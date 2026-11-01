@@ -3,6 +3,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use layerx_types::payload::ModuleRegistry;
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::activity::{decode_signed, encode_signed};
 use layerx_wire::batch_maintenance::decode_maintenance;
@@ -431,11 +432,11 @@ impl IndependentOfflineTrust {
     }
 }
 
-/// The level one requested fact achieved.
+/// The rung one requested fact achieved.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FactVerification {
     fact: FactSelector,
-    achieved: VerificationLevel,
+    achieved: Rung,
 }
 
 impl FactVerification {
@@ -445,16 +446,16 @@ impl FactVerification {
     }
 
     #[must_use]
-    pub const fn achieved(&self) -> VerificationLevel {
+    pub const fn achieved(&self) -> Rung {
         self.achieved
     }
 }
 
-/// Successful complete verification: per-fact levels and their minimum.
+/// Successful complete verification: per-fact rungs and their minimum.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompleteVerificationReport {
     facts: Vec<FactVerification>,
-    achieved: VerificationLevel,
+    achieved: Rung,
 }
 
 impl CompleteVerificationReport {
@@ -464,9 +465,9 @@ impl CompleteVerificationReport {
         &self.facts
     }
 
-    /// Minimum achieved level over the requested facts.
+    /// Minimum achieved rung over the requested facts.
     #[must_use]
-    pub const fn achieved(&self) -> VerificationLevel {
+    pub const fn achieved(&self) -> Rung {
         self.achieved
     }
 }
@@ -474,9 +475,6 @@ impl CompleteVerificationReport {
 /// Exact refusal of a complete export; `fact` is the request position.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CompleteExportError {
-    /// Settlement anchoring was requested; no authenticated offline Paxeer
-    /// finality proof exists, so it can never be established offline.
-    SettlementAnchoringUnavailable,
     Facts(FactRefError),
     DuplicateRecord,
     OrphanRecord,
@@ -525,10 +523,10 @@ pub enum CompleteExportError {
         fact: usize,
         error: Box<AvailabilityFailure>,
     },
-    LevelNotAchieved {
+    RungNotAchieved {
         fact: usize,
-        achieved: VerificationLevel,
-        requested: VerificationLevel,
+        achieved: Rung,
+        requested: Rung,
     },
 }
 
@@ -927,23 +925,20 @@ impl<'a> CompleteVerifier<'a> {
 
 /// Verifies every requested fact of a complete artifact against independent trust.
 ///
-/// Each fact's level comes only from its own bound evidence; a receipt,
-/// activity or state fact reaches checkpoint finality only when a requested
+/// Each fact's rung comes only from its own bound evidence; a receipt,
+/// activity or state fact reaches the committed rung only when a requested
 /// checkpoint fact certifies its exact signed header. The aggregate is the
 /// minimum over the requested facts. Every record must be consumed.
 ///
 /// # Errors
 ///
-/// Refuses settlement anchoring, any missing, duplicate, orphan or failing
-/// record, and any fact whose achieved level is below `requested`.
+/// Refuses any missing, duplicate, orphan or failing record, and any fact
+/// whose achieved rung is below `requested`.
 pub fn verify_complete(
     artifact: &CompleteOfflineArtifact,
     trust: &IndependentOfflineTrust,
-    requested: VerificationLevel,
+    requested: Rung,
 ) -> Result<CompleteVerificationReport, CompleteExportError> {
-    if requested == VerificationLevel::SETTLEMENT_ANCHORED {
-        return Err(CompleteExportError::SettlementAnchoringUnavailable);
-    }
     check_fact_selectors(&artifact.facts).map_err(CompleteExportError::Facts)?;
     let mut verifier = CompleteVerifier::index(artifact, trust)?;
     let mut outcomes: Vec<Option<(VerificationLevel, Vec<u8>)>> = vec![None; artifact.facts.len()];
@@ -985,14 +980,17 @@ pub fn verify_complete(
         return Err(CompleteExportError::OrphanRecord);
     }
     let mut facts = Vec::with_capacity(artifact.facts.len());
-    let mut minimum = VerificationLevel::SETTLEMENT_ANCHORED;
+    let mut minimum = Rung::Committed;
     for (fact, (selector, outcome)) in artifact.facts.iter().zip(outcomes).enumerate() {
-        let (mut achieved, header) = outcome.ok_or(CompleteExportError::MissingRecord { fact })?;
-        if achieved < VerificationLevel::CHECKPOINT_FINALISED && certified.contains(&header) {
-            achieved = VerificationLevel::CHECKPOINT_FINALISED;
+        let (level, header) = outcome.ok_or(CompleteExportError::MissingRecord { fact })?;
+        let mut achieved = level
+            .rung()
+            .expect("complete verification cannot produce settlement anchoring");
+        if certified.contains(&header) {
+            achieved = Rung::Committed;
         }
         if achieved < requested {
-            return Err(CompleteExportError::LevelNotAchieved {
+            return Err(CompleteExportError::RungNotAchieved {
                 fact,
                 achieved,
                 requested,

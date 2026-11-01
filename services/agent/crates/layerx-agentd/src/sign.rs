@@ -5,15 +5,23 @@ use std::fs;
 use std::os::unix::fs::{MetadataExt, PermissionsExt};
 use std::path::PathBuf;
 
-use layerx_crypto::local::LocalSigner;
+use layerx_crypto::SignatureMessage;
+use layerx_types::activity::Signature;
+use layerx_wire::activity::{
+    decode_signed as decode_kernel_signed, encode_signed, encode_signed_envelope, encode_unsigned,
+};
+use layerx_wire::hash::{activity_id, Domain};
+
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
 use layerx_crypto::session::{issue_session_key, IssuedSessionKey, SessionKeyRequest};
-use layerx_crypto::signer::{sign_disclosed, SignError, Signer};
+use layerx_crypto::signer::{SignError, Signer};
 use layerx_types::activity::{ActivityBuildError, Authority};
 use layerx_types::payload::{ActivityType, ModuleRegistry};
 use layerx_wire::WireError;
+use zeroize::Zeroizing;
 
 use crate::prepare::{
-    verify_disclosure_binding, DisclosureBindingError, DisclosureDigest, Prepared,
+    verify_disclosure_binding, DisclosureBindingError, DisclosureDigest, EvmPrepared, Prepared,
 };
 
 #[path = "sign_verify.rs"]
@@ -49,20 +57,29 @@ pub struct SelfSigningAudit {
     pub revocation_sequence: u64,
 }
 
+/// EVM preparation paired with the actor and the existing session authorization.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SigningPreparation {
+    pub transaction: EvmPrepared,
+    pub actor_address: [u8; 20],
+    pub authorization: Prepared,
+}
+
 /// Output from a bounded in-daemon protocol session key.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SignedPreparation {
     pub canonical_bytes: Vec<u8>,
     pub signed_canonical_bytes: Vec<u8>,
-    pub signature: [u8; 64],
-    pub signer_public_key: [u8; 32],
+    pub signature: [u8; 65],
+    pub signer_address: [u8; 20],
     pub mode: SigningMode,
     pub audit: SelfSigningAudit,
 }
 
 /// Provisioned signer whose scope is the exact issued protocol authority.
 pub struct ProvisionedSessionKey {
-    signer: LocalSigner,
+    seed: Zeroizing<[u8; 32]>,
+    session_public_key: [u8; 32],
     authority: Authority,
     permitted_activity_types: BTreeSet<ActivityType>,
     expires_at: u64,
@@ -100,7 +117,7 @@ impl ProvisionedSessionKey {
     /// `InvalidProvisioning` for an empty permitted activity set or a zero expiry or revocation
     /// sequence.
     pub fn new(seed: [u8; 32], issued: IssuedSessionKey) -> Result<Self, SigningError> {
-        let signer = LocalSigner::new(seed);
+        let signer = layerx_crypto::local::LocalSigner::new(seed);
         if signer.public_key() != issued.session_public_key {
             return Err(SigningError::KeyMismatch);
         }
@@ -112,7 +129,8 @@ impl ProvisionedSessionKey {
             return Err(SigningError::InvalidProvisioning);
         }
         Ok(Self {
-            signer,
+            seed: Zeroizing::new(seed),
+            session_public_key: signer.public_key(),
             authority: issued.authority,
             permitted_activity_types: issued.permitted_activity_types.into_iter().collect(),
             expires_at: issued.expires_at,
@@ -220,6 +238,7 @@ pub enum SigningError {
     Wire(WireError),
     PreparedBytesChanged,
     SignatureInvalid,
+    SignerMismatch,
 }
 
 /// Returns the default key-free package for an external signer.
@@ -228,12 +247,15 @@ pub enum SigningError {
 ///
 /// Returns the disclosure binding failure when the preparation no longer re-encodes to its exact
 /// canonical bytes and digest.
-pub fn external(prepared: &Prepared) -> Result<ExternalSigningPackage, SigningError> {
-    verify_disclosure_binding(prepared).map_err(SigningError::Disclosure)?;
+pub fn external(prepared: &SigningPreparation) -> Result<ExternalSigningPackage, SigningError> {
+    verify_disclosure_binding(&prepared.authorization).map_err(SigningError::Disclosure)?;
+    if prepared.transaction.signing_hash != prepared.transaction.call.signing_hash() {
+        return Err(SigningError::PreparedBytesChanged);
+    }
     Ok(ExternalSigningPackage {
-        canonical_bytes: prepared.canonical_bytes.clone(),
-        signing_preimage: prepared.signing_preimage,
-        disclosure_digest: prepared.disclosure_digest,
+        canonical_bytes: prepared.authorization.canonical_bytes.clone(),
+        signing_preimage: prepared.transaction.signing_hash,
+        disclosure_digest: prepared.authorization.disclosure_digest,
         mode: SigningMode::External,
     })
 }
@@ -247,53 +269,56 @@ pub fn external(prepared: &Prepared) -> Result<ExternalSigningPackage, SigningEr
 /// wire failures raised while producing the signed bytes.
 pub async fn self_sign(
     provisioned: Option<&ProvisionedSessionKey>,
-    prepared: &Prepared,
-    registry: &ModuleRegistry,
+    prepared: &SigningPreparation,
+    _registry: &ModuleRegistry,
     protocol_time: u64,
     current_revocation_sequence: u64,
 ) -> Result<SignedPreparation, SigningError> {
     let provisioned = provisioned.ok_or(SigningError::NotProvisioned)?;
     provisioned.ensure_not_durably_revoked()?;
-    verify_disclosure_binding(prepared).map_err(SigningError::Disclosure)?;
+    verify_disclosure_binding(&prepared.authorization).map_err(SigningError::Disclosure)?;
     if protocol_time >= provisioned.expires_at {
         return Err(SigningError::Expired);
     }
     if current_revocation_sequence != provisioned.revocation_sequence {
         return Err(SigningError::Revoked);
     }
-    let activity_type = prepared.envelope.activity_type();
+    let activity_type = prepared.authorization.envelope.activity_type();
     if !provisioned
         .permitted_activity_types
         .contains(&activity_type)
     {
         return Err(SigningError::ScopeDenied);
     }
-    if prepared.envelope.authority().as_bytes() != provisioned.authority.as_bytes() {
+    if prepared.authorization.envelope.authority().as_bytes() != provisioned.authority.as_bytes() {
         return Err(SigningError::AuthorityMismatch);
     }
-    let signature = sign_disclosed(
-        &provisioned.signer,
-        &prepared.canonical_bytes,
-        &prepared.disclosure,
-        registry,
-    )
-    .await
-    .map_err(SigningError::Crypto)?;
-    let public_key = provisioned.signer.public_key();
+    if prepared.transaction.signing_hash != prepared.transaction.call.signing_hash() {
+        return Err(SigningError::PreparedBytesChanged);
+    }
+    let raw = prepared
+        .transaction
+        .call
+        .sign(&provisioned.seed)
+        .map_err(|_| SigningError::Crypto(SignError::KeyRejected))?;
+    let (call, signature) = decode_signed(&raw).map_err(|_| SigningError::SignatureInvalid)?;
+    let signer_address =
+        recover_sender(&call, &signature).map_err(|_| SigningError::SignatureInvalid)?;
+    let public_key = provisioned.session_public_key;
     let authority_bytes = provisioned.authority.as_bytes().to_vec();
     let signature_bytes = *signature.as_bytes();
     let signed_canonical_bytes = verification::attach_signature(prepared, signature_bytes)?;
     Ok(SignedPreparation {
-        canonical_bytes: prepared.canonical_bytes.clone(),
+        canonical_bytes: prepared.authorization.canonical_bytes.clone(),
         signed_canonical_bytes,
         signature: signature_bytes,
-        signer_public_key: public_key,
+        signer_address,
         mode: SigningMode::ProtocolSessionKey,
         audit: SelfSigningAudit {
             mode: SigningMode::ProtocolSessionKey,
             session_public_key: public_key,
             activity_type,
-            disclosure_digest: prepared.disclosure_digest,
+            disclosure_digest: prepared.authorization.disclosure_digest,
             authority_bytes,
             expires_at: provisioned.expires_at,
             revocation_sequence: provisioned.revocation_sequence,
@@ -301,17 +326,16 @@ pub async fn self_sign(
     })
 }
 
-/// Attaches a returned external signature through the canonical wire encoder.
+/// Attaches a returned external signature to the prepared EIP-1559 call.
 ///
 /// # Errors
 ///
-/// Returns the disclosure binding failure, a signature the envelope rejects, or the wire failure
-/// raised while encoding the signed envelope.
+/// Refuses invalid signatures and signatures recovering to a different prepared actor.
 pub fn attach_external_signature(
-    prepared: &Prepared,
-    signature: [u8; 64],
+    prepared: &SigningPreparation,
+    signature: [u8; 65],
 ) -> Result<Vec<u8>, SigningError> {
-    verify_disclosure_binding(prepared).map_err(SigningError::Disclosure)?;
+    verify_disclosure_binding(&prepared.authorization).map_err(SigningError::Disclosure)?;
     verification::attach_signature(prepared, signature)
 }
 
@@ -319,18 +343,70 @@ pub fn attach_external_signature(
 ///
 /// # Errors
 ///
-/// Refuses bytes that do not decode, re-encode, or reduce to the exact prepared canonical form,
-/// and an absent, malformed, or invalid signature. Also returns the disclosure binding failure.
+/// Refuses non-canonical EIP-1559 bytes, a decoded call different from the prepared call,
+/// or a signature recovering to a different actor or supplied signer address.
+/// Also returns the disclosure binding failure.
 pub fn verify_before_submit(
+    signed_canonical_bytes: &[u8],
+    prepared: &SigningPreparation,
+    signer_address: &[u8; 20],
+    registry: &ModuleRegistry,
+) -> Result<VerifiedSubmission, SigningError> {
+    verification::verify_exact(signed_canonical_bytes, prepared, signer_address, registry)
+}
+
+pub fn attach_kernel_signature(
+    prepared: &Prepared,
+    signature: [u8; 64],
+) -> Result<Vec<u8>, SigningError> {
+    verify_disclosure_binding(prepared).map_err(SigningError::Disclosure)?;
+    let signature = Signature::new(&signature).map_err(SigningError::SignatureEncoding)?;
+    let signed = prepared.envelope.clone().attach_signature(signature);
+    encode_signed_envelope(&signed).map_err(SigningError::Wire)
+}
+
+pub fn verify_kernel_before_submit(
     signed_canonical_bytes: &[u8],
     prepared: &Prepared,
     signer_public_key: &[u8; 32],
     registry: &ModuleRegistry,
 ) -> Result<VerifiedSubmission, SigningError> {
-    verification::verify_exact(
-        signed_canonical_bytes,
-        prepared,
-        signer_public_key,
-        registry,
+    verify_disclosure_binding(prepared).map_err(SigningError::Disclosure)?;
+    let activity =
+        decode_kernel_signed(signed_canonical_bytes, registry).map_err(SigningError::Wire)?;
+    if encode_signed(&activity).map_err(SigningError::Wire)? != signed_canonical_bytes {
+        return Err(SigningError::PreparedBytesChanged);
+    }
+    let unsigned = encode_unsigned(&activity).map_err(SigningError::Wire)?;
+    if unsigned != prepared.canonical_bytes {
+        return Err(SigningError::PreparedBytesChanged);
+    }
+    let signature = activity.signature().ok_or(SigningError::SignatureInvalid)?;
+    let signature: &[u8; 64] = signature
+        .try_into()
+        .map_err(|_| SigningError::SignatureInvalid)?;
+    let message = SignatureMessage::new(
+        Domain::SignaturePreimage,
+        activity.protocol_version(),
+        activity.network_id(),
+        &unsigned,
     )
+    .map_err(|_| SigningError::SignatureInvalid)?;
+    let Authority::Owner(owner) = prepared.envelope.authority() else {
+        return Err(SigningError::AuthorityMismatch);
+    };
+    if owner.as_ref() != signer_public_key.as_slice() {
+        return Err(SigningError::AuthorityMismatch);
+    }
+    layerx_crypto::ed25519::verify(signer_public_key, signature, message)
+        .map_err(|_| SigningError::SignatureInvalid)?;
+    let activity_id = activity_id(&activity).map_err(SigningError::Wire)?;
+    Ok(VerifiedSubmission {
+        signed_canonical_bytes: signed_canonical_bytes.to_vec(),
+        audit: SubmissionBindingAudit {
+            activity_id,
+            idempotency_key: activity.idempotency_key(),
+            signed_byte_length: signed_canonical_bytes.len(),
+        },
+    })
 }

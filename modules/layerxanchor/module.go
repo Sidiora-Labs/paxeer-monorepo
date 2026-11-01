@@ -72,10 +72,13 @@ func (AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
 
 type AppModule struct {
 	AppModuleBasic
-	keeper keeper.Keeper
+	keeper   keeper.Keeper
+	upgrades keeper.UpgradeReader
 }
 
-func NewAppModule(k keeper.Keeper) AppModule { return AppModule{keeper: k} }
+func NewAppModule(k keeper.Keeper, upgrades keeper.UpgradeReader) AppModule {
+	return AppModule{keeper: k, upgrades: upgrades}
+}
 
 func (AppModule) Route() sdk.Route { return sdk.Route{} }
 
@@ -84,7 +87,7 @@ func (AppModule) QuerierRoute() string { return types.QuerierRoute }
 func (AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier { return nil }
 
 func (am AppModule) RegisterServices(cfg module.Configurator) {
-	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImplWithUpgrades(am.keeper, am.upgrades))
 }
 
 func (am AppModule) RegisterInvariants(registry sdk.InvariantRegistry) {

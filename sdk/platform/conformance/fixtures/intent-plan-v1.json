@@ -1,14 +1,31 @@
 {
   "name": "intent-plan-v1",
   "contract_major": 1,
-  "provenance": "services/human/schema/human-api golden intent.plan.request.json and intent.plan.response.json; wire-shape vector, no execution claim",
+  "provenance": "EVM transfer plan wire-shape vector using published account-derivation-v1 bindings and per-leg layerxledger.payExact calls; expected address resolution answers, no execution claim",
   "plan_request": {
     "source": {
-      "kind": "paxeer-wallet"
+      "kind": "paxeer-wallet",
+      "account": "agent:did:layerx:0e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9:main",
+      "layerx_public_key": "0e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9",
+      "evm_address": "0x9858effd232b4033e47d90003d41ec34ecaeda94",
+      "resolution": {
+        "to": "0x0000000000000000000000000000000000001004",
+        "chainId": 125,
+        "data": "0xc413bad30e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9",
+        "result": "0x0000000000000000000000009858effd232b4033e47d90003d41ec34ecaeda94"
+      }
     },
     "destination": {
       "kind": "agent",
-      "account": "agent:did:layerx:bob:main"
+      "account": "agent:did:layerx:8020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba:main",
+      "layerx_public_key": "8020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba",
+      "evm_address": "0x6006ef1944fb519a746d00cdaf715cbd27a5a008",
+      "resolution": {
+        "to": "0x0000000000000000000000000000000000001004",
+        "chainId": 125,
+        "data": "0xc413bad38020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba",
+        "result": "0x0000000000000000000000006006ef1944fb519a746d00cdaf715cbd27a5a008"
+      }
     },
     "asset_id": "9999999999999999999999999999999999999999999999999999999999999999",
     "money": {
@@ -26,7 +43,7 @@
   },
   "plan_result": {
     "plan_digest": "4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b4b",
-    "journey_kind": "deposit",
+    "journey_kind": "transfer",
     "total_fee": {
       "amount": "9",
       "currency": "LXP"
@@ -34,14 +51,31 @@
     "legs": [
       {
         "index": 0,
-        "mechanism": "paxeer-custody-deposit",
+        "mechanism": "transfer",
         "domain": "paxeer",
         "source": {
-          "kind": "paxeer-wallet"
+          "kind": "paxeer-wallet",
+          "account": "agent:did:layerx:0e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9:main",
+          "layerx_public_key": "0e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9",
+          "evm_address": "0x9858effd232b4033e47d90003d41ec34ecaeda94",
+          "resolution": {
+            "to": "0x0000000000000000000000000000000000001004",
+            "chainId": 125,
+            "data": "0xc413bad30e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9",
+            "result": "0x0000000000000000000000009858effd232b4033e47d90003d41ec34ecaeda94"
+          }
         },
         "destination": {
           "kind": "human",
-          "account": "agent:did:layerx:alice:main"
+          "account": "agent:did:layerx:aa92353b9469d1f56b28426dfa72ce3f3fabc7a5c41ee61a51f63bcbd98b942a:main",
+          "layerx_public_key": "aa92353b9469d1f56b28426dfa72ce3f3fabc7a5c41ee61a51f63bcbd98b942a",
+          "evm_address": "0x6fac4d18c912343bf86fa7049364dd4e424ab9c0",
+          "resolution": {
+            "to": "0x0000000000000000000000000000000000001004",
+            "chainId": 125,
+            "data": "0xc413bad3aa92353b9469d1f56b28426dfa72ce3f3fabc7a5c41ee61a51f63bcbd98b942a",
+            "result": "0x0000000000000000000000006fac4d18c912343bf86fa7049364dd4e424ab9c0"
+          }
         },
         "money": {
           "amount": "500000",
@@ -50,19 +84,46 @@
         "fee": {
           "amount": "1",
           "currency": "LXP"
-        }
+        },
+        "payment": {
+          "from": "b561a61bf15ecceeebb546073c7e1e0bb3918d159e168f704b87c29d31de7f07",
+          "to": "3adee8af1f92419af0088714906b831214f67dfb23cf1a8a57209f4767aeb6a0",
+          "assetId": "9999999999999999999999999999999999999999999999999999999999999999",
+          "amount": "500000",
+          "sequence": 0,
+          "paymentReference": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
+        },
+        "to": "0x000000000000000000000000000000000000101a",
+        "data": "0x78ea11dbb561a61bf15ecceeebb546073c7e1e0bb3918d159e168f704b87c29d31de7f073adee8af1f92419af0088714906b831214f67dfb23cf1a8a57209f4767aeb6a09999999999999999999999999999999999999999999999999999999999999999000000000000000000000000000000000000000000000000000000000007a1200000000000000000000000000000000000000000000000000000000000000000a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "chainId": 125
       },
       {
         "index": 1,
         "mechanism": "transfer",
-        "domain": "layerx",
+        "domain": "paxeer",
         "source": {
           "kind": "human",
-          "account": "agent:did:layerx:alice:main"
+          "account": "agent:did:layerx:aa92353b9469d1f56b28426dfa72ce3f3fabc7a5c41ee61a51f63bcbd98b942a:main",
+          "layerx_public_key": "aa92353b9469d1f56b28426dfa72ce3f3fabc7a5c41ee61a51f63bcbd98b942a",
+          "evm_address": "0x6fac4d18c912343bf86fa7049364dd4e424ab9c0",
+          "resolution": {
+            "to": "0x0000000000000000000000000000000000001004",
+            "chainId": 125,
+            "data": "0xc413bad3aa92353b9469d1f56b28426dfa72ce3f3fabc7a5c41ee61a51f63bcbd98b942a",
+            "result": "0x0000000000000000000000006fac4d18c912343bf86fa7049364dd4e424ab9c0"
+          }
         },
         "destination": {
           "kind": "agent",
-          "account": "agent:did:layerx:bob:main"
+          "account": "agent:did:layerx:8020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba:main",
+          "layerx_public_key": "8020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba",
+          "evm_address": "0x6006ef1944fb519a746d00cdaf715cbd27a5a008",
+          "resolution": {
+            "to": "0x0000000000000000000000000000000000001004",
+            "chainId": 125,
+            "data": "0xc413bad38020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba",
+            "result": "0x0000000000000000000000006006ef1944fb519a746d00cdaf715cbd27a5a008"
+          }
         },
         "money": {
           "amount": "500000",
@@ -71,7 +132,18 @@
         "fee": {
           "amount": "8",
           "currency": "LXP"
-        }
+        },
+        "payment": {
+          "from": "3adee8af1f92419af0088714906b831214f67dfb23cf1a8a57209f4767aeb6a0",
+          "to": "5a9a1ffa930befe03eba79060e108d6c8e857550d2f63f4975882bb6313d6960",
+          "assetId": "9999999999999999999999999999999999999999999999999999999999999999",
+          "amount": "500000",
+          "sequence": 0,
+          "paymentReference": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+        },
+        "to": "0x000000000000000000000000000000000000101a",
+        "data": "0x78ea11db3adee8af1f92419af0088714906b831214f67dfb23cf1a8a57209f4767aeb6a05a9a1ffa930befe03eba79060e108d6c8e857550d2f63f4975882bb6313d69609999999999999999999999999999999999999999999999999999999999999999000000000000000000000000000000000000000000000000000000000007a1200000000000000000000000000000000000000000000000000000000000000000b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+        "chainId": 125
       }
     ],
     "signing_requirements": [
@@ -79,13 +151,13 @@
         "leg_index": 0,
         "action_key": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
         "signing_context": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
-        "authority": "custody-key"
+        "authority": "evm-sender"
       },
       {
         "leg_index": 1,
         "action_key": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
         "signing_context": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
-        "authority": "agent-authority"
+        "authority": "evm-sender"
       }
     ]
   },

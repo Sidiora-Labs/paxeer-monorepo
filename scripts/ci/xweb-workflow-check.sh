@@ -3,7 +3,7 @@
 # pull requests and pushes to main; it carries one concurrency group per ref with
 # cancel-in-progress; its path filters are exactly the trees the paxeer-x-web
 # feature touches and the trees its legs exercise, each naming a path this
-# repository holds or a path a task of the retired feature declared; its five jobs are the five legs, each
+# repository holds or a path a task of the retired feature declared; its four jobs are the four legs, each
 # named for the tools it runs, and together they run exactly the commands of the
 # retired feature's gate task verify_cmd, which this script now carries, each from the repository root with a tool the
 # same job installs first at a version this repository already pins; every
@@ -49,15 +49,14 @@ import yaml
 WORKFLOW_PATH = ".github/workflows/xweb-test.yml"
 SPEC_PATH = "the retired paxeer-x-web feature"
 
-# The retired feature's gate task 3.1 verify_cmd, re-pointed to the services/ tree.
+# The retired feature's gate task 3.1 verify_cmd, re-pointed to the services/ tree
+# with the retired kernel web commands removed.
 GATE_VERIFY_CMD = (
     "timeout 20m sh -c '"
     'cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch && '
     'go test -count=1 ./modules/xweb/... ./precompiles/xweb/... && '
     'bash scripts/ci/xweb-forge-libs.sh && '
     'FOUNDRY_CONFIG=foundry.paxeer.toml forge test --evm-version=prague --match-path contracts/test/XWebConsumer.t.sol && '
-    'make test-web-intake test-web-root test-web-adapter test-programs-web-read test-web-program-path && '
-    'cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test web_read && '
     'cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test web && '
     '(cd services/agent/sdk/typescript && npm ci && npm run build && node dist/test/web-search.test.js) && '
     'PYTHONPATH=services/agent/sdk/python python3 -m pytest -q tests/agent/sdk/python/test_web_search.py'
@@ -69,11 +68,8 @@ DECLARED_PATHS = [
     '.github/workflows/xweb-test.yml',
     'Dockerfile',
     'Makefile',
-    'cmd/layerxd/lxp_daemon_batch_wal.c',
-    'cmd/layerxd/lxp_daemon_lni.c',
     'cmd/layerxd/lxp_daemon_process.c',
     'cmd/layerxd/lxp_daemon_protocol.c',
-    'cmd/layerxd/lxp_daemon_receipt_authority.c',
     'contracts/src/precompiles/IXWeb.sol',
     'contracts/src/xweb',
     'contracts/src/xweb/XWebConsumer.sol',
@@ -164,7 +160,6 @@ DECLARED_PATHS = [
     'programs/sdk/rust/src/naming.rs',
     'programs/sdk/rust/src/web.rs',
     'programs/tests/vectors/abi-v4.hex',
-    'scripts/ci/beta-contract-check.sh',
     'scripts/ci/no-float-scan.sh',
     'scripts/ci/xweb-forge-libs.sh',
     'scripts/ci/xweb-workflow-check.sh',
@@ -175,7 +170,6 @@ DECLARED_PATHS = [
     'services/agent/crates/layerx-agentd/src/tenant.rs',
     'services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs',
     'services/agent/crates/layerx-client',
-    'services/agent/crates/layerx-client/tests/finality_evidence.rs',
     'services/agent/crates/layerx-client/tests/session_fee_state_daemon.rs',
     'services/agent/crates/layerx-mcp/src/binding.rs',
     'services/agent/crates/layerx-mcp/src/boundary.rs',
@@ -267,7 +261,6 @@ DECLARED_PATHS = [
     'services/interop/crates/x-websearch/tests/search.rs',
     'services/interop/crates/x-websearch/tests/server.rs',
     'services/interop/crates/x-websearch/tests/submit.rs',
-    'services/interop/deploy/x-websearch/Dockerfile',
     'services/interop/deploy/x-websearch/config.example.json',
     'services/interop/deploy/x-websearch/tests/dry-run-check.sh',
     'services/interop/deploy/x-websearch/tests/fixtures/dry-run.json',
@@ -277,17 +270,12 @@ DECLARED_PATHS = [
     'services/platform/Cargo.lock',
     'services/platform/docs/content/beta.md',
     'services/platform/hosted/core/src/main.rs',
-    'services/platform/hosted/core/tests/boundary.rs',
     'services/platform/hosted/gateway/openrpc.json',
     'services/platform/hosted/gateway/src/public_reads.rs',
     'services/platform/hosted/gateway/src/rpc.rs',
     'services/platform/hosted/gateway/tests/fixtures',
     'services/platform/hosted/gateway/tests/local/Cargo.toml',
-    'services/platform/hosted/gateway/tests/local/custody_chain.py',
     'services/platform/hosted/gateway/tests/local/deposit_recipient.py',
-    'services/platform/hosted/gateway/tests/local/events.rs',
-    'services/platform/hosted/gateway/tests/local/funding.rs',
-    'services/platform/hosted/gateway/tests/local/lifecycle.rs',
     'spec/402lxp/protocol.md',
     'spec/paxeer-x-web/qualification.kvx',
     'src/modules/programs/call.c',
@@ -306,28 +294,19 @@ DECLARED_PATHS = [
     'tests/agent/sdk/python/test_web_search.py',
     'tests/agent/sdk/python/test_x402.py',
     'tests/agent/sdk/python/test_xweb_api.py',
-    'tests/bridge/qualify_credit.py',
-    'tests/daemon/availability-settlement.py',
     'tests/daemon/lxp_test_program_artifacts.c',
-    'tests/daemon/program-admission.sh',
     'tests/daemon/withdraw-custody.py',
     'tests/fixtures/custody',
     'tests/fixtures/web',
     'tests/fixtures/web/observation-activity.hex',
-    'tests/modules/test_web_intake.c',
-    'tests/network/test_web_adapter.c',
     'tests/programs/test_metered_call.c',
     'tests/programs/test_registration.c',
     'tests/protocol/lxp_test_dispatch.c',
     'tests/protocol/lxp_test_kernel.c',
     'tests/protocol/lxp_test_module_ctx.c',
     'tests/protocol/lxp_test_receipts.c',
-    'tests/sequencer/test_web_root.c',
-    'tests/storage/lxp_test_finality_evidence.c',
-    'tests/storage/lxp_test_maintenance_publication.c',
     'tests/test_programs_web_read.c',
     'tests/test_web_program_path.c',
-    'tests/vectors/finality_evidence_v1.vec',
 ]
 
 # The make targets the retired feature's Makefile tasks verified.
@@ -364,8 +343,6 @@ FILTERS = [
     "include/layerx/programs.h",
     "src/modules/web/**",
     "src/modules/programs/call.c",
-    "src/network/lx_web_adapter.c",
-    "src/sequencer/lx_web_root.c",
     "tests/modules/**",
     "tests/sequencer/**",
     "tests/network/**",
@@ -387,7 +364,7 @@ PUSH_BRANCHES = ["main"]
 CONCURRENCY_PREFIX = "xweb-test-"
 REF_EXPRESSION = "${{ github.ref }}"
 
-# The five legs: job id -> the job name, the tool phrases the name carries and
+# The four legs: job id -> the job name, the tool phrases the name carries and
 # the positions, in the gate task's verify_cmd, of the commands the job runs.
 LEGS = {
     "sidecar-crate": {
@@ -405,21 +382,13 @@ LEGS = {
         "tools": ["forge test"],
         "gate": [2, 3],
     },
-    "kernel-web": {
-        "name": (
-            "make for the kernel web targets and cargo test for the runtime "
-            "web_read test"
-        ),
-        "tools": ["make", "cargo test"],
-        "gate": [4, 5],
-    },
     "agent-clients": {
         "name": (
             "cargo test, npm and pytest for the MCP, TypeScript and Python web "
             "clients"
         ),
         "tools": ["cargo test", "npm", "pytest"],
-        "gate": [6, 7, 8],
+        "gate": [4, 5, 6],
     },
 }
 
@@ -666,7 +635,7 @@ def check_jobs_are_the_legs(jobs, gate):
         missing = sorted(set(LEGS) - set(jobs))
         extra = sorted(set(jobs) - set(LEGS))
         refuse(
-            "the jobs are %s, not the five legs %s (missing %s, unexpected %s)"
+            "the jobs are %s, not the four legs %s (missing %s, unexpected %s)"
             % (sorted(jobs), sorted(LEGS), missing, extra)
         )
     positions = sorted(index for leg in LEGS.values() for index in leg["gate"])
@@ -1210,7 +1179,7 @@ MUTATIONS = {
         "      - name: Install the pinned Go toolchain\n"
         "        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0\n"
         "        with:\n"
-        "          go-version: '1.25.6'\n\n",
+        "          go-version: '1.25.8'\n\n",
         "",
         1,
     ),
@@ -1288,4 +1257,4 @@ for entry in \
         || fail "the check refused the $mutation mutation without naming $keyword: $output"
 done
 
-printf 'xweb-workflow-check: the xweb workflow carries the feature path filters, one concurrency group per ref, the five legs running the gate commands from the repository root and no excused step, and refuses every mutation of them\n' >&2
+printf 'xweb-workflow-check: the xweb workflow carries the feature path filters, one concurrency group per ref, the four legs running the gate commands from the repository root and no excused step, and refuses every mutation of them\n' >&2

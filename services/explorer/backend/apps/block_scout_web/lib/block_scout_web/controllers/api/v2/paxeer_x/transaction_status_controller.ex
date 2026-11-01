@@ -4,8 +4,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
 
   An indexed transaction is placed from the block holding it and the committed head. A hash
   the explorer has not indexed is answered from the sequencer: its `pax_sequencerReceipt`
-  answer is verified (R1-R6) against the pinned receipt keys, and only a verified receipt
-  answers `receipted`; every other hash is not found.
+  answer is verified (R1-R6) against the pinned receipt keys and answers `receipted`.
+  Landing evidence that passes R7-R8 promotes it to `committed`; every other hash is not found.
   """
 
   use BlockScoutWeb, :controller
@@ -21,6 +21,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
 
   @api_true [api?: true]
   @router_timeout 10_000
+  @sequence_batch_domain "PAXEER/v1/sequence-batch\0"
 
   tags(["paxeer-x"])
 
@@ -65,6 +66,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
       {:error, :not_found} ->
         case sequencer_verification(transaction_hash) do
           {:receipted, _key} = verification -> {:ok, Status.of(nil, Finality.heights(@api_true), verification)}
+          {:committed, _key, _height} = verification -> {:ok, Status.of(nil, Finality.heights(@api_true), verification)}
           _unverified -> {:error, :not_found}
         end
     end
@@ -76,19 +78,72 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
     with url when is_binary(url) <- router_url,
          {:ok, %{} = answer} <- sequencer_receipt(url, transaction_hash),
          {:ok, receipt_keys} <- SequencerReceipt.receipt_keys(url) do
-      SequencerReceipt.verify(transaction_hash, answer, receipt_keys)
+      case committed_options(url, transaction_hash) do
+        {:ok, opts} -> SequencerReceipt.verify(transaction_hash, answer, receipt_keys, opts)
+        _unavailable -> SequencerReceipt.verify(transaction_hash, answer, receipt_keys)
+      end
     else
       _unavailable -> nil
     end
   end
 
+  defp committed_options(router_url, transaction_hash) do
+    with {:ok, %{"blockNumber" => block_number} = eth_receipt} <-
+           router_call(router_url, "eth_getTransactionReceipt", [to_string(transaction_hash)]),
+         {:ok, height} <- quantity(block_number),
+         true <- height > 0,
+         {:ok, commit} <- SequencerReceipt.commit(height, router_url),
+         {:ok, validators} <- SequencerReceipt.validators(height, router_url),
+         {:ok, batch_answer} <- router_call(router_url, "px_getSequenceBatch", [Integer.to_string(height)]),
+         {:ok, batch} <- sequence_batch(batch_answer, height),
+         %{"header" => %{"chain_id" => chain_id}} <- Map.get(commit, "signed_header", commit),
+         true <- is_binary(chain_id) and chain_id != "" do
+      {:ok,
+       [
+         eth_receipt: eth_receipt,
+         batch: batch,
+         chain_id: chain_id,
+         commit: commit,
+         validators: validators
+       ]}
+    else
+      _unavailable -> :disabled
+    end
+  end
+
+  defp sequence_batch(%{"height" => batch_height, "tx" => "0x" <> tx}, height) do
+    with true <- batch_height == Integer.to_string(height),
+         {:ok, <<@sequence_batch_domain, tx_height::64, from_seq::64, to_seq::64, _rest::binary-size(192)>>} <-
+           Base.decode16(tx, case: :mixed),
+         true <- tx_height == height do
+      {:ok, %{from_seq: from_seq, to_seq: to_seq}}
+    else
+      _invalid -> :error
+    end
+  end
+
+  defp sequence_batch(_answer, _height), do: :error
+
+  defp quantity("0x" <> digits) when digits != "" do
+    case Integer.parse(digits, 16) do
+      {height, ""} when height >= 0 -> {:ok, height}
+      _invalid -> :error
+    end
+  end
+
+  defp quantity(_value), do: :error
+
   defp sequencer_receipt(router_url, %Hash{} = transaction_hash) do
+    router_call(router_url, "pax_sequencerReceipt", [to_string(transaction_hash)])
+  end
+
+  defp router_call(router_url, method, params) do
     body =
       Jason.encode!(%{
         jsonrpc: "2.0",
         id: 1,
-        method: "pax_sequencerReceipt",
-        params: [to_string(transaction_hash)]
+        method: method,
+        params: params
       })
 
     case HttpClient.post(router_url, body, [{"Content-Type", "application/json"}],

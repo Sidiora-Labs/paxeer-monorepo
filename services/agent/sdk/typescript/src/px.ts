@@ -17,13 +17,13 @@ import { decodeJsonRpcResponse, type RpcParam } from "./rpc.js";
 const MAX_RESPONSE_BYTES = 9 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 30_000;
-const MAX_U128 = 340282366920938463463374607431768211455n;
+const MAX_U256 = (1n << 256n) - 1n;
 const MAX_U64 = 18446744073709551615n;
 const EVM_ADDRESS = /^0x[0-9a-f]{40}$/u;
 const HEX32 = /^[0-9a-f]{64}$/u;
 const DID = /^did:layerx:[0-9a-f]{64}$/u;
 const DECIMAL = /^(0|[1-9][0-9]*)$/u;
-const HEX_QUANTITY = /^0x[0-9a-f]{1,32}$/u;
+const HEX_QUANTITY = /^0x[0-9a-f]{1,64}$/u;
 
 /** The joined asset ceiling the gateway answers within. */
 export const PX_MAXIMUM_JOINED_ASSETS = 1024;
@@ -101,13 +101,6 @@ export interface PxAssetEntry {
 export interface PxAssetTable {
   readonly assets: readonly PxAssetEntry[];
   readonly joinedLimit: bigint;
-}
-
-export interface PxAnchorHead {
-  readonly latestFinalizedBatch: bigint | null;
-  readonly status: bigint | null;
-  readonly statusName: string | null;
-  readonly statusLadder: Readonly<Record<string, string>> | null;
 }
 
 export interface PxPaxeerHead {
@@ -213,6 +206,7 @@ export class PxClient {
     method: PxMethod,
     params: readonly RpcParam[],
   ): Promise<Record<string, unknown>> {
+    if (!PX_METHODS.includes(method)) throw new Error("Invalid gateway method");
     const id = (++this.#id).toString();
     const body = Buffer.from(
       JSON.stringify({ jsonrpc: "2.0", id, method, params }),
@@ -311,7 +305,7 @@ export function pxQuantity(value: unknown): bigint {
     : DECIMAL.test(text)
       ? BigInt(text)
       : null;
-  if (parsed === null || parsed > MAX_U128)
+  if (parsed === null || parsed > MAX_U256)
     throw new Error("Invalid gateway quantity");
   return parsed;
 }
@@ -325,10 +319,6 @@ function pxCounted(value: unknown): bigint {
   const parsed = pxQuantity(value);
   if (parsed > MAX_U64) throw new Error("Invalid gateway count");
   return parsed;
-}
-
-function pxOptionalCounted(value: unknown): bigint | null {
-  return value === null ? null : pxCounted(value);
 }
 
 export function decodePxResolvedIdentities(
@@ -455,6 +445,8 @@ export function decodePxAssetTable(value: unknown): PxAssetTable {
 
 export function decodePxNetworkHead(value: unknown): PxNetworkHead {
   const document = object(value);
+  if (Object.keys(document).some((name) => name.startsWith("lx_")))
+    throw new Error("Invalid gateway network field");
   present(document, [
     "network_id",
     "paxeer",
@@ -511,31 +503,6 @@ function receiptKeyBytes(value: unknown): string {
   if (bytes.length !== 32 || bytes.toString("base64") !== value)
     throw new Error("Invalid gateway receipt key bytes");
   return bytes.toString("hex");
-}
-
-export function decodePxAnchorHead(value: unknown): PxAnchorHead {
-  const anchor = object(value);
-  present(anchor, [
-    "latest_finalized_batch",
-    "status",
-    "status_name",
-    "status_ladder",
-  ]);
-  const ladder = anchor.status_ladder;
-  let statusLadder: Readonly<Record<string, string>> | null = null;
-  if (ladder !== null) {
-    const rungs = object(ladder);
-    for (const rung of Object.values(rungs))
-      if (typeof rung !== "string" || rung.length === 0 || rung.length > 64)
-        throw new Error("Invalid anchor ladder");
-    statusLadder = Object.freeze({ ...rungs } as Record<string, string>);
-  }
-  return Object.freeze({
-    latestFinalizedBatch: pxOptionalCounted(anchor.latest_finalized_batch),
-    status: pxOptionalCounted(anchor.status),
-    statusName: optionalText(anchor.status_name, 64),
-    statusLadder,
-  });
 }
 
 function decodePaxeerAccount(value: unknown): PxPaxeerAccount {

@@ -194,7 +194,10 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
 
   def receipt_keys(router_url) do
     with {:ok, result} <- router_call(router_url, "px_getReceiptKeys", []) do
-      decode_receipt_keys(result)
+      case result do
+        %{"keys" => keys} -> decode_receipt_keys(keys)
+        _ -> {:error, :malformed_receipt_keys}
+      end
     end
   end
 
@@ -205,8 +208,19 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
   def commit(height, router_url \\ router_url())
   def commit(_height, nil), do: :disabled
 
-  def commit(height, router_url) when is_integer(height) and height > 0,
-    do: router_object(router_url, "px_getCommit", [height])
+  def commit(height, router_url) when is_integer(height) and height > 0 do
+    decimal_height = Integer.to_string(height)
+
+    with {:ok, result} <- router_object(router_url, "px_getCommit", [decimal_height]) do
+      case result do
+        %{"height" => ^decimal_height, "signedHeader" => %{} = signed_header} ->
+          {:ok, %{"signed_header" => signed_header}}
+
+        _ ->
+          {:error, :malformed_commit}
+      end
+    end
+  end
 
   def commit(_height, _router_url), do: {:error, :invalid_height}
 
@@ -217,10 +231,44 @@ defmodule Explorer.Chain.PaxeerX.SequencerReceipt do
   def validators(height, router_url \\ router_url())
   def validators(_height, nil), do: :disabled
 
-  def validators(height, router_url) when is_integer(height) and height > 0,
-    do: router_object(router_url, "px_getValidators", [height])
+  def validators(height, router_url) when is_integer(height) and height > 0 do
+    decimal_height = Integer.to_string(height)
+
+    with {:ok, result} <- router_object(router_url, "px_getValidators", [decimal_height]) do
+      case result do
+        %{"height" => ^decimal_height, "validators" => entries, "total" => total} when is_list(entries) ->
+          with {:ok, validators} <- gateway_validators(entries) do
+            {:ok,
+             %{
+               "block_height" => decimal_height,
+               "validators" => validators,
+               "count" => Integer.to_string(length(validators)),
+               "total" => total
+             }}
+          end
+
+        _ ->
+          {:error, :malformed_validators}
+      end
+    end
+  end
 
   def validators(_height, _router_url), do: {:error, :invalid_height}
+
+  defp gateway_validators(entries) do
+    entries
+    |> Enum.reduce_while({:ok, []}, fn
+      %{"address" => address, "pubKey" => public_key, "votingPower" => power}, {:ok, acc} ->
+        {:cont, {:ok, [%{"address" => address, "pub_key" => public_key, "voting_power" => power} | acc]}}
+
+      _entry, _acc ->
+        {:halt, {:error, :malformed_validators}}
+    end)
+    |> case do
+      {:ok, validators} -> {:ok, Enum.reverse(validators)}
+      error -> error
+    end
+  end
 
   @doc """
   Decodes the ReceiptKeys list answered by `px_getReceiptKeys`: entries of

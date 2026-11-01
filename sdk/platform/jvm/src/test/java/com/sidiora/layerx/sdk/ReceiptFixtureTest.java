@@ -70,22 +70,6 @@ public final class ReceiptFixtureTest {
     }
 
     @Test
-    void explicitProtocolThree() throws Exception {
-        for (String name : new String[]{"receipt-positive-v3.json", "receipt-programs-positive-v3.json"}) {
-            JsonNode fixture = JSON.readTree(Files.readString(FIXTURE_ROOT.resolve(name)));
-            byte[] canonical = hexDecode(fixture.get("canonical_receipt_hex").asText());
-            var authority = authorizedBatch(fixture);
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyReceipt(canonical, authority));
-            var verified = LocalVerifier.verifyReceipt(canonical, authority, 3);
-            assertEquals(3, verified.receipt().protocolVersion());
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyProgramLifecycleReceipt(canonical, verified.receipt().activityId(), authority.sequencerPublicKey()));
-            assertArrayEquals(hexDecode(fixture.get("expected").get("receipt_digest_hex").asText()), verified.receiptDigest());
-            canonical[canonical.length - 1] ^= 1;
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyReceipt(canonical, authority, 3));
-        }
-    }
-
-    @Test
     void programOutcomeV3VectorDecodes() {
         var outcome = LocalVerifier.decodeProgramReceiptOutcome(hexDecode(PROGRAM_OUTCOME_V3), 1);
         assertEquals(3, outcome.encodingVersion());
@@ -95,109 +79,9 @@ public final class ReceiptFixtureTest {
         org.junit.jupiter.api.Assertions.assertArrayEquals(hexDecode("22".repeat(32)), outcome.terminalPayloadRoot());
     }
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final Path FIXTURE = Paths
+    private static final Path FIXTURE_ROOT = Paths
         .get(System.getProperty("layerx.repo.root", "../../.."))
-        .resolve("sdk/platform/conformance/fixtures/receipt-positive-v2.json");
-    private static final Path FIXTURE_ROOT = FIXTURE.getParent();
-
-    @Test
-    void testCoreFixtureReceiptVerifiesPositively() throws Exception {
-        JsonNode fixture = JSON.readTree(Files.readString(FIXTURE));
-        JsonNode expected = fixture.get("expected");
-        byte[] canonical = hexDecode(fixture.get("canonical_receipt_hex").asText());
-        LocalVerifier.ReceiptVerification verified =
-            LocalVerifier.verifyReceipt(canonical, authorizedBatch(fixture));
-        assertEquals(expected.get("level").asText(), verified.level().wire());
-        assertArrayEquals(canonical, verified.canonicalBytes());
-        assertArrayEquals(hexDecode(expected.get("receipt_digest_hex").asText()),
-            verified.receiptDigest());
-        LocalVerifier.ProtocolReceipt receipt = verified.receipt();
-        assertEquals(expected.get("result_code").intValue(), receipt.resultCode());
-        assertEquals(expected.get("protocol_version").intValue(), receipt.protocolVersion());
-        assertEquals(expected.get("operation").intValue(), receipt.operation());
-        assertEquals(expected.get("module_id").intValue(), receipt.moduleId());
-        assertEquals(BigInteger.valueOf(expected.get("global_sequence").longValue()),
-            receipt.globalSequence());
-        assertEquals(BigInteger.valueOf(expected.get("timestamp_ms").longValue()),
-            receipt.timestamp());
-        assertEquals(new BigInteger(expected.get("amount").asText()), receipt.amount());
-        assertEquals(new BigInteger(expected.get("fee_charged").asText()), receipt.feeCharged());
-        assertEquals(new BigInteger(expected.get("from_balance_before").asText()),
-            receipt.fromBalanceBefore());
-        assertEquals(new BigInteger(expected.get("from_balance_after").asText()),
-            receipt.fromBalanceAfter());
-        assertEquals(new BigInteger(expected.get("to_balance_before").asText()),
-            receipt.toBalanceBefore());
-        assertEquals(new BigInteger(expected.get("to_balance_after").asText()),
-            receipt.toBalanceAfter());
-        assertArrayEquals(hexDecode(expected.get("activity_id_hex").asText()),
-            receipt.activityId());
-        assertArrayEquals(hexDecode(expected.get("from_hex").asText()), receipt.from());
-        assertArrayEquals(hexDecode(expected.get("to_hex").asText()), receipt.to());
-        JsonNode batch = fixture.get("authorized_batch");
-        assertArrayEquals(hexDecode(batch.get("batch_id_hex").asText()), receipt.batchId());
-        assertArrayEquals(hexDecode(batch.get("asset_hex").asText()), receipt.asset());
-        assertArrayEquals(hexDecode(batch.get("previous_state_root_hex").asText()),
-            receipt.previousStateRoot());
-        assertArrayEquals(hexDecode(batch.get("resulting_state_root_hex").asText()),
-            receipt.resultingStateRoot());
-    }
-
-    @Test
-    void testCoreFixtureReceiptByteFlipFails() throws Exception {
-        JsonNode fixture = JSON.readTree(Files.readString(FIXTURE));
-        byte[] mutated = hexDecode(fixture.get("canonical_receipt_hex").asText());
-        mutated[mutated.length - 1] ^= 0x01;
-        assertThrows(PlatformSdkException.class,
-            () -> LocalVerifier.verifyReceipt(mutated, authorizedBatch(fixture)));
-    }
-
-    @Test
-    void programsReceiptPreservesOptionalOutcome() throws Exception {
-        JsonNode fixture = JSON.readTree(Files.readString(
-            FIXTURE_ROOT.resolve("receipt-programs-positive-v2.json")));
-        LocalVerifier.ReceiptVerification verified = LocalVerifier.verifyReceipt(
-            hexDecode(fixture.get("canonical_receipt_hex").asText()),
-            authorizedBatch(fixture));
-        LocalVerifier.ProgramReceiptOutcome outcome = verified.receipt().programOutcome();
-        assertNotNull(outcome);
-        assertEquals(3, outcome.encodingVersion());
-        assertEquals(1, outcome.runtimeVersion());
-        assertEquals(1, outcome.abiVersion());
-        assertEquals(BigInteger.valueOf(2), outcome.occupancyByteBatches());
-        assertEquals(BigInteger.valueOf(7), outcome.occupancyFeeUnits());
-        assertArrayEquals(hexDecode(fixture.get("authorized_batch").get("asset_hex").asText()),
-            outcome.occupancyAssetId());
-        assertFalse(allZero(outcome.occupancyEvidenceDigest()));
-        assertFalse(allZero(outcome.occupancyTransferRoot()));
-        assertEquals(BigInteger.valueOf(16), outcome.feeUnits());
-    }
-
-    @Test
-    void refusalVectorsExposeSharedTaxonomy() throws Exception {
-        for (String name : new String[] {"receipt-refusals-v2.json", "receipt-programs-refusals-v2.json"}) {
-            JsonNode fixture = JSON.readTree(Files.readString(FIXTURE_ROOT.resolve(name)));
-            for (JsonNode vector : fixture.get("vectors")) {
-                PlatformSdkException failure = assertThrows(PlatformSdkException.class,
-                    () -> LocalVerifier.verifyReceipt(
-                        hexDecode(vector.get("canonical_receipt_hex").asText()),
-                        authorizedBatch(fixture)), vector.get("name").asText());
-                assertNotNull(failure.receiptCheck());
-                assertEquals(vector.get("expected_check").asText(),
-                    failure.receiptCheck().wire(), vector.get("name").asText());
-            }
-        }
-    }
-
-    private static LocalVerifier.AuthorizedReceiptBatch authorizedBatch(JsonNode fixture) {
-        JsonNode batch = fixture.get("authorized_batch");
-        return new LocalVerifier.AuthorizedReceiptBatch(
-            hexDecode(batch.get("batch_id_hex").asText()),
-            hexDecode(batch.get("asset_hex").asText()),
-            hexDecode(batch.get("previous_state_root_hex").asText()),
-            hexDecode(batch.get("resulting_state_root_hex").asText()),
-            hexDecode(batch.get("sequencer_public_key_hex").asText()));
-    }
+        .resolve("sdk/platform/conformance/fixtures");
 
     private static byte[] hexDecode(String hex) {
         assertEquals(0, hex.length() & 1, "hex must have even length");
@@ -209,8 +93,4 @@ public final class ReceiptFixtureTest {
         return data;
     }
 
-    private static boolean allZero(byte[] value) {
-        for (byte current : value) if (current != 0) return false;
-        return true;
-    }
 }

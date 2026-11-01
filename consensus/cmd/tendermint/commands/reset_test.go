@@ -148,6 +148,22 @@ func TestResetState_NewLayout(t *testing.T) {
 	require.DirExists(t, dbDir)
 }
 
+func TestResetState_RemovesAutobahnState(t *testing.T) {
+	dbDir := filepath.Join(t.TempDir(), "data")
+	createDirs(t, dbDir, []string{"autobahn/consensus", "autobahn/data"})
+	autobahnDir := filepath.Join(dbDir, "autobahn")
+	walFile := filepath.Join(autobahnDir, "consensus", "wal")
+	require.NoError(t, os.WriteFile(walFile, []byte("persisted autobahn state"), 0o600))
+	require.DirExists(t, autobahnDir)
+	require.FileExists(t, walFile)
+
+	require.NoError(t, ResetState(dbDir))
+
+	require.NoDirExists(t, autobahnDir)
+	require.NoFileExists(t, walFile)
+	require.DirExists(t, dbDir)
+}
+
 func TestResetState_BothLayouts(t *testing.T) {
 	dbDir := t.TempDir()
 	all := append(legacyDBs, newTendermintDBs...)

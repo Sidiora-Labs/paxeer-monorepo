@@ -3,8 +3,12 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"net/netip"
+	"slices"
 	"strings"
 	"testing"
+
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ratelimit"
 )
 
 const (
@@ -16,6 +20,7 @@ const (
 var allVars = []string{
 	envChainID, envRPCURLs, envCometURLs, envDatabaseURL, envNATSURL, envPort,
 	envAuthSecret, envExplorerTx, envGatewayURL, envStartHeight,
+	ratelimit.EnvTrustedProxies,
 }
 
 func setEnv(t *testing.T, vars map[string]string) {
@@ -232,4 +237,60 @@ func TestConfig(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestLoadTrustedProxies(t *testing.T) {
+	want := []netip.Prefix{
+		netip.MustParsePrefix("10.0.0.0/8"),
+		netip.MustParsePrefix("192.168.1.0/24"),
+	}
+	for _, service := range []Service{Gateway, Explorer} {
+		t.Run(string(service), func(t *testing.T) {
+			t.Run("valid", func(t *testing.T) {
+				setEnv(t, with(baseEnv(), ratelimit.EnvTrustedProxies, "10.0.0.0/8, 192.168.1.0/24"))
+				cfg, err := Load(service)
+				if err != nil {
+					t.Fatalf("Load(%s): %v", service, err)
+				}
+				if !slices.Equal(cfg.TrustedProxies, want) {
+					t.Fatalf("TrustedProxies = %v, want %v", cfg.TrustedProxies, want)
+				}
+				if out := cfg.String(); !strings.Contains(out, "PERPS_TRUSTED_PROXY_CIDRS=[10.0.0.0/8 192.168.1.0/24]") {
+					t.Fatalf("String() = %q, missing trusted proxy list", out)
+				}
+			})
+			t.Run("empty", func(t *testing.T) {
+				setEnv(t, baseEnv())
+				cfg, err := Load(service)
+				if err != nil {
+					t.Fatalf("Load(%s): %v", service, err)
+				}
+				if len(cfg.TrustedProxies) != 0 {
+					t.Fatalf("TrustedProxies = %v, want empty", cfg.TrustedProxies)
+				}
+			})
+			t.Run("malformed", func(t *testing.T) {
+				setEnv(t, with(baseEnv(), ratelimit.EnvTrustedProxies, "not-a-cidr"))
+				cfg, err := Load(service)
+				if err == nil || !strings.Contains(err.Error(), ratelimit.EnvTrustedProxies) {
+					t.Fatalf("Load(%s) = %v, %v; want error naming %s", service, cfg, err, ratelimit.EnvTrustedProxies)
+				}
+				if cfg != nil {
+					t.Fatalf("Load(%s) returned Config with parse error: %v", service, cfg)
+				}
+			})
+		})
+	}
+	for _, service := range []Service{Indexer, Portal, Replay, Loadtest} {
+		t.Run(string(service)+"_ignores_unused_variable", func(t *testing.T) {
+			setEnv(t, with(with(baseEnv(), envGatewayURL, "https://gateway.example"), ratelimit.EnvTrustedProxies, "not-a-cidr"))
+			cfg, err := Load(service)
+			if err != nil {
+				t.Fatalf("Load(%s): %v", service, err)
+			}
+			if len(cfg.TrustedProxies) != 0 {
+				t.Fatalf("Load(%s) read unused proxy list: %v", service, cfg.TrustedProxies)
+			}
+		})
+	}
 }

@@ -2,24 +2,65 @@ use super::{
     json_response, now, parse_hex32, response, upstream_json, Config, KernelBackend,
     KernelUnavailable, OutgoingResponse,
 };
-use std::sync::Mutex;
+use std::cell::RefCell;
+use std::collections::HashMap;
+use std::net::{IpAddr, SocketAddr};
+use std::sync::{LazyLock, Mutex};
 
-static READ_WINDOW: Mutex<(u64, u32)> = Mutex::new((0, 0));
+struct ReadWindows {
+    second: u64,
+    total: u32,
+    per_client: HashMap<String, u32>,
+}
+
+static READ_WINDOWS: LazyLock<Mutex<ReadWindows>> = LazyLock::new(|| {
+    Mutex::new(ReadWindows {
+        second: 0,
+        total: 0,
+        per_client: HashMap::new(),
+    })
+});
 const READS_PER_SECOND: u32 = 120;
+const READS_PER_CLIENT_PER_SECOND: u32 = 30;
+
+thread_local! {
+    static CLIENT: RefCell<String> = RefCell::new("unattributed".to_owned());
+}
+
+pub(super) fn bind_client(
+    proxies: &[(IpAddr, u8)],
+    peer: Option<SocketAddr>,
+    forwarded: Option<&str>,
+) {
+    CLIENT.with(|cell| {
+        *cell.borrow_mut() = super::rpc_register::client_ip(proxies, peer, forwarded);
+    });
+}
+
+fn spend(windows: &mut ReadWindows, second: u64, client: &str) -> bool {
+    if windows.second != second {
+        windows.second = second;
+        windows.total = 0;
+        windows.per_client.clear();
+    }
+    if windows.total >= READS_PER_SECOND {
+        return false;
+    }
+    let count = windows.per_client.entry(client.to_owned()).or_default();
+    if *count >= READS_PER_CLIENT_PER_SECOND {
+        return false;
+    }
+    *count += 1;
+    windows.total += 1;
+    true
+}
 
 pub(super) fn consume_read() -> bool {
     let Ok(second) = now() else { return false };
-    let Ok(mut window) = READ_WINDOW.lock() else {
+    let Ok(mut windows) = READ_WINDOWS.lock() else {
         return false;
     };
-    if window.0 != second {
-        *window = (second, 0);
-    }
-    if window.1 >= READS_PER_SECOND {
-        return false;
-    }
-    window.1 += 1;
-    true
+    CLIENT.with(|cell| spend(&mut windows, second, &cell.borrow()))
 }
 
 pub(super) fn target(path: &str) -> Result<Option<&str>, ()> {
@@ -92,6 +133,53 @@ pub(super) fn route(config: &Config, request: &super::IncomingRequest) -> Option
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn one_client_exhausting_its_budget_leaves_reads_for_another() {
+        let mut windows = ReadWindows {
+            second: 0,
+            total: 0,
+            per_client: HashMap::new(),
+        };
+        let second = 42;
+        let client_a = "192.0.2.1";
+        let client_b = "192.0.2.2";
+
+        for _ in 0..READS_PER_CLIENT_PER_SECOND {
+            assert!(spend(&mut windows, second, client_a));
+        }
+        assert!(!spend(&mut windows, second, client_a));
+        assert_eq!(windows.per_client[client_a], READS_PER_CLIENT_PER_SECOND);
+        assert_eq!(windows.total, READS_PER_CLIENT_PER_SECOND);
+        assert!(spend(&mut windows, second, client_b));
+
+        let mut granted = READS_PER_CLIENT_PER_SECOND + 1;
+        for index in 0..READS_PER_SECOND {
+            let client = format!("198.51.100.{index}");
+            for _ in 0..=READS_PER_CLIENT_PER_SECOND {
+                if spend(&mut windows, second, &client) {
+                    granted += 1;
+                }
+                assert_eq!(windows.total, granted);
+                assert!(windows.total <= READS_PER_SECOND);
+            }
+        }
+        assert_eq!(granted, READS_PER_SECOND);
+        assert!(windows
+            .per_client
+            .values()
+            .all(|&count| count <= READS_PER_CLIENT_PER_SECOND));
+        assert!(!spend(&mut windows, second, client_b));
+
+        for _ in 0..READS_PER_CLIENT_PER_SECOND {
+            assert!(spend(&mut windows, second + 1, client_a));
+        }
+        assert_eq!(windows.second, second + 1);
+        assert_eq!(windows.total, READS_PER_CLIENT_PER_SECOND);
+        assert_eq!(windows.per_client.len(), 1);
+        assert!(!spend(&mut windows, second + 1, client_a));
+        assert!(spend(&mut windows, second + 1, client_b));
+    }
 
     #[test]
     fn public_read_routes_validate_identifiers_and_exact_paths() {

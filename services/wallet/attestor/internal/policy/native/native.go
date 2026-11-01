@@ -19,6 +19,7 @@ import (
 
 const PreparationPurpose = "preparation-purpose"
 const LocalGrantConsent = "local-grant-consent"
+const LedgerIssueGrant = "ledger-issue-grant"
 const SendPurposeKind = "send-purpose"
 const SendPurposeDomain = "LayerX/native/send-purpose/v1\x00"
 const PurposeDomain = "LayerX/native/preparation-purpose/v1\x00"
@@ -155,7 +156,7 @@ func (d *Document) Validate() error {
 		seen[key] = true
 		ops := map[string]bool{}
 		for _, op := range r.Operations {
-			if (op != PreparationPurpose && op != LocalGrantConsent && op != SendPurposeKind) || ops[op] {
+			if (op != PreparationPurpose && op != LocalGrantConsent && op != LedgerIssueGrant && op != SendPurposeKind) || ops[op] {
 				return ErrMalformed
 			}
 			ops[op] = true

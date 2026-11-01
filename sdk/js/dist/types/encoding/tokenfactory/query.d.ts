@@ -1,6 +1,7 @@
 import type { GeneratedType } from "@cosmjs/proto-signing";
 import type { QueryDenomAllowListRequest as QueryDenomAllowListRequest_type, QueryDenomAllowListResponse as QueryDenomAllowListResponse_type, QueryDenomAuthorityMetadataRequest as QueryDenomAuthorityMetadataRequest_type, QueryDenomAuthorityMetadataResponse as QueryDenomAuthorityMetadataResponse_type, QueryDenomMetadataRequest as QueryDenomMetadataRequest_type, QueryDenomMetadataResponse as QueryDenomMetadataResponse_type, QueryDenomsFromCreatorRequest as QueryDenomsFromCreatorRequest_type, QueryDenomsFromCreatorResponse as QueryDenomsFromCreatorResponse_type, QueryParamsRequest as QueryParamsRequest_type, QueryParamsResponse as QueryParamsResponse_type } from "../../types/tokenfactory";
 import type { MessageFns } from "../common";
+import type { PageRequest, PageResponse } from "../cosmos/base/query/v1beta1/pagination";
 export interface QueryParamsRequest extends QueryParamsRequest_type {
 }
 export interface QueryParamsResponse extends QueryParamsResponse_type {
@@ -10,8 +11,10 @@ export interface QueryDenomAuthorityMetadataRequest extends QueryDenomAuthorityM
 export interface QueryDenomAuthorityMetadataResponse extends QueryDenomAuthorityMetadataResponse_type {
 }
 export interface QueryDenomsFromCreatorRequest extends QueryDenomsFromCreatorRequest_type {
+    pagination?: PageRequest;
 }
 export interface QueryDenomsFromCreatorResponse extends QueryDenomsFromCreatorResponse_type {
+    pagination?: PageResponse;
 }
 export interface QueryDenomMetadataRequest extends QueryDenomMetadataRequest_type {
 }
@@ -69,18 +72,22 @@ export declare const aminoConverters: {
         aminoType: string;
         toAmino: (message: QueryDenomsFromCreatorRequest) => {
             creator: string;
+            pagination?: PageRequest;
         };
         fromAmino: (object: QueryDenomsFromCreatorRequest) => {
             creator: string;
+            pagination?: PageRequest;
         };
     };
     "/paxprotocol.paxchain.tokenfactory.QueryDenomsFromCreatorResponse": {
         aminoType: string;
         toAmino: (message: QueryDenomsFromCreatorResponse) => {
             denoms: string[];
+            pagination?: PageResponse;
         };
         fromAmino: (object: QueryDenomsFromCreatorResponse) => {
             denoms: string[];
+            pagination?: PageResponse;
         };
     };
     "/paxprotocol.paxchain.tokenfactory.QueryDenomMetadataRequest": {

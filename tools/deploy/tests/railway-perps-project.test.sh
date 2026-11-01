@@ -91,6 +91,14 @@ for s in nats-2 nats-3 indexer gateway explorer portal web; do
 done
 grep -q "^  create image=ghcr.io/sidiora-labs/perps-data-indexer@$(d 2)$" "$tmp/plan" || fail "indexer image ref missing"
 grep -q "^  create image=ghcr.io/sidiora-labs/perps-web@$(d 6)$" "$tmp/plan" || fail "web image ref missing"
+web_plan_sets_no_runtime_gateway_url() {
+	if sed -n "/^service [0-9]* web image/,/^service /p" "$tmp/plan" | grep -q '^  var PERPS_GATEWAY_URL '; then
+		fail "web plan sets PERPS_GATEWAY_URL"
+	fi
+	sed -n "/^service [0-9]* portal image/,/^service /p" "$tmp/plan" | grep -q '^  var PERPS_GATEWAY_URL ' ||
+		fail "portal plan lacks PERPS_GATEWAY_URL"
+}
+web_plan_sets_no_runtime_gateway_url
 grep -q '^  var PERPS_START_HEIGHT add 34800001$' "$tmp/plan" || fail "start height not planned"
 grep -q '^  setting healthcheckPath=/healthz/live$' "$tmp/plan" || fail "indexer health not from its railway json"
 grep -q '^  setting numReplicas=2$' "$tmp/plan" || fail "gateway replicas not from its railway json"

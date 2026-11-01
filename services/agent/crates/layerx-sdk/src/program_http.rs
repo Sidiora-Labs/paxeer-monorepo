@@ -5,11 +5,11 @@ use std::time::Duration;
 #[path = "../../../tests/support/wall_clock.rs"]
 mod wall_clock;
 
-use layerx_crypto::ed25519;
+use layerx_crypto::{ed25519, evm_transaction};
 use layerx_types::intent::{
     CapabilityRequest, ProgramCallFailure, ProgramCallOutcome, ProgramLegacyValue,
 };
-use serde_json::{Map, Value, json};
+use serde_json::{json, Map, Value};
 use sha2::{Digest as _, Sha256};
 use url::{Host, Url};
 use zeroize::Zeroizing;
@@ -17,12 +17,12 @@ use zeroize::Zeroizing;
 use crate::production::SecretBytes;
 
 use super::{
-    AgentErrorClass, BoundProgramRequest, MAX_OCCUPANCY_PAYERS, MAX_SIGNED_ACTIVITY_BYTES,
+    verify_program_evidence_with_payers, AgentErrorClass, BoundProgramRequest,
     NativeProgramCallRequest, NativeProgramTransport, OccupancyPayer, ProgramCallRequest,
     ProgramExecutionEvidence, ProgramLifecycle, ProgramOperationError, ProgramServiceError,
     ProgramSimulationEvidence, ProgramSource, ProgramSubmission, ProgramTransport, Retriability,
     VerifiedProgramDiscovery, VerifiedProgramInterface, VerifiedProgramSimulation,
-    verify_program_evidence_with_payers,
+    MAX_OCCUPANCY_PAYERS, MAX_SIGNED_ACTIVITY_BYTES,
 };
 
 const MAX_HTTP_REQUEST_BYTES: usize = 4 * 1_048_576 + 4096;
@@ -30,10 +30,158 @@ const MAX_HTTP_RESPONSE_BYTES: u64 = 9 * 1_048_576;
 const MAX_INTERFACE_BYTES: usize = 952;
 const MAX_REQUEST_ID_BYTES: usize = 128;
 const MAX_REASON_BYTES: usize = 128;
-const REQUESTED_VERIFICATION: &str = "sequencer-signed";
+const REQUESTED_VERIFICATION: &str = "receipted";
 const EXECUTION_VERIFICATION: &str = "receipt-terminal-and-call-graph-verified";
 const SIMULATION_EVIDENCE_DOMAIN: &[u8] = b"LayerX/agent/program-simulation-evidence/v1\0";
 const SIMULATION_BOUNDARY_DOMAIN: &[u8] = b"LayerX/emulator/simulation-boundary/v1\0";
+
+const PROGRAMS_ADDRESS: [u8; 20] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1d,
+];
+const PROGRAM_CALL_SELECTOR: [u8; 4] = [0x54, 0xbd, 0x2b, 0x48];
+const PROGRAM_CALL_HEAD_BYTES: usize = 15 * 32;
+
+fn program_call_calldata(
+    call: layerx_types::program_call::NativeProgramCall<'_>,
+    fee_limit: u128,
+) -> Result<Vec<u8>, ProgramOperationError> {
+    call.encode().map_err(|_| ProgramOperationError::Decode)?;
+    let mut data = vec![0; PROGRAM_CALL_HEAD_BYTES];
+    data[..32].copy_from_slice(&call.program_id.bytes());
+    let mut word = |index: usize, value: u128| {
+        data[index * 32 + 16..(index + 1) * 32].copy_from_slice(&value.to_be_bytes());
+    };
+    word(1, u128::from(call.guest_abi));
+    word(6, u128::from(call.response_capacity));
+    for (index, resource) in call.resources.0.iter().enumerate() {
+        word(7 + index, u128::from(*resource));
+    }
+    word(14, fee_limit);
+    for (index, body) in [
+        call.entrypoint,
+        call.calldata,
+        call.capabilities,
+        call.access_declaration,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let offset = data.len() as u128;
+        data[(2 + index) * 32 + 16..(3 + index) * 32].copy_from_slice(&offset.to_be_bytes());
+        data.extend_from_slice(&[0; 16]);
+        data.extend_from_slice(&(body.len() as u128).to_be_bytes());
+        data.extend_from_slice(body);
+        data.resize(data.len().next_multiple_of(32), 0);
+    }
+    let mut calldata = PROGRAM_CALL_SELECTOR.to_vec();
+    calldata.extend_from_slice(&data);
+    Ok(calldata)
+}
+
+fn program_call_body(
+    calldata: &[u8],
+) -> Result<(layerx_types::program_call::NativeProgramCall<'_>, u128), ProgramOperationError> {
+    let data = calldata
+        .strip_prefix(&PROGRAM_CALL_SELECTOR)
+        .ok_or(ProgramOperationError::IdentityMismatch)?;
+    if data.len() < PROGRAM_CALL_HEAD_BYTES || data.len() > MAX_SIGNED_ACTIVITY_BYTES {
+        return Err(ProgramOperationError::Decode);
+    }
+    let uint = |bytes: &[u8]| -> Result<u128, ProgramOperationError> {
+        if bytes.len() != 32 || bytes[..16] != [0; 16] {
+            return Err(ProgramOperationError::Decode);
+        }
+        Ok(u128::from_be_bytes(
+            bytes[16..]
+                .try_into()
+                .map_err(|_| ProgramOperationError::Decode)?,
+        ))
+    };
+    let word = |index: usize| uint(&data[index * 32..(index + 1) * 32]);
+    let body = |index: usize| -> Result<&[u8], ProgramOperationError> {
+        let offset = usize::try_from(word(index)?).map_err(|_| ProgramOperationError::Decode)?;
+        let tail = data.get(offset..).ok_or(ProgramOperationError::Decode)?;
+        let length = usize::try_from(uint(tail.get(..32).ok_or(ProgramOperationError::Decode)?)?)
+            .map_err(|_| ProgramOperationError::Decode)?;
+        tail.get(32..)
+            .and_then(|bytes| bytes.get(..length))
+            .ok_or(ProgramOperationError::Decode)
+    };
+    let mut resources = [0; 7];
+    for (index, resource) in resources.iter_mut().enumerate() {
+        *resource = u64::try_from(word(7 + index)?).map_err(|_| ProgramOperationError::Decode)?;
+    }
+    let call = layerx_types::program_call::NativeProgramCall {
+        program_id: layerx_types::intent::ProgramId::new(
+            data[..32]
+                .try_into()
+                .map_err(|_| ProgramOperationError::Decode)?,
+        ),
+        guest_abi: u16::try_from(word(1)?).map_err(|_| ProgramOperationError::Decode)?,
+        entrypoint: body(2)?,
+        calldata: body(3)?,
+        capabilities: body(4)?,
+        access_declaration: body(5)?,
+        response_capacity: u32::try_from(word(6)?).map_err(|_| ProgramOperationError::Decode)?,
+        resources: layerx_types::program_call::Resources(resources),
+    };
+    let fee_limit = word(14)?;
+    if program_call_calldata(call, fee_limit)? != calldata {
+        return Err(ProgramOperationError::Decode);
+    }
+    Ok((call, fee_limit))
+}
+
+fn signed_program_transaction(
+    raw: &[u8],
+) -> Result<evm_transaction::Eip1559Call, ProgramOperationError> {
+    if raw.is_empty() || raw.len() > MAX_SIGNED_ACTIVITY_BYTES {
+        return Err(ProgramOperationError::Bounds);
+    }
+    let (transaction, signature) =
+        evm_transaction::decode_signed(raw).map_err(|_| ProgramOperationError::Decode)?;
+    if transaction.to != PROGRAMS_ADDRESS {
+        return Err(ProgramOperationError::IdentityMismatch);
+    }
+    evm_transaction::recover_sender(&transaction, &signature)
+        .map_err(|_| ProgramOperationError::Decode)?;
+    program_call_body(&transaction.data)?;
+    Ok(transaction)
+}
+
+impl NativeProgramCallRequest {
+    /// Binds a native call and fee ceiling to a signed layerxprograms EIP-1559 transaction.
+    ///
+    /// # Errors
+    /// Refuses malformed transactions, other targets, and calldata that differs from the call.
+    pub fn from_signed_transaction(
+        call: layerx_types::program_call::NativeProgramCall<'_>,
+        fee_limit: u128,
+        signed_transaction: &[u8],
+    ) -> Result<Self, ProgramOperationError> {
+        if call.resources.0[0] == 0 {
+            return Err(ProgramOperationError::Bounds);
+        }
+        let transaction = signed_program_transaction(signed_transaction)?;
+        if transaction.data != program_call_calldata(call, fee_limit)? {
+            return Err(ProgramOperationError::IdentityMismatch);
+        }
+        let activity_id = evm_transaction::transaction_hash(signed_transaction);
+        let mut idempotency = Sha256::new();
+        idempotency.update(b"layerxprograms/idempotency/v1");
+        idempotency.update(activity_id);
+        idempotency.update(0_u32.to_be_bytes());
+        idempotency.update(PROGRAM_CALL_SELECTOR);
+        Ok(Self {
+            payload: call.encode().map_err(|_| ProgramOperationError::Decode)?,
+            fee_limit,
+            program_id: call.program_id.bytes(),
+            signed_activity: signed_transaction.to_vec(),
+            activity_id,
+            idempotency_key: idempotency.finalize().into(),
+        })
+    }
+}
 
 pub struct LayerXKeyCredential {
     key_id: String,
@@ -383,7 +531,7 @@ impl ProgramTransport for HttpProgramTransport {
     ) -> Result<layerx_wire::receipt::Receipt, ProgramOperationError> {
         let key = request.bound_idempotency_key();
         let value = self.dispatch("program.receipt", Method::Get, &format!("/v1/programs/receipts/by-idempotency/{}", hex(&key)),
-            &json!({"idempotency_key":hex(&key),"expected_activity_id":hex(&request.bound_activity_id()),"requested_verification_level":"sequencer-signed"}), None)?;
+            &json!({"idempotency_key":hex(&key),"expected_activity_id":hex(&request.bound_activity_id()),"requested_rung":"receipted"}), None)?;
         if value.get("idempotency_key").is_some()
             && value.get("idempotency_key").and_then(Value::as_str) != Some(hex(&key).as_str())
         {
@@ -433,7 +581,7 @@ impl ProgramTransport for HttpProgramTransport {
             &format!("/v1/programs/registry/{program_id}"),
             &json!({
                 "program_id": program_id,
-                "requested_verification_level": REQUESTED_VERIFICATION,
+                "requested_rung": REQUESTED_VERIFICATION,
             }),
             None,
         )?;
@@ -456,7 +604,7 @@ impl ProgramTransport for HttpProgramTransport {
             &format!("/v1/programs/registry/{program_id}/interface"),
             &json!({
                 "program_id": program_id,
-                "requested_verification_level": REQUESTED_VERIFICATION,
+                "requested_rung": REQUESTED_VERIFICATION,
             }),
             None,
         )?;
@@ -503,7 +651,7 @@ impl ProgramTransport for HttpProgramTransport {
             &json!({
                 "idempotency_key": idempotency,
                 "expected_activity_id": activity,
-                "requested_verification_level": REQUESTED_VERIFICATION,
+                "requested_rung": REQUESTED_VERIFICATION,
             }),
             None,
         )?;
@@ -527,7 +675,7 @@ impl ProgramTransport for HttpProgramTransport {
             &format!("/v1/programs/activities/{activity}"),
             &json!({
                 "activity_id": activity,
-                "requested_verification_level": REQUESTED_VERIFICATION,
+                "requested_rung": REQUESTED_VERIFICATION,
             }),
             None,
         )?;
@@ -894,16 +1042,16 @@ fn accepted_program_verification(operation: &str, result: &Value, value: Option<
     {
         return exact_unverified(status, "receipt_pending");
     }
-    exact_fields(status, &["state", "level"])
+    exact_fields(status, &["state", "rung"])
         && status.get("state").and_then(Value::as_str) == Some("Achieved")
-        && status.get("level").and_then(Value::as_str) == Some("SequencerSigned")
+        && status.get("rung").and_then(Value::as_str) == Some("receipted")
 }
 
 fn exact_unverified(value: &Map<String, Value>, reason: &str) -> bool {
     exact_fields(value, &["state", "requested", "achieved", "reason"])
         && value.get("state").and_then(Value::as_str) == Some("Unverified")
-        && value.get("requested").and_then(Value::as_str) == Some("SequencerSigned")
-        && value.get("achieved").and_then(Value::as_str) == Some("Unverified")
+        && value.get("requested").and_then(Value::as_str) == Some("receipted")
+        && value.get("achieved").and_then(Value::as_str) == Some("submitted")
         && value.get("reason").and_then(Value::as_str) == Some(reason)
 }
 
@@ -1260,43 +1408,19 @@ fn execution_call_binding(
     activity_id: [u8; 32],
     program_id: [u8; 32],
     guest_abi_version: u16,
-) -> Result<([u8; 32], u16, Vec<u8>), ProgramOperationError> {
-    let registry = crate::program_lifecycle::programs_module_registry()?;
-    let activity = layerx_wire::activity::decode_signed(signed_activity, &registry)
-        .map_err(|_| ProgramOperationError::Decode)?;
-    if layerx_wire::hash::activity_id(&activity).map_err(|_| ProgramOperationError::Decode)?
-        != activity_id
-    {
+) -> Result<([u8; 32], u16), ProgramOperationError> {
+    let transaction = signed_program_transaction(signed_activity)?;
+    if evm_transaction::transaction_hash(signed_activity) != activity_id {
         return Err(ProgramOperationError::IdentityMismatch);
     }
-    if activity.activity_type().module() != layerx_types::payload::ModuleId::Programs
-        || activity.activity_type().ordinal() != 3
-    {
+    let (call, _) = program_call_body(&transaction.data)?;
+    if call.program_id.bytes() != program_id || call.guest_abi != guest_abi_version {
         return Err(ProgramOperationError::IdentityMismatch);
     }
-    let bound_program = if activity.protocol_version() == 3 {
-        let call = layerx_types::program_call::NativeProgramCall::decode(activity.payload())
-            .map_err(|_| ProgramOperationError::Decode)?;
-        if call.guest_abi != guest_abi_version {
-            return Err(ProgramOperationError::IdentityMismatch);
-        }
-        call.callee().bytes()
-    } else {
-        layerx_types::intent::ProgramCall::from_canonical_payload(activity.payload())
-            .map_err(|_| ProgramOperationError::Decode)?
-            .callee()
-            .bytes()
-    };
-    if bound_program != program_id {
-        return Err(ProgramOperationError::IdentityMismatch);
-    }
-    let payload_hash =
-        layerx_wire::hash::payload_hash(&activity).map_err(|_| ProgramOperationError::Decode)?;
-    Ok((
-        payload_hash,
-        activity.protocol_version(),
-        activity.actor_did().to_vec(),
-    ))
+    let mut hash = Sha256::new();
+    hash.update(layerx_wire::hash::Domain::PayloadHash.tag());
+    hash.update(call.encode().map_err(|_| ProgramOperationError::Decode)?);
+    Ok((hash.finalize().into(), 3))
 }
 
 type OccupancyPayerHint = (Vec<u8>, [u8; 32]);
@@ -1323,19 +1447,14 @@ fn occupancy_payer_hints(
         .collect()
 }
 
-fn occupancy_payers<'a>(
-    actor_did: &'a [u8],
-    hints: &'a [OccupancyPayerHint],
-) -> Vec<OccupancyPayer<'a>> {
-    let mut payers = vec![OccupancyPayer {
-        did: actor_did,
-        account: None,
-    }];
-    payers.extend(hints.iter().map(|(did, account)| OccupancyPayer {
-        did,
-        account: Some(*account),
-    }));
-    payers
+fn occupancy_payers<'a>(hints: &'a [OccupancyPayerHint]) -> Vec<OccupancyPayer<'a>> {
+    hints
+        .iter()
+        .map(|(did, account)| OccupancyPayer {
+            did,
+            account: Some(*account),
+        })
+        .collect()
 }
 
 struct ExecutionUsage {
@@ -1409,10 +1528,10 @@ fn decode_execution(
     }
     let usage = decode_execution_usage(value)?;
     let outcome = value.get("outcome").ok_or(ProgramOperationError::Decode)?;
-    let (payload_hash, protocol_version, actor_did) =
+    let (payload_hash, protocol_version) =
         execution_call_binding(signed_activity, activity_id, program_id, guest_abi_version)?;
     let payer_hints = occupancy_payer_hints(value)?;
-    let occupancy_payers = occupancy_payers(&actor_did, &payer_hints);
+    let occupancy_payers = occupancy_payers(&payer_hints);
     let evidence = ProgramExecutionEvidence {
         payload_hash,
         receipt,
@@ -1746,6 +1865,14 @@ impl NativeProgramTransport for HttpProgramTransport {
 fn wire_native_call(request: &NativeProgramCallRequest) -> Result<Value, ProgramOperationError> {
     let native = layerx_types::program_call::NativeProgramCall::decode(&request.payload)
         .map_err(|_| ProgramOperationError::Decode)?;
+    let bound = NativeProgramCallRequest::from_signed_transaction(
+        native,
+        request.fee_limit,
+        request.signed_activity(),
+    )?;
+    if bound != *request {
+        return Err(ProgramOperationError::IdentityMismatch);
+    }
     Ok(json!({
         "payload_encoding": "native-v1", "program_id": hex(&request.program_id), "calldata": hex(native.calldata),
         "budget": { "fuel": native.resources.0[0].to_string(), "fee_limit": request.fee_limit.to_string() },
@@ -1772,118 +1899,17 @@ fn require_native_execution(
 
 #[cfg(test)]
 mod source_contract {
-    use serde_json::{Value, json};
+    use serde_json::{json, Value};
     use sha2::{Digest as _, Sha256};
 
     use super::{
-        ExecutionState, MAX_SIGNED_ACTIVITY_BYTES, NativeProgramCallRequest, ProgramLifecycle,
-        ProgramOperationError, ProgramSubmission, SubmissionExpectation, VerifiedProgramDiscovery,
         accepted_program_verification, bind_interface_discovery, bounded_hex, decode_discovery,
         decode_execution, decode_execution_usage, decode_interface, decode_service_error,
-        decode_submission, discovery_digest, ed25519, exact_fields, fixed, guest_abi, hex, object,
-        require_native_execution, wire_native_call,
+        discovery_digest, ed25519, evm_transaction, exact_fields, fixed, guest_abi, hex, object,
+        require_native_execution, required_string, wire_native_call, NativeProgramCallRequest,
+        ProgramLifecycle, ProgramOperationError, VerifiedProgramDiscovery,
+        MAX_SIGNED_ACTIVITY_BYTES,
     };
-
-    #[test]
-    fn corrupt_lifecycle_boundary_responses_retain_c_signed_request() -> Result<(), String> {
-        use crate::program_lifecycle::{
-            NativeProgramLifecycleRequest, ProgramLifecycleSubmission, programs_module_registry,
-        };
-        use layerx_types::program_lifecycle::NativeProgramDeploy;
-        let fixture: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../../sdk/platform/conformance/fixtures/native-program-deploy-v3.json"
-        ))
-        .map_err(|error| error.to_string())?;
-        let fields = object(&fixture).map_err(|error| format!("{error:?}"))?;
-        let payload = super::bounded_hex(fields, "payload_hex", 524_288, None)
-            .map_err(|error| format!("{error:?}"))?;
-        let signed = super::bounded_hex(fields, "signed_activity_hex", 1_048_576, None)
-            .map_err(|error| format!("{error:?}"))?;
-        let registry = programs_module_registry().map_err(|error| format!("{error:?}"))?;
-        let request = NativeProgramLifecycleRequest::deploy(
-            &registry,
-            NativeProgramDeploy::decode(&payload).map_err(|error| format!("{error:?}"))?,
-            &signed,
-        )
-        .map_err(|error| format!("{error:?}"))?;
-        let receipt_fixture: serde_json::Value = serde_json::from_str(include_str!(
-            "../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v3.json"
-        ))
-        .map_err(|error| error.to_string())?;
-        let mut receipt = super::bounded_hex(
-            object(&receipt_fixture).map_err(|error| format!("{error:?}"))?,
-            "canonical_receipt_hex",
-            1_048_576,
-            None,
-        )
-        .map_err(|error| format!("{error:?}"))?;
-        *receipt.last_mut().ok_or("missing receipt signature")? ^= 1;
-        let expected = ProgramLifecycleSubmission::Unknown {
-            activity_id: request.bound_activity_id(),
-            idempotency_key: request.bound_idempotency_key(),
-            retained_signed_activity: signed,
-        };
-        for document in [
-            json!({"result":{"state":"executed", "activity_id":fixture["activity_id_hex"], "receipt":super::hex(&receipt), "terminal_payload":"", "call_graph":""}}),
-            json!({"result":{"state":"refused", "activity_id":fixture["activity_id_hex"], "receipt":"00", "terminal_payload":"", "call_graph":""}}),
-            json!({"result":{},"extra":true}),
-            json!({"state":"unknown", "activity_id":"00".repeat(32), "retry":"after", "retry_after_seconds":2}),
-        ] {
-            let attempt =
-                super::decode_agent_document(200, document, "program.deploy").and_then(|value| {
-                    super::HttpProgramTransport::decode_lifecycle_submission(
-                        &value, &request, [1; 32],
-                    )
-                });
-            assert_eq!(
-                super::resolve_lifecycle_submission(&request, attempt)
-                    .map_err(|error| format!("{error:?}"))?,
-                expected
-            );
-        }
-        let malformed = serde_json::from_slice::<serde_json::Value>(b"{\"result\":")
-            .map_err(|_| super::ProgramOperationError::Decode)
-            .and_then(|value| {
-                super::HttpProgramTransport::decode_lifecycle_submission(&value, &request, [1; 32])
-            });
-        assert_eq!(
-            super::resolve_lifecycle_submission(&request, malformed)
-                .map_err(|error| format!("{error:?}"))?,
-            expected
-        );
-        let refusal = super::decode_agent_document(
-            400,
-            json!({"error":{"code":"invalid_program_payload","retry":"never"}}),
-            "program.deploy",
-        )
-        .and_then(|value| {
-            super::HttpProgramTransport::decode_lifecycle_submission(&value, &request, [1; 32])
-        });
-        assert!(matches!(
-            super::resolve_lifecycle_submission(&request, refusal),
-            Err(super::ProgramOperationError::Boundary { status: 400, .. })
-        ));
-        let transport =
-            super::HttpProgramTransport::connect("http://127.0.0.1:1", None, [1; 32], || {
-                super::wall_clock::wall_time()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .ok()
-                    .and_then(|duration| u64::try_from(duration.as_millis()).ok())
-                    .ok_or(super::ProgramOperationError::Verification)
-            })
-            .map_err(|error| format!("{error:?}"))?;
-        assert!(matches!(
-            transport.submit_lifecycle(
-                &request,
-                [0; 32],
-                1,
-                "program.deploy",
-                "/v1/programs/deploy"
-            ),
-            Err(super::ProgramOperationError::IdentityMismatch)
-        ));
-        Ok(())
-    }
 
     #[test]
     fn lifecycle_recovery_requires_exact_identity_and_state_receipt() {
@@ -1897,8 +1923,8 @@ mod source_contract {
     }
 
     #[test]
-    fn lifecycle_boundary_errors_preserve_exact_refusals()
-    -> Result<(), super::ProgramOperationError> {
+    fn lifecycle_boundary_errors_preserve_exact_refusals(
+    ) -> Result<(), super::ProgramOperationError> {
         let refusal = json!({"code":"invalid_program_payload","retry":"never"});
         assert_eq!(
             super::decode_boundary_error(400, object(&refusal)?)?,
@@ -1931,17 +1957,17 @@ mod source_contract {
     fn programs_verification_status_matrix_is_closed() {
         let server_attested = json!({
             "state":"Unverified",
-            "requested":"SequencerSigned",
-            "achieved":"Unverified",
+            "requested":"receipted",
+            "achieved":"submitted",
             "reason":"server_side_receipt_verification_only",
         });
         let pending = json!({
             "state":"Unverified",
-            "requested":"SequencerSigned",
-            "achieved":"Unverified",
+            "requested":"receipted",
+            "achieved":"submitted",
             "reason":"receipt_pending",
         });
-        let achieved = json!({"state":"Achieved","level":"SequencerSigned"});
+        let achieved = json!({"state":"Achieved","rung":"receipted"});
         assert!(accepted_program_verification(
             "program.discover",
             &json!({"program_id":"00"}),
@@ -2212,27 +2238,40 @@ mod source_contract {
     }
 
     #[test]
-    fn native_call_wire_preserves_real_signed_fixture_and_all_limits()
-    -> Result<(), ProgramOperationError> {
+    fn native_call_wire_preserves_real_signed_fixture_and_all_limits(
+    ) -> Result<(), ProgramOperationError> {
         let fixture: Value = serde_json::from_str(include_str!(
             "../../../../../sdk/platform/conformance/fixtures/native-program-call-v3.json"
         ))
         .map_err(|_| ProgramOperationError::Decode)?;
         let document = object(&fixture)?;
-        let signed = bounded_hex(
-            document,
-            "signed_activity_hex",
-            MAX_SIGNED_ACTIVITY_BYTES,
-            None,
-        )?;
         let payload = bounded_hex(document, "payload_hex", MAX_SIGNED_ACTIVITY_BYTES, None)?;
         let native = layerx_types::program_call::NativeProgramCall::decode(&payload)
             .map_err(|_| ProgramOperationError::Decode)?;
-        let registry = crate::program_lifecycle::programs_module_registry()?;
-        let request = NativeProgramCallRequest::new(&registry, native, 1000, &signed)?;
+        let evm = object(fixture.get("evm").ok_or(ProgramOperationError::Decode)?)?;
+        let calldata = required_string(evm, "calldata")?
+            .strip_prefix("0x")
+            .ok_or(ProgramOperationError::Decode)?;
+        let signed = evm_transaction::Eip1559Call {
+            chain_id: 125,
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 2_000_000,
+            to: super::PROGRAMS_ADDRESS,
+            data: bounded_hex(
+                object(&json!({"calldata":calldata}))?,
+                "calldata",
+                MAX_SIGNED_ACTIVITY_BYTES,
+                None,
+            )?,
+        }
+        .sign(&[0x42; 32])
+        .map_err(|_| ProgramOperationError::Decode)?;
+        let request = NativeProgramCallRequest::from_signed_transaction(native, 1000, &signed)?;
         let wire = wire_native_call(&request)?;
         assert_eq!(wire["payload_encoding"], "native-v1");
-        assert_eq!(wire["signed_activity"], fixture["signed_activity_hex"]);
+        assert_eq!(wire["signed_activity"], hex(&signed));
         assert_eq!(wire["program_id"], hex(&native.program_id.bytes()));
         assert_eq!(wire["budget"]["fuel"], native.resources.0[0].to_string());
         assert_eq!(wire["budget"]["fee_limit"], "1000");
@@ -2253,39 +2292,35 @@ mod source_contract {
             wire["native_call"]["response_capacity"],
             native.response_capacity
         );
-        let activity = layerx_wire::activity::decode_signed(&signed, &registry)
-            .map_err(|_| ProgramOperationError::Decode)?;
-        let signature: [u8; 64] = activity
-            .signature()
-            .ok_or(ProgramOperationError::Decode)?
-            .try_into()
-            .map_err(|_| ProgramOperationError::Decode)?;
-        let public_key = fixed(document, "public_key_hex")?;
-        let preimage =
-            layerx_wire::sign::preimage(&activity).map_err(|_| ProgramOperationError::Decode)?;
-        ed25519::verify_digest(&public_key, &signature, preimage.as_bytes())
+        let (activity, signature) =
+            evm_transaction::decode_signed(&signed).map_err(|_| ProgramOperationError::Decode)?;
+        assert_eq!(activity.to, super::PROGRAMS_ADDRESS);
+        assert_eq!(activity.data, super::program_call_calldata(native, 1000)?);
+        evm_transaction::recover_sender(&activity, &signature)
             .map_err(|_| ProgramOperationError::Verification)?;
+        let mut idempotency = Sha256::new();
+        idempotency.update(b"layerxprograms/idempotency/v1");
+        idempotency.update(evm_transaction::transaction_hash(&signed));
+        idempotency.update(0_u32.to_be_bytes());
+        idempotency.update(super::PROGRAM_CALL_SELECTOR);
         assert_eq!(
             request.bound_idempotency_key(),
-            fixed(document, "idempotency_key_hex")?
+            <[u8; 32]>::from(idempotency.finalize())
         );
         assert_eq!(
             request.bound_activity_id(),
-            fixed(document, "activity_id_hex")?
+            evm_transaction::transaction_hash(&signed)
         );
-        assert!(NativeProgramCallRequest::new(&registry, native, 999, &signed).is_err());
-        assert!(
-            NativeProgramCallRequest::new(
-                &registry,
-                layerx_types::program_call::NativeProgramCall {
-                    response_capacity: native.response_capacity + 1,
-                    ..native
-                },
-                1000,
-                &signed
-            )
-            .is_err()
-        );
+        assert!(NativeProgramCallRequest::from_signed_transaction(native, 999, &signed).is_err());
+        assert!(NativeProgramCallRequest::from_signed_transaction(
+            layerx_types::program_call::NativeProgramCall {
+                response_capacity: native.response_capacity + 1,
+                ..native
+            },
+            1000,
+            &signed
+        )
+        .is_err());
         for abi in 1..=layerx_types::guest_abi::MAX_VERSION {
             assert_eq!(
                 guest_abi(
@@ -2299,147 +2334,8 @@ mod source_contract {
     }
 
     #[test]
-    fn native_execution_preserves_captured_receipt_authority_and_unknown_identity()
-    -> Result<(), ProgramOperationError> {
-        let fixture: Value = serde_json::from_str(include_str!(
-            "../../../../../sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json"
-        ))
-        .map_err(|_| ProgramOperationError::Decode)?;
-        let source = object(&fixture)?;
-        let signed = bounded_hex(
-            source,
-            "signed_activity_hex",
-            MAX_SIGNED_ACTIVITY_BYTES,
-            None,
-        )?;
-        let registry = crate::program_lifecycle::programs_module_registry()?;
-        let activity = layerx_wire::activity::decode_signed(&signed, &registry)
-            .map_err(|_| ProgramOperationError::Decode)?;
-        let call = layerx_types::program_call::NativeProgramCall::decode(activity.payload())
-            .map_err(|_| ProgramOperationError::Decode)?;
-        let authority = object(
-            fixture
-                .get("authorized_batch")
-                .ok_or(ProgramOperationError::Decode)?,
-        )?;
-        let key = fixed(authority, "sequencer_public_key_hex")?;
-        let evidence = super::ProgramExecutionEvidence {
-            payload_hash: layerx_wire::hash::payload_hash(&activity)
-                .map_err(|_| ProgramOperationError::Decode)?,
-            receipt: bounded_hex(
-                source,
-                "canonical_receipt_hex",
-                MAX_SIGNED_ACTIVITY_BYTES,
-                None,
-            )?,
-            terminal_payload: bounded_hex(
-                source,
-                "terminal_payload_hex",
-                MAX_SIGNED_ACTIVITY_BYTES,
-                None,
-            )?,
-            call_graph: bounded_hex(source, "call_graph_hex", MAX_SIGNED_ACTIVITY_BYTES, None)?,
-            authority: layerx_proof::receipt::AuthorizedBatch::new(
-                fixed(authority, "batch_id_hex")?,
-                fixed(authority, "asset_hex")?,
-                fixed(authority, "previous_state_root_hex")?,
-                fixed(authority, "resulting_state_root_hex")?,
-                key,
-            ),
-            activity_id: layerx_wire::hash::activity_id(&activity)
-                .map_err(|_| ProgramOperationError::Decode)?,
-            program_id: call.program_id.bytes(),
-            guest_abi_version: call.guest_abi,
-        };
-        let capture = super::verify_program_evidence_with_payers(&evidence, &[])?;
-        let protocol = capture
-            .receipt()
-            .receipt()
-            .protocol()
-            .ok_or(ProgramOperationError::Verification)?;
-        let document = json!({
-            "state":"executed","verification":super::EXECUTION_VERIFICATION,
-            "activity_id":hex(&evidence.activity_id),"program_id":hex(&evidence.program_id),
-            "guest_abi_version":evidence.guest_abi_version,"module_version":protocol.module_version(),
-            "batch_id":hex(&protocol.batch_id()),"global_sequence":protocol.global_sequence().to_string(),
-            "result_code":protocol.result_code(),"state_root":hex(&protocol.resulting_state_root()),
-            "receipt_digest":hex(&capture.receipt().evidence().receipt_digest().ok_or(ProgramOperationError::Verification)?),
-            "receipt":hex(&evidence.receipt),"terminal_payload":hex(&evidence.terminal_payload),"call_graph":hex(&evidence.call_graph),
-            "authority":{"batch_id":hex(&evidence.authority.batch_id()),"asset":hex(&fixed(authority,"asset_hex")?),
-                "previous_state_root":hex(&evidence.authority.previous_state_root()),
-                "resulting_state_root":hex(&evidence.authority.resulting_state_root()),"sequencer_public_key":hex(&key)},
-            "usage":{"cpu_fuel":capture.cpu_fuel().to_string(),"memory_bytes":capture.memory_bytes().to_string(),
-                "storage_read_bytes":capture.storage_read_bytes().to_string(),"storage_write_bytes":capture.storage_write_bytes().to_string(),
-                "output_values":capture.output_values(),"output_bytes":capture.output_bytes().to_string(),"fee_units":capture.fee_units().to_string()},
-            "outcome":super::expected_outcome(capture.outcome())
-        });
-        let document = &document;
-        let execution = decode_execution(document, Some(ExecutionState::Executed), key, &signed)?;
-        require_native_execution(&execution.verified)?;
-        assert_eq!(
-            execution.activity_id,
-            fixed(object(document)?, "activity_id")?
-        );
-        assert!(
-            decode_execution(
-                document,
-                Some(ExecutionState::Executed),
-                [0x55; 32],
-                &signed
-            )
-            .is_err()
-        );
-        for (field, change) in [
-            ("guest_abi_version", json!(3)),
-            ("state_root", json!(hex(&[0x55; 32]))),
-            ("activity_id", json!(hex(&[0x55; 32]))),
-            ("receipt_digest", json!(hex(&[0x55; 32]))),
-            ("terminal_payload", json!("00")),
-            ("call_graph", json!("00")),
-        ] {
-            let mut altered = document.clone();
-            altered[field] = change;
-            assert!(
-                decode_execution(&altered, Some(ExecutionState::Executed), key, &signed).is_err()
-            );
-        }
-        let registry = crate::program_lifecycle::programs_module_registry()?;
-        let activity = layerx_wire::activity::decode_signed(&signed, &registry)
-            .map_err(|_| ProgramOperationError::Decode)?;
-        let native = layerx_types::program_call::NativeProgramCall::decode(activity.payload())
-            .map_err(|_| ProgramOperationError::Decode)?;
-        let request =
-            NativeProgramCallRequest::new(&registry, native, activity.fee_limit(), &signed)?;
-        let value = json!({"state":"unknown","program_id":hex(&request.program_id),
-            "activity_id":hex(&request.activity_id),"idempotency_key":hex(&request.idempotency_key),
-            "retained_signed_activity":hex(&signed)});
-        let outcome = decode_submission(
-            &value,
-            SubmissionExpectation {
-                program_id: Some(request.program_id),
-                activity_id: Some(request.activity_id),
-                idempotency_key: Some(request.idempotency_key),
-                retained_signed_activity: Some(&signed),
-                trusted_sequencer_public_key: key,
-            },
-        )?;
-        let ProgramSubmission::Unknown {
-            activity_id,
-            idempotency_key,
-            retained_signed_activity,
-        } = outcome
-        else {
-            return Err(ProgramOperationError::Verification);
-        };
-        assert_eq!(activity_id, request.activity_id);
-        assert_eq!(idempotency_key, request.idempotency_key);
-        assert_eq!(retained_signed_activity.as_deref(), Some(signed.as_slice()));
-        Ok(())
-    }
-
-    #[test]
-    fn v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes()
-    -> Result<(), ProgramOperationError> {
+    fn v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes(
+    ) -> Result<(), ProgramOperationError> {
         let path = std::env::var_os("PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS")
             .map(std::path::PathBuf::from)
             .ok_or(ProgramOperationError::Verification)?;
@@ -2470,19 +2366,11 @@ mod source_contract {
             .and_then(Value::as_array)
             .ok_or(ProgramOperationError::Decode)?;
         assert_eq!(cases.len(), 10);
-        let anchor: Value = serde_json::from_str(include_str!(
-            "../../../../../sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json"
-        ))
-        .map_err(|_| ProgramOperationError::Decode)?;
-        let pinned_key = fixed(
-            object(
-                anchor
-                    .get("authorized_batch")
-                    .ok_or(ProgramOperationError::Decode)?,
-            )?,
-            "sequencer_public_key_hex",
-        )?;
-        let registry = crate::program_lifecycle::programs_module_registry()?;
+        let pinned_key = [
+            0xb4, 0xf0, 0x5a, 0xee, 0x17, 0x29, 0x65, 0x77, 0x47, 0x43, 0xf4, 0xcd, 0x7d, 0xe4,
+            0xc3, 0x62, 0x1c, 0x9e, 0x36, 0xfd, 0x77, 0xaf, 0x71, 0x39, 0xaa, 0xfe, 0xc2, 0x5e,
+            0xb3, 0xfb, 0x33, 0x60,
+        ];
         let mut seen = std::collections::BTreeSet::new();
         for case in cases {
             let case_object = object(case)?;
@@ -2500,11 +2388,9 @@ mod source_contract {
                 MAX_SIGNED_ACTIVITY_BYTES,
                 None,
             )?;
-            let activity = layerx_wire::activity::decode_signed(&signed, &registry)
-                .map_err(|_| ProgramOperationError::Decode)?;
-            let native = layerx_types::program_call::NativeProgramCall::decode(activity.payload())
-                .map_err(|_| ProgramOperationError::Decode)?;
-            assert_eq!(activity.protocol_version(), 3);
+            let activity = super::signed_program_transaction(&signed)?;
+            let (native, _) = super::program_call_body(&activity.data)?;
+            assert_eq!(activity.to, super::PROGRAMS_ADDRESS);
             assert_eq!(native.guest_abi, abi);
             let authority = object(
                 case.get("authorized_batch")
@@ -2512,8 +2398,13 @@ mod source_contract {
             )?;
             assert_eq!(fixed(authority, "sequencer_public_key_hex")?, pinned_key);
             let evidence = super::ProgramExecutionEvidence {
-                payload_hash: layerx_wire::hash::payload_hash(&activity)
-                    .map_err(|_| ProgramOperationError::Decode)?,
+                payload_hash: super::execution_call_binding(
+                    &signed,
+                    evm_transaction::transaction_hash(&signed),
+                    native.program_id.bytes(),
+                    native.guest_abi,
+                )?
+                .0,
                 receipt: bounded_hex(
                     case_object,
                     "canonical_receipt_hex",
@@ -2539,8 +2430,7 @@ mod source_contract {
                     fixed(authority, "resulting_state_root_hex")?,
                     pinned_key,
                 ),
-                activity_id: layerx_wire::hash::activity_id(&activity)
-                    .map_err(|_| ProgramOperationError::Decode)?,
+                activity_id: evm_transaction::transaction_hash(&signed),
                 program_id: native.program_id.bytes(),
                 guest_abi_version: native.guest_abi,
             };
@@ -2581,8 +2471,7 @@ mod source_contract {
             assert_eq!(decoded.program_id, native.program_id.bytes());
             assert_eq!(
                 decoded.activity_id,
-                layerx_wire::hash::activity_id(&activity)
-                    .map_err(|_| ProgramOperationError::Decode)?
+                evm_transaction::transaction_hash(&signed)
             );
             assert_eq!(decoded.verified.outcome().is_completed(), role == "success");
             if matches!(role, "callback" | "settlement") {

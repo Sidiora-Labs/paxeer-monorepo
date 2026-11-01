@@ -75,17 +75,18 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	if err := ratelimit.Report(logger, metrics.Register); err != nil {
+	if err := ratelimit.Report(logger, metrics.Register, cfg.TrustedProxies); err != nil {
 		return err
 	}
 	srv, err := gateway.NewServer(ctx, gateway.Options{
-		DB:         db,
-		NATS:       nc,
-		Chain:      cfg.ChainID,
-		AuthSecret: cfg.AuthSecret,
-		Node:       node,
-		Metrics:    metrics,
-		Logger:     logger,
+		DB:             db,
+		NATS:           nc,
+		Chain:          cfg.ChainID,
+		AuthSecret:     cfg.AuthSecret,
+		TrustedProxies: cfg.TrustedProxies,
+		Node:           node,
+		Metrics:        metrics,
+		Logger:         logger,
 	})
 	if err != nil {
 		return fmt.Errorf("gateway: %w", err)

@@ -63,6 +63,9 @@ func (k *Keeper) IterateDeposits(ctx sdk.Context, visit func(types.Deposit) bool
 // identifier, opaque to Paxeer, exactly as the vault carried it.
 func (k *Keeper) Deposit(ctx sdk.Context, payer common.Address, payerAccount sdk.AccAddress,
 	assetID, beneficiary [32]byte, amount sdk.Int) (types.Deposit, error) {
+	if k.Retired(ctx) {
+		return types.Deposit{}, sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	asset, found := k.GetAsset(ctx, assetID)
 	if !found {
 		return types.Deposit{}, types.ErrUnknownAsset

@@ -164,31 +164,5 @@ lxp_result lxp_guarantor_process_batch(lxp_guarantor_ctx *ctx,
         *ready_to_sign = true;
     }
     (void)lxp_arena_reset(arena, mark);
-    if (status != LXP_OK && ctx->publish_dissent != NULL &&
-        (status == LXP_ERR_BAD_SIGNATURE ||
-         status == LXP_FATAL_REPLAY_DIVERGENCE ||
-         status == LXP_ERR_ROOT_MISMATCH)) {
-        uint8_t expected[4] = {0U, 0U, 0U, 0U};
-        uint8_t produced[4];
-        lxp_guarantor_divergence divergence;
-        lxp_guarantor_dissent_record dissent;
-        uint32_t code = (uint32_t)status;
-        produced[0] = (uint8_t)(code >> 24U);
-        produced[1] = (uint8_t)(code >> 16U);
-        produced[2] = (uint8_t)(code >> 8U);
-        produced[3] = (uint8_t)code;
-        (void)memset(&divergence, 0, sizeof(divergence));
-        divergence.batch_number = batch_number;
-        divergence.global_sequence = body.header.first_sequence;
-        divergence.component = status == LXP_ERR_BAD_SIGNATURE ?
-            LXP_GUARANTOR_DIVERGENCE_SIGNATURE :
-            LXP_GUARANTOR_DIVERGENCE_STATE_ROOT;
-        if (lxp_hash_sha256(expected, sizeof(expected),
-                            divergence.expected_hash) == LXP_OK &&
-            lxp_hash_sha256(produced, sizeof(produced),
-                            divergence.produced_hash) == LXP_OK)
-            return lxp_guarantor_withhold(ctx, body.header.epoch,
-                                          &divergence, &dissent);
-    }
     return status;
 }

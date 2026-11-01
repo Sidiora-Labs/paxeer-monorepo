@@ -5,8 +5,9 @@ mod export;
 
 pub use detail::EntryDetail;
 pub use export::{
-    verification_status, BundleReport, EvidenceBundle, EvidenceEntry, EvidenceExport, ExportError,
-    ReceiptAuthority, StatementExport, UnverifiedReason, VerificationStatus, VerifyError,
+    verification_status, verify_receipt_export, BundleReport, EvidenceBundle, EvidenceEntry,
+    EvidenceExport, ExportError, ReceiptExport, ReceiptFact, StatementExport, UnverifiedReason,
+    VerificationStatus, VerifyError,
 };
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -14,7 +15,6 @@ use std::fmt::{Display, Formatter, Write as _};
 
 use layerx_agent_api::subscription::{EventDelivery, ReceiptReference};
 use layerx_agent_api::track::SubmissionState;
-use layerx_agent_api::verify::Level;
 use layerx_types::rung::Rung;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
@@ -217,11 +217,11 @@ impl AgentActivity {
     }
 }
 
-/// Receipt reference retained with the achieved verification level.
+/// Receipt reference retained with the achieved rung.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReceiptEvidence {
     reference: String,
-    level: Level,
+    rung: Rung,
     canonical: Option<Vec<u8>>,
     authority: Option<layerx_proof::receipt::AuthorizedBatch>,
 }
@@ -233,14 +233,27 @@ impl ReceiptEvidence {
     }
 
     #[must_use]
-    pub const fn level(&self) -> Level {
-        self.level
+    pub const fn rung(&self) -> Rung {
+        self.rung
     }
 
     #[must_use]
     pub fn canonical(&self) -> Option<&[u8]> {
         self.canonical.as_deref()
     }
+    pub fn export_fact(&self, entry_id: &ActivityEntryId) -> Result<ReceiptFact, VerifyError> {
+        let canonical = self.canonical().ok_or_else(|| {
+            VerifyError::Unavailable(ExportError::EvidenceUnavailable {
+                reference: self.reference.clone(),
+            })
+        })?;
+        let fact = EvidenceBundle::receipt_fact(entry_id, canonical.to_vec(), self.rung)?;
+        if hex(fact.receipt_hash) != self.reference {
+            return Err(VerifyError::Unverified(UnverifiedReason::DigestMismatch));
+        }
+        Ok(fact)
+    }
+
     #[must_use]
     pub const fn authority(&self) -> Option<&layerx_proof::receipt::AuthorizedBatch> {
         self.authority.as_ref()
@@ -591,7 +604,7 @@ impl Feed {
         delivery: &EventDelivery,
         projected_at: u64,
     ) -> Result<ActivityEntry, FeedError> {
-        let cursor = delivery.cursor.0 .0;
+        let cursor = delivery.cursor.block_height;
         if cursor == 0
             || delivery.event_bytes.is_empty()
             || delivery.deduplication_id.as_bytes()
@@ -604,11 +617,9 @@ impl Feed {
         }
         let (status, receipts) = match &delivery.receipt_reference {
             ReceiptReference::None => (activity.pending.status()?, Vec::new()),
-            ReceiptReference::Verified {
-                receipt_ref,
-                verification_level,
-            } => {
-                if *verification_level == Level::Unverified {
+            ReceiptReference::Verified { receipt_ref, rung } => {
+                let rung = *rung;
+                if rung == Rung::Submitted {
                     return Err(FeedError::UnverifiedReceipt);
                 }
                 let status = match activity.verified {
@@ -616,7 +627,7 @@ impl Feed {
                     VerifiedStatus::WithdrawalPaidOut => {
                         ActivityStatus::Withdrawal(WithdrawalStage::PaidOut)
                     }
-                    VerifiedStatus::Done if *verification_level >= Level::CheckpointFinalised => {
+                    VerifiedStatus::Done if rung == Rung::Committed => {
                         ActivityStatus::DoneFinalised
                     }
                     VerifiedStatus::Done => ActivityStatus::Done,
@@ -625,7 +636,7 @@ impl Feed {
                     status,
                     vec![StoredReceipt {
                         reference: receipt_ref.as_str().to_owned(),
-                        level: level_code(*verification_level),
+                        level: rung_code(rung),
                         canonical: None,
                         authority: None,
                     }],
@@ -634,13 +645,10 @@ impl Feed {
         };
         let receipt_source_digest = match &delivery.receipt_reference {
             ReceiptReference::None => source_id(&[b"no-receipt"]),
-            ReceiptReference::Verified {
-                receipt_ref,
-                verification_level,
-            } => source_id(&[
+            ReceiptReference::Verified { receipt_ref, rung } => source_id(&[
                 b"verified-receipt".as_slice(),
                 receipt_ref.as_str().as_bytes(),
-                &[level_code(*verification_level)],
+                &[rung_code(*rung)],
             ]),
         };
         let candidate = Candidate {
@@ -654,7 +662,9 @@ impl Feed {
             source_digest: source_id(&[
                 b"agent-delivery",
                 &delivery.event_bytes,
-                &delivery.cursor.0 .0.to_be_bytes(),
+                &cursor.to_be_bytes(),
+                &delivery.cursor.tx_index.to_be_bytes(),
+                &delivery.cursor.log_index.to_be_bytes(),
                 &receipt_source_digest,
             ]),
             agent_cursor: Some(cursor),
@@ -698,7 +708,7 @@ impl Feed {
             .filter_map(|((digest, material), authority)| {
                 digest.map(|digest| StoredReceipt {
                     reference: hex(digest),
-                    level: level_code(Level::SequencerSigned),
+                    level: rung_code(Rung::Receipted),
                     canonical: material.clone(),
                     authority: authority.as_ref().map(StoredReceiptAuthority::from_public),
                 })
@@ -769,7 +779,7 @@ impl Feed {
                     } else {
                         receipts.push(StoredReceipt {
                             reference: receipt_ref.as_str().to_owned(),
-                            level: level_code(rung_level(tracking.rung)),
+                            level: rung_code(tracking.rung),
                             canonical: None,
                             authority: None,
                         });
@@ -1127,7 +1137,7 @@ fn validate_revision(revision: &StoredRevision) -> Result<(), FeedError> {
         || revision
             .receipts
             .iter()
-            .any(|receipt| receipt.reference.is_empty() || level(receipt.level).is_none())
+            .any(|receipt| receipt.reference.is_empty() || rung(receipt.level).is_none())
     {
         return Err(FeedError::CorruptState);
     }
@@ -1142,7 +1152,7 @@ fn validate_completion(
         && (receipts.is_empty()
             || receipts
                 .iter()
-                .any(|receipt| receipt.level == level_code(Level::Unverified)))
+                .any(|receipt| receipt.level == rung_code(Rung::Submitted)))
     {
         Err(FeedError::CompletionWithoutReceipt)
     } else {
@@ -1157,7 +1167,7 @@ fn activity_entry(revision: &StoredRevision) -> Result<ActivityEntry, FeedError>
         .map(|receipt| {
             Ok(ReceiptEvidence {
                 reference: receipt.reference.clone(),
-                level: level(receipt.level).ok_or(FeedError::CorruptState)?,
+                rung: rung(receipt.level).ok_or(FeedError::CorruptState)?,
                 canonical: receipt.canonical.clone(),
                 authority: receipt.authority.as_ref().map(|value| {
                     layerx_proof::receipt::AuthorizedBatch::new(
@@ -1356,33 +1366,19 @@ fn decode_cursor(bytes: &[u8]) -> Result<CursorFields, FeedError> {
     })
 }
 
-const fn level_code(level: Level) -> u8 {
-    match level {
-        Level::Unverified => 0,
-        Level::SequencerSigned => 1,
-        Level::BatchIncluded => 2,
-        Level::StateProven => 3,
-        Level::CheckpointFinalised => 4,
-        Level::SettlementAnchored => 5,
-    }
-}
-
-const fn rung_level(rung: Rung) -> Level {
+const fn rung_code(rung: Rung) -> u8 {
     match rung {
-        Rung::Submitted => Level::Unverified,
-        Rung::Receipted => Level::SequencerSigned,
-        Rung::Committed => Level::CheckpointFinalised,
+        Rung::Submitted => 0,
+        Rung::Receipted => 1,
+        Rung::Committed => 2,
     }
 }
 
-const fn level(code: u8) -> Option<Level> {
+const fn rung(code: u8) -> Option<Rung> {
     match code {
-        0 => Some(Level::Unverified),
-        1 => Some(Level::SequencerSigned),
-        2 => Some(Level::BatchIncluded),
-        3 => Some(Level::StateProven),
-        4 => Some(Level::CheckpointFinalised),
-        5 => Some(Level::SettlementAnchored),
+        0 => Some(Rung::Submitted),
+        1 => Some(Rung::Receipted),
+        2 => Some(Rung::Committed),
         _ => None,
     }
 }

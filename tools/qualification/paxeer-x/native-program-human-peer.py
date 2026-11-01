@@ -9,8 +9,13 @@ import sys
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
-TEST = 'real_programs_authenticated_peer_preserves_material_budget_and_owner_decisions'
+TESTS = (
+    ('native_program_human_peer',
+     'real_programs_authenticated_peer_preserves_material_budget_and_owner_decisions'),
+    ('human_frame', 'human_peer_still_answers_lxhagt01_frames'),
+)
 SOURCES = ('services/agent/crates/layerx-agentd/src/human.rs',
+           'services/agent/crates/layerx-agentd/src/human_frame.rs',
            'services/agent/crates/layerx-agentd/src/human_runtime.rs',
            'services/agent/crates/layerx-agentd/src/approval/native_program.rs',
            'services/agent/crates/layerx-agentd/src/approval/native_program_presentation.rs',
@@ -18,6 +23,7 @@ SOURCES = ('services/agent/crates/layerx-agentd/src/human.rs',
            'services/agent/crates/layerx-agentd/src/budget/program_settlement.rs',
            'services/agent/crates/layerx-agentd/src/budget/program_sources.rs',
            'services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs',
+           'services/agent/crates/layerx-agentd/tests/human_frame.rs',
            'tools/qualification/paxeer-x/native-program-human-peer.py')
 
 
@@ -26,12 +32,19 @@ def require(value, message):
         raise RuntimeError(message)
 
 
+def build_command(target_dir):
+    command = ['/root/.cargo/bin/cargo', 'test', '--locked', '--manifest-path',
+               str(ROOT / 'services/agent/Cargo.toml'), '-p', 'layerx-agentd',
+               '--target-dir', str(target_dir)]
+    for target, _ in TESTS:
+        command.extend(['--test', target])
+    return command + ['--no-run']
+
+
 def main():
     target = Path(os.environ.get('CARGO_TARGET_DIR', '/root/lx-target/agent'))
     if sys.argv[1:] == ['--build']:
-        result = subprocess.run(['/root/.cargo/bin/cargo', 'test', '--locked', '--manifest-path',
-                                 str(ROOT / 'services/agent/Cargo.toml'), '-p', 'layerx-agentd', '--test',
-                                 'native_program_human_peer', '--no-run'], cwd=ROOT,
+        result = subprocess.run(build_command(target), cwd=ROOT,
                                 env={**os.environ, 'CARGO_TARGET_DIR': str(target)}, timeout=1140,
                                 check=False)
         return result.returncode
@@ -51,21 +64,26 @@ def main():
     uid, gid = fixture.get('uid'), fixture.get('gid')
     require(isinstance(uid, int) and uid > 0 and isinstance(gid, int) and gid > 0
             and info.st_uid == uid, 'fixture must belong to its genuine authenticated peer')
-    binaries = [binary for binary in (target / 'debug/deps').glob('native_program_human_peer-*')
-                if binary.is_file() and os.access(binary, os.X_OK) and not binary.name.endswith('.d')]
-    require(len(binaries) == 1, 'exact current prebuilt native peer test binary required')
     def peer_identity():
         os.setgroups([])
         os.setgid(gid)
         os.setuid(uid)
     require(os.getuid() in (0, uid), 'test must use the genuine admitted kernel peer')
-    result = subprocess.run([str(binaries[0]), '--exact', TEST], cwd=ROOT, env=os.environ,
-                            preexec_fn=peer_identity if os.getuid() == 0 else None,
-                            timeout=480, capture_output=True, check=False)
-    sys.stdout.buffer.write(result.stdout)
-    sys.stderr.buffer.write(result.stderr)
-    require(result.returncode == 0 and b'running 1 test' in result.stdout and b'1 passed; 0 failed' in result.stdout,
-            'genuine native owner peer gate failed or did not execute')
+    for test_target, test_name in TESTS:
+        candidates = ((target / 'debug/deps').glob('human_frame-*')
+                      if test_target == 'human_frame'
+                      else (target / 'debug/deps').glob(test_target + '-*'))
+        binaries = [binary for binary in candidates
+                    if binary.is_file() and os.access(binary, os.X_OK) and not binary.name.endswith('.d')]
+        require(len(binaries) == 1, 'genuine native owner peer gate failed or did not execute')
+        result = subprocess.run([str(binaries[0]), '--exact', test_name], cwd=ROOT, env=os.environ,
+                                preexec_fn=peer_identity if os.getuid() == 0 else None,
+                                timeout=480, capture_output=True, check=False)
+        sys.stdout.buffer.write(result.stdout)
+        sys.stderr.buffer.write(result.stderr)
+        require(result.returncode == 0 and b'running 1 test' in result.stdout
+                and b'1 passed; 0 failed' in result.stdout,
+                'genuine native owner peer gate failed or did not execute')
     return 0
 
 

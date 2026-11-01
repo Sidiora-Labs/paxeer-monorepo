@@ -6,6 +6,53 @@
 pub use layerx_crypto::payments::asset_id;
 use layerx_crypto::payments::Payment;
 
+pub fn payment_calldata(payment: &Payment, actor: &str) -> Result<Vec<u8>, String> {
+    let (module, ordinal) = payment.activity_type();
+    let payload = payment
+        .encode(actor.as_bytes())
+        .map_err(|e| e.to_string())?;
+    let decoded =
+        Payment::decode(module, ordinal, &payload, actor.as_bytes()).map_err(|e| e.to_string())?;
+    layerx_crypto::disclosure::call::encode_payment_call(&decoded, actor.as_bytes())
+        .map_err(|e| format!("{e:?}"))
+}
+
+pub fn payment_call(
+    payment: &Payment,
+    actor: &str,
+    options: &layerx_crypto::send::CallOptions,
+) -> Result<layerx_crypto::evm_transaction::Eip1559Call, String> {
+    let mut to = [0; 20];
+    to[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+    Ok(layerx_crypto::evm_transaction::Eip1559Call {
+        chain_id: options.chain_id,
+        nonce: options.nonce,
+        max_priority_fee_per_gas: options.max_priority_fee_per_gas,
+        max_fee_per_gas: options.max_fee_per_gas,
+        gas_limit: options.gas_limit,
+        to,
+        data: payment_calldata(payment, actor)?,
+    })
+}
+
+pub fn revert_reason(bytes: &[u8]) -> Option<&str> {
+    if bytes.len() > 524_288
+        || bytes.get(..4)? != [0x08, 0xc3, 0x79, 0xa0]
+        || bytes.get(4..35)?.iter().any(|byte| *byte != 0)
+        || *bytes.get(35)? != 32
+        || bytes.get(36..60)?.iter().any(|byte| *byte != 0)
+    {
+        return None;
+    }
+    let length = usize::try_from(u64::from_be_bytes(bytes.get(60..68)?.try_into().ok()?)).ok()?;
+    let end = 68usize.checked_add(length)?;
+    let padded = 68usize.checked_add(length.checked_add(31)? & !31)?;
+    if padded != bytes.len() || bytes.get(end..padded)?.iter().any(|byte| *byte != 0) {
+        return None;
+    }
+    std::str::from_utf8(bytes.get(68..end)?).ok()
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssetRegistration<'a> {
     pub issuer: &'a str,

@@ -832,12 +832,60 @@ def sequencer_key(path):
     return value
 
 
+def receipt_keys(path):
+    try:
+        keys = json.loads(pathlib.Path(path).read_text(), object_pairs_hook=closed_object)
+    except (OSError, ValueError) as error:
+        raise Refused(["receipt keys file %s is unreadable: %s" % (path, error)]) from error
+    if not isinstance(keys, list) or not keys:
+        raise Refused(["receipt keys file %s must contain a nonempty JSON array" % path])
+    fields = {"keyId", "publicKey", "firstHeight", "lastHeight"}
+    for index, entry in enumerate(keys):
+        source = "receipt keys file %s entry %d" % (path, index)
+        if not isinstance(entry, dict) or set(entry) != fields:
+            raise Refused([
+                "%s must declare exactly %s" % (source, ", ".join(sorted(fields)))
+            ])
+        for field in ("keyId", "publicKey"):
+            value = entry[field]
+            if (
+                not isinstance(value, str)
+                or not value.startswith("0x")
+                or not DIGEST_PATTERN.fullmatch(value[2:])
+            ):
+                raise Refused([
+                    "%s %s must be a 0x-prefixed 32-byte lowercase hexadecimal value"
+                    % (source, field)
+                ])
+            if field == "publicKey" and int(value[2:], 16) == 0:
+                raise Refused([
+                    "%s publicKey must be a nonzero sequencer public key" % source
+                ])
+        for field in ("firstHeight", "lastHeight"):
+            if type(entry[field]) is not int or not 0 <= entry[field] <= (1 << 64) - 1:
+                raise Refused([
+                    "%s %s must be an unsigned 64-bit integer" % (source, field)
+                ])
+        if entry["firstHeight"] > entry["lastHeight"]:
+            raise Refused([
+                "%s key %s has a reversed height range" % (source, entry["keyId"])
+            ])
+    keys.sort(key=lambda entry: entry["firstHeight"])
+    for previous, current in zip(keys, keys[1:]):
+        if current["firstHeight"] <= previous["lastHeight"]:
+            raise Refused([
+                "receipt keys file %s has overlapping height ranges for keys %s and %s"
+                % (path, previous["keyId"], current["keyId"])
+            ])
+    return keys
+
+
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--network-id")
-    parser.add_argument("--sequencer-public-key-file")
+    parser.add_argument("--receipt-keys-file")
     parser.add_argument("--beta-roots-file")
     parser.add_argument("--out")
     parser.add_argument("--migration-profile-out")
@@ -847,17 +895,23 @@ def main(argv):
         return self_test()
     root = pathlib.Path(arguments.repo_root)
     try:
+        keys = (
+            receipt_keys(arguments.receipt_keys_file) if arguments.receipt_keys_file else None
+        )
         if arguments.check:
             render(root, os.environ)
             return 0
-        if not arguments.network_id or not arguments.sequencer_public_key_file or not arguments.out:
-            parser.error("--network-id, --sequencer-public-key-file and --out are required")
+        if not arguments.network_id or not arguments.receipt_keys_file or not arguments.out:
+            parser.error("--network-id, --receipt-keys-file and --out are required")
+        public_keys = {entry["publicKey"][2:] for entry in keys}
+        if len(public_keys) != 1:
+            raise Refused(["x402 support requires one distinct receipt public key"])
         sources = {}
         document = render(
             root,
             os.environ,
             arguments.network_id,
-            sequencer_key(arguments.sequencer_public_key_file),
+            public_keys.pop(),
             arguments.beta_roots_file,
             sources,
         )
@@ -901,6 +955,65 @@ def self_test():
     root = repository_root()
     vendor = root / "services/interop/specs/vendor"
     network, key = "layerx-testnet", "ab" * 32
+    with tempfile.TemporaryDirectory() as directory:
+        keys_file = pathlib.Path(directory) / "receipt-keys.json"
+
+        def key_entries(ranges):
+            return [
+                {
+                    "keyId": "0x%064x" % (index + 1),
+                    "publicKey": "0x" + key,
+                    "firstHeight": first,
+                    "lastHeight": last,
+                }
+                for index, (first, last) in enumerate(ranges)
+            ]
+
+        for ranges in (
+            [(10, 20), (15, 25)],
+            [(15, 25), (10, 20)],
+            [(10, 20), (20, 30)],
+            [(10, 30), (15, 20)],
+            [(10, 20), (10, 30)],
+            [(10, 20), (10, 20)],
+            [(30, 40), (10, 20), (15, 25)],
+            [((1 << 64) - 1, (1 << 64) - 1), (0, (1 << 64) - 1)],
+        ):
+            entries = key_entries(ranges)
+            keys_file.write_text(json.dumps(entries))
+            try:
+                receipt_keys(keys_file)
+            except Refused as refused:
+                message = "; ".join(refused.reasons)
+                assert "overlapping height ranges" in message, message
+                ordered = sorted(entries, key=lambda entry: entry["firstHeight"])
+                pair = next(
+                    (previous, current)
+                    for previous, current in zip(ordered, ordered[1:])
+                    if current["firstHeight"] <= previous["lastHeight"]
+                )
+                assert all(entry["keyId"] in message for entry in pair), message
+            else:
+                raise AssertionError("overlapping receipt keys were accepted: %r" % ranges)
+
+        entries = key_entries([(11, (1 << 64) - 1), (0, 0), (1, 10)])
+        keys_file.write_text(json.dumps(entries))
+        assert receipt_keys(keys_file) == [entries[1], entries[2], entries[0]]
+        for broken, expected in (
+            ([], "nonempty JSON array"),
+            (key_entries([(20, 10)]), "reversed height range"),
+            ([{**entries[0], "publicKey": "0x" + "00" * 32}], "nonzero"),
+            ([{**entries[0], "publicKey": "0x" + "ab" * 31}], "32-byte lowercase hexadecimal"),
+            ([{**entries[0], "firstHeight": True}], "unsigned 64-bit integer"),
+            ([{**entries[0], "lastHeight": 1 << 64}], "unsigned 64-bit integer"),
+        ):
+            keys_file.write_text(json.dumps(broken))
+            try:
+                receipt_keys(keys_file)
+            except Refused as refused:
+                assert any(expected in reason for reason in refused.reasons), refused.reasons
+            else:
+                raise AssertionError("invalid receipt keys were accepted: %r" % broken)
     first_party = {
         identifier: first_party_suite(root, identifier)
         for identifier in ADAPTERS

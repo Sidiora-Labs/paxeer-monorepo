@@ -11,7 +11,7 @@ use layerx_agent_api::subscription::{
     Cursor as ApiCursor, DeliveryTarget, SubscriptionCreate, SubscriptionFilter, SubscriptionId,
     SubscriptionScope, SubscriptionTarget,
 };
-use layerx_agent_api::Sequence;
+
 use layerx_agentd::events::gap::{
     admit, admit_authorized, apply_backfill, apply_backfill_authorized, attempt_backfill, detect,
     detect_authorized, enforce_retention, enforce_retention_authorized, BackfillFailure,
@@ -27,16 +27,20 @@ use layerx_agentd::events::{
 use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityRecord, IdentityResolver, ProtocolAuthority,
 };
+use layerx_agentd::read::{Cursor, HistoryLimits, HistoryReadError};
 use layerx_agentd::session::{close, open, OpenRequest, SessionId, SessionRegistry, Token};
 use layerx_agentd::store::{Store, TenantId};
 use layerx_agentd::tenant::{AuthorizationError, TenantObservability};
+use layerx_client::evidence::RootSelector;
 use layerx_client::head::Head;
 use layerx_client::lni::framing::{read_frame, write_frame};
 use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope, Version};
 use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
-use layerx_client::stream::{Cursor as ClientCursor, StreamConfig};
+use layerx_client::read::{ReadContext, Requested};
+use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_types::ids::Did;
 use layerx_types::verify::VerificationLevel;
+use serde_json::{json, Value};
 
 static NEXT_PATH: AtomicU64 = AtomicU64::new(1);
 
@@ -135,7 +139,11 @@ fn subscriptions(root: &PathBuf, start: u64) -> SubscriptionStore {
     let create = SubscriptionCreate {
         scope: scope(),
         filter: filter(),
-        start: ApiCursor(Sequence(start)),
+        start: ApiCursor {
+            block_height: start,
+            tx_index: 0,
+            log_index: 0,
+        },
         delivery_target: text(DeliveryTarget::new("uds://consumer-a"), "target"),
     };
     if let Err(error) = subscriptions.create(id(), create) {
@@ -208,7 +216,11 @@ fn authorized_subscriptions(
             SubscriptionCreate {
                 scope: scope(),
                 filter: filter(),
-                start: ApiCursor(Sequence(start)),
+                start: ApiCursor {
+                    block_height: start,
+                    tx_index: 0,
+                    log_index: 0,
+                },
                 delivery_target: text(DeliveryTarget::new("uds://consumer-a"), "target"),
             },
         ),
@@ -227,87 +239,117 @@ fn limits() -> Limits {
     }
 }
 
-fn stream_config() -> StreamConfig {
-    StreamConfig {
+pub fn history_limits() -> HistoryLimits {
+    HistoryLimits {
+        maximum_items: 2,
+        maximum_response_bytes: 1_048_576,
+    }
+}
+
+pub fn context() -> ReadContext {
+    ReadContext {
         interface_version: Version::V1_0,
         correlation_id: 77,
-        maximum_buffered_events: 4,
-        maximum_buffered_bytes: 1024,
-        maximum_heartbeats_per_poll: 2,
+        expected_protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
+        expected_network_id: 77,
+        requested: Requested::new(VerificationLevel::UNVERIFIED),
+        head: Head {
+            chain_sequence: 20,
+            sealed_batch: 2,
+            finalised_checkpoint: [0x71; 32],
+        },
+        sequencer_authorization: SequencerAuthorization::new([1; 32], [2; 32], 0, u64::MAX),
+        handshake_sequencer_key: [2; 32],
+        root_selector: RootSelector::Latest,
     }
 }
 
-fn head() -> Head {
-    Head {
-        chain_sequence: 20,
-        sealed_batch: 2,
-        finalised_checkpoint: [0x71; 32],
+pub fn log(height: u64, tx: u32, index: u32) -> Value {
+    json!({"blockNumber": format!("0x{height:x}"), "transactionIndex": format!("0x{tx:x}"),
+        "logIndex": format!("0x{index:x}"), "blockHash": format!("0x{}", "ab".repeat(32)),
+        "address": format!("0x{}", "12".repeat(20)), "topics": [format!("0x{}", "34".repeat(32))],
+        "data": "0x00ff", "removed": false})
+}
+
+pub fn attributes() -> EventAttributes {
+    EventAttributes {
+        agent: "agent-a".to_owned(),
+        account: "account-a".to_owned(),
+        activity_type: 9,
+        module: "asset".to_owned(),
+        asset: "LXR".to_owned(),
+        counterparty: "counterparty-a".to_owned(),
+        result_code: 0,
     }
 }
 
-fn receive_subscription(stream: &mut UnixStream) -> ClientCursor {
-    let frame = match read_frame(stream, 1024 * 1024) {
-        Ok(value) => value,
-        Err(error) => panic!("subscription frame failed: {error:?}"),
-    };
-    let envelope = match decode_envelope(&frame) {
-        Ok(value) => value,
-        Err(error) => panic!("subscription envelope failed: {error:?}"),
-    };
-    assert_eq!(envelope.message_tag, 21);
-    let Some(cursor) = envelope.canonical_payload.get(..48) else {
-        panic!("subscription cursor missing")
-    };
-    match ClientCursor::decode(cursor) {
-        Ok(value) => value,
-        Err(error) => panic!("subscription cursor invalid: {error:?}"),
-    }
+pub fn row(height: u64, tx: u32, index: u32) -> Value {
+    json!({"height": height.to_string(), "txIndex": tx.to_string(), "logIndex": index.to_string(),
+        "kind":"Event", "canonical": hex::encode(serde_json::to_vec(&log(height, tx, index)).unwrap()), "proof": null})
 }
 
-fn response(stream: &mut UnixStream, tag: u16, payload: &[u8]) {
-    let encoded = match encode_envelope(Envelope {
+fn receive_history(stream: &mut UnixStream, cursor: Value, limit: u16) {
+    stream
+        .set_read_timeout(Some(Duration::from_secs(3)))
+        .unwrap();
+    let frame = read_frame(stream, 1_048_576).unwrap();
+    let envelope = decode_envelope(&frame).unwrap();
+    assert_eq!(envelope.message_tag, 9);
+    let request: Value = serde_json::from_slice(envelope.canonical_payload).unwrap();
+    assert_eq!(
+        request,
+        json!({"jsonrpc":"2.0", "id":77, "method":"px_getHistory", "params":[{
+        "from_height":"11", "to_height":"12", "cursor":cursor, "limit":limit.to_string()}]})
+    );
+}
+
+fn response(stream: &mut UnixStream, result: Value) {
+    let bytes = serde_json::to_vec(&result).unwrap();
+    let encoded = encode_envelope(Envelope {
         version: Version::V1_0,
-        message_tag: tag,
+        message_tag: 11,
         correlation_id: 77,
-        canonical_payload: payload,
+        canonical_payload: &bytes,
         proof_material: &[],
-    }) {
-        Ok(value) => value,
-        Err(error) => panic!("response encoding failed: {error:?}"),
-    };
-    if let Err(error) = write_frame(stream, &encoded, 1024 * 1024) {
-        panic!("response write failed: {error:?}");
+    })
+    .unwrap();
+    write_frame(stream, &encoded, 1_048_576).unwrap();
+}
+
+pub struct HistoryServer {
+    socket: SocketPath,
+    server: thread::JoinHandle<()>,
+}
+
+impl HistoryServer {
+    pub fn new(pages: Vec<(Value, u16, Value)>) -> Self {
+        let socket = SocketPath::new("history");
+        let listener = UnixListener::bind(&socket.0).unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            for (cursor, limit, result) in pages {
+                receive_history(&mut stream, cursor, limit);
+                response(&mut stream, result);
+            }
+        });
+        Self { socket, server }
+    }
+    pub fn connect(&self) -> Uds {
+        Uds::connect(&self.socket.0, &ConnectionGate::new(1), limits()).unwrap()
+    }
+    pub fn finish(self) {
+        self.server.join().unwrap();
     }
 }
 
-fn event(stream: &mut UnixStream, sequence: u64, canonical_bytes: &[u8]) {
-    let mut payload = sequence.to_be_bytes().to_vec();
-    payload.extend_from_slice(canonical_bytes);
-    response(stream, 22, &payload);
-}
-
-fn gap_response(stream: &mut UnixStream, first: u64, last: u64) {
-    let mut payload = first.to_be_bytes().to_vec();
-    payload.extend_from_slice(&last.to_be_bytes());
-    response(stream, 23, &payload);
+pub fn page(items: Vec<Value>, cursor: Value) -> Value {
+    json!({"jsonrpc":"2.0", "id":77, "result":{"height":"13", "items":items, "cursor":cursor}})
 }
 
 fn recovered_event(sequence: u64, bytes: Vec<u8>) -> CoreEvent {
-    CoreEvent {
-        global_sequence: sequence,
-        canonical_bytes: bytes,
-        receipt_reference: None,
-        receipt_verification_level: VerificationLevel::UNVERIFIED,
-        attributes: EventAttributes {
-            agent: "agent-a".to_owned(),
-            account: "account-a".to_owned(),
-            activity_type: 9,
-            module: "asset".to_owned(),
-            asset: "LXR".to_owned(),
-            counterparty: "counterparty-a".to_owned(),
-            result_code: 0,
-        },
-    }
+    let mut event = CoreEvent::from_log_bytes(bytes, attributes()).unwrap();
+    event.global_sequence = sequence;
+    event
 }
 
 #[test]
@@ -322,27 +364,14 @@ fn skipped_sequence_is_backfilled_over_the_real_stream_before_unblocking() {
         matches!(admit(&subscriptions, &target()), Err(GapError::Blocked(value)) if value == gap)
     );
 
-    let socket = SocketPath::new("recovered");
-    let listener = match UnixListener::bind(&socket.0) {
-        Ok(value) => value,
-        Err(error) => panic!("listener bind failed: {error}"),
-    };
-    let server = thread::spawn(move || {
-        let (mut stream, _) = match listener.accept() {
-            Ok(value) => value,
-            Err(error) => panic!("accept failed: {error}"),
-        };
-        assert_eq!(receive_subscription(&mut stream).next_sequence(), 11);
-        event(&mut stream, 11, b"core-event-eleven");
-        event(&mut stream, 12, b"core-event-twelve");
-    });
-    let gate = ConnectionGate::new(1);
-    let mut transport = match Uds::connect(&socket.0, &gate, limits()) {
-        Ok(value) => value,
-        Err(error) => panic!("core connection failed: {error:?}"),
-    };
-    let report = attempt_backfill(&mut transport, gap, head(), stream_config(), 2);
-    assert!(server.join().is_ok(), "core stream server panicked");
+    let server = HistoryServer::new(vec![(
+        Value::Null,
+        2,
+        page(vec![row(11, 0, 0), row(12, 0, 0)], Value::Null),
+    )]);
+    let mut transport = server.connect();
+    let report = attempt_backfill(&mut transport, gap, context(), history_limits(), 2);
+    server.finish();
     let recovered = match &report {
         BackfillReport::Recovered { events, .. } => events.clone(),
         other @ BackfillReport::Incomplete { .. } => {
@@ -363,6 +392,16 @@ fn skipped_sequence_is_backfilled_over_the_real_stream_before_unblocking() {
             panic!("recovered event persistence failed: {error}");
         }
     }
+    ingestor
+        .new_head(
+            13,
+            &mut transport,
+            history_limits(),
+            context(),
+            2,
+            attributes(),
+        )
+        .unwrap();
     let mut subscriptions = match SubscriptionStore::open(ingestor.into_store(), durable_tenant()) {
         Ok(value) => value,
         Err(error) => panic!("subscription reopen failed: {error}"),
@@ -401,33 +440,18 @@ fn unrecoverable_core_gap_remains_durably_blocked() {
         Ok(Some(value)) => value,
         other => panic!("gap was not detected: {other:?}"),
     };
-    let socket = SocketPath::new("unrecoverable");
-    let listener = match UnixListener::bind(&socket.0) {
-        Ok(value) => value,
-        Err(error) => panic!("listener bind failed: {error}"),
-    };
-    let server = thread::spawn(move || {
-        let (mut stream, _) = match listener.accept() {
-            Ok(value) => value,
-            Err(error) => panic!("accept failed: {error}"),
-        };
-        let _ = receive_subscription(&mut stream);
-        gap_response(&mut stream, 11, 12);
-    });
-    let gate = ConnectionGate::new(1);
-    let mut transport = match Uds::connect(&socket.0, &gate, limits()) {
-        Ok(value) => value,
-        Err(error) => panic!("core connection failed: {error:?}"),
-    };
-    let report = attempt_backfill(&mut transport, gap, head(), stream_config(), 2);
-    assert!(server.join().is_ok(), "core stream server panicked");
+    let server = HistoryServer::new(vec![(
+        Value::Null,
+        2,
+        json!({"jsonrpc":"2.0", "id":77, "error":{"code":-32001,"message":"history pruned"}}),
+    )]);
+    let mut transport = server.connect();
+    let report = attempt_backfill(&mut transport, gap, context(), history_limits(), 2);
+    server.finish();
     assert!(matches!(
         &report,
         BackfillReport::Incomplete {
-            failure: BackfillFailure::CoreReportedGap {
-                missing_first: 11,
-                missing_last: 12,
-            },
+            failure: BackfillFailure::History(HistoryReadError::Rpc(_)),
             ..
         }
     ));

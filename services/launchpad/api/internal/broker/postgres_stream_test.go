@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/migrations"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -30,11 +31,19 @@ func postgresStreamStorage(t *testing.T) (context.Context, *PostgresStream) {
 	}
 	t.Cleanup(pool.Close)
 	schema := fmt.Sprintf("stream_%d", time.Now().UnixNano())
-	migration, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/migrations/150002.sql")
+	migration, err := migrations.Migrations().ReadFile("00001_api_stream.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, strings.ReplaceAll(string(migration), "api_stream", schema)); err != nil {
+	_, up, found := strings.Cut(string(migration), "-- +goose Up")
+	if !found {
+		t.Fatal("api_stream migration is missing the goose Up boundary")
+	}
+	up, _, found = strings.Cut(up, "-- +goose Down")
+	if !found {
+		t.Fatal("api_stream migration is missing the goose Down boundary")
+	}
+	if _, err = pool.Exec(ctx, strings.ReplaceAll(up, "api_stream", schema)); err != nil {
 		t.Fatalf("real PostgreSQL migration required: %v", err)
 	}
 	t.Cleanup(func() {

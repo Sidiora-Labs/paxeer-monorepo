@@ -7,10 +7,11 @@
 
 use std::path::{Path, PathBuf};
 
-use layerx_indexer::layerx::{decode_batch, CHAIN};
-use layerx_indexer::store::{AssetRow, Store, TransferRow, Unit};
+use layerx_indexer::store::{AssetRow, EventRow, Store, TransferRow, Unit};
 use layerx_indexer::IndexError;
 use serde_json::{json, Value};
+
+const CHAIN: &str = "layerx";
 
 const SENDER: &str = "3aa29bcf27f39c8bcfe4017be09686802ed23412631c141902d715255ec8acba";
 const RECEIVER: &str = "29b27231b5c9eb1fee8193f1334c6a44c34f68f20c38f905001fca9f8ce6b553";
@@ -46,20 +47,6 @@ impl Drop for Scratch {
 
 fn open(path: &Path) -> Store {
     Store::open(path).unwrap_or_else(|error| panic!("{error}"))
-}
-
-fn relay() -> Value {
-    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("fixtures")
-        .join("relay_archive_batches.json");
-    let text = std::fs::read_to_string(&path)
-        .unwrap_or_else(|error| panic!("{}: {error}", path.display()));
-    serde_json::from_str(&text).unwrap_or_else(|error| panic!("{}: {error}", path.display()))
-}
-
-fn batch(relay: &Value, view: &str, number: u64) -> Unit {
-    decode_batch(&relay[view]["batches"][number.to_string()])
-        .unwrap_or_else(|error| panic!("{view} batch {number}: {error}"))
 }
 
 fn pointer() -> AssetRow {
@@ -125,31 +112,57 @@ fn assert_configured_pointer(store: &Store) {
         .unwrap_or_else(|error| panic!("{error}")));
 }
 
-/// The canonical LayerX fixture batch 3 carries the only receipt naming
-/// `SEND_ASSET`, with a supply transition. Rolling it back must remove the
+/// The third unit carries the only transfer naming `SEND_ASSET`, with a
+/// supply transition. Rolling it back must remove the
 /// asset, its supply metadata and the account only that batch discovered,
 /// while the configured pointer and the surviving accounts stay. The
 /// replacement branch carries no supply update and must not resurrect it.
 #[test]
 fn rolling_back_a_supply_bearing_receipt_restores_the_canonical_projection() {
     let scratch = Scratch::new("orphan");
-    let relay = relay();
     let store = open(&scratch.database());
     store
         .register_assets(&[pointer()])
         .unwrap_or_else(|error| panic!("{error}"));
 
-    let mut orphan_document = relay["canonical"]["batches"]["3"].clone();
-    orphan_document["activities"][0]["accounts"]
-        .as_array_mut()
-        .unwrap_or_else(|| panic!("batch 3 activity has accounts"))
-        .push(json!(ORPHAN_ACCOUNT));
-    let orphan = decode_batch(&orphan_document).unwrap_or_else(|error| panic!("{error}"));
-    for unit in [
-        batch(&relay, "canonical", 1),
-        batch(&relay, "canonical", 2),
-        orphan,
-    ] {
+    let mut first = layerx_unit(1, "b1", "b0", Vec::new(), RECEIVER);
+    first.accounts = vec![SENDER.to_owned(), RECEIVER.to_owned()];
+    let second = layerx_unit(2, "b2", "b1", Vec::new(), RECEIVER);
+    let mut orphan = layerx_unit(
+        3,
+        "b3",
+        "b2",
+        vec![layerx_asset(SEND_ASSET, Some((1, 5)))],
+        RECEIVER,
+    );
+    orphan.accounts.push(ORPHAN_ACCOUNT.to_owned());
+    orphan.transfers = [("out", SENDER, RECEIVER), ("in", RECEIVER, SENDER)]
+        .into_iter()
+        .map(|(direction, account, counterparty)| TransferRow {
+            height_or_seq: orphan.boundary,
+            tx_index: 0,
+            kind: "lxp_transfer".to_owned(),
+            direction,
+            account: account.to_owned(),
+            counterparty: Some(counterparty.to_owned()),
+            asset: SEND_ASSET.to_owned(),
+            amount: "1".to_owned(),
+            tx_id: SEND_ACTIVITY.to_owned(),
+            ordinal: 0,
+            decoded: json!({}),
+        })
+        .collect();
+    orphan.events.push(EventRow {
+        height_or_seq: orphan.boundary,
+        source: "layerx-receipt".to_owned(),
+        name: "activity".to_owned(),
+        contract: None,
+        account: Some(RECEIVER.to_owned()),
+        tx_id: SEND_ACTIVITY.to_owned(),
+        ordinal: 0,
+        decoded: json!({}),
+    });
+    for unit in [first, second, orphan] {
         store
             .commit(&unit, 1)
             .unwrap_or_else(|error| panic!("{error}"));
@@ -183,18 +196,17 @@ fn rolling_back_a_supply_bearing_receipt_restores_the_canonical_projection() {
     assert!(known(&store, CHAIN, SENDER));
     assert_eq!(activity_count(&store, SEND_ACTIVITY), (0, 0));
     assert_configured_pointer(&store);
-    let canonical_two = relay["canonical"]["batches"]["2"]["batch_id"]
-        .as_str()
-        .unwrap_or_default()
-        .to_owned();
     assert_eq!(
         position(&store, CHAIN).map(|(position, hash, _)| (position, hash)),
-        Some((2, canonical_two))
+        Some((2, "b2".to_owned()))
     );
 
-    for number in [3, 4] {
+    for unit in [
+        layerx_unit(3, "c3", "b2", Vec::new(), RECEIVER),
+        layerx_unit(4, "c4", "c3", Vec::new(), RECEIVER),
+    ] {
         store
-            .commit(&batch(&relay, "reorg", number), 1)
+            .commit(&unit, 1)
             .unwrap_or_else(|error| panic!("{error}"));
     }
     assert_eq!(asset(&store, SEND_ASSET), None);
@@ -229,11 +241,7 @@ fn rolling_back_a_supply_bearing_receipt_restores_the_canonical_projection() {
             .unwrap_or_else(|error| panic!("{error}")),
     );
     assert_eq!(before_reopen, after_reopen);
-    let reorg_four = relay["reorg"]["batches"]["4"]["batch_id"]
-        .as_str()
-        .unwrap_or_default()
-        .to_owned();
-    assert_eq!(after_reopen.3, Some((4, reorg_four, Some(3))));
+    assert_eq!(after_reopen.3, Some((4, "c4".to_owned(), Some(3))));
     assert_eq!(asset(&store, SEND_ASSET), None);
     assert!(!known(&store, CHAIN, ORPHAN_ACCOUNT));
     assert!(known(&store, CHAIN, RECEIVER));

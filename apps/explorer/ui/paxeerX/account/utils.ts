@@ -2,13 +2,12 @@ import BigNumber from 'bignumber.js';
 
 import type { PaxeerXAsset, PaxeerXIdentities, PaxeerXIdentityKind } from 'types/api/paxeerX';
 
-export const IDENTITY_ORDER: Array<PaxeerXIdentityKind> = [ 'evm', 'pax', 'did', 'kernel_account' ];
+export const IDENTITY_ORDER: Array<PaxeerXIdentityKind> = [ 'evm', 'pax', 'did' ];
 
 export const IDENTITY_LABELS: Record<PaxeerXIdentityKind, string> = {
   evm: 'EVM address',
   pax: 'Paxeer address',
   did: 'LayerX DID',
-  kernel_account: 'Kernel account',
 };
 
 export interface IdentityEntry {
@@ -47,14 +46,7 @@ export function formatAmount(value: string, asset: PaxeerXAsset | null): string 
   return amount.dividedBy(new BigNumber(10).pow(asset.decimals)).toFormat();
 }
 
-// The kinds the activity feed carries: the five custody event kinds the kernel logs, spelled as
-// the database enum spells them, plus the two chain-side rows the feed merges in.
 const KIND_LABELS: Record<string, string> = {
-  custody_deposit: 'Custody deposit',
-  claim_queued: 'Claim queued',
-  claim_finalised: 'Claim finalised',
-  custody_release: 'Custody release',
-  emergency_exit: 'Emergency exit',
   transaction: 'Transaction',
   token_transfer: 'Token transfer',
 };

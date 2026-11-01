@@ -4,6 +4,7 @@ pub mod adapter;
 pub mod audit;
 mod codec;
 pub mod error;
+pub mod evidence;
 pub mod gateway;
 pub mod principal;
 pub mod redaction;

@@ -20,7 +20,12 @@ import {
   type VerificationLevel,
 } from "../../api/index.ts";
 import { browserPasskeyAuthenticator, performStepUp } from "../approvals/ceremony.ts";
-import { type ConfirmationKind, type StatusKey } from "../../kit/model.ts";
+import {
+  VERIFICATION_PRESENTATIONS,
+  verificationRung,
+  type ConfirmationKind,
+  type StatusKey,
+} from "../../kit/model.ts";
 import { nativeFeeBudgetIdentity } from "../../auth/native-fee-budget.ts";
 import { authorizeMoveNativeAccess } from "../move/model.ts";
 
@@ -140,23 +145,12 @@ export function catalogSentence(copyKey: string): string {
 const RECEIPT_LEVELS: readonly VerificationLevel[] = [
   "receipt-verified",
   "checkpoint-finalised",
-  "paxeer-finalised",
-  "settlement-anchored",
 ];
-
-const VERIFICATION_COPY_KEYS: Readonly<Record<VerificationLevel, string>> = {
-  unverified: "verification.unverified",
-  "receipt-verified": "verification.receipt_verified",
-  "checkpoint-finalised": "verification.checkpoint_finalised",
-  "paxeer-finalised": "verification.paxeer_finalised",
-  "settlement-anchored": "explorer.verification.settlement_anchored",
-};
 
 function receiptBacked(reference: EvidenceRef): boolean {
   return (
     reference.class === "layerx-receipt"
     || reference.class === "checkpoint-proof"
-    || reference.class === "paxeer-finality"
   ) && RECEIPT_LEVELS.includes(reference.verification);
 }
 
@@ -358,7 +352,9 @@ export function spendPresentation(agent: Agent, locale: string): SpendPresentati
     enforcement: agent.limit.enforcement,
     protocolBacked: agent.limit.enforcement === "protocol",
     enforcementSentence: copyEntry(enforcementCopyKey).message,
-    verificationSentence: catalogSentence(VERIFICATION_COPY_KEYS[agent.spend.verification]),
+    verificationSentence: catalogSentence(
+      VERIFICATION_PRESENTATIONS[verificationRung(agent.spend.verification)].copyKey,
+    ),
   };
   if (agent.spend.reconciliation_copy_key !== undefined) {
     presentation.reconciliationSentence = catalogSentence(agent.spend.reconciliation_copy_key);

@@ -48,12 +48,18 @@ function serve(responder: Responder): Promise<Served> {
 }
 
 const profiles = await serve(() => ({ status: 404 }));
-process.env.NEXT_PUBLIC_USER_API_URL = profiles.origin;
+const previousGatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL;
+process.env.NEXT_PUBLIC_GATEWAY_URL = profiles.origin;
+afterAll(() => {
+  if (previousGatewayUrl === undefined) delete process.env.NEXT_PUBLIC_GATEWAY_URL;
+  else process.env.NEXT_PUBLIC_GATEWAY_URL = previousGatewayUrl;
+});
 const { WagmiProvider, createConfig, http } = await import('wagmi');
 const { defineChain } = await import('viem');
 const { MarketClientContext } = await import('@/core/market/client');
 const { TrendingWidget, trendingEmptyTitles } = await import('./trending-widget');
 const { ScreenerWidget, screenerEmpty } = await import('./screener-widget');
+const { LeaderboardWidget } = await import('./leaderboard-widget');
 const { derivePanelState } = await import('./panel-state');
 const { ColumnChrome } = await import('./column-chrome');
 const { Column } = await import('./column');
@@ -65,6 +71,7 @@ const { addColumn, defaultLayout, resetLayoutStore, setLayout } = await import('
 
 type Watermark = V2ContractTypes['Watermark'];
 type RankingsResponse = V2ContractTypes['RankingsResponse'];
+type LeaderboardsResponse = V2ContractTypes['LeaderboardsResponse'];
 
 const paxeer = defineChain({ id: 125, name: 'Paxeer', nativeCurrency: { name: 'PAX', symbol: 'PAX', decimals: 18 }, rpcUrls: { default: { http: ['http://127.0.0.1:1'] } } });
 const wagmiConfig = createConfig({ chains: [paxeer], transports: { [paxeer.id]: http() }, ssr: true, multiInjectedProviderDiscovery: false });
@@ -164,6 +171,31 @@ function recordPanels(container: HTMLElement, emptyTitle: string): { seen: Panel
   return { seen, stop: () => observer.disconnect() };
 }
 
+async function homePanelProfilesUseGatewayOrigin() {
+  const wallet = '0x' + '42'.repeat(20);
+  const board: LeaderboardsResponse = {
+    requestId, generatedAt: '2026-10-12T15:00:01.000Z', nextCursor: null, quality: 'complete', revision: '7', watermark,
+    data: { snapshot: {
+      snapshotId: '7b6f2b4e-3c1d-4e2f-9a8b-1c2d3e4f5a6b', category: 'trader', window: '24h', methodologyVersion: 'pnl-v1', watermark,
+      entries: [{ rank: 1, wallet, metricRaw: '1000000', quality: 'complete' }],
+    } },
+  };
+  const market = await serve(url => url.startsWith('/v2/leaderboards/trader?')
+    ? { status: 200, body: board }
+    : { status: 404 });
+  const before = profiles.paths.length;
+  const { root, container, queryClient } = mount(market.origin, <LeaderboardWidget {...props} />);
+  try {
+    const profilePath = `/v2/profiles:batch?wallets=${wallet}`;
+    await waitFor(() => profiles.paths.slice(before).includes(profilePath));
+    expect(profiles.paths.slice(before)).toContain(profilePath);
+    expect(container.querySelector(`a[href="/profile/${wallet}"]`)).not.toBeNull();
+  } finally {
+    unmount(root, container, queryClient);
+    await new Promise<void>(resolve => market.server.close(() => resolve()));
+  }
+}
+
 describe('panel state derivation', () => {
   const failure = { state: 'error' as const, error: new Error('boom'), retry: () => undefined };
   const unsupported = { state: 'unsupported' as const, operation: 'IF_RANKINGS', status: 503, message: 'not served' };
@@ -195,6 +227,8 @@ describe('ranking panels render exactly one state across refetches', () => {
     for (const server of [origin.server, profiles.server]) await new Promise<void>(resolve => server.close(() => resolve()));
     dom.window.close();
   });
+
+  it(homePanelProfilesUseGatewayOrigin);
 
   for (const [name, Widget, emptyTitle] of [
     ['Trending', TrendingWidget, trendingEmptyTitles.trending],

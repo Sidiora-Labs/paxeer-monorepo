@@ -9,6 +9,14 @@ use layerx_programs_runtime::{
 };
 
 use crate::account_state::{verify_state_membership, StateProof};
+use crate::chain_evidence::programs_state_key;
+use crate::chain_proof::{
+    decode::ProofOp,
+    ics23::ExistenceProof,
+    proto::{ProtoReader, ProtoValue},
+    state::verify_state,
+    VerifiedChainHead,
+};
 use crate::hash::sha256;
 use crate::{VerifiedDeploymentEvidence, VerifiedProgramHead};
 
@@ -170,6 +178,20 @@ pub struct VerifiedInterfaceRead {
     pub receipt_digest: [u8; 32],
     pub state_root: [u8; 32],
     pub freshness: crate::ReadFreshness,
+}
+
+impl VerifiedInterfaceRead {
+    /// # Errors
+    ///
+    /// Refuses invalid interface or program-record proofs and mismatched interface bindings.
+    pub fn verify_at_head(
+        next: &VerifiedChainHead,
+        program: ProgramId,
+        witness: &InterfaceStateWitness,
+        ops: &[ProofOp],
+    ) -> Result<Self, InterfaceRefusal> {
+        verify_interface_read_at_head(next, program, witness, ops)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -627,22 +649,122 @@ pub fn verify_interface_read(
         head.programs_root(),
     )
     .map_err(|_| InterfaceRefusal::StateProof)?;
+    decode_interface_read(
+        head.program(),
+        head.version(),
+        head.code_hash(),
+        head.abi_version(),
+        witness,
+        head.receipt_digest(),
+        head.state_root(),
+        head.freshness(),
+    )
+}
+
+/// Verifies interface proof operations followed by program-record proof operations.
+/// The chain app hash supplies both state-root and evidence-digest coordinates.
+/// # Errors
+///
+/// Refuses invalid proofs, malformed records and program, version or code-hash mismatches.
+pub fn verify_interface_read_at_head(
+    next: &VerifiedChainHead,
+    program: ProgramId,
+    witness: &InterfaceStateWitness,
+    ops: &[ProofOp],
+) -> Result<VerifiedInterfaceRead, InterfaceRefusal> {
+    if witness.key != interface_state_key(program) {
+        return Err(InterfaceRefusal::ProgramMismatch);
+    }
+    if ops.len() != 4 {
+        return Err(InterfaceRefusal::StateProof);
+    }
+    let height = verify_state(
+        next,
+        "layerx",
+        &programs_state_key(&witness.key),
+        &witness.value,
+        &ops[..2],
+    )
+    .map_err(|_| InterfaceRefusal::StateProof)?;
+    let mut reader = ProtoReader::new(&ops[2].data);
+    let field = reader
+        .next_field()
+        .map_err(|_| InterfaceRefusal::StateProof)?
+        .ok_or(InterfaceRefusal::StateProof)?;
+    let encoded = match (field.number, field.value) {
+        (1, ProtoValue::Bytes(encoded)) => encoded,
+        _ => return Err(InterfaceRefusal::StateProof),
+    };
+    reader.finish().map_err(|_| InterfaceRefusal::StateProof)?;
+    let record = ExistenceProof::decode(encoded).map_err(|_| InterfaceRefusal::StateProof)?;
+    let mut key = b"program\0".to_vec();
+    key.extend_from_slice(&program.bytes());
+    verify_state(
+        next,
+        "layerx",
+        &programs_state_key(&key),
+        &record.value,
+        &ops[2..],
+    )
+    .map_err(|_| InterfaceRefusal::StateProof)?;
+    let mut cursor = 0;
+    let policy = take::<1>(&record.value, &mut cursor)?[0];
+    let authority = take::<32>(&record.value, &mut cursor)?;
+    let code_hash = take::<32>(&record.value, &mut cursor)?;
+    let abi_version = u16::from_be_bytes(take::<2>(&record.value, &mut cursor)?);
+    let version = u32::from_be_bytes(take::<4>(&record.value, &mut cursor)?);
+    if cursor != record.value.len()
+        || !matches!((policy, authority == [0; 32]), (0, true) | (1, false))
+        || code_hash == [0; 32]
+    {
+        return Err(InterfaceRefusal::Invalid);
+    }
+    admit_abi_version(abi_version).map_err(InterfaceRefusal::AbiVersion)?;
+    if version == 0 {
+        return Err(InterfaceRefusal::VersionMismatch);
+    }
+    let freshness = crate::ReadFreshness {
+        observed_sequence: u64::try_from(height).map_err(|_| InterfaceRefusal::StateProof)?,
+        observed_at: u64::try_from(next.time_ms()).map_err(|_| InterfaceRefusal::StateProof)?,
+    };
+    decode_interface_read(
+        program,
+        version,
+        code_hash,
+        abi_version,
+        witness,
+        next.app_hash(),
+        next.app_hash(),
+        freshness,
+    )
+}
+
+fn decode_interface_read(
+    expected_program: ProgramId,
+    expected_version: u32,
+    expected_code_hash: [u8; 32],
+    expected_abi_version: u16,
+    witness: &InterfaceStateWitness,
+    receipt_digest: [u8; 32],
+    state_root: [u8; 32],
+    freshness: crate::ReadFreshness,
+) -> Result<VerifiedInterfaceRead, InterfaceRefusal> {
     let mut cursor = 0;
     let program = ProgramId::new(take::<32>(&witness.value, &mut cursor)?)
         .map_err(|_| InterfaceRefusal::ProgramMismatch)?;
     let version = u32::from_be_bytes(take::<4>(&witness.value, &mut cursor)?);
     let digest = InterfaceDigest::new(take::<32>(&witness.value, &mut cursor)?);
     let encoded = take_bytes(&witness.value, &mut cursor)?;
-    if cursor != witness.value.len() || program != head.program() {
+    if cursor != witness.value.len() || program != expected_program {
         return Err(InterfaceRefusal::ProgramMismatch);
     }
-    if version != head.version() {
+    if version != expected_version {
         return Err(InterfaceRefusal::VersionMismatch);
     }
     let interface = ProgramInterface::decode(encoded)?;
     if interface.digest != digest
-        || interface.code_hash != head.code_hash()
-        || interface.abi_version != head.abi_version()
+        || interface.code_hash != expected_code_hash
+        || interface.abi_version != expected_abi_version
     {
         return Err(InterfaceRefusal::CodeHashMismatch);
     }
@@ -650,9 +772,9 @@ pub fn verify_interface_read(
         interface,
         program,
         version,
-        receipt_digest: head.receipt_digest(),
-        state_root: head.state_root(),
-        freshness: head.freshness(),
+        receipt_digest,
+        state_root,
+        freshness,
     })
 }
 

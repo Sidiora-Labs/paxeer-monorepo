@@ -16,7 +16,7 @@ Checks, each printed as "pass <check> <observed>" or "fail <check> <observed>":
   px_resolveAccount  a well-formed address resolves to a result with a boolean
                      bound field, never a transport or read error
   px_getNetwork      kernel.available is false with a reason other than available
-  lx_getAccount      the answer is error -32010 with data.code kernel_unavailable,
+  px_getAccount      the answer is error -32010 with data.code kernel_unavailable,
                      a named backend and a reason
 
 attestors reads GET <base>/health from every base in
@@ -781,7 +781,7 @@ elif check == "px_getNetwork":
         print("pass kernel.available=false reason=" + kernel["reason"])
     else:
         print("fail " + show(kernel if kernel is not None else (error if error is not None else result)))
-elif check == "lx_getAccount":
+elif check == "px_getAccount":
     data = error.get("data") if isinstance(error, dict) else None
     if (
         result is None
@@ -819,7 +819,7 @@ run() {
 run eth_chainId '[]'
 run px_resolveAccount '["0x000000000000000000000000000000000000dEaD"]'
 run px_getNetwork '[]'
-run lx_getAccount "[\"$(printf 'ab%.0s' $(seq 32))\"]"
+run px_getAccount "[\"$(printf 'ab%.0s' $(seq 32))\"]"
 
 if [ "$failures" -ne 0 ]; then
 	echo "check-live: $failures check(s) failed"

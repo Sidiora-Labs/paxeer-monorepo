@@ -1,10 +1,6 @@
 package evmrpc
 
-import (
-	"net/http"
-
-	utilmetrics "github.com/Sidiora-Labs/Paxeer-X-Network/utils/metrics"
-)
+import "net/http"
 
 type wsConnectionHandler struct {
 	underlying http.Handler
@@ -12,8 +8,6 @@ type wsConnectionHandler struct {
 
 func (h *wsConnectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	recordWebsocketConnect(r.Context())
-	// TODO(PLT-326): remove legacy dual-emit once dashboards are migrated to evmrpc_* OTEL metrics. Use metrics.wsConnectionCount instead.
-	utilmetrics.IncWebsocketConnects()
 	h.underlying.ServeHTTP(w, r)
 }
 

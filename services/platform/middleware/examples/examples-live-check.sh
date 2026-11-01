@@ -10,8 +10,8 @@ Runs the two public RPC examples against the live gateway of a disposable beta
 cluster. The seller middleware the Node example imports is built from the
 workspace first, then each example runs once against the cluster: it reads the
 account sequence over the public JSON-RPC, claims faucet funding, submits its
-signed payment activity and verifies the returned payment against executed or
-batched commitment through the trusted authority it was given. A pending
+raw EIP-1559 transaction and verifies the returned payment at the receipted or
+committed rung through the pinned receipt keys it was given. A pending
 verification is not a proof and fails the gate.
 
 The cluster endpoints, its internal CA, the funded smoke DID and the bearer the
@@ -31,12 +31,12 @@ readable:
 The payment material is produced by the operator who funded that DID; the
 cluster bring-up does not write it:
 
-  LAYERX_EXAMPLE_OFFER_FILE             payment-required header of the offer
-  LAYERX_EXAMPLE_PAYER                  32-byte hex payer account
-  LAYERX_EXAMPLE_NODE_ACTIVITY_FILE     signed activity for the Node example
-  LAYERX_EXAMPLE_NODE_AUTHORITY_FILE    trusted authority for that activity
-  LAYERX_EXAMPLE_PYTHON_ACTIVITY_FILE   signed activity for the Python example
-  LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE  trusted authority for that activity
+  LAYERX_EXAMPLE_OFFER_FILE                payment-required header of the offer
+  LAYERX_EXAMPLE_PAYER                     32-byte hex payer account
+  LAYERX_EXAMPLE_NODE_ACTIVITY_FILE        raw EIP-1559 transaction for the Node example
+  LAYERX_EXAMPLE_NODE_RECEIPT_KEYS_FILE    receipt keys for that transaction
+  LAYERX_EXAMPLE_PYTHON_ACTIVITY_FILE      signed activity for the Python example
+  LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE     trusted authority for that activity
 
 Every input is required and no leg is skipped. Each example needs its own
 signed activity: a signed activity is consumed by the submission that carries
@@ -90,8 +90,8 @@ require LAYERX_TEST_SOURCE_DID "the funded DID whose account sequence both examp
 require LAYERX_TEST_SOURCE_PUBLIC_KEY "the 32-byte hex public key of the funded DID"
 require LAYERX_EXAMPLE_OFFER_FILE "the payment-required header the seller issued for the offer"
 require LAYERX_EXAMPLE_PAYER "the 32-byte hex payer account the payment debits"
-require LAYERX_EXAMPLE_NODE_ACTIVITY_FILE "the signed activity the Node example submits"
-require LAYERX_EXAMPLE_NODE_AUTHORITY_FILE "the trusted authority for the Node example's activity"
+require LAYERX_EXAMPLE_NODE_ACTIVITY_FILE "the raw EIP-1559 transaction the Node example submits"
+require LAYERX_EXAMPLE_NODE_RECEIPT_KEYS_FILE "the pinned receipt keys for the Node example's transaction"
 require LAYERX_EXAMPLE_PYTHON_ACTIVITY_FILE "the signed activity the Python example submits"
 require LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE "the trusted authority for the Python example's activity"
 if [ "$missing" -gt 0 ]; then
@@ -105,7 +105,7 @@ if [ "$LAYERX_EXAMPLE_NODE_ACTIVITY_FILE" = "$LAYERX_EXAMPLE_PYTHON_ACTIVITY_FIL
     exit 2
 fi
 for file in "$LAYERX_TEST_CA_FILE" "$LAYERX_TEST_AUTH_TOKEN_FILE" "$LAYERX_EXAMPLE_OFFER_FILE" \
-    "$LAYERX_EXAMPLE_NODE_ACTIVITY_FILE" "$LAYERX_EXAMPLE_NODE_AUTHORITY_FILE" \
+    "$LAYERX_EXAMPLE_NODE_ACTIVITY_FILE" "$LAYERX_EXAMPLE_NODE_RECEIPT_KEYS_FILE" \
     "$LAYERX_EXAMPLE_PYTHON_ACTIVITY_FILE" "$LAYERX_EXAMPLE_PYTHON_AUTHORITY_FILE"; do
     [ -f "$file" ] && [ -r "$file" ] && [ -s "$file" ] || {
         printf 'examples-live-check.sh: %s is not a readable non-empty file\n' "$file" >&2
@@ -158,7 +158,7 @@ assert_legs() {
         printf 'examples-live-check.sh: the %s example did not report the account sequence\n' "$assert_name" >&2
         exit 1
     }
-    grep -q '"transaction"' "$assert_out" && grep -q 'lxp:' "$assert_out" || {
+    grep -Eq '"transaction"[[:space:]]*:[[:space:]]*"0x[0-9a-fA-F]{64}"' "$assert_out" || {
         printf 'examples-live-check.sh: the %s example did not report a verified payment\n' "$assert_name" >&2
         exit 1
     }
@@ -188,7 +188,7 @@ run_example node env NODE_EXTRA_CA_CERTS="$LAYERX_TEST_CA_FILE" \
     --faucet "$faucet_url" --public-key "$LAYERX_TEST_SOURCE_PUBLIC_KEY" \
     --claim-key "examples-node-$stamp-$$" \
     --activity "$LAYERX_EXAMPLE_NODE_ACTIVITY_FILE" --offer "$LAYERX_EXAMPLE_OFFER_FILE" \
-    --authority "$LAYERX_EXAMPLE_NODE_AUTHORITY_FILE" --payer "$LAYERX_EXAMPLE_PAYER"
+    --receipt-keys "$LAYERX_EXAMPLE_NODE_RECEIPT_KEYS_FILE" --payer "$LAYERX_EXAMPLE_PAYER"
 
 run_example python env SSL_CERT_FILE="$LAYERX_TEST_CA_FILE" PYTHONPATH=services/agent/sdk/python \
     python3 services/platform/middleware/examples/public_rpc.py \

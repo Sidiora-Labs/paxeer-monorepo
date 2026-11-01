@@ -694,6 +694,7 @@ dependencies = [
  "rustls",
  "serde_json",
  "sha2",
+ "tungstenite",
  "ureq",
 ]
 
@@ -721,20 +722,13 @@ dependencies = [
 name = "layerx-gateway-local-qualification"
 version = "0.1.0"
 dependencies = [
- "ed25519-dalek",
- "layerx-client",
- "layerx-crypto",
- "layerx-intents",
  "layerx-platform-authority",
  "layerx-platform-core",
- "layerx-programs-registry",
  "layerx-proof",
  "layerx-sdk",
  "layerx-types",
  "layerx-wire",
- "native-tls",
  "serde_json",
- "sha2",
 ]
 
 [[package]]
@@ -768,8 +762,6 @@ dependencies = [
  "base64",
  "ed25519-dalek",
  "k256",
- "layerx-agent-api",
- "layerx-client",
  "layerx-crypto",
  "layerx-proof",
  "layerx-wire",
@@ -867,17 +859,6 @@ dependencies = [
  "layerx-program-sdk",
  "sha2",
  "spin",
-]
-
-[[package]]
-name = "layerx-programs-registry"
-version = "0.1.0"
-dependencies = [
- "layerx-program-sdk",
- "layerx-programs-runtime",
- "layerx-proof",
- "layerx-types",
- "layerx-wire",
 ]
 
 [[package]]

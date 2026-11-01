@@ -9,7 +9,7 @@ import (
 // SurfaceRuntime is the 41-byte runtime held by every surface address: it
 // copies the calldata, appends CALLER and CALLs 0x1017 with all gas and no
 // value, then returns or reverts with the callee's return data.
-var SurfaceRuntime = common.FromHex("0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3")
+var SurfaceRuntime = launchpadkeeper.SurfaceRuntime
 
 // codeWriter is the EVM keeper method that installs runtime code.
 type codeWriter interface {

@@ -1,4 +1,4 @@
-FROM golang:1.25.6-bookworm AS go-dist
+FROM golang:1.25.8-bookworm AS go-dist
 FROM docker.io/rust:1.91.1-bookworm@sha256:c1e5f19e773b7878c3f7a805dd00a495e747acbdc76fb2337a4ebf0418896b33 AS rust-dist
 
 FROM ubuntu:24.04

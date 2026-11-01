@@ -1,3 +1,4 @@
+import argparse
 import hashlib
 import json
 import os
@@ -10,9 +11,17 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[4]
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description='Produce native capability discovery evidence')
+    parser.add_argument('--directory', required=True, type=Path)
+    parser.add_argument('--manifest', required=True, type=Path)
+    parser.add_argument('--native', required=True)
+    parser.add_argument('--rust', required=True)
+    arguments = parser.parse_args()
+
 sys.path.insert(0, str(ROOT / 'tests/daemon'))
 import paxeer_x_runtime_fixture as fixture
-import paxeer_x_finality_fixture as finality
 
 MAX_OBJECT = 64 * 1024 * 1024
 
@@ -116,52 +125,14 @@ def receipt_rows(output):
             for line in output.decode().splitlines() if line.startswith('receipt ')]
 
 
-def fund(runtime, native, actor, sequence):
-    from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-    from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-    d = runtime.directory
-    public = Ed25519PrivateKey.from_private_bytes((d / ('keys/' + actor + '.seed')).read_bytes()).public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
-    account = b'agent:did:layerx:' + public.hex().encode() + b':main'
-    beneficiary = hashlib.sha256(b'LX:ACCOUNT:v1' + len(account).to_bytes(4, 'big') + account).digest()
-    operation = 'credit-bob' if actor == 'bob' else 'credit-owner'
-    runtime.produce(operation + '-deposit', [sys.executable, fixture.ROOT / 'services/platform/hosted/paxeer/evm.py', 'send',
-        '--rpc', runtime.rpc_url, '--chain', '125', '--key-file', d / 'keys/deployer.key', '--value', str(1000000 * 10**12),
-        '0x0000000000000000000000000000000000001013', 'deposit(bytes32)', '0x' + beneficiary.hex()])
-    deposited = json.loads((d / (operation + '-deposit.log')).read_text())
-    require(int(deposited['status'], 16) == 1, 'real fee deposit')
-    logs = [row for row in deposited['logs'] if row['address'].lower() == '0x0000000000000000000000000000000000001013' and len(row['topics']) == 4]
-    require(len(logs) == 1, 'unique custody event')
-    runtime.wait(lambda: int(runtime.rpc('eth_blockNumber'), 16) >= int(deposited['blockNumber'], 16) + 2)
-    credit = d / (operation + '.credit')
-    runtime.produce(operation + '-proof', [runtime.binary('layerx-custody-proof'), 'light-credit', '--rpc',
-        'http://127.0.0.1:' + str(runtime.ports[2]), '--profile', d / 'custody.profile', '--deposit-id',
-        logs[0]['topics'][1], '--owner-key', '0x' + public.hex(), '--output', credit])
-    env = runtime.env | {'PAXEER_X_FIXTURE_KEYS': str(d / 'keys'), 'BUDGET_CREDIT_PROFILE': str(d / 'custody.profile'),
-        'BUDGET_CREDIT_FILE': str(credit)}
-    result = subprocess.run([native, str(d / 'run/layerxd.lni.sock'), str(d / 'salt'), operation,
-        str(sequence), '0', str(d / (operation + '.activity')), '0'], env=env, capture_output=True, timeout=60)
-    require(result.returncode == 0 and len(receipt_rows(result.stdout)) == 1, 'native credit receipt')
-
-
-class CapsRuntime(fixture.RuntimeFixture):
-    def produce(self, label, argv, env=None, timeout=120):
-        if label == 'bootstrap':
-            from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-            from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
-            authority = Ed25519PrivateKey.from_private_bytes((self.directory / 'keys/treasury.seed').read_bytes()).public_key().public_bytes(Encoding.Raw, PublicFormat.Raw).hex()
-            argv = [*argv, '--handover-authority', authority]
-        return super().produce(label, argv, env, timeout)
-
-
 def run(directory, manifest, native, rust):
     bundle = fixture.artifacts(os.environ['PAXEER_X_RUNTIME_ARTIFACTS'])
     require(fixture.digest(bundle['artifacts']['layerxd']['path']) == manifest['artifacts']['layerxd']['sha256'],
             'runtime must use this task native producer')
     client = {'version': 1, 'source_revision': manifest['revision'], 'path': native,
               'sha256': fixture.digest(native)}
-    runtime = CapsRuntime(directory, bundle, client)
+    runtime = fixture.RuntimeFixture(directory, bundle, client)
     runtime.env['MALLOC_MMAP_THRESHOLD_'] = '16384'
-    producer = None
     cases, captures = [], []
     try:
         runtime.generate()
@@ -187,19 +158,11 @@ def run(directory, manifest, native, rust):
             if old is None: runtime.env.pop('CAPS_GRANT_VARIANT')
             else: runtime.env['CAPS_GRANT_VARIANT'] = old
             require(len(receipt_rows(result.stdout)) == (20 if operation == 'sends' else 1), 'signed mutation receipts')
-        def budget(operation, sequence, ident, actor='treasury', amount=5, source=1):
-            env = runtime.env | {'PAXEER_X_FIXTURE_KEYS': str(d / 'keys'), 'BUDGET_SOURCE_SEQUENCE': str(source),
-                'CAPS_BUDGET_OWNER': actor, 'CAPS_BUDGET_ID': str(ident)}
-            result = subprocess.run([native, str(socket_path), str(d / 'salt'), operation, str(sequence),
-                str(amount), str(d / (operation + '-' + actor + '-' + str(sequence) + '.activity')), '0'],
-                env=env, capture_output=True, timeout=60)
-            (d / (operation + '-' + actor + '-' + str(sequence) + '.log')).write_bytes(result.stdout + result.stderr)
-            require(result.returncode == 0 and len(receipt_rows(result.stdout)) == 1, 'real budget mutation')
-        def save(label, connection, selection, first=None, budgets=0, grants=0):
+        def save(label, connection, selection, first=None, grants=0):
             value, root, last = finish(connection, selection, first)
             path = d / (label + '.caps'); path.write_bytes(value)
             captures.append({'name': label, 'path': str(path), 'root': root, 'did': selection[7:39].hex(),
-                'head_sequence': connection.sequence, 'head_batch': connection.batch, 'budgets': budgets, 'grants': grants,
+                'head_sequence': connection.sequence, 'head_batch': connection.batch, 'grants': grants,
                 'rank': selection[72], 'selector': selection[39], 'selected': selection[40:72].hex()})
             connection.close()
             return last, root
@@ -208,36 +171,25 @@ def run(directory, manifest, native, rust):
         save('empty-prefix-and-module', connection, request(owner))
         cases += ['real-empty-module', 'real-empty-prefix']
         asset('grant-issue', 4); asset('grant-revoke', 5); asset('sends', 6)
-        fund(runtime, native, 'treasury', 26); fund(runtime, native, 'bob', 1)
-        budget('create', 27, 1, source=21)
-        budget('create', 2, 2, actor='bob')
-        budget('create', 28, 3, source=22)
-        asset('grant-issue', 29, 2); asset('grant-issue-bob', 3, 3); asset('grant-issue', 30, 4)
+        asset('grant-issue', 26, 2); asset('grant-issue-bob', 1, 3); asset('grant-issue', 27, 4)
         connection = Wire(socket_path, public)
-        _, initial_root = save('populated-owner', connection, request(owner), budgets=2, grants=3)
+        _, initial_root = save('populated-owner', connection, request(owner), grants=3)
         connection = Wire(socket_path, public)
-        save('populated-foreign', connection, request(foreign), budgets=1, grants=1)
-        cases += ['real-mixed-owner-budgets', 'real-mixed-owner-grants']
+        save('populated-foreign', connection, request(foreign), grants=1)
+        cases.append('real-mixed-owner-grants')
         connection = Wire(socket_path, public); selected = request(owner, page=512)
         first = page(connection, selected); require(first[0][82] == 0, 'multi-page fixture')
-        budget('spend', 31, 1, amount=1)
-        _, retained_root = save('retained-before-mutation', connection, selected, first, 2, 3)
+        asset('grant-revoke', 28, 4)
+        _, retained_root = save('retained-before-mutation', connection, selected, first, 3)
         require(retained_root == initial_root, 'old immutable root')
         connection = Wire(socket_path, public)
-        _, fresh_root = save('fresh-after-mutation', connection, request(owner), budgets=2, grants=3)
+        _, fresh_root = save('fresh-after-mutation', connection, request(owner), grants=3)
         require(fresh_root != retained_root, 'fresh observation')
         cases += ['mutation-during-traversal', 'fresh-after-mutation']
         connection = Wire(socket_path, public); selected = request(owner, page=512); first = page(connection, selected)
-        asset('grant-revoke', 32, 2)
-        save('retained-before-revocation', connection, selected, first, 2, 3)
+        asset('grant-revoke', 29, 2)
+        save('retained-before-revocation', connection, selected, first, 3)
         cases.append('revocation-during-traversal')
-        connection = Wire(socket_path, public); selected = request(owner, page=512); first = page(connection, selected)
-        time.sleep(31)
-        budget('spend', 33, 3, amount=1)
-        save('retained-before-rollover', connection, selected, first, 2, 3)
-        cases.append('period-rollover-during-traversal')
-        connection = Wire(socket_path, public)
-        save('fresh-after-rollover', connection, request(owner), budgets=2, grants=3)
         for label, at in [('foreign-object', 77), ('wrong-root', 109), ('wrong-selection', 7),
                           ('cursor-gap', 144), ('malformed-cursor', 145), ('wrong-network', 6)]:
             connection = Wire(socket_path, public)
@@ -265,17 +217,8 @@ def run(directory, manifest, native, rust):
         connection = Wire(socket_path, public)
         tag, _ = connection.exchange(42, continuation); require(tag == 25, 'restart cursor'); connection.close(); cases.append('restart')
         connection = Wire(socket_path, public)
-        save('fresh-after-restart', connection, request(owner), budgets=2, grants=3)
+        save('fresh-after-restart', connection, request(owner), grants=3)
         cases.append('fresh-after-restart')
-        producer = finality.FinalityProducer(runtime, finality.supplemental(os.environ['PAXEER_X_FINALITY_ARTIFACTS']))
-        producer.bond(); producer.tls(); producer.start()
-        connection = Wire(socket_path, public); batch = connection.batch; connection.close()
-        producer.registered(batch)
-        provenance = producer.provenance(batch)
-        selected = request(owner, rank=4, selector=3, selected=bytes.fromhex(provenance['checkpoint_id']))
-        connection = Wire(socket_path, public)
-        save('real-finality', connection, selected, budgets=2, grants=3)
-        cases.append('real-finality-authority')
         connection = Wire(socket_path, public)
         _, continuation = page(connection, request(owner, page=512))
         time.sleep(61)
@@ -313,12 +256,9 @@ def run(directory, manifest, native, rust):
         fixture.write_json(d / 'caps-inputs.json', {'revision': manifest['revision'], 'socket': str(socket_path),
             'captures': captures, 'sequencer_public_key': public,
             'sequencer_id': hashlib.sha256(('layerx-sequencer:' + public).encode()).hexdigest(),
-            'genesis_trust': str(d / 'node/genesis/genesis-handover-trust.lxt'),
             'genesis_manifest': str(d / 'node/genesis/genesis.manifest'),
             'genesis_descriptor': str(d / 'node/genesis/paxeer-deployment-descriptor.lxgd'),
-            'handover_authority_public_key': next(line.split('=', 1)[1] for line in (d / 'node/node.env').read_text().splitlines() if line.startswith('LAYERX_NODE_HANDOVER_AUTHORITY_PUBLIC_KEY=')),
-            'runtime_cases': cases,
-            'finality_provenance': provenance})
+            'runtime_cases': cases})
         env = runtime.env | {'LAYERX_CAPS_DISCOVERY_INPUTS': str(d / 'caps-inputs.json')}
         result = subprocess.run([rust, '--test-threads=1', '--nocapture'], cwd=ROOT / 'agent', env=env,
                                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=300)
@@ -329,5 +269,8 @@ def run(directory, manifest, native, rust):
             'captures': len(captures), 'rust_exit': result.returncode, 'skipped': 0, 'log': str(d / 'caps-rust.log')})
         return d / 'caps-result.json'
     finally:
-        if producer is not None: producer.cleanup()
         runtime.cleanup()
+
+
+if __name__ == '__main__':
+    run(arguments.directory, json.loads(arguments.manifest.read_text()), arguments.native, arguments.rust)

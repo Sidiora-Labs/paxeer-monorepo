@@ -8,11 +8,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"net/url"
 	"os"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ratelimit"
 )
 
 // Service names one perps data binary.
@@ -44,12 +47,13 @@ const (
 
 type uses struct {
 	rpc, comet, database, nats, port, auth, explorerTx, gatewayURL, startHeight bool
+	trustedProxies                                                              bool
 }
 
 var services = map[Service]uses{
 	Indexer:  {rpc: true, comet: true, database: true, nats: true, port: true, startHeight: true},
-	Gateway:  {rpc: true, database: true, nats: true, port: true, auth: true},
-	Explorer: {database: true, port: true, explorerTx: true},
+	Gateway:  {rpc: true, database: true, nats: true, port: true, auth: true, trustedProxies: true},
+	Explorer: {database: true, port: true, explorerTx: true, trustedProxies: true},
 	Portal:   {port: true, explorerTx: true, gatewayURL: true},
 	Replay:   {rpc: true, comet: true, database: true},
 	Loadtest: {gatewayURL: true},
@@ -69,6 +73,7 @@ type Config struct {
 	ExplorerTxBase string
 	GatewayURL     string
 	StartHeight    int64
+	TrustedProxies []netip.Prefix
 }
 
 // Load reads the variables the named service uses and returns the validated
@@ -130,6 +135,13 @@ func Load(service Service) (*Config, error) {
 		}
 		cfg.StartHeight = n
 	}
+	if u.trustedProxies {
+		trusted, err := ratelimit.ParseTrustedProxies(os.Getenv(ratelimit.EnvTrustedProxies))
+		if err != nil {
+			return nil, err
+		}
+		cfg.TrustedProxies = trusted
+	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -187,7 +199,7 @@ func (c *Config) Validate() error {
 // String prints the Config with DATABASE_URL, NATS_URL and PERPS_AUTH_SECRET
 // redacted.
 func (c Config) String() string {
-	return fmt.Sprintf("service=%s %s=%d %s=%s %s=%s %s=%s %s=%s %s=%d %s=%s %s=%s %s=%s %s=%d",
+	return fmt.Sprintf("service=%s %s=%d %s=%s %s=%s %s=%s %s=%s %s=%d %s=%s %s=%s %s=%s %s=%d %s=%v",
 		c.Service,
 		envChainID, c.ChainID,
 		envRPCURLs, strings.Join(c.RPCURLs, ","),
@@ -199,6 +211,7 @@ func (c Config) String() string {
 		envExplorerTx, c.ExplorerTxBase,
 		envGatewayURL, c.GatewayURL,
 		envStartHeight, c.StartHeight,
+		ratelimit.EnvTrustedProxies, c.TrustedProxies,
 	)
 }
 

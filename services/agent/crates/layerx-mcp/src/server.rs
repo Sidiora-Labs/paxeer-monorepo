@@ -65,8 +65,8 @@ pub const FAUCET_REQUEST: ToolDefinition = ToolDefinition {
     name: "faucet.request",
     kind: ToolKind::Write,
     required_scope: "write:faucet:claim",
-    mutation: "one bounded testnet faucet grant through the hosted gateway",
-    evidence: "the faucet claim the gateway confirmed as funded, or an honest refusal",
+    mutation: "one testnet funding request through the node's px_requestFunds",
+    evidence: "the funding tx_hash returned by px_requestFunds, or an honest refusal",
 };
 
 const TOOL_CATALOGUE: [ToolDefinition; 22] = [
@@ -124,35 +124,35 @@ const TOOL_CATALOGUE: [ToolDefinition; 22] = [
         kind: ToolKind::Write,
         required_scope: "write:prepare",
         mutation: "daemon-local preparation only",
-        evidence: "canonical bytes and bound disclosure",
+        evidence: "canonical bytes and bound disclosure; tx_hash and rung after submission",
     },
     ToolDefinition {
         name: "activity.disclose",
         kind: ToolKind::Write,
         required_scope: "write:disclose",
         mutation: "none",
-        evidence: "disclosure decoded from canonical bytes",
+        evidence: "disclosure decoded from canonical bytes; tx_hash and rung after submission",
     },
     ToolDefinition {
         name: "activity.sign",
         kind: ToolKind::Write,
         required_scope: "write:sign",
         mutation: "daemon-local signed preparation",
-        evidence: "signature binding evidence",
+        evidence: "signature binding evidence; tx_hash and rung after submission",
     },
     ToolDefinition {
         name: "activity.submit",
         kind: ToolKind::Write,
         required_scope: "write:submit",
         mutation: "core submission through the ordinary daemon path",
-        evidence: "verified receipt or honest non-terminal state",
+        evidence: "tx_hash and daemon rung, verified receipt or honest non-terminal state",
     },
     ToolDefinition {
         name: "activity.track",
         kind: ToolKind::Write,
         required_scope: "write:track",
         mutation: "daemon-local receipt resolution state",
-        evidence: "verified receipt or honest non-terminal state",
+        evidence: "tx_hash and daemon rung, verified receipt or honest non-terminal state",
     },
     ToolDefinition {
         name: "wallet.accounts",
@@ -215,7 +215,7 @@ const TOOL_CATALOGUE: [ToolDefinition; 22] = [
         kind: ToolKind::Write,
         required_scope: "write:activity:wait",
         mutation: "daemon-local receipt resolution state",
-        evidence: "verified receipt or honest non-terminal state",
+        evidence: "tx_hash and daemon rung, verified receipt or honest non-terminal state",
     },
     FAUCET_REQUEST,
 ];
@@ -710,6 +710,9 @@ impl Server {
     where
         F: FnOnce(&DaemonInvocation) -> (T, InvocationOutcome),
     {
+        if name == FAUCET_REQUEST.name {
+            return self.execute_faucet(core_sequence, arguments, executor);
+        }
         if self
             .tool(name)
             .is_some_and(|tool| tool.kind != ToolKind::Write)
@@ -721,6 +724,86 @@ impl Server {
         let (result, outcome) = permit
             .commit(&control, || Ok(executor(&invocation)))
             .map_err(map_control)?;
+        self.complete(&invocation, outcome)?;
+        Ok(result)
+    }
+
+    fn execute_faucet<T>(
+        &mut self,
+        core_sequence: u64,
+        arguments: Vec<u8>,
+        executor: impl FnOnce(&DaemonInvocation) -> (T, InvocationOutcome),
+    ) -> Result<T, ServerError> {
+        if self.tool(FAUCET_REQUEST.name).is_none() {
+            return Err(ServerError::ToolAbsent);
+        }
+        if arguments.len() > MAX_ARGUMENT_BYTES {
+            return Err(ServerError::InvalidInvocation);
+        }
+        let registry_handle = self.control.registry();
+        let registry = registry_handle
+            .read()
+            .map_err(|_| ServerError::AuthorizationUnavailable)?;
+        let token = registry
+            .authenticate(&self.credential)
+            .map_err(|error| map_session(&error))?;
+        let authorization = (|| {
+            token
+                .authorize(
+                    &registry,
+                    self.binding.tenant(),
+                    self.binding.agent(),
+                    FAUCET_REQUEST.required_scope,
+                    core_sequence,
+                )
+                .map_err(|error| map_session(&error))?;
+            let session = registry
+                .get(self.binding.tenant(), self.binding.session_id())
+                .ok_or(ServerError::MissingSession)?;
+            let store_handle = self.control.store();
+            let store = store_handle
+                .lock()
+                .map_err(|_| ServerError::AuthorizationUnavailable)?;
+            let capability = Capability::restore(
+                &store,
+                self.binding.tenant.clone(),
+                self.binding.capability_id,
+            )
+            .map_err(ServerError::Capability)?
+            .ok_or(ServerError::MissingCapability)?;
+            let binding = ScopeBinding::derive(session, &capability, core_sequence)?;
+            if binding != self.binding {
+                return Err(ServerError::CapabilityMismatch);
+            }
+            Ok(())
+        })();
+        let arguments_digest = Sha256::digest(&arguments).into();
+        let attempt = invocation_audit(
+            self.binding_digest,
+            self.next_invocation_id,
+            FAUCET_REQUEST.name,
+            arguments_digest,
+            if authorization.is_ok() { 1 } else { 3 },
+            0,
+        )?;
+        self.audit
+            .before_operation(&attempt, || ())
+            .map_err(ServerError::Audit)?;
+        authorization?;
+        let invocation = DaemonInvocation {
+            server_binding: self.binding_digest,
+            invocation_id: self.next_invocation_id,
+            tool: FAUCET_REQUEST,
+            arguments,
+            arguments_digest,
+            gates: REQUIRED_DAEMON_GATES,
+        };
+        self.next_invocation_id = self
+            .next_invocation_id
+            .checked_add(1)
+            .ok_or(ServerError::Arithmetic)?;
+        let (result, outcome) = executor(&invocation);
+        drop(registry);
         self.complete(&invocation, outcome)?;
         Ok(result)
     }
@@ -814,7 +897,7 @@ pub fn tool_operation(name: &str) -> Option<Operation> {
             Some(Operation::Submit)
         }
         "activity.track" => Some(Operation::Track),
-        "faucet.request" => Some(Operation::FaucetClaim),
+        "faucet.request" => None,
         "activity.wait" => Some(Operation::Wait),
         _ => None,
     }

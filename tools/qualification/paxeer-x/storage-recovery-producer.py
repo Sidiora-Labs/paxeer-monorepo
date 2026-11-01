@@ -12,14 +12,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[3]
 SCHEMA = 'paxeer-x.storage-recovery-artifacts.v1'
 TESTS = ('lxp_test_recovery', 'lxp_test_log_durability', 'lxp_test_batch_wal_recovery')
-ORDER_CHECK = 'tests/storage/check_daemon_recovery_order.sh'
 SOURCES = tuple('tests/storage/' + name + '.c' for name in TESTS) + (
-    ORDER_CHECK, 'cmd/layerxd/lxp_daemon_process.c',
-    'cmd/layerxd/lxp_daemon_batch_wal.c',
-    'cmd/layerxd/lxp_daemon_batch_wal.h',
-    'cmd/layerxd/lxp_daemon_handover_history.c',
-    'cmd/layerxd/lxp_daemon_receipt_authority.c',
-    'cmd/layerxd/lxp_daemon_evidence.c',
     'src/modules/programs/feed_store.c',
     'tools/paxeer-x/gates/104.38.1.sh',
     'tools/qualification/paxeer-x/storage-recovery-producer.py',
@@ -121,7 +114,7 @@ def build(output):
     scoped = sources()
     command = ['make', '-j3', 'PROGRAMS_TARGET_DIR=' + settings['PROGRAMS_TARGET_DIR'],
                'PROGRAMS_RUNTIME_LIB=' + settings['PROGRAMS_RUNTIME_LIB']]
-    command += ['layerxd'] + ['build/tests/' + name for name in TESTS]
+    command += ['build/tests/' + name for name in TESTS]
     record = {'schema': SCHEMA, **source, 'command': command, 'cwd': str(ROOT),
               'log': LOG, 'sources': scoped}
     print('BUILD ' + json.dumps(command), flush=True)

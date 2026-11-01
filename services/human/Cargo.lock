@@ -904,7 +904,6 @@ dependencies = [
  "layerx-identity-binding",
  "layerx-intents",
  "layerx-paxeer-verifier",
- "layerx-programs-protocol-adapter",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
@@ -936,6 +935,7 @@ dependencies = [
  "rustls",
  "serde_json",
  "sha2",
+ "tungstenite",
  "ureq",
 ]
 
@@ -956,35 +956,6 @@ dependencies = [
  "sha2",
  "sha3",
  "subtle",
- "zeroize",
-]
-
-[[package]]
-name = "layerx-explorer-index"
-version = "0.1.0"
-dependencies = [
- "ed25519-dalek",
- "k256",
- "layerx-agentd",
- "layerx-client",
- "layerx-crypto",
- "layerx-intents",
- "layerx-mirror",
- "layerx-network-gateway",
- "layerx-paxeer-verifier",
- "layerx-platform-authority",
- "layerx-program-sdk",
- "layerx-programs-protocol-adapter",
- "layerx-programs-registry",
- "layerx-proof",
- "layerx-sdk",
- "layerx-types",
- "layerx-wire",
- "native-tls",
- "serde_json",
- "sha2",
- "sha3",
- "ureq",
  "zeroize",
 ]
 
@@ -1119,6 +1090,7 @@ dependencies = [
  "sha2",
  "sha3",
  "subtle",
+ "ureq",
  "zeroize",
 ]
 
@@ -1134,6 +1106,7 @@ dependencies = [
  "layerx-intents",
  "layerx-proof",
  "layerx-types",
+ "serde_json",
  "sha2",
 ]
 
@@ -1171,8 +1144,6 @@ dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
  "k256",
- "layerx-agent-api",
- "layerx-client",
  "layerx-crypto",
  "layerx-proof",
  "layerx-wire",
@@ -1224,26 +1195,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "layerx-platform-authority"
-version = "0.1.0"
-dependencies = [
- "layerx-client",
- "layerx-crypto",
- "layerx-identity-binding",
- "layerx-paxeer-verifier",
- "layerx-proof",
- "layerx-types",
- "layerx-wire",
- "rustls",
- "serde",
- "serde_json",
- "sha2",
- "signal-hook",
- "subtle",
- "zeroize",
-]
-
-[[package]]
 name = "layerx-platform-internal"
 version = "0.1.0"
 dependencies = [
@@ -1280,21 +1231,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "layerx-programs-protocol-adapter"
-version = "0.1.0"
-dependencies = [
- "layerx-programs-registry",
-]
-
-[[package]]
 name = "layerx-programs-registry"
 version = "0.1.0"
 dependencies = [
+ "curve25519-dalek",
+ "ed25519-dalek",
  "layerx-program-sdk",
  "layerx-programs-runtime",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
+ "sha2",
 ]
 
 [[package]]

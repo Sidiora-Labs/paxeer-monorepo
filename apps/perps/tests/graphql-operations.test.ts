@@ -1,4 +1,4 @@
-import { describe, it } from "node:test";
+import { describe, it, test } from "node:test";
 import { strict as assert } from "node:assert";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import * as React from "react";
@@ -15,12 +15,13 @@ interface Operation {
 interface GoldenOperation {
   name: string;
   roots: readonly string[];
+  marketFields?: readonly string[];
 }
 
 const root = new URL("../", import.meta.url);
 const read = (file: string) => readFileSync(new URL(file, root), "utf8");
 
-// contracts/data-services.md section 14: the 51 operations of the
+// contracts/data-services.md section 14: the 43 retained operations of the
 // application and the gateway query roots each one selects.
 export const GOLDEN_OPERATIONS: readonly GoldenOperation[] = [
   { name: "GetPositions", roots: ["positions"] },
@@ -28,7 +29,18 @@ export const GOLDEN_OPERATIONS: readonly GoldenOperation[] = [
   { name: "GetTrades", roots: ["trades"] },
   { name: "GetOrders", roots: ["orders"] },
   { name: "GetMarketInfo", roots: ["market", "marketStats"] },
-  { name: "GetMarkets", roots: ["markets"] },
+  {
+    name: "GetMarkets",
+    roots: ["markets"],
+    marketFields: [
+      "oracleSymbol",
+      "szDecimals",
+      "pxDecimals",
+      "tickSize",
+      "lotSize",
+      "tierClass",
+    ],
+  },
   { name: "GetGlobalStats", roots: ["globalStats"] },
   { name: "GetUserStats", roots: ["userStats"] },
   { name: "GetUserVault", roots: ["userVault"] },
@@ -65,15 +77,7 @@ export const GOLDEN_OPERATIONS: readonly GoldenOperation[] = [
   { name: "GetSpotOrders", roots: ["spotOrders"] },
   { name: "GetSpotOrder", roots: ["spotOrder"] },
   { name: "GetSpotOrderFills", roots: ["spotOrderFills"] },
-  { name: "GetSpotBatchClearings", roots: ["spotBatchClearings"] },
-  { name: "GetSpotEpochSettlements", roots: ["spotEpochSettlements"] },
-  { name: "GetSpotFastSettlements", roots: ["spotFastSettlements"] },
   { name: "GetSpotCollateralMovements", roots: ["spotCollateralMovements"] },
-  { name: "GetSpotMarketModeChanges", roots: ["spotMarketModeChanges"] },
-  { name: "GetSpotPofqUpdates", roots: ["spotPofqUpdates"] },
-  { name: "GetSpotPLVs", roots: ["spotPLVs"] },
-  { name: "GetSpotKeeperCycles", roots: ["spotKeeperCycles"] },
-  { name: "GetSpotBatchClearFailures", roots: ["spotBatchClearFailures"] },
 ];
 
 // contracts/data-services.md section 27: the PerfDB operations that join
@@ -103,10 +107,8 @@ const GATEWAY_QUERY_ROOTS: ReadonlySet<string> = new Set([
   "marketSnapshots", "protocolSnapshots", "enrichedGlobalStats",
   "enrichedMarketStats", "orderlyTickers", "orderlyFundingRates",
   "orderlyPriceChanges", "orderlyOpenInterests", "spotMarket", "spotMarkets",
-  "spotOrder", "spotOrders", "spotOrderFills", "spotBatchClearings",
-  "spotEpochSettlements", "spotFastSettlements", "spotCollateralMovements",
-  "spotMarketModeChanges", "spotPofqUpdates", "spotPLVs", "spotKeeperCycles",
-  "spotBatchClearFailures", "leaderboard",
+  "spotOrder", "spotOrders", "spotOrderFills", "spotCollateralMovements",
+  "leaderboard",
   "user", "userBalances", "userDailyPnl", "userAlerts", "userReferrals",
   "referralTiers", "competitions", "competition",
 ]);
@@ -238,11 +240,76 @@ const PERFDB_FILES = [
   "src/hooks/perps/usePerfdbSubscriptions.ts",
 ];
 
+function retiredSpotOperationsAbsent() {
+  const retired = [
+    ["spotBatchClearings", "SPOT_BATCH_CLEARINGS_QUERY"],
+    ["spotEpochSettlements", "SPOT_EPOCH_SETTLEMENTS_QUERY"],
+    ["spotFastSettlements", "SPOT_FAST_SETTLEMENTS_QUERY"],
+    ["spotMarketModeChanges", "SPOT_MARKET_MODE_CHANGES_QUERY"],
+    ["spotPofqUpdates", "SPOT_POFQ_UPDATES_QUERY"],
+    ["spotPLVs", "SPOT_PLVS_QUERY"],
+    ["spotKeeperCycles", "SPOT_KEEPER_CYCLES_QUERY"],
+    ["spotBatchClearFailures", "SPOT_BATCH_CLEAR_FAILURES_QUERY"],
+  ] as const;
+  const source = read(SUBGRAPH);
+  const operations = operationsIn(SUBGRAPH);
+  const query = sdlFields(read("src/core/perps/perpetual.graphql")).get("Query");
+  assert.ok(query, "the application SDL declares Query");
+  for (const [field, exportName] of retired) {
+    const operationName = `Get${field[0]!.toUpperCase()}${field.slice(1)}`;
+    assert.doesNotMatch(source, new RegExp(`\\b${exportName}\\b`), exportName);
+    assert.doesNotMatch(source, new RegExp(`\\b${field}\\b`), field);
+    assert.equal(
+      operations.some((op) => op.name === operationName || op.roots.includes(field)),
+      false,
+      field,
+    );
+    assert.equal(
+      GOLDEN_OPERATIONS.some((op) => op.name === operationName || op.roots.includes(field)),
+      false,
+      field,
+    );
+    assert.equal(GATEWAY_QUERY_ROOTS.has(field), false, field);
+    assert.equal(query.has(field), false, field);
+  }
+}
+
+test(retiredSpotOperationsAbsent);
+
+function gatewayMarketConfigFields() {
+  const operation = GOLDEN_OPERATIONS.find((op) => op.name === "GetMarkets");
+  assert.ok(operation?.marketFields);
+  const document = [...read(SUBGRAPH).matchAll(/\/\* GraphQL \*\/\s*`([^`]*)`/g)]
+    .map((match) => match[1]!)
+    .find((query) => parseOperation(query).name === "GetMarkets");
+  assert.ok(document);
+  const market = sdlFields(read("src/core/perps/perpetual.graphql")).get("Market");
+  assert.ok(market);
+  const expectedTypes: Record<string, string> = {
+    oracleSymbol: "String!",
+    szDecimals: "Int",
+    pxDecimals: "Int",
+    tickSize: "BigDecimal",
+    lotSize: "BigDecimal",
+    tierClass: "Int",
+  };
+  for (const field of operation.marketFields) {
+    assert.match(
+      document,
+      new RegExp(`\\b${field}\\b`),
+      `GetMarkets selects ${field}`,
+    );
+    assert.equal(market.get(field), expectedTypes[field], `Market.${field}`);
+  }
+}
+
+test(gatewayMarketConfigFields);
+
 describe("graphql operations", () => {
   it("subgraphOperationsMatchGolden", () => {
     const ops = operationsIn(SUBGRAPH);
-    assert.equal(ops.length, 51);
-    assert.equal(GOLDEN_OPERATIONS.length, 51);
+    assert.equal(ops.length, 43);
+    assert.equal(GOLDEN_OPERATIONS.length, 43);
     assert.ok(ops.every((op) => op.kind === "query"));
     assert.deepEqual(named(ops), golden(GOLDEN_OPERATIONS));
   });

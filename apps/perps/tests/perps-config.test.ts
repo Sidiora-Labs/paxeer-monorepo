@@ -1,32 +1,54 @@
-import { describe, it } from "node:test";
+import { describe, it, test } from "node:test";
 import { strict as assert } from "node:assert";
 
-import * as config from "../src/core/perps/config";
-import {
-  FEE_TYPE_LABELS,
-  ORDER_TYPE_COLORS,
-  ORDER_TYPE_LABELS,
-  PERPS_MARKETS,
-  POSITION_ACTION_COPY,
-  TRADE_TYPE_LABELS,
-} from "../src/core/perps/config";
+async function loadConfig() {
+  process.env.NEXT_PUBLIC_PERPS_GATEWAY_URL = "https://gateway.example.test";
+  return import("../src/core/perps/config");
+}
+
+async function configHasNoSpotDesignExports() {
+  const config = await loadConfig();
+  const { PERPS_MARKETS } = config;
+  const exported = Object.keys(config);
+  for (const name of [
+    "SPOT_MODE_LABELS",
+    "POFQ_TIER_LABELS",
+    "SPOT_MODE_BANNER_COPY",
+  ]) {
+    assert.equal(exported.includes(name), false, `${name} is exported`);
+  }
+
+  assert.equal(PERPS_MARKETS.length, 18);
+  assert.deepEqual(
+    PERPS_MARKETS.map((market) => market.marketId),
+    Array.from({ length: 18 }, (_, i) => i),
+  );
+  for (const market of PERPS_MARKETS) {
+    assert.equal("maxLeverage" in market, false, `${market.symbol} maxLeverage`);
+  }
+}
+
+test(configHasNoSpotDesignExports);
 
 describe("perps configuration", () => {
-  it("leverageIsOneThousandForAll", () => {
+  it("marketIdsAreSequential", async () => {
+    const { PERPS_MARKETS } = await loadConfig();
     assert.equal(PERPS_MARKETS.length, 18);
     assert.deepEqual(
       PERPS_MARKETS.map((m) => m.marketId),
       Array.from({ length: 18 }, (_, i) => i),
     );
-    for (const market of PERPS_MARKETS) {
-      assert.equal(market.maxLeverage, 1000, `${market.symbol} maxLeverage`);
-    }
     const link = PERPS_MARKETS.find((m) => m.symbol === "LINK");
     assert.equal(link?.marketId, 4);
-    assert.equal(link?.maxLeverage, 1000);
   });
 
-  it("enumLabelsFollowPerpsNumbering", () => {
+  it("enumLabelsFollowPerpsNumbering", async () => {
+    const {
+      FEE_TYPE_LABELS,
+      ORDER_TYPE_COLORS,
+      ORDER_TYPE_LABELS,
+      TRADE_TYPE_LABELS,
+    } = await loadConfig();
     assert.deepEqual(ORDER_TYPE_LABELS, {
       0: "Limit",
       1: "Stop-Limit",
@@ -63,7 +85,9 @@ describe("perps configuration", () => {
     });
   });
 
-  it("diamondSpotTablesRemoved", () => {
+  it("diamondSpotTablesRemoved", async () => {
+    const config = await loadConfig();
+    const { POSITION_ACTION_COPY } = config;
     const exported = Object.keys(config);
     for (const name of [
       "SPOT_TOKENS",

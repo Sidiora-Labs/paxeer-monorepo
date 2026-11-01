@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { keccak256, verifySequencerReceipt } from "@sidiora/layerx-sdk";
 
 const LOOPBACK = new Set(["127.0.0.1", "localhost", "::1"]);
 
@@ -39,7 +40,6 @@ export async function loadApplicationConfig(moduleUrl, application) {
     action: selected.action,
     directory,
     ...config,
-    protocolVersion: applicationProtocolVersion(config),
   });
 }
 
@@ -56,15 +56,7 @@ export function applicationStatePath(config, relative) {
   return resolve(stateRoot, config.application, relative);
 }
 
-export const SELECTABLE_PROTOCOL_VERSIONS = Object.freeze([2, 3]);
-
-export function applicationProtocolVersion(config) {
-  const version = exactObject(config).protocolVersion;
-  if (!SELECTABLE_PROTOCOL_VERSIONS.includes(version)) throw new Error("missing_application_protocol_version");
-  return version;
-}
-
-const ENDPOINT_FIELDS = Object.freeze(["humanUrl", "receiptAuthorityUrl", "settlementUrl", "endpoint"]);
+const ENDPOINT_FIELDS = Object.freeze(["humanUrl", "rpcUrl", "settlementUrl", "endpoint"]);
 
 export function applyEndpointOverride(environment, config) {
   const override = optionalEnvironment("LAYERX_EXAMPLE_ENDPOINT");
@@ -81,50 +73,114 @@ export function applyEndpointOverride(environment, config) {
   return rebased;
 }
 
-export class ReceiptAuthorityClient {
-  constructor(baseUrl, token) {
-    this.baseUrl = secureBaseUrl(baseUrl);
-    this.token = token;
+export function receiptKeysFromEnvironment(name) {
+  const entries = JSON.parse(requiredEnvironment(name));
+  if (!Array.isArray(entries) || entries.length === 0) throw new Error("invalid_receipt_keys");
+  return Object.freeze(entries.map((entry) => {
+    const key = exactObject(entry);
+    const firstHeight = receiptKeyHeight(key.firstHeight);
+    const lastHeight = receiptKeyHeight(key.lastHeight);
+    if (firstHeight > lastHeight) throw new Error("invalid_receipt_key_range");
+    return Object.freeze({
+      keyId: hex32(key.keyId),
+      first_height: firstHeight,
+      last_height: lastHeight,
+      publicKey: hex32(key.publicKey),
+    });
+  }));
+}
+
+export class SequencerReceiptClient {
+  #receiptKeys;
+
+  constructor(rpcUrl, receiptKeys) {
+    this.rpcUrl = secureUrl(rpcUrl).toString();
+    if (!Array.isArray(receiptKeys) || receiptKeys.length === 0) throw new Error("invalid_receipt_keys");
+    this.#receiptKeys = receiptKeys.map((key) => {
+      if (!(key.keyId instanceof Uint8Array) || key.keyId.length !== 32
+        || !(key.publicKey instanceof Uint8Array) || key.publicKey.length !== 32
+        || typeof key.first_height !== "bigint" || typeof key.last_height !== "bigint"
+        || key.first_height < 0n || key.last_height > 0xffff_ffff_ffff_ffffn
+        || key.first_height > key.last_height) throw new Error("invalid_receipt_keys");
+      return Object.freeze({ ...key, keyId: new Uint8Array(key.keyId), publicKey: new Uint8Array(key.publicKey) });
+    });
   }
 
-  async resolve(canonicalReceipt) {
-    const activityId = receiptActivityId(canonicalReceipt);
-    const evidence = await this.resolveReference(activityId);
-    if (!equalBytes(evidence.canonicalReceipt, canonicalReceipt)) {
-      throw new LayerXApplicationStateError("unknown", "receipt_authority_mismatch");
-    }
-    return evidence.authorizedBatch;
-  }
-
-  async resolveReference(reference) {
-    if (!/^[A-Za-z0-9._:-]{1,256}$/u.test(reference)) {
-      throw new LayerXApplicationStateError("refused", "invalid_receipt_reference");
-    }
-    const headers = new Headers({ accept: "application/json" });
-    if (this.token !== undefined) headers.set("authorization", `Bearer ${this.token}`);
+  async resolve(rawTransaction) {
+    const raw = rawTransaction instanceof Uint8Array
+      ? new Uint8Array(rawTransaction) : receiptBytes(rawTransaction);
+    if (raw.length === 0) throw new LayerXApplicationStateError("refused", "invalid_raw_transaction");
+    const txHash = receiptHex(keccak256(raw));
     let response;
+    let body;
     try {
-      response = await fetch(new URL(`/v1/receipts/${encodeURIComponent(reference)}`, this.baseUrl), { headers });
+      response = await fetch(this.rpcUrl, {
+        method: "POST",
+        headers: { accept: "application/json", "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "pax_sequencerReceipt", params: [txHash] }),
+      });
+      body = await response.json();
     } catch {
-      throw new LayerXApplicationStateError("unknown", "receipt_authority_unreachable");
+      throw new LayerXApplicationStateError("unknown", "sequencer_receipt_unreachable");
     }
-    const body = await response.json().catch(() => undefined);
-    if (!response.ok) throw authorityHttpState(response.status);
-    const envelope = exactObject(body);
-    const result = exactObject(envelope.result ?? envelope);
-    const canonicalReceipt = decodeReceipt(result.receipt);
-    const authority = exactObject(result.authority);
-    return {
-      canonicalReceipt,
-      authorizedBatch: {
-        batchId: hex32(authority.batch_id),
-        asset: hex32(authority.asset),
-        previousStateRoot: hex32(authority.previous_state_root),
-        resultingStateRoot: hex32(authority.resulting_state_root),
-        sequencerPublicKey: hex32(authority.sequencer_public_key),
-      },
-    };
+    if (body === null || typeof body !== "object" || Array.isArray(body)
+      || body.jsonrpc !== "2.0" || body.id !== 1) {
+      throw new LayerXApplicationStateError("unknown", "invalid_sequencer_response");
+    }
+    if (body.error !== undefined) throw new LayerXApplicationStateError("refused", "sequencer_receipt_refused");
+    if (!response.ok) throw new LayerXApplicationStateError("unknown", `sequencer_receipt_http_${response.status}`);
+    const result = body.result;
+    if (result === null || typeof result !== "object" || Array.isArray(result) || result.txHash !== txHash) {
+      throw new LayerXApplicationStateError("unknown", "sequencer_receipt_mismatch");
+    }
+    if (result.rung === "submitted") throw new LayerXApplicationStateError("pending", "sequencer_receipt_submitted");
+    if (result.rung !== "receipted" && result.rung !== "committed") {
+      throw new LayerXApplicationStateError("unknown", "invalid_sequencer_receipt_rung");
+    }
+    const signedReceipt = receiptBytes(result.receipt);
+    for (const key of this.#receiptKeys) {
+      try {
+        await verifySequencerReceipt(signedReceipt, raw, [key]);
+      } catch {
+        continue;
+      }
+      return {
+        format: "layerx-receipt-proof-v2",
+        verificationLevel: "receipted",
+        rawTransaction: receiptHex(raw),
+        signedReceipt: receiptHex(signedReceipt),
+        receiptDigest: receiptHex(keccak256(signedReceipt)),
+        receiptKey: {
+          keyId: receiptHex(key.keyId),
+          publicKey: receiptHex(key.publicKey),
+          firstHeight: `0x${key.first_height.toString(16)}`,
+          lastHeight: `0x${key.last_height.toString(16)}`,
+        },
+      };
+    }
+    throw new LayerXApplicationStateError("refused", "sequencer_receipt_verification_failed");
   }
+}
+
+function receiptKeyHeight(value) {
+  if ((typeof value !== "string" || !/^(?:0|[1-9][0-9]*|0x(?:0|[1-9a-f][0-9a-f]{0,15}))$/u.test(value))
+    && (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0)) {
+    throw new Error("invalid_receipt_key_height");
+  }
+  const height = BigInt(value);
+  if (height > 0xffff_ffff_ffff_ffffn) throw new Error("invalid_receipt_key_height");
+  return height;
+}
+
+function receiptBytes(value) {
+  if (typeof value !== "string" || !/^0x(?:[0-9a-f]{2})+$/u.test(value) || value.length > 2097154) {
+    throw new LayerXApplicationStateError("refused", "invalid_sequencer_receipt_data");
+  }
+  return Uint8Array.from(Buffer.from(value.slice(2), "hex"));
+}
+
+function receiptHex(value) {
+  return `0x${Buffer.from(value).toString("hex")}`;
 }
 
 const DIAGNOSTIC_LIMIT = 1024;
@@ -192,41 +248,4 @@ function parseArguments() {
     throw new Error("usage_--action_deploy_list_or_buy");
   }
   return { environment: arguments_[1], action: arguments_[3] ?? "run" };
-}
-
-function receiptActivityId(receipt) {
-  if (!(receipt instanceof Uint8Array) || receipt.length < 42) {
-    throw new LayerXApplicationStateError("refused", "invalid_canonical_receipt");
-  }
-  const view = new DataView(receipt.buffer, receipt.byteOffset, receipt.byteLength);
-  const envelopeVersion = view.getUint16(0);
-  const structureTag = view.getUint16(2);
-  const protocolVersion = view.getUint16(4);
-  const activityIdLength = view.getUint32(6);
-  if (
-    envelopeVersion < 1 || envelopeVersion > 3
-    || (structureTag !== 0x5201 && structureTag !== 0x5202)
-    || protocolVersion !== envelopeVersion
-    || activityIdLength !== 32
-  ) {
-    throw new LayerXApplicationStateError("refused", "invalid_canonical_receipt");
-  }
-  return Buffer.from(receipt.subarray(10, 42)).toString("hex");
-}
-
-function decodeReceipt(value) {
-  if (typeof value !== "string") throw new LayerXApplicationStateError("unknown", "receipt_authority_omitted_receipt");
-  if (/^(?:[0-9a-fA-F]{2})+$/u.test(value)) return Uint8Array.from(Buffer.from(value, "hex"));
-  if (/^[A-Za-z0-9+/]+={0,2}$/u.test(value)) return Uint8Array.from(Buffer.from(value, "base64"));
-  throw new LayerXApplicationStateError("unknown", "receipt_authority_returned_invalid_receipt");
-}
-
-function authorityHttpState(status) {
-  if (status === 404 || status === 408 || status === 409 || status === 425) {
-    return new LayerXApplicationStateError("pending", `receipt_authority_http_${status}`);
-  }
-  if (status === 400 || status === 401 || status === 403 || status === 410 || status === 422) {
-    return new LayerXApplicationStateError("refused", `receipt_authority_http_${status}`);
-  }
-  return new LayerXApplicationStateError("unknown", `receipt_authority_http_${status}`);
 }

@@ -84,6 +84,8 @@ macro_rules! protocol_result_codes {
 
 include!(concat!(env!("OUT_DIR"), "/result_codes.rs"));
 
+const REGISTRY_RETRYABLE: &[(&str, &str, bool)] = generated_registry::REGISTRY_RETRYABLE;
+
 impl KnownResult {
     /// Parses the registry wire form `LXP_<code>: <message>` of an ABI
     /// `Error(string)` revert, where `<code>` is the header name without its
@@ -104,10 +106,24 @@ impl KnownResult {
 
 impl Retriability {
     /// Classifies the revert reason of a submitted transaction through the
-    /// mirror table; an unknown or malformed reason fails closed as terminal.
+    /// mirror and registry tables; an unknown or malformed reason fails closed
+    /// as terminal.
     #[must_use]
     pub fn of_revert_reason(text: &str) -> Self {
-        KnownResult::from_revert_reason(text).map_or(Self::Terminal, KnownResult::retriability)
+        if let Some(known) = KnownResult::from_revert_reason(text) {
+            return known.retriability();
+        }
+        let Some((code, message)) = text.split_once(": ") else {
+            return Self::Terminal;
+        };
+        match REGISTRY_RETRYABLE
+            .iter()
+            .find(|(registered_code, registered_message, _)| {
+                code == *registered_code && message == *registered_message
+            }) {
+            Some((_, _, true)) => Self::Retriable,
+            _ => Self::Terminal,
+        }
     }
 }
 

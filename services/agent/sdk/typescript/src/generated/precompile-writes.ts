@@ -189,7 +189,7 @@ export const LAUNCHPAD_WRITES = {
   "sellWithPermit(address,uint256,uint256,uint256,(uint256,uint256,uint8,bytes32,bytes32))": {"types":["address","uint256","uint256","uint256","(uint256,uint256,uint8,bytes32,bytes32)"],"payable":false},
   "swapTokenForToken(address,address,uint256,uint256,uint256)": {"types":["address","address","uint256","uint256","uint256"],"payable":false},
   "swapTokenForTokenWithPermit(address,address,uint256,uint256,uint256,(uint256,uint256,uint8,bytes32,bytes32))": {"types":["address","address","uint256","uint256","uint256","(uint256,uint256,uint8,bytes32,bytes32)"],"payable":false},
-  "upgradeToAndCall(address,bytes)": {"types":["address","bytes"],"payable":true},
+  "upgradeToAndCall(address,bytes)": {"types":["address","bytes"],"payable":false},
   "createMarketFor(address,string,string,uint8,address)": {"types":["address","string","string","uint8","address"],"payable":false},
   "initialize(address,address,address,address,address,address,address,address,address)": {"types":["address","address","address","address","address","address","address","address","address"],"payable":false},
   "initialize(address,address,address)": {"types":["address","address","address"],"payable":false},

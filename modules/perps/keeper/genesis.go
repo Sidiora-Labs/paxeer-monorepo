@@ -33,7 +33,7 @@ func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 	}
 }
 
-func (k *Keeper) initGenesis(ctx sdk.Context, gs types.GenesisState) error {
+func ValidateGenesis(gs types.GenesisState) error {
 	full, err := rebuildIndexes(gs)
 	if err != nil {
 		return err
@@ -41,7 +41,15 @@ func (k *Keeper) initGenesis(ctx sdk.Context, gs types.GenesisState) error {
 	if err := types.ValidateGenesis(full); err != nil {
 		return err
 	}
-	if err := matchSuppliedIndexes(gs, full); err != nil {
+	return matchSuppliedIndexes(gs, full)
+}
+
+func (k *Keeper) initGenesis(ctx sdk.Context, gs types.GenesisState) error {
+	if err := ValidateGenesis(gs); err != nil {
+		return err
+	}
+	full, err := rebuildIndexes(gs)
+	if err != nil {
 		return err
 	}
 	if err := k.setParams(ctx, gs.Params); err != nil {

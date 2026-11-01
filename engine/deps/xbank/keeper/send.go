@@ -46,9 +46,11 @@ type SendKeeper interface {
 
 	BlockedAddr(addr sdk.AccAddress) bool
 	RegisterRecipientChecker(RecipientChecker)
+	RegisterSendEnabledChecker(SendEnabledChecker)
 }
 
 type RecipientChecker = func(ctx sdk.Context, recipient sdk.AccAddress) bool
+type SendEnabledChecker = func(ctx sdk.Context, denom string) bool
 
 // BalanceChangeHook observes addr's balance of denom immediately before
 // setBalance replaces it. before reads the stored balance on ctx, so a hook
@@ -74,9 +76,10 @@ type BaseSendKeeper struct {
 	paramSpace paramtypes.Subspace
 
 	// list of addresses that are restricted from receiving transactions
-	blockedAddrs       map[string]bool
-	recipientCheckers  *[]RecipientChecker
-	balanceChangeHooks *[]namedBalanceChangeHook
+	blockedAddrs        map[string]bool
+	recipientCheckers   *[]RecipientChecker
+	sendEnabledCheckers *[]SendEnabledChecker
+	balanceChangeHooks  *[]namedBalanceChangeHook
 }
 
 func NewBaseSendKeeper(
@@ -84,14 +87,15 @@ func NewBaseSendKeeper(
 ) BaseSendKeeper {
 
 	return BaseSendKeeper{
-		BaseViewKeeper:     NewBaseViewKeeper(cdc, storeKey, ak),
-		cdc:                cdc,
-		ak:                 ak,
-		storeKey:           storeKey,
-		paramSpace:         paramSpace,
-		blockedAddrs:       blockedAddrs,
-		recipientCheckers:  &[]RecipientChecker{},
-		balanceChangeHooks: &[]namedBalanceChangeHook{},
+		BaseViewKeeper:      NewBaseViewKeeper(cdc, storeKey, ak),
+		cdc:                 cdc,
+		ak:                  ak,
+		storeKey:            storeKey,
+		paramSpace:          paramSpace,
+		blockedAddrs:        blockedAddrs,
+		recipientCheckers:   &[]RecipientChecker{},
+		sendEnabledCheckers: &[]SendEnabledChecker{},
+		balanceChangeHooks:  &[]namedBalanceChangeHook{},
 	}
 }
 
@@ -169,6 +173,11 @@ func (k BaseSendKeeper) InputOutputCoins(ctx sdk.Context, inputs []types.Input, 
 // SendCoins transfers amt coins from a sending account to a receiving account.
 // An error is returned upon failure.
 func (k BaseSendKeeper) SendCoins(ctx sdk.Context, fromAddr sdk.AccAddress, toAddr sdk.AccAddress, amt sdk.Coins) error {
+	for _, coin := range amt {
+		if !k.isSendEnabledByCheckers(ctx, coin.Denom) {
+			return sdkerrors.Wrapf(types.ErrSendDisabled, "%s transfers are currently disabled", coin.Denom)
+		}
+	}
 	if err := k.SendCoinsWithoutAccCreation(ctx, fromAddr, toAddr, amt); err != nil {
 		return err
 	}
@@ -364,7 +373,19 @@ func (k BaseSendKeeper) IsSendEnabledCoins(ctx sdk.Context, coins ...sdk.Coin) e
 
 // IsSendEnabledCoin returns the current SendEnabled status of the provided coin's denom
 func (k BaseSendKeeper) IsSendEnabledCoin(ctx sdk.Context, coin sdk.Coin) bool {
-	return k.GetParams(ctx).SendEnabledDenom(coin.Denom)
+	if !k.GetParams(ctx).SendEnabledDenom(coin.Denom) {
+		return false
+	}
+	return k.isSendEnabledByCheckers(ctx, coin.Denom)
+}
+
+func (k BaseSendKeeper) isSendEnabledByCheckers(ctx sdk.Context, denom string) bool {
+	for _, checker := range *k.sendEnabledCheckers {
+		if !checker(ctx, denom) {
+			return false
+		}
+	}
+	return true
 }
 
 // BlockedAddr checks if a given address is restricted from
@@ -457,6 +478,10 @@ func (k BaseSendKeeper) SendCoinsAndWei(ctx sdk.Context, from sdk.AccAddress, to
 	if amt.IsZero() && wei.IsZero() {
 		return nil
 	}
+	denom := sdk.MustGetBaseDenom()
+	if !k.isSendEnabledByCheckers(ctx, denom) {
+		return sdkerrors.Wrapf(types.ErrSendDisabled, "%s transfers are currently disabled", denom)
+	}
 	cacheCtx, write := ctx.CacheContext()
 	if err := k.SubWei(cacheCtx, from, wei); err != nil {
 		return err
@@ -502,6 +527,10 @@ func (k BaseSendKeeper) RegisterBalanceChangeHook(name string, hook BalanceChang
 
 func (k BaseSendKeeper) RegisterRecipientChecker(rc RecipientChecker) {
 	*k.recipientCheckers = append(*k.recipientCheckers, rc)
+}
+
+func (k BaseSendKeeper) RegisterSendEnabledChecker(checker SendEnabledChecker) {
+	*k.sendEnabledCheckers = append(*k.sendEnabledCheckers, checker)
 }
 
 func (k BaseSendKeeper) CanSendTo(ctx sdk.Context, recipient sdk.AccAddress) bool {

@@ -1,5 +1,7 @@
-#[path = "../../layerx-programs-registry/tests/support/mod.rs"]
-pub mod protocol_support;
+#[path = "../../layerx-programs-registry/tests/support/chain.rs"]
+mod chain;
+
+use sha2::{Digest, Sha256};
 
 use layerx_programs_runtime::{
     AuthorizationContext, CapabilitySet, FeeSchedule, Meter, PrincipalId, ProgramId,
@@ -75,63 +77,86 @@ fn call_payload(host: ProgramId, transition: LeaseTransition) -> Vec<u8> {
     payload
 }
 
-fn verified(
+fn proven_transition(
     lease: &Lease,
     mut transition: LeaseTransition,
     batch: u64,
+) -> (LeaseTransition, Vec<u8>, chain::ChainFixture) {
+    transition.activity_id = Sha256::digest(call_payload(lease.host_program(), transition)).into();
+    let mut canonical = lease
+        .canonical_state_bytes()
+        .unwrap_or_else(|error| panic!("lease state: {error}"));
+    // The fixed fields precede the state tag and the length-prefixed receipt history.
+    let state_offset =
+        b"LayerX/programs/sandbox/lease-state/v3\0".len() + 8 * 32 + 16 + 18 * 8 + 4 + 7 * 8 + 16;
+    canonical[state_offset] = transition.to as u8;
+    canonical[state_offset + 1] = u8::try_from(lease.history().len() + 1)
+        .unwrap_or_else(|error| panic!("history length: {error}"));
+    let history_end = state_offset + 2 + lease.history().len() * (3 + 3 * 32 + 8);
+    let mut receipt = vec![
+        transition.activity as u8,
+        transition.from as u8,
+        transition.to as u8,
+    ];
+    receipt.extend_from_slice(&transition.activity_id);
+    receipt.extend_from_slice(&transition.usage_observation_digest);
+    let mut digest = Sha256::new();
+    digest.update(lease.id().bytes());
+    digest.update(&receipt);
+    digest.update(batch.to_be_bytes());
+    receipt.extend_from_slice(&digest.finalize());
+    receipt.extend_from_slice(&batch.to_be_bytes());
+    canonical.splice(history_end..history_end, receipt);
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let fixture = chain::ChainFixture::new_in_store(
+        "lxphost",
+        "paxeer-lease-chain",
+        &[[1; 32], [2; 32], [3; 32]],
+        vec![(key, canonical.clone())],
+    )
+    .unwrap_or_else(|error| panic!("chain: {error:?}"));
+    (transition, canonical, fixture)
+}
+
+fn verified(
+    lease: &Lease,
+    transition: LeaseTransition,
+    batch: u64,
 ) -> (LeaseTransition, TransitionEvidence) {
-    let fixture = protocol_support::programs_call_fixture(
-        &call_payload(lease.host_program(), transition),
-        batch,
-        protocol_support::NOW,
-    );
-    let verifier = protocol_support::verifier_for_fixture(&fixture, batch, batch, None, 1_000);
-    let state = &fixture.proof.state;
-    let head = verifier
-        .verify_current_protocol_head(
-            &state.receipt,
-            &state.receipt_proof,
-            &state.header,
-            &state.header_signature,
-            protocol_support::NOW,
-        )
-        .unwrap_or_else(|error| panic!("verified head: {error}"));
-    transition.activity_id = head.activity_id();
+    let (transition, canonical, fixture) = proven_transition(lease, transition, batch);
+    let head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("head: {error:?}"));
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let ops = fixture
+        .prove(&key)
+        .unwrap_or_else(|error| panic!("lease proof: {error:?}"));
     let evidence = TransitionEvidence::verify_call(
         &head,
         lease,
         transition,
         &AuthorizationContext::new(lease.tenant(), CapabilitySet::empty()),
-        &fixture.proof.activity,
-        &fixture.proof.activity_proof,
-        &state.header,
+        &canonical,
+        &ops,
     )
     .unwrap_or_else(|error| panic!("transition evidence: {error}"));
     (transition, evidence)
 }
 
-fn wrong_principal_refusal(
-    lease: &Lease,
-    mut transition: LeaseTransition,
-    batch: u64,
-) -> LeaseRefusal {
-    let fixture = protocol_support::programs_call_fixture(
-        &call_payload(lease.host_program(), transition),
-        batch,
-        protocol_support::NOW,
-    );
-    let verifier = protocol_support::verifier_for_fixture(&fixture, batch, batch, None, 1_000);
-    let state = &fixture.proof.state;
-    let head = verifier
-        .verify_current_protocol_head(
-            &state.receipt,
-            &state.receipt_proof,
-            &state.header,
-            &state.header_signature,
-            protocol_support::NOW,
-        )
-        .unwrap_or_else(|error| panic!("verified head: {error}"));
-    transition.activity_id = head.activity_id();
+fn wrong_principal_refusal(lease: &Lease, transition: LeaseTransition, batch: u64) -> LeaseRefusal {
+    let (transition, canonical, fixture) = proven_transition(lease, transition, batch);
+    let head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("head: {error:?}"));
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let ops = fixture
+        .prove(&key)
+        .unwrap_or_else(|error| panic!("lease proof: {error:?}"));
     TransitionEvidence::verify_call(
         &head,
         lease,
@@ -140,9 +165,8 @@ fn wrong_principal_refusal(
             PrincipalId::new([0x77; 32]).unwrap_or_else(|error| panic!("wrong principal: {error}")),
             CapabilitySet::empty(),
         ),
-        &fixture.proof.activity,
-        &fixture.proof.activity_proof,
-        &state.header,
+        &canonical,
+        &ops,
     )
     .err()
     .unwrap_or_else(|| panic!("wrong principal was accepted"))
@@ -198,30 +222,99 @@ fn real_receipts_drive_every_lifecycle_edge_and_destroyed_never_revives() {
         request_digest,
         10,
     );
+    assert_eq!(request_evidence.tx_hash(), request.activity_id);
+    assert_eq!(
+        request_evidence.state_height(),
+        u64::try_from(chain::STATE_HEIGHT).unwrap_or_else(|error| panic!("height: {error}"))
+    );
     let mut book = LeaseBook::new();
     book.insert_requested(lease, request, request_evidence)
         .unwrap_or_else(|error| panic!("request: {error}"));
+    let requested = book
+        .get(request.lease)
+        .unwrap_or_else(|| panic!("requested lease"));
+    assert_eq!(requested.state(), LeaseState::Requested);
+    assert_eq!(requested.history().len(), 1);
+    assert_eq!(requested.history()[0].transition, request);
+    assert_eq!(requested.history()[0].batch_sequence, 10);
+    assert_eq!(
+        requested.state_digest(),
+        Ok(request_evidence.lease_digest())
+    );
     drive_lifecycle_edges(&mut book);
     let destroyed = book
         .get(LeaseId::new([1; 32]).unwrap_or_else(|error| panic!("id: {error}")))
         .unwrap_or_else(|| panic!("destroyed lease"))
         .clone();
-    let (revive, evidence) = transition(
-        &destroyed,
-        LeaseActivity::Fund,
-        LeaseState::Destroyed,
-        LeaseState::Funded,
-        [0; 32],
-        16,
-    );
-    assert_eq!(
-        book.transition(destroyed.id(), revive, evidence),
-        Err(LeaseRefusal::InvalidTransition)
-    );
+    assert_eq!(destroyed.state(), LeaseState::Destroyed);
+    assert_eq!(destroyed.history().len(), 6);
     let encoded = destroyed
         .canonical_state_bytes()
         .unwrap_or_else(|error| panic!("encode: {error}"));
-    assert_eq!(Lease::decode_state(&encoded), Ok(destroyed));
+    assert_eq!(Lease::decode_state(&encoded), Ok(destroyed.clone()));
+    let key = layerx_programs_sandbox::sandbox_state_key(0, destroyed.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let fixture = chain::ChainFixture::new_in_store(
+        "lxphost",
+        "paxeer-lease-chain",
+        &[[1; 32], [2; 32], [3; 32]],
+        vec![(key.clone(), encoded.clone())],
+    )
+    .unwrap_or_else(|error| panic!("destroyed chain: {error:?}"));
+    let head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("destroyed head: {error:?}"));
+    let ops = fixture
+        .prove(&key)
+        .unwrap_or_else(|error| panic!("destroyed proof: {error:?}"));
+    assert_eq!(
+        layerx_programs::chain_proof::state::verify_state(&head, "lxphost", &key, &encoded, &ops),
+        Ok(chain::STATE_HEIGHT)
+    );
+    let authorization = AuthorizationContext::new(destroyed.tenant(), CapabilitySet::empty());
+    for activity in [
+        LeaseActivity::Request,
+        LeaseActivity::Fund,
+        LeaseActivity::Activate,
+        LeaseActivity::BeginSettlement,
+        LeaseActivity::Expire,
+        LeaseActivity::Destroy,
+        LeaseActivity::CloseBoundExceeded,
+        LeaseActivity::Snapshot,
+    ] {
+        for to in [
+            LeaseState::Requested,
+            LeaseState::Funded,
+            LeaseState::Active,
+            LeaseState::Settling,
+            LeaseState::Expired,
+            LeaseState::Destroyed,
+        ] {
+            let revive = LeaseTransition {
+                lease: destroyed.id(),
+                tenant: destroyed.tenant(),
+                activity,
+                from: LeaseState::Destroyed,
+                to,
+                activity_id: Sha256::digest([activity as u8, to as u8, 16]).into(),
+                usage_observation_digest: [0; 32],
+            };
+            assert_eq!(
+                TransitionEvidence::verify_call(
+                    &head,
+                    &destroyed,
+                    revive,
+                    &authorization,
+                    &encoded,
+                    &ops,
+                ),
+                Err(LeaseRefusal::InvalidTransition),
+                "{activity:?}: Destroyed -> {to:?}"
+            );
+            assert_eq!(book.get(destroyed.id()), Some(&destroyed));
+        }
+    }
     let mut altered = encoded.clone();
     altered.push(0);
     assert_eq!(
@@ -391,21 +484,8 @@ fn real_request_evidence_enforces_principal_concurrency_and_expiry() {
 
 #[test]
 fn real_receipts_expire_funded_and_active_leases_only_at_their_expiry_batch() {
-    let funded = [(
-        LeaseActivity::Fund,
-        LeaseState::Requested,
-        LeaseState::Funded,
-        11,
-    )];
-    let active = [
-        funded[0],
-        (
-            LeaseActivity::Activate,
-            LeaseState::Funded,
-            LeaseState::Active,
-            12,
-        ),
-    ];
+    let funded = [(11, LeaseState::Requested, LeaseState::Funded)];
+    let active = [funded[0], (12, LeaseState::Funded, LeaseState::Active)];
     let mut book = LeaseBook::new();
     for (index, path) in [(50u8, &funded[..]), (51, &active[..])] {
         let lease = candidate(index, 12, 10, 20);
@@ -423,9 +503,14 @@ fn real_receipts_expire_funded_and_active_leases_only_at_their_expiry_batch() {
         );
         book.insert_requested(lease, request, evidence)
             .unwrap_or_else(|error| panic!("request: {error}"));
-        for &(activity, from, to, batch) in path {
+        for &(height, from, to) in path {
             let current = book.get(id).unwrap_or_else(|| panic!("lease")).clone();
-            let (declared, evidence) = transition(&current, activity, from, to, [0; 32], batch);
+            let activity = match (from, to) {
+                (LeaseState::Requested, LeaseState::Funded) => LeaseActivity::Fund,
+                (LeaseState::Funded, LeaseState::Active) => LeaseActivity::Activate,
+                _ => panic!("unexpected lifecycle edge: {from:?} -> {to:?}"),
+            };
+            let (declared, evidence) = transition(&current, activity, from, to, [0; 32], height);
             book.transition(id, declared, evidence)
                 .unwrap_or_else(|error| panic!("advance: {error}"));
         }
@@ -503,56 +588,41 @@ fn altered_real_activity_and_header_evidence_are_refused() {
         activity_id: [0; 32],
         usage_observation_digest: digest,
     };
-    let fixture = protocol_support::programs_call_fixture(
-        &call_payload(lease.host_program(), transition),
-        10,
-        protocol_support::NOW,
-    );
-    let verifier = protocol_support::verifier_for_fixture(&fixture, 10, 10, None, 1_000);
-    let state = &fixture.proof.state;
-    let head = verifier
-        .verify_current_protocol_head(
-            &state.receipt,
-            &state.receipt_proof,
-            &state.header,
-            &state.header_signature,
-            protocol_support::NOW,
-        )
-        .unwrap_or_else(|error| panic!("head: {error}"));
-    transition.activity_id = head.activity_id();
+    let (transition, canonical, fixture) = proven_transition(&lease, transition, 10);
+    let head = fixture
+        .verifier
+        .verify_head(&fixture.header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("head: {error:?}"));
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let ops = fixture
+        .prove(&key)
+        .unwrap_or_else(|error| panic!("lease proof: {error:?}"));
     let authorization = AuthorizationContext::new(lease.tenant(), CapabilitySet::empty());
-    let mut activity = fixture.proof.activity.clone();
+    let mut activity = canonical.clone();
     let last = activity
         .len()
         .checked_sub(1)
         .unwrap_or_else(|| panic!("activity bytes"));
     activity[last] ^= 1;
     assert_eq!(
-        TransitionEvidence::verify_call(
-            &head,
-            &lease,
-            transition,
-            &authorization,
-            &activity,
-            &fixture.proof.activity_proof,
-            &state.header
-        ),
+        TransitionEvidence::verify_call(&head, &lease, transition, &authorization, &activity, &ops),
         Err(LeaseRefusal::InvalidCanonicalEvidence)
     );
-    let mut header = state.header.clone();
-    let last = header
+    let mut header = ops.clone();
+    let last = header[1]
+        .data
         .len()
         .checked_sub(1)
         .unwrap_or_else(|| panic!("header bytes"));
-    header[last] ^= 1;
+    header[1].data[last] ^= 1;
     assert_eq!(
         TransitionEvidence::verify_call(
             &head,
             &lease,
             transition,
             &authorization,
-            &fixture.proof.activity,
-            &fixture.proof.activity_proof,
+            &canonical,
             &header
         ),
         Err(LeaseRefusal::InvalidCanonicalEvidence)
@@ -560,43 +630,71 @@ fn altered_real_activity_and_header_evidence_are_refused() {
 }
 
 fn drive_lifecycle_edges(book: &mut LeaseBook) {
-    for (activity, from, to, batch) in [
-        (
-            LeaseActivity::Fund,
-            LeaseState::Requested,
-            LeaseState::Funded,
-            11,
-        ),
-        (
-            LeaseActivity::Activate,
-            LeaseState::Funded,
-            LeaseState::Active,
-            12,
-        ),
-        (
-            LeaseActivity::BeginSettlement,
-            LeaseState::Active,
-            LeaseState::Settling,
-            13,
-        ),
-        (
-            LeaseActivity::Expire,
-            LeaseState::Settling,
-            LeaseState::Expired,
-            14,
-        ),
-        (
-            LeaseActivity::Destroy,
-            LeaseState::Expired,
-            LeaseState::Destroyed,
-            15,
-        ),
+    for (height, from, to) in [
+        (11, LeaseState::Requested, LeaseState::Funded),
+        (12, LeaseState::Funded, LeaseState::Active),
+        (13, LeaseState::Active, LeaseState::Settling),
+        (14, LeaseState::Settling, LeaseState::Expired),
+        (15, LeaseState::Expired, LeaseState::Destroyed),
     ] {
         let current = book
             .get(LeaseId::new([1; 32]).unwrap_or_else(|error| panic!("id: {error}")))
             .unwrap_or_else(|| panic!("stored lease"))
             .clone();
-        let (declared, evidence) = transition(&current, activity, from, to, [0; 32], batch);
+        assert_eq!(current.state(), from);
+        let activity = match (from, to) {
+            (LeaseState::Requested, LeaseState::Funded) => LeaseActivity::Fund,
+            (LeaseState::Funded, LeaseState::Active) => LeaseActivity::Activate,
+            (LeaseState::Active, LeaseState::Settling) => LeaseActivity::BeginSettlement,
+            (LeaseState::Settling, LeaseState::Expired) => LeaseActivity::Expire,
+            (LeaseState::Expired, LeaseState::Destroyed) => LeaseActivity::Destroy,
+            _ => panic!("unexpected lifecycle edge: {from:?} -> {to:?}"),
+        };
+        let declared = LeaseTransition {
+            lease: current.id(),
+            tenant: current.tenant(),
+            activity,
+            from,
+            to,
+            activity_id: [0; 32],
+            usage_observation_digest: [0; 32],
+        };
+        let (declared, canonical, fixture) = proven_transition(&current, declared, height);
+        let proven =
+            Lease::decode_state(&canonical).unwrap_or_else(|error| panic!("proven lease: {error}"));
+        assert_eq!(proven.state(), to);
+        assert_eq!(
+            &proven.history()[..current.history().len()],
+            current.history()
+        );
+        assert_eq!(proven.history().len(), current.history().len() + 1);
+        let receipt = proven.history().last().unwrap_or_else(|| panic!("receipt"));
+        assert_eq!(receipt.transition, declared);
+        assert_eq!(receipt.batch_sequence, height);
+        let head = fixture
+            .verifier
+            .verify_head(&fixture.header, &fixture.commit)
+            .unwrap_or_else(|error| panic!("head: {error:?}"));
+        let key = layerx_programs_sandbox::sandbox_state_key(0, current.id().bytes())
+            .unwrap_or_else(|error| panic!("lease key: {error}"));
+        let ops = fixture
+            .prove(&key)
+            .unwrap_or_else(|error| panic!("lease proof: {error:?}"));
+        let evidence = TransitionEvidence::verify_call(
+            &head,
+            &current,
+            declared,
+            &AuthorizationContext::new(current.tenant(), CapabilitySet::empty()),
+            &canonical,
+            &ops,
+        )
+        .unwrap_or_else(|error| panic!("{from:?} -> {to:?}: {error}"));
+        assert_eq!(evidence.tx_hash(), declared.activity_id);
+        assert_eq!(
+            evidence.state_height(),
+            u64::try_from(chain::STATE_HEIGHT).unwrap_or_else(|error| panic!("height: {error}"))
+        );
+        assert_eq!(proven.state_digest(), Ok(evidence.lease_digest()));
         if activity == LeaseActivity::Destroy {
             book.destroy_with_evidence(
                 current.id(),
@@ -610,6 +708,7 @@ fn drive_lifecycle_edges(book: &mut LeaseBook) {
             book.transition(current.id(), declared, evidence)
                 .unwrap_or_else(|error| panic!("transition: {error}"));
         }
+        assert_eq!(book.get(current.id()), Some(&proven));
         if activity == LeaseActivity::Destroy {
             assert_eq!(
                 book.destroy_with_evidence(
@@ -627,6 +726,7 @@ fn drive_lifecycle_edges(book: &mut LeaseBook) {
                 Err(LeaseRefusal::ReplayedEvidence)
             );
         }
+        assert_eq!(book.get(current.id()), Some(&proven));
     }
 }
 

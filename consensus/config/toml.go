@@ -535,6 +535,23 @@ unsafe-commit-timeout-override = "{{ .Consensus.UnsafeCommitTimeoutOverride }}"
 # If this field is set to true, the consensus engine will proceed to the next height
 # as soon as the node has gathered votes from all of the validators on the network.
 # unsafe-bypass-commit-timeout-override = {{ .Consensus.UnsafeBypassCommitTimeoutOverride }}
+
+[consensus.sequencer]
+
+# Enable switches the node into sequencer mode.
+enable = {{ .Consensus.Sequencer.Enable }}
+
+# TimeoutPropose is how long a round waits for the proposal in round 0.
+timeout-propose = "{{ .Consensus.Sequencer.TimeoutPropose }}"
+
+# TimeoutProposeDelta is added to TimeoutPropose for each later round.
+timeout-propose-delta = "{{ .Consensus.Sequencer.TimeoutProposeDelta }}"
+
+# TimeoutVote is how long a round waits for the remaining votes after +2/3.
+timeout-vote = "{{ .Consensus.Sequencer.TimeoutVote }}"
+
+# TimeoutCommit is how long the node waits after +2/3 precommits before beginning the next height.
+timeout-commit = "{{ .Consensus.Sequencer.TimeoutCommit }}"
 `
 
 // autoManagedConfigTemplate contains configuration sections that are auto-managed

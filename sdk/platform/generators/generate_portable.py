@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate Swift and C# operation surfaces from the LayerX schemas."""
+"""Generate Swift and C# operation surfaces from the operation manifest."""
 
 from __future__ import annotations
 
@@ -20,82 +20,66 @@ class Operation:
     response: str
     idempotent: bool
     bodyless: bool
+    transport: str = "http"
+    to: str | None = None
+    selector: str | None = None
+    per_leg: bool = False
 
-
-def parse_document(path: Path) -> dict[str, dict[str, str]]:
-    current: str | None = None
-    values: dict[str, str] = {}
-    sections: dict[str, dict[str, str]] = {}
-
-    def finish() -> None:
-        nonlocal current, values
-        if current is None:
-            return
-        if current in sections:
-            raise ValueError(f"duplicate section {current} in {path}")
-        sections[current] = values
-        current = None
-        values = {}
-
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        section = re.fullmatch(r"\[([^]]+)]", line)
-        if section:
-            finish()
-            current = section.group(1)
-            continue
-        if current is not None and "=" in line and not line.startswith("#"):
-            key, value = line.split("=", 1)
-            values[key.strip()] = value.strip()
-    finish()
-    return sections
+    @property
+    def http_envelope_method(self) -> str:
+        if self.transport == "evm":
+            return "POST"
+        return self.method
 
 
 def operations(repo: Path) -> list[Operation]:
+    manifest = json.loads(
+        (repo / "sdk/platform/conformance/operations.json").read_text(encoding="utf-8")
+    )
+    if manifest["schema"] != 1:
+        raise ValueError("unsupported operation manifest schema")
     found: dict[tuple[str, str], Operation] = {}
-    for plane, relative in (
-        ("agent", "services/agent/schema/agent-api"),
-        ("human", "services/human/schema/human-api"),
-    ):
-        root = repo / relative
-        sections: dict[str, dict[str, str]] = {}
-        root_document = parse_document(root / "v1.kvx")
-        includes = json.loads(root_document.get("schema", {}).get("includes", "[]"))
-        if not isinstance(includes, list) or not all(isinstance(item, str) for item in includes):
-            raise ValueError(f"invalid schema.includes in {root / 'v1.kvx'}")
-        for path in [root / "v1.kvx", *(root / item for item in includes)]:
-            if path.parent != root or not path.is_file():
-                raise ValueError(f"invalid schema include {path}")
-            for name, values in parse_document(path).items():
-                if not name.startswith(("operation.", "mutation.")):
-                    continue
-                if name in sections and sections[name] != values:
-                    raise ValueError(f"conflicting section {name}")
-                sections[name] = values
-        agent_mutations = {
-            name.removeprefix("mutation.")
-            for name in sections
-            if name.startswith("mutation.")
-        }
-        for section, values in sections.items():
-            if not section.startswith("operation."):
-                continue
-            name = section.removeprefix("operation.")
-            method = values.get("method", '"POST"').strip('"')
-            route = values.get("path", '""').strip('"')
-            request = values.get("request", '"object"').strip('"')
-            response = values.get("response", '"object"').strip('"')
-            idempotent = values.get("idempotency") == "true" or (
-                plane == "agent"
-                and (name in agent_mutations or "idempotency_key" in values.get("required", ""))
+    groups = manifest["operations"]
+    if not isinstance(groups, dict):
+        raise ValueError("operation manifest operations must be an object")
+    for identifier, entries in groups.items():
+        if re.fullmatch(r"O[1-9][0-9]*", identifier) is None:
+            raise ValueError(f"invalid operation identifier {identifier!r}")
+        if (
+            not isinstance(entries, list)
+            or not entries
+            or not all(isinstance(entry, dict) for entry in entries)
+        ):
+            raise ValueError(
+                f"operation group {identifier} must be a non-empty list of objects"
             )
+        for entry in entries:
             operation = Operation(
-                plane, name, method, route, request, response, idempotent, request == "Empty"
+                plane=entry["plane"],
+                name=entry["name"],
+                method=entry["method"],
+                path=entry["path"],
+                request=entry["request"],
+                response=entry["response"],
+                idempotent=entry["idempotency"],
+                bodyless=entry["bodyless"],
+                transport=entry.get("transport", "http"),
+                to=entry.get("to"),
+                selector=entry.get("selector"),
+                per_leg=entry.get("per_leg", False),
             )
-            key = (plane, operation.name)
-            previous = found.get(key)
-            if previous is not None and previous != operation:
-                raise ValueError(f"conflicting operation {plane}:{operation.name}")
+            if operation.transport == "evm":
+                if operation.path or operation.method not in (
+                    "eth_sendRawTransaction", "eth_call", "eth_getTransactionByHash"
+                ):
+                    raise ValueError(f"invalid EVM transport for {operation.name}")
+            elif operation.transport != "http" or operation.method not in (
+                "GET", "POST", "PUT", "PATCH", "DELETE"
+            ):
+                raise ValueError(f"invalid HTTP transport for {operation.name}")
+            key = (operation.plane, operation.name)
+            if key in found:
+                raise ValueError(f"duplicate operation {operation.plane}:{operation.name}")
             found[key] = operation
     return sorted(found.values(), key=lambda item: (item.plane, item.name))
 
@@ -124,13 +108,20 @@ def swift_catalog(items: list[Operation]) -> str:
             case_name=swift_name(item),
             plane=item.plane,
             name=item.name,
-            method=item.method.lower(),
+            method=item.http_envelope_method.lower(),
             path=item.path,
             request=item.request.replace('"', '\\"'),
             response=item.response.replace('"', '\\"'),
             idempotent=str(item.idempotent).lower(),
             bodyless=str(item.bodyless).lower(),
         )
+        for item in items
+    )
+    transports = "\n".join(
+        f'        case .{swift_name(item)}: return OperationTransport(kind: "{item.transport}", '
+        f'method: "{item.method}", to: {json.dumps(item.to) if item.to is not None else "nil"}, '
+        f'selector: {json.dumps(item.selector) if item.selector is not None else "nil"}, '
+        f'perLeg: {str(item.per_leg).lower()})'
         for item in items
     )
     methods = []
@@ -167,10 +158,24 @@ def swift_catalog(items: list[Operation]) -> str:
             )
             call = f"try await read(.{name}, request: request, pathParameters: pathParameters)"
         methods.append(f"{signature} {{\n        {call}\n    }}")
-    return f'''// Generated from agent-api and human-api. Do not hand-edit.
+    return f'''// Generated from sdk/platform/conformance/operations.json. Do not hand-edit.
+
+public struct OperationTransport: Sendable, Equatable {{
+    public let kind: String
+    public let method: String
+    public let to: String?
+    public let selector: String?
+    public let perLeg: Bool
+}}
 
 public enum PlatformOperation: String, CaseIterable, Sendable {{
 {cases}
+
+    public var transport: OperationTransport {{
+        switch self {{
+{transports}
+        }}
+    }}
 
     public var descriptor: OperationDescriptor {{
         switch self {{
@@ -197,13 +202,19 @@ def csharp_catalog(items: list[Operation]) -> str:
             case_name=csharp_name(item),
             plane=item.plane.capitalize(),
             name=item.name,
-            method=item.method.capitalize() if item.method != "DELETE" else "Delete",
+            method=item.http_envelope_method.capitalize(),
             path=item.path,
             request=item.request.replace('"', '\\"'),
             response=item.response.replace('"', '\\"'),
             idempotent=str(item.idempotent).lower(),
             bodyless=str(item.bodyless).lower(),
         )
+        for item in items
+    )
+    transports = "\n".join(
+        f'            PlatformOperation.{csharp_name(item)} => new("{item.transport}", '
+        f'"{item.method}", {json.dumps(item.to)}, {json.dumps(item.selector)}, '
+        f'{str(item.per_leg).lower()}),'
         for item in items
     )
     methods = []
@@ -248,10 +259,13 @@ def csharp_catalog(items: list[Operation]) -> str:
                 "pathParameters, cancellationToken)"
             )
         methods.append(f"{signature} =>\n        {call};")
-    return f'''// Generated from agent-api and human-api. Do not hand-edit.
+    return f'''// Generated from sdk/platform/conformance/operations.json. Do not hand-edit.
 #nullable enable
 
 namespace LayerX.Sdk;
+
+public sealed record OperationTransport(
+    string Kind, string Method, string? To, string? Selector, bool PerLeg);
 
 public enum PlatformOperation
 {{
@@ -260,6 +274,12 @@ public enum PlatformOperation
 
 public static class GeneratedOperationCatalog
 {{
+    public static OperationTransport Transport(this PlatformOperation operation) => operation switch
+    {{
+{transports}
+        _ => throw new ArgumentOutOfRangeException(nameof(operation)),
+    }};
+
     public static OperationDescriptor Descriptor(this PlatformOperation operation) => operation switch
     {{
 {descriptors}
@@ -281,26 +301,9 @@ public static class GeneratedPlatformClientExtensions
 
 def render(repo: Path) -> dict[Path, str]:
     items = operations(repo)
-    manifest = {
-        "schema": 1,
-        "operations": [
-            {
-                "plane": item.plane,
-                "name": item.name,
-                "method": item.method,
-                "path": item.path,
-                "request": item.request,
-                "response": item.response,
-                "idempotency": item.idempotent,
-                "bodyless": item.bodyless,
-            }
-            for item in items
-        ],
-    }
     return {
         repo / "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift": swift_catalog(items),
         repo / "sdk/platform/dotnet/Generated/OperationCatalog.cs": csharp_catalog(items),
-        repo / "sdk/platform/conformance/operations.json": json.dumps(manifest, indent=2) + "\n",
     }
 
 

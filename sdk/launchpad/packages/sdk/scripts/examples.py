@@ -5,8 +5,14 @@ import json
 import pathlib
 
 
+def examples_paths(root):
+    contracts = root / 'launchpad/spec/production-system/integration/contracts/v2/openapi.json'
+    output = root / 'sdk/launchpad/packages/sdk/examples'
+    return contracts, output
+
+
 def emit(root):
-    contracts = root / 'spec/production-system/integration/contracts/v2/openapi.json'
+    contracts, output = examples_paths(root)
     document = json.loads(contracts.read_bytes())
     operations = {operation['operationId'] for methods in document['paths'].values() for method, operation in methods.items() if method in ('get','post','patch','put','delete')}
     required = {'IF_TOPIC_SNAPSHOT_READ','IF_STREAM_TICKET_ISSUE','IF_TRADES'}
@@ -43,10 +49,10 @@ try {
 } finally { connected.dispose(); }
 """
     }
-    output = root / 'client/packages/sdk/examples'; output.mkdir(parents=True,exist_ok=True)
+    output.mkdir(parents=True,exist_ok=True)
     for name, source in files.items(): (output / name).write_text(source)
     return {'openapiSha256': hashlib.sha256(contracts.read_bytes()).hexdigest(), 'outputs': {name:hashlib.sha256(source.encode()).hexdigest() for name,source in files.items()}}
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(); parser.add_argument('--root', type=pathlib.Path, default=pathlib.Path(__file__).resolve().parents[4]); args = parser.parse_args()
+    parser = argparse.ArgumentParser(); parser.add_argument('--root', type=pathlib.Path, default=pathlib.Path(__file__).resolve().parents[5]); args = parser.parse_args()
     print(json.dumps(emit(args.root),sort_keys=True))

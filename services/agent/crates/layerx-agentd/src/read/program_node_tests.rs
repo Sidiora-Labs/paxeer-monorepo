@@ -1,164 +1,127 @@
 use super::*;
-use layerx_proof::merkle::{build_proof, encode_proof, verify_path};
-use layerx_wire::encode::Encoder;
-use layerx_wire::receipt::decode_batch_header;
-
-const RECEIPT: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../../../programs/crates/layerx-programs-registry/tests/fixtures/maintained-head/receipt"
-));
-const MAINTENANCE: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../../../programs/crates/layerx-programs-registry/tests/fixtures/maintained-head/maintenance.receipt"
-));
-const HEADER: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../../../programs/crates/layerx-programs-registry/tests/fixtures/maintained-head/header"
-));
-const SIGNATURE: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../../../programs/crates/layerx-programs-registry/tests/fixtures/maintained-head/header.signature"
-));
+use layerx_programs::chain_proof::decode::ProofOp;
+use serde_json::json;
 
 fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
-    value.unwrap_or_else(|error| panic!("native proof fixture: {error:?}"))
+    value.unwrap_or_else(|error| panic!("chain head document: {error:?}"))
 }
 
-fn native_encoding(proof: &Proof) -> Vec<u8> {
-    let mut encoder = Encoder::new(1_041);
-    must(encoder.structure_header(0x4d50));
-    must(encoder.u32(proof.leaf_index()));
-    must(encoder.u32(proof.leaf_count()));
-    must(encoder.u8(must(u8::try_from(proof.siblings().len()))));
-    must(encoder.bytes(&proof.siblings().concat(), 1_024));
-    encoder.finish()
-}
-
-fn native_document() -> (Value, Proof, Proof) {
-    let leaves = [RECEIPT, MAINTENANCE];
-    let header = must(decode_batch_header(HEADER));
-    let (receipt_proof, root) = must(build_proof(&leaves, 0));
-    let (maintenance_proof, maintenance_root) = must(build_proof(&leaves, 1));
-    assert_eq!(root, header.receipt_merkle_root());
-    assert_eq!(maintenance_root, root);
-    let document = serde_json::json!({
-        "header_hex": hex::encode(HEADER),
-        "header_signature": hex::encode(SIGNATURE),
-        "receipt_proof_hex": hex::encode(&native_encoding(&receipt_proof)),
-        "batch_identity": {
-            "kind": "occupancy_maintenance_v2",
-            "receipt_hex": hex::encode(MAINTENANCE),
-            "receipt_proof_hex": hex::encode(&native_encoding(&maintenance_proof)),
-            "activity_receipts_hex": [hex::encode(RECEIPT)]
+fn chain_document() -> (Value, ChainHeadEvidence) {
+    let evidence = ChainHeadEvidence {
+        commitment: CommitmentProof {
+            signed_header: vec![0xab, 0xcd],
+            commit: vec![3, 4],
+            validator_set: vec![5, 6],
+            store_name: "layerx".to_owned(),
+            key: b"program".to_vec(),
+            value: Some(vec![7, 8]),
+            proof_ops: vec![ProofOp {
+                op_type: "ics23:iavl".to_owned(),
+                key: b"program".to_vec(),
+                data: vec![9, 10],
+            }],
+        },
+        transaction: b"chain head transaction".to_vec(),
+        transaction_proof: SimpleProof {
+            total: 3,
+            index: 1,
+            leaf_hash: [0xab; 32],
+            aunts: vec![[0xcd; 32], [0xef; 32]],
+        },
+    };
+    let document = json!({ "chain_evidence": {
+        "commitment_hex": hex::encode(&must(evidence.commitment.encode())),
+        "transaction_hex": hex::encode(&evidence.transaction),
+        "transaction_proof": {
+            "total": evidence.transaction_proof.total,
+            "index": evidence.transaction_proof.index,
+            "leaf_hash": hex::encode(&evidence.transaction_proof.leaf_hash),
+            "aunts": evidence.transaction_proof.aunts.iter().map(|aunt| hex::encode(aunt)).collect::<Vec<_>>()
         }
-    });
-    (document, receipt_proof, maintenance_proof)
+    }});
+    (document, evidence)
 }
 
 #[test]
-fn native_maintained_heads_preserve_authenticated_proof_coordinates() {
-    let (mut document, receipt_proof, maintenance_proof) = native_document();
-    let evidence = must(batch_evidence(&document));
-    let maintenance = evidence
-        .maintenance
-        .as_ref()
-        .unwrap_or_else(|| panic!("native maintenance evidence"));
-    assert_eq!(evidence.receipt_proof, receipt_proof);
-    assert_eq!(maintenance.receipt_proof, maintenance_proof);
-    assert_eq!(maintenance.activity_receipts, [RECEIPT.to_vec()]);
-    let root = must(decode_batch_header(HEADER)).receipt_merkle_root();
-    must(verify_path(RECEIPT, &evidence.receipt_proof, &root));
-    must(verify_path(MAINTENANCE, &maintenance.receipt_proof, &root));
-    let (activity_batch, activity_digest) = must(head_identity(RECEIPT, &evidence));
-    let receipt = must(decode_receipt(RECEIPT));
+fn chain_head_documents_preserve_the_commitment_and_transaction_proof() {
+    let (document, evidence) = chain_document();
+    assert_eq!(must(chain_head_evidence(&document)), evidence);
+    let mut without_value = evidence.commitment.clone();
+    without_value.value = None;
+    let mut document = document;
+    document["chain_evidence"]["commitment_hex"] =
+        json!(hex::encode(&must(without_value.encode())));
     assert_eq!(
-        activity_digest,
-        must(receipt_digest(&must(encode_unsigned(&receipt))))
+        must(chain_head_evidence(&document)).commitment,
+        without_value
     );
-
-    document["receipt_proof_hex"] =
-        serde_json::json!(hex::encode(&native_encoding(&maintenance_proof)));
-    let maintained_head = must(batch_evidence(&document));
-    let (maintenance_batch, maintenance_digest) =
-        must(head_identity(MAINTENANCE, &maintained_head));
-    assert_eq!(maintenance_batch, activity_batch);
-    assert_eq!(maintenance_digest, digest(MAINTENANCE));
-    assert!(head_identity(MAINTENANCE, &evidence).is_err());
 }
 
 #[test]
-fn native_maintained_heads_refuse_public_or_trailing_proof_encodings() {
-    let (document, receipt_proof, maintenance_proof) = native_document();
-    for identity in [false, true] {
-        let proof = if identity {
-            &maintenance_proof
-        } else {
-            &receipt_proof
-        };
-        let mut trailing = native_encoding(proof);
-        trailing.push(0);
-        let mut truncated = native_encoding(proof);
-        truncated.pop();
-        for bytes in [encode_proof(proof), trailing, truncated] {
+fn chain_head_documents_refuse_non_canonical_encodings() {
+    let (document, evidence) = chain_document();
+    let mut refused = Vec::new();
+    for field in ["commitment_hex", "transaction_hex"] {
+        let text = document["chain_evidence"][field].as_str().unwrap();
+        for replacement in [text.to_uppercase(), format!("{text}0"), format!("{text}gg")] {
             let mut changed = document.clone();
-            let target = if identity {
-                &mut changed["batch_identity"]
-            } else {
-                &mut changed
-            };
-            target["receipt_proof_hex"] = serde_json::json!(hex::encode(&bytes));
-            assert!(batch_evidence(&changed).is_err());
+            changed["chain_evidence"][field] = json!(replacement);
+            refused.push(changed);
         }
     }
-}
-
-#[test]
-fn native_batch_maintenance_identity_retains_exact_variant_and_proof_bindings() {
-    const RECEIPT: &[u8] = include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../../tests/fixtures/custody/daemon-module-head/receipt"
-    ));
-    const MAINTENANCE: &[u8] = include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../../tests/fixtures/custody/daemon-module-head/maintenance.receipt"
-    ));
-    const HEADER: &[u8] = include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../../tests/fixtures/custody/daemon-module-head/header"
-    ));
-    const SIGNATURE: &[u8] = include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../../tests/fixtures/custody/daemon-module-head/header.signature"
-    ));
-    let (receipt_proof, root) = must(build_proof(&[RECEIPT, MAINTENANCE], 0));
-    let (maintenance_proof, same) = must(build_proof(&[RECEIPT, MAINTENANCE], 1));
-    assert_eq!(root, same);
-    assert_eq!(
-        root,
-        must(decode_batch_header(HEADER)).receipt_merkle_root()
-    );
-    assert!(matches!(
-        must(layerx_wire::batch_maintenance::decode_maintenance(
-            MAINTENANCE
-        )),
-        layerx_wire::batch_maintenance::MaintenanceReceipt::Batch(_)
-    ));
-    let mut document = serde_json::json!({
-        "header_hex": hex::encode(HEADER), "header_signature": hex::encode(SIGNATURE),
-        "receipt_proof_hex": hex::encode(&native_encoding(&maintenance_proof)),
-        "batch_identity": { "kind": "batch_maintenance_v1", "receipt_hex": hex::encode(MAINTENANCE),
-            "receipt_proof_hex": hex::encode(&native_encoding(&maintenance_proof)),
-            "activity_receipts_hex": [hex::encode(RECEIPT)] }
-    });
-    let parsed = must(batch_evidence(&document));
-    assert_eq!(
-        must(head_identity(MAINTENANCE, &parsed)).1,
-        digest(MAINTENANCE)
-    );
-    document["batch_identity"]["kind"] = serde_json::json!("occupancy_maintenance_v2");
-    assert!(batch_evidence(&document).is_err());
-    document["batch_identity"]["kind"] = serde_json::json!("batch_maintenance_v1");
-    document["receipt_proof_hex"] =
-        serde_json::json!(hex::encode(&native_encoding(&receipt_proof)));
-    assert!(head_identity(MAINTENANCE, &must(batch_evidence(&document))).is_err());
+    let mut trailing = must(evidence.commitment.encode());
+    trailing.push(0);
+    let mut changed = document.clone();
+    changed["chain_evidence"]["commitment_hex"] = json!(hex::encode(&trailing));
+    refused.push(changed);
+    for replacement in [
+        json!([hex::encode(&[0xab; 31])]),
+        json!(vec![hex::encode(&[0xab; 32]); 65]),
+        json!(["AB".repeat(32)]),
+        json!(["a".repeat(63)]),
+        json!(["zz".repeat(32)]),
+    ] {
+        let mut changed = document.clone();
+        changed["chain_evidence"]["transaction_proof"]["aunts"] = replacement;
+        refused.push(changed);
+    }
+    for replacement in [
+        hex::encode(&[0xab; 31]),
+        "AB".repeat(32),
+        "a".repeat(63),
+        "zz".repeat(32),
+    ] {
+        let mut changed = document.clone();
+        changed["chain_evidence"]["transaction_proof"]["leaf_hash"] = json!(replacement);
+        refused.push(changed);
+    }
+    for field in ["total", "index"] {
+        let mut changed = document.clone();
+        changed["chain_evidence"]["transaction_proof"][field] = json!(-1);
+        refused.push(changed);
+    }
+    for field in ["commitment_hex", "transaction_hex", "transaction_proof"] {
+        let mut changed = document.clone();
+        changed["chain_evidence"]
+            .as_object_mut()
+            .unwrap()
+            .remove(field);
+        refused.push(changed);
+    }
+    for field in ["total", "index", "leaf_hash", "aunts"] {
+        let mut changed = document.clone();
+        changed["chain_evidence"]["transaction_proof"]
+            .as_object_mut()
+            .unwrap()
+            .remove(field);
+        refused.push(changed);
+    }
+    refused.push(json!({}));
+    for changed in refused {
+        assert_eq!(
+            chain_head_evidence(&changed),
+            Err(ProgramReadError::NonCanonicalView),
+            "{changed}"
+        );
+    }
 }

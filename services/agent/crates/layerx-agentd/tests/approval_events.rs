@@ -1,7 +1,9 @@
 use std::collections::BTreeSet;
 use std::fs;
+use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 
 use layerx_agent_api::identity::{
     ActivityType, AgentDid, Asset, CapabilityId as ApiCapabilityId, Counterparty, ExplicitSet,
@@ -12,7 +14,6 @@ use layerx_agent_api::subscription::{
     Cursor as ApiCursor, CursorAcknowledgement, DeliveryTarget, SubscriptionCreate,
     SubscriptionFilter, SubscriptionId, SubscriptionScope, SubscriptionTarget, TenantObject,
 };
-use layerx_agent_api::Sequence;
 use layerx_agentd::approval::{
     ApprovalEmission, ApprovalEventKind, ApprovalEvents, ApprovalLifecycle,
     APPROVAL_ENFORCEMENT_NOTICE,
@@ -25,15 +26,24 @@ use layerx_agentd::events::gap::{
 };
 use layerx_agentd::events::subscription::Store as SubscriptionStore;
 use layerx_agentd::events::{
-    backfill, deliver, DeliveryEngine, DeliveryError, DeliveryItem, EventIngestor, RetryPolicy,
+    backfill, deliver, ingest, CoreEvent, DeliveryEngine, DeliveryError, DeliveryItem,
+    EventAttributes, EventIngestor, RetryPolicy,
 };
+use layerx_agentd::read::HistoryLimits;
 use layerx_agentd::session::SessionId;
 use layerx_agentd::store::{Store, TenantId};
 use layerx_agentd::tenant::{Config, RedactionPolicy, Retention};
+use layerx_client::evidence::RootSelector;
+use layerx_client::head::Head;
+use layerx_client::lni::schema::Version;
+use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
+use layerx_client::read::{ReadContext, Requested};
 use layerx_proof::checkpoint::SettlementDomain;
+use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_types::ids::Did;
 use layerx_types::result::ResultCode;
 use layerx_types::verify::VerificationLevel;
+use serde_json::json;
 use sha2::{Digest as _, Sha256};
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
@@ -160,8 +170,83 @@ fn emit_lifecycles(
         .collect()
 }
 
-fn subscriptions_restored_after_gap(durable: Store, recovered_bytes: Vec<u8>) -> SubscriptionStore {
-    let mut subscriptions = SubscriptionStore::open(durable, tenant())
+fn subscriptions_restored_after_gap(durable: Store) -> (SubscriptionStore, Vec<u8>) {
+    let recovered_bytes = serde_json::to_vec(&json!({
+        "blockNumber": "0x1", "transactionIndex": "0x0", "logIndex": "0x0",
+        "blockHash": format!("0x{}", "ab".repeat(32)),
+        "address": format!("0x{}", "12".repeat(20)),
+        "topics": [format!("0x{}", "34".repeat(32))],
+        "data": "0x00ff", "removed": false,
+    }))
+    .unwrap_or_else(|error| panic!("recovered log bytes: {error}"));
+    let attributes = EventAttributes {
+        agent: "did:layerx:approval-events".to_owned(),
+        account: "tenant-a".to_owned(),
+        activity_type: 7,
+        module: "approval".to_owned(),
+        asset: "LXP".to_owned(),
+        counterparty: "human-approval".to_owned(),
+        result_code: 0,
+    };
+    let mut recovered = CoreEvent::from_log_bytes(recovered_bytes.clone(), attributes.clone())
+        .unwrap_or_else(|error| panic!("recovered log: {error}"));
+    recovered.global_sequence = 1;
+    let mut ingestor = EventIngestor::open(durable, tenant(), 16, 1)
+        .unwrap_or_else(|error| panic!("recovery ingestor: {error}"));
+    ingest(&mut ingestor, recovered)
+        .unwrap_or_else(|error| panic!("persist recovered log: {error}"));
+    let transport_root = directory();
+    fs::create_dir_all(&transport_root).unwrap_or_else(|error| panic!("transport root: {error}"));
+    let socket = transport_root.join("history.sock");
+    let listener =
+        UnixListener::bind(&socket).unwrap_or_else(|error| panic!("history listener: {error}"));
+    let mut transport = Uds::connect(
+        &socket,
+        &ConnectionGate::new(1),
+        Limits {
+            maximum_frame_bytes: 1_048_576,
+            maximum_connections: 1,
+            maximum_streams: 2,
+            maximum_queued_bytes: 1_048_576,
+            deadline: Duration::from_secs(2),
+        },
+    )
+    .unwrap_or_else(|error| panic!("history transport: {error:?}"));
+    let (_peer, _) = listener
+        .accept()
+        .unwrap_or_else(|error| panic!("history connection: {error}"));
+    ingestor
+        .new_head(
+            2,
+            &mut transport,
+            HistoryLimits {
+                maximum_items: 2,
+                maximum_response_bytes: 1_048_576,
+            },
+            ReadContext {
+                interface_version: Version::V1_0,
+                correlation_id: 77,
+                expected_protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
+                expected_network_id: 77,
+                requested: Requested::new(VerificationLevel::UNVERIFIED),
+                head: Head {
+                    chain_sequence: 2,
+                    sealed_batch: 0,
+                    finalised_checkpoint: [0; 32],
+                },
+                sequencer_authorization: SequencerAuthorization::new([1; 32], [2; 32], 0, u64::MAX),
+                handshake_sequencer_key: [2; 32],
+                root_selector: RootSelector::Latest,
+            },
+            2,
+            attributes,
+        )
+        .unwrap_or_else(|error| panic!("close recovered block: {error}"));
+    drop(transport);
+    drop(listener);
+    fs::remove_dir_all(transport_root)
+        .unwrap_or_else(|error| panic!("remove transport root: {error}"));
+    let mut subscriptions = SubscriptionStore::open(ingestor.into_store(), tenant())
         .unwrap_or_else(|error| panic!("subscriptions: {error}"));
     subscriptions
         .create(
@@ -169,7 +254,11 @@ fn subscriptions_restored_after_gap(durable: Store, recovered_bytes: Vec<u8>) ->
             SubscriptionCreate {
                 scope: scope(),
                 filter: filter(),
-                start: ApiCursor(Sequence(0)),
+                start: ApiCursor {
+                    block_height: 0,
+                    tx_index: 0,
+                    log_index: 0,
+                },
                 delivery_target: DeliveryTarget::new("uds://approval-consumer")
                     .unwrap_or_else(|error| panic!("target: {error:?}")),
             },
@@ -183,7 +272,12 @@ fn subscriptions_restored_after_gap(durable: Store, recovered_bytes: Vec<u8>) ->
         gap,
         events: vec![RecoveredEvent {
             global_sequence: 1,
-            canonical_bytes: recovered_bytes,
+            canonical_bytes: recovered_bytes.clone(),
+            position: layerx_agentd::read::Cursor {
+                block_height: 1,
+                tx_index: 0,
+                log_index: 0,
+            },
         }],
     };
     assert!(matches!(
@@ -191,7 +285,7 @@ fn subscriptions_restored_after_gap(durable: Store, recovered_bytes: Vec<u8>) ->
         Ok(BackfillResolution::Restored)
     ));
     assert!(admit(&subscriptions, &target()).is_ok());
-    subscriptions
+    (subscriptions, recovered_bytes)
 }
 
 fn delivery_engine(subscriptions: SubscriptionStore) -> DeliveryEngine {
@@ -310,10 +404,7 @@ fn approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence() {
         .all(|event| event.enforcement_notice == APPROVAL_ENFORCEMENT_NOTICE));
     drop(audit);
 
-    let subscriptions = subscriptions_restored_after_gap(
-        ingestor.into_store(),
-        emissions[1].canonical_event_bytes.clone(),
-    );
+    let (subscriptions, recovered_bytes) = subscriptions_restored_after_gap(ingestor.into_store());
     let mut delivery = delivery_engine(subscriptions);
     let delivered = drain_delivered(&mut delivery);
     assert_eq!(
@@ -321,6 +412,7 @@ fn approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence() {
         emissions
             .iter()
             .map(|event| event.canonical_event_bytes.clone())
+            .chain(std::iter::once(recovered_bytes))
             .collect::<Vec<_>>()
     );
 

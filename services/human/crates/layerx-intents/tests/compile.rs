@@ -2,9 +2,11 @@ use layerx_agentd::prepare::{
     prepare_activity, verify_disclosure_binding, CorePreparationBoundary, CorePreparationState,
     CoreStateError, DisclosureBindingError, PreparationDefaults, PrepareError, PrepareRequest,
 };
-use layerx_crypto::disclosure::DisclosureError;
-use layerx_crypto::send::SendDebit;
-use layerx_crypto::signer::{LocalSigner, Signer};
+use layerx_crypto::{
+    disclosure::DisclosureError,
+    send::SendDebit,
+    signer::{LocalSigner, Signer},
+};
 use layerx_intents::{
     compile, BridgeDepositCredit, BridgeWithdrawRequest, BudgetCreate, BudgetDefund, BudgetFund,
     CompileErrorReason, CompileField, DidRegistration, DisclosureCheck, DisclosureCheckError,
@@ -82,7 +84,7 @@ fn registry() -> ModuleRegistry {
         activity(ModuleId::Budget, 1),
         activity(ModuleId::Budget, 2),
         activity(ModuleId::Budget, 4),
-        activity(ModuleId::Budget, 7),
+        activity(ModuleId::Budget, 8),
     ];
     let bridge = [activity(ModuleId::Bridge, 1), activity(ModuleId::Bridge, 2)];
     let registrations = [

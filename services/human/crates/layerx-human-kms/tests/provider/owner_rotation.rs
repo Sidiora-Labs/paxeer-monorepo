@@ -126,16 +126,11 @@ fn sign(
 }
 
 fn rotation(host: &Host, key: &Key, value: &OwnerRotation, envelope: Envelope) -> Result<Vec<u8>> {
-    let intent = layerx_intents::Intent::v3(layerx_intents::IntentKind::NativeOwnerRotation(
-        value.clone(),
-    ));
-    let compiled = checked(layerx_intents::compile(&intent, &registry()?))?;
-    assert_eq!(compiled.payload().as_bytes(), checked(value.payload())?);
     sign(
         host,
         key,
         value.owner(),
-        compiled.payload().clone(),
+        payload(2, &checked(value.payload())?)?,
         envelope,
     )
 }

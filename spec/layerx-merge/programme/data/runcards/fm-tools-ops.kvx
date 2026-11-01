@@ -1,0 +1,10 @@
+[card]
+role = "fm-tools-ops"
+domain = 16
+sandbox_profile = "mixed"
+anchors = ["16.0.1", "16.0.2", "16.0.3", "16.0.4", "16.0.9"]
+wave_gate = ["scripts/gates/wave-0.sh", "scripts/gates/wave-1.sh", "scripts/gates/wave-2.sh", "scripts/gates/wave-3.sh", "scripts/gates/wave-4.sh", "scripts/gates/wave-5.sh", "scripts/gates/wave-18.sh", "scripts/gates/wave-19.sh", "scripts/gates/wave-22.sh", "scripts/gates/wave-23.sh", "scripts/gates/wave-27.sh", "scripts/gates/wave-28.sh", "scripts/gates/wave-29.sh", "scripts/gates/wave-30.sh", "scripts/gates/wave-32.sh", "scripts/gates/wave-33.sh", "scripts/gates/wave-34.sh", "scripts/gates/wave-36.sh", "scripts/gates/wave-37.sh", "scripts/gates/wave-38.sh", "scripts/gates/wave-39.sh"]
+max_parallel = 52
+escalation = "stop the wave and file a qualification finding"
+limits = ["max_task_minutes = 30", "max_gate_runs_per_task = 1", "source = spec/workflow.kvx:32-36"]
+no_false_success = "A task remains in_progress through implementation and task qualification. Mark it done only after its verify_cmd genuinely passes. Aggregate suites, sanitizers, workspace-wide lint, cluster and browser matrices are release-candidate gates, run once per wave or once at release, never per task. Surface honest partials and external blockers; 'implemented, not qualified' is an acceptable reported outcome."

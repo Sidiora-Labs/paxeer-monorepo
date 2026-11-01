@@ -51,6 +51,10 @@ func repoRoot(t *testing.T) string {
 func realInputs(t *testing.T) Inputs {
 	t.Helper()
 	root := repoRoot(t)
+	manifest, ok := deployment.Approved(32226215)
+	if !ok {
+		t.Fatal("historical chain-125 deployment manifest is not approved")
+	}
 	reviewed, err := os.ReadFile(filepath.Join(root, "sdk", "launchpad", "protocol", "catalog", "reviewed.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -69,7 +73,7 @@ func realInputs(t *testing.T) Inputs {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return Inputs{Manifest: deployment.Current(), ReviewedCatalog: reviewed, ERC20RuntimeCode: code, PoolRuntimeHash: realPoolRuntime, Anchor: realAnchor}
+	return Inputs{Manifest: manifest, ReviewedCatalog: reviewed, ERC20RuntimeCode: code, PoolRuntimeHash: realPoolRuntime, Anchor: realAnchor}
 }
 
 func realAuthority(t *testing.T, ctx context.Context, url string, mutate func(*receipt.RPCOptions)) (*receipt.RPCQualification, error) {

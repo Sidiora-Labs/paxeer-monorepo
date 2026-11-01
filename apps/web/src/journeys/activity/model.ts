@@ -22,7 +22,7 @@ import {
   type MoneyDirection,
   type VerificationLevel,
 } from "../../api/index.ts";
-import { protocolAmount, statusPresentation, type ProtocolAmount, type StatusKey } from "../../kit/model.ts";
+import { protocolAmount, statusPresentation, verificationRung, type ProtocolAmount, type StatusKey, type VerificationRung } from "../../kit/model.ts";
 
 export const STATUS_KEY_BY_STATE: Readonly<Record<JourneyState, StatusKey>> = Object.freeze({
   "getting-ready": "getting_ready",
@@ -53,20 +53,16 @@ const KIND_LABEL_KEYS: Readonly<Record<ActivityEntryKind, string>> = Object.free
   "security-event": "activity.kind.security_event",
 });
 
-const VERIFICATION_LABEL_KEYS: Readonly<Record<VerificationLevel, string>> = Object.freeze({
+const VERIFICATION_LABEL_KEYS: Readonly<Record<VerificationRung, string>> = Object.freeze({
   unverified: "activity.verification.unverified",
   "receipt-verified": "activity.verification.receipt_verified",
   "checkpoint-finalised": "activity.verification.checkpoint_finalised",
-  "paxeer-finalised": "activity.verification.paxeer_finalised",
-  "settlement-anchored": "explorer.verification.settlement_anchored",
 });
 
-const VERIFICATION_ORDER: readonly VerificationLevel[] = Object.freeze([
+const VERIFICATION_ORDER: readonly VerificationRung[] = Object.freeze([
   "unverified",
   "receipt-verified",
   "checkpoint-finalised",
-  "paxeer-finalised",
-  "settlement-anchored",
 ]);
 
 export function entryStatusKey(state: JourneyState): StatusKey {
@@ -195,7 +191,7 @@ export function explorerPath(reference: EvidenceRef): string | undefined {
 }
 
 export function verificationLabel(level: VerificationLevel): string {
-  return copyEntry(VERIFICATION_LABEL_KEYS[level]).message;
+  return copyEntry(VERIFICATION_LABEL_KEYS[verificationRung(level)]).message;
 }
 
 export function evidenceClassLabel(evidenceClass: EvidenceClass): string {
@@ -205,7 +201,7 @@ export function evidenceClassLabel(evidenceClass: EvidenceClass): string {
 export function entryVerification(evidence: readonly EvidenceRef[]): VerificationLevel {
   let best = 0;
   for (const reference of evidence) {
-    const rank = VERIFICATION_ORDER.indexOf(reference.verification);
+    const rank = VERIFICATION_ORDER.indexOf(verificationRung(reference.verification));
     if (rank > best) {
       best = rank;
     }
@@ -421,8 +417,6 @@ export function detailUnresolved(detail: Readonly<Pick<ActivityEntryDetail, "sta
 const RECEIPT_LEVELS: readonly VerificationLevel[] = Object.freeze([
   "receipt-verified",
   "checkpoint-finalised",
-  "paxeer-finalised",
-  "settlement-anchored",
 ]);
 
 export function receiptBacked(reference: EvidenceRef): boolean {

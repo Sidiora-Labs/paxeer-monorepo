@@ -1,8 +1,9 @@
 use std::{collections::BTreeMap, fs, path::Path};
 
-use layerx_client::evidence::{verify_arbiter_admission_v3, VerifiedAdmissionPrestate};
 use layerx_programs_arbiter::{
-    AuthenticatedCatalogue, BoundaryProof, ReplayError, VerifiedReplay, VerifiedReplayAuthority,
+    ics23::{decode_existence, ExistenceProof},
+    AuthenticatedCatalogue, BoundaryProof, ChainCommitProof, ReplayError, ReplayMetadata,
+    VerifiedReplay, VerifiedReplayAuthority,
 };
 use layerx_programs_runtime::portable_replay::PortableReplayRecord;
 use layerx_proof::{
@@ -12,7 +13,6 @@ use layerx_proof::{
         verify_outcome_maintained_chain, verify_program_preexecution_rejection_maintained_chain,
         AuthorizedBatch, MaintainedOutcomeEvidence, VerifiedReceipt,
     },
-    state_witness::StateWitness,
 };
 use serde_json::Value;
 use sha2::{Digest, Sha256};
@@ -22,8 +22,18 @@ fn field<'a>(v: &'a Value, key: &str) -> &'a str {
         .as_str()
         .unwrap_or_else(|| panic!("required native {key}"))
 }
-fn read(v: &Value, key: &str) -> Vec<u8> {
-    fs::read(field(v, key)).expect("genuine native file")
+enum ReplayFiles {
+    Native(std::path::PathBuf),
+}
+impl ReplayFiles {
+    fn read(&self, path: &Path) -> Vec<u8> {
+        match self {
+            Self::Native(directory) => fs::read(directory.join(path)).expect("genuine native file"),
+        }
+    }
+}
+fn read(files: &ReplayFiles, directory: &Path, v: &Value, key: &str) -> Vec<u8> {
+    files.read(&directory.join(field(v, key)))
 }
 fn hash(v: &Value, key: &str) -> [u8; 32] {
     let s = field(v, key);
@@ -33,22 +43,25 @@ fn hash(v: &Value, key: &str) -> [u8; 32] {
     })
 }
 fn verified(
+    files: &ReplayFiles,
+    directory: &Path,
     v: &Value,
     authorization: &SequencerAuthorization,
 ) -> (VerifiedReceipt, VerifiedBatchHeader, Proof) {
-    let bytes = read(v, "receipt_path");
-    let header = read(v, "header_path");
-    let signature: [u8; 64] = read(v, "header_signature_path")
+    let bytes = read(files, directory, v, "receipt_path");
+    let header = read(files, directory, v, "header_path");
+    let signature: [u8; 64] = read(files, directory, v, "header_signature_path")
         .try_into()
         .expect("actual header signature");
     let signed =
         verify_header(&header, &signature, authorization).expect("genuine sequencer header");
-    let proof = decode_proof(&read(v, "proof_path")).expect("actual receipt Merkle proof");
+    let proof = decode_proof(&read(files, directory, v, "proof_path"))
+        .expect("actual receipt Merkle proof");
     verify_receipt(&bytes, &proof, &header, &signature, authorization)
         .expect("actual signed receipt inclusion");
-    let maintenance = read(v, "maintenance_path");
-    let maintenance_proof =
-        decode_proof(&read(v, "maintenance_proof_path")).expect("actual maintenance proof");
+    let maintenance = read(files, directory, v, "maintenance_path");
+    let maintenance_proof = decode_proof(&read(files, directory, v, "maintenance_proof_path"))
+        .expect("actual maintenance proof");
     verify_receipt(
         &maintenance,
         &maintenance_proof,
@@ -85,7 +98,7 @@ fn verified(
         .as_array()
         .expect("complete receipt chain")
         .iter()
-        .map(|p| fs::read(p.as_str().expect("receipt path")).expect("real receipt chain entry"))
+        .map(|p| files.read(&directory.join(p.as_str().expect("receipt path"))))
         .collect();
     assert_eq!(receipts.len(), count as usize);
     let evidence = MaintainedOutcomeEvidence {
@@ -116,10 +129,56 @@ struct Capture {
     path: String,
     receipt: VerifiedReceipt,
     header: VerifiedBatchHeader,
-    receipt_proof: Proof,
-    admission: VerifiedAdmissionPrestate,
+    admission: layerx_client::evidence::VerifiedAdmissionPrestate,
+    commit: ChainCommitProof,
+    host_store_root: [u8; 32],
+    host_multistore_proof: Vec<u8>,
+    code_proofs: BTreeMap<[u8; 32], ExistenceProof>,
 }
+impl Capture {
+    fn catalogue(
+        &self,
+        code: &BTreeMap<[u8; 32], Vec<u8>>,
+    ) -> Result<AuthenticatedCatalogue, ReplayError> {
+        AuthenticatedCatalogue::verify_with_module(
+            &self.admission,
+            &self.commit,
+            self.host_store_root,
+            &self.host_multistore_proof,
+            &self.code_proofs,
+            code,
+        )
+    }
+}
+
+fn hex(v: &Value, key: &str) -> Vec<u8> {
+    let value = field(v, key);
+    assert_eq!(value.len() % 2, 0, "complete host proof hex");
+    (0..value.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&value[i..i + 2], 16).expect("host proof hex"))
+        .collect()
+}
+
+fn chain_commit(v: &Value) -> ChainCommitProof {
+    let proof = decode_existence(&hex(v, "proof")).expect("sequencer key-list proof");
+    assert_eq!(proof.value, hex(v, "value"));
+    let commit = ChainCommitProof {
+        height: v["height"].as_u64().expect("committed block height"),
+        app_hash: hash(v, "app_hash"),
+        store_root: hash(v, "store_root"),
+        multistore_proof: hex(v, "multistore_proof"),
+        receipt_key: hex(v, "key"),
+        receipt_proof: proof,
+    };
+    commit
+        .receipt_keys()
+        .expect("app-hash authenticated receipt keys");
+    commit
+}
+
 struct Fixture {
+    files: ReplayFiles,
     directory: std::path::PathBuf,
     replay: Value,
     captures: Vec<Capture>,
@@ -129,18 +188,22 @@ impl Fixture {
     fn load() -> Self {
         let path = std::env::var("LAYERX_AUTHENTICATED_REPLAY_INPUTS")
             .expect("required genuine native replay corpus; no fallback");
-        let directory = Path::new(&path)
-            .parent()
-            .expect("native corpus parent")
-            .to_path_buf();
-        let replay: Value =
-            serde_json::from_slice(&fs::read(path).expect("native replay manifest"))
-                .expect("native replay JSON");
-        let inputs = std::env::var("LAYERX_ARBITER_ADMISSION_INPUTS")
-            .expect("required real signed admission corpus");
+        Self::from_files(
+            ReplayFiles::Native(std::path::PathBuf::new()),
+            Path::new(&path),
+        )
+    }
+
+    fn from_files(files: ReplayFiles, path: &Path) -> Self {
+        let directory = path.parent().expect("replay manifest parent").to_path_buf();
+        let replay: Value = serde_json::from_slice(&files.read(path)).expect("native replay JSON");
+        let inputs = std::path::PathBuf::from(
+            std::env::var("LAYERX_ARBITER_ADMISSION_INPUTS")
+                .expect("required real signed admission corpus"),
+        );
+        let admission_directory = inputs.parent().expect("native admission corpus parent");
         let manifest: Value =
-            serde_json::from_slice(&fs::read(inputs).expect("native admission manifest"))
-                .expect("native admission JSON");
+            serde_json::from_slice(&files.read(&inputs)).expect("native admission JSON");
         let network = u32::try_from(manifest["network_id"].as_u64().expect("network"))
             .expect("network width");
         let authorization = SequencerAuthorization::new(
@@ -157,9 +220,13 @@ impl Fixture {
             .expect("actual captures")
             .iter()
             .map(|v| {
-                let (receipt, header, receipt_proof) = verified(v, &authorization);
-                let admission = verify_arbiter_admission_v3(&read(v, "v3_path"), &receipt, network)
-                    .expect("genuine sealed V3 prestate");
+                let (receipt, header, _) = verified(&files, admission_directory, v, &authorization);
+                let admission = layerx_client::evidence::verify_arbiter_admission_v3(
+                    &read(&files, admission_directory, v, "v3_path"),
+                    &receipt,
+                    network,
+                )
+                .expect("genuine sealed V3 prestate");
                 if admission.activity().activity_type().module()
                     == layerx_types::payload::ModuleId::Programs
                     && admission.activity().activity_type().ordinal() == 1
@@ -183,16 +250,44 @@ impl Fixture {
                     assert_eq!(&digest, &payload[68..100]);
                     code.insert(digest, wasm);
                 }
+                let commit = chain_commit(&v["chain_commit"]);
+                commit
+                    .verify_receipt(&receipt)
+                    .expect("committed signed host receipt");
+                let mut code_proofs = BTreeMap::new();
+                for entry in v["code_proofs"]
+                    .as_array()
+                    .expect("host module 9 code-blob proofs")
+                {
+                    let proof =
+                        decode_existence(&read(&files, admission_directory, entry, "proof_path"))
+                            .expect("host code-blob existence proof");
+                    assert!(
+                        code_proofs
+                            .insert(hash(entry, "code_hash"), proof)
+                            .is_none(),
+                        "exactly one host proof per deployed code blob"
+                    );
+                }
                 Capture {
                     path: field(v, "receipt_path").to_owned(),
                     receipt,
                     header,
-                    receipt_proof,
                     admission,
+                    commit,
+                    host_store_root: hash(v, "host_store_root"),
+                    host_multistore_proof: read(
+                        &files,
+                        admission_directory,
+                        v,
+                        "host_multistore_proof_path",
+                    ),
+                    code_proofs,
                 }
             })
             .collect();
         Self {
+            files,
             directory,
             replay,
             captures,
@@ -207,13 +302,15 @@ impl Fixture {
             .expect("replay exact genuine receipt binding")
     }
     fn file(&self, v: &Value, key: &str) -> Vec<u8> {
-        fs::read(self.directory.join(field(v, key))).expect("real replay evidence file")
+        self.files.read(&self.directory.join(field(v, key)))
     }
 }
 
 #[test]
 fn genuine_signed_serial_scheduled_trap_steps_and_bound_refusals() {
-    let fixture = Fixture::load();
+    assert_signed_serial_scheduled_trap_steps_and_bound_refusals(&Fixture::load());
+}
+fn assert_signed_serial_scheduled_trap_steps_and_bound_refusals(fixture: &Fixture) {
     let captures = fixture.replay["captures"]
         .as_array()
         .expect("replay captures");
@@ -222,16 +319,20 @@ fn genuine_signed_serial_scheduled_trap_steps_and_bound_refusals() {
     let mut verified_traps = 0;
     for capture in captures {
         let trusted = fixture.receipt(capture);
-        let proof = StateWitness::decode(&fixture.file(capture, "metadata_proof"))
+        let proof = decode_existence(&fixture.file(capture, "metadata_proof"))
             .expect("native module9 proof");
         let portable =
             PortableReplayRecord::decode_untrusted(&fixture.file(capture, "witness"), 1_048_576)
                 .expect("real native replay witness");
-        let catalogue = AuthenticatedCatalogue::verify(&trusted.admission, &fixture.code)
+        let catalogue = trusted
+            .catalogue(&fixture.code)
             .expect("genuine authenticated complete catalogue");
         let replay = VerifiedReplay::verify(
             &trusted.receipt,
             &trusted.admission,
+            &trusted.commit,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &proof,
             &portable.authority_bytes,
             &portable.hosts_bytes,
@@ -294,15 +395,15 @@ fn genuine_signed_serial_scheduled_trap_steps_and_bound_refusals() {
                 .expect("genuine final trap execute_step");
             verified_traps += 1;
         }
-        let catalogue = || {
-            AuthenticatedCatalogue::verify(&trusted.admission, &fixture.code)
-                .expect("real catalogue")
-        };
+        let catalogue = || trusted.catalogue(&fixture.code).expect("real catalogue");
         let mut authority = portable.authority_bytes.clone();
         authority[0] ^= 1;
         assert!(VerifiedReplay::verify(
             &trusted.receipt,
             &trusted.admission,
+            &trusted.commit,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &proof,
             &authority,
             &portable.hosts_bytes,
@@ -314,6 +415,9 @@ fn genuine_signed_serial_scheduled_trap_steps_and_bound_refusals() {
         assert!(VerifiedReplay::verify(
             &trusted.receipt,
             &trusted.admission,
+            &trusted.commit,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &proof,
             &portable.authority_bytes,
             &hosts,
@@ -325,6 +429,9 @@ fn genuine_signed_serial_scheduled_trap_steps_and_bound_refusals() {
         assert!(VerifiedReplay::verify(
             &trusted.receipt,
             &trusted.admission,
+            &trusted.commit,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &metadata,
             &portable.authority_bytes,
             &portable.hosts_bytes,
@@ -336,6 +443,9 @@ fn genuine_signed_serial_scheduled_trap_steps_and_bound_refusals() {
         assert!(VerifiedReplay::verify(
             &trusted.receipt,
             &trusted.admission,
+            &trusted.commit,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &wrong_key,
             &portable.authority_bytes,
             &portable.hosts_bytes,
@@ -347,8 +457,8 @@ fn genuine_signed_serial_scheduled_trap_steps_and_bound_refusals() {
             .get_mut(&replay.metadata().code_hash)
             .expect("real deployed code");
         code[0] ^= 1;
-        assert!(AuthenticatedCatalogue::verify(&trusted.admission, &changed_code).is_err());
-        assert!(AuthenticatedCatalogue::verify(&trusted.admission, &BTreeMap::new()).is_err());
+        assert!(trusted.catalogue(&changed_code).is_err());
+        assert!(trusted.catalogue(&BTreeMap::new()).is_err());
     }
     assert!(verified_instructions >= 4);
     assert_eq!(verified_traps, 1);
@@ -366,7 +476,7 @@ fn authenticated_admission_authority_reaches_real_bounded_step_verifier() {
     let mut verified_scheduled = 0;
     for capture in captures {
         let trusted = fixture.receipt(capture);
-        let proof = StateWitness::decode(&fixture.file(capture, "metadata_proof"))
+        let proof = decode_existence(&fixture.file(capture, "metadata_proof"))
             .expect("real metadata state proof");
         let portable =
             PortableReplayRecord::decode_untrusted(&fixture.file(capture, "witness"), 1_048_576)
@@ -375,7 +485,7 @@ fn authenticated_admission_authority_reaches_real_bounded_step_verifier() {
             &trusted.receipt,
             &trusted.admission,
             &trusted.header,
-            &trusted.receipt_proof,
+            &trusted.commit,
         )
         .expect("authority independently derived from sealed historical admission");
         authority
@@ -392,7 +502,7 @@ fn authenticated_admission_authority_reaches_real_bounded_step_verifier() {
             &trusted.receipt,
             &trusted.admission,
             &other_header.header,
-            &trusted.receipt_proof,
+            &trusted.commit,
         )
         .is_err());
         let other_admission = fixture
@@ -404,17 +514,11 @@ fn authenticated_admission_authority_reaches_real_bounded_step_verifier() {
             &trusted.receipt,
             &other_admission.admission,
             &trusted.header,
-            &trusted.receipt_proof,
+            &trusted.commit,
         )
         .is_err());
-        let mut siblings = trusted.receipt_proof.siblings().to_vec();
-        siblings.first_mut().expect("real nonempty receipt proof")[0] ^= 1;
-        let bad_proof = Proof::new(
-            trusted.receipt_proof.leaf_index(),
-            trusted.receipt_proof.leaf_count(),
-            siblings,
-        )
-        .expect("same canonical Merkle proof shape");
+        let mut bad_proof = trusted.commit.clone();
+        bad_proof.receipt_proof.value[0] ^= 1;
         assert!(VerifiedReplayAuthority::derive(
             &trusted.receipt,
             &trusted.admission,
@@ -423,14 +527,17 @@ fn authenticated_admission_authority_reaches_real_bounded_step_verifier() {
         )
         .is_err());
         let catalogue = || {
-            AuthenticatedCatalogue::verify(&trusted.admission, &fixture.code)
+            trusted
+                .catalogue(&fixture.code)
                 .expect("genuine previous-root catalogue and signed deployed code")
         };
         let replay = VerifiedReplay::verify_with_batch_context(
             &trusted.receipt,
             &trusted.admission,
             &trusted.header,
-            &trusted.receipt_proof,
+            &trusted.commit,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &proof,
             &portable.authority_bytes,
             &portable.hosts_bytes,
@@ -502,7 +609,9 @@ fn authenticated_admission_authority_reaches_real_bounded_step_verifier() {
             &trusted.receipt,
             &trusted.admission,
             &trusted.header,
-            &trusted.receipt_proof,
+            &trusted.commit,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &proof,
             &bad_authority,
             &portable.hosts_bytes,
@@ -515,7 +624,9 @@ fn authenticated_admission_authority_reaches_real_bounded_step_verifier() {
             &trusted.receipt,
             &trusted.admission,
             &trusted.header,
-            &trusted.receipt_proof,
+            &trusted.commit,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &proof,
             &portable.authority_bytes,
             &bad_hosts,
@@ -528,7 +639,9 @@ fn authenticated_admission_authority_reaches_real_bounded_step_verifier() {
             &trusted.receipt,
             &trusted.admission,
             &trusted.header,
-            &trusted.receipt_proof,
+            &trusted.commit,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &bad_metadata,
             &portable.authority_bytes,
             &portable.hosts_bytes,
@@ -541,7 +654,9 @@ fn authenticated_admission_authority_reaches_real_bounded_step_verifier() {
             &trusted.receipt,
             &trusted.admission,
             &trusted.header,
-            &trusted.receipt_proof,
+            &trusted.commit,
+            trusted.host_store_root,
+            &trusted.host_multistore_proof,
             &bad_key,
             &portable.authority_bytes,
             &portable.hosts_bytes,
@@ -552,12 +667,233 @@ fn authenticated_admission_authority_reaches_real_bounded_step_verifier() {
         bad_code
             .get_mut(&replay.metadata().code_hash)
             .expect("actual deployed code")[0] ^= 1;
-        assert!(AuthenticatedCatalogue::verify(&trusted.admission, &bad_code).is_err());
-        assert!(AuthenticatedCatalogue::verify(&trusted.admission, &BTreeMap::new()).is_err());
+        assert!(trusted.catalogue(&bad_code).is_err());
+        assert!(trusted.catalogue(&BTreeMap::new()).is_err());
     }
     assert!(verified_instructions >= 4);
     assert_eq!(verified_traps, 1);
     assert_eq!(verified_scheduled, 1);
+}
+
+fn module_catalogue_vector() -> Value {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../tests/vectors/ics23-module-catalogue-app-hash.json");
+    let vector: Value = serde_json::from_slice(
+        &fs::read(path).expect("keeper-generated module catalogue app-hash vector"),
+    )
+    .expect("committed host vector JSON");
+    assert_eq!(field(&vector["source"], "generator"), "modules/sequencer/keeper/ics23_module_catalogue_vector_test.go::TestModuleCatalogueAppHashVector");
+    assert_eq!(
+        vector["entries"]
+            .as_array()
+            .expect("two committed app hashes")
+            .len(),
+        2
+    );
+    assert_ne!(
+        vector["entries"][0]["app_hash"],
+        vector["entries"][1]["app_hash"]
+    );
+    assert_ne!(
+        vector["entries"][0]["store_root"],
+        vector["entries"][1]["store_root"]
+    );
+    vector
+}
+
+#[test]
+fn replay_verifies_metadata_from_ics23_host_store_proof() {
+    let vector = module_catalogue_vector();
+    let entries = vector["entries"].as_array().expect("committed entries");
+    for entry in entries {
+        let record = &entry["metadata"];
+        let fields = &record["fields"];
+        let proof = decode_existence(&hex(record, "proof")).expect("host metadata proof");
+        assert_eq!(proof.key, hex(record, "key"));
+        assert_eq!(proof.value, hex(record, "value"));
+        let activity_id = hash(fields, "activity_id");
+        let verify = |app_hash,
+                      root,
+                      multistore: &[u8],
+                      activity_id: &[u8; 32],
+                      proof: &ExistenceProof| {
+            ReplayMetadata::verify_under_app_hash(app_hash, root, multistore, activity_id, proof)
+        };
+        let app_hash = hash(entry, "app_hash");
+        let root = hash(entry, "store_root");
+        let multistore = hex(entry, "multistore_proof");
+        let metadata = verify(app_hash, root, &multistore, &activity_id, &proof)
+            .expect("ICS23 authenticated replay metadata");
+        let number = |name: &str| fields[name].as_u64().expect("metadata number");
+        assert_eq!(
+            metadata,
+            ReplayMetadata {
+                network_id: u32::try_from(number("network_id")).unwrap(),
+                activity_id,
+                sequence: number("sequence"),
+                previous_root: hash(fields, "previous_root"),
+                program_id: hash(fields, "program_id"),
+                code_hash: hash(fields, "code_hash"),
+                input_digest: hash(fields, "input_digest"),
+                runtime_version: u16::try_from(number("runtime_version")).unwrap(),
+                abi_version: u16::try_from(number("abi_version")).unwrap(),
+                fee_version: u32::try_from(number("fee_version")).unwrap(),
+                metering_version: u32::try_from(number("metering_version")).unwrap(),
+                maximum_boundaries: u32::try_from(number("maximum_boundaries")).unwrap(),
+                maximum_bytes: u32::try_from(number("maximum_bytes")).unwrap(),
+                terminal_status: u8::try_from(number("terminal_status")).unwrap(),
+                boundary_count: u32::try_from(number("boundary_count")).unwrap(),
+                authority_root: hash(fields, "authority_root"),
+                hosts_root: hash(fields, "hosts_root"),
+                boundary_root: hash(fields, "boundary_root"),
+                witness_digest: hash(fields, "witness_digest"),
+                result_code: i32::try_from(fields["result_code"].as_i64().unwrap()).unwrap(),
+                blob_digest: hash(fields, "blob_digest"),
+            }
+        );
+        assert_eq!(metadata.code_hash, hash(&entry["blobs"][0], "code_hash"));
+        let other = entries
+            .iter()
+            .find(|other| other["app_hash"] != entry["app_hash"])
+            .unwrap();
+        assert_eq!(
+            verify(
+                hash(other, "app_hash"),
+                root,
+                &multistore,
+                &activity_id,
+                &proof
+            ),
+            Err(ReplayError::Metadata)
+        );
+        let mut changed = proof.clone();
+        changed.value[0] ^= 1;
+        assert_eq!(
+            verify(app_hash, root, &multistore, &activity_id, &changed),
+            Err(ReplayError::Metadata)
+        );
+        let mut wrong_key = proof.clone();
+        wrong_key.key[0] = 5;
+        assert_eq!(
+            verify(app_hash, root, &multistore, &activity_id, &wrong_key),
+            Err(ReplayError::Metadata)
+        );
+        let mut wrong_activity = activity_id;
+        wrong_activity[0] ^= 1;
+        assert_eq!(
+            verify(app_hash, root, &multistore, &wrong_activity, &proof),
+            Err(ReplayError::Metadata)
+        );
+        let mut wrong_root = root;
+        wrong_root[0] ^= 1;
+        assert_eq!(
+            verify(app_hash, wrong_root, &multistore, &activity_id, &proof),
+            Err(ReplayError::Metadata)
+        );
+        let mut wrong_multistore = multistore.clone();
+        *wrong_multistore.last_mut().expect("host multistore proof") ^= 1;
+        assert_eq!(
+            verify(app_hash, root, &wrong_multistore, &activity_id, &proof),
+            Err(ReplayError::Metadata)
+        );
+    }
+}
+
+#[test]
+fn catalogue_refuses_module_blob_absent_from_app_hash() {
+    let vector = module_catalogue_vector();
+    let entries = vector["entries"].as_array().expect("committed entries");
+    let load = |entry: &Value| {
+        let mut proofs = BTreeMap::new();
+        let mut code = BTreeMap::new();
+        let blobs = entry["blobs"].as_array().expect("proven code blobs");
+        assert_eq!(blobs.len(), 1);
+        for blob in blobs {
+            let code_hash = hash(blob, "code_hash");
+            let proof = decode_existence(&hex(blob, "proof")).expect("host blob proof");
+            assert_eq!(proof.key, hex(blob, "key"));
+            assert_eq!(proof.value, hex(blob, "value"));
+            assert_eq!(<[u8; 32]>::from(Sha256::digest(&proof.value)), code_hash);
+            assert!(code.insert(code_hash, hex(blob, "value")).is_none());
+            assert!(proofs.insert(code_hash, proof).is_none());
+        }
+        (proofs, code)
+    };
+    let (proofs, code) = load(&entries[0]);
+    let (foreign, other_code) = load(&entries[1]);
+    assert_eq!(code, other_code);
+    let app_hash = hash(&entries[0], "app_hash");
+    let root = hash(&entries[0], "store_root");
+    let multistore = hex(&entries[0], "multistore_proof");
+    let verify = |app_hash,
+                  root,
+                  multistore: &[u8],
+                  proofs: &BTreeMap<[u8; 32], ExistenceProof>,
+                  code: &BTreeMap<[u8; 32], Vec<u8>>| {
+        AuthenticatedCatalogue::verify_module_blobs(app_hash, root, multistore, proofs, code)
+    };
+    assert_eq!(verify(app_hash, root, &multistore, &proofs, &code), Ok(()));
+    assert_eq!(
+        verify(
+            hash(&entries[1], "app_hash"),
+            hash(&entries[1], "store_root"),
+            &hex(&entries[1], "multistore_proof"),
+            &foreign,
+            &other_code
+        ),
+        Ok(())
+    );
+    assert_eq!(
+        verify(app_hash, root, &multistore, &foreign, &code),
+        Err(ReplayError::Catalogue)
+    );
+    let code_hash = *code.keys().next().expect("deployed token blob");
+    let mut absent = proofs.clone();
+    absent.remove(&code_hash);
+    assert_eq!(
+        verify(app_hash, root, &multistore, &absent, &code),
+        Err(ReplayError::Catalogue)
+    );
+    let mut changed = proofs.clone();
+    changed.get_mut(&code_hash).unwrap().value[0] ^= 1;
+    assert_eq!(
+        verify(app_hash, root, &multistore, &changed, &code),
+        Err(ReplayError::Catalogue)
+    );
+    let mut wrong_module = proofs.clone();
+    wrong_module.get_mut(&code_hash).unwrap().key[2] = 8;
+    assert_eq!(
+        verify(app_hash, root, &multistore, &wrong_module, &code),
+        Err(ReplayError::Catalogue)
+    );
+    let mut malformed = proofs.clone();
+    malformed.get_mut(&code_hash).unwrap().leaf.hash = 0;
+    assert_eq!(
+        verify(app_hash, root, &multistore, &malformed, &code),
+        Err(ReplayError::Catalogue)
+    );
+    let mut changed_code = code.clone();
+    changed_code.get_mut(&code_hash).unwrap()[0] ^= 1;
+    assert_eq!(
+        verify(app_hash, root, &multistore, &proofs, &changed_code),
+        Err(ReplayError::Catalogue)
+    );
+    let mut wrong_root = root;
+    wrong_root[0] ^= 1;
+    assert_eq!(
+        verify(app_hash, wrong_root, &multistore, &proofs, &code),
+        Err(ReplayError::Catalogue)
+    );
+    assert_eq!(
+        verify(
+            hash(&entries[1], "app_hash"),
+            root,
+            &multistore,
+            &proofs,
+            &code
+        ),
+        Err(ReplayError::Catalogue)
+    );
 }
 
 fn assert_native_field_refusals(authority: &VerifiedReplayAuthority, bytes: &[u8]) {

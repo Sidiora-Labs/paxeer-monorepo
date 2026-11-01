@@ -1,6 +1,6 @@
 //! Durable encrypted protocol-session signer registry.
 
-use crate::sign::ProvisionedSessionKey;
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
 use layerx_crypto::keystore::{Keystore, KeystoreEntropy};
 use layerx_crypto::session::IssuedSessionKey;
 use sha2::{Digest as _, Sha256};
@@ -23,7 +23,60 @@ pub enum SessionKeyRegistryError {
     Invalid,
     Exists,
     Crypto,
+    KeyKind,
 }
+
+pub struct PreparedSessionSeed {
+    secret: Zeroizing<[u8; 32]>,
+    address: [u8; 20],
+}
+
+impl PreparedSessionSeed {
+    pub fn secret(&self) -> &[u8; 32] {
+        &self.secret
+    }
+
+    pub const fn evm_address(&self) -> [u8; 20] {
+        self.address
+    }
+}
+
+impl AsRef<[u8]> for PreparedSessionSeed {
+    fn as_ref(&self) -> &[u8] {
+        self.secret.as_ref()
+    }
+}
+
+pub struct ProvisionedEvmSessionKey {
+    key: PreparedSessionSeed,
+    revocation_marker: PathBuf,
+    owner_uid: u32,
+}
+
+impl ProvisionedEvmSessionKey {
+    pub const fn evm_address(&self) -> [u8; 20] {
+        self.key.evm_address()
+    }
+
+    pub fn with_secret<R>(
+        &self,
+        operation: impl FnOnce(&[u8; 32]) -> R,
+    ) -> Result<R, SessionKeyRegistryError> {
+        match fs::symlink_metadata(&self.revocation_marker) {
+            Ok(_) => {
+                validate_revocation_marker(&self.revocation_marker, self.owner_uid)?;
+                Err(SessionKeyRegistryError::Invalid)
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                Ok(operation(self.key.secret()))
+            }
+            Err(_) => Err(SessionKeyRegistryError::Io),
+        }
+    }
+}
+
+const SESSION_KEY_KIND: &[u8] = b"layerx-agentd/session-key/secp256k1/v2\0";
+const PREPARATION_KEY_KIND: &[u8] = b"layerx-agentd/session-preparation/secp256k1/v2\0";
 
 impl SessionKeyRegistry {
     ///
@@ -74,7 +127,7 @@ impl SessionKeyRegistry {
         &self,
         namespace: &[u8],
         request_digest: [u8; 32],
-    ) -> Result<Zeroizing<[u8; 32]>, SessionKeyRegistryError> {
+    ) -> Result<PreparedSessionSeed, SessionKeyRegistryError> {
         if namespace.is_empty() || namespace.len() > 1024 || request_digest == [0; 32] {
             return Err(SessionKeyRegistryError::Invalid);
         }
@@ -82,7 +135,7 @@ impl SessionKeyRegistry {
         hash.update(b"layerx-agentd/session-preparation/v1\0");
         hash.update(namespace);
         let id: [u8; 32] = hash.finalize().into();
-        let mut binding = b"layerx-agentd/session-preparation/v1\0".to_vec();
+        let mut binding = PREPARATION_KEY_KIND.to_vec();
         binding.extend(id);
         binding.extend(request_digest);
         let path = self.root.join(format!("pending-{}.lxks", hex(id)));
@@ -93,9 +146,7 @@ impl SessionKeyRegistry {
             getrandom::fill(seed.as_mut()).map_err(|_| SessionKeyRegistryError::Crypto)?;
             getrandom::fill(&mut salt).map_err(|_| SessionKeyRegistryError::Crypto)?;
             getrandom::fill(&mut nonce).map_err(|_| SessionKeyRegistryError::Crypto)?;
-            if *seed == [0; 32] {
-                return Err(SessionKeyRegistryError::Crypto);
-            }
+            session_address(&seed, self.network_id)?;
             let envelope = Keystore::seal(
                 &seed,
                 &self.operator_secret,
@@ -136,12 +187,18 @@ impl SessionKeyRegistry {
         }
         let bytes = crate::config::read_protected_source(&path, 8192)
             .map_err(|_| SessionKeyRegistryError::Unprotected)?;
-        Keystore::from_bytes(&bytes)
-            .map_err(|_| SessionKeyRegistryError::Crypto)?
+        let envelope = Keystore::from_bytes(&bytes).map_err(|_| SessionKeyRegistryError::Crypto)?;
+        if !envelope.identity().starts_with(PREPARATION_KEY_KIND) {
+            return Err(SessionKeyRegistryError::KeyKind);
+        }
+        envelope
             .open_with(&self.operator_secret, &binding, self.network_id, |seed| {
-                Zeroizing::new(*seed)
+                Ok(PreparedSessionSeed {
+                    address: session_address(seed, self.network_id)?,
+                    secret: Zeroizing::new(*seed),
+                })
             })
-            .map_err(|_| SessionKeyRegistryError::Crypto)
+            .map_err(|_| SessionKeyRegistryError::Crypto)?
     }
 
     /// # Errors
@@ -156,7 +213,10 @@ impl SessionKeyRegistry {
         if self.revoked_path(grant_id).exists() {
             return Err(SessionKeyRegistryError::Invalid);
         }
-        let identity = identity(grant_id, issued);
+        validate_issued(grant_id, issued)?;
+        let address = session_address(seed, self.network_id)?;
+        validate_address(address, issued)?;
+        let identity = identity(grant_id, issued, address);
         let mut salt = [0; 16];
         let mut nonce = [0; 24];
         getrandom::fill(&mut salt).map_err(|_| SessionKeyRegistryError::Crypto)?;
@@ -261,22 +321,38 @@ impl SessionKeyRegistry {
         &self,
         grant_id: [u8; 32],
         issued: IssuedSessionKey,
-    ) -> Result<ProvisionedSessionKey, SessionKeyRegistryError> {
+    ) -> Result<ProvisionedEvmSessionKey, SessionKeyRegistryError> {
         let marker = self.revoked_path(grant_id);
         if marker.exists() {
             return Err(SessionKeyRegistryError::Invalid);
         }
-        let identity = identity(grant_id, &issued);
         let bytes = crate::config::read_protected_source(&self.path(grant_id), 8192)
             .map_err(|_| SessionKeyRegistryError::Unprotected)?;
         let envelope = Keystore::from_bytes(&bytes).map_err(|_| SessionKeyRegistryError::Crypto)?;
+        if !envelope.identity().starts_with(SESSION_KEY_KIND) {
+            return Err(SessionKeyRegistryError::KeyKind);
+        }
+        validate_issued(grant_id, &issued)?;
+        let address: [u8; 20] = issued.session_public_key[12..]
+            .try_into()
+            .map_err(|_| SessionKeyRegistryError::Invalid)?;
+        validate_address(address, &issued)?;
+        let identity = identity(grant_id, &issued, address);
         envelope
             .open_with(&self.operator_secret, &identity, self.network_id, |seed| {
-                ProvisionedSessionKey::from_seed(seed, issued)
+                if session_address(seed, self.network_id)? != address {
+                    return Err(SessionKeyRegistryError::Invalid);
+                }
+                Ok(ProvisionedEvmSessionKey {
+                    key: PreparedSessionSeed {
+                        secret: Zeroizing::new(*seed),
+                        address,
+                    },
+                    revocation_marker: marker,
+                    owner_uid: self.owner_uid,
+                })
             })
             .map_err(|_| SessionKeyRegistryError::Crypto)?
-            .map(|key| key.bind_revocation_marker(marker, self.owner_uid))
-            .map_err(|_| SessionKeyRegistryError::Crypto)
     }
     ///
     /// # Errors
@@ -304,6 +380,11 @@ impl SessionKeyRegistry {
             }
             let envelope =
                 Keystore::from_bytes(&bytes).map_err(|_| SessionKeyRegistryError::Crypto)?;
+            if !envelope.identity().starts_with(SESSION_KEY_KIND)
+                && !envelope.identity().starts_with(PREPARATION_KEY_KIND)
+            {
+                return Err(SessionKeyRegistryError::KeyKind);
+            }
             envelope
                 .open_with(
                     &self.operator_secret,
@@ -344,12 +425,13 @@ fn validate_revocation_marker(path: &Path, owner_uid: u32) -> Result<(), Session
         Err(SessionKeyRegistryError::Invalid)
     }
 }
-fn identity(grant: [u8; 32], issued: &IssuedSessionKey) -> Vec<u8> {
-    let mut out = b"layerx-agentd/session-key/v1\0".to_vec();
+fn identity(grant: [u8; 32], issued: &IssuedSessionKey, address: [u8; 20]) -> Vec<u8> {
+    let mut out = SESSION_KEY_KIND.to_vec();
     out.extend(grant);
     out.extend(issued.session_public_key);
     out.extend(issued.revocation_sequence.to_be_bytes());
     out.extend(issued.expires_at.to_be_bytes());
+    out.extend(address);
     out
 }
 fn hex(bytes: [u8; 32]) -> String {
@@ -358,4 +440,49 @@ fn hex(bytes: [u8; 32]) -> String {
         .iter()
         .flat_map(|b| [H[(b >> 4) as usize] as char, H[(b & 15) as usize] as char])
         .collect()
+}
+
+fn validate_issued(
+    grant_id: [u8; 32],
+    issued: &IssuedSessionKey,
+) -> Result<(), SessionKeyRegistryError> {
+    if grant_id != issued.grant_id
+        || issued.purpose != layerx_crypto::session::SessionPurpose::Activity
+        || issued.permitted_activity_types.is_empty()
+        || issued.expires_at == 0
+        || issued.revocation_sequence == 0
+    {
+        return Err(SessionKeyRegistryError::Invalid);
+    }
+    Ok(())
+}
+
+fn validate_address(
+    address: [u8; 20],
+    issued: &IssuedSessionKey,
+) -> Result<(), SessionKeyRegistryError> {
+    if issued.session_public_key[..12] != [0; 12] || issued.session_public_key[12..] != address {
+        return Err(SessionKeyRegistryError::Invalid);
+    }
+    Ok(())
+}
+
+fn session_address(
+    secret: &[u8; 32],
+    network_id: u32,
+) -> Result<[u8; 20], SessionKeyRegistryError> {
+    let proof = Eip1559Call {
+        chain_id: u64::from(network_id),
+        nonce: 0,
+        max_priority_fee_per_gas: 0,
+        max_fee_per_gas: 0,
+        gas_limit: 0,
+        to: [0; 20],
+        data: SESSION_KEY_KIND.to_vec(),
+    };
+    let signed = proof
+        .sign(secret)
+        .map_err(|_| SessionKeyRegistryError::Crypto)?;
+    let (call, signature) = decode_signed(&signed).map_err(|_| SessionKeyRegistryError::Crypto)?;
+    recover_sender(&call, &signature).map_err(|_| SessionKeyRegistryError::Crypto)
 }
