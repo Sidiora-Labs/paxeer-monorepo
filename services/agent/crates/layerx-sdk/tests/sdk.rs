@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use layerx_agent_api::idempotency::{BodyDigest, IdempotentMutation, Key};
 use layerx_agent_api::identity::{
     AgentDid, AuthorityRef, ClientId, ExplicitSet, PolicyVersion, SessionContext, SessionOpen,
@@ -9,10 +7,6 @@ use layerx_agent_api::prepare::{CanonicalBytes, IdempotencyRef};
 use layerx_agent_api::read::{AccountRef, BalanceValue, Freshness, RelativeTo, VerifiedRead};
 use layerx_agent_api::track::{EvidenceRef, SubmissionRef, TrackedSubmission};
 use layerx_agent_api::{Amount, ContractVersion, SubmissionState, TimestampSeconds};
-use layerx_client::client::{ClientConfig, ReconnectPolicy};
-use layerx_client::lni::handshake::HandshakeConfig;
-use layerx_client::lni::schema::Version;
-use layerx_client::lni::transport::Limits;
 use layerx_sdk::approval::{
     ApprovalApproveRequest, ApprovalContractError, ApprovalDecisionOutcome, ApprovalEventKind,
     ApprovalGetRequest, ApprovalId, ApprovalListRequest, ApprovalRejectRequest, ApprovalState,
@@ -21,30 +15,6 @@ use layerx_sdk::approval::{
 use layerx_sdk::{Client, Deployment, Operation, SdkError, SubmissionOutcome, GUARANTEES};
 use layerx_types::result::ResultCode;
 use layerx_types::rung::Rung;
-
-fn direct_config() -> ClientConfig {
-    ClientConfig {
-        endpoint: "/tmp/layerx-node.sock".into(),
-        handshake: HandshakeConfig {
-            built_interface_version: Version::V1_0,
-            expected_protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
-            expected_network_id: 7,
-        },
-        limits: Limits {
-            maximum_frame_bytes: 1_048_576,
-            maximum_connections: 1,
-            maximum_streams: 16,
-            maximum_queued_bytes: 2_097_152,
-            deadline: Duration::from_secs(5),
-        },
-        reconnect: ReconnectPolicy {
-            maximum_attempts: 3,
-            base_delay: Duration::from_millis(1),
-            maximum_delay: Duration::from_millis(5),
-            jitter_percent: 10,
-        },
-    }
-}
 
 fn context() -> SessionContext {
     SessionContext::new(
@@ -86,8 +56,8 @@ fn daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls() {
         ContractVersion { major: 2, minor: 2 },
     )
     .unwrap_or_else(|error| panic!("daemon: {error:?}"));
-    let direct =
-        Client::direct_node(direct_config()).unwrap_or_else(|error| panic!("direct: {error:?}"));
+    let direct = Client::direct_node("http://127.0.0.1:8545", &[])
+        .unwrap_or_else(|error| panic!("direct: {error:?}"));
     assert_eq!(daemon.deployment(), Deployment::Daemon);
     assert_eq!(direct.deployment(), Deployment::DirectNode);
     assert_eq!(daemon.guarantees(), GUARANTEES);

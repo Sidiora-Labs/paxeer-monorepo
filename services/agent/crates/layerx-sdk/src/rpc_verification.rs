@@ -127,36 +127,6 @@ impl VerifiedRpcAccount {
         &self.proof_material
     }
 
-    /// Verifies an account response using genesis-authenticated historical authority.
-    ///
-    /// # Errors
-    /// Refuses unknown batches, crossed term boundaries and all ordinary account proof failures.
-    pub fn from_rpc_result_with_history(
-        result: &Value,
-        account: [u8; 32],
-        history: &layerx_client::handover::SequencerHistory,
-    ) -> Result<Self, RpcError> {
-        let batch = u64::try_from(decimal_field(result, "batch_number")?)
-            .map_err(|_| RpcError::InvalidResponse)?;
-        let authorization = history
-            .authorization_for_batch(batch)
-            .map_err(|_| RpcError::Verification)?;
-        let verified = Self::from_rpc_result(
-            result,
-            account,
-            &AccountPolicy {
-                protocol_version: 3,
-                network_id: history.network_id(),
-                sequencer_key: authorization.public_key(),
-            },
-        )?;
-        let header = verified.evidence().signed_header();
-        history
-            .verify_header(&header.canonical_bytes, &header.signature)
-            .map_err(|_| RpcError::Verification)?;
-        Ok(verified)
-    }
-
     /// Verifies one served account read against its own proof material and
     /// refuses every served field the proof does not reproduce.
     ///
@@ -261,20 +231,6 @@ impl VerifiedRpcBalances {
         })
     }
 
-    /// Verifies a complete per-asset listing under authenticated historical terms.
-    ///
-    /// # Errors
-    /// Preserves all listing, ownership, ordering, level and account proof checks.
-    pub fn from_rpc_result_with_history(
-        result: &Value,
-        did: &str,
-        history: &layerx_client::handover::SequencerHistory,
-    ) -> Result<Self, RpcError> {
-        Self::verify_listing(result, did, |entry, account| {
-            VerifiedRpcAccount::from_rpc_result_with_history(entry, account, history)
-        })
-    }
-
     fn verify_listing(
         result: &Value,
         did: &str,
@@ -337,69 +293,6 @@ fn decimal_field(value: &Value, name: &str) -> Result<u128, RpcError> {
 }
 
 impl RpcClient {
-    /// Reads and verifies account state under authenticated genesis history.
-    ///
-    /// # Errors
-    /// Preserves RPC errors and refuses unverified historical keys or account proofs.
-    pub fn verified_account_with_history(
-        &self,
-        account: [u8; 32],
-        history: &layerx_client::handover::SequencerHistory,
-    ) -> Result<VerifiedRpcAccount, RpcError> {
-        let result = self.get_account(&super::rpc::encode_hex(&account))?;
-        VerifiedRpcAccount::from_rpc_result_with_history(&result, account, history)
-    }
-
-    /// Reads and verifies a balance under authenticated genesis history.
-    ///
-    /// # Errors
-    /// Preserves RPC errors and every historical account proof check.
-    pub fn verified_balance_with_history(
-        &self,
-        account: [u8; 32],
-        history: &layerx_client::handover::SequencerHistory,
-    ) -> Result<VerifiedRpcAccount, RpcError> {
-        let result = self.get_balance(&super::rpc::encode_hex(&account))?;
-        VerifiedRpcAccount::from_rpc_result_with_history(&result, account, history)
-    }
-
-    /// Verifies every listed asset account under authenticated genesis history.
-    ///
-    /// # Errors
-    /// Preserves RPC, ownership, listing completeness and per-account proof checks.
-    pub fn verified_balances_with_history(
-        &self,
-        did: &str,
-        history: &layerx_client::handover::SequencerHistory,
-    ) -> Result<VerifiedRpcBalances, RpcError> {
-        let result = self.get_balances(did)?.into_value();
-        VerifiedRpcBalances::from_rpc_result_with_history(&result, did, history)
-    }
-
-    /// Tracks an actual receipt using the key authorized for its committed sequence.
-    ///
-    /// # Errors
-    /// Refuses unknown sequences, crossed activation boundaries and all existing receipt checks.
-    pub fn wait_for_with_history(
-        &self,
-        activity: [u8; 32],
-        commitment: Commitment,
-        history: &layerx_client::handover::SequencerHistory,
-        trusted_checkpoint_context_digest: Option<[u8; 32]>,
-        timeout: Duration,
-    ) -> Result<VerifiedRpcReceipt, RpcError> {
-        let head = history.verified_head().ok_or(RpcError::Verification)?;
-        let policy = ReceiptPolicy {
-            protocol_version: 3,
-            network_id: history.network_id(),
-            sequencer: history
-                .authorization_for_batch(head.header().batch_number())
-                .map_err(|_| RpcError::Verification)?,
-            trusted_checkpoint_context_digest,
-        };
-        self.wait_for_authority(activity, commitment, &policy, timeout, Some(history))
-    }
-
     /// Reads an account through `lx_getAccount` and verifies the served value
     /// against its own proof material before returning it.
     ///
@@ -456,7 +349,7 @@ impl RpcClient {
         policy: &ReceiptPolicy,
         timeout: Duration,
     ) -> Result<VerifiedRpcReceipt, RpcError> {
-        self.wait_for_authority(activity, commitment, policy, timeout, None)
+        self.wait_for_authority(activity, commitment, policy, timeout)
     }
 
     fn wait_for_authority(
@@ -465,7 +358,6 @@ impl RpcClient {
         commitment: Commitment,
         policy: &ReceiptPolicy,
         timeout: Duration,
-        history: Option<&layerx_client::handover::SequencerHistory>,
     ) -> Result<VerifiedRpcReceipt, RpcError> {
         if commitment == Commitment::Finalised {
             return Err(RpcError::MissingFinalityTrust);
@@ -491,14 +383,7 @@ impl RpcClient {
                     activity_id: activity,
                 });
             }
-            match self.receipt_at_commitment(
-                &id,
-                activity,
-                commitment,
-                policy,
-                &mut deadline,
-                history,
-            ) {
+            match self.receipt_at_commitment(&id, activity, commitment, policy, &mut deadline) {
                 Ok(Some(receipt)) => return Ok(receipt),
                 Ok(None)
                 | Err(RpcError::Remote {
@@ -557,7 +442,6 @@ impl RpcClient {
         commitment: Commitment,
         policy: &ReceiptPolicy,
         deadline: &mut Deadline,
-        history: Option<&layerx_client::handover::SequencerHistory>,
     ) -> Result<Option<VerifiedRpcReceipt>, RpcError> {
         let clock = self.clock()?;
         let Some(result) =
@@ -575,26 +459,6 @@ impl RpcClient {
             return Err(RpcError::InvalidResponse);
         }
         let canonical = hex_field(&result, "receipt", 1_048_576)?;
-        let selected;
-        let policy = if let Some(history) = history {
-            let decoded =
-                layerx_wire::receipt::decode(&canonical).map_err(|_| RpcError::Verification)?;
-            let sequence = decoded
-                .protocol()
-                .ok_or(RpcError::Verification)?
-                .global_sequence();
-            selected = ReceiptPolicy {
-                protocol_version: policy.protocol_version,
-                network_id: policy.network_id,
-                sequencer: history
-                    .authorization_for_sequence(sequence)
-                    .map_err(|_| RpcError::Verification)?,
-                trusted_checkpoint_context_digest: policy.trusted_checkpoint_context_digest,
-            };
-            &selected
-        } else {
-            policy
-        };
         let receipt = layerx_proof::receipt::verify_sequencer_signature(
             &canonical,
             policy.sequencer.public_key(),
@@ -625,11 +489,6 @@ impl RpcClient {
                 return Ok(None);
             };
             let evidence = verify_rpc_inclusion(&proof, id, &canonical, policy)?;
-            if let Some(history) = history {
-                history
-                    .verify_header(evidence.canonical_header(), &evidence.header_signature())
-                    .map_err(|_| RpcError::Verification)?;
-            }
             Some(evidence)
         };
         if deadline
