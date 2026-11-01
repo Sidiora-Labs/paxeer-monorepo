@@ -8,6 +8,7 @@ import {
   resolveContent,
   tendermintHeaders,
   verifyStorageProof,
+  verifyStorageAbsence,
 } from '../src/index.js';
 
 const vector = JSON.parse(
@@ -274,4 +275,154 @@ test(
 test(
   tendermint_headers_decode_the_consensus_hex_app_hash,
   tendermint_headers_decode_the_consensus_hex_app_hash
+);
+
+async function resolve_content_returns_null_for_a_proven_absent_contenthash() {
+  const absence = JSON.parse(
+    readFileSync(
+      new URL('../../../tests/vectors/names/storage_absence_v1.json', import.meta.url),
+      'utf8'
+    )
+  );
+  expect(absence.value).toBe('0x');
+  const input = {
+    proofOps: absence.proof_ops,
+    appHash: hexToBytes(absence.app_hash.slice(2)),
+    store: absence.store,
+    key: hexToBytes(absence.key.slice(2)),
+  };
+  expect(verifyStorageAbsence(input)).toBe(true);
+  expect(() =>
+    verifyStorageAbsence({
+      ...input,
+      key: hexToBytes(vector.key.slice(2)),
+      proofOps: vector.proof_ops,
+    })
+  ).toThrow('ics23:iavl: Expected a non-existence proof');
+  expect(() => verifyStorageAbsence({ ...input, store: 'bank' })).toThrow('ics23:simple');
+  expect(() =>
+    verifyStorageAbsence({ ...input, proofOps: input.proofOps.slice(0, 1) })
+  ).toThrow('ics23:simple');
+  expect(() =>
+    verifyStorageAbsence({ ...input, proofOps: [...input.proofOps].reverse() })
+  ).toThrow('ics23:iavl');
+  const wrongKey = input.key.slice();
+  wrongKey[0] ^= 1;
+  expect(() => verifyStorageAbsence({ ...input, key: wrongKey })).toThrow('ics23:iavl');
+  const malformedOps = input.proofOps.map(
+    (op: { type: string; key: string; data: string }) => ({ ...op })
+  );
+  malformedOps[0].data = '0xff';
+  expect(() => verifyStorageAbsence({ ...input, proofOps: malformedOps })).toThrow(
+    'ics23:iavl'
+  );
+
+  const requests: unknown[] = [];
+  const headerHeights: bigint[] = [];
+  const blockNumber = `0x${BigInt(absence.height).toString(16)}`;
+  let responseOps = absence.proof_ops;
+  let responseValue: unknown = '';
+  let appHash = input.appHash;
+  const server = createServer(async (request, response) => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of request) chunks.push(Buffer.from(chunk));
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    requests.push(body);
+    response.setHeader('content-type', 'application/json');
+    if (body.method === 'eth_blockNumber') {
+      response.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: blockNumber }));
+      return;
+    }
+    if (body.method !== 'eth_getProof') {
+      response.end(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: body.id,
+          error: { code: -32601, message: 'Method not found' },
+        })
+      );
+      return;
+    }
+    response.end(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: body.id,
+        result: {
+          address: absence.address,
+          hexValues: [responseValue],
+          storageProof: [
+            {
+              ops: responseOps.map((op: { type: string; key: string; data: string }) => ({
+                type: op.type,
+                key: Buffer.from(op.key.slice(2), 'hex').toString('base64'),
+                data: Buffer.from(op.data.slice(2), 'hex').toString('base64'),
+              })),
+            },
+          ],
+        },
+      })
+    );
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  try {
+    const address = server.address();
+    if (address === null || typeof address === 'string')
+      throw new Error('Missing HTTP address');
+    const options = {
+      rpcUrl: `http://127.0.0.1:${address.port}`,
+      resolver: absence.address,
+      headers: {
+        async appHashAt(height: bigint) {
+          headerHeights.push(height);
+          return appHash;
+        },
+      },
+    };
+    await expect(resolveContent(absence.name, options)).resolves.toBeNull();
+    expect(requests).toEqual([
+      { jsonrpc: '2.0', id: 1, method: 'eth_blockNumber', params: [] },
+      {
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'eth_getProof',
+        params: [absence.address, [absence.slot], blockNumber],
+      },
+    ]);
+    expect(headerHeights).toEqual([BigInt(absence.height) + 1n]);
+    responseOps = vector.proof_ops;
+    await expect(resolveContent(absence.name, options)).rejects.toThrow(ProofError);
+    responseOps = absence.proof_ops;
+    appHash = input.appHash.slice();
+    appHash[0] ^= 1;
+    await expect(resolveContent(absence.name, options)).rejects.toThrow(ProofError);
+    await expect(resolveContent(absence.name, options)).rejects.toThrow('ics23:simple');
+    appHash = input.appHash;
+    for (const malformed of [
+      '0x',
+      '00',
+      '0'.repeat(63),
+      'g'.repeat(64),
+      `${'0'.repeat(64)}\n`,
+      `0x${'0'.repeat(64)}\n`,
+      null,
+      0,
+    ]) {
+      responseValue = malformed;
+      await expect(resolveContent(absence.name, options)).rejects.toThrow(ProofError);
+    }
+    responseValue = '00'.repeat(32);
+    await expect(resolveContent(absence.name, options)).rejects.toThrow(ProofError);
+  } finally {
+    const closed = new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve()))
+    );
+    server.closeAllConnections();
+    await closed;
+  }
+}
+
+test(
+  resolve_content_returns_null_for_a_proven_absent_contenthash,
+  resolve_content_returns_null_for_a_proven_absent_contenthash
 );
