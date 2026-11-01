@@ -279,7 +279,9 @@ fn signed_receipt(
     );
     let evidence = support::raw_receipt_evidence(
         canonical_receipt.clone(),
-        authorized_batch,
+        signer.verifying_key().to_bytes(),
+        fields.previous_state_root,
+        fields.resulting_state_root,
         sequence,
         &signer,
     );

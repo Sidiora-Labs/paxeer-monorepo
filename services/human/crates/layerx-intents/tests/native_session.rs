@@ -148,7 +148,7 @@ fn assert_owner_signature_round_trip(
     );
     let original_owner: [u8; 32] = checked(submitted.authority().try_into());
     assert_eq!(
-        checked(layerx_intents::owner_activity::attach_signature(
+        checked(layerx_intents::owner_activity::attach_native_signature(
             unsigned,
             original_signature,
             original_owner,
@@ -156,7 +156,7 @@ fn assert_owner_signature_round_trip(
         )),
         signed_bytes
     );
-    assert!(layerx_intents::owner_activity::attach_signature(
+    assert!(layerx_intents::owner_activity::attach_native_signature(
         unsigned,
         original_signature,
         [0; 32],
@@ -165,7 +165,7 @@ fn assert_owner_signature_round_trip(
     .is_err());
     let mut changed_signature = original_signature;
     changed_signature[0] ^= 1;
-    assert!(layerx_intents::owner_activity::attach_signature(
+    assert!(layerx_intents::owner_activity::attach_native_signature(
         unsigned,
         changed_signature,
         original_owner,

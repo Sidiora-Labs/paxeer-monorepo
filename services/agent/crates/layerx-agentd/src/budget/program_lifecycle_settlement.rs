@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use layerx_client::evidence::VerifiedNativeExecutionPrestate;
+use super::execution_state::CommittedExecutionState;
 use layerx_programs::{ProgramId, ProgramValueAccountBinding};
 use layerx_proof::state::CanonicalAccount;
 use layerx_types::activity::Authority;
@@ -15,7 +15,7 @@ use crate::prepare::{verify_disclosure_binding, Prepared};
 use crate::protocol_evidence::VerifiedReceiptEvidence;
 use crate::sign::VerifiedSubmission;
 
-use super::{ProgramExecutedDebit, ProgramSettlementError};
+use super::program_settlement::{ProgramExecutedDebit, ProgramSettlementError};
 
 type DebitKey = ([u8; 32], [u8; 32], ProgramChargeKind, Option<[u8; 32]>);
 
@@ -24,7 +24,7 @@ pub(super) fn verify_wind_down_debits(
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     registry: &ModuleRegistry,
-    prestate: &VerifiedNativeExecutionPrestate,
+    prestate: &CommittedExecutionState,
     reservation: &ProgramBudgetReservation,
 ) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
     verify_disclosure_binding(prepared).map_err(|_| ProgramSettlementError::Preparation)?;
@@ -61,11 +61,7 @@ pub(super) fn verify_wind_down_debits(
     let decoded = layerx_wire::receipt::decode(receipt.canonical_receipt())
         .map_err(|_| ProgramSettlementError::Receipt)?;
     let protocol = decoded.protocol().ok_or(ProgramSettlementError::Receipt)?;
-    let digest = layerx_wire::hash::receipt_digest(
-        &layerx_wire::receipt::encode_unsigned(&decoded)
-            .map_err(|_| ProgramSettlementError::Receipt)?,
-    )
-    .map_err(|_| ProgramSettlementError::Receipt)?;
+    prestate.validate_receipt(receipt)?;
     if receipt.level() < VerificationLevel::BATCH_INCLUDED
         || receipt.activity_id() != submission.activity_id()
         || receipt.global_sequence() != protocol.global_sequence()
@@ -75,11 +71,6 @@ pub(super) fn verify_wind_down_debits(
         || protocol.program_outcome().is_some()
         || protocol.activity_id() != submission.activity_id()
         || protocol.transfer_set_root() != [0; 32]
-        || prestate.network_id() != activity.network_id()
-        || prestate.activity_id() != submission.activity_id()
-        || prestate.receipt_digest() != digest
-        || prestate.execution_sequence() != protocol.global_sequence()
-        || prestate.state_root() != protocol.previous_state_root()
     {
         return Err(ProgramSettlementError::SourceSnapshot);
     }
@@ -111,9 +102,8 @@ pub(super) fn verify_wind_down_debits(
     }
     let mut actual = BTreeMap::new();
     if protocol.result_code() == 0 {
-        let debit = exit_debit(
-            prestate.program_records(),
-            prestate.all_accounts(),
+        let debit = committed_exit_debit(
+            prestate,
             actor,
             wind_down.program_id.bytes(),
             account,
@@ -152,9 +142,7 @@ pub(super) fn verify_wind_down_debits(
             prepared.envelope.actor_did(),
             asset,
         )?;
-        if (protocol.result_code() == 0 && payer.account_id == account)
-            || payer.balance() < protocol.fee_charged()
-        {
+        if protocol.result_code() == 0 && payer.account_id == account {
             return Err(ProgramSettlementError::FeeProvenance);
         }
         add_actual(
@@ -188,7 +176,7 @@ pub(super) fn verify_remaining_lifecycle_debits(
     submission: &VerifiedSubmission,
     receipt: &VerifiedReceiptEvidence,
     registry: &ModuleRegistry,
-    prestate: &VerifiedNativeExecutionPrestate,
+    prestate: &CommittedExecutionState,
     reservation: &ProgramBudgetReservation,
 ) -> Result<Vec<ProgramExecutedDebit>, ProgramSettlementError> {
     verify_disclosure_binding(prepared).map_err(|_| ProgramSettlementError::Preparation)?;
@@ -217,11 +205,7 @@ pub(super) fn verify_remaining_lifecycle_debits(
     let decoded = layerx_wire::receipt::decode(receipt.canonical_receipt())
         .map_err(|_| ProgramSettlementError::Receipt)?;
     let protocol = decoded.protocol().ok_or(ProgramSettlementError::Receipt)?;
-    let digest = layerx_wire::hash::receipt_digest(
-        &layerx_wire::receipt::encode_unsigned(&decoded)
-            .map_err(|_| ProgramSettlementError::Receipt)?,
-    )
-    .map_err(|_| ProgramSettlementError::Receipt)?;
+    prestate.validate_receipt(receipt)?;
     if receipt.level() < VerificationLevel::BATCH_INCLUDED
         || receipt.activity_id() != submission.activity_id()
         || receipt.global_sequence() != protocol.global_sequence()
@@ -231,11 +215,6 @@ pub(super) fn verify_remaining_lifecycle_debits(
         || protocol.program_outcome().is_some()
         || protocol.activity_id() != submission.activity_id()
         || protocol.transfer_set_root() != [0; 32]
-        || prestate.network_id() != activity.network_id()
-        || prestate.activity_id() != submission.activity_id()
-        || prestate.receipt_digest() != digest
-        || prestate.execution_sequence() != protocol.global_sequence()
-        || prestate.state_root() != protocol.previous_state_root()
     {
         return Err(ProgramSettlementError::SourceSnapshot);
     }
@@ -299,9 +278,6 @@ pub(super) fn verify_remaining_lifecycle_debits(
             prepared.envelope.actor_did(),
             asset,
         )?;
-        if payer.balance() < protocol.fee_charged() {
-            return Err(ProgramSettlementError::FeeProvenance);
-        }
         add_actual(
             &mut actual,
             &expected,
@@ -691,6 +667,38 @@ fn exit_debit(
     })
 }
 
+fn committed_exit_debit(
+    state: &CommittedExecutionState,
+    actor: [u8; 32],
+    program: [u8; 32],
+    account: [u8; 32],
+    maximum: Option<u128>,
+    sequence: u64,
+) -> Result<ProgramExecutedDebit, ProgramSettlementError> {
+    let balance = state.program_balance(program, account)?;
+    let mut accounts = state.all_accounts().clone();
+    let source = accounts
+        .get_mut(&account)
+        .ok_or(ProgramSettlementError::SourceSnapshot)?;
+    let asset = source
+        .asset
+        .as_mut()
+        .ok_or(ProgramSettlementError::UnreservedDebit)?;
+    if asset.asset_id != balance.asset {
+        return Err(ProgramSettlementError::UnreservedDebit);
+    }
+    asset.balance = balance.amount;
+    exit_debit(
+        state.program_records(),
+        &accounts,
+        actor,
+        program,
+        account,
+        maximum,
+        sequence,
+    )
+}
+
 fn verify_exit_transfer_root(
     debit: &ProgramExecutedDebit,
     root: [u8; 32],
@@ -914,6 +922,151 @@ mod tests {
             binding,
             destination,
         )
+    }
+
+    fn committed_exit_state(amount: u128) -> (CommittedExecutionState, ProgramValueAccountBinding) {
+        use crate::read::{
+            CommittedProgramBalanceFreshness, ProgramBalanceRead, ProgramValueBalance,
+        };
+        let (records, accounts, binding, _) = exit_state(0);
+        let state = CommittedExecutionState {
+            block_number: 3,
+            block_hash: [7; 32],
+            prestate_height: 2,
+            balances: ProgramBalanceRead {
+                program: binding.program.bytes(),
+                lifecycle: layerx_programs::ProgramLifecycle::Deprecated,
+                accounts: vec![ProgramValueBalance {
+                    account: binding.account_id,
+                    asset: binding.asset_id,
+                    amount,
+                    frozen: None,
+                }],
+                freshness: CommittedProgramBalanceFreshness {
+                    height: 2,
+                    block_hash: [8; 32],
+                    timestamp: 1,
+                },
+            },
+            program_records: records,
+            accounts,
+            observed_head_sequence: 3,
+            activity_id: [9; 32],
+            global_sequence: 3,
+            receipt_ref: [10; 32],
+        };
+        (state, binding)
+    }
+
+    #[test]
+    fn committed_wind_down_amount_uses_prestate_balance_and_preserves_both_maxima() {
+        let (mut state, binding) = committed_exit_state(37);
+        let debit = must(committed_exit_debit(
+            &state,
+            [4; 32],
+            binding.program.bytes(),
+            binding.account_id,
+            Some(40),
+            3,
+        ));
+        assert_eq!(debit.actual_amount, 37);
+        assert_eq!(state.all_accounts()[&binding.account_id].balance(), 0);
+        assert_eq!(
+            committed_exit_debit(
+                &state,
+                [4; 32],
+                binding.program.bytes(),
+                binding.account_id,
+                Some(36),
+                3
+            ),
+            Err(ProgramSettlementError::UnreservedDebit)
+        );
+        let key = (debit.asset, debit.source, debit.kind, debit.destination);
+        assert_eq!(
+            add_actual(&mut BTreeMap::new(), &BTreeMap::from([(key, 36)]), debit),
+            Err(ProgramSettlementError::UnreservedDebit)
+        );
+        state.balances.accounts[0].amount = 41;
+        assert_eq!(
+            committed_exit_debit(
+                &state,
+                [4; 32],
+                binding.program.bytes(),
+                binding.account_id,
+                Some(40),
+                3
+            ),
+            Err(ProgramSettlementError::UnreservedDebit)
+        );
+        state.balances.accounts[0].amount = 37;
+        state.balances.accounts[0].frozen = Some(true);
+        assert!(committed_exit_debit(
+            &state,
+            [4; 32],
+            binding.program.bytes(),
+            binding.account_id,
+            Some(40),
+            3
+        )
+        .is_ok());
+        state
+            .accounts
+            .get_mut(&binding.account_id)
+            .unwrap_or_else(|| panic!("source"))
+            .frozen = true;
+        assert_eq!(
+            committed_exit_debit(
+                &state,
+                [4; 32],
+                binding.program.bytes(),
+                binding.account_id,
+                Some(40),
+                3
+            ),
+            Err(ProgramSettlementError::UnreservedDebit)
+        );
+    }
+
+    #[test]
+    fn committed_lifecycle_fee_retains_allocation_maximum() {
+        let (mut state, _) = committed_exit_state(37);
+        let actor = must(Did::new(b"did:layerx:fee-payer"));
+        let payer = account(
+            b"agent:did:layerx:fee-payer:main".to_vec(),
+            1,
+            [2; 32],
+            0,
+            false,
+        );
+        let source = payer.account_id;
+        state.accounts.insert(source, payer);
+        assert_eq!(
+            must(principal_fee_account(state.all_accounts(), &actor, [2; 32])).account_id,
+            source
+        );
+        must(state.validate_binding([9; 32], 3, [10; 32]));
+        let fee = ProgramExecutedDebit {
+            kind: ProgramChargeKind::Fee,
+            source,
+            asset: [2; 32],
+            destination: None,
+            actual_amount: 5,
+        };
+        let key = (fee.asset, fee.source, fee.kind, fee.destination);
+        let expected = BTreeMap::from([(key, 5)]);
+        let mut actual = BTreeMap::new();
+        must(add_actual(&mut actual, &expected, fee.clone()));
+        assert_eq!(actual.get(&key), Some(&5));
+        assert_eq!(
+            add_actual(&mut BTreeMap::new(), &BTreeMap::from([(key, 4)]), fee),
+            Err(ProgramSettlementError::UnreservedDebit)
+        );
+        state.balances.freshness.height = 3;
+        assert_eq!(
+            state.validate_binding([9; 32], 3, [10; 32]),
+            Err(ProgramSettlementError::SourceSnapshot)
+        );
     }
 
     #[test]

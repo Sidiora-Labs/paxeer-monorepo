@@ -53,10 +53,10 @@ func TestCrashAfterReceiptReplaysIdenticalReceipt(t *testing.T) {
 				signed, tx := transfer(t, sender, uint64(i), recipient.EvmAddress, big.NewInt(int64(i+1)))
 				receipt, err := f.n.Accepter.Accept(tx)
 				require.NoError(t, err)
-				verified, err := verify.ReceiptSignature(receipt, f.n.ReceiptKey.PublicKey())
+				verified, err := verify.ReceiptSignature(receipt.Receipt, f.n.ReceiptKey.PublicKey())
 				require.NoError(t, err)
 				require.Equal(t, sourceLastSeq+uint64(i)+1, verified.Receipt.GlobalSequence)
-				txs[i], receipts[i] = bytes.Clone(tx), bytes.Clone(receipt)
+				txs[i], receipts[i] = bytes.Clone(tx), bytes.Clone(receipt.Receipt)
 				lastHash = expectedSeqHash(lastHash, sourceLastSeq+uint64(i)+1, [32]byte(signed.Hash()))
 			}
 			lastSeq := sourceLastSeq + uint64(len(txs))

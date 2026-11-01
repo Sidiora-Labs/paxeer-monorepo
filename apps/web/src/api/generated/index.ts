@@ -160,6 +160,8 @@ export type Timestamp = string;
 
 export type TraceId = string;
 
+export type TransactionHash = string;
+
 export type WalletAddress = string;
 
 export type WalletSignature = string;
@@ -2333,6 +2335,14 @@ export interface IntentLeg {
   destination: IntentEndpoint;
   money: Money;
   fee: Money;
+  to?: EvmAddress;
+  value?: Amount;
+  calldata?: string;
+  nonce?: number;
+  chain_id?: number;
+  gas_limit?: number;
+  max_fee_per_gas?: Amount;
+  max_priority_fee_per_gas?: Amount;
 }
 
 export function decodeIntentLeg(value: JsonValue | undefined, at: string): IntentLeg {
@@ -2346,6 +2356,30 @@ export function decodeIntentLeg(value: JsonValue | undefined, at: string): Inten
     money: decodeMoney(object["money"], at + ".money"),
     fee: decodeMoney(object["fee"], at + ".fee"),
   };
+  if (object["to"] !== undefined) {
+    result.to = expectString(object["to"], at + ".to");
+  }
+  if (object["value"] !== undefined) {
+    result.value = decodeConsensusInteger(object["value"], at + ".value");
+  }
+  if (object["calldata"] !== undefined) {
+    result.calldata = expectString(object["calldata"], at + ".calldata");
+  }
+  if (object["nonce"] !== undefined) {
+    result.nonce = expectInteger(object["nonce"], at + ".nonce");
+  }
+  if (object["chain_id"] !== undefined) {
+    result.chain_id = expectInteger(object["chain_id"], at + ".chain_id");
+  }
+  if (object["gas_limit"] !== undefined) {
+    result.gas_limit = expectInteger(object["gas_limit"], at + ".gas_limit");
+  }
+  if (object["max_fee_per_gas"] !== undefined) {
+    result.max_fee_per_gas = decodeConsensusInteger(object["max_fee_per_gas"], at + ".max_fee_per_gas");
+  }
+  if (object["max_priority_fee_per_gas"] !== undefined) {
+    result.max_priority_fee_per_gas = decodeConsensusInteger(object["max_priority_fee_per_gas"], at + ".max_priority_fee_per_gas");
+  }
   return result;
 }
 
@@ -2359,6 +2393,30 @@ export function encodeIntentLeg(value: IntentLeg): JsonValue {
     money: encodeMoney(value.money),
     fee: encodeMoney(value.fee),
   };
+  if (value.to !== undefined) {
+    result["to"] = value.to;
+  }
+  if (value.value !== undefined) {
+    result["value"] = encodeConsensusInteger(value.value);
+  }
+  if (value.calldata !== undefined) {
+    result["calldata"] = value.calldata;
+  }
+  if (value.nonce !== undefined) {
+    result["nonce"] = value.nonce;
+  }
+  if (value.chain_id !== undefined) {
+    result["chain_id"] = value.chain_id;
+  }
+  if (value.gas_limit !== undefined) {
+    result["gas_limit"] = value.gas_limit;
+  }
+  if (value.max_fee_per_gas !== undefined) {
+    result["max_fee_per_gas"] = encodeConsensusInteger(value.max_fee_per_gas);
+  }
+  if (value.max_priority_fee_per_gas !== undefined) {
+    result["max_priority_fee_per_gas"] = encodeConsensusInteger(value.max_priority_fee_per_gas);
+  }
   return result;
 }
 
@@ -2587,6 +2645,8 @@ export interface JourneyStage {
   copy_key: CopyKey;
   state: JourneyState;
   evidence: EvidenceRef[];
+  tx_hash?: TransactionHash;
+  nonce?: number;
 }
 
 export function decodeJourneyStage(value: JsonValue | undefined, at: string): JourneyStage {
@@ -2597,6 +2657,12 @@ export function decodeJourneyStage(value: JsonValue | undefined, at: string): Jo
     state: decodeJourneyState(object["state"], at + ".state"),
     evidence: decodeArray(object["evidence"], at + ".evidence", decodeEvidenceRef),
   };
+  if (object["tx_hash"] !== undefined) {
+    result.tx_hash = expectString(object["tx_hash"], at + ".tx_hash");
+  }
+  if (object["nonce"] !== undefined) {
+    result.nonce = expectInteger(object["nonce"], at + ".nonce");
+  }
   return result;
 }
 
@@ -2607,6 +2673,12 @@ export function encodeJourneyStage(value: JourneyStage): JsonValue {
     state: value.state,
     evidence: value.evidence.map(encodeEvidenceRef),
   };
+  if (value.tx_hash !== undefined) {
+    result["tx_hash"] = value.tx_hash;
+  }
+  if (value.nonce !== undefined) {
+    result["nonce"] = value.nonce;
+  }
   return result;
 }
 
