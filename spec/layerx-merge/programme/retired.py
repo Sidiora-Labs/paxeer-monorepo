@@ -205,6 +205,28 @@ def diff_against_json(
     return json_names - inventory_names, inventory_names - json_names
 
 
+def stale_rows(root: str | PathLike[str]) -> list[str]:
+    """Return inventory disagreements that completed tree deletions do not resolve.
+
+    Ignore refusal-only components with empty deleted_trees when checking names
+    missing from JSON: those rows need not appear in the source-tree scan.
+    """
+    root = Path(root)
+    components = load_components()
+    added, dropped = diff_against_json(root / "tools/paxeer-x/retired_callers.json")
+    stale = set(added)
+    for name in dropped:
+        deleted_trees = components[name]["deleted_trees"]
+        if not isinstance(deleted_trees, list):
+            raise ValueError(f"component {name}: deleted_trees must be a list")
+        if any(
+            (root / tree).exists() or (root / tree).is_symlink()
+            for tree in deleted_trees
+        ):
+            stale.add(name)
+    return sorted(stale)
+
+
 def callers(component: str, root: str | PathLike[str]) -> list[str]:
     result = subprocess.run(
         [
