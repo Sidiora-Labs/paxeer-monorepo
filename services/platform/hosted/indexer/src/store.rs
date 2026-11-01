@@ -324,6 +324,37 @@ pub struct NameEventRow {
     pub data: Value,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+pub enum NameOrder {
+    Asc,
+    #[default]
+    Desc,
+}
+
+impl NameOrder {
+    fn sql(self) -> &'static str {
+        match self {
+            Self::Asc => "ASC",
+            Self::Desc => "DESC",
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct NameRecord {
+    pub node: String,
+    pub name: String,
+    pub owner: String,
+    pub registrant: Option<String>,
+    pub resolver: Option<String>,
+    pub resolved_address: Option<String>,
+    pub registration_date: Option<String>,
+    pub expiry_date: Option<String>,
+    pub token_id: Option<String>,
+    pub registrar: Option<String>,
+    pub active: bool,
+}
+
 /// One budget or grant record event, keyed by the transaction sender as
 /// its holder.
 #[derive(Clone, Debug, PartialEq)]
@@ -1868,6 +1899,139 @@ impl Store {
             "settlement": {"level": SETTLEMENT_UNVERIFIED, "source": Value::Null, "reason": SETTLEMENT_UNAVAILABLE_REASON},
             "decoded": parse_json(&decoded),
         }))
+    }
+
+    fn query_names(
+        connection: &Connection,
+        filter: &str,
+        parameters: impl rusqlite::Params,
+        order: NameOrder,
+    ) -> Result<Vec<NameRecord>, IndexError> {
+        let mut statement = connection.prepare(&format!(
+            "SELECT n.node, n.name, n.owner, n.registrant,
+                COALESCE(n.resolver, (
+                    SELECT json_extract(e.decoded_json, '$.address')
+                    FROM name_events ne JOIN events e ON e.chain = ne.chain
+                        AND e.tx_id = ne.tx_hash
+                        AND json_extract(e.decoded_json, '$.log_index') = CAST(ne.log_index AS TEXT)
+                    WHERE ne.node = n.node AND e.contract = 'names_resolver'
+                    ORDER BY ne.height DESC, ne.log_index DESC LIMIT 1)),
+                n.resolved_address,
+                strftime('%Y-%m-%dT%H:%M:%SZ', n.registered_at, 'unixepoch'),
+                strftime('%Y-%m-%dT%H:%M:%SZ', n.expires_at, 'unixepoch'),
+                n.token_id, (
+                    SELECT json_extract(e.decoded_json, '$.address')
+                    FROM name_events ne JOIN events e ON e.chain = ne.chain
+                        AND e.tx_id = ne.tx_hash
+                        AND json_extract(e.decoded_json, '$.log_index') = CAST(ne.log_index AS TEXT)
+                    WHERE ne.node = n.node AND e.contract = 'names_registrar'
+                    ORDER BY ne.height DESC, ne.log_index DESC LIMIT 1),
+                COALESCE(CAST(n.expires_at AS INTEGER) > unixepoch(), 0)
+             FROM names n WHERE n.label IS NOT NULL AND n.name IS NOT NULL
+                AND n.owner IS NOT NULL AND ({filter})
+             ORDER BY n.registered_at {direction}, n.node {direction}",
+            direction = order.sql(),
+        ))?;
+        let records = statement.query_map(parameters, |row| {
+            Ok(NameRecord {
+                node: row.get(0)?,
+                name: row.get::<_, String>(1)?.to_ascii_lowercase(),
+                owner: row.get(2)?,
+                registrant: row.get(3)?,
+                resolver: row.get(4)?,
+                resolved_address: row.get(5)?,
+                registration_date: row.get(6)?,
+                expiry_date: row.get(7)?,
+                token_id: row.get(8)?,
+                registrar: row.get(9)?,
+                active: row.get(10)?,
+            })
+        })?;
+        Ok(records.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    pub fn names_owned_by(
+        &self,
+        address: &str,
+        only_active: bool,
+        order: NameOrder,
+    ) -> Result<Vec<NameRecord>, IndexError> {
+        Self::query_names(
+            &*self.lock()?,
+            "lower(n.owner) = lower(?1) AND (NOT ?2 OR CAST(n.expires_at AS INTEGER) > unixepoch())",
+            params![address, only_active],
+            order,
+        )
+    }
+
+    pub fn names_resolving_to(
+        &self,
+        address: &str,
+        only_active: bool,
+        order: NameOrder,
+    ) -> Result<Vec<NameRecord>, IndexError> {
+        Self::query_names(
+            &*self.lock()?,
+            "lower(n.resolved_address) = lower(?1) AND (NOT ?2 OR CAST(n.expires_at AS INTEGER) > unixepoch())",
+            params![address, only_active],
+            order,
+        )
+    }
+
+    pub fn name(&self, name: &str) -> Result<Option<NameRecord>, IndexError> {
+        let name = name.to_ascii_lowercase();
+        let name = if name.ends_with(".pax") {
+            name
+        } else {
+            format!("{name}.pax")
+        };
+        Ok(Self::query_names(
+            &*self.lock()?,
+            "lower(n.name) = ?1",
+            params![name],
+            NameOrder::Desc,
+        )?
+        .into_iter()
+        .next())
+    }
+
+    pub fn name_events(&self, node: &str, order: NameOrder) -> Result<Vec<Value>, IndexError> {
+        let connection = self.lock()?;
+        let mut statement = connection.prepare(&format!(
+            "SELECT tx_hash, strftime('%Y-%m-%dT%H:%M:%SZ', timestamp, 'unixepoch'),
+                from_address, action FROM name_events WHERE node = ?1
+             ORDER BY height {direction}, log_index {direction}",
+            direction = order.sql(),
+        ))?;
+        let events = statement.query_map(params![node], |row| {
+            Ok(json!({
+                "transaction_hash": row.get::<_, String>(0)?,
+                "timestamp": row.get::<_, String>(1)?,
+                "from_address": {"hash": row.get::<_, String>(2)?},
+                "action": row.get::<_, String>(3)?,
+            }))
+        })?;
+        Ok(events.collect::<Result<Vec<_>, _>>()?)
+    }
+
+    pub fn name_for_address(&self, address: &str) -> Result<Option<NameRecord>, IndexError> {
+        let reverse_node = crate::names::reverse_node(address)
+            .map(|node| crate::codec::hex0x(&node))
+            .ok_or_else(|| IndexError::Decode("invalid names address".to_owned()))?;
+        let reverse: Option<String> = self
+            .lock()?
+            .query_row(
+                "SELECT name FROM names WHERE node = ?1",
+                params![reverse_node],
+                |row| row.get(0),
+            )
+            .optional()?
+            .flatten();
+        if let Some(reverse) = reverse {
+            return self.name(&reverse);
+        }
+        let mut names = self.names_resolving_to(address, false, NameOrder::Desc)?;
+        Ok(if names.len() == 1 { names.pop() } else { None })
     }
 
     /// Every event row of `chain`, oldest first, for inspection and tests.
