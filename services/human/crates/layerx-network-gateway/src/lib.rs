@@ -283,32 +283,23 @@ impl ResolvedIdentities {
 pub struct PaxeerAccount {
     /// The EVM address the balance and nonce were read at.
     pub address: [u8; 20],
-    /// The native balance at the latest block.
+    /// The native balance at the reported block height.
     pub balance: u128,
-    /// The transaction count at the latest block.
+    /// The transaction count at the reported block height.
     pub nonce: u64,
+    /// The block height at which the balance and nonce were read.
+    pub height: u64,
 }
 
-/// One account joined across both domains by `px_getAccount`.
+/// One chain account as `px_getAccount` reports it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountJoin {
     /// The resolved identities of the account.
     pub account: ResolvedIdentities,
     /// The Paxeer half, absent when the account is not bound to an address.
     pub paxeer: Option<PaxeerAccount>,
-    /// The `LayerX` public core account document, absent when there is none.
-    pub layerx: Option<Value>,
     /// How this fact reached the caller.
     pub evidence: Evidence,
-}
-
-/// The Paxeer bank balance of one asset for one address.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PaxeerAssetBalance {
-    /// The bank denomination the balance was read under.
-    pub denom: String,
-    /// The exact balance.
-    pub amount: u128,
 }
 
 /// The custody precompile's record for one asset.
@@ -334,57 +325,33 @@ pub struct CustodyAsset {
     pub pending: u128,
 }
 
-/// One asset held by the same account in either domain, joined through the
-/// custody asset map, exactly as `px_getBalances` reports it.
+/// One bank coin as `px_getBalances` reports it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssetBalance {
-    /// The `LayerX` asset identifier.
-    pub asset_id: [u8; 32],
-    /// The joined denomination, when either domain reports one.
-    pub denom: Option<String>,
-    /// The custody precompile's record, absent when the asset is not custodied.
-    pub custody: Option<CustodyAsset>,
-    /// The Paxeer bank balance, absent when no address or denom is known.
-    pub paxeer: Option<PaxeerAssetBalance>,
-    /// The `LayerX` account document for this asset, absent when there is none.
-    pub layerx: Option<Value>,
+    /// The bank denomination.
+    pub denom: String,
+    /// The exact balance at the answer height.
+    pub amount: u128,
 }
 
-impl AssetBalance {
-    /// The LayerX-side spendable amount this row reports, when it reports one.
-    ///
-    /// # Errors
-    /// Refuses a `LayerX` document whose balance is not a gateway quantity.
-    pub fn layerx_amount(&self) -> Result<Option<u128>, GatewayError> {
-        let Some(document) = self.layerx.as_ref() else {
-            return Ok(None);
-        };
-        let value = document
-            .get("balance")
-            .or_else(|| document.get("amount"))
-            .ok_or(GatewayError::MalformedAnswer)?;
-        quantity(value).map(Some)
-    }
-}
-
-/// The bounded joined balance table for one account.
+/// The bounded bank balance table for one account at one height.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AccountBalances {
-    /// The resolved identities the table was joined for.
+    /// The resolved identities the table was read for.
     pub account: ResolvedIdentities,
-    /// One row per joined asset, in the gateway's own order.
+    /// The block height at which every coin was read.
+    pub height: u64,
+    /// One row per bank coin, in the gateway's own order.
     pub balances: Vec<AssetBalance>,
-    /// The number of assets the gateway joins per answer.
-    pub joined_limit: u64,
     /// How this fact reached the caller.
     pub evidence: Evidence,
 }
 
 impl AccountBalances {
-    /// The row for one asset, when the joined table carries it.
+    /// The row for one bank denomination, when the table carries it.
     #[must_use]
-    pub fn asset(&self, asset_id: [u8; 32]) -> Option<&AssetBalance> {
-        self.balances.iter().find(|row| row.asset_id == asset_id)
+    pub fn asset(&self, denom: &str) -> Option<&AssetBalance> {
+        self.balances.iter().find(|row| row.denom == denom)
     }
 }
 
@@ -928,13 +895,13 @@ pub fn decode_account(result: &Value) -> Result<AccountJoin, GatewayError> {
             )?,
             balance: quantity(&document["balance"])?,
             nonce: counted(&document["nonce"])?,
+            height: counted(&document["height"])?,
         }),
         _ => return Err(GatewayError::MalformedAnswer),
     };
     Ok(AccountJoin {
         account,
         paxeer,
-        layerx: object_or_null(&result["layerx"])?,
         evidence: Evidence::GatewayReported,
     })
 }
@@ -982,29 +949,15 @@ pub fn decode_account_balances(result: &Value) -> Result<AccountBalances, Gatewa
     }
     let mut balances = Vec::with_capacity(rows.len());
     for row in rows {
-        let paxeer = match object_or_null(&row["paxeer"])? {
-            None => None,
-            Some(document) => Some(PaxeerAssetBalance {
-                denom: required_text(&document["denom"], DENOM_LIMIT)?,
-                amount: quantity(&document["amount"])?,
-            }),
-        };
         balances.push(AssetBalance {
-            asset_id: digest(
-                row["asset_id"]
-                    .as_str()
-                    .ok_or(GatewayError::MalformedAnswer)?,
-            )?,
-            denom: optional_text(&row["denom"], DENOM_LIMIT)?,
-            custody: decode_custody_asset(&row["custody"])?,
-            paxeer,
-            layerx: object_or_null(&row["layerx"])?,
+            denom: required_text(&row["denom"], DENOM_LIMIT)?,
+            amount: quantity(&row["amount"])?,
         });
     }
     Ok(AccountBalances {
         account: decode_identities(&result["account"])?,
+        height: counted(&result["height"])?,
         balances,
-        joined_limit: counted(&result["joined_limit"])?,
         evidence: Evidence::GatewayReported,
     })
 }
@@ -1113,40 +1066,20 @@ mod tests {
                 "layerx_account": "33".repeat(32),
                 "bound": true
             },
-            "balances": [{
-                "asset_id": "44".repeat(32),
-                "denom": "upax",
-                "custody": {
-                    "asset_id": "44".repeat(32),
-                    "denom": "upax",
-                    "pointer": "0x2222222222222222222222222222222222222222",
-                    "enabled": true,
-                    "paused": false,
-                    "minimum_deposit": "1",
-                    "custody_cap": "1000",
-                    "custodied": "500",
-                    "released": "10",
-                    "pending": "0"
-                },
-                "paxeer": {"denom": "upax", "amount": "250"},
-                "layerx": {"asset_id": "44".repeat(32), "balance": "125"}
-            }],
-            "joined_limit": 16
+            "height": 16,
+            "balances": [{"denom": "upax", "amount": "250"}]
         });
         let balances =
             decode_account_balances(&result).unwrap_or_else(|error| panic!("balances: {error}"));
-        assert_eq!(balances.joined_limit, 16);
+        assert_eq!(balances.height, 16);
         assert!(balances.account.bound);
+        assert_eq!(balances.balances.len(), 1);
         let row = balances
-            .asset([0x44; 32])
+            .asset("upax")
             .unwrap_or_else(|| panic!("asset row"));
-        assert_eq!(row.denom.as_deref(), Some("upax"));
-        assert_eq!(
-            row.custody.as_ref().map(|custody| custody.custodied),
-            Some(500)
-        );
-        assert_eq!(row.paxeer.as_ref().map(|paxeer| paxeer.amount), Some(250));
-        assert_eq!(row.layerx_amount(), Ok(Some(125)));
+        assert_eq!(row.denom, "upax");
+        assert_eq!(row.amount, 250);
+        assert_eq!(balances.evidence, Evidence::GatewayReported);
     }
 
     #[test]
@@ -1164,7 +1097,7 @@ mod tests {
         });
         let join = decode_account(&result).unwrap_or_else(|error| panic!("account: {error}"));
         assert!(join.paxeer.is_none());
-        assert!(join.layerx.is_none());
+        assert_eq!(join.account.evm_address, None);
         assert!(!join.account.bound);
         assert_eq!(join.evidence, Evidence::GatewayReported);
     }
@@ -1310,24 +1243,49 @@ mod identity_selector_contract_bound_shape {
     #[test]
     fn retaining_lookup_refuses_incomplete_or_conflicting_joins() {
         let mut identities = ResolvedIdentities {
-            lookup_selector: None, evm_address: Some([9; 20]), pax_address: None,
-            layerx_did: Some([7; 32]), layerx_account: Some([8; 32]),
-            bound: true, evidence: Evidence::GatewayReported,
+            lookup_selector: None,
+            evm_address: Some([9; 20]),
+            pax_address: None,
+            layerx_did: Some([7; 32]),
+            layerx_account: Some([8; 32]),
+            bound: true,
+            evidence: Evidence::GatewayReported,
         };
         let requested = AccountIdentifier::Evm([9; 20]);
-        assert_eq!(identities.retain_lookup(requested), Ok(LookupSelector::Evm([9; 20])));
+        assert_eq!(
+            identities.retain_lookup(requested),
+            Ok(LookupSelector::Evm([9; 20]))
+        );
         let preserved = identities.clone();
         identities.layerx_account = None;
-        assert_eq!(identities.retain_lookup(requested), Err(GatewayError::Unbound));
+        assert_eq!(
+            identities.retain_lookup(requested),
+            Err(GatewayError::Unbound)
+        );
         identities = preserved.clone();
         identities.bound = false;
-        assert_eq!(identities.retain_lookup(requested), Err(GatewayError::Unbound));
+        assert_eq!(
+            identities.retain_lookup(requested),
+            Err(GatewayError::Unbound)
+        );
         identities = preserved.clone();
         identities.evm_address = None;
-        assert_eq!(identities.retain_lookup(AccountIdentifier::Did([7; 32])), Err(GatewayError::Unbound));
+        assert_eq!(
+            identities.retain_lookup(AccountIdentifier::Did([7; 32])),
+            Err(GatewayError::Unbound)
+        );
         identities = preserved;
-        assert_eq!(identities.retain_lookup(AccountIdentifier::Did([8; 32])), Err(GatewayError::Unbound));
-        assert_eq!(identities.lookup_selector, Some(LookupSelector::Evm([9; 20])));
-        assert_eq!(identities.native_reference(), Some(NativeAccountReference([8; 32])));
+        assert_eq!(
+            identities.retain_lookup(AccountIdentifier::Did([8; 32])),
+            Err(GatewayError::Unbound)
+        );
+        assert_eq!(
+            identities.lookup_selector,
+            Some(LookupSelector::Evm([9; 20]))
+        );
+        assert_eq!(
+            identities.native_reference(),
+            Some(NativeAccountReference([8; 32]))
+        );
     }
 }
