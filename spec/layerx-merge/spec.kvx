@@ -6181,7 +6181,7 @@ affects = ["5.98.5"]
 title = "The names SDK installs standalone and pins the proof height from eth_blockNumber"
 value = "sdk/names builds with pnpm --dir sdk/names install --ignore-workspace --no-frozen-lockfile (its own pnpm-lock.yaml, no root workspace resolution). resolveContent reads eth_blockNumber, calls eth_getProof(resolver, [slot], <that block number as hex>) and treats that number as the proven height h; the eth_getProof response keeps its standard shape (accountProof, balance, codeHash, nonce, storageHash, storageProof) with no height field."
 basis = "Finding 19.2.3.1: the root workspace lists packages whose dependencies are unpublished, so a leaf install must not resolve them; eth_getProof answers for the height the caller names, so naming it is how the client learns it."
-affects = ["19.2.3"]
+affects = ["19.2.3", "19.5.2"]
 
 [decision.2179]
 title = "The gateway path test drops the include of the retired relay archive runtime"
@@ -108524,7 +108524,7 @@ symbols = ["headerHash", "verifyCommit", "verifiedTendermintHeaders", "HeaderErr
 touches = ["sdk/names/package.json", "sdk/names/pnpm-lock.yaml", "sdk/names/src/index.ts", "sdk/names/src/header.ts", "sdk/names/test/header.test.ts"]
 tests = ["sdk/names/test/header.test.ts::header_commit_verifies_against_the_consensus_vector_and_refuses_a_forged_app_hash", "sdk/names/test/header.test.ts::resolve_content_uses_only_verified_headers"]
 planned_paths = ["sdk/names/src/header.ts", "sdk/names/test/header.test.ts"]
-build_cmd = "pnpm --dir sdk/names install --no-frozen-lockfile && pnpm --dir sdk/names exec tsc -p tsconfig.json --noEmit"
+build_cmd = "pnpm --dir sdk/names install --ignore-workspace --no-frozen-lockfile && pnpm --dir sdk/names exec tsc -p tsconfig.json --noEmit"
 verify_cmd = "pnpm --dir sdk/names exec vitest run test/header.test.ts -t '^(header_commit_verifies_against_the_consensus_vector_and_refuses_a_forged_app_hash|resolve_content_uses_only_verified_headers)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -108537,6 +108537,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2178: continue from attempt 1 (f1f1f4592), keeping header.ts, index.ts, both tests and the dependency change. Build with the build_cmd as now declared (pnpm --dir sdk/names install --ignore-workspace --no-frozen-lockfile, then tsc) so only sdk/names resolves; commit the refreshed sdk/names/pnpm-lock.yaml; fix only what tsc or the two tests report, and run the verify_cmd as declared."
 
 [task.19.4.1]
 title = "Repoint the wallet's name library at configured contracts and add website records"
