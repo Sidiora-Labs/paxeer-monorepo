@@ -1,6 +1,6 @@
 mod record;
 
-use self::record::{number, word, Record};
+use self::record::{number, Record};
 use super::super::PROTOCOL_VERSION;
 use super::{digest, hex, json, refusal, unavailable, Config, PrincipalPolicy, Response};
 use layerx_client::px::PxEndpoint;
@@ -12,9 +12,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 const MAX_EXPORT_BYTES: usize = 1_048_576;
 const MAX_EXPORT_MATERIAL_BYTES: usize = (MAX_EXPORT_BYTES - 16_384) / 2;
-const ANCHOR: [u8; 20] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x14,
-];
 const PAY: [u8; 20] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1b,
 ];
@@ -24,12 +21,9 @@ pub(super) struct Session<'a> {
     sequencer: SequencerEndpoint,
     network: PxEndpoint,
     pub(super) committed_height: u64,
-    pub(super) batch_number: u64,
     pub(super) checkpoint_id: [u8; 32],
     pub(super) timestamp: u64,
     state_root: [u8; 32],
-    finalized_height: u64,
-    checkpoint_call: Vec<u8>,
 }
 
 fn data(signature: &[u8], argument: Option<&[u8; 32]>) -> Vec<u8> {
@@ -38,10 +32,6 @@ fn data(signature: &[u8], argument: Option<&[u8; 32]>) -> Vec<u8> {
         bytes.extend_from_slice(argument);
     }
     bytes
-}
-
-fn u64_word(bytes: &[u8], index: usize) -> Result<u64, ()> {
-    u64::try_from(number(bytes, index, 8)?).map_err(|_| ())
 }
 
 fn account_id(value: &Value) -> Result<[u8; 32], ()> {
@@ -61,31 +51,26 @@ impl<'a> Session<'a> {
         let sequencer = SequencerEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
         let network = PxEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
         let committed_height = sequencer.block_number().map_err(|_| ())?;
-        let latest = sequencer
-            .call_at(committed_height, &ANCHOR, &data(b"latestFinalized()", None))
-            .map_err(|_| ())?;
-        if latest.len() != 64 || number(&latest, 1, 1)? != 1 {
-            return Err(());
-        }
-        let batch_number = u64_word(&latest, 0)?;
-        let argument = word(&latest, 0)?;
-        let checkpoint_call = sequencer
-            .call_at(
-                committed_height,
-                &ANCHOR,
-                &data(b"checkpoint(uint64)", Some(&argument)),
-            )
-            .map_err(|_| ())?;
-        if checkpoint_call.len() != 18 * 32
-            || u64_word(&checkpoint_call, 0)? != batch_number
-            || number(&checkpoint_call, 12, 1)? != 2
-        {
-            return Err(());
-        }
-        let checkpoint_id = word(&checkpoint_call, 1)?;
-        let state_root = word(&checkpoint_call, 7)?;
-        let finalized_height = u64_word(&checkpoint_call, 17)?;
-        if state_root == [0; 32] || checkpoint_id == [0; 32] || finalized_height > committed_height
+        let block = layerx_paxeer_verifier::raw_call(
+            &config.chain_endpoint,
+            "eth_getBlockByNumber",
+            &[
+                layerx_paxeer_verifier::Json::Text(format!("{committed_height:#x}")),
+                layerx_paxeer_verifier::Json::Bool(false),
+            ],
+        )
+        .map_err(|_| ())?;
+        let block: Value = serde_json::from_str(&block.render()).map_err(|_| ())?;
+        let quantity = |name: &str| {
+            let text = block[name].as_str().ok_or(())?;
+            u64::from_str_radix(text.strip_prefix("0x").ok_or(())?, 16).map_err(|_| ())
+        };
+        let checkpoint_id = account_id(&block["hash"])?;
+        let state_root = account_id(&block["stateRoot"])?;
+        if committed_height == 0
+            || quantity("number")? != committed_height
+            || checkpoint_id == [0; 32]
+            || state_root == [0; 32]
         {
             return Err(());
         }
@@ -94,12 +79,9 @@ impl<'a> Session<'a> {
             sequencer,
             network,
             committed_height,
-            batch_number,
             checkpoint_id,
-            timestamp: u64_word(&checkpoint_call, 11)?,
+            timestamp: quantity("timestamp")?.checked_mul(1000).ok_or(())?,
             state_root,
-            finalized_height,
-            checkpoint_call,
         })
     }
 
@@ -157,11 +139,11 @@ impl<'a> Session<'a> {
     }
 
     pub(super) fn fresh(&self, maximum_age_seconds: u64) -> Result<(), ()> {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_err(|_| ())?
-            .as_millis();
-        if now
+        self.fresh_at(maximum_age_seconds, now_ms()?)
+    }
+
+    fn fresh_at(&self, maximum_age_seconds: u64, now_ms: u128) -> Result<(), ()> {
+        if now_ms
             .checked_sub(u128::from(self.timestamp))
             .is_none_or(|age| age > u128::from(maximum_age_seconds) * 1000)
         {
@@ -206,12 +188,30 @@ fn accounts(
     bound.pop().ok_or(())
 }
 
+fn now_ms() -> Result<u128, ()> {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .map_err(|_| ())
+}
+
 fn produce(
     config: &Config,
     p: &PrincipalPolicy,
     id: [u8; 32],
     export: bool,
     owner_did: Option<&str>,
+) -> Result<Response, ()> {
+    produce_at(config, p, id, export, owner_did, now_ms()?)
+}
+
+fn produce_at(
+    config: &Config,
+    p: &PrincipalPolicy,
+    id: [u8; 32],
+    export: bool,
+    owner_did: Option<&str>,
+    now_ms: u128,
 ) -> Result<Response, ()> {
     let session = Session::open(config)?;
     let budget_call = session
@@ -242,7 +242,7 @@ fn produce(
     }
     let remaining = number(&remaining_call, 0, 16)?;
     let (identity, account_join) = accounts(&session, &record, p, owner_did)?;
-    session.fresh(p.maximum_age_seconds)?;
+    session.fresh_at(p.maximum_age_seconds, now_ms)?;
     if p.maximum_age_sequences == 0 {
         return Err(());
     }
@@ -251,25 +251,15 @@ fn produce(
     evidence.update(b"layerx-human/rpc-budget-evidence/v2\0");
     evidence.update(session.checkpoint_id);
     let join_bytes = serde_json::to_vec(&account_join).map_err(|_| ())?;
-    let material_bytes = [
-        &budget_call,
-        &remaining_call,
-        &session.checkpoint_call,
-        &join_bytes,
-    ]
-    .iter()
-    .try_fold(0_usize, |total, bytes| {
-        total.checked_add(bytes.len()).ok_or(())
-    })?;
+    let material_bytes = [&budget_call, &remaining_call, &join_bytes]
+        .iter()
+        .try_fold(0_usize, |total, bytes| {
+            total.checked_add(bytes.len()).ok_or(())
+        })?;
     if material_bytes > MAX_EXPORT_MATERIAL_BYTES {
         return Err(());
     }
-    for bytes in [
-        &budget_call,
-        &remaining_call,
-        &session.checkpoint_call,
-        &join_bytes,
-    ] {
+    for bytes in [&budget_call, &remaining_call, &join_bytes] {
         evidence.update(u64::try_from(bytes.len()).map_err(|_| ())?.to_be_bytes());
         evidence.update(bytes);
     }
@@ -283,16 +273,21 @@ fn produce(
         "closed":record.closed, "revoked":record.revoked, "canonical_core_bytes":hex::encode(&budget_call)
     });
     let document = if export {
+        let call = |signature: &[u8], result: &[u8]| {
+            value!({
+                "to":hex::encode(&PAY), "data":hex::encode(&data(signature, Some(&id))),
+                "result":hex::encode(result), "height":session.committed_height
+            })
+        };
         value!({
             "schema":"layerx.human.budget-proof.v2", "tenant":p.tenant, "principal":p.principal,
             "protocol_version":PROTOCOL_VERSION,"network_id":config.protocol_network_id,"maximum_age_seconds":p.maximum_age_seconds,
-            "head":{"batch_number":session.batch_number,"committed_height":session.committed_height,"checkpoint_id":hex::encode(&session.checkpoint_id)},
+            "head":{"committed_height":session.committed_height,"block_hash":hex::encode(&session.checkpoint_id)},
             "budget_state":state,
             "accounts":{"owner":hex::encode(&record.owner),"budget":hex::encode(&record.account),"source":hex::encode(&record.source.unwrap_or(record.owner))},
             "identity_key":hex::encode(&identity),
-            "proofs":{"budget_call":hex::encode(&budget_call),"remaining_call":hex::encode(&remaining_call),"checkpoint_call":hex::encode(&session.checkpoint_call),"account_join":account_join},
-            "finality":{"batch_number":session.batch_number,"checkpoint_id":hex::encode(&session.checkpoint_id),"state_root":hex::encode(&session.state_root),"finalized_height":session.finalized_height,"status":2},
-            "maximum_bytes":MAX_EXPORT_BYTES
+            "proofs":{"budget_call":call(b"getBudget(bytes32)", &budget_call),"remaining_call":call(b"budgetRemaining(bytes32)", &remaining_call),"account_join":account_join},
+            "finality":{"height":session.committed_height,"block_hash":hex::encode(&session.checkpoint_id),"app_hash":hex::encode(&session.state_root)}
         })
     } else {
         state
@@ -324,11 +319,36 @@ pub(super) fn read_dynamic(
 }
 
 pub(super) fn export(config: &Config, p: &PrincipalPolicy, id: &str) -> Result<Response, Response> {
+    let now = now_ms().map_err(|()| unavailable("budget_proof_export_unavailable"))?;
+    export_at(config, p, id, now)
+}
+
+fn export_at(
+    config: &Config,
+    p: &PrincipalPolicy,
+    id: &str,
+    now_ms: u128,
+) -> Result<Response, Response> {
     if !p.budgets.iter().any(|bound| bound == id) {
         return Err(refusal(404, "budget_not_bound", None));
     }
     let id = hex::decode32(id).map_err(|_| refusal(400, "invalid_budget_id", None))?;
-    produce(config, p, id, true, None).map_err(|()| unavailable("budget_proof_export_unavailable"))
+    produce_at(config, p, id, true, None, now_ms)
+        .map_err(|()| unavailable("budget_proof_export_unavailable"))
+}
+
+#[cfg(test)]
+impl Config {
+    pub(crate) fn fixture_budget_export(
+        &self,
+        policy: &Value,
+        id: &str,
+        now_ms: u128,
+    ) -> Result<Response, Response> {
+        let policy: PrincipalPolicy = serde_json::from_value(policy.clone())
+            .map_err(|_| refusal(400, "invalid_fixture_policy", None))?;
+        export_at(self, &policy, id, now_ms)
+    }
 }
 
 pub(super) fn export_dynamic(
