@@ -393,19 +393,11 @@ fn sequence(config: &Config, did: &str) -> Response {
     if layerx_types::ids::Did::new(did.as_bytes()).is_err() {
         return refusal(400, "invalid_did", None);
     }
-    let Ok(accounts) = history::did_accounts(&config.network, did) else {
+    let Ok(address) = history::did_evm_address(&config.network, did) else {
         return refusal(503, "sequence_unavailable", Some(5));
     };
-    let Some(account) = accounts.first() else {
+    let Some(address) = address else {
         return refusal(404, "unknown_did", None);
-    };
-    let Some(address) = account
-        .get("evm_address")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|address| address.strip_prefix("0x"))
-        .and_then(|address| fixed_hex::<20>("evm_address", address).ok())
-    else {
-        return refusal(503, "sequence_unavailable", Some(5));
     };
     let Ok(next_sequence) = config.sequencer.pending_nonce(&address) else {
         return refusal(503, "sequence_unavailable", Some(5));
@@ -418,6 +410,17 @@ fn sequence(config: &Config, did: &str) -> Response {
         "observed_head_sequence": head.latest_committed_height.to_string(),
         "verification": "sequencer_pending_nonce"
     }))
+}
+
+fn landing_block_json(block: &layerx_client::sequencer::SequencerBlock) -> serde_json::Value {
+    serde_json::json!({
+        "number": block.number,
+        "hash": hex_encode(&block.hash),
+        "parent_hash": hex_encode(&block.parent_hash),
+        "timestamp": block.timestamp,
+        "transactions_root": hex_encode(&block.transactions_root),
+        "receipts_root": hex_encode(&block.receipts_root)
+    })
 }
 
 fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Response {
@@ -494,17 +497,9 @@ fn proof(config: &Config, kind: &str, id: &str, account: Option<&str>) -> Respon
     let Ok(bundle) = bundle else {
         return refusal(503, "proof_evidence_unavailable", Some(5));
     };
-    let Ok(account_proof) =
-        config
-            .sequencer
-            .account_proof(&address, &[], bundle.landing_block.number)
-    else {
-        return refusal(503, "proof_evidence_unavailable", Some(5));
-    };
     let mut result = serde_json::json!({
         "kind": kind, "activity_id": id, "account_id": account,
-        "proof": {"address": hex_encode(&account_proof.address),
-            "account_proof": account_proof.account_proof.iter().map(|node| hex_encode(node)).collect::<Vec<_>>()},
+        "landing_block": landing_block_json(&bundle.landing_block),
         "verification": verification_label(receipt.rung())
     });
     if kind == "receipt" {
@@ -586,6 +581,30 @@ fn valid_fee_request(body: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn landing_block_json_names_the_six_header_fields() {
+        let block = layerx_client::sequencer::SequencerBlock {
+            number: 42,
+            hash: [0xab; 32],
+            parent_hash: [0xcd; 32],
+            timestamp: 1_700_000_000,
+            transactions_root: [0xef; 32],
+            receipts_root: [0x01; 32],
+            transactions: vec![vec![0x02; 64]],
+        };
+        assert_eq!(
+            super::landing_block_json(&block),
+            serde_json::json!({
+                "number": 42,
+                "hash": "ab".repeat(32),
+                "parent_hash": "cd".repeat(32),
+                "timestamp": 1_700_000_000,
+                "transactions_root": "ef".repeat(32),
+                "receipts_root": "01".repeat(32)
+            })
+        );
+    }
+
     #[test]
     fn account_selector_forwards_only_supported_identities() {
         for selector in [
