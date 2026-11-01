@@ -16411,3 +16411,75 @@ symbol = "ReceiptMaterial"
 observed = "Attempt 8 (c1a4b4366) ports tests/wallet_identity_e2e.rs and the crate-wide test build fails at tests/agent_runtime_rungs.rs:185 (ReceiptMaterial without inclusion_height, receipt_key and signed_receipt); the implementer stopped there because the file is outside the declared paths, and tests/move_money.rs and tests/spend.rs also construct AgentPreparation, ReceiptMaterial, AgentPreparationContext::new or AgentStageOutcome::Executed and are not declared either."
 assumption = "Every file of the crate that constructs the widened types is declared on the task, so the port finishes in one attempt."
 severity = "major"
+
+[finding.10.2.11.5]
+task = "10.2.11"
+file = "services/human/crates/layerx-human-kms/tests/attestor.rs:1203"
+symbol = "unsigned_evm_transaction"
+observed = "Attempt 6 (afda45641) reached the repeat request and every daemon answered 400 policy_denied decode_error 'undecodable transaction: rlp: too few elements for types.DynamicFeeTx': the kind evm_tx handler decodes the transaction field with evm.DecodeTransaction (services/wallet/attestor/internal/server/sign.go:578, services/wallet/attestor/internal/policy/evm/decode.go:134), whose UnmarshalBinary needs the twelve-item EIP-1559 list, while unsigned_evm_transaction (services/human/crates/layerx-human-kms/src/attestor.rs:1339) emits the nine signing fields. The client's evm_transaction (src/attestor.rs:1423-1470) appends three empty items (0x80 0x80 0x80) to the nine fields and re-wraps them as a type-2 list before posting."
+assumption = "The test posts the same wire shape the client posts; the daemon stays unchanged."
+severity = "major"
+
+[finding.6.96.4.1]
+task = "6.96.4"
+file = "modules/layerxcustody/keeper/claims.go:231"
+symbol = "VerifyWithdrawal"
+observed = "Attempt 1 (45bf28aab) failed 24 tests across keeper_test.go, release_test.go, retire_claims_test.go, merge_release_test.go, retire_msg_server_test.go, retire_test.go, genesis_retire_test.go, migrations_test.go and deposit_root_test.go, every one with ErrModuleRetired from a RequestWithdrawal, FinaliseWithdrawal, RequestForcedExit or ExecuteForcedExit call in its setup or assertions; VerifyWithdrawal (:231) and VerifyForcedExit (:320) refuse unconditionally since task 6.96.2, so finding 6.96.3.1 and the shared-application premise of do_1 to do_4 do not describe these failures."
+assumption = "The tests port to the retired paths per decision 2231; the keeper stays unchanged."
+severity = "major"
+
+[finding.9.25.13.1]
+task = "9.25.13"
+file = "services/agent/crates/layerx-agentd/src/human_node.rs:4"
+symbol = "HumanNode"
+observed = "Attempt 1 (caacf43b9) deleted AccountProof per do_1 and the daemon library failed to build: human_node.rs:4 imports AccountProof, the HumanNode trait declares account_proof at :17-22 and NodeRpc implements it at :82-88; the file is not declared on the task, so the implementer stopped."
+assumption = "The trait follows do_2: it exposes storage_witness instead of account_proof."
+severity = "major"
+
+[finding.9.27.5.1]
+task = "9.27.5"
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence/native_owner.rs:6"
+symbol = "verify_native_owner_outcome"
+observed = "Attempt 1 (205576fc3) deleted owner_module and the dependent-crate check failed in layerx-client: services/agent/crates/layerx-client/src/receipt.rs:9 imports verify_native_owner_outcome, NativeOwnerOutcomeContext and NativeOwnerOutcomeFailure for ReceiptError::NativeOwnerVerification (:169) and lookup_native_owner (:231-241, no caller); the daemon names them too at services/agent/crates/layerx-agentd/src/receipt.rs:5, :97, :111 and :337-350 (store_native_owner_if_absent), in protocol_evidence/native_owner.rs (verify_authorized_native_owner, 105 lines, with native_owner/tests.rs), at protocol_evidence.rs:31 (mod) and :1292 (ReceiptEvidenceError::NativeOwner) and at human_runtime.rs:12867 and :12926, where a NativeOwnerOutcomeContext passed as `native` selects that verifier."
+assumption = "The consumers retire with the verifier (decision.929): receipts verify through verify_outcome."
+severity = "major"
+
+[finding.9.25.1.2]
+task = "9.25.1"
+file = "services/agent/crates/layerx-client/src/fee.rs:1"
+symbol = "FeeObservation"
+observed = "Attempt 1 (3169533e2) deleted the nine modules and the client failed to build on fee.rs:1-3 (crate::head::Head, crate::payments::{CommittedSnapshot, FeeEstimate}, crate::read::ReadError), rpc/payments.rs:7 (crate::payments::FeeEstimate) and rpc/withdrawal.rs:8 (crate::withdrawal::WithdrawalConfigurationError); behind them the daemon, SDK and agent API name the deleted modules in 40 more files, so the requires list did not deliver the ports it assumed."
+assumption = "Decision 2232: the ports land first as tasks 9.25.17 to 9.25.19 and this task requires them."
+severity = "critical"
+
+[finding.9.25.13.2]
+task = "9.25.13"
+file = "services/agent/crates/layerx-agentd/tests/outbox_recover.rs:155"
+symbol = "module_witness"
+observed = "Attempt 2 (df2fe641b) completed the HumanNode port and the build with tests stopped in the outbox_recover test binary: RawStateEvidence::module_witness takes one CommittedCall since task 9.25.6 (0e916bb08, services/agent/crates/layerx-agentd/src/protocol_evidence.rs:1732) while tests/outbox_recover.rs:155, :453 and :466 still pass the six kernel-era arguments including RootSelector::Latest. The file is declared on task 9.25.17, which ports the daemon off layerx_client::evidence and builds the daemon with tests."
+assumption = "Task 9.25.17 leaves outbox_recover.rs compiling or deletes it; this task waits for it."
+severity = "major"
+
+[finding.10.2.11.6]
+task = "10.2.11"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:51"
+symbol = "RuntimeClock::from_environment"
+observed = "Attempt 7 (999b0c06a) passes the three attestor tests; the provider target then fails 14 of its 15 tests in 0.03s with a bare Error: Unavailable because every provider test samples the runtime clock from the environment (tests/provider.rs:42, :206, :376, :422), and LAYERX_RUNTIME_CLOCK_SOCKET is only set when the target runs under the layerx-runtime-clock service; task 18.1156.1 met the same 1-passed/14-failed result at its attempts 3 and 4 and qualified with the target run through that service."
+assumption = "Qualification command only: the verify and build commands run the kms test targets through the runtime clock service as task 18.1156.1 does; the attempt 7 code is unchanged."
+severity = "major"
+
+[finding.9.25.19.1]
+task = "9.25.19"
+file = "services/agent/crates/layerx-agentd/tests/approval_events.rs:37"
+symbol = "layerx_client::head::Head"
+observed = "Attempt 1 (3d881b4878) built the four crates and the verify grep stopped only on the four layerx_client::head::Head imports of the daemon tests (approval_events.rs:37, gaps.rs:35, history.rs:10, subscription_ops_cursor.rs:20), which task 9.25.18 declares and ports; no payments consumer remains."
+assumption = "The verify grep of this task names payments only; head consumers stay with task 9.25.18, which requires this task."
+severity = "minor"
+
+[finding.9.27.5.2]
+task = "9.27.5"
+file = "services/agent/crates/layerx-agentd/src/human_runtime/native_receipt.rs:81"
+symbol = "store_native_owner_if_absent"
+observed = "Attempt 2 (18acfb47d) removed the sites do_6 lists, and the daemon library still fails on the import at human_runtime/native_receipt.rs:3 and the call at :81, on context() returning NativeOwnerOutcomeContext at human_runtime.rs:960-961 and native_receipt.rs:48-49, on the native parameters at native_receipt.rs:75 and human_runtime.rs:12849, :12886, :13274, and on tests/native_owner_receipts.rs; the --tests build then stops in tests/outbox_recover.rs (E0061 at :155, :453, :466), the pre-existing break task 9.25.17 owns, which the dependent-crate check (cargo check --all-targets) meets as well."
+assumption = "The task enumerates the remaining sites, declares the two files, and runs again once task 9.25.17 is on main."
+severity = "major"
