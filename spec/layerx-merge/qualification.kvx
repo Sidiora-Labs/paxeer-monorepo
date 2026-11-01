@@ -16459,3 +16459,27 @@ symbol = "module_witness"
 observed = "Attempt 2 (df2fe641b) completed the HumanNode port and the build with tests stopped in the outbox_recover test binary: RawStateEvidence::module_witness takes one CommittedCall since task 9.25.6 (0e916bb08, services/agent/crates/layerx-agentd/src/protocol_evidence.rs:1732) while tests/outbox_recover.rs:155, :453 and :466 still pass the six kernel-era arguments including RootSelector::Latest. The file is declared on task 9.25.17, which ports the daemon off layerx_client::evidence and builds the daemon with tests."
 assumption = "Task 9.25.17 leaves outbox_recover.rs compiling or deletes it; this task waits for it."
 severity = "major"
+
+[finding.10.2.11.6]
+task = "10.2.11"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:51"
+symbol = "RuntimeClock::from_environment"
+observed = "Attempt 7 (999b0c06a) passes the three attestor tests; the provider target then fails 14 of its 15 tests in 0.03s with a bare Error: Unavailable because every provider test samples the runtime clock from the environment (tests/provider.rs:42, :206, :376, :422), and LAYERX_RUNTIME_CLOCK_SOCKET is only set when the target runs under the layerx-runtime-clock service; task 18.1156.1 met the same 1-passed/14-failed result at its attempts 3 and 4 and qualified with the target run through that service."
+assumption = "Qualification command only: the verify and build commands run the kms test targets through the runtime clock service as task 18.1156.1 does; the attempt 7 code is unchanged."
+severity = "major"
+
+[finding.9.25.19.1]
+task = "9.25.19"
+file = "services/agent/crates/layerx-agentd/tests/approval_events.rs:37"
+symbol = "layerx_client::head::Head"
+observed = "Attempt 1 (3d881b4878) built the four crates and the verify grep stopped only on the four layerx_client::head::Head imports of the daemon tests (approval_events.rs:37, gaps.rs:35, history.rs:10, subscription_ops_cursor.rs:20), which task 9.25.18 declares and ports; no payments consumer remains."
+assumption = "The verify grep of this task names payments only; head consumers stay with task 9.25.18, which requires this task."
+severity = "minor"
+
+[finding.9.27.5.2]
+task = "9.27.5"
+file = "services/agent/crates/layerx-agentd/src/human_runtime/native_receipt.rs:81"
+symbol = "store_native_owner_if_absent"
+observed = "Attempt 2 (18acfb47d) removed the sites do_6 lists, and the daemon library still fails on the import at human_runtime/native_receipt.rs:3 and the call at :81, on context() returning NativeOwnerOutcomeContext at human_runtime.rs:960-961 and native_receipt.rs:48-49, on the native parameters at native_receipt.rs:75 and human_runtime.rs:12849, :12886, :13274, and on tests/native_owner_receipts.rs; the --tests build then stops in tests/outbox_recover.rs (E0061 at :155, :453, :466), the pre-existing break task 9.25.17 owns, which the dependent-crate check (cargo check --all-targets) meets as well."
+assumption = "The task enumerates the remaining sites, declares the two files, and runs again once task 9.25.17 is on main."
+severity = "major"

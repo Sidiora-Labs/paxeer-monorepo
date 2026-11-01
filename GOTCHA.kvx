@@ -12896,3 +12896,18 @@ fix = "When replacing a method on a type that also implements a trait exposing i
 title = "A build-with-tests gate inherits every stale test binary of the crate"
 symptom = "A task that builds a crate with --tests failed in a test file it never touched: an earlier task changed a constructor's signature and left the kernel-era test calling the old six-argument form."
 fix = "When a task changes a signature, grep the crate's tests directory for callers in the same task; when a later task inherits the break, point it at the task that declares the stale file and make it require that task."
+
+[gotcha.2616]
+title = "A kms provider test target fails fast with Unavailable outside the runtime clock service"
+symptom = "A task that added the provider target to its verify saw 14 of 15 tests fail in 0.03s with a bare Error: Unavailable while the attestor tests passed; the target samples the runtime clock from the environment."
+fix = "Run every layerx-human-kms provider verify through cargo run -p layerx-runtime-clock -- --runtime-dir /tmp -- <cargo test ...> and build the clock crate in the build command; a 1-passed/14-failed result in a few milliseconds is this, not a provider break."
+
+[gotcha.2617]
+title = "A verify grep that spans two tasks' consumers fails the first task on the second's files"
+symptom = "A module split across two port tasks gave the first task a grep over a symbol family the second task's test files still import; the first task's code was complete and its verify failed anyway."
+fix = "Give each port task a grep over exactly the symbols it ports and let the dependent task carry the rest of the family in its own verify."
+
+[gotcha.2618]
+title = "A removal ruling must list the submodule and test files of the owning module"
+symptom = "A do listing the call sites of a removed receipt helper named the module file but missed a submodule file holding the actual call, a context() method building the removed type, three Option parameters and a test file dedicated to the helper."
+fix = "Before writing a removal do, grep the symbol and its type across the whole crate including src/<module>/ submodules and tests/, and list every hit with its line."
