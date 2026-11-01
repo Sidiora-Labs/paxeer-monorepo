@@ -189388,7 +189388,7 @@ qualification = "UNRUN"
 
 [task.18.1303.1]
 title = "Issue #1303: Append chain-verified program upgrades to the registry with an authenticated predecessor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -189874,7 +189874,7 @@ qualification = "UNRUN"
 
 [task.18.1323.1]
 title = "Issue #1323: State in the web-reader example and the xweb page that program web_read is retired"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -190047,7 +190047,7 @@ qualification = "UNRUN"
 
 [task.18.1329.1]
 title = "Issue #1329: Decode the published px_listAssets answer in the wallet SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
