@@ -12506,3 +12506,8 @@ fix = "warm every cache before the gate: cargo fetch --locked for the four manif
 title = "cargo build --tests stops at the first broken test target"
 symptom = "a port of stale integration tests surfaced one more broken target per attempt (10.6.5 attempts 2, 3 and 4 each found a single new file) because cargo stops compiling after the first failing target and reports only that one"
 fix = "run the build command once with --keep-going before porting, so every broken target is listed in one pass and all of them join the touches together"
+
+[gotcha.2538]
+title = "Generated SDK files edited by hand fail platform-sdk-check later"
+symptom = "a task edited sdk/platform/jvm GeneratedSchema.java and GeneratedContract.java directly under a gate of mvn tests only, and the wave 4 aggregate failed weeks of attempts later in generate_jvm.py --check with 'generated JVM schema is stale' because the committed files no longer equal the generator's output"
+fix = "change the generator and regenerate; a task that touches a generated file runs that generator's --check in its verify command"
