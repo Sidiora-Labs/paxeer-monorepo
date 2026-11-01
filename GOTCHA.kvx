@@ -12726,3 +12726,13 @@ fix = "any change under a generator root or a generated output listed in sdk/pla
 title = "Two reports of one defect became two tasks with the same touches"
 symptom = "neighbouring issue reports described the same renderer defect and were drafted as two tasks editing the same files, which would have collided on landing"
 fix = "before adding a batch of tasks, group them by touches and keep one task per overlapping set, closing the other reports against it"
+
+[gotcha.2582]
+title = "Package names and test sentences in a task's symbol list"
+symptom = "a task listed a generator package name and crate names as symbols, and others listed spelled-out test titles; the symbol graph check reported each as not defined and refused the done record although every gate command had passed"
+fix = "symbols hold only identifiers the code graph can resolve (functions, types, methods, Go or Rust test functions); packages, crates, scripts and sentence-style test titles belong in the do text and the tests list"
+
+[gotcha.2583]
+title = "Deleting a test file without updating its parity row"
+symptom = "retirement tasks deleted x-websearch kernel.rs and the mirror checkpoint vector test while spec/layerx-merge/programme/data/parity.kvx still selected those tests, so test_every_row_has_exact_selectors failed for every later task that touched the parity data"
+fix = "a task that deletes a test file named by a parity row moves that selector into the row's dropped list and regenerates docs/parity-inventory.md in the same change"
