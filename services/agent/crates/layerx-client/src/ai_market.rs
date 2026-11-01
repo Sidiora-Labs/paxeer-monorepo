@@ -297,17 +297,18 @@ fn market_header(state: &[u8]) -> Result<MarketHeader, AiClientError> {
 }
 
 /// Decodes a canonical v2 binding, including its block-commit evidence.
+/// The encoded length follows field presence, up to `BINDING_MAX_BYTES`.
 ///
 /// # Errors
 /// `BAD_VERSION` for a schema version other than 1; `NON_CANONICAL` for a length
-/// other than `BINDING_MAX_BYTES`, malformed bytes, invalid identities, revision zero
+/// above `BINDING_MAX_BYTES`, malformed bytes, invalid identities, revision zero
 /// or a rank above 4.
 pub fn decode_snapshot_binding(bytes: &[u8]) -> Result<SnapshotBinding, AiClientError> {
     let mut input = Reader::new(bytes);
     if input.u16()? != 1 {
         return Err(BAD_VERSION.into());
     }
-    if bytes.len() != BINDING_MAX_BYTES {
+    if bytes.len() > BINDING_MAX_BYTES {
         return Err(NON_CANONICAL.into());
     }
     let binding = SnapshotBinding {
@@ -1751,7 +1752,7 @@ impl OperationJournal {
         require(record, &[OperationState::Pending, OperationState::Unknown])?;
         let receipt = match lookup_authenticated(endpoint, record.activity_id, context)? {
             AuthenticatedLookup::Absent | AuthenticatedLookup::Submitted { .. } => {
-                return Ok(record.state)
+                return Ok(record.state);
             }
             AuthenticatedLookup::Verified(receipt) => receipt,
         };
