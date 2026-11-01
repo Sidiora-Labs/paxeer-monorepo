@@ -108511,7 +108511,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.19.5.2]
 title = "Verify a header's commit in TypeScript and bind resolveContent to verified app hashes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["19.5.1", "19.2.3"]
