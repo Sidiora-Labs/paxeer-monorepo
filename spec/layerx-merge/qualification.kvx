@@ -15315,3 +15315,11 @@ symbol = "ReceiptSignature"
 observed = "Attempts 3 (7c9c83d50) and 4 (e1015b351) fix the two callers do_5 named and go vet reports the third: crash_replay_test.go:56 passes the Accept result (evmrpc.AcceptedSend) to verify.ReceiptSignature, which takes []byte."
 assumption = "Every test caller of Accepter.Accept in node/sequencer that treats the result as bytes is ported in this task; the three are now named."
 severity = "minor"
+
+[finding.9.24.3.4]
+task = "9.24.3"
+file = "programs/crates/layerx-programs-arbiter/src/authority.rs:3"
+symbol = "VerifiedAdmissionPrestate"
+observed = "9671c613b also deleted layerx_client::evidence::VerifiedAdmissionPrestate and verify_arbiter_admission_v3, the only layerx-client items programs/crates/layerx-programs-arbiter uses (market.rs:4 and :155, authority.rs:3, :104, :113, :122 and :834, step.rs:183, :284, :468 and :496, tests/authority_from_prestate.rs:3, tests/verified_step.rs:132 and :224 and the market fixture test), so the programs workspace build (make programs-build, cargo build --locked --workspace) fails on main and every target through paxd-native-libs with it; the wave-4 gate of 17.5.5 attempt 6 (caa07f0ce) failed there."
+assumption = "The arbiter owns its admission evidence from now on and proves it under the block app hash by ICS23 as 13.30.3 to 13.30.5 did for receipts, replay metadata, module blobs and market namespaces; task 13.30.6 makes the port and decision 2191 records it."
+severity = "major"
