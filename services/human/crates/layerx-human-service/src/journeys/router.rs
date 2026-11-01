@@ -118,8 +118,6 @@ impl LegMechanism {
             Self::Protocol(Mechanism::Send) => "send",
             Self::Protocol(Mechanism::BudgetDefund) => "budget-defund",
             Self::Protocol(Mechanism::ReceiveUnderPayerGrant) => "receive-under-payer-grant",
-            Self::Protocol(Mechanism::BridgeDepositCredit) => "bridge-deposit-credit",
-            Self::Protocol(Mechanism::BridgeWithdrawRequest) => "bridge-withdraw-request",
         }
     }
 
@@ -134,8 +132,6 @@ impl LegMechanism {
             Self::Protocol(Mechanism::Send) => 5,
             Self::Protocol(Mechanism::BudgetDefund) => 6,
             Self::Protocol(Mechanism::ReceiveUnderPayerGrant) => 7,
-            Self::Protocol(Mechanism::BridgeDepositCredit) => 8,
-            Self::Protocol(Mechanism::BridgeWithdrawRequest) => 9,
         }
     }
 
@@ -168,8 +164,7 @@ pub enum ExecutableShape {
 
 impl ExecutableShape {
     /// Classifies an ordered leg sequence against the shape contract. Every
-    /// leg must start where the previous leg delivered, except the paired
-    /// custody legs, which carry the same endpoints.
+    /// leg must start where the previous leg delivered.
     ///
     /// # Errors
     ///
@@ -179,21 +174,7 @@ impl ExecutableShape {
         let shape = Self::of_mechanisms(&mechanisms).ok_or(Refusal::UnsupportedShape)?;
         for pair in legs.windows(2) {
             let (before, after) = (&pair[0], &pair[1]);
-            let paired = matches!(
-                (before.mechanism, after.mechanism),
-                (
-                    LegMechanism::PaxeerCustodyDeposit,
-                    LegMechanism::Protocol(Mechanism::BridgeDepositCredit)
-                ) | (
-                    LegMechanism::Protocol(Mechanism::BridgeWithdrawRequest),
-                    LegMechanism::PaxeerWithdrawFinalise
-                )
-            );
-            let continuous = if paired {
-                before.source == after.source && before.destination == after.destination
-            } else {
-                after.source == before.destination
-            };
+            let continuous = after.source == before.destination;
             if !continuous || after.index != before.index.saturating_add(1) {
                 return Err(Refusal::UnsupportedShape);
             }
@@ -207,20 +188,14 @@ impl ExecutableShape {
     /// Classifies a mechanism sequence, returning `None` outside the contract.
     #[must_use]
     pub fn of_mechanisms(mechanisms: &[LegMechanism]) -> Option<Self> {
-        const DEPOSIT: LegMechanism = LegMechanism::PaxeerCustodyDeposit;
-        const CREDIT: LegMechanism = LegMechanism::Protocol(Mechanism::BridgeDepositCredit);
-        const REQUEST: LegMechanism = LegMechanism::Protocol(Mechanism::BridgeWithdrawRequest);
-        const FINALISE: LegMechanism = LegMechanism::PaxeerWithdrawFinalise;
-        let kernel = |legs: &[LegMechanism]| {
-            !legs.is_empty() && legs.iter().all(|mechanism| Self::is_kernel(*mechanism))
-        };
-        match mechanisms {
-            [DEPOSIT, CREDIT] => Some(Self::CustodyDeposit),
-            [DEPOSIT, CREDIT, rest @ ..] if kernel(rest) => Some(Self::DepositForward),
-            [REQUEST, FINALISE] => Some(Self::WithdrawToWallet),
-            [rest @ .., REQUEST, FINALISE] if kernel(rest) => Some(Self::TransferThenWithdraw),
-            legs if kernel(legs) => Some(Self::Kernel),
-            _ => None,
+        if !mechanisms.is_empty()
+            && mechanisms
+                .iter()
+                .all(|mechanism| Self::is_kernel(*mechanism))
+        {
+            Some(Self::Kernel)
+        } else {
+            None
         }
     }
 
@@ -1186,20 +1161,6 @@ impl UnifiedPlan {
     /// Returns the journey kind the engine records this plan under.
     #[must_use]
     pub fn journey_kind(&self) -> JourneyKind {
-        if self
-            .legs
-            .iter()
-            .any(|leg| leg.mechanism == LegMechanism::Protocol(Mechanism::BridgeDepositCredit))
-        {
-            return JourneyKind::Deposit;
-        }
-        if self
-            .legs
-            .iter()
-            .any(|leg| leg.mechanism == LegMechanism::Protocol(Mechanism::BridgeWithdrawRequest))
-        {
-            return JourneyKind::Withdraw;
-        }
         JourneyKind::Move
     }
 
@@ -1542,61 +1503,11 @@ fn candidates(
 }
 
 fn base_shapes(intent: &UnifiedIntent, observed: &ObservedState) -> Result<Vec<Shape>, Refusal> {
-    let home = observed.home();
     match (&intent.source, &intent.destination) {
-        (Endpoint::PaxeerWallet, Endpoint::PaxeerWallet) => Err(Refusal::NoRoute {
-            source: EndpointKind::PaxeerWallet,
-            destination: EndpointKind::PaxeerWallet,
+        (Endpoint::PaxeerWallet, _) | (_, Endpoint::PaxeerWallet) => Err(Refusal::NoRoute {
+            source: intent.source.kind(),
+            destination: intent.destination.kind(),
         }),
-        (Endpoint::PaxeerWallet, destination) => {
-            if observed.custody.is_none() {
-                return Err(Refusal::WalletNotBound);
-            }
-            let mut shapes = vec![
-                Shape {
-                    mechanism: LegMechanism::PaxeerCustodyDeposit,
-                    term: MovementTerm::Deposit,
-                    source: Endpoint::PaxeerWallet,
-                    destination: home.clone(),
-                    authority: RequiredAuthority::PaxeerWalletKey,
-                },
-                Shape {
-                    mechanism: LegMechanism::Protocol(Mechanism::BridgeDepositCredit),
-                    term: MovementTerm::Deposit,
-                    source: Endpoint::PaxeerWallet,
-                    destination: home.clone(),
-                    authority: RequiredAuthority::AccountOwner,
-                },
-            ];
-            if destination != &home {
-                shapes.push(internal_shape(&home, destination, observed)?);
-            }
-            Ok(shapes)
-        }
-        (source, Endpoint::PaxeerWallet) => {
-            if observed.custody.is_none() {
-                return Err(Refusal::WalletNotBound);
-            }
-            let mut shapes = Vec::new();
-            if source != &home {
-                shapes.push(internal_shape(source, &home, observed)?);
-            }
-            shapes.push(Shape {
-                mechanism: LegMechanism::Protocol(Mechanism::BridgeWithdrawRequest),
-                term: MovementTerm::Withdrawal,
-                source: home.clone(),
-                destination: Endpoint::PaxeerWallet,
-                authority: RequiredAuthority::AccountOwner,
-            });
-            shapes.push(Shape {
-                mechanism: LegMechanism::PaxeerWithdrawFinalise,
-                term: MovementTerm::Withdrawal,
-                source: home,
-                destination: Endpoint::PaxeerWallet,
-                authority: RequiredAuthority::PaxeerWalletKey,
-            });
-            Ok(shapes)
-        }
         (source, destination) => Ok(vec![internal_shape(source, destination, observed)?]),
     }
 }
@@ -1686,34 +1597,6 @@ fn top_up_prefixes(
     if funding != &home {
         if let Ok(shape) = internal_shape(&home, funding, observed) {
             shapes_options.push(vec![shape]);
-        }
-    }
-    if observed.custody.is_some() {
-        let mut wallet_route = vec![
-            Shape {
-                mechanism: LegMechanism::PaxeerCustodyDeposit,
-                term: MovementTerm::Deposit,
-                source: Endpoint::PaxeerWallet,
-                destination: home.clone(),
-                authority: RequiredAuthority::PaxeerWalletKey,
-            },
-            Shape {
-                mechanism: LegMechanism::Protocol(Mechanism::BridgeDepositCredit),
-                term: MovementTerm::Deposit,
-                source: Endpoint::PaxeerWallet,
-                destination: home.clone(),
-                authority: RequiredAuthority::AccountOwner,
-            },
-        ];
-        if funding != &home {
-            if let Ok(shape) = internal_shape(&home, funding, observed) {
-                wallet_route.push(shape);
-            } else {
-                wallet_route.clear();
-            }
-        }
-        if !wallet_route.is_empty() {
-            shapes_options.push(wallet_route);
         }
     }
     let mut prefixes = Vec::new();
@@ -2283,8 +2166,6 @@ mod tests {
             (LegMechanism::Protocol(Mechanism::Send), 5),
             (LegMechanism::Protocol(Mechanism::BudgetFund), 2),
             (LegMechanism::Protocol(Mechanism::BudgetDefund), 2),
-            (LegMechanism::Protocol(Mechanism::BridgeDepositCredit), 3),
-            (LegMechanism::Protocol(Mechanism::BridgeWithdrawRequest), 4),
             (LegMechanism::PaxeerCustodyDeposit, 1),
             (LegMechanism::PaxeerWithdrawFinalise, 1),
         ])
@@ -2428,41 +2309,25 @@ mod tests {
             vec![balance(Endpoint::PaxeerWallet, 1_000)],
             Vec::new(),
         );
-        let value = planned(Endpoint::PaxeerWallet, agent(), 100, &state);
         assert_eq!(
-            mechanisms(&value),
-            vec!["paxeer-custody-deposit", "bridge-deposit-credit", "send"]
+            plan(&intent(Endpoint::PaxeerWallet, agent(), 100), &state),
+            Err(Refusal::NoRoute {
+                source: EndpointKind::PaxeerWallet,
+                destination: EndpointKind::Agent,
+            })
         );
-        assert_eq!(value.journey_kind(), JourneyKind::Deposit);
-        let domains = value
-            .legs()
-            .iter()
-            .map(PlannedLeg::domain)
-            .collect::<Vec<_>>();
-        assert_eq!(
-            domains,
-            vec![Domain::Paxeer, Domain::LayerX, Domain::LayerX]
-        );
-        let first = value.legs().first().unwrap_or_else(|| panic!("first leg"));
-        assert_eq!(first.amount().value(), 108);
-        let last = value.legs().last().unwrap_or_else(|| panic!("last leg"));
-        assert_eq!(last.amount().value(), 100);
-        assert_eq!(value.total_fee(), 9);
     }
 
     #[test]
     fn paxeer_destination_plans_withdraw_request_then_finalise() {
         let state = observed(Some(custody()), vec![balance(home(), 1_000)], Vec::new());
-        let value = planned(home(), Endpoint::PaxeerWallet, 100, &state);
         assert_eq!(
-            mechanisms(&value),
-            vec!["bridge-withdraw-request", "paxeer-withdraw-finalise"]
+            plan(&intent(home(), Endpoint::PaxeerWallet, 100), &state),
+            Err(Refusal::NoRoute {
+                source: EndpointKind::Human,
+                destination: EndpointKind::PaxeerWallet,
+            })
         );
-        assert_eq!(value.journey_kind(), JourneyKind::Withdraw);
-        assert_eq!(value.total_fee(), 5);
-        let finalise = value.legs().last().unwrap_or_else(|| panic!("finalise"));
-        assert_eq!(finalise.domain(), Domain::Paxeer);
-        assert_eq!(finalise.authority(), RequiredAuthority::PaxeerWalletKey);
     }
 
     #[test]
@@ -2632,7 +2497,13 @@ mod tests {
         )
         .err()
         .unwrap_or_else(|| panic!("expected a refusal"));
-        assert_eq!(refusal, Refusal::WalletNotBound);
+        assert_eq!(
+            refusal,
+            Refusal::NoRoute {
+                source: EndpointKind::PaxeerWallet,
+                destination: EndpointKind::Human,
+            }
+        );
         let unroutable = UnifiedIntent::new(
             Endpoint::PaxeerWallet,
             Endpoint::PaxeerWallet,
@@ -2742,11 +2613,6 @@ mod tests {
                 wallet_allowance(
                     3,
                     LegMechanism::PaxeerCustodyDeposit,
-                    Endpoint::PaxeerWallet,
-                ),
-                wallet_allowance(
-                    4,
-                    LegMechanism::Protocol(Mechanism::BridgeDepositCredit),
                     Endpoint::PaxeerWallet,
                 ),
             ],

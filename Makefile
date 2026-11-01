@@ -1160,6 +1160,15 @@ $(BUILD_DIR)/tests/kernel/%: tests/%.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | prog
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
+$(BUILD_DIR)/tools/dump_trading_vectors: tests/modules/dump_trading_vectors.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Itests/codec $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
+
+.PHONY: trading-vectors
+trading-vectors: $(BUILD_DIR)/tools/dump_trading_vectors
+
 $(BUILD_DIR)/tests/test_fuzz_smoke: tests/test_fuzz_smoke.c \
 		tests/fuzz/fuzz_activity.c tests/fuzz/fuzz_signature.c \
 		tests/fuzz/fuzz_transfer_set.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build

@@ -2,9 +2,11 @@ use layerx_agentd::prepare::{
     prepare_activity, verify_disclosure_binding, CorePreparationBoundary, CorePreparationState,
     CoreStateError, DisclosureBindingError, PreparationDefaults, PrepareError, PrepareRequest,
 };
-use layerx_crypto::disclosure::DisclosureError;
-use layerx_crypto::send::SendDebit;
-use layerx_crypto::signer::{LocalSigner, Signer};
+use layerx_crypto::{
+    disclosure::DisclosureError,
+    send::SendDebit,
+    signer::{LocalSigner, Signer},
+};
 use layerx_intents::{
     compile, BridgeDepositCredit, BridgeWithdrawRequest, BudgetCreate, BudgetDefund, BudgetFund,
     CompileErrorReason, CompileField, DidRegistration, DisclosureCheck, DisclosureCheckError,

@@ -13,8 +13,9 @@ import (
 // takes paid, which must equal the current fee exactly, from the requester's
 // account into the module account. It refuses when paused, for an unknown
 // kind, an empty payload or one over the payload cap, an api payload that
-// does not decode or names an attestor outside the registered set, and a
-// callback gas of zero or over the callback cap. It returns the request id.
+// does not decode or names an attestor outside the registered set, a
+// malformed storage-receipt payload, or a callback gas of zero or over the
+// callback cap. It returns the request id.
 func (k Keeper) Request(ctx sdk.Context, requester common.Address, kind uint8, payload []byte,
 	callbackGas uint64, paid sdk.Int) (uint64, error) {
 	if k.IsPaused(ctx) {
@@ -37,6 +38,11 @@ func (k Keeper) Request(ctx sdk.Context, requester common.Address, kind uint8, p
 			return 0, err
 		}
 		level, attestor = api.Level, api.Attestor
+	}
+	if kind == types.KindStorageReceipt {
+		if _, err := types.DecodeStorageReceiptPayload(payload); err != nil {
+			return 0, err
+		}
 	}
 	if callbackGas == 0 || callbackGas > params.MaxCallbackGas {
 		return 0, types.ErrCallbackGas.Wrapf("%d, cap %d", callbackGas, params.MaxCallbackGas)

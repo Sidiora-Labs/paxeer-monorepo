@@ -3423,7 +3423,12 @@ func (app *App) sequencedActivityIDs(txs [][]byte, typedTxs []sdk.Tx) [][32]byte
 
 func (app *App) RPCContextProvider(i int64) sdk.Context {
 	if i == PendingCtxHeight {
+		deadline := time.Now().Add(evmrpc.PendingOpenWait)
 		ctx, err := app.PendingSnapshot()
+		for errors.Is(err, evmrpc.ErrLayerNotOpen) && time.Now().Before(deadline) {
+			time.Sleep(time.Millisecond)
+			ctx, err = app.PendingSnapshot()
+		}
 		if err != nil {
 			panic(err)
 		}

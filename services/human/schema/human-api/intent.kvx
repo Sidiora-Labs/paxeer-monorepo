@@ -35,6 +35,7 @@ authority = "The request states the movement only. Balances, allowances and limi
 
 [type.IntentLeg]
 required = ["index:integer","mechanism:string","domain:IntentDomain","source:IntentEndpoint","destination:IntentEndpoint","money:Money","fee:Money"]
+optional = ["to:EvmAddress","value:Amount","calldata:string","nonce:integer","chain_id:integer","gas_limit:integer","max_fee_per_gas:Amount","max_priority_fee_per_gas:Amount"]
 order = "Legs execute in index order. Each leg runs to its own verified receipt before the next leg starts."
 
 [type.IntentSigningRequirement]

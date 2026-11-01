@@ -41,6 +41,7 @@ type SendAPI struct {
 	backend          *Backend
 	connectionType   ConnectionType
 	methodTimeout    utils.Option[time.Duration]
+	watermarks       *WatermarkManager
 }
 
 type SendConfig struct {
@@ -159,6 +160,7 @@ func NewSendAPI(
 		backend:          NewBackend(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, globalBlockCache, cacheCreationMutex, watermarks),
 		connectionType:   connectionType,
 		methodTimeout:    methodTimeout,
+		watermarks:       watermarks,
 	}
 }
 
@@ -179,7 +181,7 @@ func (s *SendAPI) SendRawTransaction(ctx context.Context, input hexutil.Bytes) (
 	}
 	hash = tx.Hash()
 	if s.sendConfig.Sequencer != nil {
-		return hash, s.acceptOnSequencer(tx)
+		return hash, s.acceptOnSequencer(ctx, tx)
 	}
 	if s.sendConfig.SequencerURL != nil {
 		return s.forwardToSequencer(ctx, hash, input)
@@ -269,7 +271,7 @@ func (s *SendAPI) forwardToSequencer(ctx context.Context, hash common.Hash, inpu
 // acceptOnSequencer hands tx to the sequencer's Accept and returns once its signed receipt is
 // released. The transaction is not simulated against the latest block and carries no gas
 // estimate: the gas used comes from its execution at receipt.
-func (s *SendAPI) acceptOnSequencer(tx *ethtypes.Transaction) error {
+func (s *SendAPI) acceptOnSequencer(ctx context.Context, tx *ethtypes.Transaction) error {
 	txData, err := ethtx.NewTxDataFromTx(tx)
 	if err != nil {
 		return err
@@ -289,8 +291,19 @@ func (s *SendAPI) acceptOnSequencer(tx *ethtypes.Transaction) error {
 	}
 	feed := s.sendConfig.pendingTxs
 	feed.receiptMu.Lock()
-	defer feed.receiptMu.Unlock()
 	receipt, err := s.sendConfig.Sequencer.Accept(txbz)
+	if errors.Is(err, ErrLayerNotOpen) {
+		feed.receiptMu.Unlock()
+		if _, err := s.watermarks.PendingContext(ctx); err != nil {
+			return err
+		}
+		feed.receiptMu.Lock()
+		receipt, err = s.sendConfig.Sequencer.Accept(txbz)
+		if errors.Is(err, ErrLayerNotOpen) {
+			err = ErrPendingBlockClosed
+		}
+	}
+	defer feed.receiptMu.Unlock()
 	if err != nil {
 		var coded *sdkerrors.Error
 		if errors.As(err, &coded) {
@@ -302,7 +315,7 @@ func (s *SendAPI) acceptOnSequencer(tx *ethtypes.Transaction) error {
 		return errors.New("missing sequencer receipt")
 	}
 	if s.sendConfig.receiptLogs != nil {
-		if err := s.recordReceiptLogs(receipt, tx.Hash()); err != nil {
+		if err := s.recordReceiptLogs(ctx, receipt, tx.Hash()); err != nil {
 			return fmt.Errorf("transaction %s is receipted but its logs are not recorded: %w", tx.Hash().Hex(), err)
 		}
 	}
@@ -313,7 +326,7 @@ func (s *SendAPI) acceptOnSequencer(tx *ethtypes.Transaction) error {
 // recordReceiptLogs records the execution receipt of the transaction hash, whose signed sequencer
 // receipt is signed, in the receipt log feed at the receipt's seq, batch height and transaction
 // index. The caller holds receiptMu, so transactions are recorded in receipt order.
-func (s *SendAPI) recordReceiptLogs(signed []byte, hash common.Hash) error {
+func (s *SendAPI) recordReceiptLogs(requestCtx context.Context, signed []byte, hash common.Hash) error {
 	decoded, err := codec.DecodeReceipt(signed)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrSequencerReceiptInvalid, err)
@@ -339,7 +352,14 @@ func (s *SendAPI) recordReceiptLogs(signed []byte, hash common.Hash) error {
 		return invalidReceipt("summary is %d bytes", len(summary.Body))
 	}
 	txIndex := binary.BigEndian.Uint32(summary.Body[24:28])
-	rcpt, err := s.keeper.GetTransientReceipt(s.ctxProvider(PendingCtxHeight), hash, uint64(txIndex))
+	ctx, err := s.watermarks.PendingContext(requestCtx)
+	if err != nil {
+		return err
+	}
+	if ctx.BlockHeight() != int64(height) {
+		return mismatch("pending height %d, receipt height %d", ctx.BlockHeight(), height)
+	}
+	rcpt, err := s.keeper.GetTransientReceipt(ctx, hash, uint64(txIndex))
 	if err != nil {
 		return fmt.Errorf("read execution receipt at index %d: %w", txIndex, err)
 	}

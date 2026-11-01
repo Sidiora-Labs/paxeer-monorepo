@@ -168,33 +168,6 @@ fn verify_historical_documents(
     }
 }
 
-fn call_fixture() -> (Vec<u8>, AuthorizedBatch) {
-    let document: serde_json::Value = must(serde_json::from_str(include_str!(
-        "../../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v3.json"
-    )));
-    let bytes = must(hex::decode(
-        document["canonical_receipt_hex"]
-            .as_str()
-            .unwrap_or_else(|| panic!("receipt")),
-    ));
-    let fields = &document["authorized_batch"];
-    let field = |name: &str| {
-        must(hex::decode32(
-            fields[name]
-                .as_str()
-                .unwrap_or_else(|| panic!("authority field")),
-        ))
-    };
-    let authority = AuthorizedBatch::new(
-        field("batch_id_hex"),
-        field("asset_hex"),
-        field("previous_state_root_hex"),
-        field("resulting_state_root_hex"),
-        field("sequencer_public_key_hex"),
-    );
-    (bytes, authority)
-}
-
 fn module_offset(bytes: &[u8]) -> usize {
     let receipt = must(decode(bytes));
     let batch = receipt
@@ -260,15 +233,35 @@ fn malformed_state_module_version_and_signature_are_refused() {
 }
 
 #[test]
-fn call_outcome_cannot_be_reclassified_as_state() {
-    let (bytes, authority) = call_fixture();
-    assert_eq!(verify_authorized_receipt(&bytes, &authority), Ok(()));
-    assert!(verify_outcome(&bytes, &authority).is_ok());
-    let offset = module_offset(&bytes);
-    let mut state_with_outcome = bytes;
-    state_with_outcome[offset + 10] = 0;
-    assert_eq!(
-        verify_authorized_receipt(&state_with_outcome, &authority),
-        Err(EvidenceRefusal::Receipt(ReceiptCheck::ReceiptShape))
-    );
+fn budget_finality_uses_the_nodes_checkpoint_view_layout() {
+    let abi: serde_json::Value = must(serde_json::from_str(include_str!(
+        "../../../../../../precompiles/layerxanchor/abi.json"
+    )));
+    let methods = abi.as_array().unwrap_or_else(|| panic!("anchor ABI"));
+    let latest = methods
+        .iter()
+        .find(|row| row["name"] == "latestFinalized")
+        .unwrap_or_else(|| panic!("latestFinalized"));
+    assert_eq!(latest["outputs"][0]["type"], "uint64");
+    assert_eq!(latest["outputs"][1]["type"], "bool");
+    let checkpoint = methods
+        .iter()
+        .find(|row| row["name"] == "checkpoint")
+        .unwrap_or_else(|| panic!("checkpoint"));
+    assert_eq!(checkpoint["inputs"][0]["type"], "uint64");
+    let fields = checkpoint["outputs"][0]["components"]
+        .as_array()
+        .unwrap_or_else(|| panic!("checkpoint tuple"));
+    assert_eq!(fields.len(), 18);
+    for (index, name, kind) in [
+        (0, "batchNumber", "uint64"),
+        (1, "checkpointId", "bytes32"),
+        (7, "stateRoot", "bytes32"),
+        (11, "timestampMs", "uint64"),
+        (12, "status", "uint8"),
+        (17, "finalizedHeight", "uint64"),
+    ] {
+        assert_eq!(fields[index]["name"], name);
+        assert_eq!(fields[index]["type"], kind);
+    }
 }

@@ -10,10 +10,15 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use crate::frame::Limits;
+use crate::journeys::AgentBoundary as _;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
+use layerx_crypto::disclosure::call::{bind_call, ledger_selector};
+use layerx_crypto::evm_transaction::{assemble, transaction_hash, Eip1559Call};
 use layerx_crypto::local::LocalSigner;
+use layerx_crypto::payments::{ledger_payment_call, CallOptions};
 use layerx_crypto::session::{issue_session_key, SessionKeyRequest};
+use layerx_crypto::signer::sign_disclosed_call;
 use layerx_crypto::signer::Signer as _;
 use layerx_intents::{
     BudgetCreate, BudgetDefund, Intent, IntentKind, SessionGrant as ProtocolSessionGrant,
@@ -1327,6 +1332,9 @@ impl ProductionComponents {
         trace: &TraceId,
         observed_at: u64,
     ) -> Result<bool, ApiFailure> {
+        if kind == "intent-evm" {
+            return self.advance_evm_intent(scope, id, observed_at);
+        }
         let mut agent = self.principal_agent(scope)?;
         let registry = agent.registry().clone();
         self.bind_native_journey_access(scope, &mut agent, id, None)?;
@@ -1403,8 +1411,17 @@ impl ProductionComponents {
                     trace,
                     observed_at,
                 ))
-                .map_err(|_| ApiFailure::upstream_degraded())?
-                .map_err(|_| ApiFailure::upstream_degraded())?;
+                .map_err(|error| {
+                    eprintln!(
+                        "intent journey {} advance poll failed: {error:?}",
+                        id.as_str()
+                    );
+                    ApiFailure::upstream_degraded()
+                })?
+                .map_err(|error| {
+                    eprintln!("intent journey {} advance failed: {error:?}", id.as_str());
+                    ApiFailure::upstream_degraded()
+                })?;
                 Ok(matches!(
                     status.state(),
                     crate::journeys::JourneyState::Done | crate::journeys::JourneyState::Refused
@@ -1688,6 +1705,19 @@ fn move_quote_json(value: &super::movement_provider::AuthorizedMovePlan) -> serd
         "irreversibility_copy_key": "movement.review.irreversible"})
 }
 
+fn intent_observation_key(
+    plan_digest: &[u8; 32],
+    session_id: &str,
+) -> Result<RowKey, crate::store::StoreError> {
+    let mut digest = Sha256::new();
+    digest.update(plan_digest);
+    digest.update(Sha256::digest(session_id.as_bytes()));
+    RowKey::new(format!(
+        "intent-observation-{}",
+        hex_bytes(&digest.finalize())
+    ))
+}
+
 #[derive(serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
 struct HeldIntentObservation {
@@ -1700,6 +1730,7 @@ struct HeldIntentObservation {
     identity_authority_digest: [u8; 32],
     canonical_intent: Vec<u8>,
     canonical_plan: Vec<u8>,
+    transactions: Vec<crate::custody::EvmTransaction>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -1778,130 +1809,6 @@ fn submit_failure(refusal: crate::journeys::SubmitRefusal) -> ApiFailure {
         retry_after_ms: None,
         field: refusal.field().map(str::to_owned),
     }
-}
-
-fn intent_leg_route(
-    components: &ProductionComponents,
-    scope: &crate::store::PrincipalScope<'_>,
-    agent: &mut AgentRuntime,
-    context: &KernelIntentContext,
-    leg: &crate::journeys::PlannedLeg,
-    binding: &crate::journeys::IntentLegBinding,
-    assertion: Option<&str>,
-) -> Result<crate::journeys::RouteRequest, ApiFailure> {
-    use crate::journeys::{Endpoint, LegMechanism, Mechanism};
-    match (leg.mechanism(), leg.source(), leg.destination()) {
-        (
-            LegMechanism::Protocol(Mechanism::Send),
-            Endpoint::Human(from),
-            Endpoint::Human(to) | Endpoint::Agent(to),
-        ) if from == &context.account => intent_send_route(
-            components, scope, agent, context, leg, binding, to, assertion,
-        ),
-        (
-            LegMechanism::Protocol(Mechanism::BudgetFund),
-            Endpoint::Human(_),
-            Endpoint::AgentBudget(budget),
-        )
-        | (
-            LegMechanism::Protocol(Mechanism::BudgetDefund),
-            Endpoint::AgentBudget(budget),
-            Endpoint::Human(_),
-        ) => intent_budget_route(scope, agent, context, leg, binding, budget),
-        _ => Err(ApiFailure::forbidden()),
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-fn intent_send_route(
-    components: &ProductionComponents,
-    scope: &crate::store::PrincipalScope<'_>,
-    agent: &mut AgentRuntime,
-    context: &KernelIntentContext,
-    leg: &crate::journeys::PlannedLeg,
-    binding: &crate::journeys::IntentLegBinding,
-    to: &AccountId,
-    assertion: Option<&str>,
-) -> Result<crate::journeys::RouteRequest, ApiFailure> {
-    let canonical = to.canonical();
-    if let Some(recipient_did) = canonical
-        .strip_prefix("agent:")
-        .and_then(|value| value.strip_suffix(":main"))
-    {
-        let recipient = agent
-            .identity_resolve(recipient_did)
-            .map_err(agent_failure)?;
-        if recipient.frozen || recipient.verification < 3 || recipient.canonical_bytes.is_empty() {
-            return Err(ApiFailure::forbidden());
-        }
-    }
-    let context_hash = action_key(&format!(
-        "{}:{}",
-        scope.tenant().as_str(),
-        hex_bytes(&context.identity_authority_digest)
-    ));
-    let signed = crate::custody::SendPlanAuthorization {
-        plan_id: binding.action_key,
-        action_key: binding.action_key,
-        principal: scope.principal().as_str().to_owned(),
-        tenant: scope.tenant().as_str().to_owned(),
-        binding_digest: context.custody_binding_digest,
-        from: movement_account_address(&context.account, context.protocol_version)?,
-        to: movement_account_address(to, context.protocol_version)?,
-        asset: leg.asset().bytes(),
-        amount: leg.amount().value(),
-        sequence: binding.account_sequence,
-        idempotency_key: binding.action_key,
-        expires_at: binding.not_after,
-        not_before: binding.not_before,
-        not_after: binding.not_after,
-        context: context_hash,
-        network: context.network.value(),
-        protocol: context.protocol_version,
-    };
-    if let (Some(attestor), Some(assertion)) = (components.attestor_custody(), assertion) {
-        attestor
-            .admit_assertion(&assertion_subject(assertion)?, assertion)
-            .map_err(|_| ApiFailure::forbidden())?;
-    }
-    let signature = match components.attestor_custody() {
-        Some(attestor) => attestor.authorize_kernel_send(
-            &components.custody,
-            scope.principal(),
-            &context.custody_key,
-            &signed,
-            binding.fee_limit,
-        ),
-        None => components
-            .custody
-            .authorize_send(scope.principal(), &context.custody_key, &signed),
-    }
-    .map_err(|_| ApiFailure::forbidden())?;
-    let descriptor = components
-        .custody
-        .describe_key(scope.principal(), &context.custody_key)
-        .map_err(|_| ApiFailure::forbidden())?;
-    crate::journeys::RouteRequest::from_wire_parts(
-        leg.source().clone(),
-        leg.destination().clone(),
-        crate::journeys::Relationship::Direct(crate::journeys::SendRoute {
-            account_sequence: ProtocolSequence::from_u64(binding.account_sequence),
-            idempotency_key: IdempotencyKey::new(binding.action_key),
-            expires_at: TimestampSeconds::from_u64(binding.not_after),
-            context_hash: layerx_types::intent::ContextHash::new(context_hash),
-            authorization: layerx_types::intent::SendAuthorization::new(
-                layerx_types::intent::SendAuthorizationKind::Owner,
-                PublicKey::new(descriptor.public_key),
-                layerx_types::intent::AuthorizationSignature::new(signature),
-            ),
-            network_id: context.network,
-            protocol_version: layerx_types::intent::ProtocolVersion::new(context.protocol_version)
-                .map_err(|_| ApiFailure::forbidden())?,
-        }),
-        leg.asset(),
-        leg.amount(),
-    )
-    .map_err(|_| ApiFailure::forbidden())
 }
 
 fn intent_budget_route(
@@ -3456,7 +3363,9 @@ fn resolve_budget_movement(
         return Err(ApiFailure::forbidden());
     }
     if funding && destination.starts_with("agent:") && destination.ends_with(":main") {
-        return resolve_direct_movement(components, context, destination, scope, agent);
+        return Err(submit_failure(
+            crate::journeys::SubmitRefusal::UnsupportedPlan,
+        ));
     }
     let managed_alias = if funding { destination } else { source };
     let managed_id = managed_protocol_identity(managed_alias)?;
@@ -3526,94 +3435,6 @@ fn resolve_budget_movement(
         budget: BudgetId::new(managed.active_budget_id),
         grant: AuthorityGrantId::new(managed.protocol_grant_id),
     });
-    Ok(())
-}
-
-fn resolve_direct_movement(
-    components: &ProductionComponents,
-    context: &mut super::movement_provider::PlanningContext,
-    destination: &str,
-    scope: &crate::store::PrincipalScope<'_>,
-    agent: &mut AgentRuntime,
-) -> Result<(), ApiFailure> {
-    let to = AccountId::parse(destination)
-        .map_err(|_| ApiFailure::invalid_request(Some("destination")))?;
-    let recipient_did = destination
-        .strip_prefix("agent:")
-        .and_then(|value| value.strip_suffix(":main"))
-        .ok_or_else(ApiFailure::forbidden)?;
-    let recipient = agent
-        .identity_resolve(recipient_did)
-        .map_err(agent_failure)?;
-    if recipient.frozen || recipient.verification < 3 || recipient.canonical_bytes.is_empty() {
-        return Err(ApiFailure::forbidden());
-    }
-    let action = action_key(&format!(
-        "{}:{}:{}:{}:{}",
-        scope.principal().as_str(),
-        context.account.canonical(),
-        destination,
-        context.amount.value(),
-        context.not_before
-    ));
-    let context_hash = action_key(&format!(
-        "{}:{}",
-        scope.tenant().as_str(),
-        hex_bytes(&Sha256::digest(&context.identity_authority_evidence))
-    ));
-    let signed = crate::custody::SendPlanAuthorization {
-        plan_id: action,
-        action_key: action,
-        principal: scope.principal().as_str().to_owned(),
-        tenant: scope.tenant().as_str().to_owned(),
-        binding_digest: context.custody_binding_digest,
-        from: movement_account_address(&context.account, context.protocol_version)?,
-        to: movement_account_address(&to, context.protocol_version)?,
-        asset: context.asset.bytes(),
-        amount: context.amount.value(),
-        sequence: context.account_sequence,
-        idempotency_key: action,
-        expires_at: context.not_after,
-        not_before: context.not_before,
-        not_after: context.not_after,
-        context: context_hash,
-        network: context.network.value(),
-        protocol: context.protocol_version,
-    };
-    let signature = components
-        .custody
-        .authorize_send(scope.principal(), &context.custody_key, &signed)
-        .map_err(|_| ApiFailure::forbidden())?;
-    let descriptor = components
-        .custody
-        .describe_key(scope.principal(), &context.custody_key)
-        .map_err(|_| ApiFailure::forbidden())?;
-    context.route = Some(
-        crate::journeys::RouteRequest::from_wire_parts(
-            crate::journeys::Endpoint::human(context.account.clone())
-                .map_err(|_| ApiFailure::forbidden())?,
-            crate::journeys::Endpoint::human(to).map_err(|_| ApiFailure::forbidden())?,
-            crate::journeys::Relationship::Direct(crate::journeys::SendRoute {
-                account_sequence: ProtocolSequence::from_u64(context.account_sequence),
-                idempotency_key: IdempotencyKey::new(action),
-                expires_at: TimestampSeconds::from_u64(context.not_after),
-                context_hash: layerx_types::intent::ContextHash::new(context_hash),
-                authorization: layerx_types::intent::SendAuthorization::new(
-                    layerx_types::intent::SendAuthorizationKind::Owner,
-                    PublicKey::new(descriptor.public_key),
-                    layerx_types::intent::AuthorizationSignature::new(signature),
-                ),
-                network_id: context.network,
-                protocol_version: layerx_types::intent::ProtocolVersion::new(
-                    context.protocol_version,
-                )
-                .map_err(|_| ApiFailure::forbidden())?,
-            }),
-            context.asset,
-            context.amount,
-        )
-        .map_err(|_| ApiFailure::forbidden())?,
-    );
     Ok(())
 }
 
@@ -3998,57 +3819,29 @@ impl ProductionComponents {
         if budget_state.asset != context.seed.budget_asset || budget_state.remaining < amount {
             return Err(ApiFailure::invalid_request(Some("money")));
         }
-        let intent = Intent::v1(IntentKind::BudgetDefund(
-            BudgetDefund::new(
-                BudgetId::new(context.active_budget_id),
-                AccountId::parse(&context.seed.budget_account)
-                    .map_err(|_| ApiFailure::upstream_degraded())?,
-                AccountId::parse(&context.seed.owner_account)
-                    .map_err(|_| ApiFailure::upstream_degraded())?,
-                AssetId::new(context.seed.budget_asset),
-                ProtocolAmount::from_u128(amount),
-                ProtocolSequence::from_u64(budget_state.revocation_sequence),
-                IdempotencyKey::new(operation_key),
-            )
-            .map_err(|_| ApiFailure::upstream_degraded())?,
-        ));
         let trace =
             TraceId::parse(&request.trace).map_err(|_| ApiFailure::invalid_request(None))?;
-        let registry = agent.registry().clone();
-        let current = self.now()?;
-        let mut adapter = ProductionAgentCreation::new(
-            &mut agent,
-            &self.agent_contract,
-            &self.custody,
-            &trace,
-            AgentDid::new(context.seed.actor.clone())
-                .map_err(|_| ApiFailure::upstream_degraded())?,
-            AuthorityRef::new(context.seed.primary_authority.clone())
-                .map_err(|_| ApiFailure::upstream_degraded())?,
-            super::agent_creation::CreationBounds {
-                timestamp_span: self.agent_timestamp_span_seconds,
-                fee_limit: self.agent_fee_limit,
-            },
-        )
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-        let receipt = adapter
-            .submit_lifecycle_intent(
-                scope,
-                &registry,
-                intent,
-                operation_key,
-                KeyId::new(context.seed.custody_key)
-                    .map_err(|_| ApiFailure::upstream_degraded())?,
-                current,
-            )
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        let evidence = ProductionAgentCreation::finalization_evidence(
+        if let (Some(attestor), Some(assertion)) = (
+            self.attestor_custody(),
+            request
+                .principal
+                .as_ref()
+                .and_then(PrincipalContext::assertion),
+        ) {
+            attestor
+                .admit_assertion(&assertion_subject(assertion)?, assertion)
+                .map_err(|_| ApiFailure::forbidden())?;
+        }
+        let receipt =
+            self.submit_budget_defund(scope, &mut agent, &context, amount, operation_key, &trace)?;
+        let mut evidence = ProductionAgentCreation::finalization_evidence(
             &receipt,
             ModuleId::Budget,
-            7,
+            8,
             self.now()?,
         )
         .map_err(|_| ApiFailure::upstream_degraded())?;
+        evidence.action_key = operation_key;
         let post = agent
             .agent_budget_state(context.active_budget_id)
             .map_err(agent_failure)?;
@@ -4398,19 +4191,13 @@ impl ProductionComponents {
 
     fn intent_fee_schedule(&self) -> Result<crate::journeys::FeeSchedule, ApiFailure> {
         use crate::journeys::{LegMechanism, Mechanism};
-        let protocol = self.agent_fee_limit;
+        let protocol = u128::from(self.evm_gas_limit)
+            .checked_mul(u128::from(self.evm_max_fee_per_gas))
+            .ok_or_else(ApiFailure::upstream_degraded)?;
         crate::journeys::FeeSchedule::new(vec![
             (LegMechanism::Protocol(Mechanism::Send), protocol),
             (LegMechanism::Protocol(Mechanism::BudgetFund), protocol),
             (LegMechanism::Protocol(Mechanism::BudgetDefund), protocol),
-            (
-                LegMechanism::Protocol(Mechanism::BridgeDepositCredit),
-                protocol,
-            ),
-            (
-                LegMechanism::Protocol(Mechanism::BridgeWithdrawRequest),
-                protocol,
-            ),
             (
                 LegMechanism::PaxeerCustodyDeposit,
                 u128::from(self.evm_gas_limit).saturating_mul(u128::from(self.evm_max_fee_per_gas)),
@@ -4476,6 +4263,7 @@ impl ProductionComponents {
         }
         let planned = crate::journeys::plan(&intent, &observed).map_err(intent_failure)?;
         let owner = resolve_kernel_intent_context(self, scope, asset)?;
+        let transactions = self.intent_transactions(scope, &planned, &owner, &currency)?;
         let memo = HeldIntentObservation {
             profile: 1,
             principal: scope.principal().as_str().to_owned(),
@@ -4492,13 +4280,10 @@ impl ProductionComponents {
             canonical_intent: serde_json::to_vec(&request.body)
                 .map_err(|_| ApiFailure::invalid_request(None))?,
             canonical_plan: planned.canonical_encode(),
+            transactions: transactions.clone(),
         };
-        let key = RowKey::new(format!(
-            "intent-observation-{}-{}",
-            hex_bytes(&planned.digest()),
-            hex_bytes(&Sha256::digest(memo.session_id.as_bytes()))
-        ))
-        .map_err(|_| ApiFailure::upstream_degraded())?;
+        let key = intent_observation_key(&planned.digest(), &memo.session_id)
+            .map_err(|_| ApiFailure::upstream_degraded())?;
         let bytes = serde_json::to_vec(&memo).map_err(|_| ApiFailure::unavailable())?;
         match scope.get(Table::Cache, &key) {
             Some(row) if row.bytes() == bytes.as_slice() => {}
@@ -4508,7 +4293,7 @@ impl ProductionComponents {
                 .map_err(|_| ApiFailure::unavailable())?,
         }
         Ok(BackendResponse {
-            result: intent_plan_json(&planned, &currency),
+            result: intent_plan_json(&planned, &currency, &transactions),
             session: None,
         })
     }
@@ -4521,18 +4306,14 @@ impl ProductionComponents {
         let idempotency = required_idempotency(request)?.to_owned();
         let submitted =
             crate::journeys::SubmitPlanRequest::from_json(&request.body).map_err(submit_failure)?;
-        let key = RowKey::new(format!(
-            "intent-observation-{}-{}",
-            hex_bytes(&submitted.plan_digest),
-            hex_bytes(&Sha256::digest(
-                request
-                    .principal
-                    .as_ref()
-                    .ok_or_else(ApiFailure::unauthenticated)?
-                    .session_id
-                    .as_bytes()
-            ))
-        ))
+        let key = intent_observation_key(
+            &submitted.plan_digest,
+            &request
+                .principal
+                .as_ref()
+                .ok_or_else(ApiFailure::unauthenticated)?
+                .session_id,
+        )
         .map_err(|_| ApiFailure::invalid_request(Some("plan_digest")))?;
         let row = scope
             .get(Table::Cache, &key)
@@ -4589,6 +4370,9 @@ impl ProductionComponents {
         if context.custody_binding_digest != memo.custody_binding_digest
             || context.identity_authority_digest != memo.identity_authority_digest
         {
+            return Err(ApiFailure::forbidden());
+        }
+        if self.intent_transactions(scope, &planned, &context, &currency)? != memo.transactions {
             return Err(ApiFailure::forbidden());
         }
         let expectation = crate::journeys::BindingExpectation {
@@ -4654,90 +4438,263 @@ impl ProductionComponents {
             context,
             idempotency,
         } = *submission;
-        let mut agent = self.principal_agent(scope)?;
-        let registry = agent.registry().clone();
-        let routes = self.intent_routes(request, scope, &mut agent, submission)?;
+        if request.body.get("native_access_id").is_some() {
+            return Err(ApiFailure::forbidden());
+        }
+        let transactions =
+            self.intent_transactions(scope, planned, context, &expectation.currency)?;
+        let mut signed = Vec::with_capacity(transactions.len());
+        for (tx, binding) in transactions.iter().zip(&submitted.bindings) {
+            let authorization = crate::custody::EvmPlanAuthorization {
+                plan_id: planned.digest(),
+                action_key: binding.action_key,
+                tenant: scope.tenant().as_str().to_owned(),
+                principal: scope.principal().as_str().to_owned(),
+                binding_digest: context.custody_binding_digest,
+                wallet: self
+                    .custody
+                    .evm_wallet(scope.principal(), &context.custody_key)
+                    .map_err(|_| ApiFailure::forbidden())?,
+                not_before: binding.not_before,
+                not_after: binding.not_after,
+                transaction: tx.clone(),
+            };
+            let row_key = RowKey::new(format!("intent-signed-{}", hex_bytes(&binding.action_key)))
+                .map_err(|_| ApiFailure::unavailable())?;
+            let action = if let Some(row) = scope.get(Table::Journeys, &row_key) {
+                let saved: crate::custody::EvmAction =
+                    serde_json::from_slice(row.bytes()).map_err(|_| ApiFailure::unavailable())?;
+                if saved.authorization != authorization {
+                    return Err(ApiFailure::forbidden());
+                }
+                saved
+            } else {
+                let call = evm_call(tx);
+                let disclosure =
+                    bind_call(&call, authorization.wallet).map_err(|_| ApiFailure::forbidden())?;
+                if let Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend {
+                    payload,
+                }) = disclosure
+                    .construct_method()
+                    .map_err(|_| ApiFailure::forbidden())?
+                {
+                    let encoded = ledger_payment_call(
+                        &payload,
+                        &CallOptions {
+                            from: authorization.wallet,
+                            chain_id: call.chain_id,
+                            nonce: call.nonce,
+                            max_priority_fee_per_gas: call.max_priority_fee_per_gas,
+                            max_fee_per_gas: call.max_fee_per_gas,
+                            gas_limit: call.gas_limit,
+                        },
+                    )
+                    .map_err(|_| ApiFailure::forbidden())?;
+                    if encoded.call != call {
+                        return Err(ApiFailure::forbidden());
+                    }
+                }
+                if let (Some(attestor), Some(assertion)) = (
+                    self.attestor_custody(),
+                    request
+                        .principal
+                        .as_ref()
+                        .and_then(PrincipalContext::assertion),
+                ) {
+                    attestor
+                        .admit_assertion(&assertion_subject(assertion)?, assertion)
+                        .map_err(|_| ApiFailure::forbidden())?;
+                }
+                let raw_transaction =
+                    if let Some(layerx_crypto::disclosure::call::ConstructMethod::BankSend {
+                        to,
+                        denom,
+                        amount,
+                        ..
+                    }) = disclosure
+                        .construct_method()
+                        .map_err(|_| ApiFailure::forbidden())?
+                    {
+                        self.custody
+                            .creation_keystore()
+                            .authorize_send_transaction(
+                                scope.principal(),
+                                &context.custody_key,
+                                &authorization,
+                                to,
+                                denom,
+                                amount,
+                            )
+                            .map_err(|_| ApiFailure::forbidden())?
+                    } else {
+                        let trace = TraceId::parse(&request.trace)
+                            .map_err(|_| ApiFailure::invalid_request(None))?;
+                        let principal = scope.principal().clone();
+                        let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(&call);
+                        let grant = super::executor::poll_once_ready(self.custody.sign_in_scope(
+                            scope,
+                            crate::custody::SignRequest::new(
+                                &principal,
+                                &context.custody_key,
+                                &trace,
+                                crate::custody::SignAuthorization::new(
+                                    crate::custody::Operation::ProtocolMutation,
+                                    None,
+                                ),
+                                &unsigned,
+                                &disclosure,
+                                expectation.now,
+                            ),
+                        ))
+                        .map_err(|_| ApiFailure::upstream_degraded())?
+                        .map_err(|_| ApiFailure::forbidden())?;
+                        let signature =
+                            layerx_crypto::signer::AgentSignature::new(*grant.signature())
+                                .map_err(|_| ApiFailure::upstream_degraded())?;
+                        if layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                            .map_err(|_| ApiFailure::forbidden())?
+                            != authorization.wallet
+                        {
+                            return Err(ApiFailure::forbidden());
+                        }
+                        assemble(&call, &signature)
+                    };
+                let action = crate::custody::EvmAction {
+                    authorization,
+                    transaction_hash: Some(transaction_hash(&raw_transaction)),
+                    raw_transaction,
+                    acknowledged: false,
+                };
+                scope
+                    .put(
+                        Table::Journeys,
+                        row_key,
+                        expectation.now,
+                        serde_json::to_vec(&action).map_err(|_| ApiFailure::unavailable())?,
+                    )
+                    .map_err(|_| ApiFailure::unavailable())?;
+                action
+            };
+            signed.push(action);
+        }
         let journey_id = crate::journeys::intent_journey_id(idempotency, planned.digest())
             .map_err(submit_failure)?;
-        let native = request
-            .body
-            .get("native_access_id")
-            .and_then(serde_json::Value::as_str);
-        let start = if native.is_some() {
-            crate::journeys::start_native_kernel_journey
-        } else {
-            crate::journeys::start_kernel_journey
-        };
-        let mut journey = start(
+        let result = crate::journeys::start_kernel_journey(
             scope,
             planned,
             submitted,
             expectation,
-            crate::journeys::KernelStart {
-                routes: &routes,
-                journey_id: journey_id.clone(),
-                custody_key: context.custody_key.clone(),
-                registry: &registry,
-            },
+            journey_id.clone(),
+            &signed,
         )
         .map_err(submit_failure)?;
-        if let Some(access_id) = native {
-            self.bind_native_journey_access(scope, &mut agent, &journey_id, Some(access_id))?;
-        }
-        let trace =
-            TraceId::parse(&request.trace).map_err(|_| ApiFailure::invalid_request(None))?;
-        let status = super::executor::poll_once_ready(crate::journeys::drive_intent_journey(
-            &mut journey,
-            scope,
-            &mut agent,
-            &crate::journeys::IntentDriver {
-                agent_contract: &self.agent_contract,
-                custody: &self.custody,
-                registry: &registry,
-                trace: &trace,
-                now: expectation.now,
-            },
-        ))
-        .map_err(|_| ApiFailure::upstream_degraded())?
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-        schedule_continuation(scope, "intent", status.journey_id(), expectation.now)?;
-        Ok(crate::journeys::IntentSubmission::from_kernel(
-            &status,
-            planned.digest(),
-        ))
+        schedule_continuation(scope, "intent-evm", &journey_id, expectation.now)?;
+        self.advance_evm_intent(scope, &journey_id, expectation.now)?;
+        Ok(result)
     }
 
-    fn intent_routes(
+    fn intent_transactions(
         &self,
-        request: &ScopedRequest<'_>,
         scope: &crate::store::PrincipalScope<'_>,
-        agent: &mut AgentRuntime,
-        submission: &KernelSubmission<'_>,
-    ) -> Result<Vec<crate::journeys::RouteRequest>, ApiFailure> {
-        let planned = submission.planned;
-        let (first, end) = planned.executable_shape().kernel_legs(planned.legs().len());
-        let legs = planned.legs().get(first..end).unwrap_or_default();
-        let bindings = submission
-            .submitted
-            .bindings
-            .get(first..end)
-            .unwrap_or_default();
-        let mut routes = Vec::with_capacity(legs.len());
-        for (leg, binding) in legs.iter().zip(bindings) {
-            routes.push(intent_leg_route(
-                self,
-                scope,
-                agent,
-                submission.context,
-                leg,
-                binding,
-                request
-                    .principal
-                    .as_ref()
-                    .and_then(PrincipalContext::assertion),
-            )?);
-        }
-        Ok(routes)
+        plan: &crate::journeys::UnifiedPlan,
+        context: &KernelIntentContext,
+        currency: &str,
+    ) -> Result<Vec<crate::custody::EvmTransaction>, ApiFailure> {
+        let wallet = self
+            .custody
+            .evm_wallet(scope.principal(), &context.custody_key)
+            .map_err(|_| ApiFailure::forbidden())?;
+        let mut agent = self.principal_agent(scope)?;
+        plan.legs()
+            .iter()
+            .map(|leg| {
+                let nonce = context
+                    .account_sequence
+                    .checked_add(u64::try_from(leg.index()).map_err(|_| ApiFailure::forbidden())?)
+                    .ok_or_else(ApiFailure::forbidden)?;
+                let (to, calldata) = match leg.mechanism() {
+                    crate::journeys::LegMechanism::Protocol(crate::journeys::Mechanism::Send) => {
+                        if intent_account(leg.source())? != &context.account {
+                            return Err(ApiFailure::forbidden());
+                        }
+                        let recipient = intent_account(leg.destination())?;
+                        let did = recipient
+                            .canonical()
+                            .strip_prefix("agent:")
+                            .and_then(|name| name.strip_suffix(":main"))
+                            .ok_or_else(ApiFailure::forbidden)?;
+                        let identity = agent.identity_resolve(did).map_err(agent_failure)?;
+                        if identity.frozen || !matches!(identity.verification, 4 | 5) {
+                            return Err(ApiFailure::forbidden());
+                        }
+                        let public_key = identity
+                            .authorities
+                            .iter()
+                            .find(|(kind, _)| *kind == 1)
+                            .map(|(_, key)| key)
+                            .ok_or_else(ApiFailure::forbidden)?;
+                        let recipient = intent_node()?
+                            .bound_address(public_key)
+                            .map_err(|_| ApiFailure::upstream_degraded())?
+                            .ok_or_else(ApiFailure::forbidden)?;
+                        let gateway = layerx_network_gateway::GatewayEndpoint::from_environment()
+                            .map_err(|_| ApiFailure::upstream_degraded())?;
+                        let balances = gateway
+                            .get_balances(layerx_network_gateway::AccountIdentifier::Evm(wallet))
+                            .map_err(|_| ApiFailure::upstream_degraded())?;
+                        let assets = gateway
+                            .list_assets()
+                            .map_err(|_| ApiFailure::upstream_degraded())?;
+                        let denom = send_leg_denom(&assets, &balances, leg.asset())?;
+                        (
+                            precompile(0x1001),
+                            bank_send_calldata(wallet, recipient, &denom, leg.amount().value()),
+                        )
+                    }
+                    crate::journeys::LegMechanism::Protocol(
+                        crate::journeys::Mechanism::BudgetDefund,
+                    ) => {
+                        let budget = intent_account(leg.source())?;
+                        let binding = crate::journeys::IntentLegBinding {
+                            leg_index: leg.index(),
+                            action_key: plan.action_key(leg.index()).map_err(intent_failure)?,
+                            actor: context.actor.as_str().to_owned(),
+                            authority: crate::journeys::authority_label(leg.authority()).to_owned(),
+                            relationship: "self".to_owned(),
+                            account_sequence: nonce,
+                            not_before: self.now()?,
+                            not_after: plan.intent().constraints().deadline().value(),
+                            fee_limit: leg.fee(),
+                            fee_currency: currency.to_owned(),
+                        };
+                        let route =
+                            intent_budget_route(scope, &mut agent, context, leg, &binding, budget)?;
+                        let crate::journeys::Relationship::ManagedBudget(route) =
+                            route.relationship
+                        else {
+                            return Err(ApiFailure::forbidden());
+                        };
+                        (
+                            precompile(0x101b),
+                            budget_defund_calldata(route.budget_id.bytes(), leg.amount().value()),
+                        )
+                    }
+                    _ => return Err(ApiFailure::forbidden()),
+                };
+                let transaction = crate::custody::EvmTransaction {
+                    chain_id: u64::from(self.network_id),
+                    nonce,
+                    max_priority_fee_per_gas: self.evm_max_priority_fee_per_gas,
+                    max_fee_per_gas: self.evm_max_fee_per_gas,
+                    gas_limit: self.evm_gas_limit,
+                    to,
+                    value: [0; 32],
+                    calldata,
+                };
+                bind_call(&evm_call(&transaction), wallet).map_err(|_| ApiFailure::forbidden())?;
+                Ok(transaction)
+            })
+            .collect()
     }
 
     fn execute_move_quote(
@@ -6231,6 +6188,22 @@ impl ProductionComponents {
         }
         if request.operation.name == "journey.get" {
             let requested = path(request, "journey_id")?;
+            let evm_key = RowKey::new(format!("intent-evm-{requested}"))
+                .map_err(|_| ApiFailure::invalid_request(None))?;
+            if scope.get(Table::Journeys, &evm_key).is_some() {
+                let id = crate::notify::JourneyId::new(requested.to_owned())
+                    .map_err(|_| ApiFailure::invalid_request(None))?;
+                self.advance_evm_intent(scope, &id, self.now()?)?;
+                let row = scope
+                    .get(Table::Journeys, &evm_key)
+                    .ok_or_else(ApiFailure::unavailable)?;
+                let record: serde_json::Value =
+                    serde_json::from_slice(row.bytes()).map_err(|_| ApiFailure::unavailable())?;
+                return Ok(BackendResponse {
+                    result: super::production_reads::intent_journey_json(&record)?,
+                    session: None,
+                });
+            }
             for journey in
                 CreationJourney::list(scope).map_err(|error| agent_creation_failure(&error))?
             {
@@ -6981,8 +6954,6 @@ impl ProductionComponents {
         operation_key: [u8; 32],
         trace: &TraceId,
     ) -> Result<(), ApiFailure> {
-        let registry = agent.registry().clone();
-
         let defund_key: [u8; 32] = Sha256::digest(
             [
                 b"layerx-human/agent-archive-defund/v1\0".as_slice(),
@@ -6991,48 +6962,9 @@ impl ProductionComponents {
             .concat(),
         )
         .into();
-        let intent = Intent::v1(IntentKind::BudgetDefund(
-            BudgetDefund::new(
-                BudgetId::new(context.active_budget_id),
-                AccountId::parse(&context.seed.budget_account)
-                    .map_err(|_| ApiFailure::upstream_degraded())?,
-                AccountId::parse(&context.seed.owner_account)
-                    .map_err(|_| ApiFailure::upstream_degraded())?,
-                AssetId::new(context.seed.budget_asset),
-                ProtocolAmount::from_u128(pre.remaining),
-                ProtocolSequence::from_u64(pre.revocation_sequence),
-                IdempotencyKey::new(defund_key),
-            )
-            .map_err(|_| ApiFailure::upstream_degraded())?,
-        ));
-        let current = self.now()?;
-        let mut adapter = ProductionAgentCreation::new(
-            agent,
-            &self.agent_contract,
-            &self.custody,
-            trace,
-            AgentDid::new(context.seed.actor.clone())
-                .map_err(|_| ApiFailure::upstream_degraded())?,
-            AuthorityRef::new(context.seed.primary_authority.clone())
-                .map_err(|_| ApiFailure::upstream_degraded())?,
-            super::agent_creation::CreationBounds {
-                timestamp_span: self.agent_timestamp_span_seconds,
-                fee_limit: self.agent_fee_limit,
-            },
-        )
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-        let receipt = adapter
-            .submit_lifecycle_intent(
-                scope,
-                &registry,
-                intent,
-                defund_key,
-                KeyId::new(context.seed.custody_key.clone())
-                    .map_err(|_| ApiFailure::upstream_degraded())?,
-                current,
-            )
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        ProductionAgentCreation::finalization_evidence(&receipt, ModuleId::Budget, 7, self.now()?)
+        let receipt =
+            self.submit_budget_defund(scope, agent, context, pre.remaining, defund_key, trace)?;
+        ProductionAgentCreation::finalization_evidence(&receipt, ModuleId::Budget, 8, self.now()?)
             .map_err(|_| ApiFailure::upstream_degraded())?;
         Ok(())
     }
@@ -7256,7 +7188,6 @@ struct AttestorKmsState {
     creation: Mutex<()>,
     enrolment: Mutex<Option<(String, String)>>,
     assertions: Mutex<std::collections::BTreeMap<String, zeroize::Zeroizing<String>>>,
-    send_fee_limit: Mutex<Option<([u8; 32], u128)>>,
     sends: Mutex<std::collections::BTreeMap<[u8; 32], AttestorSignedSend>>,
     last_refusal: Mutex<Option<String>>,
 }
@@ -7399,7 +7330,6 @@ impl AttestorKms {
                 creation: Mutex::new(()),
                 enrolment: Mutex::new(None),
                 assertions: Mutex::new(std::collections::BTreeMap::new()),
-                send_fee_limit: Mutex::new(None),
                 sends: Mutex::new(std::collections::BTreeMap::new()),
                 last_refusal: Mutex::new(None),
             }),
@@ -7480,43 +7410,6 @@ impl AttestorKms {
         let public_key = created?;
         cleared.map_err(|_| CustodyError::Kms(KmsError::Unavailable))?;
         Ok(public_key)
-    }
-
-    /// Authorizes a kernel send with the attestor-held owner key through the quorum's
-    /// `sign_send`: the owner authorization and the completed send envelope carrying
-    /// `fee_limit` are both signed, the authorization signature is returned for the route and
-    /// the completed envelope's signature answers the journey's later sign of those exact bytes.
-    ///
-    /// # Errors
-    /// Returns the custody refusal of the keystore or the attestor quorum's typed refusal.
-    pub fn authorize_kernel_send(
-        &self,
-        custody: &CustodySigner,
-        principal: &crate::store::PrincipalId,
-        key: &KeyId,
-        authorization: &crate::custody::SendPlanAuthorization,
-        fee_limit: u128,
-    ) -> Result<[u8; 64], CustodyError> {
-        let _serial = self
-            .inner
-            .creation
-            .lock()
-            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))?;
-        *self
-            .inner
-            .send_fee_limit
-            .lock()
-            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))? =
-            Some((authorization.action_key, fee_limit));
-        let signed = custody.authorize_send(principal, key, authorization);
-        let cleared = self
-            .inner
-            .send_fee_limit
-            .lock()
-            .map(|mut pending| *pending = None);
-        let signature = signed?;
-        cleared.map_err(|_| CustodyError::Kms(KmsError::Unavailable))?;
-        Ok(signature)
     }
 
     /// Returns the attestor quorum's refusal code for the latest refused operation, or the
@@ -7670,16 +7563,15 @@ impl AttestorKms {
         if signer.evm_address() != authorization.wallet {
             return Err(KmsError::Refused);
         }
-        let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(&call);
-        let mut signature = signer
-            .sign_evm_transaction(&unsigned, call.chain_id)
-            .map_err(|error| {
-                self.refused(&error);
-                attestor_kms_failure(&error)
-            })?;
-        signature[64] += 27;
-        let signature = layerx_crypto::signer::AgentSignature::new(signature)
-            .map_err(|_| KmsError::InvalidResponse)?;
+        let transaction_signer = DisclosedAttestorSigner(signer);
+        let signature = super::executor::poll_once_ready(sign_disclosed_call(
+            &transaction_signer,
+            &call,
+            &disclosed,
+            authorization.wallet,
+        ))
+        .map_err(|_| KmsError::Unavailable)?
+        .map_err(|_| KmsError::Refused)?;
         if layerx_crypto::evm_transaction::recover_sender(&call, &signature)
             .map_err(|_| KmsError::InvalidResponse)?
             != authorization.wallet
@@ -8352,7 +8244,11 @@ fn intent_money_json(amount: u128, currency: &str) -> serde_json::Value {
     json!({"amount": amount.to_string(), "currency": currency})
 }
 
-fn intent_plan_json(plan: &crate::journeys::UnifiedPlan, currency: &str) -> serde_json::Value {
+fn intent_plan_json(
+    plan: &crate::journeys::UnifiedPlan,
+    currency: &str,
+    transactions: &[crate::custody::EvmTransaction],
+) -> serde_json::Value {
     let legs = plan
         .legs()
         .iter()
@@ -8360,6 +8256,14 @@ fn intent_plan_json(plan: &crate::journeys::UnifiedPlan, currency: &str) -> serd
         .map(|(index, leg)| {
             json!({
                 "index": index,
+                "to": format!("0x{}", hex_bytes(&transactions[index].to)),
+                "value": "0",
+                "calldata": format!("0x{}", hex_bytes(&transactions[index].calldata)),
+                "nonce": transactions[index].nonce,
+                "chain_id": transactions[index].chain_id,
+                "gas_limit": transactions[index].gas_limit,
+                "max_fee_per_gas": transactions[index].max_fee_per_gas.to_string(),
+                "max_priority_fee_per_gas": transactions[index].max_priority_fee_per_gas.to_string(),
                 "mechanism": leg.mechanism().label(),
                 "domain": match leg.mechanism().domain() {
                     crate::journeys::Domain::Paxeer => "paxeer",
@@ -8576,8 +8480,10 @@ impl ProductionComponents {
         ))
         .map_err(|_| ApiFailure::unavailable())?;
         if scope.get(Table::Journeys, &retained_key).is_some() {
-            let retained = super::native_send::load_access(scope, access.action_key, now)
-                .map_err(agent_failure_from_creation_contract)?;
+            let mut runtime = self.principal_agent(scope)?;
+            let retained =
+                super::native_send::load_access(scope, &mut runtime, access.action_key, now)
+                    .map_err(agent_failure_from_creation_contract)?;
             if retained.commitment != access.commitment
                 || retained.session.owner.as_bytes() != access.owner.as_bytes()
                 || retained.session.owner_public_key != access.owner_public_key
@@ -8636,7 +8542,7 @@ impl ProductionComponents {
             )
         } else if let Some(id) = selected {
             let context =
-                super::native_send::load_access(scope, native_access_hex(id)?, self.now()?)
+                super::native_send::load_access(scope, agent, native_access_hex(id)?, self.now()?)
                     .map_err(agent_failure_from_creation_contract)?;
             let expiry = context.expires_at_ms;
             let bytes = serde_json::to_vec(&json!({"access_id":id,"purpose_expires_at_ms":expiry}))
@@ -8648,9 +8554,13 @@ impl ProductionComponents {
         } else {
             return Ok(());
         };
-        let context =
-            super::native_send::load_access(scope, native_access_hex(&access_id)?, self.now()?)
-                .map_err(agent_failure_from_creation_contract)?;
+        let context = super::native_send::load_access(
+            scope,
+            agent,
+            native_access_hex(&access_id)?,
+            self.now()?,
+        )
+        .map_err(agent_failure_from_creation_contract)?;
         agent
             .bind_native_journey_context(context, expiry)
             .map_err(agent_failure)
@@ -8698,5 +8608,423 @@ impl ProductionComponents {
                 "maximum_total":ceiling.to_string(),"period_length_ms":"0","maximum_per_period":"0"});
         }
         Ok(Some(request))
+    }
+}
+
+fn intent_node() -> Result<layerx_agentd::node_rpc::NodeRpc, ApiFailure> {
+    let config = layerx_agentd::node_rpc::NodeRpcConfig::from_environment()
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    layerx_agentd::node_rpc::NodeRpc::connect(&config).map_err(|_| ApiFailure::upstream_degraded())
+}
+fn precompile(id: u16) -> [u8; 20] {
+    let mut address = [0; 20];
+    address[18..].copy_from_slice(&id.to_be_bytes());
+    address
+}
+fn evm_call(tx: &crate::custody::EvmTransaction) -> Eip1559Call {
+    Eip1559Call {
+        chain_id: tx.chain_id,
+        nonce: tx.nonce,
+        max_priority_fee_per_gas: tx.max_priority_fee_per_gas.into(),
+        max_fee_per_gas: tx.max_fee_per_gas.into(),
+        gas_limit: tx.gas_limit,
+        to: tx.to,
+        data: tx.calldata.clone(),
+    }
+}
+fn abi_amount(amount: u128) -> [u8; 32] {
+    let mut word = [0; 32];
+    word[16..].copy_from_slice(&amount.to_be_bytes());
+    word
+}
+fn budget_defund_calldata(budget: [u8; 32], amount: u128) -> Vec<u8> {
+    [
+        ledger_selector("budgetDefund(bytes32,uint128)").to_vec(),
+        budget.to_vec(),
+        abi_amount(amount).to_vec(),
+    ]
+    .concat()
+}
+fn send_leg_denom(
+    assets: &layerx_network_gateway::AssetTable,
+    balances: &layerx_network_gateway::AccountBalances,
+    asset: AssetId,
+) -> Result<String, ApiFailure> {
+    let asset_id = format!("0x{}", hex_bytes(&asset.bytes()));
+    let denom = assets
+        .assets
+        .iter()
+        .find(|entry| entry.asset_id == asset_id)
+        .and_then(|entry| entry.denom.as_ref())
+        .ok_or_else(ApiFailure::forbidden)?;
+    balances.asset(denom).ok_or_else(ApiFailure::forbidden)?;
+    Ok(denom.clone())
+}
+
+fn bank_send_calldata(from: [u8; 20], to: [u8; 20], denom: &str, amount: u128) -> Vec<u8> {
+    let mut source = [0; 32];
+    source[12..].copy_from_slice(&from);
+    let mut recipient = [0; 32];
+    recipient[12..].copy_from_slice(&to);
+    let mut data = [
+        vec![0x5c, 0x05, 0x96, 0x1b],
+        source.to_vec(),
+        recipient.to_vec(),
+        abi_amount(128).to_vec(),
+        abi_amount(amount).to_vec(),
+        abi_amount(denom.len() as u128).to_vec(),
+        denom.as_bytes().to_vec(),
+    ]
+    .concat();
+    data.resize(4 + (data.len() - 4).div_ceil(32) * 32, 0);
+    data
+}
+
+fn intent_account(endpoint: &crate::journeys::Endpoint) -> Result<&AccountId, ApiFailure> {
+    match endpoint {
+        crate::journeys::Endpoint::Human(account)
+        | crate::journeys::Endpoint::Agent(account)
+        | crate::journeys::Endpoint::AgentBudget(account) => Ok(account),
+        _ => Err(ApiFailure::forbidden()),
+    }
+}
+
+#[derive(Debug)]
+struct DisclosedAttestorSigner(layerx_human_kms::attestor::AttestorSigner);
+impl layerx_crypto::signer::Signer for DisclosedAttestorSigner {
+    fn public_key(&self) -> [u8; 32] {
+        self.0.public_key()
+    }
+    fn evm_address(&self) -> Option<[u8; 20]> {
+        Some(self.0.evm_address())
+    }
+    fn sign<'a>(
+        &'a self,
+        _: layerx_crypto::signer::SigningRequest<'a>,
+    ) -> layerx_crypto::signer::SignFuture<'a> {
+        Box::pin(std::future::ready(Err(
+            layerx_crypto::signer::SignError::RemoteRefused,
+        )))
+    }
+    fn sign_transaction<'a>(
+        &'a self,
+        call: &'a Eip1559Call,
+    ) -> layerx_crypto::signer::TransactionSignFuture<'a> {
+        Box::pin(async move {
+            let mut signature = self
+                .0
+                .sign_evm_transaction(
+                    &layerx_human_kms::attestor::unsigned_evm_transaction(call),
+                    call.chain_id,
+                )
+                .map_err(|_| layerx_crypto::signer::SignError::RemoteRefused)?;
+            signature[64] += 27;
+            layerx_crypto::signer::AgentSignature::new(signature)
+                .map_err(|_| layerx_crypto::signer::SignError::ReturnedSignatureInvalid)
+        })
+    }
+}
+
+impl ProductionComponents {
+    fn submit_budget_defund(
+        &self,
+        scope: &mut crate::store::PrincipalScope<'_>,
+        agent: &mut AgentRuntime,
+        context: &super::agent_runtime::AgentLifecycleContext,
+        amount: u128,
+        action_key: [u8; 32],
+        trace: &TraceId,
+    ) -> Result<crate::agents::ProtocolEvidence, ApiFailure> {
+        let key =
+            KeyId::new(context.seed.custody_key.clone()).map_err(|_| ApiFailure::forbidden())?;
+        let wallet = self
+            .custody
+            .evm_wallet(scope.principal(), &key)
+            .map_err(|_| ApiFailure::forbidden())?;
+        let node = intent_node()?;
+        let row_key = RowKey::new(format!("defund-signed-{}", hex_bytes(&action_key)))
+            .map_err(|_| ApiFailure::unavailable())?;
+        let raw = if let Some(row) = scope.get(Table::Journeys, &row_key) {
+            row.bytes().to_vec()
+        } else {
+            let nonce = node
+                .pending_nonce(&wallet)
+                .map_err(|_| ApiFailure::upstream_degraded())?;
+            let call = Eip1559Call {
+                chain_id: u64::from(self.network_id),
+                nonce,
+                max_priority_fee_per_gas: self.evm_max_priority_fee_per_gas.into(),
+                max_fee_per_gas: self.evm_max_fee_per_gas.into(),
+                gas_limit: self.evm_gas_limit,
+                to: precompile(0x101b),
+                data: budget_defund_calldata(context.active_budget_id, amount),
+            };
+            let disclosure = bind_call(&call, wallet).map_err(|_| ApiFailure::forbidden())?;
+            let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(&call);
+            let principal = scope.principal().clone();
+            let signed = super::executor::poll_once_ready(self.custody.sign_in_scope(
+                scope,
+                crate::custody::SignRequest::new(
+                    &principal,
+                    &key,
+                    trace,
+                    crate::custody::SignAuthorization::new(
+                        crate::custody::Operation::ProtocolMutation,
+                        None,
+                    ),
+                    &unsigned,
+                    &disclosure,
+                    self.now()?,
+                ),
+            ))
+            .map_err(|_| ApiFailure::upstream_degraded())?
+            .map_err(|_| ApiFailure::forbidden())?;
+            let signature = layerx_crypto::signer::AgentSignature::new(*signed.signature())
+                .map_err(|_| ApiFailure::forbidden())?;
+            let raw = assemble(&call, &signature);
+            scope
+                .put(Table::Journeys, row_key, self.now()?, raw.clone())
+                .map_err(|_| ApiFailure::unavailable())?;
+            raw
+        };
+        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)
+            .map_err(|_| ApiFailure::forbidden())?;
+        if call.data != budget_defund_calldata(context.active_budget_id, amount)
+            || call.to != precompile(0x101b)
+            || call.chain_id != u64::from(self.network_id)
+            || layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                .map_err(|_| ApiFailure::forbidden())?
+                != wallet
+        {
+            return Err(ApiFailure::forbidden());
+        }
+        let hash = transaction_hash(&raw);
+        if node
+            .send_raw_transaction(&raw)
+            .map_err(|_| ApiFailure::upstream_degraded())?
+            != hash
+        {
+            return Err(ApiFailure::upstream_degraded());
+        }
+        let material = match agent
+            .receipt_by_idempotency_key([0; 32], hash)
+            .map_err(agent_failure)?
+        {
+            crate::journeys::ReceiptLookup::Found(material) => material,
+            _ => return Err(ApiFailure::upstream_degraded()),
+        };
+        let mut owner = [0; 32];
+        owner[12..].copy_from_slice(&wallet);
+        let disclosure = bind_call(&call, wallet).map_err(|_| ApiFailure::forbidden())?;
+        layerx_proof::receipt::verify_native_owner_outcome(
+            &material.canonical_bytes,
+            &material.authorised_batch,
+            &layerx_proof::receipt::NativeOwnerOutcomeContext {
+                canonical_activity: &raw,
+                actor: &wallet,
+                action_key: disclosure.idempotency_key,
+                activity_type: disclosure.activity_type,
+                owner_public_key: owner,
+                network_id: self.network_id,
+            },
+        )
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+        ProductionAgentCreation::protocol_evidence(raw, owner, agent.registry(), material)
+            .map_err(|_| ApiFailure::upstream_degraded())
+    }
+}
+
+impl ProductionComponents {
+    fn advance_evm_intent(
+        &self,
+        scope: &mut crate::store::PrincipalScope<'_>,
+        id: &crate::notify::JourneyId,
+        now: u64,
+    ) -> Result<bool, ApiFailure> {
+        let key = RowKey::new(format!("intent-evm-{}", id.as_str()))
+            .map_err(|_| ApiFailure::unavailable())?;
+        let mut record: serde_json::Value = serde_json::from_slice(
+            scope
+                .get(Table::Journeys, &key)
+                .ok_or_else(ApiFailure::not_found)?
+                .bytes(),
+        )
+        .map_err(|_| ApiFailure::unavailable())?;
+        if matches!(record["state"].as_str(), Some("done" | "refused")) {
+            return Ok(true);
+        }
+        let node = intent_node()?;
+        let mut agent = self.principal_agent(scope)?;
+        let mut complete = true;
+        let mut refused = false;
+        for leg in record["legs"]
+            .as_array_mut()
+            .ok_or_else(ApiFailure::unavailable)?
+        {
+            if leg["verified"] == true {
+                continue;
+            }
+            let raw: Vec<u8> = serde_json::from_value(leg["raw_transaction"].clone())
+                .map_err(|_| ApiFailure::unavailable())?;
+            let hash = transaction_hash(&raw);
+            if leg["submitted"] != true {
+                if node
+                    .send_raw_transaction(&raw)
+                    .map_err(|_| ApiFailure::upstream_degraded())?
+                    != hash
+                {
+                    return Err(ApiFailure::upstream_degraded());
+                }
+                leg["submitted"] = json!(true);
+            }
+            let (call, signature) = layerx_crypto::evm_transaction::decode_signed(&raw)
+                .map_err(|_| ApiFailure::unavailable())?;
+            let wallet = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                .map_err(|_| ApiFailure::unavailable())?;
+            let disclosure = bind_call(&call, wallet).map_err(|_| ApiFailure::unavailable())?;
+            let material = match agent
+                .receipt_by_idempotency_key(disclosure.idempotency_key, hash)
+                .map_err(agent_failure)?
+            {
+                crate::journeys::ReceiptLookup::Found(material)
+                    if material.rung == Rung::Committed =>
+                {
+                    material
+                }
+                _ => {
+                    complete = false;
+                    break;
+                }
+            };
+            let mut owner = [0; 32];
+            owner[12..].copy_from_slice(&wallet);
+            layerx_proof::receipt::verify_native_owner_outcome(
+                &material.canonical_bytes,
+                &material.authorised_batch,
+                &layerx_proof::receipt::NativeOwnerOutcomeContext {
+                    canonical_activity: &raw,
+                    actor: &wallet,
+                    action_key: disclosure.idempotency_key,
+                    activity_type: disclosure.activity_type,
+                    owner_public_key: owner,
+                    network_id: self.network_id,
+                },
+            )
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+            let evidence =
+                ProductionAgentCreation::protocol_evidence(raw, owner, agent.registry(), material)
+                    .map_err(|_| ApiFailure::upstream_degraded())?;
+            let receipt = evidence
+                .verify_outcome(disclosure.activity_type)
+                .map_err(|_| ApiFailure::upstream_degraded())?;
+            if receipt
+                .protocol()
+                .ok_or_else(ApiFailure::upstream_degraded)?
+                .result_code()
+                != 0
+            {
+                leg["refused"] = json!(true);
+                leg["receipt_hash"] = json!(format!("0x{}", hex_bytes(&evidence.receipt_hash)));
+                refused = true;
+                break;
+            }
+            leg["verified"] = json!(true);
+            leg["receipt_hash"] = json!(format!("0x{}", hex_bytes(&evidence.receipt_hash)));
+        }
+        let state = if refused {
+            "refused"
+        } else if complete {
+            "done"
+        } else {
+            "still-checking"
+        };
+        record["state"] = json!(state);
+        record["state_copy_key"] = json!(format!("journey.state.{state}"));
+        record["updated_at"] = json!(crate::time::rfc3339(now));
+        scope
+            .put(
+                Table::Journeys,
+                key,
+                now,
+                serde_json::to_vec(&record).map_err(|_| ApiFailure::unavailable())?,
+            )
+            .map_err(|_| ApiFailure::unavailable())?;
+        Ok(complete || refused)
+    }
+}
+
+#[cfg(test)]
+mod send_leg_denom_tests {
+    use super::{send_leg_denom, ApiFailure, AssetId};
+    use layerx_network_gateway::{
+        AccountBalances, AssetBalance, AssetEntry, AssetTable, Evidence, ResolvedIdentities,
+    };
+
+    fn asset_and_balances() -> (AssetTable, AccountBalances) {
+        (
+            AssetTable {
+                height: 16,
+                assets: vec![AssetEntry {
+                    asset_id: format!("0x{}", "ab".repeat(32)),
+                    denom: Some("ulxp".to_owned()),
+                    kind: "layerx".to_owned(),
+                    name: None,
+                    symbol: None,
+                    decimals: None,
+                    supply: None,
+                }],
+                joined_limit: 16,
+                evidence: Evidence::GatewayReported,
+            },
+            AccountBalances {
+                account: ResolvedIdentities {
+                    lookup_selector: None,
+                    evm_address: Some([0x11; 20]),
+                    pax_address: None,
+                    layerx_did: None,
+                    layerx_account: None,
+                    bound: false,
+                    evidence: Evidence::GatewayReported,
+                },
+                height: 16,
+                balances: vec![AssetBalance {
+                    denom: "ulxp".to_owned(),
+                    amount: 100,
+                }],
+                evidence: Evidence::GatewayReported,
+            },
+        )
+    }
+
+    #[test]
+    fn send_leg_denom_resolves_through_the_asset_table() {
+        let (assets, balances) = asset_and_balances();
+        assert_eq!(
+            send_leg_denom(&assets, &balances, AssetId::new([0xab; 32])),
+            Ok("ulxp".to_owned())
+        );
+    }
+
+    #[test]
+    fn send_leg_denom_refuses_an_asset_without_denom_or_balance() {
+        let (mut assets, mut balances) = asset_and_balances();
+        let asset = AssetId::new([0xab; 32]);
+        assert_eq!(
+            send_leg_denom(&assets, &balances, AssetId::new([0xcd; 32])),
+            Err(ApiFailure::forbidden())
+        );
+
+        assets.assets[0].denom = None;
+        assert_eq!(
+            send_leg_denom(&assets, &balances, asset),
+            Err(ApiFailure::forbidden())
+        );
+
+        assets.assets[0].denom = Some("ulxp".to_owned());
+        balances.balances[0].denom = "uother".to_owned();
+        assert_eq!(
+            send_leg_denom(&assets, &balances, asset),
+            Err(ApiFailure::forbidden())
+        );
     }
 }

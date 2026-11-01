@@ -582,7 +582,12 @@ impl<B: HumanApiComponents> Router<B> {
     ) -> HttpResponse {
         match response {
             Ok(BackendResponse { result, session }) => {
-                if self.schema.encode_response(operation, &result).is_err() {
+                if let Err(error) = self.schema.encode_response(operation, &result) {
+                    eprintln!(
+                        "response schema refused operation={} trace={}: {error:?}",
+                        operation.name,
+                        trace.as_str()
+                    );
                     return error_response(trace, &ApiFailure::upstream_degraded());
                 }
                 if let Some((sub, tenant_id, session_id)) = introspection_principal {
