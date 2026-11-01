@@ -12511,3 +12511,23 @@ fix = "run the build command once with --keep-going before porting, so every bro
 title = "Generated SDK files edited by hand fail platform-sdk-check later"
 symptom = "a task edited sdk/platform/jvm GeneratedSchema.java and GeneratedContract.java directly under a gate of mvn tests only, and the wave 4 aggregate failed weeks of attempts later in generate_jvm.py --check with 'generated JVM schema is stale' because the committed files no longer equal the generator's output"
 fix = "change the generator and regenerate; a task that touches a generated file runs that generator's --check in its verify command"
+
+[gotcha.2539]
+title = "eth_getProof on the node is an ICS23 witness, not a trie proof"
+symptom = "a client decoded the node's eth_getProof answer with the go-ethereum shape (accountProof, balance, nonce, codeHash, storageHash) and verified it as an Ethereum trie under the app hash; the node answers {address, hexValues, storageProof: [{ops}]} with an IAVL existence proof and a multistore proof per slot, so the decoder read nothing and the verifier could never match"
+fix = "decode the ops shape and verify with the registry's chain_proof ics23 and multistore functions under the block's stateRoot, which is the app hash"
+
+[gotcha.2540]
+title = "px_ methods are served by the network router, not the node"
+symptom = "daemon code and test doubles posted px_getCommit, px_getValidators, px_getHistory and a px_getProofBundle that does not exist to the node's JSON-RPC, whose namespaces are debug, echo, eth, net, pax, test and txpool"
+fix = "the daemon's endpoint is the router, which serves eth_, pax_ and px_ alike; local doubles answer the px_ methods in the router's shapes, and a method not in the router's published list is not a dependency"
+
+[gotcha.2541]
+title = "A consumer gate that waits on another pending task's placeholder"
+symptom = "a task's second verify segment ran a daemon test whose pass depended on a fee policy another pending task was still implementing, so every attempt failed with its own files correct"
+fix = "put the consumer test in the verify command of the task that implements the producer, and keep the first task's gate to what its own files make true"
+
+[gotcha.2542]
+title = "A producer gated without --tests breaks the crate's test targets silently"
+symptom = "an integration task changed a public function signature and removed a custody method under a build gate of the library alone; two integration test files calling the old forms broke and were only found by a later task whose build compiles every test target"
+fix = "a task that changes a public signature builds the crate with --tests, and greps its callers in tests/ into its touches"

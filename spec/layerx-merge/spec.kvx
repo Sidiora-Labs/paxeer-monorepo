@@ -6327,6 +6327,24 @@ value = "node/sequencer/receipt_source.go keeps a recorded send after its receip
 basis = "Task 5.5.3 implemented req.5022 as written ('until commit'), so the record is deleted in the same commit listener that makes the committed rung true (node/sequencer/node_start.go:138); the committed branch of the handler and every consumer of the Committed rung (layerx-client sequencer.rs:160-171, decisions 1935, 2643, 2805 and the settlement rule of the daemon) could never see it, and the send test of 12.35.2 polled null for sixty seconds (finding 12.35.2.13). The producer-and-consumer defect class."
 affects = ["5.5.22", "12.35.2"]
 
+[decision.2203]
+title = "Committed-level daemon reads anchor on a ServedCheckpoint acquired from the network router's px_getCommit and px_getValidators, and receipted-level reads bind to the block's stateRoot"
+value = "The daemon's single network endpoint (LAYERX_AGENT_NODE_RPC_URL) is the network router, which serves the node's eth_ and pax_ methods and its own px_ methods (gateway rpc.rs:284): px_getCommit [height] answers {height, signedHeader: {header, commit}} from the consensus commit and px_getValidators [height] answers {height, validators: [{address, pubKey: {type, value}, votingPower}], total} (chain_reads.rs:97, :111). A committed-level read (committed time, committed capabilities, module state, history, budget proofs) first acquires the ServedCheckpoint of its height through read/checkpoint.rs serve_checkpoint (two-thirds voting power of the pinned or served validator set over ed25519 votes), checks that the committed block's hash from eth_getBlockByNumber equals signedHeader.commit.block_id.hash and that the header's app_hash equals the block's stateRoot (rpc/block.go:713 publishes the app hash as stateRoot), and then evaluates every state read of that height (eth_call at the height, eth_getProof witnesses, receipts) against that checkpoint. A receipted-level read binds to the block's stateRoot and hash alone. layerx-client sequencer.rs gains the accessors commit_material(height) and validator_set(height) for the two px_ methods and state_root(height) for the committed block's stateRoot; no daemon module posts raw JSON for them. Qualification doubles of committed-level reads answer px_getCommit and px_getValidators in the router's shapes."
+basis = "The node's JSON-RPC publishes the namespaces debug, echo, eth, net, pax, test and txpool and no px_ method, while the daemon, the human runtime (human_runtime.rs:1172 already posts px_getCommit through ureq) and every test double of tasks 9.25.5 to 9.25.8 assumed one node that answers everything; the receipt chain has no sequencer (decision 8.13.2), so the committed block of the BFT chain is the only anchor, and the attempts of 9.25.7 and 9.25.8 failed on SequencerBlock having no app_hash field and on a BudgetProofTrust that still expects an LNI VerifiedCheckpoint. Sir's quality ruling: every interface-changing task proves the producer, transport and consumer path."
+affects = ["9.25.5", "9.25.6", "9.25.7", "9.25.8", "9.25.10", "9.25.11", "9.25.12", "8.98.18"]
+
+[decision.2204]
+title = "eth_getProof on the node is an ICS23 storage witness through the app root and is verified with the registry's chain_proof library, never as an Ethereum trie proof"
+value = "The node answers eth_getProof with {address, hexValues, storageProof: [{ops: [{type, key, data}]}]} (rpc/state.go:117-124): one ProofOps per requested slot, whose first op is the IAVL existence proof of the evm store key StateKey(address) || padded slot (modules/evm/types/keys.go:104, prefix 0x03, store 'evm') and whose second op is the multistore proof of the evm store root under the app hash; the per-account fields balance, nonce, codeHash and storageHash of the go-ethereum shape are not served. layerx-client decodes that shape as StorageWitness {address, slot, value, ops} through storage_witness(address, slots, height) and verifies it with verify_storage_witness(witness, app_hash) implemented on layerx-programs-registry chain_proof (ics23::verify_existence with ProofSpec::iavl against the store root, then multistore::verify_store_root('evm', root, ops[1].data, app_hash), as state::verify_state does for other stores); the AccountProof and StorageProof structs and the trie verification of read/proof_bundle.rs verify_account are retired. Module records of the layerxpay, layerxauth and layerxledger precompiles are not EVM storage, so a committed read of a module record is eth_call at the committed height bound to the ServedCheckpoint of decision 2203; a module-store witness over JSON-RPC is a future interface, not a task."
+basis = "The client's AccountProof decoder reads accountProof, balance, codeHash, nonce, storageHash and storageProof (go-ethereum) and proof_bundle.rs verify_account walks an Ethereum trie under app_hash, which never matches the node (rpc/state.go:119 says so in its doc comment); every committed state read that depended on it (rpc/module_state.rs, 9.25.6 account reads) was dead against the real node. The programs registry already verifies ICS23 witnesses through the app hash for other stores with generated vectors (programs/tests/vectors/ics23-*-app-hash.json), so the storage witness follows that pattern with its own generated vector."
+affects = ["9.25.11", "9.25.6"]
+
+[decision.2205]
+title = "The authority's human budget proof v2 binds to the committed block and its ServedCheckpoint; the layerxanchor checkpoint binding is retired and the daemon verifies the v2 export against the node's own answers"
+value = "The authority's budget export (human/budget_state.rs Session::open and export, schema layerx.human.budget-proof.v2) no longer reads latestFinalized() or checkpoint(uint64) on the anchor precompile: it reads the committed block number, the block (hash and stateRoot) and the two budget calls at that height, and publishes head {committed_height, block_hash}, budget_state as now, accounts as now, identity_key as now, proofs {budget_call, remaining_call, account_join} (each call with to, data, result, block height) and finality {height, block_hash, app_hash: the block's stateRoot}; evidence_digest hashes the same materials with the block hash in place of the checkpoint id; checkpoint_call, the status word and maximum_bytes leave the document. The daemon's budget_proof.rs verifies that shape: BudgetProofTrust.checkpoint is the ServedCheckpoint (decision 2203) of head.committed_height, finality.block_hash must equal the checkpoint's block hash and finality.app_hash its app_hash, and each proofs call is re-executed with eth_call at that height and must return the embedded result; the LNI Export, VerifiedCheckpoint, sequencer authorization and CommittedExport shapes leave budget_proof.rs. The shared fixture tests/vectors/budget-proof-v2/node-answers.json holds the JSON-RPC answers of one budget at one committed height (eth_blockNumber, eth_getBlockByNumber, px_getCommit with a header whose hash is the block hash and a commit over it, px_getValidators, the two eth_call answers) and tests/vectors/budget-proof-v2/export.json holds the authority's export for them; the authority test produces the export from a double replaying the answers and compares it to the committed file byte for byte, and the daemon test verifies the committed export against a double replaying the same answers."
+basis = "The anchor module is retired: SubmitCheckpoint returns ErrModuleRetired since afcc3485c (task 6.96.1) and its store was deleted, so the export's finality section binds to a checkpoint that can never advance and the daemon's verifier (budget_proof.rs:219-310) still demands LNI interface 1.8 material with sequencer authorizations that no producer emits; both ends of the budget proof were dead with their own tests passing. One fixture pair consumed by both ends is the producer-to-consumer proof Sir's quality ruling asks for."
+affects = ["8.98.18", "9.25.10", "9.25.12"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -16069,6 +16087,22 @@ ac_1 = "The micro-batch executor (node/sequencer/microbatch.go:85) delivers tran
 title = "Accepted sequencer receipts are served by hash until commit"
 ac_1 = "ReceiptSource (node/sequencer/receipt_source.go) returns the recorded SequencerSend (rpc/sequencer_receipt.go:77) for its hash before and after the height commits, until a full source evicts it as the oldest committed send."
 ac_2 = "ReceiptSource returns no receipt for a hash that was never recorded."
+
+[req.92512]
+title = "The daemon accepts the authority's committed budget proof v2 export"
+ac_1 = "verify_native_budget_proof accepts export.json against a double replaying node-answers.json and refuses the same document with its budget call result changed."
+
+[req.89818]
+title = "The authority's budget export binds to the committed block"
+ac_1 = "The export of schema layerx.human.budget-proof.v2 produced from the committed fixture answers equals the committed export.json byte for byte and carries no anchor checkpoint call."
+
+[req.92510]
+title = "The daemon verifies a budget proof v2 export against the committed block"
+ac_1 = "verify_native_budget_proof accepts an export whose finality block hash and app hash equal the ServedCheckpoint of head.committed_height and whose embedded calls re-execute to their results, and refuses a changed result, a changed block hash, a changed app hash and a stale height."
+
+[req.92511]
+title = "EVM storage slots are proven as ICS23 witnesses through the app root"
+ac_1 = "verify_storage_witness accepts the node's eth_getProof answer for a slot under the block's stateRoot and refuses a changed value, a changed key, a foreign store root and a foreign app hash."
 
 [req.5090]
 title = "Committed sends stay readable by hash until capacity evicts them"
@@ -33304,6 +33338,42 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.9.25.12]
+title = "Verify the authority's committed budget proof v2 export in the daemon"
+reqs = ["92512.1"]
+touches = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --exact budget::budget_proof::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
+do_1 = "Decision 2205. In budget/budget_proof.rs replace the in-test export of budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering with tests/vectors/budget-proof-v2/export.json (task 8.98.18) read at test time, so the test verifies the authority's own document against a TcpListener JSON-RPC double replaying tests/vectors/budget-proof-v2/node-answers.json and refuses the same document with its budget call result, finality block hash and app hash changed in turn. If the authority's export differs from the shape this crate verifies, the difference is a finding naming the field and the task that owns it, not a local adjustment."
+symbols = ["budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
+
+[capability.8.98.18]
+title = "Bind the authority's human budget proof v2 to the committed block and commit its fixture export"
+reqs = ["89818.1"]
+touches = ["services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/tests/budget_proof_exports.rs", "tests/vectors/budget-proof-v2/export.json"]
+tests = ["services/platform/hosted/authority/tests/budget_proof_exports.rs::budget_export_from_the_fixture_answers_equals_the_committed_export", "services/platform/hosted/authority/tests/budget_proof_exports.rs::budget_abi_matches_node_precompile_types"]
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test budget_proof_exports -- --exact budget_export_from_the_fixture_answers_equals_the_committed_export budget_abi_matches_node_precompile_types 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 2 passed'"
+do_1 = "Decision 2205. In human/budget_state.rs drop the ANCHOR constant and the latestFinalized() and checkpoint(uint64) reads of Session::open: the session reads eth_blockNumber, eth_getBlockByNumber at that height (hash and stateRoot) and the two budget calls at the height; export and export_dynamic publish head {committed_height, block_hash}, proofs {budget_call, remaining_call, account_join} and finality {height, block_hash, app_hash} with evidence_digest over the same materials and the block hash in place of the checkpoint id, as decision 2205 specifies, and checkpoint_call, status and maximum_bytes leave the document. human.rs:550 and dynamic.rs:548 keep calling export and export_dynamic."
+symbols = ["Session", "export", "export_dynamic", "budget_export_from_the_fixture_answers_equals_the_committed_export"]
+
+[capability.9.25.10]
+title = "Verify the human budget proof v2 against the ServedCheckpoint and re-executed calls in the daemon"
+reqs = ["92510.1"]
+touches = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/budget/mod.rs", "tests/vectors/budget-proof-v2/node-answers.json"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::budget_proof_v2_node_answers_fixture_is_current", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --exact budget::budget_proof::tests::budget_proof_v2_node_answers_fixture_is_current budget::budget_proof::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 2 passed'"
+do_1 = "Decision 2205. Rewrite budget/budget_proof.rs around the v2 export: Export decodes schema layerx.human.budget-proof.v2 with head {committed_height, block_hash}, budget_state, accounts, identity_key, proofs {budget_call, remaining_call, account_join} and finality {height, block_hash, app_hash}; BudgetProofTrust.checkpoint is a ServedCheckpoint (task 9.25.8) and the LNI VerifiedCheckpoint, sequencer_key, Head and set_version fields leave it; verify_native_budget_proof refuses unless finality.height equals head.committed_height, finality.block_hash equals the checkpoint's block hash, finality.app_hash its app_hash, and each proofs call re-executed with endpoint.call_at at that height returns the embedded result; evidence_digest is recomputed as the authority computes it (budget_state.rs) with the block hash in place of the checkpoint id. VerifiedBudgetProof keeps its accessors with checkpoint_digest the checkpoint's block hash; CommittedBudgetProofTrust and CommittedExport are deleted with their test-only producers."
+symbols = ["verify_native_budget_proof", "BudgetProofTrust", "Export", "VerifiedBudgetProof", "budget_proof_v2_node_answers_fixture_is_current", "budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
+
+[capability.9.25.11]
+title = "Decode and verify the node's eth_getProof ICS23 storage witness in layerx-client"
+reqs = ["92511.1"]
+touches = ["services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-client/src/sequencer.rs", "services/agent/crates/layerx-client/src/storage_witness.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/rpc/module_state.rs", "services/agent/crates/layerx-client/src/rpc/evidence.rs", "services/agent/crates/layerx-client/tests/storage_witness.rs", "services/agent/crates/layerx-client/tests/module_reads_rpc.rs", "services/agent/crates/layerx-client/tests/evidence_rpc.rs", "services/agent/crates/layerx-agentd/src/read/proof_bundle.rs", "modules/sequencer/keeper/ics23_evm_storage_vector_test.go", "programs/tests/vectors/ics23-evm-storage-app-hash.json"]
+tests = ["services/agent/crates/layerx-client/tests/storage_witness.rs::storage_witness_verifies_the_generated_vector_and_refuses_tampering", "modules/sequencer/keeper/ics23_evm_storage_vector_test.go::TestEvmStorageAppHashVector"]
+verification_contract = "go test -count=1 -v ./modules/sequencer/keeper/ -run '^TestEvmStorageAppHashVector$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestEvmStorageAppHashVector ' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test storage_witness -- --exact storage_witness_verifies_the_generated_vector_and_refuses_tampering 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
+do_1 = "Decision 2204. In layerx-client sequencer.rs add StorageWitness {address, slot, value, ops: Vec<ProofOp>} with storage_witness(address, slots, height) posting eth_getProof [address, slots, height] and decoding {address, hexValues, storageProof: [{ops: [{type, key, data}]}]} one witness per slot (value from hexValues), and add verify_storage_witness(witness, app_hash) in a new src/storage_witness.rs that computes the store key 0x03 || address || slot (modules/evm/types/keys.go StateKey with the 32-byte slot), verifies ops[0].data as an IAVL existence proof of key and value with layerx_programs_registry::chain_proof::ics23::verify_existence and ProofSpec::iavl, and verifies ops[1].data with multistore::verify_store_root('evm', root, data, app_hash); layerx-client's Cargo.toml gains the layerx-programs-registry dependency (it does not depend on layerx-client, so no cycle). Delete AccountProof, StorageProof, account_proof and decode_account_proof and port rpc/module_state.rs and rpc/evidence.rs off them: module_state reads use call_at at the height (decision 2204) and ProofBundle carries the landing block alone."
+symbols = ["StorageWitness", "storage_witness", "verify_storage_witness", "TestEvmStorageAppHashVector", "storage_witness_verifies_the_generated_vector_and_refuses_tampering"]
+
 [capability.8.46.10]
 title = "Regenerate the JVM schema from its generator and carry the hand-made shape into the generator"
 reqs = ["8548.1"]
@@ -33336,7 +33406,7 @@ title = "Port the SDK's direct-node deployment and the daemon's tests and exampl
 reqs = ["9259.1"]
 touches = ["services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs", "services/agent/crates/layerx-agentd/tests/budget_proof_intake.rs", "services/agent/crates/layerx-agentd/tests/native_program_presentation.rs", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs", "services/agent/crates/layerx-agentd/tests/native_send_profile.rs", "services/agent/crates/layerx-agentd/tests/human_frame.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agentd/examples/native_handover_programs.rs", "services/agent/crates/layerx-agentd/examples/native_handover_reads.rs"]
 tests = ["services/agent/crates/layerx-sdk/tests/sdk.rs::daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs::native_send_preview_is_an_unsigned_ledger_transfer_call"]
-verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --test sdk -- --exact daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test native_send_preview_evm -- --exact native_send_preview_is_an_unsigned_ledger_transfer_call 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --test sdk -- --exact daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
 do_1 = "Decision 2201. In services/agent/crates/layerx-sdk/src/lib.rs replace the layerx_client::client import at :38 with layerx_client::sequencer::{SequencerEndpoint, SequencerError}: DirectBackend holds endpoint: SequencerEndpoint; Client::direct_node(url: &str, trust_anchors: &[&[u8]]) builds it with SequencerEndpoint::new and maps a refusal to the new unit variant SdkError::DirectEndpoint; delete connect_direct_node (:281), SdkError::NodeInterfaceMajor, InvalidDirectLimits and DirectConnection(ConnectionError) (:219-222); direct_node_client (:321) returns Option<&SequencerEndpoint>; Deployment::DirectNode, deployment(), guarantees() and every call shape stay. In tests/sdk.rs delete direct_config (:25-45) and the four layerx_client imports at :12-15; daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls builds its direct client with Client::direct_node('http://127.0.0.1:8545', &[]) and keeps every assertion."
 symbols = ["direct_node", "DirectBackend", "DirectEndpoint", "daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls", "native_send_preview_is_an_unsigned_ledger_transfer_call"]
 
@@ -33363,7 +33433,7 @@ title = "Restore the daemon's native fee policy from the fee-token and asset reg
 reqs = ["9257.1"]
 touches = ["services/agent/crates/layerx-agentd/src/budget/mod.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
 tests = ["services/agent/crates/layerx-agentd/src/budget/fee_policy.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs"]
-verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget::fee_policy::tests budget::program_sources::tests 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed'"
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget::fee_policy::tests budget::program_sources::tests 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed' && anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test native_send_preview_evm -- --exact native_send_preview_is_an_unsigned_ledger_transfer_call 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
 do_1 = "Decision 2199. Add fn native_fee_policy(endpoint: &SequencerEndpoint, height: u64) -> Result<NativeFeePolicy, FeeReadError> to services/agent/crates/layerx-agentd/src/budget/fee_policy.rs: getFeeDenom() on the feetoken precompile at the height names the fee denomination; a denomination of the form layerx/<asset_id hex> resolves through layerxledger getAsset(asset_id) to asset_id, symbol, decimals and paused, any other denomination through the bank precompile's symbol and decimals with paused false and asset_id the keccak of the denomination; the policy carries version 1, the asset metadata, observed_sequence = height and state_root = the committed block header's app_hash, the fields the consumers read (fee.state_root, fee.observed_sequence, fee.value.asset.asset_id, .symbol, .paused, .decimals)."
 symbols = ["native_fee_policy", "NativeFeePolicy", "FeeReadError"]
 
@@ -33488,10 +33558,10 @@ symbols = ["authority_starts_without_an_lni_socket", "block_committed_is_the_top
 title = "Write the five Go acceptance tests the merged spec names and the tree lacks"
 reqs = ["2020.2", "2035.1", "2058.4", "5045.2", "18814.1"]
 touches = ["modules/layerxledger/keeper/execute_test.go", "modules/layerxauth/keeper/execute_test.go", "precompiles/layerxauth/surface_test.go", "node/commit_listener_test.go", "modules/layerxanchor/keeper/keeper_test.go"]
-tests = ["modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay", "modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay", "precompiles/layerxauth/surface_test.go::TestPrecompileSurface", "node/commit_listener_test.go::TestCommitSurvivesPanickingListener", "modules/layerxanchor/keeper/keeper_test.go::TestResubmittedCheckpointKeepsChallengeWindow"]
-verification_contract = "go test -count=1 -v ./modules/layerxledger/keeper/ -run '^TestExecuteIdempotentReplay$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestExecuteIdempotentReplay ' && go test -count=1 -v ./modules/layerxauth/keeper/ -run '^TestAuthExecuteIdempotentReplay$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAuthExecuteIdempotentReplay ' && go test -count=1 -v ./precompiles/layerxauth/ -run '^TestPrecompileSurface$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestPrecompileSurface ' && go test -count=1 -v ./node/ -run '^TestCommitSurvivesPanickingListener$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestCommitSurvivesPanickingListener ' && go test -count=1 -v ./modules/layerxanchor/keeper/ -run '^TestResubmittedCheckpointKeepsChallengeWindow$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestResubmittedCheckpointKeepsChallengeWindow '"
+tests = ["modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay", "modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay", "precompiles/layerxauth/surface_test.go::TestPrecompileSurface", "node/commit_listener_test.go::TestCommitSurvivesPanickingListener", "modules/layerxanchor/keeper/keeper_test.go::TestSubmitCheckpointIsRetired"]
+verification_contract = "go test -count=1 -v ./modules/layerxledger/keeper/ -run '^TestExecuteIdempotentReplay$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestExecuteIdempotentReplay ' && go test -count=1 -v ./modules/layerxauth/keeper/ -run '^TestAuthExecuteIdempotentReplay$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAuthExecuteIdempotentReplay ' && go test -count=1 -v ./precompiles/layerxauth/ -run '^TestPrecompileSurface$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestPrecompileSurface ' && go test -count=1 -v ./node/ -run '^TestCommitSurvivesPanickingListener$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestCommitSurvivesPanickingListener ' && go test -count=1 -v ./modules/layerxanchor/keeper/ -run '^TestSubmitCheckpointIsRetired$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestSubmitCheckpointIsRetired '"
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add TestExecuteIdempotentReplay to modules/layerxledger/keeper/execute_test.go: given a completed openAccount with idempotency key K, a second submission by the same actor with K returns types.ErrIdempotentReplay and the stored receipt for K is the first one (acceptance 2.20.2). Add TestAuthExecuteIdempotentReplay to modules/layerxauth/keeper/execute_test.go: given a granted session with key K, a resubmission with K returns ErrIdempotentReplay and the stored receipt is unchanged (2.35.1). Add TestPrecompileSurface to precompiles/layerxauth/surface_test.go: enumerating the layerxauth precompile ABI finds resultByIdempotency absent and the remaining methods with their gas rows as decision 1932 fixed them (2.58.4)."
-symbols = ["TestExecuteIdempotentReplay", "TestAuthExecuteIdempotentReplay", "TestPrecompileSurface", "TestCommitSurvivesPanickingListener", "TestResubmittedCheckpointKeepsChallengeWindow"]
+symbols = ["TestExecuteIdempotentReplay", "TestAuthExecuteIdempotentReplay", "TestPrecompileSurface", "TestCommitSurvivesPanickingListener", "TestSubmitCheckpointIsRetired"]
 
 [capability.17.5.12]
 title = "Build the agent TypeScript SDK before the web build and give its exports a default condition"
@@ -100474,12 +100544,12 @@ wiring = ["wiring.J23.1"]
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add TestExecuteIdempotentReplay to modules/layerxledger/keeper/execute_test.go: given a completed openAccount with idempotency key K, a second submission by the same actor with K returns types.ErrIdempotentReplay and the stored receipt for K is the first one (acceptance 2.20.2). Add TestAuthExecuteIdempotentReplay to modules/layerxauth/keeper/execute_test.go: given a granted session with key K, a resubmission with K returns ErrIdempotentReplay and the stored receipt is unchanged (2.35.1). Add TestPrecompileSurface to precompiles/layerxauth/surface_test.go: enumerating the layerxauth precompile ABI finds resultByIdempotency absent and the remaining methods with their gas rows as decision 1932 fixed them (2.58.4)."
 do_2 = "Add TestCommitSurvivesPanickingListener to node/commit_listener_test.go: an App whose commit listener panics commits a block with no error and the height advances (5.45.2), built the way TestCommitReturnsListenerFailure builds its App. Add TestResubmittedCheckpointKeepsChallengeWindow to modules/layerxanchor/keeper/keeper_test.go: a checkpoint submitted under a 50 second challenge window and resubmitted identically 30 seconds later keeps its submitted time and finalizes 50 seconds after the first submission (18.814.1)."
 do_3 = "Each test proves its acceptance scenario against the real keeper or precompile, uses the fixtures its file already has, and changes no production file; the verify command runs each test alone and fails unless its own PASS line appears."
-symbols = ["TestExecuteIdempotentReplay", "TestAuthExecuteIdempotentReplay", "TestPrecompileSurface", "TestCommitSurvivesPanickingListener", "TestResubmittedCheckpointKeepsChallengeWindow"]
+symbols = ["TestExecuteIdempotentReplay", "TestAuthExecuteIdempotentReplay", "TestPrecompileSurface", "TestCommitSurvivesPanickingListener", "TestSubmitCheckpointIsRetired"]
 touches = ["modules/layerxledger/keeper/execute_test.go", "modules/layerxauth/keeper/execute_test.go", "precompiles/layerxauth/surface_test.go", "node/commit_listener_test.go", "modules/layerxanchor/keeper/keeper_test.go", "node/abci.go"]
-tests = ["modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay", "modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay", "precompiles/layerxauth/surface_test.go::TestPrecompileSurface", "node/commit_listener_test.go::TestCommitSurvivesPanickingListener", "modules/layerxanchor/keeper/keeper_test.go::TestResubmittedCheckpointKeepsChallengeWindow"]
+tests = ["modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay", "modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay", "precompiles/layerxauth/surface_test.go::TestPrecompileSurface", "node/commit_listener_test.go::TestCommitSurvivesPanickingListener", "modules/layerxanchor/keeper/keeper_test.go::TestSubmitCheckpointIsRetired"]
 planned_paths = []
 build_cmd = "go vet ./modules/layerxledger/keeper/ ./modules/layerxauth/keeper/ ./precompiles/layerxauth/ ./node/ ./modules/layerxanchor/keeper/"
-verify_cmd = "go test -count=1 -v ./modules/layerxledger/keeper/ -run '^TestExecuteIdempotentReplay$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestExecuteIdempotentReplay ' && go test -count=1 -v ./modules/layerxauth/keeper/ -run '^TestAuthExecuteIdempotentReplay$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAuthExecuteIdempotentReplay ' && go test -count=1 -v ./precompiles/layerxauth/ -run '^TestPrecompileSurface$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestPrecompileSurface ' && go test -count=1 -v ./node/ -run '^TestCommitSurvivesPanickingListener$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestCommitSurvivesPanickingListener ' && go test -count=1 -v ./modules/layerxanchor/keeper/ -run '^TestResubmittedCheckpointKeepsChallengeWindow$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestResubmittedCheckpointKeepsChallengeWindow '"
+verify_cmd = "go test -count=1 -v ./modules/layerxledger/keeper/ -run '^TestExecuteIdempotentReplay$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestExecuteIdempotentReplay ' && go test -count=1 -v ./modules/layerxauth/keeper/ -run '^TestAuthExecuteIdempotentReplay$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestAuthExecuteIdempotentReplay ' && go test -count=1 -v ./precompiles/layerxauth/ -run '^TestPrecompileSurface$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestPrecompileSurface ' && go test -count=1 -v ./node/ -run '^TestCommitSurvivesPanickingListener$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestCommitSurvivesPanickingListener ' && go test -count=1 -v ./modules/layerxanchor/keeper/ -run '^TestSubmitCheckpointIsRetired$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestSubmitCheckpointIsRetired '"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-parity"
@@ -100494,6 +100564,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Finding 1.12.4.2: go vet of modules/layerxledger/keeper fails on main until task 1.12.5 ports its tests off the deleted payer-grant reads, so this task requires 1.12.5; continue from attempt 1 (94b92ebe6) with the five tests already written and change nothing else."
 do_5 = "Finding 2.90.1.1: continue from attempt 3 (base d4f0a794f) keeping the four passing tests. Acceptances 2.20.2 and 2.35.1 are restated on the actor-sequence guard of decision.101, since ReadIdempotentReceipt and the 0x04 receipt rows no longer exist: TestExecuteIdempotentReplay keeps its name and proves, after a successful openAccount through k.execute, that executing the identical lxphost.Activity again through k.host.Execute on a WithSequence context (protocol version 3, the same type, actor DID, authority key, the consumed AccountSequence, the block timestamp bounds, key K and payload, built as Keeper.execute builds it at execute.go:45-55) is refused with kernel code -301 LXP_ERR_SEQUENCE_REUSED (read it from the returned error or the receipt's ResultCode as modules/lxphost/execute_test.go:93 and modules_test.go:121 do), that ReadAccountOwner still answers the actor, and that an openAccount of a second asset by the same actor with key K through k.execute succeeds; drop the ReadIdempotentReceipt interface assertion. TestAuthExecuteIdempotentReplay keeps its name and proves that resubmitting the same payload with K through Keeper().Execute returns types.ErrSequenceReused with ResultCode -301 (the pattern at modules/layerxauth/keeper/execute_test.go:96-101), that GetGrant is unchanged and that a fresh grant payload with K executes. Change no production file; build once, verify once."
 do_6 = "Finding 2.90.1.2: continue from attempt 5 (a772c6010) keeping its five test files. In node/abci.go:331-340 make the deferred recover of commitListener log the panic at error level with the height and the recovered value through the app logger and leave err nil, so Commit returns the committed result with no error and the height stays advanced (req 5045 ac_2, acceptance 5.45.2); a listener that returns an error still fails Commit with the wrapped error at :338, which TestCommitReturnsListenerFailure keeps proving. Change nothing else in the file. Build once, verify once."
+do_7 = "Finding 2.90.1.3: continue from attempt 6 (c182f35a2) keeping the four passing tests and node/abci.go. Rename the anchor test to TestSubmitCheckpointIsRetired and make it prove the retirement: submit a checkpoint certificate, advance the block time 30 seconds and submit the identical certificate again, require both calls to return types.ErrModuleRetired and require that the keeper has no checkpoint record at the certificate's height or at any height; acceptance 18.814.1, the tests list, the symbols and the fifth verify segment now name that test. Build once, verify once."
 
 [task.2.3.5]
 title = "Mirror kernel asset supply and transfers into bank under the layerx denom"
@@ -110335,6 +110406,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.25.11]
+title = "Decode and verify the node's eth_getProof ICS23 storage witness in layerx-client"
+status = "pending"
+mode = "BUILD"
+wave = 36
+requires = ["9.25.8"]
+reqs = ["92511.1"]
+capabilities = ["9.25.11"]
+interfaces = []
+do_1 = "Decision 2204. In layerx-client sequencer.rs add StorageWitness {address, slot, value, ops: Vec<ProofOp>} with storage_witness(address, slots, height) posting eth_getProof [address, slots, height] and decoding {address, hexValues, storageProof: [{ops: [{type, key, data}]}]} one witness per slot (value from hexValues), and add verify_storage_witness(witness, app_hash) in a new src/storage_witness.rs that computes the store key 0x03 || address || slot (modules/evm/types/keys.go StateKey with the 32-byte slot), verifies ops[0].data as an IAVL existence proof of key and value with layerx_programs_registry::chain_proof::ics23::verify_existence and ProofSpec::iavl, and verifies ops[1].data with multistore::verify_store_root('evm', root, data, app_hash); layerx-client's Cargo.toml gains the layerx-programs-registry dependency (it does not depend on layerx-client, so no cycle). Delete AccountProof, StorageProof, account_proof and decode_account_proof and port rpc/module_state.rs and rpc/evidence.rs off them: module_state reads use call_at at the height (decision 2204) and ProofBundle carries the landing block alone."
+do_2 = "Add modules/sequencer/keeper/ics23_evm_storage_vector_test.go with TestEvmStorageAppHashVector, written as modules/sequencer/keeper/ics23_vector_test.go TestReceiptKeysAppHashVector is: it sets one storage slot of one account through the evm keeper in the test app, saves a version, proves the slot key through the app root with the same Prove query rpc/state.go GetProof uses, and writes programs/tests/vectors/ics23-evm-storage-app-hash.json when LXP_WRITE_VECTORS=1 and otherwise compares the committed file byte for byte; the vector's entries carry address, slot, value, key, height, app_hash, store_root, proof and multistore_proof as hex and source names the generator. Commit the generated vector."
+do_3 = "In layerx-client tests/storage_witness.rs add storage_witness_verifies_the_generated_vector_and_refuses_tampering: it decodes a canned eth_getProof answer built from the vector, accepts it under the vector's app_hash, and refuses a flipped value byte, a different slot, a different app_hash and ops in the wrong order, each with its own error."
+do_4 = "In the daemon's read/proof_bundle.rs, verify_account verifies each requested slot with verify_storage_witness under the ServedCheckpoint's app_hash and AccountState keeps the storage values alone; balance, nonce, code_hash and storage_hash leave it and a caller that needs a balance or nonce reads eth_getBalance or eth_getTransactionCount at the committed height."
+do_5 = "The build gate vets the generator package and builds layerx-client and layerx-agentd with their tests; the verify gate runs the generator test in compare mode and the client witness test."
+symbols = ["StorageWitness", "storage_witness", "verify_storage_witness", "TestEvmStorageAppHashVector", "storage_witness_verifies_the_generated_vector_and_refuses_tampering"]
+touches = ["services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-client/src/sequencer.rs", "services/agent/crates/layerx-client/src/storage_witness.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/rpc/module_state.rs", "services/agent/crates/layerx-client/src/rpc/evidence.rs", "services/agent/crates/layerx-client/tests/storage_witness.rs", "services/agent/crates/layerx-client/tests/module_reads_rpc.rs", "services/agent/crates/layerx-client/tests/evidence_rpc.rs", "services/agent/crates/layerx-agentd/src/read/proof_bundle.rs", "modules/sequencer/keeper/ics23_evm_storage_vector_test.go", "programs/tests/vectors/ics23-evm-storage-app-hash.json"]
+tests = ["services/agent/crates/layerx-client/tests/storage_witness.rs::storage_witness_verifies_the_generated_vector_and_refuses_tampering", "modules/sequencer/keeper/ics23_evm_storage_vector_test.go::TestEvmStorageAppHashVector"]
+planned_paths = ["services/agent/crates/layerx-client/src/storage_witness.rs", "services/agent/crates/layerx-client/tests/storage_witness.rs", "modules/sequencer/keeper/ics23_evm_storage_vector_test.go", "programs/tests/vectors/ics23-evm-storage-app-hash.json"]
+build_cmd = "go vet ./modules/sequencer/keeper/ && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client -p layerx-agentd --tests"
+verify_cmd = "go test -count=1 -v ./modules/sequencer/keeper/ -run '^TestEvmStorageAppHashVector$' 2>&1 | tee /dev/stderr | grep -q -- '--- PASS: TestEvmStorageAppHashVector ' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test storage_witness -- --exact storage_witness_verifies_the_generated_vector_and_refuses_tampering 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-agent"
+rollback = "Restore layerx-client, read/proof_bundle.rs and the generator from the merge base and delete the vector; committed storage reads fall back to the trie verification that never matches the node."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.17.5.12]
 title = "Build the agent TypeScript SDK before the web build and give its exports a default condition"
 status = "done"
@@ -116923,6 +117026,97 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.25.12]
+title = "Verify the authority's committed budget proof v2 export in the daemon"
+status = "pending"
+mode = "BUILD"
+wave = 37
+requires = ["9.25.10", "8.98.18"]
+reqs = ["92512.1"]
+capabilities = ["9.25.12"]
+interfaces = []
+do_1 = "Decision 2205. In budget/budget_proof.rs replace the in-test export of budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering with tests/vectors/budget-proof-v2/export.json (task 8.98.18) read at test time, so the test verifies the authority's own document against a TcpListener JSON-RPC double replaying tests/vectors/budget-proof-v2/node-answers.json and refuses the same document with its budget call result, finality block hash and app hash changed in turn. If the authority's export differs from the shape this crate verifies, the difference is a finding naming the field and the task that owns it, not a local adjustment."
+do_2 = "The build gate is the dependent-crate check; the verify gate runs that lib test."
+symbols = ["budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
+touches = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --exact budget::budget_proof::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore the test from 9.25.10's revision; the producer and consumer are no longer proven against each other."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.8.98.18]
+title = "Bind the authority's human budget proof v2 to the committed block and commit its fixture export"
+status = "pending"
+mode = "BUILD"
+wave = 37
+requires = ["8.98.17", "9.25.10"]
+reqs = ["89818.1"]
+capabilities = ["8.98.18"]
+interfaces = []
+do_1 = "Decision 2205. In human/budget_state.rs drop the ANCHOR constant and the latestFinalized() and checkpoint(uint64) reads of Session::open: the session reads eth_blockNumber, eth_getBlockByNumber at that height (hash and stateRoot) and the two budget calls at the height; export and export_dynamic publish head {committed_height, block_hash}, proofs {budget_call, remaining_call, account_join} and finality {height, block_hash, app_hash} with evidence_digest over the same materials and the block hash in place of the checkpoint id, as decision 2205 specifies, and checkpoint_call, status and maximum_bytes leave the document. human.rs:550 and dynamic.rs:548 keep calling export and export_dynamic."
+do_2 = "In tests/budget_proof_exports.rs add budget_export_from_the_fixture_answers_equals_the_committed_export: it serves tests/vectors/budget-proof-v2/node-answers.json (task 9.25.10) from a TcpListener JSON-RPC double, runs Session::open and export against it for the fixture's owner and budget id, and compares the document to tests/vectors/budget-proof-v2/export.json byte for byte, writing that file instead when LAYERX_WRITE_VECTORS=1; commit the generated export.json. verify_export in the same file follows the v2 shape and the corpus-gated test keeps its selector and tamper checks on the v2 fields, and budget_abi_matches_node_precompile_types keeps passing."
+do_3 = "The build gate builds the authority with its tests; the verify gate runs the fixture test and the ABI test, and task 9.25.12 is the consumer gate that verifies export.json in the daemon."
+symbols = ["Session", "export", "export_dynamic", "budget_export_from_the_fixture_answers_equals_the_committed_export"]
+touches = ["services/platform/hosted/authority/src/human/budget_state.rs", "services/platform/hosted/authority/tests/budget_proof_exports.rs", "tests/vectors/budget-proof-v2/export.json"]
+tests = ["services/platform/hosted/authority/tests/budget_proof_exports.rs::budget_export_from_the_fixture_answers_equals_the_committed_export", "services/platform/hosted/authority/tests/budget_proof_exports.rs::budget_abi_matches_node_precompile_types"]
+planned_paths = ["tests/vectors/budget-proof-v2/export.json"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test budget_proof_exports -- --exact budget_export_from_the_fixture_answers_equals_the_committed_export budget_abi_matches_node_precompile_types 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 2 passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Restore budget_state.rs and its test from the merge base and delete export.json; the export binds to the retired anchor again and no daemon can verify it."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.25.10]
+title = "Verify the human budget proof v2 against the ServedCheckpoint and re-executed calls in the daemon"
+status = "pending"
+mode = "BUILD"
+wave = 36
+requires = ["9.25.8", "9.25.9"]
+reqs = ["92510.1"]
+capabilities = ["9.25.10"]
+interfaces = []
+do_1 = "Decision 2205. Rewrite budget/budget_proof.rs around the v2 export: Export decodes schema layerx.human.budget-proof.v2 with head {committed_height, block_hash}, budget_state, accounts, identity_key, proofs {budget_call, remaining_call, account_join} and finality {height, block_hash, app_hash}; BudgetProofTrust.checkpoint is a ServedCheckpoint (task 9.25.8) and the LNI VerifiedCheckpoint, sequencer_key, Head and set_version fields leave it; verify_native_budget_proof refuses unless finality.height equals head.committed_height, finality.block_hash equals the checkpoint's block hash, finality.app_hash its app_hash, and each proofs call re-executed with endpoint.call_at at that height returns the embedded result; evidence_digest is recomputed as the authority computes it (budget_state.rs) with the block hash in place of the checkpoint id. VerifiedBudgetProof keeps its accessors with checkpoint_digest the checkpoint's block hash; CommittedBudgetProofTrust and CommittedExport are deleted with their test-only producers."
+do_2 = "Port human_runtime.rs verified_program_budget_proof (:785) and agent_budget_proof (:9409) off their Unavailable returns: each acquires the ServedCheckpoint of the export's head.committed_height through task 9.25.8 and verifies the export; the maximum age rule compares the committed height with the current block number."
+do_3 = "Add the fixture tests/vectors/budget-proof-v2/node-answers.json, generated by the lib test budget_proof_v2_node_answers_fixture_is_current when LAYERX_WRITE_VECTORS=1 and compared byte for byte otherwise: a JSON array of {method, params, result} pairs for eth_blockNumber, eth_getBlockByNumber at the height (hash and stateRoot), px_getCommit at the height (a signedHeader whose header hashes to that block hash with app_hash equal to the stateRoot and a commit of one validator's ed25519 vote, built as the read/checkpoint.rs tests build theirs), px_getValidators at the height (that validator with its pubKey and votingPower), and the two eth_call answers for getBudget and budgetRemaining with the calldata the authority's budget_state.rs encodes for budget id 7 of one owner. Commit the fixture; task 8.98.18 produces the authority's export from it."
+do_4 = "Add the lib test budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering: it builds the v2 export the authority is specified to produce from the fixture answers, verifies it through verify_native_budget_proof against a TcpListener JSON-RPC double replaying node-answers.json, and refuses a changed call result, a changed finality block hash, a changed app hash and a head height one above the fixture's; task 9.25.12 replaces the in-test export with the authority's committed export.json."
+do_5 = "The build gate is the dependent-crate check; the verify gate runs the two lib tests."
+symbols = ["verify_native_budget_proof", "BudgetProofTrust", "Export", "VerifiedBudgetProof", "budget_proof_v2_node_answers_fixture_is_current", "budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
+touches = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/budget/mod.rs", "tests/vectors/budget-proof-v2/node-answers.json"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::budget_proof_v2_node_answers_fixture_is_current", "services/agent/crates/layerx-agentd/src/budget/budget_proof.rs::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering"]
+planned_paths = ["tests/vectors/budget-proof-v2/node-answers.json"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- --exact budget::budget_proof::tests::budget_proof_v2_node_answers_fixture_is_current budget::budget_proof::tests::budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 2 passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore budget/budget_proof.rs and human_runtime.rs from the merge base and delete the fixture; both budget proof sites return Unavailable again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.8.46.10]
 title = "Regenerate the JVM schema from its generator and carry the hand-made shape into the generator"
 status = "done"
@@ -117002,10 +117196,10 @@ do_5 = "Delete services/agent/crates/layerx-agentd/examples/native_handover_prog
 do_6 = "The build gate compiles the SDK's test targets and every daemon test and example target, so a surviving use of layerx_client::client, Client, ClientConfig, ReconnectPolicy or lni in them fails this task before 9.25.2 deletes the modules; the verify gate runs the ported SDK shape test and the anvil send-preview test by name and fails unless cargo reports one passed test for each."
 symbols = ["direct_node", "DirectBackend", "DirectEndpoint", "daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls", "native_send_preview_is_an_unsigned_ledger_transfer_call"]
 touches = ["services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs", "services/agent/crates/layerx-agentd/tests/human_approval_admission.rs", "services/agent/crates/layerx-agentd/tests/budget_proof_intake.rs", "services/agent/crates/layerx-agentd/tests/native_program_presentation.rs", "services/agent/crates/layerx-agentd/tests/native_program_human_peer.rs", "services/agent/crates/layerx-agentd/tests/native_send_profile.rs", "services/agent/crates/layerx-agentd/tests/human_frame.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/bootstrap_bind_layerx.rs", "services/agent/crates/layerx-agentd/examples/native_handover_programs.rs", "services/agent/crates/layerx-agentd/examples/native_handover_reads.rs"]
-tests = ["services/agent/crates/layerx-sdk/tests/sdk.rs::daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs::native_send_preview_is_an_unsigned_ledger_transfer_call"]
+tests = ["services/agent/crates/layerx-sdk/tests/sdk.rs::daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests --examples"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --test sdk -- --exact daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test native_send_preview_evm -- --exact native_send_preview_is_an_unsigned_ledger_transfer_call 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --test sdk -- --exact daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -117017,6 +117211,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Finding 9.25.9.1: continue from attempt 1 (717e1bb48) unchanged: the thirteen files stay as ported, including tests/native_send_preview_evm.rs, whose test now gates task 9.25.7; the verify command runs the SDK shape test alone. Rebase onto main, change nothing, build once and verify once."
 
 [task.10.6.5]
 title = "Port the layerx-human-service and layerx-intents test targets to the current producer signatures"
@@ -117034,7 +117229,7 @@ do_4 = "In tests/native_send_producer.rs pass a &mut AgentRuntime as the second 
 do_5 = "In tests/native_onboarding_rungs.rs:252 and in services/human/crates/layerx-intents/tests/owner_bootstrap.rs:93 and :121 call owner_activity::attach_native_signature with the same four arguments (unsigned, signature, owner key, registry): these tests sign the native Ed25519 owner envelope that attach_native_signature (owner_activity.rs:110) still binds and verify (:76) still checks; do not convert them to EIP-1559 calls, which attach_signature (:178) now serves for the send path."
 do_6 = "This task edits only the six test files in its touches and no src file. Build once with the task's build command, which compiles every test target of both crates, then verify once; the five named tests run against the real load_access, attach_native_signature and AdmissionRecord paths."
 symbols = ["load_access", "attach_native_signature", "AdmissionRecord", "native_onboarding_completes_only_at_committed"]
-touches = ["services/human/crates/layerx-human-service/tests/evidence_node.rs", "services/human/crates/layerx-human-service/tests/journey_family_projections.rs", "services/human/crates/layerx-human-service/tests/archive.rs", "services/human/crates/layerx-human-service/tests/native_send_producer.rs", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs", "services/human/crates/layerx-human-service/tests/spend.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/custody.rs"]
+touches = ["services/human/crates/layerx-human-service/tests/evidence_node.rs", "services/human/crates/layerx-human-service/tests/journey_family_projections.rs", "services/human/crates/layerx-human-service/tests/archive.rs", "services/human/crates/layerx-human-service/tests/native_send_producer.rs", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs", "services/human/crates/layerx-human-service/tests/spend.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/custody.rs", "services/human/crates/layerx-human-service/tests/retired_crypto_codec_w3.rs", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs", "services/human/crates/layerx-human-service/tests/intent_submit.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/evidence_node.rs::advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission", "services/human/crates/layerx-human-service/tests/native_send_producer.rs::genuine_human_owner_session_consent_preview_and_reopen", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs::native_onboarding_completes_only_at_committed", "services/human/crates/layerx-human-service/tests/archive.rs::archive_requires_real_reclaim_and_step_up_then_retires_authority_once", "services/human/crates/layerx-intents/tests/owner_bootstrap.rs::native_owner_bootstrap_is_disclosed_signed_and_bound_to_every_envelope_field"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-intents --tests"
@@ -117053,6 +117248,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Finding 10.6.5.1: continue from attempt 1 (c3e36d484) keeping every port. In tests/spend.rs:280 replace the authorized_batch argument of support::raw_receipt_evidence with signer.verifying_key().to_bytes(), fields.previous_state_root and fields.resulting_state_root, so the call passes canonical_receipt.clone(), the pinned key, the two roots, sequence and &signer as tests/move_money.rs:523 does; authorized_batch stays for the ReceiptMaterial built below it. spend.rs is the seventh and last test file of this task: if the build then reports a further broken target, record it as a finding rather than widening the task. Build once, verify once."
 do_8 = "Finding 10.6.5.2: continue from attempt 2 keeping every port. In tests/native_journey_approval.rs:629 and :776 pass the AgentRuntime as the second argument of load_access exactly as do_4 did in tests/native_send_producer.rs (tests/native_send_nonces.rs is the exemplar). native_journey_approval.rs is the eighth and last test file: every stale caller of the three changed helpers in layerx-human-service is now in the touches (load_access in native_journey_approval.rs and native_send_producer.rs, raw_receipt_evidence in spend.rs, attach_signature in native_onboarding_rungs.rs:252 and owner_bootstrap.rs:93 and :121), so a further broken target is recorded as a finding, never ported here. Build once, verify once."
 do_9 = "Finding 10.6.5.3: continue from attempt 4 (6d056d649) keeping every port, and apply do_8 to native_journey_approval.rs. In tests/custody.rs replace the three Operation::EmergencyExit values at :600, :610 and :620 with Operation::WalletRebinding, the variant the expired step-up segment above them (:591) already signs under, so the fresh evidence, the accepted signature and the replayed refusal keep their meaning; no other line of that file changes. Run the build command once with --keep-going first so every remaining broken test target is listed at once: custody.rs is the ninth and last test file of this task, and a further broken target is recorded as a finding, not ported. Then build once and verify once."
+do_10 = "Finding 10.6.5.4: continue from attempt 5 (068452fa2) keeping every port. Delete tests/retired_crypto_codec_w3.rs: its only input, tests/binding.rs, was deleted by 2772a218f and the retired identifiers it scanned for are gone with it. Port the wallet identity end-to-end test and tests/intent_submit.rs to the kernel path of 63aee3813: sign each planned leg into a custody EvmAction {authorization: EvmPlanAuthorization, raw_transaction, transaction_hash: Some(hash), acknowledged: false} whose authorization fields and signed EIP-1559 call satisfy every check of start_kernel_journey (src/journeys/intent_submit.rs:275-300: principal, tenant, plan_id, action_key, not_before, not_after, nonce, to, calldata, chain_id, gas limits, fees, zero value, hash and recovered wallet), signing with the test's k256 key as src/server/production_components.rs:4562 assembles its action; call start_kernel_journey(&mut scope, &plan, &request, &expectation, journey_id.clone(), &actions), assert the returned IntentSubmission's state through to_json, and load the persisted journey with JourneyEngine::load(&scope, &journey_id) for the status, drive_intent_journey and advance calls that follow; the end-to-end test's send authorization goes through the attestor custody's EIP-1559 signing (the sign_in_scope grant production_components.rs:4530 uses) in place of the removed authorize_kernel_send. Then build with --keep-going once to enumerate any further broken target of either crate and record it as a finding rather than widening the task. Build once, verify once."
 
 [task.9.25.8]
 title = "Restore the daemon's head, checkpoint and expiry-clock reads from the committed block commit"
@@ -117067,7 +117263,7 @@ do_1 = "Decision 2199. In services/agent/crates/layerx-agentd/src/human_runtime.
 do_2 = "Restore the unit tests 9.25.3 deleted for these paths against a fixture answering eth_blockNumber and eth_getBlockByNumber with a header, commit and validator set, including an expiry test that refuses a budget whose expiry precedes the committed block timestamp."
 do_3 = "The build gate is the dependent-crate check; the verify gate runs the protocol_evidence and checkpoint unit tests for these paths by module path and fails unless cargo reports at least one passed test and no failures."
 symbols = ["authenticate_committed_time", "ServedCheckpoint", "EvidenceAuthority"]
-touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/read/checkpoint.rs", "services/agent/crates/layerx-client/src/sequencer.rs", "services/agent/crates/layerx-client/src/rpc/evidence.rs"]
 tests = ["services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk"
@@ -117083,13 +117279,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 9.25.8.1 and decision 2203: continue from attempt 2 (97a7384c6) keeping read/checkpoint.rs and protocol_evidence.rs. In layerx-client sequencer.rs add commit_material(height) -> Value posting px_getCommit ['<height>'], validator_set(height) -> Value posting px_getValidators ['<height>'] and state_root(height) -> [u8; 32] reading stateRoot of eth_getBlockByNumber at the height (refusing a null stateRoot, which only the pending block has), each a SequencerError on transport or shape failure, and make acquire_at_committed_block take the endpoint alone and call those three accessors instead of receiving header, commit and validators from its caller; ServedCheckpoint::app_hash must equal state_root(height) and ServedCheckpoint::block_hash the hash of eth_getBlockByNumber, or the acquisition refuses with read.checkpoint_block_mismatch. Revert the attempt's BudgetProofTrust constructions at human_runtime.rs:873 and :9541 to the Unavailable returns of 9.25.3 (task 9.25.10 ports them) and leave budget/budget_proof.rs untouched. The checkpoint tests of read/checkpoint.rs run against a TcpListener JSON-RPC double that answers eth_getBlockByNumber, px_getCommit and px_getValidators in the shapes of decision 2203, including one case where the double's block hash differs from the commit's block_id and the acquisition refuses. Build once, verify once."
 
 [task.9.25.7]
 title = "Restore the daemon's native fee policy from the fee-token and asset registry precompiles"
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.3"]
+requires = ["9.25.3", "9.25.8"]
 reqs = ["9257.1"]
 capabilities = ["9.25.7"]
 interfaces = []
@@ -117098,10 +117295,10 @@ do_2 = "Replace the FeeUnavailable returns 9.25.3 left at human_runtime.rs:202, 
 do_3 = "The build gate is the dependent-crate check; the verify gate runs the fee policy unit tests and the restored program_sources fee tests by module path and fails unless cargo reports at least one passed test and no failures."
 symbols = ["native_fee_policy", "NativeFeePolicy", "FeeReadError"]
 touches = ["services/agent/crates/layerx-agentd/src/budget/mod.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
-tests = ["services/agent/crates/layerx-agentd/src/budget/fee_policy.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/fee_policy.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs::native_send_preview_is_an_unsigned_ledger_transfer_call"]
 planned_paths = ["services/agent/crates/layerx-agentd/src/budget/fee_policy.rs"]
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget::fee_policy::tests budget::program_sources::tests 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed'"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test native_send_preview_evm"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget::fee_policy::tests budget::program_sources::tests 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed' && anvil --version && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test native_send_preview_evm -- --exact native_send_preview_is_an_unsigned_ledger_transfer_call 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed'"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -117113,13 +117310,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 9.25.7.1 and decision 2203: continue from attempt 3 (7765f48f5) keeping fee_policy.rs, the program_sources.rs port and the four tests. Replace both header.app_hash reads at fee_policy.rs:132 and :216 with endpoint.state_root(height) from task 9.25.8 (a SequencerError there is FeeReadError::Unavailable), so NativeFeePolicy.state_root is the committed block's stateRoot and the policy still refuses when the block at the height is missing or its hash changed between reads; the fixture of the fee policy tests answers eth_getBlockByNumber with a stateRoot word. The human runtime's fee policy site leaves its Unavailable return and calls native_fee_policy at the committed height, so the daemon test native_send_preview_is_an_unsigned_ledger_transfer_call of tests/native_send_preview_evm.rs passes against anvil, whose blocks carry stateRoot; that test is the fourth verify segment and must not be edited. Build once, verify once."
 
 [task.9.25.6]
 title = "Restore the daemon's capability, account and budget-state reads from committed chain state"
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.3"]
+requires = ["9.25.3", "9.25.8", "9.25.11"]
 reqs = ["9256.1"]
 capabilities = ["9.25.6"]
 interfaces = []
@@ -117143,6 +117341,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 9.25.6.1 and decisions 2203 and 2204: implement CommittedReads in read/committed.rs over the ServedCheckpoint of task 9.25.8: CommittedReads::open(endpoint, height) acquires the checkpoint and holds height, block_hash and app_hash; capabilities(precompile, calldata) and budget_state(precompile, calldata) are endpoint.call_at at that height whose result is decoded as now, each re-read once at the same height and refused with read.committed_changed when the two answers differ or when eth_getBlockByNumber at the height no longer carries the checkpoint's block hash; storage(address, slot) uses storage_witness and verify_storage_witness of task 9.25.11 under the checkpoint's app_hash. AccountProof, StorageProof and the proof bundle leave this task; RawStateEvidence::module_witness of protocol_evidence.rs takes the committed shape (height, block_hash, app_hash, call result) and verify_state checks re-read equality and the app_hash match against the checkpoint. The read::committed tests run against a TcpListener JSON-RPC double answering eth_getBlockByNumber, px_getCommit, px_getValidators, eth_call and eth_getProof, with one case where the second eth_call answer differs and the read refuses. Build once, verify once."
 
 [task.8.98.16]
 title = "Retire the receipt authority's kernel socket and read checkpoints from the committed anchor"
@@ -117211,7 +117410,7 @@ title = "Port the human runtime's policy-usage reads to history pages proven by 
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.3"]
+requires = ["9.25.3", "9.25.8", "5.5.22"]
 reqs = ["9283.1"]
 capabilities = ["9.25.5"]
 interfaces = []
@@ -117219,7 +117418,7 @@ do_1 = "Decision 2196: task 9.25.3 left authenticated_native_policy_usage and au
 do_2 = "Add policy_usage_sums_only_proven_receipts_in_the_window and native_policy_usage_refuses_a_page_without_a_proof to the human_runtime tests with a local JSON-RPC double answering px_getHistory, px_getProofBundle and eth_getBlockByNumber."
 do_3 = "The build gate is the dependent-crate check of the four agent crates; the verify command runs the two tests by name and fails unless cargo reports two passed tests."
 symbols = ["authenticated_native_policy_usage", "authenticated_policy_usage"]
-touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/read/history.rs"]
 tests = ["services/agent/crates/layerx-agentd/src/human_runtime.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk"
@@ -117235,6 +117434,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 9.25.5.1 and decision 2203: in authenticated_native_policy_usage and authenticated_policy_usage (human_runtime.rs:13943, :13955) page px_getHistory as read/history.rs decodes it, acquire the ServedCheckpoint of the page's head height through task 9.25.8, and for every item fetch eth_getTransactionReceipt of its transaction hash, require pax_sequencerReceipt to answer rung committed with the receipt's blockNumber and blockHash, require eth_getBlockByNumber at that height to carry the same hash and a height at or below the checkpoint's, and feed the receipt as a RawActivityReceiptEvidence of the RawTimeWindowBatch so CumulativeUseWindow sums only items proven that way; an item whose receipt, rung or block disagrees is refused with read.history_item_unproven and the page is not summed. Replace every px_getProofBundle mention of do_2 with this path. The two human_runtime tests run against a TcpListener JSON-RPC double answering px_getHistory, eth_getTransactionReceipt, pax_sequencerReceipt, eth_getBlockByNumber, px_getCommit and px_getValidators, with one item whose pax_sequencerReceipt answers rung receipted only and is refused. Build once, verify once."
 
 [task.9.25.4]
 title = "Port the agent daemon's program simulation, submission and state reads to the EVM program calls"
@@ -117732,6 +117932,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Finding 5.5.22.1: continue from attempt 1 (91c7466a1) keeping receipt_source.go and the two new tests. In TestReceiptSourceRecordsAcceptedSend change the assertion after Committed(vectorHeight) at receipt_source_test.go:82 to require the identical recorded send, and change the late-record assertion at :92 to require that the send is still served and byte-identical to the first record (Record of a hash at or below the watermark records nothing, so the first record stands); the sub-tests, the capacity panic and the eviction expectations after Committed(vectorHeight + 3) stay as the retention rule of decision 2202 and do_1 require. Build once, verify once."
 
 [task.8.90.2]
 title = "Write the two Go SDK agent envelope version tests the merged spec names"
@@ -182640,9 +182841,9 @@ ac_1 = "Resubmitting a non-final checkpoint whose CheckpointID is unchanged thro
 [acceptance.18.814.1]
 feature = "18"
 req = "18814.1"
-scenario = "Given a submitted checkpoint under a 50 second challenge window, when the identical certificate is resubmitted 30 seconds later, then SubmittedTime is unchanged and the checkpoint finalizes 50 seconds after the first submission"
+scenario = "Given the retired anchor module, when a checkpoint certificate is submitted and submitted again 30 seconds later, then both calls return ErrModuleRetired and no checkpoint record exists at any height"
 contract = "contracts/layerxanchor.md#go-api"
-test = "modules/layerxanchor/keeper/keeper_test.go::TestResubmittedCheckpointKeepsChallengeWindow"
+test = "modules/layerxanchor/keeper/keeper_test.go::TestSubmitCheckpointIsRetired"
 qualification = "UNRUN"
 
 [task.18.906.1]
