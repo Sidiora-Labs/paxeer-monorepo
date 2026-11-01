@@ -15371,3 +15371,27 @@ symbol = "AcceptedSend"
 observed = "Attempt 9 (bf14392bc) ported every site do_8 named and go vet then reported node/sequencer/standalone_primary_test.go:243, which passes the evmrpc.AcceptedSend result of Accepter.Accept to verify.ReceiptSignature; the file was not in the task's touches list, so the attempt stopped and reported the blocker instead of editing it. handover_test.go:217 and :237 also compare the AcceptedSend returned by the fenced Accepter with require.Nil, which a struct value never satisfies at run time; both files are consumers of the interface the task changed."
 assumption = "Both files join the touches list, attempt 10 ports the three sites and runs go vet ./node/sequencer/ until silent; a search of the tree for every Accepter.Accept caller shows no other site that treats the result as bytes or nil (daemon/committed-fixture/vector_v1.go:144 and daemon/paxd/cmd/new_app_test.go:144 discard it)."
 severity = "minor"
+
+[finding.9.25.3.1]
+task = "9.25.3"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs:5456"
+symbol = "SequencerEndpoint"
+observed = "The first attempt (bd650e080) swapped the layerx_client::Client holders for SequencerEndpoint but left the Client accessor calls in place, so the build failed with E0599 on SequencerEndpoint for head (16 sites), handshake (14), native_fee_policy (11), caps_discovery (6), proof_bundle (3), module_state (2), checkpoint_evidence (2), lookup_authenticated_receipt (2) and one each of account, batch_header, reconnect and session_fee_state; decision 1813 names the twin of each read but not the head, handshake, caps and native fee policy accessors the daemon derives its checks from."
+assumption = "Decision 2193 maps each accessor to the committed source the daemon already uses elsewhere (HumanNode in human_node.rs, the rpc modules, the layerx_wire protocol constants) and names the two reads that have no twin; do_5 applies it and widens the edit scope to read/history.rs and human_node.rs."
+severity = "major"
+
+[finding.17.5.5.2]
+task = "17.5.5"
+file = "Makefile:1641"
+symbol = "human-build"
+observed = "Attempt 7 (ddd24c396) failed the wave-4 aggregate at human-build: apps/web's next build reports Module not found: Can't resolve '@sidiora/layerx-sdk/browser' from sdk/wallet/src/modules/web-data.ts, launchpad.ts, bridge.ts, fee-choice.ts and fee-token.ts, because services/agent/sdk/typescript/package.json exports './browser' from ./dist/src/browser.js, dist/ is ignored by git and built only by that package's npm test or build script, and no step of human-build (Makefile:1637-1641) builds it before $(HUMAN_NPM) run build; the exports map also carries only types and import conditions, so a CommonJS consumer cannot resolve the package at all."
+assumption = "The wave-4 gate is right to fail; task 17.5.12 makes human-build build the agent TypeScript SDK first and gives the exports map a default condition, and 17.5.5 requires it."
+severity = "major"
+
+[finding.14.0.6.2]
+task = "14.0.6"
+file = "services/human/crates/layerx-human-service/tests/intent_submit.rs:34"
+symbol = "start_deposit_journey"
+observed = "Attempt 3 (b3ab062e9 on 7abd15e75) kept the EIP-1559 port and stopped with the crate's --tests build red inside the ported file itself: tests/intent_submit.rs:34-45 imports claim_receipt, start_deposit_forward_journey, start_deposit_journey, start_withdrawal_intent, DepositAgentPlan, DepositForwardJourney, DepositForwardStage, DepositPlan, IntentWithdrawalJourney, IntentWithdrawalStage, SettlementConfig, WithdrawalAgentPlan, WithdrawalJourney and WithdrawalPlan, which task 10.20.3 (ad92aa7fc) deleted from the journeys module, and uses Mechanism::BridgeDepositCredit and Mechanism::BridgeWithdrawRequest (:155, :160, :1012, :1022), which task 10.6.2 (ec7c4dc54) removed; the attempt also reported duplicate PrincipalScope and Table imports at tests/journey_faults.rs:31 and :40, but line 31 does not exist at the base revision and was the attempt's own edit."
+assumption = "The deposit, withdrawal and bridge journeys have no production path left after 10.6.2 and 10.20.3, so the tests that exist only to exercise them are deleted rather than ported and the two mixed tests keep their kernel-send legs; do_3 lists them."
+severity = "major"

@@ -240,7 +240,7 @@ func TestNodeStartsPrimaryWithoutStandbyAddress(t *testing.T) {
 			_, tx := transfer(t, sender, 0, utils.NewSigner().EvmAddress, big.NewInt(1))
 			receipt, err := n.Accepter.Accept(tx)
 			require.NoError(t, err)
-			verified, err := verify.ReceiptSignature(receipt, n.ReceiptKey.PublicKey())
+			verified, err := verify.ReceiptSignature(receipt.Receipt, n.ReceiptKey.PublicKey())
 			require.NoError(t, err)
 			require.Equal(t, sourceLastSeq+1, verified.Receipt.GlobalSequence)
 			nSynced, err := n.WAL.GroupSync()
