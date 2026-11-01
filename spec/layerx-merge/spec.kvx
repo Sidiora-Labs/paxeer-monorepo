@@ -109198,7 +109198,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.11]
 title = "Prefer the explorer step for the committed rung in StatusLadder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["12.34.2"]
@@ -118327,7 +118327,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.5.98.8]
 title = "Admit the consensus mempool into the sequencer's open layer at each proposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.98.7"]
