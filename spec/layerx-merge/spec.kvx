@@ -117075,7 +117075,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.25.4]
 title = "Port the agent daemon's program simulation, submission and state reads to the EVM program calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.3", "18.1264.1"]
