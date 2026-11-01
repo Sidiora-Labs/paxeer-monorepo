@@ -6525,6 +6525,18 @@ value = "real_paxd_boundary in services/platform/hosted/paxeer/tests/real_chain.
 basis = "services/platform/hosted/paxeer/tests/real_chain.rs:1 imports raw_call, EndpointConfig and EndpointTransport from layerx_paxeer_client only for lines 7-23; services/platform/hosted/paxeer/Cargo.toml:19 lists the crate under [dev-dependencies] alone; services/platform/Cargo.toml:52 declares it by path to a manifest deleted by a47a944f9."
 affects = ["8.52.1", "13.8.3", "10.26.1"]
 
+[decision.2236]
+title = "The merged human tree returns to passing the human boundary policy as written"
+value = "The ambient-nondeterminism and node-private-path rules of the boundary check stay as written for every Rust file under services/human/crates: production code reads time only through its injected `Arc<dyn layerx_types::clock::Clock>` (layerx_types::clock::Deadline for timeouts, `sample(budget)?.unix_seconds()` for wall time) and binaries connect layerx_client::runtime_clock::RuntimeClock::from_environment() at startup; test code uses a deterministic stepping clock from layerx-human-test-support or the production fixture's runtime clock; the private-path rule matches a token only at identifier boundaries; task 10.1.4 proves the whole tree with the real binary."
+basis = "The tree had no ambient read when the rule was written (bb8cbfd44); the human workflow and the Makefile run the binary over services/human/crates; the service already injects the clock at component.rs:113, http.rs:81, privileged.rs:89 and production_components.rs:516, event_producer_tls.rs:509 already uses Deadline, and tests/support/production_fixture.rs runs a real runtime clock."
+affects = ["10.1.4", "10.1.5", "10.1.6", "10.1.7", "10.1.8", "10.1.9", "10.1.10", "10.20.6"]
+
+[decision.2237]
+title = "layerx-crypto keeps src/onboarding.rs; task 9.35.1 deletes rotation.rs, disclosure.rs and send.rs only"
+value = "services/agent/crates/layerx-crypto/src/onboarding.rs and its pub mod line stay as they are on main, together with the pub use crate::onboarding re-export at src/payments.rs:19 of decision 1905; task 9.35.1 deletes src/rotation.rs (decision 2186), moves the kept disclosure and send definitions into src/payments.rs and deletes src/disclosure.rs and src/send.rs; src/payments.rs is a declared touch and src/onboarding.rs is not; the four consumers of SponsoredRegistration and OnboardingConsent outside the crate (layerx-agentd subject.rs:245, layerx-human-kms native_setup.rs:8, layerx-human-service create_native.rs:2, authority dynamic.rs:215) keep their paths unchanged."
+basis = "Decision 1905 of 2026-10-30 chose the owner-signed consent bytes as the sponsor-to-child proof the authority validates, which needs SponsoredRegistration::decode and validate_outer over the activity; deleting the module would strand four callers no pending task owns, and attempt 1 of 9.35.1 shows the contradiction as a build error."
+affects = ["9.35.1", "8.94.8", "18.1156.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -17910,6 +17922,10 @@ ac_3 = "tests/bridge/qualify_credit.py, tests/bridge/custody_credit.py, tests/br
 ac_4 = "tests/bridge/paxeer_x_advanced_trust_credit.py, tests/bridge/paxeer_x_multiasset_credit.py are untracked and no tracked file outside the retired set and documentation references them (tests/bridge/paxeer_x_advanced_trust_credit.py:369, tests/bridge/paxeer_x_multiasset_credit.py:268) (planned)."
 ac_5 = "tests/bridge/custody_genesis.py, tests/bridge/deploy_local_custody.py, tests/bridge/owner-custody.py, tests/bridge/test_evidence.py are untracked and no tracked file outside the retired set and documentation references them (tests/bridge/custody_genesis.py:13, tests/bridge/deploy_local_custody.py:219, tests/bridge/owner-custody.py:1, tests/bridge/test_evidence.py:141) (planned)."
 
+[req.6498]
+title = "The Makefile carries no movement-proof harness target"
+ac_1 = "Makefile names neither test-owner-movement-proof nor MOVEMENT_PROOF_TARGET nor tests/bridge/owner-custody.py, and make still parses the file."
+
 [req.6721]
 title = "Bind the upgrade reader to the xweb keeper and expose ProgramOriginActive"
 ac_1 = "ProgramOriginActive in modules/xweb/keeper/activation.go (planned) answers true exactly from the height at which the v7.0 plan (precompiles/common/precompiles.go:30) was applied, reads the plan without charging the caller's gas meter, and answers false below that height or while the plan was never applied."
@@ -18926,6 +18942,10 @@ title = "Verify buyer payments and captured settlements as portable receipts"
 ac_1 = "BuyerMiddleware.prepare (services/platform/middleware/buyer/src/index.ts:238) returns a ready payment whose payload carries the rawTransaction and signedReceipt of the receipted evidence matching the offer."
 ac_2 = "BuyerMiddleware.captureSettlement (services/platform/middleware/buyer/src/index.ts:368) refuses a PAYMENT-RESPONSE whose transaction is lxp:<digest> and accepts one whose transaction is the 0x hash of the prepared raw transaction."
 ac_3 = "Evidence whose verification is receipt-verified or whose content_type is application/vnd.layerx.receipt is not used by prepare (services/platform/middleware/buyer/src/index.ts:443-444), which then answers pending without fetching it."
+
+[req.8296]
+title = "The seller middleware builds without the retired kernel batch evidence reader"
+ac_1 = "services/platform/middleware/seller/src names neither MerkleProof nor rpcBatchEvidence nor RpcBatchEvidence and the seller package builds."
 
 [req.8251]
 title = "Build buyer grant headers from signed 0x101A draw transactions"
@@ -20701,6 +20721,30 @@ ac_2 = "home.summary carries the same balance rung as account.balance (planned) 
 [req.10063]
 title = "Run the retired-surface gate from the boundary check binary"
 ac_1 = "The boundary check binary exits 0 over services/human/crates with the retired-surface gate enabled (planned) (services/human/tools/boundary-check/src/main.rs:23)."
+
+[req.10069]
+title = "The KMS tests and the identity provider hold no ambient clock read"
+ac_1 = "No file under services/human/crates/layerx-human-kms/tests or services/human/crates/layerx-human-identity-provider/src names SystemTime::now or Instant::now; the assertion key cache of the identity provider ages its entries by the provider's clock."
+
+[req.10068]
+title = "The human service integration tests hold no ambient clock read"
+ac_1 = "No file under services/human/crates/layerx-human-service/tests names SystemTime::now or Instant::now."
+
+[req.10067]
+title = "The human test support offers a deterministic clock and the service fixtures use it"
+ac_1 = "layerx-human-test-support exports StepClock, an `impl layerx_types::clock::Clock` with a fixed generation that advances one millisecond per sample, and services/human/crates/layerx-human-service/tests/support/production_fixture.rs and the tests that defined their own system clocks hold no SystemTime::now or Instant::now."
+
+[req.10066]
+title = "The custody gateway, the KMS provider client and the KMS gateway binary read time through the runtime clock"
+ac_1 = "No line of services/human/crates/layerx-human-service/src/custody or services/human/crates/layerx-human-service/src/bin names SystemTime::now or Instant::now; the KMS gateway binary connects RuntimeClock::from_environment() at startup and passes the clock down."
+
+[req.10065]
+title = "The human server reads time only through its injected clock"
+ac_1 = "No file under services/human/crates/layerx-human-service/src/server names SystemTime::now or Instant::now; every timeout and wall-clock read goes through the component's Arc<dyn layerx_types::clock::Clock> (services/human/crates/layerx-human-service/src/server/component.rs:113)."
+
+[req.10064]
+title = "The boundary check's private node path rule matches path tokens only"
+ac_1 = "source_violation reports node-private-path for a quoted path token such as 'snapshot.bin' and not for an identifier that merely contains the token, such as snapshot.binding_tenant (services/human/tools/boundary-check/src/lib.rs:147)."
 
 [req.10241]
 title = "Intents vocabulary carries no precompile-routed kinds"
@@ -33646,6 +33690,78 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.8.22.8]
+title = "Delete the seller's kernel batch evidence reader that imports the retired SDK proof type"
+reqs = ["8296.1"]
+touches = ["services/platform/middleware/seller/src/rpc.ts", "services/platform/middleware/seller/src/index.ts", "services/platform/middleware/conformance/pay6/rpc.test.mjs"]
+tests = ["checkpoint-retired"]
+verification_contract = "! grep -rnE 'MerkleProof|rpcBatchEvidence|RpcBatchEvidence' services/platform/middleware/seller/src services/platform/middleware/conformance && node --test services/platform/middleware/seller/test/checkpoint-retired.test.mjs"
+do_1 = "Delete RpcBatchEvidence and rpcBatchEvidence at services/platform/middleware/seller/src/rpc.ts:134-157 and the `type MerkleProof` import at services/platform/middleware/seller/src/rpc.ts:1; the SDK no longer exports the type since task 9.97.8."
+symbols = []
+
+[capability.6.60.6]
+title = "Drop the Makefile's test-owner-movement-proof target"
+reqs = ["6498.1"]
+touches = ["Makefile"]
+tests = []
+verification_contract = "! grep -nE 'test-owner-movement-proof|MOVEMENT_PROOF_TARGET|tests/bridge/owner-custody\.py' Makefile && make -n -s human-check >/dev/null"
+do_1 = "Delete the MOVEMENT_PROOF_TARGET variable and the .PHONY line and recipe of test-owner-movement-proof at Makefile:1657-1663; the recipe runs tests/bridge/owner-custody.py, deleted by task 6.60.5, and no other target or workflow names it."
+symbols = []
+
+[capability.10.1.10]
+title = "Port the KMS tests and the identity provider off ambient clock reads"
+reqs = ["10069.1"]
+touches = ["services/human/crates/layerx-human-kms/tests/attestor.rs", "services/human/crates/layerx-human-kms/tests/attestor_native_profile.rs", "services/human/crates/layerx-human-kms/tests/evm_attestor_ops.rs", "services/human/crates/layerx-human-kms/tests/send_authorization_evm.rs", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs", "services/human/crates/layerx-human-identity-provider/src/assertion.rs", "services/human/crates/layerx-human-identity-provider/src/lib.rs", "services/human/crates/layerx-human-identity-provider/tests/assertion.rs"]
+tests = []
+verification_contract = "! grep -rnE 'SystemTime::now|Instant::now' services/human/crates/layerx-human-kms/tests services/human/crates/layerx-human-identity-provider/src services/human/crates/layerx-human-identity-provider/tests && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms -p layerx-human-identity-provider --no-run"
+do_1 = "services/human/crates/layerx-human-kms/tests/attestor.rs:79, :512, :725, :768, :986, :1432, :1536 and the four sibling test files stamp and poll with SystemTime::now and Instant::now; each test defines (or shares from its support module) a stepping clock with a fixed generation advancing one millisecond per sample, and the attestor under test takes the same clock so issued and asserted times agree."
+symbols = []
+
+[capability.10.1.9]
+title = "Port the human service integration tests off ambient clock reads"
+reqs = ["10068.1"]
+touches = ["services/human/crates/layerx-human-service/tests/onboarding_gas_station.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_nonces.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs", "services/human/crates/layerx-human-service/tests/native_send_purpose.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/production_unhooked.rs", "services/human/crates/layerx-human-service/tests/custody.rs", "services/human/crates/layerx-human-service/tests/evidence_node.rs", "services/human/crates/layerx-human-service/tests/native_send_producer.rs", "services/human/crates/layerx-human-service/tests/move_money_bank_send.rs", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs", "services/human/crates/layerx-human-service/tests/native_send_nonces.rs"]
+tests = []
+verification_contract = "! grep -rnE 'SystemTime::now|Instant::now' services/human/crates/layerx-human-service/tests && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --no-run"
+do_1 = "The fourteen tests onboarding_gas_station.rs, agent_runtime_nonces.rs, agent_runtime_rungs.rs, agent_creation_rungs.rs, native_send_purpose.rs, agent_runtime_eip1559.rs, native_journey_approval.rs, production_unhooked.rs, custody.rs, evidence_node.rs, native_send_producer.rs, move_money_bank_send.rs, native_onboarding_rungs.rs, native_send_nonces.rs poll with Instant::now deadlines or stamp requests with SystemTime::now; each uses layerx_types::clock::Deadline over the StepClock of layerx-human-test-support (task 10.1.8) or the fixture's runtime clock, and the component under test and the test share one clock instance so stamped times agree."
+symbols = []
+
+[capability.10.1.8]
+title = "Give the human test support a deterministic clock and port the service test fixtures off ambient clock reads"
+reqs = ["10067.1"]
+touches = ["services/human/crates/layerx-human-test-support/src/lib.rs", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs", "services/human/crates/layerx-human-service/tests/balance_rungs.rs", "services/human/crates/layerx-human-service/tests/custody_frame.rs", "services/human/crates/layerx-human-service/tests/kms_gateway_frame.rs", "services/human/crates/layerx-human-service/tests/projection_rungs.rs", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs"]
+tests = ["step_clock_advances_one_millisecond_per_sample"]
+verification_contract = "! grep -nE 'SystemTime::now|Instant::now' services/human/crates/layerx-human-test-support/src/lib.rs services/human/crates/layerx-human-service/tests/support/production_fixture.rs services/human/crates/layerx-human-service/tests/balance_rungs.rs services/human/crates/layerx-human-service/tests/custody_frame.rs services/human/crates/layerx-human-service/tests/kms_gateway_frame.rs services/human/crates/layerx-human-service/tests/projection_rungs.rs services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --lib -- step_clock_advances_one_millisecond_per_sample && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --no-run"
+do_1 = "Add `pub struct StepClock` to services/human/crates/layerx-human-test-support/src/lib.rs: a fixed non-zero generation, an epoch in unix milliseconds chosen by the constructor, and a monotonic counter advanced one millisecond per sample, implementing layerx_types::clock::Clock without reading the ambient clock; replace the Instant::now poll at services/human/crates/layerx-human-test-support/src/lib.rs:188-193 with a Deadline over that clock."
+symbols = ["StepClock"]
+
+[capability.10.1.7]
+title = "Route the custody gateway, KMS provider client and KMS gateway binary clock reads through the runtime clock"
+reqs = ["10066.1"]
+touches = ["services/human/crates/layerx-human-service/src/custody/gateway.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs"]
+tests = []
+verification_contract = "! grep -nE 'SystemTime::now|Instant::now' services/human/crates/layerx-human-service/src/custody/gateway.rs services/human/crates/layerx-human-service/src/custody/provider.rs services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --bins"
+do_1 = "services/human/crates/layerx-human-service/src/custody/gateway.rs:260 keeps a rate window as (Instant, count) and :302, :371 and :691 measure elapsed time; services/human/crates/layerx-human-service/src/custody/provider.rs holds one such read; the gateway and provider take `Arc<dyn layerx_types::clock::Clock>` in their constructors and measure through ClockReading::elapsed_since and layerx_types::clock::Deadline."
+symbols = []
+
+[capability.10.1.6]
+title = "Route the human server's remaining clock reads through its injected clock"
+reqs = ["10065.1"]
+touches = ["services/human/crates/layerx-human-service/src/server/component.rs", "services/human/crates/layerx-human-service/src/server/backend.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/server/http.rs", "services/human/crates/layerx-human-service/src/server/mod.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs"]
+tests = ["component_deadline_preserves_real_canonical_frame"]
+verification_contract = "! grep -nE 'SystemTime::now|Instant::now' services/human/crates/layerx-human-service/src/server/component.rs services/human/crates/layerx-human-service/src/server/backend.rs services/human/crates/layerx-human-service/src/server/production_components.rs services/human/crates/layerx-human-service/src/server/http.rs services/human/crates/layerx-human-service/src/server/mod.rs services/human/crates/layerx-human-service/src/server/agent_runtime.rs && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib -- component_deadline_preserves_real_canonical_frame"
+do_1 = "The 27 ambient reads in services/human/crates/layerx-human-service/src/server (component.rs:145, :245, :250, :687, :721, :726, :730, :736, :758, :807 and its test module :957-1008; backend.rs:719, :726, :1172, :1188, :1211; production_components.rs:1042, :1053, :1076, :1083; http.rs, mod.rs and agent_runtime.rs one or two each) read through the component's `Arc<dyn layerx_types::clock::Clock>` (component.rs:113, http.rs:81, production_components.rs:516): wall time via `clock.sample(budget)?.unix_seconds()` as epoch_seconds (component.rs:311) already does, timeouts via layerx_types::clock::Deadline::start and remaining as event_producer_tls.rs:509 does."
+symbols = ["epoch_seconds"]
+
+[capability.10.1.5]
+title = "Match the boundary check's private node paths as path tokens, not identifier fragments"
+reqs = ["10064.1"]
+touches = ["services/human/tools/boundary-check/src/lib.rs", "services/human/tools/boundary-check/tests/fixtures.rs"]
+tests = ["identifier_containing_a_private_path_token_passes", "node_private_paths_are_rejected"]
+verification_contract = "cargo test --locked --manifest-path services/human/tools/boundary-check/Cargo.toml -p layerx-human-boundary-check --test fixtures -- --exact identifier_containing_a_private_path_token_passes node_private_paths_are_rejected"
+do_1 = "services/human/tools/boundary-check/src/lib.rs:147-152 reports node-private-path when a source body contains any PRIVATE_NODE_PATHS entry as a plain substring, so the identifier `snapshot.binding_tenant` at services/human/crates/layerx-human-identity-provider/src/state.rs:319 matches `snapshot.bin`; match an entry only when the character before and the character after it are not identifier characters [A-Za-z0-9_] (the rule keeps matching the quoted literal 'snapshot.bin' and the path segment 'state/snapshots/')."
+symbols = ["source_violation"]
+
 [capability.10.99.2]
 title = "Retire the human service's calls into the deleted native owner outcome verifier"
 reqs = ["10992.1"]
@@ -42575,7 +42691,7 @@ symbols = ["actual_guest_response_code_is_authenticated_by_the_signed_terminal_r
 [capability.9.28.1]
 title = "Remove layerx-paxeer-verifier from the agent workspace and its dependents"
 reqs = ["9306.1"]
-touches = ["services/agent/Cargo.toml", "services/agent/Cargo.lock", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/crates/layerx-agentd-host/Cargo.toml", "services/agent/crates/layerx-agentd/examples/native_handover_reads.rs", "services/agent/fuzz/Cargo.lock", "services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs"]
+touches = ["services/agent/Cargo.toml", "services/agent/Cargo.lock", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/crates/layerx-agentd-host/Cargo.toml", "services/agent/fuzz/Cargo.lock", "services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs"]
 tests = ["services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs::full_requires_program_inputs_while_human_owner_reaches_human_checks"]
 verification_contract = "contracts/agent-rust-api.md#paxeer-verifier"
 do_1 = "services/agent/Cargo.toml:7 lists the member \"crates/layerx-paxeer-verifier\"; delete the line, per decision.922."
@@ -42809,7 +42925,7 @@ symbols = ["PreparedGrantDraws", "validateGrantDraw", "bindReceiveActivity"]
 [capability.9.35.1]
 title = "Remove the kernel activity codec from layerx-crypto"
 reqs = ["9341.1"]
-touches = ["services/agent/crates/layerx-crypto/src/onboarding.rs", "services/agent/crates/layerx-crypto/src/rotation.rs", "services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/disclosure.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/src/signer.rs", "services/agent/crates/layerx-crypto/tests/disclosure.rs", "services/agent/crates/layerx-crypto/tests/signer.rs", "services/agent/crates/layerx-crypto/tests/remote.rs"]
+touches = ["services/agent/crates/layerx-crypto/src/rotation.rs", "services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/disclosure.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/src/signer.rs", "services/agent/crates/layerx-crypto/tests/disclosure.rs", "services/agent/crates/layerx-crypto/tests/signer.rs", "services/agent/crates/layerx-crypto/tests/remote.rs", "services/agent/crates/layerx-crypto/src/payments.rs"]
 tests = ["services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
 verification_contract = "contracts/agent-rust-api.md#crypto"
 do_1 = "Delete services/agent/crates/layerx-crypto/src/onboarding.rs and services/agent/crates/layerx-crypto/src/rotation.rs, which decode and re-encode signed kernel activities (services/agent/crates/layerx-crypto/src/onboarding.rs:4, services/agent/crates/layerx-crypto/src/rotation.rs:3), and remove `pub mod onboarding;` and `pub mod rotation;` from services/agent/crates/layerx-crypto/src/lib.rs (services/agent/crates/layerx-crypto/src/lib.rs:18, services/agent/crates/layerx-crypto/src/lib.rs:27); onboarding is bindLayerX (spec/layerx-merge/contracts/clients.md:65) and DID rotation is out of scope (spec/layerx-merge/contracts/clients.md:66)."
@@ -109647,6 +109763,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.8.22.8]
+title = "Delete the seller's kernel batch evidence reader that imports the retired SDK proof type"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8296.1"]
+capabilities = ["8.22.8"]
+interfaces = []
+do_1 = "Delete RpcBatchEvidence and rpcBatchEvidence at services/platform/middleware/seller/src/rpc.ts:134-157 and the `type MerkleProof` import at services/platform/middleware/seller/src/rpc.ts:1; the SDK no longer exports the type since task 9.97.8."
+do_2 = "Delete the RpcBatchEvidence re-export at services/platform/middleware/seller/src/index.ts:1152 and the two cases of services/platform/middleware/conformance/pay6/rpc.test.mjs (:43 and :51) that call rpcBatchEvidence, with the import at :4; services/platform/middleware/seller/test/checkpoint-retired.test.mjs:8 already asserts the export is gone and stays unchanged."
+do_3 = "Findings 8.23.2.2 and 9.97.8.5: this task owns only the consumer removal; task 8.22.6 do_3 is satisfied once the reader is absent."
+symbols = []
+touches = ["services/platform/middleware/seller/src/rpc.ts", "services/platform/middleware/seller/src/index.ts", "services/platform/middleware/conformance/pay6/rpc.test.mjs"]
+tests = ["checkpoint-retired"]
+planned_paths = []
+build_cmd = "npm --prefix services/platform/middleware/seller run build"
+verify_cmd = "! grep -rnE 'MerkleProof|rpcBatchEvidence|RpcBatchEvidence' services/platform/middleware/seller/src services/platform/middleware/conformance && node --test services/platform/middleware/seller/test/checkpoint-retired.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the task's commits; the tree returns to its prior state."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.963.1]
 title = "Issue #963: Drop the truncated Paxify theme-preview image and keep the gradient"
 status = "done"
@@ -117792,6 +117938,191 @@ gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert the two files in touches; calls to 0x101c are refused by the decoder again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.10.1.10]
+title = "Port the KMS tests and the identity provider off ambient clock reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["10069.1"]
+capabilities = ["10.1.10"]
+interfaces = []
+do_1 = "services/human/crates/layerx-human-kms/tests/attestor.rs:79, :512, :725, :768, :986, :1432, :1536 and the four sibling test files stamp and poll with SystemTime::now and Instant::now; each test defines (or shares from its support module) a stepping clock with a fixed generation advancing one millisecond per sample, and the attestor under test takes the same clock so issued and asserted times agree."
+do_2 = "services/human/crates/layerx-human-identity-provider/src/assertion.rs:473 stamps the key cache with Instant::now; the cache takes `&dyn layerx_types::clock::Clock` from the provider (services/human/crates/layerx-human-identity-provider/src/lib.rs:31 already holds Arc<dyn Clock>) and ages entries by ClockReading::elapsed_since; services/human/crates/layerx-human-identity-provider/tests/assertion.rs follows."
+do_3 = "Decision 2236 and finding 10.1.4.1."
+symbols = []
+touches = ["services/human/crates/layerx-human-kms/tests/attestor.rs", "services/human/crates/layerx-human-kms/tests/attestor_native_profile.rs", "services/human/crates/layerx-human-kms/tests/evm_attestor_ops.rs", "services/human/crates/layerx-human-kms/tests/send_authorization_evm.rs", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs", "services/human/crates/layerx-human-identity-provider/src/assertion.rs", "services/human/crates/layerx-human-identity-provider/src/lib.rs", "services/human/crates/layerx-human-identity-provider/tests/assertion.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms -p layerx-human-identity-provider --tests"
+verify_cmd = "! grep -rnE 'SystemTime::now|Instant::now' services/human/crates/layerx-human-kms/tests services/human/crates/layerx-human-identity-provider/src services/human/crates/layerx-human-identity-provider/tests && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms -p layerx-human-identity-provider --no-run"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commits; the tree returns to its prior state."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.10.1.9]
+title = "Port the human service integration tests off ambient clock reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["10.1.8"]
+reqs = ["10068.1"]
+capabilities = ["10.1.9"]
+interfaces = []
+do_1 = "The fourteen tests onboarding_gas_station.rs, agent_runtime_nonces.rs, agent_runtime_rungs.rs, agent_creation_rungs.rs, native_send_purpose.rs, agent_runtime_eip1559.rs, native_journey_approval.rs, production_unhooked.rs, custody.rs, evidence_node.rs, native_send_producer.rs, move_money_bank_send.rs, native_onboarding_rungs.rs, native_send_nonces.rs poll with Instant::now deadlines or stamp requests with SystemTime::now; each uses layerx_types::clock::Deadline over the StepClock of layerx-human-test-support (task 10.1.8) or the fixture's runtime clock, and the component under test and the test share one clock instance so stamped times agree."
+do_2 = "Test names and assertions stay; only the clock source changes."
+do_3 = "Decision 2236 and finding 10.1.4.1; task 10.20.6 touches production_unhooked.rs after this task."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/tests/onboarding_gas_station.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_nonces.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs", "services/human/crates/layerx-human-service/tests/native_send_purpose.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs", "services/human/crates/layerx-human-service/tests/production_unhooked.rs", "services/human/crates/layerx-human-service/tests/custody.rs", "services/human/crates/layerx-human-service/tests/evidence_node.rs", "services/human/crates/layerx-human-service/tests/native_send_producer.rs", "services/human/crates/layerx-human-service/tests/move_money_bank_send.rs", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs", "services/human/crates/layerx-human-service/tests/native_send_nonces.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
+verify_cmd = "! grep -rnE 'SystemTime::now|Instant::now' services/human/crates/layerx-human-service/tests && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --no-run"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commits; the tree returns to its prior state."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.10.1.8]
+title = "Give the human test support a deterministic clock and port the service test fixtures off ambient clock reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["10067.1"]
+capabilities = ["10.1.8"]
+interfaces = []
+do_1 = "Add `pub struct StepClock` to services/human/crates/layerx-human-test-support/src/lib.rs: a fixed non-zero generation, an epoch in unix milliseconds chosen by the constructor, and a monotonic counter advanced one millisecond per sample, implementing layerx_types::clock::Clock without reading the ambient clock; replace the Instant::now poll at services/human/crates/layerx-human-test-support/src/lib.rs:188-193 with a Deadline over that clock."
+do_2 = "services/human/crates/layerx-human-service/tests/balance_rungs.rs:56, custody_frame.rs:34, kms_gateway_frame.rs:294, projection_rungs.rs:32 and wallet_identity_e2e.rs:1036 each define a clock over SystemTime::now; they use StepClock (or the fixture's runtime clock where the test already starts one) and the component under test and the test share one clock instance."
+do_3 = "services/human/crates/layerx-human-service/tests/support/production_fixture.rs keeps SerialClock over the real runtime clock and loses its two remaining ambient reads."
+do_4 = "Add step_clock_advances_one_millisecond_per_sample to the test-support crate: two samples differ by exactly 1 000 000 monotonic nanoseconds and share the generation."
+do_5 = "Decision 2236 and finding 10.1.4.1."
+symbols = ["StepClock"]
+touches = ["services/human/crates/layerx-human-test-support/src/lib.rs", "services/human/crates/layerx-human-service/tests/support/production_fixture.rs", "services/human/crates/layerx-human-service/tests/balance_rungs.rs", "services/human/crates/layerx-human-service/tests/custody_frame.rs", "services/human/crates/layerx-human-service/tests/kms_gateway_frame.rs", "services/human/crates/layerx-human-service/tests/projection_rungs.rs", "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs"]
+tests = ["step_clock_advances_one_millisecond_per_sample"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support -p layerx-human-service --tests"
+verify_cmd = "! grep -nE 'SystemTime::now|Instant::now' services/human/crates/layerx-human-test-support/src/lib.rs services/human/crates/layerx-human-service/tests/support/production_fixture.rs services/human/crates/layerx-human-service/tests/balance_rungs.rs services/human/crates/layerx-human-service/tests/custody_frame.rs services/human/crates/layerx-human-service/tests/kms_gateway_frame.rs services/human/crates/layerx-human-service/tests/projection_rungs.rs services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --lib -- step_clock_advances_one_millisecond_per_sample && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --no-run"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commits; the tree returns to its prior state."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.10.1.7]
+title = "Route the custody gateway, KMS provider client and KMS gateway binary clock reads through the runtime clock"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["10.1.6"]
+reqs = ["10066.1"]
+capabilities = ["10.1.7"]
+interfaces = []
+do_1 = "services/human/crates/layerx-human-service/src/custody/gateway.rs:260 keeps a rate window as (Instant, count) and :302, :371 and :691 measure elapsed time; services/human/crates/layerx-human-service/src/custody/provider.rs holds one such read; the gateway and provider take `Arc<dyn layerx_types::clock::Clock>` in their constructors and measure through ClockReading::elapsed_since and layerx_types::clock::Deadline."
+do_2 = "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs:607 and :1126 time retries with Instant::now; the binary connects layerx_client::runtime_clock::RuntimeClock::from_environment() at startup, as the daemon does at services/agent/crates/layerx-agentd/src/main.rs:903, refuses to start without it, and passes the clock to the gateway and provider."
+do_3 = "services/human/crates/layerx-human-service/src/server/production_components.rs constructs the gateway and provider; after task 10.1.6 this task changes only those construction calls there, passing the components' clock."
+do_4 = "Decision 2236 and finding 10.1.4.1."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/src/custody/gateway.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --bin layerx-human-kms-gateway"
+verify_cmd = "! grep -nE 'SystemTime::now|Instant::now' services/human/crates/layerx-human-service/src/custody/gateway.rs services/human/crates/layerx-human-service/src/custody/provider.rs services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --bins"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commits; the tree returns to its prior state."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.10.1.6]
+title = "Route the human server's remaining clock reads through its injected clock"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["10065.1"]
+capabilities = ["10.1.6"]
+interfaces = []
+do_1 = "The 27 ambient reads in services/human/crates/layerx-human-service/src/server (component.rs:145, :245, :250, :687, :721, :726, :730, :736, :758, :807 and its test module :957-1008; backend.rs:719, :726, :1172, :1188, :1211; production_components.rs:1042, :1053, :1076, :1083; http.rs, mod.rs and agent_runtime.rs one or two each) read through the component's `Arc<dyn layerx_types::clock::Clock>` (component.rs:113, http.rs:81, production_components.rs:516): wall time via `clock.sample(budget)?.unix_seconds()` as epoch_seconds (component.rs:311) already does, timeouts via layerx_types::clock::Deadline::start and remaining as event_producer_tls.rs:509 does."
+do_2 = "Where a struct holds no clock (backend.rs, agent_runtime.rs), its constructor takes `Arc<dyn Clock>` from the caller that owns one (production_components.rs:657); no path falls back to the ambient clock."
+do_3 = "Maintenance intervals (component.rs:245-250) take the next tick from the Deadline's remaining duration and sleep that remaining with std::thread::sleep; sleeping is allowed, reading the ambient clock is not."
+do_4 = "The in-crate test module of component.rs uses a test-local `impl Clock` with a fixed generation that advances one millisecond of monotonic time per sample; its test component_deadline_preserves_real_canonical_frame keeps its name and assertion."
+do_5 = "Decision 2236 and finding 10.1.4.1: this task restores the server files; the whole-tree proof is task 10.1.4's real-binary test."
+symbols = ["epoch_seconds"]
+touches = ["services/human/crates/layerx-human-service/src/server/component.rs", "services/human/crates/layerx-human-service/src/server/backend.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/server/http.rs", "services/human/crates/layerx-human-service/src/server/mod.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs"]
+tests = ["component_deadline_preserves_real_canonical_frame"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
+verify_cmd = "! grep -nE 'SystemTime::now|Instant::now' services/human/crates/layerx-human-service/src/server/component.rs services/human/crates/layerx-human-service/src/server/backend.rs services/human/crates/layerx-human-service/src/server/production_components.rs services/human/crates/layerx-human-service/src/server/http.rs services/human/crates/layerx-human-service/src/server/mod.rs services/human/crates/layerx-human-service/src/server/agent_runtime.rs && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib -- component_deadline_preserves_real_canonical_frame"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commits; the tree returns to its prior state."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.10.1.5]
+title = "Match the boundary check's private node paths as path tokens, not identifier fragments"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["10064.1"]
+capabilities = ["10.1.5"]
+interfaces = []
+do_1 = "services/human/tools/boundary-check/src/lib.rs:147-152 reports node-private-path when a source body contains any PRIVATE_NODE_PATHS entry as a plain substring, so the identifier `snapshot.binding_tenant` at services/human/crates/layerx-human-identity-provider/src/state.rs:319 matches `snapshot.bin`; match an entry only when the character before and the character after it are not identifier characters [A-Za-z0-9_] (the rule keeps matching the quoted literal 'snapshot.bin' and the path segment 'state/snapshots/')."
+do_2 = "Add identifier_containing_a_private_path_token_passes to services/human/tools/boundary-check/tests/fixtures.rs: a tree whose only source holds `let tenant = state.snapshot.binding_tenant.clone();` passes human_boundary_policy; node_private_paths_are_rejected (services/human/tools/boundary-check/tests/fixtures.rs:66) keeps passing unchanged."
+do_3 = "Decision 2236: the rule set itself does not narrow; only the token matching gains boundaries."
+symbols = ["source_violation"]
+touches = ["services/human/tools/boundary-check/src/lib.rs", "services/human/tools/boundary-check/tests/fixtures.rs"]
+tests = ["identifier_containing_a_private_path_token_passes", "node_private_paths_are_rejected"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/tools/boundary-check/Cargo.toml -p layerx-human-boundary-check --tests"
+verify_cmd = "cargo test --locked --manifest-path services/human/tools/boundary-check/Cargo.toml -p layerx-human-boundary-check --test fixtures -- --exact identifier_containing_a_private_path_token_passes node_private_paths_are_rejected"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commits; the tree returns to its prior state."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -133293,7 +133624,7 @@ title = "Retire the custody_deploy_scripts kernel harness files"
 status = "pending"
 mode = "BUILD"
 wave = 33
-requires = ["6.51.1", "8.19.6", "10.26.16", "16.0.4", "16.11.11"]
+requires = ["6.51.1", "8.19.6", "10.26.16", "16.0.4", "16.11.11", "6.60.6"]
 reqs = ["6497.5"]
 capabilities = ["6.60.5"]
 interfaces = ["interface.6.cli-tests-bridge-custody-genesis-py-j36", "interface.6.cli-tests-bridge-custody-genesis-py-j36", "interface.6.cli-tests-bridge-deploy-local-custody-py-j36", "interface.6.cli-tests-bridge-deploy-local-custody-py-j36", "interface.6.cli-tests-bridge-owner-custody-py-j36", "interface.6.cli-tests-bridge-owner-custody-py-j36", "interface.6.cli-tests-bridge-test-evidence-py-j36", "interface.6.cli-tests-bridge-test-evidence-py-j36"]
@@ -133320,6 +133651,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Finding 6.60.5.1: continue from attempt 1 (934a62f64) rebased onto main once task 6.60.6 is on it, keeping the tree unchanged; the retirement test then runs as written."
 
 [task.6.61.1]
 title = "Bind the upgrade reader to the xweb keeper and expose ProgramOriginActive"
@@ -141435,7 +141767,7 @@ title = "Retire the kernel batch, checkpoint and authorized-batch seller exports
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.22.4", "8.22.5", "8.23.3", "8.24.4", "8.25.2", "8.26.1", "8.26.4", "8.26.5", "8.26.6", "8.27.1", "8.22.7"]
+requires = ["8.22.4", "8.22.5", "8.23.3", "8.24.4", "8.25.2", "8.26.1", "8.26.4", "8.26.5", "8.26.6", "8.27.1", "8.22.7", "8.22.8"]
 reqs = ["8248.1", "8248.2"]
 capabilities = ["8.22.6"]
 interfaces = ["interface.8.ts-middleware-seller-sidiora-layerx-seller-middleware-authorizedbatchresolver", "interface.8.ts-middleware-seller-checkpoint-rpccheckpointauthority-j41", "interface.8.ts-middleware-seller-checkpoint-rpccheckpointevidence-j41", "interface.8.ts-middleware-seller-rpc-rpcbatchevidence-j41"]
@@ -141463,6 +141795,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_7 = "Finding 8.23.2.2: task 8.22.8 deletes rpcBatchEvidence and RpcBatchEvidence first; do_3 is satisfied when they are already absent and this task changes nothing there."
 
 [task.8.22.7]
 title = "Retire the seller checkpoint evidence module built on the deleted SDK checkpoint verifiers"
@@ -141532,7 +141865,7 @@ title = "Verify buyer payments and captured settlements as portable receipts"
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["8.23.1", "8.22.1", "8.22.2", "10.92.1", "8.22.7"]
+requires = ["8.23.1", "8.22.1", "8.22.2", "10.92.1", "8.22.7", "8.22.8"]
 reqs = ["8250.1", "8250.2", "8250.3"]
 capabilities = ["8.23.2"]
 interfaces = ["interface.8.ts-middleware-buyer-sidiora-layerx-buyer-middleware-buyermiddleware", "interface.8.ts-middleware-buyer-sidiora-layerx-buyer-middleware-preparedpayment", "interface.8.ts-middleware-buyer-sidiora-layerx-buyer-middleware-journey", "interface.8.ts-middleware-buyer-index-buyermiddlewareconfig-j41", "interface.8.ts-middleware-buyer-index-evidencereference-j41", "interface.8.ts-middleware-buyer-index-evidencematerial-j41", "interface.8.ts-middleware-buyer-index-capturedsettlement-j41"]
@@ -141565,6 +141898,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_10 = "Type BuyerMiddlewareConfig.receiptKeys as readonly SequencerReceiptKey[] (the seller's SellerMiddlewareConfig.receiptKeys type at services/platform/middleware/seller/src/index.ts:160 and the receiptKeys parameter of verifyPaymentReceipt at :365-370), not as a PxReceiptKeyEntry list, so that sdk/integrations/express and sdk/integrations/next pass the one parsed list to both middlewares; where do_1 says PxReceiptKeyEntry read SequencerReceiptKey. Remove protocolVersion from BuyerMiddlewareConfig entirely; do not keep it as an optional field."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_11 = "Finding 8.23.2.2: continue from attempt 1 (e72902b24) rebased onto main once task 8.22.8 is on it, keeping the tree unchanged; its build never ran, so build and verify once as written."
 
 [task.8.23.3]
 title = "Build buyer grant headers from signed 0x101A draw transactions"
@@ -149592,7 +149926,7 @@ touches = ["services/agent/crates/layerx-client/src/read.rs", "services/agent/cr
 tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::full_block_decodes_raw_transactions_in_index_order"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter"
-verify_cmd = "! grep -rnE 'layerx_client::(read|receipt|submit|stream|batch|payments|withdrawal|head|evidence)\b' services/agent/crates && ! grep -rnE 'crate::(read|receipt|submit|stream|batch|payments|withdrawal|head|evidence)\b' services/agent/crates/layerx-client/src && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer -- --exact full_block_decodes_raw_transactions_in_index_order"
+verify_cmd = "! grep -rnE 'layerx_client::(read|receipt|submit|stream|batch|payments|withdrawal|head|evidence)\b' services/agent/crates && ! grep -rnE --exclude-dir=evidence 'crate::(read|receipt|submit|stream|batch|payments|withdrawal|head|evidence)\b' services/agent/crates/layerx-client/src && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer -- --exact full_block_decodes_raw_transactions_in_index_order"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -149607,6 +149941,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "Finding 9.25.1.2 and decision 2232: this task runs again only once tasks 9.25.17, 9.25.18 and 9.25.19 are on main; continue from attempt 1 (3169533e2) rebased onto main. The module files then have no consumer outside themselves and the re-exports they carry go with them; before the build, `grep -rnE 'layerx_client::(read|receipt|submit|stream|batch|payments|withdrawal|head|evidence)\b' services/agent/crates` and `grep -rnE 'crate::(read|receipt|submit|stream|batch|payments|withdrawal|head|evidence)\b' services/agent/crates/layerx-client/src` must print nothing (the rpc twins are named layerx_client::rpc::<module>), and any remaining site is ported in this task."
 do_6 = "Finding 9.25.1.3: the pre-build grep of do_5 over services/agent/crates/layerx-client/src excludes src/evidence/asset_record.rs and src/evidence/module_state.rs, which are orphaned once `pub mod evidence;` is removed and are deleted by task 9.24.6; continue from attempt 2 (2dea00d58) rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
+do_7 = "Finding 9.25.1.4: the verify's second grep carries --exclude-dir=evidence, matching the do_5 precondition; continue from attempt 3 (69972d6e5) rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.9.25.2]
 title = "Delete Client, the handover policy and caps readers and every paxeer-verifier use"
@@ -149807,7 +150142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.27.3]
 title = "Retire checkpoint and activity facts from offline exports"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.27.2", "9.27.6", "9.6.1", "9.25.2", "9.35.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "18.1304.1", "9.25.16", "13.8.3"]
@@ -150019,7 +150354,7 @@ do_3 = "Delete services/agent/crates/layerx-agentd/examples/native_handover_read
 do_4 = "Refresh services/agent/Cargo.lock, dropping the package entry at services/agent/Cargo.lock:965 and the dependency entries at :773, :807 and :832, and refresh services/agent/fuzz/Cargo.lock, dropping :914 and the entries at :782 and :806, because the fuzz package depends on layerx-agentd (services/agent/fuzz/Cargo.toml:15)."
 do_5 = "Run the existing host test full_requires_program_inputs_while_human_owner_reaches_human_checks (services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs:5) unchanged on the reduced dependency graph; the platform, human and interop dependents are wiring.J44.10, wiring.J44.12 and wiring.J44.14."
 symbols = ["PaxeerCheckpointVerifier", "full_requires_program_inputs_while_human_owner_reaches_human_checks"]
-touches = ["services/agent/Cargo.toml", "services/agent/Cargo.lock", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/crates/layerx-agentd-host/Cargo.toml", "services/agent/crates/layerx-agentd/examples/native_handover_reads.rs", "services/agent/fuzz/Cargo.lock", "services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs"]
+touches = ["services/agent/Cargo.toml", "services/agent/Cargo.lock", "services/agent/crates/layerx-client/Cargo.toml", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/crates/layerx-agentd-host/Cargo.toml", "services/agent/fuzz/Cargo.lock", "services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs"]
 tests = ["services/agent/crates/layerx-agentd/host-tests/runtime_mode.rs::full_requires_program_inputs_while_human_owner_reaches_human_checks"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client -p layerx-agentd -p layerx-agentd-host"
@@ -150037,6 +150372,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_6 = "Decision 2201: task 9.25.9 deletes examples/native_handover_reads.rs first, so do_3 is satisfied when the file is already absent and this task changes nothing there."
+do_7 = "Finding 9.28.1.1: examples/native_handover_reads.rs is no longer a declared touch; continue from attempt 1 (46665c3c6), or a later attempt with the same six changed files, rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.9.28.2]
 title = "Delete the layerx-paxeer-verifier crate sources"
@@ -150914,11 +151250,11 @@ do_4 = "In services/agent/crates/layerx-crypto/src/signer.rs delete sign_disclos
 do_5 = "Rewrite the sign_disclosed cases of services/agent/crates/layerx-crypto/tests/signer.rs (services/agent/crates/layerx-crypto/tests/signer.rs:47), services/agent/crates/layerx-crypto/tests/remote.rs (services/agent/crates/layerx-crypto/tests/remote.rs:285) and services/agent/crates/layerx-crypto/tests/disclosure.rs (services/agent/crates/layerx-crypto/tests/disclosure.rs:81) onto sign_disclosed_call and bind_call; the human, platform, interop and wallet dependents are wiring.J44.25, wiring.J44.26, wiring.J44.27, wiring.J44.28."
 do_6 = "Add keystore_signer_refuses_activity_preimages_and_signs_the_bind_message to services/agent/crates/layerx-crypto/tests/signer.rs (planned test name in an existing file) using the KeystoreSigner socket fixture (services/agent/crates/layerx-crypto/tests/signer.rs:201)."
 symbols = ["KeystoreSigner", "keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
-touches = ["services/agent/crates/layerx-crypto/src/onboarding.rs", "services/agent/crates/layerx-crypto/src/rotation.rs", "services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/disclosure.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/src/signer.rs", "services/agent/crates/layerx-crypto/tests/disclosure.rs", "services/agent/crates/layerx-crypto/tests/signer.rs", "services/agent/crates/layerx-crypto/tests/remote.rs"]
+touches = ["services/agent/crates/layerx-crypto/src/rotation.rs", "services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/disclosure.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/src/signer.rs", "services/agent/crates/layerx-crypto/tests/disclosure.rs", "services/agent/crates/layerx-crypto/tests/signer.rs", "services/agent/crates/layerx-crypto/tests/remote.rs", "services/agent/crates/layerx-crypto/src/payments.rs"]
 tests = ["services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer -- --exact keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+verify_cmd = "test -e services/agent/crates/layerx-crypto/src/onboarding.rs && ! test -e services/agent/crates/layerx-crypto/src/rotation.rs && ! test -e services/agent/crates/layerx-crypto/src/disclosure.rs && ! test -e services/agent/crates/layerx-crypto/src/send.rs && grep -q '^pub mod onboarding;' services/agent/crates/layerx-crypto/src/lib.rs && grep -q 'pub use crate::onboarding::{OnboardingConsent, OnboardingError, SponsoredRegistration};' services/agent/crates/layerx-crypto/src/payments.rs && ! grep -rnE 'crate::(disclosure|send|rotation)\b|layerx_wire::activity' services/agent/crates/layerx-crypto/src/payments.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer -- --exact keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -150933,6 +151269,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "After do_1 to do_6, move the kept definitions bind_call, Disclosure, DisclosedCall, CallOptions, ledger_payment_call, send_context_hash, SendCondition and SendDebit into services/agent/crates/layerx-crypto/src/payments.rs so the re-exports of task 8.94.4 become definitions, then delete src/disclosure.rs and src/send.rs with their pub mod lines (decision.1889); every hosted crate already names them through layerx_crypto::payments (8.94.5 to 8.94.7)."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_8 = "Decision 2186: the two human-service readers of OwnerRotationState::decode moved to services/human/crates/layerx-human-service/src/server/owner_identity.rs in task 10.98.10, so do_1 deletes rotation.rs with no caller left outside the crate."
+do_9 = "Decision 2237 (finding 9.35.1.1): do_1 deletes only src/rotation.rs and its pub mod line; src/onboarding.rs, its pub mod line and the pub use crate::onboarding re-export at src/payments.rs:19 stay unchanged, so layerx-agentd subject.rs:245, the KMS native_setup.rs test, create_native.rs and the authority's dynamic.rs keep building against the same paths; do_7 edits src/payments.rs, now a declared touch, turning the disclosure and send re-exports into definitions. Continue from attempt 1 (3877ce19d) rebased onto current main: restore src/onboarding.rs and its pub mod line from main, keep every other change, finish do_7, and run the declared build and verify once as written."
 
 [task.9.35.2]
 title = "Remove the checkpoint settlement types and activity decoders from layerx-sdk"
@@ -152027,7 +152364,7 @@ title = "Run the retired-surface gate from the boundary check binary"
 status = "pending"
 mode = "BUILD"
 wave = 34
-requires = ["10.1.2", "10.1.3", "10.10.1", "10.10.2", "10.16.2", "10.14.1", "18.1119.1", "9.25.16"]
+requires = ["10.1.2", "10.1.3", "10.10.1", "10.10.2", "10.16.2", "10.14.1", "18.1119.1", "9.25.16", "10.1.5", "10.1.6", "10.1.7", "10.1.8", "10.1.9", "10.1.10"]
 reqs = ["10063.1"]
 capabilities = ["10.1.4"]
 interfaces = []
@@ -152051,6 +152388,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 10.1.4.1 and decision 2236: continue from attempt 1 (d3d6e63aa) rebased onto main once tasks 10.1.5 to 10.1.10 are on it, keeping the tree unchanged; the real-binary test then runs as written over the whole tree."
 
 [task.10.2.1]
 title = "Record activity entries with rungs instead of kernel verification levels"
@@ -153954,7 +154292,7 @@ title = "Prove the human service production startup against the merged node"
 status = "pending"
 mode = "BUILD"
 wave = 45
-requires = ["10.20.3", "5.50.7", "5.98.4", "9.25.16", "13.8.3", "10.99.2"]
+requires = ["10.20.3", "5.50.7", "5.98.4", "9.25.16", "13.8.3", "10.99.2", "10.1.9"]
 reqs = ["10034.1", "10034.2", "10034.3"]
 capabilities = ["10.20.6"]
 interfaces = ["interface.10.rs-human-service-server-production-components-production-components-config", "interface.10.rs-human-service-server-production-components-production-components-config-from-environment", "interface.10.env-layerx-human-onboarding-sponsor-principal", "interface.10.env-layerx-human-binding-statement-ttl-seconds", "interface.10.env-layerx-human-paxeer-rpc-url", "interface.10.env-layerx-human-paxeer-rpc-timeout-seconds", "interface.10.env-layerx-human-paxeer-trust-anchor-der", "interface.10.env-layerx-human-paxeer-chain-id", "interface.10.env-layerx-human-exit-required-confirmations", "interface.10.env-layerx-human-exit-poll-cadence-seconds", "interface.10.env-layerx-human-exit-delayed-after-polls", "interface.10.rs-human-service-server-production-components-production-components", "interface.10.rs-human-service-server-production-components-production-components-open", "interface.10.env-layerx-human-protocol-version", "interface.10.env-layerx-human-paxeer-minimum-agreement", "interface.10.env-layerx-human-paxeer-rpc-urls", "interface.10.rs-human-service-journeys-intent-submit-start-withdrawal-intent", "interface.10.fmt-human-recipient-packet", "interface.10.env-layerx-human-recipient-socket", "interface.10.env-layerx-human-recipient-caller-uid", "interface.10.env-layerx-human-recipient-caller-gid", "interface.10.env-layerx-human-recipient-deadline-seconds"]
@@ -154116,7 +154454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.21.3]
 title = "Retire the bridge, payout-binding and custody-credit intent kinds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["10.21.2", "10.6.2", "10.20.5", "10.9.1", "10.8.2", "10.12.2", "10.26.7", "10.26.8", "10.26.15", "8.96.1", "10.96.2", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154152,7 +154490,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.21.4]
 title = "Retire the kernel activity re-exports and the owner activity envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["10.21.3", "10.0.3", "10.0.4", "10.11.5", "10.11.7", "10.13.5", "10.25.4", "9.0.4", "9.97.4", "10.97.1", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154187,7 +154525,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.21.5]
 title = "Delete the bridge credit receipt test vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["10.21.3", "10.26.8", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154218,7 +154556,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.21.6]
 title = "Replace the kernel activity session fixtures test with a session grant compile test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 34
 requires = ["10.21.3", "10.0.3", "9.1.7", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -154712,7 +155050,7 @@ do_7 = "Finding 10.1.2.2: continue from attempt 2 (7392b9390) rebased onto main 
 
 [task.10.26.6]
 title = "Delete the Paxeer client state proof module and vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2", "10.26.14"]
@@ -154819,7 +155157,7 @@ do_7 = "Finding 10.1.2.2: continue from attempt 2 (c299416f0) rebased onto main 
 
 [task.10.26.9]
 title = "Delete the Paxeer client custody ABI codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2", "10.26.6", "10.26.10", "10.26.11", "10.26.14"]
@@ -154927,7 +155265,7 @@ do_8 = "Finding 10.1.2.2: continue from attempt 2 (1816045fb) rebased onto main 
 
 [task.10.26.12]
 title = "Delete the Paxeer client debit wire codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2", "10.26.8", "10.26.10", "10.26.13"]
@@ -188580,6 +188918,70 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.8.22.8.1]
+feature = "8"
+req = "8296.1"
+scenario = "Given the seller middleware after the SDK retired MerkleProof, when its package builds and the checkpoint-retired test runs, then the build passes and no source names the batch evidence reader."
+contract = "contracts/services.md#s"
+test = "services/platform/middleware/seller/test/checkpoint-retired.test.mjs"
+qualification = "UNRUN"
+
+[acceptance.6.60.6.1]
+feature = "6"
+req = "6498.1"
+scenario = "Given the Makefile, when it is scanned for the movement-proof target, its variable and the owner custody script, then no line matches and make parses the file."
+contract = "contracts/services.md#human-tools"
+test = "make -n -s human-check"
+qualification = "UNRUN"
+
+[acceptance.10.1.10.1]
+feature = "10"
+req = "10069.1"
+scenario = "Given the KMS test tree and the identity provider, when they are scanned for SystemTime::now and Instant::now, then no line matches and every test target compiles."
+contract = "contracts/services.md#human-service"
+test = "cargo test -p layerx-human-kms -p layerx-human-identity-provider --no-run"
+qualification = "UNRUN"
+
+[acceptance.10.1.9.1]
+feature = "10"
+req = "10068.1"
+scenario = "Given the human service test tree, when it is scanned for SystemTime::now and Instant::now, then no line matches and every test target compiles."
+contract = "contracts/services.md#human-service"
+test = "cargo test -p layerx-human-service --no-run"
+qualification = "UNRUN"
+
+[acceptance.10.1.8.1]
+feature = "10"
+req = "10067.1"
+scenario = "Given StepClock, when it is sampled twice, then the readings share the generation and differ by one millisecond, and the ported fixtures compile without an ambient clock read."
+contract = "contracts/services.md#human-service"
+test = "services/human/crates/layerx-human-test-support/src/lib.rs::step_clock_advances_one_millisecond_per_sample (planned)"
+qualification = "UNRUN"
+
+[acceptance.10.1.7.1]
+feature = "10"
+req = "10066.1"
+scenario = "Given the custody and KMS gateway sources, when they are scanned for SystemTime::now and Instant::now, then no line matches and every binary of the crate builds."
+contract = "contracts/services.md#human-service"
+test = "cargo build -p layerx-human-service --bins"
+qualification = "UNRUN"
+
+[acceptance.10.1.6.1]
+feature = "10"
+req = "10065.1"
+scenario = "Given the human server sources, when they are scanned for SystemTime::now and Instant::now, then no line matches and the component deadline test passes on the injected clock."
+contract = "contracts/services.md#human-service"
+test = "services/human/crates/layerx-human-service/src/server/component.rs::component_deadline_preserves_real_canonical_frame"
+qualification = "UNRUN"
+
+[acceptance.10.1.5.1]
+feature = "10"
+req = "10064.1"
+scenario = "Given a source file whose only occurrence of a private node path token sits inside an identifier, when human_boundary_policy runs over its tree, then it reports no violation, and a quoted 'snapshot.bin' literal still fails."
+contract = "contracts/services.md#human-tools"
+test = "services/human/tools/boundary-check/tests/fixtures.rs::identifier_containing_a_private_path_token_passes (planned)"
+qualification = "UNRUN"
+
 [acceptance.10.99.2]
 feature = "19"
 req = "10992.1"
@@ -194268,6 +194670,35 @@ gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
 rollback = "None needed; the closure check reads the spec and writes nothing."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.6.60.6]
+title = "Drop the Makefile's test-owner-movement-proof target"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["6498.1"]
+capabilities = ["6.60.6"]
+interfaces = []
+do_1 = "Delete the MOVEMENT_PROOF_TARGET variable and the .PHONY line and recipe of test-owner-movement-proof at Makefile:1657-1663; the recipe runs tests/bridge/owner-custody.py, deleted by task 6.60.5, and no other target or workflow names it."
+do_2 = "Finding 6.60.5.1: task 16.0.4 was to remove this target and did not; nothing else in the Makefile changes."
+symbols = []
+touches = ["Makefile"]
+tests = []
+planned_paths = []
+build_cmd = "make -n -s human-check >/dev/null"
+verify_cmd = "! grep -nE 'test-owner-movement-proof|MOVEMENT_PROOF_TARGET|tests/bridge/owner-custody\.py' Makefile && make -n -s human-check >/dev/null"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commits; the tree returns to its prior state."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2

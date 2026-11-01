@@ -16675,3 +16675,59 @@ symbol = "Freshness"
 observed = "Attempt 2 (2dea00d58 on 8a99461f5) implemented every deletion of the task and ran no gate: the pre-build grep of do_5 over services/agent/crates/layerx-client/src matched `use crate::read::Freshness` in src/evidence/asset_record.rs, a submodule file that leaves the module tree with `pub mod evidence;` and is deleted by task 9.24.6 (which requires 9.25.1), and the file is outside this task's touches."
 assumption = "Spec defect in the precondition: the grep of do_5 excludes the orphaned src/evidence/ files, which the compiler no longer reads once the module declaration is gone; the task continues from attempt 2 and runs its declared build and verify."
 severity = "major"
+
+[finding.10.1.4.1]
+task = "10.1.4"
+file = "services/human/tools/boundary-check/src/main.rs:23"
+symbol = "human_boundary_policy"
+observed = "Attempt 1 (d3d6e63aa on 1395df7e0) wired the retired-surface gate and its build passed; the real-binary test failed because the binary's existing boundary policy reports 37 ambient-nondeterminism files (SystemTime::now and Instant::now in layerx-human-service, layerx-human-kms, layerx-human-identity-provider and layerx-human-test-support, 51 call sites) and one node-private-path hit at layerx-human-identity-provider/src/state.rs:319, where the identifier `snapshot.binding_tenant` contains the token `snapshot.bin`; the human tree had no such read when the rule was written (bb8cbfd44) and the human workflow runs the binary over services/human/crates."
+assumption = "Merge regression plus one rule-precision defect: tasks 10.1.5 to 10.1.10 restore a passing tree and 10.1.4 requires them and continues from attempt 1."
+severity = "major"
+
+[finding.6.60.5.1]
+task = "6.60.5"
+file = "Makefile:1663"
+symbol = "test-owner-movement-proof"
+observed = "Attempt 1 (934a62f64 on 1395df7e0) deleted the four scripts and its build passed; the retirement scan found Makefile:1663 running tests/bridge/owner-custody.py inside the test-owner-movement-proof target (Makefile:1657-1663 with its MOVEMENT_PROOF_TARGET variable); task 16.0.4 (done) was to drop that target at its former lines 2303-2309, yet it is on main."
+assumption = "Unowned live reference: new task 6.60.6 deletes the target and variable; 6.60.5 requires it and continues from attempt 1."
+severity = "major"
+
+[finding.8.23.2.2]
+task = "8.23.2"
+file = "services/platform/middleware/seller/src/rpc.ts:1"
+symbol = "MerkleProof"
+observed = "Attempt 1 (e72902b24 on 3c2c05d9f) implemented the buyer changes; the build, which compiles the seller first, failed with TS2305 because services/platform/middleware/seller/src/rpc.ts:1 imports MerkleProof, which task 9.97.8 (9192a4c02) removed from the TypeScript SDK; its only users are RpcBatchEvidence and rpcBatchEvidence (rpc.ts:134-157), re-exported at seller/src/index.ts:1152 and exercised by conformance/pay6/rpc.test.mjs:43 and :51; task 8.22.6 deletes rpcBatchEvidence in its do_3 but sits at wave 29 while 8.23.2 sits at wave 19."
+assumption = "Producer-to-consumer gap of 9.97.8 across workspaces: new task 8.22.8 deletes the reader and its import; 8.23.2 and 8.22.6 require it and 8.23.2 continues from attempt 1."
+severity = "major"
+
+[finding.9.97.8.5]
+task = "9.97.8"
+file = "services/agent/sdk/typescript/src/verifier.ts"
+symbol = "MerkleProof"
+observed = "Task 9.97.8 retired the MerkleProof export of the TypeScript SDK and its verify ran only the SDK's own build and tests; services/platform/middleware/seller/src/rpc.ts:1 still imports the type, so the seller middleware has not built since 9192a4c02."
+assumption = "The consumer removal is owned by task 8.22.8; a task that deletes an SDK export greps every workspace that depends on the package."
+severity = "major"
+
+[finding.9.25.1.4]
+task = "9.25.1"
+file = "services/agent/crates/layerx-client/src/evidence/asset_record.rs:4"
+symbol = "Freshness"
+observed = "Attempt 3 (69972d6e5 on 1395df7e0) kept attempt 2's deletions, its build and dependent-crate check passed, and the verify failed on its own second grep, which repeats the do_5 precondition over services/agent/crates/layerx-client/src and matches the orphaned src/evidence/asset_record.rs that finding 9.25.1.3 already excluded from the precondition."
+assumption = "Spec defect: the verify grep excludes the evidence directory as the precondition does; continue from attempt 3."
+severity = "major"
+
+[finding.9.28.1.1]
+task = "9.28.1"
+file = "services/agent/crates/layerx-agentd/examples/native_handover_reads.rs"
+symbol = "native_handover_reads"
+observed = "Attempt 1 (46665c3c6 on 1395df7e0) removed the workspace member, the three dependency lines and both lock entries; the build and the runtime_mode test passed; the graph check failed because the declared touch examples/native_handover_reads.rs, deleted earlier by task 9.25.9 per decision 2201, had no change to show."
+assumption = "Spec defect: the path leaves touches; the task continues from attempt 1."
+severity = "major"
+
+[finding.9.35.1.1]
+task = "9.35.1"
+file = "services/agent/crates/layerx-crypto/src/payments.rs:19"
+symbol = "OnboardingConsent"
+observed = "Attempt 1 (3877ce19d on 1bd205de3) deleted src/onboarding.rs and src/rotation.rs as do_1 says and the build failed with E0432 at src/payments.rs:19, where the pub use of OnboardingConsent, OnboardingError and SponsoredRegistration added by task 8.94.4 under decision 1905 still names crate::onboarding; payments.rs is outside the task's touches although do_7 also edits it, and the agent daemon (layerx-agentd/src/human_runtime/subject.rs:245), the KMS provider tests (layerx-human-kms/tests/provider/native_setup.rs:8), create_native.rs of the human service and the authority's dynamic.rs:215 still decode the sponsored registration through those types."
+assumption = "Spec defect: do_1 contradicts decision 1905, which keeps the onboarding definitions reachable through layerx_crypto::payments; the onboarding module stays and payments.rs joins the touches."
+severity = "major"
