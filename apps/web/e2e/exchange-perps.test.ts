@@ -5,7 +5,9 @@ import { registerHooks } from "node:module";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
-import { decodeFunctionData, encodeErrorResult, encodeFunctionData, encodeFunctionResult, parseAbi, type Abi, type Hex } from "viem";
+import { isValidElement, type ReactElement, type ReactNode } from "react";
+import type { PerpsOrderInputs } from "../src/app/exchange/exchange-client.tsx";
+import { decodeFunctionData, encodeErrorResult, encodeFunctionData, encodeFunctionResult, isHex, parseAbi, type Abi, type Hex } from "viem";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -88,11 +90,19 @@ async function body(request: IncomingMessage): Promise<{ id: string; method: str
 async function gateway(
   answer: (call: { from?: string; to: string; data: Hex }, name: string, args: readonly unknown[]) => Reply,
   run: (called: string[]) => Promise<void>,
+  receipts?: ReadonlySet<string>,
 ) {
   const called: string[] = [];
   const server = createServer((request, response) => {
     void body(request).then((envelope) => {
       response.setHeader("content-type", "application/json");
+      if (envelope.method === "eth_getTransactionReceipt" && receipts !== undefined) {
+        const hash = String(envelope.params[0]);
+        assert.ok(receipts.has(hash), `receipt for unsent transaction ${hash}`);
+        response.end(JSON.stringify({ jsonrpc: "2.0", id: envelope.id,
+          result: { transactionHash: hash, status: "0x1", blockNumber: "0x1", logs: [] } }));
+        return;
+      }
       const [call] = envelope.params;
       let reply: Reply;
       try {
@@ -369,3 +379,196 @@ test("a short allowance under the sponsored SID fee is refused before any send",
     delete (globalThis as { window?: unknown }).window;
   }
 });
+
+async function the_order_panels_send_limit_stop_limit_TP_SL_partial_close_and_collateral_writes() {
+  const { KitButton } = await import("../src/kit/control.tsx");
+  const { ChoiceField } = await import("../src/app/_markets/select.tsx");
+  const { SegmentedControl } = await import("../src/kit/collection.tsx");
+  const chainAbi = JSON.parse(readFileSync(new URL("../../../precompiles/perps/abi/abi.json", import.meta.url), "utf8")) as Abi;
+  const erc20 = parseAbi(["function allowance(address owner, address spender) view returns (uint256)", "function approve(address spender, uint256 value)"]);
+  const collateral = { token: USDL, decimals: 6, symbol: "USDL" };
+  const markets = [{ id: "3", label: "Bitcoin" }];
+  const baseInputs: PerpsOrderInputs = {
+    market: "3", side: "long", orderType: "limit", triggerPrice: "65000.25", limitPrice: "64900.5",
+    size: "50.75", leverage: "5.5", collateral: "2.125001", closeSize: "12.25", takeProfit: "70000.5",
+    stopLoss: "60000.75", positionCollateral: "1.500001",
+  };
+  let inputs = baseInputs;
+  let positionId = "4";
+  let walletReason: string | undefined;
+  let submission: Promise<void> | undefined;
+  let pullSent: bigint | undefined;
+  let allowance = 0n;
+  const receipts = new Set<string>();
+  const approving: boolean[] = [];
+  const requests = walletWindow((method, params) => {
+    if (method === "eth_call") {
+      const call = params[0] as { to: string; data: Hex };
+      assert.equal(call.to.toLowerCase(), USDL);
+      const decoded = decodeFunctionData({ abi: erc20, data: call.data });
+      assert.equal(decoded.functionName, "allowance");
+      assert.deepEqual(decoded.args.map((arg) => typeof arg === "string" ? arg.toLowerCase() : arg), [TRADER, PERPS]);
+      return word(allowance);
+    }
+    if (method === "eth_sendTransaction") {
+      const hash = word(BigInt(receipts.size + 1));
+      receipts.add(hash);
+      return hash;
+    }
+    if (method === "eth_getTransactionReceipt") {
+      assert.ok(receipts.has(String(params[0])));
+      return { status: "0x1" };
+    }
+    throw new Error(`unexpected wallet request ${method}`);
+  });
+  function descendants(node: ReactNode): ReactElement<{ children?: ReactNode }>[] {
+    if (Array.isArray(node)) return node.flatMap(descendants);
+    if (!isValidElement<{ children?: ReactNode }>(node)) return [];
+    return [node, ...descendants(node.props.children)];
+  }
+  const controls = (mode: "entry" | "position") => descendants(client.ExchangeOrderControls({
+    mode, inputs, onChange: (key, value) => { inputs = { ...inputs, [key]: value }; },
+    collateral, markets, positionId, pending: false, walletReason,
+    send: (build, pull) => {
+      pullSent = pull;
+      submission = client.sendPerpsWrite(TRADER, collateral, pull, build(), (active) => approving.push(active)).then((outcome) => {
+        assert.equal(outcome.outcome, "sent", outcome.outcome);
+      });
+    },
+  }));
+  function button(mode: "entry" | "position", label: string) {
+    const element = controls(mode).find((element) => element.type === KitButton && element.props.children === label);
+    assert.ok(isValidElement<{ disabled?: boolean; disabledReason?: string; onClick: () => void }>(element), `missing ${label}`);
+    return element.props;
+  }
+  const sendsSince = (start: number) => requests.slice(start).filter((request) => request.method === "eth_sendTransaction")
+    .map((request) => request.params[0] as { to: string; data: Hex });
+  const unit = 10n ** 18n;
+  const price = 65_000n * unit + unit / 4n;
+  const limit = 64_900n * unit + unit / 2n;
+  const size = 50n * unit + 3n * unit / 4n;
+  const leverage = 5n * unit + unit / 2n;
+  const sentSelectors = new Set<string>();
+  async function click(mode: "entry" | "position", label: string, functionName: string, args: readonly unknown[], pull = 0n) {
+    const start = requests.length;
+    const approvalStart = approving.length;
+    const control = button(mode, label);
+    assert.notEqual(control.disabled, true, label);
+    submission = undefined;
+    control.onClick();
+    assert.ok(submission !== undefined, `${label} did not submit`);
+    await submission;
+    assert.equal(pullSent, pull, `${label} collateral pull`);
+    const sends = sendsSince(start);
+    const needsApprove = pull > allowance;
+    assert.equal(sends.length, needsApprove ? 2 : 1, `${label} send count`);
+    if (needsApprove) {
+      const approval = sends[0]!;
+      assert.equal(approval.to.toLowerCase(), USDL);
+      const decoded = decodeFunctionData({ abi: erc20, data: approval.data });
+      assert.equal(decoded.functionName, "approve");
+      assert.deepEqual(decoded.args, [PERPS, pull]);
+      const sequence = requests.slice(start).map((request) => request.method);
+      assert.ok(sequence.indexOf("eth_getTransactionReceipt") < sequence.lastIndexOf("eth_sendTransaction"), "approve must be mined before the perps write");
+      assert.deepEqual(approving.slice(approvalStart), [true, false]);
+    } else {
+      assert.deepEqual(approving.slice(approvalStart), [false]);
+    }
+    const write = sends.at(-1)!;
+    assert.equal(write.to.toLowerCase(), PERPS);
+    const decoded = decodeFunctionData({ abi: chainAbi, data: write.data });
+    assert.equal(decoded.functionName, functionName);
+    assert.deepEqual(decoded.args?.map((arg) => typeof arg === "string" ? arg.toLowerCase() : arg), args);
+    assert.equal(write.data, encodeFunctionData({ abi: chainAbi, functionName, args }));
+    sentSelectors.add(write.data.slice(0, 10));
+  }
+  try {
+    wallet.chooseWalletFee("paxeer", "");
+    await gateway((call, name) => {
+      assert.equal(call.from, TRADER);
+      assert.ok(["placeLimitOrder", "placeStopLimitOrder", "placeTakeProfitOrder", "placeStopLossOrder", "setPositionTpSl", "partialClose", "addCollateral", "removeCollateral"].includes(name));
+      return { result: "0x" };
+    }, async (called) => {
+      await click("entry", "Place limit order", "placeLimitOrder", [3n, true, price, size, leverage, USDL, 2_125_001n], 2_125_001n);
+      const orderType = controls("entry").find((element) => element.type === ChoiceField &&
+        isValidElement<{ label: string }>(element) && element.props.label === "Order type");
+      assert.ok(isValidElement<{ onChange: (value: string) => void }>(orderType));
+      orderType.props.onChange("stop-limit");
+      const side = controls("entry").find((element) => element.type === SegmentedControl);
+      assert.ok(isValidElement<{ onValueChange: (value: string) => void }>(side));
+      side.props.onValueChange("short");
+      await click("entry", "Place stop-limit order", "placeStopLimitOrder", [3n, false, price, limit, size, leverage, USDL, 2_125_001n], 2_125_001n);
+      await click("position", "Partially close position", "partialClose", [4n, 12n * unit + unit / 4n]);
+      await click("position", "Place take-profit order", "placeTakeProfitOrder", [4n, 70_000n * unit + unit / 2n]);
+      await click("position", "Place stop-loss order", "placeStopLossOrder", [4n, 60_000n * unit + 3n * unit / 4n]);
+      await click("position", "Set position TP/SL", "setPositionTpSl", [4n, 70_000n * unit + unit / 2n, 60_000n * unit + 3n * unit / 4n]);
+      await click("position", "Add collateral", "addCollateral", [4n, 1_500_001n], 1_500_001n);
+      await click("position", "Remove collateral", "removeCollateral", [4n, 1_500_001n]);
+      allowance = 2_125_001n;
+      inputs = baseInputs;
+      await click("entry", "Place limit order", "placeLimitOrder", [3n, true, price, size, leverage, USDL, allowance], allowance);
+      assert.deepEqual(called, ["placeLimitOrder", "placeStopLimitOrder", "partialClose", "placeTakeProfitOrder", "placeStopLossOrder", "setPositionTpSl", "addCollateral", "removeCollateral", "placeLimitOrder"]);
+
+      const invalid: readonly [keyof PerpsOrderInputs, "entry" | "position", string][] = [
+        ["market", "entry", "Place limit order"], ["triggerPrice", "entry", "Place limit order"],
+        ["size", "entry", "Place limit order"], ["leverage", "entry", "Place limit order"],
+        ["collateral", "entry", "Place limit order"], ["limitPrice", "entry", "Place stop-limit order"],
+        ["closeSize", "position", "Partially close position"], ["takeProfit", "position", "Place take-profit order"],
+        ["stopLoss", "position", "Place stop-loss order"], ["takeProfit", "position", "Set position TP/SL"],
+        ["stopLoss", "position", "Set position TP/SL"], ["positionCollateral", "position", "Add collateral"],
+        ["positionCollateral", "position", "Remove collateral"],
+      ];
+      const requestCount = requests.length;
+      for (const [key, mode, label] of invalid) {
+        for (const value of ["", "bad", "-1", "0", "0.0000000000000000001", (1n << 256n).toString()]) {
+          inputs = { ...baseInputs, orderType: label === "Place stop-limit order" ? "stop-limit" : "limit", [key]: value };
+          const control = button(mode, label);
+          assert.equal(control.disabled, true, `${key} accepted ${value}`);
+          assert.ok(control.disabledReason);
+          control.onClick();
+        }
+      }
+      inputs = baseInputs;
+      positionId = "";
+      for (const label of ["Partially close position", "Place take-profit order", "Place stop-loss order", "Set position TP/SL", "Add collateral", "Remove collateral"]) {
+        assert.equal(button("position", label).disabled, true);
+      }
+      positionId = "4";
+      walletReason = "Connect a wallet first.";
+      const disconnected = button("entry", "Place limit order");
+      assert.equal(disconnected.disabled, true);
+      disconnected.onClick();
+      assert.equal(requests.length, requestCount, "invalid inputs must not send");
+    }, receipts);
+
+    const marketOpen = client.perpsMarketPositionCall(3n, collateral, 2_125_001n, leverage, true);
+    assert.ok(isHex(marketOpen.data));
+    const decodedMarketOpen = decodeFunctionData({ abi: chainAbi, data: marketOpen.data });
+    assert.equal(decodedMarketOpen.functionName, "openPosition");
+    assert.deepEqual(decodedMarketOpen.args?.map((arg) => typeof arg === "string" ? arg.toLowerCase() : arg),
+      [3n, collateral.token, 2_125_001n, leverage, true]);
+    const cancel = client.perpsOrderCancelCall(9n);
+    assert.ok(isHex(cancel.data));
+    assert.deepEqual(decodeFunctionData({ abi: chainAbi, data: cancel.data }), {
+      functionName: "cancelOrder", args: [9n],
+    });
+    for (const call of [
+      sdk.perpsDepositCall(USDL, 1n), sdk.perpsWithdrawCall(USDL, 1n), sdk.perpsClosePositionCall(4n),
+      marketOpen, cancel,
+    ]) sentSelectors.add(call.data.slice(0, 10));
+    const policy = JSON.parse(readFileSync(new URL("../../../services/wallet/deploy/attestor-policy.json", import.meta.url), "utf8")) as {
+      defaults: { selectors: Record<string, string[]> };
+    };
+    const allowed = policy.defaults.selectors[PERPS];
+    assert.ok(allowed !== undefined);
+    for (const selector of sentSelectors) assert.ok(allowed.includes(selector), `page selector ${selector} is absent from the attestor policy`);
+  } finally {
+    wallet.chooseWalletFee("paxeer", "");
+    delete (globalThis as { window?: unknown }).window;
+  }
+}
+
+Object.defineProperty(the_order_panels_send_limit_stop_limit_TP_SL_partial_close_and_collateral_writes, "name", {
+  value: "the order panels send limit, stop-limit, TP/SL, partial close and collateral writes",
+});
+test(the_order_panels_send_limit_stop_limit_TP_SL_partial_close_and_collateral_writes);

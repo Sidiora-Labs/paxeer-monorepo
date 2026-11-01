@@ -12746,3 +12746,43 @@ fix = "a documentation or shell-only check keeps symbols empty or names real she
 title = "Renaming a probe without porting the fixture that serves it"
 symptom = "the wallet live check switched its account probe to px_getAccount while the bash fixture suite kept answering lx_getAccount, so the suite failed with Method not found for every case and the next task touching it inherited a red gate"
 fix = "a task that renames a request method lists every fixture and test double that answers it in touches and runs their suite in verify, proving the producer and consumer agree in the same change"
+
+[gotcha.2586]
+title = "Running a kernel case-table test binary without a case name"
+symptom = "A verify command runs a build/tests/kernel/codec binary with no argument; tests/codec/lxp_kernel_case.h:28 prints No case named and exits 2 although every case would pass."
+fix = "Name the case (or cases) on the command line, as the task's tests list spells them after the double colon."
+
+[gotcha.2587]
+title = "Adding a file under the generated markdown root without declaring it"
+symptom = "A task adds a handwritten test under services/agent/sdk/typescript/test/ and the drift gate of the platform generators (--check) fails for the next task as an untracked file in the generated markdown root."
+fix = "Declare every handwritten file added under the generated root in sdk/platform/pipeline.kvx [handwritten.<target>] in the same task."
+
+[gotcha.2588]
+title = "Serving a method whose kernel activity type was retired"
+symptom = "A keeper method still encodes and submits an activity the kernel no longer registers; the kernel answers LXP_ERR_UNKNOWN_ACTIVITY at run time and the test that drives the method fails far from the retirement that caused it."
+fix = "When a kernel type is retired, retire or re-point every host, keeper and precompile method that encodes it in the same decision, and assert the refusal in a test."
+
+[gotcha.2589]
+title = "Installing a standalone lockfile under the repository workspace root"
+symptom = "A package directory carries its own pnpm-lock.yaml but no workspace file; pnpm climbs to the repository root, installs the root workspace and leaves the directory without node_modules, so its type check fails on missing imports."
+fix = "Install with --ignore-workspace when the directory has a lockfile and no workspace file of its own."
+
+[gotcha.2590]
+title = "Truncating PATH to /usr/bin:/bin inside a test case"
+symptom = "A test case rebuilds PATH from a fixture bin directory plus /usr/bin:/bin; toolchains the environment installs elsewhere (python3, go, node) disappear and the script under test reports them missing."
+fix = "Prepend the fixture bin directory to the inherited PATH; hide a tool by placing a refusing stand-in in that directory instead of dropping the rest of PATH."
+
+[gotcha.2591]
+title = "Blocking inside a Playwright route handler"
+symptom = "A route handler awaits a poll or a delay before answering; every fetch of the page to that route stalls behind it and the page state never advances within the assertion timeout."
+fix = "Answer every request at once from the current state and keep the waiting in the test body."
+
+[gotcha.2592]
+title = "Running a cgo-linked Go step without building the native libraries"
+symptom = "A build step runs go test on a package that links the kernel through cgo while only the TypeScript consumer is gated; the link fails or a stale vector is read."
+fix = "Build the native libraries (make paxd-native-libs) first in the build step whenever a Go command touches a cgo package."
+
+[gotcha.2593]
+title = "Hard-coding a store name in a proof verifier"
+symptom = "A verifier names the chain store with a literal that the node never registered; the fixture tests pass because the fixture opens a store under the same literal, and the live proof fails to verify."
+fix = "Name the store through one constant shared by the verifiers and the fixture and check it against the node's registered store keys."

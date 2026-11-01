@@ -5,7 +5,7 @@
 //! EVM: native value transfers, ERC-20 `Transfer` (a registered pointer
 //! contract's transfer is labelled `pointer_transfer`), and every event a
 //! loaded precompile ABI declares; custody deposits, releases and emergency
-//! exits also become transfer legs. Cosmos: bank `transfer`, tokenfactory
+//! exits record no transfer leg. Cosmos: bank `transfer`, tokenfactory
 //! `create_denom`/`mint`/`burn`/`change_admin`, and every `layerx_*` anchor
 //! string event. Cosmos transactions that carry EVM execution are skipped
 //! there because the EVM walk already indexed them.
