@@ -15403,3 +15403,83 @@ symbol = "uncovered"
 observed = "Attempt 2 (8aeb2ac23) reported 136 stale acceptance selectors; read against main they fall into five classes: 76 dotted unittest names (Class.method) whose class and method both exist in the file, 4 ExUnit and vitest titles composed of a describe title and a test title, 15 document checks whose path is a Markdown file, Dockerfile or README and whose label after :: names a check rather than a test, 14 acceptances whose owning tasks (the tasks whose reqs carry the acceptance req) are still pending, and 27 named tests absent from an existing file at that revision although their owning tasks are done: their verify commands selected the test by name (go test -run, cargo test -- --exact, swift test --filter, node --test-name-pattern, vitest -t) and every one of those runners exits 0 when nothing matches or when one alternative of the pattern matches, so 2.3.4, 2.6.4, 2.11.4, 5.5.6, 5.41.3, 18.814.1, 8.11.3, 8.13.1, 8.16.2, 8.41.4, 8.44.4, 18.1264.1, 9.0.1, 10.7.1, 9.34.2, 18.800.1, 18.804.1 and 16.9.4 passed with the named test absent. One of the 27 (8.274.1, reference_ramp_refuses_retired_paxeer_rpc_fields) has since been written on main. Six of them contradict the tree rather than lack a test: 13.264.2 names a revert that 13.25.2 do_7 ruled idempotent, 9.52.2 names the pay precompile 0x101B that 18.1240.1 moved to layerxledger 0x101A, 9.1.2 maps a Level type that no longer exists in layerx-agent-api, 18.974.1 names checkpoint_evidence_level_follows_the_finality_rung where the file has the rung spelling, 18.1043.1 names rpc/http_ws_parity_test.go where the test lives in core/deps/geth/rpc/deny_list_batch_test.go, and 5.483.1 asserts the anchor store key is unmounted while 5.7.5 keeps it mounted until the v7.0 plan deletes it."
 assumption = "Decision 2194 fixes the selector grammar and the planned-owner rule the check applies, decision 2195 corrects the six selectors to the implemented behaviour, and eight tasks write the 20 absent tests with verify commands that fail on an unmatched selector; 17.4.5 requires them."
 severity = "major"
+
+[finding.17.5.12.1]
+task = "17.5.12"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "verify_cmd"
+observed = "Attempts 1 (1f1790812) and 2 (0a93e54b1) built the SDK and passed both Makefile tests, then the verify command failed before the web build: its node -e expression was written with single quotes inside a single-quoted argument, so the shell passed require.resolve(@sidiora/layerx-sdk/browser, ...) unquoted and node reported SyntaxError: Invalid or unexpected token."
+assumption = "The spec is corrected to a double-quoted node -e argument; the implementation of attempt 2 is complete and is re-qualified unchanged."
+severity = "minor"
+
+[finding.14.0.6.3]
+task = "14.0.6"
+file = "services/human/crates/layerx-human-service/tests/retired_crypto_codec_w3.rs:1"
+symbol = "no_retired_layerx_crypto_codec_paths_w3"
+observed = "Attempt 4 (13d318972) ported intent_submit.rs and then failed the build gate on another test target: retired_crypto_codec_w3.rs (written by 10.98.9) reads tests/binding.rs with #[path] and include_str!, and task 10.9.1 (2772a218f) deleted tests/binding.rs, so cargo build --tests of layerx-human-service fails on main for every task that builds the crate's tests."
+assumption = "The test's only subject is gone; 14.0.6 deletes the test target and acceptance 10.949.1 records the deletion as its check."
+severity = "major"
+
+[finding.9.25.3.2]
+task = "9.25.3"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs:422"
+symbol = "simulate"
+observed = "Attempt 3 (fc7dd9382) applied decision 2193 and still failed the dependent-crate check with 68 errors in layerx-agentd; attempt 4 (effaec3e6) stopped at the same list. Beyond the accessors decision 2193 maps, the retained paths call Client methods with no SequencerEndpoint counterpart: ops/program.rs simulate (:422, through raw_program_simulation over layerx_client::lni::Simulation), program_state_bundle (:1055) and submit_signed (:1220 and :1294, five arguments); human_runtime.rs authenticated_native_policy_usage (:14148) and authenticated_policy_usage (:14421) read sequence-addressed history through a seven-argument history() whose items carry global_sequence, kind, canonical_bytes and proof_material from layerx_client::read::{HistoryKind, HistoryProof}, while SequencerEndpoint::history(account, cursor, limit) returns px_getHistory pages of JSON items with next_cursor; and :14530 dereferences a [u8; 32]."
+assumption = "Decision 2196 rules the program transports and the policy-usage reads Unavailable in this task and hands their EVM ports to tasks 9.25.4 and 9.25.5; the verify command pins its pass to at least one test."
+severity = "major"
+
+[finding.10.6.1.3]
+task = "10.6.1"
+file = "precompiles/bank/bank.go:306"
+symbol = "pointerSend"
+observed = "Attempt 6 (c12d43f86) planned two bank legs, signed them with the node key, submitted them to the real node and read Receipted receipts whose execution.success was false. The four-argument send(address,address,string,uint256) the resolver builds for Relationship::BankTransfer (services/human/crates/layerx-human-service/src/journeys/resolver.rs:858-883) is served by precompiles/bank/bank.go:228 through pointerSend (:306-316), which refuses every caller except the denom's ERC20 native pointer (GetERC20NativePointer); a wallet-signed transaction is never that caller, so the bank transfer shape that 10.6.2 asserts in send_routes.rs cannot execute on the chain."
+assumption = "Decision 2197 routes wallet bank transfers through the denom's ERC20 native pointer; task 10.6.4 ports the resolver and bind_call and 10.6.1 requires it."
+severity = "major"
+
+[finding.1.12.4.2]
+task = "1.12.4"
+file = "modules/layerxledger/keeper/pause_test.go:237"
+symbol = "GetPayerGrant"
+observed = "984636931 deleted Keeper.GetPayerGrant (views.go) and Host.ReadPayerGrant (modules/lxphost/read.go) with the retired kernel grant store, but the ledger keeper test package still reads them at draw_test.go:78, :111 and :146, grants_test.go:117, :139, :144, :159, :169, :190 and :204, pause_test.go:237, retire_test.go:190 and views_test.go:177, :179, :184, :203 and :219; the task's build gate was go build, which skips _test.go files, so go vet and go test of modules/layerxledger/keeper have failed on main since then and 2.90.1 attempt 1 (94b92ebe6) failed in its build gate on pause_test.go:237."
+assumption = "No grant state read survives, so task 1.12.5 ports the five test files to prove grant effects through the ledger behaviour (draw results, result codes and balances) and 2.90.1 requires it."
+severity = "major"
+
+[finding.8.41.4.1]
+task = "8.41.4"
+file = "sdk/platform/go/http.go:356"
+symbol = "agentEnvelopeVersion"
+observed = "Acceptances 8.484.1 and 8.484.2 demand an envelope version 2 and a version-1 refusal, but the daemon serves version 1 (v1.kvx:113-115, decision 901), 18.1230.1 (e177601db) set agentEnvelopeVersion back to 1 and made decodeAgentEnvelopeResponse ignore any version field; 8.90.2 attempt 1 (57e6fe12a) wrote TestAgentEnvelopeEncodesVersionTwo and it failed on the literal 1."
+assumption = "Decision 2198 corrects both acceptances to the version-1 envelope and the schema-field refusal."
+severity = "minor"
+
+[finding.8.44.4.1]
+task = "8.44.4"
+file = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift:436"
+symbol = "version"
+observed = "Acceptances 8.502.1 and 8.502.2 demand an envelope version 2 and a version-1 refusal, but Transport.swift sends version 1 since 18.1255.1 and refuses responses by their schema fields; 8.90.3 attempt 1 (b3f38bbd7) wrote testAgentEnvelopeEncodesVersionTwo and it failed on the integer 1 while the existing testAgentEnvelopeEncodesVersionOne already proves the served version."
+assumption = "Decision 2198 corrects both acceptances to the version-1 envelope and the schema-field refusal."
+severity = "minor"
+
+[finding.9.34.2.1]
+task = "9.34.2"
+file = "services/agent/sdk/typescript/test/receipt-fixture.test.ts:1"
+symbol = "verifyReceipt"
+observed = "Acceptance 9.372.1 names verifyReceipt and a Rung.Submitted result, but 9.97.8 (9192a4c02) deleted verifyReceipt with the kernel receipt stack and receipt-fixture.test.ts covers the native program call codec only; the SDK's receipt verification is verifySequencerReceipt under pinned keys, proven by sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key; 9.90.2 attempt 1 (04fe64eb6) failed in the SDK build on the missing export."
+assumption = "Decision 2198 points the acceptance at the pinned-key sequencer receipt test; 9.90.2 writes no receipt test."
+severity = "minor"
+
+[finding.8.16.2.1]
+task = "8.16.2"
+file = "services/platform/hosted/indexer/src/config.rs:37"
+symbol = "Config"
+observed = "Acceptance 8.182.2 describes relay and EVM endpoints parsing into two sources, but Config carries a PaxeerSource (EVM endpoint, Comet endpoint, finality depth) and an explorer endpoint and no relay source; 8.90.1 attempt 1 (647e605ad) wrote environment_builds_both_sources reading config.relay and the test build failed with E0609."
+assumption = "Decision 2198 points the acceptance at the existing environment_builds_evm_and_comet_sources (config.rs:445), which parses the EVM and Comet endpoints with a 30 second window into the Paxeer source at finality depth 0."
+severity = "minor"
+
+[finding.16.9.4.4]
+task = "16.9.4"
+file = "tools/paxeer-x/retired_callers.json:73"
+symbol = "guarantor-runtime"
+observed = "Acceptance 16.44.1 runs the scanner with --deleted for the catalogue's deleted trees and 16.966.4 asserts the bridge credit suites are absent, but cmd/layerxd, cmd/layerx-guarantor, tests/daemon, tests/bridge/test_credit.c and tests/bridge/sign_credit.c still exist on main (their deletions are 5.50.7 at wave 42, 5.51.1 and 5.51.4 at wave 37, 5.54.9 at wave 34 and 1.19.3 at wave 46); 16.90.1 attempt 1 (0dacda199) failed both tests on the present paths."
+assumption = "16.90.1 moves to wave 47 and requires the five deletion tasks; the two acceptances stay as written."
+severity = "minor"

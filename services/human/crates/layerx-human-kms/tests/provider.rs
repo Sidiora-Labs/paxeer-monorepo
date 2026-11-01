@@ -760,6 +760,7 @@ fn construct_signing_call(
 
 #[test]
 fn canonical_signing_and_disclosure_refusals() -> Result<()> {
+    use layerx_crypto::send::{ledger_payment_call, CallOptions};
     use std::io::Write;
     let host = Host::new()?;
     let binding = [41; 32];
@@ -770,8 +771,22 @@ fn canonical_signing_and_disclosure_refusals() -> Result<()> {
         &call, wallet,
     ))?)?;
     let forged = canonical_send(public, 125, [6; 64])?;
+    let forged_activity = checked(layerx_intents::canonical::decode_unsigned_activity(
+        &forged,
+        &registry()?,
+    ))?;
     assert!(matches!(
-        layerx_crypto::disclosure::bind(&forged, &registry()?),
+        ledger_payment_call(
+            forged_activity.payload().as_bytes(),
+            &CallOptions {
+                from: wallet,
+                chain_id: call.chain_id,
+                nonce: call.nonce,
+                max_priority_fee_per_gas: call.max_priority_fee_per_gas,
+                max_fee_per_gas: call.max_fee_per_gas,
+                gas_limit: call.gas_limit,
+            },
+        ),
         Err(layerx_crypto::disclosure::DisclosureError::MalformedPayload)
     ));
     assert_eq!(
@@ -865,7 +880,11 @@ fn monetary_payloads() -> Result<Vec<layerx_types::payload::Payload>> {
 
 #[test]
 fn monetary_roles_are_bound_by_the_real_provider_before_and_after_restart() -> Result<()> {
-    use layerx_crypto::disclosure::{bind, AmountRole};
+    use layerx_crypto::authority_grant::AuthorityGrant;
+    use layerx_crypto::disclosure::call::{bind_call, encode_payment_call};
+    use layerx_crypto::disclosure::{AmountRole, DisclosedAmount};
+    use layerx_crypto::payments::Payment;
+    use layerx_types::payload::ModuleId;
     let mut host = Host::new()?;
     let binding = [71; 32];
     let (handle, public) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
@@ -877,7 +896,39 @@ fn monetary_roles_are_bound_by_the_real_provider_before_and_after_restart() -> R
         }
         for payload in &payloads {
             let canonical = unsigned_payload(public, 125, payload.clone())?;
-            let disclosure = checked(bind(&canonical, &registry()?))?;
+            let (call_bytes, mut disclosure) = construct_signing_call(&canonical)?;
+            match (
+                payload.activity_type().module(),
+                payload.activity_type().ordinal(),
+            ) {
+                (ModuleId::Asset, 1) => {
+                    let payment = checked(Payment::decode(
+                        ModuleId::Asset,
+                        1,
+                        payload.as_bytes(),
+                        b"did:layerx:alice",
+                    ))?;
+                    let mut call =
+                        layerx_human_kms::attestor::decode_unsigned_evm_transaction(&call_bytes)?;
+                    call.data = checked(encode_payment_call(&payment, b"did:layerx:alice"))?;
+                    disclosure = checked(bind_call(&call, [0x41; 20]))?;
+                }
+                (ModuleId::Governance, 8) => {
+                    let grant = checked(AuthorityGrant::from_payload(payload.as_bytes()))?;
+                    disclosure.payment = None;
+                    disclosure.authority_grant = Some(grant);
+                    disclosure.asset = grant.scope.asset;
+                    disclosure.amounts = [
+                        (AmountRole::PerDrawMaximum, grant.scope.maximum_per_activity),
+                        (AmountRole::GrantAllowance, grant.scope.maximum_total),
+                        (AmountRole::SpendingLimit, grant.scope.maximum_per_period),
+                    ]
+                    .into_iter()
+                    .map(|(role, value)| DisclosedAmount { role, value })
+                    .collect();
+                }
+                _ => return Err("unsupported monetary fixture".into()),
+            }
             let roles: Vec<_> = disclosure
                 .amounts
                 .iter()
@@ -1097,13 +1148,23 @@ fn export_signing_frame(
     handle: &[u8],
     public: [u8; 32],
 ) -> Result<(Vec<u8>, [u8; 32])> {
+    use layerx_crypto::disclosure::call::{bind_call, encode_payment_call};
+    use layerx_crypto::payments::Payment;
     let payload = monetary_payloads()?
         .into_iter()
         .next()
         .ok_or("missing payload")?;
+    let payment = checked(Payment::decode(
+        payload.activity_type().module(),
+        payload.activity_type().ordinal(),
+        payload.as_bytes(),
+        b"did:layerx:alice",
+    ))?;
     let canonical = unsigned_payload(public, 125, payload)?;
-    let _disclosure = checked(layerx_crypto::disclosure::bind(&canonical, &registry()?))?;
     let (canonical, disclosure) = construct_signing_call(&canonical)?;
+    let mut payment_call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(&canonical)?;
+    payment_call.data = checked(encode_payment_call(&payment, b"did:layerx:alice"))?;
+    let _disclosure = checked(bind_call(&payment_call, [0x41; 20]))?;
     evm_signing_request(
         binding,
         handle,
@@ -1577,7 +1638,6 @@ fn refuse_cross_scope(
 #[test]
 fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() -> Result<()> {
     use layerx_crypto::authority_grant::{AuthorityGrant, NativeFeeBudget};
-    use layerx_crypto::disclosure::bind;
     use layerx_types::ids::Did;
     use layerx_types::payload::{ActivityType, ModuleId, Payload};
     let mut host = Host::new()?;
@@ -1595,8 +1655,10 @@ fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() 
         checked(ActivityType::new(ModuleId::Governance, 8))?,
         &checked(grant.payload())?,
     ))?;
+    let grant = checked(AuthorityGrant::from_payload(payload.as_bytes()))?;
     let canonical = unsigned_payload(public, 125, payload)?;
-    let disclosure = checked(bind(&canonical, &registry()?))?;
+    let (_, mut disclosure) = construct_signing_call(&canonical)?;
+    disclosure.authority_grant = Some(grant);
     let mutations: &[fn(&mut NativeFeeBudget)] = &[
         |fee| fee.asset[0] ^= 1,
         |fee| fee.maximum_per_activity -= 1,
@@ -1672,7 +1734,8 @@ fn owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart() 
 
 #[test]
 fn session_registration_and_replacement_disclosures_survive_provider_restart() -> Result<()> {
-    use layerx_crypto::disclosure::bind;
+    use layerx_crypto::disclosure::{DisclosedSessionGrant, DisclosedSessionReplacement};
+    use layerx_crypto::session::decode_session_key;
     let mut host = Host::new()?;
     let binding = [74; 32];
     let (handle, public) = facts(&host.call(&request(1, binding, &[], None)?)?)?;
@@ -1687,20 +1750,35 @@ fn session_registration_and_replacement_disclosures_survive_provider_restart() -
         }
         for version in 1..=4 {
             let issued = session_disclosure_grant(version, grantor)?;
+            let expiry_sequence = 9000;
+            let action_key = [4; 32];
+            let replacement = (version == 4).then_some(DisclosedSessionReplacement {
+                predecessor_grant_id: [5; 32],
+                expected_charge_state: [6; 32],
+            });
             let mut grant = checked(layerx_intents::SessionGrant::new(
-                issued.registration_payload,
-                9000,
-                [4; 32],
+                issued.registration_payload.clone(),
+                expiry_sequence,
+                action_key,
             ))?;
-            if version == 4 {
-                grant = checked(grant.replacing([5; 32], [6; 32]))?;
+            if let Some(replacement) = replacement {
+                grant = checked(grant.replacing(
+                    replacement.predecessor_grant_id,
+                    replacement.expected_charge_state,
+                ))?;
             }
             let compiled = checked(layerx_intents::compile(
                 &layerx_intents::Intent::v3(layerx_intents::IntentKind::SessionGrant(grant)),
                 &registry()?,
             ))?;
             let canonical = unsigned_payload(public, 125, compiled.payload().clone())?;
-            let disclosure = checked(bind(&canonical, &registry()?))?;
+            let (_, mut disclosure) = construct_signing_call(&canonical)?;
+            disclosure.session_grant = Some(DisclosedSessionGrant {
+                grant: checked(decode_session_key(&issued.registration_payload))?,
+                expiry_sequence,
+                action_key,
+                replacement,
+            });
             let encoded = encoded_disclosure(&disclosure)?;
             assert_eq!(encoded[0], 3);
             let (canonical, call_disclosure) = construct_signing_call(&canonical)?;
