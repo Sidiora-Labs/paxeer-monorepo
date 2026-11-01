@@ -1175,7 +1175,7 @@ impl MoveJourney {
             JourneyState::GettingReady => MoveStage::Committed,
             JourneyState::Sending | JourneyState::Processing => MoveStage::Moving,
             JourneyState::StillChecking => MoveStage::StillChecking,
-            JourneyState::Done => MoveStage::Done,
+            JourneyState::Done | JourneyState::Closed => MoveStage::Done,
             JourneyState::Refused => MoveStage::Refused,
         };
         let refusal = if stage == MoveStage::Refused {
@@ -1252,6 +1252,7 @@ fn engine_plan(plan: &MovePlan) -> Result<JourneyPlan, MoveJourneyError> {
                 execution.action_key,
                 execution.actor.clone(),
                 execution.authority.clone(),
+                execution.pending_nonce,
                 execution.pending_nonce,
                 execution.not_before,
                 execution.not_after,

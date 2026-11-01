@@ -14,6 +14,7 @@ use layerx_agent_api::prepare::{
 use layerx_agent_api::submit::{SignatureBytes, SubmitRequest};
 use layerx_agent_api::track::{SubmissionRef, TrackRequest, TrackedSubmission};
 use layerx_agent_api::{Amount, Sequence, TimestampSeconds};
+use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_crypto::disclosure::Disclosure;
 use layerx_intents::{compile, CompileError, DisclosureCheck, DisclosureCheckError, Intent};
 use layerx_proof::receipt::{verify_outcome, AuthorizedBatch, VerificationFailure};
@@ -50,6 +51,7 @@ pub struct JourneyLeg {
     actor: AgentDid,
     authority: AuthorityRef,
     account_sequence: u64,
+    pending_nonce: u64,
     not_before: u64,
     not_after: u64,
     fee_limit: u128,
@@ -70,6 +72,7 @@ impl JourneyLeg {
         actor: AgentDid,
         authority: AuthorityRef,
         account_sequence: u64,
+        pending_nonce: u64,
         not_before: u64,
         not_after: u64,
         fee_limit: u128,
@@ -87,6 +90,7 @@ impl JourneyLeg {
             actor,
             authority,
             account_sequence,
+            pending_nonce,
             not_before,
             not_after,
             fee_limit,
@@ -100,10 +104,6 @@ impl JourneyLeg {
 #[serde(rename_all = "kebab-case")]
 pub enum JourneyKind {
     Onboarding,
-    WalletBinding,
-    Deposit,
-    Withdraw,
-    Exit,
     Move,
     AgentCreate,
     AgentFund,
@@ -115,10 +115,6 @@ impl JourneyKind {
     const fn code(self) -> u8 {
         match self {
             Self::Onboarding => 1,
-            Self::WalletBinding => 2,
-            Self::Deposit => 3,
-            Self::Withdraw => 4,
-            Self::Exit => 5,
             Self::Move => 6,
             Self::AgentCreate => 7,
             Self::AgentFund => 8,
@@ -126,6 +122,22 @@ impl JourneyKind {
             Self::AgentRetire => 10,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+enum RetiredJourneyKind {
+    WalletBinding,
+    Deposit,
+    Withdraw,
+    Exit,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(untagged)]
+enum StoredJourneyKind {
+    Active(JourneyKind),
+    Retired(RetiredJourneyKind),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -183,6 +195,7 @@ pub struct AgentPreparation {
     pub actor: AgentDid,
     pub authority: AuthorityRef,
     pub account_sequence: u64,
+    pub pending_nonce: u64,
     pub not_before: u64,
     pub not_after: u64,
     pub fee_limit: u128,
@@ -234,6 +247,9 @@ pub struct ReceiptMaterial {
     pub receipt_hash: [u8; 32],
     pub block_height: u64,
     pub rung: Rung,
+    pub signed_receipt: Vec<u8>,
+    pub receipt_key: ReceiptKeyEntry,
+    pub inclusion_height: u64,
 }
 
 /// Receipt evidence retained by a completed journey leg. This exposes only
@@ -246,6 +262,12 @@ pub struct VerifiedLegEvidence {
     pub canonical_receipt: Vec<u8>,
     pub receipt_digest: [u8; 32],
     pub authorised_batch: AuthorizedBatch,
+    pub tx_hash: [u8; 32],
+    pub block_height: u64,
+    pub rung: Rung,
+    pub signed_receipt: Vec<u8>,
+    pub receipt_key: ReceiptKeyEntry,
+    pub inclusion_height: u64,
 }
 
 /// Result of the receipt-only resolution operation.
@@ -366,6 +388,7 @@ pub enum JourneyState {
     StillChecking,
     Done,
     Refused,
+    Closed,
 }
 
 /// Public receipt-backed journey status.
@@ -472,6 +495,8 @@ struct StoredPreparation {
     actor: String,
     authority: String,
     account_sequence: u64,
+    #[serde(default)]
+    pending_nonce: Option<u64>,
     not_before: u64,
     not_after: u64,
     fee_limit: u128,
@@ -539,7 +564,55 @@ struct LegRecord {
     receipt_digest: Option<[u8; 32]>,
     #[serde(default)]
     receipt_authority: Option<StoredAuthorizedBatch>,
+    #[serde(default)]
+    rung_evidence: Option<StoredRungEvidence>,
     refusal_code: Option<i32>,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+struct StoredRungEvidence {
+    tx_hash: [u8; 32],
+    block_height: u64,
+    rung: u8,
+    signed_receipt: Vec<u8>,
+    key_id: [u8; 32],
+    public_key: [u8; 32],
+    first_height: u64,
+    last_height: u64,
+    inclusion_height: u64,
+}
+
+impl StoredRungEvidence {
+    fn from_material(material: &ReceiptMaterial) -> Self {
+        Self {
+            tx_hash: material.tx_hash,
+            block_height: material.block_height,
+            rung: material.rung.wire_rank(),
+            signed_receipt: material.signed_receipt.clone(),
+            key_id: material.receipt_key.key_id,
+            public_key: material.receipt_key.public_key,
+            first_height: material.receipt_key.first_height,
+            last_height: material.receipt_key.last_height,
+            inclusion_height: material.inclusion_height,
+        }
+    }
+
+    fn key(&self) -> ReceiptKeyEntry {
+        ReceiptKeyEntry {
+            key_id: self.key_id,
+            public_key: self.public_key,
+            first_height: self.first_height,
+            last_height: self.last_height,
+        }
+    }
+
+    fn rung(&self) -> Result<Rung, JourneyError> {
+        match self.rung {
+            1 => Ok(Rung::Receipted),
+            2 => Ok(Rung::Committed),
+            _ => Err(JourneyError::Corrupt("invalid verified receipt rung")),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -583,7 +656,7 @@ struct TransitionRecord {
 struct JourneyRecord {
     version: u8,
     journey_id: String,
-    kind: JourneyKind,
+    kind: StoredJourneyKind,
     idempotency_key: [u8; 32],
     plan_digest: [u8; 32],
     custody_key: String,
@@ -751,7 +824,8 @@ impl JourneyEngine {
         }
         if let Some(existing) = scope.get(Table::Journeys, &row) {
             let record = decode_record(existing.bytes())?;
-            if record.version != version
+            if record.kind != StoredJourneyKind::Active(plan.kind)
+                || record.version != version
                 || record.plan_digest != plan_digest
                 || record.journey_id != plan.journey_id.as_str()
             {
@@ -770,7 +844,7 @@ impl JourneyEngine {
         let record = JourneyRecord {
             version,
             journey_id: plan.journey_id.as_str().to_owned(),
-            kind: plan.kind,
+            kind: StoredJourneyKind::Active(plan.kind),
             idempotency_key: plan.idempotency_key,
             plan_digest,
             custody_key: plan.custody_key.as_str().to_owned(),
@@ -860,8 +934,21 @@ impl JourneyEngine {
     }
 
     #[must_use]
-    pub const fn kind(&self) -> JourneyKind {
-        self.record.kind
+    pub fn kind(&self) -> Option<JourneyKind> {
+        match self.record.kind {
+            StoredJourneyKind::Active(kind) => Some(kind),
+            StoredJourneyKind::Retired(_) => None,
+        }
+    }
+
+    pub fn historical_kind(&self) -> Option<&'static str> {
+        match self.record.kind {
+            StoredJourneyKind::Active(_) => None,
+            StoredJourneyKind::Retired(RetiredJourneyKind::WalletBinding) => Some("wallet-binding"),
+            StoredJourneyKind::Retired(RetiredJourneyKind::Deposit) => Some("deposit"),
+            StoredJourneyKind::Retired(RetiredJourneyKind::Withdraw) => Some("withdraw"),
+            StoredJourneyKind::Retired(RetiredJourneyKind::Exit) => Some("exit"),
+        }
     }
 
     /// Advances at most one durable phase. Every external call is preceded by
@@ -1402,7 +1489,17 @@ impl JourneyEngine {
         if leg.phase != JourneyPhase::ReceiptVerified {
             return Ok(None);
         }
+        let evidence = leg
+            .rung_evidence
+            .as_ref()
+            .ok_or(JourneyError::Corrupt("verified leg has no rung evidence"))?;
         Ok(Some(VerifiedLegEvidence {
+            tx_hash: evidence.tx_hash,
+            block_height: evidence.block_height,
+            rung: evidence.rung()?,
+            signed_receipt: evidence.signed_receipt.clone(),
+            receipt_key: evidence.key(),
+            inclusion_height: evidence.inclusion_height,
             action_key: leg.action_key,
             activity_id: leg
                 .activity_id
@@ -1449,6 +1546,9 @@ impl JourneyEngine {
     }
 
     fn state(&self) -> JourneyState {
+        if matches!(self.record.kind, StoredJourneyKind::Retired(_)) {
+            return JourneyState::Closed;
+        }
         if self
             .record
             .legs
@@ -1478,7 +1578,10 @@ impl JourneyEngine {
     }
 
     fn terminal(&self) -> bool {
-        matches!(self.state(), JourneyState::Done | JourneyState::Refused)
+        matches!(
+            self.state(),
+            JourneyState::Done | JourneyState::Refused | JourneyState::Closed
+        )
     }
 
     fn prepare_call(
@@ -1552,6 +1655,7 @@ impl JourneyEngine {
             || prepared.actor.as_str() != leg.preparation.actor
             || prepared.authority.as_str() != leg.preparation.authority
             || prepared.account_sequence != leg.preparation.account_sequence
+            || Some(prepared.pending_nonce) != leg.preparation.pending_nonce
             || prepared.not_before != leg.preparation.not_before
             || prepared.not_after != leg.preparation.not_after
             || prepared.fee_limit != leg.preparation.fee_limit
@@ -1576,7 +1680,9 @@ impl JourneyEngine {
             &transaction,
             ActivityType::from_u32(leg.activity_type)?,
             &leg.payload,
-            leg.preparation.account_sequence,
+            leg.preparation
+                .pending_nonce
+                .ok_or(JourneyError::PreparationMismatch)?,
             leg.preparation.fee_limit,
         )
         .map_err(|_| JourneyError::PreparationMismatch)?;
@@ -1660,6 +1766,28 @@ impl JourneyEngine {
         if material.tx_hash != expected_activity_id
             || material.receipt_hash != <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
             || material.rung < Rung::Receipted
+            || material.signed_receipt != material.canonical_bytes
+            || material.inclusion_height == 0
+            || material.inclusion_height != material.block_height
+            || material.receipt_key.key_id == [0; 32]
+            || material.receipt_key.public_key == [0; 32]
+            || material.receipt_key.public_key != material.authorised_batch.sequencer_public_key()
+        {
+            return Err(JourneyError::ReceiptMismatch);
+        }
+        let key = layerx_proof::inclusion::SequencerAuthorization::new(
+            material.receipt_key.key_id,
+            material.receipt_key.public_key,
+            material.receipt_key.first_height,
+            material.receipt_key.last_height,
+        );
+        let signed = layerx_proof::receipt::verify_sequencer_signature(
+            &material.signed_receipt,
+            &[key][..],
+        )?;
+        let protocol = signed.protocol().ok_or(JourneyError::ReceiptShape)?;
+        if protocol.batch_id()[..24] != [0; 24]
+            || protocol.batch_id()[24..] != material.inclusion_height.to_be_bytes()
         {
             return Err(JourneyError::ReceiptMismatch);
         }
@@ -1695,6 +1823,7 @@ impl JourneyEngine {
         leg.receipt_authority = Some(StoredAuthorizedBatch::from_public(
             &material.authorised_batch,
         ));
+        leg.rung_evidence = Some(StoredRungEvidence::from_material(material));
         leg.refusal_code = None;
         if now < self.record.updated_at {
             return Err(JourneyError::TimeRegressed);
@@ -1761,6 +1890,9 @@ impl JourneyEngine {
     }
 
     fn repair_events(&self, scope: &mut PrincipalScope<'_>) -> Result<(), JourneyError> {
+        if matches!(self.record.kind, StoredJourneyKind::Retired(_)) {
+            return Ok(());
+        }
         for transition in &self.record.transitions {
             let progress = JourneyProgress {
                 sequence: transition.sequence,
@@ -1840,6 +1972,7 @@ fn compile_plan(
                     actor: leg.actor.as_str().to_owned(),
                     authority: leg.authority.as_str().to_owned(),
                     account_sequence: leg.account_sequence,
+                    pending_nonce: Some(leg.pending_nonce),
                     not_before: leg.not_before,
                     not_after: leg.not_after,
                     fee_limit: leg.fee_limit,
@@ -1854,6 +1987,7 @@ fn compile_plan(
                 receipt: None,
                 receipt_digest: None,
                 receipt_authority: None,
+                rung_evidence: None,
                 refusal_code: None,
             })
         })
@@ -1879,7 +2013,7 @@ fn validate_native_send_purpose(
         || purpose.activity.activity_type()? != prepared.activity_type
         || purpose.network_id
             != u32::try_from(transaction.chain_id).map_err(|_| JourneyError::PreparationMismatch)?
-        || prepared.account_sequence != transaction.nonce
+        || prepared.pending_nonce != transaction.nonce
         || purpose.idempotency_key != prepared.idempotency_key
         || purpose.preparation_id
             != <[u8; 32]>::from(Sha256::digest(&prepared.unsigned_canonical_bytes))
@@ -1990,7 +2124,9 @@ fn validate_record(record: &JourneyRecord) -> Result<(), JourneyError> {
         if record.version == 2 {
             validate_native_record(leg)?;
         }
-        if leg.action_key == [0; 32]
+        if matches!(record.kind, StoredJourneyKind::Active(_))
+            && leg.preparation.pending_nonce.is_none()
+            || leg.action_key == [0; 32]
             || !keys.insert(leg.action_key)
             || ActivityType::from_u32(leg.activity_type).is_err()
             || leg.expected_operation == 0
@@ -2054,7 +2190,7 @@ fn plan_digest(plan: &JourneyPlan, legs: &[LegRecord]) -> [u8; 32] {
     digest.update(plan.idempotency_key);
     hash_text(&mut digest, plan.custody_key.as_str());
     hash_text(&mut digest, plan.signing_operation.label());
-    for leg in legs {
+    for (leg, input) in legs.iter().zip(&plan.legs) {
         digest.update(leg.action_key);
         digest.update(leg.activity_type.to_be_bytes());
         digest.update(leg.payload_hash);
@@ -2062,6 +2198,7 @@ fn plan_digest(plan: &JourneyPlan, legs: &[LegRecord]) -> [u8; 32] {
         hash_text(&mut digest, &leg.preparation.actor);
         hash_text(&mut digest, &leg.preparation.authority);
         digest.update(leg.preparation.account_sequence.to_be_bytes());
+        digest.update(input.pending_nonce.to_be_bytes());
         digest.update(leg.preparation.not_before.to_be_bytes());
         digest.update(leg.preparation.not_after.to_be_bytes());
         digest.update(leg.preparation.fee_limit.to_be_bytes());
@@ -2191,7 +2328,7 @@ fn put_exact(
 fn put_stream_progress(
     scope: &mut PrincipalScope<'_>,
     progress: &JourneyProgress,
-    kind: JourneyKind,
+    kind: StoredJourneyKind,
     legs: usize,
     now: u64,
 ) -> Result<(), JourneyError> {
