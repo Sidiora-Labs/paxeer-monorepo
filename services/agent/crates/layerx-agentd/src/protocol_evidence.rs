@@ -1899,23 +1899,47 @@ pub(crate) fn verified_program_record(
     signed_header: &layerx_client::evidence::SignedHeader,
     calldata: &[u8],
 ) -> Result<VerifiedStateEvidence, HumanOperationError> {
+    let height = node
+        .block_number()
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    verified_program_record_at(
+        node,
+        verifier,
+        sequencer_key,
+        authorization,
+        signed_header,
+        calldata,
+        height,
+    )
+}
+
+pub(crate) fn verified_program_record_at(
+    node: &mut SequencerEndpoint,
+    verifier: &EvidenceAuthority,
+    sequencer_key: [u8; 32],
+    authorization: SequencerAuthorization,
+    signed_header: &layerx_client::evidence::SignedHeader,
+    calldata: &[u8],
+    height: u64,
+) -> Result<VerifiedStateEvidence, HumanOperationError> {
     let (header, trusted_authorization) = verifier
         .verifier
         .authorization_for(&signed_header.canonical_bytes)
         .map_err(|_| HumanOperationError::Refused)?;
-    let height = node
+    let head_height = node
         .block_number()
         .map_err(|_| HumanOperationError::Unavailable)?;
-    if header.batch_number() != height
-        || header.last_sequence() != height
+    if height > head_height
+        || header.batch_number() != head_height
+        || header.last_sequence() != head_height
         || trusted_authorization.public_key() != sequencer_key
         || authorization.public_key() != sequencer_key
         || authorization.sequencer_id() != header.sequencer_id()
         || !(authorization.first_batch_number()..=authorization.last_batch_number())
-            .contains(&height)
+            .contains(&head_height)
         || !verifier
             .verifier
-            .accepts_handshake_key(height, sequencer_key)
+            .accepts_handshake_key(head_height, sequencer_key)
         || node
             .chain_id()
             .map_err(|_| HumanOperationError::Unavailable)?
@@ -1959,7 +1983,7 @@ pub(crate) fn verified_program_record(
     if node
         .block_number()
         .map_err(|_| HumanOperationError::Unavailable)?
-        != height
+        != head_height
         || layerx_client::rpc::evidence::checkpoint(node, height)
             .map_err(|_| HumanOperationError::Unavailable)?
             != block
