@@ -718,6 +718,42 @@ fn ledger_asset_answer() -> Vec<u8> {
     answer
 }
 
+fn full_page_bank_answer(data: &str) -> Option<Vec<u8>> {
+    for number in 0..16 {
+        let denom = format!("ufull{number:02}");
+        for (selector, answer) in [
+            (
+                "5b43bc99",
+                [
+                    abi_word(32),
+                    abi_bytes(format!("Bank Asset {number:02}").as_bytes()),
+                ]
+                .concat(),
+            ),
+            (
+                "41bb0559",
+                [
+                    abi_word(32),
+                    abi_bytes(format!("BANK{number:02}").as_bytes()),
+                ]
+                .concat(),
+            ),
+            ("3b2b3204", abi_word(6)),
+            ("6923a1fd", abi_word(1000 + number)),
+        ] {
+            let calldata = format!(
+                "0x{selector}{}{}",
+                hex(&abi_word(32)),
+                hex(&abi_bytes(denom.as_bytes()))
+            );
+            if data == calldata {
+                return Some(answer);
+            }
+        }
+    }
+    None
+}
+
 fn asset_chain_answer(call: &Value) -> internal_http::Response {
     let to = call["params"][0]["to"].as_str().unwrap();
     let data = call["params"][0]["data"].as_str().unwrap();
@@ -755,6 +791,8 @@ fn asset_chain_answer(call: &Value) -> internal_http::Response {
             Some(abi_word(6))
         } else if data == calldata("6923a1fd", b"ubank") {
             Some(vec![0xff; 32])
+        } else if let Some(answer) = full_page_bank_answer(data) {
+            Some(answer)
         } else {
             panic!("unexpected bank read: {call}");
         }
@@ -770,6 +808,78 @@ fn asset_chain_answer(call: &Value) -> internal_http::Response {
             }
         },
     )
+}
+
+#[test]
+fn px_list_assets_reads_metadata_for_every_bank_asset_of_a_full_page() {
+    use layerx_indexer::store::{AssetRow, Store};
+
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let store = Store::open_in_memory().unwrap();
+    let rows: Vec<_> = (0..16)
+        .map(|number| {
+            let denom = format!("ufull{number:02}");
+            AssetRow {
+                asset: format!("denom:{denom}"),
+                chain: "paxeer".to_owned(),
+                kind: "bank".to_owned(),
+                address: None,
+                denom: Some(denom),
+                metadata: json!({}),
+            }
+        })
+        .collect();
+    store.register_assets(&rows).unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let indexer_address = listener.local_addr().unwrap();
+    let store = Arc::new(store);
+    thread::spawn(move || layerx_indexer::api::serve(&listener, &store, None));
+    let redis = RedisProcess::start();
+    assert!(redis.store().ready());
+    let state = Arc::new(Mutex::new(ChainState::new()));
+    state.lock().unwrap().asset_reads = true;
+    let chain = ChainListener::start(tls(&redis), Arc::clone(&state));
+    let gateway = start_gateway_with_indexer(&redis, chain.port, Some(indexer_address.port()));
+
+    let answer = gateway.rpc("px_listAssets", &json!([]));
+    assert!(answer.get("error").is_none(), "{answer}");
+    assert_eq!(answer["result"]["height"], 16, "{answer}");
+    assert_eq!(answer["result"]["joined_limit"], 16, "{answer}");
+    let assets = answer["result"]["assets"].as_array().unwrap();
+    assert_eq!(assets.len(), 16, "{answer}");
+    for (number, asset) in assets.iter().enumerate() {
+        for field in ["name", "symbol", "decimals", "supply"] {
+            assert!(!asset[field].is_null(), "{field}: {asset}");
+        }
+        let denom = format!("ufull{number:02}");
+        assert_eq!(
+            asset,
+            &json!({
+                "asset_id": format!("denom:{denom}"), "denom": denom, "kind": "bank",
+                "name": format!("Bank Asset {number:02}"), "symbol": format!("BANK{number:02}"),
+                "decimals": 6, "supply": (1000 + number).to_string()
+            })
+        );
+    }
+    let calls = state.lock().unwrap().take_calls();
+    assert_eq!(
+        calls
+            .iter()
+            .filter(|call| call["method"] == "eth_blockNumber")
+            .count(),
+        1
+    );
+    let bank_calls: Vec<_> = calls
+        .iter()
+        .filter(|call| {
+            call["method"] == "eth_call"
+                && call["params"][0]["to"] == evm::address_hex(&evm::BANK_PRECOMPILE)
+        })
+        .collect();
+    assert_eq!(bank_calls.len(), 64);
+    for call in bank_calls {
+        assert_eq!(call["params"][1], LATEST_BLOCK);
+    }
 }
 
 #[test]
