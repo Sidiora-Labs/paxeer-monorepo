@@ -191419,7 +191419,7 @@ qualification = "UNRUN"
 
 [task.18.1369.1]
 title = "Issue #1369: Keep the module-retirement kernel test buildable without the retired web header"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
