@@ -117889,7 +117889,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.0.6]
 title = "Port the intent_submit test callers to the EIP-1559 start_kernel_journey form"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.3", "10.24.4", "10.6.5"]
