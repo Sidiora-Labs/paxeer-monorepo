@@ -151993,7 +151993,7 @@ do_5 = "Finding 10.1.2.2: continue from attempt 2 (4348ac32c) rebased onto main 
 
 [task.10.1.3]
 title = "Ban the retired crates in the human dependency policy script"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 33
 requires = ["10.1.2", "18.1119.1", "9.25.16"]
@@ -154605,7 +154605,7 @@ do_6 = "Finding 10.1.2.2: continue from attempt 2 (ce7bc0e51) rebased onto main 
 
 [task.10.26.3]
 title = "Delete the Paxeer client verifier re-export modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2", "10.26.7", "10.26.13", "10.26.14"]
@@ -155067,7 +155067,7 @@ do_6 = "Finding 10.1.2.2: continue from attempt 2 (f0caf6b5b) rebased onto main 
 
 [task.10.26.16]
 title = "Delete the disposable custody harness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 32
 requires = ["10.26.1", "10.25.5", "9.1.8", "18.1119.1", "18.1297.1", "9.25.16", "13.8.3", "10.99.2"]
@@ -155471,7 +155471,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.10.92.1]
 title = "Serve layerx-receipt evidence as receipt-proof v2 from evidence.get"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["10.0.1", "8.0.1", "9.1.8", "18.1119.1", "10.2.4", "10.2.8", "18.1297.1", "9.25.16", "10.20.5", "13.8.3", "10.99.2"]

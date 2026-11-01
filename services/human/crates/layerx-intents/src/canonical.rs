@@ -1,9 +1,3 @@
-pub use layerx_wire::activity::{
-    decode_signed as decode_signed_activity, decode_unsigned as decode_unsigned_activity,
-    encode_signed as signed_activity_bytes, encode_signed_envelope as signed_envelope_bytes,
-    encode_unsigned as unsigned_activity_bytes,
-    encode_unsigned_envelope as unsigned_envelope_bytes, Activity,
-};
 pub use layerx_wire::hash::{
     account_id_for_protocol, activity_id, batch_header_digest, did_id_for_protocol,
     execution_batch_id, payload_hash, payload_hash_for, program_execution_batch_id, receipt_digest,
