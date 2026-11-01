@@ -189541,7 +189541,7 @@ qualification = "UNRUN"
 
 [task.18.1313.1]
 title = "Issue #1313: Restore priority_fee as its own BlockResponse property in the shipped OpenAPI documents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
