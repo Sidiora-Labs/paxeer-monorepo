@@ -11,6 +11,7 @@ interface DeployNamesVm {
     function writeJson(string calldata json, string calldata path) external;
     function toString(address value) external pure returns (string memory);
     function toString(uint256 value) external pure returns (string memory);
+    function toString(bytes calldata value) external pure returns (string memory);
 }
 
 contract DeployNames {
@@ -46,6 +47,19 @@ contract DeployNames {
                 "}"
             ),
             "build/names-deployment.json"
+        );
+
+        (address[] memory targets, bytes[] memory payloads) = deployment.governanceSetup(deployed, yearlyPrices);
+        string memory targetsJson = "[";
+        string memory payloadsJson = "[";
+        for (uint256 i; i < targets.length; ++i) {
+            string memory separator = i == 0 ? "" : ",";
+            targetsJson = string.concat(targetsJson, separator, '"', vm.toString(targets[i]), '"');
+            payloadsJson = string.concat(payloadsJson, separator, '"', vm.toString(payloads[i]), '"');
+        }
+        vm.writeJson(
+            string.concat('{"targets":', targetsJson, '],"payloads":', payloadsJson, "]}"),
+            "build/names-governance-setup.json"
         );
     }
 }

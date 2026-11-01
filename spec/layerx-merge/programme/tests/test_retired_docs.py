@@ -31,3 +31,16 @@ def test_docs_name_no_retired_paths() -> None:
         )
         for vector in VECTORS:
             assert vector in document, f"{name}: missing sequencer vector {vector}"
+
+
+def test_no_docs_page_links_retired_relay_archive() -> None:
+    pages = sorted((ROOT / "docs/site/docs").rglob("*.md"))
+    assert pages, "no documentation pages found"
+    offending_pages = [
+        str(page.relative_to(ROOT))
+        for page in pages
+        if "relay-archive.md" in page.read_text(encoding="utf-8")
+    ]
+    assert not offending_pages, (
+        f"retired relay/archive link target remains in: {', '.join(offending_pages)}"
+    )

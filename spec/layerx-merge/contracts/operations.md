@@ -9800,7 +9800,6 @@ Contract context <code>contract_context.16.paxload-bounds</code>:
 | <code>interface.16.cli-pxx-paxeer-x-gates-0-4</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/0.4.sh:1</code> | <code>tools/paxeer-x/gates/0.4.sh :: #!/usr/bin/env bash</code> |
 | <code>interface.16.cli-pxx-paxeer-x-gates-0-5</code> | <code>cli_command</code> | <code>retire</code> | <code>tools/paxeer-x/gates/0.5.sh:1</code> | <code>tools/paxeer-x/gates/0.5.sh :: #!/usr/bin/env bash</code> |
 | <code>interface.16.cli-pxx-paxeer-x-gates-0-6</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/0.6.sh:1</code> | <code>tools/paxeer-x/gates/0.6.sh :: #!/usr/bin/env bash</code> |
-| <code>interface.16.cli-pxx-paxeer-x-gates-103-6-1</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/103.6.1.sh:1</code> | <code>tools/paxeer-x/gates/103.6.1.sh :: #!/usr/bin/env bash</code> |
 | <code>interface.16.cli-pxx-paxeer-x-gates-103-6-10</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/103.6.10.sh:1</code> | <code>tools/paxeer-x/gates/103.6.10.sh :: #!/usr/bin/env bash</code> |
 | <code>interface.16.cli-pxx-paxeer-x-gates-103-6-10-opt-build</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/103.6.10.sh:18</code> | <code>--build :: if mode not in ("--build", "--verify"):</code> |
 | <code>interface.16.cli-pxx-paxeer-x-gates-103-6-10-opt-verify</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/103.6.10.sh:18</code> | <code>--verify :: if mode not in ("--build", "--verify"):</code> |
@@ -9921,7 +9920,6 @@ Contract context <code>contract_context.16.paxload-bounds</code>:
 | <code>interface.16.cli-pxx-paxeer-x-gates-106-4-6</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/106.4.6.sh:1</code> | <code>tools/paxeer-x/gates/106.4.6.sh :: #!/usr/bin/env bash</code> |
 | <code>interface.16.cli-pxx-paxeer-x-gates-106-4-9</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/106.4.9.sh:1</code> | <code>tools/paxeer-x/gates/106.4.9.sh :: #!/usr/bin/env bash</code> |
 | <code>interface.16.cli-pxx-paxeer-x-gates-108-0-7</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/108.0.7.sh:1</code> | <code>tools/paxeer-x/gates/108.0.7.sh :: #!/usr/bin/env bash</code> |
-| <code>interface.16.cli-pxx-paxeer-x-gates-108-1-1</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/108.1.1.sh:1</code> | <code>tools/paxeer-x/gates/108.1.1.sh :: #!/usr/bin/env bash</code> |
 | <code>interface.16.cli-pxx-paxeer-x-gates-108-1-10</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/108.1.10.sh:4</code> | <code>tools/paxeer-x/gates/108.1.10.sh :: echo "usage: $0 (no arguments)" &gt;&amp;2</code> |
 | <code>interface.16.cli-pxx-paxeer-x-gates-11-2</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/11.2.sh:1</code> | <code>tools/paxeer-x/gates/11.2.sh :: #!/usr/bin/env bash</code> |
 | <code>interface.16.cli-pxx-paxeer-x-gates-11-3</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/paxeer-x/gates/11.3.sh:1</code> | <code>tools/paxeer-x/gates/11.3.sh :: #!/usr/bin/env bash</code> |
@@ -10065,7 +10063,6 @@ Contract context <code>contract_context.16.paxload-bounds</code>:
 | <code>interface.16.cli-pxx-paxeer-x-gates-0-5</code> | notes | Gate for task 0.5, dispatched by tools/paxeer-x/verify-task.sh as tools/paxeer-x/gates/&lt;task-id&gt;.sh. |
 | <code>interface.16.cli-pxx-paxeer-x-gates-0-5</code> | overridden_by | override.J77.124 |
 | <code>interface.16.cli-pxx-paxeer-x-gates-0-6</code> | notes | Gate for task 0.6, dispatched by tools/paxeer-x/verify-task.sh as tools/paxeer-x/gates/&lt;task-id&gt;.sh. |
-| <code>interface.16.cli-pxx-paxeer-x-gates-103-6-1</code> | notes | Gate for task 103.6.1, dispatched by tools/paxeer-x/verify-task.sh as tools/paxeer-x/gates/&lt;task-id&gt;.sh. |
 | <code>interface.16.cli-pxx-paxeer-x-gates-103-6-10</code> | notes | Gate for task 103.6.10, dispatched by tools/paxeer-x/verify-task.sh as tools/paxeer-x/gates/&lt;task-id&gt;.sh. |
 | <code>interface.16.cli-pxx-paxeer-x-gates-103-6-10-opt-build</code> | notes | Belongs to tools/paxeer-x/gates/103.6.10.sh. |
 | <code>interface.16.cli-pxx-paxeer-x-gates-103-6-10-opt-verify</code> | notes | Belongs to tools/paxeer-x/gates/103.6.10.sh. |
@@ -10199,7 +10196,6 @@ Contract context <code>contract_context.16.paxload-bounds</code>:
 | <code>interface.16.cli-pxx-paxeer-x-gates-106-4-9</code> | notes | Gate for task 106.4.9, dispatched by tools/paxeer-x/verify-task.sh as tools/paxeer-x/gates/&lt;task-id&gt;.sh. |
 | <code>interface.16.cli-pxx-paxeer-x-gates-108-0-7</code> | notes | References paths missing at HEAD: docs/offending.md. Gate for task 108.0.7, dispatched by tools/paxeer-x/verify-task.sh as tools/paxeer-x/gates/&lt;task-id&gt;.sh. |
 | <code>interface.16.cli-pxx-paxeer-x-gates-108-0-7</code> | overridden_by | override.J58.76 |
-| <code>interface.16.cli-pxx-paxeer-x-gates-108-1-1</code> | notes | Gate for task 108.1.1, dispatched by tools/paxeer-x/verify-task.sh as tools/paxeer-x/gates/&lt;task-id&gt;.sh. |
 | <code>interface.16.cli-pxx-paxeer-x-gates-108-1-10</code> | notes | Gate for task 108.1.10, dispatched by tools/paxeer-x/verify-task.sh as tools/paxeer-x/gates/&lt;task-id&gt;.sh. |
 | <code>interface.16.cli-pxx-paxeer-x-gates-11-2</code> | notes | Gate for task 11.2, dispatched by tools/paxeer-x/verify-task.sh as tools/paxeer-x/gates/&lt;task-id&gt;.sh. |
 | <code>interface.16.cli-pxx-paxeer-x-gates-11-3</code> | notes | Gate for task 11.3, dispatched by tools/paxeer-x/verify-task.sh as tools/paxeer-x/gates/&lt;task-id&gt;.sh. |
@@ -10629,9 +10625,6 @@ Contract context <code>contract_context.16.paxload-bounds</code>:
 | <code>interface.16.env-pxx-paxeer-x-gates-106-4-9-paxeer-x-106-4-9-bundle</code> | <code>env_var</code> | <code>stable</code> | <code>tools/paxeer-x/gates/106.4.9.sh:109</code> | <code>manifest_path = Path(os.environ["PAXEER_X_106_4_9_BUNDLE"]).resolve()</code> |
 | <code>interface.16.env-pxx-paxeer-x-gates-106-4-9-paxeer-x-committed-rpc</code> | <code>env_var</code> | <code>stable</code> | <code>tools/paxeer-x/gates/106.4.9.sh:81</code> | <code>endpoint = os.environ["PAXEER_X_COMMITTED_RPC"]</code> |
 | <code>interface.16.env-pxx-paxeer-x-gates-106-4-9-paxeer-x-mainline</code> | <code>env_var</code> | <code>stable</code> | <code>tools/paxeer-x/gates/106.4.9.sh:114</code> | <code>root, os.environ.get("PAXEER_X_MAINLINE", "refs/heads/main")</code> |
-| <code>interface.16.env-pxx-paxeer-x-gates-108-1-1-layerx-custody-artifact-manifest</code> | <code>env_var</code> | <code>stable</code> | <code>tools/paxeer-x/gates/108.1.1.sh:6</code> | <code>: "${LAYERX_CUSTODY_ARTIFACT_MANIFEST:?source-bound custody artifact manifest required}"</code> |
-| <code>interface.16.env-pxx-paxeer-x-gates-108-1-1-layerx-node-paxeer-rpc-url</code> | <code>env_var</code> | <code>stable</code> | <code>tools/paxeer-x/gates/108.1.1.sh:7</code> | <code>: "${LAYERX_NODE_PAXEER_RPC_URL:?synced loopback Paxeer RPC required for the precompile settlement case}"</code> |
-| <code>interface.16.env-pxx-paxeer-x-gates-108-1-1-paxeer-x-node-artifact-manifest</code> | <code>env_var</code> | <code>stable</code> | <code>tools/paxeer-x/gates/108.1.1.sh:5</code> | <code>: "${PAXEER_X_NODE_ARTIFACT_MANIFEST:?source-bound node artifact manifest required}"</code> |
 | <code>interface.16.env-pxx-paxeer-x-gates-108-1-10-paxeer-x-custody-governance-artifacts</code> | <code>env_var</code> | <code>stable</code> | <code>tools/paxeer-x/gates/108.1.10.sh:9</code> | <code>--manifest "${PAXEER_X_CUSTODY_GOVERNANCE_ARTIFACTS:?set the prebuilt custody governance artifact directory}/manifest.json"</code> |
 | <code>interface.16.env-pxx-paxeer-x-gates-110-8-2-paxeer-x-evidence-dir</code> | <code>env_var</code> | <code>stable</code> | <code>tools/paxeer-x/gates/110.8.2.sh:38</code> | <code>raw = os.environ.get('PAXEER_X_EVIDENCE_DIR')</code> |
 | <code>interface.16.env-pxx-paxeer-x-gates-111-6-11-paxeer-x-evidence-dir</code> | <code>env_var</code> | <code>stable</code> | <code>tools/paxeer-x/gates/111.6.11.sh:4</code> | <code>: "${PAXEER_X_EVIDENCE_DIR:?private evidence directory required}"</code> |
@@ -10879,9 +10872,6 @@ Contract context <code>contract_context.16.paxload-bounds</code>:
 | <code>interface.16.env-pxx-paxeer-x-gates-106-4-9-paxeer-x-106-4-9-bundle</code> | notes | Read by tools/paxeer-x/gates/106.4.9.sh. |
 | <code>interface.16.env-pxx-paxeer-x-gates-106-4-9-paxeer-x-committed-rpc</code> | notes | Read by tools/paxeer-x/gates/106.4.9.sh. |
 | <code>interface.16.env-pxx-paxeer-x-gates-106-4-9-paxeer-x-mainline</code> | notes | Read by tools/paxeer-x/gates/106.4.9.sh. |
-| <code>interface.16.env-pxx-paxeer-x-gates-108-1-1-layerx-custody-artifact-manifest</code> | notes | Read by tools/paxeer-x/gates/108.1.1.sh. |
-| <code>interface.16.env-pxx-paxeer-x-gates-108-1-1-layerx-node-paxeer-rpc-url</code> | notes | Read by tools/paxeer-x/gates/108.1.1.sh. |
-| <code>interface.16.env-pxx-paxeer-x-gates-108-1-1-paxeer-x-node-artifact-manifest</code> | notes | Read by tools/paxeer-x/gates/108.1.1.sh. |
 | <code>interface.16.env-pxx-paxeer-x-gates-108-1-10-paxeer-x-custody-governance-artifacts</code> | notes | Read by tools/paxeer-x/gates/108.1.10.sh. |
 | <code>interface.16.env-pxx-paxeer-x-gates-110-8-2-paxeer-x-evidence-dir</code> | notes | Read by tools/paxeer-x/gates/110.8.2.sh. |
 | <code>interface.16.env-pxx-paxeer-x-gates-111-6-11-paxeer-x-evidence-dir</code> | notes | Read by tools/paxeer-x/gates/111.6.11.sh. |
