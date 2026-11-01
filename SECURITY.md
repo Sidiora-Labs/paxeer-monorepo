@@ -24,6 +24,14 @@ The maintainers confirm receipt in the advisory, assess scope and severity, and 
 
 The [Paxeer bug bounty programme](https://www.paxeer.app/bug-bounty) rewards vulnerabilities in the in-scope code listed below, subject to the out-of-scope exclusions. One reward in USD is paid per unique vulnerability; if reports are duplicates, only the first reporter receives the reward.
 
+### Response SLAs
+
+- **Receipt acknowledgement:** Within 48 hours
+- **Initial triage & scope/severity decision:** Within 5 business days
+- **Status updates:** Provided bi-weekly while remediation is in progress
+- **Resolution & coordinated disclosure:** Target remediation timelines depend on severity (Critical: 7 days, High: 14 days, Medium: 30 days, Low: 60 days)
+- **Escalation path:** If a response target is missed, you may escalate by emailing <security@paxeer.app> with the reference to your original advisory or report.
+
 - Critical: $10,000-$50,000 — could move or destroy funds, or change what the network considers final
 - High: $5,000-$10,000 — a serious security or stability weakness that does not by itself lose funds
 - Medium: $1,000-$5,000 — limited impact, or exploitable only under specific conditions
