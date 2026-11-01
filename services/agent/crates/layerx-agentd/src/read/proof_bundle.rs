@@ -2,7 +2,6 @@ use layerx_agent_api::error::{ApiError, ErrorClass, ReasonCode, RequestId, Retri
 use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
 use layerx_agent_api::read::VerifiedRead;
 use layerx_agent_api::verify::Rung;
-use layerx_client::Client;
 use layerx_types::payload::ModuleRegistry;
 
 use layerx_agent_api::proof::MAX_PROOF_BUNDLE_BYTES;
@@ -24,7 +23,7 @@ pub(crate) struct ProofBundleScope<'a> {
 }
 
 pub(crate) fn acquire(
-    node: &mut Client,
+    node: &mut SequencerEndpoint,
     registry: &ModuleRegistry,
     target: ProofBundleTarget,
     requested: Rung,
@@ -63,16 +62,35 @@ pub(crate) fn acquire(
     {
         return Err(refuse(ErrorClass::PolicyRefusal, "read.target_mismatch"));
     }
-    let bundle = node
-        .proof_bundle(
-            layerx_client::evidence::ProofBundleSelector::Receipt(target.activity_id()),
-            scope.correlation,
-            registry,
+    let keys = node
+        .receipt_keys()
+        .map_err(|_| refuse(ErrorClass::VerificationFailure, "read.invalid_proof"))?;
+    let layerx_client::rpc::receipt::Lookup::Verified(receipt) =
+        layerx_client::rpc::receipt::lookup_authenticated(
+            node,
+            target.activity_id(),
+            layerx_client::rpc::receipt::LookupContext {
+                receipt_keys: &keys,
+            },
         )
+        .map_err(|_| refuse(ErrorClass::VerificationFailure, "read.invalid_proof"))?
+    else {
+        return Err(refuse(
+            ErrorClass::VerificationFailure,
+            "read.invalid_proof",
+        ));
+    };
+    if receipt.canonical_bytes() != scope.served_receipt || receipt.height() == 0 {
+        return Err(refuse(
+            ErrorClass::VerificationFailure,
+            "read.target_mismatch",
+        ));
+    }
+    let address = account_address(scope.account)
+        .map_err(|_| refuse(ErrorClass::PolicyRefusal, "read.target_mismatch"))?;
+    let bundle = layerx_client::rpc::evidence::proof_bundle(node, address, &[], receipt.height())
         .map_err(|_| refuse(ErrorClass::VerificationFailure, "read.invalid_proof"))?;
-    let header = layerx_wire::receipt::decode_batch_header(&bundle.signed_header().canonical_bytes)
-        .map_err(|_| refuse(ErrorClass::VerificationFailure, "read.invalid_proof"))?;
-    if bundle.canonical_bytes() != scope.served_receipt || header.batch_number() == 0 {
+    if bundle.landing_block.number != receipt.height() {
         return Err(refuse(
             ErrorClass::VerificationFailure,
             "read.target_mismatch",

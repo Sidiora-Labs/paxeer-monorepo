@@ -1,112 +1,37 @@
-use super::{
-    protected, Config, CORRELATION, LNI_FRAME_BYTES, MAX_LNI_CONNECTIONS, PROTOCOL_VERSION,
-};
-use layerx_client::evidence::{
-    checkpoint as read_checkpoint, CheckpointSelector, EvidenceContext, VerifiedCheckpoint,
-};
-use layerx_client::handover::SequencerHistory;
-use layerx_client::lni::schema::Version;
-use layerx_client::lni::transport::{FrameTransport, Limits};
+use super::Config;
 use layerx_platform_authority::{parse_replica_evidence, BatchEvidence, EvidenceRefusal};
 use layerx_proof::inclusion::SequencerAuthorization;
-use std::env;
-use std::path::Path;
-use std::sync::atomic::Ordering;
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
-pub(super) struct Trust {
-    history: Mutex<SequencerHistory>,
+pub(crate) struct CommittedCheckpoint {
+    pub batch_number: u64,
+    pub checkpoint_id: [u8; 32],
+    pub header_digest: [u8; 32],
+    pub last_sequence: u64,
+    pub previous_state_root: [u8; 32],
+    pub state_root: [u8; 32],
+    pub timestamp_ms: u64,
+    pub finalized_height: u64,
+    pub checkpoint_call: Vec<u8>,
 }
 
-pub(super) fn correlation(count: u64) -> Result<u64, ()> {
-    CORRELATION
-        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |value| {
-            value
-                .checked_add(count)
-                .filter(|_| value != 0 && count != 0)
-        })
-        .map_err(|_| ())
-}
-
-pub(super) fn limits(deadline: Instant) -> Result<Limits, ()> {
-    let remaining = deadline.checked_duration_since(Instant::now()).ok_or(())?;
-    if remaining.is_zero() {
-        return Err(());
-    }
-    Ok(Limits {
-        maximum_frame_bytes: LNI_FRAME_BYTES,
-        maximum_connections: MAX_LNI_CONNECTIONS,
-        maximum_streams: 1,
-        maximum_queued_bytes: LNI_FRAME_BYTES,
-        deadline: remaining,
-    })
-}
-
-impl Trust {
-    pub(super) fn load(
-        network: u32,
-        sequencer_id: [u8; 32],
-        initial_key: [u8; 32],
-    ) -> Result<Option<Self>, String> {
-        let genesis = env::var_os("LAYERX_AUTHORITY_GENESIS_TRUST");
-        let finality = env::var_os("LAYERX_AUTHORITY_HANDOVER_FINALITY");
-        match (genesis, finality) {
-            (None, None) => Ok(None),
-            (Some(genesis), Some(finality)) => Self::from_paths(
-                Path::new(&genesis),
-                Path::new(&finality),
-                network,
-                sequencer_id,
-                initial_key,
-            )
-            .map(Some)
-            .map_err(|()| "invalid protected Authority genesis or finality policy".to_owned()),
-            _ => Err(
-                "Authority genesis trust and handover finality must both be configured".to_owned(),
-            ),
-        }
-    }
-
-    fn from_paths(
-        genesis: &Path,
-        finality: &Path,
-        network: u32,
-        sequencer_id: [u8; 32],
-        initial_key: [u8; 32],
-    ) -> Result<Self, ()> {
-        let artifact = protected::read(
-            genesis,
-            u64::try_from(layerx_wire::handover::GENESIS_TRUST_MAX_BYTES).map_err(|_| ())?,
-        )?;
-        let policy_bytes = protected::read(finality, 1_048_576)?;
-        let policy =
-            layerx_client::handover::decode_finality_policy(&policy_bytes).map_err(|_| ())?;
-        if policy.protocol_version != PROTOCOL_VERSION
-            || policy.network_id != network
-            || layerx_wire::handover::sequencer_id(&initial_key).map_err(|_| ())? != sequencer_id
-        {
-            return Err(());
-        }
-        let history = SequencerHistory::from_genesis_artifact(
-            &artifact,
-            network,
-            policy.canonical_genesis_root,
-            initial_key,
-        )
-        .map_err(|_| ())?;
-        Ok(Self {
-            history: Mutex::new(history),
+impl CommittedCheckpoint {
+    pub(crate) fn binds_header(&self, canonical: &[u8]) -> bool {
+        layerx_wire::receipt::decode_batch_header(canonical).is_ok_and(|header| {
+            header.batch_number() == self.batch_number
+                && header.last_sequence() == self.last_sequence
+                && header.previous_state_root() == self.previous_state_root
+                && header.resulting_state_root() == self.state_root
+                && layerx_wire::hash::batch_header_digest(canonical)
+                    .is_ok_and(|digest| digest == self.header_digest)
         })
     }
 }
 
 pub(super) fn snapshot(
     config: &Config,
-    _target: u64,
     claimed_key: [u8; 32],
-    _deadline: Instant,
-) -> Result<Option<SequencerHistory>, ()> {
+) -> Result<Vec<SequencerAuthorization>, ()> {
     if !config
         .chain_receipts
         .pinned_keys()
@@ -118,13 +43,24 @@ pub(super) fn snapshot(
     current(config)
 }
 
-pub(super) fn current(config: &Config) -> Result<Option<SequencerHistory>, ()> {
-    SequencerHistory::from_pinned_keys(
-        config.protocol_network_id,
-        config.chain_receipts.pinned_keys(),
-    )
-    .map(Some)
-    .map_err(|_| ())
+pub(super) fn current(config: &Config) -> Result<Vec<SequencerAuthorization>, ()> {
+    let keys = config.chain_receipts.pinned_keys();
+    if config.protocol_network_id == 0 || keys.is_empty() {
+        return Err(());
+    }
+    for (index, key) in keys.iter().enumerate() {
+        if key.sequencer_id() == [0; 32]
+            || key.sequencer_id()
+                != layerx_wire::handover::sequencer_id(&key.public_key()).map_err(|_| ())?
+            || key.first_batch_number() > key.last_batch_number()
+            || keys[..index]
+                .iter()
+                .any(|prior| prior.sequencer_id() == key.sequencer_id())
+        {
+            return Err(());
+        }
+    }
+    Ok(keys.to_vec())
 }
 
 pub(super) fn replica(
@@ -132,23 +68,27 @@ pub(super) fn replica(
     receipt: &[u8],
     document: &[u8],
 ) -> Result<(BatchEvidence, SequencerAuthorization), EvidenceRefusal> {
-    let history = current(config).map_err(|()| EvidenceRefusal::SequencerKey)?;
+    let keys = current(config).map_err(|()| EvidenceRefusal::SequencerKey)?;
     let decoded =
         layerx_wire::receipt::decode(receipt).map_err(|_| EvidenceRefusal::ReceiptDecode)?;
     let receipt = decoded.protocol().ok_or(EvidenceRefusal::ReceiptShape)?;
-    let authorization = config
-        .chain_receipts
-        .pinned_keys()
+    let authorization = keys
         .iter()
         .find(|key| key.sequencer_id() == receipt.context_hash())
         .copied()
         .ok_or(EvidenceRefusal::SequencerKey)?;
     let evidence = parse_replica_evidence(document, config.replica_id, authorization.public_key())?;
-    if let Some(history) = &history {
-        history
-            .verify_header(&evidence.header, &evidence.header_signature)
-            .map_err(|_| EvidenceRefusal::SequencerKey)?;
+    let header = layerx_wire::receipt::decode_batch_header(&evidence.header)
+        .map_err(|_| EvidenceRefusal::SequencerKey)?;
+    if header.network_id() != config.protocol_network_id {
+        return Err(EvidenceRefusal::SequencerKey);
     }
+    layerx_proof::inclusion::verify_header(
+        &evidence.header,
+        &evidence.header_signature,
+        &authorization,
+    )
+    .map_err(|_| EvidenceRefusal::SequencerKey)?;
     Ok((evidence, authorization))
 }
 
@@ -157,64 +97,23 @@ pub(super) fn authorization(
     canonical: &[u8],
     signature: &[u8; 64],
 ) -> Result<SequencerAuthorization, ()> {
-    let Some(history) = current(config)? else {
-        return Ok(config.authorization);
-    };
-    let header = history
-        .verify_header(canonical, signature)
-        .map_err(|_| ())?;
-    config
-        .chain_receipts
-        .pinned_keys()
-        .iter()
-        .find(|key| key.sequencer_id() == header.header().sequencer_id())
-        .copied()
-        .ok_or(())
-}
-
-pub(super) fn checkpoint(
-    config: &Config,
-    transport: &mut dyn FrameTransport,
-    batch: u64,
-    version: Version,
-    history: Option<&SequencerHistory>,
-) -> Result<VerifiedCheckpoint, ()> {
-    let key = match history {
-        Some(history) => history
-            .authorization_for_batch(batch)
-            .map_err(|_| ())?
-            .public_key(),
-        None => config.sequencer_public_key,
-    };
-    let checkpoint = read_checkpoint(
-        transport,
-        CheckpointSelector::Batch(batch),
-        EvidenceContext {
-            interface_version: version,
-            correlation_id: correlation(1)?,
-            expected_protocol_version: PROTOCOL_VERSION,
-            expected_network_id: config.protocol_network_id,
-            handshake_sequencer_key: key,
-        },
-    )
-    .map_err(|_| ())?;
-    if let Some(history) = history {
-        let header =
-            layerx_client::batch::lookup_untrusted(transport, version, batch, correlation(1)?)
-                .map_err(|_| ())?;
-        history
-            .verify_header(header.canonical_bytes(), header.signature())
-            .map_err(|_| ())?;
-        if header.canonical_bytes() != checkpoint.canonical_header() {
-            return Err(());
-        }
+    let keys = current(config)?;
+    let header = layerx_wire::receipt::decode_batch_header(canonical).map_err(|_| ())?;
+    if header.network_id() != config.protocol_network_id {
+        return Err(());
     }
-    Ok(checkpoint)
+    let key = keys
+        .iter()
+        .find(|key| {
+            key.sequencer_id() == header.sequencer_id()
+                && (key.first_batch_number()..=key.last_batch_number())
+                    .contains(&header.batch_number())
+        })
+        .copied()
+        .ok_or(())?;
+    layerx_proof::inclusion::verify_header(canonical, signature, &key).map_err(|_| ())?;
+    Ok(key)
 }
-
-#[cfg(test)]
-#[path = "../tests/support/handover_trust.rs"]
-mod tests;
 
 pub(super) fn chain_endpoint(
     url: &str,

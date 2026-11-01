@@ -99,3 +99,32 @@ func TestCommitReturnsListenerFailure(t *testing.T) {
 		})
 	}
 }
+
+func TestCommitSurvivesPanickingListener(t *testing.T) {
+	app := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false).App
+	ctx := context.Background()
+	calls := 0
+	app.SetCommitListener(func(height int64, appHash []byte) error {
+		calls++
+		panic("commit listener failed")
+	})
+	for height := int64(1); height <= 2; height++ {
+		previousHeight := app.LastBlockHeight()
+		finalized, err := app.FinalizeBlock(ctx, &abci.RequestFinalizeBlock{
+			Header: &tmproto.Header{ChainID: "pax-test", Height: height},
+		})
+		require.NoError(t, err)
+		require.NotEmpty(t, finalized.AppHash)
+		var res *abci.ResponseCommit
+		require.NotPanics(t, func() {
+			res, err = app.Commit(ctx)
+		})
+		require.NoError(t, err)
+		require.NotNil(t, res)
+		require.Equal(t, int(height), calls)
+		require.Greater(t, app.LastBlockHeight(), previousHeight)
+		require.Equal(t, height, app.LastBlockHeight())
+		require.Equal(t, height, app.LastCommitID().Version)
+		require.Equal(t, finalized.AppHash, app.LastCommitID().Hash)
+	}
+}

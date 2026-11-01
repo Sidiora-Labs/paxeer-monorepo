@@ -63,3 +63,24 @@ def records_missing(
         for identifier, entry in index.items()
         if not (root / entry["record"]).is_file()
     )
+
+
+def unbound(spec_path: str | PathLike[str]) -> list[int | str]:
+    sections = load(spec_path)
+    decisions = sorted(
+        identifier
+        for identifier, entry in load_index().items()
+        if any(f"task.{task}" not in sections for task in entry["binds"])
+    )
+    resolutions: list[str] = []
+    for name, section in sections.items():
+        if not name.startswith("resolution.17."):
+            continue
+        targets = section.get("applies_to")
+        if not isinstance(targets, list) or not all(
+            isinstance(target, str) for target in targets
+        ):
+            raise KvxError(f"{spec_path}: [{name}] needs an applies_to string list")
+        if any(target not in sections for target in targets):
+            resolutions.append(name)
+    return [*decisions, *sorted(resolutions)]

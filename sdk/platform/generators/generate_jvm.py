@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from pathlib import Path
 
@@ -33,6 +34,7 @@ PROGRAM_CALLS = {
     ),
 }
 TRANSACTION_FIELDS = ["chainId:u64", "nonce:u64", "gas:u64", "to:utf8", "data:lowercase_hex"]
+PROGRAM_CALL_FIELDS = ["to:utf8", "data:lowercase_hex", "chainId:u64"]
 
 
 def agent_plane(repo: Path) -> Plane:
@@ -41,6 +43,66 @@ def agent_plane(repo: Path) -> Plane:
     plane.models["McpNativeWriteV1"]["preparation"] = "NativePrepareResultV1"
     plane.values["operation.prepare"] = {
         **plane.values["operation.prepare"], "response": "NativePrepareResultV1"
+    }
+    plane.models["NativeProgramCallFields"] = {"required": PROGRAM_CALL_FIELDS}
+    for model in ("NativeProgramCallRequest", "NativeProgramDeployRequest",
+                  "NativeProgramUpgradeRequest", "NativeProgramWindDownRequest"):
+        plane.models[model] = {
+            "required": ["native_call:NativeProgramCallFields", "signed_transaction:string"]
+        }
+    plane.models["ProgramSource"] = {
+        "required": ["status:string"],
+        "optional": ["source_digest:string", "environment_digest:string", "pipeline:string",
+                     "expected_code_hash:string", "reproduced_artifact_digest:string"],
+    }
+    plane.models["VerifiedProgramDiscovery"] = {
+        "required": ["program_id", "lifecycle", "version", "code_hash", "abi_version:ProgramGuestAbi",
+                     "receipt_digest", "state_root", "observed_sequence", "observed_at",
+                     "valid_through", "verification", "deployment_receipt_digest"],
+        "optional": ["discovery_public_key", "discovery_signature"],
+    }
+    plane.models["VerifiedProgramInterface"] = {
+        "required": ["program_id", "version", "code_hash", "abi_version:ProgramGuestAbi",
+                     "interface", "interface_digest", "receipt_digest", "state_root",
+                     "observed_sequence", "observed_at", "valid_through", "source:ProgramSource",
+                     "verification"],
+    }
+    return plane
+
+
+def human_plane(repo: Path) -> Plane:
+    plane = Plane("Human", sections(repo / "services/human/schema/human-api"))
+    plane.models["ErrorCode"] = {
+        **plane.models["ErrorCode"],
+        "retired_variants": string_list(plane.models["ErrorCode"].get("retired_variants"))
+            + ["operation-retired"],
+    }
+    plane.models["NotificationClass"] = {
+        **plane.models["NotificationClass"],
+        "retired_variants": string_list(plane.models["NotificationClass"].get("retired_variants"))
+            + ["security-wallet-rebinding"],
+    }
+    plane.models["IntentDomain"] = {"variants": ["paxeer"]}
+    plane.models["IntentEndpoint"] = {
+        "required": ["kind:IntentEndpointKind"],
+        "optional": ["account:string", "layerx_public_key:string", "evm_address:string",
+                     "resolution:IntentAddressResolution"],
+    }
+    plane.models["IntentAddressResolution"] = {
+        "required": PROGRAM_CALL_FIELDS + ["result:string"]
+    }
+    plane.models["IntentPayment"] = {
+        "required": ["from:string", "to:string", "assetId:string", "amount:Amount",
+                     "sequence:u64", "paymentReference:string"]
+    }
+    plane.models["IntentLeg"] = {
+        "required": string_list(plane.models["IntentLeg"]["required"])
+            + ["payment:IntentPayment"] + PROGRAM_CALL_FIELDS
+    }
+    plane.models["IntentSubmission"] = {
+        **plane.models["IntentSubmission"],
+        "required": string_list(plane.models["IntentSubmission"]["required"])
+            + ["legs:IntentLeg[]"],
     }
     return plane
 
@@ -134,6 +196,8 @@ class Plane:
             (item, True) for item in raw_optional
         ]:
             name, separator, declared = encoded.partition(":")
+            if entries.get(f"{name}.retired") == "true":
+                continue
             field_type = declared if separator else self.declared_field_type(entries, name)
             if field_type and field_type.endswith("?"):
                 field_type = field_type[:-1]
@@ -174,8 +238,17 @@ class Plane:
         if declared == "object":
             return "JsonNode"
         if declared in self.models:
-            return f"{self.name}Models.{java_name(declared)}"
+            return f"{self.name}Models.{self.model_name(declared)}"
         return "String"
+
+    def model_name(self, model: str) -> str:
+        if self.name == "Human" and model == "VerificationLevel":
+            return "HumanVerificationLevel"
+        return java_name(model)
+
+    def variants(self, entries: dict[str, object]) -> list[str]:
+        retired = set(string_list(entries.get("retired_variants")))
+        return [variant for variant in string_list(entries.get("variants")) if variant not in retired]
 
 
 def operation_specs(plane: Plane) -> list[dict[str, object]]:
@@ -241,6 +314,8 @@ def record_source(name: str, fields: list[tuple[str, str | None, bool]], plane: 
             validations.append(f"Objects.requireNonNull({field}, \"{wire}\");")
         if declared in {"Sequence", "TimestampSeconds", "u64"}:
             validations.append(f"SchemaTypes.protocolU64({field});")
+    if plane.name == "Agent" and name == "NativeProgramCallFields":
+        validations.append('if (!ProgramsClient.PROGRAMS_ADDRESS.equals(to)) throw new IllegalArgumentException("invalid program target");')
     if validations:
         if delegating:
             lines.append(f"{indent}    @JsonCreator(mode = JsonCreator.Mode.DELEGATING)")
@@ -261,18 +336,20 @@ def record_source(name: str, fields: list[tuple[str, str | None, bool]], plane: 
 def render_models(plane: Plane) -> list[str]:
     lines = [f"    public static final class {plane.name}Models {{", f"        private {plane.name}Models() {{}}"]
     for model, entries in sorted(plane.models.items()):
-        name = java_name(model)
-        variants = string_list(entries.get("variants"))
+        name = plane.model_name(model)
+        variants = plane.variants(entries)
         payload_variant = any(f"{variant}.required" in entries for variant in variants)
         if variants and not payload_variant:
-            declared_wires = entries.get("wire_values", variants)
+            declared_wires = entries.get("wire_values", string_list(entries.get("variants")))
             wire_values = string_list(declared_wires)
             if (
                 not isinstance(declared_wires, list)
                 or len(wire_values) != len(declared_wires)
-                or len(wire_values) != len(variants)
+                or len(wire_values) != len(string_list(entries.get("variants")))
             ):
                 raise SystemExit(f"{plane.name} {model}: wire_values must pair one string with each variant")
+            wire_values = [wire for variant, wire in zip(string_list(entries.get("variants")), wire_values)
+                           if variant in variants]
             if "wire_values" in entries and all(re.fullmatch(r"0|[1-9][0-9]{0,8}", wire) for wire in wire_values):
                 lines.append(f"        public enum {name} {{")
                 for index, (variant, wire) in enumerate(zip(variants, wire_values)):
@@ -323,7 +400,8 @@ def render_models(plane: Plane) -> list[str]:
     return lines
 
 
-def render_operations(plane: Plane, specs: list[dict[str, object]]) -> list[str]:
+def render_operations(plane: Plane, specs: list[dict[str, object]],
+                      transports: dict[str, tuple[str, list[str]]] | None = None) -> list[str]:
     lines = [f"    public static final class {plane.name}Operations {{", f"        private {plane.name}Operations() {{}}"]
     for spec in specs:
         request = f"{spec['name']}Request"
@@ -342,21 +420,29 @@ def render_operations(plane: Plane, specs: list[dict[str, object]]) -> list[str]
             f"{str(spec['idempotency']).lower()}, {request}.class, {response}.class);"
         )
         if plane.name == "Agent" and str(spec["wire"]).startswith("program."):
-            if spec["wire"] not in PROGRAM_CALLS:
+            if transports is None or spec["wire"] not in transports:
                 raise SystemExit(f"missing layerxprograms transport for {spec['wire']}")
+            rpc, calls = transports[spec["wire"]]
+            arguments = ", ".join(json.dumps(call) for call in calls)
             lines.append(
                 f"        public static final ProgramTransport {constant_name(spec['wire'])}_TRANSPORT = "
-                f"GeneratedContract.AGENT_OPERATIONS.transport(\"{spec['wire']}\");"
+                f'new ProgramTransport("{rpc}", "0x000000000000000000000000000000000000101d", '
+                f"List.of({arguments}));"
             )
     lines.append("    }")
     return lines
 
 
-def generate(repo: Path) -> str:
+def generate_jvm(repo: Path) -> str:
     agent = agent_plane(repo)
-    human = Plane("Human", sections(repo / "services/human/schema/human-api"))
+    human = human_plane(repo)
+    transports = program_transports(repo)
+    agent_specs, human_specs = operation_specs(agent), operation_specs(human)
+    programs = {str(spec["wire"]) for spec in agent_specs if str(spec["wire"]).startswith("program.")}
+    if programs != transports.keys():
+        raise SystemExit("program operations and layerxprograms transports differ")
     output = [
-        "// Code generated from the LayerX Agent API and Human API schemas. DO NOT EDIT.",
+        "// Code generated by sdk/platform/generators/generate_jvm.py from the LayerX API schemas. DO NOT EDIT.",
         "", "package com.sidiora.layerx.sdk;", "",
         "import com.fasterxml.jackson.annotation.JsonCreator;",
         "import com.fasterxml.jackson.annotation.JsonProperty;",
@@ -379,13 +465,18 @@ def generate(repo: Path) -> str:
         "    public static ProgramTransport programTransport(SchemaTypes.Operation operation) {",
         "        Objects.requireNonNull(operation, \"operation\");",
         "        if (operation.plane() != OperationCatalog.Plane.AGENT) throw PlatformSdkException.invalidArgument();",
-        "        return GeneratedContract.AGENT_OPERATIONS.transport(operation.wireName());",
-        "    }",
+        "        return switch (operation.wireName()) {",
     ]
+    for operation in transports:
+        output.append(f'            case "{operation}" -> AgentOperations.{constant_name(operation)}_TRANSPORT;')
+    output.extend([
+        "            default -> throw PlatformSdkException.invalidArgument();",
+        "        };",
+        "    }",
+    ])
     output.extend(render_models(agent))
     output.extend(render_models(human))
-    agent_specs, human_specs = operation_specs(agent), operation_specs(human)
-    output.extend(render_operations(agent, agent_specs))
+    output.extend(render_operations(agent, agent_specs, transports))
     output.extend(render_operations(human, human_specs))
     output.append("    public static final Map<String, SchemaTypes.TypedOperation<?, ?>> AGENT = Map.ofEntries(")
     for index, spec in enumerate(agent_specs):
@@ -401,51 +492,23 @@ def generate(repo: Path) -> str:
 
 def generate_contract(repo: Path) -> str:
     agent = agent_plane(repo)
-    human = Plane("Human", sections(repo / "services/human/schema/human-api"))
+    human = human_plane(repo)
     agent_specs = operation_specs(agent)
-    transports = program_transports(repo)
-    programs = {str(spec["wire"]) for spec in agent_specs if str(spec["wire"]).startswith("program.")}
-    if programs != transports.keys():
-        raise SystemExit("program operations and layerxprograms transports differ")
     output = [
-        "// Code generated from the LayerX Agent API and Human API schemas. DO NOT EDIT.",
+        "// Code generated by sdk/platform/generators/generate_jvm.py from the LayerX API schemas. DO NOT EDIT.",
         "", "package com.sidiora.layerx.sdk;", "",
-        "import java.util.AbstractSet;", "import java.util.Iterator;",
         "import java.util.List;", "import java.util.Map;", "import java.util.Set;", "",
         "final class GeneratedContract {", "    private GeneratedContract() {}",
-        "    static final class AgentOperationCatalog extends AbstractSet<String> {",
-        "        private final Set<String> names;",
-        "        private final Map<String, GeneratedSchema.ProgramTransport> transports;",
-        "        AgentOperationCatalog(Set<String> names, Map<String, GeneratedSchema.ProgramTransport> transports) {",
-        "            this.names = Set.copyOf(names);",
-        "            this.transports = Map.copyOf(transports);",
-        "        }",
-        "        @Override public Iterator<String> iterator() { return names.iterator(); }",
-        "        @Override public int size() { return names.size(); }",
-        "        @Override public boolean contains(Object name) { return names.contains(name); }",
-        "        GeneratedSchema.ProgramTransport transport(String name) {",
-        "            GeneratedSchema.ProgramTransport transport = transports.get(name);",
-        "            if (transport == null) throw PlatformSdkException.invalidArgument();",
-        "            return transport;",
-        "        }",
-        "    }",
-        "    static final AgentOperationCatalog AGENT_OPERATIONS = new AgentOperationCatalog(Set.of(",
+        "    static final Set<String> AGENT_OPERATIONS = Set.of(",
     ]
     for index, spec in enumerate(agent_specs):
-        suffix = "), Map.ofEntries(" if index + 1 == len(agent_specs) else ","
+        suffix = ");" if index + 1 == len(agent_specs) else ","
         output.append(f'        "{spec["wire"]}"{suffix}')
-    for index, (operation, (rpc, calls)) in enumerate(transports.items()):
-        arguments = ", ".join(json.dumps(call) for call in calls)
-        suffix = "));" if index + 1 == len(transports) else ","
-        output.append(
-            f'        Map.entry("{operation}", new GeneratedSchema.ProgramTransport("{rpc}", '
-            f'"0x000000000000000000000000000000000000101d", List.of({arguments}))){suffix}'
-        )
     sets = {
         "AGENT_IDEMPOTENT": [str(spec["wire"]) for spec in agent_specs if spec["idempotency"]],
         "AGENT_ERROR_CLASSES": string_list(agent.values["type.ErrorClass"]["variants"]),
         "AGENT_RETRIABILITY": string_list(agent.values["type.Retriability"]["variants"]),
-        "HUMAN_ERROR_CODES": string_list(human.values["type.ErrorCode"]["variants"]),
+        "HUMAN_ERROR_CODES": human.variants(human.values["type.ErrorCode"]),
         "HUMAN_RETRIABILITY": string_list(human.values["type.Retriability"]["variants"]),
     }
     for name, values in sets.items():
@@ -488,9 +551,9 @@ def main() -> int:
     parser.add_argument("--stdout", action="store_true")
     parser.add_argument("--agent-only", action="store_true")
     arguments = parser.parse_args()
-    repo = Path(arguments.repo).resolve()
+    repo = Path(os.path.expandvars(arguments.repo)).resolve()
     destination = repo / "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
-    expected = generate(repo)
+    expected = generate_jvm(repo)
     contract = destination.parent / "GeneratedContract.java"
     expected_contract = generate_contract(repo)
     if arguments.agent_only:
