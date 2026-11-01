@@ -15483,3 +15483,51 @@ symbol = "guarantor-runtime"
 observed = "Acceptance 16.44.1 runs the scanner with --deleted for the catalogue's deleted trees and 16.966.4 asserts the bridge credit suites are absent, but cmd/layerxd, cmd/layerx-guarantor, tests/daemon, tests/bridge/test_credit.c and tests/bridge/sign_credit.c still exist on main (their deletions are 5.50.7 at wave 42, 5.51.1 and 5.51.4 at wave 37, 5.54.9 at wave 34 and 1.19.3 at wave 46); 16.90.1 attempt 1 (0dacda199) failed both tests on the present paths."
 assumption = "16.90.1 moves to wave 47 and requires the five deletion tasks; the two acceptances stay as written."
 severity = "minor"
+
+[finding.8.98.3.6]
+task = "8.98.3"
+file = "services/platform/hosted/authority/src/main.rs:289"
+symbol = "checkpoint_for"
+observed = "main.rs:289-294 still exits with 'LAYERX_AUTHORITY_LNI_SOCKET is required', Config keeps lni_socket and lni_gate (:95-96, :339-340), checkpoint_for (:683) still connects through Uds::connect and the handshake, and MAX_LNI_CONNECTIONS, LNI_FRAME_BYTES and trust::limits survive; decision 2105 withdrew the port of these readers from 8.98.3 until a task ported the human readers, 8.98.14 and 8.98.15 ported budget_state.rs over the chain endpoint and no task was left owning the socket deletion, so 8.90.1 attempts 3 and 4 failed authority_starts_without_an_lni_socket at startup while acceptance 8.113.1 demands a start with no socket."
+assumption = "Task 8.98.16 ports checkpoint_header and checkpoint_for to the committed anchor checkpoint read 8.98.15 established and deletes the socket configuration; 8.90.1 requires it."
+severity = "major"
+
+[finding.10.8.1.1]
+task = "10.8.1"
+file = "services/human/crates/layerx-human-service/tests/journey_family_projections.rs:8"
+symbol = "DepositJourney"
+observed = "10.8.1 (10d2325a7) and 10.20.3 deleted DepositJourney, ExitJourney and WithdrawalJourney from journeys/ without compiling the crate's test targets; tests/journey_family_projections.rs:8 still imports them, so cargo build --tests of layerx-human-service fails on main (14.0.6 attempts 6 and 7, E0432). Its single test genuine_journey_family_owners_survive_reopen asserts the family set {native, deposit, withdrawal, exit}, three of which are retired."
+assumption = "The test's subject is retired; 14.0.6 deletes the file."
+severity = "major"
+
+[finding.10.25.4.2]
+task = "10.25.4"
+file = "services/human/crates/layerx-human-service/tests/evidence_node.rs:419"
+symbol = "AdmissionRecord"
+observed = "10.25.4 (410498417) changed layerx-human-test-support's AdmissionRecord from {activity_id, activity} to {tx_hash, raw_transaction} and AdmissionJournal::contains to take a transaction hash, adding tests/evidence_node_transactions.rs, but did not port layerx-human-service's tests/evidence_node.rs (:419, :465, :466, :470, :471), so cargo build --tests fails with E0609 (14.0.6 attempt 7)."
+assumption = "14.0.6 ports the five field reads: activity_id becomes tx_hash compared with first_hash, activity becomes raw_transaction compared with first."
+severity = "major"
+
+[finding.10.6.4.1]
+task = "10.6.4"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:596"
+symbol = "construct_method"
+observed = "Attempts 1 and 2 added ConstructMethod::PointerTransfer (decision 2197) and failed the build with E0004 at agents/create.rs:596: the match over disclosure.construct_method() is exhaustive and lists every variant by name; the task's touches did not include the file."
+assumption = "The lifecycle transaction of an agent creation is never a pointer transfer, so the new arm refuses."
+severity = "minor"
+
+[finding.1.12.5.1]
+task = "1.12.5"
+file = "modules/layerxledger/keeper/draw_test.go:53"
+symbol = "newDrawFixture"
+observed = "Attempts 1 and 2 ported the GetPayerGrant and ReadPayerGrant reads as do_1 and do_2 say and the package still fails: 1.12.4 (984636931) retired the issue-grant and revoke-grant activities 0x00010007 and 0x00010008 (host.Execute answers LXP_ERR_UNKNOWN_ACTIVITY) and made Keeper.Draw return types.ErrNoPayerGrant unconditionally, so TestDrawWithinGrant, TestIssuePayerGrant, TestRevokePayerGrant, TestLedgerPauseKeepsRevokeAndViews (:206-241), TestLedgerModuleStoreHasNoKernelKV (:173-192) and TestLedgerViews (:133-134) fail at the grant step they still execute."
+assumption = "There is no payer grant to issue, draw or revoke; the tests whose only subject is the grant lifecycle go, the others drop their grant steps."
+severity = "major"
+
+[finding.9.25.3.3]
+task = "9.25.3"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs:189"
+symbol = "caps_discovery"
+observed = "Attempts 5 and 6 (dd41e646e and its identical successor) ended with the same 28 E0599 errors: human_runtime.rs and budget/program_sources.rs call caps_discovery (seven sites), native_fee_policy (thirteen), account (one), head (two), checkpoint_evidence (two), batch_header (one) and module_state (two) on SequencerEndpoint, which offers none of them; decisions 2192, 2193 and 2196 covered the other accessors only. rpc::module_state needs a SignedHeader whose batch number is signed by the handshake key, which the EVM chain never issues, and VerifiedCaps, NativeFeePolicy and the batch-header expiry clock have no committed source yet."
+assumption = "Decision 2199: the 28 sites answer Unavailable in 9.25.3 and three port tasks at wave 36 give each read its committed source."
+severity = "major"

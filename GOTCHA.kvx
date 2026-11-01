@@ -12476,3 +12476,13 @@ fix = "quote a node -e program with double quotes in the spec string (escaped as
 title = "A double quote inside a spec command is written out as a single quote"
 symptom = "The build gate of 18.90.1 (grep -q 'test 'reject an anchors page that lost a field'') and the verify gate of 17.5.12 (node -e 'require.resolve('@sidiora/layerx-sdk/browser', ...)') lost their inner double quotes when the spec was written, the shell split the commands at the inner quotes and both attempts failed on a command that never ran as intended."
 fix = "Write commands that need no nested quoting: pass values to node -e as arguments read from process.argv, and match quoted test titles with grep -E and a single-character wildcard in place of each quote."
+
+[gotcha.2532]
+title = "A task's symbols list is checked against the code graph after verify passes"
+symptom = "8.90.2, 8.90.3, 9.90.2 and 17.5.12 passed their verify commands and were still not marked done: the completion check resolves every symbols entry in the code graph and failed on test names a ruling had renamed in the tests list but not in symbols (testAgentEnvelopeEncodesVersionTwo, verifyReceipt_reports_the_submitted_rung_under_an_authority_key) and on Makefile target names (agent-sdk-ts-build, human-build), which are not functions."
+fix = "when a ruling renames or deletes a tests entry, rewrite symbols in the same batch; list only functions, methods, classes and test functions that exist after the task (Go Test functions, Swift test methods, pytest functions, Rust test functions, TypeScript functions) and never Makefile targets, file names or test titles with spaces; an empty symbols list is valid."
+
+[gotcha.2533]
+title = "node --test prints the spec reporter in the gate, so grep for '# pass 1' never matches"
+symptom = "9.90.2 attempt 3 ran its receipt test under node --test, the test passed and the gate still failed: in the qualification environment node chose the spec reporter (pass 1 with an info glyph) while the verify command grepped for the TAP line '# pass 1' (decision 2194's node form)."
+fix = "pass --test-reporter=tap to node --test whenever the verify command greps '# pass N'; the decision 2194 node form reads node --test --test-reporter=tap."

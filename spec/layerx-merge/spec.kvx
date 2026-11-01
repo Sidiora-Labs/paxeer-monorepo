@@ -6275,7 +6275,7 @@ affects = ["9.25.3", "9.25.2"]
 
 [decision.2194]
 title = "Acceptance selectors are matched by test grammar and an acceptance with a pending owner is planned"
-value = "The parity check reads an acceptance selector path::name as follows. A name containing a dot after the last :: is a unittest dotted name and is present when each dotted component appears as a whole word in the file. For .exs, .ts, .tsx, .mjs and .js files the name is a title and is present when it appears literally or when a describe title followed by a test title in the same file concatenate with one space to it. A path whose base name is not a test source (not *_test.go, not a .rs file under tests/ or src/, not .exs, not *.test.ts or *.test.mjs, not test_*.py, not *Tests.swift) is a document check and is present when the path exists. An acceptance whose req appears in the reqs of a task that is not done is planned, not stale, whatever the file holds. Every other selector whose file exists and lacks the name is stale, and the check prints each stale selector with its owning tasks. A verify command that selects tests by name must fail when no test matches: it pins the pass to the named test (go: '--- PASS: Name ', cargo: 'test result: ok. N passed', swift: 'Executed N tests, with 0 failures', node --test: '# pass N', vitest: 'Tests N passed') or uses a runner that refuses an unknown selector (pytest node ids, ExUnit with the test present in the file)."
+value = "The parity check reads an acceptance selector path::name as follows. A name containing a dot after the last :: is a unittest dotted name and is present when each dotted component appears as a whole word in the file. For .exs, .ts, .tsx, .mjs and .js files the name is a title and is present when it appears literally or when a describe title followed by a test title in the same file concatenate with one space to it. A path whose base name is not a test source (not *_test.go, not a .rs file under tests/ or src/, not .exs, not *.test.ts or *.test.mjs, not test_*.py, not *Tests.swift) is a document check and is present when the path exists. An acceptance whose req appears in the reqs of a task that is not done is planned, not stale, whatever the file holds. Every other selector whose file exists and lacks the name is stale, and the check prints each stale selector with its owning tasks. A verify command that selects tests by name must fail when no test matches: it pins the pass to the named test (go: '--- PASS: Name ', cargo: 'test result: ok. N passed', swift: 'Executed N tests, with 0 failures', node --test --test-reporter=tap: '# pass N', vitest: 'Tests N passed') or uses a runner that refuses an unknown selector (pytest node ids, ExUnit with the test present in the file)."
 basis = "Attempt 2 of 17.4.5 marked 136 selectors stale with a literal word search; 109 of them exist under another grammar or belong to pending owners, and the 27 that were truly absent slipped through because every name-selecting runner exits 0 on zero matches."
 affects = ["17.4.5", "2.90.1", "8.90.1", "8.90.2", "8.90.3", "10.90.1", "9.90.2", "16.90.1", "18.90.1"]
 
@@ -6302,6 +6302,12 @@ title = "Six acceptances follow the implemented envelope, receipt, indexer and d
 value = "8.484.1 and 8.502.1: the agent operation envelope carries version 1, the version the agent daemon serves (services/agent/schema/agent-api/v1.kvx:113-115, agent_rpc.rs ENVELOPE_VERSION, decision 901) and the one the Go and Swift SDKs send since 18.1230.1 and 18.1255.1; the existing TestAgentEnvelopeEncodesDaemonRequestGolden and testAgentEnvelopeEncodesVersionOne prove it. 8.484.2 and 8.502.2: the SDKs refuse a response by its schema fields, not by a version field: a 200 body that echoes the request id but lacks verification_status is a decode failure with no value (sdk/platform/go/http.go decodeAgentEnvelopeResponse, Transport.swift PlatformSDKError .decodeFailure). 9.372.1: receipt verification in the TypeScript SDK is verifySequencerReceipt under the pinned signing keys (9.97.8 deleted verifyReceipt), proven by sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key. 8.182.2: the indexer Config has no relay source; its sources are the PaxeerSource (EVM endpoint, Comet endpoint and finality depth) and the explorer endpoint, proven by environment_builds_evm_and_comet_sources. 16.44.1 and 16.966.4 stay as written and are proven at wave 47 once 5.50.7, 5.51.1, 5.51.4, 5.54.9 and 1.19.3 have deleted the trees they name."
 basis = "The parity attempts of 8.90.1, 8.90.2, 8.90.3, 9.90.2 and 16.90.1 (647e605ad, 57e6fe12a, b3f38bbd7, 04fe64eb6, 0dacda199) failed because the acceptances described behaviour later issues and tasks replaced (issue 1230 and 1255 kept version 1, 9.97.8 retired the kernel receipt verifier, 8.16.2 built the Paxeer source) or trees whose deletion tasks sit in waves 34 to 46."
 affects = ["8.90.1", "8.90.2", "8.90.3", "9.90.2", "16.90.1", "8.41.4", "8.44.4", "9.34.2", "8.16.2", "16.9.4", "16.97.2"]
+
+[decision.2199]
+title = "The daemon's capability, fee-policy, account, module-state and batch-header reads leave 9.25.3 as Unavailable and return through committed chain reads"
+value = "In 9.25.3 every call of caps_discovery, native_fee_policy, account, head, checkpoint_evidence, batch_header and module_state on the daemon's SequencerEndpoint fields becomes an Unavailable error of the enclosing operation (HumanOperationError::Unavailable in human_runtime.rs, ProgramSourceError::FeeUnavailable in budget/program_sources.rs) with a comment naming this decision and the port task, exactly as decision 2196 did for the program simulation, and the unit tests that drove those paths with a live fixture move to the port task that restores them. Three tasks at wave 36 restore the reads from committed chain state, each through SequencerEndpoint at a committed height read once per operation: 9.25.6 restores the capability, account and budget-state reads (caps_discovery, account, module_state) with call_at on the layerxledger, layerxpay and layerxauth precompiles and eth_getProof storage proofs verified under the committed block's app hash by the daemon's read module; 9.25.7 restores native_fee_policy from the feetoken precompile's getFeeDenom and the asset registry; 9.25.8 restores head, checkpoint_evidence and batch_header from the committed block header and commit (read::checkpoint) and replaces authenticate_core_time's batch-header clock with the committed block timestamp. layerx_client::rpc::module_state and its ModuleReadContext are not a target: they require a signed batch header the EVM chain does not issue."
+basis = "Decision 1813 retired Client in favour of SequencerEndpoint and PxEndpoint; decisions 2192, 2193 and 2196 mapped the receipt, head and simulation accessors, but the capability, fee, account, module-state and batch-header reads were left to the port task with no committed source named, and attempts 5 and 6 of 9.25.3 stopped at the same 28 errors (finding 9.25.3.3)."
+affects = ["9.25.3", "9.25.6", "9.25.7", "9.25.8", "9.25.2", "9.25.4", "9.25.5"]
 
 [feature.1]
 name = "kernel"
@@ -18334,6 +18340,22 @@ ac_1 = "The authority accepts a receipt signed by any pinned key at any height a
 [req.8113]
 title = "The receipt authority starts without a kernel socket"
 ac_1 = "The receipt authority starts with no LAYERX_AUTHORITY_LNI_SOCKET, reports ready against the chain endpoint and admits a chain receipt."
+
+[req.9258.1]
+title = "The daemon's head, checkpoint and expiry clock come from the committed block"
+ac_1 = "A human operation that needs the finalised head, a checkpoint by identifier or the native expiry clock reads the committed block header and commit through the chain's JSON-RPC, verifies the commit against the validator set, and takes the clock from the committed block timestamp."
+
+[req.9257.1]
+title = "The daemon derives the native fee policy from committed chain state"
+ac_1 = "A human operation that prices a fee reads the fee denomination from the feetoken precompile and the asset's symbol, decimals and paused flag from the asset registry at one committed height, and refuses with FeeUnavailable when either read fails."
+
+[req.9256.1]
+title = "The daemon reads capabilities, accounts and budget state from committed chain state"
+ac_1 = "A human operation that needs the principal's capabilities, an account or a budget record reads them at one committed height through the chain's JSON-RPC and precompiles, proves storage values under that block's app hash, and refuses when the proof or the height is unavailable."
+
+[req.89816.1]
+title = "The receipt authority reads its checkpoints from the committed anchor and needs no kernel socket"
+ac_1 = "The receipt authority starts with no LAYERX_AUTHORITY_LNI_SOCKET in its environment, answers identity, key-policy and capability-scope with checkpoint evidence read from the anchor precompile at the committed height, and refuses an item whose batch header does not match the committed checkpoint."
 
 [req.8114]
 title = "POST /__registry/head records the head the programs construct answers"
@@ -33248,6 +33270,42 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.9.25.8]
+title = "Restore the daemon's head, checkpoint and expiry-clock reads from the committed block commit"
+reqs = ["9258.1"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- protocol_evidence::tests::committed_time read::checkpoint::tests 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed'"
+do_1 = "Decision 2199. In services/agent/crates/layerx-agentd/src/human_runtime.rs replace the Unavailable returns 9.25.3 left at the head sites (:867, :9586, .finalised_checkpoint) and the checkpoint_evidence sites (:876, :9595, CheckpointSelector::Identifier) with read::checkpoint: the finalised head is the ServedCheckpoint of the committed height (block_number(), the header and BlockCommit verified against the validator set as acquire_at_committed_block does), a checkpoint by identifier is the block whose hash equals the identifier (block_by_number of the recorded height, hash compared), observed_block_hash() is the header's block_hash() and the value passed to BudgetProofTrust is the ServedCheckpoint. Replace the batch_header site (:14049), whose signed canonical bytes fed authority.authenticate_core_time for the native expiry clock, with the committed block's timestamp: EvidenceAuthority gains authenticate_committed_time(&ServedCheckpoint) in protocol_evidence.rs returning the block timestamp in milliseconds under the pinned validator set, and authenticate_core_time's batch-header form is deleted with its tests."
+symbols = ["authenticate_committed_time", "ServedCheckpoint", "EvidenceAuthority"]
+
+[capability.9.25.7]
+title = "Restore the daemon's native fee policy from the fee-token and asset registry precompiles"
+reqs = ["9257.1"]
+touches = ["services/agent/crates/layerx-agentd/src/budget/mod.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/fee_policy.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget::fee_policy::tests budget::program_sources::tests 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed'"
+do_1 = "Decision 2199. Add fn native_fee_policy(endpoint: &SequencerEndpoint, height: u64) -> Result<NativeFeePolicy, FeeReadError> to services/agent/crates/layerx-agentd/src/budget/fee_policy.rs: getFeeDenom() on the feetoken precompile at the height names the fee denomination; a denomination of the form layerx/<asset_id hex> resolves through layerxledger getAsset(asset_id) to asset_id, symbol, decimals and paused, any other denomination through the bank precompile's symbol and decimals with paused false and asset_id the keccak of the denomination; the policy carries version 1, the asset metadata, observed_sequence = height and state_root = the committed block header's app_hash, the fields the consumers read (fee.state_root, fee.observed_sequence, fee.value.asset.asset_id, .symbol, .paused, .decimals)."
+symbols = ["native_fee_policy", "NativeFeePolicy", "FeeReadError"]
+
+[capability.9.25.6]
+title = "Restore the daemon's capability, account and budget-state reads from committed chain state"
+reqs = ["9256.1"]
+touches = ["services/agent/crates/layerx-agentd/src/read/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/budget/execution_state.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/read/committed.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- read::committed::tests 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed'"
+do_1 = "Decision 2199. Add services/agent/crates/layerx-agentd/src/read/committed.rs with pub struct CommittedReads<'a> { endpoint: &'a SequencerEndpoint, height: u64, header: CheckpointHeader } opened once per operation from block_number() and the block header read::checkpoint already acquires, and three reads: capabilities(did) returns a CommittedCaps with did, state_root (the header's app_hash), observed_height, the DID's accounts from the addr precompile (getUnifiedAccount, getLayerXDid) and their layerxledger balances (balanceOf at the height), the budget records from layerxpay getBudget and budgetRemaining and the grants from layerxauth getGrant and capabilityScope, and effective_asset(asset_id) from layerxledger getAsset; account(account_id) returns the AccountProof of rpc::account::account at the height with its storage values verified under the header's app_hash by the daemon's verify_account; budget_state(budget_id) returns the getBudget tuple words with the storage proof of the budget slot (eth_getProof at the height) verified the same way. Each struct exposes exactly the accessors the consumers in human_runtime.rs read today (effective_asset, freshness().observed_head_sequence, state_root(), all_accounts(), did(), level(), canonical_bytes(), achieved(), freshness(), proof_material()); level() is Committed."
+symbols = ["CommittedReads", "CommittedCaps", "capabilities", "budget_state"]
+
+[capability.8.98.16]
+title = "Retire the receipt authority's kernel socket and read checkpoints from the committed anchor"
+reqs = ["89816.1"]
+touches = ["services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/tests/chain_receipts.rs", "services/platform/hosted/authority/tests/human_tls.rs"]
+tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::receipt_admission_needs_no_kernel_socket", "services/platform/hosted/authority/tests/human_tls.rs::identity_evidence_binds_to_the_committed_anchor_checkpoint", "services/platform/hosted/authority/tests/human_tls.rs::real_node_budget_state_and_v2_export_cross_tls_without_lni"]
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test chain_receipts -- --exact receipt_admission_needs_no_kernel_socket 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test human_tls -- --exact identity_evidence_binds_to_the_committed_anchor_checkpoint real_node_budget_state_and_v2_export_cross_tls_without_lni 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 2 passed'"
+do_1 = "Finding 8.98.3.6. The receipt authority still requires LAYERX_AUTHORITY_LNI_SOCKET (services/platform/hosted/authority/src/main.rs:289-294) because checkpoint_header and checkpoint_for (:676-722) read their checkpoint through the kernel socket handshake, while the budget reads of human/budget_state.rs:60-110 (task 8.98.15, decision 2145) already read the same checkpoint from the anchor precompile 0x...1014 at the committed height. Port the two functions to that source: open SequencerEndpoint::new(&config.chain_rpc_url, &[]), take committed_height = block_number(), read checkpoint(batchNumber) for the requested batch (or latestFinalized() first when no batch is requested) with call_at(committed_height, ...), and require status word 12 to equal 2, finalizedHeight word 17 at most committed_height and a non-zero stateRoot word 7 exactly as Session::open does. Return a new pub(crate) struct CommittedCheckpoint in src/trust.rs with batch_number, checkpoint_id (word 1), header_digest (word 2), last_sequence (word 5), previous_state_root (word 6), state_root (word 7), timestamp_ms (word 11), finalized_height and the raw checkpoint_call bytes; Verified.checkpoint (src/human.rs:134) becomes Option<CommittedCheckpoint>."
+symbols = ["CommittedCheckpoint", "checkpoint_for", "checkpoint_header", "native_checkpoint"]
+
 [capability.1.12.5]
 title = "Port the ledger keeper tests off the deleted payer-grant state reads"
 reqs = ["1124.1"]
@@ -33307,7 +33365,7 @@ title = "Write the three TypeScript acceptance tests the merged spec names"
 reqs = ["9372.1", "18800.1", "18804.1"]
 touches = ["services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/wallet/gateway/test/precompiles.test.ts"]
 tests = ["services/agent/sdk/typescript/test/receipt-fixture.test.ts::verifyReceipt_reports_the_submitted_rung_under_an_authority_key", "services/wallet/gateway/test/precompiles.test.ts::probes the chain for code before serving a linked agent precompile", "services/wallet/gateway/test/precompiles.test.ts::lists every 0x09xx route while no node package links a layerxagent precompile"]
-verification_contract = "node --test --test-name-pattern='^verify_sequencer_receipt_pinned_key$' services/agent/sdk/typescript/dist/test/sequencer-receipt-verify.test.js 2>&1 | tee /dev/stderr | grep -q '^# pass 1' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'probes the chain for code before serving a linked agent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'lists every 0x09xx route while no node package links a layerxagent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed'"
+verification_contract = "node --test --test-reporter=tap --test-name-pattern='^verify_sequencer_receipt_pinned_key$' services/agent/sdk/typescript/dist/test/sequencer-receipt-verify.test.js 2>&1 | tee /dev/stderr | grep -q '^# pass 1' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'probes the chain for code before serving a linked agent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'lists every 0x09xx route while no node package links a layerxagent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed'"
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add the node:test case verifyReceipt_reports_the_submitted_rung_under_an_authority_key to services/agent/sdk/typescript/test/receipt-fixture.test.ts: verifying the receipt fixture against its authorized batch through the SDK's receipt verification entry (services/agent/sdk/typescript/src/agent-http.ts, the Rung.Submitted status at :534) reports rung Rung.Submitted and leaves the receipt fields unchanged (acceptance 9.372.1)."
 symbols = ["verifyReceipt_reports_the_submitted_rung_under_an_authority_key", "ensureServed", "PrecompileNotServedError"]
 
@@ -100304,9 +100362,9 @@ wiring = ["wiring.J23.1"]
 do_1 = "Task 1.12.4 (984636931) deleted Keeper.GetPayerGrant and Host.ReadPayerGrant with the kernel grant store (finding 1.12.4.2), but the ledger keeper test package still reads them at draw_test.go:78, :111 and :146, grants_test.go:117, :139, :144, :159, :169, :190 and :204, pause_test.go:237, retire_test.go:190 and views_test.go:177, :179, :184, :203 and :219, so go vet and go test of modules/layerxledger/keeper fail on main. No grant state read survives and none is reintroduced: port every site to prove the grant effect through the ledger behaviour the tests already drive. A draw within the grant moves the amount, emits the draw event and leaves the payer and payee balances the test reads through Host.ReadBalance and the bank mirror; a draw past the allowance is refused with the result code its receipt carries and moves nothing; a draw against a revoked grant is refused with Code(-219) as grants_test.go:201-203 already asserts; a draw against an unknown grant fails with types.ErrNoPayerGrant (draw.go:18)."
 do_2 = "Delete every assertion whose only subject is the deleted state record (the Grant, DrawnTotal, DrawnThisPeriod, Revoked and RevokedAt fields): the view comparison at views_test.go:177-186 and :203-205 keeps its asset, balance, total and owner checks and the non-canonical case at :219 drops its grant line; pause_test.go:237-241 and retire_test.go:190-192 prove the revocation by a draw against the grant that is refused with the balances unchanged; draw_test.go:78-82, :111-116 and :146-148 prove the drawn amounts by the balances before and after each draw and the allowance by the refusal of the draw that would exceed it; grants_test.go replaces each state read by the balance and result-code checks around it. Every other assertion in the five files stays."
 do_3 = "The build gate is go vet of the keeper package, which compiles the test files go build skips; the verify gate runs the whole package and fails unless go test prints its ok line."
-symbols = ["Draw", "RevokeGrant", "ErrNoPayerGrant"]
+symbols = ["Draw", "RevokeGrant", "ErrNoPayerGrant", "TestDrawRefusesWithoutPayerGrants"]
 touches = ["modules/layerxledger/keeper/draw_test.go", "modules/layerxledger/keeper/grants_test.go", "modules/layerxledger/keeper/pause_test.go", "modules/layerxledger/keeper/retire_test.go", "modules/layerxledger/keeper/views_test.go"]
-tests = ["modules/layerxledger/keeper/draw_test.go::TestDrawWithinGrant", "modules/layerxledger/keeper/draw_test.go::TestDrawWithoutGrant", "modules/layerxledger/keeper/grants_test.go::TestIssuePayerGrant", "modules/layerxledger/keeper/grants_test.go::TestRevokePayerGrant", "modules/layerxledger/keeper/pause_test.go::TestLedgerPauseKeepsRevokeAndViews", "modules/layerxledger/keeper/retire_test.go::TestLedgerModuleStoreHasNoKernelKV", "modules/layerxledger/keeper/views_test.go::TestLedgerViews"]
+tests = ["modules/layerxledger/keeper/draw_test.go::TestDrawRefusesWithoutPayerGrants", "modules/layerxledger/keeper/pause_test.go::TestLedgerPauseKeepsRevokeAndViews", "modules/layerxledger/keeper/retire_test.go::TestLedgerModuleStoreHasNoKernelKV", "modules/layerxledger/keeper/views_test.go::TestLedgerViews"]
 planned_paths = []
 build_cmd = "CGO_ENABLED=1 go vet ./modules/layerxledger/keeper/"
 verify_cmd = "CGO_ENABLED=1 go test -count=1 ./modules/layerxledger/keeper/ 2>&1 | tee /dev/stderr | grep -q '^ok '"
@@ -100321,6 +100379,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 1.12.5.1: the grant lifecycle is retired, not ported. Delete grants_test.go (TestIssuePayerGrant, TestRevokePayerGrant and the helpers bindPayerGrantActor and drawPayerGrant). In draw_test.go drop the 0x00010007 execution from newDrawFixture (:53) and replace TestDrawWithinGrant and TestDrawWithoutGrant with one TestDrawRefusesWithoutPayerGrants, which calls Keeper.Draw for two distinct grant ids and asserts types.ErrNoPayerGrant each time and that every balance the fixture funded is unchanged. In pause_test.go delete the grant issue, draw and revoke steps of TestLedgerPauseKeepsRevokeAndViews (:206-241), keeping its pause-time view checks; in retire_test.go delete the precompile issueGrant, draw and revokeGrant calls (:173-192), or assert each reverts with ErrNoPayerGrant; in views_test.go delete the payerGrant helper (:108), the grant execution (:133-134) and every grant line of the view comparisons. The remaining package then builds under go vet and passes."
 
 [task.2.90.1]
 title = "Write the five Go acceptance tests the merged spec names and the tree lacks"
@@ -108833,12 +108892,12 @@ interfaces = []
 do_1 = "Finding 17.4.5.2 and decision 2198: acceptance 9.372.1 is proven by the existing verify_sequencer_receipt_pinned_key in services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts:51 (verifySequencerReceipt accepts the recorded receipt under its pinned key and refuses an unpinned key, a hash mismatch and a bad signature); the kernel verifyReceipt it once named was deleted by 9.97.8. Write no receipt test and import nothing that 9.97.8 deleted."
 do_2 = "In services/wallet/gateway/test/precompiles.test.ts add, inside describe('unserved agent precompiles'), a test titled exactly 'probes the chain for code before serving a linked agent precompile': with eth_getCode answering 0x for 0x0902, ensureServed('clearing') rejects with PrecompileNotServedError, and after eth_getCode answers runtime code it resolves (18.800.1); and a test titled exactly 'lists every 0x09xx route while no node package links a layerxagent precompile': without git metadata the unserved-precompile check walks the tree with node:fs and checks each route key against its own layerxagent package import (18.804.1). Titles are string literals in the test call so the parity check finds them."
 do_3 = "No production file changes; the verify command builds the SDK, runs each test by name and fails unless the runner reports exactly one passing test."
-symbols = ["verifyReceipt_reports_the_submitted_rung_under_an_authority_key", "ensureServed", "PrecompileNotServedError"]
+symbols = ["verify_sequencer_receipt_pinned_key", "ensureServed", "PrecompileNotServedError"]
 touches = ["services/agent/sdk/typescript/test/receipt-fixture.test.ts", "services/wallet/gateway/test/precompiles.test.ts"]
 tests = ["services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts::verify_sequencer_receipt_pinned_key", "services/wallet/gateway/test/precompiles.test.ts::probes the chain for code before serving a linked agent precompile", "services/wallet/gateway/test/precompiles.test.ts::lists every 0x09xx route while no node package links a layerxagent precompile"]
 planned_paths = []
 build_cmd = "npm --prefix services/agent/sdk/typescript run build"
-verify_cmd = "node --test --test-name-pattern='^verify_sequencer_receipt_pinned_key$' services/agent/sdk/typescript/dist/test/sequencer-receipt-verify.test.js 2>&1 | tee /dev/stderr | grep -q '^# pass 1' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'probes the chain for code before serving a linked agent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'lists every 0x09xx route while no node package links a layerxagent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed'"
+verify_cmd = "node --test --test-reporter=tap --test-name-pattern='^verify_sequencer_receipt_pinned_key$' services/agent/sdk/typescript/dist/test/sequencer-receipt-verify.test.js 2>&1 | tee /dev/stderr | grep -q '^# pass 1' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'probes the chain for code before serving a linked agent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed' && pnpm --dir services/wallet/gateway exec vitest run test/precompiles.test.ts -t 'lists every 0x09xx route while no node package links a layerxagent precompile' 2>&1 | tee /dev/stderr | grep -qE 'Tests +1 passed'"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-parity"
@@ -108851,6 +108910,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Continue from attempt 1 (04fe64eb6): remove the verifyReceipt test added to receipt-fixture.test.ts so the SDK builds again, keep the two gateway tests, and run all three verify segments."
+do_5 = "Continue from the latest attempt and change nothing: attempt 3 passed all three tests and failed only because node printed the spec reporter; the verify command now passes --test-reporter=tap to node --test and the symbols list names verify_sequencer_receipt_pinned_key."
 
 [task.19.7.3]
 title = "Point the wallet's name proxy at the configured indexer and prove the wallet parses its answers"
@@ -110204,7 +110264,7 @@ interfaces = []
 do_1 = "apps/web depends on @sidiora/layerx-sdk (file:../../services/agent/sdk/typescript) and on @paxeer/wallet (file:../../sdk/wallet), whose modules sdk/wallet/src/modules/web-data.ts, launchpad.ts, bridge.ts, fee-choice.ts and fee-token.ts import @sidiora/layerx-sdk/browser. That package exports './browser' from ./dist/src/browser.js, dist/ is ignored by git and only its own npm run build (tsc -p tsconfig.json) produces it, so human-build (Makefile:1637-1641) fails at $(HUMAN_NPM) run build with Module not found: Can't resolve '@sidiora/layerx-sdk/browser' (finding 17.5.5.2). Add a Makefile target agent-sdk-ts-build that runs npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund when services/agent/sdk/typescript/node_modules is absent and then npm --prefix services/agent/sdk/typescript run build, and make human-build run $(MAKE) agent-sdk-ts-build as its first recipe line, before the api-gen test."
 do_2 = "In services/agent/sdk/typescript/package.json give the '.' and './browser' exports a default condition pointing at the same dist/src file as their import condition, and add top-level main and types fields for ./dist/src/index.js and ./dist/src/index.d.ts, so a CommonJS resolver (require.resolve from apps/web, Playwright's config loader) resolves the package; the import and types conditions keep their values and no source file of the SDK changes."
 do_3 = "Add tools/ci/tests/test_makefile_human_build.py with test_human_build_builds_sdk_first, which reads the Makefile and asserts the human-build recipe's first line invokes agent-sdk-ts-build and that the agent-sdk-ts-build recipe runs the SDK's npm run build, and test_sdk_exports_have_default_condition, which loads the SDK package.json and asserts both exports carry types, import and default. The verify gate builds the SDK through the new target, resolves @sidiora/layerx-sdk/browser from apps/web with node and then runs the web build itself, so the gate proves the producer (the SDK dist) reaches the consumer (next build) rather than the Makefile text alone."
-symbols = ["agent-sdk-ts-build", "human-build"]
+symbols = ["test_human_build_builds_sdk_first", "test_sdk_exports_have_default_condition"]
 touches = ["Makefile", "services/agent/sdk/typescript/package.json"]
 tests = ["tools/ci/tests/test_makefile_human_build.py"]
 planned_paths = ["tools/ci/tests/test_makefile_human_build.py"]
@@ -110223,6 +110283,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 17.5.12.1: continue from attempt 2 (0a93e54b1) and change nothing; the verify command is corrected in the spec."
 do_5 = "The verify command resolves the browser entry with the specifier and the search path passed as arguments after the script, so it carries no nested quotes."
+do_6 = "Continue from attempt 4 and change nothing: its gates passed and the completion check failed only on the symbols list, which named Makefile targets; it now names the two pytest functions of tools/ci/tests/test_makefile_human_build.py."
 
 [task.14.0.5]
 title = "Regenerate the web human-api client after the EIP-1559 schema additions"
@@ -116779,6 +116840,126 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.25.8]
+title = "Restore the daemon's head, checkpoint and expiry-clock reads from the committed block commit"
+status = "pending"
+mode = "BUILD"
+wave = 36
+requires = ["9.25.3"]
+reqs = ["9258.1"]
+capabilities = ["9.25.8"]
+interfaces = []
+do_1 = "Decision 2199. In services/agent/crates/layerx-agentd/src/human_runtime.rs replace the Unavailable returns 9.25.3 left at the head sites (:867, :9586, .finalised_checkpoint) and the checkpoint_evidence sites (:876, :9595, CheckpointSelector::Identifier) with read::checkpoint: the finalised head is the ServedCheckpoint of the committed height (block_number(), the header and BlockCommit verified against the validator set as acquire_at_committed_block does), a checkpoint by identifier is the block whose hash equals the identifier (block_by_number of the recorded height, hash compared), observed_block_hash() is the header's block_hash() and the value passed to BudgetProofTrust is the ServedCheckpoint. Replace the batch_header site (:14049), whose signed canonical bytes fed authority.authenticate_core_time for the native expiry clock, with the committed block's timestamp: EvidenceAuthority gains authenticate_committed_time(&ServedCheckpoint) in protocol_evidence.rs returning the block timestamp in milliseconds under the pinned validator set, and authenticate_core_time's batch-header form is deleted with its tests."
+do_2 = "Restore the unit tests 9.25.3 deleted for these paths against a fixture answering eth_blockNumber and eth_getBlockByNumber with a header, commit and validator set, including an expiry test that refuses a budget whose expiry precedes the committed block timestamp."
+do_3 = "The build gate is the dependent-crate check; the verify gate runs the protocol_evidence and checkpoint unit tests for these paths by module path and fails unless cargo reports at least one passed test and no failures."
+symbols = ["authenticate_committed_time", "ServedCheckpoint", "EvidenceAuthority"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/read/checkpoint.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- protocol_evidence::tests::committed_time read::checkpoint::tests 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the sites return Unavailable again as 9.25.3 left them."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.25.7]
+title = "Restore the daemon's native fee policy from the fee-token and asset registry precompiles"
+status = "pending"
+mode = "BUILD"
+wave = 36
+requires = ["9.25.3"]
+reqs = ["9257.1"]
+capabilities = ["9.25.7"]
+interfaces = []
+do_1 = "Decision 2199. Add fn native_fee_policy(endpoint: &SequencerEndpoint, height: u64) -> Result<NativeFeePolicy, FeeReadError> to services/agent/crates/layerx-agentd/src/budget/fee_policy.rs: getFeeDenom() on the feetoken precompile at the height names the fee denomination; a denomination of the form layerx/<asset_id hex> resolves through layerxledger getAsset(asset_id) to asset_id, symbol, decimals and paused, any other denomination through the bank precompile's symbol and decimals with paused false and asset_id the keccak of the denomination; the policy carries version 1, the asset metadata, observed_sequence = height and state_root = the committed block header's app_hash, the fields the consumers read (fee.state_root, fee.observed_sequence, fee.value.asset.asset_id, .symbol, .paused, .decimals)."
+do_2 = "Replace the FeeUnavailable returns 9.25.3 left at human_runtime.rs:202, :306, :6131, :6392, :6719, :7177, :8218, :8440, :9141, :10193, :14807 and budget/program_sources.rs:429, :612 with the new read at the operation's committed height, and restore the fee-path unit tests of budget/program_sources.rs that 9.25.3 deleted (those with a non-zero fee limit) against a fixture answering eth_blockNumber, eth_getBlockByNumber and eth_call for getFeeDenom, getAsset, symbol and decimals."
+do_3 = "The build gate is the dependent-crate check; the verify gate runs the fee policy unit tests and the restored program_sources fee tests by module path and fails unless cargo reports at least one passed test and no failures."
+symbols = ["native_fee_policy", "NativeFeePolicy", "FeeReadError"]
+touches = ["services/agent/crates/layerx-agentd/src/budget/mod.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/budget/fee_policy.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/budget/fee_policy.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- budget::fee_policy::tests budget::program_sources::tests 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the sites return Unavailable again as 9.25.3 left them."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.25.6]
+title = "Restore the daemon's capability, account and budget-state reads from committed chain state"
+status = "pending"
+mode = "BUILD"
+wave = 36
+requires = ["9.25.3"]
+reqs = ["9256.1"]
+capabilities = ["9.25.6"]
+interfaces = []
+do_1 = "Decision 2199. Add services/agent/crates/layerx-agentd/src/read/committed.rs with pub struct CommittedReads<'a> { endpoint: &'a SequencerEndpoint, height: u64, header: CheckpointHeader } opened once per operation from block_number() and the block header read::checkpoint already acquires, and three reads: capabilities(did) returns a CommittedCaps with did, state_root (the header's app_hash), observed_height, the DID's accounts from the addr precompile (getUnifiedAccount, getLayerXDid) and their layerxledger balances (balanceOf at the height), the budget records from layerxpay getBudget and budgetRemaining and the grants from layerxauth getGrant and capabilityScope, and effective_asset(asset_id) from layerxledger getAsset; account(account_id) returns the AccountProof of rpc::account::account at the height with its storage values verified under the header's app_hash by the daemon's verify_account; budget_state(budget_id) returns the getBudget tuple words with the storage proof of the budget slot (eth_getProof at the height) verified the same way. Each struct exposes exactly the accessors the consumers in human_runtime.rs read today (effective_asset, freshness().observed_head_sequence, state_root(), all_accounts(), did(), level(), canonical_bytes(), achieved(), freshness(), proof_material()); level() is Committed."
+do_2 = "Replace the Unavailable returns 9.25.3 left at the caps_discovery sites (human_runtime.rs:189, :3995, :5855, :6810, :7260, :8236, :8458), the account site (:337) and the module_state sites (:14219, :14642) with the CommittedReads calls; RawStateEvidence::module_witness and verifier.verify_state (protocol_evidence.rs:1725, :654) take the committed proof material and verify it under the app hash instead of a signed batch header. Restore the unit tests 9.25.3 deleted for these paths against a fixture that answers eth_blockNumber, eth_getBlockByNumber, eth_call and eth_getProof."
+do_3 = "The build gate is the dependent-crate check; the verify gate runs the restored unit tests by module path and fails unless cargo reports at least one passed test and no failures."
+symbols = ["CommittedReads", "CommittedCaps", "capabilities", "budget_state"]
+touches = ["services/agent/crates/layerx-agentd/src/read/mod.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/budget/execution_state.rs"]
+tests = ["services/agent/crates/layerx-agentd/src/read/committed.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
+planned_paths = ["services/agent/crates/layerx-agentd/src/read/committed.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- read::committed::tests 2>&1 | tee /dev/stderr | grep -E 'test result: ok\. [1-9][0-9]* passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the sites return Unavailable again as 9.25.3 left them."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.8.98.16]
+title = "Retire the receipt authority's kernel socket and read checkpoints from the committed anchor"
+status = "pending"
+mode = "BUILD"
+wave = 35
+requires = ["8.98.15", "8.98.3", "8.11.3"]
+reqs = ["89816.1"]
+capabilities = ["8.98.16"]
+interfaces = []
+do_1 = "Finding 8.98.3.6. The receipt authority still requires LAYERX_AUTHORITY_LNI_SOCKET (services/platform/hosted/authority/src/main.rs:289-294) because checkpoint_header and checkpoint_for (:676-722) read their checkpoint through the kernel socket handshake, while the budget reads of human/budget_state.rs:60-110 (task 8.98.15, decision 2145) already read the same checkpoint from the anchor precompile 0x...1014 at the committed height. Port the two functions to that source: open SequencerEndpoint::new(&config.chain_rpc_url, &[]), take committed_height = block_number(), read checkpoint(batchNumber) for the requested batch (or latestFinalized() first when no batch is requested) with call_at(committed_height, ...), and require status word 12 to equal 2, finalizedHeight word 17 at most committed_height and a non-zero stateRoot word 7 exactly as Session::open does. Return a new pub(crate) struct CommittedCheckpoint in src/trust.rs with batch_number, checkpoint_id (word 1), header_digest (word 2), last_sequence (word 5), previous_state_root (word 6), state_root (word 7), timestamp_ms (word 11), finalized_height and the raw checkpoint_call bytes; Verified.checkpoint (src/human.rs:134) becomes Option<CommittedCheckpoint>."
+do_2 = "Replace the header equality checks with a binding to the committed checkpoint: native_checkpoint (human.rs:1018-1028), the identity head check (human.rs:589) and dynamic.rs:557-559 decode item.header with layerx_wire::receipt::decode_batch_header and require batch_number(), last_sequence(), previous_state_root() and resulting_state_root() to equal the checkpoint's batch_number, last_sequence, previous_state_root and state_root; checkpoint_digest and the checkpoint_id comparisons (human.rs:1013, :1097, dynamic.rs:559) use CommittedCheckpoint.checkpoint_id. Delete Config.lni_socket and Config.lni_gate, the LAYERX_AUTHORITY_LNI_SOCKET block at main.rs:289-294 and :339-340, the USAGE line :71, MAX_LNI_CONNECTIONS (ReadinessPermit::acquire at :887 gets its own const MAX_READINESS_CHECKS = 16), LNI_FRAME_BYTES, trust::limits, trust::checkpoint and the Uds, perform, HandshakeConfig, Version, FrameTransport, CheckpointSelector, EvidenceContext and read_checkpoint imports of main.rs and trust.rs; trust::snapshot loses its unused _target and _deadline parameters. layerx_client::evidence::VerifiedCheckpoint is no longer named in the crate."
+do_3 = "Tests: in tests/chain_receipts.rs drop lni_socket and lni_gate from the Config initializer (:264-265), the LAYERX_AUTHORITY_LNI_SOCKET env of :373 and the socket assertions of receipt_admission_needs_no_kernel_socket (:840-850, :906), keeping that test's startup and receipt admission; in tests/human_tls.rs drop the env at :330. Add identity_evidence_binds_to_the_committed_anchor_checkpoint to tests/human_tls.rs against the node double in tests/support that already answers latestFinalized and checkpoint for 8.98.15: a key-policy read whose fixture header matches the double's checkpoint answers 200 with checkpoint_digest equal to the double's checkpointId, and a fixture header whose stateRoot word differs is refused with key_policy_checkpoint_evidence_unavailable. The build gate compiles the authority with its tests; the verify gate runs the socket-free startup test and the two human_tls tests by name and fails unless cargo reports the expected passed counts."
+symbols = ["CommittedCheckpoint", "checkpoint_for", "checkpoint_header", "native_checkpoint"]
+touches = ["services/platform/hosted/authority/src/main.rs", "services/platform/hosted/authority/src/trust.rs", "services/platform/hosted/authority/src/human.rs", "services/platform/hosted/authority/src/human/dynamic.rs", "services/platform/hosted/authority/tests/chain_receipts.rs", "services/platform/hosted/authority/tests/human_tls.rs"]
+tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::receipt_admission_needs_no_kernel_socket", "services/platform/hosted/authority/tests/human_tls.rs::identity_evidence_binds_to_the_committed_anchor_checkpoint", "services/platform/hosted/authority/tests/human_tls.rs::real_node_budget_state_and_v2_export_cross_tls_without_lni"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test chain_receipts -- --exact receipt_admission_needs_no_kernel_socket 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 1 passed' && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-authority --test human_tls -- --exact identity_evidence_binds_to_the_committed_anchor_checkpoint real_node_budget_state_and_v2_export_cross_tls_without_lni 2>&1 | tee /dev/stderr | grep -q 'test result: ok. 2 passed'"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Restore main.rs, trust.rs, human.rs, human/dynamic.rs and the two test files from 53832f25a; the authority then requires the kernel socket again and 8.90.1 stays blocked."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.10.6.4]
 title = "Route wallet bank transfers through the denom's ERC20 native pointer and decode them in bind_call"
 status = "pending"
@@ -116792,7 +116973,7 @@ do_1 = "Decision 2197: in services/human/crates/layerx-human-service/src/journey
 do_2 = "Rewrite send_to_an_evm_address_resolves_to_a_bank_transfer in services/human/crates/layerx-human-service/tests/send_routes.rs to assert call.to is the pointer the request carries, the transfer selector and arguments, and bind_call's ConstructMethod::PointerTransfer; add pointer_transfer_disclosure_names_the_recipient_and_amount to the call.rs tests module."
 do_3 = "The build gate compiles layerx-human-service with its tests and layerx-crypto with its tests; the verify command runs the two route tests and the crypto test by name and fails unless each reports its passed count."
 symbols = ["PointerTransfer", "BankTransfer", "bind_call"]
-touches = ["services/human/crates/layerx-human-service/src/journeys/resolver.rs", "services/human/crates/layerx-human-service/tests/send_routes.rs", "services/agent/crates/layerx-crypto/src/disclosure/call.rs"]
+touches = ["services/human/crates/layerx-human-service/src/journeys/resolver.rs", "services/human/crates/layerx-human-service/tests/send_routes.rs", "services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/human/crates/layerx-human-service/src/agents/create.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/send_routes.rs", "services/agent/crates/layerx-crypto/src/disclosure/call.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --tests"
@@ -116808,6 +116989,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 10.6.4.1: continue from attempt 2 and add one arm to the match at services/human/crates/layerx-human-service/src/agents/create.rs:596-665, Some(ConstructMethod::PointerTransfer { .. }) => return Err(AgentFailure::Refused('lifecycle transaction is a pointer transfer')), placed before the None arm; change nothing else in that file. The other uses of ConstructMethod (production_components.rs:4475, custody/gateway.rs:458, agent_creation.rs:102, attestor.rs:832) are if-let or wildcard matches and need no edit."
 
 [task.9.25.5]
 title = "Port the human runtime's policy-usage reads to history pages proven by receipt bundles"
@@ -116902,15 +117084,15 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Write the three platform acceptance tests the merged spec names and the tree lacks"
 status = "pending"
 mode = "BUILD"
-wave = 31
-requires = ["8.11.3", "8.13.1", "8.16.2"]
+wave = 36
+requires = ["8.11.3", "8.13.1", "8.16.2", "8.98.16"]
 reqs = ["8113.1", "8145.1", "8182.2"]
 capabilities = ["8.90.1"]
 interfaces = []
 do_1 = "Finding 17.4.5.2 and decision 2194: the merged spec names this test and its owning task passed a verify command that matched nothing, so the test was never written. Add authority_starts_without_an_lni_socket to services/platform/hosted/authority/tests/chain_receipts.rs: with no LNI variable in the environment and a chain listener, the authority starts, reports ready and admits a receipt (acceptance 8.113.1), built on the fixtures receipt_admission_needs_no_kernel_socket uses. Add block_committed_orders_between_receipt_and_checkpoint to the tests module of services/platform/hosted/webhooks/src/events.rs: every Verification value renders, parses back and compares with at_least so that block-committed sits strictly between receipt-verified and checkpoint-finalised (8.145.1)."
 do_2 = "Finding 17.4.5.2 and decision 2198: acceptance 8.182.2 is proven by the existing environment_builds_evm_and_comet_sources in the tests module of services/platform/hosted/indexer/src/config.rs:445 (EVM and Comet endpoints with a 30 second window parse into the Paxeer source with finality depth 0 and a Comet endpoint); the indexer Config has no relay source, so write no indexer test."
 do_3 = "Each test proves its scenario against the real crate code and changes no production file; the verify command runs each test alone with --exact and fails unless cargo reports exactly one passed test."
-symbols = ["authority_starts_without_an_lni_socket", "block_committed_orders_between_receipt_and_checkpoint", "environment_builds_both_sources"]
+symbols = ["authority_starts_without_an_lni_socket", "block_committed_orders_between_receipt_and_checkpoint", "environment_builds_evm_and_comet_sources"]
 touches = ["services/platform/hosted/authority/tests/chain_receipts.rs", "services/platform/hosted/webhooks/src/events.rs", "services/platform/hosted/indexer/src/config.rs"]
 tests = ["services/platform/hosted/authority/tests/chain_receipts.rs::authority_starts_without_an_lni_socket", "services/platform/hosted/webhooks/src/events.rs::block_committed_orders_between_receipt_and_checkpoint", "services/platform/hosted/indexer/src/config.rs::environment_builds_evm_and_comet_sources"]
 planned_paths = []
@@ -116928,6 +117110,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Continue from attempt 1 (647e605ad): delete environment_builds_both_sources from config.rs, keep the authority and webhooks tests, and run all three verify segments."
+do_5 = "Finding 8.98.3.6: attempts 3 and 4 failed authority_starts_without_an_lni_socket because the authority still exits without LAYERX_AUTHORITY_LNI_SOCKET; task 8.98.16 removes the socket first. Continue from attempt 3 (907f0d69a) unchanged once 8.98.16 is on main and run all three verify segments; the symbols list now names environment_builds_evm_and_comet_sources."
 
 [task.13.30.6]
 title = "Own the arbiter's admission evidence in the arbiter crate and prove it under the app hash"
@@ -116971,7 +117154,7 @@ interfaces = []
 do_1 = "Task 10.0.3 (63aee3813) changed start_kernel_journey in services/human/crates/layerx-human-service/src/journeys/intent_submit.rs to the six-argument EIP-1559 form (scope, plan, request, expectation, journey_id, &[EvmAction]) returning IntentSubmission and removed AttestorKms::authorize_kernel_send, while tests/intent_submit.rs:918, :977, :1096, :1166, :1517 and :1755 (and the drive at :952) still call the KernelStart form and read .status(), so the crate's test targets do not compile on main. Port each call site to the form production uses at production_components.rs:4582: sign the plan's legs through Keystore::authorize_send_transaction into EvmAction values, call start_kernel_journey with the journey id and the signed legs, and assert on the returned IntentSubmission state and on the recorded legs' tx_hash as tests/intent_plan_evm.rs:1278 does. A case that exercises only the kernel-native profile, which no production path calls, is deleted rather than ported, with a one-line comment naming this task."
 do_2 = "Leave tests/wallet_identity_e2e.rs to task 18.1151.1 do_12. The build gate compiles every test target of layerx-human-service so a remaining caller of the old form fails this task; the verify gate runs the ported test file."
 symbols = ["start_kernel_journey", "IntentSubmission", "EvmAction", "authorize_send_transaction"]
-touches = ["services/human/crates/layerx-human-service/tests/intent_submit.rs", "services/human/crates/layerx-human-service/tests/retired_crypto_codec_w3.rs"]
+touches = ["services/human/crates/layerx-human-service/tests/intent_submit.rs", "services/human/crates/layerx-human-service/tests/retired_crypto_codec_w3.rs", "services/human/crates/layerx-human-service/tests/journey_family_projections.rs", "services/human/crates/layerx-human-service/tests/evidence_node.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/intent_submit.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
@@ -116989,6 +117172,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 14.0.6.2: the retired journeys are not a port target. In tests/intent_submit.rs delete the tests that exist only to exercise them, intent_submit_custody_deposit_creates_a_deposit_journey_past_getting_ready (:1000), unified_shape_deposit_forward_keeps_one_parent_and_gates_forwarding_on_the_credit (:1487), unified_shape_withdraw_to_wallet_starts_one_parent_bound_to_the_signed_debit (:1731) and unified_shape_transfer_then_withdraw_resumes_one_parent_and_claims_each_receipt_once (:1916), with their helpers deposit_plan_of (:236), deposit_for (:869) and withdrawal_for (:1268) and the two bridge fee rows at :155 and :160; in unified_shape_planner_and_submit_classifier_share_one_contract (:1308) and unified_shape_refuses_unsupported_reordered_and_discontinuous_legs (:1379) drop the bridge legs (:1312-1313 and :1383-1384) and keep the kernel-send legs they classify; remove the fourteen deleted names from the use list at :34-45 and every import the deletions leave unused. The tests that remain, the kernel-send journey (:900), the three typed refusals (:1043, :1074, :1119) and the golden field set (:1146), are ported to the six-argument form exactly as do_1 says. Edit no file other than tests/intent_submit.rs; a compile error reported in another test file is this attempt's own edit unless it reproduces at the task's base revision, so check the base before calling it pre-existing."
 do_4 = "Finding 14.0.6.3: delete services/human/crates/layerx-human-service/tests/retired_crypto_codec_w3.rs, whose only subject tests/binding.rs was deleted by task 10.9.1 (2772a218f), so that cargo build --locked -p layerx-human-service --tests compiles every remaining test target; this is the one edit outside tests/intent_submit.rs this task makes."
+do_5 = "Finding 10.8.1.1: delete services/human/crates/layerx-human-service/tests/journey_family_projections.rs, whose only test imports the deleted DepositJourney, ExitJourney and WithdrawalJourney and asserts a four-family inventory of which three families are retired. Finding 10.25.4.2: in tests/evidence_node.rs replace the .activity_id reads at :465 and :470 with .tx_hash compared with first_hash (the Keccak of first computed at :413) and the .activity reads at :419, :466 and :471 with .raw_transaction compared with first; node.queue and AdmissionJournal::contains take the transaction hash, so :473 asserts contains(&first_hash). Continue from attempt 7 with do_3 and do_4 kept; these two files are the only further edits, and the build gate must now compile every test target of the crate."
 
 [task.9.25.3]
 title = "Port the agent daemon's remaining layerx_client::Client holders to SequencerEndpoint and PxEndpoint"
@@ -117022,6 +117206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Task 9.24.5 (decision 2192) adds Client::module_state, VerifiedCaps and the Committed-rung receipt read to budget/execution_state.rs and the two lifecycle call sites in human_runtime.rs (:3948-3979); those holders are part of this port like the ones do_1 lists, so the task ends with no layerx_client::Client in layerx-agentd and the dependent-crate check still green."
 do_5 = "Finding 9.25.3.1 and decision 2193: the first attempt swapped the holders but left the Client accessor calls, so the build failed with E0599 on SequencerEndpoint. Port each accessor to the source decision 2193 names: head().chain_sequence and head().sealed_batch to block_number() (program_sources.rs:351-352, :444-445, :487-488 and :619-620 compare prepared.observed_head_sequence and header.batch_number() with it); the Head value and finalised_checkpoint read at human_runtime.rs:845-860 to the committed-block check (block.number at most block_number(), block_by_number(block.number) hash equals block.hash); handshake().node() at human_runtime.rs (7 protocol_version, 3 network_id, 1 authorised_sequencer_key and 1 clone site) and rpc_health at :5456 to STATE_COMMITMENT_PROTOCOL_VERSION, chain_id() as u32 and receipt_key_at_head().public_key, and the two pinned_to_handshake calls at :13985 and :16991 to those values; the 7 caps_discovery sites (human_runtime.rs:185, :3976, :5804, :6755, :7201, :8173, :8395) to the per-use reads with the freshness check; the 11 native_fee_policy sites (human_runtime.rs:198, :294, :3262 and the rest; program_sources.rs:423 and :594 read fee.value.asset, fee.state_root and fee.observed_sequence from it) to rpc::payments::get_asset through a PxEndpoint; module_state at protocol_evidence.rs:1889 to rpc::module_state::module_state; proof_bundle, checkpoint_evidence, lookup_authenticated_receipt, account and batch_header to their rpc twins; read/history.rs:128-153 and :219 to rpc::history::history; delete the reconnect call; make session_fee_state return HumanOperationError::Unavailable with a comment naming decision 2193 and task 9.25.2. Run cargo build of the four build_cmd crates yourself after the port and fix every remaining error before invoking the gate; the task is complete only when no layerx_client::Client, handshake or head::Head reference remains in layerx-agentd."
 do_6 = "Finding 9.25.3.2 and decision 2196: continue from attempt 4 (effaec3e6). Make simulate_signed_activity, the program_state_bundle read and both submit_signed callers in ops/program.rs return ProgramOperationError::Unavailable, delete raw_program_simulation and legacy_simulation_error and the four unit tests decision 2196 names, keep simulation_tls_checks_the_actual_server_identity, lifecycle_bindings_consume_c_signed_fixtures and native_binding_preserves_fee_and_payload. Make authenticated_native_policy_usage and authenticated_policy_usage in human_runtime.rs return HumanOperationError::Unavailable and drop the layerx_client::read imports; compare the [u8; 32] activity id at :14530 by value. Leave budget/budget_proof.rs on layerx_client::head::Head and evidence::VerifiedCheckpoint. Then run the dependent-crate check yourself before the gate."
+do_7 = "Finding 9.25.3.3 and decision 2199: continue from attempt 6. Make the 28 remaining accessor sites return Unavailable: in human_runtime.rs the caps_discovery sites (:189, :3995, :5855, :6810, :7260, :8236, :8458), native_fee_policy (:202, :306, :6131, :6392, :6719, :7177, :8218, :8440, :9141, :10193, :14807), account (:337), head (:867, :9586), checkpoint_evidence (:876, :9595), batch_header (:14049) and module_state (:14219, :14642) return HumanOperationError::Unavailable at the point the value is needed, and budget/program_sources.rs:429 and :612 return ProgramSourceError::FeeUnavailable; each site carries a comment naming decision 2199 and the port task (9.25.6 for caps_discovery, account and module_state; 9.25.7 for native_fee_policy; 9.25.8 for head, checkpoint_evidence and batch_header). Delete the unit tests of ops/program.rs and budget/program_sources.rs that drive those paths with a fixture that answered them, keep every other test, and run the gates."
 
 [task.9.24.5]
 title = "Port the agent daemon's execution-prestate consumers to the committed program balance read"
@@ -117308,7 +117493,7 @@ capabilities = ["8.90.2"]
 interfaces = []
 do_1 = "Finding 17.4.5.2 and decision 2198: acceptance 8.484.1 (the envelope carries version 1, the version the daemon serves) is proven by the existing TestAgentEnvelopeEncodesDaemonRequestGolden in sdk/platform/go/agent_envelope_major2_test.go:14, which asserts the literal 1 at :38. Add TestAgentEnvelopeRefusesResponseWithoutSchemaFields to the same file: decodeAgentEnvelopeResponse given status 200 and a body that echoes the request id but lacks verification_status, and again a body that lacks request_id, returns a nil value and an SDKError with ErrorDecodeFailure and RetryNever (acceptance 8.484.2), built on the goldens TestAgentEnvelopeDecodesDaemonResponseGoldens reads."
 do_2 = "No production file changes; the verify command runs each test alone and fails unless its own PASS line appears."
-symbols = ["TestAgentEnvelopeEncodesVersionTwo", "TestAgentEnvelopeRefusesVersionOneResponse"]
+symbols = ["TestAgentEnvelopeEncodesDaemonRequestGolden", "TestAgentEnvelopeRefusesResponseWithoutSchemaFields"]
 touches = ["sdk/platform/go/agent_envelope_major2_test.go"]
 tests = ["sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeEncodesDaemonRequestGolden", "sdk/platform/go/agent_envelope_major2_test.go::TestAgentEnvelopeRefusesResponseWithoutSchemaFields"]
 planned_paths = []
@@ -117326,6 +117511,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Continue from attempt 1 (57e6fe12a): delete TestAgentEnvelopeEncodesVersionTwo and TestAgentEnvelopeRefusesVersionOneResponse, which assert the version-2 shape the daemon never served."
+do_4 = "Continue from the latest attempt and change nothing: attempt 3 passed the verify command and the completion check failed only on the symbols list, which now names the two tests the tests list names."
 
 [task.5.98.7]
 title = "Record the receipt's logs at the receipt's height when the layer seals after Accept"
@@ -141611,7 +141797,7 @@ interfaces = []
 do_1 = "Finding 17.4.5.2 and decision 2198: acceptance 8.502.1 (the envelope carries version 1, the version the daemon serves) is proven by the existing testAgentEnvelopeEncodesVersionOne in sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift:7. Add testAgentEnvelopeRefusesResponseWithoutSchemaFields to the same file: decoding a status 200 response body that echoes the request id but lacks verification_status, and again one that lacks request_id, throws PlatformSDKError with code .decodeFailure and retry .never and yields no value (acceptance 8.502.2), built on the bodies testAgentEnvelopeDecodesDaemonResponseShapes (:41) decodes."
 do_2 = "Add testProgramReceiptCarriesIdempotencyResult to sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift: against an RPC double that does not know the expected transaction, the receipt lookup by idempotency key with level pending returns a submission in state unknown whose idempotencyKey equals the key, and no resultByIdempotency call is issued (18.1264.1), using the RPC double testProgramReceiptResolvesByTransaction uses."
 do_3 = "No production file changes; the verify command runs the filtered tests and fails unless XCTest reports exactly the expected number of tests executed with 0 failures."
-symbols = ["testAgentEnvelopeEncodesVersionTwo", "testAgentEnvelopeRefusesVersionOneResponse", "testProgramReceiptCarriesIdempotencyResult"]
+symbols = ["testAgentEnvelopeEncodesVersionOne", "testAgentEnvelopeRefusesResponseWithoutSchemaFields", "testProgramReceiptCarriesIdempotencyResult"]
 touches = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift"]
 tests = ["sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeEncodesVersionOne", "sdk/platform/swift/Tests/LayerXSDKTests/AgentEnvelopeMajor2Tests.swift::testAgentEnvelopeRefusesResponseWithoutSchemaFields", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsEvmTests.swift::testProgramReceiptCarriesIdempotencyResult"]
 planned_paths = []
@@ -141629,6 +141815,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Continue from attempt 1 (b3f38bbd7): delete testAgentEnvelopeEncodesVersionTwo and testAgentEnvelopeRefusesVersionOneResponse, keep testProgramReceiptCarriesIdempotencyResult, and run both verify segments; the first segment of attempt 1 failed so the second never ran."
+do_5 = "Continue from the latest attempt and change nothing: attempt 3 passed both verify segments and the completion check failed only on the symbols list, which now names the three tests the tests list names."
 
 [task.8.44.5]
 title = "Swift SDK retires kernel batch, checkpoint and settlement verification"
@@ -193708,7 +193895,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.90.1]
 title = "Write the OpenAPI anchors page schema test the merged spec names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 31
 requires = ["18.1081.1"]
