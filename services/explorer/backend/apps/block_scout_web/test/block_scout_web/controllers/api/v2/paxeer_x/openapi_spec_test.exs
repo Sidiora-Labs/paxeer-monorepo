@@ -58,6 +58,10 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
   end
 
   describe "the declared response schemas" do
+    test "reject an anchors page that lost a field", %{conn: conn} do
+      openapi_spec_test(conn)
+    end
+
     test "reject a unified account document that lost a field", %{conn: conn} do
       address = insert(:address)
       block = insert(:block, number: 300)
@@ -103,6 +107,14 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
 
       assert_absent_rejected(response, schema, spec)
     end
+  end
+
+  defp openapi_spec_test(conn) do
+    response = json_response(get(conn, "/api/v2/paxeer-x/archive/anchors"), 200)
+    {spec, schema} = declared_schema("/v2/paxeer-x/archive/anchors")
+
+    assert "items" in required_fields(schema)
+    assert_absent_rejected(response, schema, spec)
   end
 
   defp declared_schema(path) do

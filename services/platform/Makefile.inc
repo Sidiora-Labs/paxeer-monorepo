@@ -38,7 +38,7 @@ platform-sample-preflight:
 platform-sample-install: platform-sample-preflight
 	python3 -m venv $(PLATFORM_PYTHON_ENV)
 	$(PLATFORM_PYTHON_ENV)/bin/python -m pip install --no-index --no-deps --no-build-isolation \
-		$(CURDIR)/agent/sdk/python $(CURDIR)/sdk/integrations/fastapi
+		$(CURDIR)/services/agent/sdk/python $(CURDIR)/sdk/integrations/fastapi
 	cd sdk/platform/go && go mod download
 	cd services/platform/docs/samples/first-payment-go && go mod download
 	cargo fetch --manifest-path services/platform/docs/samples/verify-receipt-rust/Cargo.toml --locked

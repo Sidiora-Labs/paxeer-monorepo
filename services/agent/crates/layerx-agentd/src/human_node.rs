@@ -33,6 +33,21 @@ pub trait HumanNode: Send + Sync + Debug {
         maximum_response_bytes: usize,
     ) -> Result<Vec<u8>, NodeRpcError>;
 
+    fn committed_block(&self, height: u64) -> Result<SequencerBlock, NodeRpcError> {
+        let head = self.head()?;
+        if height > head.number {
+            return Err(NodeRpcError::Unavailable);
+        }
+        let block = self.block(height)?.ok_or(NodeRpcError::Unavailable)?;
+        if block.number != height
+            || block.hash == [0; 32]
+            || height == head.number && block.hash != head.hash
+        {
+            return Err(SequencerError::Malformed.into());
+        }
+        Ok(block)
+    }
+
     fn receipt_key_at_head(&self) -> Result<ReceiptKeyEntry, NodeRpcError> {
         let head = self.head()?;
         let mut covering = self

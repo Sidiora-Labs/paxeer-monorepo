@@ -178,6 +178,7 @@ pub enum Relationship {
         from: EvmAddress,
         to: EvmAddress,
         route: SendRoute,
+        pointer: EvmAddress,
         denom: String,
         chain_id: u64,
         max_priority_fee_per_gas: u128,
@@ -234,6 +235,7 @@ impl RouteRequest {
                 from,
                 to,
                 route,
+                pointer,
                 denom,
                 chain_id,
                 max_priority_fee_per_gas,
@@ -244,6 +246,7 @@ impl RouteRequest {
                 out.extend(from.bytes());
                 out.extend(to.bytes());
                 put_send(&mut out, route);
+                out.extend(pointer.bytes());
                 put_text(&mut out, denom);
                 out.extend(chain_id.to_be_bytes());
                 out.extend(max_priority_fee_per_gas.to_be_bytes());
@@ -330,6 +333,7 @@ impl RouteRequest {
                 from: EvmAddress::new(r.array()?),
                 to: EvmAddress::new(r.array()?),
                 route: r.send()?,
+                pointer: EvmAddress::new(r.array()?),
                 denom: r.text(128)?,
                 chain_id: r.u64()?,
                 max_priority_fee_per_gas: r.u128()?,
@@ -828,6 +832,7 @@ impl RouteResolver {
                     from,
                     to,
                     route,
+                    pointer,
                     denom,
                     chain_id,
                     max_priority_fee_per_gas,
@@ -838,6 +843,7 @@ impl RouteResolver {
                 if from == to
                     || from.bytes() == [0; 20]
                     || to.bytes() == [0; 20]
+                    || pointer.bytes() == [0; 20]
                     || request.amount == Amount::ZERO
                     || route.expires_at.value() == 0
                     || denom.len() < 3
@@ -853,21 +859,13 @@ impl RouteResolver {
                 {
                     return Err(unavailable(request));
                 }
-                let mut data = vec![0x5c, 0x05, 0x96, 0x1b];
-                data.extend([0; 12]);
-                data.extend(from.bytes());
+                let mut data =
+                    layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)")
+                        .to_vec();
                 data.extend([0; 12]);
                 data.extend(to.bytes());
-                data.extend([0; 31]);
-                data.push(128);
                 data.extend([0; 16]);
                 data.extend(request.amount.to_be_bytes());
-                data.extend([0; 24]);
-                data.extend((denom.len() as u64).to_be_bytes());
-                data.extend(denom.as_bytes());
-                data.resize(4 + 160 + denom.len().div_ceil(32) * 32, 0);
-                let mut bank = [0; 20];
-                bank[18..].copy_from_slice(&0x1001_u16.to_be_bytes());
                 Ok(Route {
                     legs: Vec::new(),
                     bank_transfers: vec![Eip1559Call {
@@ -876,7 +874,7 @@ impl RouteResolver {
                         max_priority_fee_per_gas,
                         max_fee_per_gas,
                         gas_limit,
-                        to: bank,
+                        to: pointer.bytes(),
                         data,
                     }],
                 })

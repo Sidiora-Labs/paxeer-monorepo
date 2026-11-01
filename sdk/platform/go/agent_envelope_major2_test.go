@@ -67,6 +67,49 @@ func TestAgentEnvelopeEncodesDaemonRequestGolden(t *testing.T) {
 	}
 }
 
+func TestAgentEnvelopeRefusesResponseWithoutSchemaFields(t *testing.T) {
+	golden, err := os.ReadFile(filepath.Join("..", "..", "..", "services", "agent", "schema", "agent-api", "golden", "agent-http-success.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(golden, &fields); err != nil {
+		t.Fatal(err)
+	}
+	var requestID string
+	if err := json.Unmarshal(fields["request_id"], &requestID); err != nil {
+		t.Fatal(err)
+	}
+	if requestID == "" {
+		t.Fatal("success golden has no request id")
+	}
+	value, decodeErr := decodeAgentEnvelopeResponse(http.StatusOK, golden, requestID)
+	if decodeErr != nil || string(value) != `{"account":"ready"}` {
+		t.Fatalf("daemon success: value = %s, error = %#v", value, decodeErr)
+	}
+	for _, field := range []string{"verification_status", "request_id"} {
+		t.Run("missing_"+field, func(t *testing.T) {
+			if _, exists := fields[field]; !exists {
+				t.Fatalf("success golden lacks %s", field)
+			}
+			incomplete := make(map[string]json.RawMessage, len(fields)-1)
+			for name, value := range fields {
+				if name != field {
+					incomplete[name] = value
+				}
+			}
+			encoded, err := json.Marshal(incomplete)
+			if err != nil {
+				t.Fatal(err)
+			}
+			value, decodeErr := decodeAgentEnvelopeResponse(http.StatusOK, encoded, requestID)
+			if value != nil || decodeErr == nil || decodeErr.Code != ErrorDecodeFailure || decodeErr.Retry != RetryNever {
+				t.Fatalf("response without %s: value = %s, error = %#v; want nil value, ErrorDecodeFailure and RetryNever", field, value, decodeErr)
+			}
+		})
+	}
+}
+
 func TestAgentEnvelopeDecodesDaemonResponseGoldens(t *testing.T) {
 	readGolden := func(name string) []byte {
 		t.Helper()
