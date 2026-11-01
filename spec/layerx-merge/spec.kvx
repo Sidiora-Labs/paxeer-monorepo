@@ -192934,7 +192934,7 @@ qualification = "UNRUN"
 
 [task.18.1426.1]
 title = "Issue #1426: Restore the revision 5 native program approval-budget response frame in the daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.25.16"]
