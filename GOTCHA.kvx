@@ -12561,3 +12561,8 @@ fix = "symbols name functions, types, methods or enums the graph extracts; name 
 title = "A deletion task must require the tasks that port its consumers"
 symptom = "a task deleting a client crate's capability evidence type listed three done tasks as the place the daemon stopped using it, but two newer porting tasks still owned the remaining consumers; the client built and the daemon failed with nine errors on the deleted type"
 fix = "before scheduling a type or module deletion, grep every consumer at the current base and require the task whose touches hold each one; the build gate compiles the consumer crates"
+
+[gotcha.2549]
+title = "A daemon test against anvil answers precompile reads in its own RPC proxy"
+symptom = "a task moved the daemon's fee read onto the fee token precompile and the preview test that gates it panicked Unavailable: the test's chain peer forwarded the eth_call to anvil, which holds no code at the precompile address and returned empty data"
+fix = "when a task adds a chain read on a path an anvil-backed test exercises, the test joins the touches and its proxy answers that read with the unit fixture's values; anvil never stands in for a precompile"
