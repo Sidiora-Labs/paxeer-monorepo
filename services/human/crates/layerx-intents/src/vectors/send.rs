@@ -1,9 +1,9 @@
-use layerx_crypto::send::SendDebit;
+use layerx_crypto::send;
 use layerx_wire::{encode::Encoder, WireError};
 
 /// # Errors
 /// Refuses a non-owner or conditional debit and retains every original encoder bound.
-pub fn owner_send_authorization(debit: &SendDebit) -> Result<Vec<u8>, WireError> {
+pub fn owner_send_authorization(debit: &send::SendDebit) -> Result<Vec<u8>, WireError> {
     if debit.authorization_kind != 1 || !debit.conditions.is_empty() {
         return Err(WireError {
             result: layerx_types::result::KnownResult::NonCanonical.into(),
