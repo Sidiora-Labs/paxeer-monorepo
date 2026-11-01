@@ -6321,6 +6321,12 @@ value = "layerx-sdk's Backend::DirectNode holds a layerx_client::sequencer::Sequ
 basis = "Task 9.25.3 ported the daemon's production holders and do_7 of 9.25.2 assumed no other crate names Client; the SDK, nine daemon test and example files and the fee projection test still do, so attempt 4 of 9.25.2 could not have passed its build gate even with its touches complete."
 affects = ["9.25.9", "9.25.2", "9.28.1"]
 
+[decision.2202]
+title = "The receipt source retains committed sends until capacity evicts them, so pax_sequencerReceipt answers the committed rung"
+value = "node/sequencer/receipt_source.go keeps a recorded send after its receipt height commits: Committed(height) advances the watermark and marks the entries at or below it committed instead of deleting them, and Record evicts the committed entry of the lowest height (insertion order among equals) when the capacity is reached, panicking on exhaustion only when every retained send is uncommitted. pax_sequencerReceipt therefore answers rung committed with blockNumber and blockHash for a retained committed send (rpc/sequencer_receipt.go:293-306, unchanged) and null only for a hash never recorded or already evicted; a consumer that needs a committed record after eviction reads eth_getTransactionReceipt. req.5022 ac_1 is restated accordingly."
+basis = "Task 5.5.3 implemented req.5022 as written ('until commit'), so the record is deleted in the same commit listener that makes the committed rung true (node/sequencer/node_start.go:138); the committed branch of the handler and every consumer of the Committed rung (layerx-client sequencer.rs:160-171, decisions 1935, 2643, 2805 and the settlement rule of the daemon) could never see it, and the send test of 12.35.2 polled null for sixty seconds (finding 12.35.2.13). The producer-and-consumer defect class."
+affects = ["5.5.22", "12.35.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -16061,8 +16067,12 @@ ac_1 = "The micro-batch executor (node/sequencer/microbatch.go:85) delivers tran
 
 [req.5022]
 title = "Accepted sequencer receipts are served by hash until commit"
-ac_1 = "ReceiptSource (node/sequencer/receipt_source.go, planned) returns the recorded SequencerSend (rpc/sequencer_receipt.go:77) for its hash until the height commits."
+ac_1 = "ReceiptSource (node/sequencer/receipt_source.go) returns the recorded SequencerSend (rpc/sequencer_receipt.go:77) for its hash before and after the height commits, until a full source evicts it as the oldest committed send."
 ac_2 = "ReceiptSource returns no receipt for a hash that was never recorded."
+
+[req.5090]
+title = "Committed sends stay readable by hash until capacity evicts them"
+ac_1 = "After Committed(height), ReceiptSource.SequencerSend still returns the recorded send of a hash at or below height, and a full source evicts the oldest committed send before an uncommitted one."
 
 [req.5023]
 title = "A receipt is returned only once it is durable on the primary and the standby"
@@ -33293,6 +33303,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.8.46.10]
+title = "Regenerate the JVM schema from its generator and carry the hand-made shape into the generator"
+reqs = ["8548.1"]
+touches = ["sdk/platform/generators/generate_jvm.py", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueJourneysTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueJourneysTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java"]
+verification_contract = "python3 sdk/platform/generators/generate_jvm.py --check '$PWD' && python3 -m pytest sdk/platform/generators/tests -q && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest='GeneratedCatalogueProgramsTest,GeneratedCatalogueJourneysTest,GeneratedCatalogueIntentsTest' -Dsurefire.failIfNoSpecifiedTests=true"
+do_1 = "Run python3 sdk/platform/generators/generate_jvm.py '$PWD' and compare the result with the committed sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java and sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java that b574c9f9f (task 8.46.9) edited by hand. Every difference is resolved in the generator, not in the generated files: where the hand edit carried the shape req.8546 requires (the plain AGENT_OPERATIONS set of 53 live operations without faucet.claim, no catalog wrapper, no program transport map in the contract; the three human verification levels), make the generator render exactly that, and where the hand edit drifted from the generator for no acceptance, the generator's output stands. Commit the regenerated files; GeneratedSchema.java and GeneratedContract.java are generator output from this task on."
+symbols = ["generate_jvm", "retain_human_schema", "GeneratedSchema", "GeneratedContract"]
+
+[capability.5.5.22]
+title = "Retain committed sends in the receipt source so pax_sequencerReceipt answers the committed rung"
+reqs = ["5090.1"]
+touches = ["node/sequencer/receipt_source.go", "node/sequencer/receipt_source_test.go"]
+tests = ["node/sequencer/receipt_source_test.go::TestReceiptSourceServesCommittedSend", "node/sequencer/receipt_source_test.go::TestReceiptSourceEvictsOldestCommittedSendAtCapacity"]
+verification_contract = "go test -count=1 -v ./node/sequencer/ -run '^(TestReceiptSourceRecordsAcceptedSend|TestReceiptSourceUnknownHashNil|TestReceiptSourceServesCommittedSend|TestReceiptSourceEvictsOldestCommittedSendAtCapacity)$' 2>&1 | tee /dev/stderr | grep -c -- '^--- PASS: ' | grep -qx 4"
+do_1 = "Decision 2202. In node/sequencer/receipt_source.go Committed(height) no longer deletes entries: it advances the watermark (never decreasing, as now) and appends the hashes of the entries whose height is at or below it, lowest height first and insertion order among equals, to a committed order the struct keeps; those entries stay served by SequencerSend byte-identical to the recorded send. Record keeps every check and the rule that a send at or below the watermark is not retained; when len(entries) is at the capacity it evicts the first hash of the committed order before inserting, and panics 'capacity exhausted before commit' only when the committed order is empty. The doc comments of the type and both methods state the new retention."
+symbols = ["ReceiptSource", "Committed", "Record", "TestReceiptSourceServesCommittedSend", "TestReceiptSourceEvictsOldestCommittedSendAtCapacity"]
 
 [capability.8.98.17]
 title = "Verify authority receipt headers under the pinned receipt keys and retire the handover genesis trust"
@@ -116895,6 +116923,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.8.46.10]
+title = "Regenerate the JVM schema from its generator and carry the hand-made shape into the generator"
+status = "pending"
+mode = "BUILD"
+wave = 29
+requires = ["8.46.9"]
+reqs = ["8548.1"]
+capabilities = ["8.46.10"]
+interfaces = []
+do_1 = "Run python3 sdk/platform/generators/generate_jvm.py '$PWD' and compare the result with the committed sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java and sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java that b574c9f9f (task 8.46.9) edited by hand. Every difference is resolved in the generator, not in the generated files: where the hand edit carried the shape req.8546 requires (the plain AGENT_OPERATIONS set of 53 live operations without faucet.claim, no catalog wrapper, no program transport map in the contract; the three human verification levels), make the generator render exactly that, and where the hand edit drifted from the generator for no acceptance, the generator's output stands. Commit the regenerated files; GeneratedSchema.java and GeneratedContract.java are generator output from this task on."
+do_2 = "GeneratedCatalogueProgramsTest, GeneratedCatalogueJourneysTest and GeneratedCatalogueIntentsTest pass on the regenerated files; a test that named a hand-made shape the generator does not render follows the generator (the test files are in the touches for that case only). sdk/platform/generators/tests keeps passing."
+do_3 = "The verify gate runs generate_jvm.py --check on the repository, the generator's pytest suite and the three catalogue tests; the wave 4 aggregate of task 17.5.5 reaches platform-sdk-check (services/platform/Makefile.inc:233) and is its consumer gate."
+symbols = ["generate_jvm", "retain_human_schema", "GeneratedSchema", "GeneratedContract"]
+touches = ["sdk/platform/generators/generate_jvm.py", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueJourneysTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java"]
+tests = ["sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueProgramsTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueJourneysTest.java", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedCatalogueIntentsTest.java"]
+planned_paths = []
+build_cmd = "python3 sdk/platform/generators/generate_jvm.py '$PWD' && mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
+verify_cmd = "python3 sdk/platform/generators/generate_jvm.py --check '$PWD' && python3 -m pytest sdk/platform/generators/tests -q && mvn -q -f sdk/platform/jvm/pom.xml test -Dtest='GeneratedCatalogueProgramsTest,GeneratedCatalogueJourneysTest,GeneratedCatalogueIntentsTest' -Dsurefire.failIfNoSpecifiedTests=true"
+gate_kind = "planned"
+sandbox_profile = "jvm"
+owner_role = "fm-platform"
+rollback = "Restore the generator and the generated files from 5b446cd27; platform-sdk-check fails again and the wave 4 aggregate stays red."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.8.98.17]
 title = "Verify authority receipt headers under the pinned receipt keys and retire the handover genesis trust"
 status = "pending"
@@ -117643,6 +117701,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.5.5.22]
+title = "Retain committed sends in the receipt source so pax_sequencerReceipt answers the committed rung"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["5.5.3"]
+reqs = ["5090.1"]
+capabilities = ["5.5.22"]
+interfaces = []
+do_1 = "Decision 2202. In node/sequencer/receipt_source.go Committed(height) no longer deletes entries: it advances the watermark (never decreasing, as now) and appends the hashes of the entries whose height is at or below it, lowest height first and insertion order among equals, to a committed order the struct keeps; those entries stay served by SequencerSend byte-identical to the recorded send. Record keeps every check and the rule that a send at or below the watermark is not retained; when len(entries) is at the capacity it evicts the first hash of the committed order before inserting, and panics 'capacity exhausted before commit' only when the committed order is empty. The doc comments of the type and both methods state the new retention."
+do_2 = "In node/sequencer/receipt_source_test.go add TestReceiptSourceServesCommittedSend (record a send at height 7 with receiptSourceAcceptedSend, call Committed(7) then Committed(9), and SequencerSend returns the identical send both times) and TestReceiptSourceEvictsOldestCommittedSendAtCapacity (NewReceiptSource(2): record sends at heights 1 and 2, Committed(2), record a send at height 3 and the height-1 send is gone while heights 2 and 3 are served; record a send at height 4 and the height-2 send is gone; a source whose two retained sends are uncommitted still panics on a third Record). TestReceiptSourceRecordsAcceptedSend and TestReceiptSourceUnknownHashNil keep passing unchanged."
+do_3 = "rpc/sequencer_receipt.go does not change: its committed branch (:293-306) now answers rung committed with blockNumber and blockHash for a retained committed send, and the test of 12.35.2 is its consumer gate."
+do_4 = "The build gate compiles node/sequencer and rpc; the verify gate runs the four receipt source tests verbosely and fails unless four PASS lines are printed."
+symbols = ["ReceiptSource", "Committed", "Record", "TestReceiptSourceServesCommittedSend", "TestReceiptSourceEvictsOldestCommittedSendAtCapacity"]
+touches = ["node/sequencer/receipt_source.go", "node/sequencer/receipt_source_test.go"]
+tests = ["node/sequencer/receipt_source_test.go::TestReceiptSourceServesCommittedSend", "node/sequencer/receipt_source_test.go::TestReceiptSourceEvictsOldestCommittedSendAtCapacity"]
+planned_paths = []
+build_cmd = "go build ./node/sequencer/... ./rpc/..."
+verify_cmd = "go test -count=1 -v ./node/sequencer/ -run '^(TestReceiptSourceRecordsAcceptedSend|TestReceiptSourceUnknownHashNil|TestReceiptSourceServesCommittedSend|TestReceiptSourceEvictsOldestCommittedSendAtCapacity)$' 2>&1 | tee /dev/stderr | grep -c -- '^--- PASS: ' | grep -qx 4"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Restore receipt_source.go and its test from 5b446cd27; pax_sequencerReceipt answers null for every committed transaction again and 12.35.2 cannot pass."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.8.90.2]
 title = "Write the two Go SDK agent envelope version tests the merged spec names"
@@ -161976,7 +162065,7 @@ title = "Assert the receipted rung of a sent transfer in the send end-to-end tes
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["12.35.1", "12.22.5", "12.35.4", "5.98.5", "5.98.7"]
+requires = ["12.35.1", "12.22.5", "12.35.4", "5.98.5", "5.98.7", "5.5.22"]
 reqs = ["12294.1"]
 capabilities = ["12.35.2"]
 interfaces = []
@@ -162013,6 +162102,7 @@ do_13 = "Finding 12.35.2.9: continue from attempt 9 (a68e1a226). First run the e
 do_14 = "Finding 12.35.2.10: continue from attempt 12. In the eth_gasPrice poll of send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload make the catch keep polling whenever error.message includes 'no block is open' (the node's 'pending block unavailable' and 'pending base fee unavailable' wordings alike, as tools/qualification/localnode/v6120_test.go:218 does) and rethrow anything else; apply the same tolerance to the eth_sendRawTransaction poll that follows if it matches a single wording. Change nothing else; build once and verify once."
 do_15 = "Finding 12.35.2.11: continue from attempt 13 (dcddfd4f1) keeping its eth_getTransactionByHash poll and the two idle-chain wordings. The node commits blocks on its own, so the page may show submitted or included before the test looks and never pending: at send.spec.ts:746 replace the pending assertion with expect.poll over title(page).getAttribute('data-truth') being one of 'pending', 'submitted' or 'included' (never 'reverted', 'replaced' or 'unknown'), and delete the two assertions at :764-765 that the receipted rung is unreached and no 'Transfer Completed' text exists before the receipt, since the receipt may already be in by then. The assertions from the receipt poll onward, including the unreached committed rung, the absent completion text and the reload, stay as they are. Change nothing else; build once, verify once."
 do_16 = "Finding 12.35.2.12: continue from attempt 14 (base 0b189cb1e) keeping everything it landed. In send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload give every expect.poll the option timeout: 60_000 next to its intervals (the eth_gasPrice poll at :714, the eth_sendRawTransaction and eth_getTransactionByHash polls, the data-truth poll and the receipt poll at :777). Make the receipt poll wait until readSequencerReceipt answers a receipt whose blockHash is defined, then assert that receipt with toMatchObject({ txHash: hash, status: '0x1' }) and its rung with toMatch(/^(receipted|committed)$/) instead of the literal 'receipted'; keep the blockHash regex and the thrown error at :780-782 and keep the saved step object and its receipted:<blockHash> state exactly as written. Change nothing else; build once, verify once."
+do_17 = "Finding 12.35.2.13: continue from attempt 15 (93abe9eb4) unchanged once task 5.5.22 (decision 2202) is on main, so the node keeps the sent transfer's record after its block commits and pax_sequencerReceipt answers the committed rung with a block hash, which the receipt poll of do_16 waits for. Rebase onto main, change nothing, build once and verify once."
 
 [task.12.35.3]
 title = "Assert the committed rung needs a matching explorer answer in the send e2e test"
@@ -179723,7 +179813,7 @@ title = "Run the wave 4 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["17.5.8", "17.0.3", "1.0.3", "2.0.3", "3.0.3", "4.0.3", "5.0.3", "6.0.3", "7.0.3", "8.0.3", "9.0.3", "10.0.3", "11.0.3", "12.0.3", "13.0.3", "14.0.3", "15.0.3", "16.0.3", "16.1.5", "18.1121.1", "10.24.4", "14.0.5", "17.5.12"]
+requires = ["17.5.8", "17.0.3", "1.0.3", "2.0.3", "3.0.3", "4.0.3", "5.0.3", "6.0.3", "7.0.3", "8.0.3", "9.0.3", "10.0.3", "11.0.3", "12.0.3", "13.0.3", "14.0.3", "15.0.3", "16.0.3", "16.1.5", "18.1121.1", "10.24.4", "14.0.5", "17.5.12", "8.46.10"]
 reqs = ["17058.1"]
 capabilities = ["17.5.5"]
 interfaces = []
@@ -179751,6 +179841,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Finding 17.5.5.1: the gate is an aggregate over the merged tree; continue from attempt 1 (2cd0c587f) unchanged once 10.24.4 (now required) is on main, and when make human-build still fails on committed_client_matches_regeneration, record the regenerated-versus-committed diff as a finding instead of repairing the client here."
 do_5 = "Finding 10.0.3.12: attempt 2 (cd8fe082d) built and reached make human-build, which failed only on the committed client drift; task 14.0.5 (now required) regenerates the client, so continue from attempt 2 unchanged on a main that carries 10.24.4 and 14.0.5."
 do_6 = "Finding 17.5.5.2: attempt 7 failed at human-build because apps/web's next build could not resolve @sidiora/layerx-sdk/browser, whose dist no human-build step produced. Task 17.5.12 adds the agent-sdk-ts-build step ahead of the web build and the exports default condition and is required here; once it is on main, continue unchanged: run the wave-4 aggregate on the merged revision, record the gate result, and change no product file."
+do_7 = "Finding 17.5.5.3: continue from attempt 10 (d82dce494) unchanged once task 8.46.10 is on main, so platform-sdk-check passes generate_jvm.py --check; rebase onto main, change nothing, build once and verify once. A later failure of the aggregate in another product check is a new finding naming the check, its Makefile line and the owning task."
 
 [task.17.5.6]
 title = "Run the wave 5 aggregate gate once on the merged wave revision"
@@ -200900,6 +200991,10 @@ qualification = "UNRUN"
 title = "JVM generated contract returns to the generator's shape and the human verification levels follow the human schema"
 ac_1 = "GeneratedContract.java carries only what layerx-platform-sdkgen renders: AGENT_OPERATIONS is a plain Set of the 53 live agent operations without faucet.claim, no AgentOperationCatalog wrapper and no program transport map; GeneratedCatalogueProgramsTest reads program transports from GeneratedSchema."
 ac_2 = "GeneratedSchema.HumanModels.HumanVerificationLevel has exactly unverified, receipt-verified and checkpoint-finalised and refuses block-committed, paxeer-finalised and settlement-anchored."
+
+[req.8548]
+title = "The committed JVM schema equals the generator's output"
+ac_1 = "generate_jvm.py --check passes on the committed GeneratedSchema.java and GeneratedContract.java, and the three generated-catalogue tests pass on them."
 
 [task.8.46.9]
 title = "JVM generated contract returns to the generator's shape and the human verification levels follow the human schema"

@@ -15667,3 +15667,19 @@ symbol = "commitListener"
 observed = "Attempt 5 (a772c6010, base 21c2ab6ee) passed the build gate and the two restated replay tests, and verification stopped at TestCommitSurvivesPanickingListener (node/commit_listener_test.go:122): Commit returned 'commit listener at height 1 panicked: commit listener failed', because commitListener (node/abci.go:331-340) recovers a listener panic and returns it as an error, while req 5045 ac_2 and acceptance 5.45.2 require that a panicking listener does not fail Commit; node/abci.go was outside the touches."
 assumption = "node/abci.go joins the touches: a recovered panic is logged at error level with the height and the panic value and Commit returns no error, since the store commit and the height advance precede the listener call; a listener returning an error keeps failing Commit as TestCommitReturnsListenerFailure proves."
 severity = "major"
+
+[finding.12.35.2.13]
+task = "12.35.2"
+file = "node/sequencer/receipt_source.go:98"
+symbol = "Committed"
+observed = "Attempt 15 (93abe9eb4, base 21c2ab6ee) implemented do_16, built, and the receipt poll at send.spec.ts:788 read null from pax_sequencerReceipt for the full sixty seconds after the transfer was included: ReceiptSource.Committed deletes every send at or below the committed height in the commit listener (node/sequencer/node_start.go:138), and the node commits the block within seconds, so the record the poll waits for is gone before the first read and the committed rung of rpc/sequencer_receipt.go:293-306 is never answered; the test file is correct against the receipt contract and no file of this task can change that."
+assumption = "Task 5.5.22 (decision 2202) retains committed sends; the test then reads rung committed with a block hash, which do_16 already accepts, and the page keeps Receipted because the committed rung needs an explorer answer (req.12295)."
+severity = "major"
+
+[finding.17.5.5.3]
+task = "17.5.5"
+file = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:1"
+symbol = "generate_jvm"
+observed = "Attempt 10 (d82dce494, base 21c2ab6ee) built, and the wave 4 aggregate failed in platform-sdk-check at services/platform/Makefile.inc:233: generate_jvm.py --check reports 'generated JVM schema is stale'. The generator reads services/agent/schema/agent-api and precompiles/layerxprograms/abi.json, neither changed since b574c9f9f, and splices the human sections from the committed file, so the committed GeneratedSchema.java differs from the generator's own output: b574c9f9f (task 8.46.9) edited GeneratedSchema.java and GeneratedContract.java by hand under a gate of mvn tests only, never the --check; the test of this task is unchanged and correct."
+assumption = "Task 8.46.10 (req.8548) regenerates both files from the generator and carries the required shape into it; this task requires it and continues unchanged."
+severity = "major"
