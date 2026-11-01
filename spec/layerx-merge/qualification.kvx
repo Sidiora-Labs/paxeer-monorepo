@@ -15771,3 +15771,43 @@ symbol = "write_jvm_contract"
 observed = "Attempt 1 (18b732a35, base 4505ff22b) ran make platform-sdk-generate, resealed sdk/platform/pipeline.kvx (schema and generator digests, two handwritten TypeScript declarations) and built; platform-sdk-check failed at services/platform/Makefile.inc:233 in generate_jvm.py --check with 'generated JVM contract is stale': sdkgen --write (main.rs:2070 write_jvm_contract) ran after generate_jvm.py and rewrote sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java with its own header line, so the Python generator's check no longer matched; the lock tests were not reached. Both generators render the same contract body and differ only in the header comment."
 assumption = "Decision 2206 makes generate_jvm.py the only generator of the contract; this task deletes the Rust rendering and regenerates once more."
 severity = "major"
+
+[finding.5.5.22.2]
+task = "5.5.22"
+file = "node/sequencer/receipt_source_test.go:92"
+symbol = "TestReceiptSourceRecordsAcceptedSend"
+observed = "Attempt 3 (ddd3719c1, base 4505ff22b) implemented do_5 as written: receipt_source.go retains committed sends and evicts the oldest committed one when the source is full, as do_1 requires, and TestReceiptSourceRecordsAcceptedSend fails at :92 because Record(lastHash, last) at :87 fills the two-slot source whose only committed send is the first one and evicts it before the late record that do_5 said must leave it unchanged; the assertions do_5 kept after Committed(vectorHeight + 3) and on the zero-value source still require nil for sends the retention rule keeps."
+assumption = "The tail of the test from :87 is rewritten to the values the retention and eviction rules produce; receipt_source.go does not change."
+severity = "major"
+
+[finding.9.25.8.2]
+task = "9.25.8"
+file = "services/agent/crates/layerx-agentd/src/read/mod.rs:8"
+symbol = "checkpoint_impl"
+observed = "Attempt 3 (cd428e283, base abd223e8b) added the three client accessors, the committed-block acquisition and seven checkpoint tests against a TcpListener JSON-RPC double, and the verify filter read::checkpoint::tests of do_3 selects no test because read/checkpoint.rs is declared as module read::checkpoint_impl (read/mod.rs:8); the attempt made the seven test functions pub(super) and ran their bodies from one committed_time test so the filter would reach them, and its first verification failed three captured-batch tests whose fixture pinned network 125 while the captured header carries 77, which cd428e283 repairs by pinning header.network_id(), but the rerun was refused by the repair budget."
+assumption = "The verify filter names read::checkpoint_impl::tests and the wrapper is deleted; the repaired fixture passes."
+severity = "major"
+
+[finding.10.6.5.6]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/native_send_producer.rs:555"
+symbol = "genuine_human_owner_session_consent_preview_and_reopen"
+observed = "Attempt 7 (6b961c625, base 4505ff22b) ported the twelve test files, every test target of both crates built, the evidence node test passed, and the second verify segment failed before any assertion: genuine_human_owner_session_consent_preview_and_reopen reads PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, the protected release-gate fixture of decision 1806 that finding 10.4.3.2 already recorded as absent from every qualification run, so the three segments after it never ran."
+assumption = "The verify gate drops that segment, build_cmd keeps compiling the target, and the intent_submit target the task ports takes its place."
+severity = "major"
+
+[finding.10.6.5.7]
+task = "10.6.5"
+file = "services/human/crates/layerx-human-service/tests/intent_submit.rs:858"
+symbol = "JourneyEngine::load"
+observed = "The kernel send test attempt 7 ported per do_10 loads the started journey with JourneyEngine::load, which scans only keys prefixed journey- (src/journeys/engine.rs:38, :803) and decodes the engine's record, while start_kernel_journey persists a flat record under RowKey intent-evm-<journey_id> (src/journeys/intent_submit.rs:303-333) that only ProductionComponents::advance_evm_intent (production_components.rs:8838) and the journey.get and list routes read; the ported test therefore panics 'persisted kernel journey missing' and the three refusal tests assert emptiness of a loader nothing feeds, and the verify gate of this task never ran the target, so the port was never exercised."
+assumption = "do_10 is corrected: the kernel test reads the intent-evm row and the replay rule; the engine-driving steps are deleted; the intent_submit target joins the verify gate."
+severity = "major"
+
+[finding.8.45.5.2]
+task = "8.45.5"
+file = "services/platform/Makefile.inc:231"
+symbol = "platform-sdk-check"
+observed = "Attempt 3 (4ccbabda0, base de1dbe1b8) deleted the Rust rendering of GeneratedContract.java, regenerated the outputs and resealed the lock; the build passed, make platform-sdk-check passed and both pipeline_reseal tests passed, and the qualification was refused only by two graph checks: the declared symbols platform-sdk-generate and platform-sdk-check are Makefile targets, which the code graph never indexes, so they can never be found."
+assumption = "The task's symbols name only pipeline_lock_matches_repository; the attempt continues unchanged."
+severity = "minor"

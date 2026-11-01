@@ -12541,3 +12541,18 @@ fix = "a task that edits a pipeline source (agent-api, human-api, mirror-v2 in s
 title = "Two generators owning one generated file fight over its header"
 symptom = "make platform-sdk-generate ran a Python generator and then the Rust pipeline generator, both rendering sdk/platform/jvm GeneratedContract.java with different header comments, so whichever --check ran against the other's output reported the file stale and the aggregate failed after a correct regeneration"
 fix = "one generator owns each generated file; the pipeline lock digests files rendered by another generator without rendering them itself, and a task that adds rendering of an existing output first removes the previous renderer"
+
+[gotcha.2545]
+title = "A ruling that rewrites part of a test must replay the fixture state"
+symptom = "a ruling changed two assertions of a receipt-source test to the new retention rule but kept the Record call before them, which fills the two-slot source and evicts the very send the new assertion requires; the attempt followed the ruling and failed on it"
+fix = "before dictating an assertion, walk the test's calls with the capacity and watermark in hand and state the expected value at each read"
+
+[gotcha.2546]
+title = "A port the task gate never runs can assert against a loader the producer stopped feeding"
+symptom = "a test-port ruling told the implementer to load an EVM intent journey through the legacy journey engine; the producer had moved to a flat intent-evm row the engine's prefix scan never sees, the verify gate ran a fixture-gated release test instead of the ported target, and the port compiled, failed at runtime and was never exercised"
+fix = "when a task ports a test target, its verify command runs that target; before dictating a read path, follow the producer's write to the row it persists and name the reader that serves it in production"
+
+[gotcha.2547]
+title = "Makefile targets are not code-graph symbols"
+symptom = "a task listed two Makefile targets in its symbols; the attempt built, passed every gate and was refused by the graph check with 'symbol not defined in the graph' for both"
+fix = "symbols name functions, types, methods or enums the graph extracts; name a Makefile target in the verify command or the do text, never in symbols"
