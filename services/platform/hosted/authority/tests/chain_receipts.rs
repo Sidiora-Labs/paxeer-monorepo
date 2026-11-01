@@ -2,7 +2,7 @@ include!("../src/main.rs");
 
 use ed25519_dalek::Signer as _;
 use std::io::{BufRead as _, BufReader};
-use std::os::unix::fs::PermissionsExt as _;
+use std::os::unix::fs::{FileTypeExt as _, PermissionsExt as _};
 use std::path::Path;
 use std::process::Command;
 use std::sync::Mutex;
@@ -337,53 +337,56 @@ impl AuthorityProcess {
             must(fs::set_permissions(path, fs::Permissions::from_mode(0o600)));
         }
         let log = must(fs::File::create(harness.directory.join("authority.log")));
-        let child =
-            must(
-                Command::new(env!("CARGO_BIN_EXE_layerx-receipt-authority"))
-                    .env_clear()
-                    .envs(env::vars_os().filter(|(name, _)| {
-                        !name.to_string_lossy().starts_with("LAYERX_AUTHORITY_")
-                    }))
-                    .env("LAYERX_AUTHORITY_LISTEN", address.to_string())
-                    .env(
-                        "LAYERX_AUTHORITY_TLS_CERT_DER",
-                        harness.directory.join("tls-cert.der"),
-                    )
-                    .env(
-                        "LAYERX_AUTHORITY_TLS_KEY_DER",
-                        harness.directory.join("tls-key.der"),
-                    )
-                    .env("LAYERX_AUTHORITY_TOKEN_FILES", token)
-                    .env(
-                        "LAYERX_AUTHORITY_REPLICA_URL",
-                        format!("http://{replica_address}"),
-                    )
-                    .env("LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE", replica_token)
-                    .env("LAYERX_AUTHORITY_REPLICA_ID", hex::encode(&[1; 32]))
-                    .env(
-                        "LAYERX_AUTHORITY_CHAIN_RPC_URL",
-                        format!("http://{}/evm", harness.config.replica_address),
-                    )
-                    .env(
-                        "LAYERX_AUTHORITY_RECEIPT_KEYS_FILE",
-                        harness.directory.join("receipt-keys.json"),
-                    )
-                    .env("LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID", "125")
-                    .env("LAYERX_AUTHORITY_NETWORK_ID", "chain-receipts-test")
-                    .env(
-                        "LAYERX_AUTHORITY_SEQUENCER_ID",
-                        hex::encode(&harness.config.authorization.sequencer_id()),
-                    )
-                    .env(
-                        "LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY",
-                        hex::encode(&harness.config.sequencer_public_key),
-                    )
-                    .env("LAYERX_AUTHORITY_FIRST_BATCH", "1")
-                    .env("LAYERX_AUTHORITY_LAST_BATCH", u64::MAX.to_string())
-                    .stdout(must(log.try_clone()))
-                    .stderr(log)
-                    .spawn(),
-            );
+        let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-receipt-authority"));
+        command
+            .env_clear()
+            .envs(
+                env::vars_os()
+                    .filter(|(name, _)| !name.to_string_lossy().starts_with("LAYERX_AUTHORITY_")),
+            )
+            .env("LAYERX_AUTHORITY_LISTEN", address.to_string())
+            .env(
+                "LAYERX_AUTHORITY_TLS_CERT_DER",
+                harness.directory.join("tls-cert.der"),
+            )
+            .env(
+                "LAYERX_AUTHORITY_TLS_KEY_DER",
+                harness.directory.join("tls-key.der"),
+            )
+            .env("LAYERX_AUTHORITY_TOKEN_FILES", token)
+            .env(
+                "LAYERX_AUTHORITY_REPLICA_URL",
+                format!("http://{replica_address}"),
+            )
+            .env("LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE", replica_token)
+            .env("LAYERX_AUTHORITY_REPLICA_ID", hex::encode(&[1; 32]))
+            .env(
+                "LAYERX_AUTHORITY_CHAIN_RPC_URL",
+                format!("http://{}/evm", harness.config.replica_address),
+            )
+            .env(
+                "LAYERX_AUTHORITY_RECEIPT_KEYS_FILE",
+                harness.directory.join("receipt-keys.json"),
+            )
+            .env("LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID", "125")
+            .env("LAYERX_AUTHORITY_NETWORK_ID", "chain-receipts-test")
+            .env(
+                "LAYERX_AUTHORITY_SEQUENCER_ID",
+                hex::encode(&harness.config.authorization.sequencer_id()),
+            )
+            .env(
+                "LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY",
+                hex::encode(&harness.config.sequencer_public_key),
+            )
+            .env("LAYERX_AUTHORITY_FIRST_BATCH", "1")
+            .env("LAYERX_AUTHORITY_LAST_BATCH", u64::MAX.to_string())
+            .stdout(must(log.try_clone()))
+            .stderr(log)
+            .env_remove("LAYERX_AUTHORITY_LNI_SOCKET");
+        assert!(command
+            .get_envs()
+            .all(|(name, value)| name != "LAYERX_AUTHORITY_LNI_SOCKET" || value.is_none()));
+        let child = must(command.spawn());
         let mut process = Self { child, address };
         let deadline = Instant::now() + Duration::from_secs(5);
         loop {
@@ -392,7 +395,8 @@ impl AuthorityProcess {
             }
             assert!(
                 must(process.child.try_wait()).is_none(),
-                "authority exited during startup"
+                "authority exited during startup: {}",
+                must(fs::read_to_string(harness.directory.join("authority.log")))
             );
             assert!(Instant::now() < deadline, "authority did not start");
             thread::sleep(Duration::from_millis(10));
@@ -814,6 +818,56 @@ fn trust_snapshot_is_the_pinned_key_list() {
         std::io::ErrorKind::WouldBlock,
         "trust snapshots and chain receipt admission must never open the kernel socket"
     );
+}
+
+#[test]
+fn authority_starts_without_an_lni_socket() {
+    let document = receipt_vectors();
+    let case = vector(&document, "V1-pax-transfer");
+    let harness = ReceiptHarness::start(&[case.clone()], &case);
+    assert!(harness
+        .files()
+        .iter()
+        .all(|path| !must(fs::metadata(path)).file_type().is_socket()));
+    let authority =
+        AuthorityProcess::start_with_replica(&harness, Some(harness.config.replica_address));
+    let (status, body) = authority.get("/readyz");
+    assert_eq!(status, 200);
+    assert_eq!(
+        body,
+        serde_json::json!({
+            "ready": true,
+            "network_id": "chain-receipts-test",
+            "protocol_network_id": 125,
+            "wire_version": PROTOCOL_VERSION.to_string(),
+        })
+    );
+    let activity = hex_bytes(&case["receiptJson"]["txHash"])
+        .try_into()
+        .unwrap();
+    match lookup_receipt(&harness.config, activity, false) {
+        ReceiptSource::Found(bytes) => assert_eq!(bytes, hex_bytes(&case["signedReceipt"])),
+        other => panic!("chain receipt was not admitted without an LNI variable: {other:?}"),
+    }
+    let activity = hex::encode(&activity);
+    let (status, body) = authority.receipt(&activity);
+    assert_eq!(status, 503);
+    assert_eq!(body["error"]["code"], "replica_evidence_unavailable",
+        "the running authority must admit the pinned chain receipt before requesting independent replica evidence");
+    let calls = must(harness.calls.lock());
+    assert!(calls.iter().any(|call| call["method"] == "eth_chainId"));
+    let receipts: Vec<_> = calls
+        .iter()
+        .filter(|call| call["method"] == "pax_sequencerReceipt")
+        .collect();
+    assert_eq!(receipts.len(), 2);
+    for call in receipts {
+        assert_eq!(call["params"], serde_json::json!([format!("0x{activity}")]));
+    }
+    assert!(harness
+        .files()
+        .iter()
+        .all(|path| !must(fs::metadata(path)).file_type().is_socket()));
 }
 
 #[test]
