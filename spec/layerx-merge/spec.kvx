@@ -184840,7 +184840,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.1.7]
 title = "Diagnose and repair the three kernel tests that crash with a segmentation fault"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
