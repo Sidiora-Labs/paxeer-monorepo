@@ -413,6 +413,9 @@ func InitializePrecompiles(
 		addPrecompileToVM(layerxbridgep)
 		addPrecompileToVM(launchpadp)
 		addPrecompileToVM(xwebp)
+		for _, p := range merge {
+			addPrecompileToVM(p)
+		}
 		Initialized = true
 	}
 	return nil
