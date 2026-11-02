@@ -1,4 +1,4 @@
-import { ProductionClient, SecretBytes } from "@sidiora/layerx-sdk";
+import { ProductionClient, SecretBytes, keccak256 } from "@sidiora/layerx-sdk";
 import {
   MiddlewareError,
   ReceiptPayloadAuthority,
@@ -8,8 +8,11 @@ import {
   encodePaymentRequiredHeader,
   encodeSettlementHeader,
   verifyPaymentReceipt,
+  type FulfillmentRepository,
+  type PaymentCommitmentResolver,
   type PaymentPayload,
   type PaymentReceiptVerification,
+  type PaymentRequirements,
   type SellerDecision,
 } from "@sidiora/layerx-seller-middleware";
 import {
@@ -38,6 +41,7 @@ import {
   offerFixture,
   toHex,
   type OfferFixture,
+  type ReceiptFacts,
   type SignedReceipt,
 } from "./receipts.js";
 import {
@@ -51,6 +55,49 @@ import {
 
 const isMiddlewareError = (code: string) => (error: unknown): boolean =>
   error instanceof MiddlewareError && error.code === code;
+
+/** A session issuing and retaining signed payments from the conformance producer. */
+export class ConformancePaymentRpcSession {
+  readonly #receipts = new Map<string, Readonly<Record<string, unknown>>>();
+
+  public constructor(
+    private readonly sequencer: ConformanceSequencer,
+    private readonly facts: ReceiptFacts,
+    private readonly requirements: PaymentRequirements,
+  ) {}
+
+  public get issuedCount(): number {
+    return this.#receipts.size;
+  }
+
+  public async call(method: string, params: readonly unknown[]): Promise<unknown> {
+    if (params.length !== 1 || typeof params[0] !== "string") {
+      throw new Error("invalid-conformance-rpc-params");
+    }
+    if (method === "pax_sequencerReceipt") {
+      const receipt = this.#receipts.get(params[0]);
+      return receipt === undefined ? null : structuredClone(receipt);
+    }
+    if (method !== "eth_sendRawTransaction") throw new Error("unknown-conformance-rpc-method");
+    const raw = params[0];
+    if (!/^0x(?:[0-9a-f]{2})+$/u.test(raw)) throw new Error("invalid-conformance-rpc-transaction");
+    const bytes = Uint8Array.from(raw.slice(2).match(/../gu)!, (pair) => Number.parseInt(pair, 16));
+    const txHash = `0x${toHex(keccak256(bytes))}`;
+    if (this.#receipts.has(txHash)) return txHash;
+    const receipt = await buildSignedReceipt(this.sequencer, this.facts);
+    if (receipt.rawTransaction !== raw) throw new Error("conformance-payment-mismatch");
+    const keys = await new FixedReceiptKeys([this.sequencer.receiptKey()]).resolve();
+    const verified = await verifyPaymentReceipt(receipt, this.requirements, keys);
+    this.#receipts.set(txHash, {
+      txHash: verified.txHash,
+      rung: verified.rung,
+      height: `0x${verified.height.toString(16)}`,
+      keyId: receipt.receiptKey.keyId,
+      receipt: receipt.signedReceipt,
+    });
+    return txHash;
+  }
+}
 
 async function buildBuyer(offer: OfferFixture, resolver: FixedReceiptKeys): Promise<BuyerMiddleware> {
   const receiptKeys = await resolver.resolve();
@@ -167,11 +214,12 @@ class ConformanceMerchantOrders implements MerchantOrderStore {
   }
 }
 
-async function releasedDecision(
+export async function releasedDecision(
   offer: OfferFixture,
   payload: PaymentPayload,
   resolver: FixedReceiptKeys,
-  repository: InMemoryFulfillmentRepository<string>,
+  repository: FulfillmentRepository<string>,
+  commitments?: PaymentCommitmentResolver,
 ): Promise<SellerDecision<string>> {
   const receiptKeys = await resolver.resolve();
   const seller = new SellerMiddleware<string>({
@@ -179,6 +227,7 @@ async function releasedDecision(
     receiptKeys,
     authority: new ReceiptPayloadAuthority(receiptKeys),
     fulfillments: repository,
+    ...(commitments === undefined ? {} : { commitments }),
   });
   return seller.handle("acct:conformance-seller", encodePaymentPayloadHeader(payload), async () => "the-paid-resource");
 }
