@@ -365,6 +365,11 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 				require.Equal(t, types.ErrUnknownMarket.Codespace(), codespace)
 				require.Equal(t, types.ErrUnknownMarket.ABCICode(), code)
 			case "PoolMetadata":
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Contains(t, status.Convert(err).Message(), "invalid address")
+				response, directErr := server.PoolMetadata(sdk.WrapSDKContext(ctx), &types.QueryPoolMetadataRequest{})
+				require.Nil(t, response)
+				err = directErr
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				var addressErr *sdkerrors.Error
 				require.ErrorAs(t, err, &addressErr)

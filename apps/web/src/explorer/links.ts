@@ -14,6 +14,9 @@ export type ExplorerLinkTarget =
   | Readonly<{ kind: "transaction"; transactionHash: string }>
   | Readonly<{ kind: "address"; address: string }>;
 
+// Kept as the identifier of the retired surface for admission checks, never a link target.
+export const EXPLORER_ANCHOR_PATH = "/paxeer-x/anchors";
+
 const TRANSACTION_HASH_GRAMMAR = /^0x[0-9a-fA-F]{64}$/u;
 const ADDRESS_GRAMMAR = /^0x[0-9a-fA-F]{40}$/u;
 

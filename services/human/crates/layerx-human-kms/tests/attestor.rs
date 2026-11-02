@@ -1,7 +1,5 @@
 #[path = "support/attestor_cluster.rs"]
 mod attestor_cluster;
-#[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
-mod runtime_clock_server;
 
 use layerx_client::lni::framing::{read_frame, write_frame};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
@@ -10,6 +8,7 @@ use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use sha3::Keccak256;
 use zeroize::Zeroizing;
 
+use attestor_cluster::{ClockAuthority, StepClock};
 use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine as _;
 use layerx_crypto::disclosure::call::bind_call;
@@ -19,6 +18,7 @@ use layerx_human_kms::attestor::{
     new_session_id, preimage, Approval, AttestorCallSignature, AttestorClient, AttestorError,
     AttestorSigner,
 };
+use layerx_types::clock::Deadline;
 use p256::ecdsa::signature::Signer as _;
 use p256::ecdsa::{Signature, SigningKey};
 use serde_json::{json, Value};
@@ -33,7 +33,7 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -76,9 +76,11 @@ fn checked<T, E: std::fmt::Debug>(value: std::result::Result<T, E>) -> Result<T>
 }
 
 fn scratch(label: &str) -> Result<PathBuf> {
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let mut unique = [0; 16];
+    getrandom::fill(&mut unique)?;
+    let unique = hex(&unique);
     let root = std::env::temp_dir().join(format!(
-        "{label}-{}-{nanos}-{}",
+        "{label}-{}-{unique}-{}",
         std::process::id(),
         SCRATCH.fetch_add(1, Ordering::AcqRel)
     ));
@@ -454,6 +456,7 @@ fn respond(
 }
 
 struct TokenSigner {
+    clock: Arc<StepClock>,
     key_id: String,
     key: SigningKey,
 }
@@ -488,6 +491,7 @@ impl TokenSigner {
             getrandom::fill(&mut scalar)?;
             if let Ok(key) = SigningKey::from_slice(&scalar) {
                 return Ok(Self {
+                    clock: StepClock::new()?,
                     key_id: key_id.to_owned(),
                     key,
                 });
@@ -509,7 +513,7 @@ impl TokenSigner {
     }
 
     fn mint(&self, subject: &str) -> Result<String> {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        let now = self.clock.now()?;
         let mut id = [0_u8; 16];
         getrandom::fill(&mut id)?;
         let header = json!({ "alg": "ES256", "typ": "JWT", "kid": self.key_id });
@@ -536,6 +540,8 @@ impl TokenSigner {
 }
 
 struct Cluster {
+    clock: Arc<StepClock>,
+    clock_authority: ClockAuthority,
     root: PathBuf,
     pki: Pki,
     nodes: Vec<(String, SocketAddr)>,
@@ -629,7 +635,11 @@ impl Cluster {
             .map(|(index, id)| (id.clone(), addresses[index]))
             .collect();
         let peers: Vec<SocketAddr> = addresses[NODES..].to_vec();
+        let clock = Arc::clone(&tokens.clock);
+        let clock_authority = ClockAuthority::start(Arc::clone(&clock))?;
         let mut cluster = Self {
+            clock,
+            clock_authority,
             root: root.clone(),
             pki,
             nodes,
@@ -666,6 +676,15 @@ impl Cluster {
             let log = fs::File::create(root.join(format!("{id}.log")))?;
             let child = Command::new(&daemon)
                 .env_clear()
+                .env(
+                    "LAYERX_RUNTIME_CLOCK_SOCKET",
+                    &cluster.clock_authority.socket,
+                )
+                .env("LAYERX_RUNTIME_CLOCK_PID", std::process::id().to_string())
+                .env(
+                    "LAYERX_RUNTIME_CLOCK_UID",
+                    rustix::process::geteuid().as_raw().to_string(),
+                )
                 .env("ATTESTOR_NODE_ID", id)
                 .env("ATTESTOR_REGION", "test")
                 .env("ATTESTOR_LISTEN_ADDR", cluster.nodes[index].1.to_string())
@@ -722,7 +741,7 @@ impl Cluster {
 
     fn publish_inventory(&mut self) -> Result<()> {
         self.inventory_sequence += 1;
-        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        let now = self.clock.now()?;
         let claims = json!({
             "version": 1, "iss": ISSUER, "aud": "wallet-custody-inventory",
             "tenant": "attestor-test", "sequence": self.inventory_sequence.to_string(),
@@ -765,7 +784,7 @@ impl Cluster {
 
     fn wait_ready(&mut self) -> Result<()> {
         let client = self.client()?;
-        let started = Instant::now();
+        let mut deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(120))?;
         let mut pending: Vec<String> = self.nodes.iter().map(|(id, _)| id.clone()).collect();
         while !pending.is_empty() {
             let mut exited = None;
@@ -781,7 +800,7 @@ impl Cluster {
             pending.retain(|id| {
                 !matches!(client.health(id), Ok(health) if health.ready && health.reachable_peers == 4)
             });
-            if started.elapsed() > Duration::from_secs(120) {
+            if deadline.remaining(self.clock.as_ref())?.is_zero() {
                 return Err(
                     format!("attestors {pending:?} never became ready: {}", self.logs()).into(),
                 );
@@ -974,6 +993,7 @@ fn transfer(public: [u8; 32]) -> Result<layerx_types::payload::Payload> {
 }
 
 fn activity(
+    clock: &StepClock,
     seed: [u8; 32],
     from: [u8; 20],
     fee: u128,
@@ -983,7 +1003,7 @@ fn activity(
     let key = ring::signature::Ed25519KeyPair::from_seed_unchecked(&seed)
         .map_err(|_| "invalid test signing seed")?;
     let public: [u8; 32] = key.public_key().as_ref().try_into()?;
-    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+    let now = clock.now()?;
     let debit = SendDebit {
         from: main_account(&actor(public))?,
         to: main_account(&actor([0x52; 32]))?,
@@ -1136,7 +1156,8 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
     let observer = cluster.client()?;
     let assertion = cluster.tokens.mint(OWNER)?;
 
-    let (canonical, disclosure) = activity(generated.public_key, wallet, 1)?;
+    let (canonical, disclosure) =
+        activity(cluster.clock.as_ref(), generated.public_key, wallet, 1)?;
     let first = checked(sign_approved(
         &signer,
         &canonical,
@@ -1155,7 +1176,8 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
     }
 
     let before = cluster.audit(&observer)?;
-    let (other_canonical, other_disclosure) = activity(generated.public_key, wallet, 2)?;
+    let (other_canonical, other_disclosure) =
+        activity(cluster.clock.as_ref(), generated.public_key, wallet, 2)?;
     assert_eq!(
         sign_approved(&signer, &canonical, &other_disclosure, wallet, &assertion)?,
         Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
@@ -1223,7 +1245,8 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
     }
     assert_eq!(&signer.audit_sequences(), shared.audit());
 
-    let (repeat_canonical, repeat_disclosure) = activity(generated.public_key, wallet, 3)?;
+    let (repeat_canonical, repeat_disclosure) =
+        activity(cluster.clock.as_ref(), generated.public_key, wallet, 3)?;
     let repeat_session = "activity-repeated-under-one-token";
     let repeat = serde_json::to_vec(&json!({
         "session_id": repeat_session,
@@ -1263,45 +1286,8 @@ fn attestor_signs_a_disclosed_activity_through_the_real_daemon_quorum() -> Resul
     Ok(())
 }
 
-struct ClockAuthority {
-    socket: PathBuf,
-    shutdown: Arc<AtomicBool>,
-    worker: Option<JoinHandle<std::io::Result<()>>>,
-}
-
-impl ClockAuthority {
-    fn start() -> Result<Self> {
-        let mut server = runtime_clock_server::Server::bind(&std::env::temp_dir())?;
-        let socket = server.socket().to_owned();
-        let shutdown = Arc::new(AtomicBool::new(false));
-        let stopped = Arc::clone(&shutdown);
-        let worker = std::thread::spawn(move || {
-            while !stopped.load(Ordering::Acquire) {
-                server.poll()?;
-                std::thread::sleep(Duration::from_millis(1));
-            }
-            Ok(())
-        });
-        Ok(Self {
-            socket,
-            shutdown,
-            worker: Some(worker),
-        })
-    }
-}
-
-impl Drop for ClockAuthority {
-    fn drop(&mut self) {
-        self.shutdown.store(true, Ordering::Release);
-        if let Some(worker) = self.worker.take() {
-            let _ = worker.join();
-        }
-    }
-}
-
 struct SendFixture {
     child: Option<Child>,
-    clock: ClockAuthority,
     cluster: attestor_cluster::Cluster,
     root: PathBuf,
     address: SocketAddr,
@@ -1373,7 +1359,6 @@ impl SendFixture {
         }
         let mut fixture = Self {
             child: None,
-            clock: ClockAuthority::start()?,
             cluster,
             root,
             address,
@@ -1416,7 +1401,10 @@ impl SendFixture {
         }
         command.env_remove("LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER");
         command
-            .env("LAYERX_RUNTIME_CLOCK_SOCKET", &self.clock.socket)
+            .env(
+                "LAYERX_RUNTIME_CLOCK_SOCKET",
+                &self.cluster.clock_authority.socket,
+            )
             .env("LAYERX_RUNTIME_CLOCK_PID", std::process::id().to_string())
             .env(
                 "LAYERX_RUNTIME_CLOCK_UID",
@@ -1429,7 +1417,7 @@ impl SendFixture {
                 .stderr(log)
                 .spawn()?,
         );
-        let started = Instant::now();
+        let mut deadline = Deadline::start(self.cluster.clock.as_ref(), Duration::from_secs(10))?;
         loop {
             if self.call(1, 0, &[], None).is_ok() {
                 return Ok(());
@@ -1440,7 +1428,7 @@ impl SendFixture {
                 .ok_or("missing KMS process")?
                 .try_wait()?
                 .is_some()
-                || started.elapsed() > Duration::from_secs(10)
+                || deadline.remaining(self.cluster.clock.as_ref())?.is_zero()
             {
                 return Err(format!(
                     "KMS startup failed: {}",
@@ -1533,7 +1521,7 @@ fn blob(out: &mut Vec<u8>, bytes: &[u8]) -> Result<()> {
 }
 
 fn authorization(fixture: &SendFixture) -> Result<Value> {
-    let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+    let now = fixture.cluster.clock.now()?;
     let recipient = [0x44; 20];
     let mut amount = [0; 32];
     amount[16..].copy_from_slice(&400_000_u128.to_be_bytes());
@@ -1863,8 +1851,9 @@ fn refuses_mismatched_activity_disclosure_offline() -> Result<()> {
             }),
         )?;
         let signer = checked(AttestorSigner::from_config(&config))?;
-        let (canonical, disclosure) = activity(public, wallet, 1)?;
-        let (_, other) = activity(public, wallet, 2)?;
+        let clock = StepClock::new()?;
+        let (canonical, disclosure) = activity(clock.as_ref(), public, wallet, 1)?;
+        let (_, other) = activity(clock.as_ref(), public, wallet, 2)?;
         assert_eq!(
             sign_approved(&signer, &canonical, &other, wallet, "assertion")?,
             Err(AttestorError::Disclosure(SignError::DisclosureMismatch(

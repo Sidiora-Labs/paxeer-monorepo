@@ -1,6 +1,13 @@
 use std::collections::BTreeSet;
 use std::fs::{File, OpenOptions};
-use std::io::{Read as _, Write as _};
+use std::io::{BufRead as _, BufReader, Read as _, Write as _};
+use std::net::TcpListener;
+use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
+
+use ed25519_dalek::SigningKey;
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+use serde_json::{json, Value};
 use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
 use std::path::{Path, PathBuf};
 
@@ -55,7 +62,12 @@ impl AdmissionJournal {
             .open(&path)
             .unwrap_or_else(|error| panic!("admission journal: {error}"));
         let records = if existed {
-            Self::recover_from(&mut file, network_id)
+            let (records, valid_bytes) = Self::recover_from(&mut file, network_id);
+            file.set_len(valid_bytes as u64)
+                .unwrap_or_else(|error| panic!("truncate admission tail: {error}"));
+            file.sync_data()
+                .unwrap_or_else(|error| panic!("sync recovered admission tail: {error}"));
+            records
         } else {
             file.write_all(&superblock(network_id))
                 .unwrap_or_else(|error| panic!("admission superblock: {error}"));
@@ -81,10 +93,10 @@ impl AdmissionJournal {
     pub fn recover(directory: &Path, network_id: u32) -> Vec<AdmissionRecord> {
         let mut file = File::open(directory.join(JOURNAL_NAME))
             .unwrap_or_else(|error| panic!("recover admission journal: {error}"));
-        Self::recover_from(&mut file, network_id)
+        Self::recover_from(&mut file, network_id).0
     }
 
-    fn recover_from(file: &mut File, network_id: u32) -> Vec<AdmissionRecord> {
+    fn recover_from(file: &mut File, network_id: u32) -> (Vec<AdmissionRecord>, usize) {
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)
             .unwrap_or_else(|error| panic!("read admission journal: {error}"));
@@ -121,7 +133,7 @@ impl AdmissionJournal {
             });
             cursor = record_end;
         }
-        records
+        (records, cursor)
     }
 
     #[must_use]
@@ -175,4 +187,212 @@ fn record_digest(header_tail: &[u8], raw_transaction: &[u8]) -> [u8; RECORD_DIGE
     digest.update(header_tail);
     digest.update(raw_transaction);
     digest.finalize().into()
+}
+
+/// In-process JSON-RPC producer with authenticated, durable transaction admission.
+/// The retired Unix LNI listener is replaced by the same HTTP boundary NodeRpc uses.
+pub struct EvidenceNode {
+    journal: AdmissionJournal,
+    receipt_key: [u8; 32],
+    network_id: u32,
+    senders: BTreeSet<[u8; 20]>,
+    requests: usize,
+    served: Vec<String>,
+}
+
+impl EvidenceNode {
+    #[must_use]
+    pub fn new(directory: &Path, network_id: u32, signer: &SigningKey, requests: usize) -> Self {
+        assert!(
+            requests > 0,
+            "evidence_node.rs: producer requires bounded requests"
+        );
+        Self {
+            journal: AdmissionJournal::open(directory, network_id),
+            receipt_key: signer.verifying_key().to_bytes(),
+            network_id,
+            senders: BTreeSet::new(),
+            requests,
+            served: Vec::new(),
+        }
+    }
+
+    pub fn register_sender(&mut self, sender: [u8; 20]) {
+        self.senders.insert(sender);
+    }
+
+    #[must_use]
+    pub fn journal(&self) -> &AdmissionJournal {
+        &self.journal
+    }
+
+    #[must_use]
+    pub fn served(&self) -> &[String] {
+        &self.served
+    }
+
+    fn submit(&mut self, raw: &[u8]) -> Result<[u8; 32], &'static str> {
+        if raw.is_empty() || raw.len() > MAX_MESSAGE_BYTES {
+            return Err("LXP_MALFORMED_ENVELOPE: bounded signed transaction required");
+        }
+        let (transaction, signature) =
+            decode_signed(raw).map_err(|_| "LXP_MALFORMED_ENVELOPE: invalid signed transaction")?;
+        let sender = recover_sender(&transaction, &signature)
+            .map_err(|_| "LXP_BAD_SIGNATURE: sender recovery failed")?;
+        if transaction.chain_id != 125 {
+            return Err("LXP_WRONG_NETWORK: chain id differs");
+        }
+        if !self.senders.contains(&sender) {
+            return Err("LXP_UNKNOWN_DID: sender is not registered");
+        }
+        let hash = transaction_hash(raw);
+        if !self.journal.contains(&hash) {
+            self.journal
+                .admit(hash, raw)
+                .unwrap_or_else(|error| panic!("durable admission before response: {error}"));
+        }
+        Ok(hash)
+    }
+
+    fn result(&mut self, method: &str, params: &Value) -> Value {
+        match method {
+            "eth_chainId" => {
+                assert_eq!(params, &json!([]));
+                json!({"result": "0x7d"})
+            }
+            "px_getReceiptKeys" => {
+                assert_eq!(params, &json!([]));
+                let key = crate::encode_hex(&self.receipt_key);
+                json!({"result": {"keys": [{"keyId": format!("0x{key}"),
+                    "publicKey": format!("0x{key}"), "firstHeight": 7, "lastHeight": 7}]}})
+            }
+            "eth_sendRawTransaction" => {
+                let raw = params
+                    .as_array()
+                    .filter(|items| items.len() == 1)
+                    .and_then(|items| items[0].as_str())
+                    .and_then(decode_hex);
+                match raw
+                    .as_deref()
+                    .ok_or("LXP_MALFORMED_ENVELOPE: invalid hex")
+                    .and_then(|raw| self.submit(raw))
+                {
+                    Ok(hash) => json!({"result": format!("0x{}", crate::encode_hex(&hash))}),
+                    Err(reason) => {
+                        json!({"error": {"code": 3, "message": "execution reverted", "data": reason}})
+                    }
+                }
+            }
+            "pax_sequencerReceipt" => {
+                let hash = params[0].as_str().and_then(decode_hex);
+                let record = hash.as_deref().and_then(|hash| {
+                    self.journal
+                        .records()
+                        .iter()
+                        .find(|record| record.tx_hash == hash)
+                });
+                let result = record.map(|record| {
+                    let (transaction, _) = decode_signed(&record.raw_transaction)
+                        .unwrap_or_else(|error| panic!("admitted transaction decode: {error:?}"));
+                    json!({"rung": "submitted", "txHash": format!("0x{}", crate::encode_hex(&record.tx_hash)),
+                        "nonce": format!("{:#x}", transaction.nonce)})
+                });
+                json!({"result": result})
+            }
+            method => panic!(
+                "evidence_node.rs: unexpected producer method {method} on network {}",
+                self.network_id
+            ),
+        }
+    }
+
+    /// Serves a finite number of real JSON-RPC requests and returns the producer state.
+    #[must_use]
+    pub fn serve(mut self, listener: TcpListener) -> JoinHandle<Self> {
+        listener
+            .set_nonblocking(true)
+            .unwrap_or_else(|error| panic!("evidence listener: {error}"));
+        thread::spawn(move || {
+            for _ in 0..self.requests {
+                let expires = Instant::now() + Duration::from_secs(5);
+                let stream = loop {
+                    match listener.accept() {
+                        Ok((stream, _)) => break stream,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(
+                                Instant::now() < expires,
+                                "evidence_node.rs: missing consumer request"
+                            );
+                            thread::sleep(Duration::from_millis(1));
+                        }
+                        Err(error) => panic!("evidence accept: {error}"),
+                    }
+                };
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap_or_else(|error| panic!("evidence read timeout: {error}"));
+                stream
+                    .set_write_timeout(Some(Duration::from_secs(2)))
+                    .unwrap_or_else(|error| panic!("evidence write timeout: {error}"));
+                let mut reader = BufReader::new(stream);
+                let mut length = None;
+                loop {
+                    let mut line = String::new();
+                    assert_ne!(
+                        reader
+                            .read_line(&mut line)
+                            .unwrap_or_else(|error| panic!("evidence header: {error}")),
+                        0
+                    );
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                        length = Some(
+                            value
+                                .trim()
+                                .parse::<usize>()
+                                .unwrap_or_else(|error| panic!("evidence length: {error}")),
+                        );
+                    }
+                }
+                let length = length.expect("evidence_node.rs: content length required");
+                assert!(length <= 2 * MAX_MESSAGE_BYTES);
+                let mut body = vec![0; length];
+                reader
+                    .read_exact(&mut body)
+                    .unwrap_or_else(|error| panic!("evidence body: {error}"));
+                let request: Value = serde_json::from_slice(&body)
+                    .unwrap_or_else(|error| panic!("evidence JSON: {error}"));
+                assert_eq!(request["jsonrpc"], "2.0");
+                let method = request["method"]
+                    .as_str()
+                    .expect("evidence_node.rs: method required");
+                self.served.push(method.to_owned());
+                let mut response = self.result(method, &request["params"]);
+                response["jsonrpc"] = json!("2.0");
+                response["id"] = request["id"].clone();
+                let answer = response.to_string();
+                let mut stream = reader.into_inner();
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len())
+                    .unwrap_or_else(|error| panic!("evidence response: {error}"));
+                stream
+                    .flush()
+                    .unwrap_or_else(|error| panic!("evidence flush: {error}"));
+            }
+            self
+        })
+    }
+}
+
+fn decode_hex(text: &str) -> Option<Vec<u8>> {
+    let digits = text.strip_prefix("0x")?;
+    if digits.len() % 2 != 0 {
+        return None;
+    }
+    digits
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok())
+        .collect()
 }

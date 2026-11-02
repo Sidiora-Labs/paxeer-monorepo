@@ -43,6 +43,25 @@ func openBondReturnChallenge(t *testing.T, s *suite, amount int64, kind uint8, e
 	return challenge
 }
 
+func importBondReturnCheckpoint(t *testing.T, s *suite) {
+	t.Helper()
+	checkpoint := types.Checkpoint{
+		BatchNumber: 1, CheckpointID: types.Hash32{0x11}, StateRoot: types.Hash32{0x12}, ReceiptRoot: types.Hash32{0x13},
+		Status: types.CheckpointSubmitted, Guarantors: []types.Hash32{s.ids[0], s.ids[1], s.ids[2]}, DeclaredThreshold: 2,
+		Submitter: s.reporter.String(), SubmittedHeight: s.ctx.BlockHeight(), SubmittedTime: s.ctx.BlockTime().Unix(),
+	}
+	genesis := s.k.ExportGenesis(s.ctx)
+	require.Empty(t, genesis.Checkpoints)
+	genesis.Checkpoints = []types.Checkpoint{checkpoint}
+	require.NoError(t, genesis.Validate())
+	s.k.InitGenesis(s.ctx, *genesis)
+	finalized, err := s.k.Finalize(s.ctx, checkpoint.BatchNumber)
+	require.NoError(t, err)
+	require.Equal(t, types.CheckpointFinal, finalized.Status)
+	require.Equal(t, checkpoint.Guarantors, finalized.Guarantors)
+	s.invariant()
+}
+
 func TestBondReturn(t *testing.T) {
 	cases := []struct {
 		name               string
@@ -68,7 +87,7 @@ func TestBondReturn(t *testing.T) {
 			t.Cleanup(func() { require.NoError(t, s.app.Close()) })
 			registerBondReturnGuarantors(t, s, test.bonds)
 			if test.challenge {
-				s.importHistoricalCheckpoint()
+				importBondReturnCheckpoint(t, s)
 			}
 			for i, amount := range test.unbondings {
 				if amount == 0 {
@@ -157,7 +176,7 @@ func TestBondReturnClosedChallenges(t *testing.T) {
 	require.False(t, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
 	t.Cleanup(func() { require.NoError(t, s.app.Close()) })
 	s.bondAll()
-	s.importHistoricalCheckpoint()
+	importBondReturnCheckpoint(t, s)
 	closed := openBondReturnChallenge(t, s, 10, types.ChallengeFraud, 1)
 	closed, _, err := s.k.ResolveChallenge(s.ctx, s.authority, closed.ID, false)
 	require.NoError(t, err)
@@ -267,7 +286,7 @@ func TestBondReturnRollback(t *testing.T) {
 			require.False(t, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
 			t.Cleanup(func() { require.NoError(t, s.app.Close()) })
 			s.bondAll()
-			s.importHistoricalCheckpoint()
+			importBondReturnCheckpoint(t, s)
 			entry, err := s.k.BeginUnbond(s.ctx, s.operators[0], s.ids[0], sdk.NewInt(1_000_000))
 			require.NoError(t, err)
 			challenge := openBondReturnChallenge(t, s, 10, types.ChallengeFraud, 1)

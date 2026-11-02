@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import re
+import shlex
+import subprocess
 from collections.abc import Mapping, Sequence
 from os import PathLike
 from pathlib import Path
 from typing import NotRequired, TypedDict
 
+from . import evidence
 from .kvx import KvxValue, load
 
 PLAN_PATH = Path(__file__).resolve().parent / "data/activation-plan.kvx"
@@ -161,6 +164,59 @@ def load_plans(path: str | PathLike[str] = PLAN_PATH) -> list[Plan]:
         plans.append(plan)
     validate(plans)
     return plans
+
+
+def run_goldens(
+    goldens: Mapping[str, Mapping[str, KvxValue]],
+    root: str | PathLike[str],
+    log_dir: str | PathLike[str],
+) -> dict[str, bool]:
+    if not goldens:
+        raise ValueError("bring-up goldens must contain at least one case")
+    commands: dict[str, list[str]] = {}
+    for section, fields in goldens.items():
+        if not re.fullmatch(r"golden\.[A-Za-z0-9_-]+", section):
+            raise ValueError(f"unexpected bring-up golden section: {section}")
+        command = fields.get("command")
+        if not isinstance(command, str) or not command.strip():
+            raise ValueError(f"{section}: command must be a nonempty string")
+        arguments = shlex.split(command)
+        if not arguments:
+            raise ValueError(f"{section}: command must contain an executable")
+        if type(fields.get("expect_exit")) is not int:
+            raise TypeError(f"{section}: expect_exit must be an integer")
+        commands[section] = arguments
+    root = Path(root).resolve()
+    directory = (root / log_dir).resolve()
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
+    results: dict[str, bool] = {}
+    for section, arguments in commands.items():
+        fields = goldens[section]
+        log_path = directory / f"{section}.log"
+        exit_code = evidence.run(
+            [
+                "bash",
+                "-c",
+                'cd -- "$1" && shift && exec "$@"',
+                "bring-up-golden",
+                str(root),
+                *arguments,
+            ],
+            log_path,
+        )
+        line = evidence.evidence_line(revision, fields["command"], exit_code, log_path)
+        with (directory / "evidence.log").open("a", encoding="utf-8") as ledger:
+            ledger.write(line + "\n")
+        print(line, flush=True)
+        results[section] = exit_code == fields["expect_exit"]
+    return results
 
 
 def _runbook_value(value: KvxValue) -> str:

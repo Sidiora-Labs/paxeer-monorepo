@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -200,6 +201,7 @@ type testNode struct {
 	audit   *audit.Log
 	store   *store.Store
 	stop    func()
+	stopped atomic.Bool
 }
 
 type testNodeConfig struct {
@@ -419,6 +421,7 @@ func (c *testCluster) startNode(t *testing.T, i int, peerListener, apiListener n
 	node := &testNode{id: cfg.id, index: i, apiAddr: cfg.apiAddr, server: srv, audit: lg, store: st}
 	node.stop = func() {
 		once.Do(func() {
+			node.stopped.Store(true)
 			_ = api.Close()
 			_ = tr.Close()
 			_ = st.Close()
@@ -566,9 +569,14 @@ func expectError(t *testing.T, label string, r apiResult, code string) Error {
 
 func importKey(t *testing.T, c *testCluster, keyID string, curve dealer.Curve, secret *big.Int, account string) []KeyResponse {
 	t.Helper()
+	return importKeyOn(t, c, c.ids, keyID, curve, secret, account)
+}
+
+func importKeyOn(t *testing.T, c *testCluster, members []string, keyID string, curve dealer.Curve, secret *big.Int, account string) []KeyResponse {
+	t.Helper()
 	c.importMu.Lock()
 	defer c.importMu.Unlock()
-	bundles, publicKey, err := dealer.Split(curve, secret, c.ids)
+	bundles, publicKey, err := dealer.Split(curve, secret, members)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -576,51 +584,13 @@ func importKey(t *testing.T, c *testCluster, keyID string, curve dealer.Curve, s
 	if err != nil {
 		t.Fatal(err)
 	}
-	if c.importInventory == nil {
-		authorityKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-		if err != nil {
-			t.Fatal(err)
-		}
-		authorityPublic, err := x509.MarshalPKIXPublicKey(&authorityKey.PublicKey)
-		if err != nil {
-			t.Fatal(err)
-		}
-		dir := t.TempDir()
-		c.importInventory = &nativeInventoryAuthority{
-			key: authorityKey, path: filepath.Join(dir, "inventory.jwt"), public: filepath.Join(dir, "authority.pem"), cluster: c,
-		}
-		writeTestPEM(t, c.importInventory.public, "PUBLIC KEY", authorityPublic)
-		previous := c.tune
-		c.tune = func(o *Options) {
-			if previous != nil {
-				previous(o)
-			}
-			pins := map[string]string{}
-			for _, peer := range c.peers {
-				pins[peer.ID] = peer.SPKISHA256
-			}
-			inventory, err := NewInventory(c.importInventory.path, c.importInventory.public, "native-corpus", "tenant-a", o.Store, pins)
-			if err != nil {
-				t.Fatal(err)
-			}
-			o.Inventory = inventory
-		}
-	}
-	c.importInventory.keys = append(c.importInventory.keys, InventoryKey{
-		KeyID: keyID, Curve: curveName(curve), PublicKey: hex.EncodeToString(publicBytes), Owner: testOwner,
-		Operations: []string{"import", "refresh", "sign"},
-	})
-	c.importInventory.publish(t)
+	approveTestKeys(t, c, members, InventoryKey{KeyID: keyID, Curve: curveName(curve), PublicKey: hex.EncodeToString(publicBytes), Owner: testOwner, Operations: []string{"import", "refresh", "sign"}})
 	byNode := map[string]ShareBundleJSON{}
-	for _, b := range bundles {
-		byNode[b.ParticipantID] = EncodeBundle(b)
+	for _, bundle := range bundles {
+		byNode[bundle.ParticipantID] = EncodeBundle(bundle)
 	}
-	results := c.callAll(t, c.nodes, PathImport, func(n *testNode) any {
-		return ImportRequest{
-			CeremonyID: "metrics-ceremony", SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner,
-			PublicKey: hex.EncodeToString(publicBytes), Participants: c.ids, Threshold: dealer.Threshold,
-			Account: account, Share: byNode[n.id],
-		}
+	results := c.callAll(t, c.byID(members...), PathImport, func(n *testNode) any {
+		return ImportRequest{CeremonyID: "metrics-ceremony", SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner, PublicKey: hex.EncodeToString(publicBytes), Participants: members, Threshold: dealer.Threshold, Account: account, Share: byNode[n.id]}
 	}, "")
 	return decodeOK[KeyResponse](t, "import "+keyID, results)
 }
@@ -1233,20 +1203,10 @@ func TestAddShareBindsOwnerAcrossParticipants(t *testing.T) {
 		t.Fatal(err)
 	}
 	account := common.HexToAddress("0x3333333333333333333333333333333333333333").Hex()
-	bundles, _, err := dealer.Split(dealer.Ed25519, edScalar, holders)
-	if err != nil {
-		t.Fatal(err)
-	}
-	byNode := map[string]ShareBundleJSON{}
-	for _, b := range bundles {
-		byNode[b.ParticipantID] = EncodeBundle(b)
-	}
-	decodeOK[KeyResponse](t, "import", c.callAll(t, c.byID(holders...), PathImport, func(n *testNode) any {
-		return ImportRequest{SessionID: "import-bound", KeyID: "bound-key", Owner: testOwner, Account: account, Share: byNode[n.id]}
-	}, ""))
-
-	quorum := []string{"node-1", "node-2", "node-3"}
+	importKeyOn(t, c, holders, "bound-key", dealer.Ed25519, edScalar, account)
+	quorum := []string{"node-1", "node-2", "node-3", "node-4"}
 	newcomer := "node-6"
+	approveTestKeys(t, c, append(append([]string(nil), quorum...), newcomer))
 	addShare := func(session, newcomerOwner string) []apiResult {
 		return c.callAll(t, c.byID(append(append([]string{}, quorum...), newcomer)...), PathAddShare, func(n *testNode) any {
 			owner := testOwner
@@ -1353,7 +1313,12 @@ func TestImportRefusesSharesOutsideTheCustodyScheme(t *testing.T) {
 		t.Fatal("a share outside the custody scheme was stored")
 	}
 	good := bundleFor([]*big.Int{secret, coefficient("c1"), coefficient("c2")}, plain, dealer.Threshold)
-	decodeOK[KeyResponse](t, "custody scheme import", []apiResult{c.call(t, c.byID("node-1")[0], PathImport, ImportRequest{SessionID: "import-scheme-good", KeyID: "scheme-key", Owner: testOwner, Share: good}, "")})
+	pub, err := publicKeyBytes(dealer.Secp256k1, pt.ScalarBaseMult(curve, secret))
+	if err != nil {
+		t.Fatal(err)
+	}
+	approveTestKeys(t, c, c.ids, InventoryKey{KeyID: "scheme-key", Curve: "secp256k1", PublicKey: hex.EncodeToString(pub), Owner: testOwner, Operations: []string{"import", "sign"}})
+	decodeOK[KeyResponse](t, "custody scheme import", []apiResult{c.call(t, c.byID("node-1")[0], PathImport, ImportRequest{CeremonyID: "metrics-ceremony", SessionID: "import-scheme-good", KeyID: "scheme-key", Owner: testOwner, Share: good, PublicKey: hex.EncodeToString(pub), Participants: c.ids, Threshold: dealer.Threshold}, "")})
 }
 
 func (c *testCluster) verifyOn(t *testing.T, client *http.Client, signers []string, session, keyID, importSession string) []apiResult {
@@ -1362,11 +1327,15 @@ func (c *testCluster) verifyOn(t *testing.T, client *http.Client, signers []stri
 	results := make([]apiResult, len(nodes))
 	var wg sync.WaitGroup
 	for i, node := range nodes {
+		record, err := node.store.Get(keyID)
+		if err != nil {
+			t.Fatal(err)
+		}
 		wg.Add(1)
-		go func(i int, node *testNode) {
+		go func(i int, node *testNode, epoch uint64) {
 			defer wg.Done()
-			results[i] = c.callAs(t, client, node, PathSign, VerificationRequest{SessionID: session, KeyID: keyID, Kind: KindOperatorVerification, Signers: signers, ImportSessionID: importSession}, "")
-		}(i, node)
+			results[i] = c.callAs(t, client, node, PathSign, VerificationRequest{SessionID: session, KeyID: keyID, Kind: KindOperatorVerification, Signers: signers, ImportSessionID: importSession, CeremonyID: "metrics-ceremony", ExpectedEpoch: &epoch}, "")
+		}(i, node, record.Epoch)
 	}
 	wg.Wait()
 	return results
@@ -1470,6 +1439,7 @@ func TestOperatorVerificationInTheCeremonyWindow(t *testing.T) {
 		}
 	}
 
+	approveTestKeys(t, c, c.ids, InventoryKey{KeyID: "verify-generated", Curve: "ed25519", Owner: testOwner, Operations: []string{"generate"}})
 	decodeOK[KeyResponse](t, "generate", c.callAll(t, c.nodes, PathGenerate, func(*testNode) any {
 		return GenerateRequest{SessionID: "generate-verify", KeyID: "verify-generated", Curve: "ed25519", Owner: testOwner, Account: address.Hex()}
 	}, ""))
@@ -1535,21 +1505,8 @@ func TestDescribedFieldsReplaceALostParticipant(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	importOn := func(keyID string, curve dealer.Curve, secret *big.Int, account string) {
-		bundles, _, err := dealer.Split(curve, secret, holders)
-		if err != nil {
-			t.Fatal(err)
-		}
-		byNode := map[string]ShareBundleJSON{}
-		for _, b := range bundles {
-			byNode[b.ParticipantID] = EncodeBundle(b)
-		}
-		decodeOK[KeyResponse](t, "import "+keyID, c.callAll(t, c.byID(holders...), PathImport, func(n *testNode) any {
-			return ImportRequest{SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner, Account: account, Share: byNode[n.id]}
-		}, ""))
-	}
-	importOn("replace-evm", dealer.Secp256k1, new(big.Int).SetBytes(secpSeed[:]), "")
-	importOn("replace-lx", dealer.Ed25519, edScalar, address.Hex())
+	importKeyOn(t, c, holders, "replace-evm", dealer.Secp256k1, new(big.Int).SetBytes(secpSeed[:]), "")
+	importKeyOn(t, c, holders, "replace-lx", dealer.Ed25519, edScalar, address.Hex())
 	keys := []string{"replace-evm", "replace-lx"}
 
 	refreshAll := func(label string, nodes []string) [][]apiResult {
@@ -1560,7 +1517,7 @@ func TestDescribedFieldsReplaceALostParticipant(t *testing.T) {
 			go func(i int, keyID string) {
 				defer wg.Done()
 				out[i] = c.callAll(t, c.byID(nodes...), PathRefresh, func(*testNode) any {
-					return RefreshRequest{SessionID: label + "-" + keyID, KeyID: keyID}
+					return RefreshRequest{SessionID: label + "-" + keyID, KeyID: keyID, CeremonyID: "metrics-ceremony", ImportSessionID: "import-" + keyID, ExpectedEpoch: new(uint64)}
 				}, "")
 			}(i, keyID)
 		}
@@ -1575,6 +1532,10 @@ func TestDescribedFieldsReplaceALostParticipant(t *testing.T) {
 		}
 	}
 
+	for _, keyID := range keys {
+		c.publishImportEpoch(t, keyID, 1)
+	}
+	approveTestKeys(t, c, append(append([]string(nil), survivors...), replacement))
 	c.byID(lost)[0].stop()
 
 	wantPublic := map[string]string{"replace-evm": "", "replace-lx": hex.EncodeToString(edPub)}
@@ -1620,6 +1581,7 @@ func TestDescribedFieldsReplaceALostParticipant(t *testing.T) {
 				t.Fatalf("%s: refresh after add-share %+v", r.NodeID, r)
 			}
 		}
+		c.publishImportEpoch(t, keyID, a.Epoch+1)
 		onReplacement := decodeOK[DescribeResponse](t, "describe on the replacement "+keyID, []apiResult{
 			c.call(t, c.byID(replacement)[0], PathDescribe, DescribeRequest{SessionID: "describe-new-" + keyID, KeyID: keyID}, ""),
 		})[0]
