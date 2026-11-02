@@ -17,6 +17,38 @@ export type PrecompileSendOutcome =
   | Readonly<{ outcome: "reverted"; transactionHash: string; receipt: GatewayReceipt }>
   | Readonly<{ outcome: "cancelled" | "rejected" | "unavailable" | "failed"; detail?: string }>;
 
+/** Validates the server/wallet result before a market consumer reads it. */
+export function isPrecompileSendOutcome(value: unknown): value is PrecompileSendOutcome {
+  if (typeof value !== "object" || value === null || Array.isArray(value) || !("outcome" in value)) return false;
+  const outcome = value as Record<string, unknown>;
+  switch (outcome.outcome) {
+    case "cancelled": case "rejected": case "unavailable": case "failed":
+      return outcome.detail === undefined || typeof outcome.detail === "string";
+    case "sent": case "unconfirmed": case "reverted": {
+      if (typeof outcome.transactionHash !== "string" || !/^0x[0-9a-fA-F]{64}$/u.test(outcome.transactionHash)) return false;
+      if (outcome.outcome === "unconfirmed") return outcome.receipt === undefined;
+      if (outcome.receipt === undefined) return outcome.outcome === "sent";
+      const receipt = outcome.receipt;
+      if (typeof receipt !== "object" || receipt === null || Array.isArray(receipt)) return false;
+      const record = receipt as Record<string, unknown>;
+      return typeof record.transactionHash === "string" && record.transactionHash.toLowerCase() === outcome.transactionHash.toLowerCase()
+        && typeof record.blockNumber === "bigint" && record.blockNumber >= 0n
+        && record.status === (outcome.outcome === "reverted" ? "reverted" : "success")
+        && Array.isArray(record.logs) && record.logs.every((log: unknown) => {
+          if (typeof log !== "object" || log === null || Array.isArray(log)) return false;
+          const entry = log as Record<string, unknown>;
+          return typeof entry.address === "string" && /^0x[0-9a-fA-F]{40}$/u.test(entry.address)
+            && typeof entry.data === "string" && /^0x(?:[0-9a-fA-F]{2})*$/u.test(entry.data)
+            && Array.isArray(entry.topics) && entry.topics.every((topic: unknown) => typeof topic === "string" && /^0x[0-9a-fA-F]{64}$/u.test(topic))
+            && entry.blockNumber === record.blockNumber && typeof entry.logIndex === "bigint" && entry.logIndex >= 0n
+            && typeof entry.transactionHash === "string" && typeof record.transactionHash === "string"
+            && entry.transactionHash.toLowerCase() === record.transactionHash.toLowerCase();
+        });
+    }
+    default: return false;
+  }
+}
+
 export const RECEIPT_POLL_LIMIT = 20;
 export const RECEIPT_POLL_INTERVAL_MS = 500;
 export const SPONSORED_SUBMISSION_PENDING = "an earlier sponsored submission is still pending; try again once it settles";
@@ -141,18 +173,22 @@ export function sidioraAmount(amount: bigint): string {
 }
 
 export function sidioraQuotePresentation(quoted: SidioraGasQuote, now = BigInt(Math.floor(Date.now() / 1000))) {
-  const quote = quoted.batch.quote;
-  const digest = sponsoredBatchDigest(quoted.batch);
-  if (!digest.ok || quote.token.toLowerCase() !== SIDIORA_TOKEN.toLowerCase()
-    || quote.decimals !== SIDIORA_DECIMALS || quote.tokenAmount <= 0n
-    || quote.tokenAmount > quote.maxTokenAmount || quote.deadline <= now
-    || quote.deadline > 8_640_000_000_000n) return undefined;
-  const amount = sidioraAmount(quote.tokenAmount);
-  const maximum = sidioraAmount(quote.maxTokenAmount);
-  const deadline = new Date(Number(quote.deadline) * 1000).toUTCString();
-  const consent = copyEntry("gas.sidiora.consent").message
-    .replace("{amount}", amount).replace("{maximum}", maximum).replace("{deadline}", deadline);
-  return { amount, maximum, deadline, consent, identity: `${digest.value}:${quoted.paymaster.toLowerCase()}:${quoted.relayerSignature.toLowerCase()}` };
+  try {
+    const quote = quoted.batch.quote;
+    const digest = sponsoredBatchDigest(quoted.batch);
+    if (!digest.ok || quote.token.toLowerCase() !== SIDIORA_TOKEN.toLowerCase()
+      || quote.decimals !== SIDIORA_DECIMALS || quote.tokenAmount <= 0n
+      || quote.tokenAmount > quote.maxTokenAmount || quote.deadline <= now
+      || quote.deadline > 8_640_000_000_000n) return undefined;
+    const amount = sidioraAmount(quote.tokenAmount);
+    const maximum = sidioraAmount(quote.maxTokenAmount);
+    const deadline = new Date(Number(quote.deadline) * 1000).toUTCString();
+    const consent = copyEntry("gas.sidiora.consent").message
+      .replace("{amount}", amount).replace("{maximum}", maximum).replace("{deadline}", deadline);
+    return { amount, maximum, deadline, consent, identity: `${digest.value}:${quoted.paymaster.toLowerCase()}:${quoted.relayerSignature.toLowerCase()}` };
+  } catch {
+    return undefined;
+  }
 }
 
 function rpcQuantity(value: unknown): bigint {
@@ -240,7 +276,8 @@ export async function resumeWalletSponsoredSubmission(account: string, call?: Pr
 
 export async function sendWalletSponsoredBatch(quoted: SidioraGasQuote, consentIdentity: string | undefined): Promise<PrecompileSendOutcome> {
   if (consentIdentity === undefined) return { outcome: "cancelled" };
-  const snapshot = structuredClone(quoted);
+  let snapshot: SidioraGasQuote;
+  try { snapshot = structuredClone(quoted); } catch { return { outcome: "rejected" }; }
   const review = sidioraQuotePresentation(snapshot);
   if (review === undefined || review.identity !== consentIdentity) return { outcome: "rejected" };
   const wallet = windowWalletProvider();

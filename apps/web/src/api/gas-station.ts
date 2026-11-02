@@ -90,7 +90,7 @@ export async function sendSponsoredBatch(
   const config = stationConfiguration();
   const submitUrl = process.env.PAXEER_GAS_STATION_SUBMIT_URL;
   if (config === undefined || submitUrl === undefined) return { outcome: "unavailable" };
-  if (quoted.paymaster.toLowerCase() !== config.paymaster.toLowerCase()) return { outcome: "rejected" };
+  if (typeof quoted?.paymaster !== "string" || quoted.paymaster.toLowerCase() !== config.paymaster.toLowerCase()) return { outcome: "rejected" };
   const call = sponsoredBatchCall(config, quoted.batch, accountSignature, quoted.relayerSignature);
   if (!call.ok) return { outcome: "rejected" };
   const authorization = assembleEip7702Authorization(config, quoted.batch.account, authorizationNonce, authorizationSignature);

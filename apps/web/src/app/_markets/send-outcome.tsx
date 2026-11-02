@@ -1,10 +1,13 @@
 import { copyEntry } from "../../../copy/runtime";
-import type { PrecompileSendOutcome } from "../../api/wallet";
+import { isPrecompileSendOutcome, type PrecompileSendOutcome } from "../../api/wallet";
 import { InlineNotice } from "../../kit/surface";
 
 export function SendOutcome({ outcome }: Readonly<{ outcome: PrecompileSendOutcome | undefined }>) {
   if (outcome === undefined) {
     return null;
+  }
+  if (!isPrecompileSendOutcome(outcome)) {
+    return <InlineNotice tone="danger" role="alert">The wallet returned a malformed result. Transaction status could not be verified.</InlineNotice>;
   }
   const receiptLine = "receipt" in outcome && outcome.receipt !== undefined ? (
     <p>
