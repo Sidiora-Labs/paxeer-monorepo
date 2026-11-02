@@ -117150,7 +117150,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.149.1]
 title = "Prove the hooks path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117281,7 +117281,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.145.1]
 title = "Prove the middleware conformance ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117614,7 +117614,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.135.1]
 title = "Prove the middleware seller ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129880,7 +129880,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1488.1]
 title = "Issue #1488: Decode chain status events with the registry's 1-based lifecycle codes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
