@@ -16,6 +16,7 @@ import (
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -355,6 +356,13 @@ func resolutionStallable1315(t *testing.T, service any) (*rpc.Client, *resolutio
 }
 
 func TestResolutionPendingSubscriptionOverflow(t *testing.T) {
+	defaults := app.DefaultConsensusParams
+	params := *defaults
+	block := *defaults.Block
+	block.MaxBytes = 100000000
+	params.Block = &block
+	app.DefaultConsensusParams = &params
+	t.Cleanup(func() { app.DefaultConsensusParams = defaults })
 	sender := occutils.NewSigner()
 	h := newSendSeqHarness(t, sender)
 	to := common.BytesToAddress(sendSeqLabel("resolution overflow recipient")[:20])
