@@ -1193,7 +1193,7 @@ func (e *e2e) serveExplorer(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("explorer.NewServer: %v", err)
 	}
-	late.h = srv
+	late.h = srv.Handler()
 	return base
 }
 

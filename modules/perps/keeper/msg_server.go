@@ -18,9 +18,19 @@ var _ types.MsgServer = (*msgServer)(nil)
 
 func NewMsgServerImpl(k *Keeper) types.MsgServer { return &msgServer{keeper: k} }
 
+func (k *Keeper) checkGovernanceAuthority(authority string) error {
+	if authority != k.authority {
+		return fmt.Errorf("%w: %s", types.ErrUnauthorized, authority)
+	}
+	return nil
+}
+
 func (s *msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
 	if msg == nil {
 		return nil, sdkerrors.ErrInvalidRequest.Wrap("missing message")
+	}
+	if err := s.keeper.checkGovernanceAuthority(msg.Authority); err != nil {
+		return nil, err
 	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	cacheCtx, write := ctx.CacheContext()
