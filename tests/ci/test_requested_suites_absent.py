@@ -25,7 +25,7 @@ def _assert_no_test_references(pattern):
 
 def test_arbiter_native_authority_absent():
     assert_paths_absent(["tests/daemon/lxp_test_arbiter_native_authority.c"])
-    _assert_no_test_references(re.compile(r"\blxp_verified_receipt_authority_facts\b"))
+    _assert_no_test_references(re.compile(r"\blxp_test_arbiter_native_authority\.c\b"))
 
 
 def test_web_intake_absent():

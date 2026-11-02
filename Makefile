@@ -3159,9 +3159,5 @@ $(BUILD_DIR)/bin/layerx-archive-codec: $(ARCHIVE_CODEC_OBJECTS) $(LIBRARY) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 include tools/paxeer-x/build/104.35.11.mk
-include tools/paxeer-x/build/104.35.12.mk
 include tools/paxeer-x/build/6.6.mk
-include tools/paxeer-x/build/104.35.15.mk
-include tools/paxeer-x/build/104.35.20.mk
-include tools/paxeer-x/build/104.35.29.mk
 include tools/paxeer-x/build/proof.mk
