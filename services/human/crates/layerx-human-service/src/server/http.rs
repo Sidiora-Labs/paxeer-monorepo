@@ -19,6 +19,9 @@ use super::backend::{
 use super::limits::PrincipalLimits;
 use super::schema::{ApiSchema, Operation};
 
+// The Human envelope reports backend components. A ramp's bare local-journal
+// readiness document is a different contract even though both use /readyz.
+const HUMAN_READINESS_PATH: &str = "/readyz";
 const ACCESS_COOKIE: &str = "__Host-layerx_access";
 const REFRESH_COOKIE: &str = "__Host-layerx_refresh";
 const CSRF_COOKIE: &str = "__Host-layerx_csrf";
@@ -468,7 +471,7 @@ impl<B: HumanApiComponents> Router<B> {
                 Vec::new(),
             ));
         }
-        if request.method == "GET" && request.path == "/readyz" {
+        if request.method == "GET" && request.path == HUMAN_READINESS_PATH {
             return Some(match self.backend.readiness(trace.as_str()) {
                 Ok(readiness) => success_response(
                     if readiness.ready() { 200 } else { 503 },
