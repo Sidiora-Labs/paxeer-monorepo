@@ -240,29 +240,15 @@ static int32_t lxphost_bind_assets(lxphost_node *node, uint32_t network_id,
                                    bool binding_authority)
 {
     lxphost_service_node *service = (lxphost_service_node *)node;
-    size_t count = 0U;
-    size_t i;
-    int32_t status = lx_asset_committed_records(
-        &node->kernel, node->assets.assets, (size_t)LX_ASSET_REGISTRY_CAPACITY,
-        &count);
-    if (status != LXP_OK) return status;
-    if (count > (size_t)LX_ASSET_REGISTRY_CAPACITY) return LXP_FATAL_INVARIANT;
-    node->assets.count = count;
-    for (i = 0U; i < count; ++i) {
-        status = lx_asset_transfer_state(&node->assets.assets[i],
-                                         &node->transfer_assets[i]);
-        if (status != LXP_OK) return status;
-    }
+    int32_t status;
     (void)memset(&node->asset_runtime, 0, sizeof(node->asset_runtime));
-    node->asset_runtime.accounts = &node->accounts;
-    node->asset_runtime.assets = node->assets.assets;
-    node->asset_runtime.asset_count = count;
-    node->asset_runtime.transfer_assets = node->transfer_assets;
-    node->asset_runtime.transfer_asset_count = count;
     node->asset_runtime.network_id = network_id;
     node->asset_runtime.protocol_version =
         (uint16_t)LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
     node->asset_runtime.binding_authority = binding_authority;
+    status = lx_asset_runtime_restore(&node->kernel, &node->assets,
+        node->transfer_assets, &node->asset_runtime);
+    if (status != LXP_OK) return status;
     node->kernel.module_runtime[LXP_MODULE_ASSET] = &node->asset_runtime;
     node->escrow_runtime.accounts = &node->accounts;
     node->escrow_runtime.assets = &node->assets;
@@ -273,7 +259,7 @@ static int32_t lxphost_bind_assets(lxphost_node *node, uint32_t network_id,
     (void)memset(&node->programs_runtime, 0, sizeof(node->programs_runtime));
     node->programs_runtime.accounts = &node->accounts;
     node->programs_runtime.assets = node->transfer_assets;
-    node->programs_runtime.asset_count = count;
+    node->programs_runtime.asset_count = node->assets.count;
     node->programs_runtime.resolve_metering_schedule =
         lxp_programs_metering_resolve_runtime;
     node->programs_runtime.metering_schedule_context = &node->kernel;
