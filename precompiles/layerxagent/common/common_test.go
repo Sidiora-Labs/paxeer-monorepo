@@ -14,6 +14,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	common "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/common"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/oracle"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
@@ -433,4 +434,23 @@ func TestEip712CalldataGas(t *testing.T) {
 		require.Equal(t, crypto.Keccak256([]byte(a.Methods[row.name].Sig))[:4], input[:4])
 		require.Equal(t, row.base+3*uint64(len(input)), common.MethodGas(input[:4], len(input)))
 	}
+}
+
+func TestOracleGasCanonicalCallSizes(t *testing.T) {
+	for _, row := range []struct {
+		signature string
+		length    int
+		want      uint64
+	}{
+		{"aggregate((int256,uint256,uint256)[])", 4 + 64 + 96, 1492},
+		{"aggregate((int256,uint256,uint256)[])", 4 + 64 + 32*96, 10420},
+		{"submitPrice(bytes32,int256,uint256)", 4 + 96, 33000},
+		{"getValidatorPrice(bytes32)", 4 + 32, 1108},
+	} {
+		t.Run(row.signature+strconv.Itoa(row.length), func(t *testing.T) {
+			id := crypto.Keccak256([]byte(row.signature))[:4]
+			require.Equal(t, row.want, common.MethodGas(id, row.length))
+		})
+	}
+	require.Equal(t, "0x0000000000000000000000000000000000000903", oracle.OracleAddress)
 }
