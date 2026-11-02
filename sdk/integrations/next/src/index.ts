@@ -43,8 +43,13 @@ export {
   VerifiedWebhookConsumer,
   X402_VERSION,
   verifyPaymentReceipt,
+  verifyPaymentCommitmentEvidence,
+  verifyRpcPayment,
+  PaymentRpc,
 } from "@sidiora/layerx-seller-middleware";
 export type {
+  PaymentCommitmentEvidence,
+  PaymentCommitmentResolver,
   FulfillmentRepository,
   JsonValue,
   MiddlewareErrorCode,

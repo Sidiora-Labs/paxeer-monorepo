@@ -331,6 +331,7 @@ func GetAdjustedHeight(latestConsensusHeight clienttypes.Height) (clienttypes.He
 
 func (p PrecompileExecutor) GetAdjustedTimestamp(ctx sdk.Context, clientId string, height clienttypes.Height) (uint64, error) {
 	consensusState, found := p.clientKeeper.GetClientConsensusState(ctx, clientId, height)
+	// SendPacket requires this consensus timestamp via GetTimestampAtHeight; local time cannot replace missing state.
 	if !found || consensusState == nil {
 		return 0, fmt.Errorf("consensus state for client %s at height %s not found", clientId, height)
 	}

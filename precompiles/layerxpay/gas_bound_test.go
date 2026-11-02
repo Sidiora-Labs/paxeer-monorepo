@@ -13,10 +13,12 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
+	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,23 +46,42 @@ func TestPayChargedGasCoversHostStoreWork(t *testing.T) {
 			ctx := h.db.Ctx()
 			before, err := h.keeper.Host().ReadLastSequence(ctx, f.owner.did)
 			require.NoError(t, err)
+			stateBefore := h.keeper.ExportGenesis(ctx)
+			logsBefore := len(h.db.GetAllLogs())
 			rev := h.db.Snapshot()
 			meter := sdk.NewGasMeter(math.MaxUint64, 1, 1)
 			h.db.WithCtx(h.db.Ctx().WithGasMeter(meter))
 			output, err := h.precompile.GetExecutor().Execute(h.db.Ctx(), method, caller, caller, decoded, big.NewInt(0), false, h.evm, nil)
 			consumed := meter.GasConsumed()
 			h.db.RevertToSnapshot(rev)
-			require.NoError(t, err, "%s must execute its host writes", name)
-			require.Empty(t, output)
-			require.NotZero(t, consumed, "%s must meter real store work", name)
+			if name == "budgetPull" {
+				require.ErrorIs(t, err, vm.ErrExecutionReverted)
+				require.Equal(t, pcommon.RetiredRevert(lp.PrecompileName), output)
+				require.Zero(t, consumed, "retired budgetPull must not access host storage")
+			} else {
+				require.NoError(t, err, "%s must execute its host writes", name)
+				require.Empty(t, output)
+				require.NotZero(t, consumed, "%s must meter real store work", name)
+			}
 			const supplied uint64 = 2000000
 			output, left, err := h.evm.Call(caller, h.precompile.Address(), input, supplied, uint256.NewInt(0))
-			require.NoError(t, err, "%s must execute through the served precompile: %x", name, output)
-			require.Empty(t, output)
+			if name == "budgetPull" {
+				require.ErrorIs(t, err, vm.ErrExecutionReverted)
+				require.Equal(t, pcommon.RetiredRevert(lp.PrecompileName), output)
+				require.Equal(t, stateBefore, h.keeper.ExportGenesis(h.db.Ctx()))
+				require.Len(t, h.db.GetAllLogs(), logsBefore)
+			} else {
+				require.NoError(t, err, "%s must execute through the served precompile: %x", name, output)
+				require.Empty(t, output)
+			}
 			require.LessOrEqual(t, left, supplied, "%s remaining EVM gas", name)
 			after, err := h.keeper.Host().ReadLastSequence(h.db.Ctx(), f.owner.did)
 			require.NoError(t, err)
-			require.Greater(t, after, before, "%s must commit a fresh host activity", name)
+			if name == "budgetPull" {
+				require.Equal(t, before, after, "retired budgetPull must not commit a host activity")
+			} else {
+				require.Greater(t, after, before, "%s must commit a fresh host activity", name)
+			}
 			seen[name] = true
 			charged := testkeeper.EVMTestApp.EvmKeeper.GetCosmosGasLimitFromEVMGas(h.db.Ctx(), supplied-left)
 			assert.Equal(t, row.Gas(input[4:]), h.precompile.RequiredGas(input), "%s gas table row", name)
@@ -128,7 +149,6 @@ func TestPayChargedGasCoversHostStoreWork(t *testing.T) {
 		h.db.Ctx().KVStore(escrowTestHostKey(t, h)).Set(capabilityKey, capability)
 		call(t, f.beneficiary.caller, "budgetDelegateSpend", id, f.beneficiary.account, big.NewInt(10))
 		grant, _ := budgetTestGrant(t, f, r.PurposeHash)
-		escrowTestExecute(t, h, f.owner, 0x00010007, grant, [32]byte{0x51})
 		call(t, f.beneficiary.caller, "budgetPull", id, f.beneficiary.account, big.NewInt(30), grant)
 		call(t, f.owner.caller, "budgetDelegateRemove", id, f.beneficiary.actor)
 		call(t, f.owner.caller, "budgetDefund", id, big.NewInt(30))
@@ -240,7 +260,7 @@ func TestPayChargedGasCoversHostStoreWork(t *testing.T) {
 	}
 	sort.Strings(writes)
 	for _, name := range writes {
-		assert.True(t, seen[name], "%s needs a successful metered write", name)
+		assert.True(t, seen[name], "%s needs a metered call", name)
 	}
 	assert.Len(t, seen, len(writes))
 }

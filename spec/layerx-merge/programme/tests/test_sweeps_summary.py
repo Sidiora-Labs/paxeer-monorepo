@@ -127,6 +127,84 @@ def test_sweeps_summary_counts_and_copies_failures(tmp_path: Path) -> None:
     }
 
 
+@pytest.mark.parametrize("name", ["go-modules", "go-launchpad-modules"])
+def test_sweeps_summary_second_pass_replaces_not_run(tmp_path: Path, name: str) -> None:
+    directory = tmp_path / "programme" / "sweeps"
+    _report(
+        directory,
+        name,
+        "".join(
+            f"[target.{name}.{index}]\n"
+            f'target = "{target}"\nresult = "not_run"\n'
+            'reason = "The first-pass time budget expired."\n'
+            for index, target in enumerate(
+                ("now-passed", "now-failed", "still-deferred", "untouched"), start=1
+            )
+        )
+        + f"[target.{name}.5]\n"
+        'target = "previous-failure"\nresult = "failed"\n'
+        'observed = "The original assertion failed."\n'
+        'assumption = "The original expectation may be stale."\n',
+        (5, 0, 1, 4),
+    )
+    second_pass = f"{name}-2"
+    _report(
+        directory,
+        second_pass,
+        f"[target.{second_pass}.1]\n"
+        'target = "now-passed"\nresult = "passed"\n'
+        f"[target.{second_pass}.2]\n"
+        'target = "now-failed"\nresult = "failed"\n'
+        'observed = "The second-pass assertion failed."\n'
+        'assumption = "The second-pass expectation may be stale."\n'
+        f"[target.{second_pass}.3]\n"
+        'target = "still-deferred"\nresult = "not_run"\n'
+        'observed = "The second-pass time budget expired."\n'
+        'assumption = "This target requires another bounded run."\n',
+        (3, 1, 1, 1),
+    )
+
+    destination = sweeps_summary(tmp_path)
+    sections = load(destination)
+    assert sections["summary"] == {
+        "reports": 2,
+        "targets_total": 5,
+        "targets_passed": 1,
+        "targets_failed": 2,
+        "targets_not_run": 2,
+    }
+    failures = [row for key, row in sections.items() if key.startswith("failing.")]
+    assert len(failures) == 4
+    by_target = {row["target"]: row for row in failures}
+    assert set(by_target) == {
+        "now-failed",
+        "still-deferred",
+        "untouched",
+        "previous-failure",
+    }
+    assert by_target["now-failed"] == {
+        "sweep": second_pass,
+        "target": "now-failed",
+        "result": "failed",
+        "observed": "The second-pass assertion failed.",
+        "assumption": "The second-pass expectation may be stale.",
+    }
+    assert by_target["still-deferred"] == {
+        "sweep": second_pass,
+        "target": "still-deferred",
+        "result": "not_run",
+        "observed": "The second-pass time budget expired.",
+        "assumption": "This target requires another bounded run.",
+    }
+    assert by_target["untouched"]["sweep"] == name
+    assert by_target["untouched"]["result"] == "not_run"
+    assert by_target["previous-failure"]["sweep"] == name
+    assert by_target["previous-failure"]["result"] == "failed"
+    original = destination.read_bytes()
+    sweeps_summary(tmp_path)
+    assert destination.read_bytes() == original
+
+
 @pytest.mark.parametrize(
     ("old", "new", "field"),
     [

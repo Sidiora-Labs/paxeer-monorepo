@@ -99,7 +99,10 @@ func TestPayPrecompileChargesGasTable(t *testing.T) {
 				reason, decodeErr := abi.UnpackRevert(output)
 				require.NoError(t, decodeErr)
 				require.True(t, strings.HasPrefix(reason, "LXP_"), reason)
-				if row.Write {
+				if name == "budgetPull" {
+					require.Equal(t, pcommon.RetiredRevert(lp.PrecompileName), output)
+					require.Equal(t, "LXP_MODULE_DISABLED: module disabled; "+lp.PrecompileName+" retired", reason)
+				} else if row.Write {
 					require.Contains(t, reason, "staticcall")
 				}
 			}

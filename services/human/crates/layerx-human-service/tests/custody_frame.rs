@@ -7,14 +7,15 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use layerx_human_service::custody::{
     GatewayLimits, GatewayPolicy, GatewayTls, KmsProvider, LxkpGateway, RemoteKmsProvider,
     GATEWAY_FRAME_LIMIT,
 };
 use layerx_human_service::frame::{ConnectionGate, FrameTransport, Limits, MutualTlsConfig, Tls};
-use layerx_types::clock::{Clock, ClockError, ClockReading};
+use layerx_human_test_support::StepClock;
+use layerx_types::clock::{Clock, Deadline};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::RootCertStore;
@@ -26,37 +27,10 @@ const CHILD: &str = "HUMAN_CUSTODY_FRAME_KMS_CHILD";
 const PROVIDER: &str = "custody-frame-provider";
 const DEADLINE: Duration = Duration::from_secs(5);
 
-struct HostClock {
-    generation: [u8; 16],
-    started: Instant,
-}
-
-impl Clock for HostClock {
-    fn sample(&self, transport_budget: Duration) -> std::result::Result<ClockReading, ClockError> {
-        if transport_budget.is_zero() {
-            return Err(ClockError::Unavailable);
-        }
-        Ok(ClockReading {
-            generation: self.generation,
-            unix_milliseconds: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_err(|_| ClockError::Invalid)?
-                .as_millis()
-                .try_into()
-                .map_err(|_| ClockError::Overflow)?,
-            monotonic_nanoseconds: self
-                .started
-                .elapsed()
-                .as_nanos()
-                .try_into()
-                .map_err(|_| ClockError::Overflow)?,
-        })
-    }
-}
-
 struct Host {
     root: PathBuf,
     child: Option<Child>,
+    clock: Arc<dyn Clock>,
 }
 
 impl Drop for Host {
@@ -79,6 +53,7 @@ impl Host {
                 u128::from_be_bytes(random)
             )),
             child: None,
+            clock: Arc::new(StepClock::new(1_700_000_000_000)),
         };
         fs::create_dir(&host.root)?;
         fs::set_permissions(&host.root, fs::Permissions::from_mode(0o700))?;
@@ -165,17 +140,9 @@ impl Host {
         let mut seal = Zeroizing::new([0; 32]);
         getrandom::fill(&mut *seal).map_err(|error| io::Error::other(error.to_string()))?;
         fs::write(host.path("seal"), &*seal)?;
-        let modules: Vec<_> = registry()?.registrations().iter().map(|module| {
-            serde_json::json!({
-                "module_id": module.module() as u16,
-                "activity_types": module.activity_types().iter().map(|kind| kind.value()).collect::<Vec<_>>()
-            })
-        }).collect();
         fs::write(
             host.path("registry.json"),
-            serde_json::to_vec(&serde_json::json!({
-                "network_id": 42, "protocol_version": 3, "modules": modules
-            }))?,
+            serde_json::to_vec(&serde_json::json!({"chain_id": 125}))?,
         )?;
         for entry in fs::read_dir(&host.root)? {
             fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
@@ -218,6 +185,7 @@ impl Host {
             "localhost",
             self.tls()?,
             limits(),
+            Arc::clone(&self.clock),
         )?)
     }
 
@@ -248,7 +216,7 @@ impl Host {
                 .stderr(Stdio::from(log))
                 .spawn()?,
         );
-        let started = Instant::now();
+        let mut expires = Deadline::start(self.clock.as_ref(), Duration::from_secs(15))?;
         let provider = self.provider(address)?;
         loop {
             if provider.probe().is_ok() {
@@ -260,7 +228,7 @@ impl Host {
                 .ok_or("KMS process missing")?
                 .try_wait()?
                 .is_some()
-                || started.elapsed() >= Duration::from_secs(15)
+                || expires.remaining(self.clock.as_ref())?.is_zero()
             {
                 return Err(format!(
                     "KMS startup failed: {}",
@@ -340,12 +308,7 @@ fn unix_tunnel(
 #[test]
 fn custody_gateway_relays_an_lxkp_probe_over_the_human_frame_module() -> Result {
     if std::env::var_os(CHILD).is_some() {
-        let mut generation = [0; 16];
-        getrandom::fill(&mut generation).map_err(|error| io::Error::other(error.to_string()))?;
-        let clock: Arc<dyn Clock> = Arc::new(HostClock {
-            generation,
-            started: Instant::now(),
-        });
+        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(1_700_000_000_000));
         return layerx_human_kms::run_from_environment(&clock).map_err(Into::into);
     }
     rustls::crypto::ring::default_provider()
@@ -381,6 +344,7 @@ fn custody_gateway_relays_an_lxkp_probe_over_the_human_frame_module() -> Result 
                 operation_window: Duration::from_secs(60),
             },
         },
+        Arc::clone(&host.clock),
     )?);
     gateway_listener.set_nonblocking(true)?;
     let gate = ConnectionGate::new(1);

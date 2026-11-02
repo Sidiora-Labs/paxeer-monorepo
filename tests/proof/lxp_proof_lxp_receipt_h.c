@@ -10,7 +10,7 @@
  * from constructed facts or a fallback callback.
  */
 #define _POSIX_C_SOURCE 200809L
-#include "lxp_kernel_case.h"
+#include "../codec/lxp_kernel_case.h"
 #include "layerx/lxp_storage.h"
 #include <unistd.h>
 

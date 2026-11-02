@@ -84,7 +84,9 @@ MCP is daemon-bound, not gateway-bound. `layerx install mcp` registers a launch 
 layerx install mcp --host claude-code --json
 ```
 
-`--daemon-binding <path>` overrides the binding document the CLI resolves beside its configuration, and `--read-only` registers the read-only tool set. Supported hosts are `layerx`, `claude-code`, `claude-desktop`, `cursor` and `vscode`.
+The current binding document records `core_height`; the retired `core_sequence` field is refused with `mcp.binding_retired_key`. Installation and serving also require `agent.readiness` to name the authenticated HTTPS gateway and its protected credential file.
+
+`--daemon-binding <path>` overrides the binding document the CLI resolves beside its configuration, and `--read-only` registers the read-only tool set. The CLI authenticates the declared daemon binding before narrowing its live catalogue and refusing write calls; narrowing does not rewrite the daemon binding. Supported hosts are `layerx`, `claude-code`, `claude-desktop`, `cursor` and `vscode`.
 
 For A2A, the already stored identity session provisions a separate least-scoped key and the command starts the loopback runtime:
 

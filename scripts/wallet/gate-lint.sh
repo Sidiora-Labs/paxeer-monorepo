@@ -63,7 +63,7 @@ builtin_targets() {
     pnpm-app-eslint apps/wallet 'pnpm exec eslint .' package.json \
     pnpm-app-tsc apps/wallet 'pnpm exec tsc --noEmit' package.json \
     rust-human-fmt services/human "cargo fmt --check $HUMAN_PKGS" Cargo.toml \
-    rust-human-clippy services/human "cargo clippy $HUMAN_PKGS -- -D warnings" Cargo.toml \
+    rust-human-clippy services/human "cargo clippy --locked $HUMAN_PKGS -- -D warnings" Cargo.toml \
     rust-platform-fmt services/platform 'cargo fmt --check -p layerx-platform-gateway' hosted/gateway/Cargo.toml \
     rust-platform-clippy services/platform 'cargo clippy -p layerx-platform-gateway -- -D warnings' hosted/gateway/Cargo.toml
 }

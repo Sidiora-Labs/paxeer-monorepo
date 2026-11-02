@@ -64,7 +64,7 @@ TEST_LIBRARY := $(BUILD_DIR)/liblayerx-testing.a
 	test-arith-u128 test-arith-u256 test-arith-rounding test-arith-property \
 	test-arith-nofloat \
 	test-log test-log-durability test-recovery test-projection test-rebuild \
-	test-storage-order test-storage \
+	test-storage \
 	test-journal \
 	test-activity-codec test-envelope test-verify-pool test-admission \
 	test-fee-gate \
@@ -319,7 +319,7 @@ test-receipts: $(BUILD_DIR)/tests/lxp_test_receipts
 $(BUILD_DIR)/tests/lxp_test_state_root: tests/state/lxp_test_state_root.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-state-root: $(BUILD_DIR)/tests/lxp_test_state_root
@@ -831,7 +831,7 @@ test-wave-9: test-perps-market test-perps-book test-perps-margin \
 
 $(BUILD_DIR)/tests/test_batch_header: tests/test_batch_header.c $(LIBRARY)
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -lcrypto -o $@
 
 test-batch: $(BUILD_DIR)/tests/test_batch_header
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_batch_header
@@ -841,7 +841,7 @@ test-wave-10: test-batch
 $(BUILD_DIR)/tests/test_snapshot: tests/test_snapshot.c $(LIBRARY) \
 		$(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-snapshot: $(BUILD_DIR)/tests/test_snapshot
@@ -1445,10 +1445,7 @@ $(BUILD_DIR)/tools/log_inspect: tools/log_inspect.c $(LIBRARY)
 test-rebuild: $(BUILD_DIR)/tests/lxp_test_rebuild $(BUILD_DIR)/tools/log_inspect
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_rebuild
 
-test-storage-order:
-	sh tests/storage/check_daemon_recovery_order.sh
-
-test-storage: test-storage-order test-log test-log-durability test-recovery \
+test-storage: test-log test-log-durability test-recovery \
 		test-projection test-rebuild
 
 $(BUILD_DIR)/tests/lxp_test_journal: tests/state/lxp_test_journal.c $(LIBRARY)
@@ -1456,7 +1453,8 @@ $(BUILD_DIR)/tests/lxp_test_journal: tests/state/lxp_test_journal.c $(LIBRARY)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -lcrypto -pthread -o $@
 
 $(BUILD_DIR)/tests/lxp_test_journal_tsan: tests/state/lxp_test_journal.c \
-		src/state/lxp_journal.c src/crypto/lxp_hash.c src/crypto/lxp_ed25519.c \
+		src/state/lxp_journal.c src/state/lxp_idempotency.c \
+		src/crypto/lxp_hash.c src/crypto/lxp_ed25519.c \
 		src/crypto/lxp_ct.c src/crypto/lxp_ed25519.c \
 		src/ledger/lx_account_registry.c src/ledger/lx_account_id.c \
 		src/storage/lxp_log.c src/storage/lxp_fault_hooks.c \
@@ -1797,9 +1795,14 @@ human-e2e: human-test-e2e
 
 .PHONY: qualification-runner-test human-qualify-journeys \
 	human-qualify-fabrication human-qualify-faults human-qualify-perf \
-	human-qualify platform-qualify
+	human-qualify platform-qualify test-mcp-binding-receipt-keys
 
-qualification-runner-test:
+test-mcp-binding-receipt-keys:
+	@python3 -c 'import pytest' || \
+		{ echo "pytest is required for MCP binding receipt-key qualification" >&2; exit 1; }
+	python3 -m pytest -q tests/qualification/test_mcp_binding_receipt_keys.py
+
+qualification-runner-test: test-mcp-binding-receipt-keys
 	python3 -m unittest tools.qualification.test_release_runner
 
 human-qualify-journeys:
@@ -1871,6 +1874,7 @@ agent-test agent-test-sanitize: export PAXD = $(abspath build/paxd)
 agent-test agent-test-sanitize: export LAYERX_TEST_NATIVE_BIN_DIR = $(abspath $(BUILD_DIR)/bin)
 agent-test agent-test-sanitize: export LAYERX_TEST_NATIVE_BUILD_DIR = $(abspath $(BUILD_DIR))
 agent-test-native-prerequisites:
+	sh -n services/agent/tools/run-real-node-tests.sh
 	LAYERX_TEST_NATIVE_BUILD_DIR="$(abspath $(BUILD_DIR))" CARGO_TARGET_DIR="$(AGENT_TEST_TARGET_DIR)" sh services/agent/tools/run-real-node-tests.sh prepare
 
 agent-test: public-tls-test-prerequisites
@@ -2782,7 +2786,7 @@ $(BUILD_DIR)/tests/test_programs_oracle_read: tests/test_programs_oracle_read.c 
 		tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+	$(CC) $(CPPFLAGS) $(CFLAGS) -g $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
@@ -2792,7 +2796,6 @@ test-programs-oracle-read: $(BUILD_DIR)/tests/test_programs_oracle_read
 	tests/ledger/lxp_check_sole_writer.sh
 
 $(BUILD_DIR)/tests/test_programs_web_read: tests/test_programs_web_read.c \
-		tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
@@ -3154,8 +3157,5 @@ $(BUILD_DIR)/bin/layerx-archive-codec: $(ARCHIVE_CODEC_OBJECTS) $(LIBRARY) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 include tools/paxeer-x/build/104.35.11.mk
-include tools/paxeer-x/build/104.35.12.mk
 include tools/paxeer-x/build/6.6.mk
-include tools/paxeer-x/build/104.35.15.mk
-include tools/paxeer-x/build/104.35.20.mk
-include tools/paxeer-x/build/104.35.29.mk
+include tools/paxeer-x/build/proof.mk

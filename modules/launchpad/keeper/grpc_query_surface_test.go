@@ -90,7 +90,12 @@ func TestQuerySurfaceRefusals(t *testing.T) {
 	t.Run("malformed address", func(t *testing.T) {
 		for _, input := range []string{"", "not-an-address", "0x1234", strings.Repeat("1", 40), "0x" + strings.Repeat("g", 40)} {
 			t.Run(input, func(t *testing.T) {
-				response, err := client.Surface(context.Background(), &types.QuerySurfaceRequest{Address: input})
+				request := &types.QuerySurfaceRequest{Address: input}
+				response, err := client.Surface(context.Background(), request)
+				require.Nil(t, response)
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Contains(t, status.Convert(err).Message(), "invalid address")
+				response, err = querier.Surface(sdk.WrapSDKContext(e.ctx), request)
 				require.Nil(t, response)
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				var addressErr *sdkerrors.Error

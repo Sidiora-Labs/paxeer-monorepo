@@ -5,6 +5,7 @@ mod support;
 
 use std::path::{Path, PathBuf};
 
+use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_bridge_relayer::abi::{encode_bridge_in, encode_release, LAYERX_BRIDGE_PRECOMPILE};
 use layerx_bridge_relayer::attestation::{
     to_attestor_signature, uint256_from_u64, InboundAttestation, OutboundAttestation,
@@ -232,6 +233,151 @@ fn journal_path(directory: &Path, name: &str) -> PathBuf {
     directory.join(format!("{name}.jsonl"))
 }
 
+fn replace_receipt_field(bytes: &mut [u8], original: &[u8], replacement: &[u8]) -> usize {
+    assert_eq!(original.len(), replacement.len());
+    let positions: Vec<_> = bytes
+        .windows(original.len())
+        .enumerate()
+        .filter_map(|(index, field)| (field == original).then_some(index))
+        .collect();
+    assert_eq!(positions.len(), 1, "receipt field must be unambiguous");
+    let position = positions[0];
+    bytes[position..position + original.len()].copy_from_slice(replacement);
+    position
+}
+
+fn recording_with_sequencer_receipts(name: &str, directory: &Path) -> Recording {
+    use layerx_bridge_relayer::receipt::SequencerReceipt;
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    use layerx_proof::receipt::{canonical_protocol_facts, verify_sequencer_signature};
+    use serde_json::{json, Value};
+    use sha2::Sha256;
+
+    let first = deposit(0xaa, 3, padded(0x77), 1_000_000_000_000_000_000);
+    let (source, transactions) = match name {
+        "inbound_threshold_one" => (
+            include_str!("fixtures/inbound_threshold_one.json"),
+            vec![
+                bridge_in(5, &first, &[ATTESTOR_1], PAXEER_FEES_1),
+                bridge_in(
+                    6,
+                    &deposit(0xcc, 7, padded(0x88), 5),
+                    &[ATTESTOR_1],
+                    PAXEER_FEES_1,
+                ),
+            ],
+        ),
+        "cosign_threshold_two" => (
+            include_str!("fixtures/cosign_threshold_two.json"),
+            vec![bridge_in(0, &first, &[ATTESTOR_2, ATTESTOR_1], FEES_2)],
+        ),
+        "duplicate_submissions" => (
+            include_str!("fixtures/duplicate_submissions.json"),
+            vec![
+                bridge_in(0, &first, &[ATTESTOR_1], PAXEER_FEES_1),
+                bridge_in(0, &first, &[ATTESTOR_2], FEES_2),
+            ],
+        ),
+        _ => panic!("unknown receipt recording: {name}"),
+    };
+    let mut document: Value = serde_json::from_str(source).expect("recorded exchanges");
+    let sequencer: Value =
+        serde_json::from_str(include_str!("fixtures/inbound_sequencer_receipt.json"))
+            .expect("sequencer exchanges");
+    for rules in document["endpoints"]["paxeer"]
+        .as_object_mut()
+        .expect("phases")
+        .values_mut()
+    {
+        for rule in rules.as_array_mut().expect("phase rules") {
+            if rule["method"] != "eth_getTransactionReceipt" {
+                continue;
+            }
+            rule["method"] = json!("pax_sequencerReceipt");
+            if rule["result"].is_null() {
+                continue;
+            }
+            let index: usize = rule["params"][0]
+                .as_str()
+                .expect("submission reference")
+                .strip_prefix("$submitted:")
+                .expect("submission prefix")
+                .parse()
+                .expect("submission index");
+            let raw = &transactions[index];
+            let (call, signature) = decode_signed(raw).expect("recorded signed transaction");
+            let sender = recover_sender(&call, &signature).expect("recorded sender");
+            let phase = if rule["result"]["status"] == "0x1" {
+                "committed"
+            } else {
+                "reverted"
+            };
+            let mut answer = sequencer["endpoints"]["paxeer"][phase][0]["result"].clone();
+            let mut bytes = hex::decode(answer["receipt"].as_str().expect("signed receipt"))
+                .expect("receipt hex");
+            let decoded = verify_sequencer_signature(&bytes, support::receipt_keys().as_slice())
+                .expect("recorded signature");
+            let protocol = decoded.protocol().expect("protocol receipt");
+            let tx_hash = hash(raw);
+            replace_receipt_field(&mut bytes, &protocol.activity_id(), &tx_hash);
+            let mut sequence_hash = Sha256::new();
+            sequence_hash.update(b"PAXEER/v1/sequence\0");
+            sequence_hash.update(protocol.previous_state_root());
+            sequence_hash.update(protocol.global_sequence().to_be_bytes());
+            sequence_hash.update(tx_hash);
+            replace_receipt_field(
+                &mut bytes,
+                &protocol.resulting_state_root(),
+                &sequence_hash.finalize(),
+            );
+            let mut from = [0; 32];
+            from[12..].copy_from_slice(&sender);
+            let from_position = replace_receipt_field(&mut bytes, &protocol.from(), &from);
+            let nonce_position = from_position + 32 + 16 + 16;
+            assert_eq!(
+                &bytes[nonce_position..nonce_position + 8],
+                &protocol.debit_sequence().to_be_bytes()
+            );
+            bytes[nonce_position..nonce_position + 8].copy_from_slice(&call.nonce.to_be_bytes());
+            canonical_protocol_facts(&bytes).expect("canonical rebound receipt");
+            let unsigned_end = bytes.len() - 69;
+            assert_eq!(&bytes[unsigned_end..unsigned_end + 5], &[1, 0, 0, 0, 64]);
+            let mut digest = Sha256::new();
+            digest.update(b"LXP/v1/receipt\0");
+            digest.update(&bytes[..unsigned_end]);
+            digest.update([0]);
+            let digest: [u8; 32] = digest.finalize().into();
+            bytes[unsigned_end + 5..]
+                .copy_from_slice(&SigningKey::from_bytes(&[0x5e; 32]).sign(&digest).to_bytes());
+            answer["txHash"] = json!(hex::prefixed(&tx_hash));
+            answer["nonce"] = json!(format!("{:#x}", call.nonce));
+            answer["from"] = json!(hex::prefixed(&sender));
+            answer["receipt"] = json!(hex::prefixed(&bytes));
+            if phase == "committed" {
+                let block = hex::parse_quantity(
+                    rule["result"]["blockNumber"]
+                        .as_str()
+                        .expect("included block"),
+                )
+                .expect("block quantity");
+                answer["blockNumber"] = json!(format!("{:#x}", 1003 + block - 0x10));
+            }
+            SequencerReceipt::decode(&answer)
+                .expect("bound receipt answer")
+                .verify(&support::receipt_keys())
+                .expect("bound receipt verifies");
+            rule["result"] = answer;
+        }
+    }
+    let path = directory.join("sequencer-recording.json");
+    std::fs::write(
+        &path,
+        serde_json::to_vec(&document).expect("recording JSON"),
+    )
+    .expect("write recording");
+    Recording::load(path.to_str().expect("recording path"))
+}
+
 #[test]
 fn the_attestation_view_holds_every_item_after_a_tick() {
     let signer = signer("attestation-view");
@@ -372,9 +518,9 @@ fn the_attestation_view_holds_every_item_after_a_tick() {
 
 #[test]
 fn the_attestation_view_is_a_snapshot() {
-    let recording = Recording::load("cosign_threshold_two.json");
     let signer = signer("attestation-snapshot");
     let directory = work_directory("attestation-snapshot");
+    let recording = recording_with_sequencer_receipts("cosign_threshold_two", &directory);
     let cosign = directory.join("cosign");
     let one = Instance {
         attestor: ("attestor-1", ATTESTOR_1),
@@ -676,6 +822,13 @@ fn a_receipt_with_status_zero_reverts_the_paxeer_submission() {
         ("consumed", "sequencer-consumed"),
     ] {
         let (recording, _signer, instance, mut relayer, item) = sequencer_submission(name);
+        let tx_hash = hash(&recording.sent()[0].1);
+        let pending = relayer.journal().state().items[&item]
+            .pending()
+            .expect("the sent transaction is pending before its receipt");
+        assert_eq!(pending.tx_hash, tx_hash);
+        assert_eq!(pending.raw, recording.sent()[0].1);
+        assert_eq!(pending.status, SubmissionStatus::Pending);
         let before = support::journal_entries(&instance.journal);
         let calls_before = recording.count("paxeer", "eth_call");
         recording.set_phase(phase);
@@ -683,16 +836,10 @@ fn a_receipt_with_status_zero_reverts_the_paxeer_submission() {
             .inbound_step(0)
             .unwrap_or_else(|error| panic!("{phase}: {error}"));
         let entries = support::journal_entries(&instance.journal);
-        assert_eq!(entries.len(), before.len() + 2);
-        assert!(matches!(
-            entries[before.len()],
-            Entry::Receipted {
-                sequence: 5,
-                height: 1002,
-                ..
-            }
-        ));
-        let tx_hash = hash(&recording.sent()[0].1);
+        assert_eq!(entries.len(), before.len() + 1);
+        assert!(!entries
+            .iter()
+            .any(|entry| matches!(entry, Entry::Receipted { .. })));
         if phase == "reverted" {
             assert_eq!(report.waiting, 1);
             assert_eq!(report.completed, 0);
@@ -786,9 +933,9 @@ fn an_unverifiable_sequencer_receipt_leaves_the_submission_pending() {
 
 #[test]
 fn inbound_deposits_are_submitted_exactly_once_across_a_restart() {
-    let recording = Recording::load("inbound_threshold_one.json");
     let signer = signer("inbound");
     let directory = work_directory("inbound");
+    let recording = recording_with_sequencer_receipts("inbound_threshold_one", &directory);
     let instance = Instance {
         attestor: ("attestor-1", ATTESTOR_1),
         paxeer_fees: ("paxeer-fees-1", PAXEER_FEES_1),
@@ -856,14 +1003,14 @@ fn inbound_deposits_are_submitted_exactly_once_across_a_restart() {
         completion(&relayer, &first_key),
         Some(Completion::Included {
             tx_hash: hash(&sent[0].1),
-            block_number: 0x10,
+            block_number: 1003,
         })
     );
     assert_eq!(
         completion(&relayer, &second_key),
         Some(Completion::Included {
             tx_hash: hash(&sent[1].1),
-            block_number: 0x11,
+            block_number: 1004,
         })
     );
     assert_eq!(recording.sent().len(), 3);
@@ -877,9 +1024,9 @@ fn inbound_deposits_are_submitted_exactly_once_across_a_restart() {
 
 #[test]
 fn two_attestors_cosign_one_bridge_in_and_the_other_completes_as_already_bridged() {
-    let recording = Recording::load("cosign_threshold_two.json");
     let signer = signer("cosign");
     let directory = work_directory("cosign");
+    let recording = recording_with_sequencer_receipts("cosign_threshold_two", &directory);
     let cosign = directory.join("cosign");
     let one = Instance {
         attestor: ("attestor-1", ATTESTOR_1),
@@ -937,16 +1084,16 @@ fn two_attestors_cosign_one_bridge_in_and_the_other_completes_as_already_bridged
         completion(&second, &item),
         Some(Completion::Included {
             tx_hash: hash(&sent[0].1),
-            block_number: 0x10,
+            block_number: 1003,
         })
     );
 }
 
 #[test]
 fn a_second_relayers_duplicate_bridge_in_reverts_and_is_never_retried() {
-    let recording = Recording::load("duplicate_submissions.json");
     let signer = signer("duplicate");
     let directory = work_directory("duplicate");
+    let recording = recording_with_sequencer_receipts("duplicate_submissions", &directory);
     let one = Instance {
         attestor: ("attestor-1", ATTESTOR_1),
         paxeer_fees: ("paxeer-fees-1", PAXEER_FEES_1),
@@ -997,7 +1144,7 @@ fn a_second_relayers_duplicate_bridge_in_reverts_and_is_never_retried() {
         completion(&first, &item),
         Some(Completion::Included {
             tx_hash: hash(&sent[0].1),
-            block_number: 0x10,
+            block_number: 1003,
         })
     );
     assert_eq!(completion(&second, &item), Some(Completion::AlreadyBridged));

@@ -334,7 +334,7 @@ Encoding rules first, then every code; kernel codes are the lxp_result enum (inc
 | LXP_ROOT_MISMATCH | root mismatch | layerxprograms 0x101D; shared cgo host (all kernel-backed precompiles) | LXP_ERR_ROOT_MISMATCH = -801, include/layerx/lxp_result.h:146; emitted src/modules/programs/fees.c:606 | no |
 | LXP_TIMESTAMP_REGRESSION | timestamp regression | layerxexchange 0x1015; layerxpay 0x101B; shared cgo host (all kernel-backed precompiles) | LXP_ERR_TIMESTAMP_REGRESSION = -802, include/layerx/lxp_result.h:147; emitted src/modules/perps/lx_oracle_intake.c:162 | no |
 | LXP_ATTESTATION_THRESHOLD | attestation threshold | layerxprograms 0x101D; xweb 0x1019 (origin 2) | LXP_ERR_ATTESTATION_THRESHOLD = -803, include/layerx/lxp_result.h:148; emitted src/modules/programs/blob_lifecycle.c:486 | no |
-| LXP_DA_MISSING | da missing | layerxpay 0x101B | LXP_ERR_DA_MISSING = -804, include/layerx/lxp_result.h:149; emitted src/modules/service/lx_service_deliver.c:28 | no |
+| LXP_DA_MISSING | da missing | layerxpay 0x101B | layerxpay service delivery (precompiles/common/lxp_errors.go:164); the kernel value LXP_ERR_DA_MISSING was retired from the Go registry by 6.97.3 | no |
 | LXP_EQUIVOCATION | equivocation | not emitted after the merge: only retired kernel paths (bridge credit, network, replica, DA, guarantor) use it | LXP_ERR_EQUIVOCATION = -805, include/layerx/lxp_result.h:150 | no |
 | LXP_LOG_CORRUPT | log corrupt | layerxprograms 0x101D; shared cgo host (all kernel-backed precompiles) | LXP_ERR_LOG_CORRUPT = -900, include/layerx/lxp_result.h:151; emitted src/state/lxp_journal.c:1197 | no |
 | LXP_LOG_TRUNCATED | log truncated | shared cgo host (all kernel-backed precompiles) | LXP_ERR_LOG_TRUNCATED = -901, include/layerx/lxp_result.h:152; emitted src/protocol/lxp_kernel.c:8671 | no |
@@ -509,7 +509,7 @@ Encoding rules first, then every code; kernel codes are the lxp_result enum (inc
 | LXP_PRECOMPILE_NON_PAYABLE | sending funds to a non-payable function | every precompile (framework) | precompiles/common/precompiles.go:221 | no |
 | LXP_PRECOMPILE_WEI_REMAINDER | selected precompile function does not allow payment with non-zero wei remainder | every payable precompile (framework); xweb 0x1019 `request` and `fulfil` (web.md A1; precompiles/xweb/xweb_test.go:296-298) | precompiles/common/precompiles.go:230 | no |
 | LXP_PRECOMPILE_INVALID_ADDR | invalid addr | every precompile taking an address argument (framework) | precompiles/common/precompiles.go:318 | no |
-| LXP_AGENT_NOT_ACTIVE | <plan> not active at height <height>; no merge upgrade activation reader bound | agent functions 0x0901-0x0908: every agent function | ErrNotActive, precompiles/layerxagent/common/common.go:66; HeightGate :99,103 | no |
+| LXP_AGENT_NOT_ACTIVE | agent function not active | agent functions 0x0901-0x0908: every agent function | ErrNotActive, precompiles/layerxagent/common/common.go:66; HeightGate :99,103 | no |
 | LXP_AGENT_ABI_DECODE | argument decode failed | agent functions 0x0901-0x0908: every agent function | agent-functions.md A.0; new under precompiles/layerxagent | no |
 | LXP_AGENT_READ_ONLY | write under staticcall | agent functions 0x0901-0x0908: submitPrice, schedule, cancel, reschedule, open, settle, close, updateRate | agent-functions.md A.0; new under precompiles/layerxagent | no |
 | LXP_AGENT_DELEGATECALL | cannot delegatecall an agent function | agent functions 0x0901-0x0908: every write method | agent-functions.md A.0; new under precompiles/layerxagent | no |

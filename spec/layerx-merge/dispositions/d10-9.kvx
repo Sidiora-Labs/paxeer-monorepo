@@ -1,0 +1,47 @@
+[disposition.10.1.6.1]
+finding = "10.1.6.1"
+status = "resolved"
+evidence = "Commit 4bd3f9a69 replaces the deleted owner_activity calls with custody::attach_call_signature and the local verify_owner_activity helper, replaces the gateway test helper, ports the affected service and KMS tests, and removes CheckpointFact and verified_checkpoints from the service export consumer, as retained on current main."
+follow_up = "closure"
+
+[disposition.10.21.8.1]
+finding = "10.21.8.1"
+status = "resolved"
+evidence = "Commit 4bd3f9a69 makes signer public and re-exports attach_call_signature, with current main declaring pub mod signer at services/human/crates/layerx-human-service/src/custody/mod.rs:11 and the crate-visible helper re-export at services/human/crates/layerx-human-service/src/custody/mod.rs:28."
+follow_up = "closure"
+
+[disposition.10.21.8.2]
+finding = "10.21.8.2"
+status = "resolved"
+evidence = "Commit 4bd3f9a69 deletes canonical_owner::sign and ports its sole agent_create caller to sign_transaction, whose EIP-1559 implementation remains on current main at services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:19."
+follow_up = "closure"
+
+[disposition.10.21.4.1]
+finding = "10.21.4.1"
+status = "open"
+evidence = "Although b4c8a1dfc deletes the owner rotation case, current main still calls the canonical unsigned_envelope_bytes helper deleted by 7fe9b50ec at services/human/crates/layerx-human-kms/tests/provider.rs:510, imports it at services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:10 and calls deleted decode_unsigned_activity at services/human/crates/layerx-human-kms/tests/provider.rs:770."
+follow_up = "9.35.9"
+
+[disposition.10.21.4.2]
+finding = "10.21.4.2"
+status = "resolved"
+evidence = "Commit ebb56a655 ports evidence_node to signed EIP-1559 transactions and production_owner_tests to the authenticated receipt and literal actor DID, with current main using decode_transaction at services/human/crates/layerx-human-service/tests/evidence_node.rs:21 and Did::new(ACTOR) at services/human/crates/layerx-human-service/src/server/production_owner_tests.rs:28 instead of the deleted canonical activity helpers."
+follow_up = "closure"
+
+[disposition.10.21.4.3]
+finding = "10.21.4.3"
+status = "open"
+evidence = "Current main retains calls to the deleted canonical helpers at services/human/crates/layerx-human-kms/tests/provider.rs:510 and services/human/crates/layerx-human-kms/tests/provider.rs:770, the import at services/human/crates/layerx-human-kms/tests/provider/native_setup.rs:10, and decode_unsigned_activity, unsigned_activity_bytes and unsigned_envelope_bytes calls at services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs:447, services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs:451 and services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs:700."
+follow_up = "9.35.9"
+
+[disposition.10.21.4.4]
+finding = "10.21.4.4"
+status = "resolved"
+evidence = "Commit 90579ae7d replaces the budget and bootstrap kernel-envelope helpers with EIP-1559 calls, with current main binding budget calls at services/human/crates/layerx-intents/tests/budget_payloads.rs:188 and identity lifecycle calls at services/human/crates/layerx-intents/tests/owner_bootstrap.rs:75 through bind_call."
+follow_up = "closure"
+
+[disposition.10.21.9.1]
+finding = "10.21.9.1"
+status = "resolved"
+evidence = "Commit 90579ae7d removes the owner_activity.rs and native_session.rs include_str entries from the retired-codec test, whose current main source list at services/human/crates/layerx-intents/tests/retired_crypto_codec.rs:3 includes only the existing canonical.rs, vectors/send.rs and compile.rs files."
+follow_up = "closure"
