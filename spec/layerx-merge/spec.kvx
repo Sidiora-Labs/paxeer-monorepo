@@ -136605,7 +136605,7 @@ do_4 = "Finding 20.3.4.2: the chain-path transaction of TestChainPathLogSubscrip
 
 [task.20.4.3]
 title = "Drive a chain end to end with go-ethereum's ethclient on its path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["20.4.2", "20.3.4"]
