@@ -116603,7 +116603,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.7.1]
 title = "Write the launchpad chain-launch domain: name rule, size tiers, cost, receipt and wallet parameters"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130637,7 +130637,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.6.3]
 title = "Reconcile the layerxanchor keeper tests with the retired module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182811,7 +182811,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.12.3]
 title = "Register the committed fixture's standby leader in the genesis committee"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216549,7 +216549,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1443.1]
 title = "Issue #1443: Make assert_retired fail on live imports and stem references of retired modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
