@@ -21,12 +21,14 @@ import (
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery/natsdriver"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/feeds"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/publish"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/stream"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ws"
 )
 
@@ -218,9 +220,18 @@ func TestSubscriptions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewSchema: %v", err)
 	}
-	providers, err := feeds.NewProviders(ctx, db, nil)
+	metrics, err := telemetry.New(config.Gateway)
+	if err != nil {
+		t.Fatal(err)
+	}
+	providers, err := feeds.NewProviders(ctx, db, nil, metrics)
 	if err != nil {
 		t.Fatalf("NewProviders: %v", err)
+	}
+	scrape := httptest.NewRecorder()
+	metrics.ServeHTTP(scrape, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	if scrape.Code != http.StatusOK || !strings.Contains(scrape.Body.String(), feeds.GatewayMarketsMetric+" 18\n") {
+		t.Fatalf("served market gauge: %d %s", scrape.Code, scrape.Body.String())
 	}
 	hub, err := ws.NewHub(subFeeds{providers}, subChain, subSnapshotID, nil)
 	if err != nil {
