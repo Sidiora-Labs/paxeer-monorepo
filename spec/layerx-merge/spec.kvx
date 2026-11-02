@@ -6945,6 +6945,12 @@ value = "An operation of services/agent/schema/agent-api/v1.kvx that is retired 
 basis = "2ddf941d9 removed [transport.agent_http.operation.faucet.claim] at major 2; from 13:00Z every attempt that builds a dependent of layerx-agent-api fails at build.rs:324 (22.8.10 a3, 22.8.12 a2, 22.11.5 a3, 22.9.16 a2-a3, 9.35.9 a8, 21.63.1 a3, 21.111.1 a3, 22.9.17 a2, 22.13.8 a2, 22.13.9 a2, 22.11.4 a2)."
 affects = ["22.9.24", "18.1487.1"]
 
+[decision.2306]
+title = "A zero or negative Block.MaxGasWanted is unbounded at Accept"
+value = "node/sequencer Accept treats Block.MaxGasWanted <= 0 as no separate bound on a block's gas wanted; Block.MaxGas keeps bounding it. Fixtures that mean to bound gas wanted state a positive value."
+basis = "consensus/types/params.go:62 already reads a negative MaxGasWanted as unbounded and defaults it to 50000000 (:141); a zero that refuses every transaction is never a usable configuration, and every RPC fixture that sets only MaxGas failed at main (18.1502.1 a1, 22.7.3 a2)."
+affects = ["22.5.9", "18.1502.1", "22.7.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20565,6 +20571,14 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.22026]
+title = "The attestor server, snapshot and policy suites pass against the shipped schema and policy"
+ac_1 = "Given services/wallet/attestor at main, when go test runs internal/server and internal/policy/evm, then every test passes: the served-route schema describes each route with exactly one operation, five-member custody import and generate succeed, snapshots follow add-share, and the shipped policy admits the wallet SDK, launchpad and perps flows it documents"
+
+[req.22025]
+title = "An unset block gas-wanted bound admits transactions"
+ac_1 = "Given consensus params whose Block.MaxGasWanted is zero or negative, when the sequencer accepts a transaction within Block.MaxGas, then it is admitted and only an explicit positive MaxGasWanted bounds the block's gas wanted"
 
 [req.22024]
 title = "The agent API contract keeps every golden-baseline key within one major"
@@ -35238,6 +35252,24 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.22.12.7]
+title = "Repair the attestor server, snapshot and shipped-policy suites"
+reqs = ["22026.1"]
+touches = ["services/wallet/attestor/internal/server", "services/wallet/attestor/internal/policy/evm"]
+tests = ["services/wallet/attestor/internal/server/server_test.go", "services/wallet/attestor/internal/policy/evm/policy_test.go"]
+verification_contract = "cd services/wallet/attestor && go vet ./... && go test -count=1 ./internal/server/ ./internal/policy/evm/"
+do_1 = "internal/server/server_test.go:318 TestSchemaDescribesEveryServedRoute: the route schema (the v1.kvx the server serves) describes /v1/lx/review with kind '' and 0 operations; describe it with its one operation and kind like every other served route, or drop the route from the server if it is retired (then the test and the schema agree)."
+symbols = []
+
+[capability.22.5.9]
+title = "Read an unset Block.MaxGasWanted as unbounded at Accept and state the bound in the RPC fixtures"
+reqs = ["22025.1"]
+touches = ["node/sequencer/limits.go", "node/sequencer/limits_test.go", "rpc/setup_test.go"]
+tests = ["node/sequencer/limits_test.go"]
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./node/sequencer/ -run '^(TestAcceptRefusesPastMaxGasWanted|TestAcceptIgnoresUnsetMaxGasWanted)$' && CGO_ENABLED=1 go test -count=1 ./rpc/ -run '^TestPendingBlock'"
+do_1 = "node/sequencer/limits.go:53 compares the block's gas wanted with cp.Block.MaxGasWanted whatever its value; consensus params that carry only MaxBytes and MaxGas (rpc/setup_test.go:418 ConsensusParamUpdates, rpc/setup_test.go:354, rpc/domain_reads_test.go:47, rpc/info_test.go:280-282, rpc/notifier_internal_test.go:374 and :413, rpc/proof_client_parity_test.go:101) leave MaxGasWanted at 0 and Accept refuses every transaction with 'gas wanted 21000 exceeds Block.MaxGasWanted 0' (18.1502.1 a1 and 22.7.3 a2 at bases 17990ad65 and c1cc55d15: TestPendingBlockCarriesHeaderFields, TestPendingBlockOpenBlock, TestPendingBlockNumberStaysCommitted, TestPendingBlockTransactionCount, TestPendingNonceWaitsForTheOpenBlock)."
+symbols = []
+
 [capability.22.9.24]
 title = "Restore the retired faucet.claim operation entry of the agent API contract"
 reqs = ["22024.1"]
@@ -35702,7 +35734,7 @@ title = "Tidy the wallet attestor module so it vets under the inherited toolchai
 reqs = ["22011.1"]
 touches = ["services/wallet/attestor/go.mod", "services/wallet/attestor/go.sum"]
 tests = []
-verification_contract = "cd services/wallet/attestor && go vet ./... && go test -count=1 ./..."
+verification_contract = "cd services/wallet/attestor && go vet ./... && go test -count=1 ./cmd/attestor/"
 do_1 = "services/wallet/attestor/go.mod fails go vet with 'updates to go.mod needed; to update it: go mod tidy' under the Go 1.25.8 toolchain: run go mod tidy in the module, commit go.mod and go.sum, and confirm no dependency version moved beyond what tidy requires (name any that did in the commit message)."
 symbols = []
 
@@ -132096,12 +132128,75 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.22.12.7]
+title = "Repair the attestor server, snapshot and shipped-policy suites"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22026.1"]
+capabilities = ["22.12.7"]
+interfaces = []
+do_1 = "internal/server/server_test.go:318 TestSchemaDescribesEveryServedRoute: the route schema (the v1.kvx the server serves) describes /v1/lx/review with kind '' and 0 operations; describe it with its one operation and kind like every other served route, or drop the route from the server if it is retired (then the test and the schema agree)."
+do_2 = "server_test.go:365, :714 and :776: the five-member custody import returns 409 key_invalid_share 'custody import requires exactly five approved members' and generate returns 'owner-approved wallet inventory does not admit operation'; the test inventory must carry the five approved members and the owner-approved wallet inventory the server now requires, and the key_curve_mismatch case must reach the curve check (inventory first, then curve) so the expected code is observed."
+do_3 = "TestSnapshotFollowsAddShare: read the failure from go test -run and repair the snapshot update after add-share in internal/server."
+do_4 = "internal/policy/evm/policy_test.go:799 (shipped perps selectors), :1245 (a decision allowed where the test expects the account policy to refuse or vice versa) and :1938 TestXweb0x1019ApplicationPolicy ('application proof must supply its real fulfilment calldata'): reconcile the shipped policy with the selectors and proofs the wallet SDK, launchpad and xweb paths really send (the tests quote the real calldata), never by weakening the policy."
+do_5 = "go vet ./... stays clean; no test is deselected."
+symbols = []
+touches = ["services/wallet/attestor/internal/server", "services/wallet/attestor/internal/policy/evm"]
+tests = ["services/wallet/attestor/internal/server/server_test.go", "services/wallet/attestor/internal/policy/evm/policy_test.go"]
+planned_paths = []
+build_cmd = "cd services/wallet/attestor && go build ./..."
+verify_cmd = "cd services/wallet/attestor && go vet ./... && go test -count=1 ./internal/server/ ./internal/policy/evm/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.5.9]
+title = "Read an unset Block.MaxGasWanted as unbounded at Accept and state the bound in the RPC fixtures"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22025.1"]
+capabilities = ["22.5.9"]
+interfaces = []
+do_1 = "node/sequencer/limits.go:53 compares the block's gas wanted with cp.Block.MaxGasWanted whatever its value; consensus params that carry only MaxBytes and MaxGas (rpc/setup_test.go:418 ConsensusParamUpdates, rpc/setup_test.go:354, rpc/domain_reads_test.go:47, rpc/info_test.go:280-282, rpc/notifier_internal_test.go:374 and :413, rpc/proof_client_parity_test.go:101) leave MaxGasWanted at 0 and Accept refuses every transaction with 'gas wanted 21000 exceeds Block.MaxGasWanted 0' (18.1502.1 a1 and 22.7.3 a2 at bases 17990ad65 and c1cc55d15: TestPendingBlockCarriesHeaderFields, TestPendingBlockOpenBlock, TestPendingBlockNumberStaysCommitted, TestPendingBlockTransactionCount, TestPendingNonceWaitsForTheOpenBlock)."
+do_2 = "Decision 2306: a MaxGasWanted of zero or below imposes no separate bound, the way consensus/types/params.go:62 MaxGasWantedUint64 reads a negative value and the way Block.MaxGas -1 is read two lines above; the MaxGas bound still applies. Apply that reading at limits.go:53 and add TestAcceptIgnoresUnsetMaxGasWanted next to TestAcceptRefusesPastMaxGasWanted in node/sequencer/limits_test.go (a positive MaxGasWanted keeps refusing, as 5.4.3 proved)."
+do_3 = "Set MaxGasWanted explicitly in rpc/setup_test.go's ConsensusParamUpdates (equal to MaxGas, as 21.19.1 did at node/sequencer/proof_sequencer_executor_test.go:365) so the RPC fixture states the bound it runs under; the other fixtures listed above stay as they are and pass through the unbounded reading."
+do_4 = "The verify runs the two Accept tests and the pending-block RPC tests that failed at main."
+symbols = []
+touches = ["node/sequencer/limits.go", "node/sequencer/limits_test.go", "rpc/setup_test.go"]
+tests = ["node/sequencer/limits_test.go"]
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go build ./node/sequencer/... ./rpc/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./node/sequencer/ -run '^(TestAcceptRefusesPastMaxGasWanted|TestAcceptIgnoresUnsetMaxGasWanted)$' && CGO_ENABLED=1 go test -count=1 ./rpc/ -run '^TestPendingBlock'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1502.1]
 title = "Issue #1502: Preserve open-versus-idle state when pending reads fall back to the committed block"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.5.9"]
 reqs = ["8373.1"]
 capabilities = ["18.1502.1"]
 interfaces = []
@@ -132126,6 +132221,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Finding 18.1502.1.1: the pending-block RPC tests fail at main because Accept refuses every transaction when the fixture's consensus params carry MaxGasWanted 0; 22.5.9 repairs the reading and the fixture, this task requires it and continues from its last candidate, which is not at fault for those failures."
 
 [task.22.4.6]
 title = "Finish the launchpad modules inventory for the five modules that exceeded their share"
@@ -132172,7 +132268,7 @@ touches = ["services/wallet/attestor/go.mod", "services/wallet/attestor/go.sum",
 tests = []
 planned_paths = []
 build_cmd = "cd services/wallet/attestor && go build ./..."
-verify_cmd = "cd services/wallet/attestor && go vet ./... && go test -count=1 ./..."
+verify_cmd = "cd services/wallet/attestor && go vet ./... && go test -count=1 ./cmd/attestor/"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-wallet"
@@ -132185,6 +132281,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 22.12.4.1: in main_test.go write a fixture authority public key file into the test's temp dir and set ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, ATTESTOR_AUTHORITY_ISSUER and ATTESTOR_AUTHORITY_TENANT (and whatever else agent.NewAuthority refuses at authority.go:118-130) in the env map at :127-141 so run() starts; the three TestRun tests then pass with the module's go vet and go test."
+do_4 = "Finding 22.12.4.2: the verify now vets the module and tests ./cmd/attestor/ only; the server, snapshot and policy failures listed in the finding are repaired by 22.12.7. Continue from attempt 3."
 
 [task.22.16.8]
 title = "Give every C proof main a build reference"
@@ -135704,7 +135801,7 @@ title = "Filter WebSocket log subscriptions on the chain path"
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["20.4.2"]
+requires = ["20.4.2", "20.3.4"]
 reqs = ["20005.2"]
 capabilities = ["20.4.4"]
 interfaces = []
@@ -135728,6 +135825,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 20.4.4.1: carry the DomainScope on the WebSocket path of rpc/rpcstack.go the way :247-258 does for HTTP (so DomainScopeFrom at :454 sees it for subscriptions), and set Block.MaxGasWanted in the pending-filter harness (rpc/pending_filter_test.go:112) so the receipted subtest's submission is admitted; both files are under the touches. Continue from attempt 2."
+do_4 = "Finding 20.3.4.2: the chain-path transaction of TestChainPathLogSubscriptionDeliversOnlyTheChainsLogs is refused with 'invalid chain-id' by the ante handler for the reason 20.3.4 repairs; this task requires 20.3.4 and continues from attempt 4 once it is done."
 
 [task.20.4.3]
 title = "Drive a chain end to end with go-ethereum's ethclient on its path"
@@ -135831,7 +135929,7 @@ interfaces = []
 do_1 = "Write node/layerxchains_block_test.go with the sequenced-block harness of node/sequenced_finalize_test.go: TestOneBlockCarriesRootAndChainTransactions creates a chain through an EVM transaction to 0x000000000000000000000000000000000000101E createChain (bond from a funded account), then in the next block submits one root transaction (chain id 125) and two chain transactions (chain id 125000001) whose gas limits fit the allowance, asserts all three receipts succeed, asserts a third chain transaction over the allowance is refused at admission with the chain's refusal text, asserts the chain's next base fee moved while the root's reflects only the root transaction, and asserts DomainTxs(1, height) lists exactly the two hashes; TestChainStateSurvivesRestart commits, opens a second application over the same database directory and asserts getChain, NextBaseFee and DomainTxs answer the same values."
 do_2 = "The real path this task proves is precompile create -> signed chain id -> admission -> execution -> end of block -> restart -> read, which is why no keeper is called directly before the final assertions."
 symbols = ["TestOneBlockCarriesRootAndChainTransactions", "TestChainStateSurvivesRestart"]
-touches = ["node/layerxchains_block_test.go"]
+touches = ["node/layerxchains_block_test.go", "modules/evm/ante/sig.go", "modules/evm/ante/preprocess.go", "node/ante/evm_checktx.go"]
 tests = ["node/layerxchains_block_test.go::TestOneBlockCarriesRootAndChainTransactions", "node/layerxchains_block_test.go::TestChainStateSurvivesRestart"]
 planned_paths = ["node/layerxchains_block_test.go"]
 build_cmd = "go build ./node/ && go vet ./node/"
@@ -135848,6 +135946,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 20.3.4.1: the invalid bank recipient refusal is the keeper's raw address cast, repaired by task 20.3.5 which this task requires; the block tests stay as written. Continue from attempt 2 once 20.3.5 is done."
+do_4 = "Finding 20.3.4.2: make the harness create and activate the chain through 0x101E before signing with its derived chain id, then find which of the five ErrInvalidChainID sites (modules/evm/ante/sig.go:60, :66, modules/evm/ante/preprocess.go:199, node/ante/evm_checktx.go:192, :324) still rejects a registered chain's id and route it through the 20.3.1 mapping (modules/layerxchains DomainOfChainID and the keeper's ResolveChainID, as node/app.go:2944 DomainAllowance does); the three ante files are in touches for that. Continue from attempt 3."
 
 [task.20.3.3]
 title = "Index chain transactions, adjust each chain's base fee and pay the operator share at end of block"
@@ -184432,7 +184531,7 @@ title = "Reconcile the latest-tag pending expectation and export the gas price h
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.7.2"]
+requires = ["22.7.2", "22.5.9"]
 reqs = ["22011.1"]
 capabilities = ["22.7.3"]
 interfaces = []
@@ -184455,6 +184554,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 18.1502.1.1: the pending-block RPC tests fail at main because Accept refuses every transaction when the fixture's consensus params carry MaxGasWanted 0; 22.5.9 repairs the reading and the fixture, this task requires it and continues from its last candidate, which is not at fault for those failures."
+do_4 = "Finding 22.7.3.1: rerun TestHeaderReceiptsRootIsSameBlockResults and the two debug_traceTransaction shape tests on a base that carries 22.5.9; a tracer result code 0x2 that persists is a real refusal of the traced transaction and is repaired inside this task's verify scope, not deselected."
 
 [task.22.4.5]
 title = "Reconcile the launchpad module, CLI, airdrop and legacy fixtures"
@@ -184484,6 +184585,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 22.4.5.1: for the malformed cases assert codes.InvalidArgument through status.Code and the 'invalid address' text through status.Convert(err).Message() on the client path, and move require.ErrorIs / require.ErrorAs onto a direct call of the keeper's query server (the same request, no gRPC transport) so the wrapped sdkerrors.ErrInvalidAddress is observed where it exists."
 
 [task.22.3.3]
 title = "Reconcile the perps ADL refusal, legacy margin vector and spot error fixtures"
@@ -185046,6 +185148,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Finding 22.6.4.1: the expected merge tables in precompiles/missing_merge_test.go:42 and the gateway-unserved test include layerxchains at 0x000000000000000000000000000000000000101E in table order; TestGetPrecompileInfoEUnknownName asserts the refusal the function actually emits for an unknown name (an unknown name is refused before any keeper lookup) and a separate case covers the missing-keeper message for a known merge precompile; read the TestProofStreams0x0906 error from the verify log and repair its cause inside the streams precompile or its keeper wiring."
 
 [task.22.5.4]
 title = "Return the committed block's own id from LastBlockID"
@@ -185138,6 +185241,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 22.13.6.1: tests/test_genesis_module_table.c is under the touches; put the storage-retirement assertion of do_1 there (the genesis programs registration lists the storage retirement activity type) and keep the registration selection in src/protocol/lxp_genesis.c. The sweep also saw tests/test_genesis_module_table.c:170 fail genesis.module-table.defaults because lxp_genesis_module_plan_default did not return LXP_OK; make the default plan agree with the selected registration so that case passes too. Continue from attempt 2."
 do_4 = "Finding 22.13.6.2 and decision 2304: the published fixtures tests/fixtures/public-testnet-genesis-v3 and public-testnet-genesis keep their module-table roots, so the programs row keeps programs_module_registration_v4 for the default plan and for every manifest without the new flag. Add a programs storage-retirement enable flag resolved like the LXP_GENESIS_MODULE_GATE_ENABLE_FLAG rows (lxp_genesis_module_plan_resolve reads it from the manifest; lxp_genesis_module_enable_key gives its key), off by default; when the manifest sets it the row registers programs_module_registration_v4_storage_retirement. tests/test_genesis_module_table.c asserts both: the default plan and both public fixtures still register v4 and verify with LXP_OK, and a manifest with the flag registers the storage-retirement interface whose activity list carries the storage retirement activity type. The header include/layerx/lxp_genesis.h is under touches for the flag."
+do_5 = "Finding 22.13.6.3: with the storage-retirement flag off, lxp_genesis_module_plan_default and the module table produce exactly the rows and gate keys of 17990ad65 (the published fixture roots are the oracle: both fixtures verify LXP_OK); only when the flag is on does the programs row carry the storage-retirement registration, and a test covers both states. Continue from attempt 6."
 
 [task.22.13.5]
 title = "Bind ledger admission for the programs environment execute activity"
@@ -199467,7 +199571,7 @@ planned_paths = ["spec/layerx-merge/programme/activation.py", "spec/layerx-merge
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/activation.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_bringup_run.py::test_bringup_goldens_pass_on_merged_revision -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "go-cgo"
 owner_role = "fm-programme"
 rollback = "Revert activation.py; the golden is advisory until the programme gate."
 max_builds = 1
@@ -199477,6 +199581,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 17.1.7.1: the profile key (line 4) is now go-cgo so the kernel archives exist when the golden run calls go test ./node; the first attempt's link failure (cannot find -llayerx and the programs runtime archive) is the qualification environment, not the goldens. Continue from attempt 1."
 
 [task.17.1.8]
 title = "Capture the custody release golden that replaced the bond return"
@@ -199891,7 +199996,7 @@ planned_paths = ["spec/layerx-merge/programme/tests/test_rehearsal_run.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_rehearsal_run.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_rehearsal_run.py::test_rehearsal_passes_on_merged_revision -q"
 gate_kind = "planned"
-sandbox_profile = "mixed"
+sandbox_profile = "go-cgo"
 owner_role = "fm-programme"
 rollback = "Remove any written finding; the rehearsal is re-run on the next candidate."
 max_builds = 1
@@ -199901,6 +200006,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 17.1.7.1: the profile key (line 4) is now go-cgo so the kernel archives exist when the golden run calls go test ./node; the first attempt's link failure (cannot find -llayerx and the programs runtime archive) is the qualification environment, not the goldens. Continue from attempt 1."
 
 [task.17.4.1]
 title = "Turn the parity inventory into rows with exact test selectors"
@@ -207005,6 +207111,22 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.22.12.7.1]
+feature = "22"
+req = "22026.1"
+scenario = "Given the attestor module, when go test runs internal/server and internal/policy/evm, then TestSchemaDescribesEveryServedRoute, the import and generate cases, TestSnapshotFollowsAddShare and the shipped-policy tests pass"
+contract = "cd services/wallet/attestor && go test -count=1 ./internal/server/ ./internal/policy/evm/"
+test = "services/wallet/attestor/internal/server/server_test.go"
+qualification = "UNRUN"
+
+[acceptance.22.5.9.1]
+feature = "22"
+req = "22025.1"
+scenario = "Given consensus params with MaxGas set and MaxGasWanted zero, when Accept admits a 21000-gas transaction, then it is sequenced, and given a positive MaxGasWanted below the gas wanted it is refused"
+contract = "CGO_ENABLED=1 go test -count=1 ./node/sequencer/ -run '^(TestAcceptRefusesPastMaxGasWanted|TestAcceptIgnoresUnsetMaxGasWanted)$'"
+test = "node/sequencer/limits_test.go"
 qualification = "UNRUN"
 
 [acceptance.22.9.24.1]
@@ -218155,6 +218277,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Finding 22.16.4.1: drop the tests/daemon/lxp_test_runtime_fixture.c entry from SOURCES in tools/qualification/paxeer-x/agent_operation_envelope.py (:123) and rerun tests/ci/test_qualification_producers_exist.py; any further missing producer the test reports is handled the same way and listed in the commit message. Continue from attempt 1."
 do_6 = "Finding 22.16.4.2: tests/codec/lxp_test_receipt_authority_v2.c:117 still declares the retired lxp_verified_receipt_authority_facts type; port that case to the current receipt authority verification result type the codec exposes (keep the assertions on the authority fields that survive) or delete the case when it only exercised the retired facts path, so test_arbiter_native_authority_absent passes; the file is under the touches. Continue from attempt 2."
+do_7 = "Finding 22.16.4.3: test_arbiter_native_authority_absent asserts that the deleted daemon test files of 5.54.5 and every script or build-fragment reference to them are gone, and stops asserting the absence of lxp_verified_receipt_authority_facts (a current type of include/layerx/lxp_receipt.h:128); test_qualification_producers_exist.py asserts that every referenced tests/daemon path exists and passes when the reference set is empty. The port asked by finding 22.16.4.2 is withdrawn: tests/codec/lxp_test_receipt_authority_v2.c stays as it is."
 
 [task.18.1498.1]
 title = "Issue #1498: Decode the receipt-key result object in the MCP binding qualification"
