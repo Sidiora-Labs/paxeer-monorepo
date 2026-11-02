@@ -118336,7 +118336,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.27.9]
 title = "Port layerx-agentd to the retired offline export API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176085,7 +176085,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.4.1]
 title = "Repoint the next integration from authorized batches to pinned receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["15.0.3", "8.0.3", "9.0.3", "8.23.2", "8.23.3"]
