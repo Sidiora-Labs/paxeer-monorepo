@@ -22,7 +22,8 @@ RUN CARGO_TARGET_DIR=/src/.lane-target cargo build --locked --manifest-path serv
         --package layerx-mirror --bin layerx-mirror-publisher --bin layerx-mirror-verify \
     && CARGO_TARGET_DIR=/src/.lane-target cargo build --locked --manifest-path services/interop/Cargo.toml --release \
         --package layerx-mirror-signer --bin layerx-mirror-signer
-RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-service -p layerx-human-kms --bins
+RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-service --bins
+RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-kms --bin layerx-human-kms
 RUN cargo build --locked --release --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --bin layerx-agentd -p layerx-mcp --bin layerx-mcp
 RUN cargo build --locked --release --manifest-path services/human/Cargo.toml -p layerx-human-identity-provider -p layerx-human-security-provider --bins
 RUN cargo build --locked --release --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml
