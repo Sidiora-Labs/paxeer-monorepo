@@ -126473,7 +126473,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.24]
 title = "Restore the retired faucet.claim operation entry of the agent API contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -185176,7 +185176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.1.4]
 title = "Port the kernel tests that still name the retired payer-grant and receive types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217088,7 +217088,7 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 
 [task.22.9.23]
 title = "Reconcile the Python SDK history and receipt-key fixtures with the hash validators"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218111,7 +218111,7 @@ do_3 = "Finding 22.16.7.1: the only remaining collection errors are the three fi
 
 [task.22.10.7]
 title = "Make the hosted human material tests hermetic and current"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -218269,7 +218269,7 @@ do_4 = "Finding 22.16.5.2: fourteen further tracked Dockerfiles fail the all-ser
 
 [task.22.10.6]
 title = "Validate the owner policy limit id at the daemon's sixteen-byte width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.10.7"]
@@ -218419,7 +218419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.16.4]
 title = "Retire the deleted batch-WAL daemon producers from the qualification scripts and build fragments"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
