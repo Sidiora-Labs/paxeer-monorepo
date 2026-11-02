@@ -185182,7 +185182,7 @@ do_3 = "Finding 22.5.4.1: record the block hash from RequestFinalizeBlock.Hash a
 
 [task.22.2.4]
 title = "Refuse an exec under a revoked grant with ErrAuthRevoked"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217883,7 +217883,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.17.4]
 title = "Fold the second-pass inventory reports into the sweep summary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.91.42", "22.4.6"]
