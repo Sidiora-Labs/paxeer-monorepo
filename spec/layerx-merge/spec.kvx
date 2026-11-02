@@ -117694,7 +117694,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.166.1]
 title = "Prove the lx asset h path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131100,7 +131100,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.48.1]
 title = "Prove the node go api path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -211281,7 +211281,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.18.3]
 title = "Disposition of qualification findings 18.923.1.1 to 18.1048.1.1 (domain 18, part 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
