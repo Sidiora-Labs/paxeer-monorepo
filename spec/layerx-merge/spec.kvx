@@ -132172,7 +132172,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.5.9]
 title = "Read an unset Block.MaxGasWanted as unbounded at Accept and state the bound in the RPC fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -185070,7 +185070,7 @@ do_3 = "Finding 22.1.4.1: in transition() of tests/test_state_commitment_transit
 
 [task.22.2.7]
 title = "Keep payment idempotency records authoritative across a restart"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
