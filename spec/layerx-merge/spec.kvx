@@ -115023,7 +115023,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.36]
 title = "Inventory the platform middleware packages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -115053,7 +115053,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.35]
 title = "Inventory the agent sdk packages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125456,7 +125456,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.16]
 title = "Inventory every test run of the services/explorer/services/smart-contract-verifier/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125516,7 +125516,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.14]
 title = "Inventory every test run of the tools/platform/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125696,7 +125696,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.8]
 title = "Inventory every build target of the services/explorer/services/smart-contract-verifier/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125756,7 +125756,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.6]
 title = "Inventory every build target of the tools/platform/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125906,7 +125906,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.1]
 title = "Inventory every build target of the programs/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182868,7 +182868,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.28]
 title = "Inventory every Go package under wasm-runtime/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
