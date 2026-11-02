@@ -7,6 +7,7 @@ import {
   WEB_DATA_KIND_FETCH,
   WEB_DATA_KIND_SEARCH,
   type WalletCapsState,
+  type WebDataModule,
   type IntentLeg,
   type ModuleTransaction,
 } from '@paxeer/wallet';
@@ -20,7 +21,13 @@ import {
   TransactionPreview,
   buildOrError,
 } from './Surface';
-import { errorMessage, useFeeSelection, useModuleSend, useSurfaceWallet } from './useSurface';
+import {
+  errorMessage,
+  parseSurfaceId,
+  useFeeSelection,
+  useModuleSend,
+  useSurfaceWallet,
+} from './useSurface';
 
 export type WebDataAction = 'fetch' | 'search' | 'refund';
 
@@ -124,6 +131,20 @@ export function DrawCaps({ caps }: Pick<WebDataViewProps, 'caps'>) {
   );
 }
 
+export function buildWebDataRequest(
+  module: WebDataModule,
+  action: WebDataAction,
+  query: string,
+  callbackGas: string,
+  requestId: string,
+  callFee: bigint | null
+): ModuleTransaction | null {
+  if (action === 'refund') return requestId ? module.refund(parseSurfaceId(requestId, 64)) : null;
+  if (!query || callFee === null) return null;
+  const kind = action === 'fetch' ? WEB_DATA_KIND_FETCH : WEB_DATA_KIND_SEARCH;
+  return module.request(kind, query, parseSurfaceId(callbackGas, 64), callFee);
+}
+
 export function WebDataView({ sidRate, caps, refreshCaps, legs }: WebDataViewProps) {
   const { provider, address } = useSurfaceWallet();
   const surfaceModule = useMemo(() => (provider ? webData(provider) : null), [provider]);
@@ -160,10 +181,7 @@ export function WebDataView({ sidRate, caps, refreshCaps, legs }: WebDataViewPro
   const built = useMemo(() => {
     if (!surfaceModule) return { value: null, error: null };
     return buildOrError<ModuleTransaction | null>(() => {
-      if (action === 'refund') return requestId ? surfaceModule.refund(BigInt(requestId)) : null;
-      if (!query || callFee === null) return null;
-      const kind = action === 'fetch' ? WEB_DATA_KIND_FETCH : WEB_DATA_KIND_SEARCH;
-      return surfaceModule.request(kind, query, BigInt(callbackGas), callFee);
+      return buildWebDataRequest(surfaceModule, action, query, callbackGas, requestId, callFee);
     });
   }, [surfaceModule, action, query, callbackGas, requestId, callFee]);
 

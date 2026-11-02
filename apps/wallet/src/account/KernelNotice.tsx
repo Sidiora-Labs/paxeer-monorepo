@@ -4,6 +4,8 @@ import { cn } from '@/lib/cn';
 import type { KernelGate } from './hooks';
 
 export function KernelNotice({ gate, className }: { gate: KernelGate; className?: string }) {
+  if (!gate.open && (typeof gate.reason !== 'string' || gate.reason.trim().length === 0))
+    throw new TypeError('the kernel gate carries no refusal reason');
   if (gate.open) {
     return (
       <p data-kernel="available" className={cn('text-xs text-pax-muted', className)}>
