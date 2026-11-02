@@ -441,6 +441,8 @@ def decode_revert_reason(return_data: bytes) -> RevertReasonError:
 
 
 def raise_for_receipt_status(receipt: Mapping[str, object]) -> None:
+    if not isinstance(receipt, Mapping):
+        raise _decode_failure()
     status = receipt.get("status")
     if status == "0x1":
         return
