@@ -158,6 +158,9 @@ const MAX_FUNDING_RECORDS: usize = 4096;
 const MAX_FUNDING_RECORD_BYTES: u64 = MAX_JOURNAL_BYTES;
 const MAX_FUNDING_INVENTORY_BYTES: u64 = 64 * 1024 * 1024;
 
+// These are native facts obtained by authenticating sequencer receipt bytes,
+// independent of the TypeScript conformance ReceiptFacts fixture input. Portable
+// middleware evidence must still cross its receipt decoder and verifier.
 struct ReceiptFacts {
     activity_id: [u8; 32],
     batch_id: [u8; 32],

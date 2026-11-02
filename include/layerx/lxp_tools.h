@@ -1,9 +1,7 @@
 #ifndef LAYERX_LXP_TOOLS_H
 #define LAYERX_LXP_TOOLS_H
 
-#include "layerx/lxp_da.h"
-#include "layerx/lxp_guarantor.h"
-#include "layerx/lxp_replica.h"
+#include "layerx/lxp_codec.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -31,17 +29,6 @@ typedef struct lxp_ctl_context {
     void *context;
 } lxp_ctl_context;
 
-typedef struct lxp_verify_run {
-    const lxp_da_bundle *bundle;
-    const lxp_batch_header *header;
-    const lxp_guarantor_cert *certificate;
-    const lxp_guarantor_key_record *guarantor_keys;
-    size_t guarantor_key_count;
-    lxp_replay_engine *engine;
-    const uint8_t *starting_state_root;
-    lxp_arena *arena;
-} lxp_verify_run;
-
 typedef enum lxp_genesis_cli_action {
     LXP_GENESIS_BUILD = 1,
     LXP_GENESIS_RECONCILE = 2
@@ -59,9 +46,6 @@ lxp_result lxp_ctl_main(
     lxp_ctl_command command, const lxp_ctl_context *context,
     const uint8_t *input, size_t input_length,
     uint8_t output[LXP_CTL_OUTPUT_BYTES]);
-lxp_result lxp_verify_main(
-    const lxp_verify_run *run,
-    uint8_t output[LXP_VERIFY_OUTPUT_BYTES]);
 lxp_result lxp_genesis_cli_main(
     lxp_genesis_cli_action action, lxp_byte_span canonical_input,
     lxp_genesis_cli_action_fn execute, void *context,

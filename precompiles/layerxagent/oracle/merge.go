@@ -11,9 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-const MergeMaxFeeds = 32
+const (
+	MergeMaxFeeds            = 32
+	mergeMaxConfidence int64 = 1_000_000_000_000_000_000
+)
 
-var MergeMaxConfidence = big.NewInt(1_000_000_000_000_000_000)
+// MergeMaxConfidence exposes the rehearsal cap for callers. Constructor policy
+// uses the immutable value so mutation of this big.Int cannot alter activation.
+var MergeMaxConfidence = big.NewInt(mergeMaxConfidence)
 
 func init() {
 	if err := precompiles.RegisterMergeConstructor(common.HexToAddress(OracleAddress), NewMergePrecompile); err != nil {
@@ -33,7 +38,7 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 	if !ok || evmKeeper == nil {
 		return nil, fmt.Errorf("%w: evm keeper is unavailable", agentcommon.ErrNoContext)
 	}
-	p, err := NewPrecompile(exchange, evmKeeper, evmKeeper.UpgradeKeeper(), planName, MergeMaxFeeds, MergeMaxConfidence)
+	p, err := NewPrecompile(exchange, evmKeeper, evmKeeper.UpgradeKeeper(), planName, MergeMaxFeeds, big.NewInt(mergeMaxConfidence))
 	if err != nil {
 		return nil, err
 	}

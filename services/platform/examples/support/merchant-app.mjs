@@ -4,6 +4,8 @@ import { mkdir, open, readFile, rename } from "node:fs/promises";
 import { basename, dirname, join } from "node:path";
 import { MerchantError, MerchantMiddleware, MerchantSettlementWebhooks } from "@sidiora/layerx-merchant-middleware";
 import {
+  decodePaymentCommitmentEvidence,
+  encodePaymentCommitmentEvidence,
   MiddlewareError,
   SellerMiddleware,
   VerifiedWebhookConsumer,
@@ -69,7 +71,7 @@ class TransactionReceipts {
   }
 }
 
-class MerchantCheckout extends MerchantMiddleware {
+export class MerchantCheckout extends MerchantMiddleware {
   async quote(checkoutKey, lines) {
     const quote = await super.quote(checkoutKey, lines);
     const requirements = quote.paymentRequired.accepts[0];
@@ -106,7 +108,7 @@ const atomicJson = async (path, value) => {
   await syncDirectory(path);
 };
 
-class DeclaredCatalog {
+export class DeclaredCatalog {
   constructor(item) {
     this.item = Object.freeze(item);
   }
@@ -116,7 +118,7 @@ class DeclaredCatalog {
   }
 }
 
-class FileOrders {
+export class FileOrders {
   constructor(directory) {
     this.directory = directory;
     this.serial = new Map();
@@ -246,7 +248,7 @@ class SettlementAuthority {
   }
 }
 
-class FileFulfillments {
+export class FileFulfillments {
   constructor(directory) {
     this.directory = directory;
   }
@@ -254,7 +256,10 @@ class FileFulfillments {
   async get(idempotencyKey) {
     const path = join(this.directory, `${safeName(idempotencyKey)}.json`);
     try {
-      return exactObject(JSON.parse(await readFile(path, "utf8")));
+      const record = exactObject(JSON.parse(await readFile(path, "utf8")));
+      return { ...record, ...(record.commitmentEvidence === undefined ? {} : {
+        commitmentEvidence: decodePaymentCommitmentEvidence(record.commitmentEvidence),
+      }) };
     } catch (error) {
       if (error.code === "ENOENT") return undefined;
       throw error;
@@ -275,7 +280,11 @@ class FileFulfillments {
     try {
       const file = await open(path, "wx", 0o600);
       try {
-        await file.writeFile(JSON.stringify(record), "utf8");
+        await file.writeFile(JSON.stringify({ ...record,
+          ...(record.commitmentEvidence === undefined ? {} : {
+            commitmentEvidence: encodePaymentCommitmentEvidence(record.commitmentEvidence),
+          }),
+        }), "utf8");
         await file.sync();
       } finally {
         await file.close();
@@ -371,8 +380,7 @@ const singleHeader = (request, name) => {
   return value;
 };
 
-export async function runMerchantApplication(moduleUrl, application) {
-  const config = await loadApplicationConfig(moduleUrl, application);
+export function createMerchantApplicationServer(config) {
   const token = requiredEnvironment(config.tokenEnvironment);
   const state = applicationStatePath(config, config.stateDirectory);
   const orders = new FileOrders(join(state, "orders"));
@@ -411,9 +419,7 @@ export async function runMerchantApplication(moduleUrl, application) {
     receipts,
     receiptKeys,
   });
-  const port = Number(config.port);
-  if (!Number.isSafeInteger(port) || port <= 0 || port > 65535) throw new Error("invalid_port");
-  createServer(async (request, response) => {
+  return createServer(async (request, response) => {
     try {
       if (request.method === "GET" && request.url?.startsWith("/orders/")) {
         const order = await orders.get(decodeURIComponent(request.url.slice(8)));
@@ -468,7 +474,14 @@ export async function runMerchantApplication(moduleUrl, application) {
         ...(state === "pending" || state === "unknown" ? { "retry-after": "1" } : {}),
       }).end(JSON.stringify({ state, error: error.code ?? error.message }));
     }
-  }).listen(port, "127.0.0.1", () => {
+  });
+}
+
+export async function runMerchantApplication(moduleUrl, application) {
+  const config = await loadApplicationConfig(moduleUrl, application);
+  const port = Number(config.port);
+  if (!Number.isSafeInteger(port) || port <= 0 || port > 65535) throw new Error("invalid_port");
+  return createMerchantApplicationServer(config).listen(port, "127.0.0.1", () => {
     process.stdout.write(`${JSON.stringify({ application, environment: config.name, listening: port, checkout: "/checkout", webhook: "/webhooks/settlement" })}\n`);
   });
 }
