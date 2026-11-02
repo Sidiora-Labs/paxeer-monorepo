@@ -29,6 +29,7 @@ mod workspace;
 
 use config::{Configuration, Environment};
 use http::Client;
+use layerx_platform_cli::{chains, commands::ChainsCommand};
 use output::CommandOutput;
 
 struct ProcessClock {
@@ -104,6 +105,9 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Command {
+    /// List, inspect, or create virtual chains on the chain registry.
+    #[command(subcommand)]
+    Chains(ChainsCommand),
     /// Manage native wallet keys, accounts, transfers, and receipts.
     #[command(subcommand)]
     Wallet(wallet::WalletCommand),
@@ -577,13 +581,14 @@ fn validate_wallet_transport(
         && !matches!(
             command,
             Command::Wallet(_)
+                | Command::Chains(_)
                 | Command::Token(_)
                 | Command::Program(_)
                 | Command::Receipt(ReceiptCommand::Get { .. })
         )
     {
         return Err(
-            "--rpc and --gateway-credential apply to wallet, token, program and receipt get commands".into(),
+            "--rpc and --gateway-credential apply to wallet, chains, token, program and receipt get commands".into(),
         );
     }
     Ok(())
@@ -597,6 +602,7 @@ fn run(
 ) -> Result<Option<CommandOutput>, String> {
     validate_wallet_transport(&command, rpc, gateway)?;
     match command {
+        Command::Chains(command) => chain_command(command, rpc, gateway).map(Some),
         Command::Wallet(command) => wallet::run_wallet(command, rpc, gateway).map(Some),
         Command::Token(command) => wallet::run_token(command, rpc, gateway).map(Some),
         Command::New(arguments) => Ok(Some(CommandOutput::new(
@@ -1408,6 +1414,55 @@ fn program_simulate(
             arguments.from.as_deref(),
         )?,
     ))
+}
+
+fn chain_command(
+    command: ChainsCommand,
+    rpc: Option<&str>,
+    gateway: Option<&str>,
+) -> Result<CommandOutput, String> {
+    let configuration = Configuration::load()?;
+    let (environment_name, environment) = configuration.active_environment()?;
+    let base = match rpc {
+        Some(url) => url
+            .strip_suffix("/rpc")
+            .ok_or("chains RPC URL must end in /rpc")?,
+        None => environment
+            .endpoint
+            .trim_end_matches('/')
+            .strip_suffix("/rpc")
+            .unwrap_or(environment.endpoint.trim_end_matches('/')),
+    };
+    let client = match gateway {
+        Some(alias) => layerx_platform_cli::http::Client::new_gateway(
+            base,
+            credential::gateway(alias)?.ok_or("gateway credential does not exist")?,
+        )?,
+        None => layerx_platform_cli::http::Client::new(base, credential::token(environment_name)?)?,
+    };
+    let (kind, message, data) = match command {
+        ChainsCommand::List => ("chains.list", "Listed chains", chains::list(&client, base)?),
+        ChainsCommand::Show { id_or_name } => (
+            "chains.show",
+            "Chain details",
+            chains::show(&client, base, &id_or_name)?,
+        ),
+        ChainsCommand::Create {
+            name,
+            tier,
+            fee_share_bps,
+            evm_key_file,
+        } => {
+            let key_file = evm_key_file.or_else(|| std::env::var_os("LAYERX_EVM_KEY_FILE").map(PathBuf::from))
+                .ok_or("chains create requires --evm-key-file or LAYERX_EVM_KEY_FILE from wallet derive --export-private-keys")?;
+            (
+                "chains.created",
+                "Created chain",
+                chains::create(&client, base, &name, tier, fee_share_bps, &key_file)?,
+            )
+        }
+    };
+    Ok(CommandOutput::new(kind, message, data))
 }
 
 fn active_client(configuration: &Configuration) -> Result<(String, Client), String> {

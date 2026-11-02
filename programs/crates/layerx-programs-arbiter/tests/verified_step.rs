@@ -308,7 +308,9 @@ impl Fixture {
 
 #[test]
 fn genuine_signed_serial_scheduled_trap_steps_and_bound_refusals() {
-    assert_signed_serial_scheduled_trap_steps_and_bound_refusals(&Fixture::load());
+    for _ in 0..2 {
+        assert_signed_serial_scheduled_trap_steps_and_bound_refusals(&Fixture::load());
+    }
 }
 fn assert_signed_serial_scheduled_trap_steps_and_bound_refusals(fixture: &Fixture) {
     let captures = fixture.replay["captures"]
@@ -466,7 +468,12 @@ fn assert_signed_serial_scheduled_trap_steps_and_bound_refusals(fixture: &Fixtur
 
 #[test]
 fn authenticated_admission_authority_reaches_real_bounded_step_verifier() {
-    let fixture = Fixture::load();
+    for _ in 0..2 {
+        assert_authenticated_admission_authority(&Fixture::load());
+    }
+}
+
+fn assert_authenticated_admission_authority(fixture: &Fixture) {
     let captures = fixture.replay["captures"]
         .as_array()
         .expect("real canonical replay captures");
@@ -1011,7 +1018,7 @@ fn assert_native_field_refusals(authority: &VerifiedReplayAuthority, bytes: &[u8
     assert!(authority.verify_native(&trailing).is_err());
 }
 
-fn admission_from_proofs(entry: &Value) -> layerx_programs_arbiter::AdmissionEvidence {
+pub(crate) fn admission_from_proofs(entry: &Value) -> layerx_programs_arbiter::AdmissionEvidence {
     let records = entry["records"]
         .as_array()
         .expect("app-hash admission record proofs");

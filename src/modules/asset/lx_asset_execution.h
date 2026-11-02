@@ -17,7 +17,8 @@ static lxp_result asset_load(lxp_module_ctx *ctx, const uint8_t id[32],
     lxp_result status;
     asset_key(key, id);
     status = lxp_ctx_kv_get(ctx, key, sizeof(key), &bytes, &length);
-    if (status == LXP_OK) return lx_asset_record_decode(bytes, length, record);
+    if (status == LXP_OK)
+        return lx_asset_record_decode_for_id(bytes, length, id, record);
     if (status != LXP_ERR_UNKNOWN_FIELD) return status;
     base = runtime_asset((lx_asset_runtime *)lxp_ctx_module_runtime(ctx), id);
     if (base == NULL) return LXP_ERR_ASSET_MISMATCH;

@@ -1106,6 +1106,8 @@ static int migration_activate(lxp_kernel *kernel, const uint8_t seed[32],
     lxp_kernel_execution execution;
     lxp_receipt receipt, governance_proof;
     lxp_verified_receipt_index index;
+    lxp_verified_receipt_authority_facts receipt_authority;
+    uint8_t authority_digest[32];
     lxp_migration_profile profile = {0};
     lxp_fee_params fees = {0};
     lxp_arena arena;
@@ -1145,6 +1147,16 @@ static int migration_activate(lxp_kernel *kernel, const uint8_t seed[32],
         lxp_receipt_decode(intake + 85U, intake_length - 85U, true, &receipt) != LXP_OK ||
         lxp_verified_receipt_index_init(&index) != LXP_OK ||
         lxp_verified_receipt_index_add(&index, &receipt, public_key, &arena) != LXP_OK ||
+        lxp_verified_receipt_index_bind_authority_network(&index, 1U) != LXP_OK ||
+        lxp_verified_receipt_index_add_height_authority(&index,
+            (lxp_byte_span){intake + 85U, intake_length - 85U}, 1U, &arena) != LXP_OK ||
+        lxp_receipt_digest(&receipt, &arena, authority_digest) != LXP_OK ||
+        lxp_verified_receipt_index_lookup_authority(&index, authority_digest,
+            &receipt_authority) != LXP_OK ||
+        receipt_authority.version != 2U || receipt_authority.network_id != 1U ||
+        receipt_authority.block_height != 1U ||
+        receipt_authority.module_id != LXP_MODULE_GOVERNANCE ||
+        lxp_verified_receipt_index_validate(&index) != LXP_OK ||
         lxp_arena_reset(&arena, 0U) != LXP_OK ||
         migration_actor(kernel, &activity, owner, seed, signature,
             LX_PROGRAMS_FEE_GOVERNANCE, intake, intake_length, 100000000U,

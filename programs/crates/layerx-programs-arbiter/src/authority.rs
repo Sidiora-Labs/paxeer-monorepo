@@ -11,6 +11,8 @@ use sha2::{Digest, Sha256};
 
 use crate::{activity_codec::signed_activity_bytes, ics23, ReplayError};
 
+/// Chain-produced sequencer key table and its IAVL/multistore authentication.
+/// Public fields are untrusted until `receipt_keys` or `verify_receipt` succeeds.
 #[derive(Clone, Debug)]
 pub struct ChainCommitProof {
     pub height: u64,
@@ -99,6 +101,8 @@ pub struct VerifiedReplayAuthority {
 }
 
 impl VerifiedReplayAuthority {
+    /// Reconstruct replay authority from authenticated admission facts on each call.
+    /// The native authority bytes must still pass `verify_native` before consumption.
     pub fn derive(
         receipt: &VerifiedReceipt,
         admission: &AdmissionEvidence,
@@ -108,6 +112,8 @@ impl VerifiedReplayAuthority {
         Self::derive_call(receipt, admission, header, commit, true)
     }
 
+    /// Derive authority for an ordinary program call, including Market calldata.
+    /// This entry point consumes the ordinary call envelope directly.
     pub fn derive_program_call(
         receipt: &VerifiedReceipt,
         admission: &AdmissionEvidence,
@@ -785,7 +791,8 @@ impl Grant {
         timestamp: u64,
     ) -> Result<(), ReplayError> {
         let mut policy = [0; 32];
-        policy[..28].copy_from_slice(b"native-fee-authority-version\0");
+        let name = b"native-fee-authority-version";
+        policy[..name.len()].copy_from_slice(name);
         let enforced = if let Some(value) = records.get(policy.as_slice()) {
             if value.len() != 32 || value[..31].iter().any(|b| *b != 0) || value[31] != 2 {
                 return Err(ReplayError::Authority);
