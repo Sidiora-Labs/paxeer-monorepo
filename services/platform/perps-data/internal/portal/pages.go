@@ -186,6 +186,14 @@ func (p *Pages) Markets(ctx context.Context, w io.Writer) error {
 	if err := p.get(ctx, "/api/markets", nil, &markets); err != nil {
 		return err
 	}
+	if markets.Markets == nil {
+		return errors.New("portal: markets array required")
+	}
+	for _, market := range markets.Markets {
+		if err := validateMarketRecord(market); err != nil {
+			return err
+		}
+	}
 	var totals struct {
 		Totals records.Totals `json:"totals"`
 	}
@@ -233,6 +241,12 @@ func (p *Pages) Market(ctx context.Context, w io.Writer, symbol string) error {
 	}
 	if err := p.get(ctx, "/api/markets/"+url.PathEscape(upper), nil, &record); err != nil {
 		return err
+	}
+	if err := validateMarketRecord(record.Market); err != nil {
+		return err
+	}
+	if !strings.EqualFold(record.Market.Symbol, upper) {
+		return errors.New("portal: market symbol mismatch")
 	}
 	marketID, err := strconv.ParseInt(record.Market.MarketID, 10, 32)
 	if err != nil {
@@ -685,4 +699,13 @@ func side(long bool) string {
 		return "long"
 	}
 	return "short"
+}
+
+// validateMarketRecord checks identity before a REST record reaches a page.
+func validateMarketRecord(record records.MarketRecord) error {
+	id, err := strconv.ParseInt(record.MarketID, 10, 32)
+	if err != nil || id < 0 || strings.TrimSpace(record.Symbol) == "" {
+		return errors.New("portal: invalid market identity")
+	}
+	return nil
 }
