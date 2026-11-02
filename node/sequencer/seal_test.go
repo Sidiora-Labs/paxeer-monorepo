@@ -38,10 +38,7 @@ func processSealBatchBlock(t *testing.T, a *app.App, batch *sequencer.Batch, tx0
 	ctx := sdk.NewContext(a.CommitMultiStore().CacheMultiStore(), header, false)
 	ctx = ctx.WithConsensusParams(a.GetConsensusParams(ctx))
 	txs := append([][]byte{tx0}, batch.Txs...)
-	events, results, end, err := a.ProcessBlock(ctx, txs, &app.BlockProcessRequest{
-		Height: header.Height,
-		Time:   header.Time,
-	}, abci.CommitInfo{}, false, nil)
+	events, results, end, err := a.ProcessBlock(ctx, txs, app.NewBlockProcessRequest(&abci.RequestFinalizeBlock{Header: &header}), abci.CommitInfo{}, false, nil)
 	require.NoError(t, err)
 	require.Len(t, results, len(txs))
 	require.Equal(t, abci.ExecTxResult{}, *results[0])

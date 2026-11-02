@@ -1912,12 +1912,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	appMetrics.optimisticProcessing.Add(ctx.Context(), 1,
 		otelmetric.WithAttributes(attribute.Bool("enabled", false)))
 	logger.Info("optimistic processing ineligible")
-	bpreq := &BlockProcessRequest{
-		Hash:                req.Hash,
-		ByzantineValidators: req.ByzantineValidators,
-		Height:              req.Header.Height,
-		Time:                req.Header.Time,
-	}
+	bpreq := NewBlockProcessRequest(req)
 	events, txResults, endBlockResp, processErr := app.ProcessBlock(ctx, req.Txs, bpreq, req.DecidedLastCommit, false, nil)
 	if processErr != nil {
 		logger.Error("ProcessBlock failed in FinalizeBlocker", "err", processErr)
@@ -2398,6 +2393,17 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 	}
 
 	return execResults, ctx
+}
+
+// NewBlockProcessRequest carries the finalize request metadata into direct block execution.
+// The caller must supply a non-nil request and header, as on the ABCI finalize path.
+func NewBlockProcessRequest(req *abci.RequestFinalizeBlock) *BlockProcessRequest {
+	return &BlockProcessRequest{
+		Hash:                req.Hash,
+		ByzantineValidators: req.ByzantineValidators,
+		Height:              req.Header.Height,
+		Time:                req.Header.Time,
+	}
 }
 
 // ProcessBlock executes block transactions. If preDecoded is non-nil and len(preDecoded)==len(txs),
