@@ -285,6 +285,49 @@ func TestEstimateGasWithoutOpenBlockUsesLatestState(t *testing.T) {
 	require.Equal(t, openEstimate, estimate)
 }
 
+func TestCustomPrecompilesAfterSealUseCommittedState(t *testing.T) {
+	const committed = int64(1000)
+	s := newPendingSequencer(t, committed)
+	txConfig := s.app.GetTxConfig()
+	ctxProvider := func(height int64) sdk.Context {
+		if height > committed {
+			_, err := s.app.CreateQueryContext(height, false)
+			panic(err)
+		}
+		return s.ctxProvider(height)
+	}
+	_, invalidHeightErr := s.app.CreateQueryContext(committed+1, false)
+	require.Error(t, invalidHeightErr)
+	require.PanicsWithError(t, invalidHeightErr.Error(), func() { ctxProvider(committed + 1) })
+	backend := evmrpc.NewBackend(ctxProvider, &s.app.EvmKeeper,
+		legacyabci.BeginBlockKeepers{}, func(int64) client.TxConfig { return txConfig },
+		&MockClient{latestOverride: committed},
+		&evmrpc.SimulateConfig{GasCap: 1_000_000, EVMTimeout: 5 * time.Second},
+		s.app.BaseApp, s.app.TracerAnteHandler,
+		evmrpc.NewBlockCache(3000), &sync.Mutex{}, s.wm)
+	state, header, err := backend.StateAndHeaderByNumberOrHash(context.Background(),
+		rpc.BlockNumberOrHashWithNumber(rpc.PendingBlockNumber))
+	require.NoError(t, err)
+	require.NotNil(t, state)
+	require.NotNil(t, header)
+	require.Equal(t, committed+1, header.Number.Int64())
+
+	require.NotPanics(t, func() {
+		require.Equal(t, backend.GetCustomPrecompiles(evmrpc.PendingCtxHeight), backend.GetCustomPrecompiles(header.Number.Int64()))
+		require.Equal(t, backend.ChainConfigAtHeight(evmrpc.PendingCtxHeight), backend.ChainConfigAtHeight(header.Number.Int64()))
+	})
+
+	_, err = s.exec.Seal(committed + 1)
+	require.NoError(t, err)
+	_, err = s.exec.Snapshot()
+	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	require.Equal(t, committed, ctxProvider(evmrpc.LatestCtxHeight).BlockHeight())
+	require.NotPanics(t, func() {
+		require.Equal(t, backend.GetCustomPrecompiles(evmrpc.LatestCtxHeight), backend.GetCustomPrecompiles(header.Number.Int64()))
+		require.Equal(t, backend.ChainConfigAtHeight(evmrpc.LatestCtxHeight), backend.ChainConfigAtHeight(header.Number.Int64()))
+	})
+}
+
 func TestGasPriceWithoutOpenBlockUsesLatestBaseFee(t *testing.T) {
 	floor, wm := pendingBlockFeeSequencer(t, MockHeight8, pendingBlockBaseFeeWei)
 	ctxProvider := func(height int64) sdk.Context {

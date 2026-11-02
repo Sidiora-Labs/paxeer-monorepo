@@ -259,7 +259,7 @@ test-harness: $(BUILD_DIR)/tests/lxp_test_harness
 test-tests-python:
 	python3 -m pytest tests/ci/test_real_node_build_ownership.py \
 		tests/ci/test_runner_routing_container_runtime.py \
-		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py
+		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci
 
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
@@ -940,18 +940,6 @@ $(BUILD_DIR)/tests/test_bridge_deposit: tests/test_bridge_deposit.c \
 
 test-bridge-deposit: $(BUILD_DIR)/tests/test_bridge_deposit test-contracts
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_bridge_deposit
-
-$(BUILD_DIR)/tests/bridge/sign-credit: tests/bridge/sign_credit.c tests/bridge/files.h \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-$(BUILD_DIR)/tests/bridge/test-credit: tests/bridge/test_credit.c tests/bridge/files.h \
-		$(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -DLXP_TESTING $< $(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(TEST_LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/test_bridge_withdraw: tests/test_bridge_withdraw.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
