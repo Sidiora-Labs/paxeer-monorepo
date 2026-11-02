@@ -118953,7 +118953,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.95.2]
 title = "Drop the kernel activity round trip from the attestor vectors generator and make its codec test assert the import absent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184393,7 +184393,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.7.5]
 title = "Check every run card against the final wave counts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["17.7.4", "17.0.4"]
