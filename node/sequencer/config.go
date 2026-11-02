@@ -368,7 +368,7 @@ standby-address = ""
 replication-timeout = "0s"
 
 # lease-duration must be positive when enabled; omit it to use three times replication-timeout.
-lease-duration = "0s"
+# lease-duration = "0s"
 
 # microbatch-window is how long the first transaction of a MicroBatch group waits for others;
 # it must be positive when mode is "microbatch".
