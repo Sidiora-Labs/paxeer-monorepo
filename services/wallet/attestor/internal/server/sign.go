@@ -770,6 +770,7 @@ func (s *Server) doLXReview(r *http.Request, body []byte) (LXReviewResponse, *Er
 	if s.opts.Inventory == nil {
 		return refuse(newError(CodeTokenUnavailable, "owner-approved wallet inventory is unavailable"))
 	}
+	// Review must enforce the same current inventory as signing, including retirement.
 	if err := s.opts.Inventory.Check(req.KeyID, "sign", payload.Owner, rec.Curve, &rec); err != nil {
 		return refuse(newError(CodeKeyInvalidShare, "owner-approved wallet inventory differs from held share"))
 	}
