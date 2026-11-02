@@ -181,6 +181,10 @@ func requireSequencerState(t *testing.T, w *app.TestWrapper, lastSeq uint64, las
 	gotHash, err := w.App.SequencerKeeper.LastSeqHash(w.Ctx)
 	require.NoError(t, err)
 	require.Equal(t, lastSeqHash, gotHash[:])
+	exported, err := w.App.SequencerKeeper.ExportGenesis(w.Ctx)
+	require.NoError(t, err)
+	require.Equal(t, gotSeq, exported.LastSeq)
+	require.Equal(t, gotHash, exported.LastSeqHash)
 }
 
 func requireReceiptIndex(t *testing.T, w *app.TestWrapper, hash common.Hash, index uint64) {

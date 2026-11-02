@@ -97,7 +97,7 @@ func newFeeTestEnv(t *testing.T) *feeTestEnv {
 	e.token = e.deploy(ctx, "Fee Token", "FEE", feeTestTokenSupply, e.holder)
 	e.callEVM(ctx, e.holder, e.token, "transfer", e.pool, big.NewInt(feeTestPoolTokens))
 	for _, surface := range []common.Address{e.pool, e.roles.FeesRouter, e.roles.FeeAccumulator} {
-		app.EvmKeeper.SetCode(ctx, surface, surfaceRuntime)
+		app.EvmKeeper.SetCode(ctx, surface, launchpadkeeper.SurfaceRuntime)
 	}
 
 	guardianAcc, _ := testkeeper.MockAddressPair()
@@ -137,6 +137,7 @@ func newFeeTestEnv(t *testing.T) *feeTestEnv {
 	}
 	require.NoError(t, gs.Validate())
 	k.InitGenesis(ctx, *gs)
+	require.NoError(t, k.ExportGenesis(ctx).Validate())
 	id, err := k.MintFeeRight(ctx, e.roles.SidioraNFT, e.owner, e.pool, types.FeeStrategyClaim)
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), id)
@@ -698,7 +699,7 @@ func TestDirectInitializeOverloadsReachTheirRole(t *testing.T) {
 			}
 		}
 		address := launchpadkeeper.Generation2Surfaces[role]
-		e.stateDB.SetCode(address, surfaceRuntime)
+		e.stateDB.SetCode(address, launchpadkeeper.SurfaceRuntime)
 		require.NoError(t, e.k.SetSurface(e.stateDB.Ctx(), address,
 			launchpadkeeper.Surface{Role: role, Generation: types.Generation2}), role)
 	}

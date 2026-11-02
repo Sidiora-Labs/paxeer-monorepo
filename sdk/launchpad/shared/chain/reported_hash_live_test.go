@@ -240,3 +240,62 @@ func TestLivePaxeerAttestationAndHeadUseReportedHash(t *testing.T) {
 	}
 	t.Logf("head %d reported %s parent %s; attestation eligible at reported hash", observed.Height, observed.Hash.Hex(), observed.ParentHash.Hex())
 }
+
+// TestProofLaunchpadSdkProtocolGoPoolMembership exercises the exact decoder
+// used by ReadAdapter.identifyPool without a live endpoint or RPC replacement.
+func TestProofLaunchpadSdkProtocolGoPoolMembership(t *testing.T) {
+	registryABI, err := bindings.PoolRegistryMetaData.GetAbi()
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool := common.HexToAddress("0x1234")
+	for round := 0; round < 2; round++ {
+		payload, err := registryABI.Pack("isRegisteredPool", pool)
+		if err != nil {
+			t.Fatal(err)
+		}
+		method, err := registryABI.MethodById(payload[:4])
+		if err != nil || method.Name != "isRegisteredPool" {
+			t.Fatalf("registry call: %v %v", method, err)
+		}
+		args, err := method.Inputs.Unpack(payload[4:])
+		if err != nil || len(args) != 1 || args[0] != pool {
+			t.Fatalf("pool argument: %v %v", args, err)
+		}
+		result, err := method.Outputs.Pack(true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := decodePoolMembership([][]byte{result}); err != nil {
+			t.Fatal(err)
+		}
+		// Changing the producer result must be observed even after a successful read.
+		refused, err := method.Outputs.Pack(false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := decodePoolMembership([][]byte{refused}); err == nil || !strings.Contains(err.Error(), "pool not registered") {
+			t.Fatalf("unregistered pool accepted: %v", err)
+		}
+	}
+	valid, err := registryABI.Methods["isRegisteredPool"].Outputs.Pack(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalidBool := append([]byte(nil), valid...)
+	invalidBool[31] = 2
+	for name, result := range map[string][][]byte{
+		"missing result": nil,
+		"empty result":   {nil},
+		"short result":   {valid[:31]},
+		"trailing word":  {append(append([]byte(nil), valid...), valid...)},
+		"extra result":   {valid, valid},
+		"invalid bool":   {invalidBool},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := decodePoolMembership(result); err == nil || !strings.Contains(err.Error(), "malformed pool membership") {
+				t.Fatalf("malformed membership accepted: %v", err)
+			}
+		})
+	}
+}

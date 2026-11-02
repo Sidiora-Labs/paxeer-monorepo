@@ -96,6 +96,9 @@ func (k Keeper) setProgramCommittedCount(ctx sdk.Context, count uint64) {
 	k.set(ctx, programCommittedCountKey, count)
 }
 
+// The EVM fulfilProgram entry delegates here; replay after a store restart
+// reaches the persisted fulfilled flag before any second fee payout.
+//
 // FulfilProgram admits the attested answer to a program request, the raw
 // canonical observation. It refuses, in the kernel order: an inactive program
 // origin (LXP_MODULE_DISABLED), a paused module

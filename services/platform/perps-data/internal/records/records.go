@@ -8,6 +8,8 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"math"
 	"strconv"
 	"time"
 )
@@ -595,6 +597,8 @@ func side(buy bool) string {
 	return "SELL"
 }
 
+// Decimal decodes a nullable database decimal into a finite JSON number.
+// Non-finite values must fail here rather than reaching a response encoder.
 func Decimal(raw sql.NullString) (*float64, error) {
 	if !raw.Valid {
 		return nil, nil
@@ -602,6 +606,9 @@ func Decimal(raw sql.NullString) (*float64, error) {
 	v, err := strconv.ParseFloat(raw.String, 64)
 	if err != nil {
 		return nil, err
+	}
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return nil, fmt.Errorf("records: non-finite decimal %q", raw.String)
 	}
 	return &v, nil
 }

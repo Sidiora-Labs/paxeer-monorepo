@@ -304,40 +304,40 @@ fn public_key(seed: u8) -> [u8; 32] {
 
 #[test]
 fn receipt_keys_decode_height_ranges_and_refuse_invalid_entries() {
-    let entry = |id: u8, key: [u8; 32], first: &str, last: &str| {
+    let entry = |id: u8, key: [u8; 32], first: u64, last: u64| {
         let key = hex(&key);
         format!(
-            r#"{{"keyId":"0x{}","publicKey":"0x{key}","firstHeight":"{first}","lastHeight":"{last}"}}"#,
+            r#"{{"keyId":"0x{}","publicKey":"0x{key}","firstHeight":{first},"lastHeight":{last}}}"#,
             format!("{id:02x}").repeat(32)
         )
     };
     let listed = format!(
-        r#""result":[{},{}]"#,
-        entry(1, public_key(7), "0x1", "0x3e7"),
-        entry(2, public_key(8), "0x3e8", "0xffffffffffffffff")
+        r#""result":{{"keys":[{},{}]}}"#,
+        entry(1, public_key(7), 1, 999),
+        entry(2, public_key(8), 1000, u64::MAX)
     );
     let (url, server) = serve(vec![
         ("px_getReceiptKeys", Some(listed)),
         (
             "px_getReceiptKeys",
             Some(format!(
-                r#""result":[{},{}]"#,
-                entry(1, public_key(7), "0x1", "0x3e7"),
-                entry(1, public_key(8), "0x3e8", "0x7d0")
+                r#""result":{{"keys":[{},{}]}}"#,
+                entry(1, public_key(7), 1, 999),
+                entry(1, public_key(8), 1000, 2000)
             )),
         ),
         (
             "px_getReceiptKeys",
             Some(format!(
-                r#""result":[{}]"#,
-                entry(1, public_key(7), "0x3e8", "0x3e7")
+                r#""result":{{"keys":[{}]}}"#,
+                entry(1, public_key(7), 1000, 999)
             )),
         ),
         (
             "px_getReceiptKeys",
             Some(format!(
-                r#""result":[{}]"#,
-                entry(0, public_key(7), "0x1", "0x2")
+                r#""result":{{"keys":[{}]}}"#,
+                entry(0, public_key(7), 1, 2)
             )),
         ),
     ]);

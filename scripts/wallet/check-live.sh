@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
 	cat <<'EOF'
-usage: scripts/wallet/check-live.sh endpoint | attestors | gateway | cutover | human | human-session
+usage: scripts/wallet/check-live.sh endpoint | attestors | gateway | cutover | human | human-session | ramp
 
 Checks a deployed wallet service against its live answers.
 
@@ -80,7 +80,12 @@ cutover   reads the public wallet hostname CHECK_LIVE_CUTOVER_HOST over https,
           Exits 0 only when both checks pass. The mode runs only after the
           endpoint has been cut over; without the variable it refuses.
 
+ramp      checks CHECK_LIVE_RAMP_BASE/readyz as local-journal readiness and
+          verifies that both internal work and rebalance routes refuse requests
+          without an operator bearer. It does not prove external settlement.
+
 Environment:
+  CHECK_LIVE_RAMP_BASE      base URL of the reference ramp
   CHECK_LIVE_ENDPOINT_BASE   base URL of the endpoint, no trailing /rpc
   CHECK_LIVE_ATTESTOR_BASES  comma-separated base URLs of the attestor APIs
   CHECK_LIVE_CLIENT_CERT     client certificate presented to https bases
@@ -109,7 +114,7 @@ case "$mode" in
 	usage
 	exit 0
 	;;
-endpoint | attestors | gateway | cutover | human | human-session) ;;
+endpoint | attestors | gateway | cutover | human | human-session | ramp) ;;
 *)
 	usage >&2
 	exit 2
@@ -695,6 +700,47 @@ print(("pass " if code == "200" and named and ready else "fail ") + line)
 	echo "check-live: all checks passed"
 	exit 0
 }
+
+ramp() {
+	local base="${CHECK_LIVE_RAMP_BASE:?CHECK_LIVE_RAMP_BASE is required}" path answer
+	local tls=()
+	if [ -n "${CHECK_LIVE_CA:-}" ]; then
+		tls=(--cacert "$CHECK_LIVE_CA")
+	fi
+	base="${base%/}"
+	for path in /readyz /internal/v1/work /internal/v1/rebalances; do
+		if [ "$path" = /readyz ]; then
+			answer="$(curl -fsS --max-time "$timeout" "${tls[@]}" -H 'Cache-Control: no-cache' "$base$path")" || return 1
+		else
+			answer="$(curl -sS --max-time "$timeout" "${tls[@]}" -w '\n%{http_code}' -H 'Content-Type: application/json' --data '{}' "$base$path")" || return 1
+		fi
+		printf '%s' "$answer" | python3 -c '
+import json
+import sys
+path = sys.argv[1]
+raw = sys.stdin.read()
+if path == "/readyz":
+    doc = json.loads(raw)
+    valid = (isinstance(doc, dict) and doc.get("ready") is True
+             and doc.get("readiness_scope") == "local-journal"
+             and doc.get("external_custody") is True
+             and type(doc.get("chain_id")) is int and doc["chain_id"] > 0
+             and isinstance(doc.get("journal"), dict)
+             and doc["journal"].get("ready") is True)
+else:
+    body, _, code = raw.rpartition("\n")
+    valid = code == "401" and json.loads(body) == {"error": "operator_authentication_required"}
+if not valid:
+    raise SystemExit("fail ramp " + path)
+print("pass ramp " + path)
+' "$path" || return 1
+	done
+}
+
+if [ "$mode" = ramp ]; then
+	ramp
+	exit $?
+fi
 
 if [ "$mode" = attestors ]; then
 	attestors
