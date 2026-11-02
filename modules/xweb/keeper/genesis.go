@@ -48,6 +48,8 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genesis types.GenesisState) {
 	k.setProgramCommittedCount(ctx, genesis.ProgramCommittedCount)
 }
 
+// ExportGenesis returns owned entries for the module JSON export; replay through
+// InitGenesis preserves program answers, fee denoms and counters after restart.
 func (k Keeper) ExportGenesis(ctx sdk.Context) types.GenesisState {
 	return types.GenesisState{
 		Params:                k.GetParams(ctx),

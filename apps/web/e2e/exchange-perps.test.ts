@@ -572,3 +572,11 @@ Object.defineProperty(the_order_panels_send_limit_stop_limit_TP_SL_partial_close
   value: "the order panels send limit, stop-limit, TP/SL, partial close and collateral writes",
 });
 test(the_order_panels_send_limit_stop_limit_TP_SL_partial_close_and_collateral_writes);
+
+function exchange_rejects_malformed_send_outcomes_before_refresh() {
+  assert.equal(wallet.isPrecompileSendOutcome({ outcome: "sent", transactionHash: "0x1234" }), false);
+  assert.equal(wallet.isPrecompileSendOutcome({ outcome: "cancelled" }), true);
+  assert.equal(wallet.isPrecompileSendOutcome({ outcome: "reverted", transactionHash: `0x${"11".repeat(32)}` }), false);
+}
+
+test(exchange_rejects_malformed_send_outcomes_before_refresh);

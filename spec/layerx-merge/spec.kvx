@@ -113479,7 +113479,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1492.1]
 title = "Issue #1492: Mount the virtual-network switcher in the wallet Settings network view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -113509,7 +113509,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1490.1]
 title = "Issue #1490: Switch the embedded provider's chain identity and RPC route with the selected virtual network"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -113541,7 +113541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.163.1]
 title = "Prove the kit path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -113833,7 +113833,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.153.1]
 title = "Prove the widgets path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114030,7 +114030,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.147.1]
 title = "Prove the components path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114129,7 +114129,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.144.1]
 title = "Prove the middleware buyer ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114162,7 +114162,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.143.1]
 title = "Prove the journeys path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114327,7 +114327,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.138.1]
 title = "Prove the api path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -115012,7 +115012,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.6.1]
 title = "List virtual chains in the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -116632,7 +116632,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1494.1]
 title = "Issue #1494: Move the Swift chain helpers and their tests into the configured SwiftPM target paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128744,7 +128744,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.84.1]
 title = "Prove the markets path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130387,7 +130387,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.17.1]
 title = "Prove the launchpad api path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
