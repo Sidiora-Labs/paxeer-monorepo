@@ -786,7 +786,7 @@ lxp_result lxp_kernel_batch_snapshot_create(
         batch_execution->batch_number == 0U ||
         identities->count > LXP_IDENTITY_STORE_CAPACITY ||
         (verified_receipts != NULL &&
-         verified_receipts->count > LXP_VERIFIED_RECEIPT_INDEX_MAX) ||
+         lxp_verified_receipt_index_validate(verified_receipts) != LXP_OK) ||
         kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         kernel->blob_count > LXP_KERNEL_MAX_BLOBS ||
         kernel->publication_poisoned)
@@ -857,7 +857,7 @@ lxp_result lxp_kernel_batch_snapshot_clone(
     if (source == NULL || source->state == NULL || snapshot_out == NULL)
         return LXP_ERR_NON_CANONICAL;
     if (source->identities.count > LXP_IDENTITY_STORE_CAPACITY ||
-        source->verified_receipts.count > LXP_VERIFIED_RECEIPT_INDEX_MAX ||
+        lxp_verified_receipt_index_validate(&source->verified_receipts) != LXP_OK ||
         source->kernel.module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         source->kernel.blob_count > LXP_KERNEL_MAX_BLOBS ||
         source->programs_runtime.asset_count == 0U ||
@@ -4431,7 +4431,7 @@ static lxp_result kernel_settled_snapshot_validate(
     lxp_result status;
     if (settled == NULL ||
         settled->identities.count > LXP_IDENTITY_STORE_CAPACITY ||
-        settled->verified_receipts.count > LXP_VERIFIED_RECEIPT_INDEX_MAX)
+        lxp_verified_receipt_index_validate(&settled->verified_receipts) != LXP_OK)
         return LXP_FATAL_INVARIANT;
     for (index = 0U; index < settled->identities.count; ++index) {
         const lxp_identity *identity = &settled->identities.identities[index];
