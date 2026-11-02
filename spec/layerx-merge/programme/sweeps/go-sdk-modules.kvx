@@ -1,0 +1,45 @@
+[sweep.go-sdk-modules]
+revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+command = "cd TARGET && go vet ./... && go test -count=1 ./..."
+targets_total = 6
+targets_passed = 2
+targets_failed = 4
+targets_not_run = 0
+
+[target.go-sdk-modules.1]
+target = "sdk/platform/go"
+result = "failed"
+exit_code = 1
+observed = "TestAgentOperationEnvelopeProcessCases failed at sdk/platform/go/agent_operation_envelope_test.go:303 because the agent envelope probe refused: PAXEER_X_AGENT_ENVELOPE_CASE must name an absolute case file."
+assumption = "The sandbox lacks the external agent-envelope case-file configuration required by this test."
+
+[target.go-sdk-modules.2]
+target = "sdk/chainflow/go"
+result = "passed"
+exit_code = 0
+
+[target.go-sdk-modules.3]
+target = "sdk/launchpad/protocol"
+result = "failed"
+exit_code = 1
+observed = "TestRealReviewedHistoricalDecoderMeasurement failed at sdk/launchpad/protocol/coverage/measure_test.go:68 because actual reviewed L02 historical measurement manifest/digest and chain125 RPC inputs are required."
+assumption = "The sandbox lacks the reviewed historical measurement manifest, digest and chain125 RPC configuration required by this integration test."
+
+[target.go-sdk-modules.4]
+target = "sdk/launchpad/shared"
+result = "failed"
+exit_code = 1
+observed = "TestPublicationV1IndependentIdentitiesAndRoundTrip failed at sdk/launchpad/shared/accounting/wire_test.go:105 because the canonical wire omitted explicit null \"feeBPS\":null."
+assumption = "The accounting publication serializer appears to omit a null feeBPS field that its canonical-wire test requires."
+
+[target.go-sdk-modules.5]
+target = "services/wallet/attestor"
+result = "failed"
+exit_code = 1
+observed = "Loading the module declared at services/wallet/attestor/go.mod:1 failed during go vet with \"updates to go.mod needed; to update it: go mod tidy\" before tests ran."
+assumption = "The checked-in dependency graph likely needs reconciliation for the inherited Go 1.25.8 toolchain."
+
+[target.go-sdk-modules.6]
+target = "services/platform/docs/samples/first-payment-go"
+result = "passed"
+exit_code = 0

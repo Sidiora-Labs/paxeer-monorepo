@@ -49,7 +49,7 @@ fn committed_vector() -> Value {
     .expect("committed receipt-key list and multistore proof vector")
 }
 
-fn chain_commit(entry: &Value) -> ChainCommitProof {
+pub(crate) fn chain_commit(entry: &Value) -> ChainCommitProof {
     let commit = ChainCommitProof {
         height: entry["height"].as_u64().expect("committed block height"),
         app_hash: hash(entry, "app_hash"),
@@ -397,7 +397,12 @@ impl Fixture {
 
 #[test]
 fn canonical_native_authority_matches_authenticated_historical_facts() {
-    let fixture = Fixture::load();
+    for _ in 0..2 {
+        assert_canonical_native_authority(&Fixture::load());
+    }
+}
+
+fn assert_canonical_native_authority(fixture: &Fixture) {
     let captures = fixture.replay["captures"]
         .as_array()
         .expect("real canonical replay captures");

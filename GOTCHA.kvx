@@ -13455,3 +13455,48 @@ fix = "Spell touches as plain repository-relative paths; the batch normalises ev
 title = "A finding recorded during qualification is not resolved by the task landing"
 symptom = "1281 of the 2211 [finding.*] blocks of qualification.kvx are cited by no do or decision; the tasks that recorded them are done, and nothing says whether the observed condition still holds on main."
 fix = "Every finding gets a [disposition.<id>] block under spec/layerx-merge/dispositions/ whose evidence cites a commit or a file:line of main (feature 22); the closure refuses while one is missing or open without a landed follow-up."
+
+[gotcha.2728]
+title = "bind_call checks only the recordLifecycle header shape, never the body"
+symptom = "decode_method (layerx-crypto/src/disclosure/call.rs:453-470) accepts a 0x101c recordLifecycle call when payload[0] is 0x71 and (payload[1], payload[2], payload[3], length) is one of (1,0,2,68), (1,2,1,8..=1024), (3,0,3,70), (3,0,5,86); a test that corrupts a body byte and asserts bind_call refuses it fails (9.35.9 attempt 6, native_setup.rs:442)."
+fix = "Assert bind_call refusals only for the target, selector, header bytes and length; assert body validity at the provider or the kernel decoder, and record a refusal the product does not make as a finding."
+
+[gotcha.2729]
+title = "The arbiter's native fee authority key copies a NUL-terminated literal into a 28-byte slice"
+symptom = "programs/crates/layerx-programs-arbiter/src/authority.rs:788 copies the 29-byte literal of the 28-character policy name plus a trailing NUL into policy[..28], so every call that reaches the native fee authority check panics (21.53.1 attempt 3, three proof cases)."
+fix = "Copy byte-string literals without a trailing NUL into fixed slices, or size the slice from the literal; the Go and C producers zero-pad the 28-byte name to 32 bytes."
+
+[gotcha.2730]
+title = "A retirement that relies on a wiring request leaves dead producer references"
+symptom = "5.54.5 deleted nine daemon tests and relied on a wiring request to remove their references; seven qualification scripts and five build fragments included by the Makefile still name them, and 21.5.1's proof found the first one missing."
+fix = "A task that deletes a file greps the tree (scripts, build fragments, Makefile includes, docs) for its path and either removes the references itself or lists them under touches; 22.16.4 closes this set."
+
+[gotcha.2731]
+title = "Stale tests and non-building crates surface only when a later task happens to consume them"
+symptom = "Four of the open dispositions (1.29.1, 4.22.1.1, 8.42.5.1, 8.47.10.1) are tests or programs that reference deleted files, found by chance when another task built the same package; nothing inventoried the tree's build and test targets after the retirements."
+fix = "Run a per-target inventory of every workspace at a named revision (the 22.91.x reports) and treat each failing target as a finding with its own follow-up before claiming closure."
+
+[gotcha.2732]
+title = "A revocation that deletes the authorization hides the revocation reason"
+symptom = "layerxauth RevokeGrant deleted the matching Cosmos grant, so a later exec failed in authz with ErrUnauthorized before the LayerXScopeAuthorization could refuse with ErrAuthRevoked, and the integration test was written to the weaker error (2.12.4.1)."
+fix = "Keep the authorization and let its epoch check refuse with the specific error; delete only on explicit grant deletion."
+
+[gotcha.2733]
+title = "A gate task that finds nothing to change must be declared as a gate"
+symptom = "The crate closure tasks 22.90.x were declared planned work; when the crate already built, the attempt changed no file and was refused for changing nothing."
+fix = "Declare verification-only tasks with gate_kind existing so a passing verify with no change qualifies them."
+
+[gotcha.2734]
+title = "A proof must not import helpers from another test file"
+symptom = "proof_exchange.test.ts imported consumer helpers from precompile-calls.test.ts and xweb-api.test.ts; their module-level assertions ran on import and one failed before any proof case (21.160.1 attempt 2)."
+fix = "Shared consumers live in a support module without top-level assertions; a test file is never an import target."
+
+[gotcha.2735]
+title = "A sweep whose enumeration is empty needs an explicit empty-inventory form"
+symptom = "The go-cmd sweep found no Go package under cmd/ and wrote targets_total = 0 with no target block; the verify required at least one target (22.91.22 attempt 1)."
+fix = "A sweep verify accepts targets_total = 0 when the report carries the enumeration command and its observed result; the other sweeps keep the non-empty rule."
+
+[gotcha.2736]
+title = "A pending-tagged read refuses on an idle proposer"
+symptom = "eth_getBalance with the pending tag returned 'pending block unavailable: sequencer: no block is open' between blocks because resolvePending surfaced the snapshot error instead of the latest committed height (21.92.1 attempt 2)."
+fix = "Pending reads fall back to the latest committed block while no block is open, as the simulation path already does (22.7.2)."

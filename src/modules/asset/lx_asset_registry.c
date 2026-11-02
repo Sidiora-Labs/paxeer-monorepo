@@ -776,6 +776,46 @@ lxp_result lx_asset_record_decode(const uint8_t *bytes, size_t length,
                LXP_ERR_NON_CANONICAL;
 }
 
+lxp_result lx_asset_record_decode_for_id(const uint8_t *bytes, size_t length,
+    const uint8_t asset_id[32], lx_asset_record *record)
+{
+    lx_asset_record decoded;
+    lxp_result status;
+    if (asset_id == NULL || record == NULL) return LXP_ERR_NON_CANONICAL;
+    status = lx_asset_record_decode(bytes, length, &decoded);
+    if (status != LXP_OK) return status;
+    if (memcmp(decoded.asset_id, asset_id, 32U) != 0)
+        return LXP_ERR_ASSET_MISMATCH;
+    *record = decoded;
+    return LXP_OK;
+}
+
+lxp_result lx_asset_runtime_restore(const lxp_kernel *kernel,
+    lx_asset_registry *assets, lxp_transfer_asset_state *transfer_states,
+    lx_asset_runtime *runtime)
+{
+    size_t count = 0U;
+    lxp_result status;
+    if (kernel == NULL || kernel->state == NULL ||
+        kernel->state->accounts == NULL || assets == NULL ||
+        transfer_states == NULL || runtime == NULL)
+        return LXP_ERR_NON_CANONICAL;
+    status = lx_asset_committed_records(kernel, assets->assets,
+        LX_ASSET_REGISTRY_CAPACITY, &count);
+    if (status != LXP_OK) return status;
+    for (size_t i = 0U; i < count; ++i) {
+        status = lx_asset_transfer_state(&assets->assets[i], &transfer_states[i]);
+        if (status != LXP_OK) return status;
+    }
+    assets->count = count;
+    runtime->accounts = kernel->state->accounts;
+    runtime->assets = assets->assets;
+    runtime->asset_count = count;
+    runtime->transfer_assets = transfer_states;
+    runtime->transfer_asset_count = count;
+    return LXP_OK;
+}
+
 lxp_result lx_asset_committed_records(const lxp_kernel *kernel,
     lx_asset_record *records, size_t capacity, size_t *count)
 {
@@ -796,9 +836,9 @@ lxp_result lx_asset_committed_records(const lxp_kernel *kernel,
                 if (entry->key_length != 38U || memcmp(entry->key, "asset:", 6U) != 0) continue;
                 id = entry->key + 6U;
             }
-            lxp_result status = lx_asset_record_decode(entry->value, entry->value_length, &record);
+            lxp_result status = lx_asset_record_decode_for_id(
+                entry->value, entry->value_length, id, &record);
             if (status != LXP_OK) return status;
-            if (memcmp(id, record.asset_id, 32U) != 0) return LXP_ERR_ASSET_MISMATCH;
             for (at = 0U; at < used; ++at)
                 if (memcmp(records[at].asset_id, id, 32U) >= 0) break;
             if (at == used || memcmp(records[at].asset_id, id, 32U) != 0) {

@@ -254,7 +254,13 @@ export function buildBridgeChains(config: typeof bridgeConfig): BridgeChain[] {
   ];
 }
 
-export const BRIDGE_CHAINS = buildBridgeChains(bridgeConfig);
+export const BRIDGE_CHAINS: BridgeChain[] = buildBridgeChains(bridgeConfig);
+
+/** Wallet networks include only EVM routes with a chain definition. */
+export function walletBridgeChains(chains: readonly BridgeChain[] = BRIDGE_CHAINS) {
+  return chains.filter((chain): chain is BridgeChain & { viemChain: Chain } =>
+    chain.kind === 'evm' && chain.viemChain !== undefined);
+}
 
 export const PAXEER_ROUTE_KEY = 'paxeer';
 

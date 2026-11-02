@@ -57,6 +57,8 @@ pub enum MarketStepVerdict {
     InvalidEvidence(MarketEvidenceError),
 }
 
+/// Borrowed keeper namespace artifacts; every `verify` authenticates the head,
+/// manifest, and value blobs against the supplied app hash without a cache.
 pub struct NativeNamespaceProof<'a> {
     pub head: &'a ics23::ExistenceProof,
     pub store_root: [u8; 32],
@@ -156,6 +158,8 @@ pub struct MarketAdmissionEvidence<'a> {
     pub header: &'a VerifiedBatchHeader,
 }
 
+/// Producer artifacts consumed together by `VerifiedMarketSandbox::verify`.
+/// Tenant and provider receipts retain their own admission and chain commitments.
 pub struct MarketReplayEvidence<'a> {
     pub expected_market_program: [u8; 32],
     pub tenant_receipt: &'a VerifiedReceipt,
