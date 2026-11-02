@@ -8,9 +8,102 @@ use layerx_client::sequencer::{
 };
 use serde_json::{json, Value};
 
-const RPC_URL: &str = "LAYERX_AGENT_NODE_RPC_URL";
-const CHAIN_ID: &str = "LAYERX_AGENT_NODE_CHAIN_ID";
+pub const LAYERX_AGENT_NODE_RPC_URL: &str = "LAYERX_AGENT_NODE_RPC_URL";
+pub const LAYERX_AGENT_NODE_CHAIN_ID: &str = "LAYERX_AGENT_NODE_CHAIN_ID";
 const DEFAULT_DEADLINE: Duration = Duration::from_secs(30);
+
+/// Environment decoding shared by the agentd host and its env transport proof.
+pub mod environment {
+    use super::NodeRpcConfig;
+
+    pub fn required(name: &str) -> Result<String, String> {
+        std::env::var(name)
+            .ok()
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| format!("{name} is required"))
+    }
+
+    pub fn parse_u64(name: &str) -> Result<u64, String> {
+        required(name)?
+            .parse()
+            .map_err(|_| format!("{name} must be an unsigned integer"))
+    }
+
+    pub fn parse_digest(name: &str) -> Result<[u8; 32], String> {
+        layerx_programs::hex::decode_digest(&required(name)?)
+            .map_err(|error| format!("{name} is invalid: {error}"))
+    }
+
+    pub fn human_protocol_version() -> Result<u16, String> {
+        let version = required("LAYERX_AGENT_HUMAN_PROTOCOL_VERSION")?
+            .parse()
+            .map_err(|_| "human protocol version is invalid")?;
+        if !layerx_wire::limits::protocol_version_uses_occupancy(version)
+            || version != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
+        {
+            return Err("human protocol version is not the current beta protocol".to_owned());
+        }
+        Ok(version)
+    }
+
+    #[derive(Debug, PartialEq, Eq)]
+    pub struct HumanNodeEnvironment {
+        pub protocol_version: u16,
+        pub expected_network_id: u32,
+        pub rpc: NodeRpcConfig,
+    }
+
+    impl HumanNodeEnvironment {
+        pub fn from_environment() -> Result<Self, String> {
+            let protocol_version = human_protocol_version()?;
+            let expected_network_id = required("LAYERX_AGENT_HUMAN_NETWORK_ID")?
+                .parse::<u32>()
+                .map_err(|_| "human network id is invalid")?;
+            let rpc = NodeRpcConfig::from_environment()
+                .map_err(|error| format!("human node RPC configuration is invalid: {error}"))?;
+            if rpc.chain_id != u64::from(expected_network_id) {
+                return Err("human node RPC network id mismatch".to_owned());
+            }
+            Ok(Self {
+                protocol_version,
+                expected_network_id,
+                rpc,
+            })
+        }
+    }
+
+    #[derive(Debug, PartialEq, Eq)]
+    pub struct McpHeights {
+        pub core_height: u64,
+        pub expiry_height: u64,
+    }
+
+    impl McpHeights {
+        pub fn from_environment() -> Result<Self, String> {
+            Ok(Self {
+                expiry_height: parse_u64("LAYERX_AGENT_MCP_EXPIRY_HEIGHT")?,
+                core_height: parse_u64("LAYERX_AGENT_MCP_CORE_HEIGHT")?,
+            })
+        }
+    }
+
+    pub fn refuse_retired_environment() -> Result<(), String> {
+        for name in [
+            "LAYERX_AGENT_HUMAN_EXPORT_SETTLEMENT_DOMAIN",
+            "LAYERX_AGENT_SEQUENCER_TRUST_HISTORY",
+            "LAYERX_AGENT_GENESIS_TRUST",
+            "LAYERX_AGENT_HANDOVER_FINALITY",
+            "LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY",
+            "LAYERX_AGENT_MCP_CORE_SEQUENCE",
+            "LAYERX_AGENT_MCP_EXPIRY_SEQUENCE",
+        ] {
+            if std::env::var_os(name).is_some() {
+                return Err(format!("{name} is retired"));
+            }
+        }
+        Ok(())
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NodeRpcConfig {
@@ -21,12 +114,13 @@ pub struct NodeRpcConfig {
 
 impl NodeRpcConfig {
     pub fn from_environment() -> Result<Self, NodeRpcError> {
-        let url = std::env::var(RPC_URL).map_err(|_| NodeRpcError::MissingVariable(RPC_URL))?;
+        let url = std::env::var(LAYERX_AGENT_NODE_RPC_URL)
+            .map_err(|_| NodeRpcError::MissingVariable(LAYERX_AGENT_NODE_RPC_URL))?;
         if url.is_empty() || url.trim() != url {
-            return Err(NodeRpcError::InvalidVariable(RPC_URL));
+            return Err(NodeRpcError::InvalidVariable(LAYERX_AGENT_NODE_RPC_URL));
         }
-        let chain_id =
-            std::env::var(CHAIN_ID).map_err(|_| NodeRpcError::MissingVariable(CHAIN_ID))?;
+        let chain_id = std::env::var(LAYERX_AGENT_NODE_CHAIN_ID)
+            .map_err(|_| NodeRpcError::MissingVariable(LAYERX_AGENT_NODE_CHAIN_ID))?;
         let chain_id = if chain_id.starts_with("0x") {
             quantity(&chain_id)
         } else if !chain_id.is_empty() && chain_id.bytes().all(|byte| byte.is_ascii_digit()) {
@@ -34,7 +128,7 @@ impl NodeRpcConfig {
         } else {
             None
         }
-        .ok_or(NodeRpcError::InvalidVariable(CHAIN_ID))?;
+        .ok_or(NodeRpcError::InvalidVariable(LAYERX_AGENT_NODE_CHAIN_ID))?;
         Ok(Self {
             url,
             chain_id,
