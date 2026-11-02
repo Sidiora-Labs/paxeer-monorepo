@@ -1,11 +1,15 @@
+const BUDGET_READER_SOURCES: [(&str, &str); 2] = [
+    (
+        "src/human/budget_state.rs",
+        include_str!("../src/human/budget_state.rs"),
+    ),
+    ("src/main.rs", include_str!("../src/main.rs")),
+];
+
 #[test]
 fn no_retired_layerx_client_module_paths() {
     let migrated = [
         ("src/human.rs", include_str!("../src/human.rs")),
-        (
-            "src/human/budget_state.rs",
-            include_str!("../src/human/budget_state.rs"),
-        ),
         ("src/trust.rs", include_str!("../src/trust.rs")),
         (
             "tests/budget_proof_exports.rs",
@@ -27,9 +31,13 @@ fn no_retired_layerx_client_module_paths() {
         "submit",
         "payments",
         "withdrawal",
+        "evidence",
+        "head",
+        "handover",
+        "lni",
     ];
 
-    for (path, source) in migrated {
+    for (path, source) in migrated.into_iter().chain(BUDGET_READER_SOURCES) {
         let compact: String = source.chars().filter(|ch| !ch.is_whitespace()).collect();
         for reference in compact.split("layerx_client::").skip(1) {
             let module = reference
@@ -46,9 +54,13 @@ fn no_retired_layerx_client_module_paths() {
 
 #[test]
 fn budget_reader_uses_only_node_read_interfaces() {
-    let source = include_str!("../src/human/budget_state.rs");
-    for retired in ["read", "evidence", "head", "handover", "lni"] {
-        assert!(!source.contains(&format!("layerx_client::{retired}")));
+    for (path, source) in BUDGET_READER_SOURCES {
+        for retired in ["read", "evidence", "head", "handover", "lni"] {
+            assert!(
+                !source.contains(&format!("layerx_client::{retired}")),
+                "{path} names retired path layerx_client::{retired}"
+            );
+        }
     }
     for method in [
         "getBudget(bytes32)",
@@ -57,6 +69,11 @@ fn budget_reader_uses_only_node_read_interfaces() {
         "checkpoint(uint64)",
         "layerx.human.budget-proof.v2",
     ] {
-        assert!(source.contains(method), "missing node interface {method}");
+        assert!(
+            BUDGET_READER_SOURCES
+                .iter()
+                .any(|(_, source)| source.contains(method)),
+            "missing node interface {method}"
+        );
     }
 }
