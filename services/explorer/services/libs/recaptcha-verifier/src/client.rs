@@ -132,7 +132,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_v2_success() {
-        let (_, client) = mock_client(v2_response("example.com")).await;
+        let (_server, client) = mock_client(v2_response("example.com")).await;
         let response = client.verify(VerifyRequest::new("token")).await.unwrap();
         assert!(response.success);
         assert!(!response.is_v3());
@@ -140,7 +140,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_v3_success() {
-        let (_, client) = mock_client(v3_response("example.com", 0.9, "login")).await;
+        let (_server, client) = mock_client(v3_response("example.com", 0.9, "login")).await;
         let response = client
             .verify(
                 VerifyRequest::new("token")
@@ -155,7 +155,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_v3_score_too_low() {
-        let (_, client) = mock_client(v3_response("example.com", 0.3, "login")).await;
+        let (_server, client) = mock_client(v3_response("example.com", 0.3, "login")).await;
         let err = client
             .verify(VerifyRequest::new("token").with_min_score(0.5))
             .await
@@ -167,7 +167,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_action_mismatch() {
-        let (_, client) = mock_client(v3_response("example.com", 0.9, "signup")).await;
+        let (_server, client) = mock_client(v3_response("example.com", 0.9, "signup")).await;
         let err = client
             .verify(VerifyRequest::new("token").with_expected_action("login"))
             .await
@@ -179,7 +179,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_hostname_mismatch() {
-        let (_, client) = mock_client(v2_response("malicious.com")).await;
+        let (_server, client) = mock_client(v2_response("malicious.com")).await;
         let err = client
             .verify(VerifyRequest::new("token").with_expected_hostname("example.com"))
             .await
@@ -191,7 +191,7 @@ mod tests {
 
     #[tokio::test]
     async fn verify_failed_with_error_codes() {
-        let (_, client) = mock_client(serde_json::json!({
+        let (_server, client) = mock_client(serde_json::json!({
             "success": false,
             "error-codes": ["invalid-input-response", "timeout-or-duplicate"]
         }))

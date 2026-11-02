@@ -41,6 +41,8 @@ type ReceiptKey struct {
 // public key at openHeight.
 // Each load reopens the persisted seed and revalidates its permissions and pins;
 // it never creates or overwrites the producer's key file.
+// A restart must reload the key against the committed
+// pins before replaying the signed receipts held in the WAL.
 func LoadReceiptKey(keyFile, consensusKeyFile string, pins []verify.SequencerAuthorization, openHeight int64) (*ReceiptKey, error) {
 	info, err := os.Stat(keyFile)
 	if err != nil {
