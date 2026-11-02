@@ -123,7 +123,7 @@ fn signed_submission() -> crate::sign::VerifiedSubmission {
         },
     };
     let key: [u8; 32] = must(activity.authority().try_into());
-    must(crate::sign::verify_before_submit(
+    must(crate::sign::verify_kernel_before_submit(
         bytes, &prepared, &key, &registry,
     ))
 }
@@ -137,17 +137,24 @@ fn exact_signed_queue_is_partitioned_before_transmission_and_restores_independen
     must(retain(&mut store, &alice));
     must(retain(&mut store, &bob));
     let submission = signed_submission();
-    let id = submission.idempotency_key();
     let original = submission.exact_bytes().to_vec();
     let mut outboxes = BTreeMap::<String, Outbox>::new();
-    for peer in [&alice, &bob] {
-        must(outboxes.entry(peer.tenant.clone()).or_default().enqueue(
-            &mut store,
-            must(TenantId::new(peer.tenant.clone())),
-            id,
-            submission.clone(),
-        ));
-    }
+    let [id, bob_id] = [&alice, &bob].map(|peer| {
+        must(
+            outboxes
+                .entry(peer.tenant.clone())
+                .or_default()
+                .enqueue_with_origin(
+                    &mut store,
+                    must(TenantId::new(peer.tenant.clone())),
+                    submission.idempotency_key(),
+                    submission.clone(),
+                    None,
+                    None,
+                ),
+        )
+    });
+    assert_eq!(id, bob_id);
     let sent = must(begin_transmission(
         outboxes
             .get_mut(&alice.tenant)

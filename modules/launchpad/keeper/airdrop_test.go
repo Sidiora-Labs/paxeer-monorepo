@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"math/big"
+	"reflect"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
@@ -154,6 +155,23 @@ func (c *custodyEnv) claim(pool, holder common.Address, epoch uint64) (sdk.Int, 
 }
 
 func TestAirdropEpochs(t *testing.T) {
+	t.Run("generation 1 native airdrop methods are removed", func(t *testing.T) {
+		keeperType := reflect.TypeOf((*keeper.Keeper)(nil))
+		for _, name := range []string{
+			"ExecuteAirdrop", "ClaimAirdrop", "AirdropEntitlement", "ClaimAirdropForEpoch",
+			"OpenHoldingHistory", "EpochBalance",
+		} {
+			_, found := keeperType.MethodByName(name)
+			require.False(t, found, "keeper still declares %s", name)
+		}
+		for _, name := range []string{
+			"TriggerAirdrop", "ClaimAirdropEpoch", "BeforeBalanceChange", "HoldingCheckpointCount",
+		} {
+			_, found := keeperType.MethodByName(name)
+			require.True(t, found, "keeper must retain %s", name)
+		}
+	})
+
 	t.Run("opens epoch e+1 at the token checkpoints", func(t *testing.T) {
 		c := newCustodyEnv(t)
 		roles := c.k.Generation2()

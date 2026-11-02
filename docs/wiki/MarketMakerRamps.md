@@ -18,7 +18,7 @@ hosted ramp.
 
 Market makers act as ordinary LayerX principals. External custody is
 labelled `EXTERNAL_CUSTODY_LABEL`. Orders are receipt-gated. The
-journal domain is `LXP/market-maker-ramp/journal/v1`.
+new journal records carry version 2 and are hashed under `LXP/market-maker-ramp/journal/v2`; journals written under `LXP/market-maker-ramp/journal/v1` are replayed read-only.
 
 ---
 

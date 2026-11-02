@@ -1,0 +1,95 @@
+from pathlib import Path
+import re
+import subprocess
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[2]
+
+
+class KernelInitTest(unittest.TestCase):
+    def test_kernel_init_roles_supported_by_entrypoint(self):
+        script = (ROOT / "docker/kernel/init.sh").read_text(encoding="utf-8")
+        entrypoint = (ROOT / "docker/human-service/entrypoint.sh").read_text(
+            encoding="utf-8"
+        )
+        scheduled_roles = re.findall(
+            r"/usr/local/bin/human-entrypoint\s+([^\s;]+)",
+            script.replace("\\\n", ""),
+        )
+        self.assertTrue(scheduled_roles)
+        role_case = re.search(r'(?ms)^case "\$role" in\n(.*?)^esac$', entrypoint)
+        self.assertIsNotNone(role_case)
+        accepted_roles = {
+            role
+            for pattern in re.findall(
+                r"(?m)^    ([a-z][a-z0-9|-]*)\)", role_case.group(1)
+            )
+            for role in pattern.split("|")
+        }
+        self.assertTrue(accepted_roles)
+        for role in scheduled_roles:
+            with self.subTest(role=role):
+                self.assertIn(role, accepted_roles)
+        self.assertNotIn("movement", scheduled_roles)
+        self.assertNotRegex(script, r"\bservice\s+human-movement\b")
+        for helper in (
+            "human_movement_state",
+            "human_movement_kms_binding",
+            "human_movement_prepare",
+        ):
+            self.assertNotIn(helper, script)
+
+        movement = subprocess.run(
+            ["sh", "docker/human-service/entrypoint.sh", "movement"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(movement.returncode, 64, movement.stdout + movement.stderr)
+        self.assertIn("unknown Human role", movement.stderr)
+        self.assertNotIn(
+            "layerx-human-movement-provider",
+            (ROOT / "docker/kernel/Dockerfile").read_text(encoding="utf-8"),
+        )
+
+    def test_init_lists_no_retired_service(self):
+        syntax = subprocess.run(
+            ["bash", "-n", "docker/kernel/init.sh"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(syntax.returncode, 0, syntax.stdout + syntax.stderr)
+
+        retired = subprocess.run(
+            [
+                "python3",
+                "tools/paxeer-x/tests/retired_callers_test.py",
+                "--component",
+                "guarantor-runtime",
+                "--component",
+                "lni",
+                "--path",
+                "docker/kernel/init.sh",
+                "--path",
+                "docker/kernel/kernel.env.example",
+                "--path",
+                "docker/kernel/layerx-kernel.service",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(retired.returncode, 0, retired.stdout + retired.stderr)
+
+        script = (ROOT / "docker/kernel/init.sh").read_text(encoding="utf-8")
+        self.assertNotRegex(
+            script,
+            r"(?m)^\s*(?:service\s+(?:layerxd(?:-authority)?|guarantor(?:-[12])?|relay-archive)\b"
+            r"|(?:guarantor|guarantor_prepare|relay_archive_prepare)\s*\(\)"
+            r"|guarantor\s+[12]\b)",
+        )

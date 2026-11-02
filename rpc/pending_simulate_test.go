@@ -24,6 +24,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/fixtures/example/contracts/simplestorage"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/occ/utils"
@@ -78,7 +79,7 @@ func pendingSimulateAPIs(s *pendingSequencer, wm *evmrpc.WatermarkManager) pendi
 	cfg := &evmrpc.SimulateConfig{GasCap: 10_000_000, EVMTimeout: 5 * time.Second}
 	return pendingSimulateNode{
 		seq:   s,
-		state: evmrpc.NewStateAPI(tmClient, &s.app.EvmKeeper, ctxProvider, evmrpc.ConnectionTypeHTTP, wm),
+		state: evmrpc.NewStateAPI(tmClient, &s.app.EvmKeeper, ctxProvider, evmrpc.ConnectionTypeHTTP, wm, s.app.CommitMultiStore().(storetypes.Queryable)),
 		sim: evmrpc.NewSimulationAPI(ctxProvider, &s.app.EvmKeeper, legacyabci.BeginBlockKeepers{}, txConfigProvider, tmClient, cfg,
 			s.app.BaseApp, s.app.TracerAnteHandler, evmrpc.ConnectionTypeHTTP, evmrpc.NewBlockCache(3000), &sync.Mutex{}, wm),
 		backend: evmrpc.NewBackend(ctxProvider, &s.app.EvmKeeper, legacyabci.BeginBlockKeepers{}, txConfigProvider, tmClient, cfg,

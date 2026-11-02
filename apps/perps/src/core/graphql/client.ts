@@ -298,6 +298,7 @@ interface WsConnection {
     variables?: Record<string, unknown>;
     onData: (data: any) => void;
     onError?: (err: Error) => void;
+    retryTimer: CancelTask | null;
   }>;
   reconnectTimer: CancelTask | null;
   hasConnected: boolean;
@@ -384,18 +385,26 @@ function openSocket(conn: WsConnection) {
             ? (msg.payload[0]?.message ?? "subscription error")
             : "subscription error",
         );
-        if (sub) try { sub.onError?.(err); } catch { /* ignore */ }
+        if (sub) {
+          try { sub.onError?.(err); } catch { /* ignore */ }
+          scheduleResubscribe(conn, ws, msg.id);
+        }
+        break;
+      }
+      case "complete": {
+        scheduleResubscribe(conn, ws, msg.id);
         break;
       }
       case "ping": {
         try { ws.send(JSON.stringify({ type: "pong" })); } catch { /* ignore */ }
         break;
       }
-      // complete / pong — no-op
+      // pong — no-op
     }
   };
 
   ws.onclose = () => {
+    conn.subs.forEach(sub => { sub.retryTimer?.(); sub.retryTimer = null; });
     conn.ready = false;
     conn.ws = null;
     if (conn.subs.size > 0) scheduleReconnect(conn);
@@ -404,6 +413,26 @@ function openSocket(conn: WsConnection) {
   ws.onerror = () => {
     // onclose will fire next; nothing to do here.
   };
+}
+
+function scheduleResubscribe(conn: WsConnection, ws: WebSocket, id: string) {
+  const sub = conn.subs.get(id);
+  if (!sub || sub.retryTimer || conn.ws !== ws) return;
+  notifyStreamResync(conn.endpoint.wsUrl!);
+  if (conn.subs.get(id) !== sub || !conn.ready || ws.readyState !== WebSocket.OPEN) return;
+  const delay = Math.min(conn.backoffMs, 30_000);
+  conn.backoffMs = Math.min(conn.backoffMs * 2, 30_000);
+  sub.retryTimer = scheduleActive(() => {
+    sub.retryTimer = null;
+    if (conn.subs.get(id) !== sub || conn.ws !== ws || !conn.ready || ws.readyState !== WebSocket.OPEN) return;
+    try {
+      ws.send(JSON.stringify({
+        id,
+        type: "subscribe",
+        payload: { query: sub.query, variables: sub.variables },
+      }));
+    } catch { /* re-sent on reconnect */ }
+  }, delay, conn.endpoint.wsUrl);
 }
 
 function scheduleReconnect(conn: WsConnection) {
@@ -442,6 +471,7 @@ export function subscribeStream<T>(opts: StreamSubscriptionOptions<T>): () => vo
     variables: opts.variables,
     onData: opts.onData as (d: any) => void,
     onError: opts.onError,
+    retryTimer: null,
   });
 
   if (conn.ready && conn.ws?.readyState === WebSocket.OPEN) {
@@ -455,6 +485,7 @@ export function subscribeStream<T>(opts: StreamSubscriptionOptions<T>): () => vo
   }
 
   return () => {
+    conn.subs.get(id)?.retryTimer?.();
     conn.subs.delete(id);
     if (conn.ready && conn.ws?.readyState === WebSocket.OPEN) {
       try { conn.ws.send(JSON.stringify({ id, type: "complete" })); } catch { /* ignore */ }

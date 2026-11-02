@@ -20,7 +20,7 @@ use crate::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -626,6 +626,7 @@ fn abi_payload(value: &AbiError) -> Vec<u8> {
         AbiError::AccessDeclaration => vec![15],
         AbiError::OracleUnknownMarket => vec![16],
         AbiError::OracleMarketHalted => vec![17],
+        AbiError::EffectLimit => vec![18],
         AbiError::InvalidEncoding => vec![10],
         AbiError::Storage(error) => vec![11, storage_tag(*error)],
         AbiError::Meter(error) => {
@@ -879,7 +880,7 @@ fn transfer_error_tag(error: TransferLawError) -> u8 {
         TransferLawError::AmountOverflow => 4,
         TransferLawError::InvariantViolation => 5,
         TransferLawError::CapabilityEscalation => 6,
-        TransferLawError::KernelRefused => 7,
+        TransferLawError::KernelRefused | TransferLawError::Kernel(_) => 7,
         TransferLawError::ReceiptInvalid => 8,
         TransferLawError::ReceiptMismatch => 9,
         TransferLawError::StaleStorage => 10,
@@ -1994,12 +1995,12 @@ impl KernelTransferPrimitive for CKernel {
                     .map_err(|_| TransferLawError::InvalidTransferSet)?,
             )
         })
-        .map_err(|_| TransferLawError::ReceiptMismatch)?;
+        .map_err(TransferLawError::Kernel)?;
         for (index, leg) in transfers.legs().iter().enumerate() {
             submit_kernel_transfer_leg(self.token, index, leg)?;
         }
         c_ok(unsafe { layerx_programs_call_transfer_apply(self.token) })
-            .map_err(|_| TransferLawError::ReceiptMismatch)?;
+            .map_err(TransferLawError::Kernel)?;
         if program_spend.is_some()
             && !crate::ffi_transfer::program_spend_consumed(program_spend_token)
         {
@@ -2054,6 +2055,70 @@ impl KernelTransferPrimitive for CKernel {
             Ok(())
         }
     }
+}
+
+static CALL_EVENT_LOGS: Mutex<BTreeMap<u64, Vec<crate::abi::ProgramEventLog>>> =
+    Mutex::new(BTreeMap::new());
+
+fn clear_call_event_logs(token: u64) -> Result<(), i32> {
+    CALL_EVENT_LOGS
+        .lock()
+        .map_err(|_| FATAL_INVARIANT)?
+        .remove(&token);
+    Ok(())
+}
+
+fn record_call_event_logs(
+    token: u64,
+    program: ProgramId,
+    effects: &crate::AbiEffects,
+) -> Result<(), i32> {
+    let logs = effects
+        .program_event_logs(program)
+        .map_err(|_| NON_CANONICAL)?;
+    let mut calls = CALL_EVENT_LOGS.lock().map_err(|_| FATAL_INVARIANT)?;
+    if logs.is_empty() {
+        calls.remove(&token);
+    } else {
+        calls.insert(token, logs);
+    }
+    Ok(())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn layerx_programs_event_log_encode(
+    call_token: u64,
+    index: u32,
+    out: *mut u8,
+    out_len: u32,
+) -> i32 {
+    let Ok(calls) = CALL_EVENT_LOGS.lock() else {
+        return FATAL_INVARIANT;
+    };
+    let Some(log) = calls.get(&call_token).and_then(|logs| {
+        usize::try_from(index)
+            .ok()
+            .and_then(|index| logs.get(index))
+    }) else {
+        return -1;
+    };
+    let Some(length) = log.data.len().checked_add(64) else {
+        return LENGTH_LIMIT;
+    };
+    let Ok(written) = i32::try_from(length) else {
+        return LENGTH_LIMIT;
+    };
+    if u64::from(out_len) < length as u64 {
+        return -2;
+    }
+    if out.is_null() {
+        return NON_CANONICAL;
+    }
+    let output = unsafe { core::slice::from_raw_parts_mut(out, length) };
+    output[..32].copy_from_slice(&log.topics[0]);
+    output[32..64].copy_from_slice(&log.topics[1]);
+    output[64..].copy_from_slice(&log.data);
+    written
 }
 
 fn emit_events(token: u64, events: &[ProgramEvent]) -> Result<(), i32> {
@@ -2423,11 +2488,9 @@ fn unavailable_occupancy_payers(
 }
 
 struct CallOccupancySettlement<'a> {
-    token: u64,
     batch: u64,
     authority: OccupancyAuthority,
     schedule: crate::FeeSchedule,
-    parameter_version: u32,
     initial_sizes: &'a BTreeMap<StorageNamespace, u64>,
     program_owners: &'a BTreeMap<ProgramId, PrincipalId>,
     storage: &'a Storage,
@@ -2492,13 +2555,11 @@ fn occupancy_responsibilities(
 
 fn settle_call_occupancy(
     request: CallOccupancySettlement<'_>,
-) -> Result<(OccupancyUsage, Vec<u8>), i32> {
+) -> Result<crate::OccupancySettlement, i32> {
     let CallOccupancySettlement {
-        token,
         batch,
         authority,
         schedule,
-        parameter_version,
         initial_sizes,
         program_owners,
         storage,
@@ -2555,9 +2616,7 @@ fn settle_call_occupancy(
     if committed != settlement {
         return Err(FATAL_INVARIANT);
     }
-    let evidence = settlement.canonical_evidence();
-    publish_occupancy(token, parameter_version, &settlement, ledger)?;
-    Ok((settlement.usage(), evidence))
+    Ok(settlement)
 }
 
 fn wrap_reserved_evidence(
@@ -2703,6 +2762,7 @@ pub extern "C" fn layerx_programs_call_begin(
     table_elements: u64,
 ) -> i32 {
     let run = || -> Result<i32, i32> {
+        clear_call_event_logs(token)?;
         let access_declaration_length =
             usize::try_from(access_declaration_length).map_err(|_| LENGTH_LIMIT)?;
         if token == 0
@@ -2825,7 +2885,7 @@ pub extern "C" fn layerx_programs_call_begin(
                 .map_err(|_| NON_CANONICAL)?;
         let sandbox = unsafe { layerx_programs_call_sandbox_context(token) } == OK;
         if sandbox {
-            if unsafe {
+            let status = unsafe {
                 layerx_programs_call_sandbox_admit(
                     token,
                     batch_number,
@@ -2836,9 +2896,9 @@ pub extern "C" fn layerx_programs_call_begin(
                             .map_err(|_| LENGTH_LIMIT)?,
                     ),
                 )
-            } != OK
-            {
-                return Err(NON_CANONICAL);
+            };
+            if status != OK {
+                return Err(status);
             }
         } else if maximum_fee > signed_fee {
             return Err(NON_CANONICAL);
@@ -3168,15 +3228,22 @@ pub extern "C" fn layerx_programs_call_begin(
                         (occupancy_authority, occupancy_ledger.as_mut())
                     {
                         match settle_call_occupancy(CallOccupancySettlement {
-                            token: occupancy_token,
                             batch: batch_number,
                             authority,
                             schedule: fee_schedule,
-                            parameter_version,
                             initial_sizes: &initial_sizes,
                             program_owners: &program_owners,
                             storage: &final_storage,
                             ledger,
+                        })
+                        .and_then(|settlement| {
+                            publish_occupancy(
+                                occupancy_token,
+                                parameter_version,
+                                &settlement,
+                                ledger,
+                            )?;
+                            Ok((settlement.usage(), settlement.canonical_evidence()))
                         }) {
                             Ok(usage) => usage,
                             Err(status) => {
@@ -3415,6 +3482,7 @@ pub extern "C" fn layerx_programs_call_begin(
                             settlement.transfer_root,
                         )?;
                     }
+                    record_call_event_logs(token, program, &effects)?;
                     return terminal(TerminalPublication {
                         token,
                         kind: SUCCESS,
@@ -3585,15 +3653,17 @@ pub extern "C" fn layerx_programs_call_begin(
                     (occupancy_authority, occupancy_ledger.as_mut())
                 {
                     match settle_call_occupancy(CallOccupancySettlement {
-                        token: occupancy_token,
                         batch: batch_number,
                         authority,
                         schedule: fee_schedule,
-                        parameter_version,
                         initial_sizes: &initial_sizes,
                         program_owners: &program_owners,
                         storage: &final_storage,
                         ledger,
+                    })
+                    .and_then(|settlement| {
+                        publish_occupancy(occupancy_token, parameter_version, &settlement, ledger)?;
+                        Ok((settlement.usage(), settlement.canonical_evidence()))
                     }) {
                         Ok(usage) => usage,
                         Err(status) => {
@@ -3721,6 +3791,7 @@ pub extern "C" fn layerx_programs_call_begin(
                         events: b"LXP/programs/events/v1\0\0\0\0\0",
                     });
                 }
+                record_call_event_logs(token, program, &record.effects)?;
                 terminal(TerminalPublication {
                     token,
                     kind: SUCCESS,
@@ -3784,9 +3855,15 @@ pub extern "C" fn layerx_programs_call_begin(
             }
         }
     };
-    match run() {
+    let status = match run() {
         Ok(status) | Err(status) => status,
+    };
+    if status != OK {
+        if let Err(error) = clear_call_event_logs(token) {
+            return error;
+        }
     }
+    status
 }
 
 #[no_mangle]
@@ -3846,6 +3923,158 @@ pub extern "C" fn layerx_programs_occupancy_finalize_rust(
 }
 
 #[cfg(test)]
+mod event_log_cases {
+    use super::*;
+    use sha3::{Digest, Keccak256};
+
+    fn event_effects() -> crate::AbiEffects {
+        let program =
+            ProgramId::new([0x31; 32]).unwrap_or_else(|error| panic!("event program: {error}"));
+        let principal =
+            PrincipalId::new([0x42; 32]).unwrap_or_else(|error| panic!("event principal: {error}"));
+        crate::AbiEffects {
+            events: vec![
+                ProgramEvent {
+                    program,
+                    principal,
+                    frame: crate::CallFrameId::root(),
+                    topic: b"first".to_vec(),
+                    data: vec![0x53; 33],
+                },
+                ProgramEvent {
+                    program,
+                    principal,
+                    frame: crate::CallFrameId::root(),
+                    topic: b"second".to_vec(),
+                    data: Vec::new(),
+                },
+            ],
+            ..crate::AbiEffects::default()
+        }
+    }
+
+    #[test]
+    fn event_log_encode_writes_topics_and_data() {
+        let token = 0x1374_0001;
+        let other_token = 0x1374_0002;
+        let program =
+            ProgramId::new([0x64; 32]).unwrap_or_else(|error| panic!("call program: {error}"));
+        let other_program =
+            ProgramId::new([0x75; 32]).unwrap_or_else(|error| panic!("other program: {error}"));
+        let effects = event_effects();
+        record_call_event_logs(token, program, &effects)
+            .unwrap_or_else(|status| panic!("record logs: {status}"));
+        record_call_event_logs(other_token, other_program, &effects)
+            .unwrap_or_else(|status| panic!("record other logs: {status}"));
+
+        for (call_token, call_program) in [(token, program), (other_token, other_program)] {
+            for (index, event) in effects.events.iter().enumerate() {
+                let length = 64 + 96 + event.data.len().div_ceil(32) * 32;
+                let mut output = vec![0xa5; length + 2];
+                let written = unsafe {
+                    layerx_programs_event_log_encode(
+                        call_token,
+                        u32::try_from(index).unwrap_or_else(|error| panic!("index: {error}")),
+                        output.as_mut_ptr().add(1),
+                        u32::try_from(length + 1)
+                            .unwrap_or_else(|error| panic!("capacity: {error}")),
+                    )
+                };
+                assert_eq!(usize::try_from(written), Ok(length));
+                assert_eq!(output[0], 0xa5);
+                assert_eq!(output[length + 1], 0xa5);
+                let encoded = &output[1..=length];
+                assert_eq!(
+                    &encoded[..32],
+                    Keccak256::digest(b"ProgramGuestEvent(bytes32,bytes32,bytes)").as_slice()
+                );
+                assert_eq!(&encoded[32..64], &call_program.bytes());
+                assert_eq!(&encoded[64..96], Keccak256::digest(&event.topic).as_slice());
+                assert_eq!(&encoded[96..127], &[0; 31]);
+                assert_eq!(encoded[127], 64);
+                assert_eq!(&encoded[128..152], &[0; 24]);
+                assert_eq!(
+                    &encoded[152..160],
+                    &u64::try_from(event.data.len())
+                        .unwrap_or_else(|error| panic!("data length: {error}"))
+                        .to_be_bytes()
+                );
+                assert_eq!(&encoded[160..160 + event.data.len()], event.data.as_slice());
+                assert!(encoded[160 + event.data.len()..]
+                    .iter()
+                    .all(|byte| *byte == 0));
+            }
+        }
+        clear_call_event_logs(token).unwrap_or_else(|status| panic!("clear logs: {status}"));
+        clear_call_event_logs(other_token)
+            .unwrap_or_else(|status| panic!("clear other logs: {status}"));
+    }
+
+    #[test]
+    fn event_log_encode_refuses_index_and_short_buffer() {
+        let token = 0x1374_0003;
+        let program =
+            ProgramId::new([0x86; 32]).unwrap_or_else(|error| panic!("call program: {error}"));
+        let effects = event_effects();
+        record_call_event_logs(token, program, &effects)
+            .unwrap_or_else(|status| panic!("record logs: {status}"));
+        let mut output = [0xa5; 226];
+        for index in [2, 3, u32::MAX] {
+            assert_eq!(
+                unsafe { layerx_programs_event_log_encode(token, index, output.as_mut_ptr(), 226) },
+                -1
+            );
+            assert_eq!(output, [0xa5; 226]);
+        }
+        for (index, required) in [(0, 224), (1, 160)] {
+            for capacity in [0, 63, required - 1] {
+                assert_eq!(
+                    unsafe {
+                        layerx_programs_event_log_encode(
+                            token,
+                            index,
+                            output.as_mut_ptr().add(1),
+                            capacity,
+                        )
+                    },
+                    -2
+                );
+                assert_eq!(output, [0xa5; 226]);
+            }
+            assert_eq!(
+                unsafe {
+                    layerx_programs_event_log_encode(
+                        token,
+                        index,
+                        output.as_mut_ptr().add(1),
+                        required,
+                    )
+                },
+                i32::try_from(required).unwrap_or_else(|error| panic!("length: {error}"))
+            );
+            assert_eq!(output[0], 0xa5);
+            assert!(output[usize::try_from(required)
+                .unwrap_or_else(|error| panic!("length: {error}"))
+                + 1..]
+                .iter()
+                .all(|byte| *byte == 0xa5));
+            output.fill(0xa5);
+        }
+        assert_eq!(
+            unsafe { layerx_programs_event_log_encode(token, 0, core::ptr::null_mut(), 224) },
+            NON_CANONICAL
+        );
+        record_call_event_logs(token, program, &crate::AbiEffects::default())
+            .unwrap_or_else(|status| panic!("replace logs: {status}"));
+        assert_eq!(
+            unsafe { layerx_programs_event_log_encode(token, 0, output.as_mut_ptr(), 226) },
+            -1
+        );
+        assert_eq!(output, [0xa5; 226]);
+    }
+}
+
+#[cfg(test)]
 mod sandbox_source_cases {
     use super::derive_sandbox_execution_principal;
     use crate::ProgramId;
@@ -3867,31 +4096,538 @@ mod sandbox_source_cases {
     }
 }
 
-pub const RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES: usize = 247;
+#[cfg(test)]
+mod arbiter_authority_cases {
+    use super::*;
+
+    const HEIGHT: u64 = 0x0102_0304_0506_0708;
+    const BATCH: u64 = 7;
+    const DIGEST_WORDS: [u64; 4] = [
+        0x1122_3344_5566_7788,
+        0x99aa_bbcc_ddee_ff01,
+        0x2345_6789_abcd_ef01,
+        0xfedc_ba98_7654_3210,
+    ];
+
+    fn authority_bytes(version: u16) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&version.to_be_bytes());
+        bytes.extend_from_slice(&125_u32.to_be_bytes());
+        bytes.extend_from_slice(&PROTOCOL_STATE_COMMITMENT.to_be_bytes());
+        bytes.extend_from_slice(&0x1234_u16.to_be_bytes());
+        bytes.push(7);
+        bytes.extend_from_slice(&(-400_i32).to_be_bytes());
+        bytes.extend_from_slice(&(if version == 2 { HEIGHT } else { BATCH }).to_be_bytes());
+        if version == 1 {
+            for value in [9_u64, 10, BATCH - 1, BATCH + 1] {
+                bytes.extend_from_slice(&value.to_be_bytes());
+            }
+        }
+        for word in DIGEST_WORDS {
+            bytes.extend_from_slice(&word.to_be_bytes());
+        }
+        for hash in [[0x32; 32], [0x43; 32], [0x54; 32]] {
+            bytes.extend_from_slice(&hash);
+        }
+        if version == 1 {
+            bytes.extend_from_slice(&[0x65; 32]);
+            bytes.extend_from_slice(&[0x76; 32]);
+        }
+        bytes
+    }
+
+    fn check(bytes: &[u8], digest_words: [u64; 4], expected_height: u64) -> i32 {
+        arbiter_authority_check(digest_words, expected_height, |digest, height| {
+            decode_native_receipt_authority(bytes, digest, height)
+        })
+    }
+
+    #[test]
+    fn arbiter_check_matches_v2_height_and_refuses_batch_number() {
+        let v2 = authority_bytes(2);
+        assert_eq!(v2.len(), RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES);
+        assert_ne!(HEIGHT, BATCH);
+        assert_eq!(check(&v2, DIGEST_WORDS, HEIGHT), OK);
+        assert_eq!(check(&v2, DIGEST_WORDS, HEIGHT + 1), -801);
+        assert_eq!(check(&v2, DIGEST_WORDS, BATCH), -801);
+
+        let v1 = authority_bytes(1);
+        assert_eq!(v1.len(), 247);
+        assert_eq!(check(&v1, DIGEST_WORDS, BATCH), -101);
+        assert_eq!(check(&v1, DIGEST_WORDS, HEIGHT), -101);
+        for (bytes, height, digest_error, length_error) in
+            [(&v2, HEIGHT, -801, NON_CANONICAL), (&v1, BATCH, -101, -101)]
+        {
+            for index in 0..4 {
+                let mut mismatched_digest = DIGEST_WORDS;
+                mismatched_digest[index] ^= 1;
+                assert_eq!(check(bytes, mismatched_digest, height), digest_error);
+            }
+            assert_eq!(
+                check(&bytes[..bytes.len() - 1], DIGEST_WORDS, height),
+                length_error
+            );
+        }
+
+        let mut unsupported = v2.clone();
+        unsupported[6..8].copy_from_slice(&u16::MAX.to_be_bytes());
+        assert_eq!(check(&unsupported, DIGEST_WORDS, HEIGHT), -101);
+        for (offset, bound) in [(39, BATCH + 1), (47, BATCH - 1)] {
+            let mut unauthorized = v1.clone();
+            unauthorized[offset..offset + 8].copy_from_slice(&bound.to_be_bytes());
+            assert_eq!(check(&unauthorized, DIGEST_WORDS, BATCH), -101);
+        }
+    }
+}
+
+#[cfg(test)]
+mod occupancy_cases {
+    use super::*;
+    use layerx_program_sdk::arbiter::{
+        MarketBillingCommitment, MarketSandboxProfile, ProfileLimits,
+        MARKET_SANDBOX_BILLING_CAPACITY, MARKET_SANDBOX_PROFILE_CAPACITY,
+    };
+
+    struct MarketBillingOccupancy {
+        storage: Storage,
+        initial_sizes: BTreeMap<StorageNamespace, u64>,
+        owners: BTreeMap<ProgramId, PrincipalId>,
+        ledger: OccupancyLedger,
+        authority: OccupancyAuthority,
+        schedule: crate::FeeSchedule,
+    }
+
+    impl MarketBillingOccupancy {
+        fn new() -> Self {
+            let program = ProgramId::new([0x71; 32]).unwrap_or_else(|error| panic!("{error}"));
+            let provider = PrincipalId::new([2; 32]).unwrap_or_else(|error| panic!("{error}"));
+            let namespace = StorageNamespace::shared(program);
+            let profile = MarketSandboxProfile {
+                network_id: 7,
+                market_program: program.bytes(),
+                sandbox_program: [0x77; 32],
+                offer_id: [3; 32],
+                lease_id: [5; 32],
+                claim_id: [6; 32],
+                provider: provider.bytes(),
+                tenant: [4; 32],
+                code_hash: [7; 32],
+                input_digest: [8; 32],
+                attested_input_commitment: [9; 32],
+                namespace: {
+                    use sha2::Digest;
+                    let mut hash = sha2::Sha256::new();
+                    hash.update(b"LayerX/programs/sandbox/namespace/v1\0");
+                    hash.update([0x77; 32]);
+                    hash.update([5; 32]);
+                    hash.finalize().into()
+                },
+                baseline_state_root: [11; 32],
+                initial_execution_state_root: [12; 32],
+                entrypoint_bytes: {
+                    let mut bytes = [0; 64];
+                    bytes[..7].copy_from_slice(b"compute");
+                    bytes
+                },
+                entrypoint_length: 7,
+                runtime_version: 1,
+                abi_version: 2,
+                fee_schedule_version: 1,
+                metering_schedule_version: 1,
+                limits: ProfileLimits {
+                    cpu_fuel: 100_000,
+                    memory_bytes: 65_536,
+                    storage_read_bytes: 1024,
+                    storage_write_bytes: 1024,
+                    output_values: 1,
+                    output_bytes: 64,
+                    table_elements: 0,
+                    namespace_bytes: 1024,
+                },
+                fee_budget: 100,
+                interval_start: 10,
+                interval_end: 11,
+                response_deadline: 21,
+                maximum_boundaries: 128,
+                maximum_bytes: 1_048_576,
+            };
+            let mut profile_bytes = [0; MARKET_SANDBOX_PROFILE_CAPACITY];
+            let profile_length = profile
+                .encode(&mut profile_bytes)
+                .unwrap_or_else(|error| panic!("profile: {error:?}"));
+            let billing = MarketBillingCommitment {
+                profile_digest: {
+                    use sha2::Digest;
+                    sha2::Sha256::digest(&profile_bytes[..profile_length]).into()
+                },
+                provider_trace_root: [13; 32],
+                final_execution_state_root: [14; 32],
+                output_digest: [15; 32],
+                usage: [5, 1, 0, 0, 0, 0],
+                payable: 5,
+                challenger_stake: 1,
+                challenge_window_batches: 10,
+                boundary_count: 4,
+            };
+            let mut billing_bytes = [0; MARKET_SANDBOX_BILLING_CAPACITY];
+            let billing_length = billing
+                .encode(&mut billing_bytes)
+                .unwrap_or_else(|error| panic!("billing: {error:?}"));
+            assert_eq!(
+                MarketBillingCommitment::decode(&billing_bytes[..billing_length]),
+                Ok(billing)
+            );
+            let key = |prefix: &[u8], id: [u8; 32]| {
+                let mut bytes = prefix.to_vec();
+                bytes.extend_from_slice(&id);
+                bytes
+            };
+            let mut storage = Storage::new();
+            let mut transaction = storage.transaction(namespace);
+            transaction
+                .write(
+                    &key(b"lx.market.arbitration-profile/", profile.lease_id),
+                    &profile_bytes[..profile_length],
+                )
+                .unwrap_or_else(|error| panic!("profile write: {error}"));
+            transaction.commit();
+            let initial_sizes = storage
+                .namespace_sizes()
+                .unwrap_or_else(|error| panic!("initial sizes: {error}"))
+                .into_iter()
+                .collect();
+            let owners = BTreeMap::from([(program, provider)]);
+            let mut ledger = OccupancyLedger::activated_after(10);
+            ledger
+                .import_activation_positions(&storage, &owners)
+                .unwrap_or_else(|error| panic!("activation: {error}"));
+
+            let mut claim = vec![1, 1];
+            for value in [
+                profile.claim_id,
+                profile.lease_id,
+                profile.provider,
+                profile.attested_input_commitment,
+                billing.output_digest,
+                billing.final_execution_state_root,
+            ] {
+                claim.extend_from_slice(&value);
+            }
+            for value in billing.usage {
+                claim.extend_from_slice(&value.to_be_bytes());
+            }
+            claim.extend_from_slice(&billing.payable.to_be_bytes());
+            claim.extend_from_slice(&billing.challenger_stake.to_be_bytes());
+            claim.extend_from_slice(&11_u64.to_be_bytes());
+            claim.extend_from_slice(&profile.response_deadline.to_be_bytes());
+            assert_eq!(claim.len(), 290);
+            let mut transaction = storage.transaction(namespace);
+            for (key, value) in [
+                (key(b"lx.market.claim/", profile.lease_id), claim.as_slice()),
+                (
+                    key(b"lx.market.claim-id/", profile.claim_id),
+                    profile.lease_id.as_slice(),
+                ),
+                (
+                    key(b"lx.market.arbitration-billing/", profile.lease_id),
+                    &billing_bytes[..billing_length],
+                ),
+            ] {
+                transaction
+                    .write(&key, value)
+                    .unwrap_or_else(|error| panic!("billing write: {error}"));
+            }
+            transaction.commit();
+            let schedule = crate::FeeSchedule::new_complete(crate::FeeScheduleParameters {
+                version: 1,
+                fee_units_per_cpu_fuel: 1,
+                fee_units_per_memory_byte: 1,
+                fee_units_per_storage_read_byte: 2,
+                fee_units_per_storage_write_byte: 4,
+                fee_units_per_output_value: 1,
+                fee_units_per_output_byte: 1,
+                fee_units_per_occupancy_byte_batch: 1,
+            });
+            let executor = Executor::new_versioned(
+                crate::ResourceBudget::declared(),
+                schedule,
+                crate::RUNTIME_VERSION,
+                5,
+            );
+            let declared = DeclaredBudget::new(100_000, 65_536, 4096, 4096, 1, 1024, 0)
+                .unwrap_or_else(|error| panic!("declaration: {error}"));
+            let binding = ActivityBudgetBinding::new([16; 32])
+                .unwrap_or_else(|error| panic!("binding: {error}"));
+            let admitted = executor
+                .admit_activity_budget(
+                    declared,
+                    crate::budget::PayerCoverage::new(provider, binding, 10_000_000_000),
+                )
+                .unwrap_or_else(|error| panic!("admission: {error}"));
+            let authority =
+                OccupancyAuthority::from_admitted(&admitted, 10_000_000_000, schedule, program)
+                    .unwrap_or_else(|error| panic!("authority: {error}"));
+            Self {
+                storage,
+                initial_sizes,
+                owners,
+                ledger,
+                authority,
+                schedule,
+            }
+        }
+
+        fn settle(&mut self) -> Result<crate::OccupancySettlement, i32> {
+            settle_call_occupancy(CallOccupancySettlement {
+                batch: 11,
+                authority: self.authority,
+                schedule: self.schedule,
+                initial_sizes: &self.initial_sizes,
+                program_owners: &self.owners,
+                storage: &self.storage,
+                ledger: &mut self.ledger,
+            })
+        }
+    }
+
+    #[test]
+    fn settle_call_occupancy_accepts_the_market_billing_commit() {
+        let mut fixture = MarketBillingOccupancy::new();
+        let storage_before = fixture.storage.clone();
+        let settlement = fixture
+            .settle()
+            .unwrap_or_else(|status| panic!("market billing occupancy: {status}"));
+        assert_eq!(settlement.batch(), 11);
+        assert_eq!(settlement.charges().len(), 1);
+        let charge = settlement.charges()[0];
+        assert!(charge.paid());
+        assert_eq!(
+            charge.recorded_bytes(),
+            fixture.initial_sizes[&charge.namespace()]
+        );
+        assert_eq!(
+            charge.final_bytes(),
+            fixture
+                .storage
+                .namespace_persistent_bytes(charge.namespace())
+                .unwrap_or_else(|error| panic!("final bytes: {error}"))
+        );
+        assert!(charge.final_bytes() > charge.recorded_bytes());
+        assert_eq!(
+            settlement.usage().byte_batches,
+            u128::from(charge.recorded_bytes())
+        );
+        assert_eq!(
+            settlement.usage().fee_units,
+            settlement.usage().paid_fee_units
+        );
+        assert_eq!(settlement.usage().arrears_fee_units, 0);
+        assert_eq!(
+            crate::OccupancySettlement::canonical_decode(&settlement.canonical_evidence()),
+            Ok(settlement)
+        );
+        assert_eq!(
+            OccupancyLedger::canonical_decode(&fixture.ledger.canonical_state()),
+            Ok(fixture.ledger)
+        );
+        assert_eq!(fixture.storage, storage_before);
+    }
+
+    #[test]
+    fn settle_call_occupancy_refuses_a_non_canonical_record() {
+        let mut fixture = MarketBillingOccupancy::new();
+        let canonical = fixture.ledger.canonical_state();
+        let mut mutated = canonical.clone();
+        let finalized_batch_last_byte = b"LXP/storage-occupancy-ledger/v2\0".len() + 7;
+        assert_eq!(mutated[finalized_batch_last_byte], 10);
+        mutated[finalized_batch_last_byte] = 9;
+        assert_eq!(
+            canonical
+                .iter()
+                .zip(&mutated)
+                .filter(|(a, b)| a != b)
+                .count(),
+            1
+        );
+        fixture.ledger = OccupancyLedger::canonical_decode(&mutated)
+            .unwrap_or_else(|error| panic!("ledger record: {error}"));
+        assert_eq!(
+            fixture
+                .ledger
+                .prepare_batch(11, &fixture.storage, [], fixture.schedule)
+                .err(),
+            Some(crate::occupancy::OccupancyError::BatchRegression {
+                previous: 9,
+                attempted: 11
+            })
+        );
+        let ledger_before = fixture.ledger.clone();
+        let storage_before = fixture.storage.clone();
+        assert_eq!(fixture.settle(), Err(NON_CANONICAL));
+        assert_eq!(fixture.ledger, ledger_before);
+        assert_eq!(fixture.storage, storage_before);
+    }
+}
+
+#[cfg(test)]
+mod native_authority_cases {
+    use super::*;
+
+    const HEIGHT: u64 = 0x0102_0304_0506_0708;
+    const DIGEST: [u8; 32] = [0x21; 32];
+
+    fn authority_bytes(version: u16) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&version.to_be_bytes());
+        bytes.extend_from_slice(&125_u32.to_be_bytes());
+        bytes.extend_from_slice(&PROTOCOL_STATE_COMMITMENT.to_be_bytes());
+        bytes.extend_from_slice(&0x1234_u16.to_be_bytes());
+        bytes.push(7);
+        bytes.extend_from_slice(&(-400_i32).to_be_bytes());
+        bytes.extend_from_slice(&HEIGHT.to_be_bytes());
+        if version == 1 {
+            bytes.extend_from_slice(&9_u64.to_be_bytes());
+            bytes.extend_from_slice(&10_u64.to_be_bytes());
+            bytes.extend_from_slice(&(HEIGHT - 1).to_be_bytes());
+            bytes.extend_from_slice(&(HEIGHT + 1).to_be_bytes());
+        }
+        for hash in [DIGEST, [0x32; 32], [0x43; 32], [0x54; 32]] {
+            bytes.extend_from_slice(&hash);
+        }
+        if version == 1 {
+            bytes.extend_from_slice(&[0x65; 32]);
+            bytes.extend_from_slice(&[0x76; 32]);
+        }
+        bytes
+    }
+
+    #[test]
+    fn v2_authority_decodes_151_bytes_by_height() {
+        let bytes = authority_bytes(2);
+        assert_eq!(RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES, 151);
+        assert_eq!(bytes.len(), 151);
+        let authority = decode_native_receipt_authority(&bytes, DIGEST, HEIGHT)
+            .unwrap_or_else(|status| panic!("V2 authority status: {status}"));
+        let NativeReceiptAuthority::V2(value) = authority;
+        assert_eq!(value.version(), 2);
+        assert_eq!(value.network_id(), 125);
+        assert_eq!(value.protocol_version(), PROTOCOL_STATE_COMMITMENT);
+        assert_eq!(value.module_id(), 0x1234);
+        assert_eq!(value.operation(), 7);
+        assert_eq!(value.result_code(), -400);
+        assert_eq!(value.block_height(), HEIGHT);
+        assert_eq!(value.receipt_digest(), DIGEST);
+        assert_eq!(value.activity_id(), [0x32; 32]);
+        assert_eq!(value.previous_state_root(), [0x43; 32]);
+        assert_eq!(value.resulting_state_root(), [0x54; 32]);
+        assert_eq!(value.canonical_bytes().as_slice(), bytes.as_slice());
+        assert_eq!(
+            decode_native_receipt_authority(&bytes, DIGEST, HEIGHT + 1),
+            Err(-801)
+        );
+        assert_eq!(
+            decode_native_receipt_authority(&bytes, [0x22; 32], HEIGHT),
+            Err(-801)
+        );
+
+        let bytes = authority_bytes(1);
+        assert_eq!(bytes.len(), 247);
+        assert_eq!(
+            decode_native_receipt_authority(&bytes, DIGEST, HEIGHT),
+            Err(-101)
+        );
+    }
+
+    #[test]
+    fn authority_decoder_refuses_version_1_after_retirement() {
+        let v1 = authority_bytes(1);
+        assert_eq!(v1.len(), 247);
+        assert_eq!(
+            decode_native_receipt_authority(&v1, DIGEST, HEIGHT),
+            Err(-101)
+        );
+        assert_eq!(native_receipt_authority_length(1), Err(-101));
+
+        let v2 = authority_bytes(2);
+        assert_eq!(v2.len(), 151);
+        let NativeReceiptAuthority::V2(value) =
+            decode_native_receipt_authority(&v2, DIGEST, HEIGHT)
+                .unwrap_or_else(|status| panic!("V2 authority status: {status}"));
+        assert_eq!(value.version(), 2);
+        assert_eq!(value.network_id(), 125);
+        assert_eq!(value.protocol_version(), PROTOCOL_STATE_COMMITMENT);
+        assert_eq!(value.module_id(), 0x1234);
+        assert_eq!(value.operation(), 7);
+        assert_eq!(value.result_code(), -400);
+        assert_eq!(value.block_height(), HEIGHT);
+        assert_eq!(value.receipt_digest(), DIGEST);
+        assert_eq!(value.activity_id(), [0x32; 32]);
+        assert_eq!(value.previous_state_root(), [0x43; 32]);
+        assert_eq!(value.resulting_state_root(), [0x54; 32]);
+        assert_eq!(value.canonical_bytes().as_slice(), v2.as_slice());
+    }
+
+    #[test]
+    fn authority_decoder_refuses_unknown_version_and_length() {
+        let mut unknown = authority_bytes(2);
+        unknown[..2].copy_from_slice(&3_u16.to_be_bytes());
+        assert_eq!(
+            decode_native_receipt_authority(&unknown, DIGEST, HEIGHT),
+            Err(-101)
+        );
+        for version in [1, 2] {
+            let bytes = authority_bytes(version);
+            let length_error = if version == 1 { -101 } else { NON_CANONICAL };
+            assert_eq!(
+                decode_native_receipt_authority(&bytes[..bytes.len() - 1], DIGEST, HEIGHT),
+                Err(length_error)
+            );
+            let mut trailing = bytes.clone();
+            trailing.push(0);
+            assert_eq!(
+                decode_native_receipt_authority(&trailing, DIGEST, HEIGHT),
+                Err(length_error)
+            );
+            let mut wrong_length = bytes;
+            wrong_length[..2].copy_from_slice(&(3 - version).to_be_bytes());
+            assert_eq!(
+                decode_native_receipt_authority(&wrong_length, DIGEST, HEIGHT),
+                Err(if version == 1 { NON_CANONICAL } else { -101 })
+            );
+        }
+        for bytes in [&[][..], &[0][..]] {
+            assert_eq!(
+                decode_native_receipt_authority(bytes, DIGEST, HEIGHT),
+                Err(NON_CANONICAL)
+            );
+        }
+    }
+}
+
+pub const RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES: usize = 151;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct RawNativeReceiptAuthorityV1 {
+pub struct RawNativeReceiptAuthorityV2 {
     version: u16,
     network_id: u32,
     protocol_version: u16,
     module_id: u16,
     operation: u8,
     result_code: i32,
-    batch_number: u64,
-    epoch: u64,
-    global_sequence: u64,
-    authorization_first_batch_number: u64,
-    authorization_last_batch_number: u64,
+    block_height: u64,
     receipt_digest: [u8; 32],
     activity_id: [u8; 32],
     previous_state_root: [u8; 32],
     resulting_state_root: [u8; 32],
-    sequencer_id: [u8; 32],
-    sequencer_public_key: [u8; 32],
-    canonical_bytes: [u8; RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES],
+    canonical_bytes: [u8; RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES],
 }
 
-impl RawNativeReceiptAuthorityV1 {
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NativeReceiptAuthority {
+    V2(RawNativeReceiptAuthorityV2),
+}
+
+impl RawNativeReceiptAuthorityV2 {
     pub const fn version(&self) -> u16 {
         self.version
     }
@@ -3910,20 +4646,8 @@ impl RawNativeReceiptAuthorityV1 {
     pub const fn result_code(&self) -> i32 {
         self.result_code
     }
-    pub const fn batch_number(&self) -> u64 {
-        self.batch_number
-    }
-    pub const fn epoch(&self) -> u64 {
-        self.epoch
-    }
-    pub const fn global_sequence(&self) -> u64 {
-        self.global_sequence
-    }
-    pub const fn authorization_first_batch_number(&self) -> u64 {
-        self.authorization_first_batch_number
-    }
-    pub const fn authorization_last_batch_number(&self) -> u64 {
-        self.authorization_last_batch_number
+    pub const fn block_height(&self) -> u64 {
+        self.block_height
     }
     pub const fn receipt_digest(&self) -> [u8; 32] {
         self.receipt_digest
@@ -3937,43 +4661,44 @@ impl RawNativeReceiptAuthorityV1 {
     pub const fn resulting_state_root(&self) -> [u8; 32] {
         self.resulting_state_root
     }
-    pub const fn sequencer_id(&self) -> [u8; 32] {
-        self.sequencer_id
-    }
-    pub const fn sequencer_public_key(&self) -> [u8; 32] {
-        self.sequencer_public_key
-    }
-    pub const fn canonical_bytes(&self) -> &[u8; RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES] {
+    pub const fn canonical_bytes(&self) -> &[u8; RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES] {
         &self.canonical_bytes
     }
 }
 
+fn native_receipt_authority_length(version: u16) -> Result<usize, i32> {
+    match version {
+        2 => Ok(RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES),
+        _ => Err(-101),
+    }
+}
+
 fn decode_native_receipt_authority(
-    bytes: [u8; RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES],
+    bytes: &[u8],
     expected_digest: [u8; 32],
-    expected_batch: u64,
-) -> Result<RawNativeReceiptAuthorityV1, i32> {
-    let parse = || -> Result<RawNativeReceiptAuthorityV1, crate::replay::ReplayWitnessError> {
-        let mut cursor = crate::replay::ReplayCursor::new(&bytes);
-        let value = RawNativeReceiptAuthorityV1 {
-            version: cursor.u16()?,
+    expected_height: u64,
+) -> Result<NativeReceiptAuthority, i32> {
+    let mut cursor = crate::replay::ReplayCursor::new(bytes);
+    let version = cursor.u16().map_err(|_| NON_CANONICAL)?;
+    if bytes.len() != native_receipt_authority_length(version)? {
+        return Err(NON_CANONICAL);
+    }
+    let mut parse = || -> Result<RawNativeReceiptAuthorityV2, crate::replay::ReplayWitnessError> {
+        let value = RawNativeReceiptAuthorityV2 {
+            version,
             network_id: cursor.u32()?,
             protocol_version: cursor.u16()?,
             module_id: cursor.u16()?,
             operation: cursor.u8()?,
             result_code: cursor.i32()?,
-            batch_number: cursor.u64()?,
-            epoch: cursor.u64()?,
-            global_sequence: cursor.u64()?,
-            authorization_first_batch_number: cursor.u64()?,
-            authorization_last_batch_number: cursor.u64()?,
+            block_height: cursor.u64()?,
             receipt_digest: cursor.array()?,
             activity_id: cursor.array()?,
             previous_state_root: cursor.array()?,
             resulting_state_root: cursor.array()?,
-            sequencer_id: cursor.array()?,
-            sequencer_public_key: cursor.array()?,
-            canonical_bytes: bytes,
+            canonical_bytes: bytes
+                .try_into()
+                .map_err(|_| crate::replay::ReplayWitnessError::Encoding)?,
         };
         if !cursor.done() {
             return Err(crate::replay::ReplayWitnessError::Encoding);
@@ -3981,32 +4706,19 @@ fn decode_native_receipt_authority(
         Ok(value)
     };
     let value = parse().map_err(|_| NON_CANONICAL)?;
-    if value.version != 1
-        || !matches!(
-            value.protocol_version,
-            PROTOCOL_LEGACY | PROTOCOL_OCCUPANCY | PROTOCOL_STATE_COMMITMENT
-        )
-    {
+    if !matches!(
+        value.protocol_version,
+        PROTOCOL_LEGACY | PROTOCOL_OCCUPANCY | PROTOCOL_STATE_COMMITMENT
+    ) {
         return Err(-101);
     }
-    if value.network_id == 0
-        || value.batch_number == 0
-        || value.global_sequence == 0
-        || value.receipt_digest == [0; 32]
-        || value.sequencer_id == [0; 32]
-        || value.sequencer_public_key == [0; 32]
-    {
+    if value.network_id == 0 || value.block_height == 0 || value.receipt_digest == [0; 32] {
         return Err(NON_CANONICAL);
     }
-    if value.batch_number != expected_batch || value.receipt_digest != expected_digest {
+    if value.block_height != expected_height || value.receipt_digest != expected_digest {
         return Err(-801);
     }
-    if value.authorization_first_batch_number > value.batch_number
-        || value.authorization_last_batch_number < value.batch_number
-    {
-        return Err(-204);
-    }
-    Ok(value)
+    Ok(NativeReceiptAuthority::V2(value))
 }
 
 extern "C" {
@@ -4016,7 +4728,7 @@ extern "C" {
         d1: u64,
         d2: u64,
         d3: u64,
-        expected_batch: u64,
+        expected_height: u64,
     ) -> i32;
     fn layerx_programs_call_arbiter_authority_byte(token: u64, offset: u32) -> i32;
 }
@@ -4028,26 +4740,52 @@ extern "C" {
 pub unsafe fn read_native_receipt_authority(
     token: u64,
     digest: [u8; 32],
-    expected_batch: u64,
-) -> Result<RawNativeReceiptAuthorityV1, i32> {
-    if token == 0 || digest == [0; 32] || expected_batch == 0 {
+    expected_height: u64,
+) -> Result<NativeReceiptAuthority, i32> {
+    if token == 0 || digest == [0; 32] || expected_height == 0 {
         return Err(NON_CANONICAL);
     }
     let [d0, d1, d2, d3] = words(digest);
     let status = unsafe {
-        layerx_programs_call_arbiter_authority_begin(token, d0, d1, d2, d3, expected_batch)
+        layerx_programs_call_arbiter_authority_begin(token, d0, d1, d2, d3, expected_height)
     };
     match status {
         OK => {}
         status if status < 0 => return Err(status),
         _ => return Err(NON_CANONICAL),
     }
-    let mut bytes = [0; RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES];
-    for (offset, byte) in bytes.iter_mut().enumerate() {
+    let mut bytes = [0; RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES];
+    for (offset, byte) in bytes[..2].iter_mut().enumerate() {
         let value = unsafe { layerx_programs_call_arbiter_authority_byte(token, offset as u32) };
         *byte = u8::try_from(value).map_err(|_| if value < 0 { value } else { NON_CANONICAL })?;
     }
-    decode_native_receipt_authority(bytes, digest, expected_batch)
+    let length = native_receipt_authority_length(u16::from_be_bytes([bytes[0], bytes[1]]))?;
+    for (offset, byte) in bytes[..length].iter_mut().enumerate().skip(2) {
+        let value = unsafe { layerx_programs_call_arbiter_authority_byte(token, offset as u32) };
+        *byte = u8::try_from(value).map_err(|_| if value < 0 { value } else { NON_CANONICAL })?;
+    }
+    let end = unsafe { layerx_programs_call_arbiter_authority_byte(token, length as u32) };
+    match end {
+        -1 => {}
+        status if status < 0 => return Err(status),
+        _ => return Err(NON_CANONICAL),
+    }
+    decode_native_receipt_authority(&bytes[..length], digest, expected_height)
+}
+
+fn arbiter_authority_check(
+    digest_words: [u64; 4],
+    expected_height: u64,
+    read_authority: impl FnOnce([u8; 32], u64) -> Result<NativeReceiptAuthority, i32>,
+) -> i32 {
+    let mut digest = [0; 32];
+    for (target, word) in digest.chunks_exact_mut(8).zip(digest_words) {
+        target.copy_from_slice(&word.to_be_bytes());
+    }
+    match read_authority(digest, expected_height) {
+        Ok(_) => OK,
+        Err(status) => status,
+    }
 }
 
 /// # Safety
@@ -4059,14 +4797,9 @@ pub unsafe extern "C" fn layerx_programs_call_arbiter_authority_check(
     d1: u64,
     d2: u64,
     d3: u64,
-    expected_batch: u64,
+    expected_height: u64,
 ) -> i32 {
-    let mut digest = [0; 32];
-    for (target, word) in digest.chunks_exact_mut(8).zip([d0, d1, d2, d3]) {
-        target.copy_from_slice(&word.to_be_bytes());
-    }
-    match unsafe { read_native_receipt_authority(token, digest, expected_batch) } {
-        Ok(_) => OK,
-        Err(status) => status,
-    }
+    arbiter_authority_check([d0, d1, d2, d3], expected_height, |digest, height| unsafe {
+        read_native_receipt_authority(token, digest, height)
+    })
 }

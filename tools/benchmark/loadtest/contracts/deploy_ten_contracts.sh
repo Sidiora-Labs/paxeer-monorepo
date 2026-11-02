@@ -14,16 +14,6 @@ cd $paxhome/tools/benchmark/loadtest/contracts/mars && cargo build && docker run
   --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
   cosmwasm/rust-optimizer:0.12.6
 
-cd $paxhome/tools/benchmark/loadtest/contracts/saturn && cargo build && docker run --rm -v "$(pwd)":/code \
-  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
-  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/rust-optimizer:0.12.6
-
-cd $paxhome/tools/benchmark/loadtest/contracts/venus && cargo build && docker run --rm -v "$(pwd)":/code \
-  --mount type=volume,source="$(basename "$(pwd)")_cache",target=/code/target \
-  --mount type=volume,source=registry_cache,target=/usr/local/cargo/registry \
-  cosmwasm/rust-optimizer:0.12.6
-
 # Deploy all contracts
 echo "Deploying contracts..."
 
@@ -31,8 +21,8 @@ cd $paxhome/tools/benchmark/loadtest/contracts
 # store
 echo "Storing..."
 marsstoreres=$(printf "12345678\n" | $paxdbin tx wasm store mars/artifacts/mars.wasm -y --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block --output=json)
-saturnstoreres=$(printf "12345678\n" | $paxdbin tx wasm store saturn/artifacts/saturn.wasm -y --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block --output=json)
-venusstoreres=$(printf "12345678\n" | $paxdbin tx wasm store venus/artifacts/venus.wasm -y --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block --output=json)
+saturnstoreres=$(printf "12345678\n" | $paxdbin tx wasm store "$paxhome/contracts/wasm/cw20_base.wasm" -y --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block --output=json)
+venusstoreres=$(printf "12345678\n" | $paxdbin tx wasm store "$paxhome/contracts/wasm/cw20_base.wasm" -y --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block --output=json)
 marsid=$(python3 parser.py code_id $marsstoreres)
 saturnid=$(python3 parser.py code_id $saturnstoreres)
 venusid=$(python3 parser.py code_id $venusstoreres)
@@ -40,22 +30,22 @@ venusid=$(python3 parser.py code_id $venusstoreres)
 # instantiate
 echo "Instantiating..."
 marsinsres=$(printf "12345678\n" | $paxdbin tx wasm instantiate $marsid '{}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
-saturninsres=$(printf "12345678\n" | $paxdbin tx wasm instantiate $saturnid '{}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
-venusinsres=$(printf "12345678\n" | $paxdbin tx wasm instantiate $venusid '{}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
+saturninsres=$(printf "12345678\n" | $paxdbin tx wasm instantiate $saturnid '{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
+venusinsres=$(printf "12345678\n" | $paxdbin tx wasm instantiate $venusid '{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
 marsaddr=$(python3 parser.py contract_address $marsinsres)
 saturnaddr=$(python3 parser.py contract_address $saturninsres)
 venusaddr=$(python3 parser.py contract_address $venusinsres)
 
 marsinsres2=$(printf "12345678\n" | $paxdbin tx wasm instantiate $marsid '{}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
-saturninsres2=$(printf "12345678\n" | $paxdbin tx wasm instantiate $saturnid '{}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
-venusinsres2=$(printf "12345678\n" | $paxdbin tx wasm instantiate $venusid '{}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
+saturninsres2=$(printf "12345678\n" | $paxdbin tx wasm instantiate $saturnid '{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
+venusinsres2=$(printf "12345678\n" | $paxdbin tx wasm instantiate $venusid '{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
 marsaddr2=$(python3 parser.py contract_address $marsinsres2)
 saturnaddr2=$(python3 parser.py contract_address $saturninsres2)
 venusaddr2=$(python3 parser.py contract_address $venusinsres2)
 
 marsinsres3=$(printf "12345678\n" | $paxdbin tx wasm instantiate $marsid '{}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
-saturninsres3=$(printf "12345678\n" | $paxdbin tx wasm instantiate $saturnid '{}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
-venusinsres3=$(printf "12345678\n" | $paxdbin tx wasm instantiate $venusid '{}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
+saturninsres3=$(printf "12345678\n" | $paxdbin tx wasm instantiate $saturnid '{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
+venusinsres3=$(printf "12345678\n" | $paxdbin tx wasm instantiate $venusid '{"name":"TestToken","symbol":"TTK","decimals":6,"initial_balances":[]}' -y --no-admin --from=$keyname --chain-id=$chainid --gas=5000000 --fees=1000000uhpx --broadcast-mode=block  --label=dex --output=json)
 marsaddr3=$(python3 parser.py contract_address $marsinsres3)
 saturnaddr3=$(python3 parser.py contract_address $saturninsres3)
 venusaddr3=$(python3 parser.py contract_address $venusinsres3)

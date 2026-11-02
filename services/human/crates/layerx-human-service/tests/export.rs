@@ -5,13 +5,12 @@ use std::fmt::Write as _;
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::subscription::{Cursor, EventDelivery, EventIdentity, ReceiptReference};
 use layerx_agent_api::track::ReceiptRef;
-use layerx_agent_api::verify::Level;
-use layerx_agent_api::Sequence;
-use layerx_agentd::export::build as build_agent_export;
+use layerx_client::sequencer::ReceiptKeyEntry;
+use layerx_human_service::activity::verify_receipt_export as verify_offline_export;
+use layerx_human_service::activity::ReceiptExport as OfflineExport;
 use layerx_human_service::activity::{
     verification_status, ActivityKind, AgentActivity, EvidenceBundle, EvidenceExport, ExportError,
-    Feed, FilterDraft, PendingStatus, ReceiptAuthority, UnverifiedReason, VerifiedStatus,
-    VerifyError,
+    Feed, FilterDraft, PendingStatus, UnverifiedReason, VerifiedStatus, VerifyError,
 };
 use layerx_human_service::audit::{
     verify_export as verify_audit_export, AuditChain, AuditEvent, SecurityChangeKind,
@@ -23,44 +22,38 @@ use layerx_human_service::trace::TraceId;
 use layerx_intents::vectors::{
     batch_header, batch_header_signing_digest, receipt as receipt_vector, receipt_signing_digest,
 };
-use layerx_proof::checkpoint::SettlementDomain;
-use layerx_proof::export::{InclusionFact, InclusionKind, OfflineExport, ReceiptFact};
+use layerx_proof::export::{InclusionFact, InclusionKind};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::{build_proof, encode_proof};
-use layerx_proof::receipt::{verify_outcome, AuthorizedBatch};
+
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 fn result<T, E: std::fmt::Debug>(value: Result<T, E>, label: &str) -> T {
     value.unwrap_or_else(|error| panic!("{label}: {error:?}"))
 }
 
-fn settlement_domain() -> SettlementDomain {
-    SettlementDomain::new(31_337, [0x55; 20])
-}
-
 fn protocol_artifact() -> OfflineExport {
     let receipt_key = SigningKey::from_bytes(&[3; 32]);
-    let unsigned = result(receipt_vector(None), "unsigned receipt");
+    let encode_receipt = |signature| {
+        let mut bytes = result(receipt_vector(signature), "receipt vector");
+        let batch_at = unique_position(&bytes, &[4; 32]);
+        let mut batch = [0; 32];
+        batch[24..].copy_from_slice(&20_u64.to_be_bytes());
+        bytes[batch_at..batch_at + 32].copy_from_slice(&batch);
+        bytes
+    };
+    let unsigned = encode_receipt(None);
     let signing_digest = result(receipt_signing_digest(&unsigned), "receipt digest");
-    let canonical_receipt = result(
-        receipt_vector(Some(receipt_key.sign(&signing_digest).to_bytes())),
-        "signed receipt",
+    let canonical_receipt = encode_receipt(Some(receipt_key.sign(&signing_digest).to_bytes()));
+    let fact = result(
+        EvidenceBundle::receipt_fact(
+            &activity_id("act_movementexport1"),
+            canonical_receipt,
+            Rung::Receipted,
+        ),
+        "receipt fact",
     );
-    let authorised_batch = AuthorizedBatch::new(
-        [4; 32],
-        [5; 32],
-        [2; 32],
-        [3; 32],
-        receipt_key.verifying_key().to_bytes(),
-    );
-    let verified = result(
-        verify_outcome(&canonical_receipt, &authorised_batch),
-        "receipt verification",
-    );
-    let expected_receipt_digest = verified
-        .evidence()
-        .receipt_digest()
-        .unwrap_or_else(|| panic!("receipt digest missing"));
 
     let state_leaf = b"canonical-state-leaf".to_vec();
     let activity_leaf = b"canonical-activity-leaf".to_vec();
@@ -81,12 +74,7 @@ fn protocol_artifact() -> OfflineExport {
     );
 
     OfflineExport {
-        receipts: vec![ReceiptFact {
-            statement: "selected movement has an authorised canonical receipt".to_owned(),
-            canonical_receipt_bytes: canonical_receipt,
-            authorised_batch,
-            expected_receipt_digest,
-        }],
+        receipts: vec![fact],
         inclusions: vec![InclusionFact {
             statement: "the referenced state leaf is included under the signed root".to_owned(),
             kind: InclusionKind::State,
@@ -123,13 +111,13 @@ fn receipt_reference(artifact: &OfflineExport) -> String {
     ))
 }
 
-fn receipt_authority(artifact: &OfflineExport) -> ReceiptAuthority {
-    let mut authority = ReceiptAuthority::default();
-    authority.insert(
-        receipt_reference(artifact),
-        artifact.receipts[0].authorised_batch,
-    );
-    authority
+fn receipt_keys(_artifact: &OfflineExport) -> Vec<ReceiptKeyEntry> {
+    vec![ReceiptKeyEntry {
+        key_id: [11; 32],
+        public_key: SigningKey::from_bytes(&[3; 32]).verifying_key().to_bytes(),
+        first_height: 1,
+        last_height: 30,
+    }]
 }
 
 fn evidence_row_key(digest: [u8; 32]) -> RowKey {
@@ -173,7 +161,6 @@ fn export_bundle(
     scope: &PrincipalScope<'_>,
     artifact: &OfflineExport,
     movement_id: &ActivityEntryId,
-    domain: SettlementDomain,
 ) -> EvidenceBundle {
     let feed = result(Feed::new(5), "feed");
     let filters = result(
@@ -186,8 +173,7 @@ fn export_bundle(
             &filters,
             std::slice::from_ref(movement_id),
             vec![artifact.clone()],
-            domain,
-            &receipt_authority(artifact),
+            &receipt_keys(artifact),
             21,
             2,
         ),
@@ -210,10 +196,14 @@ fn record_export_activity(
         EventDelivery::new(
             EventIdentity::new([0x41; 32]),
             artifact.receipts[0].canonical_receipt_bytes.clone(),
-            Cursor(Sequence(1)),
+            Cursor {
+                block_height: 1,
+                tx_index: 0,
+                log_index: 0,
+            },
             ReceiptReference::Verified {
                 receipt_ref: result(ReceiptRef::new(reference), "receipt reference"),
-                verification_level: Level::SequencerSigned,
+                rung: Rung::Receipted,
             },
         ),
         "event delivery",
@@ -237,7 +227,11 @@ fn record_export_activity(
         EventDelivery::new(
             EventIdentity::new([0x42; 32]),
             b"unrelated approval event".to_vec(),
-            Cursor(Sequence(2)),
+            Cursor {
+                block_height: 2,
+                tx_index: 0,
+                log_index: 0,
+            },
             ReceiptReference::None,
         ),
         "unrelated delivery",
@@ -297,22 +291,21 @@ fn filtered_statement_and_evidence_are_offline_verifiable_and_redacted() {
             &filters,
             std::slice::from_ref(&movement_id),
             vec![artifact.clone()],
-            settlement_domain(),
-            &receipt_authority(&artifact),
+            &receipt_keys(&artifact),
             21,
             2,
         ),
         "evidence bundle",
     );
-    let agent_verified = result(
-        build_agent_export(bundle.protocol_evidence()[0].clone(), settlement_domain()),
-        "agent offline verification of bundle",
+    let independently_verified = result(
+        verify_offline_export(&bundle.protocol_evidence()[0], &receipt_keys(&artifact)),
+        "independent offline verification of bundle",
     );
     assert_eq!(report.entries(), 1);
     assert_eq!(report.verified_receipts(), 1);
     assert_eq!(report.verified_inclusions(), 1);
-    assert_eq!(agent_verified.local_verification.verified_receipts, 1);
-    assert_eq!(agent_verified.local_verification.verified_inclusions, 1);
+    assert_eq!(independently_verified.verified_receipts, 1);
+    assert_eq!(independently_verified.verified_inclusions, 1);
     assert_eq!(bundle.protocol_evidence(), std::slice::from_ref(&artifact));
     assert!(matches!(
         result(EvidenceExport::new(feed, 64), "bounded exporter").evidence(
@@ -320,8 +313,7 @@ fn filtered_statement_and_evidence_are_offline_verifiable_and_redacted() {
             &filters,
             std::slice::from_ref(&movement_id),
             vec![artifact.clone()],
-            settlement_domain(),
-            &receipt_authority(&artifact),
+            &receipt_keys(&artifact),
             21,
             2,
         ),
@@ -337,8 +329,7 @@ fn filtered_statement_and_evidence_are_offline_verifiable_and_redacted() {
             &filters,
             std::slice::from_ref(&movement_id),
             vec![artifact.clone()],
-            settlement_domain(),
-            &receipt_authority(&artifact),
+            &receipt_keys(&artifact),
             21,
             0,
         ),
@@ -396,21 +387,12 @@ fn audit_uses_the_same_bounded_bundle_and_keeps_referenced_bytes() {
     );
     let feed = result(Feed::new(5), "feed");
     let bundle = result(
-        result(EvidenceExport::new(feed, 64 * 1024), "audit exporter").audit(
-            &scope,
-            &chain,
-            settlement_domain(),
-        ),
+        result(EvidenceExport::new(feed, 64 * 1024), "audit exporter").audit(&scope, &chain),
         "audit evidence bundle",
     );
     let digest = result(bundle.digest(), "audit bundle digest");
     let report = result(
-        bundle.verify(
-            digest,
-            scope.principal(),
-            settlement_domain(),
-            &ReceiptAuthority::default(),
-        ),
+        bundle.verify(digest, scope.principal(), &[]),
         "offline audit bundle verification",
     );
     assert_eq!(report.audit_entries(), 1);
@@ -425,11 +407,7 @@ fn audit_uses_the_same_bounded_bundle_and_keeps_referenced_bytes() {
     assert_eq!(audit_report.principal().as_str(), "alice");
     assert_eq!(audit_report.evidence_rows(), 2);
     assert!(matches!(
-        result(EvidenceExport::new(feed, 64), "bounded audit exporter").audit(
-            &scope,
-            &chain,
-            settlement_domain(),
-        ),
+        result(EvidenceExport::new(feed, 64), "bounded audit exporter").audit(&scope, &chain,),
         Err(ExportError::SizeBoundExceeded { maximum: 64 })
     ));
     let _ = std::fs::remove_dir_all(root);
@@ -447,34 +425,25 @@ fn cached_bundle_rows_are_labelled_only_by_the_verifier() {
         support::install_and_open(&root, &tenancy, support::retention_uniform(100));
     let alice = support::principal("alice");
     let bob = support::principal("bob");
-    let foreign_domain = SettlementDomain::new(1, [0x66; 20]);
-    let authority = receipt_authority(&artifact);
+
+    let authority = receipt_keys(&artifact);
 
     let bob_bytes = {
         let mut bob_scope = result(store.principal(&bob), "bob scope");
         record_export_activity(&mut bob_scope, &artifact, &reference, &movement_id);
         result(
-            export_bundle(&bob_scope, &artifact, &movement_id, settlement_domain()).encode(),
+            export_bundle(&bob_scope, &artifact, &movement_id).encode(),
             "bob bundle bytes",
         )
     };
     let mut scope = result(store.principal(&alice), "alice scope");
     record_export_activity(&mut scope, &artifact, &reference, &movement_id);
-    let genuine = export_bundle(&scope, &artifact, &movement_id, settlement_domain());
+    let genuine = export_bundle(&scope, &artifact, &movement_id);
     let genuine_bytes = result(genuine.encode(), "genuine bundle bytes");
-    let foreign_domain_bytes = result(
-        export_bundle(&scope, &artifact, &movement_id, foreign_domain).encode(),
-        "foreign-domain bundle bytes",
-    );
 
     let (digest, cached) = cache_bundle(&mut scope, genuine_bytes.clone(), 30);
     assert_eq!(digest, result(genuine.digest(), "genuine digest"));
-    let status = verification_status(cached.verify(
-        digest,
-        scope.principal(),
-        settlement_domain(),
-        &authority,
-    ));
+    let status = verification_status(cached.verify(digest, scope.principal(), &authority));
     assert!(status.is_receipt_verified());
     assert!(!status.is_unavailable());
     assert_eq!(status.label(), "receipt-verified");
@@ -487,9 +456,8 @@ fn cached_bundle_rows_are_labelled_only_by_the_verifier() {
     );
 
     let _feed = result(Feed::new(5), "feed");
-    let loaded = result(cached.receipt_authority(&scope), "feed authority");
-    let status =
-        verification_status(cached.verify(digest, scope.principal(), settlement_domain(), &loaded));
+    let loaded: Vec<ReceiptKeyEntry> = Vec::new();
+    let status = verification_status(cached.verify(digest, scope.principal(), &loaded));
     assert!(status.is_unavailable());
     assert!(!status.is_receipt_verified());
     assert_eq!(status.label(), "unavailable");
@@ -498,8 +466,7 @@ fn cached_bundle_rows_are_labelled_only_by_the_verifier() {
         cached.verify(
             digest,
             scope.principal(),
-            settlement_domain(),
-            &ReceiptAuthority::default(),
+            &[],
         ),
         Err(VerifyError::Unavailable(ExportError::AuthorityUnavailable { reference: ref missing }))
             if *missing == reference
@@ -507,12 +474,7 @@ fn cached_bundle_rows_are_labelled_only_by_the_verifier() {
 
     let mut substituted = digest;
     substituted[0] ^= 0xff;
-    let status = verification_status(cached.verify(
-        substituted,
-        scope.principal(),
-        settlement_domain(),
-        &authority,
-    ));
+    let status = verification_status(cached.verify(substituted, scope.principal(), &authority));
     assert_eq!(status.label(), "unverified");
     assert_eq!(
         status.unverified_reason(),
@@ -543,12 +505,7 @@ fn cached_bundle_rows_are_labelled_only_by_the_verifier() {
         ),
         "altered row decode",
     );
-    let status = verification_status(altered.verify(
-        digest,
-        scope.principal(),
-        settlement_domain(),
-        &authority,
-    ));
+    let status = verification_status(altered.verify(digest, scope.principal(), &authority));
     assert!(!status.is_receipt_verified());
     assert_eq!(status.label(), "unverified");
     assert_eq!(
@@ -557,72 +514,33 @@ fn cached_bundle_rows_are_labelled_only_by_the_verifier() {
     );
     let (rekeyed_digest, rekeyed) = cache_bundle(&mut scope, altered_bytes, 32);
     assert_ne!(rekeyed_digest, digest);
-    let status = verification_status(rekeyed.verify(
-        rekeyed_digest,
-        scope.principal(),
-        settlement_domain(),
-        &authority,
-    ));
+    let status = verification_status(rekeyed.verify(rekeyed_digest, scope.principal(), &authority));
     assert_eq!(status.label(), "unverified");
     assert_eq!(status.unverified_reason(), Some(UnverifiedReason::Tampered));
 
     let (bob_digest, bob_row) = cache_bundle(&mut scope, bob_bytes, 33);
-    let status = verification_status(bob_row.verify(
-        bob_digest,
-        scope.principal(),
-        settlement_domain(),
-        &authority,
-    ));
+    let status = verification_status(bob_row.verify(bob_digest, scope.principal(), &authority));
     assert_eq!(status.label(), "unverified");
     assert_eq!(
         status.unverified_reason(),
         Some(UnverifiedReason::PrincipalMismatch)
     );
-    assert!(bob_row
-        .verify(bob_digest, &bob, settlement_domain(), &authority)
-        .is_ok());
+    assert!(bob_row.verify(bob_digest, &bob, &authority).is_ok());
 
-    let (foreign_digest, foreign_row) = cache_bundle(&mut scope, foreign_domain_bytes, 34);
-    let status = verification_status(foreign_row.verify(
-        foreign_digest,
-        scope.principal(),
-        settlement_domain(),
-        &authority,
-    ));
-    assert_eq!(status.label(), "unverified");
-    assert_eq!(
-        status.unverified_reason(),
-        Some(UnverifiedReason::SettlementDomainMismatch)
-    );
-
-    let genuine_key = SigningKey::from_bytes(&[3; 32]).verifying_key().to_bytes();
-    let other_key = SigningKey::from_bytes(&[9; 32]).verifying_key().to_bytes();
     let mut spliced_bytes = genuine_bytes.clone();
-    let spliced_at = unique_position(&spliced_bytes, &genuine_key);
-    spliced_bytes[spliced_at..spliced_at + 32].copy_from_slice(&other_key);
+    let spliced_at = unique_position(
+        &spliced_bytes,
+        &artifact.receipts[0].canonical_receipt_bytes,
+    ) + artifact.receipts[0].canonical_receipt_bytes.len()
+        - 1;
+    spliced_bytes[spliced_at] ^= 1;
     let (spliced_digest, spliced) = cache_bundle(&mut scope, spliced_bytes, 35);
-    let status = verification_status(spliced.verify(
-        spliced_digest,
-        scope.principal(),
-        settlement_domain(),
-        &authority,
-    ));
+    let status = verification_status(spliced.verify(spliced_digest, scope.principal(), &authority));
     assert_eq!(status.label(), "unverified");
-    assert_eq!(
-        status.unverified_reason(),
-        Some(UnverifiedReason::AuthorityMismatch)
-    );
-    let mut wrong_authority = ReceiptAuthority::default();
-    wrong_authority.insert(
-        reference.clone(),
-        AuthorizedBatch::new([4; 32], [5; 32], [2; 32], [3; 32], other_key),
-    );
-    let status = verification_status(cached.verify(
-        digest,
-        scope.principal(),
-        settlement_domain(),
-        &wrong_authority,
-    ));
+    assert_eq!(status.unverified_reason(), Some(UnverifiedReason::Tampered));
+    let mut wrong_authority = authority.clone();
+    wrong_authority[0].public_key = SigningKey::from_bytes(&[9; 32]).verifying_key().to_bytes();
+    let status = verification_status(cached.verify(digest, scope.principal(), &wrong_authority));
     assert_eq!(
         status.unverified_reason(),
         Some(UnverifiedReason::AuthorityMismatch)

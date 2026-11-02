@@ -288,6 +288,10 @@ const SLIPPAGE: PrecompileErrorEntry = { code: "TRADE_SLIPPAGE_EXCEEDED" };
 const LIQUIDITY: PrecompileErrorEntry = { code: "TRADE_INSUFFICIENT_LIQUIDITY" };
 const TP_SL: PrecompileErrorEntry = { code: "TRADE_TP_SL_INVALID" };
 const MARGIN: PrecompileErrorEntry = { code: "TRADE_POSITION_LIQUIDATABLE" };
+const PRECISION: PrecompileErrorEntry = { code: "VALIDATION_PRECISION" };
+const ABOVE_MAX: PrecompileErrorEntry = { code: "VALIDATION_ABOVE_MAX" };
+const BELOW_MIN: PrecompileErrorEntry = { code: "VALIDATION_BELOW_MIN" };
+const HALTED: PrecompileErrorEntry = { code: "TRADE_MARKET_HALTED" };
 const REVERT: PrecompileErrorEntry = { code: "RPC_REVERT" };
 const DEADLINE: PrecompileErrorEntry = {
   code: "RPC_REVERT",
@@ -312,17 +316,17 @@ export const PRECOMPILE_ERROR_CODES: Readonly<Record<PrecompileErrorName, Precom
   // ── Perpetuals, contracts/perps.md section 19 ──────────────────────
   PerpsInvalidParams: REVERT,
   PerpsUnknownMarket: REVERT,
-  PerpsMarketDisabled: REVERT,
+  PerpsMarketDisabled: HALTED,
   PerpsPriceStale: STALE_PRICE,
   PerpsZeroAmount: INPUT,
   PerpsUnsupportedCollateral: INPUT,
   PerpsInsufficientCollateral: REVERT,
   PerpsInsufficientMargin: MARGIN,
-  PerpsLeverageTooHigh: REVERT,
-  PerpsTickSize: REVERT,
-  PerpsLotSize: REVERT,
-  PerpsMinOrderValue: REVERT,
-  PerpsMaxOrderValue: REVERT,
+  PerpsLeverageTooHigh: ABOVE_MAX,
+  PerpsTickSize: PRECISION,
+  PerpsLotSize: PRECISION,
+  PerpsMinOrderValue: BELOW_MIN,
+  PerpsMaxOrderValue: ABOVE_MAX,
   PerpsOpenInterestCap: REVERT,
   PerpsInvalidTimeInForce: REVERT,
   PerpsInvalidOrderType: REVERT,
@@ -404,7 +408,7 @@ export const PRECOMPILE_ERROR_CODES: Readonly<Record<PrecompileErrorName, Precom
   SafeERC20FailedOperation: REVERT,
   TokenIsStablecoin: REVERT,
   TokenNotRegistered: REVERT,
-  TokenPaused: REVERT,
+  TokenPaused: HALTED,
   TooManyActiveOrders: REVERT,
   TwapWindowInvalid: REVERT,
 };

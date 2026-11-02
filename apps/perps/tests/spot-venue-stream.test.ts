@@ -149,11 +149,11 @@ test('spotBookAndTradesFromGateway', async () => {
   assert.equal(peers.length, 1);
 
   peer.send({ event: 'welcome', ts: Date.now(), snapshotId: 'proc-a' });
-  peer.send(bookFrame('SID@orderbook', 1, { symbol: 'SID', asks: [[0.52, 100], [0.51, 50], ['bad', 1]], bids: [[0.49, 10], [0.5, 20]] }, { snapshot: true, ts: 1700000000000 }));
+  peer.send(bookFrame('SID@orderbook', 1, { symbol: 'SID', asks: [[0.52, 100], [' 0.510000000000000001 ', 50], ['bad', 1]], bids: [[0.49, 10], [0.5, 20]] }, { snapshot: true, ts: 1700000000000 }));
   await waitFor(() => book.last(), 'spot book snapshot');
   assert.deepEqual(book.last(), {
-    asks: [{ price: 0.51, size: 50 }, { price: 0.52, size: 100 }],
-    bids: [{ price: 0.5, size: 20 }, { price: 0.49, size: 10 }],
+    asks: [{ price: 0.51, priceText: '0.510000000000000001', size: 50 }, { price: 0.52, priceText: '0.52', size: 100 }],
+    bids: [{ price: 0.5, priceText: '0.5', size: 20 }, { price: 0.49, priceText: '0.49', size: 10 }],
     markPrice: null,
     indexPrice: null,
     basisBps: null,
@@ -177,9 +177,9 @@ test('spotBookAndTradesFromGateway', async () => {
   assert.deepEqual(trades.last()?.[0], { id: null, side: 'BUY', price: 0.52, size: 4, trade_time: 3000 });
   assert.equal(trades.last()?.[1]?.id, 's2');
 
-  peer.send(bookFrame('SID@orderbook', 2, { symbol: 'SID', asks: [[0.53, 7]], bids: [[0.48, 8]] }));
+  peer.send(bookFrame('SID@orderbook', 2, { symbol: 'SID', asks: [[0.53, 7]], bids: [['0.480000000000000001', 8]] }));
   await waitFor(() => book.last()?.asks[0]?.price === 0.53, 'book delta');
-  assert.deepEqual(book.last()?.bids, [{ price: 0.48, size: 8 }]);
+  assert.deepEqual(book.last()?.bids, [{ price: 0.48, priceText: '0.480000000000000001', size: 8 }]);
 
   book.release();
   await waitFor(() => peer.received.filter(frame => frame.event === 'unsubscribe').length === 1, 'book unsubscribe');

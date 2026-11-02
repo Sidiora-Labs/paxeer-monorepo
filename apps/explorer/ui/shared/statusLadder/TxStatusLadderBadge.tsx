@@ -3,7 +3,7 @@ import React from 'react';
 import config from 'configs/app';
 import type { BadgeProps } from 'toolkit/chakra/badge';
 
-import StatusLadderBadge from './StatusLadderBadge';
+import { NativeSettlementBadge } from './StatusLadderBadge';
 import useTxStatusLadderQuery from './useTxStatusLadderQuery';
 
 const feature = config.features.paxeerXLists;
@@ -19,7 +19,7 @@ const TxStatusLadderBadge = ({ hash, ...rest }: Props) => {
     return null;
   }
 
-  return <StatusLadderBadge rung={ data.rung } isLoading={ isPlaceholderData } { ...rest }/>;
+  return <NativeSettlementBadge rung={ data.rung } isLoading={ isPlaceholderData } { ...rest }/>;
 };
 
 export default TxStatusLadderBadge;

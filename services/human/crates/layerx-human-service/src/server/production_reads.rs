@@ -12,33 +12,32 @@ use crate::journeys::{
 };
 use crate::notify::ActivityEntryId;
 use crate::notify::JourneyId;
-use crate::store::PrincipalScope;
+use crate::store::{PrincipalScope, Table};
 use base64::{engine::general_purpose::STANDARD, Engine as _};
+use layerx_client::sequencer::ReceiptKeyEntry;
+use layerx_portable::PortableReceiptV2;
 use layerx_proof::checkpoint::SettlementDomain;
-use layerx_proof::receipt::AuthorizedBatch;
+use layerx_types::rung::Rung;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
 pub(super) fn execute(
-    settlement_domain: SettlementDomain,
     scope: &PrincipalScope<'_>,
     request: &ScopedRequest<'_>,
 ) -> Option<Result<BackendResponse, ApiFailure>> {
     Some(match request.operation.name.as_str() {
-        "journey.get" => journey_get(scope, settlement_domain, request),
-        "journey.list" => journey_list(scope, settlement_domain, None),
+        "journey.get" => journey_get(scope, request),
+        "journey.list" => journey_list(scope, None),
         "journey.page" => journey_list(
             scope,
-            settlement_domain,
             request.path_parameters.get("cursor").map(String::as_str),
         ),
-        "evidence.get" => evidence_get(settlement_domain, scope, request),
+        "evidence.get" => super::ProductionComponents::evidence_get(scope, request),
         _ => return None,
     })
 }
 
 pub(super) fn activity_entry(
-    settlement_domain: SettlementDomain,
     scope: &PrincipalScope<'_>,
     request: &ScopedRequest<'_>,
 ) -> Result<BackendResponse, ApiFailure> {
@@ -50,15 +49,10 @@ pub(super) fn activity_entry(
             .ok_or_else(|| ApiFailure::invalid_request(Some("entry_id")))?,
     )
     .map_err(|_| ApiFailure::invalid_request(Some("entry_id")))?;
-    Ok(response(activity_entry_json(
-        settlement_domain,
-        scope,
-        &id,
-    )?))
+    Ok(response(activity_entry_json(scope, &id)?))
 }
 
 pub(super) fn activity_entry_json(
-    settlement_domain: SettlementDomain,
     scope: &PrincipalScope<'_>,
     id: &ActivityEntryId,
 ) -> Result<Value, ApiFailure> {
@@ -73,14 +67,14 @@ pub(super) fn activity_entry_json(
             .ok_or_else(ApiFailure::upstream_degraded)?;
         let digest =
             decode_digest(receipt.reference()).ok_or_else(ApiFailure::upstream_degraded)?;
-        let row = receipt.authority().map(|authority| ReceiptRow {
+        let row = Some(ReceiptRow {
             entry_id: id.clone(),
             canonical: bytes,
-            authority,
+            rung: receipt.rung(),
         });
         labels.insert(
             receipt.reference().to_owned(),
-            receipt_label(scope, settlement_domain, row, digest)?,
+            receipt_label(scope, row, digest)?,
         );
         actuals.push(
             crate::activity::detail::ReceiptActual::from_verified_journey_bytes(
@@ -120,7 +114,6 @@ pub(super) fn activity_entry_json(
 
 fn journey_get(
     scope: &PrincipalScope<'_>,
-    settlement_domain: SettlementDomain,
     request: &ScopedRequest<'_>,
 ) -> Result<BackendResponse, ApiFailure> {
     let value = request
@@ -129,7 +122,7 @@ fn journey_get(
         .ok_or_else(|| ApiFailure::invalid_request(Some("journey_id")))?;
     let id = JourneyId::new(value.clone())
         .map_err(|_| ApiFailure::invalid_request(Some("journey_id")))?;
-    let families = public_journeys(scope, settlement_domain)?;
+    let families = public_journeys(scope)?;
     let found = families
         .into_iter()
         .find(|entry| entry.id == id.as_str())
@@ -143,80 +136,14 @@ struct PublicJourney {
     value: Value,
 }
 
-fn public_journeys(
-    scope: &PrincipalScope<'_>,
-    settlement_domain: SettlementDomain,
-) -> Result<Vec<PublicJourney>, ApiFailure> {
-    let deposits = crate::journeys::DepositJourney::list_readonly(scope)
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-    let withdrawals = crate::journeys::WithdrawalJourney::list_readonly(scope)
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-    let exits = crate::journeys::ExitJourney::list_readonly(scope)
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-    let children = deposits
-        .iter()
-        .filter_map(|entry| entry.inner_journey_id())
-        .chain(
-            withdrawals
-                .iter()
-                .filter_map(|entry| entry.inner_journey_id()),
-        )
-        .map(|id| id.as_str().to_owned())
-        .collect::<BTreeSet<_>>();
+fn public_journeys(scope: &PrincipalScope<'_>) -> Result<Vec<PublicJourney>, ApiFailure> {
     let mut values = Vec::new();
-    for entry in deposits {
-        let status = entry
-            .status()
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        values.push(PublicJourney {
-            id: status.journey_id().as_str().to_owned(),
-            updated_at: status.updated_at(),
-            value: super::production_components::deposit_public_json(
-                scope,
-                settlement_domain,
-                &status,
-                status.updated_at(),
-            )?,
-        });
-    }
-    for entry in withdrawals {
-        let status = entry
-            .status()
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        values.push(PublicJourney {
-            id: status.journey_id().as_str().to_owned(),
-            updated_at: status.updated_at(),
-            value: super::production_components::withdrawal_public_json(
-                scope,
-                settlement_domain,
-                &status,
-                status.updated_at(),
-            )?,
-        });
-    }
-    for entry in exits {
-        let status = entry
-            .status()
-            .map_err(|_| ApiFailure::upstream_degraded())?;
-        values.push(PublicJourney {
-            id: status.journey_id().as_str().to_owned(),
-            updated_at: status.updated_at(),
-            value: super::production_components::exit_public_json(
-                scope,
-                &status,
-                status.updated_at(),
-            )?,
-        });
-    }
     for entry in JourneyEngine::list(scope).map_err(|error| failure(&error))? {
         let status = entry.status().map_err(|error| failure(&error))?;
-        if children.contains(status.journey_id().as_str()) {
-            continue;
-        }
         values.push(PublicJourney {
             id: status.journey_id().as_str().to_owned(),
             updated_at: entry.updated_at(),
-            value: journey_json(scope, settlement_domain, &entry)?,
+            value: native_journey_json(scope, &entry)?,
         });
     }
     let mut ids = BTreeSet::new();
@@ -236,20 +163,31 @@ fn public_journeys(
 
 fn journey_list(
     scope: &PrincipalScope<'_>,
-    settlement_domain: SettlementDomain,
     cursor: Option<&str>,
 ) -> Result<BackendResponse, ApiFailure> {
-    journey_list_with(scope, settlement_domain, cursor, Vec::new())
+    journey_list_with(scope, cursor, Vec::new())
 }
 
 pub(super) fn journey_list_with(
     scope: &PrincipalScope<'_>,
-    settlement_domain: SettlementDomain,
     cursor: Option<&str>,
     additional: Vec<(u64, Value)>,
 ) -> Result<BackendResponse, ApiFailure> {
     const PAGE_SIZE: usize = 50;
-    let mut journeys = public_journeys(scope, settlement_domain)?;
+    let mut journeys = public_journeys(scope)?;
+    let mut additional = additional;
+    for key in scope
+        .keys(Table::Journeys)
+        .into_iter()
+        .filter(|key| key.as_str().starts_with("intent-evm-"))
+    {
+        let row = scope
+            .get(Table::Journeys, &key)
+            .ok_or_else(ApiFailure::upstream_degraded)?;
+        let record: Value =
+            serde_json::from_slice(row.bytes()).map_err(|_| ApiFailure::upstream_degraded())?;
+        additional.push((row.written_at(), intent_journey_json(&record)?));
+    }
     for (updated_at, value) in additional {
         let id = value["journey_id"]
             .as_str()
@@ -326,8 +264,16 @@ pub(super) fn journey_list_with(
     Ok(response(json!({"journeys": values, "next_cursor": next})))
 }
 
+impl super::ProductionComponents {
+    pub fn evidence_get(
+        scope: &PrincipalScope<'_>,
+        request: &ScopedRequest<'_>,
+    ) -> Result<BackendResponse, ApiFailure> {
+        evidence_get(scope, request)
+    }
+}
+
 fn evidence_get(
-    settlement_domain: SettlementDomain,
     scope: &PrincipalScope<'_>,
     request: &ScopedRequest<'_>,
 ) -> Result<BackendResponse, ApiFailure> {
@@ -352,15 +298,8 @@ fn evidence_get(
     if let Some(row) = scope.get(crate::store::Table::Cache, &bundle_key) {
         let bundle =
             EvidenceBundle::decode(row.bytes()).map_err(|_| ApiFailure::upstream_degraded())?;
-        let receipt_authority = bundle
-            .receipt_authority(scope)
-            .map_err(|error| feed_failure(&error))?;
-        let status = verification_status(bundle.verify(
-            expected,
-            scope.principal(),
-            settlement_domain,
-            &receipt_authority,
-        ));
+        let receipt_keys = receipt_keys()?;
+        let status = verification_status(bundle.verify(expected, scope.principal(), &receipt_keys));
         let verification = verification_label(&status)?;
         return Ok(response(
             json!({"evidence_id":id,"class":"local-journey-state","verification":verification,"content_type":"application/vnd.layerx.evidence-bundle","bytes_base64":STANDARD.encode(row.bytes())}),
@@ -378,28 +317,318 @@ fn evidence_get(
     if let Some((entry_id, evidence)) = journey_receipt(scope, expected)? {
         let verification = receipt_label(
             scope,
-            settlement_domain,
             Some(ReceiptRow {
                 entry_id,
                 canonical: &evidence.canonical_receipt,
-                authority: &evidence.authorised_batch,
+                rung: evidence.rung,
             }),
             expected,
         )?;
+        if verification != "receipt-verified" {
+            return Err(ApiFailure::upstream_degraded());
+        }
+        let verification = match evidence.rung {
+            Rung::Receipted => "receipt-verified",
+            Rung::Committed => "checkpoint-finalised",
+            Rung::Submitted => return Err(ApiFailure::upstream_degraded()),
+        };
+        let key_entry = layerx_proof::inclusion::SequencerAuthorization::new(
+            evidence.receipt_key.key_id,
+            evidence.receipt_key.public_key,
+            evidence.receipt_key.first_height,
+            evidence.receipt_key.last_height,
+        );
+        let portable = PortableReceiptV2::export(
+            &evidence.signed_receipt,
+            &key_entry,
+            evidence.inclusion_height,
+        )
+        .and_then(|receipt| receipt.to_json())
+        .map_err(|_| ApiFailure::upstream_degraded())?;
         return Ok(response(
             json!({"evidence_id": id, "class": "layerx-receipt", "verification": verification,
-            "content_type": "application/vnd.layerx.receipt", "bytes_base64": STANDARD.encode(evidence.canonical_receipt)}),
+            "content_type": "application/vnd.layerx.receipt-proof-v2+json", "bytes_base64": STANDARD.encode(portable),
+            "signed_receipt": STANDARD.encode(evidence.signed_receipt), "tx_hash": hex(&evidence.tx_hash),
+            "rung": evidence.rung.name(), "inclusion_height": evidence.inclusion_height,
+            "receipt_key": {"key_id": hex(&evidence.receipt_key.key_id), "public_key": hex(&evidence.receipt_key.public_key),
+                "first_height": evidence.receipt_key.first_height, "last_height": evidence.receipt_key.last_height}}),
+        ));
+    }
+    let mut records = Vec::new();
+    for key in scope
+        .keys(Table::Journeys)
+        .into_iter()
+        .filter(|key| key.as_str().starts_with("intent-evm-"))
+    {
+        let row = scope
+            .get(Table::Journeys, &key)
+            .ok_or_else(ApiFailure::upstream_degraded)?;
+        records.push(
+            serde_json::from_slice(row.bytes()).map_err(|_| ApiFailure::upstream_degraded())?,
+        );
+    }
+    if let Some(answer) = intent_evm_receipt(&records, expected, id)? {
+        return Ok(response(answer));
+    }
+    if let Some((class, verification, content_type, bytes)) =
+        intent_evm_evidence(&records, expected)
+    {
+        return Ok(response(
+            json!({"evidence_id": id, "class": class, "verification": verification,
+            "content_type": content_type, "bytes_base64": STANDARD.encode(bytes)}),
         ));
     }
     Err(ApiFailure::not_found())
 }
 
+fn intent_evm_receipt(
+    records: &[Value],
+    digest: [u8; 32],
+    id: &str,
+) -> Result<Option<Value>, ApiFailure> {
+    use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
+    use layerx_client::sequencer::SequencerReceipt;
+
+    for leg in records
+        .iter()
+        .filter_map(|record| record["legs"].as_array())
+        .flatten()
+    {
+        let matches = |name: &str| {
+            leg[name]
+                .as_str()
+                .and_then(|value| value.strip_prefix("0x"))
+                .and_then(decode_digest)
+                == Some(digest)
+        };
+        if !matches("tx_hash") && !matches("receipt_hash") {
+            continue;
+        }
+        let raw: Vec<u8> = serde_json::from_value(leg["raw_transaction"].clone())
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+        let hash = layerx_crypto::evm_transaction::transaction_hash(&raw);
+        let configuration =
+            NodeRpcConfig::from_environment().map_err(|_| ApiFailure::unavailable())?;
+        let node = NodeRpc::connect(&configuration).map_err(|_| ApiFailure::unavailable())?;
+        let answer = node
+            .sequencer_receipt(&hash)
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+        let (receipt, landing) = match answer {
+            None | Some(SequencerReceipt::Submitted { .. }) => {
+                if leg["verified"] == true || leg["refused"] == true {
+                    return Err(ApiFailure::upstream_degraded());
+                }
+                return Ok(None);
+            }
+            Some(SequencerReceipt::Receipted(receipt)) => (receipt, None),
+            Some(SequencerReceipt::Committed {
+                receipt,
+                block_number,
+                block_hash,
+            }) => (receipt, Some((block_number, block_hash))),
+        };
+        let keys = node.receipt_keys().map_err(|_| ApiFailure::unavailable())?;
+        let key = keys
+            .iter()
+            .find(|key| key.key_id == receipt.key_id && key.public_key == receipt.signing_key)
+            .ok_or_else(ApiFailure::upstream_degraded)?;
+        let authorization = layerx_proof::inclusion::SequencerAuthorization::new(
+            key.key_id,
+            key.public_key,
+            key.first_height,
+            key.last_height,
+        );
+        let (rung, inclusion_height) = match landing {
+            None => (Rung::Receipted, receipt.height),
+            Some((height, block_hash)) => {
+                let block = node
+                    .block_by_number(height)
+                    .map_err(|_| ApiFailure::upstream_degraded())?
+                    .ok_or_else(ApiFailure::upstream_degraded)?;
+                let index =
+                    usize::try_from(receipt.index).map_err(|_| ApiFailure::upstream_degraded())?;
+                if block.hash != block_hash
+                    || block.transactions.get(index) != Some(&raw)
+                    || height < receipt.height
+                {
+                    return Err(ApiFailure::upstream_degraded());
+                }
+                (Rung::Committed, height)
+            }
+        };
+        let verification = match rung {
+            Rung::Receipted => "receipt-verified",
+            Rung::Committed => "checkpoint-finalised",
+            Rung::Submitted => return Err(ApiFailure::upstream_degraded()),
+        };
+        let portable = PortableReceiptV2::export_with_transaction(
+            &receipt.receipt,
+            &authorization,
+            inclusion_height,
+            &raw,
+        )
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+        let verified = portable
+            .verify_v2(&[authorization])
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+        let signed = layerx_wire::receipt::decode(&receipt.receipt)
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+        let protocol = signed
+            .protocol()
+            .ok_or_else(ApiFailure::upstream_degraded)?;
+        let mut signed_height = [0_u8; 32];
+        signed_height[24..].copy_from_slice(&receipt.height.to_be_bytes());
+        let (call, _) = layerx_crypto::evm_transaction::decode_signed(&raw)
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+        if verified.activity_id() != hash
+            || protocol.batch_id() != signed_height
+            || protocol.debit_sequence() != call.nonce
+            || receipt.nonce != call.nonce
+            || (!matches("tx_hash") && Sha256::digest(&receipt.receipt)[..] != digest)
+        {
+            return Err(ApiFailure::upstream_degraded());
+        }
+        let bytes = portable
+            .to_json()
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+        return Ok(Some(json!({"evidence_id": id, "class": "layerx-receipt",
+            "verification": verification, "rung": rung.name(), "inclusion_height": inclusion_height,
+            "content_type": "application/vnd.layerx.receipt-proof-v2+json",
+            "bytes_base64": STANDARD.encode(bytes)})));
+    }
+    Ok(None)
+}
+
+fn intent_evm_evidence(
+    records: &[Value],
+    digest: [u8; 32],
+) -> Option<(&'static str, &'static str, &'static str, Vec<u8>)> {
+    let matches_digest = |value: &Value| {
+        value
+            .as_str()
+            .and_then(|hash| hash.strip_prefix("0x"))
+            .and_then(|hash| decode_digest(&hash.to_ascii_lowercase()))
+            == Some(digest)
+    };
+    for leg in records
+        .iter()
+        .filter_map(|record| record["legs"].as_array())
+        .flatten()
+    {
+        if leg["verified"] == true || leg["refused"] == true {
+            if matches_digest(&leg["receipt_hash"]) {
+                if let Ok(bytes) = serde_json::from_value::<Vec<u8>>(leg["receipt"].clone()) {
+                    if Sha256::digest(&bytes)[..] == digest {
+                        return Some((
+                            "layerx-receipt",
+                            "receipt-verified",
+                            "application/vnd.layerx.receipt",
+                            bytes,
+                        ));
+                    }
+                }
+            }
+        } else if leg["submitted"] == true && matches_digest(&leg["tx_hash"]) {
+            if let Ok(bytes) = serde_json::from_value::<Vec<u8>>(leg["raw_transaction"].clone()) {
+                return Some((
+                    "submission-record",
+                    "unverified",
+                    "application/vnd.layerx.evm-transaction",
+                    bytes,
+                ));
+            }
+        }
+    }
+    None
+}
+
+pub(super) fn intent_journey_json(record: &Value) -> Result<Value, ApiFailure> {
+    let id = record["journey_id"]
+        .as_str()
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    JourneyId::new(id.to_owned()).map_err(|_| ApiFailure::upstream_degraded())?;
+    let state = record["state"]
+        .as_str()
+        .filter(|state| matches!(*state, "processing" | "done" | "refused" | "still-checking"))
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    let started_at = record["started_at"]
+        .as_str()
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    let updated_at = record["updated_at"]
+        .as_str()
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    crate::time::seconds_from_rfc3339(started_at).ok_or_else(ApiFailure::upstream_degraded)?;
+    crate::time::seconds_from_rfc3339(updated_at).ok_or_else(ApiFailure::upstream_degraded)?;
+    let legs = record["legs"]
+        .as_array()
+        .ok_or_else(ApiFailure::upstream_degraded)?;
+    let mut stages = Vec::with_capacity(legs.len());
+    let mut evidence = Vec::with_capacity(legs.len());
+    for (index, leg) in legs.iter().enumerate() {
+        let hash = leg["tx_hash"]
+            .as_str()
+            .ok_or_else(ApiFailure::upstream_degraded)?;
+        hash.strip_prefix("0x")
+            .filter(|hex| hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
+            .ok_or_else(ApiFailure::upstream_degraded)?;
+        let nonce = leg["nonce"]
+            .as_u64()
+            .ok_or_else(ApiFailure::upstream_degraded)?;
+        let (phase, stage_state, class, verification) = if leg["refused"] == true {
+            ("refused", "refused", "layerx-receipt", "receipt-verified")
+        } else if leg["verified"] == true {
+            ("confirmed", "done", "layerx-receipt", "receipt-verified")
+        } else if leg["submitted"] == true {
+            ("submitted", "processing", "submission-record", "unverified")
+        } else {
+            return Err(ApiFailure::upstream_degraded());
+        };
+        let evidence_hash = if leg["refused"] == true || leg["verified"] == true {
+            leg["receipt_hash"]
+                .as_str()
+                .ok_or_else(ApiFailure::upstream_degraded)?
+        } else {
+            hash
+        };
+        let digest = evidence_hash
+            .strip_prefix("0x")
+            .filter(|hex| hex.len() == 64 && hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
+            .ok_or_else(ApiFailure::upstream_degraded)?
+            .to_ascii_lowercase();
+        let reference = json!({"evidence_id": format!("evd_{digest}"), "class": class, "verification": verification});
+        stages.push(json!({"stage_id": format!("stg_{id}_{index}"), "copy_key": format!("journey.stage.{phase}"),
+            "state": stage_state, "evidence": [reference.clone()], "tx_hash": hash, "nonce": nonce}));
+        evidence.push(reference);
+    }
+    Ok(
+        json!({"journey_id": id, "kind": "move", "state": state, "state_copy_key": format!("journey.state.{state}"),
+        "stages": stages, "evidence": evidence, "started_at": started_at, "updated_at": updated_at}),
+    )
+}
+
 pub(super) fn journey_json(
     scope: &PrincipalScope<'_>,
-    settlement_domain: SettlementDomain,
+    _settlement_domain: SettlementDomain,
+    journey: &JourneyEngine,
+) -> Result<Value, ApiFailure> {
+    native_journey_json(scope, journey)
+}
+
+fn native_journey_json(
+    scope: &PrincipalScope<'_>,
     journey: &JourneyEngine,
 ) -> Result<Value, ApiFailure> {
     let status = journey.status().map_err(|error| failure(&error))?;
+    if status.state() == JourneyState::Closed {
+        return Ok(json!({
+            "journey_id": status.journey_id().as_str(),
+            "kind": journey.historical_kind().ok_or_else(ApiFailure::upstream_degraded)?,
+            "state": "closed", "state_copy_key": "journey.state.closed",
+            "stages": [], "evidence": [],
+            "started_at": crate::time::rfc3339(journey.started_at()),
+            "updated_at": crate::time::rfc3339(journey.updated_at()),
+        }));
+    }
     let entry_id = crate::activity::stable_entry_id(status.journey_id().as_str())
         .map_err(|error| feed_failure(&error))?;
     let mut references = Vec::with_capacity(status.phases().len());
@@ -408,22 +637,15 @@ pub(super) fn journey_json(
             references.push(None);
             continue;
         };
-        let material = status
-            .receipt_material()
-            .get(index)
-            .and_then(Option::as_deref);
-        let authority = status
-            .receipt_authorities()
-            .get(index)
-            .and_then(Option::as_ref);
-        let row = material
-            .zip(authority)
-            .map(|(canonical, authority)| ReceiptRow {
-                entry_id: entry_id.clone(),
-                canonical,
-                authority,
-            });
-        let verification = receipt_label(scope, settlement_domain, row, digest)?;
+        let material = journey
+            .verified_leg_evidence(index)
+            .map_err(|error| failure(&error))?;
+        let row = material.as_ref().map(|evidence| ReceiptRow {
+            entry_id: entry_id.clone(),
+            canonical: &evidence.canonical_receipt,
+            rung: evidence.rung,
+        });
+        let verification = receipt_label(scope, row, digest)?;
         references.push(Some(evidence_ref(digest, verification)));
     }
     let stages = status.phases().iter().enumerate().map(|(index, phase)| {
@@ -434,7 +656,7 @@ pub(super) fn journey_json(
     let evidence = references.iter().flatten().cloned().collect::<Vec<_>>();
     let state = state_label(status.state());
     Ok(
-        json!({"journey_id": status.journey_id().as_str(), "kind": kind_label(journey.kind()), "state": state,
+        json!({"journey_id": status.journey_id().as_str(), "kind": journey.kind().map(kind_label).or_else(|| journey.historical_kind()).ok_or_else(ApiFailure::upstream_degraded)?, "state": state,
         "state_copy_key": format!("journey.state.{state}"), "stages": stages, "evidence": evidence,
         "started_at": crate::time::rfc3339(journey.started_at()), "updated_at": crate::time::rfc3339(journey.updated_at())}),
     )
@@ -444,16 +666,15 @@ pub(super) fn journey_json(
 /// the service holds for it.
 pub(super) fn custody_receipt_label(
     scope: &PrincipalScope<'_>,
-    settlement_domain: SettlementDomain,
     digest: [u8; 32],
 ) -> Result<&'static str, ApiFailure> {
     let found = journey_receipt(scope, digest)?;
     let row = found.as_ref().map(|(entry_id, evidence)| ReceiptRow {
         entry_id: entry_id.clone(),
         canonical: &evidence.canonical_receipt,
-        authority: &evidence.authorised_batch,
+        rung: Rung::Receipted,
     });
-    receipt_label(scope, settlement_domain, row, digest)
+    receipt_label(scope, row, digest)
 }
 
 /// Maps a verifier status onto the wire verification level; an unavailable
@@ -466,27 +687,39 @@ pub(super) fn verification_label(status: &VerificationStatus) -> Result<&'static
     }
 }
 
+fn receipt_keys() -> Result<Vec<ReceiptKeyEntry>, ApiFailure> {
+    let configuration = layerx_agentd::node_rpc::NodeRpcConfig::from_environment()
+        .map_err(|_| ApiFailure::unavailable())?;
+    layerx_agentd::node_rpc::NodeRpc::connect(&configuration)
+        .and_then(|node| node.receipt_keys())
+        .map_err(|_| ApiFailure::unavailable())
+}
+
 struct ReceiptRow<'a> {
     entry_id: ActivityEntryId,
     canonical: &'a [u8],
-    authority: &'a AuthorizedBatch,
+    rung: Rung,
 }
 
 fn receipt_label(
-    scope: &PrincipalScope<'_>,
-    settlement_domain: SettlementDomain,
+    _scope: &PrincipalScope<'_>,
     row: Option<ReceiptRow<'_>>,
     digest: [u8; 32],
 ) -> Result<&'static str, ApiFailure> {
     let status = match row {
-        Some(row) => verification_status(EvidenceBundle::verify_receipt(
-            row.entry_id,
-            row.canonical,
-            row.authority,
-            digest,
-            scope.principal(),
-            settlement_domain,
-        )),
+        Some(row) => verification_status(
+            EvidenceBundle::receipt_fact(&row.entry_id, row.canonical.to_vec(), row.rung).and_then(
+                |mut fact| {
+                    fact.receipt_hash = digest;
+                    let keys = receipt_keys().map_err(|_| {
+                        VerifyError::Unavailable(ExportError::AuthorityUnavailable {
+                            reference: hex(&digest),
+                        })
+                    })?;
+                    EvidenceBundle::verify_receipt(&fact, &keys)
+                },
+            ),
+        ),
         None => verification_status(Err(VerifyError::Unavailable(
             ExportError::AuthorityUnavailable {
                 reference: hex(&digest),
@@ -556,15 +789,12 @@ fn state_label(value: JourneyState) -> &'static str {
         JourneyState::StillChecking => "still-checking",
         JourneyState::Done => "done",
         JourneyState::Refused => "refused",
+        JourneyState::Closed => "closed",
     }
 }
 fn kind_label(value: JourneyKind) -> &'static str {
     match value {
         JourneyKind::Onboarding => "onboarding",
-        JourneyKind::WalletBinding => "wallet-binding",
-        JourneyKind::Deposit => "deposit",
-        JourneyKind::Withdraw => "withdraw",
-        JourneyKind::Exit => "exit",
         JourneyKind::Move => "move",
         JourneyKind::AgentCreate => "agent-create",
         JourneyKind::AgentFund => "agent-fund",
@@ -664,6 +894,107 @@ fn cached_balance_verification(
         Some(4) => Ok(("checkpoint-proof", "checkpoint-finalised")),
         Some(5) => Ok(("checkpoint-proof", "settlement-anchored")),
         _ => Err(ApiFailure::upstream_degraded()),
+    }
+}
+
+#[cfg(test)]
+mod intent_evm_evidence_tests {
+    use super::{hex, intent_evm_evidence, intent_journey_json, ApiFailure};
+    use serde_json::{json, Value};
+    use sha2::{Digest as _, Sha256};
+
+    #[test]
+    fn intent_evm_evidence_references_resolve_to_their_material() {
+        let receipt = b"canonical intent EVM receipt".to_vec();
+        let receipt_hash: [u8; 32] = Sha256::digest(&receipt).into();
+        let raw_transaction = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: 125,
+            nonce: 1,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 21_000,
+            to: [3; 20],
+            data: Vec::new(),
+        }
+        .sign(&[1; 32])
+        .expect("signed EVM transaction");
+        let tx_hash = layerx_crypto::evm_transaction::transaction_hash(&raw_transaction);
+        let mut record = json!({
+            "journey_id": "jrn_intentevidence",
+            "state": "still-checking",
+            "started_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:01Z",
+            "legs": [
+                {"tx_hash": format!("0x{}", hex(&[4; 32])), "nonce": 0,
+                 "submitted": true, "verified": true,
+                 "receipt_hash": format!("0x{}", hex(&receipt_hash)), "receipt": receipt},
+                {"tx_hash": format!("0x{}", hex(&tx_hash)), "nonce": 1,
+                 "submitted": true, "verified": false, "raw_transaction": raw_transaction}
+            ]
+        });
+        let receipt_reference = json!({"evidence_id": format!("evd_{}", hex(&receipt_hash)),
+            "class": "layerx-receipt", "verification": "receipt-verified"});
+        let submission_reference = json!({"evidence_id": format!("evd_{}", hex(&tx_hash)),
+            "class": "submission-record", "verification": "unverified"});
+        let journey = intent_journey_json(&record).expect("intent journey projection");
+        assert_eq!(journey["stages"][0]["evidence"], json!([receipt_reference]));
+        assert_eq!(
+            journey["stages"][1]["evidence"],
+            json!([submission_reference])
+        );
+        assert_eq!(
+            journey["evidence"],
+            json!([receipt_reference, submission_reference])
+        );
+        let receipt_material = (
+            "layerx-receipt",
+            "receipt-verified",
+            "application/vnd.layerx.receipt",
+            receipt,
+        );
+        assert_eq!(
+            intent_evm_evidence(std::slice::from_ref(&record), receipt_hash),
+            Some(receipt_material.clone())
+        );
+        assert_eq!(
+            intent_evm_evidence(std::slice::from_ref(&record), tx_hash),
+            Some((
+                "submission-record",
+                "unverified",
+                "application/vnd.layerx.evm-transaction",
+                raw_transaction
+            ))
+        );
+        assert_eq!(
+            intent_evm_evidence(std::slice::from_ref(&record), [4; 32]),
+            None
+        );
+
+        record["legs"][0]["verified"] = json!(false);
+        record["legs"][0]["refused"] = json!(true);
+        let refused = intent_journey_json(&record).expect("refused intent journey projection");
+        assert_eq!(refused["stages"][0]["state"], "refused");
+        assert_eq!(refused["stages"][0]["evidence"], json!([receipt_reference]));
+        assert_eq!(
+            intent_evm_evidence(std::slice::from_ref(&record), receipt_hash),
+            Some(receipt_material)
+        );
+        record["legs"][0]["receipt"] = json!(b"tampered receipt".to_vec());
+        assert_eq!(
+            intent_evm_evidence(std::slice::from_ref(&record), receipt_hash),
+            None
+        );
+        for invalid in [
+            Value::Null,
+            json!("0x12"),
+            json!(format!("0x{}", "gg".repeat(32))),
+        ] {
+            record["legs"][0]["receipt_hash"] = invalid;
+            assert_eq!(
+                intent_journey_json(&record),
+                Err(ApiFailure::upstream_degraded())
+            );
+        }
     }
 }
 

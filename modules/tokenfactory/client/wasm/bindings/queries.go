@@ -7,4 +7,5 @@ type PaxTokenFactoryQuery struct {
 	DenomAuthorityMetadata *types.QueryDenomAuthorityMetadataRequest `json:"denom_authority_metadata,omitempty"`
 	// queries the tokenfactory denoms from a creator
 	DenomsFromCreator *types.QueryDenomsFromCreatorRequest `json:"denoms_from_creator,omitempty"`
+	DenomPaused       *types.QueryDenomPausedRequest       `json:"denom_paused,omitempty"`
 }

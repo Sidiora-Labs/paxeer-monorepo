@@ -1,4 +1,3 @@
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use rustix::fs::{open, Mode, OFlags};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::{RootCertStore, ServerConfig};
@@ -13,31 +12,23 @@ use std::sync::Arc;
 use std::time::Duration;
 use zeroize::Zeroizing;
 
+const LAYERX_HUMAN_KMS_REGISTRY_FILE: &str = "LAYERX_HUMAN_KMS_REGISTRY_FILE";
+
 pub(crate) struct Config {
     pub listen: SocketAddr,
     pub state: PathBuf,
     pub provider: String,
-    pub network: u32,
-    pub protocol: u16,
-    pub registry: ModuleRegistry,
+    pub chain: ChainSnapshot,
     pub seal: Zeroizing<Vec<u8>>,
     pub tls: Arc<ServerConfig>,
     pub client_pin: [u8; 32],
-    pub evm_client_pin: Option<[u8; 32]>,
+    pub attestor_evm_client_certificate: Option<CertificateDer<'static>>,
     pub deadline: Duration,
 }
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct RegistrySnapshot {
-    network_id: u32,
-    protocol_version: u16,
-    modules: Vec<Module>,
-}
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Module {
-    module_id: u16,
-    activity_types: Vec<u32>,
+pub(crate) struct ChainSnapshot {
+    pub chain_id: u64,
 }
 pub(crate) fn protected(
     path: &Path,
@@ -74,10 +65,13 @@ pub(crate) fn protected(
     Ok(bytes)
 }
 fn required(suffix: &str) -> Result<String, String> {
-    std::env::var(format!("LAYERX_HUMAN_KMS_{suffix}"))
+    required_variable(&format!("LAYERX_HUMAN_KMS_{suffix}"))
+}
+fn required_variable(name: &str) -> Result<String, String> {
+    std::env::var(name)
         .ok()
         .filter(|v| !v.is_empty())
-        .ok_or_else(|| format!("LAYERX_HUMAN_KMS_{suffix} is required"))
+        .ok_or_else(|| format!("{name} is required"))
 }
 fn read(suffix: &str, max: usize, secret: bool) -> Result<Zeroizing<Vec<u8>>, String> {
     protected(Path::new(&required(suffix)?), max, secret)
@@ -88,33 +82,16 @@ impl Config {
         if provider.len() > 256 || provider.contains('\0') {
             return Err("provider reference refused".into());
         }
-        let snapshot: RegistrySnapshot =
-            serde_json::from_slice(&read("REGISTRY_FILE", 65536, false)?)
-                .map_err(|_| "registry snapshot invalid")?;
-        if snapshot.network_id == 0
-            || !layerx_intents::canonical::protocol_version_supported(snapshot.protocol_version)
-            || snapshot.modules.is_empty()
-            || snapshot.modules.len() > 32
-        {
-            return Err("registry scope refused".into());
+        let snapshot_path = required_variable(LAYERX_HUMAN_KMS_REGISTRY_FILE)?;
+        let snapshot = protected(Path::new(&snapshot_path), 65536, false).map_err(|error| {
+            format!("{LAYERX_HUMAN_KMS_REGISTRY_FILE} ({snapshot_path}): {error}")
+        })?;
+        let chain: ChainSnapshot = serde_json::from_slice(&snapshot).map_err(|_| {
+            format!("{LAYERX_HUMAN_KMS_REGISTRY_FILE} ({snapshot_path}): chain snapshot invalid")
+        })?;
+        if chain.chain_id != 125 {
+            return Err("chain id refused".into());
         }
-        let mut modules = Vec::new();
-        for module in snapshot.modules {
-            if module.activity_types.is_empty() || module.activity_types.len() > 256 {
-                return Err("registry module refused".into());
-            }
-            let id = ModuleId::from_u16(module.module_id).map_err(|_| "registry module invalid")?;
-            let types = module
-                .activity_types
-                .into_iter()
-                .map(ActivityType::from_u32)
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| "registry activity invalid")?;
-            modules.push(
-                ModuleRegistration::new(id, &types).map_err(|_| "registry registration invalid")?,
-            );
-        }
-        let registry = ModuleRegistry::new(&modules).map_err(|_| "registry invalid")?;
         let mut roots = RootCertStore::empty();
         roots
             .add(CertificateDer::from(
@@ -139,16 +116,21 @@ impl Config {
             return Err("seal secret must contain 32 random bytes".into());
         }
         let client_pin: [u8; 32] = Sha256::digest(&*read("CLIENT_CERT_DER", 65536, false)?).into();
-        let evm_client_pin: Option<[u8; 32]> =
-            std::env::var("LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER")
-                .ok()
+        let attestor_evm_client_certificate =
+            std::env::var_os("LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER")
                 .map(|path| {
                     protected(Path::new(&path), 65536, false)
-                        .map(|bytes| Sha256::digest(&*bytes).into())
+                        .map(|bytes| CertificateDer::from(bytes.to_vec()))
                 })
                 .transpose()?;
-        if evm_client_pin == Some(client_pin) {
-            return Err("executor and service identities must differ".into());
+        if attestor_evm_client_certificate
+            .as_ref()
+            .is_some_and(|certificate| {
+                let pin: [u8; 32] = Sha256::digest(certificate.as_ref()).into();
+                pin == client_pin
+            })
+        {
+            return Err("attestor signer and service identities must differ".into());
         }
         let seconds: u64 = required("DEADLINE_SECONDS")?
             .parse()
@@ -162,13 +144,11 @@ impl Config {
                 .map_err(|_| "listen address invalid")?,
             state: PathBuf::from(required("STATE_DIR")?),
             provider,
-            network: snapshot.network_id,
-            protocol: snapshot.protocol_version,
-            registry,
+            chain,
             seal,
             tls: Arc::new(tls),
             client_pin,
-            evm_client_pin,
+            attestor_evm_client_certificate,
             deadline: Duration::from_secs(seconds),
         })
     }

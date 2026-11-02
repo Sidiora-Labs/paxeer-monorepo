@@ -128,3 +128,281 @@ test('sellBalanceCheckIsBigint', async () => {
   assert.equal(spotSellExceedsBalance(0n, null, 18), false);
   assert.equal(spotSellExceedsBalance(1n, { raw: 'abc', decimals: 18 }, 18), true);
 });
+
+test('percentageShortcutsUseTheMarketSidePrice', async () => {
+  const {
+    spotPercentageAmount,
+    spotConversionPrice,
+    spotOrderUnits,
+    spotSellExceedsBalance,
+  } = await import('../src/widgets/spot/SpotOrderForm');
+  const balance = { raw: '100000000', decimals: 6 };
+  const presets = [25, 50, 75, 100];
+  const cases = [
+    {
+      side: 'BUY',
+      sizeMode: 'BASE',
+      expected: ['22.727272', '45.454545', '68.181818', '90.90909'],
+    },
+    { side: 'BUY', sizeMode: 'USD', expected: ['25', '50', '75', '100'] },
+    { side: 'SELL', sizeMode: 'BASE', expected: ['25', '50', '75', '100'] },
+    { side: 'SELL', sizeMode: 'USD', expected: ['22.5', '45', '67.5', '90'] },
+  ] as const;
+
+  for (const { side, sizeMode, expected } of cases) {
+    const conversion = spotConversionPrice({
+      orderType: 'market',
+      side,
+      limitPrice: '',
+      book,
+    });
+    for (const [i, pct] of presets.entries()) {
+      const amount = spotPercentageAmount({
+        side,
+        sizeMode,
+        balance,
+        pct,
+        price: conversion.price,
+        baseDecimals: 6,
+        quoteDecimals: 6,
+      });
+      assert.equal(amount, expected[i], `${side} ${sizeMode} ${pct}%`);
+      assert.notEqual(amount, null);
+      const units = spotOrderUnits({
+        sizeMode,
+        amount: amount!,
+        price: conversion.price,
+        baseDecimals: 6,
+        quoteDecimals: 6,
+      });
+      const target = (BigInt(balance.raw) * BigInt(pct)) / 100n;
+      assert.ok(
+        (side === 'BUY' ? units.quoteUnits : units.baseUnits) <= target,
+      );
+      if (side === 'SELL')
+        assert.equal(
+          spotSellExceedsBalance(units.baseUnits, balance, 6),
+          false,
+        );
+    }
+  }
+});
+
+test('percentageShortcutsUseTheEnteredLimitPrice', async () => {
+  const { spotPercentageAmount, spotConversionPrice, spotOrderUnits } =
+    await import('../src/widgets/spot/SpotOrderForm');
+  const balance = { raw: '100000000', decimals: 6 };
+  for (const orderType of ['limit', 'stop-limit'] as const) {
+    for (const side of ['BUY', 'SELL'] as const) {
+      const conversion = spotConversionPrice({
+        orderType,
+        side,
+        limitPrice: '2.5',
+        book,
+      });
+      for (const sizeMode of ['BASE', 'USD'] as const) {
+        for (const pct of [25, 50, 75, 100]) {
+          const amount = spotPercentageAmount({
+            side,
+            sizeMode,
+            balance,
+            pct,
+            price: conversion.price,
+            baseDecimals: 18,
+            quoteDecimals: 6,
+          });
+          const expected =
+            side === 'BUY' && sizeMode === 'BASE'
+              ? String(pct / 2.5)
+              : side === 'SELL' && sizeMode === 'USD'
+                ? String(pct * 2.5)
+                : String(pct);
+          assert.equal(
+            amount,
+            expected,
+            `${orderType} ${side} ${sizeMode} ${pct}%`,
+          );
+          const units = spotOrderUnits({
+            sizeMode,
+            amount: amount!,
+            price: conversion.price,
+            baseDecimals: 18,
+            quoteDecimals: 6,
+          });
+          assert.equal(
+            side === 'BUY' ? units.quoteUnits : units.baseUnits,
+            BigInt(pct) * 10n ** BigInt(side === 'BUY' ? 6 : 18),
+          );
+        }
+      }
+    }
+  }
+});
+
+test('percentageShortcutsKeepExactBalancesAndTokenDecimals', async () => {
+  const {
+    spotPercentageAmount,
+    spotConversionPrice,
+    spotOrderUnits,
+    spotSellExceedsBalance,
+  } = await import('../src/widgets/spot/SpotOrderForm');
+  const buy = spotConversionPrice({
+    orderType: 'limit',
+    side: 'BUY',
+    limitPrice: '3',
+    book,
+  });
+  const bought = spotPercentageAmount({
+    side: 'BUY',
+    sizeMode: 'BASE',
+    balance: { raw: '100000000', decimals: 6 },
+    pct: 100,
+    price: buy.price,
+    baseDecimals: 18,
+    quoteDecimals: 6,
+  });
+  assert.equal(bought, '33.333333333333333333');
+  assert.equal(
+    spotOrderUnits({
+      sizeMode: 'BASE',
+      amount: bought!,
+      price: buy.price,
+      baseDecimals: 18,
+      quoteDecimals: 6,
+    }).quoteUnits,
+    99_999_999n,
+  );
+
+  const exactBalance = { raw: '999999999999999999', decimals: 18 };
+  const exactSell = spotPercentageAmount({
+    side: 'SELL',
+    sizeMode: 'BASE',
+    balance: exactBalance,
+    pct: 100,
+    price: '1',
+    baseDecimals: 18,
+    quoteDecimals: 6,
+  });
+  assert.equal(exactSell, '0.999999999999999999');
+  assert.equal(
+    spotSellExceedsBalance(
+      spotOrderUnits({
+        sizeMode: 'BASE',
+        amount: exactSell!,
+        price: '1',
+        baseDecimals: 18,
+        quoteDecimals: 6,
+      }).baseUnits,
+      exactBalance,
+      18,
+    ),
+    false,
+  );
+  assert.equal(
+    spotPercentageAmount({
+      side: 'SELL',
+      sizeMode: 'BASE',
+      balance: exactBalance,
+      pct: 25,
+      price: '1',
+      baseDecimals: 18,
+      quoteDecimals: 6,
+    }),
+    '0.249999999999999999',
+  );
+
+  const precise = spotConversionPrice({
+    orderType: 'market',
+    side: 'SELL',
+    limitPrice: '',
+    book: { bids: [level('0.123456789123456789')], asks: [level('0.2')] },
+  });
+  assert.equal(
+    spotPercentageAmount({
+      side: 'SELL',
+      sizeMode: 'USD',
+      balance: { raw: '1000000000000000000', decimals: 18 },
+      pct: 100,
+      price: precise.price,
+      baseDecimals: 18,
+      quoteDecimals: 18,
+    }),
+    '0.123456789123456789',
+  );
+
+  const higherPrecisionHolding = { raw: '1999999999999999999', decimals: 18 };
+  const floored = spotPercentageAmount({
+    side: 'SELL',
+    sizeMode: 'USD',
+    balance: higherPrecisionHolding,
+    pct: 100,
+    price: '3',
+    baseDecimals: 6,
+    quoteDecimals: 6,
+  });
+  assert.equal(floored, '5.999997');
+  const sold = spotOrderUnits({
+    sizeMode: 'USD',
+    amount: floored!,
+    price: '3',
+    baseDecimals: 6,
+    quoteDecimals: 6,
+  });
+  assert.equal(sold.baseUnits, 1_999_999n);
+  assert.equal(
+    spotSellExceedsBalance(sold.baseUnits, higherPrecisionHolding, 6),
+    false,
+  );
+  assert.equal(
+    spotPercentageAmount({
+      side: 'SELL',
+      sizeMode: 'BASE',
+      balance: { raw: '1500000', decimals: 6 },
+      pct: 50,
+      price: '1',
+      baseDecimals: 18,
+      quoteDecimals: 6,
+    }),
+    '0.75',
+  );
+});
+
+test('percentageShortcutsDoNotGuessAnUnavailableConversionPrice', async () => {
+  const { spotPercentageAmount, spotConversionPrice } = await import(
+    '../src/widgets/spot/SpotOrderForm'
+  );
+  for (const orderType of ['market', 'limit', 'stop-limit'] as const) {
+    for (const side of ['BUY', 'SELL'] as const) {
+      const conversion = spotConversionPrice({
+        orderType,
+        side,
+        limitPrice: '',
+        book: null,
+      });
+      assert.notEqual(conversion.reason, null);
+      for (const sizeMode of ['BASE', 'USD'] as const) {
+        const params = {
+          side,
+          sizeMode,
+          balance: { raw: '100000000', decimals: 6 },
+          pct: 50,
+          price: conversion.price,
+          baseDecimals: 6,
+          quoteDecimals: 6,
+        };
+        assert.equal(
+          spotPercentageAmount(params),
+          sizeMode === (side === 'BUY' ? 'USD' : 'BASE') ? '50' : null,
+        );
+        assert.equal(spotPercentageAmount({ ...params, balance: null }), null);
+        assert.equal(
+          spotPercentageAmount({
+            ...params,
+            balance: { raw: '0', decimals: 6 },
+          }),
+          null,
+        );
+      }
+    }
+  }
+});

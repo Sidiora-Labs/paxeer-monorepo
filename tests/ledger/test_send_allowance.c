@@ -159,7 +159,7 @@ static int delegated_send(void)
     asset.registered = true;
     (void)memset(&store, 0, sizeof(store));
     environment = (lxp_send_environment){ &registry, &asset, 1U, &store,
-                                          10U, 7U, LXP_PROTOCOL_VERSION, NULL };
+                                          10U, 7U, LXP_PROTOCOL_VERSION, NULL, false };
 
     /* A declared delegated debit without the grant it draws against is
      * refused before anything moves. */

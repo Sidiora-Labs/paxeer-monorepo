@@ -3,9 +3,7 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --filter @sidiora/web dev",
-    "dev:bot": "pnpm --filter @sidiora/telegram-bot dev",
     "build": "pnpm --filter @sidiora/web build",
-    "build:bot": "pnpm --filter @sidiora/telegram-bot build",
     "build:packages": "pnpm -r --filter '../../sdk/launchpad/packages/*' build",
     "lint": "pnpm --filter @sidiora/web lint"
   },

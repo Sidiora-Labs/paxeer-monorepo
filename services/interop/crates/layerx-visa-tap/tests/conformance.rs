@@ -12,10 +12,12 @@
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
+use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_visa_tap::{
     bind_verified_agent, prepare_trusted_intent, AgentIntent, AgentPublicKey, CredentialBinding,
     CredentialBindingStore, KeyStatus, MerchantOperationResult, NonceWindow, RegisteredAgentKey,
@@ -118,14 +120,52 @@ fn payment_result(
     keys: &[SequencerAuthorization],
 ) -> Result<MerchantOperationResult, TapError> {
     MerchantOperationResult::from_receipt(
-        receipt,
+        &payment_evidence(
+            receipt,
+            PAYMENT_REFERENCE,
+            PAYMENT_FROM,
+            PAYMENT_TO,
+            PAYMENT_ASSET,
+            PAYMENT_AMOUNT,
+        ),
         keys,
         PAYMENT_REFERENCE,
-        PAYMENT_FROM,
-        PAYMENT_TO,
-        PAYMENT_ASSET,
-        PAYMENT_AMOUNT,
     )
+}
+
+fn payment_evidence(
+    receipt: &[u8],
+    reference: [u8; 32],
+    from: [u8; 32],
+    to: [u8; 32],
+    asset: [u8; 32],
+    amount: u128,
+) -> SequencerEvidence {
+    let mut data = vec![0; 64];
+    data[..32].copy_from_slice(&asset);
+    data[48..].copy_from_slice(&amount.to_be_bytes());
+    SequencerEvidence {
+        transaction_hash: [3; 32],
+        signed_receipt: receipt.to_vec(),
+        logs: vec![SequencerLog::new(
+            [
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
+            ],
+            vec![
+                [
+                    0xc4, 0xda, 0x5d, 0x6f, 0x75, 0x7c, 0x25, 0x1c, 0xd7, 0x09, 0x47, 0xb7, 0x52,
+                    0x91, 0x7e, 0x56, 0x71, 0xb6, 0x77, 0x51, 0x7e, 0x3d, 0x95, 0x3f, 0x36, 0x2a,
+                    0x1d, 0xf6, 0x64, 0x8e, 0xf5, 0xb1,
+                ],
+                from,
+                to,
+                reference,
+            ],
+            data,
+            0,
+        )],
+        rung: SettlementRung::Receipted,
+    }
 }
 
 struct Registry {
@@ -468,6 +508,10 @@ fn v2_exact_payment_verifies_against_the_governed_key_list() {
     assert_eq!(protocol.effects().len(), 2);
     let expected = Ok(MerchantOperationResult::ReceiptVerified {
         receipt_digest: V2_RECEIPT_DIGEST,
+        from: PAYMENT_FROM,
+        to: PAYMENT_TO,
+        asset: PAYMENT_ASSET,
+        amount: PAYMENT_AMOUNT,
     });
     assert_eq!(payment_result(&receipt, &keys), expected);
     assert_eq!(
@@ -549,7 +593,9 @@ fn v2_payment_facts_must_match_the_signed_ledger_log() {
     ] {
         assert_eq!(
             MerchantOperationResult::from_receipt(
-                &receipt, &keys, reference, from, to, asset, amount,
+                &payment_evidence(&receipt, reference, from, to, asset, amount),
+                &keys,
+                reference,
             ),
             Err(TapError::ReceiptMismatch),
         );
@@ -606,7 +652,9 @@ fn v2_invalid_payment_terms_are_refused() {
     ] {
         assert_eq!(
             MerchantOperationResult::from_receipt(
-                &receipt, &keys, reference, from, to, asset, amount,
+                &payment_evidence(&receipt, reference, from, to, asset, amount),
+                &keys,
+                reference,
             ),
             Err(TapError::ReceiptMismatch),
         );

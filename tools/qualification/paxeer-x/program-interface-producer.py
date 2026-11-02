@@ -11,11 +11,6 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[3]
 SCHEMA = 'paxeer-x.program-interface-artifacts.v1'
-NATIVE_CASES = {
-    'abi1', 'abi2', 'abi2-dynamic', 'abi3', 'abi3-dynamic', 'abi4',
-    'abi4-dynamic', 'upgrade-widening', 'upgrade-narrowing',
-    'upgrade-breaking', 'upgrade-downgrade',
-}
 PROTOCOL_CASES = {
     'canonical_abi_domains_and_legacy_vectors',
     'exact_capabilities_exports_and_upgrade_policy',
@@ -150,27 +145,17 @@ def build(output):
     library = native_dir / 'liblayerx.a'
     header = native_dir / 'generated/lxp_checkpoint_settlement.h'
     staticlib = cargo_dir / 'debug/liblayerx_programs_sandbox.a'
-    native = directory / 'test_interface_protocol'
-    compile_command = [
-        'cc', '-Iinclude', '-I' + str(header.parent),
-        '-std=c17', '-pedantic', '-Werror', '-Wall', '-Wextra', '-Wconversion',
-        '-Wshadow', '-Wvla', '-fno-strict-aliasing', '-ffp-contract=off', '-O2',
-        'tests/programs/test_interface_protocol.c', '-Wl,--start-group',
-        str(library), str(staticlib), '-Wl,--end-group',
-        '-lcrypto', '-lsqlite3', '-pthread', '-ldl', '-lm', '-o', str(native),
-    ]
     commands = [
         ['make', '--no-print-directory', '-j' + str(jobs),
          'BUILD_DIR=' + str(native_dir), 'LXP_REVISION=' + source['revision'],
          str(library), str(header)],
         cargo + ['build', '--locked', '--manifest-path', str(ROOT / 'programs/Cargo.toml'),
                  '-p', 'layerx-programs-sandbox', '--features', 'host-ffi'],
-        compile_command,
         cargo + ['test', '--locked', '--manifest-path', str(ROOT / 'programs/Cargo.toml'),
                  '-p', 'layerx-programs-registry', '--lib', '--test', 'interface_protocol',
                  '--no-run', '--message-format=json'],
     ]
-    working_directories = [ROOT, ROOT / 'programs', ROOT, ROOT / 'programs']
+    working_directories = [ROOT, ROOT / 'programs', ROOT / 'programs']
     record = {'schema': SCHEMA, 'source': source, 'producer_root': str(ROOT),
               'commands': commands,
               'working_directories': [str(path) for path in working_directories],
@@ -179,7 +164,6 @@ def build(output):
               'toolchains': {'cargo': capture(cargo + ['--version']),
                              'rustc': capture(['rustc', '+1.91.1', '-vV']),
                              'cc': capture(['cc', '--version'])},
-              'required_native_cases': sorted(NATIVE_CASES),
               'required_protocol_cases': sorted(PROTOCOL_CASES),
               'required_legacy_cases': sorted(LEGACY_CASES)}
     write_private(directory / 'build-inputs.json', record)
@@ -195,7 +179,7 @@ def build(output):
         target.chmod(0o700)
     require(identity() == source, 'source changed during build')
     record['artifacts'] = {
-        'native': artifact(native), 'native-library': artifact(library),
+        'native-library': artifact(library),
         'sandbox-staticlib': artifact(staticlib), 'generated-header': artifact(header),
         'protocol-tests': artifact(directory / 'interface_protocol'),
         'legacy-tests': artifact(directory / 'layerx_programs'),

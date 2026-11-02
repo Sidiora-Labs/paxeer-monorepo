@@ -93,6 +93,9 @@ func TestArgumentPrecedence(t *testing.T) {
 			cmd.Flags().Int("buffer-size", 0, "Buffer size")
 			cmd.Flags().Bool("ramp-up", false, "Ramp up loadtest")
 			cmd.Flags().String("report-path", "", "Report path")
+			cmd.Flags().Float64("min-tps", 0, "Minimum average TPS")
+			cmd.Flags().Duration("max-p99-latency", 0, "Maximum p99 latency")
+			cmd.Flags().Uint64("min-total-txs", 0, "Minimum total transactions")
 			cmd.Flags().String("txs-dir", "", "Txs dir")
 			cmd.Flags().Uint64("target-gas", 0, "Target gas")
 			cmd.Flags().Int("num-blocks-to-write", 0, "Number of blocks to write")
@@ -116,6 +119,76 @@ func TestArgumentPrecedence(t *testing.T) {
 			require.Equal(t, tt.expectedStats, settings.StatsInterval.ToDuration(), "StatsInterval: expected %v, got %v", tt.expectedStats, settings.StatsInterval.ToDuration())
 			require.Equal(t, tt.expectedWorkers, settings.Workers, "Workers: expected %d, got %d", tt.expectedWorkers, settings.Workers)
 			require.Equal(t, tt.expectedTPS, settings.TPS, "TPS: expected %f, got %f", tt.expectedTPS, settings.TPS)
+		})
+	}
+}
+
+func TestResolveSettingsReadsPerformanceBounds(t *testing.T) {
+	t.Cleanup(viper.Reset)
+	tests := []struct {
+		name          string
+		configContent string
+		cliArgs       []string
+		minTPS        float64
+		maxP99Latency time.Duration
+		minTotalTxs   uint64
+	}{
+		{
+			name:          "zero defaults disable bounds",
+			configContent: `{}`,
+		},
+		{
+			name:          "config bounds",
+			configContent: `{"minTps":12.5,"maxP99Latency":"250ms","minTotalTxs":500}`,
+			minTPS:        12.5,
+			maxP99Latency: 250 * time.Millisecond,
+			minTotalTxs:   500,
+		},
+		{
+			name:          "flags override config bounds",
+			configContent: `{"minTps":12.5,"maxP99Latency":"250ms","minTotalTxs":500}`,
+			cliArgs:       []string{"--min-tps", "123.75", "--max-p99-latency", "1.5s", "--min-total-txs", "18446744073709551615"},
+			minTPS:        123.75,
+			maxP99Latency: 1500 * time.Millisecond,
+			minTotalTxs:   ^uint64(0),
+		},
+		{
+			name:          "explicit zero flags disable config bounds",
+			configContent: `{"minTps":12.5,"maxP99Latency":"250ms","minTotalTxs":500}`,
+			cliArgs:       []string{"--min-tps", "0", "--max-p99-latency", "0s", "--min-total-txs", "0"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			viper.Reset()
+			cmd := &cobra.Command{Use: "test"}
+			cmd.Flags().Duration("stats-interval", 0, "Stats interval")
+			cmd.Flags().Int("buffer-size", 0, "Buffer size")
+			cmd.Flags().Float64("tps", 0, "TPS")
+			cmd.Flags().Bool("dry-run", false, "Dry run")
+			cmd.Flags().Bool("debug", false, "Debug")
+			cmd.Flags().Bool("track-receipts", false, "Track receipts")
+			cmd.Flags().Bool("track-blocks", false, "Track blocks")
+			cmd.Flags().Bool("prewarm", false, "Prewarm")
+			cmd.Flags().Bool("track-user-latency", false, "Track user latency")
+			cmd.Flags().Int("workers", 0, "Number of workers")
+			cmd.Flags().Bool("ramp-up", false, "Ramp up loadtest")
+			cmd.Flags().String("report-path", "", "Report path")
+			cmd.Flags().Float64("min-tps", 0, "Minimum average TPS")
+			cmd.Flags().Duration("max-p99-latency", 0, "Maximum p99 latency")
+			cmd.Flags().Uint64("min-total-txs", 0, "Minimum total transactions")
+			cmd.Flags().String("txs-dir", "", "Txs dir")
+			cmd.Flags().Uint64("target-gas", 0, "Target gas")
+			cmd.Flags().Int("num-blocks-to-write", 0, "Number of blocks to write")
+			require.NoError(t, cmd.ParseFlags(tt.cliArgs))
+			require.NoError(t, InitializeViper(cmd))
+			var configured Settings
+			require.NoError(t, json.Unmarshal([]byte(tt.configContent), &configured))
+			require.NoError(t, LoadSettings(&configured))
+			resolved := ResolveSettings()
+			require.Equal(t, tt.minTPS, resolved.MinTPS)
+			require.Equal(t, tt.maxP99Latency, resolved.MaxP99Latency.ToDuration())
+			require.Equal(t, tt.minTotalTxs, resolved.MinTotalTxs)
 		})
 	}
 }

@@ -15,9 +15,10 @@ Checks, each printed as "pass <check> <observed>" or "fail <check> <observed>":
   eth_chainId        the chain id is 0x7d
   px_resolveAccount  a well-formed address resolves to a result with a boolean
                      bound field, never a transport or read error
-  px_getNetwork      kernel.available is false with a reason other than available
-  lx_getAccount      the answer is error -32010 with data.code kernel_unavailable,
-                     a named backend and a reason
+  px_getNetwork      paxeer.chain_id is 0x7d, with consensus an object or
+                     null with reason consensus_unavailable
+  px_getAccount      an EVM address resolves to an account document with bound
+                     and a Paxeer balance, nonce and height
 
 attestors reads GET <base>/health from every base in
           CHECK_LIVE_ATTESTOR_BASES and prints one line per node, then one
@@ -724,6 +725,7 @@ fi
 base="${base%/}"
 
 failures=0
+account_address="0x000000000000000000000000000000000000dEaD"
 
 call() {
 	local method="$1" params="$2"
@@ -741,9 +743,11 @@ judge() {
 	else
 		verdict="$(printf '%s' "$body" | python3 -c '
 import json
+import re
 import sys
 
 check = sys.argv[1]
+account_address = sys.argv[2].lower()
 raw = sys.stdin.read()
 try:
     doc = json.loads(raw)
@@ -771,35 +775,49 @@ elif check == "px_resolveAccount":
     else:
         print("fail " + show(error if error is not None else result))
 elif check == "px_getNetwork":
-    kernel = result.get("kernel") if error is None and isinstance(result, dict) else None
+    network = result if error is None and isinstance(result, dict) else {}
+    paxeer, consensus = network.get("paxeer"), network.get("consensus")
     if (
-        isinstance(kernel, dict)
-        and kernel.get("available") is False
-        and isinstance(kernel.get("reason"), str)
-        and kernel["reason"] not in ("", "available")
+        isinstance(paxeer, dict)
+        and paxeer.get("chain_id") == "0x7d"
+        and (
+            isinstance(consensus, dict)
+            or (
+                "consensus" in network
+                and consensus is None
+                and network.get("reason") == "consensus_unavailable"
+            )
+        )
     ):
-        print("pass kernel.available=false reason=" + kernel["reason"])
+        print("pass consensus=" + (str(consensus.get("latest_height")) if isinstance(consensus, dict) else "unavailable"))
     else:
-        print("fail " + show(kernel if kernel is not None else (error if error is not None else result)))
-elif check == "lx_getAccount":
-    data = error.get("data") if isinstance(error, dict) else None
+        print("fail " + show(error if error is not None else result))
+elif check == "px_getAccount":
+    account = result.get("account") if isinstance(result, dict) else None
+    paxeer = result.get("paxeer") if isinstance(result, dict) else None
     if (
-        result is None
-        and isinstance(error, dict)
-        and error.get("code") == -32010
-        and isinstance(data, dict)
-        and data.get("code") == "kernel_unavailable"
-        and isinstance(data.get("backend"), str)
-        and data["backend"] != ""
-        and isinstance(data.get("reason"), str)
-        and data["reason"] != ""
+        error is None
+        and isinstance(account, dict)
+        and isinstance(account.get("bound"), bool)
+        and isinstance(account.get("evm_address"), str)
+        and account["evm_address"].lower() == account_address
+        and isinstance(paxeer, dict)
+        and isinstance(paxeer.get("address"), str)
+        and paxeer["address"].lower() == account_address
+        and all(
+            isinstance(paxeer.get(field), str)
+            and re.fullmatch(r"0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)", paxeer[field])
+            for field in ("balance", "nonce")
+        )
+        and type(paxeer.get("height")) is int
+        and paxeer["height"] >= 0
     ):
-        print("pass code=-32010 backend=" + data["backend"] + " reason=" + data["reason"])
+        print("pass bound=" + str(account["bound"]).lower() + " height=" + str(paxeer["height"]))
     else:
         print("fail " + show(error if error is not None else result))
 else:
     print("fail unknown-check")
-' "$check")"
+' "$check" "$account_address")"
 	fi
 	case "$verdict" in
 	pass\ *) echo "pass $check ${verdict#pass }" ;;
@@ -817,9 +835,9 @@ run() {
 }
 
 run eth_chainId '[]'
-run px_resolveAccount '["0x000000000000000000000000000000000000dEaD"]'
+run px_resolveAccount "[\"$account_address\"]"
 run px_getNetwork '[]'
-run lx_getAccount "[\"$(printf 'ab%.0s' $(seq 32))\"]"
+run px_getAccount "[\"$account_address\"]"
 
 if [ "$failures" -ne 0 ]; then
 	echo "check-live: $failures check(s) failed"

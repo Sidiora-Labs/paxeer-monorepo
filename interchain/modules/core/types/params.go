@@ -11,11 +11,6 @@ var (
 	KeyOutboundEnabled = []byte("OutboundEnabled")
 )
 
-type Params struct {
-	InboundEnabled  bool `json:"inbound_enabled" yaml:"inbound_enabled"`
-	OutboundEnabled bool `json:"outbound_enabled" yaml:"outbound_enabled"`
-}
-
 // ParamKeyTable for the ibc core module params
 func ParamKeyTable() paramtypes.KeyTable {
 	return paramtypes.NewKeyTable().RegisterParamSet(&Params{})

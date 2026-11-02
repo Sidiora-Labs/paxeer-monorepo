@@ -143,7 +143,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
 
 env:
-  GO_VERSION: '1.25.6'
+  GO_VERSION: '1.25.8'
   GO_TEST_TIMEOUT: 30m
   STATE_DB_PKG_PREFIX: github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db
 

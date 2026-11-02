@@ -367,7 +367,8 @@ func (s *scheduler) shouldRerun(task *deliverTxTask) bool {
 	case statusExecuted, statusValidated:
 		// With the current scheduler, we won't actually get to this step if a previous task has already been determined to be invalid,
 		// since we choose to fail fast and mark the subsequent tasks as invalid as well.
-		// TODO: in a future async scheduler that no longer exhaustively validates in order, we may need to carefully handle the `valid=true` with conflicts case
+		// Precondition: validation remains ordered and fail-fast; lower-index tasks must validate first.
+		// shouldRerun relies on this ordering and does not support out-of-order validation of valid=true with conflicts.
 		if valid, conflicts, conflictKeys := s.findConflicts(task); !valid {
 			s.invalidateTask(task)
 			task.AppendDependencies(conflicts)

@@ -25,13 +25,21 @@ variants = ["recovery_pending","store_unavailable","store_refused","budget_state
 
 [operation.agent.register]
 request = "AgentRegistration"
-required = ["tenant","agent_did","authority_ref","client","policy_version"]
-response = "AuthorityResponse<AgentRecord>"
+required = ["tenant","agent_did","authority_ref","client","policy_version","owner_address","binding_consent","fee_limit"]
+response = "AuthorityResponse<Prepared>"
+owner_address = "40 lowercase hex characters: the owner EVM address that will sign the transaction"
+binding_consent = "128 lowercase hex characters: the externally owner-signed Ed25519 binding consent; verified against the node chain id and current bind nonce"
+fee_limit = "decimal_string u128: upper bound on max_fee_per_gas"
 
 [operation.session.open]
 request = "SessionOpen"
-required = ["context"]
-response = "AuthorityResponse<SessionRecord>"
+required = ["context","grant_id","registration_payload","expiry_sequence","purpose","fee_limit"]
+response = "AuthorityResponse<Prepared>"
+grant_id = "64 lowercase hex characters: the provisioned session grant id"
+registration_payload = "Lowercase hex bytes of the canonical session grant matching grant_id and the provisioned session address"
+expiry_sequence = "Nonzero decimal_string u64 passed to grantSession"
+purpose = "64 lowercase hex characters passed to grantSession"
+fee_limit = "decimal_string u128: upper bound on max_fee_per_gas"
 
 [operation.session.refresh]
 request = "SessionRefresh"
@@ -163,17 +171,6 @@ refusals = "budget.not_found, BudgetRefusal Terminal, when the authenticated bud
 [type.AuthorityResponse]
 required = ["authority","value"]
 authority_description = "Every response names the tenant, agent DID, authority reference and exact protocol authority actually used."
-
-[type.FaucetGrant]
-required = ["funded","funding_id","transaction_id","amount","network"]
-funded_semantics = "Only a grant the funding boundary confirmed as funded is a value. A pending, unfunded or incomplete document is a refusal and never a zero amount."
-
-[operation.faucet.claim]
-required = ["did","signer_public_key"]
-response = "FaucetGrant"
-network_scope = "test_network_only"
-signer_binding = "The signer key must be one the calling session already authorises. A key the session does not name is refused before any grant is reserved."
-idempotency_binding = "The claim key is derived by the funding boundary from the principal, the DID and the signer key, so a repeated claim settles onto the reservation it already made instead of consuming a second grant."
 
 [operation.mcp.invoke]
 request = "McpInvokeRequest"

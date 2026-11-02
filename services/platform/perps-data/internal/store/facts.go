@@ -24,6 +24,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery/natsdriver"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/explorer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/pnl"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/stream"
 )
 
@@ -1128,6 +1129,10 @@ type storedRow struct {
 // loadFacts reads the stored fact rows of blocks [from, to] by block, each
 // block in (tx_index, log_index, sub) order.
 func loadFacts(ctx context.Context, tx *sql.Tx, from, to int64) (map[uint64][]decode.Row, error) {
+	return loadRebuildFacts(ctx, tx, from, to, nil)
+}
+
+func loadRebuildFacts(ctx context.Context, tx *sql.Tx, from, to int64, scope *rebuildScope) (map[uint64][]decode.Row, error) {
 	byBlock := map[uint64][]storedRow{}
 	for _, t := range storedTables() {
 		quoted := make([]string, len(t.columns))
@@ -1135,8 +1140,26 @@ func loadFacts(ctx context.Context, tx *sql.Tx, from, to int64) (map[uint64][]de
 		for i, c := range t.columns {
 			quoted[i], at[c] = pq.QuoteIdentifier(c), i+1
 		}
+		where := ""
+		args := []any{from, to}
+		if scope != nil {
+			keys := []string{"account = ANY($3::bytea[])"}
+			args = append(args, scope.accounts)
+			for _, column := range []string{"maker", "taker"} {
+				if slices.Contains(t.columns, column) {
+					keys = append(keys, pq.QuoteIdentifier(column)+" = ANY($3::bytea[])")
+				}
+			}
+			if slices.Contains(t.columns, "market_id") {
+				keys = append(keys, "market_id = ANY($4::numeric[])")
+				args = append(args, pq.Array(scope.markets.list))
+			}
+			keys = append(keys, fmt.Sprintf("block BETWEEN $%d AND $%d", len(args)+1, len(args)+2))
+			args = append(args, scope.from, scope.to)
+			where = " AND (" + strings.Join(keys, " OR ") + ")"
+		}
 		rows, err := tx.QueryContext(ctx, `SELECT kind, `+strings.Join(quoted, ", ")+` FROM perps.`+pq.QuoteIdentifier(t.name)+
-			` WHERE block BETWEEN $1 AND $2`, from, to)
+			` WHERE block BETWEEN $1 AND $2`+where, args...)
 		if err != nil {
 			return nil, fmt.Errorf("store: read perps.%s: %w", t.name, err)
 		}
@@ -1189,12 +1212,184 @@ func loadFacts(ctx context.Context, tx *sql.Tx, from, to int64) (map[uint64][]de
 	return out, nil
 }
 
-// Rebuild re-projects the stored facts after a rewrite of blocks [from, to]:
-// it clears the projections of Project and Snapshotter and folds every stored
-// block in order, as a fresh index of the stored blocks writes them; the
-// leaderboard is rebuilt once at the end, as of the last block that changed it.
-// ponytail: re-projects all stored blocks, O(all facts) per call; scope it to
-// the accounts and markets of [from, to] if replays outgrow it.
+type rebuildScope struct {
+	accounts   pq.ByteaArray
+	accountSet set[common.Address]
+	markets    set[string]
+	tokens     set[common.Address]
+	from, to   int64
+}
+
+func (s *rebuildScope) account(a common.Address) bool {
+	_, ok := s.accountSet.seen[a]
+	return ok
+}
+
+func (s *rebuildScope) market(m string) bool {
+	_, ok := s.markets.seen[m]
+	return ok
+}
+
+func (s *rebuildScope) include(ctx context.Context, tx *sql.Tx, row decode.Row) error {
+	s.accountSet.add(row.Common().Account)
+	if r, ok := row.(decode.FillRow); ok {
+		s.accountSet.add(r.Maker)
+		s.accountSet.add(r.Taker)
+	}
+	if market, ok := marketOf(row); ok {
+		s.markets.add(market)
+	}
+	for _, key := range []struct{ field, table, id, kind string }{
+		{"PositionID", "positions_current", "position_id", "position"},
+		{"OrderID", "orders", "order_id", "order"},
+	} {
+		if row.Table() == spotOrderTable {
+			continue
+		}
+		v, ok := field(row, key.field)
+		if !ok || v.String() == "0" {
+			continue
+		}
+		var market string
+		err := tx.QueryRowContext(ctx, `SELECT market_id::text FROM perps.`+key.table+` WHERE `+key.id+` = $1
+UNION SELECT market_id::text FROM perps.projection_seeds WHERE kind = $2 AND id = $1 LIMIT 1`, v.String(), key.kind).Scan(&market)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return fmt.Errorf("store: rebuild market: %w", err)
+		}
+		if err == nil {
+			s.markets.add(market)
+		}
+	}
+	if _, ok := spotTokenQueries[row.Table()]; ok {
+		for _, name := range []string{"Token", "Stablecoin", "TokenOther", "TokenIn", "TokenOut", "ShareToken"} {
+			if v, ok := field(row, name); ok {
+				switch token := v.Interface().(type) {
+				case common.Address:
+					s.tokens.add(token)
+				case *common.Address:
+					if token != nil {
+						s.tokens.add(*token)
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func rebuildProject(ctx context.Context, tx *sql.Tx, rows []decode.Row, scope *rebuildScope, block uint64, at time.Time) error {
+	var margin, stats set[common.Address]
+	var daily set[accountDay]
+	var markets set[string]
+	var cycle keeperCycle
+	for _, row := range rows {
+		f := row.Common()
+		if scope.account(f.Account) {
+			if err := projectPosition(ctx, tx, row); err != nil {
+				return err
+			}
+			if _, fill := row.(decode.FillRow); !fill {
+				if err := projectOrder(ctx, tx, row); err != nil {
+					return err
+				}
+			}
+			if row.Table() == spotOrderTable {
+				if err := projectSpotOrder(ctx, tx, f); err != nil {
+					return err
+				}
+			}
+			switch row.(type) {
+			case decode.CollateralDepositedRow, decode.CollateralWithdrawnRow, decode.CollateralTransferredRow,
+				decode.PositionModifiedRow, decode.ADLExecutedRow, decode.PositionOpenedRow:
+				margin.add(f.Account)
+			case decode.PositionClosedRow, decode.PositionFundingAppliedRow, decode.FeeCollectedRow, decode.LiquidationRow:
+				margin.add(f.Account)
+				stats.add(f.Account)
+			case decode.TradeSettledRow:
+				stats.add(f.Account)
+				daily.add(accountDay{f.Account, f.BlockTime.UTC().Truncate(24 * time.Hour)})
+			}
+		}
+		switch r := row.(type) {
+		case decode.FillRow:
+			for _, order := range []struct {
+				id      string
+				account common.Address
+			}{{r.MakerOrderID, r.Maker}, {r.TakerOrderID, r.Taker}} {
+				if order.id != "0" && scope.account(order.account) {
+					if err := fillOrder(ctx, tx, order.id, r.SizeUSD, int64(block)); err != nil {
+						return err
+					}
+				}
+			}
+			if scope.market(r.MarketID) {
+				markets.add(r.MarketID)
+			}
+		case decode.OpenInterestChangedRow:
+			if scope.market(r.MarketID) {
+				markets.add(r.MarketID)
+			}
+		}
+		if int64(block) >= scope.from && int64(block) <= scope.to && f.ReceiptKind == endBlockReceiptKind {
+			cycle.seen = true
+			switch row.(type) {
+			case decode.MarkPriceUpdatedRow:
+				cycle.markets++
+			case decode.OrderExecutedRow:
+				cycle.orders++
+			case decode.LiquidationRow:
+				cycle.liquidations++
+			}
+		}
+	}
+	for _, a := range margin.list {
+		if err := projectMargin(ctx, tx, a, block); err != nil {
+			return err
+		}
+	}
+	for _, a := range stats.list {
+		if err := projectStats(ctx, tx, a, block); err != nil {
+			return err
+		}
+	}
+	for _, d := range daily.list {
+		if _, err := pnl.RebuildDaily(ctx, tx, d.account, d.day); err != nil {
+			return fmt.Errorf("store: rebuild daily: %w", err)
+		}
+	}
+	rowsExpired, err := tx.QueryContext(ctx, strings.Replace(staleMarketStatsSQL, "ORDER BY s.market_id", "AND s.market_id = ANY($2::numeric[]) ORDER BY s.market_id", 1), at, pq.Array(scope.markets.list))
+	if err != nil {
+		return fmt.Errorf("store: rebuild stale markets: %w", err)
+	}
+	for rowsExpired.Next() {
+		var m string
+		if err := rowsExpired.Scan(&m); err != nil {
+			rowsExpired.Close()
+			return err
+		}
+		markets.add(m)
+	}
+	if err := rowsExpired.Close(); err != nil {
+		return err
+	}
+	if err := rowsExpired.Err(); err != nil {
+		return err
+	}
+	for _, m := range markets.list {
+		if err := projectMarketStats(ctx, tx, m, block, at); err != nil {
+			return err
+		}
+	}
+	if cycle.seen {
+		return projectKeeperCycle(ctx, tx, block, at, cycle)
+	}
+	return nil
+}
+
+// Rebuild re-folds the accounts, markets and spot tokens touched by [from, to]
+// from their stored history. Keeper cycles are replaced only in that range;
+// cumulative protocol snapshots are refreshed from the first changed time.
+// The leaderboard is rebuilt once at the end, as of its last changing block.
 func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64) error {
 	if tx == nil {
 		return errors.New("store: Rebuild needs a transaction")
@@ -1202,23 +1397,55 @@ func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64) error {
 	if from < 0 || to < from {
 		return fmt.Errorf("store: rebuild range %d to %d", from, to)
 	}
-	for _, t := range rebuildTables {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.`+pq.QuoteIdentifier(t)); err != nil {
-			return fmt.Errorf("store: clear perps.%s: %w", t, err)
+	scope := &rebuildScope{from: from, to: to}
+	for start := from; start <= to; {
+		end := start + min(int64(rebuildSpan-1), to-start)
+		facts, err := loadFacts(ctx, tx, start, end)
+		if err != nil {
+			return err
 		}
+		for _, rows := range facts {
+			for _, row := range rows {
+				if err := scope.include(ctx, tx, row); err != nil {
+					return err
+				}
+			}
+		}
+		if end == to {
+			break
+		}
+		start = end + 1
+	}
+	for _, a := range scope.accountSet.list {
+		scope.accounts = append(scope.accounts, a.Bytes())
 	}
 	var lo, hi sql.NullInt64
-	if err := tx.QueryRowContext(ctx, `SELECT min(number), max(number) FROM perps.blocks`).Scan(&lo, &hi); err != nil {
+	var changedAt sql.NullTime
+	if err := tx.QueryRowContext(ctx, `SELECT min(number), max(number), min(time) FILTER (WHERE number BETWEEN $1 AND $2) FROM perps.blocks`, from, to).Scan(&lo, &hi, &changedAt); err != nil {
 		return fmt.Errorf("store: block range: %w", err)
 	}
-	if !lo.Valid {
+	if !lo.Valid || !changedAt.Valid {
 		return nil
 	}
-	var boardAt time.Time
-	board := false
-	for start := lo.Int64; start <= hi.Int64; start += rebuildSpan {
-		end := min(start+rebuildSpan-1, hi.Int64)
-		facts, err := loadFacts(ctx, tx, start, end)
+	for _, table := range []string{"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily"} {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.`+pq.QuoteIdentifier(table)+` WHERE account = ANY($1::bytea[])`, scope.accounts); err != nil {
+			return fmt.Errorf("store: clear perps.%s: %w", table, err)
+		}
+	}
+	for _, table := range []string{"market_stats_rolling", "market_snapshots"} {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.`+table+` WHERE market_id = ANY($1::numeric[])`, pq.Array(scope.markets.list)); err != nil {
+			return err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM perps.keeper_cycles WHERE block BETWEEN $1 AND $2`, from, to); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM perps.protocol_snapshots WHERE hour >= $1`, changedAt.Time.UTC().Truncate(time.Hour).Add(time.Hour)); err != nil {
+		return err
+	}
+	for start := lo.Int64; start <= hi.Int64; {
+		end := start + min(int64(rebuildSpan-1), hi.Int64-start)
+		facts, err := loadRebuildFacts(ctx, tx, start, end, scope)
 		if err != nil {
 			return err
 		}
@@ -1235,7 +1462,7 @@ func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64) error {
 			var b stored
 			if err := rows.Scan(&b.number, &b.at); err != nil {
 				rows.Close()
-				return fmt.Errorf("store: scan blocks: %w", err)
+				return err
 			}
 			blocks = append(blocks, b)
 		}
@@ -1246,20 +1473,56 @@ func Rebuild(ctx context.Context, tx *sql.Tx, from, to int64) error {
 			return err
 		}
 		for _, b := range blocks {
-			changed, err := project(ctx, tx, facts[uint64(b.number)])
+			if err := rebuildProject(ctx, tx, facts[uint64(b.number)], scope, uint64(b.number), b.at); err != nil {
+				return fmt.Errorf("store: rebuild block %d: %w", b.number, err)
+			}
+			var prev time.Time
+			err := tx.QueryRowContext(ctx, previousBlockTimeSQL, b.number).Scan(&prev)
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
 			if err != nil {
-				return fmt.Errorf("store: rebuild block %d: %w", b.number, err)
+				return err
 			}
-			if changed {
-				board, boardAt = true, b.at
-			}
-			if err := (Snapshotter{}).Snapshot(ctx, tx, uint64(b.number), b.at); err != nil {
-				return fmt.Errorf("store: rebuild block %d: %w", b.number, err)
+			for h := prev.UTC().Truncate(time.Hour).Add(time.Hour); !h.After(b.at); h = h.Add(time.Hour) {
+				query := strings.Replace(marketSnapshotSQL, "FROM perps.markets m", "FROM (SELECT * FROM perps.markets WHERE market_id = ANY($2::numeric[])) m", 1)
+				if _, err := tx.ExecContext(ctx, query, h, pq.Array(scope.markets.list)); err != nil {
+					return err
+				}
+				if h.After(changedAt.Time) {
+					if _, err := tx.ExecContext(ctx, protocolSnapshotSQL, h); err != nil {
+						return err
+					}
+				}
 			}
 		}
+		if end == hi.Int64 {
+			break
+		}
+		start = end + 1
 	}
-	if board {
-		return rebuildLeaderboard(ctx, tx, boardAt)
+	for _, token := range scope.tokens.list {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.spot_token_seen WHERE token = $1`, token.Bytes()); err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO perps.spot_token_seen (token, first_block)
+SELECT $1, min(block) FROM (
+ SELECT block FROM perps.spot_swaps s CROSS JOIN LATERAL (VALUES (s.stablecoin), (s.token), (s.token_other), (s.token_in), (s.token_out)) v(token) WHERE v.token = $1
+ UNION ALL SELECT block FROM perps.spot_order_events s CROSS JOIN LATERAL (VALUES (s.token), (s.stablecoin)) v(token) WHERE v.token = $1
+ UNION ALL SELECT block FROM perps.spot_token_registry s CROSS JOIN LATERAL (VALUES (s.token), (s.share_token)) v(token) WHERE v.token = $1
+) history HAVING min(block) IS NOT NULL`, token.Bytes()); err != nil {
+			return err
+		}
+	}
+	var boardAt sql.NullTime
+	if err := tx.QueryRowContext(ctx, `SELECT max(block_time) FROM (
+ SELECT block_time FROM perps.position_events WHERE kind IN ('opened', 'closed')
+ UNION ALL SELECT block_time FROM perps.trade_settlements
+) changes`).Scan(&boardAt); err != nil {
+		return err
+	}
+	if boardAt.Valid {
+		return rebuildLeaderboard(ctx, tx, boardAt.Time)
 	}
 	return nil
 }

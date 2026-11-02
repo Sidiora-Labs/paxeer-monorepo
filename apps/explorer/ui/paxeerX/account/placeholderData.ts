@@ -13,7 +13,6 @@ export const UNIFIED_ACCOUNT_PLACEHOLDER: PaxeerXUnifiedAccount = {
     evm: '0x0000000000000000000000000000000000000000',
     pax: 'pax1000000000000000000000000000000000000000',
     did: `did:layerx:${ '0'.repeat(64) }`,
-    kernel_account: `agent:did:layerx:${ '0'.repeat(64) }:main`,
   },
   balances: Array.from({ length: 3 }, (_, index) => ({
     asset: {
@@ -23,19 +22,13 @@ export const UNIFIED_ACCOUNT_PLACEHOLDER: PaxeerXUnifiedAccount = {
       decimals: 18,
     },
     total: '0',
-    parts: {
-      chain: '0',
-      custody: '0',
-      kernel: '0',
-    },
   })),
   activity: Array.from({ length: 5 }, (_, index) => ({
-    kind: 'custody_deposit',
+    kind: 'token_transfer',
     hash: PLACEHOLDER_HASH,
     block_number: index,
     ordinal: index,
-    status: 'instant' as const,
-    side: 'kernel' as const,
+    status: 'submitted' as const,
     timestamp: null,
     asset: null,
     amount: null,

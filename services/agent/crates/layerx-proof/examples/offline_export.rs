@@ -1,25 +1,23 @@
 //! Minimal offline-verifier entry point.
 
-use layerx_proof::checkpoint::SettlementDomain;
 use layerx_proof::export::{
     verify, verify_complete, CompleteExportError, CompleteVerificationReport,
     IndependentOfflineTrust, OfflineExport,
 };
 use layerx_proof::export_codec::CompleteOfflineArtifact;
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
 
 fn verify_without_network(
     artifact: &OfflineExport,
-    expected_settlement_domain: SettlementDomain,
 ) -> Result<layerx_proof::export::VerificationReport, layerx_proof::export::ExportVerificationError>
 {
-    verify(artifact, expected_settlement_domain)
+    verify(artifact)
 }
 
 fn verify_complete_without_network(
     artifact: &CompleteOfflineArtifact,
     trust: &IndependentOfflineTrust,
-    requested: VerificationLevel,
+    requested: Rung,
 ) -> Result<CompleteVerificationReport, CompleteExportError> {
     verify_complete(artifact, trust, requested)
 }
@@ -27,7 +25,6 @@ fn verify_complete_without_network(
 fn main() {
     let verifier: fn(
         &OfflineExport,
-        SettlementDomain,
     ) -> Result<
         layerx_proof::export::VerificationReport,
         layerx_proof::export::ExportVerificationError,
@@ -35,7 +32,7 @@ fn main() {
     let complete: fn(
         &CompleteOfflineArtifact,
         &IndependentOfflineTrust,
-        VerificationLevel,
+        Rung,
     ) -> Result<CompleteVerificationReport, CompleteExportError> = verify_complete_without_network;
     let _ = (verifier, complete);
 }

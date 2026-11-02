@@ -79,8 +79,8 @@ func TestGasPrice(t *testing.T) {
 	require.Nil(t, resObj["error"], "gas price RPC refused: %v", resObj["error"])
 	Ctx = Ctx.WithBlockHeight(8)
 	result := resObj["result"].(string)
-	onePointOneMinFee := "0x46492a0"
-	require.Equal(t, onePointOneMinFee, result)
+	onePointOneMinFeePlusTip := "0x3fff5ca0"
+	require.Equal(t, onePointOneMinFeePlusTip, result)
 }
 
 func TestFeeHistory(t *testing.T) {
@@ -242,7 +242,7 @@ func TestSyncingCatchingUp(t *testing.T) {
 
 func TestGasPriceLogic(t *testing.T) {
 	oneGwei := big.NewInt(1000000000)
-	onePointOneGwei := big.NewInt(1100000000)
+	onePointOneGweiPlusTip := big.NewInt(2100000000)
 	tests := []struct {
 		name                  string
 		baseFee               *big.Int
@@ -255,7 +255,7 @@ func TestGasPriceLogic(t *testing.T) {
 			baseFee:               oneGwei,
 			totalGasUsedPrevBlock: 21000,
 			medianRewardPrevBlock: oneGwei,
-			expectedGasPrice:      onePointOneGwei,
+			expectedGasPrice:      onePointOneGweiPlusTip,
 		},
 		{
 			name:                  "chain is congested",
@@ -269,7 +269,7 @@ func TestGasPriceLogic(t *testing.T) {
 			baseFee:               oneGwei,
 			totalGasUsedPrevBlock: 21000,                   // not congested
 			medianRewardPrevBlock: big.NewInt(99000000000), // very high reward
-			expectedGasPrice:      onePointOneGwei,         // gas price doesn't spike
+			expectedGasPrice:      onePointOneGweiPlusTip,  // gas price doesn't spike
 		},
 	}
 	for _, test := range tests {
@@ -289,7 +289,8 @@ func TestGasPriceLogic(t *testing.T) {
 			return baseCtx.WithBlockHeight(height)
 		}
 		i := evmrpc.NewInfoAPI(nil, nil, ctxProvider, nil, t.TempDir(), 1024, evmrpc.ConnectionTypeHTTP, nil, nil)
-		gasPrice, err := i.GasPriceHelper(
+		gasPrice, err := evmrpc.GasPriceHelperForTest(
+			i,
 			t.Context(),
 			test.baseFee,
 			test.totalGasUsedPrevBlock,
@@ -345,7 +346,7 @@ func TestCalculateGasUsedRatioGasAccumulation(t *testing.T) {
 
 	// Test with a block that has multiple EVM transactions
 	// Using block height 2 which has multiple transactions in the mock
-	ratio, err := api.CalculateGasUsedRatio(t.Context(), 2)
+	ratio, err := evmrpc.CalculateGasUsedRatioForTest(api, t.Context(), 2)
 	require.NoError(t, err)
 
 	// The ratio should be valid and reflect accumulated gas usage
@@ -355,6 +356,10 @@ func TestCalculateGasUsedRatioGasAccumulation(t *testing.T) {
 	// Since block 2 has multiple transactions, the ratio should be > 0
 	// (assuming the mock setup has transactions with gas usage)
 	require.Greater(t, ratio, 0.0, "Block 2 should have some gas usage from multiple transactions")
+
+	gasLimit := ctxProvider(MockHeight2).ConsensusParams().Block.MaxGas
+	require.Positive(t, gasLimit)
+	require.Equal(t, float64(21000+30000+25000)/float64(gasLimit), ratio, "ratio must include gas from all three EVM receipts")
 }
 
 func TestCalculateGasUsedRatioReceiptRetrievalError(t *testing.T) {
@@ -373,7 +378,7 @@ func TestCalculateGasUsedRatioReceiptRetrievalError(t *testing.T) {
 	// Test with a block height that has transactions but no receipts (to simulate receipt errors)
 	// The calculation should not fail even if receipt retrieval fails
 	// It should skip the failed receipts and continue
-	ratio, err := api.CalculateGasUsedRatio(t.Context(), 100)
+	ratio, err := evmrpc.CalculateGasUsedRatioForTest(api, t.Context(), 100)
 	require.NoError(t, err)
 
 	// When receipt retrievals fail or no EVM transactions exist, we should get 0.0 ratio
@@ -438,7 +443,7 @@ func TestCalculateGasUsedRatioConsensusParamsFallback(t *testing.T) {
 
 	api := newInfoAPIWithWatermarks(ctxProviderWithoutConsensusParams)
 
-	_, err := api.CalculateGasUsedRatio(t.Context(), 1)
+	_, err := evmrpc.CalculateGasUsedRatioForTest(api, t.Context(), 1)
 	require.ErrorContains(t, err, "consensus block parameters are unavailable")
 }
 
@@ -461,7 +466,7 @@ func TestCalculateGasUsedRatioConsensusParamsNilBlock(t *testing.T) {
 
 	api := newInfoAPIWithWatermarks(ctxProviderWithNilBlock)
 
-	_, err := api.CalculateGasUsedRatio(t.Context(), 1)
+	_, err := evmrpc.CalculateGasUsedRatioForTest(api, t.Context(), 1)
 	require.ErrorContains(t, err, "consensus block parameters are unavailable")
 }
 
@@ -484,7 +489,7 @@ func TestCalculateGasUsedRatioZeroGasLimit(t *testing.T) {
 
 	api := newInfoAPIWithWatermarks(ctxProviderWithZeroGasLimit)
 
-	_, err := api.CalculateGasUsedRatio(t.Context(), 1)
+	_, err := evmrpc.CalculateGasUsedRatioForTest(api, t.Context(), 1)
 	require.ErrorContains(t, err, "gas limit is zero")
 }
 
@@ -532,7 +537,7 @@ func TestCalculateGasUsedRatioBlockNumberMismatch(t *testing.T) {
 
 	// Test with a block where receipts might have mismatched block numbers
 	// The method should still work and skip mismatched receipts
-	ratio, err := api.CalculateGasUsedRatio(t.Context(), 1)
+	ratio, err := evmrpc.CalculateGasUsedRatioForTest(api, t.Context(), 1)
 	require.NoError(t, err)
 
 	require.GreaterOrEqual(t, ratio, 0.0)
@@ -552,13 +557,13 @@ func TestCalculateGasUsedRatioMultipleTransactionsAccumulation(t *testing.T) {
 	api := newInfoAPIWithWatermarks(ctxProvider)
 
 	// Test block 2 which has multiple transactions
-	ratioBlock2, err := api.CalculateGasUsedRatio(t.Context(), 2)
+	ratioBlock2, err := evmrpc.CalculateGasUsedRatioForTest(api, t.Context(), 2)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, ratioBlock2, 0.0)
 	require.LessOrEqual(t, ratioBlock2, 0.0008)
 
 	// Test block 8 which also has transactions
-	ratioBlock8, err := api.CalculateGasUsedRatio(t.Context(), 8)
+	ratioBlock8, err := evmrpc.CalculateGasUsedRatioForTest(api, t.Context(), 8)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, ratioBlock8, 0.0)
 	require.LessOrEqual(t, ratioBlock8, 0.000001)
@@ -584,7 +589,7 @@ func TestCalculateGasUsedRatioWithDifferentGasLimits(t *testing.T) {
 
 	api := newInfoAPIWithWatermarks(ctxProviderWithCustomGasLimit)
 
-	ratio, err := api.CalculateGasUsedRatio(t.Context(), 2)
+	ratio, err := evmrpc.CalculateGasUsedRatioForTest(api, t.Context(), 2)
 	require.NoError(t, err)
 	require.GreaterOrEqual(t, ratio, 0.0)
 	require.LessOrEqual(t, ratio, 0.02)

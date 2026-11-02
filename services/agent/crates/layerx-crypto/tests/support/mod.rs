@@ -201,17 +201,24 @@ pub fn canonical_bridge_withdraw(amount: u128) -> Vec<u8> {
 }
 
 pub fn canonical_bridge_credit(amount: u128) -> Vec<u8> {
-    let mut payload = Encoder::new(512);
-    assert!(payload.u16(0x4801).is_ok());
-    assert!(payload.u16(7).is_ok());
-    assert!(payload.fixed(&[0x41; 32]).is_ok());
-    assert!(payload.fixed(&[0x42; 32]).is_ok());
-    assert!(payload.fixed(&[0x11; 32]).is_ok());
-    assert!(payload.fixed(&[0x22; 32]).is_ok());
-    assert!(payload.fixed(&[0x33; 32]).is_ok());
-    assert!(payload.u128(amount).is_ok());
-    assert!(payload.fixed(&IDEMPOTENCY_KEY).is_ok());
-    let payload = payload.finish();
+    let mut payload = vec![0; 368];
+    payload[..5].copy_from_slice(b"LXDC3");
+    payload[5..37].fill(0x42);
+    payload[37..41].copy_from_slice(&NETWORK_ID.to_be_bytes());
+    payload[41..43].copy_from_slice(&PROTOCOL_VERSION.to_be_bytes());
+    payload[43..75].fill(0x41);
+    payload[75..107].fill(0x33);
+    payload[107..139].fill(0x22);
+    payload[171..191].fill(0x11);
+    payload[191..207].copy_from_slice(&amount.to_be_bytes());
+    payload[359..363].copy_from_slice(&2_u32.to_be_bytes());
+    payload[363..368].copy_from_slice(b"LXLB1");
+    let bundle_hash = Sha256::digest(&payload[363..]);
+    payload[327..359].copy_from_slice(&bundle_hash);
+    let mut nullifier = Sha256::new();
+    nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
+    nullifier.update(&payload[43..75]);
+    let idempotency_key: [u8; 32] = nullifier.finalize().into();
     let mut hasher = Sha256::new();
     hasher.update(Domain::PayloadHash.tag());
     hasher.update(&payload);
@@ -238,7 +245,7 @@ pub fn canonical_bridge_credit(amount: u128) -> Vec<u8> {
     assert!(activity.u64(NOT_BEFORE).is_ok());
     assert!(activity.u64(EXPIRES_AT).is_ok());
     assert!(activity.tag(8, 12).is_ok());
-    assert!(activity.bytes(&IDEMPOTENCY_KEY, 32).is_ok());
+    assert!(activity.bytes(&idempotency_key, 32).is_ok());
     assert!(activity.tag(9, 12).is_ok());
     assert!(activity.u128(FEE_LIMIT).is_ok());
     assert!(activity.tag(10, 12).is_ok());

@@ -2,11 +2,11 @@
 
 use std::fmt::{Display, Formatter, Write as _};
 
-use layerx_agent_api::verify::Level;
 use layerx_crypto::disclosure::{
     AmountRole, CounterpartyRole, DisclosedEvmPayoutBinding, Disclosure, DisclosureError,
 };
 use layerx_types::payload::{ActivityType, ModuleId};
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 use super::VerifiedBudgetAfter;
@@ -156,7 +156,7 @@ impl DisclosureRenderer {
         if observed_digest != held_digest {
             return Err(DisclosureRenderError::DigestMismatch);
         }
-        if budget_after.level == Level::Unverified || budget_after.evidence_digest == [0; 32] {
+        if budget_after.rung < Rung::Committed || budget_after.evidence_digest == [0; 32] {
             return Err(DisclosureRenderError::UnverifiedBudget);
         }
 

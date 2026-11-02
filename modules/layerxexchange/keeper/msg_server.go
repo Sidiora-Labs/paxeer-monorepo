@@ -20,6 +20,11 @@ var _ types.MsgServer = msgServer{}
 
 func (s msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if retired, err := s.k.Retired(ctx); err != nil {
+		return nil, err
+	} else if retired {
+		return nil, s.k.retirementError(ctx)
+	}
 	if err := s.k.requireAuthority(ctx, msg.Authority); err != nil {
 		return nil, err
 	}
@@ -30,6 +35,11 @@ func (s msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 // flag of msg.Market is read; markets are created through createPerpsMarket.
 func (s msgServer) SetMarket(goCtx context.Context, msg *types.MsgSetMarket) (*types.MsgSetMarketResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if retired, err := s.k.Retired(ctx); err != nil {
+		return nil, err
+	} else if retired {
+		return nil, s.k.retirementError(ctx)
+	}
 	if err := s.k.requireAuthority(ctx, msg.Authority); err != nil {
 		return nil, err
 	}

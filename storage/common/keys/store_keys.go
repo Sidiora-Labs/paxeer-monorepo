@@ -43,8 +43,10 @@ const (
 	LayerXLedgerStoreKey   = "layerxledger"   // modules/layerxledger/types.StoreKey
 	LayerXAuthStoreKey     = "layerxauth"     // modules/layerxauth/types.StoreKey
 	LayerXPayStoreKey      = "layerxpay"      // modules/layerxpay/types.StoreKey
-	LayerXProgramsStoreKey = "layerxprograms" // modules/layerxprograms/types.StoreKey
+	LayerXProgramsStoreKey = "layerxprograms" // precompiles/layerxprograms
 	SequencerStoreKey      = "sequencer"      // modules/sequencer/types.StoreKey
+	LayerXAgentStoreKey    = "layerxagent"    // modules/layerxagent/keeper.StoreKey
+	LayerXHostStoreKey     = "lxphost"
 )
 
 // MemIAVLStoreKeys is the canonical list of module KV store keys that are
@@ -82,6 +84,12 @@ var MemIAVLStoreKeys = []string{
 	PriceFeedStoreKey,
 	XWebStoreKey,
 	SequencerStoreKey,
+	LayerXLedgerStoreKey,
+	LayerXAuthStoreKey,
+	LayerXPayStoreKey,
+	LayerXProgramsStoreKey,
+	LayerXAgentStoreKey,
+	LayerXHostStoreKey,
 }
 
 // memIAVLStoreKeySet is MemIAVLStoreKeys materialized as a set for O(1)

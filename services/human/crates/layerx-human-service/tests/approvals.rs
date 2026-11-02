@@ -9,7 +9,6 @@ use layerx_agent_api::prepare::{
     SigningPreimage,
 };
 use layerx_agent_api::track::{EvidenceRef, SubmissionRef, SubmissionState, TrackedSubmission};
-use layerx_agent_api::verify::Level;
 use layerx_agent_api::{Amount, TimestampSeconds};
 use layerx_agentd::approval::{
     ApprovalEventKind as AgentEventKind, ApprovalEvents, ApprovalExpiry, ApprovalLifecycle,
@@ -32,6 +31,7 @@ use layerx_human_service::audit::AuditChain;
 use layerx_human_service::notify::{DetailLevel, Dispatcher};
 use layerx_human_service::trace::TraceId;
 use layerx_types::ids::Did;
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 fn tenant() -> TenantId {
@@ -161,7 +161,7 @@ impl ApprovalBoundary for AgentdBoundary<'_> {
         evidence.update(state.observed_head_sequence().to_be_bytes());
         Ok(VerifiedBudgetAfter {
             remaining,
-            level: Level::StateProven,
+            rung: Rung::Committed,
             evidence_digest: evidence.finalize().into(),
             observed_at_sequence: state.observed_head_sequence(),
         })
@@ -302,7 +302,7 @@ fn real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle()
     assert_eq!(pending.awaiting_count(), 1);
     assert_eq!(pending.items()[0].amount(), 25);
     assert_eq!(pending.items()[0].budget_after().remaining, 975);
-    assert_eq!(pending.items()[0].budget_after().level, Level::StateProven);
+    assert_eq!(pending.items()[0].budget_after().rung, Rung::Committed);
     assert_eq!(pending.items()[0].remaining(12), 38);
     let deliveries = Dispatcher::deliveries(&scope)
         .unwrap_or_else(|error| panic!("notification deliveries: {error}"));

@@ -1,9 +1,10 @@
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_proof::inclusion::{
-    verify_activity, verify_state, InclusionError, SequencerAuthorization,
+    verify_activity, verify_receipt, verify_state, InclusionError, SequencerAuthorization,
 };
+use layerx_proof::level::achieved_rung;
 use layerx_proof::merkle::{build_proof, MerkleError, Proof};
-use layerx_types::verify::VerificationLevel;
+use layerx_types::{rung::Rung, verify::VerificationLevel};
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::batch_header_digest;
 use layerx_wire::limits::PROTOCOL_VERSION;
@@ -12,6 +13,22 @@ fn header_bytes(
     batch_number: u64,
     resulting_state_root: [u8; 32],
     activity_merkle_root: [u8; 32],
+    sequencer_id: [u8; 32],
+) -> Vec<u8> {
+    header_bytes_with_receipt_root(
+        batch_number,
+        resulting_state_root,
+        activity_merkle_root,
+        [2; 32],
+        sequencer_id,
+    )
+}
+
+fn header_bytes_with_receipt_root(
+    batch_number: u64,
+    resulting_state_root: [u8; 32],
+    activity_merkle_root: [u8; 32],
+    receipt_merkle_root: [u8; 32],
     sequencer_id: [u8; 32],
 ) -> Vec<u8> {
     let mut encoder = Encoder::new(354);
@@ -30,7 +47,7 @@ fn header_bytes(
         (7, [1; 32].to_vec()),
         (8, resulting_state_root.to_vec()),
         (9, activity_merkle_root.to_vec()),
-        (10, [2; 32].to_vec()),
+        (10, receipt_merkle_root.to_vec()),
         (11, [3; 32].to_vec()),
         (12, [4; 32].to_vec()),
         (13, [5; 32].to_vec()),
@@ -155,4 +172,67 @@ fn rejects_truncated_swapped_and_unauthorised_evidence() {
         verify_activity(activities[1], &proof, &header, &signature, &wrong_identity,),
         Err(InclusionError::SequencerIdentity)
     );
+}
+
+#[test]
+fn inclusion_evidence_reports_the_receipted_rung() {
+    let key = SigningKey::from_bytes(&[7; 32]);
+    let sequencer_id = key.verifying_key().to_bytes();
+    let activities: [&[u8]; 3] = [b"activity-a", b"activity-b", b"activity-c"];
+    let receipts: [&[u8]; 2] = [b"receipt-a", b"receipt-b"];
+    let states: [&[u8]; 2] = [b"state-a", b"state-b"];
+    let (activity_proof, activity_root) = build_proof(&activities, 1)
+        .unwrap_or_else(|error| panic!("activity proof failed: {error:?}"));
+    let (receipt_proof, receipt_root) =
+        build_proof(&receipts, 0).unwrap_or_else(|error| panic!("receipt proof failed: {error:?}"));
+    let (state_proof, state_root) =
+        build_proof(&states, 0).unwrap_or_else(|error| panic!("state proof failed: {error:?}"));
+    let header =
+        header_bytes_with_receipt_root(7, state_root, activity_root, receipt_root, sequencer_id);
+    let signature = sign_header(&header, &key);
+    let authorization = SequencerAuthorization::new(sequencer_id, sequencer_id, 7, 9);
+    let activity = verify_activity(
+        activities[1],
+        &activity_proof,
+        &header,
+        &signature,
+        &authorization,
+    )
+    .unwrap_or_else(|error| panic!("activity inclusion failed: {error:?}"));
+    let receipt = verify_receipt(
+        receipts[0],
+        &receipt_proof,
+        &header,
+        &signature,
+        &authorization,
+    )
+    .unwrap_or_else(|error| panic!("receipt inclusion failed: {error:?}"));
+    let state = verify_state(
+        states[0],
+        &state_proof,
+        &state_root,
+        &header,
+        &signature,
+        &authorization,
+    )
+    .unwrap_or_else(|error| panic!("state inclusion failed: {error:?}"));
+    for (included, level, root) in [
+        (activity, VerificationLevel::BATCH_INCLUDED, activity_root),
+        (receipt, VerificationLevel::BATCH_INCLUDED, receipt_root),
+        (state, VerificationLevel::STATE_PROVEN, state_root),
+    ] {
+        assert_eq!(included.rung(), Rung::Receipted);
+        assert_eq!(included.level(), level);
+        assert_eq!(included.evidence().level(), level);
+        assert_eq!(included.evidence().rung(), Rung::Receipted);
+        assert_eq!(achieved_rung(included.evidence()), Rung::Receipted);
+        assert_eq!(included.evidence().proof_root(), Some(root));
+        assert_eq!(
+            included.evidence().header_digest(),
+            Some(
+                batch_header_digest(&header)
+                    .unwrap_or_else(|error| panic!("header hash failed: {error:?}"))
+            )
+        );
+    }
 }

@@ -1,77 +1,41 @@
 #[path = "support/send_authorization.rs"]
 mod send_authorization;
 
-use layerx_agentd::prepare::{
-    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
-    PreparationDefaults, PrepareError, PrepareRequest,
+use layerx_agentd::prepare::evm::{
+    prepare_bound, EvmPreparationState, PrecompileCall, PreparationDefaults, PrepareError,
+    PrepareRequest,
 };
-use layerx_types::activity::{Authority, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::activity::decode_unsigned;
 use layerx_wire::encode::Encoder;
-use layerx_wire::sign::preimage;
 
-struct RecordedCoreBoundary {
-    result: Result<CorePreparationState, CoreStateError>,
-}
-
-impl CorePreparationBoundary for RecordedCoreBoundary {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        self.result.clone()
+pub fn state() -> EvmPreparationState {
+    EvmPreparationState {
+        chain_id: 17,
+        pending_nonce: 5,
+        base_fee_per_gas: 10,
+        head_height: 88,
     }
 }
 
-fn activity_type() -> ActivityType {
-    ActivityType::new(ModuleId::Asset, 5).unwrap_or_else(|error| panic!("activity type: {error:?}"))
-}
-
-fn registry() -> ModuleRegistry {
-    ModuleRegistry::new(
-        &[ModuleRegistration::new(ModuleId::Asset, &[activity_type()])
-            .unwrap_or_else(|error| panic!("registration: {error:?}"))],
-    )
-    .unwrap_or_else(|error| panic!("registry: {error:?}"))
-}
-
-fn state() -> CorePreparationState {
-    CorePreparationState {
-        network_id: 17,
-        account_sequence: 5,
-        protocol_timestamp: 1_000,
-        observed_head_sequence: 88,
-        module_registry: registry(),
-    }
-}
-
-fn defaults() -> PreparationDefaults {
+pub fn defaults() -> PreparationDefaults {
     PreparationDefaults {
-        timestamp_span: 30,
-        fee_limit: Amount::from_u128(12),
+        max_priority_fee_per_gas: 2,
+        max_fee_per_gas: 100,
         maximum_payload_bytes: 1_024,
     }
 }
 
-fn request() -> PrepareRequest {
+pub fn request() -> PrepareRequest {
     PrepareRequest {
-        actor: Did::new(b"did:layerx:prepare-agent")
-            .unwrap_or_else(|error| panic!("DID: {error:?}")),
-        authority: Authority::session_key(b"session-authority")
-            .unwrap_or_else(|error| panic!("authority: {error:?}")),
-        activity_type: activity_type(),
-        expected_account_sequence: Some(5),
-        timestamp_bound: Some(
-            TimestampBound::new(995, 1_010).unwrap_or_else(|error| panic!("timestamp: {error:?}")),
-        ),
-        fee_limit: Some(Amount::from_u128(7)),
-        idempotency_key: IdempotencyKey::new([4; 32]),
-        payload: send_payload(),
+        from: [0x11; 20],
+        call: PrecompileCall::ledger_transfer(send_payload()),
+        expected_nonce: Some(5),
+        max_priority_fee_per_gas: None,
+        max_fee_per_gas: Some(22),
         declared_payload_limit: 1_024,
     }
 }
 
-fn send_payload() -> Vec<u8> {
+pub fn send_payload() -> Vec<u8> {
     let mut encoder = Encoder::new(512);
     encoder
         .u16(0x5301)
@@ -132,78 +96,74 @@ fn send_payload() -> Vec<u8> {
 
 #[test]
 fn canonical_bytes_and_preimage_come_only_from_layerx_wire() {
-    let mut boundary = RecordedCoreBoundary {
-        result: Ok(state()),
-    };
-    let prepared = prepare_activity(&mut boundary, defaults(), request())
+    let prepared = prepare_bound(state(), defaults(), request(), 100_000)
         .unwrap_or_else(|error| panic!("prepare: {error:?}"));
-    let decoded = decode_unsigned(&prepared.canonical_bytes, &registry())
-        .unwrap_or_else(|error| panic!("decode: {error:?}"));
-    assert_eq!(decoded.network_id(), 17);
-    assert_eq!(decoded.actor_did(), b"did:layerx:prepare-agent");
-    assert_eq!(decoded.authority(), b"session-authority");
-    assert_eq!(decoded.account_sequence(), 5);
-    assert_eq!(decoded.timestamp_bound().not_before, 995);
-    assert_eq!(decoded.timestamp_bound().not_after, 1_010);
-    assert_eq!(decoded.idempotency_key(), [4; 32]);
-    assert_eq!(decoded.fee_limit(), 7);
-    assert_eq!(decoded.payload(), send_payload());
+    assert_eq!(prepared.call.chain_id, 17);
+    assert_eq!(prepared.call.nonce, 5);
+    assert_eq!(prepared.call.gas_limit, 100_000);
+    assert_eq!(prepared.observed_head_height, 88);
     assert_eq!(
-        prepared.signing_preimage,
-        *preimage(&decoded)
-            .unwrap_or_else(|error| panic!("preimage: {error:?}"))
-            .as_bytes()
+        prepared.call.to,
+        layerx_agentd::prepare::PrecompileTarget::Ledger.address()
     );
+    assert_eq!(prepared.signing_hash, prepared.call.signing_hash());
+    let data = &prepared.call.data;
+    assert_eq!(&data[..4], &[0x2b, 0xb1, 0xae, 0x7c]);
+    assert_eq!(&data[4..35], &[0; 31]);
+    assert_eq!(data[35], 32);
+    assert_eq!(&data[36..66], &[0; 30]);
+    assert_eq!(&data[66..68], &(send_payload().len() as u16).to_be_bytes());
+    assert_eq!(&data[68..68 + send_payload().len()], send_payload());
+    assert!(data[68 + send_payload().len()..]
+        .iter()
+        .all(|byte| *byte == 0));
 }
 
 #[test]
 fn stale_sequence_and_unavailable_core_are_refused_without_guessing() {
     let mut stale = request();
-    stale.expected_account_sequence = Some(4);
-    let mut boundary = RecordedCoreBoundary {
-        result: Ok(state()),
-    };
+    stale.expected_nonce = Some(4);
     assert_eq!(
-        prepare_activity(&mut boundary, defaults(), stale),
-        Err(PrepareError::StaleSequence {
+        prepare_bound(state(), defaults(), stale, 100_000),
+        Err(PrepareError::StaleNonce {
             expected: 4,
-            core: 5,
+            pending: 5
         })
     );
-    let mut unavailable = RecordedCoreBoundary {
-        result: Err(CoreStateError::Unavailable),
-    };
-    assert!(matches!(
-        prepare_activity(&mut unavailable, defaults(), request()),
-        Err(PrepareError::Core(CoreStateError::Unavailable))
-    ));
+    let unavailable =
+        layerx_agentd::prepare::ProductionEvmPreparationBoundary::new("http://127.0.0.1:0", &[])
+            .unwrap_or_else(|error| panic!("endpoint: {error:?}"));
+    assert_eq!(
+        layerx_agentd::prepare::evm::prepare_activity(&unavailable, defaults(), request()),
+        Err(PrepareError::Sequencer(
+            layerx_client::sequencer::SequencerError::Unavailable
+        ))
+    );
 }
 
 #[test]
 fn explicit_bounds_are_never_widened_and_payload_limits_are_exact() {
-    let mut widened = request();
-    widened.timestamp_bound = Some(
-        TimestampBound::new(980, 1_020).unwrap_or_else(|error| panic!("timestamp: {error:?}")),
-    );
-    let mut boundary = RecordedCoreBoundary {
-        result: Ok(state()),
-    };
+    let mut too_low = request();
+    too_low.max_fee_per_gas = Some(21);
     assert_eq!(
-        prepare_activity(&mut boundary, defaults(), widened),
-        Err(PrepareError::TimestampBoundWidened)
+        prepare_bound(state(), defaults(), too_low, 100_000),
+        Err(PrepareError::InvalidDefaults)
     );
-
     let mut oversized = request();
-    let actual = oversized.payload.len();
-    oversized.declared_payload_limit = actual.saturating_sub(1);
-    let mut boundary = RecordedCoreBoundary {
-        result: Ok(state()),
-    };
+    let actual = oversized.call.encode().unwrap().len();
+    oversized.declared_payload_limit = actual - 1;
     assert_eq!(
-        prepare_activity(&mut boundary, defaults(), oversized),
+        prepare_bound(state(), defaults(), oversized, 100_000),
         Err(PrepareError::PayloadLimitExceeded {
             actual,
-            maximum: actual - 1,
+            maximum: actual - 1
         })
+    );
+    let mut exact = request();
+    exact.declared_payload_limit = actual;
+    assert!(prepare_bound(state(), defaults(), exact, 100_000).is_ok());
+    assert_eq!(
+        prepare_bound(state(), defaults(), request(), 0),
+        Err(PrepareError::InvalidDefaults)
     );
 }

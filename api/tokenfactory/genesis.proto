@@ -16,6 +16,7 @@ message GenesisState {
     (gogoproto.moretags) = "yaml:\"factory_denoms\"",
     (gogoproto.nullable) = false
   ];
+  repeated string paused_denoms = 3 [(gogoproto.moretags) = "yaml:\"paused_denoms\""];
 }
 
 // GenesisDenom defines a tokenfactory denom that is defined within genesis

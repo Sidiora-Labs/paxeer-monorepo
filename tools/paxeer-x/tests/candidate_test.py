@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -13,10 +14,18 @@ import unittest
 ROOT = Path(__file__).resolve().parents[3]
 PROGRAM = ROOT / 'tools/paxeer-x/candidate.py'
 SHELL = ROOT / 'tools/paxeer-x/runtime-inventory.sh'
-SPEC = ROOT / 'spec/paxeer-x/spec.kvx'
 loader = importlib.util.spec_from_file_location('candidate', PROGRAM)
 candidate = importlib.util.module_from_spec(loader)
 loader.loader.exec_module(candidate)
+SERVICE_CATALOGUE = candidate.SERVICE_CATALOGUE
+SPEC = ROOT / SERVICE_CATALOGUE
+
+
+def manifest(repo, output):
+    return subprocess.run(
+        [sys.executable, str(PROGRAM), 'create', '--repo', str(repo),
+         '--spec', str(SPEC), '--output', str(output)],
+        capture_output=True, text=True, timeout=30)
 
 
 class CandidateTest(unittest.TestCase):
@@ -29,12 +38,17 @@ class CandidateTest(unittest.TestCase):
         self.git('init', '-b', 'main')
         self.git('config', 'user.email', 'candidate-test@example.invalid')
         self.git('config', 'user.name', 'Candidate Test')
+        for relative in ('tools/paxeer-x/verify-task.sh', 'tools/paxeer-x/candidate.py',
+                         'tools/paxeer-x/gates/registry.kvx', 'tools/paxeer-x/gates/0.2.sh',
+                         SERVICE_CATALOGUE):
+            target = self.repo / relative
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(ROOT / relative, target)
         (self.repo / 'source.txt').write_text('candidate source\n')
-        self.git('add', 'source.txt')
+        self.git('add', 'source.txt', 'tools', 'spec')
         self.git('-c', 'core.hooksPath=/dev/null', 'commit', '-m', 'Initial source')
         self.manifest_path = self.base / 'candidate.json'
-        result = self.cli('create', '--repo', self.repo, '--spec', SPEC,
-                          '--output', self.manifest_path)
+        result = manifest(self.repo, self.manifest_path)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.manifest = candidate.load_private(self.manifest_path)
         self.roster = candidate.catalogue(SPEC)
@@ -72,7 +86,7 @@ class CandidateTest(unittest.TestCase):
         return manifest
 
     def test_real_git_identity_complete_catalogue_private_output(self):
-        self.assertEqual(len(self.manifest['services']), 31)
+        self.assertEqual(len(self.manifest['services']), 40)
         self.assertEqual(self.manifest['source']['revision'], self.git('rev-parse', 'HEAD'))
         self.assertEqual(self.manifest['source']['tree'], self.git('rev-parse', 'HEAD^{tree}'))
         self.assertTrue(self.manifest['source']['integrated'])
@@ -84,6 +98,19 @@ class CandidateTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.cli('validate', self.manifest_path, '--repo', self.repo,
                                  '--spec', SPEC, '--require-ready').returncode, 2)
+
+    def test_verify_task_identity_reads_the_service_catalogue(self):
+        result = subprocess.run(
+            ['bash', str(self.repo / 'tools/paxeer-x/verify-task.sh'), '--identity', '0.2',
+             '--manifest', str(self.manifest_path)],
+            capture_output=True, text=True, timeout=30,
+            env=dict(os.environ, PAXEER_X_EVIDENCE_DIR=str(self.base),
+                     PAXEER_X_MAINLINE='refs/heads/main'))
+        self.assertNotEqual(result.returncode, 6, result.stderr)
+        self.assertNotIn('candidate manifest is invalid or does not identify this checkout',
+                         result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)['selector'], '0.2')
 
     def test_actual_branch_and_dirty_source_receive_no_credit(self):
         self.git('checkout', '-b', 'feature')

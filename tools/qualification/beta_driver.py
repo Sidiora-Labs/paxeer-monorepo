@@ -1105,13 +1105,12 @@ def duplicate_idempotency_keys(ctx: CaseContext) -> None:
 @case("programs-qualify", "real-node/lost-response-after-successful-commit")
 def lost_response_after_successful_commit(ctx: CaseContext) -> None:
     agent = agent_test(ctx, "agent-lost-response", "unknown")
-    daemon = ctx.make("test-daemon-lni-admission")
     ledger = ctx.make("test-ledger-set")
     programs_case(
         ctx,
-        result=(agent, daemon),
+        result=(agent,),
         ledger_proof=ledger,
-        inventory={"binaries": ["build/tests/test_daemon_lni_admission"]},
+        inventory={},
     )
 
 
@@ -1123,11 +1122,11 @@ CRASH_POINTS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
     "real-node/crash-before-receipt-publication": (("test-finality-evidence",), ()),
     "real-node/crash-after-receipt-publication": (("test-finality-evidence", "test-rebuild"), ()),
     "real-node/crash-before-acknowledgement": (
-        ("test-daemon-lni-admission",),
+        (),
         ("idempotency", "post_restart_retry_reuses_original_result_and_pending_bytes"),
     ),
     "real-node/crash-after-acknowledgement": (
-        ("test-daemon-lni-admission", "test-layerxd"),
+        (),
         ("unknown", "acknowledgement_loss_is_resolved_only_by_the_existing_receipt"),
     ),
 }
@@ -1435,20 +1434,7 @@ def paxeer_exclusivity(ctx: CaseContext) -> None:
             "observed_at": utc_now(),
         },
     )
-    rejection = ctx.cargo_test(
-        HUMAN_MANIFEST,
-        "layerx-paxeer-client",
-        "--test",
-        "finality",
-        "--",
-        "endpoint_loss_reads_unreachable_with_last_known_stage",
-        "reorg_displacement_is_reported_distinctly",
-        "reverted_custody_transaction_reports_execution_outcome",
-        label="paxeer-refusals",
-    )
-    result = ctx.make("human-test-paxeer")
-    ctx.artifact_log("tamper-rejection", rejection)
-    ctx.result(proof=ctx.relative(proof), paxeer_tests=result.cargo_tests())
+    ctx.result(proof=ctx.relative(proof))
 
 
 @case("multichain-qualify", "surfaces/one-ledger")

@@ -1,44 +1,6 @@
 import { PublicSnapshotRequests, snapshotRequestKey } from './shared-snapshot.js';
-import { decodeContract } from './validate.js';
 import { SdkClient, decodeV2Contract, StreamTransportError } from './transport.js';
-import type { StreamTransport, StreamTransportV2 } from './stream.js';
-/** Actual browser HTTP + WebSocket adapter; credentials never enter URLs. */
-export function browserStreamTransport(client: SdkClient, authenticated = false): StreamTransport {
-  return {
-    snapshot: async (topics,signal) => {
-      decodeContract('TopicSnapshotReadRequest',{topics});
-      const response = await client.request(`/v1/snapshots?topics=${encodeURIComponent(topics.join(','))}`,'TopicSnapshotReadResponse',{signal,authenticated,idempotentRead:true});
-      return response.data.snapshot;
-    },
-    ...(authenticated ? {ticket: async (topics: string[],signal: AbortSignal) => {
-      const body = decodeContract('StreamTicketIssueBody',{topics,schemaMajor:1});
-      return (await client.request('/v1/stream-tickets','StreamTicketIssueResponse',{method:'POST',body,signal,authenticated:true})).data;
-    }} : {}),
-    connect: ({signal,ticket,receive,disconnected}) => new Promise((resolve,reject) => {
-      signal.throwIfAborted();
-      if (authenticated && !ticket) { reject(new Error('Fresh stream ticket required')); return; }
-      if (ticket && !/^[A-Za-z0-9_.-]+$/.test(ticket.ticket)) { reject(new Error('Invalid subprotocol ticket')); return; }
-      const protocols = ticket ? ['sidiora.v1',`ticket.${ticket.ticket}`] : ['sidiora.v1'];
-      const socket = new WebSocket(new URL('/v1/stream',client.config.streamOrigin),protocols);
-      let opened = false;
-      const abort = () => { socket.close(); reject(signal.reason); };
-      signal.addEventListener('abort',abort,{once:true});
-      socket.onopen = () => {
-        if (signal.aborted) { socket.close(); return; }
-        if (socket.protocol !== 'sidiora.v1') { reject(new Error('Unsupported stream version')); socket.close(); return; }
-        opened = true;
-        resolve({send: frame => socket.send(JSON.stringify(frame)),close: () => { signal.removeEventListener('abort',abort); socket.onclose=null; socket.onmessage=null; socket.close(); }});
-      };
-      socket.onmessage = event => {
-        if (signal.aborted) return;
-        try { receive(JSON.parse(event.data)); } catch { socket.close(1007,'Invalid stream envelope'); }
-      };
-      socket.onerror = () => { if (!opened) reject(new Error('Stream transport failed')); };
-      socket.onclose = () => { signal.removeEventListener('abort',abort); if (!opened) reject(new Error('Stream closed before handshake')); else if (!signal.aborted) disconnected(); };
-    }),
-  };
-}
-
+import type { StreamTransportV2 } from './stream.js';
 
 const publicSnapshotClients = new WeakMap<SdkClient, PublicSnapshotRequests>();
 export interface BrowserStreamV2Scope {

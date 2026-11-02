@@ -1,0 +1,1 @@
+{"version":1,"request_id":"7","operation":"tenant.readiness","request":{},"credential":{"tenant":"tenant-a","session_id":"cdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd","token_id":"abababababababababababababababababababababababababababababababab","generation":"7"},"idempotency_key":null}

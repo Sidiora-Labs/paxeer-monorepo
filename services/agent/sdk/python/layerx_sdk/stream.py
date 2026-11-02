@@ -15,6 +15,11 @@ class StreamCursor(str):
             raise PlatformSdkError(SdkErrorCode.INVALID_ARGUMENT, "never")
         return cast(Self, str.__new__(cls, value))
 
+    def _log_position(self) -> tuple[int, int, int]:
+        if len(self) != 32 or any(char not in "0123456789abcdef" for char in self):
+            raise PlatformSdkError(SdkErrorCode.DECODE_FAILURE, "never")
+        return int(self[:16], 16), int(self[16:24], 16), int(self[24:], 16)
+
 
 @dataclass(frozen=True)
 class StreamEvent(Generic[_T]):
@@ -44,19 +49,23 @@ class ResumableStream(Generic[_T]):
         if page.requested_cursor != self._cursor:
             raise PlatformSdkError(SdkErrorCode.DECODE_FAILURE, "never")
         expected = self._cursor
+        position = expected._log_position()
         accepted: list[StreamEvent[_T]] = []
         page_event_ids: set[str] = set()
         for event in page.events:
+            event_position = event.cursor._log_position()
             if (
                 not event.event_id
                 or event.previous_cursor != expected
                 or event.event_id in self._seen
                 or event.event_id in page_event_ids
+                or event_position <= position
             ):
                 raise PlatformSdkError(SdkErrorCode.DECODE_FAILURE, "never")
             page_event_ids.add(event.event_id)
             accepted.append(event)
             expected = event.cursor
+            position = event_position
         if page.next_cursor != expected:
             raise PlatformSdkError(SdkErrorCode.DECODE_FAILURE, "never")
         self._seen.update(page_event_ids)

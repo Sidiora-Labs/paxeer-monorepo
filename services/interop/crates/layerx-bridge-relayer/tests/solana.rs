@@ -122,6 +122,7 @@ fn parts(recording: &Recording, signer: &SignerServer, journal: &Path) -> Relaye
         attestor: Attestor::new(signer.remote("attestor-1", &key(ATTESTOR)))
             .unwrap_or_else(|error| panic!("attestor: {error:?}")),
         paxeer: PaxeerLink {
+            receipt_keys: support::receipt_keys(),
             settings: PAXEER,
             rpc: recording.endpoint("paxeer"),
             submitter: Submitter::paxeer(signer.remote("paxeer-fees-1", &key(PAXEER_FEES)))

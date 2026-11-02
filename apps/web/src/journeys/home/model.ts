@@ -27,9 +27,9 @@ import {
 export const HOME_ACTIVITY_LIMIT = 5;
 
 export const HOME_DESTINATIONS = Object.freeze({
-  add: "/app/deposit",
+  add: "/bridge",
   move: MOVE_ROUTE,
-  withdraw: "/app/withdraw",
+  withdraw: "/bridge",
   approvals: "/app/approvals",
   agents: "/app/agents",
   activity: "/app/activity",

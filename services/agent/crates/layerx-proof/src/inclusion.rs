@@ -1,6 +1,7 @@
 //! Activity and state inclusion under an authorised signed batch header.
 
 use layerx_crypto::ed25519;
+use layerx_types::rung::Rung;
 use layerx_wire::hash::batch_header_digest;
 use layerx_wire::limits::protocol_version_uses_occupancy;
 use layerx_wire::receipt::{decode_batch_header, encode_batch_header, BatchHeader};
@@ -158,6 +159,11 @@ impl InclusionEvidence {
     #[must_use]
     pub const fn level(&self) -> layerx_types::verify::VerificationLevel {
         achieved(&self.evidence)
+    }
+
+    #[must_use]
+    pub const fn rung(&self) -> Rung {
+        self.evidence.rung()
     }
 
     /// Returns the signed header and proof-root identifiers supporting the level.

@@ -12,7 +12,7 @@ import (
 func LoadTendermintState(config *config.Config) (state.State, error) {
 	blockStore, stateStore, err := loadStateAndBlockStore(config)
 	if err != nil {
-		return state.State{}, err
+		return state.State{}, fmt.Errorf("load tendermint state: %w", err)
 	}
 	defer func() {
 		_ = blockStore.Close()
@@ -33,7 +33,7 @@ func RollbackStateToTargetHeight(config *config.Config, removeBlock bool, target
 	// use the parsed config to load the block and state store
 	blockStore, stateStore, err := loadStateAndBlockStore(config)
 	if err != nil {
-		return -1, nil, err
+		return -1, nil, fmt.Errorf("rollback: %w", err)
 	}
 
 	defer func() {

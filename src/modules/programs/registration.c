@@ -30,8 +30,7 @@ static const uint32_t activity_types_v2[] = {
     LX_PROGRAMS_REGISTRY,
     LX_PROGRAMS_TRANSFER,
     LX_PROGRAMS_ACCOUNT,
-    LX_PROGRAMS_WIND_DOWN,
-    LX_PROGRAMS_FEE_GOVERNANCE
+    LX_PROGRAMS_WIND_DOWN
 };
 
 static const uint32_t activity_types_v3[] = {
@@ -42,26 +41,25 @@ static const uint32_t activity_types_v3[] = {
     LX_PROGRAMS_TRANSFER,
     LX_PROGRAMS_ACCOUNT,
     LX_PROGRAMS_WIND_DOWN,
-    LX_PROGRAMS_FEE_GOVERNANCE,
     LX_PROGRAMS_SANDBOX
 };
 static const uint32_t activity_types_v4[] = {
     LX_PROGRAMS_DEPLOY, LX_PROGRAMS_UPGRADE, LX_PROGRAMS_CALL,
     LX_PROGRAMS_REGISTRY, LX_PROGRAMS_TRANSFER, LX_PROGRAMS_ACCOUNT,
-    LX_PROGRAMS_WIND_DOWN, LX_PROGRAMS_FEE_GOVERNANCE,
+    LX_PROGRAMS_WIND_DOWN,
     LX_PROGRAMS_SANDBOX, LX_PROGRAMS_SANDBOX_DESTROY
 };
 static const uint32_t activity_types_v4_storage_retirement[] = {
     LX_PROGRAMS_DEPLOY, LX_PROGRAMS_UPGRADE, LX_PROGRAMS_CALL,
     LX_PROGRAMS_REGISTRY, LX_PROGRAMS_TRANSFER, LX_PROGRAMS_ACCOUNT,
-    LX_PROGRAMS_WIND_DOWN, LX_PROGRAMS_FEE_GOVERNANCE,
+    LX_PROGRAMS_WIND_DOWN,
     LX_PROGRAMS_SANDBOX, LX_PROGRAMS_SANDBOX_DESTROY,
     LX_PROGRAMS_STORAGE_RETIREMENT
 };
 static const uint32_t activity_types_v5[] = {
     LX_PROGRAMS_DEPLOY, LX_PROGRAMS_UPGRADE, LX_PROGRAMS_CALL,
     LX_PROGRAMS_REGISTRY, LX_PROGRAMS_TRANSFER, LX_PROGRAMS_ACCOUNT,
-    LX_PROGRAMS_WIND_DOWN, LX_PROGRAMS_FEE_GOVERNANCE,
+    LX_PROGRAMS_WIND_DOWN,
     LX_PROGRAMS_SANDBOX, LX_PROGRAMS_SANDBOX_DESTROY,
     LX_PROGRAMS_STORAGE_RETIREMENT
 };
@@ -92,9 +90,6 @@ static lxp_result programs_decode(lxp_module_ctx *ctx, uint16_t ordinal,
         return lxp_programs_account_decode(ctx, payload, length, decoded);
     if (ordinal == lxp_activity_type_ordinal(LX_PROGRAMS_WIND_DOWN))
         return lxp_programs_wind_down_decode(ctx, payload, length, decoded);
-    if (ordinal == lxp_activity_type_ordinal(LX_PROGRAMS_FEE_GOVERNANCE))
-        return lxp_programs_fee_governance_decode(ctx, payload, length,
-                                                  decoded);
     if (ordinal == lxp_activity_type_ordinal(LX_PROGRAMS_SANDBOX))
         return lxp_programs_sandbox_decode(ctx, payload, length, decoded);
     if (ordinal == lxp_activity_type_ordinal(LX_PROGRAMS_SANDBOX_DESTROY))
@@ -138,10 +133,6 @@ static lxp_result programs_validate(lxp_module_ctx *ctx,
     if (activity != NULL && activity->activity_type == LX_PROGRAMS_WIND_DOWN)
         return lxp_programs_wind_down_validate(ctx, activity, authority,
                                                decoded);
-    if (activity != NULL &&
-        activity->activity_type == LX_PROGRAMS_FEE_GOVERNANCE)
-        return lxp_programs_fee_governance_validate(ctx, activity, authority,
-                                                     decoded);
     if (activity != NULL && activity->activity_type == LX_PROGRAMS_SANDBOX)
         return lxp_programs_sandbox_validate(ctx, activity, authority, decoded);
     if (activity != NULL && activity->activity_type == LX_PROGRAMS_SANDBOX_DESTROY)
@@ -189,10 +180,6 @@ static lxp_result programs_execute(lxp_module_ctx *ctx,
     if (activity != NULL && activity->activity_type == LX_PROGRAMS_WIND_DOWN)
         return lxp_programs_wind_down_execute(ctx, activity, authority,
                                               decoded, effects);
-    if (activity != NULL &&
-        activity->activity_type == LX_PROGRAMS_FEE_GOVERNANCE)
-        return lxp_programs_fee_governance_execute(ctx, activity, authority,
-                                                    decoded, effects);
     if (activity != NULL && activity->activity_type == LX_PROGRAMS_SANDBOX)
         return lxp_programs_sandbox_execute(ctx, activity, authority, decoded,
                                             effects);

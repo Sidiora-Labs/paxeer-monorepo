@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use crate::ethereum::{EthereumError, EthereumMirrorReadConfig, EthereumMirrorReader};
 use crate::rpc::RpcError;
 use crate::solana::{SolanaError, SolanaMirrorReadConfig, SolanaMirrorReader};
-use crate::{archive_commitment, ArchiveCommitment, ArchiveData, CheckpointCoordinate};
+use crate::{archive_commitment, ArchiveCommitment, ArchiveData, CommittedCoordinate};
 
 pub const MAX_MIRROR_SOURCES: usize = 8;
 pub const MAX_SOURCE_ID_BYTES: usize = 64;
@@ -83,9 +83,9 @@ pub enum MirrorLag {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MirrorSourceFreshness {
     pub latest_batch: Option<u64>,
-    pub latest_checkpoint: Option<CheckpointCoordinate>,
+    pub latest_committed: Option<CommittedCoordinate>,
     pub batch_lag: MirrorLag,
-    pub checkpoint_lag: MirrorLag,
+    pub committed_lag: MirrorLag,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -94,12 +94,50 @@ pub struct MirrorObservation {
     pub target: MirrorTargetIdentity,
     pub commitment: ArchiveCommitment,
     pub batch_number: u64,
-    pub checkpoint: Option<CheckpointCoordinate>,
+    pub committed: Option<CommittedCoordinate>,
     pub position: MirrorCanonicalPosition,
     pub provenance: MirrorProvenance,
     pub freshness: MirrorSourceFreshness,
     pub failover_count: usize,
     pub agreeing_sources: usize,
+}
+
+impl MirrorObservation {
+    pub fn from_archive(
+        source: MirrorSourceId,
+        target: MirrorTargetIdentity,
+        archive: &[u8],
+        layerx_network_id: u32,
+        batch_number: u64,
+        commitment: ArchiveCommitment,
+        position: MirrorCanonicalPosition,
+    ) -> Result<MirrorObservation, MirrorSourceError> {
+        if archive_commitment(archive) != commitment {
+            return Err(MirrorSourceError::Archive);
+        }
+        let decoded = ArchiveData::decode(archive).map_err(|_| MirrorSourceError::Archive)?;
+        if decoded.network_id != layerx_network_id || decoded.batch_number != batch_number {
+            return Err(MirrorSourceError::TargetMismatch);
+        }
+        let committed = decoded.committed_coordinate();
+        Ok(MirrorObservation {
+            source,
+            target,
+            commitment,
+            batch_number,
+            committed,
+            position,
+            provenance: MirrorProvenance::Canonical,
+            freshness: MirrorSourceFreshness {
+                latest_batch: None,
+                latest_committed: committed,
+                batch_lag: MirrorLag::Unknown,
+                committed_lag: MirrorLag::Unknown,
+            },
+            failover_count: 0,
+            agreeing_sources: 1,
+        })
+    }
 }
 
 /// One source's complete evidence. Fields are private so callers cannot pair
@@ -298,33 +336,18 @@ impl MirrorSource {
                 (value.archive, position)
             }
         };
-        if archive_commitment(&archive) != commitment {
-            return Err(MirrorSourceError::Archive);
-        }
-        let decoded = ArchiveData::decode(&archive).map_err(|_| MirrorSourceError::Archive)?;
-        if decoded.network_id != layerx_network_id || decoded.batch_number != batch_number {
-            return Err(MirrorSourceError::TargetMismatch);
-        }
-        let checkpoint = decoded.checkpoint.as_ref().map(|value| value.coordinate);
+        let observation = MirrorObservation::from_archive(
+            self.id.clone(),
+            self.target.clone(),
+            &archive,
+            layerx_network_id,
+            batch_number,
+            commitment,
+            position,
+        )?;
         Ok(Some(ObservedArchive {
             archive,
-            observation: MirrorObservation {
-                source: self.id.clone(),
-                target: self.target.clone(),
-                commitment,
-                batch_number,
-                checkpoint,
-                position,
-                provenance: MirrorProvenance::Canonical,
-                freshness: MirrorSourceFreshness {
-                    latest_batch: None,
-                    latest_checkpoint: None,
-                    batch_lag: MirrorLag::Unknown,
-                    checkpoint_lag: MirrorLag::Unknown,
-                },
-                failover_count: 0,
-                agreeing_sources: 1,
-            },
+            observation,
         }))
     }
 

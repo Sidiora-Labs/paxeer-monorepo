@@ -6,9 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"os"
+	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,8 +23,11 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery/natsdriver"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/feeds"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/gateway"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/markets"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/publish"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/rest"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/stream"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
@@ -66,7 +72,7 @@ func seedBooks(t *testing.T, ctx context.Context, db *sql.DB) {
 	if _, err := db.ExecContext(ctx, `INSERT INTO perps.cursors (name, height, hash) VALUES ('head', $1, $2)`, headBlock, hash32(headBlock, -1, 0)); err != nil {
 		t.Fatal(err)
 	}
-	for m := range len(FeedSymbols) {
+	for m := range len(markets.Seed) {
 		for k := range 2 * levelsPerSide {
 			bid := k < levelsPerSide
 			price := 1001 + k - levelsPerSide
@@ -154,7 +160,7 @@ func (tr *trader) round(ctx context.Context) error {
 		return err
 	}
 	defer func() { _ = tx.Rollback() }()
-	for m := range len(FeedSymbols) {
+	for m := range len(markets.Seed) {
 		k := tr.fills % (2 * levelsPerSide)
 		if _, err := tx.ExecContext(ctx, `INSERT INTO perps.fills (block, block_hash, tx_index, log_index, sub, tx_hash, receipt_kind,
 			block_time, emitter, kind, account, tx_from, market_id, maker_order_id, taker_order_id, maker, taker, taker_is_long, price,
@@ -176,7 +182,7 @@ func (tr *trader) round(ctx context.Context) error {
 	if err := tx.Commit(); err != nil {
 		return err
 	}
-	for m := range len(FeedSymbols) {
+	for m := range len(markets.Seed) {
 		if err := tr.publish(ctx, m, block, now); err != nil {
 			return err
 		}
@@ -211,6 +217,106 @@ func (tr *trader) publish(ctx context.Context, market int, block int64, at time.
 	msg.Header.Set(publish.HeaderKind, "fill")
 	_, err = tr.js.PublishMsg(ctx, msg, jetstream.WithMsgID(id), jetstream.WithExpectStream(stream.Name))
 	return err
+}
+
+func TestLoadProfileServedSymbols(t *testing.T) {
+	dbURL := os.Getenv(testDatabaseEnv)
+	if dbURL == "" {
+		t.Fatal(testDatabaseEnv + " is unset")
+	}
+	ctx := context.Background()
+	db, err := store.Open(dbURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+	if _, err := db.ExecContext(ctx, `DROP SCHEMA IF EXISTS perps CASCADE`); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.Migrate(ctx, db); err != nil {
+		t.Fatal(err)
+	}
+	routes, err := rest.NewMarkets(db, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	routes.Register(mux)
+	ts := httptest.NewServer(mux)
+	t.Cleanup(ts.Close)
+
+	initial, err := FeedSymbols(ctx, ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(initial) != 18 || !slices.Contains(initial, "TSLA") {
+		t.Fatalf("seeded gateway symbols %v, want 18 including TSLA", initial)
+	}
+	if _, err := db.ExecContext(ctx, `DELETE FROM perps.markets WHERE symbol = 'TSLA'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.ExecContext(ctx, `UPDATE perps.markets SET symbol = 'CUSTOM' WHERE symbol = 'BNB'`); err != nil {
+		t.Fatal(err)
+	}
+	want := make([]string, 0, len(markets.Seed)-1)
+	for _, market := range markets.Seed {
+		if market.Symbol == "TSLA" {
+			continue
+		}
+		symbol := market.Symbol
+		if symbol == "BNB" {
+			symbol = "CUSTOM"
+		}
+		want = append(want, symbol)
+	}
+	providers, err := feeds.NewProviders(ctx, db, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, gatewayURL := range []string{ts.URL, ts.URL + "/", "ws" + strings.TrimPrefix(ts.URL, "http")} {
+		symbols, err := FeedSymbols(ctx, gatewayURL)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !slices.Equal(symbols, want) {
+			t.Fatalf("gateway symbols %v, want %v", symbols, want)
+		}
+		profile := FullProfile(symbols)
+		if err := profile.Validate(); err != nil {
+			t.Fatal(err)
+		}
+		symbols[0] = "TSLA"
+		if !slices.Equal(profile.Symbols, want) {
+			t.Fatalf("profile symbols %v, want independent copy of %v", profile.Symbols, want)
+		}
+		for i := range profile.Sockets {
+			symbol := want[i%len(want)]
+			wantTopics := []string{symbol + bookKind, symbol + tradeKind, feeds.TopicMarketsAll}
+			topics := profile.Topics(i)
+			if !slices.Equal(topics, wantTopics) {
+				t.Fatalf("socket %d topics %v, want %v", i, topics, wantTopics)
+			}
+			for _, topic := range topics {
+				if strings.HasPrefix(topic, "TSLA@") || !providers.Served(topic) {
+					t.Fatalf("socket %d subscribed to unserved topic %q", i, topic)
+				}
+			}
+		}
+	}
+	if _, err := db.ExecContext(ctx, `DELETE FROM perps.markets`); err != nil {
+		t.Fatal(err)
+	}
+	if symbols, err := FeedSymbols(ctx, ts.URL); !errors.Is(err, ErrNoSymbols) || len(symbols) != 0 {
+		t.Fatalf("empty gateway symbols %v, error %v, want ErrNoSymbols", symbols, err)
+	}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := FeedSymbols(cancelled, ts.URL); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled discovery error %v, want context.Canceled", err)
+	}
+	if _, err := FeedSymbols(ctx, ts.URL+"/missing"); err == nil || !strings.Contains(err.Error(), "404") {
+		t.Fatalf("missing endpoint error %v, want HTTP 404", err)
+	}
 }
 
 func TestLoadProfile(t *testing.T) {
@@ -277,7 +383,11 @@ func TestLoadProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile := FullProfile().Scaled(testSockets)
+	symbols, err := FeedSymbols(ctx, ts.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile := FullProfile(symbols).Scaled(testSockets)
 	report, err := Run(ctx, socketURL, profile)
 	stopTrades()
 	if err != nil {
@@ -293,8 +403,8 @@ func TestLoadProfile(t *testing.T) {
 	t.Logf("report %s", raw)
 
 	t.Run("sockets", func(t *testing.T) {
-		if profile.Sockets != testSockets || FullProfile().Sockets != 140000 || len(profile.Symbols) != 18 {
-			t.Fatalf("profile %d sockets over %d symbols, full %d", profile.Sockets, len(profile.Symbols), FullProfile().Sockets)
+		if profile.Sockets != testSockets || FullProfile(symbols).Sockets != 140000 || len(profile.Symbols) != 18 {
+			t.Fatalf("profile %d sockets over %d symbols, full %d", profile.Sockets, len(profile.Symbols), FullProfile(symbols).Sockets)
 		}
 		if got := profile.Topics(19); len(got) != 3 || got[0] != "ETH@perp_orderbook" || got[1] != "ETH@perp_trade" || got[2] != "markets@all" {
 			t.Fatalf("topics of socket 19 %v", got)

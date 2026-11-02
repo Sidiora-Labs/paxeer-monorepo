@@ -15,7 +15,7 @@ static int run_child(const char *directory, uint32_t abort_boundary)
     const uint8_t activity[] = { 1U, 2U };
     const uint8_t receipt[] = { 3U, 4U };
     const uint8_t state_diff[] = { 5U, 6U };
-    const uint8_t batch[] = { 7U, 8U };
+    const uint8_t pending[] = { 7U, 8U };
     lxp_log log;
     if (lxp_log_segment_create(&log, directory, 0U, 4096U) != LXP_OK)
         return 1;
@@ -29,8 +29,8 @@ static int run_child(const char *directory, uint32_t abort_boundary)
                        (uint32_t)sizeof(state_diff), NULL) != LXP_OK ||
         lxp_log_write_boundary(&log) != LXP_OK) return 1;
     if (lxp_log_fault_point(2U, abort_boundary)) _exit(82);
-    if (lxp_log_append(&log, LXP_LOG_BATCH_HEADER, 11U, batch,
-                       (uint32_t)sizeof(batch), NULL) != LXP_OK ||
+    if (lxp_log_append(&log, LXP_LOG_ACTIVITY, 12U, pending,
+                       (uint32_t)sizeof(pending), NULL) != LXP_OK ||
         lxp_log_write_boundary(&log) != LXP_OK) return 1;
     if (lxp_log_fault_point(3U, abort_boundary)) _exit(83);
     return lxp_log_close(&log) == LXP_OK ? 0 : 1;
@@ -85,35 +85,35 @@ static int run_canonical_child(const char *directory, uint32_t abort_boundary)
     return 1;
 }
 
-static int run_batch_child(const char *directory, uint32_t abort_boundary)
+static int run_activity_child(const char *directory, uint32_t abort_boundary)
 {
-    const uint8_t header[] = { 5U, 3U };
-    const uint8_t body[] = { 5U, 9U };
-    const uint8_t later_header[] = { 6U, 3U };
-    const uint8_t later_body[] = { 6U, 9U };
+    const uint8_t activity[] = { 5U, 3U };
+    const uint8_t receipt[] = { 5U, 9U };
+    const uint8_t later_activity[] = { 6U, 3U };
+    const uint8_t later_receipt[] = { 6U, 9U };
     const uint8_t pending[] = { 7U, 3U };
     lxp_log log;
     if (lxp_log_segment_create(&log, directory, 0U, 4096U) != LXP_OK)
         return 1;
-    if (lxp_log_append(&log, LXP_LOG_BATCH_HEADER, 5U, header,
-                       (uint32_t)sizeof(header), NULL) != LXP_OK ||
-        lxp_log_append(&log, LXP_LOG_BATCH_BODY, 5U, body,
-                       (uint32_t)sizeof(body), NULL) != LXP_OK ||
+    if (lxp_log_append(&log, LXP_LOG_ACTIVITY, 5U, activity,
+                       (uint32_t)sizeof(activity), NULL) != LXP_OK ||
+        lxp_log_append(&log, LXP_LOG_RECEIPT, 5U, receipt,
+                       (uint32_t)sizeof(receipt), NULL) != LXP_OK ||
         lxp_log_write_boundary(&log) != LXP_OK) return 1;
     if (lxp_log_fault_point(1U, abort_boundary)) _exit(71);
-    if (lxp_log_append(&log, LXP_LOG_BATCH_HEADER, 6U, later_header,
-                       (uint32_t)sizeof(later_header), NULL) != LXP_OK ||
-        lxp_log_append(&log, LXP_LOG_BATCH_BODY, 6U, later_body,
-                       (uint32_t)sizeof(later_body), NULL) != LXP_OK ||
+    if (lxp_log_append(&log, LXP_LOG_ACTIVITY, 6U, later_activity,
+                       (uint32_t)sizeof(later_activity), NULL) != LXP_OK ||
+        lxp_log_append(&log, LXP_LOG_RECEIPT, 6U, later_receipt,
+                       (uint32_t)sizeof(later_receipt), NULL) != LXP_OK ||
         lxp_log_write_boundary(&log) != LXP_OK) return 1;
     if (lxp_log_fault_point(2U, abort_boundary)) _exit(72);
-    if (lxp_log_append(&log, LXP_LOG_BATCH_HEADER, 7U, pending,
+    if (lxp_log_append(&log, LXP_LOG_ACTIVITY, 7U, pending,
                        (uint32_t)sizeof(pending), NULL) != LXP_OK) return 1;
     if (lxp_log_fault_point(3U, abort_boundary)) _exit(73);
     return 1;
 }
 
-static int crash_child(const char *directory, uint32_t boundary, int batch,
+static int crash_child(const char *directory, uint32_t boundary, int activity,
                        int expected_exit)
 {
     pid_t child;
@@ -121,7 +121,7 @@ static int crash_child(const char *directory, uint32_t boundary, int batch,
     child = fork();
     if (child < 0) return 1;
     if (child == 0)
-        _exit(batch ? run_batch_child(directory, boundary) :
+        _exit(activity ? run_activity_child(directory, boundary) :
                       run_canonical_child(directory, boundary));
     if (waitpid(child, &child_status, 0) != child ||
         !WIFEXITED(child_status) ||
@@ -162,8 +162,7 @@ static int recover_restart(const char *path, int complete_records,
 }
 
 static int append_after_restart(const char *path, int complete_records,
-                                int batch, uint64_t expected_end,
-                                uint64_t expected_next)
+                                uint64_t expected_end, uint64_t expected_next)
 {
     const uint8_t bytes[] = { 31U, 7U };
     lxp_log log;
@@ -173,11 +172,11 @@ static int append_after_restart(const char *path, int complete_records,
                                 lxp_log_recover(&log, NULL, NULL);
     if (status != LXP_OK || log.write_offset != expected_end ||
         lxp_log_resume_sequence(&log) != expected_next ||
-        lxp_log_append(&log, batch ? LXP_LOG_BATCH_HEADER : LXP_LOG_ACTIVITY,
+        lxp_log_append(&log, LXP_LOG_ACTIVITY,
                        expected_next, bytes, (uint32_t)sizeof(bytes),
                        NULL) != LXP_OK ||
-        (!batch && lxp_log_append(&log, LXP_LOG_RECEIPT, expected_next, bytes,
-                                  (uint32_t)sizeof(bytes), NULL) != LXP_OK) ||
+        lxp_log_append(&log, LXP_LOG_RECEIPT, expected_next, bytes,
+                       (uint32_t)sizeof(bytes), NULL) != LXP_OK ||
         lxp_log_write_boundary(&log) != LXP_OK) {
         (void)lxp_log_close(&log);
         return 1;
@@ -243,7 +242,7 @@ static int checkpointed_canonical_restart(void)
             if (recover_restart(path, complete_records, ends[i], nexts[i],
                                 heads[i], replays[i], kinds[i]) != 0)
                 return 1;
-        if (append_after_restart(path, (int)(boundary & 1U), 0, ends[i],
+        if (append_after_restart(path, (int)(boundary & 1U), ends[i],
                                  nexts[i]) != 0)
             return 1;
         for (complete_records = 0; complete_records <= 1; ++complete_records)
@@ -272,7 +271,7 @@ static int checkpointed_canonical_restart(void)
     return 0;
 }
 
-static int existing_batch_restart(void)
+static int existing_activity_restart(void)
 {
     static const uint64_t ends[] = {
         2U * LXP_RESTART_RECORD_BYTES, 4U * LXP_RESTART_RECORD_BYTES,
@@ -283,8 +282,8 @@ static int existing_batch_restart(void)
     uint32_t boundary;
     for (boundary = 1U; boundary <= 3U; ++boundary) {
         const uint32_t i = boundary - 1U;
-        const uint64_t appended = ends[i] + LXP_RESTART_RECORD_BYTES;
-        char directory[] = "/tmp/lxp-durable-batch-XXXXXX";
+        const uint64_t appended = ends[i] + 2U * LXP_RESTART_RECORD_BYTES;
+        char directory[] = "/tmp/lxp-durable-activity-XXXXXX";
         char path[128];
         int descriptor;
         uint8_t corrupt = 0xffU;
@@ -292,16 +291,20 @@ static int existing_batch_restart(void)
             crash_child(directory, boundary, 1, 70 + (int)boundary) != 0 ||
             snprintf(path, sizeof(path), "%s/%020u.lxp", directory, 0U) < 0)
             return 1;
-        if (recover_restart(path, 1, ends[i], nexts[i], UINT64_MAX,
-                            replays[i], (uint8_t)LXP_LOG_BATCH_HEADER) != 0 ||
-            refuse_restart(path, 0, LXP_ERR_LOG_CORRUPT, 0) != 0 ||
+        if (recover_restart(path, 1, ends[i], nexts[i], nexts[i] - 1U,
+                            replays[i], (uint8_t)LXP_LOG_ACTIVITY) != 0 ||
+            recover_restart(path, 0, ends[i], nexts[i], nexts[i] - 1U,
+                            replays[i], (uint8_t)LXP_LOG_ACTIVITY) != 0 ||
             durable_marker_retained(path, ends[i], nexts[i]) != 0 ||
-            recover_restart(path, 1, ends[i], nexts[i], UINT64_MAX,
-                            replays[i], (uint8_t)LXP_LOG_BATCH_HEADER) != 0 ||
-            append_after_restart(path, 1, 1, ends[i], nexts[i]) != 0 ||
-            recover_restart(path, 1, appended, nexts[i] + 1U, UINT64_MAX,
-                            replays[i] + 1U,
-                            (uint8_t)LXP_LOG_BATCH_HEADER) != 0 ||
+            recover_restart(path, 1, ends[i], nexts[i], nexts[i] - 1U,
+                            replays[i], (uint8_t)LXP_LOG_ACTIVITY) != 0 ||
+            append_after_restart(path, 1, ends[i], nexts[i]) != 0 ||
+            recover_restart(path, 1, appended, nexts[i] + 1U, nexts[i],
+                            replays[i] + 2U,
+                            (uint8_t)LXP_LOG_ACTIVITY) != 0 ||
+            recover_restart(path, 0, appended, nexts[i] + 1U, nexts[i],
+                            replays[i] + 2U,
+                            (uint8_t)LXP_LOG_ACTIVITY) != 0 ||
             refuse_restart(path, 1, LXP_ERR_IO, 1) != 0 ||
             durable_marker_retained(path, appended, nexts[i] + 1U) != 0)
             return 1;
@@ -450,7 +453,7 @@ int main(void)
             return 1;
     }
     if (checkpointed_canonical_restart() != 0 ||
-        existing_batch_restart() != 0)
+        existing_activity_restart() != 0)
         return 1;
     return 0;
 }

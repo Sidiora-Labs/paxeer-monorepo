@@ -42,3 +42,4 @@ apps/web
 tools/qualification/output
 !docker/common/env-files.sh
 !docker/platform-indexer/files.tsv
+!docker/platform-indexer/package-abis.sh

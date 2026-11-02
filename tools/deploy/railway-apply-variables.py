@@ -101,7 +101,7 @@ def desired(name, svc, values, from_env):
             continue
         want[key] = value
     for key, value in want.items():
-        if "\n" in value and not key.endswith("_DOCUMENT"):
+        if "\n" in value and not key.endswith(("_DOCUMENT", "_PEM")):
             problems.append(f"{key} contains a newline")
     return want, problems
 

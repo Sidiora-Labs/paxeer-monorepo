@@ -14,7 +14,7 @@
  * unset or malformed value is a configuration problem that the root layout
  * renders as a user-facing error state (ui/shared/backend-configuration-error.tsx)
  * and the server logs at startup (instrumentation.ts). A local checkout sets
- * them in client/apps/web/.env.local (gitignored).
+ * them in apps/launchpad/web/.env.local (gitignored).
  *
  * Edge-safe: no Node-only imports (src/middleware.ts runs on the edge runtime).
  * Every read is a literal `process.env.NEXT_PUBLIC_*` expression so Next inlines

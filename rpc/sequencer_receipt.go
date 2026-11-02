@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -121,7 +122,7 @@ type SequencerReceiptLog struct {
 	LogIndex hexutil.Uint   `json:"logIndex"`
 }
 
-// SequencerReceiptView is the JSON view of a signed receipt, every field decoded from Receipt.
+// SequencerReceiptView is the decoded receipt and its pinned signing public key.
 type SequencerReceiptView struct {
 	Seq               hexutil.Uint64        `json:"seq"`
 	Height            hexutil.Uint64        `json:"height"`
@@ -141,6 +142,7 @@ type SequencerReceiptView struct {
 	ContractAddress   common.Address        `json:"contractAddress"`
 	VMError           string                `json:"vmError"`
 	KeyID             common.Hash           `json:"keyId"`
+	SigningKey        hexutil.Bytes         `json:"signingKey"`
 	Receipt           hexutil.Bytes         `json:"receipt"`
 }
 
@@ -157,8 +159,10 @@ type SequencerReceiptResult struct {
 }
 
 // Verify checks that every JSON field equals the field decoded from the receipt bytes and that
-// returnData, each log's data and vmError hash to the digests the bytes carry.
-func (r *SequencerReceiptResult) Verify() error {
+// returnData, each log's data and vmError hash to the digests the bytes carry. It verifies the
+// signature under SigningKey; callers authenticate the key by supplying their pinned ReceiptKeys.
+// Without pins, Verify checks consistency only, not the signer's authority.
+func (r *SequencerReceiptResult) Verify(pins ...seqkeeper.ReceiptKeys) error {
 	switch r.Rung {
 	case RungSubmitted:
 		if r.SequencerReceiptView != nil || r.BlockNumber != nil || r.BlockHash != nil {
@@ -198,6 +202,22 @@ func (r *SequencerReceiptResult) Verify() error {
 	if common.Hash(decoded.ActivityID) != r.TxHash || decoded.FromSequence != uint64(r.Nonce) {
 		return fmt.Errorf("%w: txHash or nonce", ErrSequencerReceiptMismatch)
 	}
+	if len(r.SigningKey) != 32 {
+		return mismatch("signingKey is %d bytes, want 32", len(r.SigningKey))
+	}
+	for _, keys := range pins {
+		entry, err := keys.KeyForHeight(decoded.ContextHash, uint64(want.Height))
+		if err != nil {
+			return fmt.Errorf("%w: %w", ErrSequencerReceiptMismatch, err)
+		}
+		if !bytes.Equal(entry.PublicKey, r.SigningKey) {
+			return mismatch("signingKey differs from the pinned receipt key")
+		}
+	}
+	if _, err := verify.ReceiptSignature(r.Receipt, [32]byte(r.SigningKey)); err != nil {
+		return invalidReceipt("signature: %v", err)
+	}
+	want.SigningKey = bytes.Clone(r.SigningKey)
 	wantJSON, err := json.Marshal(want)
 	if err != nil {
 		return err
@@ -238,8 +258,11 @@ func (a *SequencerReceiptAPI) SequencerReceipt(ctx context.Context, txHash commo
 		return a.forward(ctx, txHash)
 	}
 	send, err := a.option.Source.SequencerSend(txHash)
-	if err != nil || send == nil {
+	if err != nil {
 		return nil, err
+	}
+	if send == nil {
+		return nil, nil
 	}
 	if send.Receipt == nil {
 		return &SequencerReceiptResult{Rung: RungSubmitted, TxHash: txHash, Nonce: hexutil.Uint64(send.Nonce)}, nil
@@ -254,7 +277,19 @@ func (a *SequencerReceiptAPI) SequencerReceipt(ctx context.Context, txHash commo
 	if decoded.FromSequence != send.Nonce {
 		return nil, fmt.Errorf("%w: receipt nonce %d, sent nonce %d", ErrSequencerReceiptInvalid, decoded.FromSequence, send.Nonce)
 	}
+	keys, err := a.receiptKeys()
+	if err != nil {
+		return nil, err
+	}
+	entry, err := keys.KeyForHeight(decoded.ContextHash, uint64(view.Height))
+	if err != nil {
+		return nil, err
+	}
+	view.SigningKey = bytes.Clone(entry.PublicKey)
 	result = &SequencerReceiptResult{Rung: RungReceipted, TxHash: txHash, Nonce: hexutil.Uint64(send.Nonce), SequencerReceiptView: view}
+	if err := result.Verify(keys); err != nil {
+		return nil, err
+	}
 	height, committed, err := a.coveringHeight(decoded.GlobalSequence, decoded.ResultingStateRoot, uint64(view.Height))
 	if err != nil || !committed {
 		return result, err
@@ -269,6 +304,21 @@ func (a *SequencerReceiptAPI) SequencerReceipt(ctx context.Context, txHash commo
 	blockNumber, blockHash := hexutil.Uint64(height), common.BytesToHash(block.BlockID.Hash)
 	result.Rung, result.BlockNumber, result.BlockHash = RungCommitted, &blockNumber, &blockHash
 	return result, nil
+}
+
+func (a *SequencerReceiptAPI) receiptKeys() (seqkeeper.ReceiptKeys, error) {
+	pinned, err := a.option.Keeper.ReceiptKeys(a.ctxProvider(LatestCtxHeight))
+	if err != nil {
+		return nil, err
+	}
+	keys := make(seqkeeper.ReceiptKeys, len(pinned))
+	for i, pin := range pinned {
+		keys[i] = seqkeeper.ReceiptKeyEntry{
+			KeyId: bytes.Clone(pin.KeyId[:]), PublicKey: bytes.Clone(pin.PublicKey[:]),
+			FirstHeight: pin.FirstHeight, LastHeight: pin.LastHeight,
+		}
+	}
+	return keys, nil
 }
 
 // forward asks the sequencer and returns its answer once the answer's JSON matches its bytes.
@@ -292,7 +342,15 @@ func (a *SequencerReceiptAPI) forward(ctx context.Context, txHash common.Hash) (
 	if result.TxHash != txHash {
 		return nil, fmt.Errorf("%w: sequencer answered for %s", ErrSequencerReceiptMismatch, result.TxHash.Hex())
 	}
-	if err := result.Verify(); err != nil {
+	var pins []seqkeeper.ReceiptKeys
+	if a.option.Keeper != nil {
+		keys, err := a.receiptKeys()
+		if err != nil {
+			return nil, err
+		}
+		pins = append(pins, keys)
+	}
+	if err := result.Verify(pins...); err != nil {
 		return nil, err
 	}
 	return result, nil

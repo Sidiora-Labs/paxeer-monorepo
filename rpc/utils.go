@@ -19,6 +19,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/rpcutils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/stats"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -50,6 +51,12 @@ const PendingCtxHeight int64 = -2
 // no open block. It maps to JSON-RPC error -32000.
 var ErrPendingServedBySequencer error = &ErrEVMNotSupported{Msg: "pending served by sequencer"}
 
+var ErrLayerNotOpen = errors.New("sequencer: no block is open")
+
+var ErrPendingBlockClosed error = &ErrEVMNotSupported{Msg: "no block is open; retry"}
+
+const PendingOpenWait = 2 * time.Second
+
 // PendingSnapshot is the open block the sequencer and standby execute
 // transactions into; sequencer.Executor satisfies it.
 type PendingSnapshot interface {
@@ -69,9 +76,6 @@ type PendingTx struct {
 	TxIndex int
 	Result  *abci.ExecTxResult
 }
-
-// EVM launch block heights for different chains
-const Pacific1EVMLaunchHeight int64 = 79123881
 
 // ErrBlockNotFoundByHash is returned when no block exists for the given hash (e.g. empty or unknown hash).
 // Ethereum-compatible RPCs should return result: null for this case instead of an error.
@@ -250,18 +254,6 @@ func waitForRPCRetry(ctx context.Context, delay time.Duration) error {
 	}
 }
 
-// ValidateEVMBlockHeight checks if the requested block height is valid for EVM queries
-func ValidateEVMBlockHeight(chainID string, blockHeight int64) error {
-	// Only validate for pacific-1 chain
-	if chainID != "pacific-1" {
-		return nil
-	}
-	if blockHeight < Pacific1EVMLaunchHeight {
-		return fmt.Errorf("EVM is only supported from block %d onwards", Pacific1EVMLaunchHeight)
-	}
-	return nil
-}
-
 type indexedMsg struct {
 	msg   sdk.Msg
 	index int
@@ -343,6 +335,11 @@ func validateBlockExecutionReceipts(
 	decoder := txConfigProvider(blockHeight).TxDecoder()
 	latestCtx := ctxProvider(LatestCtxHeight)
 	for txIndex, txBytes := range block.Block.Txs {
+		if txIndex == 0 {
+			if _, err := seqtypes.DecodeSequenceBatchTx(txBytes); err == nil {
+				continue
+			}
+		}
 		tx, err := decoder(txBytes)
 		if err != nil {
 			return fmt.Errorf("decode consensus transaction %d in block %d: %w", txIndex, block.Block.Height, err)
@@ -489,12 +486,10 @@ func recordMetricsWithError(ctx context.Context, apiMethod string, connectionTyp
 	}
 
 	recordRPCLatency(ctx, apiMethod, string(connectionType), success, err, panicValue != nil, startTime)
-	// TODO(PLT-326): remove legacy dual-emit once dashboards are migrated to evmrpc_* OTEL metrics. Use metrics.requestLatencySeconds histogram instead.
-	utilmetrics.IncrementRpcRequestCounter(apiMethod, string(connectionType), success)
-	utilmetrics.MeasureRpcRequestLatency(apiMethod, string(connectionType), startTime)
 	stats.RecordAPIInvocation(apiMethod, string(connectionType), startTime, success)
 
 	if panicValue != nil {
+		logger.Error("rpc handler panicked", "method", apiMethod, "panic", fmt.Sprint(panicValue), "stack", string(debug.Stack()))
 		panic(panicValue)
 	}
 }

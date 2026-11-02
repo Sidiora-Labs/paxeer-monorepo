@@ -5,6 +5,7 @@ from typing import Generic, Self, TypeVar
 _T = TypeVar("_T")
 class StreamCursor(str):
     def __new__(cls, value: str) -> Self: ...
+    def _log_position(self) -> tuple[int, int, int]: ...
 
 @dataclass(frozen=True)
 class StreamEvent(Generic[_T]):

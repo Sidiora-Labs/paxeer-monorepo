@@ -1,10 +1,8 @@
-import { describe, it, expect, beforeAll } from 'vitest';
-import { decodeFunctionData, keccak256, toBytes } from 'viem';
+import { describe, it, expect } from 'vitest';
+import { decodeFunctionData } from 'viem';
 import {
   actionLegIntent,
   buildAllowanceAndCallPlan,
-  buildLayerxDepositPlan,
-  didClaimFor,
   approvalCalldata,
   PlanError,
 } from '../src/agent/actions/plan.js';
@@ -16,19 +14,6 @@ import {
  */
 
 const VAULT = '0xf756895fD414f7D20413B61c9291ABe98fcED1CE';
-
-beforeAll(() => {
-  process.env.LAYERX_VAULT_ADDRESS = VAULT;
-  process.env.LAYERX_USDL_ADDRESS = '0x85FcD13735F4309833A503EE804ea32395851479';
-});
-
-describe('didClaimFor', () => {
-  it('is the lowercase 0x keccak256 of the DID string', () => {
-    const did = 'did:matrix:alice:00112233aabbccdd';
-    expect(didClaimFor(did)).toBe(keccak256(toBytes(did)));
-    expect(didClaimFor(did)).toMatch(/^0x[0-9a-f]{64}$/);
-  });
-});
 
 describe('buildAllowanceAndCallPlan', () => {
   it('encodes the method + raw args and derives the ERC-20 approval leg', () => {
@@ -162,19 +147,5 @@ describe('allowance-and-call token movers', () => {
       tokenAmount: 250n,
       isApprove: true,
     });
-  });
-});
-
-describe('buildLayerxDepositPlan', () => {
-  it('rejects a malformed did_claim before any network read', async () => {
-    await expect(
-      buildLayerxDepositPlan({ amount: '250', didClaim: '0xnothex' }),
-    ).rejects.toBeInstanceOf(PlanError);
-  });
-
-  it('rejects a did_claim that is not exactly 32 bytes', async () => {
-    await expect(
-      buildLayerxDepositPlan({ amount: '250', didClaim: '0x' + 'ab'.repeat(20) }),
-    ).rejects.toBeInstanceOf(PlanError);
   });
 });

@@ -19,15 +19,15 @@ import {
   type SpotOrderbook,
 } from "@/hooks/spot/useSpotMarketStream";
 import { useSpotPortfolio } from "@/hooks/spot/useSpotPortfolio";
+import { useSpotTokenState } from "@/hooks/spot/useSpotTokenState";
+import type { SpotTokenState } from "@/core/spot/tokenState";
+import { ERROR_CATALOG } from "@/core/errors/catalog";
 import { dStrToToken } from "@/core/spot/api";
 import { erc20Abi } from "@/core/perps/config";
 import { WEI_PER_UHPX } from "@/core/spot/calls";
 import { toPlainDecimal } from "@/ui/utils/format";
 import { readContract } from "@/hooks/perps/useContract";
-import {
-  type SpotMarket,
-  SPOT_STABLECOINS,
-} from "@/core/spot/config";
+import { type SpotMarket, SPOT_STABLECOINS } from "@/core/spot/config";
 import { classifyError } from "@/core/errors/classify";
 import { reportError } from "@/core/errors/report";
 import {
@@ -106,17 +106,32 @@ export function spotOrderUnits(p: {
   baseDecimals: number;
   quoteDecimals: number;
 }): { baseUnits: bigint; quoteUnits: bigint } {
-  const priceUnits = p.price.trim() === "" ? 0n : parsePrice(toPlainDecimal(p.price));
+  const priceUnits =
+    p.price.trim() === "" ? 0n : parsePrice(toPlainDecimal(p.price));
   const baseScale = 10n ** BigInt(p.baseDecimals);
   const quoteScale = 10n ** BigInt(p.quoteDecimals);
   if (p.sizeMode === "BASE") {
-    const baseUnits = parseTokenAmount(toPlainDecimal(p.amount), p.baseDecimals);
+    const baseUnits = parseTokenAmount(
+      toPlainDecimal(p.amount),
+      p.baseDecimals,
+    );
     if (priceUnits <= 0n) return { baseUnits, quoteUnits: 0n };
-    return { baseUnits, quoteUnits: (baseUnits * priceUnits * quoteScale) / (baseScale * PRICE_SCALE) };
+    return {
+      baseUnits,
+      quoteUnits:
+        (baseUnits * priceUnits * quoteScale) / (baseScale * PRICE_SCALE),
+    };
   }
-  const quoteUnits = parseTokenAmount(toPlainDecimal(p.amount), p.quoteDecimals);
+  const quoteUnits = parseTokenAmount(
+    toPlainDecimal(p.amount),
+    p.quoteDecimals,
+  );
   if (priceUnits <= 0n) return { baseUnits: 0n, quoteUnits };
-  return { baseUnits: (quoteUnits * baseScale * PRICE_SCALE) / (priceUnits * quoteScale), quoteUnits };
+  return {
+    baseUnits:
+      (quoteUnits * baseScale * PRICE_SCALE) / (priceUnits * quoteScale),
+    quoteUnits,
+  };
 }
 
 function isPositivePrice(value: string): boolean {
@@ -148,11 +163,46 @@ export function spotConversionPrice(p: {
       : { price: "", reason: "Enter a limit price" };
   }
   const level = p.side === "BUY" ? p.book?.asks[0] : p.book?.bids[0];
-  if (level && isPositivePrice(level.priceText)) return { price: level.priceText, reason: null };
+  if (level && isPositivePrice(level.priceText))
+    return { price: level.priceText, reason: null };
   return {
     price: "",
-    reason: p.side === "BUY" ? "No asks in the book to price this buy" : "No bids in the book to price this sell",
+    reason:
+      p.side === "BUY"
+        ? "No asks in the book to price this buy"
+        : "No bids in the book to price this sell",
   };
+}
+
+export function spotPercentageAmount(p: {
+  side: "BUY" | "SELL";
+  sizeMode: SizeMode;
+  balance: { raw: string; decimals: number } | null;
+  pct: number;
+  price: string;
+  baseDecimals: number;
+  quoteDecimals: number;
+}): string | null {
+  if (!p.balance) return null;
+  const naturalMode = p.side === "BUY" ? "USD" : "BASE";
+  const naturalDecimals = p.side === "BUY" ? p.quoteDecimals : p.baseDecimals;
+  const balanceUnits = parseTokenAmount(
+    formatUnits(BigInt(p.balance.raw), p.balance.decimals),
+    naturalDecimals,
+  );
+  if (balanceUnits <= 0n) return null;
+  if (p.sizeMode !== naturalMode && !isPositivePrice(p.price)) return null;
+  const targetUnits = (balanceUnits * BigInt(p.pct)) / 100n;
+  const units = spotOrderUnits({
+    sizeMode: naturalMode,
+    amount: formatUnits(targetUnits, naturalDecimals),
+    price: p.price,
+    baseDecimals: p.baseDecimals,
+    quoteDecimals: p.quoteDecimals,
+  });
+  return p.sizeMode === "BASE"
+    ? formatUnits(units.baseUnits, p.baseDecimals)
+    : formatUnits(units.quoteUnits, p.quoteDecimals);
 }
 
 /**
@@ -178,6 +228,19 @@ export function spotSellExceedsBalance(
       ? raw / 10n ** BigInt(holding.decimals - baseDecimals)
       : raw * 10n ** BigInt(baseDecimals - holding.decimals);
   return baseUnits > held;
+}
+
+export function spotSubmitBlocked(
+  state: SpotTokenState | null,
+):
+  | "TRADE_MARKET_HALTED"
+  | "TokenNotRegistered"
+  | "TokenStateUnavailable"
+  | null {
+  if (!state) return "TokenStateUnavailable";
+  if (state.paused) return "TRADE_MARKET_HALTED";
+  if (!state.tradeable) return "TokenNotRegistered";
+  return null;
 }
 
 const ORDER_TYPE_LABELS: Record<SpotOrderType, string> = {
@@ -323,6 +386,19 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
   const orderbook = useSpotOrderbook(market.symbol);
   const stats = useSpotStats(market.symbol);
   const portfolio = useSpotPortfolio(address);
+  const tokenState = useSpotTokenState(
+    market.baseAddress,
+    market.baseTokenMeta.isNative,
+  );
+  const tokenBlockReason = spotSubmitBlocked(tokenState.state);
+  const tokenBlockMessage =
+    tokenBlockReason === "TRADE_MARKET_HALTED"
+      ? ERROR_CATALOG.TRADE_MARKET_HALTED.message
+      : tokenBlockReason === "TokenNotRegistered"
+        ? "This token is not registered for trading."
+        : tokenBlockReason === "TokenStateUnavailable"
+          ? (tokenState.error ?? "Checking token trading status…")
+          : null;
 
   const bestBid = orderbook?.bids[0]?.price ?? 0;
   const bestAsk = orderbook?.asks[0]?.price ?? 0;
@@ -334,7 +410,9 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
   // PAX is the uhpx bank coin: its balance is `balanceOf` on the uhpx
   // pointer, at the 6 decimals of the token entry.
   const isNativeBase = market.baseTokenMeta.isNative;
-  const [paxPointerBalance, setPaxPointerBalance] = useState<bigint | null>(null);
+  const [paxPointerBalance, setPaxPointerBalance] = useState<bigint | null>(
+    null,
+  );
   useEffect(() => {
     if (!isNativeBase || !address) {
       setPaxPointerBalance(null);
@@ -386,7 +464,9 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
     }
     return null;
   }, [portfolio.holdings, market, isNativeBase, paxPointerBalance]);
-  const baseBalance = baseHolding ? dStrToToken(baseHolding.raw, baseHolding.decimals) : 0;
+  const baseBalance = baseHolding
+    ? dStrToToken(baseHolding.raw, baseHolding.decimals)
+    : 0;
 
   const quoteBalance = useMemo(() => {
     if (!portfolio.holdings) return 0;
@@ -412,7 +492,12 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
   // Exact (base, quote) units at the order's own conversion price; floats
   // only for display.
   const decimalsStable = quoteDecimals(SPOT_STABLECOINS);
-  const conversion = spotConversionPrice({ orderType, side, limitPrice, book: orderbook });
+  const conversion = spotConversionPrice({
+    orderType,
+    side,
+    limitPrice,
+    book: orderbook,
+  });
   const orderUnits = useMemo(() => {
     if (amountNum <= 0) return null;
     try {
@@ -426,9 +511,20 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
     } catch {
       return null;
     }
-  }, [amountNum, sizeMode, amount, conversion.price, market.baseDecimals, decimalsStable]);
-  const baseAmount = orderUnits ? Number(formatUnits(orderUnits.baseUnits, market.baseDecimals)) : 0;
-  const quoteAmount = orderUnits ? Number(formatUnits(orderUnits.quoteUnits, decimalsStable)) : 0;
+  }, [
+    amountNum,
+    sizeMode,
+    amount,
+    conversion.price,
+    market.baseDecimals,
+    decimalsStable,
+  ]);
+  const baseAmount = orderUnits
+    ? Number(formatUnits(orderUnits.baseUnits, market.baseDecimals))
+    : 0;
+  const quoteAmount = orderUnits
+    ? Number(formatUnits(orderUnits.quoteUnits, decimalsStable))
+    : 0;
 
   // ── Slippage / min received (market orders) ──
   const slippageBps = Math.round(slippagePct * 100);
@@ -444,13 +540,27 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
     // SELL — receiving quote. Worst-case fill at best bid × (1 - slip).
     const worstPrice = bestBid > 0 ? bestBid * (1 - slippagePct / 100) : 0;
     return baseAmount * worstPrice;
-  }, [orderType, refPrice, baseAmount, quoteAmount, side, bestAsk, bestBid, slippagePct]);
+  }, [
+    orderType,
+    refPrice,
+    baseAmount,
+    quoteAmount,
+    side,
+    bestAsk,
+    bestBid,
+    slippagePct,
+  ]);
 
   // ── Validation ──
   const insufficientBalance =
     side === "BUY"
       ? quoteAmount > quoteBalance + 1e-9
-      : orderUnits !== null && spotSellExceedsBalance(orderUnits.baseUnits, baseHolding, market.baseDecimals);
+      : orderUnits !== null &&
+        spotSellExceedsBalance(
+          orderUnits.baseUnits,
+          baseHolding,
+          market.baseDecimals,
+        );
   const limitInvalid =
     (orderType === "limit" || orderType === "stop-limit") && limitNum <= 0;
   const stopInvalid = orderType === "stop-limit" && stopNum <= 0;
@@ -462,6 +572,7 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
   const submitDisabled =
+    tokenBlockReason !== null ||
     !isConnected ||
     !isCorrectChain ||
     amountInvalid ||
@@ -476,25 +587,24 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
 
   // ── % shortcuts ──
   const handlePctClick = (pct: number) => {
-    const max = side === "BUY" ? quoteBalance : baseBalance;
-    if (max <= 0) return;
-    const target = (max * pct) / 100;
-    if (sizeMode === (side === "BUY" ? "USD" : "BASE")) {
-      setAmount(String(target));
-    } else if (refPrice > 0) {
-      // We need to convert from the user's max in the natural unit to
-      // the displayed unit.
-      if (sizeMode === "BASE") {
-        // BUY: target was in quote; convert quote → base via price.
-        // SELL: target was already in base.
-        setAmount(side === "BUY" ? String(target / refPrice) : String(target));
-      } else {
-        // sizeMode === USD
-        setAmount(side === "BUY" ? String(target) : String(target * refPrice));
-      }
-    } else {
-      setAmount(String(target));
-    }
+    const nextAmount = spotPercentageAmount({
+      side,
+      sizeMode,
+      balance:
+        side === "BUY"
+          ? {
+              raw: Object.values(stableBalanceMap)
+                .reduce((sum, units) => sum + units, 0n)
+                .toString(),
+              decimals: decimalsStable,
+            }
+          : baseHolding,
+      pct,
+      price: conversion.price,
+      baseDecimals: market.baseDecimals,
+      quoteDecimals: decimalsStable,
+    });
+    if (nextAmount !== null) setAmount(nextAmount);
   };
 
   // Auto-tune Post-Only flag — only legal on limit + GTC.
@@ -551,7 +661,9 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
       });
 
       // PAX trades as the uhpx pointer the market rail reports.
-      const tokenAddr = isNativeBase ? await getPaxPointer() : market.baseAddress;
+      const tokenAddr = isNativeBase
+        ? await getPaxPointer()
+        : market.baseAddress;
       if (rail === "market") {
         // ── Market rail. An IOC / FOK limit sends the live quote with its
         //    output set to `limitMinOut` and zero slippage, so the call's
@@ -683,7 +795,9 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
             user: address as `0x${string}`,
           });
         }
-        setSubmitSuccess(`Limit ${side === "BUY" ? "buy" : "sell"} placed @ $${limitNum}`);
+        setSubmitSuccess(
+          `Limit ${side === "BUY" ? "buy" : "sell"} placed @ $${limitNum}`,
+        );
       } else {
         const stopPriceBig = parsePrice(toPlainDecimal(stopPrice));
         const limitPriceBig = parsePrice(toPlainDecimal(limitPrice));
@@ -725,7 +839,9 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
             user: address as `0x${string}`,
           });
         }
-        setSubmitSuccess(`Stop-limit ${side === "BUY" ? "buy" : "sell"} placed`);
+        setSubmitSuccess(
+          `Stop-limit ${side === "BUY" ? "buy" : "sell"} placed`,
+        );
       }
 
       // Form reset on success.
@@ -744,7 +860,10 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
     } catch (err) {
       // Never surface raw err.message — always go through the classifier
       // so the inline error gets a friendly, actionable string.
-      const ufe = classifyError(err, `spot-order/${orderType}/${side.toLowerCase()}`);
+      const ufe = classifyError(
+        err,
+        `spot-order/${orderType}/${side.toLowerCase()}`,
+      );
       setSubmitError(
         ufe.suggestedFix ? `${ufe.message} ${ufe.suggestedFix}` : ufe.message,
       );
@@ -755,9 +874,10 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
     }
   };
 
-  const accentBg = side === "BUY"
-    ? "linear-gradient(135deg, var(--brand-green), #04A859)"
-    : "linear-gradient(135deg, var(--brand-red), #E04E58)";
+  const accentBg =
+    side === "BUY"
+      ? "linear-gradient(135deg, var(--brand-green), #04A859)"
+      : "linear-gradient(135deg, var(--brand-red), #E04E58)";
 
   const inputStyle = compact ? FIELD_INPUT_COMPACT : FIELD_INPUT;
   const padOuter = compact ? "p-3" : "p-4";
@@ -765,7 +885,11 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
 
   return (
     <div
-      className={cn("flex flex-col h-full overflow-y-auto scrollbar-custom", padOuter, gapOuter)}
+      className={cn(
+        "flex flex-col h-full overflow-y-auto scrollbar-custom",
+        padOuter,
+        gapOuter,
+      )}
       style={{ background: "var(--bg-subtle)", borderRadius: compact ? 8 : 12 }}
     >
       {/* SPOT badge */}
@@ -983,7 +1107,9 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
           </span>
         </div>
         <div className="flex flex-col items-end">
-          <span style={{ ...META_LABEL, textAlign: "right" }}>Wallet (USD)</span>
+          <span style={{ ...META_LABEL, textAlign: "right" }}>
+            Wallet (USD)
+          </span>
           <span
             className="tabular-nums text-foreground"
             style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}
@@ -1011,8 +1137,12 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
           label="Est. Price"
           value={
             orderType === "market"
-              ? conversion.price ? `$${Number(conversion.price).toLocaleString("en-US", { maximumFractionDigits: 4 })}` : "—"
-              : limitNum > 0 ? `$${limitNum.toLocaleString("en-US", { maximumFractionDigits: 4 })}` : "—"
+              ? conversion.price
+                ? `$${Number(conversion.price).toLocaleString("en-US", { maximumFractionDigits: 4 })}`
+                : "—"
+              : limitNum > 0
+                ? `$${limitNum.toLocaleString("en-US", { maximumFractionDigits: 4 })}`
+                : "—"
           }
         />
         <DetailRow
@@ -1039,12 +1169,23 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
 
       {/* Submit / Connect / Switch */}
       <div className="mt-auto pt-2">
+        {tokenBlockMessage && (
+          <p
+            className="mb-2 text-[10px] text-amber-400 text-center font-mono"
+            role="status"
+          >
+            {tokenBlockMessage}
+          </p>
+        )}
         {!isConnected ? (
           <button
             type="button"
             onClick={connect}
             className="w-full py-3 rounded-[var(--radius-md)] text-sm font-semibold text-white transition-all hover:brightness-110"
-            style={{ background: "linear-gradient(135deg, var(--brand-blue), var(--brand-blue-dark, var(--brand-blue)))" }}
+            style={{
+              background:
+                "linear-gradient(135deg, var(--brand-blue), var(--brand-blue-dark, var(--brand-blue)))",
+            }}
           >
             Connect Wallet
           </button>

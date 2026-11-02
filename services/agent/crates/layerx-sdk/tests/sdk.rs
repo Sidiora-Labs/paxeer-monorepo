@@ -1,21 +1,12 @@
-use std::time::Duration;
-
 use layerx_agent_api::idempotency::{BodyDigest, IdempotentMutation, Key};
 use layerx_agent_api::identity::{
     AgentDid, AuthorityRef, ClientId, ExplicitSet, PolicyVersion, SessionContext, SessionOpen,
     TenantId,
 };
 use layerx_agent_api::prepare::{CanonicalBytes, IdempotencyRef};
-use layerx_agent_api::read::{
-    AccountRef, BalanceValue, BatchRef, CheckpointRef, Freshness, RelativeTo, VerifiedRead,
-};
+use layerx_agent_api::read::{AccountRef, BalanceValue, Freshness, RelativeTo, VerifiedRead};
 use layerx_agent_api::track::{EvidenceRef, SubmissionRef, TrackedSubmission};
-use layerx_agent_api::verify::Level;
-use layerx_agent_api::{Amount, ContractVersion, Sequence, SubmissionState, TimestampSeconds};
-use layerx_client::client::{ClientConfig, ReconnectPolicy};
-use layerx_client::lni::handshake::HandshakeConfig;
-use layerx_client::lni::schema::Version;
-use layerx_client::lni::transport::Limits;
+use layerx_agent_api::{Amount, ContractVersion, SubmissionState, TimestampSeconds};
 use layerx_sdk::approval::{
     ApprovalApproveRequest, ApprovalContractError, ApprovalDecisionOutcome, ApprovalEventKind,
     ApprovalGetRequest, ApprovalId, ApprovalListRequest, ApprovalRejectRequest, ApprovalState,
@@ -24,30 +15,6 @@ use layerx_sdk::approval::{
 use layerx_sdk::{Client, Deployment, Operation, SdkError, SubmissionOutcome, GUARANTEES};
 use layerx_types::result::ResultCode;
 use layerx_types::rung::Rung;
-
-fn direct_config() -> ClientConfig {
-    ClientConfig {
-        endpoint: "/tmp/layerx-node.sock".into(),
-        handshake: HandshakeConfig {
-            built_interface_version: Version::V1_0,
-            expected_protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
-            expected_network_id: 7,
-        },
-        limits: Limits {
-            maximum_frame_bytes: 1_048_576,
-            maximum_connections: 1,
-            maximum_streams: 16,
-            maximum_queued_bytes: 2_097_152,
-            deadline: Duration::from_secs(5),
-        },
-        reconnect: ReconnectPolicy {
-            maximum_attempts: 3,
-            base_delay: Duration::from_millis(1),
-            maximum_delay: Duration::from_millis(5),
-            jitter_percent: 10,
-        },
-    }
-}
 
 fn context() -> SessionContext {
     SessionContext::new(
@@ -73,15 +40,12 @@ fn mutation<T>(operation: T) -> IdempotentMutation<T> {
 
 fn freshness() -> Freshness {
     Freshness {
-        chain_head: Sequence(20),
-        latest_sealed_batch: BatchRef::new("batch-19")
-            .unwrap_or_else(|error| panic!("batch: {error:?}")),
-        latest_finalised_checkpoint: CheckpointRef::new("checkpoint-18")
-            .unwrap_or_else(|error| panic!("checkpoint: {error:?}")),
-        value_sequence: Sequence(17),
-        relative_to: RelativeTo::Batch(
-            BatchRef::new("batch-19").unwrap_or_else(|error| panic!("batch: {error:?}")),
-        ),
+        chain_head: 20,
+        value_height: 17,
+        relative_to: RelativeTo::Block {
+            height: 19,
+            hash: [0x19; 32],
+        },
     }
 }
 
@@ -89,17 +53,24 @@ fn freshness() -> Freshness {
 fn daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls() {
     let daemon = Client::daemon(
         "/run/layerx/agentd.sock",
-        ContractVersion { major: 1, minor: 2 },
+        ContractVersion { major: 2, minor: 2 },
     )
     .unwrap_or_else(|error| panic!("daemon: {error:?}"));
-    let direct =
-        Client::direct_node(direct_config()).unwrap_or_else(|error| panic!("direct: {error:?}"));
+    let direct = Client::direct_node("http://127.0.0.1:8545", &[])
+        .unwrap_or_else(|error| panic!("direct: {error:?}"));
     assert_eq!(daemon.deployment(), Deployment::Daemon);
     assert_eq!(direct.deployment(), Deployment::DirectNode);
     assert_eq!(daemon.guarantees(), GUARANTEES);
     assert_eq!(daemon.guarantees(), direct.guarantees());
 
-    let request = mutation(SessionOpen(context()));
+    let request = mutation(SessionOpen {
+        context: context(),
+        grant_id: [1; 32],
+        registration_payload: Vec::new(),
+        expiry_sequence: 100,
+        purpose: [2; 32],
+        fee_limit: Amount(1),
+    });
     let daemon_call = daemon.session_open(request.clone());
     let direct_call = direct.session_open(request);
     assert_eq!(daemon_call.operation(), Operation::SessionOpen);
@@ -111,39 +82,65 @@ fn daemon_and_direct_node_shapes_publish_identical_guarantees_and_calls() {
 
 #[test]
 fn operation_catalogue_covers_the_complete_contract_surface() {
-    assert_eq!(Operation::ALL.len(), 50);
+    assert_eq!(Operation::ALL.len(), 53);
     let names: std::collections::BTreeSet<_> = Operation::ALL
         .iter()
         .map(|operation| operation.name())
         .collect();
     for required in [
         "agent.register",
-        "session.open",
-        "capability.create",
-        "budget.create",
-        "project",
-        "prepare",
-        "sign",
-        "submit",
-        "track",
-        "read.balance",
-        "read.proof_bundle",
-        "availability.fetch",
-        "faucet.claim",
-        "subscription.create",
-        "approval.list",
-        "approval.get",
         "approval.approve",
+        "approval.get",
+        "approval.list",
         "approval.reject",
-        "program.discover",
-        "program.interface",
-        "program.simulate",
+        "availability.fetch",
+        "budget.create",
+        "budget.fund",
+        "budget.list",
+        "budget.reconciliation",
+        "budget.revoke",
+        "budget.state",
+        "capability.attenuate",
+        "capability.create",
+        "capability.list",
+        "capability.revoke",
+        "export.offline",
+        "mcp.invoke",
+        "policy.dry_run",
+        "prepare",
+        "program.activity",
         "program.call",
         "program.deploy",
+        "program.discover",
+        "program.interface",
+        "program.receipt",
+        "program.simulate",
         "program.upgrade",
         "program.wind-down",
-        "program.receipt",
-        "program.activity",
+        "project",
+        "read.account",
+        "read.balance",
+        "read.batch",
+        "read.checkpoint",
+        "read.history",
+        "read.module_state",
+        "read.proof_bundle",
+        "session.close",
+        "session.list",
+        "session.open",
+        "session.refresh",
+        "sign",
+        "submit",
+        "subscription.acknowledge",
+        "subscription.create",
+        "subscription.delete",
+        "subscription.health",
+        "subscription.list",
+        "subscription.pause",
+        "subscription.resume",
+        "tenant.readiness",
+        "track",
+        "wait",
     ] {
         assert!(names.contains(required), "missing SDK operation {required}");
     }
@@ -200,7 +197,7 @@ fn approval_module_matches_contract_1_1_operations_events_and_outcomes() {
     let key = DecisionKey::new("decision-7").unwrap_or_else(|error| panic!("key: {error:?}"));
     let client = Client::daemon(
         "/run/layerx/agentd.sock",
-        ContractVersion { major: 1, minor: 1 },
+        ContractVersion { major: 2, minor: 1 },
     )
     .unwrap_or_else(|error| panic!("daemon: {error:?}"));
     assert_eq!(
@@ -259,24 +256,25 @@ fn reads_never_present_unverified_or_below_requested_values() {
         asset: layerx_agent_api::identity::Asset::new("LXP")
             .unwrap_or_else(|error| panic!("asset: {error:?}")),
         amount: Amount(9_007_199_254_740_993),
+        height: 17,
         canonical_state: CanonicalBytes::new(b"core-state".to_vec())
             .unwrap_or_else(|error| panic!("state: {error:?}")),
     };
-    let unverified = VerifiedRead::new(balance.clone(), Level::Unverified, freshness());
+    let unverified = VerifiedRead::new(balance.clone(), Rung::Submitted, freshness());
     assert_eq!(
-        Client::accept_verified_read(Level::SequencerSigned, unverified),
+        Client::accept_verified_read(Rung::Receipted, unverified),
         Err(SdkError::UnverifiedRead)
     );
-    let below = VerifiedRead::new(balance.clone(), Level::SequencerSigned, freshness());
+    let below = VerifiedRead::new(balance.clone(), Rung::Receipted, freshness());
     assert_eq!(
-        Client::accept_verified_read(Level::StateProven, below),
+        Client::accept_verified_read(Rung::Committed, below),
         Err(SdkError::VerificationBelowRequested {
-            requested: Level::StateProven,
-            achieved: Level::SequencerSigned,
+            requested: Rung::Committed,
+            achieved: Rung::Receipted,
         })
     );
-    let proven = VerifiedRead::new(balance, Level::StateProven, freshness());
-    assert!(Client::accept_verified_read(Level::StateProven, proven).is_ok());
+    let proven = VerifiedRead::new(balance, Rung::Committed, freshness());
+    assert!(Client::accept_verified_read(Rung::Committed, proven).is_ok());
 }
 
 fn tracked(state: SubmissionState, evidence: Vec<EvidenceRef>, rung: Rung) -> TrackedSubmission {
@@ -347,7 +345,7 @@ fn unknown_and_future_protocol_codes_remain_lossless() {
 }
 
 #[test]
-fn signer_surface_contains_no_key_export_and_offline_verifier_is_real() {
+fn signer_surface_contains_no_key_export() {
     let source = include_str!("../src/lib.rs");
     let signer_start = source
         .find("pub mod signer")
@@ -363,21 +361,91 @@ fn signer_surface_contains_no_key_export_and_offline_verifier_is_real() {
     assert!(!signer_source.contains("secret"));
     assert!(signer_source.contains("trait ExternalSigner"));
 
-    let empty = layerx_proof::export::OfflineExport {
-        receipts: Vec::new(),
-        inclusions: Vec::new(),
-        checkpoints: Vec::new(),
-        derived_aggregates: Vec::new(),
-    };
-    let report = Client::verify_offline(
-        &empty,
-        layerx_proof::checkpoint::SettlementDomain::new(31_337, [0x55; 20]),
-    )
-    .unwrap_or_else(|error| panic!("empty export has no false fact: {error:?}"));
-    assert_eq!(report.verified_receipts, 0);
-    assert!(!report.derived_aggregates_are_protocol_facts);
-
     let key = IdempotencyRef::new("caller-owned-key")
         .unwrap_or_else(|error| panic!("idempotency: {error:?}"));
     assert_eq!(key.as_str(), "caller-owned-key");
+}
+
+#[test]
+fn sdk_crate_has_no_settlement_domain_or_activity_codec() {
+    use layerx_sdk::rpc::{wallet_account, RpcClient, RpcError};
+    use layerx_sdk::wallet::Payment;
+    use layerx_types::payload::ModuleId;
+
+    for source in [
+        include_str!("../src/lib.rs"),
+        include_str!("../src/production.rs"),
+        include_str!("../src/wallet.rs"),
+    ] {
+        for retired in [
+            "SettlementDomain",
+            "GuarantorKey",
+            "layerx_proof::checkpoint",
+            "layerx_wire::activity",
+            "verify_checkpoint",
+            "decode_signed",
+        ] {
+            assert!(!source.contains(retired), "SDK still uses {retired}");
+        }
+    }
+
+    let native = wallet_account("did:layerx:alice", [0; 32], [0; 32])
+        .unwrap_or_else(|error| panic!("native wallet account: {error:?}"));
+    let token = wallet_account("did:layerx:alice", [0x11; 32], [0; 32])
+        .unwrap_or_else(|error| panic!("token wallet account: {error:?}"));
+    assert_eq!(
+        native
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>(),
+        "575498fd80da9b17115311af107ab11639acf474a69f944c9c9b1d0ea28ed205"
+    );
+    assert_eq!(
+        token
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>(),
+        "c25ada37deae26ed54923dab01b56e9dded08b4ca710b0fd0b1d172f44404324"
+    );
+    assert_ne!(native, token);
+    let payment = Payment::OpenAccount { asset: [0x11; 32] };
+    let payload = payment
+        .encode(b"did:layerx:alice")
+        .unwrap_or_else(|error| panic!("wallet payment encode: {error:?}"));
+    let decoded = Payment::decode(ModuleId::Asset, 4, &payload, b"did:layerx:alice")
+        .unwrap_or_else(|error| panic!("wallet payment decode: {error:?}"));
+    assert!(matches!(decoded, Payment::OpenAccount { asset } if asset == [0x11; 32]));
+    let rpc = RpcClient::connect("http://127.0.0.1:1", None)
+        .unwrap_or_else(|error| panic!("wallet client: {error:?}"));
+    assert!(matches!(
+        rpc.wallet([0; 32]).balance("did::alice", [0x11; 32]),
+        Err(RpcError::InvalidRequest)
+    ));
+}
+
+#[test]
+fn production_verifies_mirror_receipts_from_committed_sources() {
+    use layerx_proof::inclusion::SequencerAuthorization;
+    use layerx_sdk::production::{
+        verify_mirror_receipt_from_sources, MirrorReadPolicy, MirrorSdkError, MirrorSources,
+        MirrorVerification,
+    };
+    use layerx_wire::receipt::Receipt;
+
+    let _: fn(
+        &MirrorSources,
+        u64,
+        &MirrorReadPolicy,
+        usize,
+        &[SequencerAuthorization],
+    ) -> Result<MirrorVerification<Receipt>, MirrorSdkError> = verify_mirror_receipt_from_sources;
+
+    let source = include_str!("../src/production.rs");
+    for retired in [
+        "SignedHeaderTrust",
+        "from_source(",
+        "verify_mirror_state_from_sources",
+    ] {
+        assert!(!source.contains(retired), "SDK still uses {retired}");
+    }
 }

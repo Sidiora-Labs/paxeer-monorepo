@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 
-spec=spec/paxeer-x/spec.kvx
+spec=spec/layerx-merge/spec.kvx
 host_re='([a-z0-9-]+\.)+paxeer\.network'
 docs=(docs services/platform/docs README.md ':(glob)sdk/platform/**/package-info.java' ':(glob)sdk/platform/**/README.md')
 

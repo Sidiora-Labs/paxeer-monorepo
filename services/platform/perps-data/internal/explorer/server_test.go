@@ -212,6 +212,63 @@ func srvCursor(t *testing.T, body map[string]any) string {
 	return c
 }
 
+func TestChainHealthCounters(t *testing.T) {
+	db := srvOpenDB(t)
+	s := srvNew(t, db, 1000)
+	assertHealth := func(wantBlocks, wantActions int64, connected bool, latest any) {
+		t.Helper()
+		var blocks, actions int64
+		if err := db.QueryRow(`SELECT
+    (SELECT value FROM perps.chain_counters WHERE name = 'blocks'),
+    (SELECT value FROM perps.chain_counters WHERE name = 'tx_actions')`).Scan(&blocks, &actions); err != nil {
+			t.Fatal(err)
+		}
+		if blocks != wantBlocks || actions != wantActions {
+			t.Fatalf("chain counters blocks=%d tx_actions=%d, want %d and %d", blocks, actions, wantBlocks, wantActions)
+		}
+		before := time.Now().UnixMilli()
+		body := srvOK(t, s, "/api/chain/health")
+		status := "degraded"
+		if connected {
+			status = "ok"
+		}
+		ts, ok := body["ts"].(float64)
+		if len(body) != 5 || body["blocks_seen"] != float64(blocks) || body["txs_seen"] != float64(actions) ||
+			body["status"] != status || body["chain_connected"] != connected || !ok ||
+			int64(ts) < before || int64(ts) > time.Now().UnixMilli() {
+			t.Fatalf("chain health %v, want counters %d and %d, status %q, connected %t", body, blocks, actions, status, connected)
+		}
+		srvEqual(t, srvOK(t, s, "/api/explorer/health"), map[string]any{
+			"latest_block": latest, "chain_connected": connected,
+		})
+	}
+
+	assertHealth(0, 0, false, nil)
+	srvSeed(t, db, time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC))
+	assertHealth(3, 5, true, int64(102))
+
+	if _, err := db.Exec(`INSERT INTO perps.blocks (number, hash, parent_hash, time, proposer, tx_count)
+SELECT 103, $1, hash, time + interval '1 second', proposer, 1 FROM perps.blocks WHERE number = 102`, srvBlockHash(103)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO perps.tx_actions
+    (block, block_hash, tx_index, log_index, sub, tx_hash, receipt_kind, block_time, emitter, kind, account, tx_from, action)
+SELECT 103, $1, tx_index, log_index, sub, $2, receipt_kind, block_time + interval '3 seconds', emitter, kind, account, tx_from, action
+FROM perps.tx_actions WHERE block = 100`, srvBlockHash(103), srvBytes(0x05, 32)); err != nil {
+		t.Fatal(err)
+	}
+	assertHealth(4, 6, true, int64(103))
+
+	if _, err := db.Exec(`DELETE FROM perps.tx_actions WHERE block = 103; DELETE FROM perps.blocks WHERE number = 103`); err != nil {
+		t.Fatal(err)
+	}
+	assertHealth(3, 5, true, int64(102))
+	if _, err := db.Exec(`UPDATE perps.cursors SET updated_at = now() - interval '1 minute' WHERE name = 'head'`); err != nil {
+		t.Fatal(err)
+	}
+	assertHealth(3, 5, false, int64(102))
+}
+
 func TestExplorerServer(t *testing.T) {
 	db := srvOpenDB(t)
 	base := time.Date(2030, 1, 2, 3, 4, 5, 0, time.UTC)

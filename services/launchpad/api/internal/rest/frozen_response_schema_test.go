@@ -1,83 +1,92 @@
 package rest_test
 
 import (
-	"encoding/json"
+	"net/http"
 	"net/http/httptest"
-	"os"
-	"reflect"
-	"strings"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/broker"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/go-chi/chi/v5"
 )
 
-// frozenV2Operation resolves a frozen v2 OpenAPI operation and returns the
-// component schema name its 200 response references, after proving that the
-// component (and every definition it reaches) is byte-identical to the
-// schema-definitions.json $defs the generated Go validator embeds. Validating a
-// handler body with interfaces.ValidateJSON(name) is then validation against
-// the frozen OpenAPI response schema itself.
-func frozenV2Operation(t *testing.T, path, operationID string) string {
+// frozenV2Operation resolves a frozen v2 catalog operation and returns the
+// response schema name embedded by the generated Go validator.
+func frozenV2Operation(t *testing.T, path, operationID string, expected ...internaltest.FrozenOperation) string {
 	t.Helper()
-	read := func(name string, into any) {
-		raw, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/contracts/v2/" + name)
-		if err != nil || json.Unmarshal(raw, into) != nil {
-			t.Fatal("frozen v2 contract unreadable", name, err)
+	want := internaltest.FrozenOperation{Method: http.MethodGet, Authenticated: false}
+	if len(expected) > 1 {
+		t.Fatal("at most one operation expectation is allowed")
+	}
+	if len(expected) == 1 {
+		want = expected[0]
+	}
+	for _, operation := range internaltest.FrozenV2Operations(t) {
+		if operation.Path != path || operation.ID != operationID {
+			continue
 		}
-	}
-	var openapi struct {
-		Paths      map[string]map[string]json.RawMessage `json:"paths"`
-		Components struct {
-			Schemas map[string]any `json:"schemas"`
-		} `json:"components"`
-	}
-	var definitions struct {
-		Defs map[string]any `json:"$defs"`
-	}
-	read("openapi.json", &openapi)
-	read("schema-definitions.json", &definitions)
-	var operation struct {
-		OperationID   string `json:"operationId"`
-		Authorization string `json:"x-authorization"`
-		Responses     map[string]struct {
-			Content map[string]struct {
-				Schema struct {
-					Ref string `json:"$ref"`
-				} `json:"schema"`
-			} `json:"content"`
-		} `json:"responses"`
-	}
-	if json.Unmarshal(openapi.Paths[path]["get"], &operation) != nil || operation.OperationID != operationID || operation.Authorization == "" {
-		t.Fatalf("GET %s lacks frozen ID %s or authorization", path, operationID)
-	}
-	ref := operation.Responses["200"].Content["application/json"].Schema.Ref
-	name := strings.TrimPrefix(ref, "#/components/schemas/")
-	if name == ref || name == "" {
-		t.Fatalf("GET %s 200 response has no component schema: %q", path, ref)
-	}
-	seen := map[string]bool{}
-	var visit func(name string)
-	visit = func(name string) {
-		if seen[name] {
-			return
+		if operation.Method != want.Method || operation.Authenticated != want.Authenticated {
+			t.Fatalf("%s frozen ID %s method=%s authenticated=%t, want method=%s authenticated=%t", path, operationID, operation.Method, operation.Authenticated, want.Method, want.Authenticated)
 		}
-		seen[name] = true
-		// OpenAPI embeds the same definitions with component-relative refs.
-		raw, _ := json.Marshal(openapi.Components.Schemas[name])
-		raw = []byte(strings.ReplaceAll(string(raw), `"$ref":"#/components/schemas/`, `"$ref":"#/$defs/`))
-		var component any
-		if json.Unmarshal(raw, &component) != nil || component == nil || !reflect.DeepEqual(component, definitions.Defs[name]) {
-			t.Fatalf("OpenAPI component %s differs from schema-definitions.json", name)
+		if operation.Response == "" {
+			t.Fatalf("GET %s frozen ID %s has no response schema", path, operationID)
 		}
-		for _, part := range strings.Split(string(raw), `"$ref":"#/$defs/`)[1:] {
-			visit(part[:strings.IndexByte(part, '"')])
-		}
+		return operation.Response
 	}
-	visit(name)
-	return name
+	t.Fatalf("GET %s lacks frozen ID %s in the catalog", path, operationID)
+	return ""
+}
+
+func TestFrozenV2OperationLooksUpCatalog(t *testing.T) {
+	operations := make(map[string]internaltest.FrozenOperation)
+	for _, operation := range internaltest.FrozenV2Operations(t) {
+		key := operation.Method + " " + operation.Path
+		if _, exists := operations[key]; exists {
+			t.Fatalf("duplicate catalog route %s", key)
+		}
+		operations[key] = operation
+	}
+
+	admission, err := rest.NewAdmission(100, 100, 50*time.Millisecond)
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := chi.NewRouter()
+	if err := rest.RegisterProductionReads(router, rest.ProductionReadOptions{
+		Model: &store.AccountingReadModel{}, Stream: &broker.PostgresStream{},
+		Admission: admission, RegisterSnapshots: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	rest.RegisterDevelopmentHistorySearchDiscovery(router, store.New(nil, nil), admission)
+	count, authenticated := 0, 0
+	err = chi.Walk(router, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		operation, ok := operations[method+" "+path]
+		if !ok {
+			t.Errorf("mounted route absent from the v2 catalog: %s %s", method, path)
+			return nil
+		}
+		t.Run(operation.ID, func(t *testing.T) {
+			if got := frozenV2Operation(t, path, operation.ID, operation); got != operation.Response {
+				t.Errorf("%s %s response=%q, want %q", method, path, got, operation.Response)
+			}
+		})
+		count++
+		if operation.Authenticated {
+			authenticated++
+		}
+		return nil
+	})
+	if err != nil || count != 21 {
+		t.Fatalf("walk = %v, %d catalog operations, want 21", err, count)
+	}
+	if authenticated != 2 {
+		t.Fatalf("mounted authenticated operations = %d, want 2", authenticated)
+	}
 }
 
 func TestFrozenV2ResponseSchemasMatchHandlerBytes(t *testing.T) {

@@ -29,8 +29,8 @@ func TestGigaCustomPrecompilesSwitchAtHeight(t *testing.T) {
 	require.Same(t, gigaprecompiles.FailFastSingleton, at[xwebAddr])
 	require.Equal(t, at, gigaCustomPrecompiles(gigaLatePrecompileHeight+1))
 
-	require.Len(t, gigaV6120FailFast, len(gigaprecompiles.AllCustomPrecompilesFailFastLate)+6)
-	for addr, contract := range gigaprecompiles.AllCustomPrecompilesFailFastLate {
+	require.Len(t, gigaV6120FailFast, len(gigaprecompiles.AllCustomPrecompilesFailFastMerge)+6)
+	for addr, contract := range gigaprecompiles.AllCustomPrecompilesFailFastMerge {
 		require.Contains(t, gigaV6120FailFast, addr)
 		require.Same(t, contract, gigaV6120FailFast[addr])
 	}
@@ -49,4 +49,27 @@ func TestGigaCustomPrecompilesSwitchAtHeight(t *testing.T) {
 	}
 	require.NotContains(t, gigaV6120FailFast, common.HexToAddress("0x0000000000000000000000000000000000001026"))
 	require.NotContains(t, gigaV6120FailFast, common.HexToAddress("0x0000000000000000000000000000000000001027"))
+}
+
+func TestGigaFailFastCoversMergeAddresses(t *testing.T) {
+	for _, addr := range []string{
+		"0x101A",
+		"0x101B",
+		"0x101C",
+		"0x101D",
+		"0x0901",
+		"0x0902",
+		"0x0903",
+		"0x0904",
+		"0x0905",
+		"0x0906",
+		"0x0907",
+		"0x0908",
+	} {
+		t.Run(addr, func(t *testing.T) {
+			address := common.HexToAddress(addr)
+			require.Contains(t, gigaV6120FailFast, address)
+			require.Same(t, gigaprecompiles.FailFastSingleton, gigaV6120FailFast[address])
+		})
+	}
 }

@@ -160,7 +160,11 @@ func TestParseKVXToleratesPadding(t *testing.T) {
 
 func TestGoldenMessages(t *testing.T) {
 	dir := filepath.Join(schemaDir, "golden")
-	for name, v := range goldenValues(t) {
+	values := goldenValues(t)
+	for name, value := range evmReviewGoldenValues() {
+		values[name] = value
+	}
+	for name, v := range values {
 		got, err := json.MarshalIndent(v, "", "  ")
 		if err != nil {
 			t.Fatal(err)
@@ -183,6 +187,61 @@ func TestGoldenMessages(t *testing.T) {
 		if !bytes.Equal(got, want) {
 			t.Fatalf("%s: golden differs\n got %s\nwant %s", name, got, want)
 		}
+	}
+}
+
+func evmReviewGoldenValues() map[string]any {
+	return map[string]any{
+		"evm.review.request": EVMReviewRequest{
+			SessionID: "session-evm-review", KeyID: "key-evm",
+			Transaction: "0xec098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a764000080018080",
+		},
+		"evm.review.response": EVMReviewResponse{
+			NodeID: "node-1", KeyID: "key-evm", To: "0x3535353535353535353535353535353535353535",
+			Value: "1000000000000000000", Data: "0x", Method: "", Destination: "",
+			SigningHash: "0xdaf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53",
+			ChainID:     1, Decision: "allowed", AuditSequence: 10,
+		},
+	}
+}
+
+func TestGoldenEVMReviewMessages(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		message any
+	}{
+		{"evm.review.request", &EVMReviewRequest{}},
+		{"evm.review.response", &EVMReviewResponse{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, err := os.ReadFile(filepath.Join(schemaDir, "golden", tc.name+".json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			decoder := json.NewDecoder(bytes.NewReader(raw))
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(tc.message); err != nil {
+				t.Fatalf("decode golden: %v", err)
+			}
+			if err := decoder.Decode(new(any)); err != io.EOF {
+				t.Fatalf("expected end of golden JSON, got %v", err)
+			}
+			encoded, err := json.MarshalIndent(tc.message, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			encoded = append(encoded, '\n')
+			if !bytes.Equal(encoded, raw) {
+				t.Fatalf("golden round trip differs\n got %s\nwant %s", encoded, raw)
+			}
+			expected, err := json.MarshalIndent(evmReviewGoldenValues()[tc.name], "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(append(expected, '\n'), raw) {
+				t.Fatalf("golden differs from declared message\n got %s\nwant %s", raw, expected)
+			}
+		})
 	}
 }
 
@@ -214,6 +273,61 @@ func TestSchemaListsEveryErrorCodeAndOperation(t *testing.T) {
 		if !described[path] {
 			t.Fatalf("v1.kvx does not describe %s", path)
 		}
+	}
+}
+
+func TestSchemaDescribesEveryServedRoute(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(schemaDir, "v1.kvx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sections := parseKVX(string(raw))
+	for _, route := range []struct {
+		path, method, auth, kind string
+	}{
+		{PathGenerate, http.MethodPost, "gateway certificate", ""},
+		{PathImport, http.MethodPost, "operator certificate and the node's ceremony flag", ""},
+		{PathRefresh, http.MethodPost, "operator certificate", ""},
+		{PathAddShare, http.MethodPost, "operator certificate", ""},
+		{PathDescribe, http.MethodPost, "operator certificate", ""},
+		{PathPublicWallet, http.MethodPost, "gateway certificate", ""},
+		{PathAuthority, http.MethodPost, "gateway certificate", ""},
+		{PathSign, http.MethodPost, "gateway certificate plus Authorization: Bearer <identity token> or the agent headers X-Agent-Key, X-Agent-Nonce, X-Agent-Expiry, X-Agent-Signature", ""},
+		{PathSign, http.MethodPost, "client certificate issued by the operator CA; no Authorization header and no agent headers; a gateway certificate is refused with operator_required", KindOperatorVerification},
+		{PathNativeSign, http.MethodPost, "gateway certificate", ""},
+		{PathLXReview, http.MethodPost, "gateway certificate", ""},
+		{PathEVMReview, http.MethodPost, "gateway certificate", ""},
+		{PathHealth, http.MethodGet, "client certificate", ""},
+		{PathMetrics, http.MethodGet, "operator certificate", ""},
+	} {
+		t.Run(route.path+"/"+route.kind, func(t *testing.T) {
+			count := 0
+			for name, op := range sections {
+				if !strings.HasPrefix(name, "op.") || op["path"] != route.path || op["kind"] != route.kind {
+					continue
+				}
+				count++
+				if op["method"] != route.method {
+					t.Errorf("%s method = %q, want %q", name, op["method"], route.method)
+				}
+				if op["auth"] != route.auth {
+					t.Errorf("%s auth = %q, want %q", name, op["auth"], route.auth)
+				}
+			}
+			if count != 1 {
+				t.Errorf("v1.kvx describes %s (kind %q) with %d operations, want exactly one", route.path, route.kind, count)
+			}
+		})
+	}
+}
+
+func TestSchemaGenerateNamesGatewayCertificate(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(schemaDir, "v1.kvx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if auth := parseKVX(string(raw))["op.keys.generate"]["auth"]; auth != "gateway certificate" {
+		t.Fatalf("op.keys.generate auth = %q, want gateway certificate", auth)
 	}
 }
 
@@ -466,7 +580,7 @@ func (h *snapshotHarness) expect(t *testing.T, c *testCluster, operation string,
 	}
 }
 
-func importSnapshotKey(t *testing.T, c *testCluster, holders []string, keyID, account string) ed25519.PublicKey {
+func importSnapshotKey(t *testing.T, c *testCluster, authority *nativeInventoryAuthority, holders []string, keyID, account string) ed25519.PublicKey {
 	t.Helper()
 	edSeed := sha256.Sum256([]byte("attestor snapshot ed25519 key " + keyID))
 	edPub := ed25519.NewKeyFromSeed(edSeed[:]).Public().(ed25519.PublicKey)
@@ -478,12 +592,23 @@ func importSnapshotKey(t *testing.T, c *testCluster, holders []string, keyID, ac
 	if err != nil {
 		t.Fatal(err)
 	}
+	if authority != nil {
+		authority.keys = append(authority.keys, InventoryKey{
+			KeyID: keyID, Curve: "ed25519", PublicKey: hex.EncodeToString(edPub), Owner: testOwner,
+			Operations: []string{"import", "refresh", "sign"},
+		})
+		authority.publish(t)
+	}
 	byNode := map[string]ShareBundleJSON{}
 	for _, b := range bundles {
 		byNode[b.ParticipantID] = EncodeBundle(b)
 	}
 	decodeOK[KeyResponse](t, "import", c.callAll(t, c.byID(holders...), PathImport, func(n *testNode) any {
-		return ImportRequest{SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner, Account: account, Share: byNode[n.id]}
+		return ImportRequest{
+			CeremonyID: "metrics-ceremony", SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner,
+			PublicKey: hex.EncodeToString(edPub), Participants: holders, Threshold: dealer.Threshold,
+			Account: account, Share: byNode[n.id],
+		}
 	}, ""))
 	return edPub
 }
@@ -493,19 +618,27 @@ func TestSnapshotFollowsEveryKeyChangeAndRestoresToSign(t *testing.T) {
 	c := newTestClusterWith(t, 5, true, testPolicy(), h.tune(t))
 	h.expect(t, c, "start", map[string]int{}, "")
 
+	inventorySeed := sha256.Sum256([]byte("attestor snapshot inventory bootstrap"))
+	authority := nativeInventory(t, c, "gen-key", ed25519.NewKeyFromSeed(inventorySeed[:]).Public().(ed25519.PublicKey))
+	authority.keys[0].PublicKey = ""
+	authority.keys[0].Operations = []string{"generate"}
+	authority.publish(t)
 	genAccount := common.HexToAddress("0x4444444444444444444444444444444444444444").Hex()
-	decodeOK[KeyResponse](t, "generate", c.callAll(t, c.nodes, PathGenerate, func(*testNode) any {
+	generated := decodeOK[KeyResponse](t, "generate", c.callAll(t, c.nodes, PathGenerate, func(*testNode) any {
 		return GenerateRequest{SessionID: "generate-snap", KeyID: "gen-key", Curve: "ed25519", Owner: testOwner, Account: genAccount}
 	}, ""))
 	h.expect(t, c, "keys.generate", map[string]int{"node-1": 1, "node-2": 1, "node-3": 1, "node-4": 1, "node-5": 1}, "gen-key")
 
+	authority.keys[0].PublicKey = generated[0].PublicKey
+	authority.keys[0].Operations = []string{"refresh"}
+	authority.publish(t)
 	decodeOK[KeyResponse](t, "refresh", c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-		return RefreshRequest{SessionID: "refresh-snap", KeyID: "gen-key"}
+		return RefreshRequest{SessionID: "refresh-snap", KeyID: "gen-key", CeremonyID: "metrics-ceremony", ExistingKey: true, ExpectedEpoch: new(uint64)}
 	}, ""))
 	h.expect(t, c, "keys.refresh", map[string]int{"node-1": 2, "node-2": 2, "node-3": 2, "node-4": 2, "node-5": 2}, "gen-key")
 
 	account := common.HexToAddress("0x5555555555555555555555555555555555555555").Hex()
-	edPub := importSnapshotKey(t, c, c.ids, "snap-key", account)
+	edPub := importSnapshotKey(t, c, authority, c.ids, "snap-key", account)
 	h.expect(t, c, "keys.import", map[string]int{"node-1": 3, "node-2": 3, "node-3": 3, "node-4": 3, "node-5": 3}, "snap-key")
 
 	for _, id := range c.ids {
@@ -578,7 +711,7 @@ func TestSnapshotFollowsAddShare(t *testing.T) {
 	c := newTestClusterWith(t, 6, true, testPolicy(), h.tune(t))
 	holders := c.ids[:5]
 	account := common.HexToAddress("0x6666666666666666666666666666666666666666").Hex()
-	edPub := importSnapshotKey(t, c, holders, "share-key", account)
+	edPub := importSnapshotKey(t, c, nil, holders, "share-key", account)
 	h.expect(t, c, "keys.import", map[string]int{"node-1": 1, "node-2": 1, "node-3": 1, "node-4": 1, "node-5": 1}, "share-key")
 
 	quorum := []string{"node-1", "node-2", "node-3"}
@@ -698,7 +831,13 @@ func TestDescribeReturnsPublicMaterialToTheOperator(t *testing.T) {
 		go func(i int, kc *keyCase) {
 			defer wg.Done()
 			results[i] = c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-				return RefreshRequest{SessionID: "refresh-" + kc.id, KeyID: kc.id}
+				req := RefreshRequest{SessionID: "refresh-" + kc.id, KeyID: kc.id, CeremonyID: "metrics-ceremony", ExpectedEpoch: new(uint64)}
+				if i < 2 {
+					req.ExistingKey = true
+				} else {
+					req.ImportSessionID = "import-" + kc.id
+				}
+				return req
 			}, "")
 		}(i, kc)
 	}

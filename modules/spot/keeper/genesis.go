@@ -109,8 +109,10 @@ func (k *Keeper) initGenesis(ctx sdk.Context, gs types.GenesisState) error {
 		{types.ActiveStopLimitPrefix, gs.ActiveStopLimitOrders},
 		{types.ActiveStopLossPrefix, gs.ActiveStopLossOrders},
 	} {
-		for i, id := range index.ids {
-			store.Set(recordKey(index.prefix, orderIDBytes(id)), orderIDBytes(uint64(i)))
+		for _, id := range index.ids {
+			if err := activeAdd(store, index.prefix, id); err != nil {
+				return err
+			}
 		}
 	}
 	for _, entry := range gs.Expiries {

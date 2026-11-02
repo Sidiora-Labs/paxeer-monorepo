@@ -10,6 +10,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/rpcutils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/export"
 )
 
@@ -40,7 +41,7 @@ func NewTxPoolAPI(tmClient client.LocalClient, k *keeper.Keeper, ctxProvider fun
 func (t *TxPoolAPI) Content(ctx context.Context) (result map[string]map[string]map[string]*export.RPCTransaction, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "pax_content", t.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "txpool_content", t.connectionType, startTime, returnErr, recover())
 	}()
 	content := map[string]map[string]map[string]*export.RPCTransaction{
 		"pending": make(map[string]map[string]*export.RPCTransaction),
@@ -76,4 +77,27 @@ func (t *TxPoolAPI) Content(ctx context.Context) (result map[string]map[string]m
 		}
 	}
 	return content, nil
+}
+
+func (t *TxPoolAPI) Status(ctx context.Context) (result map[string]hexutil.Uint, returnErr error) {
+	startTime := time.Now()
+	defer func() {
+		recordMetricsWithError(ctx, "txpool_status", t.connectionType, startTime, returnErr, recover())
+	}()
+
+	total := t.txPoolConfig.maxNumTxs
+	resUnconfirmedTxs, err := t.tmClient.UnconfirmedTxs(ctx, nil, &total)
+	if err != nil {
+		return nil, err
+	}
+
+	var pending hexutil.Uint
+	for _, tx := range resUnconfirmedTxs.Txs {
+		ethTx := getEthTxForTxBz(tx, t.txConfigProvider(LatestCtxHeight).TxDecoder())
+		if ethTx == nil {
+			continue
+		}
+		pending++
+	}
+	return map[string]hexutil.Uint{"pending": pending, "queued": 0}, nil
 }

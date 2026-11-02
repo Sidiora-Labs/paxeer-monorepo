@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "bytes_encoding": "hex",
+  "results": [
+    {
+      "code": 0,
+      "data": "0001ff",
+      "gas_wanted": 100,
+      "gas_used": 73,
+      "protobuf": "12030001ff28643049",
+      "proof": {
+        "total": 3,
+        "index": 0,
+        "leaf_hash": "907ff177d9a980eb8d7ea72d38be9b826fe1b85cf087d3fd325cf84abd62a2cc",
+        "aunts": [
+          "dd35d8cb8459e8f44558bcc0f66a46f73b6b221739b34cb1252118b15927f431",
+          "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        ]
+      }
+    },
+    {
+      "code": 7,
+      "data": "64656e696564",
+      "gas_wanted": 200,
+      "gas_used": 150,
+      "protobuf": "0807120664656e69656428c801309601",
+      "proof": {
+        "total": 3,
+        "index": 1,
+        "leaf_hash": "dd35d8cb8459e8f44558bcc0f66a46f73b6b221739b34cb1252118b15927f431",
+        "aunts": [
+          "907ff177d9a980eb8d7ea72d38be9b826fe1b85cf087d3fd325cf84abd62a2cc",
+          "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d"
+        ]
+      }
+    },
+    {
+      "code": 0,
+      "data": "",
+      "gas_wanted": 0,
+      "gas_used": 0,
+      "protobuf": "",
+      "proof": {
+        "total": 3,
+        "index": 2,
+        "leaf_hash": "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+        "aunts": [
+          "918a3d95d6a2337308f927c519df2a428c6c28850ac225efacdce59e672a7bb2"
+        ]
+      }
+    }
+  ],
+  "abci_results_hash": "d32a03b65e0d8522f9dbbb144723de3e56579ac093f98ce40d5f877e676259c1"
+}

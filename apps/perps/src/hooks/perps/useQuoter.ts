@@ -1,7 +1,9 @@
 import { fetchWithPolicy as fetch } from "@/core/net/fetch";
+import type { ContractFunctionReturnType } from "viem";
 import { PerpsPrecompileABI } from "@/core/network/abi/PerpsPrecompile";
 import { PRECOMPILES } from "@/core/network/precompiles";
-import { PERPS_MARKETS } from "@/core/perps/config";
+import { buildGetMarketConfig, buildGetMarginTiers, buildGetMarkPriceDetails } from "@/core/perps/calls";
+import { decodeMarketConfig, type MarketConfig, type MarginTier } from "@/core/perps/marketConfig";
 import {
   type MarketQuote,
   type PartialCloseQuote,
@@ -9,8 +11,9 @@ import {
   type PrecompilePartialCloseQuote,
   marketQuoteFromPrecompile,
   partialCloseQuoteFromPrecompile,
+  tickerQuoteWithConfig,
 } from "@/core/perps/quoteFallback";
-import { type VenueTicker, parseFundingRateHourly, projectFunding24h } from "@/core/perps/fundingRate";
+import { type VenueTicker, parseFundingRateHourly } from "@/core/perps/fundingRate";
 import { MARKET_DATA_URL as REST_API_URL } from "@/core/feeds";
 import { readContract } from "./useContract";
 
@@ -78,12 +81,11 @@ async function _fetchOi(): Promise<OiEntry[]> {
   return _oiInflight;
 }
 
-function toBigInt18(val: number): bigint {
-  return BigInt(Math.round(val * 1e18));
-}
-
-function getSymbolForMarket(marketId: number): string {
-  return PERPS_MARKETS.find((m) => m.marketId === marketId)?.symbol ?? "BTC";
+function getSymbolForMarket(marketId: bigint, config: MarketConfig): string {
+  if (config.marketId !== marketId || !config.symbol.trim()) {
+    throw new Error(`Unknown market: ${marketId}`);
+  }
+  return config.symbol;
 }
 
 export function useQuoter() {
@@ -93,14 +95,30 @@ export function useQuoter() {
    * for backward compatibility with consumers that expect bigints.
    */
   async function quoteMarket(marketId: bigint): Promise<QuoterMarketQuote> {
-    const symbol = getSymbolForMarket(Number(marketId));
+    const config = decodeMarketConfig(
+      (await readContract(buildGetMarketConfig(marketId))) as ContractFunctionReturnType<
+        typeof PerpsPrecompileABI,
+        "view",
+        "getMarketConfig"
+      >,
+    );
+    const symbol = getSymbolForMarket(marketId, config);
     try {
-      const res = await fetch(`${REST_API_URL}/ticker/${symbol}`);
+      const [res, tiers, markDetails] = await Promise.all([
+        fetch(`${REST_API_URL}/ticker/${encodeURIComponent(symbol)}`),
+        readContract(buildGetMarginTiers(marketId)),
+        readContract(buildGetMarkPriceDetails(marketId)),
+      ]);
       if (!res.ok) throw new Error(`Ticker fetch failed: ${res.status}`);
       const json = await res.json();
       if (!json.success) throw new Error("Ticker response unsuccessful");
       const t: VenueTicker = json.data;
       const lastSettledFundingRate1h = parseFundingRateHourly(t.last_funding_rate_hourly);
+      const [markPrice, indexPrice, midPrice, fresh] = markDetails as ContractFunctionReturnType<
+        typeof PerpsPrecompileABI,
+        "view",
+        "getMarkPriceDetails"
+      >;
 
       // Also fetch OI breakdown — cached, refreshed at most every 60 s
       let longOI = 0;
@@ -115,18 +133,15 @@ export function useQuoter() {
       } catch {}
 
       return {
-        indexPrice: toBigInt18(t.index_price ?? 0),
-        markPrice: toBigInt18(t.mark_price ?? 0),
-        oracleTWAP: toBigInt18(t.index_price ?? 0),
-        fundingRatePerSecond: BigInt(0),
-        fundingRate24h: projectFunding24h(lastSettledFundingRate1h),
+        ...tickerQuoteWithConfig(
+          t,
+          config,
+          tiers as readonly MarginTier[],
+          { markPrice, indexPrice, midPrice, fresh },
+          longOI,
+          shortOI,
+        ),
         lastSettledFundingRate1h,
-        longOI: toBigInt18(longOI),
-        shortOI: toBigInt18(shortOI),
-        maxLeverage: BigInt(PERPS_MARKETS.find((m) => m.marketId === Number(marketId))?.maxLeverage ?? 100),
-        maintenanceMarginBps: BigInt(1000),
-        enabled: true,
-        priceStale: false,
       };
     } catch (err) {
       // Fallback to on-chain if REST fails

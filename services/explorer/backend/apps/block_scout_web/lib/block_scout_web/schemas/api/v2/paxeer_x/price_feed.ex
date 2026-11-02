@@ -13,13 +13,14 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.PriceFeed.Observation do
     type: :object,
     properties: %{
       market_id: %Schema{type: :integer, minimum: 0, nullable: false},
+      accepted: %Schema{type: :boolean, nullable: false},
       symbol: %Schema{type: :string, nullable: true, description: "Market symbol, null while the market is unknown"},
       index_price: General.IntegerString,
       mark_price: General.IntegerString,
       source_timestamp_ms: %Schema{type: :integer, nullable: false},
       sequence: %Schema{type: :integer, nullable: false}
     },
-    required: [:market_id, :symbol, :index_price, :mark_price, :source_timestamp_ms, :sequence],
+    required: [:market_id, :accepted, :symbol, :index_price, :mark_price, :source_timestamp_ms, :sequence],
     nullable: false,
     additionalProperties: false
   })
@@ -134,12 +135,22 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.PriceFeed.Latest do
       update_hash: General.FullHash,
       block_number: %Schema{type: :integer, minimum: 0, nullable: false},
       timestamp: General.Timestamp,
+      index: %Schema{type: :integer, minimum: 0, nullable: false, description: "Position in the CometBFT block"},
       index_price: General.IntegerString,
       mark_price: General.IntegerString,
       source_timestamp_ms: %Schema{type: :integer, nullable: false},
       sequence: %Schema{type: :integer, nullable: false}
     },
-    required: [:update_hash, :block_number, :timestamp, :index_price, :mark_price, :source_timestamp_ms, :sequence],
+    required: [
+      :update_hash,
+      :block_number,
+      :timestamp,
+      :index,
+      :index_price,
+      :mark_price,
+      :source_timestamp_ms,
+      :sequence
+    ],
     nullable: false,
     additionalProperties: false
   })

@@ -2,6 +2,6 @@ module github.com/Sidiora-Labs/LayerX-Network/platform/docs/samples/first-paymen
 
 go 1.21
 
-require github.com/Sidiora-Labs/LayerX-Network/platform/sdk/go v0.1.0
+require github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go v0.1.0
 
-replace github.com/Sidiora-Labs/LayerX-Network/platform/sdk/go => ../../../../../sdk/platform/go
+replace github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go => ../../../../../sdk/platform/go

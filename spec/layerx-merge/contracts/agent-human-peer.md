@@ -12,7 +12,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-account-sequence</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-account-sequence</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## account-state
 
@@ -22,7 +22,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-account-state</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-account-state</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-archive
 
@@ -32,7 +32,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-archive</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-archive</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-budget-proof-v4
 
@@ -42,7 +42,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-budget-proof-v4</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 57 AGENT_BUDGET_PROOF. |
+| <code>interface.9.proto-human-peer-agent-budget-proof-v4</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 57 AGENT_BUDGET_PROOF. |
 
 ## agent-budget-state
 
@@ -52,7 +52,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-budget-state</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-budget-state</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-context
 
@@ -62,7 +62,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-context</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-context</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-control
 
@@ -72,7 +72,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-control</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-control</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-get
 
@@ -82,7 +82,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-get</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-get</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-journey
 
@@ -92,7 +92,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-journey</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-journey</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-key-policy
 
@@ -102,7 +102,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-key-policy</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-key-policy</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-lifecycle-publish
 
@@ -112,7 +112,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-lifecycle-publish</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-lifecycle-publish</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-limit
 
@@ -122,7 +122,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-limit</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-limit</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-list
 
@@ -132,7 +132,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-list</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-list</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-owner-rotated
 
@@ -142,7 +142,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-owner-rotated</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 43. |
+| <code>interface.9.proto-human-peer-agent-owner-rotated</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 43. |
 
 ## agent-session-bind
 
@@ -152,7 +152,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-session-bind</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-session-bind</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-session-restrict
 
@@ -162,7 +162,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-session-restrict</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-session-restrict</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-session-snapshot
 
@@ -172,7 +172,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-session-snapshot</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-session-snapshot</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## agent-session-suspend
 
@@ -182,7 +182,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-agent-session-suspend</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-agent-session-suspend</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## approval-approve
 
@@ -192,7 +192,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-approval-approve</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-approval-approve</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## approval-budget-after-v2
 
@@ -202,7 +202,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-approval-budget-after-v2</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 48 APPROVAL_BUDGET_AFTER. |
+| <code>interface.9.proto-human-peer-approval-budget-after-v2</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 48 APPROVAL_BUDGET_AFTER. |
 
 ## approval-get
 
@@ -212,7 +212,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-approval-get</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-approval-get</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## approval-get-facts-v2
 
@@ -222,7 +222,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-approval-get-facts-v2</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 47 APPROVAL_GET_FACTS. |
+| <code>interface.9.proto-human-peer-approval-get-facts-v2</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 47 APPROVAL_GET_FACTS. |
 
 ## approval-list
 
@@ -232,7 +232,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-approval-list</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-approval-list</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## approval-list-facts-v2
 
@@ -242,7 +242,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-approval-list-facts-v2</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 46 APPROVAL_LIST_FACTS. |
+| <code>interface.9.proto-human-peer-approval-list-facts-v2</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 46 APPROVAL_LIST_FACTS. |
 
 ## approval-reject
 
@@ -252,7 +252,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-approval-reject</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-approval-reject</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## balance
 
@@ -262,7 +262,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-balance</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-balance</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## capability-install
 
@@ -272,7 +272,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-capability-install</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-capability-install</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## evidence
 
@@ -282,7 +282,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-evidence</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-evidence</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## head
 
@@ -292,7 +292,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-head</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-head</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## identity-resolve
 
@@ -302,7 +302,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-identity-resolve</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-identity-resolve</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## lease-map
 
@@ -312,7 +312,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-lease-map</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-lease-map</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## managed-evidence-by-digest-v2
 
@@ -322,7 +322,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-managed-evidence-by-digest-v2</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 49 MANAGED_EVIDENCE. |
+| <code>interface.9.proto-human-peer-managed-evidence-by-digest-v2</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 49 MANAGED_EVIDENCE. |
 
 ## native-approval-get-facts-v2
 
@@ -332,7 +332,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-approval-get-facts-v2</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 51 NATIVE_APPROVAL_GET_FACTS. |
+| <code>interface.9.proto-human-peer-native-approval-get-facts-v2</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 51 NATIVE_APPROVAL_GET_FACTS. |
 
 ## native-approval-list-facts-v2
 
@@ -342,7 +342,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-approval-list-facts-v2</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 50 NATIVE_APPROVAL_LIST_FACTS. |
+| <code>interface.9.proto-human-peer-native-approval-list-facts-v2</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 50 NATIVE_APPROVAL_LIST_FACTS. |
 
 ## native-effect-approval-budget-v4
 
@@ -352,7 +352,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-effect-approval-budget-v4</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 56 NATIVE_EFFECT_APPROVAL_BUDGET. |
+| <code>interface.9.proto-human-peer-native-effect-approval-budget-v4</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 56 NATIVE_EFFECT_APPROVAL_BUDGET. |
 
 ## native-effect-approval-decide-v3
 
@@ -362,7 +362,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-effect-approval-decide-v3</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 54 NATIVE_EFFECT_APPROVAL_DECIDE. |
+| <code>interface.9.proto-human-peer-native-effect-approval-decide-v3</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 54 NATIVE_EFFECT_APPROVAL_DECIDE. |
 
 ## native-effect-approval-get-v3
 
@@ -372,7 +372,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-effect-approval-get-v3</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 53 NATIVE_EFFECT_APPROVAL_GET. |
+| <code>interface.9.proto-human-peer-native-effect-approval-get-v3</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 53 NATIVE_EFFECT_APPROVAL_GET. |
 
 ## native-effect-approval-list-v3
 
@@ -382,7 +382,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-effect-approval-list-v3</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 52 NATIVE_EFFECT_APPROVAL_LIST. |
+| <code>interface.9.proto-human-peer-native-effect-approval-list-v3</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 52 NATIVE_EFFECT_APPROVAL_LIST. |
 
 ## native-effect-approval-material-v4
 
@@ -392,7 +392,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-effect-approval-material-v4</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 55 NATIVE_EFFECT_APPROVAL_MATERIAL. |
+| <code>interface.9.proto-human-peer-native-effect-approval-material-v4</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 55 NATIVE_EFFECT_APPROVAL_MATERIAL. |
 
 ## native-fee-policy
 
@@ -402,7 +402,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-fee-policy</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-native-fee-policy</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## native-journey-envelope-v1
 
@@ -412,7 +412,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-journey-envelope-v1</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 65. No in-repo reference outside the defining line at this revision. |
+| <code>interface.9.proto-human-peer-native-journey-envelope-v1</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 65. No in-repo reference outside the defining line at this revision. |
 
 ## native-owner-context-v1
 
@@ -422,7 +422,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-owner-context-v1</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 64. |
+| <code>interface.9.proto-human-peer-native-owner-context-v1</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 64. |
 
 ## native-program-approval-budget-v5
 
@@ -432,7 +432,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-program-approval-budget-v5</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 61 NATIVE_PROGRAM_APPROVAL_BUDGET. |
+| <code>interface.9.proto-human-peer-native-program-approval-budget-v5</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 61 NATIVE_PROGRAM_APPROVAL_BUDGET. |
 
 ## native-program-approval-decide-v5
 
@@ -442,7 +442,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-program-approval-decide-v5</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 62 NATIVE_PROGRAM_APPROVAL_DECIDE. |
+| <code>interface.9.proto-human-peer-native-program-approval-decide-v5</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 62 NATIVE_PROGRAM_APPROVAL_DECIDE. |
 
 ## native-program-approval-get-v5
 
@@ -452,7 +452,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-program-approval-get-v5</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 59 NATIVE_PROGRAM_APPROVAL_GET. |
+| <code>interface.9.proto-human-peer-native-program-approval-get-v5</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 59 NATIVE_PROGRAM_APPROVAL_GET. |
 
 ## native-program-approval-list-v5
 
@@ -462,7 +462,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-program-approval-list-v5</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 58 NATIVE_PROGRAM_APPROVAL_LIST. |
+| <code>interface.9.proto-human-peer-native-program-approval-list-v5</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 58 NATIVE_PROGRAM_APPROVAL_LIST. |
 
 ## native-program-approval-material-v5
 
@@ -472,7 +472,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-program-approval-material-v5</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service names opcode 60 NATIVE_PROGRAM_APPROVAL_MATERIAL. |
+| <code>interface.9.proto-human-peer-native-program-approval-material-v5</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service names opcode 60 NATIVE_PROGRAM_APPROVAL_MATERIAL. |
 
 ## native-send-envelope-v1
 
@@ -482,7 +482,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-send-envelope-v1</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 67. |
+| <code>interface.9.proto-human-peer-native-send-envelope-v1</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 67. |
 
 ## native-send-owner-preview-v1
 
@@ -492,7 +492,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-send-owner-preview-v1</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 66. |
+| <code>interface.9.proto-human-peer-native-send-owner-preview-v1</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 66. |
 
 ## native-send-preview-v1
 
@@ -502,7 +502,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-native-send-preview-v1</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 63. |
+| <code>interface.9.proto-human-peer-native-send-preview-v1</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 63. |
 
 ## operator
 
@@ -512,7 +512,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-operator</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 45. |
+| <code>interface.9.proto-human-peer-operator</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 45. |
 
 ## owner-install
 
@@ -522,7 +522,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-owner-install</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-owner-install</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## owner-validate
 
@@ -532,7 +532,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-owner-validate</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-owner-validate</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## prepare
 
@@ -542,7 +542,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-prepare</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-prepare</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## receipt-lookup
 
@@ -552,7 +552,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-receipt-lookup</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-receipt-lookup</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## registry
 
@@ -562,7 +562,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-registry</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-registry</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## session-fee-state
 
@@ -572,7 +572,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-session-fee-state</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-session-fee-state</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## session-seed-prepare
 
@@ -582,7 +582,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-session-seed-prepare</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-session-seed-prepare</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## subject
 
@@ -592,7 +592,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-subject</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 44. No in-repo reference outside the defining line at this revision. |
+| <code>interface.9.proto-human-peer-subject</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). The human service client (services/human/crates/layerx-human-service/src/server/agent_runtime.rs) defines no opcode 44. No in-repo reference outside the defining line at this revision. |
 
 ## submit
 
@@ -602,7 +602,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-submit</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-submit</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |
 
 ## track
 
@@ -612,4 +612,4 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.9.proto-human-peer-track</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:14-15) carried over FrameTransport from layerx_client::lni::transport, which stale task 11.7.29 deletes; 11.5.13 re-targets human.rs. |
+| <code>interface.9.proto-human-peer-track</code> | notes | Opcode of the LXHAGT01/LXHAGT02 human peer frame (services/agent/crates/layerx-agentd/src/human.rs:17-18) carried over the agentd-local HumanFrameTransport (services/agent/crates/layerx-agentd/src/human_frame.rs:19). |

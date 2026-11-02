@@ -28,7 +28,7 @@ use layerx_human_service::custody::{
     SessionKeyProvisioner, SessionLeaseState, SessionPolicy, SessionTarget, SuspensionEvidence,
 };
 use layerx_human_service::notify::AgentId;
-use layerx_human_service::store::{EvidenceRef, PrincipalScope, RowKey, Table};
+use layerx_human_service::store::{EvidenceRef, RowKey};
 use layerx_types::verify::VerificationLevel;
 use serde_json::{json, Value};
 
@@ -98,7 +98,7 @@ impl AuthorityLayer {
                 protocol_state_digest: [0x81; 32],
                 observed_sequence: 10,
                 observed_at: 1_000,
-                verification_level: VerificationLevel::STATE_PROVEN,
+                rung: layerx_types::rung::Rung::Committed,
             },
             suspension_effects: 0,
             revocation_effects: 0,
@@ -161,7 +161,7 @@ impl AgentSessionContract for AuthorityLayer {
             revocation_sequence: self.revocation_sequence,
             protocol_time: self.now,
             core_sequence: self.core_sequence,
-            verification_level: VerificationLevel::STATE_PROVEN,
+            rung: layerx_types::rung::Rung::Committed,
         })
     }
 
@@ -235,7 +235,7 @@ impl AgentSessionContract for AuthorityLayer {
             daemon_session_id: grant_id,
             protocol_sequence: self.core_sequence,
             observed_at: self.now,
-            verification_level: VerificationLevel::BATCH_INCLUDED,
+            rung: layerx_types::rung::Rung::Receipted,
             receipt_digest: [0; 32],
         };
         evidence.receipt_digest = evidence.expected_digest();
@@ -285,7 +285,7 @@ impl AgentSessionContract for AuthorityLayer {
             &RevocationEvent {
                 did: self.did.clone(),
                 authority: Some(ProtocolAuthority::SessionKey(target.grant_id)),
-                reason: InvalidationReason::SessionKeyRevoked,
+                reason: InvalidationReason::GrantRevokedOnChain,
                 observed_sequence: self.core_sequence,
             },
         )
@@ -298,7 +298,7 @@ impl AgentSessionContract for AuthorityLayer {
             reason,
             observed_sequence: self.core_sequence,
             observed_at: self.now,
-            verification_level: VerificationLevel::BATCH_INCLUDED,
+            rung: layerx_types::rung::Rung::Receipted,
             receipt_digest: [0; 32],
         };
         evidence.receipt_digest = evidence.expected_digest();
@@ -663,6 +663,19 @@ fn archive_requires_real_reclaim_and_step_up_then_retires_authority_once() {
         &reclaim_request.journey_id,
         602,
     );
+    assert!(!reclaim_agent.receipt_material.is_empty());
+    for material in reclaim_agent.receipt_material.values() {
+        let receipt = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
+            .unwrap_or_else(|error| panic!("archive reclaim receipt: {error:?}"));
+        let protocol = receipt.protocol().expect("protocol reclaim receipt");
+        assert_eq!(material.tx_hash, protocol.activity_id());
+        assert_eq!(
+            material.receipt_hash,
+            <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
+        );
+        assert_eq!(material.block_height, protocol.global_sequence());
+        assert_eq!(material.rung, layerx_types::rung::Rung::Receipted);
+    }
     let reclaim_status = reclaim
         .status()
         .unwrap_or_else(|error| panic!("archive reclaim status: {error}"));

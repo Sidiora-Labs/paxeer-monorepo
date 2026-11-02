@@ -42,14 +42,14 @@ async function withApproval<C extends PositionWrite>(
   return [...approvals, ...calls];
 }
 
-/** A market open: placeOrder MARKET IOC (FOK when chosen), pulling collateralAmount from the wallet. */
-export async function planOpen(input: OpenPositionInput, source: AllowanceSource): Promise<WritePlan<PlaceOrderCall>> {
-  return withApproval(input.collateralAmount, [buildOpenPosition(input)], source);
+/** A market open: placeOrder MARKET IOC (FOK when chosen), margined against deposited collateral. */
+export async function planOpen(input: OpenPositionInput): Promise<WritePlan<PlaceOrderCall>> {
+  return [buildOpenPosition(input)];
 }
 
-/** A bounded addSize: placeOrder MARKET IOC on the position's market and side, pulling the added collateral. */
-export async function planAddSize(input: AddSizeInput, source: AllowanceSource): Promise<WritePlan<PlaceOrderCall>> {
-  return withApproval(input.additionalCollateral, [buildAddSize(input)], source);
+/** A bounded addSize: placeOrder MARKET IOC on the position's market and side, using deposited collateral. */
+export async function planAddSize(input: AddSizeInput): Promise<WritePlan<PlaceOrderCall>> {
+  return [buildAddSize(input)];
 }
 
 /** A full close pulls nothing from the wallet, so it never approves. */
@@ -77,13 +77,9 @@ export async function planCollateral(input: CollateralInput, source: AllowanceSo
   return withApproval(input.amount, [buildAddCollateral(input.positionId, input.amount)], source);
 }
 
-/** The placeOrder calls of an order plan behind one approval of their summed collateral. */
-export async function planOrder(
-  calls: readonly PlaceOrderCall[],
-  source: AllowanceSource,
-): Promise<WritePlan<PlaceOrderCall>> {
-  const total = calls.reduce((sum, c) => sum + c.args[0].collateralAmount, 0n);
-  return withApproval(total, calls, source);
+/** The placeOrder calls of an order plan, margined against deposited collateral. */
+export async function planOrder(calls: readonly PlaceOrderCall[]): Promise<WritePlan<PlaceOrderCall>> {
+  return calls;
 }
 
 /* ── getPosition decoded by output name ─────────────────────────── */

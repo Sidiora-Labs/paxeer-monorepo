@@ -10,6 +10,9 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
+from candidate import SERVICE_CATALOGUE, catalogue, load_private, validate
+
 spec = importlib.util.spec_from_file_location('human_boundary', ROOT / 'tools/qualification/paxeer-x/human-api-boundary.py')
 B = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(B)
@@ -90,10 +93,8 @@ def main():
             json.dump(document, output)
         print('native-custody build manifest=' + str(manifest))
         return
-    sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
-    from candidate import catalogue, load_private, validate
     candidate = load_private(args.candidate_manifest)
-    validate(candidate, catalogue(ROOT / 'spec/paxeer-x/spec.kvx'))
+    validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
     material = B.load(os.environ.get('PAXEER_X_NATIVE_CUSTODY_BUILD_MANIFEST', str(destination / 'build.json')))
     B.require(material['schema'] == 'layerx-human-native-custody-build.v1', 'closed protected real-process build authority')
     files = inventory()

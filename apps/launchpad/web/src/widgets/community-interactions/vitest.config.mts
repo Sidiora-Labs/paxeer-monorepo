@@ -7,6 +7,6 @@ const config = {
     'react-dom': fileURLToPath(new URL('../../../node_modules/react-dom', import.meta.url)),
     vitest: fileURLToPath(new URL('../../../node_modules/vitest', import.meta.url)),
   } },
-  test: { environment: 'jsdom', include: ['client/apps/web/src/widgets/community-interactions/*.test.tsx'], fileParallelism: false },
+  test: { environment: 'jsdom', include: ['src/widgets/community-interactions/*.test.tsx'], fileParallelism: false },
 };
 export default config;

@@ -39,6 +39,29 @@ export function parseTimestampSeconds(value: string): TimestampSeconds {
   return parsed;
 }
 
+export type SignatureBytes = Uint8Array & { readonly length: 65 };
+export type AddressBytes = Uint8Array & { readonly length: 20 };
+
+export function signatureBytes(value: Uint8Array): SignatureBytes {
+  if (!(value instanceof Uint8Array) || value.length !== 65) throw new RangeError("invalid signature length");
+  return new Uint8Array(value) as SignatureBytes;
+}
+
+export function addressBytes(value: Uint8Array): AddressBytes {
+  if (!(value instanceof Uint8Array) || value.length !== 20) throw new RangeError("invalid address length");
+  return new Uint8Array(value) as AddressBytes;
+}
+
+export interface SignRequest {
+  preparation_ref: string;
+  signature: SignatureBytes;
+}
+
+export interface SubmitRequest {
+  preparation_ref: string;
+  signature: SignatureBytes;
+}
+
 export enum Rung {
   Submitted = 0,
   Receipted = 1,
@@ -46,10 +69,10 @@ export enum Rung {
 }
 
 export type SubmissionState =
-  | { kind: "Unknown" }
-  | { kind: "Executed"; receiptRef: string }
-  | { kind: "Failed"; protocolResultCode: number }
-  | { kind: "Pending"; stage: string };
+  | { kind: "Submitted"; txHash: string }
+  | { kind: "Receipted" }
+  | { kind: "Committed" }
+  | { kind: "Reverted"; revertReason: string };
 
 export interface VerifiedRead<T> {
   value: T;
@@ -82,7 +105,7 @@ export interface ApiError {
   requestId: bigint;
   reason: string;
 }
-export type Operation = "agent.register" | "approval.approve" | "approval.get" | "approval.list" | "approval.reject" | "availability.fetch" | "budget.create" | "budget.fund" | "budget.list" | "budget.reconciliation" | "budget.revoke" | "budget.state" | "capability.attenuate" | "capability.create" | "capability.list" | "capability.revoke" | "export.offline" | "faucet.claim" | "mcp.invoke" | "policy.dry_run" | "prepare" | "program.activity" | "program.call" | "program.deploy" | "program.discover" | "program.interface" | "program.receipt" | "program.simulate" | "program.upgrade" | "program.wind-down" | "project" | "read.account" | "read.balance" | "read.batch" | "read.checkpoint" | "read.history" | "read.module_state" | "read.proof_bundle" | "session.close" | "session.list" | "session.open" | "session.refresh" | "sign" | "submit" | "subscription.acknowledge" | "subscription.create" | "subscription.delete" | "subscription.health" | "subscription.list" | "subscription.pause" | "subscription.resume" | "tenant.readiness" | "track" | "wait";
+export type Operation = "agent.register" | "approval.approve" | "approval.get" | "approval.list" | "approval.reject" | "availability.fetch" | "budget.create" | "budget.fund" | "budget.list" | "budget.reconciliation" | "budget.revoke" | "budget.state" | "capability.attenuate" | "capability.create" | "capability.list" | "capability.revoke" | "export.offline" | "mcp.invoke" | "policy.dry_run" | "prepare" | "program.activity" | "program.call" | "program.deploy" | "program.discover" | "program.interface" | "program.receipt" | "program.simulate" | "program.upgrade" | "program.wind-down" | "project" | "read.account" | "read.balance" | "read.batch" | "read.checkpoint" | "read.history" | "read.module_state" | "read.proof_bundle" | "session.close" | "session.list" | "session.open" | "session.refresh" | "sign" | "submit" | "subscription.acknowledge" | "subscription.create" | "subscription.delete" | "subscription.health" | "subscription.list" | "subscription.pause" | "subscription.resume" | "tenant.readiness" | "track" | "wait";
 
 export const APPROVAL_CONTRACT_INTRODUCED = "1.1" as const;
 export const APPROVAL_ENFORCEMENT_NOTICE = "An approval hold is a daemon-enforced restriction. It confers no protocol authority, and bypassing the daemon bypasses the restriction." as const;

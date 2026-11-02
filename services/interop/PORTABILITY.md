@@ -38,51 +38,71 @@ The portable receipt is a UTF-8 JSON object with these exact camelCase members (
 | `resultingStateRoot` | string | 32-byte successor state root (unpadded base64url) |
 | `sequencerPublicKey` | string | 32-byte Ed25519 public key (unpadded base64url) |
 
-### Verification Algorithm
+### Format: `layerx-receipt-proof-v2`
+
+`PortableReceiptV2` serializes a UTF-8 JSON object with exactly these camelCase members:
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `format` | string | Literal `"layerx-receipt-proof-v2"` |
+| `verificationLevel` | string | Literal `"receipted"`; the sequencer signed the receipt |
+| `signedReceipt` | string | Complete canonical signed `ProtocolReceipt` v2 bytes (lowercase `0x` hex) |
+| `receiptDigest` | string | 32-byte receipt-signature digest (lowercase `0x` hex) |
+| `receiptKey` | object | The signing entry, with exactly the four members below |
+| `receiptKey.keyId` | string | 32-byte receipt key identifier (lowercase `0x` hex) |
+| `receiptKey.publicKey` | string | 32-byte Ed25519 public key (lowercase `0x` hex) |
+| `receiptKey.firstHeight` | string | Inclusive first signing height (`0x` quantity) |
+| `receiptKey.lastHeight` | string | Inclusive last signing height (`0x` quantity) |
+| `inclusionHeight` | string | Carried inclusion height, at least the signed receipt height (`0x` quantity) |
+
+Quantities use lowercase hex without leading zeroes (`0x0` for zero). JSON member order is insignificant. The carried key and inclusion height do not establish trust or prove block inclusion.
+
+### Verification Algorithm (v2)
 
 An independent verifier must:
 
 1. **Parse and validate the JSON object**
    - Reject unknown members
-   - Reject padded or non-canonical base64url
-   - Reject wrong fixed-field lengths
-   - Reject canonical receipts above 1,048,576 bytes
+   - Require the v2 format and `verificationLevel: "receipted"`
+   - Reject non-canonical hex, quantities and wrong fixed-field lengths
+   - Reject JSON above 1,500,000 bytes or signed receipts above 1,048,576 bytes
 
-2. **Obtain trusted batch authorization independently**
-   - From a certificate
-   - From a snapshot
-   - From a test vector manifest
+2. **Obtain the pinned `ReceiptKeys` list independently**
+   - From a trusted snapshot, certificate or test vector manifest
+   - Select the entry matching the receipt's signed key ID
+   - Require the signed height to lie in its inclusive `firstHeight` to `lastHeight` window
+   - Require every carried `receiptKey` member to equal that pinned entry
    - The JSON object itself is NOT the trust root
 
 3. **Decode and re-encode the canonical receipt**
    - Must produce byte-identical output
-   - Protocol version 1 required
+   - `ProtocolReceipt` version 2 required
    - Non-zero operation and activity IDs required
    - Sequencer signature required
 
-4. **Verify batch field consistency**
-   - All claimed batch fields must equal the independently trusted authorization
-
-5. **Verify balance invariants** (for successful results)
-   - Debit decreases by exactly the receipt amount (checked unsigned arithmetic)
-   - Credit increases by exactly the receipt amount (checked unsigned arithmetic)
-
-6. **Compute and verify the receipt digest**
-   - Encode receipt without sequencer signature
+4. **Compute and verify the canonical receipt digest**
+   - Encode the receipt without its signature: replace the trailing signature-presence flag, length and 64-byte signature with the single absent-signature byte `0x00`
    - Compute `SHA-256("LXP/v1/receipt\0" || unsigned_canonical_receipt)`
    - Require digest equals `receiptDigest`
 
-7. **Verify the Ed25519 signature**
+5. **Verify the Ed25519 signature under the height-ranged receipt key**
    - Signature over the 32-byte digest
-   - Public key is `sequencerPublicKey`
+   - Public key comes from the independently pinned entry
    - Strict signature verification required
+   - Require `inclusionHeight` to be at least the signed receipt height; this is a consistency check, not an inclusion proof
+
+6. **Match the payment log before accepting a payment claim**
+   - Require a successful signed outcome and authenticate the supplied log view against the signed receipt's log commitments
+   - Require the `PaymentExact` emitter to be layerxledger at `0x000000000000000000000000000000000000101a` (`0x101A`)
+   - Match the event signature, indexed payment identifiers and data (asset and exact amount) to the independently expected payment
+   - Parsing the portable object or calling `verify_v2` alone does not perform this application-specific payment match
 
 ### What This Format Proves
 
-A verified portable receipt proves:
+A verified v2 portable receipt proves:
 - The sequencer signed this exact receipt
-- State roots chain correctly
-- Balance invariants hold
+- The signing key matches the pinned entry and covers the signed height
+- The canonical receipt digest matches
 - The receipt is cryptographically valid
 
 It does **not** claim:
@@ -93,7 +113,7 @@ It does **not** claim:
 
 Those properties require additional proofs beyond this format.
 
-### Example
+### Example (v1)
 
 ```json
 {
@@ -106,6 +126,32 @@ Those properties require additional proofs beyond this format.
   "previousStateRoot": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
   "resultingStateRoot": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ",
   "sequencerPublicKey": "BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU"
+}
+```
+
+### Example (v2)
+
+This is the `PortableReceiptV2::export` result for the recorded
+`V1-layerxledger-pay-exact` case in
+`sdk/platform/conformance/fixtures/sequencer-receipt-v1.json`, using its
+`signedReceipt`, `pinnedKey` and signed height as `inclusionHeight`.
+The AP2 test `portability_v2_example_parses` reproduces the export,
+compares every JSON value and verifies the example against that pinned key.
+All receipt, digest, key and height values below come from that recorded case.
+
+```json
+{
+  "format": "layerx-receipt-proof-v2",
+  "verificationLevel": "receipted",
+  "signedReceipt": "0x00025201000200000020a0d985d943521892401c623bd7b32a627147585cbe206badb4d214d844b1ccd1000000000000000300000020495f54c9be4c9531a0e3b2e3dc3c5919cadad7edeb4a35ec9bce39f98d1307ff000000206a6936594eb02b36903e48ec2710bf5bf7eacce656934407da363ff1d93b24ea00000020e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8550000000000000002000c00000000010000000020000000000000000000000000000000000000000000000000000000000000000000000071000000000000ef9c000000000000ef9c00000000773594000000000100000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475687078000c000100000300000000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b126fde3dedb14662268bff5bb3ab6560550a0dc3938b0c9d5ed717932c75b98391fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769112b929c0d6cb01c57eaad307e6d0a094c6c6e58f2e0ce3c62856cf815c0fba46855168bb5fdfdfc33077297f77debd66ffd7b9410d4e6550606ca064e6c67ed000000000000000000006f93a9d230000000002000000000000000000000000000000000000000000000000000000000000003e9000c000000010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f730000000000000000000000000000000000000020000000000000000000000000fe3b557e8fb62b89f4916b721be55ceb828dbd7300000000000000055de62d33fb3a700000000000000000055de5bda051684000000000000000000200000020000000000000000000000000000000000000000000000000000000000000101a0000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000000000000206b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b000001977426f81001000000401370ce08ed0dee4b72e305f93f8ca9ef73f0394782d1489ceafdbb58d045e1186ff2e235b559712cd013368002611607b0776be1c166b43f54b5d953c68a9208",
+  "receiptDigest": "0x3f63045f1bcd3b2eb0fd9de72de19e76de4e509b567212c8645c58a18d2b4bcb",
+  "receiptKey": {
+    "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+    "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+    "firstHeight": "0x3e8",
+    "lastHeight": "0x7cf"
+  },
+  "inclusionHeight": "0x3e9"
 }
 ```
 
@@ -298,7 +344,8 @@ This proves external parties can verify LayerX receipts without running LayerX s
 
 **LayerX Receipt Export:**
 - The JSON object itself is NOT a trust root
-- The verifier MUST obtain `AuthorizedBatch` from an independent trusted source
+- For v1, the verifier MUST obtain `AuthorizedBatch` from an independent trusted source
+- For v2, the verifier MUST obtain the pinned, height-ranged `ReceiptKeys` list independently
 - A valid signature proves the sequencer signed this receipt
 - It does NOT prove the batch was finalized or settled
 
@@ -331,3 +378,4 @@ Always consult the specific verification level and proof scope.
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2026 | Initial `layerx-receipt-proof-v1` format and external evidence binding |
+| 2.0 | 2026 | `layerx-receipt-proof-v2`: receipted v2 bytes, canonical digest and height-ranged receipt key; recorded example checked against `PortableReceiptV2::export`; v1 documents remain readable |

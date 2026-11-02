@@ -13,6 +13,7 @@ async fn run_server(sources: &SourceMocks<'_>) -> url::Url {
     settings.tracing.enabled = false;
 
     settings.sources = SourcesSettings {
+        precompiles: Default::default(),
         fourbyte: format!("http://127.0.0.1:{}/", sources.fourbyte.port())
             .parse()
             .unwrap(),

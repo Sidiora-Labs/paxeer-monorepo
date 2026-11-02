@@ -402,7 +402,7 @@ int main(void)
                              7U, 0x41U, false) != 0 ||
         recover_existing_log("lxp-canonical-occ-restart", LXP_LOG_CHECKPOINT,
                              7U, 0x43U, true) != 0 ||
-        recover_existing_log("lxp-batch-restart", LXP_LOG_BATCH_HEADER,
+        recover_existing_log("lxp-activity-restart", LXP_LOG_ACTIVITY,
                              11U, 0x52U, true) != 0) {
         (void)fprintf(stderr, "durable restart recovery failed\n");
         return 1;
@@ -415,8 +415,8 @@ int main(void)
                                       LXP_LOG_CHECKPOINT, false) != 0 ||
         propagate_recovery_io_failure("lxp-canonical-occ-io",
                                       LXP_LOG_CHECKPOINT, true) != 0 ||
-        propagate_recovery_io_failure("lxp-batch-io",
-                                      LXP_LOG_BATCH_HEADER, true) != 0) {
+        propagate_recovery_io_failure("lxp-activity-io",
+                                      LXP_LOG_ACTIVITY, true) != 0) {
         (void)fprintf(stderr, "recovery IO failure was not propagated\n");
         return 1;
     }
@@ -428,7 +428,7 @@ int main(void)
                           false) != 0 ||
         recover_torn_tail("lxp-canonical-occ-torn", LXP_LOG_CHECKPOINT,
                           true) != 0 ||
-        recover_torn_tail("lxp-batch-torn", LXP_LOG_BATCH_HEADER,
+        recover_torn_tail("lxp-activity-torn", LXP_LOG_ACTIVITY,
                           true) != 0) {
         (void)fprintf(stderr, "torn-tail recovery failed\n");
         return 1;
@@ -437,7 +437,7 @@ int main(void)
                              false) != 0 ||
         refuse_corrupt_chain("lxp-canonical-occ-corrupt", LXP_LOG_CHECKPOINT,
                              true) != 0 ||
-        refuse_corrupt_chain("lxp-batch-corrupt", LXP_LOG_BATCH_HEADER,
+        refuse_corrupt_chain("lxp-activity-corrupt", LXP_LOG_ACTIVITY,
                              true) != 0) {
         (void)fprintf(stderr, "corrupt-chain recovery was not refused\n");
         return 1;

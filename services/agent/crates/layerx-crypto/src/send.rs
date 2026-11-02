@@ -6,7 +6,9 @@ use layerx_wire::encode::Encoder;
 use layerx_wire::hash::Domain;
 use sha2::{Digest as _, Sha256};
 
+use crate::disclosure::call::bind_call;
 use crate::disclosure::{bind, Disclosure, DisclosureError};
+use crate::evm_transaction::Eip1559Call;
 use crate::signer::{SignError, Signer, SigningRequest};
 use crate::SignatureMessage;
 
@@ -155,6 +157,51 @@ impl SendDebit {
         e.u16(self.protocol_version)?;
         Ok(e.finish())
     }
+}
+
+pub struct CallOptions {
+    pub from: [u8; 20],
+    pub chain_id: u64,
+    pub nonce: u64,
+    pub max_priority_fee_per_gas: u128,
+    pub max_fee_per_gas: u128,
+    pub gas_limit: u64,
+}
+
+pub struct DisclosedCall {
+    pub call: Eip1559Call,
+    pub disclosure: Disclosure,
+}
+
+/// # Errors
+/// Rejects malformed send payloads and calls whose maximum fee overflows uint128.
+pub fn ledger_payment_call(
+    payload: &[u8],
+    options: &CallOptions,
+) -> Result<DisclosedCall, DisclosureError> {
+    let mut data = vec![0x2b, 0xb1, 0xae, 0x7c];
+    let mut offset = [0; 32];
+    offset[31] = 32;
+    data.extend_from_slice(&offset);
+    let mut length = [0; 32];
+    length[16..].copy_from_slice(&(payload.len() as u128).to_be_bytes());
+    data.extend_from_slice(&length);
+    data.extend_from_slice(payload);
+    let padding = (32 - payload.len() % 32) % 32;
+    data.resize(data.len() + padding, 0);
+    let mut to = [0; 20];
+    to[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+    let call = Eip1559Call {
+        chain_id: options.chain_id,
+        nonce: options.nonce,
+        max_priority_fee_per_gas: options.max_priority_fee_per_gas,
+        max_fee_per_gas: options.max_fee_per_gas,
+        gas_limit: options.gas_limit,
+        to,
+        data,
+    };
+    let disclosure = bind_call(&call, options.from)?;
+    Ok(DisclosedCall { call, disclosure })
 }
 
 pub struct EnvelopeOptions<'a> {

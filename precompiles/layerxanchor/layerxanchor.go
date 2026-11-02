@@ -10,27 +10,22 @@
 //	    + GasPerProofNode * proofNodes(method, args)
 //
 // base is ViewBaseGas for views and WriteBaseGas for state changes.
-// signatures is 1 + the certificate's attestation count for submitCheckpoint
-// (one Ed25519 header signature and one secp256k1 recovery per guarantor),
-// 1 for submitAvailabilityAttestation and 2 for submitEquivocation.
-// proofNodes is len(validity proof)/32 for submitCheckpoint, the 32-byte
-// blocks hashed into the checkpoint identifier. Both quantities are read from
-// the certificate's length prefixes before anything is verified; a certificate
-// too short to carry them is charged the 32-attestation maximum and reverts.
+// Retired checkpoint and equivocation submissions charge WriteBaseGas.
+// Availability submissions charge one signature in addition to their base
+// and calldata gas.
 package layerxanchor
 
 import (
 	"embed"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	anchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -64,6 +59,7 @@ const (
 const (
 	LayerXAnchorAddress = "0x0000000000000000000000000000000000001014"
 	PrecompileName      = "layerxAnchor"
+	StoreDeleteUpgrade  = anchortypes.StoreDeleteUpgrade
 
 	ViewBaseGas     uint64 = 3000
 	WriteBaseGas    uint64 = 30000
@@ -125,8 +121,10 @@ func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error) {
 		bankKeeper: keepers.BankK(),
 		evmKeeper:  keepers.EVMK(),
 	}
-	return pcommon.NewPrecompile(newAbi, p, p.address, PrecompileName).WithRevertReasons(), nil
+	return pcommon.NewPrecompile(newAbi, p, p.address, PrecompileName).WithRevertReasons().WithRetirement(StoreDeleteUpgrade), nil
 }
+
+func (p PrecompileExecutor) EVMKeeper() utils.EVMKeeper { return p.evmKeeper }
 
 func isView(method string) bool {
 	switch method {
@@ -138,24 +136,14 @@ func isView(method string) bool {
 	}
 }
 
-// CertificateWork reads the attestation count and the validity proof length
-// from a certificate's length prefixes. A certificate too short to carry them
-// reports the maximum attestation count.
-func CertificateWork(certificate []byte) (attestations uint64, proofNodes uint64) {
-	const proofLengthOffset = 2 + 4 + codec.BatchHeaderBytes
-	if len(certificate) < proofLengthOffset+4 {
-		return codec.MaxGuarantorAttestations, 0
+func (p PrecompileExecutor) upgrades() pcommon.UpgradeActivationReader {
+	getter, ok := p.evmKeeper.(interface {
+		UpgradeKeeper() *upgradekeeper.Keeper
+	})
+	if !ok || getter.UpgradeKeeper() == nil {
+		return nil
 	}
-	proofLength := uint64(binary.BigEndian.Uint32(certificate[proofLengthOffset:]))
-	countOffset := uint64(proofLengthOffset) + 4 + proofLength
-	if proofLength > codec.MaxValidityProofBytes || countOffset >= uint64(len(certificate)) {
-		return codec.MaxGuarantorAttestations, 0
-	}
-	attestations = uint64(certificate[countOffset])
-	if attestations > codec.MaxGuarantorAttestations {
-		attestations = codec.MaxGuarantorAttestations
-	}
-	return attestations, proofLength / 32
+	return getter.UpgradeKeeper()
 }
 
 // Gas is the documented formula over already-measured quantities.
@@ -168,22 +156,14 @@ func Gas(view bool, inputBytes, signatures, proofNodes uint64) uint64 {
 }
 
 func (p PrecompileExecutor) RequiredGas(input []byte, method *abi.Method) uint64 {
-	signatures, nodes := uint64(0), uint64(0)
-	switch method.Name {
-	case SubmitCheckpointMethod:
-		signatures = 1 + codec.MaxGuarantorAttestations
-		if args, err := method.Inputs.Unpack(input); err == nil && len(args) == 3 {
-			if certificate, ok := args[2].([]byte); ok {
-				attestations, proofNodes := CertificateWork(certificate)
-				signatures, nodes = 1+attestations, proofNodes
-			}
-		}
-	case SubmitAvailabilityMethod:
-		signatures = 1
-	case SubmitEquivocationMethod:
-		signatures = 2
+	if method.Name == SubmitCheckpointMethod || method.Name == SubmitEquivocationMethod {
+		return WriteBaseGas
 	}
-	return Gas(isView(method.Name), uint64(len(input)), signatures, nodes)
+	signatures := uint64(0)
+	if method.Name == SubmitAvailabilityMethod {
+		signatures = 1
+	}
+	return Gas(isView(method.Name), uint64(len(input)), signatures, 0)
 }
 
 func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller common.Address, _ common.Address, args []interface{}, value *big.Int, readOnly bool, evm *vm.EVM, hooks *tracing.Hooks) (ret []byte, err error) {
@@ -197,7 +177,13 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 		return nil, errors.New("cannot delegatecall layerxAnchor")
 	}
 	if p.anchor == nil {
-		return nil, errors.New("layerxanchor: anchor module is not wired")
+		return pcommon.RetiredRevert(PrecompileName), vm.ErrExecutionReverted
+	}
+	if pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade, ctx.BlockHeight()) {
+		return pcommon.RetiredRevert(PrecompileName), vm.ErrExecutionReverted
+	}
+	if !isView(method.Name) && pcommon.RetiredAt(ctx, p.upgrades(), pcommon.MergeUpgrade, ctx.BlockHeight()) {
+		return pcommon.RetiredRevert(PrecompileName), vm.ErrExecutionReverted
 	}
 	if !isView(method.Name) && readOnly {
 		return nil, errors.New("cannot change layerxAnchor state from staticcall")

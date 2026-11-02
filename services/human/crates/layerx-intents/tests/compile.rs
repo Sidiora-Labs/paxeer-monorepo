@@ -2,24 +2,24 @@ use layerx_agentd::prepare::{
     prepare_activity, verify_disclosure_binding, CorePreparationBoundary, CorePreparationState,
     CoreStateError, DisclosureBindingError, PreparationDefaults, PrepareError, PrepareRequest,
 };
-use layerx_crypto::disclosure::DisclosureError;
-use layerx_crypto::send::SendDebit;
-use layerx_crypto::signer::{LocalSigner, Signer};
+use layerx_crypto::{
+    disclosure::DisclosureError,
+    send::SendDebit,
+    signer::{LocalSigner, Signer},
+};
 use layerx_intents::{
-    compile, BridgeDepositCredit, BridgeWithdrawRequest, BudgetCreate, BudgetDefund, BudgetFund,
-    CompileErrorReason, CompileField, DidRegistration, DisclosureCheck, DisclosureCheckError,
-    DisclosureField, EvmPayoutBinding, Intent, IntentKind, KeyRotation, LxpReceive, LxpSend,
-    PayerGrantRegistration, RecoveryRegistration,
+    compile, BudgetCreate, BudgetDefund, BudgetFund, CompileErrorReason, CompileField,
+    DidRegistration, DisclosureCheck, DisclosureCheckError, DisclosureField, Intent, IntentKind,
+    KeyRotation, LxpReceive, LxpSend, PayerGrantRegistration, RecoveryRegistration,
 };
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, Signature, TimestampBound};
+use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, CheckpointId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{
-    ApprovalThreshold, AuthorizationSignature, BudgetId, ContextHash, DepositProofId, EvmAddress,
-    GrantSchedule, NetworkId, PayerGrantId, PeriodLength, ProtocolVersion, PublicKey, PurposeHash,
-    RecoveryRoot, RolloverPolicy, SendAuthorization, SendAuthorizationKind, Sequence,
-    TimestampSeconds,
+    ApprovalThreshold, AuthorizationSignature, BudgetId, ContextHash, GrantSchedule, NetworkId,
+    PayerGrantId, PeriodLength, ProtocolVersion, PublicKey, PurposeHash, RecoveryRoot,
+    RolloverPolicy, SendAuthorization, SendAuthorizationKind, Sequence, TimestampSeconds,
 };
 use layerx_types::payload::{
     ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, PayloadError,
@@ -71,20 +71,14 @@ fn registry() -> ModuleRegistry {
         activity(ModuleId::Governance, 1),
         activity(ModuleId::Governance, 2),
         activity(ModuleId::Governance, 3),
-        activity(ModuleId::Governance, 4),
     ];
-    let asset = [
-        activity(ModuleId::Asset, 5),
-        activity(ModuleId::Asset, 6),
-        activity(ModuleId::Asset, 9),
-    ];
+    let asset = [activity(ModuleId::Asset, 5), activity(ModuleId::Asset, 6)];
     let budget = [
         activity(ModuleId::Budget, 1),
         activity(ModuleId::Budget, 2),
         activity(ModuleId::Budget, 4),
-        activity(ModuleId::Budget, 7),
+        activity(ModuleId::Budget, 8),
     ];
-    let bridge = [activity(ModuleId::Bridge, 1), activity(ModuleId::Bridge, 2)];
     let registrations = [
         ModuleRegistration::new(ModuleId::Governance, &governance)
             .unwrap_or_else(|error| panic!("governance registry: {error:?}")),
@@ -92,8 +86,6 @@ fn registry() -> ModuleRegistry {
             .unwrap_or_else(|error| panic!("asset registry: {error:?}")),
         ModuleRegistration::new(ModuleId::Budget, &budget)
             .unwrap_or_else(|error| panic!("budget registry: {error:?}")),
-        ModuleRegistration::new(ModuleId::Bridge, &bridge)
-            .unwrap_or_else(|error| panic!("bridge registry: {error:?}")),
     ];
     ModuleRegistry::new(&registrations).unwrap_or_else(|error| panic!("module registry: {error:?}"))
 }
@@ -291,15 +283,6 @@ fn every_v1_intent_compiles_through_the_registered_module() {
             )
             .unwrap_or_else(|error| panic!("recovery: {error:?}")),
         )),
-        Intent::v1(IntentKind::EvmPayoutBinding(
-            EvmPayoutBinding::new(
-                did(),
-                NetworkId::new(77).unwrap_or_else(|error| panic!("network: {error:?}")),
-                EvmAddress::new([4; 20]),
-                Signature::new(&[5; 65]).unwrap_or_else(|error| panic!("signature: {error:?}")),
-            )
-            .unwrap_or_else(|error| panic!("payout binding: {error:?}")),
-        )),
         send_intent([4; 32]),
         Intent::v1(IntentKind::LxpReceive(
             LxpReceive::new(
@@ -369,31 +352,6 @@ fn every_v1_intent_compiles_through_the_registered_module() {
             )
             .unwrap_or_else(|error| panic!("budget defund: {error:?}")),
         )),
-        Intent::v1(IntentKind::BridgeDepositCredit(
-            BridgeDepositCredit::new(
-                DepositProofId::new([13; 32]),
-                CheckpointId::new([14; 32]),
-                account("system:treasury"),
-                owner(),
-                asset(),
-                amount(),
-                idempotency(),
-            )
-            .unwrap_or_else(|error| panic!("bridge deposit: {error:?}")),
-        )),
-        Intent::v2(IntentKind::BridgeWithdrawRequest(
-            BridgeWithdrawRequest::new(
-                CheckpointId::new([18; 32]),
-                100,
-                owner(),
-                account("system:paxeer-withdrawals"),
-                EvmAddress::new([16; 20]),
-                asset(),
-                amount(),
-                idempotency(),
-            )
-            .unwrap_or_else(|error| panic!("bridge withdrawal: {error:?}")),
-        )),
     ];
     let registry = registry();
     let compiled = intents
@@ -402,7 +360,7 @@ fn every_v1_intent_compiles_through_the_registered_module() {
             compile(intent, &registry).unwrap_or_else(|error| panic!("compile: {error:?}"))
         })
         .collect::<Vec<_>>();
-    assert_eq!(compiled.len(), 12);
+    assert_eq!(compiled.len(), 9);
     assert!(compiled
         .iter()
         .all(|value| !value.payload().as_bytes().is_empty()));
@@ -448,82 +406,5 @@ fn protocol_three_send_compilation_and_disclosure_use_native_account_ids() {
         assert_eq!(&compiled.payload().as_bytes()[36..68], destination);
         assert_eq!(&compiled.payload().as_bytes()[198..230], source);
         DisclosureCheck::verify(&intent, &compiled).unwrap_or_else(|error| panic!("{error:?}"));
-    }
-}
-
-#[test]
-fn native_withdrawal_v2_binds_recipient_anchor_and_fee_and_refuses_v1() {
-    let request = BridgeWithdrawRequest::new(
-        CheckpointId::new([18; 32]),
-        100,
-        owner(),
-        account("system:paxeer-withdrawals"),
-        EvmAddress::new([16; 20]),
-        AssetId::new([2; 32]),
-        Amount::from_u128(25),
-        IdempotencyKey::new([3; 32]),
-    )
-    .unwrap_or_else(|error| panic!("withdraw request: {error:?}"));
-    let intent = Intent::v2(IntentKind::BridgeWithdrawRequest(request.clone()));
-    let compiled =
-        compile(&intent, &registry()).unwrap_or_else(|error| panic!("withdraw compile: {error:?}"));
-    assert_eq!(compiled.activity_type(), activity(ModuleId::Asset, 9));
-    let mut expected = AssetId::new([2; 32]).bytes().to_vec();
-    expected.extend(Amount::from_u128(25).value().to_be_bytes());
-    expected.extend([16; 20]);
-    expected.extend([18; 32]);
-    expected.extend(100_u64.to_be_bytes());
-    assert_eq!(expected.len(), 108);
-    assert_eq!(compiled.payload().as_bytes(), expected);
-    assert!(DisclosureCheck::verify(&intent, &compiled).is_ok());
-    let legacy = Intent::v1(IntentKind::BridgeWithdrawRequest(request));
-    assert_eq!(
-        compile(&legacy, &registry())
-            .err()
-            .unwrap_or_else(|| panic!("legacy withdrawal accepted"))
-            .field,
-        CompileField::Version
-    );
-    assert_eq!(
-        DisclosureCheck::verify(&legacy, &compiled),
-        Err(DisclosureCheckError::FieldMismatch(
-            DisclosureField::Version
-        ))
-    );
-    for (anchor, recipient, fee, field) in [
-        ([19; 32], [16; 20], 100, DisclosureField::Checkpoint),
-        ([18; 32], [17; 20], 100, DisclosureField::PayoutAddress),
-        ([18; 32], [16; 20], 101, DisclosureField::FeeLimit),
-    ] {
-        let changed = Intent::v2(IntentKind::BridgeWithdrawRequest(
-            BridgeWithdrawRequest::new(
-                CheckpointId::new(anchor),
-                fee,
-                owner(),
-                account("system:paxeer-withdrawals"),
-                EvmAddress::new(recipient),
-                AssetId::new([2; 32]),
-                Amount::from_u128(25),
-                IdempotencyKey::new([3; 32]),
-            )
-            .unwrap_or_else(|error| panic!("changed withdrawal: {error:?}")),
-        ));
-        assert_eq!(
-            DisclosureCheck::verify(&changed, &compiled),
-            Err(DisclosureCheckError::FieldMismatch(field))
-        );
-    }
-    for (anchor, recipient) in [([0; 32], [16; 20]), ([18; 32], [0; 20])] {
-        assert!(BridgeWithdrawRequest::new(
-            CheckpointId::new(anchor),
-            100,
-            owner(),
-            account("system:paxeer-withdrawals"),
-            EvmAddress::new(recipient),
-            AssetId::new([2; 32]),
-            Amount::from_u128(25),
-            IdempotencyKey::new([3; 32]),
-        )
-        .is_err());
     }
 }

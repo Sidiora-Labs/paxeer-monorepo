@@ -80,7 +80,7 @@ func (h *Snapshots) visible(ctx context.Context, header ranker.Header, now time.
 func (h *Snapshots) page(w http.ResponseWriter, r *http.Request) {
 	category, err := snapshotCategory(chi.URLParam(r, "category"))
 	if err != nil {
-		snapshotError(w, 400, "INVALID_CATEGORY", "Choose a supported ranking category.", 0, rankingGuidance{Supported: []string{"trending", "breakout", "volume", "movers", "unusual", "new"}})
+		snapshotError(w, 400, "INVALID_CATEGORY", "Choose a supported ranking category.", 0, rankingGuidance{Supported: ranker.Categories[:]})
 		return
 	}
 	limit, err := snapshotLimit(r.URL.Query().Get("limit"))
@@ -199,7 +199,7 @@ func expired(w http.ResponseWriter) {
 func (h *Snapshots) inspect(w http.ResponseWriter, r *http.Request) {
 	category, err := snapshotCategory(chi.URLParam(r, "category"))
 	if err != nil {
-		snapshotError(w, 400, "INVALID_CATEGORY", "Choose a supported ranking category.", 0, rankingGuidance{Supported: []string{"trending", "breakout", "volume", "movers", "unusual", "new"}})
+		snapshotError(w, 400, "INVALID_CATEGORY", "Choose a supported ranking category.", 0, rankingGuidance{Supported: ranker.Categories[:]})
 		return
 	}
 	if _, err = uuid.Parse(chi.URLParam(r, "runID")); err != nil {

@@ -71,6 +71,47 @@ func TestMultiHooks(t *testing.T) {
 	require.True(t, hooks.beforeEpochStartCalled)
 }
 
+type eventEmittingEpochHooks struct {
+	event sdk.Event
+}
+
+func (h eventEmittingEpochHooks) AfterEpochEnd(ctx sdk.Context, _ types.Epoch) {
+	ctx.EventManager().EmitEvent(h.event)
+}
+
+func (h eventEmittingEpochHooks) BeforeEpochStart(ctx sdk.Context, _ types.Epoch) {
+	ctx.EventManager().EmitEvent(h.event)
+}
+
+func TestHookEventsReachParentContext(t *testing.T) {
+	expected := sdk.Events{
+		sdk.NewEvent("epoch_hook", sdk.NewAttribute("hook", "first")),
+		sdk.NewEvent("epoch_hook", sdk.NewAttribute("hook", "second")),
+	}
+	hooks := types.NewMultiEpochHooks(
+		eventEmittingEpochHooks{event: expected[0]},
+		eventEmittingEpochHooks{event: expected[1]},
+	)
+
+	for _, tc := range []struct {
+		name string
+		run  func(sdk.Context, types.Epoch)
+	}{
+		{name: "AfterEpochEnd", run: hooks.AfterEpochEnd},
+		{name: "BeforeEpochStart", run: hooks.BeforeEpochStart},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			db := tmdb.NewMemDB()
+			ms := store.NewCommitMultiStore(db)
+			ctx := sdk.NewContext(ms, tmproto.Header{}, false)
+
+			tc.run(ctx, types.Epoch{})
+
+			require.Equal(t, expected, ctx.EventManager().Events())
+		})
+	}
+}
+
 func TestMultiHooks_Panic(t *testing.T) {
 	hook1 := &mockEpochHooks{shouldPanic: false}
 	hook2 := &mockEpochHooks{shouldPanic: true}

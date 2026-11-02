@@ -15,7 +15,6 @@ use layerx_agent_api::subscription::{
     Cursor as ApiCursor, CursorAcknowledgement, DeliveryTarget, SubscriptionCreate,
     SubscriptionFilter, SubscriptionId, SubscriptionScope, SubscriptionTarget, TenantObject,
 };
-use layerx_agent_api::Sequence;
 use layerx_agentd::events::outbound::{
     deliver as deliver_outbound, Authenticator, Endpoint, EndpointFailure, OutboundError,
     PeerIdentity, StopSignal, VerifiedItem,
@@ -154,7 +153,11 @@ fn engine(root: &PathBuf) -> DeliveryEngine {
     let create = SubscriptionCreate {
         scope: scope(),
         filter: filter(),
-        start: ApiCursor(Sequence(0)),
+        start: ApiCursor {
+            block_height: 0,
+            tx_index: 0,
+            log_index: 0,
+        },
         delivery_target: text(DeliveryTarget::new("uds://receiver"), "target"),
     };
     if let Err(error) = subscriptions.create(id(), create) {
@@ -231,7 +234,7 @@ fn unreachable_endpoint_schedules_retry_and_preserves_health_cursor() {
         })
     ));
     let health = event_health(&delivery).unwrap_or_else(|error| panic!("event health: {error}"));
-    assert_eq!(health.acknowledged_cursor.0, 0);
+    assert_eq!(health.acknowledged_cursor.block_height, 0);
     assert_eq!(health.lag_sequences, 1);
     assert_eq!(health.failure_count, 1);
     assert!(health.lagging);
@@ -331,7 +334,7 @@ fn slow_endpoint_receives_byte_identical_retry_and_bound_event_evidence() {
         panic!("consumer cursor acknowledgement failed: {error}");
     }
     let health = event_health(&delivery).unwrap_or_else(|error| panic!("event health: {error}"));
-    assert_eq!(health.acknowledged_cursor.0, 1);
+    assert_eq!(health.acknowledged_cursor.block_height, 1);
     assert_eq!(health.lag_sequences, 0);
     assert_eq!(health.failure_count, 1);
     assert_eq!(health.last_delivery_at_ms, Some(300));

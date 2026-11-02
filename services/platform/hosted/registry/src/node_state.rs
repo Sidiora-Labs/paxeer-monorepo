@@ -1,17 +1,14 @@
 use std::cell::Cell;
 use std::time::{Duration, Instant};
 
-use layerx_client::lni::head_attestation::ProgramHeadAttestation;
 use layerx_programs::{
-    hex, AccountStateHead, DeploymentProof, ProgramId, ProgramStateBundle,
-    ProtocolDeploymentVerifier, ProtocolHeadMaintenanceProof, ProtocolHeadProof,
+    chain_evidence::commitment_trust_step, hex, AccountStateHead, DeploymentProof, ProgramHeadKind,
+    ProgramId, ProgramStateBundle, ProtocolDeploymentVerifier, VerifiedChainHead,
     VerifiedDeploymentEvidence, VerifiedProgramBundle,
 };
-use layerx_proof::merkle::Proof;
-use layerx_wire::hash::receipt_digest;
-use layerx_wire::receipt::{decode as decode_receipt, decode_merkle_proof, encode_unsigned};
 use serde_json::Value;
-use sha2::Digest as _;
+
+use crate::head_attestation::{chain_head_evidence, ChainHeadEvidence};
 
 const ACCOUNT_ACTIVITY: u32 = 0x0009_0006;
 const WIND_DOWN_ACTIVITY: u32 = 0x0009_0007;
@@ -59,14 +56,9 @@ pub struct ProgramStateRecord {
     pub receipt: AccountStateHead,
 }
 
-/// The independently verified authority the current head was checked under:
-/// the sequencer key proven by the batch header signature and the chain
-/// identity the header carries.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HeadAuthority {
-    pub sequencer_public_key: [u8; 32],
-    pub protocol_version: u16,
-    pub network_id: u32,
+    pub header_hash: [u8; 32],
 }
 
 #[derive(Clone)]
@@ -139,15 +131,6 @@ pub struct NodeProgramStateSource {
     authority_replica_id: [u8; 32],
     deployment_verifier: ProtocolDeploymentVerifier,
     request_deadline: Cell<Option<Instant>>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct BatchEvidence {
-    header: Vec<u8>,
-    signature: [u8; 64],
-    receipt_proof: Proof,
-    batch_identity: Value,
-    maintenance: Option<ProtocolHeadMaintenanceProof>,
 }
 
 impl NodeProgramStateSource {
@@ -231,91 +214,6 @@ impl NodeProgramStateSource {
         })
     }
 
-    /// # Errors
-    /// Refuses native admission, unavailable proof material and mismatched activity bytes.
-    pub fn deploy(&self, canonical: &[u8], deadline: Instant) -> Result<DeploymentProof, String> {
-        self.set_request_deadline(deadline);
-        let registration = layerx_types::payload::ModuleRegistration::new(
-            layerx_types::payload::ModuleId::Programs,
-            &[1, 2]
-                .map(|ordinal| {
-                    layerx_types::payload::ActivityType::new(
-                        layerx_types::payload::ModuleId::Programs,
-                        ordinal,
-                    )
-                })
-                .into_iter()
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|error| format!("{error:?}"))?,
-        )
-        .map_err(|error| format!("{error:?}"))?;
-        let registry = layerx_types::payload::ModuleRegistry::new(&[registration])
-            .map_err(|error| format!("{error:?}"))?;
-        let activity = layerx_wire::activity::decode_signed(canonical, &registry)
-            .map_err(|error| format!("deployment activity: {error:?}"))?;
-        let id = layerx_wire::hash::activity_id(&activity).map_err(|error| format!("{error:?}"))?;
-        let operation = if activity.activity_type().ordinal() == 1 {
-            "deploy"
-        } else {
-            "upgrade"
-        };
-        let remaining = deadline
-            .checked_duration_since(Instant::now())
-            .filter(|duration| !duration.is_zero())
-            .ok_or_else(|| "deployment deadline expired".to_owned())?;
-        let mut response = self
-            .agent
-            .post(format!(
-                "{}/internal/v1/programs/{operation}",
-                self.endpoint
-            ))
-            .header("Authorization", &format!("Bearer {}", self.authorization))
-            .header("Content-Type", "application/octet-stream")
-            .config()
-            .timeout_global(Some(remaining))
-            .build()
-            .send(canonical)
-            .map_err(|error| format!("deployment submission: {error}"))?;
-        if response.status().as_u16() != 202 {
-            return Err(format!(
-                "deployment admission returned HTTP {}",
-                response.status()
-            ));
-        }
-        let body = response
-            .body_mut()
-            .read_to_string()
-            .map_err(|error| error.to_string())?;
-        let acknowledgement: Value =
-            serde_json::from_str(&body).map_err(|error| error.to_string())?;
-        if hex::decode_digest(field(&acknowledgement, "activity_id")?)
-            .map_err(|error| error.to_string())?
-            != id
-        {
-            return Err("deployment acknowledgement names a different activity".to_owned());
-        }
-        let path = format!("/internal/v1/deployment-proof/{}", hex::encode(&id));
-        loop {
-            let (status, document) = self.fetch_from(&self.endpoint, &self.authorization, &path)?;
-            if status == 200 {
-                let bytes = hex::decode(field(&document, "proof_hex")?)
-                    .map_err(|error| error.to_string())?;
-                let proof = DeploymentProof::decode(&bytes).map_err(|error| error.to_string())?;
-                if proof.activity != canonical {
-                    return Err("deployment proof names different activity bytes".to_owned());
-                }
-                return Ok(proof);
-            }
-            if status != 503 || document["native_result"].as_i64() != Some(-106) {
-                return Err(format!("deployment evidence refused with HTTP {status}"));
-            }
-            let remaining = deadline
-                .checked_duration_since(Instant::now())
-                .ok_or_else(|| "deployment outcome unavailable at deadline".to_owned())?;
-            std::thread::sleep(remaining.min(Duration::from_millis(20)));
-        }
-    }
-
     pub fn set_request_deadline(&self, deadline: Instant) {
         self.request_deadline.set(Some(deadline));
     }
@@ -334,27 +232,34 @@ impl NodeProgramStateSource {
 
     ///
     /// # Errors
-    /// Returns the protocol verifier refusal for invalid or stale deployment evidence.
-    pub fn verify_deployment(
-        &self,
-        proof: &DeploymentProof,
-        now_ms: u64,
-    ) -> Result<VerifiedDeploymentEvidence, String> {
-        self.deployment_verifier
-            .verify_deployment(proof, now_ms)
-            .map_err(|error| format!("protocol deployment evidence refused: {error}"))
-    }
-
-    ///
-    /// # Errors
     /// Returns the protocol verifier refusal for invalid historical deployment evidence.
     pub fn verify_stored_deployment(
         &self,
         proof: &DeploymentProof,
+        now: u64,
     ) -> Result<VerifiedDeploymentEvidence, String> {
+        let document = self.get("/v1/protocol/account-state/head")?;
+        self.parse_head_authority(&document, Some(now))?;
+        let evidence = chain_head_evidence(&document)?;
+        let trust = self
+            .deployment_verifier
+            .chain_trust()
+            .ok_or("chain trust is absent")?;
+        let admission = commitment_trust_step(&proof.state.commitment)
+            .map_err(|error| format!("deployment trust step: {error:?}"))?;
+        let current = commitment_trust_step(&evidence.commitment)
+            .map_err(|error| format!("current trust step: {error:?}"))?;
+        let verified = trust
+            .verify_head(&current.0, &current.1)
+            .map_err(|error| format!("current chain head: {error:?}"))?;
+        let history = if admission.0.height == current.0.height {
+            vec![admission]
+        } else {
+            vec![admission, current]
+        };
         self.deployment_verifier
-            .verify_historical_deployment(proof)
-            .map_err(|error| format!("stored protocol deployment evidence refused: {error}"))
+            .verify_historical_deployment(proof, &verified, &history, now)
+            .map_err(|error| format!("stored deployment evidence refused: {error}"))
     }
 
     ///
@@ -364,8 +269,7 @@ impl NodeProgramStateSource {
         self.parse_head(&self.get("/v1/protocol/account-state/head")?, Some(now_ms))
     }
 
-    /// Reads the current head together with the independently verified
-    /// sequencer key and chain identity it was checked under.
+    /// Reads the current head together with its independently verified header hash.
     ///
     /// # Errors
     /// Refuses unavailable node or replica responses and invalid, unverified or stale head evidence.
@@ -392,40 +296,6 @@ impl NodeProgramStateSource {
                 Err(format!("node authority GET {path} returned HTTP {status}"))
             }
         }
-    }
-
-    /// # Errors
-    /// Refuses deployment evidence that differs from the independent receipt authority.
-    pub fn verify_deployment_authority(&self, proof: &DeploymentProof) -> Result<(), String> {
-        let decoded = decode_receipt(&proof.state.receipt)
-            .map_err(|_| "deployment receipt decoding failed".to_owned())?;
-        let protocol = decoded
-            .protocol()
-            .ok_or_else(|| "deployment receipt shape".to_owned())?;
-        let digest = proof
-            .claimed_receipt_digest()
-            .map_err(|error| error.to_string())?;
-        let path = format!(
-            "/v1/batches/{}/receipt-authority?receipt_digest={}",
-            hex::encode(&protocol.batch_id()),
-            hex::encode(&digest)
-        );
-        let document = self.get_authority(&path)?;
-        let independent = parse_batch_evidence(&document["batch_evidence"])?;
-        if independent.header != proof.state.header
-            || independent.signature != proof.state.header_signature
-            || independent.receipt_proof != proof.state.receipt_proof
-            || hex::decode_digest(field(&document, "authority_replica_id")?)
-                .map_err(|error| error.to_string())?
-                != self.authority_replica_id
-        {
-            return Err("deployment evidence disagrees with independent authority".to_owned());
-        }
-        let key = hex::decode_digest(field(&document, "sequencer_public_key")?)
-            .map_err(|error| error.to_string())?;
-        layerx_proof::receipt::verify_sequencer_signature(&proof.state.receipt, key)
-            .map_err(|error| format!("independent authority sequencer key refused: {error:?}"))?;
-        Ok(())
     }
 
     ///
@@ -509,45 +379,18 @@ impl NodeProgramStateSource {
         }
         let bundle = ProgramStateBundle::decode(&bytes)
             .map_err(|error| format!("program state bundle decoding refused: {error}"))?;
-        let state = &bundle.state;
-        let header = layerx_wire::receipt::decode_batch_header(&state.header)
-            .map_err(|error| format!("program signed header decoding refused: {error:?}"))?;
-        if header.protocol_version() != authority.protocol_version
-            || header.network_id() != authority.network_id
-        {
+        let head_document = self.get("/v1/protocol/account-state/head")?;
+        let (verified_head, verified_authority) =
+            self.parse_head_authority(&head_document, Some(now_ms))?;
+        if verified_head != current_head || verified_authority != *authority {
             return Err(
-                "program signed header differs from independently verified chain identity"
-                    .to_owned(),
+                "program proof differs from independently verified current head".to_owned(),
             );
         }
-        let chain = self
-            .deployment_verifier
-            .verify_current_chain_head(
-                bundle.head_kind,
-                &state.receipt,
-                &state.receipt_proof,
-                &state.header,
-                &state.header_signature,
-                now_ms,
-            )
-            .map_err(|error| format!("program proof head refused: {error}"))?;
-        if chain.receipt_digest() != current_head.receipt_digest
-            || chain.state_root() != current_head.state_root
-            || chain.freshness() != current_head.freshness
-            || chain.sequencer_public_key() != authority.sequencer_public_key
-        {
-            return Err(
-                "program state proof differs from independently verified current head".to_owned(),
-            );
-        }
+        let evidence = chain_head_evidence(&head_document)?;
+        let chain = self.verify_chain_head(&evidence, now_ms)?;
         self.deployment_verifier
-            .verify_current_program_bundle(
-                &bundle,
-                &chain,
-                program,
-                &authority.sequencer_public_key,
-                now_ms,
-            )
+            .verify_current_program_bundle(&bundle, &chain, program, now_ms)
             .map_err(|error| format!("program/interface membership refused: {error}"))
     }
 
@@ -586,39 +429,6 @@ impl NodeProgramStateSource {
             bytes,
             receipt,
         })
-    }
-
-    /// Requests the sequencer's attestation of one program head through the
-    /// node boundary, which relays LNI messages 40 and 41 on the registry plane
-    /// under the same endpoint, CA and bearer credential as every other node
-    /// read of this source.
-    ///
-    /// # Errors
-    /// Refuses an unavailable boundary or node, every boundary refusal and
-    /// every attestation that does not verify under the verified sequencer key.
-    pub fn relayed_head_attestation(
-        &self,
-        program_id: [u8; 32],
-        staleness_ms: u64,
-        authority: &HeadAuthority,
-    ) -> Result<ProgramHeadAttestation, String> {
-        let path = format!(
-            "/internal/v1/programs/{}/head-attestation?staleness_ms={staleness_ms}",
-            hex::encode(&program_id)
-        );
-        let (status, document) = self.fetch_from(&self.endpoint, &self.authorization, &path)?;
-        if status != 200 {
-            return Err(format!(
-                "node boundary head attestation relay returned HTTP {status} ({})",
-                document["error"]["code"].as_str().unwrap_or("unspecified")
-            ));
-        }
-        crate::head_attestation::decode_relayed_head_attestation(
-            &document,
-            program_id,
-            staleness_ms,
-            authority,
-        )
     }
 
     ///
@@ -790,265 +600,91 @@ impl NodeProgramStateSource {
         value: &Value,
         now_ms: Option<u64>,
     ) -> Result<(AccountStateHead, HeadAuthority), String> {
-        let current = value["current"]
-            .as_bool()
-            .ok_or_else(|| "node account-state response omitted current".to_owned())?;
-        if now_ms.is_some() && !current {
+        if now_ms.is_some() && value["current"].as_bool() != Some(true) {
             return Err("node account-state response is not the current head".to_owned());
         }
-        let receipt_bytes = hex::decode(field(value, "receipt_hex")?)
-            .map_err(|error| format!("node receipt bytes are invalid: {error}"))?;
-        let node_evidence = parse_batch_evidence(&value["batch_evidence"])?;
-        let (batch_id, digest, maintenance) = head_identity(&receipt_bytes, &node_evidence)?;
-        let batch_path = format!(
-            "/v1/batches/{}/receipt-authority?receipt_digest={}",
-            hex::encode(&batch_id),
-            hex::encode(&digest)
-        );
-        let independent_document = self.get_authority(&batch_path)?;
-        let independent_evidence = parse_batch_evidence(&independent_document["batch_evidence"])?;
-        if node_evidence != independent_evidence {
-            return Err("node batch authority disagrees with the independent authority".to_owned());
-        }
-        if hex::decode_digest(field(&independent_document, "authority_replica_id")?)
-            .map_err(|error| format!("independent authority id is invalid: {error}"))?
-            != self.authority_replica_id
+        let evidence = chain_head_evidence(value)?;
+        let sequence = value["observed_sequence"]
+            .as_u64()
+            .ok_or("head omitted observed_sequence")?;
+        let path = format!("/v1/protocol/account-state/head?height={sequence}");
+        let independent = self.get_authority(&path)?;
+        if evidence != chain_head_evidence(&independent)?
+            || hex::decode_digest(field(&independent, "authority_replica_id")?)
+                .map_err(|error| error.to_string())?
+                != self.authority_replica_id
         {
-            return Err("independent authority declared a different replica id".to_owned());
+            return Err("node chain evidence disagrees with independent authority".to_owned());
         }
-        let (head, sequencer_key) =
-            self.verify_head(&receipt_bytes, &independent_evidence, maintenance, now_ms)?;
-        if hex::decode_digest(field(&independent_document, "sequencer_public_key")?)
-            .map_err(|error| format!("independent sequencer key is invalid: {error}"))?
-            != sequencer_key
-        {
-            return Err("independent authority declared a different sequencer key".to_owned());
-        }
-        let declared_digest = hex::decode_digest(field(value, "receipt_digest")?)
-            .map_err(|error| format!("node receipt digest is invalid: {error}"))?;
-        let declared_root = hex::decode_digest(field(value, "state_root")?)
-            .map_err(|error| format!("node state root is invalid: {error}"))?;
-        if declared_digest != head.receipt_digest
-            || declared_root != head.state_root
-            || value["observed_sequence"].as_u64() != Some(head.freshness.observed_sequence)
+        let trust = self
+            .deployment_verifier
+            .chain_trust()
+            .ok_or("chain trust is absent")?;
+        let step = commitment_trust_step(&evidence.commitment)
+            .map_err(|error| format!("chain trust step: {error:?}"))?;
+        let header = trust
+            .verify_head(&step.0, &step.1)
+            .map_err(|error| format!("chain head verification failed: {error:?}"))?;
+        let head = match now_ms {
+            Some(now) => {
+                let chain = self.verify_chain_head(&evidence, now)?;
+                AccountStateHead {
+                    receipt_digest: chain.receipt_digest(),
+                    state_root: chain.state_root(),
+                    freshness: chain.freshness(),
+                }
+            }
+            None => {
+                let digest = layerx_programs::verify_tx(
+                    &header,
+                    &evidence.transaction,
+                    &evidence.transaction_proof,
+                )
+                .map_err(|error| format!("historical transaction proof refused: {error:?}"))?;
+                let time =
+                    u64::try_from(header.time_ms()).map_err(|_| "invalid historical head time")?;
+                let freshness =
+                    layerx_programs::chain_evidence::freshness::chain_freshness(&header, time, 0)
+                        .map_err(|error| error.to_string())?;
+                AccountStateHead {
+                    receipt_digest: digest,
+                    state_root: header.app_hash(),
+                    freshness,
+                }
+            }
+        };
+        if hex::decode_digest(field(value, "receipt_digest")?).map_err(|error| error.to_string())?
+            != head.receipt_digest
+            || hex::decode_digest(field(value, "state_root")?).map_err(|error| error.to_string())?
+                != head.state_root
+            || sequence != head.freshness.observed_sequence
             || value["observed_at"].as_u64() != Some(head.freshness.observed_at)
         {
-            return Err("node account-state claims disagree with the verified receipt".to_owned());
+            return Err("node head claims disagree with verified chain evidence".to_owned());
         }
-        let header = layerx_wire::receipt::decode_batch_header(&independent_evidence.header)
-            .map_err(|error| format!("independent batch header decoding failed: {error:?}"))?;
         Ok((
             head,
             HeadAuthority {
-                sequencer_public_key: sequencer_key,
-                protocol_version: header.protocol_version(),
-                network_id: header.network_id(),
+                header_hash: header.header_hash(),
             },
         ))
     }
 
-    fn verify_head(
+    fn verify_chain_head(
         &self,
-        receipt: &[u8],
-        evidence: &BatchEvidence,
-        maintenance: bool,
-        now_ms: Option<u64>,
-    ) -> Result<(AccountStateHead, [u8; 32]), String> {
-        let verifier = &self.deployment_verifier;
-        if maintenance {
-            return match now_ms {
-                Some(now) => verifier.verify_current_maintenance_head(
-                    receipt,
-                    &evidence.receipt_proof,
-                    &evidence.header,
-                    &evidence.signature,
-                    now,
-                ),
-                None => verifier.verify_historical_maintenance_head(
-                    receipt,
-                    &evidence.receipt_proof,
-                    &evidence.header,
-                    &evidence.signature,
-                ),
-            }
-            .map_err(|error| format!("maintenance head verification failed: {error}"));
-        }
-        let proof = ProtocolHeadProof {
-            receipt,
-            receipt_proof: &evidence.receipt_proof,
-            header: &evidence.header,
-            header_signature: &evidence.signature,
-            maintenance: evidence.maintenance.as_ref(),
-        };
-        let claims = match now_ms {
-            Some(now) => verifier.verify_current_protocol_head_proof(&proof, now),
-            None => verifier.verify_historical_protocol_head_proof(&proof),
-        }
-        .map_err(|error| format!("program-state receipt verification failed: {error}"))?;
-        Ok((
-            AccountStateHead {
-                receipt_digest: claims.receipt_digest(),
-                state_root: claims.state_root(),
-                freshness: claims.freshness(),
-            },
-            claims.sequencer_public_key(),
-        ))
+        evidence: &ChainHeadEvidence,
+        now: u64,
+    ) -> Result<VerifiedChainHead, String> {
+        self.deployment_verifier
+            .verify_current_chain_head(
+                ProgramHeadKind::Ordinary,
+                &evidence.commitment,
+                &evidence.transaction,
+                &evidence.transaction_proof,
+                now,
+            )
+            .map_err(|error| format!("chain head evidence refused: {error}"))
     }
-}
-
-fn head_identity(
-    receipt: &[u8],
-    evidence: &BatchEvidence,
-) -> Result<([u8; 32], [u8; 32], bool), String> {
-    let identity_kind = if receipt.starts_with(layerx_wire::batch_maintenance::DOMAIN) {
-        Some("batch_maintenance_v1")
-    } else if receipt.starts_with(b"LXP/programs/occupancy-receipt/v2\0") {
-        Some("occupancy_maintenance_v2")
-    } else {
-        None
-    };
-    if let Some(identity_kind) = identity_kind {
-        let identity = &evidence.batch_identity;
-        if field(identity, "kind")? != identity_kind
-            || hex::decode(field(identity, "receipt_hex")?).map_err(|error| error.to_string())?
-                != receipt
-        {
-            return Err("maintenance head batch identity disagrees with its receipt".to_owned());
-        }
-        let proof = hex::decode(field(identity, "receipt_proof_hex")?)
-            .map_err(|error| error.to_string())?;
-        let proof = decode_merkle_proof(&proof)
-            .map_err(|error| format!("maintenance identity proof is invalid: {error:?}"))?;
-        if proof.leaf_index() != evidence.receipt_proof.leaf_index()
-            || proof.leaf_count() != evidence.receipt_proof.leaf_count()
-            || proof.siblings() != evidence.receipt_proof.siblings()
-        {
-            return Err(
-                "maintenance batch identity proof disagrees with head inclusion".to_owned(),
-            );
-        }
-        let header = layerx_wire::receipt::decode_batch_header(&evidence.header)
-            .map_err(|_| "maintenance header is invalid".to_owned())?;
-        let record = layerx_wire::batch_maintenance::decode_maintenance(receipt)
-            .map_err(|_| "maintenance receipt is invalid".to_owned())?;
-        record
-            .verify_header(&header)
-            .map_err(|_| "maintenance header binding is invalid".to_owned())?;
-        let last_activity = header
-            .last_sequence()
-            .checked_sub(1)
-            .ok_or_else(|| "maintenance sequence is invalid".to_owned())?;
-        let batch = layerx_wire::hash::program_execution_batch_id(
-            header.previous_state_root(),
-            header.activity_merkle_root(),
-            header.first_sequence(),
-            last_activity,
-            header.batch_number(),
-        )
-        .map_err(|_| "maintenance batch identity is invalid".to_owned())?;
-        let digest = sha2::Sha256::digest(receipt).into();
-        return Ok((batch, digest, true));
-    }
-    let decoded = decode_receipt(receipt)
-        .map_err(|_| "node receipt is not canonically decodable".to_owned())?;
-    let protocol = decoded
-        .protocol()
-        .ok_or_else(|| "node returned a non-protocol receipt".to_owned())?;
-    let unsigned = encode_unsigned(&decoded)
-        .map_err(|_| "node receipt could not be encoded unsigned".to_owned())?;
-    let digest = receipt_digest(&unsigned)
-        .map_err(|_| "node receipt digest could not be computed".to_owned())?;
-    Ok((protocol.batch_id(), digest, false))
-}
-
-fn parse_batch_evidence(value: &Value) -> Result<BatchEvidence, String> {
-    let header = hex::decode(field(value, "header_hex")?)
-        .map_err(|error| format!("batch authority header is invalid: {error}"))?;
-    let signature = hex::decode(field(value, "header_signature")?)
-        .map_err(|error| format!("batch authority signature is invalid: {error}"))?
-        .try_into()
-        .map_err(|_| "batch authority signature must be sixty-four bytes".to_owned())?;
-    let proof_bytes = hex::decode(field(value, "receipt_proof_hex")?)
-        .map_err(|error| format!("receipt proof is invalid: {error}"))?;
-    let canonical = decode_merkle_proof(&proof_bytes)
-        .map_err(|error| format!("receipt proof is non-canonical: {error:?}"))?;
-    let receipt_proof = Proof::new(
-        canonical.leaf_index(),
-        canonical.leaf_count(),
-        canonical.siblings().to_vec(),
-    )
-    .map_err(|error| format!("receipt proof structure is invalid: {error:?}"))?;
-    Ok(BatchEvidence {
-        header,
-        signature,
-        receipt_proof,
-        batch_identity: value["batch_identity"].clone(),
-        maintenance: parse_maintenance(&value["batch_identity"])?,
-    })
-}
-
-fn parse_maintenance(value: &Value) -> Result<Option<ProtocolHeadMaintenanceProof>, String> {
-    if value.is_null() {
-        return Ok(None);
-    }
-    let kind = field(value, "kind")?;
-    if !matches!(kind, "occupancy_maintenance_v2" | "batch_maintenance_v1") {
-        return Err("unsupported receipt batch identity".to_owned());
-    }
-    let items = value["activity_receipts_hex"]
-        .as_array()
-        .ok_or_else(|| "maintenance evidence omitted the complete receipt chain".to_owned())?;
-    if items.is_empty() || items.len() > 64 {
-        return Err("maintenance receipt count exceeds its bound".to_owned());
-    }
-    let mut remaining = 16 * 1024 * 1024;
-    let mut decode = |encoded: &str| {
-        if !encoded.len().is_multiple_of(2) || encoded.len() / 2 > remaining {
-            return Err("maintenance receipt bytes exceed their bound".to_owned());
-        }
-        remaining -= encoded.len() / 2;
-        hex::decode(encoded).map_err(|error| format!("maintenance receipt encoding: {error}"))
-    };
-    let receipt = decode(field(value, "receipt_hex")?)?;
-    let record = layerx_wire::batch_maintenance::decode_maintenance(&receipt)
-        .map_err(|_| "maintenance identity receipt is noncanonical".to_owned())?;
-    if !matches!(
-        (kind, record),
-        (
-            "occupancy_maintenance_v2",
-            layerx_wire::batch_maintenance::MaintenanceReceipt::Occupancy(_)
-        ) | (
-            "batch_maintenance_v1",
-            layerx_wire::batch_maintenance::MaintenanceReceipt::Batch(_)
-        )
-    ) {
-        return Err("maintenance identity kind disagrees with its receipt".to_owned());
-    }
-    let mut activity_receipts = Vec::with_capacity(items.len());
-    for item in items {
-        activity_receipts
-            .push(decode(item.as_str().ok_or_else(|| {
-                "maintenance receipt is not hexadecimal text".to_owned()
-            })?)?);
-    }
-    let encoded_proof = field(value, "receipt_proof_hex")?;
-    if encoded_proof.len() > 2 * 1_034 {
-        return Err("maintenance proof exceeds its bound".to_owned());
-    }
-    let proof = hex::decode(encoded_proof).map_err(|error| error.to_string())?;
-    let canonical = decode_merkle_proof(&proof)
-        .map_err(|error| format!("maintenance proof encoding: {error:?}"))?;
-    let receipt_proof = Proof::new(
-        canonical.leaf_index(),
-        canonical.leaf_count(),
-        canonical.siblings().to_vec(),
-    )
-    .map_err(|error| format!("maintenance proof structure: {error:?}"))?;
-    Ok(Some(ProtocolHeadMaintenanceProof {
-        receipt,
-        receipt_proof,
-        activity_receipts,
-    }))
 }
 
 fn parse_cursor(value: &Value) -> Result<ProgramStateCursor, String> {
@@ -1152,72 +788,6 @@ mod tests {
         )
         .is_err());
         Ok(())
-    }
-
-    fn legacy_native_proof() -> Vec<u8> {
-        let proof = layerx_proof::merkle::decode_proof(include_bytes!(
-            "../../../../../tests/fixtures/custody/daemon-credit-receipt/maintenance.proof"
-        ))
-        .unwrap_or_else(|error| panic!("original public proof: {error:?}"));
-        let mut encoder = layerx_wire::encode::Encoder::new(1_034);
-        encoder
-            .structure_header(0x4d50)
-            .and_then(|()| encoder.u32(proof.leaf_index()))
-            .and_then(|()| encoder.u32(proof.leaf_count()))
-            .and_then(|()| {
-                encoder.u8(u8::try_from(proof.siblings().len())
-                    .unwrap_or_else(|error| panic!("original proof depth: {error}")))
-            })
-            .and_then(|()| encoder.bytes(&proof.siblings().concat(), 1_024))
-            .unwrap_or_else(|error| panic!("native proof encoding: {error:?}"));
-        let bytes = encoder.finish();
-        let decoded = layerx_wire::receipt::decode_merkle_proof(&bytes)
-            .unwrap_or_else(|error| panic!("native proof decoding: {error:?}"));
-        assert_eq!(decoded.leaf_index(), proof.leaf_index());
-        assert_eq!(decoded.leaf_count(), proof.leaf_count());
-        assert_eq!(decoded.siblings(), proof.siblings());
-        bytes
-    }
-
-    #[test]
-    fn maintenance_json_kind_binds_the_original_native_envelope() {
-        let receipt =
-            include_bytes!("../../../../../tests/fixtures/custody/daemon-module-head/receipt");
-        let maintenance = include_bytes!(
-            "../../../../../tests/fixtures/custody/daemon-module-head/maintenance.receipt"
-        );
-        let proof = include_bytes!(
-            "../../../../../tests/fixtures/custody/daemon-module-head/maintenance.proof"
-        );
-        let mut document = json!({
-            "kind": "batch_maintenance_v1",
-            "receipt_hex": layerx_programs::hex::encode(maintenance),
-            "receipt_proof_hex": layerx_programs::hex::encode(proof),
-            "activity_receipts_hex": [layerx_programs::hex::encode(receipt)]
-        });
-        let parsed = super::parse_maintenance(&document)
-            .unwrap_or_else(|error| panic!("native maintenance identity: {error}"))
-            .unwrap_or_else(|| panic!("native maintenance identity missing"));
-        assert_eq!(parsed.receipt, maintenance);
-        assert_eq!(parsed.activity_receipts, [receipt.to_vec()]);
-        document["kind"] = json!("occupancy_maintenance_v2");
-        assert!(super::parse_maintenance(&document).is_err());
-        let legacy = include_bytes!(
-            "../../../../../tests/fixtures/custody/daemon-credit-receipt/maintenance.receipt"
-        );
-        document["receipt_hex"] = json!(layerx_programs::hex::encode(legacy));
-        document["receipt_proof_hex"] = json!(layerx_programs::hex::encode(&legacy_native_proof()));
-        document["activity_receipts_hex"] = json!([layerx_programs::hex::encode(include_bytes!(
-            "../../../../../tests/fixtures/custody/daemon-credit-receipt/credit.receipt"
-        ))]);
-        assert!(super::parse_maintenance(&document).is_ok());
-        document["kind"] = json!("batch_maintenance_v1");
-        assert!(super::parse_maintenance(&document).is_err());
-        document["kind"] = json!("unknown");
-        assert!(super::parse_maintenance(&document).is_err());
-        document["kind"] = json!("occupancy_maintenance_v2");
-        document["activity_receipts_hex"] = json!([]);
-        assert!(super::parse_maintenance(&document).is_err());
     }
 
     #[test]

@@ -14,10 +14,6 @@ ENDPOINT_AUTHORITY_TOKEN	/run/secrets/authority-token		*
 ENDPOINT_IDENTITY_TOKEN	/run/secrets/identity-token		*
 ENDPOINT_IDENTITY_PROVISIONING_TOKEN	/run/secrets/identity-provisioning-token		*
 ENDPOINT_PROGRAM_REGISTRY_TOKEN	/run/secrets/program-registry-token		*
-ENDPOINT_SEQUENCER_PUBLIC_KEY	/run/secrets/sequencer-public-key		*
-ENDPOINT_SEQUENCER_ID	/run/secrets/sequencer-id		*
-ENDPOINT_SEQUENCER_FIRST_BATCH	/run/secrets/sequencer-first-batch		*
-ENDPOINT_SEQUENCER_LAST_BATCH	/run/secrets/sequencer-last-batch		*
 ENDPOINT_KEY_PROVISIONING_KEY	/run/secrets/key-provisioning-key		*
 ENDPOINT_MODULE_REGISTRY	/run/secrets/module-registry.json		*
 ENDPOINT_UI_BINDINGS	/run/secrets/ui-bindings.json	0600	*

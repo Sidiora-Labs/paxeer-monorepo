@@ -9,6 +9,7 @@ defmodule Explorer.Chain.Transaction.History.Historian do
   alias Explorer.Chain.Block.Reader.General, as: BlockGeneralReader
   alias Explorer.Chain.Cache.Counters.LastFetchedCounter
   alias Explorer.Chain.Events.Publisher
+  alias Explorer.Chain.PaxeerX.PriceUpdate
   alias Explorer.Chain.Transaction.History.TransactionStats
   alias Explorer.History.Process, as: HistoryProcess
   alias Explorer.Repo
@@ -145,7 +146,9 @@ defmodule Explorer.Chain.Transaction.History.Historian do
   #
   # This function aggregates data from transactions within the specified block
   # range, considering only blocks with consensus. It calculates the number of
-  # transactions, total gas used, and total transaction fees.
+  # transactions, total gas used, and total transaction fees. Native price-feed
+  # submissions are transactions of their block and count towards the number of
+  # transactions; their gas is not EVM gas and stays out of the gas and fee sums.
   #
   # The function adapts its query strategy based on whether transaction
   # denormalization has been completed, optimizing for performance in both cases.
@@ -156,7 +159,8 @@ defmodule Explorer.Chain.Transaction.History.Historian do
   #
   # ## Returns
   # A map containing the following keys:
-  # - `:number_of_transactions`: The total number of transactions in the range.
+  # - `:number_of_transactions`: The total number of transactions in the range,
+  #   EVM transactions and price-feed submissions together.
   # - `:gas_used`: The total amount of gas used by all transactions in the range.
   # - `:total_fee`: The sum of all transaction fees in the range.
   @spec compile_records_in_range(non_neg_integer(), non_neg_integer()) :: record()
@@ -203,8 +207,14 @@ defmodule Explorer.Chain.Transaction.History.Historian do
       end
 
     # Number of transactions in the given block range
-    num_transactions = Repo.aggregate(query, :count, :hash, timeout: :infinity)
-    Logger.info("tx/per day chart: num of transactions #{num_transactions}")
+    num_evm_transactions = Repo.aggregate(query, :count, :hash, timeout: :infinity)
+    Logger.info("tx/per day chart: num of transactions #{num_evm_transactions}")
+
+    # Number of price-feed submissions in the consensus blocks of the given block range
+    num_price_updates = Repo.aggregate(price_updates_query(min_block, max_block), :count, :hash, timeout: :infinity)
+    Logger.info("tx/per day chart: num of price-feed submissions #{num_price_updates}")
+
+    num_transactions = num_evm_transactions + num_price_updates
     # Total gas used in the given block range
     gas_used = Repo.aggregate(query, :sum, :gas_used, timeout: :infinity)
     Logger.info("tx/per day chart: total gas used #{gas_used}")
@@ -229,6 +239,16 @@ defmodule Explorer.Chain.Transaction.History.Historian do
     Logger.info("tx/per day chart: total fee #{total_fee}")
 
     %{number_of_transactions: num_transactions, gas_used: gas_used, total_fee: total_fee}
+  end
+
+  defp price_updates_query(min_block, max_block) do
+    from(
+      update in PriceUpdate,
+      join: block in Block,
+      on: block.hash == update.block_hash,
+      where: block.consensus == true,
+      where: update.block_number >= ^min_block and update.block_number <= ^max_block
+    )
   end
 
   @impl Historian

@@ -9,7 +9,7 @@ public final class PlatformSdkException extends RuntimeException {
         INVALID_ARGUMENT("invalid-argument"), IDEMPOTENCY_REQUIRED("idempotency-required"),
         TRANSPORT_FAILURE("transport-failure"), DEADLINE("deadline"),
         PROTOCOL_INCOMPATIBILITY("protocol-incompatibility"), UNAVAILABLE_CAPABILITY("unavailable-capability"),
-        CORE_REJECTION("core-rejection"), VERIFICATION_FAILURE("verification-failure"),
+        CORE_REJECTION("core-rejection"), REVERT("revert"), VERIFICATION_FAILURE("verification-failure"),
         POLICY_REFUSAL("policy-refusal"), CAPABILITY_REFUSAL("capability-refusal"),
         BUDGET_REFUSAL("budget-refusal"), RATE_LIMIT("rate-limit"),
         IDEMPOTENCY_CONFLICT("idempotency-conflict"), DECODE_FAILURE("decode-failure"),
@@ -32,6 +32,7 @@ public final class PlatformSdkException extends RuntimeException {
         Map.entry(Code.PROTOCOL_INCOMPATIBILITY, "The service protocol is not compatible with this SDK."),
         Map.entry(Code.UNAVAILABLE_CAPABILITY, "The requested operation is unavailable."),
         Map.entry(Code.CORE_REJECTION, "The protocol refused the request."),
+        Map.entry(Code.REVERT, "The receipted transaction reverted."),
         Map.entry(Code.VERIFICATION_FAILURE, "Local verification failed."),
         Map.entry(Code.POLICY_REFUSAL, "Policy refused the request."),
         Map.entry(Code.CAPABILITY_REFUSAL, "The caller does not have the required authority."),
@@ -52,6 +53,7 @@ public final class PlatformSdkException extends RuntimeException {
     private final SchemaErrors.HumanCode humanCode;
     private final SchemaErrors.HumanRetriability humanRetriability;
     private final ReceiptCheck receiptCheck;
+    private final String revertReason;
 
     public PlatformSdkException(Code code, Retry retry, String requestId, Integer protocolResultCode, Long retryAfterMs) {
         this(code, retry, requestId, protocolResultCode, retryAfterMs, null, null, null, null, null);
@@ -63,7 +65,17 @@ public final class PlatformSdkException extends RuntimeException {
                                  SchemaErrors.HumanCode humanCode,
                                  SchemaErrors.HumanRetriability humanRetriability,
                                  ReceiptCheck receiptCheck) {
-        super(MESSAGES.get(code));
+        this(code, retry, requestId, protocolResultCode, retryAfterMs, agentClass, agentRetriability,
+            humanCode, humanRetriability, receiptCheck, null);
+    }
+
+    private PlatformSdkException(Code code, Retry retry, String requestId, Integer protocolResultCode,
+                                 Long retryAfterMs, SchemaErrors.AgentClass agentClass,
+                                 SchemaErrors.AgentRetriability agentRetriability,
+                                 SchemaErrors.HumanCode humanCode,
+                                 SchemaErrors.HumanRetriability humanRetriability,
+                                 ReceiptCheck receiptCheck, String revertReason) {
+        super(revertReason == null ? MESSAGES.get(code) : revertReason);
         this.code = code;
         this.retry = retry;
         this.requestId = requestId;
@@ -74,6 +86,7 @@ public final class PlatformSdkException extends RuntimeException {
         this.humanCode = humanCode;
         this.humanRetriability = humanRetriability;
         this.receiptCheck = receiptCheck;
+        this.revertReason = revertReason;
     }
 
     public static PlatformSdkException agent(Code code, Retry retry, String requestId,
@@ -105,6 +118,11 @@ public final class PlatformSdkException extends RuntimeException {
         return new PlatformSdkException(Code.VERIFICATION_FAILURE, Retry.NEVER, null, null, null,
             null, null, null, null, check);
     }
+    public static PlatformSdkException receiptedRevert(String reason) {
+        return new PlatformSdkException(Code.REVERT, Retry.NEVER, null, null, null,
+            null, null, null, null, null, reason);
+    }
+    public String revertReason() { return revertReason; }
     public Code code() { return code; }
     public Retry retry() { return retry; }
     public String requestId() { return requestId; }
@@ -126,6 +144,7 @@ public final class PlatformSdkException extends RuntimeException {
         if (humanCode != null) value.put("humanCode", humanCode.wire());
         if (humanRetriability != null) value.put("humanRetriability", humanRetriability.wire());
         if (receiptCheck != null) value.put("receiptCheck", receiptCheck.wire());
+        if (revertReason != null) value.put("revertReason", revertReason);
         return Map.copyOf(value);
     }
 }

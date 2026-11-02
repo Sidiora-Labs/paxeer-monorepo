@@ -150,7 +150,6 @@ defmodule Explorer.Chain.PaxeerX.AccountBindingTest do
                evm: Address.checksum(address_hash),
                pax: nil,
                did: did,
-               kernel_account: nil,
                bound: true
              }
 
@@ -183,7 +182,6 @@ defmodule Explorer.Chain.PaxeerX.AccountBindingTest do
                evm: Address.checksum(address_hash),
                pax: nil,
                did: nil,
-               kernel_account: nil,
                bound: false
              }
 
@@ -228,7 +226,6 @@ defmodule Explorer.Chain.PaxeerX.AccountBindingTest do
                evm: Address.checksum(address_hash),
                pax: @pax_address,
                did: attrs.layerx_did,
-               kernel_account: attrs.layerx_account,
                bound: true
              }
 
@@ -259,7 +256,6 @@ defmodule Explorer.Chain.PaxeerX.AccountBindingTest do
                evm: Address.checksum(address_hash),
                pax: nil,
                did: nil,
-               kernel_account: nil,
                bound: false
              }
     end
@@ -337,7 +333,6 @@ defmodule Explorer.Chain.PaxeerX.AccountBindingTest do
                evm: Address.checksum(reorged_attrs.evm_address_hash),
                pax: nil,
                did: nil,
-               kernel_account: nil,
                bound: false
              }
 

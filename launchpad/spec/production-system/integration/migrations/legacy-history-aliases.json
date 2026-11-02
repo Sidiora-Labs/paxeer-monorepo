@@ -1,0 +1,168 @@
+{
+  "schema_version": 2,
+  "histories": [
+    {
+      "service": "core/indexer",
+      "schema": "indexer",
+      "history": "migration_control.indexer_versions",
+      "sources": [
+        {
+          "alias": "core/indexer:1",
+          "original_version": 1,
+          "path": "core/indexer/migrations/00001_init.sql",
+          "source_sha256": "ffaf548735e78a048f0e1de31b5e75dd2e684a5f6d968098bc5871706e39cbf5",
+          "up_sha256": "09ffe92c969cc2beb07cba17aed4b17689a9f7695c120d2301e3ece19fbabe92",
+          "up_bytes": 8047,
+          "structural_fingerprint": null
+        },
+        {
+          "alias": "core/indexer:2",
+          "original_version": 2,
+          "path": "core/indexer/migrations/00002_airdrop_claims.sql",
+          "source_sha256": "c1564eedaf42b200012365d15fd3013608d9cde146fb03e53ca8e514dec7f683",
+          "up_sha256": "c6b91e120d7628311a1136db533cf82198ed27eab908864226879708b465df53",
+          "up_bytes": 1330,
+          "structural_fingerprint": null
+        }
+      ],
+      "existing_database_import": "requires independently approved structural fingerprint and exact source/history checksums; never max(version)"
+    },
+    {
+      "service": "core/trading-charts",
+      "schema": "candles",
+      "history": "migration_control.trading_charts_versions",
+      "sources": [
+        {
+          "alias": "core/trading-charts:1",
+          "original_version": 1,
+          "path": "core/trading-charts/migrations/00001_init.sql",
+          "source_sha256": "263cc538d908e8cc1b96ace9e4bf67d375bafc7d3bbbaa8824a5f6b0bdc5a1ed",
+          "up_sha256": "6c37d39665d3f7830c989521c0e3ef94551bf0bee46ef3a4f8d15a77ef0ee2f9",
+          "up_bytes": 2557,
+          "structural_fingerprint": null
+        },
+        {
+          "alias": "core/trading-charts:2",
+          "original_version": 2,
+          "path": "core/trading-charts/migrations/00002_processed_swaps.sql",
+          "source_sha256": "7a4f16b05e60d28af478ef0c1ba74ccd1fd2a7c664ad0634928f78938b3f5053",
+          "up_sha256": "6d48410a7a7c349191fdde2b1c3a8b214ab9704b2f45d40d10084d3e35675473",
+          "up_bytes": 920,
+          "structural_fingerprint": null
+        }
+      ],
+      "existing_database_import": "requires independently approved structural fingerprint and exact source/history checksums; never max(version)"
+    },
+    {
+      "service": "core/stats-workers",
+      "schema": "stats",
+      "history": "migration_control.stats_workers_versions",
+      "sources": [
+        {
+          "alias": "core/stats-workers:1",
+          "original_version": 1,
+          "path": "core/stats-workers/migrations/00001_init.sql",
+          "source_sha256": "c57d455819b877c72a9656a4f030ddd20a89f603134c25e7418eacb444dd7874",
+          "up_sha256": "eb4ed63cb45de9ebc76463dc15f2ed6edb9e3b0eefabe39b3dbfb26c84da97be",
+          "up_bytes": 6614,
+          "structural_fingerprint": null
+        }
+      ],
+      "existing_database_import": "requires independently approved structural fingerprint and exact source/history checksums; never max(version)"
+    },
+    {
+      "service": "core/pnl-tracker",
+      "schema": "pnl",
+      "history": "migration_control.pnl_tracker_versions",
+      "sources": [
+        {
+          "alias": "core/pnl-tracker:1",
+          "original_version": 1,
+          "path": "core/pnl-tracker/migrations/00001_init.sql",
+          "source_sha256": "7d9854bb2192a04a16a9a6fd931a7c2ec35eede58c580139922c910e8bde1d7d",
+          "up_sha256": "53203a74eab5f4a62076510fe16253cd94e2fd244822a4c5e969a6538e068aa4",
+          "up_bytes": 6089,
+          "structural_fingerprint": null
+        }
+      ],
+      "existing_database_import": "requires independently approved structural fingerprint and exact source/history checksums; never max(version)"
+    },
+    {
+      "service": "media/user",
+      "schema": "users",
+      "history": "migration_control.user_versions",
+      "sources": [
+        {
+          "alias": "media/user:1",
+          "original_version": 1,
+          "path": "media/user/migrations/00001_init.sql",
+          "source_sha256": "bf971d949ab4b504a5898a1718a1fc4b57b38cdb2d77385607204249182679f8",
+          "up_sha256": "c1f68f7e724349ae4e648add8f0003816a9bee18c26d7059c3590164bd5ead89",
+          "up_bytes": 1590,
+          "structural_fingerprint": null
+        }
+      ],
+      "existing_database_import": "requires independently approved structural fingerprint and exact source/history checksums; never max(version)"
+    },
+    {
+      "service": "media/social",
+      "schema": "chat",
+      "history": "migration_control.social_versions",
+      "sources": [
+        {
+          "alias": "media/social:1",
+          "original_version": 1,
+          "path": "media/social/migrations/00001_init.sql",
+          "source_sha256": "3ac8a1b2dbdcfd6070d02cd2222c145f4b949925a77ed614d0440d83a9b00348",
+          "up_sha256": "3d960c68ad8816e5fd42408253001f4bf08670b8ec1ec846bb6641a5aadd6c00",
+          "up_bytes": 4657,
+          "structural_fingerprint": null
+        }
+      ],
+      "existing_database_import": "requires independently approved structural fingerprint and exact source/history checksums; never max(version)"
+    },
+    {
+      "service": "media/metadata",
+      "schema": "metadata",
+      "history": "migration_control.metadata_versions",
+      "sources": [
+        {
+          "alias": "media/metadata:1",
+          "original_version": 1,
+          "path": "media/metadata/migrations/00001_init.sql",
+          "source_sha256": "75dffff2b76737c76e425f395852dea20c3018ae01771b2361728ccfee2044f3",
+          "up_sha256": "f7ba90d9b9707c72ce2ecd4b8a3df9698044d31bfce8474e23d16cfa972dd67e",
+          "up_bytes": 1558,
+          "structural_fingerprint": null
+        },
+        {
+          "alias": "media/metadata:2",
+          "original_version": 2,
+          "path": "media/metadata/migrations/00002_add_decimals.sql",
+          "source_sha256": "ca32154857496eed96c7301e7f41c470fb91c47a7636beb3835e971ea0a9360a",
+          "up_sha256": "4e15fd05b433b30c005e2e05a626840bfe82f3b423da04a1383afd747f669e0c",
+          "up_bytes": 477,
+          "structural_fingerprint": null
+        }
+      ],
+      "existing_database_import": "requires independently approved structural fingerprint and exact source/history checksums; never max(version)"
+    },
+    {
+      "service": "media/livestream",
+      "schema": "livestream",
+      "history": "migration_control.livestream_versions",
+      "sources": [
+        {
+          "alias": "media/livestream:1",
+          "original_version": 1,
+          "path": "media/livestream/migrations/00001_init.sql",
+          "source_sha256": "54a5f921759d466ae8f7a333f4bde1c401937b3916c9b42ce0173bd6b7cfdd56",
+          "up_sha256": "5040ab63f597b149a6f79034a6d3599a11e455a9930167a1b6903c2f1ca05be7",
+          "up_bytes": 1096,
+          "structural_fingerprint": null
+        }
+      ],
+      "existing_database_import": "requires independently approved structural fingerprint and exact source/history checksums; never max(version)"
+    }
+  ]
+}

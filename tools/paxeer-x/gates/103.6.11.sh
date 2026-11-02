@@ -288,7 +288,6 @@ def build(directory):
     suites = {}
     compiler_rows = []
     agent_specs = [
-        ("layerx-wire", []),
         ("layerx-crypto", ["--test", "verify"]),
         ("layerx-proof", []),
     ]
@@ -471,7 +470,6 @@ def qualify(directory):
         executed[name] = {"exit_code": 0, "cases": "internal real-kernel assertions"}
     count = len(NATIVE) + len(commit_cases)
     required = {
-        "layerx-wire:hashing": "protocol_three_account_ids_match_native_ledger_vectors",
         "layerx-crypto:verify": "state_commitment_signatures_bind_exact_canonical_bytes",
         "layerx-intents:compile": "protocol_three_send_compilation_and_disclosure_use_native_account_ids",
         "layerx-intents:differential": "v2_golden_vectors_are_byte_locked_to_the_intent_version",

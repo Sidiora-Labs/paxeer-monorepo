@@ -49,6 +49,8 @@ type PoolKeeper interface {
 	AcceptGuardian(ctx sdk.Context, caller sdk.AccAddress, denom string) error
 }
 
+var _ PoolKeeper = (*launchpadkeeper.Keeper)(nil)
+
 // poolCall is one call to a SidioraPool surface as Run resolves it: the
 // SidioraPool method and its arguments, the original EVM caller, the market
 // of the pool and the nested caller of the run.

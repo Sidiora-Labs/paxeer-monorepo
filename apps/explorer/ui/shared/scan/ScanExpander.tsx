@@ -1,7 +1,6 @@
-import { Box, chakra, Flex } from '@chakra-ui/react';
+import { Box, chakra, Flex, useRecipe } from '@chakra-ui/react';
 import React from 'react';
 
-import { Link } from 'toolkit/chakra/link';
 import { Hint } from 'toolkit/components/Hint/Hint';
 
 export interface ScanExpanderProps {
@@ -24,6 +23,7 @@ const ScanExpander = ({
   className,
 }: ScanExpanderProps) => {
   const [ isOpen, setIsOpen ] = React.useState(defaultOpen);
+  const linkRecipe = useRecipe({ key: 'link' });
 
   const handleClick = React.useCallback(() => {
     setIsOpen((flag) => !flag);
@@ -46,9 +46,9 @@ const ScanExpander = ({
       <Flex alignItems="center" columnGap={ 2 } flexWrap="wrap">
         { hint && <Hint label={ hint } boxSize={ 4 }/> }
         <chakra.span textStyle="sm" color="text.secondary" data-label>{ label }:</chakra.span>
-        <Link onClick={ handleClick } textStyle="sm" data-toggle>
+        <chakra.button type="button" onClick={ handleClick } css={ linkRecipe() } textStyle="sm" aria-expanded={ isOpen } data-toggle>
           { isOpen ? hideText : showText }
-        </Link>
+        </chakra.button>
       </Flex>
       { isOpen && <Box mt={ 3 } data-content>{ children }</Box> }
     </Box>

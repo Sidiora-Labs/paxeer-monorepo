@@ -79,7 +79,7 @@ def write(path, value):
 def sources():
     require(not git("status", "--porcelain", "--untracked-files=all"),
             "whole source must be published clean before qualification")
-    paths = git("ls-files", "-z", "Makefile", "src", "include", "cmd/layerxd",
+    paths = git("ls-files", "-z", "Makefile", "src", "include",
                 "cmd/layerx-genesis", "programs", "services/agent/crates", "services/agent/Cargo.toml",
                 "services/agent/Cargo.lock", "services/platform/hosted/agent-boundary", "services/platform/Cargo.toml",
                 "services/platform/Cargo.lock", "contracts/config", "tests/bridge", "tests/support",

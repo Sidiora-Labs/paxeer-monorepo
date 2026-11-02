@@ -26,43 +26,36 @@ var (
 	ErrInvalidObservation  = sdkerrors.Register(ModuleName, 16, "invalid observation")
 )
 
+type LXPCode struct {
+	Err  *sdkerrors.Error
+	Name string
+}
+
+func LXPCodes() []LXPCode {
+	return []LXPCode{
+		{ErrUnauthorized, "LXP_PRICEFEED_UNAUTHORIZED"},
+		{ErrInvalidParams, "LXP_PRICEFEED_INVALID_PARAMS"},
+		{ErrInvalidGenesis, "LXP_PRICEFEED_INVALID_GENESIS"},
+		{ErrNotValidator, "LXP_PRICEFEED_NOT_VALIDATOR"},
+		{ErrInvalidKey, "LXP_PRICEFEED_INVALID_KEY"},
+		{ErrKeyInUse, "LXP_PRICEFEED_KEY_IN_USE"},
+		{ErrNoKey, "LXP_PRICEFEED_NO_KEY"},
+		{ErrUnknownMarket, "LXP_PRICEFEED_UNKNOWN_MARKET"},
+		{ErrUnregisteredFeeder, "LXP_PRICEFEED_UNREGISTERED_FEEDER"},
+		{ErrRateLimited, "LXP_PRICEFEED_RATE_LIMITED"},
+		{ErrTooManyObservations, "LXP_PRICEFEED_TOO_MANY_OBSERVATIONS"},
+		{ErrSubmissionTooLarge, "LXP_PRICEFEED_SUBMISSION_TOO_LARGE"},
+		{ErrDuplicateMarket, "LXP_PRICEFEED_DUPLICATE_MARKET"},
+		{ErrSubmissionAlone, "LXP_PRICEFEED_SUBMISSION_ALONE"},
+		{ErrInvalidObservation, "LXP_PRICEFEED_INVALID_OBSERVATION"},
+	}
+}
+
 func LXPName(err error) (string, bool) {
-	var registered *sdkerrors.Error
-	if !errors.As(err, &registered) || registered == nil || registered.Codespace() != ModuleName {
-		return "", false
+	for _, code := range LXPCodes() {
+		if errors.Is(err, code.Err) {
+			return code.Name, true
+		}
 	}
-	switch registered.ABCICode() {
-	case 2:
-		return "LXP_PRICEFEED_UNAUTHORIZED", true
-	case 3:
-		return "LXP_PRICEFEED_INVALID_PARAMS", true
-	case 4:
-		return "LXP_PRICEFEED_INVALID_GENESIS", true
-	case 5:
-		return "LXP_PRICEFEED_NOT_VALIDATOR", true
-	case 6:
-		return "LXP_PRICEFEED_INVALID_KEY", true
-	case 7:
-		return "LXP_PRICEFEED_KEY_IN_USE", true
-	case 8:
-		return "LXP_PRICEFEED_NO_KEY", true
-	case 9:
-		return "LXP_PRICEFEED_UNKNOWN_MARKET", true
-	case 10:
-		return "LXP_PRICEFEED_UNREGISTERED_FEEDER", true
-	case 11:
-		return "LXP_PRICEFEED_RATE_LIMITED", true
-	case 12:
-		return "LXP_PRICEFEED_TOO_MANY_OBSERVATIONS", true
-	case 13:
-		return "LXP_PRICEFEED_SUBMISSION_TOO_LARGE", true
-	case 14:
-		return "LXP_PRICEFEED_DUPLICATE_MARKET", true
-	case 15:
-		return "LXP_PRICEFEED_SUBMISSION_ALONE", true
-	case 16:
-		return "LXP_PRICEFEED_INVALID_OBSERVATION", true
-	default:
-		return "", false
-	}
+	return "", false
 }

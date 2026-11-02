@@ -40,7 +40,7 @@ test('application timestamps reject leap seconds and impossible calendar dates',
 });
 test('accounting corpus exact wire validation independent of semantic arithmetic authority',async()=>{
  const {readFile}=await import('node:fs/promises');
- const corpus=JSON.parse(await readFile(new URL('../../../../../launchpad/spec/production-system/integration/contracts/v1/accounting-cases.json',import.meta.url),'utf8'));
+ const corpus=JSON.parse(await readFile(new URL('../../../../../sdk/launchpad/protocol/contracts/v1/accounting-cases.json',import.meta.url),'utf8'));
  assert.ok(corpus.cases.length>=59);
  for(const fixture of corpus.cases)assert.equal(validateContract(fixture.schema,fixture.instance),fixture.expectedSchemaValidity,fixture.id);
 });

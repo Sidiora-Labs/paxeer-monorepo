@@ -68,7 +68,7 @@ Contract context `2.layerxledger-0x101a`:
 | Events | AssetRegistered, AssetPaused, AssetUnpaused, AccountOpened, Transfer, PayerGrantIssued, PayerGrantRevoked, PaymentDrawn, PaymentExact |
 | Gas | Fixed surcharge per method plus DefaultGasCost of the input: register 18440, pause 3080, unpause 3080, openAccount 3080, send 17480, draw 8840, payExact 7880, issueGrant 16520, revokeGrant 4040, mint 5000, burn 5000, getAsset 1108, balanceOf 1204, totalUnits 1108, accountId 1204, accountOwner 1108, nextSequence 1204, getPayerGrant 1108 |
 | Activation | Served from the height where MergeUpgrade v7.0 (precompiles/setup.go:50) is done, gated by mergePrecompileGate (node/upgrades.go:521) on the layerxledger module |
-| Invariants | Bank balance of every kernel account under its layerx denom equals the kernel balance; every write acts for the DID bound to the EVM caller; one idempotency key per DID across ledger and auth |
+| Invariants | Bank balance of every kernel account under its layerx denom equals the kernel balance; every write acts for the DID bound to the EVM caller; replay of a consumed account sequence is refused with ErrSequenceReused and an idempotency key may be reused across ledger and auth (decision.202) |
 | Pause | layerxledger params paused refuses every write except revokeGrant through CheckPauseScope (modules/layerxgov/types/proposal.go:38); views always answer |
 
 Frozen interfaces: 33 (new 33).
@@ -415,12 +415,12 @@ Contract context `2.layerxauth-0x101c`:
 | Aspect | Rule |
 |---|---|
 | Interface | Precompile 0x000000000000000000000000000000000000101C named layerxauth: 10 ABI methods and 5 events of precompiles/layerxauth/abi.json (planned) |
-| Storage | Kernel authority grants, identity sequences and idempotency records in the shared layerxhost store; layerxauth module store holds ParamsKey 0x01 only; capability grants mirrored as authz LayerXScopeAuthorization grants |
+| Storage | Kernel authority grants and identity sequences in the shared layerxhost store, which holds no key under prefix 0x04; layerxauth module store holds ParamsKey 0x01 only; capability grants mirrored as authz LayerXScopeAuthorization grants |
 | Errors | Error(string) reasons LXP_&lt;CODE&gt; from the layerxauth registrations of modules/layerxauth/types/errors.go:8-16, kernel names through LXPCodeName and LXP_PAUSED_SCOPE 735 from layerxgov |
 | Events | SessionGranted, GrantBody, CapabilityGranted, GrantRevoked, IdentityStateUpdated from kernel events 0x7145, 0x7105 and 0x7125, 0x7148, 0x7108 and 0x7128, 0x7106 and 0x7110 (GrantBody carries the 256-byte body chunks 0x7105/0x7125 of a session and 0x7108/0x7128 of a capability) |
 | Gas | Fixed surcharge per method plus DefaultGasCost of the input: grantSession 36680, grantSessionSuccessor 38600, grantCapability 34760, revokeGrant 5000, resultByIdempotency 1204, getGrant 1108, isLive 1300, sessionKey 1108, capabilityScope 1108, checkActivity 1396 |
 | Activation | Served from the height where MergeUpgrade v7.0 (precompiles/setup.go:50) is done, gated by mergePrecompileGate (node/upgrades.go:521) on the layerxauth module |
-| Invariants | A revoked kernel grant makes the matching authz grant unusable in MsgExec; idempotency records older than IdempotencyRetention are pruned and retention 0 keeps all |
+| Invariants | A revoked kernel grant makes the matching authz grant unusable in MsgExec; the kernel keeps no idempotency records, IdempotencyRetention stays a layerxauth param that no host setter carries to the kernel, and a consumed sequence is refused with ErrSequenceReused |
 | Pause | layerxauth params paused refuses grantSession, grantSessionSuccessor and grantCapability; revokeGrant and views always answer |
 
 Frozen interfaces: 21 (new 21).
@@ -714,7 +714,7 @@ Capabilities verified against this section: 2.3.2, 2.6.2.
 
 ## idempotency
 
-Idempotency records are kernel-owned under host prefix 0x04 and pruned by the kernel; the keeper-level idempotency prefixes of layerxauth retire (decision.202). One idempotency key space per DID spans ledger and auth; the global sequence comes from the host NextSequence export (decision.205).
+The kernel records no idempotency entries and the host store holds nothing under prefix 0x04 (req.1010, decision.202); the keeper-level idempotency prefixes of layerxauth retire. Replay protection is the per-account sequence: re-submitting an activity on a consumed sequence is refused with ErrSequenceReused, and the same idempotency key may be used by ledger and auth activities of one DID (req.2071); the global sequence comes from the host NextSequence export (decision.205).
 
 Frozen interfaces: 4 (retire 4).
 
@@ -794,7 +794,7 @@ Rulings of the merged specification that this contract applies.
 | Decision | Title | Value |
 |---|---|---|
 | 201 | One shared kernel host over its own host store key; module stores hold params only | node/app.go constructs one lxphost.Host over a new layerxhost store key shared by the layerxledger and layerxauth keepers; each module store keeps only ParamsKey 0x01 and KernelKVPrefix is retired. |
-| 202 | Idempotency is kernel-owned | Idempotency records live in the host store under prefix 0x04 and are pruned by the kernel; the keeper-level IdempotencyPrefix, IdempotencyBySequencePrefix, IdempotencyKey and IdempotencyBySequenceKey are retired and IdempotencyRetention reaches the kernel through a host setter. |
+| 202 | Idempotency is kernel-owned | The keeper-level IdempotencyPrefix, IdempotencyBySequencePrefix, IdempotencyKey and IdempotencyBySequenceKey are retired and IdempotencyRetention stays a layerxauth param that no host setter carries to the kernel; since req.1010 the kernel records no idempotency entries, the host store holds nothing under prefix 0x04, and replay protection is the per-account sequence (ErrSequenceReused). |
 | 203 | Pause routing goes through the layerxgov pause scope with revokeGrant as the exit | Every keeper write calls CheckPauseScope with the ABI method name; views never check pause; revokeGrant is the only exit path of both modules; layerxauth code 11 is retired because refusals carry layerxgov code 735. |
 | 204 | Bank mirror under a native layerx denom | Each kernel asset mirrors into bank as layerx/&lt;64 lowercase hex of the asset id&gt;; register mints the cap, or 2^128-1 when unbounded, to the bank address of the issuance account; every transfer leg becomes a bank SendCoins; the layerxledger module account holds Minter and Burner. |
 | 205 | Global sequence comes from a host export | Keepers set the activity global sequence from a NextSequence export of lxphost so that two activities in one block never reuse a sequence. |

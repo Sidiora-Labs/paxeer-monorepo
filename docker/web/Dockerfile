@@ -3,7 +3,9 @@ WORKDIR /src/apps/web
 COPY package.json package-lock.json /src/
 COPY services/agent/sdk/typescript /src/services/agent/sdk/typescript
 RUN npm --prefix /src/services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund
+RUN npm --prefix /src/services/agent/sdk/typescript run build
 COPY apps/web /src/apps/web
+COPY sdk/wallet /src/sdk/wallet
 RUN npm ci --ignore-scripts --no-audit --no-fund
 ARG LAYERX_HUMAN_SERVICE_URL=https://layerx-human.layerx-testnet.svc:9443
 RUN LAYERX_HUMAN_SERVICE_URL="$LAYERX_HUMAN_SERVICE_URL" npm run build

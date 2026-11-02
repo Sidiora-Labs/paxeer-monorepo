@@ -5,7 +5,7 @@
 //! EVM: native value transfers, ERC-20 `Transfer` (a registered pointer
 //! contract's transfer is labelled `pointer_transfer`), and every event a
 //! loaded precompile ABI declares; custody deposits, releases and emergency
-//! exits also become transfer legs. Cosmos: bank `transfer`, tokenfactory
+//! exits record no transfer leg. Cosmos: bank `transfer`, tokenfactory
 //! `create_denom`/`mint`/`burn`/`change_admin`, and every `layerx_*` anchor
 //! string event. Cosmos transactions that carry EVM execution are skipped
 //! there because the EVM walk already indexed them.
@@ -303,6 +303,7 @@ pub fn decode_block(block: &Value, inputs: &BlockInputs<'_>) -> Result<Unit, Ind
                 tx_hash: &tx_hash,
                 tx_index,
                 sender: &from,
+                timestamp: block.get("timestamp").and_then(Value::as_str),
             };
             decode_log(&mut unit, log, &source, inputs)?;
         }
@@ -320,6 +321,7 @@ struct LogSource<'a> {
     tx_index: u32,
     /// The transaction sender, the holder of the records it touches.
     sender: &'a str,
+    timestamp: Option<&'a str>,
 }
 
 fn decode_log(
@@ -333,6 +335,7 @@ fn decode_log(
         tx_hash,
         tx_index,
         sender,
+        timestamp,
     } = *source;
     let emitter = unhex_fixed::<20>(field_str(log, "address")?)?;
     let emitter_text = address_text(emitter);
@@ -466,11 +469,30 @@ fn decode_log(
             return Ok(());
         }
     };
+    let bound_names = inputs.registry.abis().iter().any(|abi| {
+        abi.address == Some(emitter)
+            && abi.contract == decoded.contract
+            && matches!(
+                abi.contract.as_str(),
+                "names_registry" | "names_registrar" | "names_controller" | "names_resolver"
+            )
+    });
+    if bound_names {
+        let timestamp = quantity_u64(
+            timestamp
+                .ok_or_else(|| IndexError::Decode("names block has no timestamp".to_owned()))?,
+        )?;
+        if let Some(mut row) = crate::names::decode(&decoded, sender, timestamp) {
+            row.height = height;
+            row.tx_hash = tx_hash.to_owned();
+            row.log_index = log_index;
+            unit.name_events.push(row);
+        }
+    }
     let account = decoded
         .first_address(&event.params)
         .or_else(|| decoded.arg("account").and_then(bare_bytes32))
         .or_else(|| decoded.arg("beneficiary").and_then(bare_bytes32));
-    custody_legs(unit, &decoded, source, ordinal, &emitter_text);
     unit.events.push(EventRow {
         height_or_seq: height,
         source: "evm-log".to_owned(),
@@ -532,85 +554,6 @@ fn holder_record(
         tx_id: tx_hash.to_owned(),
         decoded: document,
     });
-}
-
-fn custody_legs(
-    unit: &mut Unit,
-    decoded: &DecodedEvent,
-    source: &LogSource<'_>,
-    ordinal: u64,
-    emitter: &str,
-) {
-    let LogSource {
-        height,
-        tx_hash,
-        tx_index,
-        ..
-    } = *source;
-    let text = |name: &str| decoded.arg(name).and_then(Value::as_str).map(str::to_owned);
-    let bytes32 = |name: &str| decoded.arg(name).and_then(bare_bytes32);
-    let legs: Vec<(&str, &'static str, String, Option<String>)> = match decoded.name.as_str() {
-        "CustodyDeposit" => {
-            let (Some(payer), Some(beneficiary)) = (text("payer"), bytes32("beneficiary")) else {
-                return;
-            };
-            vec![
-                (
-                    "custody_deposit",
-                    "out",
-                    payer.clone(),
-                    Some(beneficiary.clone()),
-                ),
-                ("custody_deposit", "in", beneficiary, Some(payer)),
-            ]
-        }
-        "CustodyRelease" => {
-            let Some(recipient) = text("recipient") else {
-                return;
-            };
-            vec![("custody_release", "in", recipient, Some(emitter.to_owned()))]
-        }
-        "EmergencyExitExecuted" => {
-            let Some(recipient) = text("recipient") else {
-                return;
-            };
-            vec![("emergency_exit", "in", recipient, bytes32("account"))]
-        }
-        _ => return,
-    };
-    if decoded.contract != "layerxcustody" {
-        return;
-    }
-    let (Some(asset), Some(amount)) = (bytes32("assetId"), text("amount")) else {
-        return;
-    };
-    unit.assets.push(AssetRow {
-        asset: asset.clone(),
-        chain: crate::layerx::CHAIN.to_owned(),
-        kind: "layerx".to_owned(),
-        address: None,
-        denom: None,
-        metadata: json!({}),
-    });
-    for (kind, direction, account, counterparty) in legs {
-        unit.transfers.push(TransferRow {
-            height_or_seq: height,
-            tx_index,
-            kind: kind.to_owned(),
-            direction,
-            account,
-            counterparty,
-            asset: asset.clone(),
-            amount: amount.clone(),
-            tx_id: tx_hash.to_owned(),
-            ordinal,
-            decoded: json!({
-                "block_number": height.to_string(),
-                "event": decoded.name,
-                "args": Value::Object(decoded.args.clone()),
-            }),
-        });
-    }
 }
 
 fn attribute_text(value: &Value, encoding: AttributeEncoding) -> Result<String, IndexError> {

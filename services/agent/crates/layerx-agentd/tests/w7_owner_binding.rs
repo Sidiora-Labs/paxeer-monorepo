@@ -10,7 +10,7 @@ use layerx_agentd::prepare::{
     prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
     PreparationDefaults, PrepareRequest, Prepared,
 };
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit, SigningError};
+use layerx_agentd::sign::{attach_kernel_signature, verify_kernel_before_submit, SigningError};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::signer::{sign_disclosed, Signer};
 use layerx_types::activity::{Authority, TimestampBound};
@@ -157,7 +157,7 @@ fn signed_by(prepared: &Prepared, signer: &LocalSigner) -> Vec<u8> {
         &registry(),
     ))
     .unwrap_or_else(|error| panic!("sign: {error:?}"));
-    attach_external_signature(prepared, *signature.as_bytes())
+    attach_kernel_signature(prepared, *signature.as_bytes())
         .unwrap_or_else(|error| panic!("attach: {error:?}"))
 }
 
@@ -169,11 +169,11 @@ fn a_foreign_key_signature_over_the_owner_preimage_is_refused() {
     let prepared = owner_bound(&owner);
     let signed_bytes = signed_by(&prepared, &foreign);
     assert_eq!(
-        verify_before_submit(&signed_bytes, &prepared, &foreign.public_key(), &registry()),
+        verify_kernel_before_submit(&signed_bytes, &prepared, &foreign.public_key(), &registry()),
         Err(SigningError::AuthorityMismatch)
     );
     assert_eq!(
-        verify_before_submit(&signed_bytes, &prepared, &owner.public_key(), &registry()),
+        verify_kernel_before_submit(&signed_bytes, &prepared, &owner.public_key(), &registry()),
         Err(SigningError::SignatureInvalid)
     );
 }
@@ -183,8 +183,9 @@ fn the_bound_owner_key_still_verifies() {
     let owner = LocalSigner::new([0xa5; 32]);
     let prepared = owner_bound(&owner);
     let signed_bytes = signed_by(&prepared, &owner);
-    let verified = verify_before_submit(&signed_bytes, &prepared, &owner.public_key(), &registry())
-        .unwrap_or_else(|error| panic!("verify: {error:?}"));
+    let verified =
+        verify_kernel_before_submit(&signed_bytes, &prepared, &owner.public_key(), &registry())
+            .unwrap_or_else(|error| panic!("verify: {error:?}"));
     assert_eq!(verified.exact_bytes(), signed_bytes);
     assert_ne!(verified.activity_id(), [0; 32]);
 }

@@ -17,9 +17,9 @@ mod archive_hash;
 entrypoint!(process_instruction);
 
 const INSTRUCTION_MAGIC: &[u8; 4] = b"LXMA";
-const INSTRUCTION_VERSION: u16 = 3;
-const MANIFEST_MAGIC: &[u8; 8] = b"LXMMAN03";
-const CHUNK_MAGIC: &[u8; 8] = b"LXMCHK03";
+const VERSION: u16 = 4;
+const MANIFEST_MAGIC: &[u8; 8] = b"LXMMAN04";
+const CHUNK_MAGIC: &[u8; 8] = b"LXMCHK04";
 const MANIFEST_BYTES: usize = 334;
 const CHUNK_HEADER_BYTES: usize = 80;
 const MAX_ARCHIVE_BYTES: u64 = 64 * 1024 * 1024;
@@ -50,7 +50,7 @@ pub fn process_instruction(
     instruction: &[u8],
 ) -> ProgramResult {
     let mut reader = Reader::new(instruction);
-    if reader.take(4)? != INSTRUCTION_MAGIC || reader.u16()? != INSTRUCTION_VERSION {
+    if reader.take(4)? != INSTRUCTION_MAGIC || reader.u16()? != VERSION {
         return Err(MirrorError::Instruction.into());
     }
     match reader.u8()? {
@@ -68,8 +68,8 @@ fn initialize(
 ) -> ProgramResult {
     let commitment: [u8; 32] = reader.array()?;
     let network_id = reader.u32()?;
-    let batch_number = reader.u64()?;
-    let checkpoint_id: [u8; 32] = reader.array()?;
+    let height = reader.u64()?;
+    let block_hash: [u8; 32] = reader.array()?;
     let total_bytes = reader.u64()?;
     let total_chunks = reader.u32()?;
     let archive_digest: [u8; 32] = reader.array()?;
@@ -77,7 +77,8 @@ fn initialize(
     reader.finish()?;
     if commitment == [0; 32]
         || network_id == 0
-        || batch_number == 0
+        || height == 0
+        || block_hash == [0; 32]
         || total_bytes == 0
         || total_bytes > MAX_ARCHIVE_BYTES
         || total_chunks == 0
@@ -105,8 +106,8 @@ fn initialize(
     canonical[8..40].copy_from_slice(&commitment);
     canonical[40..72].copy_from_slice(payer.key.as_ref());
     canonical[72..76].copy_from_slice(&network_id.to_be_bytes());
-    canonical[76..84].copy_from_slice(&batch_number.to_be_bytes());
-    canonical[84..116].copy_from_slice(&checkpoint_id);
+    canonical[76..84].copy_from_slice(&height.to_be_bytes());
+    canonical[84..116].copy_from_slice(&block_hash);
     canonical[116..124].copy_from_slice(&total_bytes.to_be_bytes());
     canonical[124..128].copy_from_slice(&total_chunks.to_be_bytes());
     canonical[128..160].copy_from_slice(&archive_digest);

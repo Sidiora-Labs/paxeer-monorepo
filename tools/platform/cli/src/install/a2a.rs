@@ -361,12 +361,11 @@ fn payment_binding(request: &Request) -> Result<Option<(String, String)>, String
         }
         return Ok(None);
     }
-    let source = request.source_account.as_deref().ok_or_else(|| {
-        "payment-capable installation requires --source-account <64-hex account id>".to_owned()
-    })?;
-    let asset = request.asset.as_deref().ok_or_else(|| {
-        "payment-capable installation requires --asset <64-hex asset id>".to_owned()
-    })?;
+    let (source, asset) = match (request.source_account.as_deref(), request.asset.as_deref()) {
+        (None, None) => return Ok(None),
+        (Some(source), Some(asset)) => (source, asset),
+        _ => return Err("--source-account and --asset must be supplied together".into()),
+    };
     fixed_hex::<32>("source account", source)?;
     fixed_hex::<32>("asset", asset)?;
     Ok(Some((

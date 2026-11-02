@@ -1,6 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { buildGetMarginTiers } from "@/core/perps/calls";
+import { getPublicClient } from "@/core/viem/clients";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
+import { marketLabel } from "@/core/perps/marketLabel";
 import { ExternalLink, Clock, TrendingUp, TrendingDown } from "lucide-react";
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
 import { usePortfolioStats } from "@/hooks/perps/usePortfolioStats";
@@ -15,7 +20,6 @@ import {
   TRADES_QUERY,
 } from "@/hooks/perps/useSubgraph";
 import {
-  PERPS_MARKETS,
   coinLogoUrl,
   EXPLORER_URL,
   COLLATERAL_TOKENS,
@@ -60,7 +64,23 @@ interface MobileSecondaryTabContentProps {
   activeTab: string;
 }
 
+const MobileMarketCatalog = createContext<Parameters<typeof marketLabel>[1]>([]);
+
 export function MobileSecondaryTabContent({ activeTab }: MobileSecondaryTabContentProps) {
+  const { catalog } = usePerpsMarkets();
+  return (
+    <MobileMarketCatalog.Provider
+      value={catalog.map((market) => ({
+        marketId: BigInt(market.marketId),
+        symbol: market.symbol,
+      }))}
+    >
+      <MobileSecondaryTabs activeTab={activeTab} />
+    </MobileMarketCatalog.Provider>
+  );
+}
+
+function MobileSecondaryTabs({ activeTab }: MobileSecondaryTabContentProps) {
   const { address, isConnected } = usePerpsWallet();
 
   if (!isConnected) {
@@ -164,9 +184,11 @@ function fmtTs(ts: string | null | undefined): string {
   });
 }
 
-function getMarketSymbol(marketId: number | string): string {
-  const id = typeof marketId === "string" ? parseInt(marketId, 10) : marketId;
-  return PERPS_MARKETS.find((m) => m.marketId === id)?.symbol ?? `MKT-${id}`;
+function getMarketSymbol(
+  marketId: number | string,
+  catalog: Parameters<typeof marketLabel>[1],
+): string {
+  return marketLabel(BigInt(marketId), catalog);
 }
 
 function getTokenSymbol(addr: string): string {
@@ -288,6 +310,7 @@ function BalanceRow({ balance }: { balance: PerfdbBalance }) {
    ═══════════════════════════════════════════════════════════════ */
 
 function PositionsTab() {
+  const catalog = useContext(MobileMarketCatalog);
   const { positions, isLoading } = usePortfolioStats();
   const { tickers } = useRealtimePrices();
 
@@ -297,7 +320,7 @@ function PositionsTab() {
   return (
     <div className="flex flex-col gap-2 p-3 overflow-y-auto" style={SCROLL_STYLE}>
       {positions.map((pos: any) => {
-        const symbol = getMarketSymbol(pos.marketId);
+        const symbol = getMarketSymbol(pos.marketId, catalog);
         const markPrice = tickers[symbol]?.mark_price ?? 0;
         return (
           <PositionCard key={pos.positionId} pos={pos} symbol={symbol} markPrice={markPrice} />
@@ -309,8 +332,22 @@ function PositionsTab() {
 
 function PositionCard({ pos, symbol, markPrice }: { pos: any; symbol: string; markPrice: number }) {
   const parsed = parsePositionRow(pos, symbol);
+  const { data: tiers, isError: tiersError } = useQuery({
+    queryKey: ["perps", "marginTiers", parsed.marketId],
+    queryFn: () => getPublicClient().readContract(buildGetMarginTiers(BigInt(parsed.marketId))),
+    staleTime: 60_000,
+  });
+  if (!tiers?.length) {
+    return (
+      <div role={tiersError || tiers ? "alert" : "status"}>
+        {tiersError || tiers
+          ? "Market margin tiers unavailable. Please try again."
+          : "Loading market margin tiers…"}
+      </div>
+    );
+  }
   const mark = markPriceWad(markPrice);
-  const pnlData = mark > 0n ? computePositionPnl(parsed, mark) : null;
+  const pnlData = mark > 0n ? computePositionPnl(parsed, mark, tiers) : null;
   const pnlColor = (pnlData?.unrealizedPnl ?? 0n) >= 0n ? "var(--success)" : "var(--danger)";
   const sideColor = pos.isLong ? "var(--success)" : "var(--danger)";
 
@@ -400,7 +437,8 @@ function OutcomesTab({ address }: { address: string }) {
 }
 
 function OutcomeRow({ s }: { s: TradeSettlement }) {
-  const symbol = getMarketSymbol(s.marketId);
+  const catalog = useContext(MobileMarketCatalog);
+  const symbol = getMarketSymbol(s.marketId, catalog);
   const grossPnl = parse18(s.grossPnl);
   const pnlColor = grossPnl >= 0 ? "var(--success)" : "var(--danger)";
   const size = parse18(s.sizeUsd);
@@ -469,7 +507,8 @@ function OpenOrdersTab({ address }: { address: string }) {
 }
 
 function OrderRow({ o }: { o: any }) {
-  const symbol = getMarketSymbol(o.marketId);
+  const catalog = useContext(MobileMarketCatalog);
+  const symbol = getMarketSymbol(o.marketId, catalog);
   const trigPrice = parse18(o.triggerPrice);
   const size = parse18(o.sizeUsd);
   const sideColor = o.isLong ? "var(--success)" : "var(--danger)";
@@ -587,7 +626,8 @@ function TradeHistoryTab({ address }: { address: string }) {
 }
 
 function TradeRow({ t }: { t: any }) {
-  const symbol = getMarketSymbol(t.marketId);
+  const catalog = useContext(MobileMarketCatalog);
+  const symbol = getMarketSymbol(t.marketId, catalog);
   const price = parse18(t.price);
   const realizedPnl = parse18(t.realizedPnl);
   const size = parse18(t.sizeUsd);
@@ -648,7 +688,8 @@ function FundingTab({ address }: { address: string }) {
 }
 
 function FundingRow({ p }: { p: FundingPayment }) {
-  const symbol = getMarketSymbol(p.marketId);
+  const catalog = useContext(MobileMarketCatalog);
+  const symbol = getMarketSymbol(p.marketId, catalog);
   const payment = parse18(p.fundingPaymentUsd);
   const newCollateral = parse18(p.newCollateralUsd);
   const paymentColor = payment >= 0 ? "var(--success)" : "var(--danger)";

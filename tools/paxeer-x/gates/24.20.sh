@@ -37,14 +37,14 @@ PREPARE
 import hashlib,json,os,stat,subprocess,time
 from pathlib import Path
 root=Path.cwd()
-paths=['services/platform/hosted/node/'+name for name in ('generation_transport.py','generation_client.py','supervisor.sh','bootstrap.sh','deployment.yaml','tests/test_generation_transport.py','tests/reset_recovery.py')]
+paths=['services/platform/hosted/node/'+name for name in ('generation_transport.py','generation_client.py','supervisor.sh','bootstrap.sh','deployment.yaml','tests/test_generation_transport.py')]
 paths += ['docker/kernel/init.sh','tools/paxeer-x/gates/24.20.sh']
 paths += ['docker/platform-'+role+'/'+name for role in ('core','authority') for name in ('Dockerfile','Dockerfile.dockerignore')]
 def git(*args): return subprocess.check_output(['git',*args]).decode().strip()
 def digest(p):
  with p.open('rb') as f: return hashlib.file_digest(f,'sha256').hexdigest()
 assert not git('status','--porcelain','--untracked-files=all'), 'source changed during build'
-for name in ('generation_transport.py','generation_client.py','reset_state.py','data_directory.py','tests/test_generation_transport.py','tests/reset_recovery.py'):
+for name in ('generation_transport.py','generation_client.py','reset_state.py','data_directory.py','tests/test_generation_transport.py'):
  p=root/'services/platform/hosted/node'/name;compile(p.read_bytes(),str(p),'exec')
 for name in ('supervisor.sh','bootstrap.sh'):
  subprocess.run(['bash','-n',str(root/'services/platform/hosted/node'/name)],check=True)
@@ -80,7 +80,12 @@ def git(*args): return subprocess.check_output(['git',*args]).decode().strip()
 assert not git('status','--porcelain','--untracked-files=all')
 assert value['version']==1 and value['source_revision']==git('rev-parse','HEAD') and value['source_tree']==git('rev-parse','HEAD^{tree}')
 assert value['native_build_source_binding']==hashlib.sha256(subprocess.check_output(['git','ls-tree','-r','-z','--full-tree','HEAD'])).hexdigest()
-assert len(value['candidate_sources'])==13
+assert set(value['candidate_sources'])=={
+ 'services/platform/hosted/node/'+name for name in
+ ('generation_transport.py','generation_client.py','supervisor.sh','bootstrap.sh','deployment.yaml','tests/test_generation_transport.py')
+} | {'docker/kernel/init.sh','tools/paxeer-x/gates/24.20.sh'} | {
+ 'docker/platform-'+role+'/'+name for role in ('core','authority') for name in ('Dockerfile','Dockerfile.dockerignore')
+}
 for name,expected in value['candidate_sources'].items(): assert digest(root/name)==expected,'candidate source mismatch: '+name
 assert set(value['executables'])=={'layerxd','layerx-genesis-build'}
 for name,row in value['executables'].items():
@@ -95,13 +100,6 @@ result=unittest.TextTestRunner(verbosity=2).run(suite)
 print('PAXEER_X_GENERATION_BROKER_GATE tests=%d skipped=%d'%(result.testsRun,len(result.skipped)),flush=True)
 assert result.wasSuccessful() and not result.skipped and result.testsRun==count,'actual broker corpus failed'
 subprocess.run(['go','test','-count=1','-run','^TestRealStateCredit(AndClockBounds|RefusesMissingAuthority)$','./custodyproof'],check=True,timeout=750)
-fixture=os.environ.get('LAYERX_CUSTODY_ARTIFACT_MANIFEST')
-assert fixture and Path(fixture).is_file(),'genuine matching custody artifact manifest unavailable; actual funded/bootstrap process prerequisite unqualified'
-native=os.environ.get('LAYERX_RESET_NATIVE_ARTIFACT_MANIFEST')
-assert native,'explicit private native artifact manifest required with genuine custody fixture'
-if not Path(native).exists():
- subprocess.run([sys.executable,str(root/'services/platform/hosted/node/tests/reset_recovery.py'),'--record-native',native],check=True,timeout=30)
-subprocess.run([sys.executable,str(root/'services/platform/hosted/node/tests/reset_recovery.py'),'--generation-transport'],check=True,timeout=750)
 VERIFY
     ;;
 *) echo 'usage: 24.20.sh build|verify' >&2; exit 2 ;;

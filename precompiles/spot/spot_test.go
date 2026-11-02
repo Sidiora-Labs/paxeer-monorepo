@@ -47,9 +47,9 @@ var (
 	served = []common.Address{pecorAddr, ordersAddr, stopOrdersAddr, quoterAddr, vaultAddr}
 )
 
-func fixtureSet(t *testing.T, f *pecorFixture) map[common.Address]*pcommon.Precompile {
+func fixtureSet(t *testing.T, f *pecorFixture) map[common.Address]*spot.Precompile {
 	t.Helper()
-	set, err := spot.NewPrecompileSet(spotKeepers{testkeeper.EVMTestApp.GetPrecompileKeepers(), f.keeper})
+	set, err := spot.NewServedSet(spotKeepers{testkeeper.EVMTestApp.GetPrecompileKeepers(), f.keeper})
 	require.NoError(t, err)
 	return set
 }
@@ -88,12 +88,15 @@ func packed(t *testing.T, contract abi.ABI, name string, args ...interface{}) []
 
 func TestNewPrecompileSetAddresses(t *testing.T) {
 	f := newPECORFixture(t)
-	set := fixtureSet(t, f)
+	keepers := testkeeper.EVMTestApp.GetPrecompileKeepers()
+	set, err := spot.NewServedSet(spotKeepers{keepers, f.keeper})
+	require.NoError(t, err)
 	require.Len(t, set, len(served))
 	names := map[common.Address]string{pecorAddr: "spot_pecor", ordersAddr: "spot_orders", stopOrdersAddr: "spot_stoporders",
 		quoterAddr: "spot_quoter", vaultAddr: "spot_vault"}
 	for _, address := range served {
 		require.Contains(t, set, address)
+		require.NotNil(t, set[address])
 		require.Equal(t, address, set[address].Address())
 		require.Equal(t, names[address], set[address].GetName())
 	}
@@ -101,12 +104,11 @@ func TestNewPrecompileSetAddresses(t *testing.T) {
 		require.NotContains(t, set, address)
 	}
 
-	keepers := testkeeper.EVMTestApp.GetPrecompileKeepers()
-	_, err := spot.NewPrecompileSet(&putils.EmptyKeepers{})
+	_, err = spot.NewServedSet(&putils.EmptyKeepers{})
 	require.EqualError(t, err, "spot: the application keepers carry no spot keeper")
-	_, err = spot.NewPrecompileSet(spotKeepers{keepers, nil})
+	_, err = spot.NewServedSet(spotKeepers{keepers, nil})
 	require.EqualError(t, err, "spot: the application keepers carry no spot keeper")
-	_, err = spot.NewPrecompileSet(spotKeepers{&putils.EmptyKeepers{}, f.keeper})
+	_, err = spot.NewServedSet(spotKeepers{&putils.EmptyKeepers{}, f.keeper})
 	require.EqualError(t, err, "spot: the application keepers carry no EVM keeper")
 	_, err = spot.GetVersioned(app.LatestUpgrade, &putils.EmptyKeepers{})
 	require.EqualError(t, err, "spot: the application keepers carry no spot keeper")
@@ -135,7 +137,8 @@ func TestMutabilityMatchesABI(t *testing.T) {
 	set := fixtureSet(t, f)
 	contracts := fixtureContracts(t, f)
 	payable := map[common.Address][]string{}
-	for address, base := range set {
+	for address, current := range set {
+		base := current.Precompile
 		for name, method := range base.GetABI().Methods {
 			if method.StateMutability == "payable" {
 				payable[address] = append(payable[address], name)
@@ -143,14 +146,15 @@ func TestMutabilityMatchesABI(t *testing.T) {
 		}
 	}
 	require.Equal(t, map[common.Address][]string{pecorAddr: {"swapExactInNative"}, vaultAddr: {"depositNative"}}, payable)
-	require.Equal(t, "nonpayable", set[pecorAddr].GetABI().Methods["multicall"].StateMutability)
-	require.True(t, set[pecorAddr].HasReceive())
-	require.True(t, set[vaultAddr].HasReceive())
+	require.Equal(t, "nonpayable", set[pecorAddr].Precompile.GetABI().Methods["multicall"].StateMutability)
+	require.True(t, set[pecorAddr].Precompile.HasReceive())
+	require.True(t, set[vaultAddr].Precompile.HasReceive())
 
 	nonPayable := pcommon.RevertReason(pcommon.ValidateNonPayable(big.NewInt(1)))
 	writeProtected := pcommon.RevertReason(vm.ErrWriteProtection)
 	zeros := make([]byte, 32*64)
-	for address, base := range set {
+	for address, current := range set {
+		base := current.Precompile
 		for name, method := range base.GetABI().Methods {
 			input := append(append([]byte(nil), method.ID...), zeros...)
 			if method.StateMutability != "payable" {
@@ -287,19 +291,19 @@ func TestGasTableRows(t *testing.T) {
 	require.Equal(t, spot.GasRow{Base: 20000}, spot.GasTable[vaultAddr]["syncReserves"])
 
 	buy := f.pack("marketBuy", f.stable, f.pax, big.NewInt(1000_000000), big.NewInt(1990_000000), big.NewInt(100))
-	require.Equal(t, 60000+spot.GasPerInputByte*uint64(len(buy)-4), set[pecorAddr].RequiredGas(buy))
+	require.Equal(t, 60000+spot.GasPerInputByte*uint64(len(buy)-4), set[pecorAddr].Precompile.RequiredGas(buy))
 	owner := f.pack("owner")
-	require.Equal(t, uint64(3000), set[pecorAddr].RequiredGas(owner))
-	ordersABI := set[ordersAddr].GetABI()
+	require.Equal(t, uint64(3000), set[pecorAddr].Precompile.RequiredGas(owner))
+	ordersABI := set[ordersAddr].Precompile.GetABI()
 	for _, ids := range [][]*big.Int{{}, {big.NewInt(1)}, {big.NewInt(1), big.NewInt(2), big.NewInt(3)}} {
 		batch := packed(t, ordersABI, "batchExecuteLimitOrders", ids)
-		require.Equal(t, 20000+60000*uint64(len(ids))+spot.GasPerInputByte*uint64(len(batch)-4), set[ordersAddr].RequiredGas(batch), len(ids))
+		require.Equal(t, 20000+60000*uint64(len(ids))+spot.GasPerInputByte*uint64(len(batch)-4), set[ordersAddr].Precompile.RequiredGas(batch), len(ids))
 	}
-	vaultABI := set[vaultAddr].GetABI()
-	require.Equal(t, uint64(20000), set[vaultAddr].RequiredGas(packed(t, vaultABI, "syncAllReserves")))
+	vaultABI := set[vaultAddr].Precompile.GetABI()
+	require.Equal(t, uint64(20000), set[vaultAddr].Precompile.RequiredGas(packed(t, vaultABI, "syncAllReserves")))
 	sync := packed(t, vaultABI, "syncReserves", f.pax)
-	require.Equal(t, 20000+spot.GasPerInputByte*uint64(len(sync)-4), set[vaultAddr].RequiredGas(sync))
-	require.Equal(t, pcommon.UnknownMethodCallGas, set[pecorAddr].RequiredGas([]byte{1, 2, 3, 4}))
+	require.Equal(t, 20000+spot.GasPerInputByte*uint64(len(sync)-4), set[vaultAddr].Precompile.RequiredGas(sync))
+	require.Equal(t, pcommon.UnknownMethodCallGas, set[pecorAddr].Precompile.RequiredGas([]byte{1, 2, 3, 4}))
 
 	// The dynamic path charges syncAllReserves for each of the three tokens.
 	contracts := fixtureContracts(t, f)
@@ -329,7 +333,7 @@ func TestEveryMethodHasGasRow(t *testing.T) {
 	for _, address := range served {
 		rows, ok := spot.GasTable[address]
 		require.True(t, ok, address.Hex())
-		methods := set[address].GetABI().Methods
+		methods := set[address].Precompile.GetABI().Methods
 		require.Len(t, rows, len(methods), address.Hex())
 		for name := range methods {
 			row, ok := rows[name]

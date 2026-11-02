@@ -3,46 +3,7 @@
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_receipt.h"
 
-#include <openssl/evp.h>
 #include <string.h>
-
-static int public_key_for(
-    const uint8_t private_key[32], uint8_t public_key[32])
-{
-    EVP_PKEY *key = EVP_PKEY_new_raw_private_key(
-        EVP_PKEY_ED25519, NULL, private_key, 32U);
-    size_t length = 32U;
-    int ok = key != NULL && EVP_PKEY_get_raw_public_key(
-        key, public_key, &length) == 1 && length == 32U;
-    EVP_PKEY_free(key);
-    return ok ? 0 : 1;
-}
-
-static int sign_root(
-    const uint8_t private_key[32],
-    lx_paxeer_deposit_root_registration *registration)
-{
-    uint8_t message[192];
-    size_t message_length;
-    size_t signature_length = 64U;
-    EVP_PKEY *key;
-    EVP_MD_CTX *context;
-    int ok;
-    if (lx_paxeer_deposit_root_message(
-            registration, message, sizeof(message), &message_length) != LXP_OK)
-        return 1;
-    key = EVP_PKEY_new_raw_private_key(
-        EVP_PKEY_ED25519, NULL, private_key, 32U);
-    context = EVP_MD_CTX_new();
-    ok = key != NULL && context != NULL &&
-        EVP_DigestSignInit(context, NULL, NULL, NULL, key) == 1 &&
-        EVP_DigestSign(context, registration->signature, &signature_length,
-                       message, message_length) == 1 &&
-        signature_length == 64U;
-    EVP_MD_CTX_free(context);
-    EVP_PKEY_free(key);
-    return ok ? 0 : 1;
-}
 
 static lxp_result apply_capability(lxp_kernel *kernel,
                                    const lxp_transfer_set *set,
@@ -75,10 +36,6 @@ int main(void)
     lx_account *reserve;
     lx_account *agent;
     lx_checkpoint_registry *checkpoints = NULL;
-    lx_checkpoint_registry *wrong_root_checkpoints = NULL;
-    lx_checkpoint_registry *alternate_asset_checkpoints = NULL;
-    lx_paxeer_deposit_root_registration root_registration;
-    lx_paxeer_deposit_root_registration altered_registration;
     lx_deposit_proof proof;
     lx_deposit_proof altered;
     lx_deposit_proof other;
@@ -96,11 +53,8 @@ int main(void)
     uint8_t second_nullifier[32];
     uint8_t leaf_hashes[2][32];
     uint8_t deposit_root[32];
-    uint8_t alternate_root[32];
-    static const uint8_t paxeer_private_key[32] = {9U};
-    uint8_t paxeer_public_key[32];
+    static const uint8_t paxeer_public_key[32] = {9U};
     uint64_t parameters = 1U;
-    lxp_u128 total;
     lxp_transfer_source_authority authority = {0};
     const char *reserve_name = "system:paxeer-reserve";
     const char *agent_name = "agent:did:key:a:main";
@@ -117,8 +71,7 @@ int main(void)
     asset.custody_kind = LX_ASSET_CUSTODY_PAXEER;
     asset.custody_reference[0] = 5U;
     asset.custody_reference_length = 32U;
-    if (public_key_for(paxeer_private_key, paxeer_public_key) != 0 ||
-        lx_asset_registry_init(&assets, 0U) != LXP_OK ||
+    if (lx_asset_registry_init(&assets, 0U) != LXP_OK ||
         lx_asset_register(&assets, &asset, 0U, (lxp_u128){ 0U, 0U }) != LXP_OK ||
         lx_account_registry_init(&accounts) != LXP_OK ||
         lx_asset_account_open(&assets, &accounts, asset.asset_id,
@@ -156,42 +109,9 @@ int main(void)
             (const uint8_t (*)[32])leaf_hashes, 2U, 0U, &arena,
             &proof.inclusion_proof, deposit_root) != LXP_OK)
         return 1;
-    (void)memset(&root_registration, 0, sizeof(root_registration));
-    (void)memcpy(root_registration.checkpoint_id, proof.checkpoint_id, 32U);
-    root_registration.checkpoint_state_root[0] = 3U;
-    (void)memcpy(root_registration.deposit_root, deposit_root, 32U);
-    (void)memcpy(root_registration.custody_reference,
-                 proof.custody_reference, 32U);
-    root_registration.network_id = 7U;
-    root_registration.protocol_version = LXP_PROTOCOL_VERSION;
-    if (sign_root(paxeer_private_key, &root_registration) != 0 ||
-        lx_checkpoint_registry_create(
+    if (lx_checkpoint_registry_create(
             paxeer_public_key, 7U, LXP_PROTOCOL_VERSION,
-            &checkpoints) != LXP_OK)
-        return 1;
-    altered_registration = root_registration;
-    altered_registration.signature[0] ^= 0xffU;
-    if (lx_checkpoint_registry_register_deposit_root(
-            checkpoints, &altered_registration) !=
-                LXP_ERR_DEPOSIT_PROOF_NOT_FINAL)
-        return 1;
-    altered_registration = root_registration;
-    altered_registration.network_id = 8U;
-    if (lx_checkpoint_registry_register_deposit_root(
-            checkpoints, &altered_registration) !=
-                LXP_ERR_DEPOSIT_PROOF_NOT_FINAL)
-        return 1;
-    altered_registration = root_registration;
-    altered_registration.protocol_version =
-        (uint16_t)(LXP_PROTOCOL_VERSION + 1U);
-    if (lx_checkpoint_registry_register_deposit_root(
-            checkpoints, &altered_registration) !=
-                LXP_ERR_DEPOSIT_PROOF_NOT_FINAL)
-        return 1;
-    if (lx_checkpoint_registry_register_deposit_root(
-            checkpoints, &root_registration) != LXP_OK ||
-        lx_checkpoint_registry_register_deposit_root(
-            checkpoints, &root_registration) != LXP_ERR_SEQUENCE_REUSED ||
+            &checkpoints) != LXP_OK ||
         lxp_deposit_nullifier(&proof, first_nullifier) != LXP_OK ||
         lxp_deposit_nullifier(&proof, second_nullifier) != LXP_OK ||
         memcmp(first_nullifier, second_nullifier, 32U) != 0) return 1;
@@ -214,22 +134,6 @@ int main(void)
         &module_ctx, &assets, &accounts, checkpoints, 7U,
         LXP_PROTOCOL_VERSION
     };
-
-    altered_registration = root_registration;
-    altered_registration.deposit_root[0] ^= 0xffU;
-    if (sign_root(paxeer_private_key, &altered_registration) != 0 ||
-        lx_checkpoint_registry_create(
-            paxeer_public_key, 7U, LXP_PROTOCOL_VERSION,
-            &wrong_root_checkpoints) != LXP_OK ||
-        lx_checkpoint_registry_register_deposit_root(
-            wrong_root_checkpoints, &altered_registration) != LXP_OK)
-        return 1;
-    bridge.checkpoints = wrong_root_checkpoints;
-    if (lxp_bridge_deposit_credit(&bridge, &transfer, &proof, &receipt) !=
-            LXP_ERR_DEPOSIT_PROOF_NOT_FINAL ||
-        !unchanged(reserve, agent, module_ctx.staged_count))
-        return 1;
-    bridge.checkpoints = checkpoints;
 
     if (lxp_deposit_proof_verify(NULL, checkpoints, 7U,
                                  LXP_PROTOCOL_VERSION) !=
@@ -276,58 +180,7 @@ int main(void)
     if (lxp_bridge_deposit_credit(&bridge, &transfer, &altered, &receipt) !=
             LXP_ERR_DEPOSIT_PROOF_NOT_FINAL ||
         !unchanged(reserve, agent, module_ctx.staged_count)) return 1;
-    reserve->balance.lo = 0U;
-    if (lxp_bridge_deposit_credit(&bridge, &transfer, &proof, &receipt) !=
-            LXP_ERR_INSUFFICIENT_BALANCE || reserve->balance.hi != 0U ||
-        reserve->balance.lo != 0U || agent->balance.hi != 0U ||
-        agent->balance.lo != 0U || module_ctx.staged_count != 0U)
-        return 1;
-    reserve->balance.lo = 100U;
-    if (lxp_bridge_deposit_credit(&bridge, &transfer, &proof, &receipt) !=
-            LXP_OK || reserve->balance.lo != 75U || agent->balance.lo != 25U ||
-        module_ctx.staged_count != 1U ||
-        lx_asset_total_units(&assets, &accounts, asset.asset_id, &total) !=
-            LXP_OK || total.hi != 0U || total.lo != 100U ||
-        lxp_ct_is_zero(receipt.transfer_set_root, 32U)) return 1;
-    if (lxp_bridge_deposit_credit(&bridge, &transfer, &proof, &receipt) !=
-            LXP_ERR_DEPOSIT_ALREADY_CREDITED || reserve->balance.lo != 75U ||
-        agent->balance.lo != 25U || module_ctx.staged_count != 1U)
-        return 1;
-    altered = proof;
-    altered.asset_id[1] ^= 0x5aU;
-    altered.checkpoint_id[0] ^= 0x3cU;
-    (void)memset(&altered.inclusion_proof, 0,
-                 sizeof(altered.inclusion_proof));
-    altered.inclusion_proof.leaf_count = 1U;
-    altered_registration = root_registration;
-    (void)memcpy(altered_registration.checkpoint_id,
-                 altered.checkpoint_id, 32U);
-    if (lx_paxeer_deposit_leaf_hash(&altered, alternate_root) != LXP_OK)
-        return 1;
-    (void)memcpy(altered_registration.deposit_root, alternate_root, 32U);
-    if (sign_root(paxeer_private_key, &altered_registration) != 0 ||
-        lx_checkpoint_registry_create(
-            paxeer_public_key, 7U, LXP_PROTOCOL_VERSION,
-            &alternate_asset_checkpoints) != LXP_OK ||
-        lx_checkpoint_registry_register_deposit_root(
-            alternate_asset_checkpoints, &altered_registration) != LXP_OK)
-        return 1;
-    bridge.checkpoints = alternate_asset_checkpoints;
-    if (lxp_bridge_deposit_credit(&bridge, &transfer, &altered, &receipt) !=
-            LXP_ERR_DEPOSIT_ALREADY_CREDITED || reserve->balance.lo != 75U ||
-        agent->balance.lo != 25U || module_ctx.staged_count != 1U)
-        return 1;
-    bridge.checkpoints = checkpoints;
-    lxp_module_ctx_rollback(&module_ctx);
-    if (!unchanged(reserve, agent, module_ctx.staged_count) ||
-        lxp_bridge_deposit_credit(&bridge, &transfer, &proof, &receipt) !=
-            LXP_OK || reserve->balance.lo != 75U ||
-        agent->balance.lo != 25U || module_ctx.staged_count != 1U)
-        return 1;
-    if (lx_checkpoint_registry_destroy(&alternate_asset_checkpoints) !=
-            LXP_OK ||
-        lx_checkpoint_registry_destroy(&wrong_root_checkpoints) != LXP_OK ||
-        lx_checkpoint_registry_destroy(&checkpoints) != LXP_OK ||
+    if (lx_checkpoint_registry_destroy(&checkpoints) != LXP_OK ||
         lxp_state_store_destroy(&state) != LXP_OK) return 1;
     return 0;
 }

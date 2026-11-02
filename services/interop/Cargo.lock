@@ -1225,7 +1225,7 @@ dependencies = [
  "k256",
  "layerx-crypto",
  "layerx-mirror",
- "layerx-paxeer-verifier",
+ "layerx-proof",
  "openssl",
  "serde",
  "serde_json",
@@ -1237,10 +1237,12 @@ dependencies = [
 name = "layerx-client"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "ed25519-dalek",
  "layerx-crypto",
  "layerx-paxeer-verifier",
  "layerx-programs-ai-market",
+ "layerx-programs-registry",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
@@ -1248,7 +1250,17 @@ dependencies = [
  "rustls",
  "serde_json",
  "sha2 0.10.9",
+ "tungstenite",
  "ureq",
+]
+
+[[package]]
+name = "layerx-committed-proof"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "serde_json",
+ "sha2 0.10.9",
 ]
 
 [[package]]
@@ -1316,11 +1328,9 @@ dependencies = [
 name = "layerx-indexer"
 version = "0.1.0"
 dependencies = [
- "layerx-client",
- "layerx-paxeer-verifier",
+ "layerx-committed-proof",
  "layerx-platform-internal",
  "layerx-programs-ai-market",
- "layerx-proof",
  "layerx-types",
  "layerx-wire",
  "postgres",
@@ -1331,19 +1341,6 @@ dependencies = [
  "sha2 0.10.9",
  "sha3",
  "tokio-postgres-rustls",
-]
-
-[[package]]
-name = "layerx-intent-ingester"
-version = "0.1.0"
-dependencies = [
- "ed25519-dalek",
- "layerx-crypto",
- "layerx-intents",
- "layerx-types",
- "layerx-wire",
- "native-tls",
- "serde_json",
 ]
 
 [[package]]
@@ -1367,6 +1364,7 @@ dependencies = [
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
+ "serde_json",
  "sha2 0.10.9",
  "sha3",
 ]
@@ -1378,6 +1376,8 @@ dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
  "layerx-ap2",
+ "layerx-client",
+ "layerx-crypto",
  "layerx-fiat",
  "layerx-interop-gateway",
  "layerx-migrate",
@@ -1424,11 +1424,8 @@ dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
  "k256",
- "layerx-agent-api",
- "layerx-client",
  "layerx-crypto",
  "layerx-proof",
- "layerx-types",
  "layerx-wire",
  "openssl",
  "rustls",
@@ -1517,6 +1514,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "sha3",
 ]
 
 [[package]]
@@ -1540,11 +1538,12 @@ dependencies = [
 name = "layerx-programs-registry"
 version = "0.1.0"
 dependencies = [
+ "curve25519-dalek",
+ "ed25519-dalek",
  "layerx-program-sdk",
  "layerx-programs-runtime",
- "layerx-proof",
  "layerx-types",
- "layerx-wire",
+ "sha2 0.10.9",
 ]
 
 [[package]]
@@ -1636,6 +1635,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
+ "layerx-committed-proof",
  "layerx-interop-gateway",
  "layerx-proof",
  "layerx-wire",

@@ -6,13 +6,7 @@ use layerx_wire::activity::Activity;
 
 use crate::lni::transport::FrameTransport;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum WithdrawalConfigurationError {
-    Unsupported,
-    Unavailable,
-    InvalidActivity,
-    AssetUnavailable,
-}
+pub use crate::rpc::withdrawal::WithdrawalConfigurationError;
 
 /// Reads one authenticated committed snapshot for withdrawal admission.
 ///

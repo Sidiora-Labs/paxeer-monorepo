@@ -533,14 +533,6 @@ pub(super) fn route(
                         "/v1/accounts/{accountId}/unified" => {
                             browser_profile == http::BrowserRouteProfile::UnifiedAccount
                         }
-                        "/v1/programs/{program_id}" => matches!(
-                            super::native_explorer_public_route(&request.method, &request.path),
-                            Some(super::NativeExplorerPublicRoute::Program(_))
-                        ),
-                        "/v1/programs/{program_id}/reads/resolve" => matches!(
-                            super::native_explorer_public_route(&request.method, &request.path),
-                            Some(super::NativeExplorerPublicRoute::Resolve(_))
-                        ),
                         _ => false,
                     }
                 } else {
@@ -554,8 +546,7 @@ pub(super) fn route(
     }
     if entry["upstream"] == "layerx-explorer" {
         let account = browser_profile == http::BrowserRouteProfile::UnifiedAccount;
-        if (!account
-            && super::native_explorer_public_route(&request.method, &request.path).is_none())
+        if !account
             || request.method != "GET"
             || !request.body.is_empty()
             || request

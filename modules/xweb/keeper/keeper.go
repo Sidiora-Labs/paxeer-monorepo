@@ -5,23 +5,35 @@
 package keeper
 
 import (
+	"bytes"
+	"encoding/binary"
 	"encoding/json"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/prefix"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 )
 
 type Keeper struct {
 	storeKey   sdk.StoreKey
 	bankKeeper types.BankKeeper
 	evmKeeper  types.EVMKeeper
+	upgrades   types.UpgradeReader
 }
 
 // NewKeeper builds the xweb keeper. The xweb module address must be able to
 // receive coins: it escrows every pending request's fee.
 func NewKeeper(storeKey sdk.StoreKey, bankKeeper types.BankKeeper, evmKeeper types.EVMKeeper) Keeper {
-	return Keeper{storeKey: storeKey, bankKeeper: bankKeeper, evmKeeper: evmKeeper}
+	k := Keeper{storeKey: storeKey, bankKeeper: bankKeeper, evmKeeper: evmKeeper}
+	if getter, ok := evmKeeper.(interface {
+		UpgradeKeeper() *upgradekeeper.Keeper
+	}); ok {
+		if upgrades := getter.UpgradeKeeper(); upgrades != nil {
+			k.upgrades = upgrades
+		}
+	}
+	return k
 }
 
 func (k Keeper) ModuleAddress() sdk.AccAddress { return types.ModuleAddress() }
@@ -93,6 +105,51 @@ func (k Keeper) ProgramCommittedCount(ctx sdk.Context) uint64 {
 	var count uint64
 	k.get(ctx, programCommittedCountKey, &count)
 	return count
+}
+
+func (k Keeper) ProgramPendingEntries(ctx sdk.Context) []types.ProgramPendingEntry {
+	var out []types.ProgramPendingEntry
+	k.iterate(ctx, []byte(programPendingPrefix), func(key, value []byte) {
+		var entry types.ProgramPendingEntry
+		if len(key) != len(entry.ProgramID)+8 {
+			panic(types.ErrInvalidGenesis.Wrapf("program pending key tail has length %d, want 40", len(key)))
+		}
+		copy(entry.ProgramID[:], key[:32])
+		entry.RequestID = binary.BigEndian.Uint64(key[32:])
+		entry.Record = bytes.Clone(value)
+		out = append(out, entry)
+	})
+	return out
+}
+
+func (k Keeper) ProgramAnswerEntries(ctx sdk.Context) []types.ProgramAnswerEntry {
+	var out []types.ProgramAnswerEntry
+	k.iterate(ctx, []byte(programAnswerPrefix), func(key, value []byte) {
+		var entry types.ProgramAnswerEntry
+		if len(key) != len(entry.ProgramID)+8+1 {
+			panic(types.ErrInvalidGenesis.Wrapf("program answer key tail has length %d, want 41", len(key)))
+		}
+		copy(entry.ProgramID[:], key[:32])
+		entry.RequestID = binary.BigEndian.Uint64(key[32:40])
+		entry.Part = key[40]
+		entry.Value = bytes.Clone(value)
+		out = append(out, entry)
+	})
+	return out
+}
+
+func (k Keeper) ProgramFeeDenomEntries(ctx sdk.Context) []types.ProgramFeeDenomEntry {
+	var out []types.ProgramFeeDenomEntry
+	k.iterate(ctx, []byte(programFeeDenomPrefix), func(key, value []byte) {
+		var entry types.ProgramFeeDenomEntry
+		if len(key) != len(entry.Asset) {
+			panic(types.ErrInvalidGenesis.Wrapf("program fee denom key tail has length %d, want 32", len(key)))
+		}
+		copy(entry.Asset[:], key)
+		entry.Denom = string(bytes.Clone(value))
+		out = append(out, entry)
+	})
+	return out
 }
 
 func (k Keeper) iterate(ctx sdk.Context, keyPrefix []byte, visit func(key, value []byte)) {

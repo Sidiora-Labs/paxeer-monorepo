@@ -7,10 +7,7 @@ mod disclosure;
 pub mod golden;
 mod keccak;
 mod native_budget;
-mod native_custody;
 mod native_receive;
-pub mod owner_activity;
-pub mod precompile;
 mod reject;
 #[cfg(feature = "test-vectors")]
 pub mod vectors;
@@ -21,7 +18,6 @@ pub use compiler::{
 };
 pub use disclosure::{DisclosureCheck, DisclosureCheckError, DisclosureField};
 pub use native_budget::NativeBudgetCreate;
-pub use native_custody::NativeCustodyCredit;
 pub use native_receive::NativeReceive;
 pub use reject::{inspect_intent, IntentHeader, IntentKindTag, RejectReason, RejectedIntent};
 
@@ -31,10 +27,9 @@ pub mod fuzz_targets {
 }
 
 pub use vocabulary::{
-    BridgeDepositCredit, BridgeWithdrawRequest, BudgetCreate, BudgetDefund, BudgetFund,
-    DidRegistration, EvmPayoutBinding, Intent, IntentError, IntentErrorReason, IntentField,
-    IntentKind, IntentVersion, KeyRotation, LxpReceive, LxpSend, PayerGrantRegistration,
-    RecoveryRegistration, SessionGrant, SessionRevoke,
+    BudgetCreate, BudgetDefund, BudgetFund, DidRegistration, Intent, IntentError,
+    IntentErrorReason, IntentField, IntentKind, IntentVersion, KeyRotation, LxpReceive, LxpSend,
+    PayerGrantRegistration, RecoveryRegistration, SessionGrant, SessionRevoke,
 };
 
 /// Stable identity of the sole human-plane payload authority.

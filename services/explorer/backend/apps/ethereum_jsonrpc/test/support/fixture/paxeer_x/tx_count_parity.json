@@ -1,0 +1,86 @@
+{
+  "block_request": {
+    "jsonrpc": "2.0",
+    "id": 0,
+    "method": "eth_getBlockByNumber",
+    "params": [
+      "0x1714f10",
+      true
+    ]
+  },
+  "block_response": {
+    "jsonrpc": "2.0",
+    "id": 0,
+    "result": {
+      "baseFeePerGas": "0x3b9aca00",
+      "difficulty": "0x0",
+      "extraData": "0x",
+      "gasLimit": "0x5f5e100",
+      "gasUsed": "0x226c8",
+      "hash": "0x4d3ba2ae0d4f0f1f0bd8b8ca6f1c2b6c1a4e7d5b9c0a3e2f6d8c1b4a7e9f0c35",
+      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "miner": "0xb3ad5a835b418958a9142d8681bfb4b81d2cf270",
+      "mixHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "nonce": "0x0000000000000000",
+      "number": "0x1714f10",
+      "parentHash": "0xc91520f8aa2c2b718328ea6a2cadf51cf7f1476553960acd115dca6cd63b583f",
+      "receiptsRoot": "0xe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "sha3Uncles": "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347",
+      "size": "0x598",
+      "stateRoot": "0x69f2411354846da07c177e7072a9f9df3bb3aa0505335ab54e7679345dc2e7f4",
+      "timestamp": "0x6ab5575e",
+      "totalDifficulty": "0x0",
+      "transactions": [
+        {
+          "blockHash": "0x4d3ba2ae0d4f0f1f0bd8b8ca6f1c2b6c1a4e7d5b9c0a3e2f6d8c1b4a7e9f0c35",
+          "blockNumber": "0x1714f10",
+          "from": "0x9f2a5c1d0e3b4a6c8d7e5f4a3b2c1d0e9f8a7b6c",
+          "gas": "0x0",
+          "gasPrice": null,
+          "hash": "0x8f21c0b7d6e5a49382716b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e",
+          "input": "0x7b2273656e64223a7b22616d6f756e74223a223132227d7d",
+          "nonce": "0x0",
+          "r": null,
+          "s": null,
+          "to": "0x71c7656ec7ab88b098defb751b7401b5f6d8976f",
+          "transactionIndex": "0x0",
+          "type": "0x0",
+          "v": null,
+          "value": null
+        },
+        {
+          "blockHash": "0x4d3ba2ae0d4f0f1f0bd8b8ca6f1c2b6c1a4e7d5b9c0a3e2f6d8c1b4a7e9f0c35",
+          "blockNumber": "0x1714f10",
+          "from": "0x9f2a5c1d0e3b4a6c8d7e5f4a3b2c1d0e9f8a7b6c",
+          "gas": "0x5208",
+          "gasPrice": "0x3b9aca00",
+          "hash": "0x58ef5cd005e73dc5bbd69846df6eff253a97c21185c0286e8c493256ebe4329d",
+          "input": "0x",
+          "nonce": "0x1",
+          "r": "0x1",
+          "s": "0x2",
+          "to": "0x71c7656ec7ab88b098defb751b7401b5f6d8976f",
+          "transactionIndex": "0x1",
+          "type": "0x0",
+          "v": "0x1b",
+          "value": "0xde0b6b3a7640000"
+        }
+      ],
+      "transactionsRoot": "0x2c2e243e9735f6d0081ffe60356c0e4ec4c6a9064c68d10bf8091ff896f33087",
+      "uncles": []
+    }
+  },
+  "count_request": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "eth_getBlockTransactionCountByNumber",
+    "params": [
+      "0x1714f10"
+    ]
+  },
+  "count_response": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": "0x2"
+  }
+}

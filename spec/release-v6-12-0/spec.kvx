@@ -149,6 +149,12 @@ value = "The halt height, the maintenance window, the public notice and the buil
 basis = "These values are chosen at execution time and stay in access-controlled storage."
 affects = ["spec/release-v6-12-0/docs/rollout-runbook.md"]
 
+[decision.12]
+title = "A whole-position close sends closeSizeUsd 0"
+value = "buildClosePosition and closePosition send closePositionWithParams with closeSizeUsd 0, which closes the whole position at inclusion; the position-size wording in the done text of tasks 6.0.4 and 6.2.1 and in the 1.0.0 generation copies reads as closeSizeUsd 0."
+basis = "contracts/perps.md:665 defines closeSizeUsd 0 as the whole position; apps/perps/src/core/perps/calls.ts:227-233 passes FULL_CLOSE and apps/perps/tests/perps-calls.test.ts:148-154 asserts closeSizeUsd 0n; a size read before inclusion reverts or leaves a residual when the mark moves."
+affects = ["acceptance.6.3.3", "req.6003", "6.0.4", "6.2.1", "contracts/application.md"]
+
 [acceptance.1.1]
 feature = "2"
 req = "1.1"
@@ -19174,7 +19180,7 @@ ac_6 = "ORDER_TYPE_LABELS, ORDER_TYPE_COLORS, FEE_TYPE_LABELS and TRADE_TYPE_LAB
 title = "Position calls go to the perpetuals precompile with their price bound and deadline"
 ac_1 = "A market open (Hyperpax:src/hooks/perps/usePosition.ts:63-64) sends placeOrder(OrderParams) to 0x1015 with orderType MARKET, timeInForce IOC (FOK when chosen), marketId, isLong, collateral in USDL base units, leverage, acceptablePrice, deadline, takeProfitPrice and stopLossPrice; the fixed-arity openPosition of contracts/perps.md stays in the ABI."
 ac_2 = "A bounded addSize (Hyperpax:src/hooks/perps/usePosition.ts:121-122) sends placeOrder with orderType MARKET and timeInForce IOC on the market and side of the position, with the added collateral in USDL base units, leverage at 18 decimals, acceptablePrice and deadline."
-ac_3 = "closePosition (Hyperpax:src/hooks/perps/usePosition.ts:79-80) sends closePositionWithParams(positionId, closeSizeUsd, acceptablePrice, deadline) to 0x1015 with closeSizeUsd equal to the position size and acceptablePrice from the quoteClosePosition exitPrice."
+ac_3 = "closePosition (Hyperpax:src/hooks/perps/usePosition.ts:79-80) sends closePositionWithParams(positionId, closeSizeUsd, acceptablePrice, deadline) to 0x1015 with closeSizeUsd 0, which closes the whole position whatever its size at inclusion (contracts/perps.md:665), and acceptablePrice from the quoteClosePosition exitPrice."
 ac_4 = "partialClose (Hyperpax:src/hooks/perps/usePosition.ts:89-90) sends closePositionWithParams with closeSizeUsd at 18 decimals and acceptablePrice from quotePartialClose, and the positions panel offers it beside handleClose (Hyperpax:src/widgets/trading/PerpsPositionsPanel.tsx:857-876)."
 ac_5 = "addCollateral and removeCollateral (Hyperpax:src/hooks/perps/usePosition.ts:100-101, :110-111) target 0x1015 with the amount in USDL base units."
 ac_6 = "getPosition, getUserPositionIds(account) and getOpenInterest (Hyperpax:src/hooks/perps/usePosition.ts:29-30, :38-39, :47-48) read 0x1015, and getPositionDetails(positionId) supplies take-profit, stop-loss and liquidation price."
@@ -19705,9 +19711,9 @@ qualification = "UNRUN"
 [acceptance.6.3.3]
 feature = "6"
 req = "6003.3"
-scenario = "Given positionId 7 of a long of size 2000e18 with quoted exitPrice 96000e18 and 50 bps, when buildClosePosition runs, then functionName is closePositionWithParams with closeSizeUsd 2000e18 and acceptablePrice 95520e18."
+scenario = "Given positionId 7 of a long with quoted exitPrice 96000e18 and 50 bps, when buildClosePosition runs, then functionName is closePositionWithParams with closeSizeUsd 0 (the whole position) and acceptablePrice 95520e18."
 contract = "contracts/application.md#perpetual-call-sites"
-test = "Hyperpax:tests/perps-calls.test.ts::closeLongBoundRoundsDown (planned)"
+test = "apps/perps/tests/perps-calls.test.ts::closeLongBoundRoundsDown"
 qualification = "UNRUN"
 
 [acceptance.6.3.4]
