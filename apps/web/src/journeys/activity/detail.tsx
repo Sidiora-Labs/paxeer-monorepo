@@ -21,6 +21,7 @@ import { ActivityErrorSurface } from "./activity";
 import {
   activityFailure,
   detailUnresolved,
+  detailEvidence,
   entryVerification,
   evidenceClassLabel,
   explorerPath,
@@ -52,14 +53,15 @@ type DetailExport =
   | Readonly<{ kind: "ready"; artefact: ExportArtefact }>
   | Readonly<{ kind: "failed"; failure: ActivityFailure }>;
 
+export function ActivityVerification({ detail }: Readonly<{ detail: ActivityEntryDetail }>) {
+  const verification = entryVerification(detailEvidence(validatedDetail(detail)));
+  return <ActivityEvidenceBadge>{verificationLabel(verification)}</ActivityEvidenceBadge>;
+}
+
 function TechnicalDetails({ detail }: Readonly<{ detail: ActivityEntryDetail }>) {
   const shell = useShellSelection().shell;
   const [open, setOpen] = useState(false);
   const Disclosure = shell === "mobile" ? MobileDetail : DesktopDetail;
-  const verification = entryVerification([
-    ...detail.evidence,
-    ...detail.stages.flatMap((stage) => stage.evidence),
-  ]);
 
   return (
     <section className="flex flex-col gap-3">
@@ -92,7 +94,7 @@ function TechnicalDetails({ detail }: Readonly<{ detail: ActivityEntryDetail }>)
             <div><dt className="text-sm text-muted-foreground">{copyEntry("activity.detail.state").message}</dt><dd className="font-mono text-sm">{detail.state}</dd></div>
             <div><dt className="text-sm text-muted-foreground">{copyEntry("activity.detail.state_copy").message}</dt><dd className="font-mono text-sm">{detail.state_copy_key}</dd></div>
             <div><dt className="text-sm text-muted-foreground">{copyEntry("activity.detail.summary_copy").message}</dt><dd className="font-mono text-sm">{detail.summary_copy_key}</dd></div>
-            <div><dt className="text-sm text-muted-foreground">{copyEntry("activity.technical.verification").message}</dt><dd><ActivityEvidenceBadge>{verificationLabel(verification)}</ActivityEvidenceBadge></dd></div>
+            <div><dt className="text-sm text-muted-foreground">{copyEntry("activity.technical.verification").message}</dt><dd><ActivityVerification detail={detail} /></dd></div>
           </dl>
           <section className="flex flex-col gap-2">
             <h3 className="font-bold text-foreground">{copyEntry("activity.technical.evidence").message}</h3>

@@ -12,7 +12,7 @@ import {
   type LaunchpadSpend,
   type PrecompileCall,
 } from "../../api/sdk";
-import { sendWalletPrecompileCall, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
+import { isPrecompileSendOutcome, sendWalletPrecompileCall, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
 import { windowWalletProvider } from "../../api/provider";
 import { KitButton } from "../../kit/control";
 import { ExplorerPanel } from "../../kit/explorer";
@@ -60,7 +60,7 @@ export async function sendWithApproval(
     if (approve !== undefined) {
       onApproving(true);
       const approved = await sendWalletPrecompileCall(from, () => approve);
-      if (approved.outcome !== "sent") {
+      if (!isPrecompileSendOutcome(approved) || approved.outcome !== "sent") {
         return approved;
       }
       await waitLaunchpadApproval(wallet, approved.transactionHash);
@@ -147,7 +147,7 @@ export function LaunchpadActions({
         },
       );
       setTradeOutcome(outcome);
-      if (outcome.outcome === "sent") {
+      if (isPrecompileSendOutcome(outcome) && outcome.outcome === "sent") {
         setPreview(undefined);
         router.refresh();
       }
@@ -168,7 +168,7 @@ export function LaunchpadActions({
         },
       );
       setCreateOutcome(outcome);
-      if (outcome.outcome === "sent") {
+      if (isPrecompileSendOutcome(outcome) && outcome.outcome === "sent") {
         router.refresh();
       }
     });

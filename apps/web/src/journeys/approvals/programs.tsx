@@ -43,6 +43,10 @@ function retainedRecord(bytesBase64: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
+export function ProgramBudgetAmount({ budget }: Readonly<{ budget: ProgramApprovalBudget }>) {
+  return <p>{`${formatCopy("approval.program.units", { amount: budget.remaining.toString() })} · ${verificationLabel(budget.verification)}`}</p>;
+}
+
 export function ProgramApprovalDetailCard({ detail, controller, at, shell, onChanged }: Readonly<{
   detail: ProgramApprovalDetail;
   controller: Approvals;
@@ -137,7 +141,7 @@ export function ProgramApprovalDetailCard({ detail, controller, at, shell, onCha
     <section className="flex flex-col gap-3">
       <h2>{copyEntry("approval.program.budget").message}</h2>
       {budget === undefined ? <p>{copyEntry("approval.program.budget-unavailable").message}</p> : <>
-        <p>{`${formatCopy("approval.program.units", { amount: budget.remaining.toString() })} · ${verificationLabel(budget.verification)}`}</p>
+        <ProgramBudgetAmount budget={budget} />
         <CopyableIdentifier label={copyEntry("approval.program.asset").message} value={budget.asset_id} />
         {budget.evidence.map((reference) => <KitButton key={reference.evidence_id} variant="secondary" onClick={() => { void download(reference); }}>{copyEntry("approval.program.export").message}</KitButton>)}
       </>}
