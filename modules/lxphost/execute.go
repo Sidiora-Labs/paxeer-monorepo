@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"strings"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
@@ -36,5 +35,17 @@ func ResultError(code Code) error {
 	if code == 0 {
 		return nil
 	}
-	return errors.New(strings.Replace(code.Error(), "LXP_ERR_", "LXP_", 1))
+	return activityResultError{code: code}
+}
+
+type activityResultError struct {
+	code Code
+}
+
+func (e activityResultError) Error() string {
+	return strings.Replace(e.code.Error(), "LXP_ERR_", "LXP_", 1)
+}
+
+func (e activityResultError) Unwrap() error {
+	return e.code
 }
