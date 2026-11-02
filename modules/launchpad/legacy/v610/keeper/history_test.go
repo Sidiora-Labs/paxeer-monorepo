@@ -115,7 +115,7 @@ func TestAirdropHoldingHistory(t *testing.T) {
 			[]banktypes.Output{banktypes.NewOutput(d, coins)}))
 		// The launchpad module mints and burns through tokenfactory, whose
 		// bank copy was made before the hook was registered.
-		tf := tokenfactorykeeper.NewMsgServerImpl(app.TokenFactoryKeeper)
+		tf := tokenfactorykeeper.NewMsgServerImpl(newTokenFactory(app, h.bank))
 		admin := escrow.String()
 		_, err := tf.Mint(sdk.WrapSDKContext(h.ctx), tokenfactorytypes.NewMsgMint(admin, sdk.NewCoin(h.denom, i(5_000))))
 		require.NoError(t, err)
@@ -125,7 +125,9 @@ func TestAirdropHoldingHistory(t *testing.T) {
 
 		require.True(t, h.balance(a, h.denom).IsZero())
 		for _, holder := range []sdk.AccAddress{a, b2, c, d, escrow, h.trader} {
-			require.Equal(t, boundary[holder.String()], h.epochBalance(holder, 1), holder.String())
+			want, got := boundary[holder.String()], h.epochBalance(holder, 1)
+			t.Logf("holder %s boundary=%s epoch=%s", holder, want, got)
+			require.Equal(t, want.String(), got.String(), holder.String())
 		}
 		require.True(t, h.epochBalance(d, 1).IsZero())
 		require.Equal(t, i(700_000), h.epochBalance(a, 1))

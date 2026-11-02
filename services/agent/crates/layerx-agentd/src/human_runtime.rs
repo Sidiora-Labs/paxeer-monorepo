@@ -2125,6 +2125,7 @@ impl HumanAuthorityBoundary for RemoteHumanAuthority {
 pub(crate) struct OwnedSubmission {
     pub(crate) principal: String,
     pub(crate) idempotency_key: [u8; 32],
+    pub(crate) transaction_hash: [u8; 32],
 }
 
 impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
@@ -2171,41 +2172,41 @@ fn indexed_activity_owner(
         )
         .ok_or(HumanOperationError::Refused)?;
     let bytes = entry.bytes();
-    if entry.class() != StorageClass::LocalOnly || bytes.len() < 33 || bytes[0] != 1 {
+    if entry.class() != StorageClass::LocalOnly || bytes.len() < 65 || bytes[0] != 2 {
         return Err(HumanOperationError::Unavailable);
     }
     let idempotency_key: [u8; 32] = bytes[1..33]
         .try_into()
         .map_err(|_| HumanOperationError::Unavailable)?;
-    let principal = std::str::from_utf8(&bytes[33..])
+    let transaction_hash = bytes[33..65]
+        .try_into()
+        .map_err(|_| HumanOperationError::Unavailable)?;
+    let principal = std::str::from_utf8(&bytes[65..])
         .map_err(|_| HumanOperationError::Unavailable)?
         .to_owned();
     Ok(OwnedSubmission {
         principal,
         idempotency_key,
+        transaction_hash,
     })
 }
 
 fn retained_activity_owner(
     store: &Store,
-    registry: &ModuleRegistry,
+    _registry: &ModuleRegistry,
     tenant: &TenantId,
     activity_id: [u8; 32],
     indexed: OwnedSubmission,
 ) -> Result<OwnedSubmission, HumanOperationError> {
     let mut outbox = Outbox::default();
     outbox
-        .restore(store, tenant.clone(), indexed.idempotency_key)
+        .restore(store, tenant.clone(), indexed.transaction_hash)
         .map_err(|_| HumanOperationError::Unavailable)?;
     let signed = outbox
-        .exact_signed_bytes(indexed.idempotency_key)
+        .exact_signed_bytes(indexed.transaction_hash)
         .map_err(|_| HumanOperationError::Unavailable)?;
-    let activity = layerx_wire::activity::decode_signed(signed, registry)
-        .map_err(|_| HumanOperationError::Unavailable)?;
-    if activity.idempotency_key() != indexed.idempotency_key
-        || layerx_wire::hash::activity_id(&activity)
-            .map_err(|_| HumanOperationError::Unavailable)?
-            != activity_id
+    if layerx_crypto::evm_transaction::transaction_hash(signed) != indexed.transaction_hash
+        || indexed.transaction_hash != activity_id
     {
         return Err(HumanOperationError::Unavailable);
     }
@@ -4110,14 +4111,14 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                 .map_err(|_| HumanOperationError::Unavailable)?;
             let mut outbox = Outbox::default();
             outbox
-                .restore(&store, tenant.clone(), indexed.idempotency_key)
+                .restore(&store, tenant.clone(), indexed.transaction_hash)
                 .map_err(|_| HumanOperationError::Unavailable)?;
             let signed = outbox
-                .exact_signed_bytes(indexed.idempotency_key)
+                .exact_signed_bytes(indexed.transaction_hash)
                 .map_err(|_| HumanOperationError::Unavailable)?
                 .to_vec();
             let origin = outbox
-                .origin(indexed.idempotency_key)
+                .origin(indexed.transaction_hash)
                 .map_err(|_| HumanOperationError::Unavailable)?
                 .ok_or(HumanOperationError::Refused)?;
             (signed, origin)
@@ -14089,12 +14090,12 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 .lock()
                 .map_err(|_| HumanOperationError::Unavailable)?;
             let indexed = indexed_activity_owner(&store, &tenant, hash)?;
-            if indexed.principal != peer.principal || indexed.idempotency_key != hash {
+            if indexed.principal != peer.principal || indexed.transaction_hash != hash {
                 return Err(HumanOperationError::Refused);
             }
             let mut outbox = Outbox::default();
             outbox
-                .restore(&store, tenant, indexed.idempotency_key)
+                .restore(&store, tenant, indexed.transaction_hash)
                 .map_err(|_| HumanOperationError::Unavailable)?;
             let status = outbox.status(hash).ok_or(HumanOperationError::Refused)?;
             if status.activity_id != hash || status.submission_id != hash {
@@ -19666,7 +19667,7 @@ fn validate_capability<A: HumanAuthorityBoundary>(
 mod outbound_tls_tests;
 
 #[cfg(test)]
-mod activity_submission_index_tests {
+pub(crate) mod activity_submission_index_tests {
     use super::*;
 
     fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
@@ -19738,10 +19739,45 @@ mod activity_submission_index_tests {
             },
         };
         let key: [u8; 32] = must(activity.authority().try_into());
-        let verified = must(crate::sign::verify_kernel_before_submit(
+        must(crate::sign::verify_kernel_before_submit(
             bytes, &prepared, &key, &registry,
         ));
+        let verified = transaction_submission(prepared, &registry);
         (registry, verified)
+    }
+
+    pub(crate) fn transaction_submission(
+        prepared: crate::prepare::Prepared,
+        registry: &ModuleRegistry,
+    ) -> crate::sign::VerifiedSubmission {
+        use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
+        let call = Eip1559Call {
+            chain_id: u64::from(prepared.envelope.network_id()),
+            nonce: prepared.envelope.account_sequence(),
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 10,
+            gas_limit: 100_000,
+            to: crate::prepare::evm::PrecompileTarget::Auth.address(),
+            data: prepared.envelope.payload().as_bytes().to_vec(),
+        };
+        let raw = must(call.sign(&[0xa5; 32]));
+        let (decoded, signature) = must(decode_signed(&raw));
+        let actor_address = must(recover_sender(&decoded, &signature));
+        let preparation = crate::sign::SigningPreparation {
+            transaction: crate::prepare::EvmPrepared {
+                signing_hash: call.signing_hash(),
+                call,
+                observed_head_height: 0,
+            },
+            actor_address,
+            authorization: prepared,
+        };
+        must(crate::sign::verify_before_submit(
+            &raw,
+            &preparation,
+            &actor_address,
+            registry,
+        ))
     }
 
     fn queued(
@@ -19777,14 +19813,14 @@ mod activity_submission_index_tests {
         store: &mut Store,
         tenant: &TenantId,
         idempotency_key: [u8; 32],
+        transaction_hash: [u8; 32],
         activity_id: [u8; 32],
     ) {
-        let (index_key, bytes) = must(crate::store::activity_owner_entry(
-            tenant,
-            activity_id,
-            &idempotency_key,
-            "operator",
-        ));
+        let index_key = must(crate::store::activity_owner_key(tenant, activity_id));
+        let mut bytes = vec![2];
+        bytes.extend_from_slice(&idempotency_key);
+        bytes.extend_from_slice(&transaction_hash);
+        bytes.extend_from_slice(b"operator");
         must(store.put_local(index_key, bytes));
     }
 
@@ -19798,7 +19834,7 @@ mod activity_submission_index_tests {
         retained_activity_owner(store, registry, tenant, activity_id, indexed)
     }
 
-    fn settlement_receipt(
+    pub(crate) fn settlement_receipt(
         activity_id: [u8; 32],
         result_code: i32,
         amount: u128,
@@ -20112,10 +20148,29 @@ mod activity_submission_index_tests {
             OwnedSubmission {
                 principal: "operator".to_owned(),
                 idempotency_key: submission.idempotency_key(),
+                transaction_hash: submission.activity_id(),
             }
         );
         drop(store);
         let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn legacy_index_without_transaction_hash_is_refused() {
+        let (root, mut store, tenant, registry, submission) = queued("legacy-index");
+        let (key, bytes) = must(crate::store::activity_owner_entry(
+            &tenant,
+            submission.activity_id(),
+            &submission.idempotency_key(),
+            "operator",
+        ));
+        must(store.put_local(key, bytes));
+        assert!(matches!(
+            lookup(&store, &registry, &tenant, submission.activity_id()),
+            Err(HumanOperationError::Unavailable)
+        ));
+        drop(store);
+        must(std::fs::remove_dir_all(root));
     }
 
     #[test]
@@ -20132,7 +20187,7 @@ mod activity_submission_index_tests {
     #[test]
     fn index_entry_with_missing_target_is_refused_as_corrupt() {
         let (root, mut store, tenant, registry, _) = queued("missing");
-        index(&mut store, &tenant, [0x44; 32], [0x66; 32]);
+        index(&mut store, &tenant, [0x44; 32], [0x55; 32], [0x66; 32]);
         assert!(matches!(
             lookup(&store, &registry, &tenant, [0x66; 32]),
             Err(HumanOperationError::Unavailable)
@@ -20148,6 +20203,7 @@ mod activity_submission_index_tests {
             &mut store,
             &tenant,
             submission.idempotency_key(),
+            submission.activity_id(),
             [0x77; 32],
         );
         assert!(matches!(
@@ -20163,7 +20219,21 @@ mod activity_submission_index_tests {
         let (root, store, tenant, registry, submission) = queued("persisted");
         drop(store);
         let reopened = must(Store::open(root.join("store")));
-        let id = submission.idempotency_key().to_vec();
+        let mut restored = Outbox::default();
+        assert_ne!(submission.idempotency_key(), submission.activity_id());
+        assert!(matches!(
+            restored.restore(&reopened, tenant.clone(), submission.idempotency_key()),
+            Err(crate::outbox::OutboxError::NotFound)
+        ));
+        assert!(restored
+            .exact_signed_bytes(submission.idempotency_key())
+            .is_err());
+        must(restored.restore(&reopened, tenant.clone(), submission.activity_id()));
+        assert_eq!(
+            must(restored.exact_signed_bytes(submission.activity_id())),
+            submission.exact_bytes()
+        );
+        let id = submission.activity_id().to_vec();
         for kind in [
             ObjectKind::PreparedActivity,
             ObjectKind::Outbox,
@@ -20183,6 +20253,7 @@ mod activity_submission_index_tests {
             OwnedSubmission {
                 principal: "operator".to_owned(),
                 idempotency_key: submission.idempotency_key(),
+                transaction_hash: submission.activity_id(),
             }
         );
         drop(reopened);
@@ -20216,7 +20287,7 @@ mod activity_submission_index_tests {
             .get(&must(TenantKey::new(
                 tenant.clone(),
                 ObjectKind::Outbox,
-                submission.idempotency_key().to_vec(),
+                submission.activity_id().to_vec(),
             )))
             .is_none());
         assert!(matches!(
@@ -21725,9 +21796,13 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
                     let hash = outbox
                         .enqueue(&mut store, tenant.clone(), raw)
                         .map_err(|_| HumanOperationError::Refused)?;
-                    let (owner_key, owner_bytes) =
-                        crate::store::activity_owner_entry(&tenant, hash, &hash, &peer.principal)
-                            .map_err(|_| HumanOperationError::Refused)?;
+                    let (owner_key, owner_bytes) = crate::outbox::indexed_submission_owner_entry(
+                        &tenant,
+                        key,
+                        hash,
+                        &peer.principal,
+                    )
+                    .map_err(|_| HumanOperationError::Refused)?;
                     store
                         .put_local(owner_key, owner_bytes)
                         .map_err(|_| HumanOperationError::Unavailable)?;

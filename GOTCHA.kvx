@@ -13875,3 +13875,28 @@ fix = "When a kernel activity type is retired, grep every list of activity types
 title = "A fixture, its decoder and its producer carried three different leg shapes"
 symptom = "The intent plan fixture legs carried chainId, data and payment, the TypeScript decoder required call and nonce, and the human service emitted flat snake_case EVM fields; the decoder failed the fixture and the fixture never matched a real response."
 fix = "Before repairing a decoder against a fixture, read the producer's json! site and the published schema; the fixture is regenerated from the producer and both consumers follow it."
+
+[gotcha.2811]
+title = "A touches entry for a file a prerequisite had already deleted blocked a passing candidate"
+symptom = "The completion check requires a matching change for every touches entry; a test file the task was told to delete had been deleted by a prerequisite task first, so the otherwise green candidate was refused."
+fix = "When a prerequisite lands the deletion or creation a task was told to make, drop that path from the task's touches in the same ruling; never add a path to touches that the task will not change."
+
+[gotcha.2812]
+title = "A fee estimate without a payer address was refused by the real node"
+symptom = "eth_estimateGas with maxFeePerGas set and no from is checked against the zero address's balance and answers insufficient funds for transfer even for a zero-value call; the funded account one line earlier was never consulted."
+fix = "Estimate a fee-bearing call with from set to the account that will sign; keep the fromless estimate for calls whose fee fields are zero and say so in its doc comment."
+
+[gotcha.2813]
+title = "A harness repair let a panicking test run for the first time and it failed on an older change"
+symptom = "A chain test that had panicked for weeks on a missing merge-table dependency ran again once the harness registered the keepers, and failed on fee collection that no run had checked since the last green revision."
+fix = "When a repair makes a long-panicking test run, treat its failure as unlocated: bisect from the last green revision with exit 125 on the old panic before changing the test or the product, and name the commit the bisect finds in the commit message."
+
+[gotcha.2814]
+title = "A proof read its funded key from the process environment and failed where none was set"
+symptom = "The proof declared the node build outside its scope and read LOCAL_NODE_KEY and the RPC URL from the environment; seven of eight tests passed and the eighth found no key."
+fix = "A proof that needs a node builds it in build_cmd and starts it itself, reading key material from the file the node script writes; a doc comment declaring the producer out of scope is a ruling request, not a substitute for one."
+
+[gotcha.2815]
+title = "A TypeScript test imported a Python package through an inline program the dependency scan could not see"
+symptom = "The qualification environment installs the Python packages a pytest target imports by scanning .py files; a TypeScript test spawned python3 -c with its own imports, so cryptography was never installed and one of thirty checks failed."
+fix = "A cross-language parity check names its interpreter-side dependencies where the environment can find them; the environment now also provides them for the TypeScript SDK tests that spawn python3."
