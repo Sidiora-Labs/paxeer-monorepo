@@ -20,7 +20,7 @@ Proves: tests/test_bridge_withdraw.c:open_ledger/lxp_bridge_withdraw_request -> 
  * resurrecting those layers. This proof exercises the surviving bridge path;
  * it cannot prove successful consumption through the retired claim functions.
  */
-#include "lxp_kernel_case.h"
+#include "../codec/lxp_kernel_case.h"
 
 /* Share the actual listed caller and its real ledger applier, without a double. */
 #define LXP_BRIDGE_WITHDRAW_PROOF

@@ -13630,3 +13630,53 @@ fix = "Assert status.Code and the message text on the client path, and assert er
 title = "Check the headers before asserting that a type is retired"
 symptom = "A CI test asserted lxp_verified_receipt_authority_facts was gone while include/layerx/lxp_receipt.h still defines it and src/modules/programs/call.c uses it; three legitimate test files failed the assertion."
 fix = "An absence test names deleted files and their references, taken from the deleting commit, never a type or symbol unless the header no longer declares it."
+
+[gotcha.2763]
+title = "A contract build that passes does not prove the schema tests pass"
+symptom = "The agent API build-script gate checks removals only; two additive schema edits (a new record block, a reworded outcome) built fine while cargo test -p layerx-agent-api --test schema failed on a stale golden and stale literal pins."
+fix = "A task that edits services/agent/schema/agent-api/*.kvx moves golden/v1.kvx and the schema.rs pins in the same commit and runs the schema tests in its verify (decision 2307)."
+
+[gotcha.2764]
+title = "A test that expects a raised type must follow the wrapper that converts it"
+symptom = "test_material.py expected FileNotFoundError from assemble_policy while read_bytes had converted it into a ValueError bundle refusal a month earlier."
+fix = "When a test expects an exception type, read the call path for a converting wrapper and assert the type and message the product raises now."
+
+[gotcha.2765]
+title = "A test for a later validation must satisfy the earlier mandatory configuration"
+symptom = "The seller network-identifier test constructed SellerMiddleware without receipt keys; the constructor refuses missing keys before it reads the networks, so the expected unsupported-payment never surfaced."
+fix = "Give such a test the mandatory fixtures (a pinned key) so it reaches the validation it asserts; do not reorder product checks to suit the test."
+
+[gotcha.2766]
+title = "Pick the fixture case the verifier decodes, not the first vector of the file"
+symptom = "Python x402 payment tests fed the plain transfer vector to a verifier that decodes a ledger draw and failed with Local verification failed."
+fix = "Select the fixture case by id (V1-layerxledger-pay-exact) and derive the terms from its log, the way the TypeScript seller tests do."
+
+[gotcha.2767]
+title = "Deleting a test file also removes it from an explicit test script"
+symptom = "The TypeScript SDK's npm test lists each compiled test by path; deleting the source left Cannot find module for its dist file."
+fix = "When a test file is deleted, edit the package.json test script (and any list that names it) in the same change and add package.json to touches."
+
+[gotcha.2768]
+title = "The merge plan gate counted v6.12.0 addresses a full-genesis chain never selected"
+symptom = "Applying the merge plan on a test wrapper panicked with 'missing merge constructors or activation precompiles: 0x1020 ... 0x1025' because the v6.12.0 set was selected only on a done height while the gate counted every activation address."
+fix = "Derive liveness of a versioned set from the module version map as well as the done height (decision 2308), the rule the activation entries already follow."
+
+[gotcha.2769]
+title = "A schema edit leaves the generated SDKs stale"
+symptom = "The platform generator's --check refused after a schema file changed although every crate test passed."
+fix = "Run the generator without --check after any schema edit and commit the regenerated files with the pipeline manifest (decision 2310)."
+
+[gotcha.2770]
+title = "A missing named export fails the whole ESM test file at load"
+symptom = "A buyer test file imported a class the shared runtime module had renamed; node reported the SyntaxError before any test ran, so every case in the file counted as failed."
+fix = "Grep the support module's exports when a test imports it, and port renamed clients with their new constructor arguments."
+
+[gotcha.2771]
+title = "An ABCI error built from an empty log names no reason"
+symptom = "The sequencer's Accept wrapped codespace, code and an empty log into an error whose text was blank, so the test only showed a stack."
+fix = "Include codespace and code in the error text when the log is empty, and have harnesses print them."
+
+[gotcha.2772]
+title = "Grant reads moved from the keeper to the precompile view"
+symptom = "Tests still called Keeper.GetPayerGrant two days after 1.12.4 deleted it; vet failed for the whole test package."
+fix = "Read grants through the getPayerGrant view of the precompile and grep every test package for a deleted accessor, not only the file the finding named."
