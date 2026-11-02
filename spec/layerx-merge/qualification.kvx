@@ -19043,3 +19043,35 @@ symbol = "cargo test"
 observed = "Attempt 4 (base e7985f9e5) passes the schema, freshness, MCP and SDK binding tests it owns and still fails because the four-crate cargo test sweeps 41 targets: the tls_boundary.rs:183 trio (producer input, excluded by name under decision 2325 in 22.16.11), proof_sdk and proof_layerx_wallet_rpc (21.45.1's node-backed proofs), web_payments_layerxpay and v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes (the native corpus)."
 assumption = "The verify is narrowed to the targets this task owns (decision 2347); the native corpus test stays in because the SDK corpus is this task's subject."
 severity = "medium"
+
+[finding.22.13.9.3]
+task = "22.13.9"
+file = "services/programs/crates/layerx-programs-runtime/tests/step_conformance.rs"
+symbol = "the declared integer-profile engine"
+observed = "Attempt 6 (base e7985f9e5, 12 files, +1567/-507) fails verify once at step_conformance.rs:115 (reference-types module refused with RejectedByEngine 'encountered unsupported Wasm value type: V128'), :61, :297, :370 and the runtime test crate's lease.rs:132 (InvalidStateEncoding); the agent repairs the candidate so the new conformance tests assert the declared integer-profile engine refuses reference and vector types, the build passes on the repaired candidate, and the second dependent-crate check (17:15-17:22) consumes the remaining budget: the verify never runs on the repaired candidate and the attempt ends with exit 124 at 17:25."
+assumption = "The repaired candidate is unverified rather than wrong; a gates-only requalification of attempt 6 runs the verify on it, and the three-crate verify plus two dependent-crate checks do not fit one thirty-minute budget, so the second dependent check is not repeated when the first passed on the same candidate."
+severity = "medium"
+
+[finding.22.11.7.4]
+task = "22.11.7"
+file = "services/interop/crates/layerx-bridge-relayer/src/relayer.rs"
+symbol = "Entry::Reverted"
+observed = "Attempt 5 (base 717ce20b9, 13 files, +703/-77) builds and leaves two failures. (1) loops.rs:837 'reverted: journal conflict: in:1:0xaaaa...:3 has no pending <hash>': the candidate asserts the pending submission carries hash(recording.sent()[0].1) and the raw bytes before the step, the step records Entry::Receipted {sequence 5, height 1002} for that item, and the Entry::Reverted the loop appends at relayer.rs:1498 with pending.tx_hash is refused by journal.rs:551-569, whose lookup accepts a submission in Pending or Receipted status with that hash; no test on main or in the candidate asserts the opposite outcome (the agent's note), so either the Receipted entry landed on a different submission record of the same item or the two entries carry different hashes. (2) The interoperability service's tests/sequencer_start.rs service_starts_against_a_loopback_sequencer fails because the fixture's px_getReceiptKeys answer (:86-91: keyId 0x11 repeated, publicKey from the fixture signer, firstHeight 1, lastHeight 100) is refused by layerx-client decode_receipt_keys (sequencer.rs:505-515: zero or repeated key id, a public key that is not an ed25519 point, or first height above last), and config.rs:277 maps that to 'sequencer px_getReceiptKeys failed: Malformed'; the agent judged the file outside its scope although the service test directory is this task's (the task listed a sequencer_start.rs path under the relayer tests that does not exist)."
+assumption = "The journal already accepts Pending or Receipted for a Reverted entry, so the loop is the suspect: the Receipted and Reverted entries of one receipt must name one submission record and one hash; a journal-only test pins the Pending, Receipted, Reverted sequence and the loop is repaired where it diverges (decision 2350). The service fixture serves a key list decode_receipt_keys accepts; the service test directory replaces the misplaced path in touches."
+severity = "high"
+
+[finding.18.1503.1.1]
+task = "18.1503.1"
+file = "sdk/platform/pipeline.kvx"
+symbol = "handwritten.agent-compatibility"
+observed = "Attempts 2 and 3 (base 4dc096c8b) fail the build at make platform-sdk-generate: the first revision wrote a kvx value the generator parser refused (platform-sdkgen: expected quoted value, got Either ...), the second revision fails platform-sdkgen with 'unclassified file in generated markdown root: services/agent/sdk/typescript/test/proof_exchange.test.ts; generate it or declare it under [handwritten.agent-compatibility] in ./sdk/platform/pipeline.kvx'; that file was added by 43e826f4e (task 21.160.1) without the declaration, so the generate and check targets fail at the base and the task's build never reaches its own change."
+assumption = "The proof file is handwritten and is declared as such in pipeline.kvx (the same shape the other [handwritten.<target>] sections use); the task owns the pipeline manifest for this repair and keeps its build command."
+severity = "medium"
+
+[finding.18.1506.1.1]
+task = "18.1506.1"
+file = "services/platform/hosted/human/test_provision.py"
+symbol = "RegistrationInputTests"
+observed = "Attempts 2 and 3 (base 4dc096c8b) pass the build and 29 tests and fail test_generated_catalog_uses_real_keys_and_production_registry_modules and test_real_owner_output_is_not_a_protocol_registration: both require the real provider binary services/human/target/debug/layerx-human-identity-provider (test_provision.py:13 and :23: build it with make human-test-hosted-provisioning or set LAYERX_HUMAN_IDENTITY_PROVIDER_BIN), which the qualification environment never builds for a Python task; the two tests belong to the human-test-hosted-provisioning make target (Makefile:1661), which builds the binary before running them."
+assumption = "The two real-binary tests stay owned by the make target that builds their producer; this task's verify runs the rest of the file by name exclusion and the candidate's provisioning work is otherwise complete."
+severity = "low"

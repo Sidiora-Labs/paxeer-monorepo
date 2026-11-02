@@ -13925,3 +13925,23 @@ fix = "The producer of a document and its strict consumer change together; a tes
 title = "A whole-crate cargo test in a task verify sweeps other tasks' proof targets"
 symptom = "A reconciliation task's four-crate cargo test failed on node-backed proofs and producer-input TLS tests owned by other tasks after its own targets passed."
 fix = "Name the test targets the task owns in its verify; whole-crate runs belong to crate-level closure gates."
+
+[gotcha.2821]
+title = "A go-ethereum client recomputes block hashes the node never served"
+symptom = "A chain-path proof compared ethclient Block.Hash() with receipt.BlockHash; the node serves the consensus block id as the hash field and the client's keccak of the decoded header differs on every block."
+fix = "Assert the hash fields the node serves (raw eth_getBlockByNumber hash, eth_getBlockByHash round trip, the consensus block id at the receipt height); never Block.Hash() of a decoded block."
+
+[gotcha.2822]
+title = "Two completion outcomes of one receipt must share one journal path"
+symptom = "The relayer journal let an Included completion follow a Receipted entry but demanded a Pending entry for a Reverted completion, so the status-zero integration test failed with a conflict and a unit test had pinned the asymmetry."
+fix = "Model the journal as Pending, Receipted, Completed with the outcome as data; assert conflicts on missing or already completed entries, never on the outcome value."
+
+[gotcha.2823]
+title = "A three-crate verify with two dependent-crate checks does not fit one qualification budget"
+symptom = "A runtime task repaired its candidate after the first verify, rebuilt, and the second dependent-crate check consumed the remaining budget so the verify never ran on the repair."
+fix = "Run the dependent-crate check once per candidate revision and let a gates-only requalification carry an unverified repair."
+
+[gotcha.2824]
+title = "A handwritten test landed in a generated markdown root without its manifest declaration"
+symptom = "A task added a proof test under a directory the platform generator owns; the generator's check refused the unclassified file and every later task whose build runs the generate target failed at the base."
+fix = "A file placed under a generated root is declared in the pipeline manifest in the same change; a generator refusal naming a file none of the candidate's hunks touch is a base break, repaired by declaring the file, never by deleting it."
