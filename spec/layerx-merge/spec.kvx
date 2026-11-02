@@ -113858,7 +113858,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.156.1]
 title = "Prove the gas station path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114055,7 +114055,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.150.1]
 title = "Prove the config path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123893,7 +123893,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.128.1]
 title = "Prove the agentd startup path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124511,7 +124511,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.78.1]
 title = "Prove the gateway jsonrpc methods path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124544,7 +124544,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.70.1]
 title = "Prove the agentd env path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128279,7 +128279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.124.1]
 title = "Prove the xweb 0x1019 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129658,7 +129658,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.61.1]
 title = "Prove the config path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129756,7 +129756,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.58.1]
 title = "Prove the module keeper path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130253,7 +130253,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.38.1]
 title = "Prove the lxphost host path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130417,7 +130417,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.31.1]
 title = "Prove the launchpad user path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131203,7 +131203,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.1.1]
 title = "Prove the layerxpay 0x101b path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
