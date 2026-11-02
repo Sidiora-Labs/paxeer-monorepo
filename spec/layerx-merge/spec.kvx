@@ -115477,7 +115477,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.14]
 title = "Admit guest ABI 5 in the TypeScript lifecycle test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117073,7 +117073,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.7.3]
 title = "Ship the Launch a chain wizard: three clicks: name the chain, pick a size tier, confirm the one wallet transaction; nothing else is installed, hosted or configured"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["20.7.2"]
@@ -125888,7 +125888,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.14.4]
 title = "Keep the recaptcha verifier mock servers alive for the duration of each test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128485,7 +128485,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1487.1]
 title = "Issue #1487: Drop the retired verification entries from the JVM conformance generator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131548,7 +131548,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.3.4]
 title = "Declare the trusted-proxy variable the perps gateway loads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131577,7 +131577,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.4.4]
 title = "Declare the missing chat tables and functions in the social service's own migrations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
