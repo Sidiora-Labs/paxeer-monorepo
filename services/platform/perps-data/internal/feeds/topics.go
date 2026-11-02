@@ -180,6 +180,10 @@ type Providers struct {
 
 const perps_gateway_markets = "perps_gateway_markets"
 
+// GatewayMarketsMetric names the gauge of the served symbol set (not topics).
+// Callers register it by passing their service registry to NewProviders.
+const GatewayMarketsMetric = perps_gateway_markets
+
 const marketsSQL = `SELECT market_id::text, symbol FROM perps.markets ORDER BY market_id`
 
 // NewProviders reads the market set of perps.markets and serves its topics,
