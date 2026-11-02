@@ -899,6 +899,16 @@ lxp_result lxp_receipt_verify(const lxp_receipt *receipt,
     return status;
 }
 
+lxp_result lxp_verified_receipt_index_validate(
+    const lxp_verified_receipt_index *index)
+{
+    if (index == NULL || index->count > LXP_VERIFIED_RECEIPT_INDEX_MAX ||
+        index->authority_count > LXP_VERIFIED_RECEIPT_INDEX_MAX ||
+        (index->authority_count != 0U && index->authority_network_id == 0U))
+        return LXP_ERR_NON_CANONICAL;
+    return LXP_OK;
+}
+
 lxp_result lxp_verified_receipt_index_init(lxp_verified_receipt_index *index)
 {
     if (index == NULL) return LXP_ERR_NON_CANONICAL;
@@ -1127,8 +1137,8 @@ lxp_result lxp_verified_receipt_index_lookup_authority(
     const uint8_t receipt_digest[32], lxp_verified_receipt_authority_facts *facts)
 {
     size_t left = 0U, right;
-    if (index == NULL || receipt_digest == NULL || facts == NULL ||
-        index->authority_count > LXP_VERIFIED_RECEIPT_INDEX_MAX ||
+    if (lxp_verified_receipt_index_validate(index) != LXP_OK ||
+        receipt_digest == NULL || facts == NULL ||
         lxp_ct_is_zero(receipt_digest, 32U)) return LXP_ERR_NON_CANONICAL;
     right = index->authority_count;
     while (left < right) {

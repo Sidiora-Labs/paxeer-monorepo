@@ -18,18 +18,10 @@ fn pay2_build_reads_no_deleted_sources() {
     );
 
     let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
-    let local = manifest
-        .join("../../../../services/platform/hosted/gateway/tests/local")
-        .canonicalize()
-        .unwrap();
     let inputs = build_script::pay2_build_inputs(manifest);
     assert_eq!(
         inputs,
-        [
-            local.join("required.rs"),
-            local.join("verifier.rs"),
-            manifest.join("pay2e_test.rs"),
-        ],
+        [manifest.join("required.rs"), manifest.join("pay2e_test.rs"),],
         "PAY2 must retain exactly its live build inputs"
     );
     for input in inputs {

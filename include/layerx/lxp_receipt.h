@@ -227,6 +227,9 @@ lxp_result lxp_receipt_verify(const lxp_receipt *receipt,
                               const uint8_t public_key[32], lxp_arena *arena);
 lxp_result lxp_receipt_digest(const lxp_receipt *receipt, lxp_arena *arena,
                               uint8_t digest[32]);
+/* Validate both bounded indexes before borrowing or copying their entries. */
+lxp_result lxp_verified_receipt_index_validate(
+    const lxp_verified_receipt_index *index);
 lxp_result lxp_verified_receipt_index_init(lxp_verified_receipt_index *index);
 lxp_result lxp_verified_receipt_index_bind_fallback(
     lxp_verified_receipt_index *index,
