@@ -108,8 +108,12 @@ func CheckSubmission(ctx sdk.Context, tx sdk.Tx, k keeper.Keeper) error {
 // MarkSubmission repeats the rate check of a submission after signature
 // verification and writes the target height into the validator's last
 // submission height in the check state, which the next commit drops. It does
-// nothing on ReCheckTx or for a tx that is not a submission.
+// nothing on ReCheckTx or for a tx that is not a submission. Mixed submissions
+// are refused even when the caller has not run the stateless checks.
 func MarkSubmission(ctx sdk.Context, tx sdk.Tx, k keeper.Keeper) error {
+	if _, err := types.CheckSubmissionAlone(tx.GetMsgs()); err != nil {
+		return err
+	}
 	msg := submissionOf(tx)
 	if ctx.IsReCheckTx() || msg == nil {
 		return nil
