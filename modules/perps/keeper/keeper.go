@@ -67,6 +67,9 @@ func (k *Keeper) GetParams(ctx sdk.Context) (types.Params, error) {
 	if err := json.Unmarshal(bz, &params); err != nil {
 		return types.Params{}, fmt.Errorf("%w: corrupt params: %v", types.ErrInvalidParams, err)
 	}
+	if err := params.Validate(); err != nil {
+		return types.Params{}, fmt.Errorf("%w: corrupt params: %v", types.ErrInvalidParams, err)
+	}
 	return params, nil
 }
 
