@@ -130567,7 +130567,7 @@ do_6 = "Finding 9.27.9.1: also drop the settlement domain argument from export a
 
 [task.10.1.10]
 title = "Port the KMS tests and the identity provider off ambient clock reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.27.9", "10.21.8", "9.35.9", "9.100.2", "22.9.24"]
