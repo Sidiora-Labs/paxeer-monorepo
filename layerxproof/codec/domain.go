@@ -55,14 +55,6 @@ var domainTags = [domainCount]string{
 // ProgramDiscoveryProofDomain prefixes the program discovery proof digest.
 const ProgramDiscoveryProofDomain = "LayerX/program-discovery-proof/v1\x00"
 
-// Tag returns the exact NUL-terminated core domain tag.
-func (d Domain) Tag() ([]byte, error) {
-	if d >= domainCount {
-		return nil, ErrInvalidTag
-	}
-	return []byte(domainTags[d]), nil
-}
-
 // DomainHash computes SHA256(tag || canonical) exactly as lxp_hash_domain.
 func DomainHash(d Domain, canonical []byte) ([32]byte, error) {
 	if d >= domainCount {

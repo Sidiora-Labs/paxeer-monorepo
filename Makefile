@@ -25,9 +25,6 @@ PAXEER_DIR := $(CURDIR)
 PAXEER_MAKE := $(MAKE) -f $(PAXEER_DIR)/chain.mk
 HPX_ORIGIN ?= https://node.hyperpaxeer.com
 
-CHECKPOINT_SETTLEMENT_HEADER := $(BUILD_DIR)/generated/lxp_checkpoint_settlement.h
-CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS := 3600
-
 CPPFLAGS := -Iinclude -I$(BUILD_DIR)/generated \
 	-DLXP_BUILD_TARGET_TRIPLE=\"$(shell $(CC) -dumpmachine)\" \
 	-DLXP_BUILD_OPTIMISATION=\"$(OPT_LEVEL)\" \
@@ -197,14 +194,6 @@ $(TEST_LIBRARY): $(TEST_LIB_OBJECTS)
 $(BUILD_DIR)/test-obj/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) -DLXP_TESTING $(CFLAGS) -MMD -MP -c $< -o $@
-
-$(CHECKPOINT_SETTLEMENT_HEADER): Makefile
-	@mkdir -p $(@D)
-	printf '#ifndef LXP_CHECKPOINT_SETTLEMENT_H\n#define LXP_CHECKPOINT_SETTLEMENT_H\n#define LXP_CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS UINT64_C(%s)\n#endif\n' \
-		'$(CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS)' > $@
-
-$(BUILD_DIR)/obj/src/paxeer/lxp_checkpoint_cert.o \
-$(BUILD_DIR)/test-obj/src/paxeer/lxp_checkpoint_cert.o: $(CHECKPOINT_SETTLEMENT_HEADER)
 
 clean:
 	rm -rf -- build
