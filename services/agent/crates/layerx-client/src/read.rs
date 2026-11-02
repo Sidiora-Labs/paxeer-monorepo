@@ -338,24 +338,6 @@ pub fn account(
     point_read(transport, &StateSelector::Account { account }, context)
 }
 
-/// Reads account state using genesis-authenticated historical signing authority.
-///
-/// # Errors
-/// Refuses unknown signing terms and every original selector, proof and level failure.
-pub fn account_with_history(
-    transport: &mut dyn FrameTransport,
-    account: [u8; 32],
-    context: ReadContext,
-    history: &crate::handover::SequencerHistory,
-) -> Result<ReadValue, ReadError> {
-    point_read_with_authority(
-        transport,
-        &StateSelector::Account { account },
-        context,
-        Some(history),
-    )
-}
-
 /// Retrieves exact module-owned state bytes without interpreting them in the
 /// client.
 ///
@@ -374,36 +356,10 @@ pub fn module_state(
     module::read(transport, module_id, key, context)
 }
 
-/// Reads a module-owned value under authenticated historical term authority.
-///
-/// # Errors
-/// Refuses malformed selectors and all original root, witness and checkpoint failures.
-pub fn module_state_with_history(
-    transport: &mut dyn FrameTransport,
-    module_id: u16,
-    key: &[u8],
-    context: ReadContext,
-    history: &crate::handover::SequencerHistory,
-) -> Result<ReadValue, ReadError> {
-    if key.len() > MAX_SELECTOR_KEY_BYTES {
-        return Err(ReadError::PageBound);
-    }
-    module::read_with_history(transport, module_id, key, context, Some(history))
-}
-
 fn point_read(
     transport: &mut dyn FrameTransport,
     selector: &StateSelector,
     context: ReadContext,
-) -> Result<ReadValue, ReadError> {
-    point_read_with_authority(transport, selector, context, None)
-}
-
-fn point_read_with_authority(
-    transport: &mut dyn FrameTransport,
-    selector: &StateSelector,
-    context: ReadContext,
-    history: Option<&crate::handover::SequencerHistory>,
 ) -> Result<ReadValue, ReadError> {
     let selector_bytes = encode_state_selector(selector, context.root_selector, context.requested);
     let request = encode_envelope(Envelope {
@@ -434,12 +390,11 @@ fn point_read_with_authority(
     {
         return Err(ReadError::UnexpectedResponse);
     }
-    verify_state_value_with_authority(
+    verify_state_value(
         response.canonical_payload,
         response.proof_material,
         selector,
         context,
-        history,
     )
 }
 
@@ -448,16 +403,6 @@ fn verify_state_value(
     proof_material: &[u8],
     selector: &StateSelector,
     context: ReadContext,
-) -> Result<ReadValue, ReadError> {
-    verify_state_value_with_authority(canonical_bytes, proof_material, selector, context, None)
-}
-
-fn verify_state_value_with_authority(
-    canonical_bytes: &[u8],
-    proof_material: &[u8],
-    selector: &StateSelector,
-    context: ReadContext,
-    history: Option<&crate::handover::SequencerHistory>,
 ) -> Result<ReadValue, ReadError> {
     if proof_material.is_empty() {
         require_level(context.requested, VerificationLevel::UNVERIFIED)?;
@@ -489,34 +434,13 @@ fn verify_state_value_with_authority(
     if decoded.proof.account_id != expected_account {
         return Err(ReadError::AccountBindingMismatch);
     }
-    let authorization = if let Some(history) = history {
-        let header = history
-            .verify_header(
-                &decoded.signed_header.canonical_bytes,
-                &decoded.signed_header.signature,
-            )
-            .map_err(|_| ReadError::SequencerBindingMismatch)?;
-        let authorization = history
-            .authorization_for_batch(header.header().batch_number())
-            .map_err(|_| ReadError::AuthorityRangeMismatch)?;
-        decoded
-            .signed_header
-            .pinned_key_authorization(
-                authorization.public_key(),
-                context.expected_protocol_version,
-                context.expected_network_id,
-            )
-            .map_err(ReadError::ProductionEvidence)?;
-        authorization
-    } else {
-        if decoded.signed_header.public_key != context.handshake_sequencer_key {
-            return Err(ReadError::SequencerBindingMismatch);
-        }
-        if decoded.signed_header.response_authorization() != context.sequencer_authorization {
-            return Err(ReadError::AuthorityRangeMismatch);
-        }
-        context.sequencer_authorization
-    };
+    if decoded.signed_header.public_key != context.handshake_sequencer_key {
+        return Err(ReadError::SequencerBindingMismatch);
+    }
+    if decoded.signed_header.response_authorization() != context.sequencer_authorization {
+        return Err(ReadError::AuthorityRangeMismatch);
+    }
+    let authorization = context.sequencer_authorization;
     let header = decode_batch_header(&decoded.signed_header.canonical_bytes)
         .map_err(|_| ReadError::MalformedValue)?;
     if context.expected_protocol_version == 0
@@ -651,19 +575,6 @@ pub struct HistoryRange {
     pub cursor: Option<HistoryCursor>,
 }
 
-/// Retrieves a history page under genesis-authenticated historical signing authority.
-///
-/// # Errors
-/// Refuses unknown terms, crossed signing boundaries and all ordinary history failures.
-pub fn history_with_history(
-    transport: &mut dyn FrameTransport,
-    range: HistoryRange,
-    context: ReadContext,
-    history: &crate::handover::SequencerHistory,
-) -> Result<HistoryPage, ReadError> {
-    history_with_authority(transport, range, context, Some(history))
-}
-
 /// Retrieves one strictly ordered bounded history page.
 ///
 /// # Errors
@@ -688,7 +599,6 @@ pub fn history(
             cursor,
         },
         context,
-        None,
     )
 }
 
@@ -727,7 +637,6 @@ fn history_with_authority(
     transport: &mut dyn FrameTransport,
     range: HistoryRange,
     context: ReadContext,
-    history: Option<&crate::handover::SequencerHistory>,
 ) -> Result<HistoryPage, ReadError> {
     let expected_start = history_start(range, context)?;
     let end_sequence = range.end_sequence;
@@ -768,7 +677,6 @@ fn history_with_authority(
                     response.canonical_payload,
                     evidence_bytes,
                     context,
-                    history,
                 )?;
                 items.push(HistoryItem {
                     proof_material: evidence_bytes.to_vec(),
@@ -866,7 +774,6 @@ fn verify_history_item(
     bytes: &[u8],
     proof_material: &[u8],
     context: ReadContext,
-    history: Option<&crate::handover::SequencerHistory>,
 ) -> Result<VerificationLevel, ReadError> {
     if proof_material.is_empty() {
         require_level(context.requested, VerificationLevel::UNVERIFIED)?;
@@ -884,16 +791,7 @@ fn verify_history_item(
     {
         return Err(ReadError::SelectorMismatch);
     }
-    let authorization = if let Some(history) = history {
-        history
-            .verify_header(&bundle.header, &bundle.header_signature)
-            .map_err(|_| ReadError::AuthorityRangeMismatch)?;
-        history
-            .authorization_for_sequence(sequence)
-            .map_err(|_| ReadError::AuthorityRangeMismatch)?
-    } else {
-        context.sequencer_authorization
-    };
+    let authorization = context.sequencer_authorization;
     let evidence = match kind {
         HistoryKind::Activity => verify_activity(
             bytes,

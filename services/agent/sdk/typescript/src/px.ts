@@ -447,23 +447,22 @@ export function decodePxNetworkHead(value: unknown): PxNetworkHead {
   const document = object(value);
   if (Object.keys(document).some((name) => name.startsWith("lx_")))
     throw new Error("Invalid gateway network field");
-  present(document, [
-    "network_id",
-    "paxeer",
-    "layerx",
-    "latest_committed_height",
-  ]);
+  present(document, ["network_id", "paxeer", "consensus"]);
   if ("anchor" in document) throw new Error("Invalid gateway finality");
+  if (document.consensus === null)
+    throw new Error("Gateway consensus unavailable");
+  const consensus = object(document.consensus);
+  present(consensus, ["latest_height"]);
   const paxeer = object(document.paxeer);
   present(paxeer, ["chain_id", "latest_block"]);
   const latestBlock = pxCounted(paxeer.latest_block);
-  const latestCommittedHeight = pxCounted(document.latest_committed_height);
+  const latestCommittedHeight = pxCounted(consensus.latest_height);
   if (latestCommittedHeight > latestBlock)
     throw new Error("Invalid gateway finality");
   return Object.freeze({
     networkId: text(document.network_id, 128),
     paxeer: Object.freeze({ chainId: pxCounted(paxeer.chain_id), latestBlock }),
-    layerx: objectOrNull(document.layerx),
+    layerx: "layerx" in document ? objectOrNull(document.layerx) : null,
     latestCommittedHeight,
   });
 }

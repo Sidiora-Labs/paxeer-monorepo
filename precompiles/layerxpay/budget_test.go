@@ -11,6 +11,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
+	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -317,19 +318,43 @@ func TestPrecompileBudgetNativeAndPull(t *testing.T) {
 	require.Equal(t, (codec.U128{Lo: 20}).Bytes(), [16]byte(consumed[162:178]))
 	budgetTestRevert(t, h, f.beneficiary.caller, "budgetDelegateSpend", id, f.beneficiary.account, big.NewInt(26))
 	grant, _ := budgetTestGrant(t, f, r.PurposeHash)
-	escrowTestExecute(t, h, f.owner, 0x00010007, grant, [32]byte{0xc3})
-	for i := 0; i < 2; i++ {
-		r = budgetTestWrite(t, h, f.beneficiary.caller, "budgetPull", "BudgetSpent", []interface{}{f.beneficiary.account, big.NewInt(30)}, id, f.beneficiary.account, big.NewInt(30), grant)
-		require.Equal(t, codec.U128{Lo: uint64(50 + i*30)}, r.SpentThisPeriod)
+	retiredPull := func(caller common.Address, amount *big.Int, grant []byte) {
+		t.Helper()
+		input, err := h.precompile.GetABI().Pack("budgetPull", id, f.beneficiary.account, amount, grant)
+		require.NoError(t, err)
+		before := h.keeper.ExportGenesis(h.db.Ctx())
+		logCount := len(h.db.GetAllLogs())
+		ordinalKey := crypto.Keccak256Hash([]byte("layerxpay/call-ordinal/v1"))
+		ordinal := h.db.GetTransientState(h.precompile.Address(), ordinalKey)
+		for _, readOnly := range []bool{false, true} {
+			var output []byte
+			if readOnly {
+				output, _, err = h.evm.StaticCall(caller, h.precompile.Address(), input, 2000000)
+			} else {
+				output, _, err = h.evm.Call(caller, h.precompile.Address(), input, 2000000, uint256.NewInt(0))
+			}
+			require.ErrorIs(t, err, vm.ErrExecutionReverted)
+			require.Equal(t, pcommon.RetiredRevert(lp.PrecompileName), output)
+			require.Equal(t, before, h.keeper.ExportGenesis(h.db.Ctx()))
+			require.Len(t, h.db.GetAllLogs(), logCount)
+			require.Equal(t, ordinal, h.db.GetTransientState(h.precompile.Address(), ordinalKey))
+			budgetTestBalance(t, h, r.BudgetAccount, f.asset, "230")
+			budgetTestBalance(t, h, f.beneficiary.account, f.asset, "20")
+		}
 	}
-	require.Equal(t, big.NewInt(170), budgetTestView(t, h, "budgetRemaining", id)[0])
-	budgetTestBalance(t, h, r.BudgetAccount, f.asset, "170")
-	budgetTestBalance(t, h, f.beneficiary.account, f.asset, "80")
-	budgetTestRevert(t, h, f.beneficiary.caller, "budgetPull", id, f.beneficiary.account, big.NewInt(30), grant[:len(grant)-1])
+	for i := 0; i < 2; i++ {
+		retiredPull(f.beneficiary.caller, big.NewInt(30), grant)
+		require.Equal(t, codec.U128{Lo: 20}, budgetTestRecord(t, h, id).SpentThisPeriod)
+	}
+	require.Equal(t, big.NewInt(230), budgetTestView(t, h, "budgetRemaining", id)[0])
+	budgetTestBalance(t, h, r.BudgetAccount, f.asset, "230")
+	budgetTestBalance(t, h, f.beneficiary.account, f.asset, "20")
+	retiredPull(f.beneficiary.caller, big.NewInt(30), grant[:len(grant)-1])
+	retiredPull(common.Address{}, big.NewInt(30), grant)
 	ctx := h.db.Ctx()
 	h.db.WithCtx(ctx.WithEVMTxHash(common.Hash{}))
 	budgetTestRevert(t, h, f.beneficiary.caller, "budgetDelegateSpend", id, f.beneficiary.account, big.NewInt(10))
-	budgetTestRevert(t, h, f.beneficiary.caller, "budgetPull", id, f.beneficiary.account, big.NewInt(10), grant)
+	retiredPull(f.beneficiary.caller, big.NewInt(10), grant)
 	h.db.WithCtx(ctx)
 	snapshot := h.db.Snapshot()
 	input, err := h.precompile.GetABI().Pack("budgetDelegateSpend", id, f.beneficiary.account, big.NewInt(10))

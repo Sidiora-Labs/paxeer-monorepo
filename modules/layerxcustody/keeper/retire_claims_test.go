@@ -13,10 +13,10 @@ import (
 
 func TestWithdrawalIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	e := newEnv(t, 0)
+	e.ctx, _ = e.ctx.CacheContext()
 	e.deposit(e.withdrawal.Fields["asset"], 1_000)
 	evidence := e.evidence()
-	claim, err := e.k.RequestWithdrawal(e.ctx, evidence)
-	require.NoError(t, err)
+	claim := e.seedClaim(types.ClaimKind_CLAIM_KIND_WITHDRAWAL, vectorNumber(t, e.withdrawal, "batch_number"))
 	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_PENDING, claim.Status)
 	claimID, err := types.ParseHash32(claim.ClaimId)
 	require.NoError(t, err)
@@ -24,13 +24,15 @@ func TestWithdrawalIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	recipientBefore := e.balance(e.recipient(), sdk.MustGetBaseDenom())
 
 	testkeeper.EVMTestApp.UpgradeKeeper.SetDone(e.ctx.WithBlockHeight(20), types.MergePlanUpgrade)
-	for _, height := range []int64{20, 21} {
+	for _, height := range []int64{19, 20, 21} {
 		t.Run(fmt.Sprintf("height %d", height), func(t *testing.T) {
 			ctx := e.ctx.WithBlockHeight(height).WithEventManager(sdk.NewEventManager())
 			for _, evidence := range []keeper.WithdrawalEvidence{evidence, {}} {
 				_, err := e.k.RequestWithdrawal(ctx, evidence)
 				require.ErrorIs(t, err, types.ErrModuleRetired)
-				require.Contains(t, err.Error(), fmt.Sprintf("%s from height %d", types.MergePlanUpgrade, height))
+				if height >= 20 {
+					require.Contains(t, err.Error(), fmt.Sprintf("%s from height %d", types.MergePlanUpgrade, height))
+				}
 				_, err = e.k.FinaliseWithdrawal(ctx, evidence)
 				require.ErrorIs(t, err, types.ErrModuleRetired)
 			}
@@ -46,6 +48,7 @@ func TestWithdrawalIsRefusedFromTheMergePlanHeight(t *testing.T) {
 
 func TestForcedExitIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	e := newEnv(t, 0)
+	e.ctx, _ = e.ctx.CacheContext()
 	e.deposit(e.exit.Fields["asset"], 6_000_000)
 	params := e.k.GetParams(e.ctx)
 	params.ForcedExitDelaySeconds = 0
@@ -54,8 +57,7 @@ func TestForcedExitIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, exitBatch, vectorArray(t, e.exit, "state_root"), [32]byte{7}))
 	require.NoError(t, e.k.SetEmergency(e.ctx, true))
 	evidence := e.exitEvidence(exitBatch)
-	claim, err := e.k.RequestForcedExit(e.ctx, evidence)
-	require.NoError(t, err)
+	claim := e.seedClaim(types.ClaimKind_CLAIM_KIND_FORCED_EXIT, exitBatch)
 	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_PENDING, claim.Status)
 	claimID, err := types.ParseHash32(claim.ClaimId)
 	require.NoError(t, err)
@@ -85,9 +87,9 @@ func TestForcedExitIsRefusedFromTheMergePlanHeight(t *testing.T) {
 
 func TestCancelClaimIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	e := newEnv(t, 600)
+	e.ctx, _ = e.ctx.CacheContext()
 	e.deposit(e.withdrawal.Fields["asset"], 1_000)
-	claim, err := e.k.RequestWithdrawal(e.ctx, e.evidence())
-	require.NoError(t, err)
+	claim := e.seedClaim(types.ClaimKind_CLAIM_KIND_WITHDRAWAL, vectorNumber(t, e.withdrawal, "batch_number"))
 	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_PENDING, claim.Status)
 	claimID, err := types.ParseHash32(claim.ClaimId)
 	require.NoError(t, err)

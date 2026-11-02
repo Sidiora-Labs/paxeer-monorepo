@@ -230,7 +230,7 @@ contract PaxPublicResolverTest {
     }
 
     function testReverseSetNameBindsTheCallerAddress() public {
-        PaxReverseRegistrar reverse = new PaxReverseRegistrar(address(registry), address(resolver));
+        PaxReverseRegistrar reverse = new PaxReverseRegistrar(address(registry), address(resolver), address(0));
         bytes32 reverseParent = registry.setSubnodeOwner(bytes32(0), keccak256("reverse"), address(this));
         bytes32 addrReverse = registry.setSubnodeOwner(reverseParent, keccak256("addr"), address(reverse));
         address account = address(bytes20(hex"1234567890abcdef1234567890abcdef12345678"));

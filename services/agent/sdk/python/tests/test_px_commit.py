@@ -13,8 +13,12 @@ def test_network_head_has_no_anchor():
     document = {
         "network_id": "paxeer",
         "paxeer": {"chain_id": 125, "latest_block": 8},
-        "layerx": None,
-        "latest_committed_height": 7,
+        "consensus": {
+            "latest_height": 7,
+            "latest_block_hash": "12" * 32,
+            "latest_app_hash": "34" * 32,
+            "catching_up": False,
+        },
     }
     head = px.decode_px_network_head(document)
     assert head.network_id == "paxeer"
@@ -31,6 +35,36 @@ def test_network_head_has_no_anchor():
     assert "decode_px_anchor_head" not in layerx_sdk.__all__
     assert layerx_sdk.decode_px_network_head is px.decode_px_network_head
 
+    for anchor in (None, {}, {"latest_finalized_batch": 9}):
+        with pytest.raises(ValueError, match="^invalid-px-finality$"):
+            px.decode_px_network_head({**document, "anchor": anchor})
+
+
+def test_network_head_reads_consensus_height():
+    document = {
+        "network_id": "paxeer",
+        "paxeer": {"chain_id": "0x7d", "latest_block": "0x10"},
+        "consensus": {
+            "latest_height": 9,
+            "latest_block_hash": "12" * 32,
+            "latest_app_hash": "34" * 32,
+            "catching_up": False,
+        },
+    }
+    head = px.decode_px_network_head(document)
+    assert head.network_id == "paxeer"
+    assert head.paxeer.chain_id == 125
+    assert head.paxeer.latest_block == 16
+    assert head.latest_committed_height == 9
+    assert head.layerx is None
+    with pytest.raises(ValueError, match="^px-consensus-unavailable$"):
+        px.decode_px_network_head(
+            {**document, "consensus": None, "reason": "consensus_unavailable"}
+        )
+    with pytest.raises(ValueError, match="^invalid-px-finality$"):
+        px.decode_px_network_head(
+            {**document, "consensus": {**document["consensus"], "latest_height": 17}}
+        )
     for anchor in (None, {}, {"latest_finalized_batch": 9}):
         with pytest.raises(ValueError, match="^invalid-px-finality$"):
             px.decode_px_network_head({**document, "anchor": anchor})

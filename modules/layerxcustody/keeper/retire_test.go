@@ -12,6 +12,7 @@ import (
 
 func TestRetiredFollowsTheMergePlanDoneHeight(t *testing.T) {
 	e := newEnv(t, 0)
+	e.ctx, _ = e.ctx.CacheContext()
 	ctx := e.ctx.WithBlockHeight(20).WithGasMeter(sdk.NewGasMeter(1, 1, 1))
 	require.False(t, e.k.Retired(ctx))
 	require.Zero(t, ctx.GasMeter().GasConsumed())
@@ -39,6 +40,7 @@ func TestRetiredFollowsTheMergePlanDoneHeight(t *testing.T) {
 
 func TestRetiredIsFalseWithoutAnUpgradeReader(t *testing.T) {
 	e := newEnv(t, 0)
+	e.ctx, _ = e.ctx.CacheContext()
 	app := testkeeper.EVMTestApp
 	app.UpgradeKeeper.SetDone(e.ctx, types.MergePlanUpgrade)
 	k := keeper.NewKeeper(app.AppCodec(), app.GetKey(types.StoreKey),

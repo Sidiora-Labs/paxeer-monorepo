@@ -41,8 +41,6 @@ const OBSERVED_METHODS = new Set([
   'pax_sequencerReceipt',
 ]);
 const WRONG_RPC = process.env.WALLET_TRANSFER_TRUTH_WRONG_RPC_URL ?? '';
-const FINAL_RPC = process.env.PAXEER_X_TRANSFER_FINAL_RPC_URL ?? '';
-const EXPLORER = process.env.PAXEER_X_EXPLORER_STATUS_URL ?? '';
 const WALLET_RPC =
   process.env.WALLET_TRANSFER_TRUTH_BROWSER_RPC_URL ?? APP_ENV.NEXT_PUBLIC_PAXEER_RPC_URL;
 let observationRpc = ANVIL_URL;
@@ -134,6 +132,11 @@ test(
   send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload
 );
 
+test(
+  send_reaches_committed_only_with_a_matching_explorer_answer.name,
+  send_reaches_committed_only_with_a_matching_explorer_answer
+);
+
 test.describe('send transfer truth', () => {
   test.beforeAll(async () => {
     if (!ANVIL_URL || !/^0x[0-9a-fA-F]{40}$/.test(ANVIL_SENDER)) {
@@ -219,53 +222,7 @@ test.describe('send transfer truth', () => {
     await expect(page.getByText('Transfer Completed')).toHaveCount(0);
   });
 
-  test('sealed and final presentation requires real bound explorer and receipt evidence', async ({
-    page,
-  }) => {
-    const sealed = process.env.PAXEER_X_EXPLORER_SEALED_TX ?? '';
-    const final = process.env.PAXEER_X_EXPLORER_FINAL_TX ?? '';
-    if (
-      !FINAL_RPC ||
-      !WRONG_RPC ||
-      !EXPLORER ||
-      !/^0x[0-9a-fA-F]{64}$/.test(sealed) ||
-      !/^0x[0-9a-fA-F]{64}$/.test(final)
-    ) {
-      throw new Error(
-        'Real sealed and final transaction identities, their RPC and explorer are required'
-      );
-    }
-    observationRpc = FINAL_RPC;
-    await page.route('**/api/v2/transactions/*/status', async (route) => {
-      const transaction = new URL(route.request().url()).pathname.match(
-        /transactions\/(0x[0-9a-fA-F]{64})\/status$/
-      )?.[1];
-      if (!transaction) throw new Error('Malformed explorer request');
-      const response = await route.fetch({
-        url: `${EXPLORER.replace(/\/$/, '')}/api/v2/transactions/${transaction}/status`,
-      });
-      await route.fulfill({ response });
-    });
-    await observe(page, sealed);
-    await expect(page.locator('li[data-rung="sealed"]')).toHaveAttribute('data-reached', 'true');
-    await expect(page.locator('li[data-rung="final"]')).toHaveAttribute('data-reached', 'false');
-    await expect(page.getByText('Transfer Completed')).toHaveCount(0);
-    await observe(page, final);
-    await expect(page.getByText('Transfer Completed')).toBeVisible();
-    await expect(page.locator('li[data-rung="final"]')).toHaveAttribute('data-source', 'explorer');
-    observationRpc = WRONG_RPC;
-    await page.reload();
-    await expect(
-      page.getByRole('alert').filter({ hasText: 'connected to chain 126' })
-    ).toBeVisible();
-    await expect(page.getByText('Transfer Completed')).toHaveCount(0);
-    await expect(page.locator('[data-retained-evidence]')).toBeVisible();
-    observationRpc = FINAL_RPC;
-    await expect(page.getByText('Transfer Completed')).toBeVisible();
-    await expect(page.locator('li[data-rung="final"]')).toHaveAttribute('data-source', 'explorer');
-  });
-
-  test('a canonical rollback removes previously verified inclusion without inventing finality', async ({
+  test('a canonical rollback removes the receipted step and never shows Committed', async ({
     page,
   }) => {
     const snapshot = await anvil('evm_snapshot');
@@ -273,9 +230,53 @@ test.describe('send transfer truth', () => {
     await anvil('evm_mine');
     await observe(page, hash);
     await expect(title(page)).toHaveAttribute('data-truth', 'included');
-    await anvil('evm_revert', [snapshot]);
+    const receipt = await readSequencerReceipt(
+      (method, params) => rpcAt(SEQUENCER_RPC, method, params),
+      hash
+    );
+    expect(receipt).toMatchObject({ txHash: hash, status: '0x1' });
+    expect(receipt?.blockHash).toMatch(/^0x[0-9a-fA-F]{64}$/);
+    if (receipt === null || receipt.blockHash === undefined)
+      throw new Error('Rollback requires previously verified sequencer receipt evidence');
+    await expect(title(page)).toHaveText('Receipted');
+    const receipted = page.locator('li[data-rung="receipted"]');
+    const committed = page.locator('li[data-rung="committed"]');
+    await expect(receipted).toHaveAttribute('data-reached', 'true');
+    await expect(receipted).toHaveAttribute('data-source', 'receipt');
+    await expect(receipted).toHaveAttribute(
+      'data-evidence',
+      `receipted:${receipt.blockHash.toLowerCase()}`
+    );
+    await expect(committed).toHaveAttribute('data-reached', 'false');
+    await expect(page.getByText('Transfer Completed')).toHaveCount(0);
+    expect(await anvil('evm_revert', [snapshot])).toBe(true);
     await expect(title(page)).toHaveAttribute('data-truth', 'unknown');
-    await expect(page.locator('li[data-rung="instant"]')).toHaveAttribute('data-reached', 'false');
+    await expect(receipted).toHaveAttribute('data-reached', 'false');
+    await expect(receipted).not.toHaveAttribute('data-source');
+    await expect(receipted).not.toHaveAttribute('data-evidence');
+    await expect(committed).toHaveAttribute('data-reached', 'false');
+    await expect(page.getByText('Transfer Completed')).toHaveCount(0);
+    await expect(page.locator('[data-retained-evidence]')).toBeVisible();
+    const savedObservation = () =>
+      page.evaluate((key) => {
+        const raw = localStorage.getItem('paxport:v1:transfer-observations');
+        if (raw === null) throw new Error('The rolled-back transfer observation was not saved');
+        const stored = JSON.parse(raw) as { value: Record<string, TransferObservation> };
+        return stored.value[key];
+      }, `125:${hash.toLowerCase()}`);
+    await expect.poll(savedObservation).toMatchObject({
+      truth: 'unknown',
+      steps: [],
+      blockNumber: null,
+      lastVerified: {
+        steps: [{ rung: 'receipted', source: 'receipt' }],
+        sequencer: receipt,
+      },
+    });
+    await page.reload();
+    await expect(title(page)).toHaveAttribute('data-truth', 'unknown');
+    await expect(receipted).toHaveAttribute('data-reached', 'false');
+    await expect(committed).toHaveAttribute('data-reached', 'false');
     await expect(page.getByText('Transfer Completed')).toHaveCount(0);
     await expect(page.locator('[data-retained-evidence]')).toBeVisible();
   });
@@ -576,6 +577,154 @@ test('injected chain pinning uses the real official extension and isolated chain
     await context.close();
   }
 });
+
+async function send_reaches_committed_only_with_a_matching_explorer_answer(
+  { page, baseURL }: { page: Page; baseURL: string | undefined },
+  testInfo: TestInfo
+): Promise<void> {
+  const sequencer = (method: string, params: readonly unknown[]) =>
+    rpcAt(SEQUENCER_RPC, method, params);
+  let matchReceiptBlock = false;
+  const answers: {
+    hash: string;
+    rung: 'committed';
+    block: number;
+    phase: 'mismatched' | 'matching';
+  }[] = [];
+  await page.route('**/api/v2/transactions/*/status', async (route) => {
+    const requestedHash = new URL(route.request().url()).pathname.match(
+      /transactions\/(0x[0-9a-fA-F]{64})\/status$/
+    )?.[1];
+    if (!requestedHash) throw new Error('Malformed explorer request');
+    const receipt = await readSequencerReceipt(sequencer, requestedHash);
+    if (receipt?.rung !== 'committed') {
+      await route.fulfill({
+        json: {
+          rung: 'submitted',
+          hash: requestedHash,
+          block_number: null,
+          committed_height: null,
+        },
+      });
+      return;
+    }
+    expect(receipt).toMatchObject({ txHash: requestedHash, rung: 'committed', status: '0x1' });
+    if (receipt?.blockNumber === undefined || receipt.blockHash === undefined)
+      throw new Error('Explorer answers require a committed sequencer receipt block');
+    const phase = matchReceiptBlock ? 'matching' : 'mismatched';
+    const blockNumber = Number(BigInt(receipt.blockNumber)) + (matchReceiptBlock ? 0 : 1);
+    const status = {
+      rung: 'committed' as const,
+      hash: requestedHash,
+      block_number: blockNumber,
+      committed_height: blockNumber,
+    };
+    await route.fulfill({ json: status });
+    answers.push({ hash: requestedHash, rung: status.rung, block: status.block_number, phase });
+  });
+
+  await send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload(
+    { page, baseURL },
+    testInfo
+  );
+  const submitted = await page.evaluate((sender) => {
+    const raw = localStorage.getItem('paxport:v1:submitted-transfers');
+    if (raw === null) throw new Error('The sent transfer identity was not saved');
+    const stored = JSON.parse(raw) as {
+      value: Record<string, { hash: string; chainId: number; sender: string }>;
+    };
+    const transfer = stored.value[`125:${sender.toLowerCase()}`];
+    if (transfer === undefined) throw new Error('The sender has no saved transfer identity');
+    return transfer;
+  }, ANVIL_SENDER);
+  expect(submitted.chainId).toBe(125);
+  expect(submitted.sender.toLowerCase()).toBe(ANVIL_SENDER.toLowerCase());
+  const { hash } = submitted;
+  expect(hash).toMatch(/^0x[0-9a-fA-F]{64}$/);
+  await expect
+    .poll(async () => (await readSequencerReceipt(sequencer, hash))?.rung, {
+      intervals: [50],
+      timeout: 60_000,
+    })
+    .toBe('committed');
+  const receipt = await readSequencerReceipt(sequencer, hash);
+  if (receipt?.blockNumber === undefined || receipt.blockHash === undefined)
+    throw new Error('The sent transfer requires a committed sequencer receipt block');
+  expect(receipt).toMatchObject({ txHash: hash, rung: 'committed', status: '0x1' });
+  const blockNumber = Number(BigInt(receipt.blockNumber));
+  const blockHash = receipt.blockHash.toLowerCase();
+
+  const savedObservation = () =>
+    page.evaluate((key) => {
+      const raw = localStorage.getItem('paxport:v1:transfer-observations');
+      if (raw === null) throw new Error('The transfer observation was not saved');
+      const stored = JSON.parse(raw) as { value: Record<string, TransferObservation> };
+      return stored.value[key];
+    }, `125:${hash.toLowerCase()}`);
+  const committed = page.locator('li[data-rung="committed"]');
+  await expect.poll(savedObservation, { intervals: [50], timeout: 60_000 }).toMatchObject({
+    truth: 'included',
+    blockNumber,
+    blockHash,
+    sequencer: receipt,
+    steps: [{ rung: 'receipted', source: 'receipt', state: `receipted:${blockHash}` }],
+    warning: 'explorer status does not identify the receipt block',
+  });
+  await expect
+    .poll(() => answers, { intervals: [50], timeout: 60_000 })
+    .toContainEqual({
+      hash,
+      rung: 'committed',
+      block: blockNumber + 1,
+      phase: 'mismatched',
+    });
+  expect(answers.filter((answer) => answer.phase === 'matching')).toHaveLength(0);
+  await expect(title(page)).toHaveText('Receipted');
+  await expect(committed).toHaveAttribute('data-reached', 'false');
+  await expect(committed).not.toHaveAttribute('data-source');
+  await expect(committed).not.toHaveAttribute('data-evidence');
+  await expect(page.getByText('Transfer Completed')).toHaveCount(0);
+  await expect(
+    page
+      .getByRole('alert')
+      .filter({ hasText: 'explorer status does not identify the receipt block' })
+  ).toBeVisible();
+
+  matchReceiptBlock = true;
+  await page.evaluate(() => window.dispatchEvent(new Event('online')));
+  const steps = [
+    { rung: 'committed', source: 'receipt', state: `committed:${blockHash}` },
+    { rung: 'committed', source: 'explorer', state: `committed:${blockHash}` },
+  ];
+  await expect.poll(savedObservation, { intervals: [50], timeout: 60_000 }).toMatchObject({
+    identity: { hash, chainId: 125 },
+    truth: 'included',
+    blockNumber,
+    blockHash,
+    sequencer: receipt,
+    steps,
+    lastVerified: { blockNumber, blockHash, sequencer: receipt, steps },
+  });
+  await expect
+    .poll(() => answers, { intervals: [50], timeout: 60_000 })
+    .toContainEqual({
+      hash,
+      rung: 'committed',
+      block: blockNumber,
+      phase: 'matching',
+    });
+  await expect(committed.getByText('Committed', { exact: true })).toBeVisible();
+  await expect(committed).toHaveAttribute('data-reached', 'true');
+  await expect(committed).toHaveAttribute('data-source', 'explorer');
+  await expect(committed).toHaveAttribute('data-evidence', `committed:${blockHash}`);
+  await expect(page.getByText('Transfer Completed')).toBeVisible();
+  await expect(page.getByRole('alert').filter({ hasText: /\S/ })).toHaveCount(0);
+  await page.reload();
+  await expect(committed).toHaveAttribute('data-reached', 'true');
+  await expect(committed).toHaveAttribute('data-source', 'explorer');
+  await expect(committed).toHaveAttribute('data-evidence', `committed:${blockHash}`);
+  await expect(page.getByText('Transfer Completed')).toBeVisible();
+}
 
 async function send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload(
   { page, baseURL }: { page: Page; baseURL: string | undefined },
