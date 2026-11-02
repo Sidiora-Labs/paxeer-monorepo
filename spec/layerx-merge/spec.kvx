@@ -105326,7 +105326,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.27.1]
 title = "Refuse appends of retired log record kinds while still reading historic records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 45
 requires = ["1.35.1", "1.35.3", "1.33.1", "1.34.4", "1.0.3", "16.32.12", "6.96.5"]
