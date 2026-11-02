@@ -160,14 +160,7 @@ pub fn daemon_descriptor(tool: ToolDefinition) -> Result<Value, String> {
 }
 
 pub fn descriptor(tool: ToolDefinition) -> Value {
-    json!({
-        "name": tool.name,
-        "kind": kind_name(tool.kind),
-        "scope": tool.required_scope,
-        "mutation": tool.mutation,
-        "evidence": tool.evidence,
-        "arguments": schema(tool.name),
-    })
+    tool.descriptor(schema(tool.name))
 }
 
 pub fn description(name: &str) -> &'static str {
@@ -271,6 +264,8 @@ fn claim_faucet(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
     })?;
     let client = Client::new(&runtime.endpoint, Some(token))?;
     let response = client.post("/rpc", &crate::faucet::request(&did, &public_key), None)?;
+    layerx_mcp::tools::faucet::decode_funding_response(&response, &json!("faucet"))
+        .map_err(|error| format!("faucet response refused: {error:?}"))?;
     let claim = crate::faucet::decode(&response)?;
     Ok(json!({
         "did": did,
