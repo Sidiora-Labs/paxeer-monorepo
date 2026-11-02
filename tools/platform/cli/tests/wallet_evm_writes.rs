@@ -294,16 +294,8 @@ fn account_result(did: &str) -> Value {
         "observed_head_sequence":"10", "batch_number":BATCH_NUMBER.to_string(),
         "verification":"state_proven"
     });
-    layerx_sdk::rpc_verification::VerifiedRpcAccount::from_rpc_result(
-        &result,
-        id,
-        &layerx_sdk::rpc_verification::AccountPolicy {
-            protocol_version: 3,
-            network_id: NETWORK_ID,
-            sequencer_key: sequencer().verifying_key().to_bytes(),
-        },
-    )
-    .expect("real account proof");
+    assert_eq!(result["account_id"], hex(&account.account_id));
+    assert_eq!(result["asset_id"], hex(&account.asset_id()));
     result
 }
 
@@ -487,6 +479,15 @@ impl WalletFixture {
         command
     }
     fn run(&self, args: &[String], reverted: bool, tampered: bool) -> (Output, Vec<Value>) {
+        self.run_with_account_change(args, reverted, tampered, |_, _| {})
+    }
+    fn run_with_account_change(
+        &self,
+        args: &[String],
+        reverted: bool,
+        tampered: bool,
+        change: impl Fn(&str, &mut Value) + Send + 'static,
+    ) -> (Output, Vec<Value>) {
         let listener = TcpListener::bind("127.0.0.1:0").expect("RPC listener");
         let endpoint = format!("http://{}/rpc", listener.local_addr().expect("RPC address"));
         listener
@@ -541,7 +542,8 @@ impl WalletFixture {
                 let mut body = vec![0; length];
                 socket.read_exact(&mut body).expect("HTTP body");
                 let request: Value = serde_json::from_slice(&body).expect("RPC JSON");
-                let result = match request["method"].as_str().expect("method") {
+                let method = request["method"].as_str().expect("method");
+                let mut result = match method {
                     "eth_getTransactionCount" => json!("0x7"),
                     "eth_gasPrice" => json!("0x2"),
                     "eth_estimateGas" => json!("0x5208"),
@@ -578,6 +580,7 @@ impl WalletFixture {
                     }
                     method => panic!("unexpected RPC method {method}"),
                 };
+                change(method, &mut result);
                 let body = json!({"jsonrpc":"2.0","id":request["id"],"result":result}).to_string();
                 write!(socket,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).expect("HTTP response");
                 requests.push(request);
@@ -697,6 +700,23 @@ fn wallet_send_submits_raw_evm_transaction() {
     assert_eq!(disclosure.activity_type.ordinal(), 5);
     assert_eq!(disclosure.amounts[0].value, 25);
     let source = account_result(&fixture.account.did());
+    assert_eq!(source["asset_id"], hex(&disclosure.asset));
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|request| request["method"] == "px_getBalances")
+            .map(|request| request["params"].clone())
+            .collect::<Vec<_>>(),
+        vec![json!([fixture.account.did()])]
+    );
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|request| request["method"] == "px_getAccount")
+            .map(|request| request["params"].clone())
+            .collect::<Vec<_>>(),
+        vec![json!([source["account_id"]])]
+    );
     assert_eq!(
         disclosure.counterparties[0].account,
         unhex(source["account_id"].as_str().expect("source")).as_slice()
@@ -717,6 +737,60 @@ fn wallet_send_submits_raw_evm_transaction() {
             .payment,
         Some(layerx_crypto::payments::Payment::OpenAccount { asset: ASSET })
     );
+}
+
+#[test]
+fn wallet_send_refuses_mismatched_account_reads_before_submission() {
+    let fixture = WalletFixture::new();
+    for (method, field, value, error) in [
+        (
+            "px_getAccount",
+            "account_id",
+            json!(hex(&DESTINATION)),
+            "source account snapshot mismatch",
+        ),
+        (
+            "px_getAccount",
+            "asset_id",
+            json!(hex(&[0x44; 32])),
+            "source account asset mismatch",
+        ),
+        (
+            "px_getBalances",
+            "account_id",
+            json!(hex(&DESTINATION)),
+            "wallet_accounts_unavailable: account id binding is invalid",
+        ),
+        (
+            "px_getBalances",
+            "next_sequence",
+            json!("019"),
+            "wallet_accounts_unavailable: account evidence is noncanonical",
+        ),
+    ] {
+        let (output, requests) = fixture.run_with_account_change(
+            &transfer_args("wallet", "send"),
+            false,
+            false,
+            move |received_method, result| {
+                if received_method == method {
+                    if method == "px_getBalances" {
+                        result["accounts"][0][field] = value.clone();
+                    } else {
+                        result[field] = value.clone();
+                    }
+                }
+            },
+        );
+        assert!(!output.status.success());
+        assert!(output.stdout.is_empty());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains(error), "{stderr}");
+        assert!(requests.iter().any(|request| request["method"] == method));
+        assert!(requests
+            .iter()
+            .all(|request| request["method"] != "eth_sendRawTransaction"));
+    }
 }
 
 #[test]
