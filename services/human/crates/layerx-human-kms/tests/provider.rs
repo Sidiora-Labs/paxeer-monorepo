@@ -315,7 +315,7 @@ impl Host {
                 maximum_queued_bytes: MAX,
                 deadline: Duration::from_secs(30),
             },
-            RuntimeClock::from_environment()?,
+            self.clock.clone(),
         )?)
     }
     fn connection(&self, name: Option<&str>) -> Result<StreamOwned<ClientConnection, TcpStream>> {
@@ -1064,6 +1064,20 @@ fn evm_authorization_nonce_dedup_and_acknowledgement_recovery() -> Result<()> {
     let wallet = store.evm_wallet(&principal, &key)?;
     assert_ne!(wallet, [0; 20]);
     assert_eq!(wallet, store.evm_wallet(&principal, &key)?);
+    let remote = host.remote("client", "beta-kms")?;
+    let binding = store.evm_binding(&principal, &key)?;
+    let reference = store.evm_provider_reference(&principal, &key)?;
+    let wallet_request = remote.encode_evm_request(6, &binding, &reference, &[])?;
+    let request_path = host.root.join("wallet.lxkp");
+    fs::write(&request_path, &wallet_request)?;
+    let wallet_response = host.call(&fs::read(&request_path)?)?;
+    assert_eq!(&wallet_response[..7], &wallet_request[..7]);
+    assert_eq!(wallet_response[7], 0);
+    assert_eq!(&wallet_response[8..], wallet);
+    assert_eq!(
+        remote.encode_evm_request(7, &binding, &reference, &[]),
+        Err(layerx_human_service::custody::KmsError::Refused)
+    );
     let now = host.clock.sample(Duration::from_secs(1))?.unix_seconds();
     let authorization = recovery_authorization(&store, &principal, &key, wallet, now)?;
     assert!(store
@@ -1094,6 +1108,7 @@ fn evm_authorization_nonce_dedup_and_acknowledgement_recovery() -> Result<()> {
     );
     host.stop();
     host.start()?;
+    assert_eq!(host.call(&fs::read(&request_path)?)?, wallet_response);
     assert_eq!(
         signed,
         store.recover_evm_action(&principal, &key, &authorization.action_key)?
