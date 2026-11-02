@@ -19,9 +19,6 @@ stream = "atomic cursor chain with duplicate rejection"
 [verification]
 receipt = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceipt"
 receipt_outcome = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceiptOutcome"
-batch_inclusion = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyBatchInclusion"
-checkpoint = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyCheckpoint"
-receipt_in_batch = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyReceiptInBatch"
 merkle = "com.sidiora.layerx.sdk.verify.LocalVerifier.verifyMerkleInclusion"
 
 [golden]
