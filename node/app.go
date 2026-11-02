@@ -906,8 +906,8 @@ func New(
 		panic(fmt.Sprintf("error creating LayerX pay keeper: %s", err))
 	}
 	app.LayerXPayKeeper = &payKeeper
-	app.LayerXChainsKeeper, err = layerxchainskeeper.NewKeeper(appCodec, keys[storekeys.LayerXChainsStoreKey],
-		app.BankKeeper, app.EvmKeeper.GetBaseDenom)
+	app.LayerXChainsKeeper, err = layerxchainskeeper.NewKeeperWithAddressResolver(appCodec, keys[storekeys.LayerXChainsStoreKey],
+		app.BankKeeper, app.EvmKeeper.GetBaseDenom, &app.EvmKeeper)
 	if err != nil {
 		panic(fmt.Sprintf("error creating LayerX chains keeper: %s", err))
 	}
