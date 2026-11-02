@@ -136163,7 +136163,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.23.1]
 title = "Prove the activation path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
