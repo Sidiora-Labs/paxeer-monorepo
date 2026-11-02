@@ -99819,7 +99819,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.29.2]
 title = "Retire the oracle adapter loop and its activity and transport encoders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "1.29.1", "5.97.1", "16.33.3", "16.35.2", "6.96.5"]
@@ -100183,7 +100183,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.31.7]
 title = "Retire the data-availability store and possession proofs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.6", "16.32.7", "16.32.8", "16.32.9", "6.96.5"]
@@ -100251,7 +100251,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.32.2]
 title = "Retire checkpoint finalisation and the DA-unavailable mode"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "6.96.1", "16.32.4", "16.32.6", "16.32.11", "16.33.1", "6.96.5"]
@@ -100385,7 +100385,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.33.1]
 title = "Retire replica batch ingest in src/replica/lxp_replica_ingest.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.5", "16.31.6", "6.96.5"]
