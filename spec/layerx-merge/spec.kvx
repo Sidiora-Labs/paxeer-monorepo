@@ -130667,7 +130667,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.7.2]
 title = "Serve pending state reads from the latest committed block while no block is open"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183199,7 +183199,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.22]
 title = "Inventory every Go package under cmd/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183320,7 +183320,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.18]
 title = "Inventory every Go package under precompiles/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
