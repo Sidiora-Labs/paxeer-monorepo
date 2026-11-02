@@ -116982,7 +116982,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.142.1]
 title = "Prove the explorer path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.12.5"]
@@ -129577,7 +129577,7 @@ do_4 = "Finding 8.8.3.2: in services/platform/hosted/agent-boundary/src/lifecycl
 
 [task.8.101.4]
 title = "Delete the hosted gateway's unreachable kernel activity submission path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["9.35.13", "22.9.24"]
@@ -200232,7 +200232,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.3.4]
 title = "Run the migration rehearsal once on the merged revision"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 45
 requires = ["17.3.3", "17.11.1", "5.0.9", "22.6.10"]
