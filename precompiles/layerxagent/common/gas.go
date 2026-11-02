@@ -10,6 +10,8 @@ import (
 const (
 	eip712HashGas    uint64 = 1000
 	eip712RecoverGas uint64 = 4000
+	orobBaseGas      uint64 = 1000
+	orobPerByteGas   uint64 = 3
 	streamsOpenGas   uint64 = 50000
 	streamsSettleGas uint64 = 60000
 	streamsCloseGas  uint64 = 80000
@@ -35,8 +37,9 @@ func methodGas(selector []byte) (base, perByte uint64, known bool) {
 		return 0, 0, false
 	}
 	switch binary.BigEndian.Uint32(selector) {
-	case 0x454ad3a1, 0x3df597e3, 0x3f779aef,
-		0x81097a95,
+	case 0x454ad3a1, 0x3df597e3, 0x3f779aef:
+		return orobBaseGas, orobPerByteGas, true
+	case 0x81097a95,
 		0xe087a6ba, 0x1b1fba48, 0xa8f32b0e,
 		0x99812615, 0xbf22c457, 0x5eebea20, 0xf52981f4,
 		0x894e9a0d, 0x01ec24b8, 0x26f02502:
