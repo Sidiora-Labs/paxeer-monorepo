@@ -148,7 +148,7 @@ func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error) {
 	if provider, ok := keepers.(ExchangeKeepers); ok {
 		p.keeper = provider.LayerXExchangeK()
 	}
-	return pcommon.NewPrecompile(newAbi, p, p.address, PrecompileName).WithRevertReasons(), nil
+	return pcommon.NewPrecompile(newAbi, p, p.address, PrecompileName).WithLXPReasons(), nil
 }
 
 // Signatures returns the Ed25519 verifications a method performs.
@@ -200,6 +200,9 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 		if recovered := recover(); recovered != nil {
 			ret = nil
 			err = fmt.Errorf("layerxexchange: %v", recovered)
+		}
+		if code := types.ErrorCode(err); code != "" {
+			err = fmt.Errorf("%s: %w", code, err)
 		}
 	}()
 	if ctx.EVMPrecompileCalledFromDelegateCall() {

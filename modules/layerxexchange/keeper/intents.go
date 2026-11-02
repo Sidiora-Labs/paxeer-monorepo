@@ -2,6 +2,8 @@ package keeper
 
 import (
 	"bytes"
+	"fmt"
+
 	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -35,8 +37,8 @@ func (k *Keeper) retirementError(ctx sdk.Context) error {
 	if !ok {
 		return sdkerrors.Wrap(types.ErrKeeperMissing, "upgrade keeper done-height reader")
 	}
-	return sdkerrors.Wrapf(types.ErrRetired, "%s done at height %d", types.RetiredFromUpgrade,
-		upgrade.GetDoneHeight(ctx, types.RetiredFromUpgrade))
+	return fmt.Errorf("%s done at height %d: %w", types.RetiredFromUpgrade,
+		upgrade.GetDoneHeight(ctx, types.RetiredFromUpgrade), types.ErrRetired)
 }
 
 // record assigns the owner's next nonce and its intent identifier and stores
