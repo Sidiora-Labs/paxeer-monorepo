@@ -275,6 +275,23 @@ func TestWasmGetDenomsFromCreator(t *testing.T) {
 
 }
 
+func TestWasmTokenFactoryRejectsAmbiguousQuery(t *testing.T) {
+	testWrapper, customQuerier := SetupWasmbindingTest(t)
+	request := tokenfactorybinding.PaxTokenFactoryQuery{
+		DenomsFromCreator: &tokenfactorytypes.QueryDenomsFromCreatorRequest{Creator: app.TestUser},
+		DenomPaused:       &tokenfactorytypes.QueryDenomPausedRequest{Denom: "factory/unknown/pause"},
+	}
+	queryData, err := json.Marshal(request)
+	require.NoError(t, err)
+	rawQuery, err := json.Marshal(wasmbinding.PaxQueryWrapper{
+		Route: wasmbinding.TokenFactoryRoute, QueryData: queryData,
+	})
+	require.NoError(t, err)
+	res, err := customQuerier(testWrapper.Ctx, rawQuery)
+	require.ErrorIs(t, err, tokenfactorytypes.ErrParsingPaxTokenFactoryQuery)
+	require.Nil(t, res)
+}
+
 func MockQueryPlugins() wasmkeeper.QueryPlugins {
 	return wasmkeeper.QueryPlugins{
 		Bank: func(ctx sdk.Context, request *wasmvmtypes.BankQuery) ([]byte, error) { return []byte{}, nil },
