@@ -49,7 +49,6 @@ pub enum DisclosedNativeOperation {
     LegacyProgramCall(Box<layerx_types::intent::ProgramCall>),
     IdentityRegistration(DisclosedNativeIdentity),
     RecoveryPolicy(DisclosedRecoveryPolicy),
-    OwnerRotation(Box<crate::rotation::OwnerRotation>),
     BudgetCreate(Box<DisclosedNativeBudgetCreate>),
     BudgetFund(Box<DisclosedNativeBudgetFund>),
     BudgetDefund(Box<DisclosedNativeBudgetDefund>),
@@ -139,19 +138,6 @@ impl DisclosedNativeOperation {
                 encoder.u8(1)?;
                 encoder.fixed(&identity.did_id)?;
                 encoder.fixed(&identity.primary_key)?;
-            }
-            Self::OwnerRotation(rotation) => {
-                encoder.u8(5)?;
-                encoder.bytes(rotation.owner().as_bytes(), 512)?;
-                if let crate::rotation::OwnerRotation::Consent(consent) = rotation.as_ref() {
-                    encoder.fixed(&consent.pending_public_key)?;
-                }
-                encoder.bytes(
-                    &rotation
-                        .payload()
-                        .map_err(|_| DisclosureError::MalformedPayload)?,
-                    1024,
-                )?;
             }
             Self::RecoveryPolicy(policy) => {
                 encoder.u8(3)?;
@@ -604,10 +590,6 @@ pub(super) fn fields(
         (ModuleId::Governance, 1) => {
             DisclosedNativeOperation::IdentityRegistration(identity(activity)?)
         }
-        (ModuleId::Governance, 2) => DisclosedNativeOperation::OwnerRotation(Box::new(
-            crate::rotation::OwnerRotation::from_activity(activity)
-                .map_err(|_| DisclosureError::MalformedPayload)?,
-        )),
         (ModuleId::Governance, 3) => DisclosedNativeOperation::RecoveryPolicy(recovery(activity)?),
         (ModuleId::Budget, 1) => budget_create_operation(
             activity,
@@ -631,11 +613,7 @@ pub(super) fn fields(
                 &mut amounts,
             )?
         }
-        _ => {
-            return Err(DisclosureError::UnsupportedActivity(
-                activity.activity_type().value(),
-            ))
-        }
+        _ => return Err(DisclosureError::MalformedPayload),
     };
     Ok(DisclosureFields {
         activity_type: activity.activity_type(),
