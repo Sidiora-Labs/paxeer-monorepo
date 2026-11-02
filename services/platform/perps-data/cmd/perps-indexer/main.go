@@ -69,9 +69,9 @@ func main() {
 }
 
 func run(logger *slog.Logger) error {
-	cfg, err := config.Load(config.Indexer)
+	cfg, err := config.Indexer.Load()
 	if err != nil {
-		return fmt.Errorf("config: %w", err)
+		return err
 	}
 	logger.Info("perps-indexer starting", slog.Any("config", *cfg))
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

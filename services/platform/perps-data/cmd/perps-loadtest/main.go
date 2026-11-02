@@ -27,9 +27,9 @@ func main() {
 }
 
 func run(logger *slog.Logger) error {
-	cfg, err := config.Load(config.Loadtest)
+	cfg, err := config.Loadtest.Load()
 	if err != nil {
-		return fmt.Errorf("config: %w", err)
+		return err
 	}
 	socketURL, err := loadtest.SocketURL(cfg.GatewayURL)
 	if err != nil {

@@ -21,6 +21,9 @@ import (
 // Service names one perps data binary.
 type Service string
 
+// Prefix is the standard network prefix used by the trusted proxy contract.
+type Prefix = netip.Prefix
+
 const (
 	Indexer  Service = "indexer"
 	Gateway  Service = "gateway"
@@ -73,7 +76,17 @@ type Config struct {
 	ExplorerTxBase string
 	GatewayURL     string
 	StartHeight    int64
-	TrustedProxies []netip.Prefix
+	TrustedProxies []Prefix
+}
+
+// Load is the command startup boundary. It reads fresh configuration on every
+// call and identifies the service whose configuration was refused.
+func (s Service) Load() (*Config, error) {
+	cfg, err := Load(s)
+	if err != nil {
+		return nil, fmt.Errorf("%s config: %w", s, err)
+	}
+	return cfg, nil
 }
 
 // Load reads the variables the named service uses and returns the validated
