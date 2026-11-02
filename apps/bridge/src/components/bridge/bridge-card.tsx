@@ -74,6 +74,19 @@ function useBridgeWrite() {
   };
 }
 
+/** Publish the wallet's submission before notifying the page to refresh its consumer. */
+export function recordBridgeSubmission(
+  submission:
+    | { direction: 'in'; input: Parameters<typeof depositRecord>[0] } |
+    { direction: 'out'; input: Parameters<typeof withdrawalRecord>[0] },
+  onTransferSubmitted: () => void,
+) {
+  const transfer = submission.direction === 'in' ? depositRecord(submission.input) : withdrawalRecord(submission.input);
+  saveTransfer(transfer);
+  onTransferSubmitted();
+  return transfer;
+}
+
 export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () => void }) {
   const [ direction, setDirection ] = useState<Direction>('in');
   const [ foreignKey, setForeignKey ] = useState('base');
@@ -210,16 +223,15 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
     const callbacks = {
       onSuccess: (hash: Hex) => {
         const input = { hash, foreign, asset, account: address, amount: amountValue, requiredConfirmations: finality };
-        saveTransfer(which === 'deposit' ?
-          depositRecord({ ...input, vault: request.address, recipient: destination }) :
-          withdrawalRecord({ ...input, destination }));
+        recordBridgeSubmission(which === 'deposit' ?
+          { direction: 'in', input: { ...input, vault: request.address, recipient: destination } } :
+          { direction: 'out', input: { ...input, destination } }, onTransferSubmitted);
         toast.success(which === 'deposit' ? 'Deposit submitted' : 'Withdrawal burn submitted', {
           description:
             which === 'deposit' ?
               `Attestors credit it on Paxeer after finality (${ finalityEstimate(foreign) }). Track it under Transfers.` :
               `Attestors release it on ${ foreign.label } once the burn is final. Track it under Transfers.`,
         });
-        onTransferSubmitted();
       },
       onError: (error: unknown) => toast.error(which === 'deposit' ? 'Deposit failed' : 'Withdrawal failed', { description: describeWriteError(error) }),
     };

@@ -1,4 +1,4 @@
-import { encodeFunctionData, type Hex } from 'viem';
+import { decodeEventLog, encodeFunctionData, type Hex } from 'viem';
 import { publicClient } from './chainReads.js';
 
 /**
@@ -223,7 +223,56 @@ export const STREAMS_ABI = [
       },
     ],
   },
+  {
+    type: 'event',
+    name: 'StreamOpened',
+    anonymous: false,
+    inputs: [
+      { name: 'streamId', type: 'uint256', indexed: true },
+      { name: 'payer', type: 'address', indexed: true },
+      { name: 'payee', type: 'address', indexed: true },
+      { name: 'token', type: 'address', indexed: false },
+      { name: 'ratePerSecond', type: 'uint256', indexed: false },
+      { name: 'cap', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'StreamSettled',
+    anonymous: false,
+    inputs: [
+      { name: 'streamId', type: 'uint256', indexed: true },
+      { name: 'payee', type: 'address', indexed: true },
+      { name: 'paid', type: 'uint256', indexed: false },
+      { name: 'committed', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'StreamClosed',
+    anonymous: false,
+    inputs: [
+      { name: 'streamId', type: 'uint256', indexed: true },
+      { name: 'finalPaid', type: 'uint256', indexed: false },
+      { name: 'refund', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'StreamRateUpdated',
+    anonymous: false,
+    inputs: [
+      { name: 'streamId', type: 'uint256', indexed: true },
+      { name: 'oldRate', type: 'uint256', indexed: false },
+      { name: 'newRate', type: 'uint256', indexed: false },
+    ],
+  },
 ] as const;
+
+/** Decode the native streams logs with the same ABI used for wallet calls. */
+export function decodeStreamEvent(log: { data: Hex; topics: [Hex, ...Hex[]] }) {
+  return decodeEventLog({ abi: STREAMS_ABI, data: log.data, topics: log.topics, strict: true });
+}
 
 export const EIP712_ABI = [
   {

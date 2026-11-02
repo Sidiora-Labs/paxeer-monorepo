@@ -1,7 +1,10 @@
 import json
+import sys
 from dataclasses import replace
 from pathlib import Path
 import unittest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "agent/sdk/python"))
 
 from layerx_sdk.x402 import payment_commitment, verify_payment_receipt
 from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
@@ -54,7 +57,12 @@ class CommitmentTests(unittest.TestCase):
             )
 
     def test_executed_payment_binding(self):
-        payer = self.verify().receipt.from_account.hex()
+        verified = self.verify()
+        payer = verified.receipt.from_account.hex()
+        self.assertEqual(verified.canonical_bytes, self.wire)
+        self.assertNotEqual(verified.receipt.amount, int(self.offer["amount"]))
+        self.assertNotEqual(verified.receipt.asset.hex(), self.offer["asset"])
+        self.assertNotEqual(verified.receipt.to_account.hex(), self.offer["pay_to"])
         self.verify(payer=payer)
         for change in (
             {"amount": "25001"},
@@ -78,6 +86,7 @@ class CommitmentTests(unittest.TestCase):
         self.verify()
         for commitment in (
             "committed",
+            "executed",
             "batched",
             "finalised",
             "finalized",
@@ -88,6 +97,14 @@ class CommitmentTests(unittest.TestCase):
             with self.assertRaises(PlatformSdkError):
                 self.verify(commitment=commitment)
         self.assertEqual(payment_commitment(), "receipted")
+        self.assertEqual(payment_commitment({}), "receipted")
+        for rung in ("submitted", "receipted", "committed"):
+            self.assertEqual(payment_commitment({"layerx": {"commitment": rung}}), rung)
+        for rung in ("submitted", "receipted"):
+            self.assertEqual(self.verify(commitment=rung).canonical_bytes, self.wire)
+        for retired in ("executed", "batched", "finalised"):
+            with self.assertRaisesRegex(PlatformSdkError, "rung ladder.*submitted.*receipted.*committed"):
+                payment_commitment({"layerx": {"commitment": retired}})
         for value in (None, [], {}, "executed"):
             with self.assertRaises(PlatformSdkError):
                 payment_commitment({"layerx": value})

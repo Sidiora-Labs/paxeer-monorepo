@@ -8,6 +8,7 @@ import (
 
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	agenttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	exchangetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
 	paytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
@@ -38,6 +39,7 @@ func TestMergePrecompileGate(t *testing.T) {
 		common.HexToAddress("0x101B"): true,
 		common.HexToAddress("0x101C"): true,
 		common.HexToAddress("0x101D"): false,
+		common.HexToAddress("0x101E"): true,
 		common.HexToAddress("0x0901"): false,
 		common.HexToAddress("0x0902"): false,
 		common.HexToAddress("0x0903"): false,
@@ -47,7 +49,7 @@ func TestMergePrecompileGate(t *testing.T) {
 		common.HexToAddress("0x0907"): false,
 		common.HexToAddress("0x0908"): false,
 	}
-	require.Len(t, gate.Modules, 12)
+	require.Len(t, gate.Modules, 13)
 	require.Len(t, precompiles.MergeAddressTable, len(wantBeforeDone))
 	contract, err := eip712.NewPrecompile(&a.UpgradeKeeper, MergeUpgrade, 256, 256)
 	require.NoError(t, err)
@@ -97,7 +99,7 @@ func TestMergePrecompileGate(t *testing.T) {
 func TestMergePrecompileGateUsesModuleNameConstants(t *testing.T) {
 	gate := mergePrecompileGate()
 	require.Equal(t, MergeUpgrade, gate.Upgrade)
-	require.Len(t, gate.Modules, 12)
+	require.Len(t, gate.Modules, 13)
 	for _, address := range []string{"0x101B", "0x0906"} {
 		require.Equal(t, []string{paytypes.ModuleName}, gate.Modules[common.HexToAddress(address)])
 	}
@@ -109,6 +111,7 @@ func TestMergePrecompileGateUsesModuleNameConstants(t *testing.T) {
 		require.Equal(t, want, gate.Modules[common.HexToAddress(address)])
 	}
 	require.Equal(t, []string{"layerxprograms"}, gate.Modules[common.HexToAddress("0x101D")])
+	require.Equal(t, []string{chainstypes.ModuleName}, gate.Modules[common.HexToAddress("0x101E")])
 }
 
 func TestMergePlanRefusesMissingMergeConstructors(t *testing.T) {

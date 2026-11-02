@@ -18,10 +18,10 @@ const SPOT_WIDGETS = [
   'SpotPositionsPanel',
 ] as const;
 
-function elements(node: ReactNode): { type: unknown; props: Record<string, unknown> }[] {
-  if (Array.isArray(node)) return node.flatMap(elements);
+export function spotWidgetElements(node: ReactNode): { type: unknown; props: Record<string, unknown> }[] {
+  if (Array.isArray(node)) return node.flatMap(spotWidgetElements);
   if (!isValidElement<{ children?: ReactNode }>(node)) return [];
-  return [{ type: node.type, props: node.props as Record<string, unknown> }, ...elements(node.props.children)];
+  return [{ type: node.type, props: node.props as Record<string, unknown> }, ...spotWidgetElements(node.props.children)];
 }
 
 test('spot_route_follows_release_gate', async () => {
@@ -43,9 +43,9 @@ test('spot_route_follows_release_gate', async () => {
     assert.equal(nav.isSpotOpen(), true);
     assert.deepEqual(await page.getServerSideProps({ query: {} }), { props: { symbol: 'SID' } });
     assert.deepEqual(await page.getServerSideProps({ query: { market: 'pax' } }), { props: { symbol: 'PAX' } });
-    assert.deepEqual(await page.getServerSideProps({ query: { market: 'NONE' } }), { props: { symbol: 'SID' } });
+    assert.deepEqual(await page.getServerSideProps({ query: { market: 'NONE' } }), { notFound: true });
     assert.deepEqual(await page.getServerSideProps({ query: { market: ['PAX', 'SID'] } }), {
-      props: { symbol: 'SID' },
+      notFound: true,
     });
     assert.deepEqual(nav.navItems().map((i) => i.href), OPEN_HREFS);
     assert.deepEqual(nav.navItems().find((i) => i.href === '/spot'), {
@@ -56,7 +56,7 @@ test('spot_route_follows_release_gate', async () => {
     });
     assert.deepEqual(tabs.marketsModes(), ['perps', 'spot']);
 
-    const rendered = elements(page.SpotPage({ symbol: 'PAX' }));
+    const rendered = spotWidgetElements(page.SpotPage({ symbol: 'PAX' }));
     for (const name of SPOT_WIDGETS) {
       assert.equal(rendered.filter((e) => e.type === widgets[name]).length, 1, `${name} is composed once`);
     }
@@ -82,7 +82,7 @@ test('markets_mode_handler_switches_to_spot', async () => {
     const passes: { mode: unknown; activeTab: unknown; boundaries: unknown[] }[] = [];
     function Harness() {
       const tree = MarketsPage();
-      const all = elements(tree);
+      const all = spotWidgetElements(tree);
       const header = all.find((e) => e.type === tabs.MarketsHeaderTabs)?.props;
       assert.ok(header, 'markets page composes the header tabs');
       passes.push({

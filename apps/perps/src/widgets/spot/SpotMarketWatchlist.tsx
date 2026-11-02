@@ -10,6 +10,8 @@ import { useFavoriteMarkets } from "@/hooks/ui/useFavoriteMarkets";
 import { buildGetTokenInfo, buildIsTokenPaused } from "@/core/spot/calls";
 import { spotTokenState, type SpotTokenState } from "@/core/spot/tokenState";
 
+import { spotSubmitBlocked } from "./SpotOrderForm";
+
 type Filter = "all" | "favorites";
 type SortKey = "volume" | "change" | "price" | "symbol";
 type SortDir = "asc" | "desc";
@@ -38,6 +40,9 @@ interface RowData {
 }
 
 export function watchlistRowState(state: SpotTokenState): "paused" | "live" {
+  if (spotSubmitBlocked(state) === "TokenStateUnavailable") {
+    throw new Error("Invalid spot token state");
+  }
   return state.paused ? "paused" : "live";
 }
 

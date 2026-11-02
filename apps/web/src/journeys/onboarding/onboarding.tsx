@@ -172,6 +172,15 @@ function FailureNotice({
   );
 }
 
+export function AccountActivationNotice({ journey }: Readonly<{ journey: Journey | undefined }>) {
+  const active = journey !== undefined && accountActive(journey);
+  return <InlineNotice tone={active ? "success" : "warning"} role="status">
+    <span data-account-active={active ? "true" : "false"}>
+      {copyEntry(active ? "onboarding.active" : "onboarding.not_active").message}
+    </span>
+  </InlineNotice>;
+}
+
 export function Onboarding({
   initialSelection,
   initiallyAuthenticated = false,
@@ -503,11 +512,7 @@ export function Onboarding({
         description={copyEntry("onboarding.progress.body").message}
       >
         <div data-journey-phase="progress" className="flex flex-col gap-4 pt-2">
-          <InlineNotice tone={active ? "success" : "warning"} role="status">
-            <span data-account-active={active ? "true" : "false"}>
-              {copyEntry(active ? "onboarding.active" : "onboarding.not_active").message}
-            </span>
-          </InlineNotice>
+          <AccountActivationNotice journey={journey} />
           {journey === undefined ? <StateSkeleton /> : <StageList journey={journey} />}
           {queued ? (
             <p data-onboarding-queued="" className="text-sm text-muted-foreground">

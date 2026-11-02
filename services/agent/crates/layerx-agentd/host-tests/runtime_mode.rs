@@ -71,8 +71,24 @@ fn full_requires_journal_and_probe_even_when_transport_inputs_are_present(
             .env("LAYERX_AGENT_NODE_ENDPOINT", "http://127.0.0.1:1")
             .env("LAYERX_AGENT_AUTHORITY_ENDPOINT", "https://localhost:2")
             .env("LAYERX_AGENT_AUTHORITY_CA_DER", &ca)
-            .env("LAYERX_AGENT_AUTHORITY_REPLICA_ID", "01".repeat(32))
-            .env("LAYERX_AGENT_SEQUENCER_TRUST_HISTORY", root.join("history"));
+            .env("LAYERX_AGENT_AUTHORITY_REPLICA_ID", "01".repeat(32));
+        if mode == "full" {
+            command
+                .env(
+                    "LAYERX_AGENT_HUMAN_PEERS",
+                    "uid=4020;tenant=beta;principal=did:layerx:beta:alice",
+                )
+                .env(
+                    "LAYERX_POLICY_SOURCES",
+                    format!("beta:{}", root.join("policy").display()),
+                )
+                .env(
+                    "LAYERX_NATIVE_POLICY_SOURCES",
+                    format!("beta:{}", root.join("native-policy").display()),
+                )
+                .env("LAYERX_EXPECTED_CHAIN_ID", "125")
+                .env("LAYERX_AGENT_CHAIN_TRUST_ROOT", root.join("chain-trust"));
+        }
         let output = command.output()?;
         assert_eq!(output.status.code(), Some(2));
         let stderr = String::from_utf8(output.stderr)?;

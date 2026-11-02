@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the Paxeer X Network system reference under docs/system/ from source."""
+"""Generate precompiles.md by default, or the full system reference in an output directory."""
 import ast
 import json
 import re
@@ -140,14 +140,16 @@ def gen_precompiles():
     out = [HEADER, "# Precompile ABIs\n\n",
            "Source: `precompiles/<name>/*abi*.json`, `precompiles/<name>/abi/*.json` and "
            "the `abiJSON` constants in `precompiles/layerxagent/*/*.go`, "
-           "the address constants in each package or its `modules/<name>/types/*.go`, and the "
+           "the endpoint registrations in `precompiles/setup.go` and each package's constructors, and the "
            "Solidity interfaces in `contracts/src/precompiles/`. "
-           "Addresses list the package's fixed addresses, shared across its ABI rows; "
+           "Addresses list the package's fixed endpoint addresses, shared across its ABI rows; "
            "the spot share ABI describes dynamically allocated share-token pointers.\n"]
     addr_re = re.compile(r'(\w*Address)\s*=\s*"(0x[0-9a-fA-F]{40})"')
     rows = []
     sections = []
     precompiles = ROOT / "precompiles"
+    setup = read(precompiles / "setup.go")
+    setup_imports = re.findall(r'^\s*(?:(\w+)\s+)?"([^"]+)"', setup, re.M)
     abi_paths = set(precompiles.glob("*/*abi*.json")) | set(precompiles.glob("*/abi/*.json"))
     abis = []
     for abi_path in sorted(abi_paths):
@@ -160,11 +162,26 @@ def gen_precompiles():
             abis.append((src.parent, f"{rel(src)}:abiJSON", "abiJSON", json.loads(raw)))
     for pkg, source, abi_name, entries in abis:
         package_text = "\n".join(read(src) for src in go_sources(pkg))
-        addresses = sorted({a for _, a in addr_re.findall(package_text)})
-        if not addresses:
-            references = set(re.findall(r"\btypes\.(\w*Address)\b", package_text))
-            addresses = sorted({a for src in go_sources(ROOT / "modules" / pkg.name / "types")
-                                for constant, a in addr_re.findall(read(src)) if constant in references})
+        module_text = "\n".join(read(src) for src in go_sources(ROOT / "modules" / pkg.name / "types"))
+        constants = dict(addr_re.findall(module_text))
+        constants.update(addr_re.findall(package_text))
+        for local, target in re.findall(r'\b(\w*Address)\s*=\s*types\.(\w*Address)\b', package_text):
+            if target in constants:
+                constants[local] = constants[target]
+        # Select endpoint constants, never arbitrary address references in handlers.
+        references = set(re.findall(
+            r'(?:\baddress:\s*|\bRegisterMergeConstructor\(\s*)'
+            r'\w+\.HexToAddress\(\s*(?:types\.)?(\w*Address)\s*\)', package_text))
+        for alias, path in setup_imports:
+            if path.endswith("/precompiles/" + pkg.relative_to(precompiles).as_posix()) or path.endswith(
+                    "/modules/" + pkg.name + "/types"):
+                qualifier = alias or path.rsplit("/", 1)[1]
+                references.update(re.findall(
+                    r'\becommon\.HexToAddress\(\s*' + re.escape(qualifier) + r'\.(\w*Address)\s*\)', setup))
+        missing = references - constants.keys()
+        if missing:
+            raise SystemExit(f"precompiles: cannot resolve endpoint constants in {rel(pkg)}: {sorted(missing)}")
+        addresses = sorted({constants[name] for name in references})
         name = pkg.relative_to(precompiles).as_posix()
         rows.append([name, f"`{source}`", ", ".join(f"`{a}`" for a in addresses) or "-",
                      sum(1 for e in entries if e.get("type") == "function")])
@@ -419,8 +436,12 @@ TITLES = {
 
 
 def main():
+    if len(sys.argv) == 1:
+        name, text = gen_precompiles()
+        (ROOT / "docs/system" / name).write_text(text.rstrip("\n") + "\n", encoding="utf-8")
+        return
     if len(sys.argv) != 2:
-        raise SystemExit("usage: gen_system_docs.py <output-dir>")
+        raise SystemExit("usage: gen_system_docs.py [output-dir]")
     dest = Path(sys.argv[1])
     dest.mkdir(parents=True, exist_ok=True)
     docs = dict(g() for g in (gen_routes, gen_rpc, gen_precompiles, gen_chain_modules, gen_kernel_modules,

@@ -218,6 +218,10 @@ func (server msgServer) SetDenomMetadata(goCtx context.Context, msg *types.MsgSe
 }
 
 func (server msgServer) SetDenomPaused(goCtx context.Context, msg *types.MsgSetDenomPaused) (*types.MsgSetDenomPausedResponse, error) {
+	if err := msg.ValidateBasic(); err != nil {
+		return nil, err
+	}
+
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	if _, found := server.bankKeeper.GetDenomMetaData(ctx, msg.Denom); !found {

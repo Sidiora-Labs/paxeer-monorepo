@@ -25,6 +25,7 @@ import { useWalletState } from '@/providers/WalletProvider';
 import { SvgIcon } from '@/components/ui/SvgIcon';
 import { QrScanner } from '@/components/QrScanner';
 import { TransferSuccess } from '@/components/TransferSuccess';
+import { useActiveNetwork } from '@/components/NetworkSwitcher';
 import { useContacts } from '@/hooks/useContacts';
 import { loadRecentRecipients } from '@/lib/recentRecipients';
 import { SendForm } from './SendForm';
@@ -39,219 +40,255 @@ import { estimateFeeWei, resolveFeeOverrides } from '@/lib/fees';
 import { preferencesRepository } from '@/platform/storage/repositories';
 
 export interface FeePreview {
-    amountPax: string;
-    mode: string;
-    nonce: number | null;
-    source: string;
+  amountPax: string;
+  mode: string;
+  nonce: number | null;
+  source: string;
 }
 
-export async function readFeePreview(provider: ethers.Provider, address: string, tokenAddress: string | null | undefined): Promise<FeePreview> {
-    const fees = await resolveFeeOverrides(provider);
-    const nonce = preferencesRepository.read().customNonce ?? await provider.getTransactionCount(address, 'latest');
-    const feeWei = estimateFeeWei(tokenAddress ? 500_000n : 210_000n, fees);
-    return {
-        amountPax: Number(ethers.formatEther(feeWei)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }),
-        mode: fees.mode,
-        nonce,
-        source: fees.source,
-    };
+export async function readFeePreview(
+  provider: ethers.Provider,
+  address: string,
+  tokenAddress: string | null | undefined
+): Promise<FeePreview> {
+  const fees = await resolveFeeOverrides(provider);
+  const nonce =
+    preferencesRepository.read().customNonce ??
+    (await provider.getTransactionCount(address, 'latest'));
+  const feeWei = estimateFeeWei(tokenAddress ? 500_000n : 210_000n, fees);
+  return {
+    amountPax: Number(ethers.formatEther(feeWei)).toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 6,
+    }),
+    mode: fees.mode,
+    nonce,
+    source: fees.source,
+  };
 }
 
 export interface SendWidgetProps {
-    onBack: () => void;
-    preSelectTokenAddress?: string;
-    onPaxscan?: (path?: string) => void;
+  onBack: () => void;
+  preSelectTokenAddress?: string;
+  onPaxscan?: (path?: string) => void;
 }
 
 const matchPreselect = (
-    list: SendableToken[],
-    preSelect: string | undefined,
+  list: SendableToken[],
+  preSelect: string | undefined
 ): SendableToken | null => {
-    if (!list.length) return null;
-    if (!preSelect) return list[0];
-    if (preSelect === 'pax') return list[0];
-    return (
-        list.find((t) => t.address?.toLowerCase() === preSelect.toLowerCase()) ?? list[0]
-    );
+  if (!list.length) return null;
+  if (!preSelect) return list[0];
+  if (preSelect === 'pax') return list[0];
+  return list.find((t) => t.address?.toLowerCase() === preSelect.toLowerCase()) ?? list[0];
 };
 
 export function SendWidget({ onBack, preSelectTokenAddress, onPaxscan }: SendWidgetProps) {
-    const { activeAccount, accounts } = useWalletState();
-    const { contacts, findByAddress } = useContacts();
-    const { tokens, loading: tokensLoading } = useSendableTokens(activeAccount?.address);
-    const form = useSendForm();
+  const activeNetwork = useActiveNetwork();
+  const { activeAccount, accounts } = useWalletState();
+  const { contacts, findByAddress } = useContacts();
+  const { tokens, loading: tokensLoading } = useSendableTokens(activeAccount?.address);
+  const form = useSendForm();
 
-    const [selectedToken, setSelectedToken] = useState<SendableToken | null>(null);
-    const [selectorOpen, setSelectorOpen] = useState(false);
-    const [contactPickerOpen, setContactPickerOpen] = useState(false);
-    const [scannerOpen, setScannerOpen] = useState(false);
-    const [scanError, setScanError] = useState('');
-    const [feePreview, setFeePreview] = useState<FeePreview | 'unavailable' | null>(null);
+  const [selectedToken, setSelectedToken] = useState<SendableToken | null>(null);
+  const [selectorOpen, setSelectorOpen] = useState(false);
+  const [contactPickerOpen, setContactPickerOpen] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanError, setScanError] = useState('');
+  const [feePreview, setFeePreview] = useState<FeePreview | 'unavailable' | null>(null);
 
-    // Other wallet accounts (excluding active) for the picker
-    const ownAccounts = useMemo(
-        () => accounts.filter((a) => a.address !== activeAccount?.address).map((a) => ({ address: a.address, name: a.name || 'Account' })),
-        [accounts, activeAccount],
-    );
+  // Other wallet accounts (excluding active) for the picker
+  const ownAccounts = useMemo(
+    () =>
+      accounts
+        .filter((a) => a.address !== activeAccount?.address)
+        .map((a) => ({ address: a.address, name: a.name || 'Account' })),
+    [accounts, activeAccount]
+  );
 
-    // Recent recipients loaded fresh each time the picker opens
-    const [recentRecipients, setRecentRecipients] = useState(() => loadRecentRecipients());
-    const handleOpenPicker = () => { setRecentRecipients(loadRecentRecipients()); setContactPickerOpen(true); };
+  // Recent recipients loaded fresh each time the picker opens
+  const [recentRecipients, setRecentRecipients] = useState(() => loadRecentRecipients());
+  const handleOpenPicker = () => {
+    setRecentRecipients(loadRecentRecipients());
+    setContactPickerOpen(true);
+  };
 
-    // ── Once tokens load, lock in the initial selection ──────────────────
-    useEffect(() => {
-        if (selectedToken || tokens.length === 0) return;
-        setSelectedToken(matchPreselect(tokens, preSelectTokenAddress));
-    }, [tokens, preSelectTokenAddress, selectedToken]);
+  // ── Once tokens load, lock in the initial selection ──────────────────
+  useEffect(() => {
+    if (selectedToken || tokens.length === 0) return;
+    setSelectedToken(matchPreselect(tokens, preSelectTokenAddress));
+  }, [tokens, preSelectTokenAddress, selectedToken]);
 
-    useEffect(() => {
-        if (!selectedToken || !activeAccount?.address || !form.to || !form.amount) {
-            setFeePreview(null);
-            return;
-        }
-        let cancelled = false;
-        const timer = window.setTimeout(async () => {
-            try {
-                const preview = await readFeePreview(new ethers.JsonRpcProvider(getActiveRpcUrl()), activeAccount.address, selectedToken.address);
-                if (!cancelled) setFeePreview(preview);
-            } catch {
-                if (!cancelled) setFeePreview('unavailable');
-            }
-        }, 300);
-        return () => {
-            cancelled = true;
-            window.clearTimeout(timer);
-        };
-    }, [selectedToken, activeAccount?.address, form.to, form.amount]);
-
-    // ── Success view ─────────────────────────────────────────────────────
-    if (form.transfer) {
-        return (
-            <TransferSuccess
-                key={`${form.transfer.chainId}:${form.transfer.hash}`}
-                fromLabel={activeAccount ? activeAccount.name || 'Account' : 'Your wallet'}
-                fromAmount={form.transfer.amount}
-                fromSymbol={form.transfer.symbol}
-                toLabel={`${form.transfer.recipient.slice(0, 6)}...${form.transfer.recipient.slice(-4)}`}
-                transfer={form.transfer}
-                submissionWarning={form.error}
-                onExplorerView={() => onPaxscan?.(`/tx/${form.txHash}`)}
-                onDone={(terminal) => {
-                    if (terminal) form.clearTransfer();
-                    onBack();
-                }}
-            />
-        );
+  useEffect(() => {
+    if (!selectedToken || !activeAccount?.address || !form.to || !form.amount) {
+      setFeePreview(null);
+      return;
     }
-
-    const resolvedContact = form.to ? findByAddress(form.to) : undefined;
-    const handleScan = (data: string) => {
-        const parsed = parseEip681(data);
-        if (!parsed) {
-            setScanError('This QR code is not a valid wallet address or EIP-681 payment request.');
-            return;
-        }
-        if (parsed.chainId && parsed.chainId !== PAXEER_CONFIG.chainId) {
-            setScanError(`This payment request is for chain ${parsed.chainId}, not chain ${PAXEER_CONFIG.chainId}.`);
-            return;
-        }
-        form.setTo(parsed.address);
-        if (parsed.tokenAddress) {
-            const token = tokens.find(
-                (candidate) =>
-                    candidate.address?.toLowerCase() === parsed.tokenAddress?.toLowerCase(),
-            );
-            if (!token) {
-                setScanError('The requested token is not available in this wallet.');
-                return;
-            }
-            setSelectedToken(token);
-            if (parsed.uint256) {
-                const atomic = parseAtomicAmount(parsed.uint256);
-                if (atomic === null) {
-                    setScanError('The QR token amount is invalid.');
-                    return;
-                }
-                form.setAmount(ethers.formatUnits(atomic, token.decimals));
-            }
-        } else if (parsed.value) {
-            const atomic = parseAtomicAmount(parsed.value);
-            if (atomic === null) {
-                setScanError('The QR payment amount is invalid.');
-                return;
-            }
-            form.setAmount(ethers.formatEther(atomic));
-        } else if (parsed.amount) {
-            form.setAmount(parsed.amount);
-        }
-        setScanError('');
-        setScannerOpen(false);
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const preview = await readFeePreview(
+          new ethers.JsonRpcProvider(getActiveRpcUrl()),
+          activeAccount.address,
+          selectedToken.address
+        );
+        if (!cancelled) setFeePreview(preview);
+      } catch {
+        if (!cancelled) setFeePreview('unavailable');
+      }
+    }, 300);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
     };
+  }, [selectedToken, activeAccount?.address, form.to, form.amount]);
 
+  // ── Success view ─────────────────────────────────────────────────────
+  if (form.transfer) {
     return (
-        <div className="min-h-screen flex flex-col px-4 pt-4 safe-area-pt">
-            <div className="flex items-center gap-3 mb-6">
-                <button type="button" onClick={onBack} aria-label="Back" className="p-2 -ml-2 press-scale">
-                    <SvgIcon
-                        name="arrow-left"
-                        className="w-5 h-5"
-                        style={{ filter: 'brightness(0) invert(0.6)' }}
-                    />
-                </button>
-                <h2 className="text-lg font-bold">Send</h2>
-            </div>
-
-            <SendForm
-                selectedToken={selectedToken}
-                to={form.to}
-                amount={form.amount}
-                resolvedContact={resolvedContact}
-                hasContacts={ownAccounts.length > 0 || recentRecipients.length > 0 || contacts.length > 0}
-                onOpenTokenSelector={() => setSelectorOpen(true)}
-                onOpenContactPicker={handleOpenPicker}
-                onOpenScanner={() => setScannerOpen(true)}
-                onChangeTo={form.setTo}
-                onChangeAmount={form.setAmount}
-                onApplyPercentage={(pct) => form.applyPercentage(pct, selectedToken)}
-            />
-
-            {form.error && <p className="text-red-400 text-xs">{form.error}</p>}
-            {feePreview === 'unavailable' && <p className="text-red-400 text-xs" role="status" data-role="fee-unavailable">The network fee could not be estimated right now.</p>}
-            {scanError && <p className="text-red-400 text-xs" role="alert">{scanError}</p>}
-
-            <div className="py-4 pb-24 flex justify-center">
-                <SendConfirmation
-                    triggerLabel={`Send ${selectedToken?.symbol || ''}`}
-                    token={selectedToken ? { symbol: selectedToken.symbol, iconUrl: selectedToken.iconUrl } : undefined}
-                    amount={form.amount}
-                    to={form.to}
-                    loading={form.loading}
-                    disabled={form.loading || !form.to || !form.amount || !selectedToken}
-                    onOpen={() => form.validateBeforeConfirm(selectedToken)}
-                    onConfirm={() => form.submit(selectedToken)}
-                    fee={feePreview}
-                />
-            </div>
-
-            <TokenSelectorSheet
-                open={selectorOpen}
-                onClose={() => setSelectorOpen(false)}
-                tokens={tokens}
-                loading={tokensLoading}
-                selected={selectedToken}
-                onSelect={setSelectedToken}
-            />
-
-            <QrScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={handleScan} />
-
-            <ContactPickerSheet
-                open={contactPickerOpen}
-                onClose={() => setContactPickerOpen(false)}
-                contacts={contacts}
-                ownAccounts={ownAccounts}
-                recentRecipients={recentRecipients}
-                onSelect={form.setTo}
-            />
-        </div>
+      <TransferSuccess
+        key={`${form.transfer.chainId}:${form.transfer.hash}`}
+        fromLabel={activeAccount ? activeAccount.name || 'Account' : 'Your wallet'}
+        fromAmount={form.transfer.amount}
+        fromSymbol={form.transfer.symbol}
+        toLabel={`${form.transfer.recipient.slice(0, 6)}...${form.transfer.recipient.slice(-4)}`}
+        transfer={form.transfer}
+        submissionWarning={form.error}
+        explorerUrl={`${activeNetwork.explorerUrl.replace(/\/+$/, '')}/tx/${form.transfer.hash}`}
+        onExplorerView={
+          activeNetwork.kind === 'root' && onPaxscan
+            ? () => onPaxscan(`/tx/${form.transfer!.hash}`)
+            : undefined
+        }
+        onDone={(terminal) => {
+          if (terminal) form.clearTransfer();
+          onBack();
+        }}
+      />
     );
+  }
+
+  const resolvedContact = form.to ? findByAddress(form.to) : undefined;
+  const handleScan = (data: string) => {
+    const parsed = parseEip681(data);
+    if (!parsed) {
+      setScanError('This QR code is not a valid wallet address or EIP-681 payment request.');
+      return;
+    }
+    if (parsed.chainId && parsed.chainId !== PAXEER_CONFIG.chainId) {
+      setScanError(
+        `This payment request is for chain ${parsed.chainId}, not chain ${PAXEER_CONFIG.chainId}.`
+      );
+      return;
+    }
+    form.setTo(parsed.address);
+    if (parsed.tokenAddress) {
+      const token = tokens.find(
+        (candidate) => candidate.address?.toLowerCase() === parsed.tokenAddress?.toLowerCase()
+      );
+      if (!token) {
+        setScanError('The requested token is not available in this wallet.');
+        return;
+      }
+      setSelectedToken(token);
+      if (parsed.uint256) {
+        const atomic = parseAtomicAmount(parsed.uint256);
+        if (atomic === null) {
+          setScanError('The QR token amount is invalid.');
+          return;
+        }
+        form.setAmount(ethers.formatUnits(atomic, token.decimals));
+      }
+    } else if (parsed.value) {
+      const atomic = parseAtomicAmount(parsed.value);
+      if (atomic === null) {
+        setScanError('The QR payment amount is invalid.');
+        return;
+      }
+      form.setAmount(ethers.formatEther(atomic));
+    } else if (parsed.amount) {
+      form.setAmount(parsed.amount);
+    }
+    setScanError('');
+    setScannerOpen(false);
+  };
+
+  return (
+    <div className="min-h-screen flex flex-col px-4 pt-4 safe-area-pt">
+      <div className="flex items-center gap-3 mb-6">
+        <button type="button" onClick={onBack} aria-label="Back" className="p-2 -ml-2 press-scale">
+          <SvgIcon
+            name="arrow-left"
+            className="w-5 h-5"
+            style={{ filter: 'brightness(0) invert(0.6)' }}
+          />
+        </button>
+        <h2 className="text-lg font-bold">Send</h2>
+      </div>
+
+      <SendForm
+        selectedToken={selectedToken}
+        to={form.to}
+        amount={form.amount}
+        resolvedContact={resolvedContact}
+        hasContacts={ownAccounts.length > 0 || recentRecipients.length > 0 || contacts.length > 0}
+        onOpenTokenSelector={() => setSelectorOpen(true)}
+        onOpenContactPicker={handleOpenPicker}
+        onOpenScanner={() => setScannerOpen(true)}
+        onChangeTo={form.setTo}
+        onChangeAmount={form.setAmount}
+        onApplyPercentage={(pct) => form.applyPercentage(pct, selectedToken)}
+      />
+
+      {form.error && <p className="text-red-400 text-xs">{form.error}</p>}
+      {feePreview === 'unavailable' && (
+        <p className="text-red-400 text-xs" role="status" data-role="fee-unavailable">
+          The network fee could not be estimated right now.
+        </p>
+      )}
+      {scanError && (
+        <p className="text-red-400 text-xs" role="alert">
+          {scanError}
+        </p>
+      )}
+
+      <div className="py-4 pb-24 flex justify-center">
+        <SendConfirmation
+          triggerLabel={`Send ${selectedToken?.symbol || ''}`}
+          token={
+            selectedToken
+              ? { symbol: selectedToken.symbol, iconUrl: selectedToken.iconUrl }
+              : undefined
+          }
+          amount={form.amount}
+          to={form.to}
+          loading={form.loading}
+          disabled={form.loading || !form.to || !form.amount || !selectedToken}
+          onOpen={() => form.validateBeforeConfirm(selectedToken)}
+          onConfirm={() => form.submit(selectedToken)}
+          fee={feePreview}
+        />
+      </div>
+
+      <TokenSelectorSheet
+        open={selectorOpen}
+        onClose={() => setSelectorOpen(false)}
+        tokens={tokens}
+        loading={tokensLoading}
+        selected={selectedToken}
+        onSelect={setSelectedToken}
+      />
+
+      <QrScanner open={scannerOpen} onClose={() => setScannerOpen(false)} onScan={handleScan} />
+
+      <ContactPickerSheet
+        open={contactPickerOpen}
+        onClose={() => setContactPickerOpen(false)}
+        contacts={contacts}
+        ownAccounts={ownAccounts}
+        recentRecipients={recentRecipients}
+        onSelect={form.setTo}
+      />
+    </div>
+  );
 }

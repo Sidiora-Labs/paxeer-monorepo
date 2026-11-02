@@ -67,7 +67,7 @@ class PaymentBudget:
         validate_requirements(offer)
         verified = verify_payment_receipt(
             evidence.canonical_receipt,
-            evidence.authorized_batch,
+            evidence.raw_transaction,
             signatures,
             amount=offer["amount"],
             asset=offer["asset"],
@@ -76,7 +76,6 @@ class PaymentBudget:
                 offer.get("extra"), required=offer["scheme"] != "exact"
             ),
             commitment=payment_commitment(offer.get("extra")),
-            evidence=evidence.commitment_evidence,
         )
         receipt_digest = hashlib.sha256(
             b"LXP/v1/merkle-leaf\0" + evidence.canonical_receipt

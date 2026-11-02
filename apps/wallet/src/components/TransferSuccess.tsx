@@ -11,6 +11,7 @@ import {
   type TransferTruth,
 } from '@paxeer/wallet';
 import { StatusLadder } from '@/account/StatusLadder';
+import { useActiveNetwork } from '@/components/NetworkSwitcher';
 import { getActiveRpcUrl, PAXEER_CONFIG, RPC_CHANGED_EVENT } from '@/lib/constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SvgIcon } from '@/components/ui/SvgIcon';
@@ -217,8 +218,19 @@ export function useTransferObservation(identity: TransferIdentity): {
 }
 
 export function TransferSuccess(props: TransferSuccessProps) {
+  const activeNetwork = useActiveNetwork();
   const { observation, error } = useTransferObservation(props.transfer);
-  return <TransferSuccessResult {...props} observation={observation} error={error} />;
+  const explorerUrl =
+    props.explorerUrl ??
+    `${activeNetwork.explorerUrl.replace(/\/+$/, '')}/tx/${props.transfer.hash}`;
+  return (
+    <TransferSuccessResult
+      {...props}
+      explorerUrl={explorerUrl}
+      observation={observation}
+      error={error}
+    />
+  );
 }
 
 export function TransferSuccessResult({

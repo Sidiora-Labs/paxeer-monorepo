@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import test from "node:test";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
@@ -20,6 +21,12 @@ import { PaymentRpc } from "../../seller/dist/rpc.js";
 
 const hex = (value) => `0x${Buffer.from(value).toString("hex")}`;
 const bytes = (value) => Uint8Array.from(Buffer.from(value.slice(2), "hex"));
+// precompiles/layerxledger/abi.json: draw defines calldata order;
+// PaymentDrawn defines indexed topics and the separate event data order.
+const ledgerAbi = JSON.parse(readFileSync(new URL("../../../../../precompiles/layerxledger/abi.json", import.meta.url), "utf8"));
+const drawAbi = ledgerAbi.find((entry) => entry.type === "function" && entry.name === "draw");
+const paymentDrawnAbi = ledgerAbi.find((entry) => entry.type === "event" && entry.name === "PaymentDrawn");
+const abiSignature = (entry) => `${entry.name}(${entry.inputs.map((input) => input.type).join(",")})`;
 const signingKey = new Uint8Array(32).fill(1);
 const payee = bytes("0x0000000000000000000000001a642f0e3c3af545e7acbd38b07251b3990914f1");
 const draw = {
@@ -85,13 +92,18 @@ function ledgerDrawTransactionBindsGrantTerms() {
   assert.equal(hex(decoded.data.slice(0, 4)), "0x2e89490f");
   assert.equal(decoded.data.length, 4 + 7 * 32);
   const word = (index) => decoded.data.slice(4 + index * 32, 4 + (index + 1) * 32);
-  assert.deepEqual(word(0), draw.from);
-  assert.deepEqual(word(1), draw.assetId);
-  assert.equal(BigInt(hex(word(2))), draw.amount);
-  assert.deepEqual(word(3), draw.grantId);
-  assert.equal(BigInt(hex(word(4))), draw.receiverSequence);
-  assert.deepEqual(word(5), draw.idempotencyKey);
-  assert.deepEqual(word(6), draw.contextHash);
+  assert.deepEqual(drawAbi.inputs.map((input) => [input.name, input.type]), [
+    ["grantId", "bytes32"], ["recipient", "bytes32"], ["amount", "uint128"],
+    ["idempotencyKey", "bytes32"], ["sequence", "uint64"], ["purposeHash", "bytes32"], ["contextHash", "bytes32"],
+  ]);
+  const values = { grantId: draw.grantId, recipient: draw.from, amount: draw.amount,
+    idempotencyKey: draw.idempotencyKey, sequence: draw.receiverSequence, purposeHash: draw.assetId,
+    contextHash: draw.contextHash };
+  assert.deepEqual(decoded.data.slice(0, 4), keccak256(new TextEncoder().encode(abiSignature(drawAbi))).slice(0, 4));
+  for (const [index, input] of drawAbi.inputs.entries()) {
+    if (input.type.startsWith("uint")) assert.equal(BigInt(hex(word(index))), values[input.name]);
+    else assert.deepEqual(word(index), values[input.name]);
+  }
 
   const sender = recoverEip1559Sender(fixture.raw);
   assert.equal(sender.toLowerCase(), "0x1a642f0e3c3af545e7acbd38b07251b3990914f1");
@@ -101,17 +113,36 @@ function ledgerDrawTransactionBindsGrantTerms() {
   assert.ok(secp256k1.verify(new secp256k1.Signature(r, s, yParity).toBytes(),
     eip1559SigningHash(decoded), secp256k1.getPublicKey(signingKey), { prehash: false }));
 
-  const payment = decodePaymentDrawnLog({
+  const asset = new Uint8Array(32).fill(0x66);
+  const eventValues = { grantId: word(0), from: word(1), to: recipient, assetId: asset,
+    amount: word(2), idempotencyKey: word(3), contextHash: word(6) };
+  assert.deepEqual(paymentDrawnAbi.inputs.filter((input) => input.indexed).map((input) => input.name),
+    ["grantId", "from", "to"]);
+  assert.deepEqual(paymentDrawnAbi.inputs.filter((input) => !input.indexed).map((input) => input.name),
+    ["assetId", "amount", "idempotencyKey", "contextHash"]);
+  const log = {
     address: hex(decoded.to),
-    topics: [keccak256(new TextEncoder().encode(
-      "PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)",
-    )), word(3), word(0), recipient],
-    data: Uint8Array.from(Buffer.concat([word(1), word(2), word(5), word(6)])),
-  });
+    topics: [keccak256(new TextEncoder().encode(abiSignature(paymentDrawnAbi))),
+      ...paymentDrawnAbi.inputs.filter((input) => input.indexed).map((input) => eventValues[input.name])],
+    data: Uint8Array.from(Buffer.concat(paymentDrawnAbi.inputs.filter((input) => !input.indexed)
+      .map((input) => eventValues[input.name]))),
+  };
+  const payment = decodePaymentDrawnLog(log);
   assert.deepEqual(payment, {
-    grantId: draw.grantId, from: draw.from, to: payee, assetId: draw.assetId,
+    grantId: draw.grantId, from: draw.from, to: payee, assetId: asset,
     amount: draw.amount, idempotencyKey: draw.idempotencyKey, contextHash: draw.contextHash,
   });
+  assert.notDeepEqual(payment.assetId, word(5));
+  const invalidAmount = log.data.slice();
+  invalidAmount[32] = 1;
+  for (const invalid of [{ ...log, data: invalidAmount }, { ...log, data: log.data.slice(0, -1) },
+    { ...log, topics: log.topics.slice(0, -1) }]) {
+    assert.throws(() => decodePaymentDrawnLog(invalid), (error) => error.code === "verification-failure");
+  }
+  log.data.fill(0);
+  log.topics[1].fill(0);
+  assert.deepEqual(payment.grantId, draw.grantId);
+  assert.deepEqual(payment.assetId, asset);
   assert.equal(fixture.txHash, hex(keccak_256(bytes(fixture.rawTransaction))));
   assert.notEqual(fixture.txHash, hex(eip1559SigningHash(decoded)));
 }
