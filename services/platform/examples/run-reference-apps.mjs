@@ -6,11 +6,10 @@ import { dirname, resolve } from "node:path";
 import { BuyerMiddleware, LayerXPaymentHttpTransport } from "@sidiora/layerx-buyer-middleware";
 import { ProductionClient, SecretBytes } from "@sidiora/layerx-sdk";
 import {
-  ReceiptAuthorityClient,
-  applicationProtocolVersion,
   applyEndpointOverride,
   exactObject,
   optionalEnvironment,
+  receiptKeysFromEnvironment,
   requiredEnvironment,
   secureBaseUrl,
 } from "./support/runtime.mjs";
@@ -29,7 +28,6 @@ if (manifest.version !== 1 || !Array.isArray(manifest.applications) || manifest.
 }
 
 const EMULATOR_PROTOCOL_VERSION = "3";
-const SCENARIO_PROTOCOL_VERSION = Number(EMULATOR_PROTOCOL_VERSION);
 const EMULATOR_PREFUND = "1000000000";
 const EMULATOR_SEED_MOVE = "100000";
 const EMULATOR_DEFAULT_PRICE = "1000";
@@ -71,8 +69,9 @@ async function checkManifest() {
         throw new Error(`reference_command_drift_${application.name}_${environment}`);
       }
       const declared = exactObject(configDocument.environments[environment]);
-      if (applicationProtocolVersion(declared) !== SCENARIO_PROTOCOL_VERSION) {
-        throw new Error(`reference_protocol_version_drift_${application.name}_${environment}`);
+      if (typeof declared.receiptKeysEnvironment !== "string"
+        || !/^[A-Z][A-Z0-9_]{0,127}$/u.test(declared.receiptKeysEnvironment)) {
+        throw new Error(`invalid_reference_receipt_keys_binding_${application.name}_${environment}`);
       }
       if (packageDocument.scripts[`start:${environment}`] === undefined) {
         throw new Error(`missing_reference_script_${application.name}_${environment}`);
@@ -93,7 +92,8 @@ async function checkManifest() {
   for (const application of manifest.applications) {
     if (!sources.includes(application.symbol)) throw new Error(`missing_reference_symbol_${application.symbol}`);
   }
-  if (sources.includes("LAYERX_AUTHORIZED_BATCH_JSON") || /NEXT_PUBLIC_|window\.localStorage/u.test(sources)) {
+  if (sources.includes("LAYERX_AUTHORIZED_BATCH_JSON") || sources.includes("ReceiptAuthorityClient")
+    || sources.includes("protocolVersion") || /NEXT_PUBLIC_|window\.localStorage/u.test(sources)) {
     throw new Error("reference_application_contains_fixture_or_browser_secret_surface");
   }
   process.stdout.write(`${JSON.stringify({ checked: [...names], environments: ["emulator", "beta"] })}\n`);
@@ -445,9 +445,8 @@ async function merchantCheckout(environment, inputs) {
     const buyer = new BuyerMiddleware({
       client: new ProductionClient(new LayerXPaymentHttpTransport({ baseUrl: buyerConfig.humanUrl, bearerToken: token })),
       source: scenarioEnvironment(inputs, buyerConfig.sourceEnvironment),
-      protocolVersion: applicationProtocolVersion(buyerConfig),
       supported: [{ scheme: buyerConfig.scheme, network: buyerConfig.network }],
-      authorizedBatches: new ReceiptAuthorityClient(buyerConfig.receiptAuthorityUrl, rawToken),
+      receiptKeys: scenarioReceiptKeys(inputs, buyerConfig.receiptKeysEnvironment),
     });
     const checkoutKey = scenarioEnvironment(inputs, environment === "emulator"
       ? "LAYERX_EMULATOR_MERCHANT_CHECKOUT_KEY"
@@ -478,6 +477,18 @@ async function merchantCheckout(environment, inputs) {
     return outcome;
   } finally {
     token.destroy();
+  }
+}
+
+function scenarioReceiptKeys(inputs, name) {
+  const value = scenarioEnvironment(inputs, name);
+  const previous = process.env[name];
+  try {
+    process.env[name] = value;
+    return receiptKeysFromEnvironment(name);
+  } finally {
+    if (previous === undefined) delete process.env[name];
+    else process.env[name] = previous;
   }
 }
 
