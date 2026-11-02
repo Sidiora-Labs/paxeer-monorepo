@@ -681,6 +681,8 @@ fn layerx_assets(config: &Config, id: &Value) -> Result<Vec<Value>, Value> {
     Ok(records)
 }
 
+/// Successful ledger reads include the optional OpenRPC `paused` and `verification` fields.
+/// Bank metadata and failed reads retain their existing shapes in `custody_asset`.
 fn layerx_asset_metadata(asset: &evm::LedgerAsset) -> Value {
     json!({"name": asset.name, "symbol": asset.symbol,
         "decimals": asset.decimals, "supply": asset.total_units.to_string(),

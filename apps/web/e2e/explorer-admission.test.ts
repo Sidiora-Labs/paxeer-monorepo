@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  EXPLORER_ANCHOR_PATH,
   EXPLORER_NAVIGATION,
   explorerLinkPath,
   type ExplorerLinkTarget,
@@ -21,7 +22,8 @@ test("the control plane admits its own explorer routes and none the explorer now
     const path = explorerLinkPath(target);
     assert.equal(classifyPerformanceRoute(path), undefined, path);
   }
-  for (const retired of ["/explorer/batches", "/explorer/checkpoints"]) {
+  for (const retired of [EXPLORER_ANCHOR_PATH, "/explorer/batches", "/explorer/checkpoints"]) {
+    assert.equal(classifyPerformanceRoute(retired), undefined, retired);
     assert.ok(linked.every((target) => explorerLinkPath(target) !== retired), retired);
   }
 });

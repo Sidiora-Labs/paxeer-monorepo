@@ -171,6 +171,26 @@ static lxp_result module_enable_flag(const lxp_genesis_manifest *manifest,
     return LXP_OK;
 }
 
+static lxp_result programs_storage_retirement_flag(
+    const lxp_genesis_manifest *manifest, bool *enabled)
+{
+    static const uint8_t key[32] = LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER;
+    bool present = false;
+    *enabled = false;
+    for (size_t index = 0U; index < manifest->parameter_count; ++index) {
+        const lxp_genesis_parameter *parameter = &manifest->parameters[index];
+        if (memcmp(parameter->key, key, 32U) != 0) continue;
+        if (parameter->module_id != LXP_MODULE_GOVERNANCE)
+            return LXP_ERR_NON_CANONICAL;
+        if (present) return LXP_ERR_SEQUENCE_REUSED;
+        if (!lxp_ct_is_zero(parameter->value, 31U) || parameter->value[31] > 1U)
+            return LXP_ERR_NON_CANONICAL;
+        present = true;
+        *enabled = parameter->value[31] == 1U;
+    }
+    return LXP_OK;
+}
+
 static lxp_result module_enable_flags_known(
     const lxp_genesis_manifest *manifest)
 {
@@ -179,7 +199,9 @@ static lxp_result module_enable_flags_known(
     for (index = 0U; index < manifest->parameter_count; ++index) {
         const lxp_genesis_parameter *parameter = &manifest->parameters[index];
         size_t entry;
-        bool known = false;
+        static const uint8_t retirement_key[32] =
+            LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER;
+        bool known = memcmp(parameter->key, retirement_key, 32U) == 0;
         if (parameter->module_id != LXP_MODULE_GOVERNANCE ||
             memcmp(parameter->key, module_enable_prefix,
                    LXP_GENESIS_MODULE_ENABLE_PREFIX_BYTES) != 0)
@@ -302,6 +324,7 @@ static lxp_result genesis_governance_authority(
 lxp_result lxp_genesis_module_plan_resolve(
     const lxp_genesis_manifest *manifest, lxp_genesis_module_plan *plan)
 {
+    bool storage_retirement = false;
     bool oracle_transport = false;
     bool order_tif = false;
     bool perps_selected = false;
@@ -321,6 +344,8 @@ lxp_result lxp_genesis_module_plan_resolve(
             return LXP_ERR_UNKNOWN_MODULE;
     status = module_table_validate();
     if (status == LXP_OK) status = module_enable_flags_known(manifest);
+    if (status == LXP_OK)
+        status = programs_storage_retirement_flag(manifest, &storage_retirement);
     if (status == LXP_OK) status = perps_oracle_transport(manifest, &oracle_transport);
     if (status == LXP_OK) status = perps_order_tif(manifest, &order_tif);
     if (status == LXP_OK && order_tif && !oracle_transport) status = LXP_ERR_VERSION_UNSUPPORTED;
@@ -355,6 +380,8 @@ lxp_result lxp_genesis_module_plan_resolve(
             return LXP_ERR_UNKNOWN_MODULE;
         }
         if (selected) {
+            if (entry->module_id == LXP_MODULE_PROGRAMS && storage_retirement)
+                iface = programs_module_registration_v4_storage_retirement();
             if (entry->module_id == LXP_MODULE_PERPS) {
                 perps_selected = true;
                 if (oracle_transport) iface = lx_perps_oracle_transport_module_iface();

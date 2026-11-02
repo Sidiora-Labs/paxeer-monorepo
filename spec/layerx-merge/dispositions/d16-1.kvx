@@ -37,7 +37,7 @@ evidence = "Commit 5ba4a0318 removed the daemon WAL calls from programs/tests/di
 finding = "16.3.1.1"
 status = "open"
 evidence = "tools/containers/check.sh:92 still omits the six tracked Dockerfiles named by the finding from OUT_OF_SCOPE, so the all-services placement branch at tools/containers/check.sh:218 still rejects them despite the task-specific test selecting kernel."
-follow_up = "closure"
+follow_up = "22.16.5"
 
 [disposition.16.3.5.1]
 finding = "16.3.5.1"

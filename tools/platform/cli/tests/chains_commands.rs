@@ -4,7 +4,7 @@ use std::path::Path;
 use std::process::{Command, Output};
 use std::time::{Duration, Instant};
 
-use layerx_client::chains::{ChainEvent, CHAINS_PRECOMPILE};
+use layerx_client::chains::{encode_call, ChainCall, ChainEvent, ChainRecord, CHAINS_PRECOMPILE};
 use layerx_crypto::evm_transaction::transaction_hash;
 use serde_json::{json, Value};
 
@@ -169,6 +169,7 @@ fn assert_signed_creation(raw: &[u8], vectors: &Value) {
 
 enum Reply {
     Result(Value),
+    Error(Value),
     Submit,
     Receipt,
 }
@@ -250,7 +251,11 @@ fn server(steps: Vec<Step>, vectors: Value) -> (String, std::thread::JoinHandle<
             let result = match step.reply {
                 Reply::Result(result) => {
                     assert_eq!(request["params"], step.params);
-                    result
+                    Ok(result)
+                }
+                Reply::Error(error) => {
+                    assert_eq!(request["params"], step.params);
+                    Err(error)
                 }
                 Reply::Submit => {
                     assert_eq!(request["params"].as_array().map(Vec::len), Some(1));
@@ -261,7 +266,7 @@ fn server(steps: Vec<Step>, vectors: Value) -> (String, std::thread::JoinHandle<
                     );
                     assert_signed_creation(&raw, &vectors);
                     hash = Some(hex(&transaction_hash(&raw)));
-                    json!(hash)
+                    Ok(json!(hash))
                 }
                 Reply::Receipt => {
                     let hash = hash
@@ -279,13 +284,16 @@ fn server(steps: Vec<Step>, vectors: Value) -> (String, std::thread::JoinHandle<
                     };
                     let (topics, data) = event.encode();
                     assert_eq!(hex(&topics[0]), vectors["events"][0]["topic0"]);
-                    json!({"transactionHash":hash, "status":"0x1", "logs":[
+                    Ok(json!({"transactionHash":hash, "status":"0x1", "logs":[
                         {"address":vectors["address"], "topics":topics.iter().map(|topic| hex(topic)).collect::<Vec<_>>(), "data":hex(&data)}
-                    ]})
+                    ]}))
                 }
             };
-            let response = serde_json::to_vec(&json!({"jsonrpc":"2.0", "id":1, "result":result}))
-                .unwrap_or_else(|error| panic!("{error}"));
+            let envelope = match result {
+                Ok(result) => json!({"jsonrpc":"2.0", "id":1, "result":result}),
+                Err(error) => json!({"jsonrpc":"2.0", "id":1, "error":error}),
+            };
+            let response = serde_json::to_vec(&envelope).unwrap_or_else(|error| panic!("{error}"));
             let socket = reader.get_mut();
             write!(socket, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", response.len()).unwrap_or_else(|error| panic!("{error}"));
             socket
@@ -487,6 +495,156 @@ fn chains_list_show_and_create_round_trip() -> Result<(), Box<dyn std::error::Er
         )
         .status
         .success());
+    }
+    Ok(())
+}
+
+fn registry_call(call: ChainCall) -> Value {
+    json!([{"to":hex(&CHAINS_PRECOMPILE), "data":hex(&encode_call(&call))}, "pending"])
+}
+
+fn configure_list(directory: &Path, endpoint: &str) -> Result<(), Box<dyn std::error::Error>> {
+    std::fs::write(
+        directory.join("config.json"),
+        serde_json::to_vec(&json!({
+            "version":1, "current_environment":"emulator", "default_key":null, "keys":{},
+            "environments":{"emulator":{"endpoint":endpoint, "network_id":125}}
+        }))?,
+    )?;
+    Ok(())
+}
+
+fn assert_chain_list(records: &[(u32, u8)]) -> Result<(), Box<dyn std::error::Error>> {
+    let directory = tempfile::tempdir()?;
+    let vectors: Value = serde_json::from_str(VECTORS)?;
+    let mut steps = vec![Step {
+        method: "eth_call",
+        params: registry_call(ChainCall::ChainCount),
+        reply: Reply::Result(json!(format!("0x{:064x}", records.len()))),
+    }];
+    let last_id = records.last().map_or(0, |(id, _)| *id);
+    for id in 1..=last_id {
+        let reply = match records.iter().find(|(record_id, _)| *record_id == id) {
+            Some((_, status)) => Reply::Result(json!(hex(&ChainRecord {
+                id,
+                name: format!("chain-{id}"),
+                operator: [0x11; 20],
+                status: *status,
+                chain_id: 125_000_000 + u64::from(id),
+                gas_allowance: 500_000,
+                byte_allowance: 65_536,
+                fee_share_bps: 100,
+                bond: [0; 32],
+                base_fee_per_gas: [0; 32],
+                created_height: 7,
+            }
+            .encode()))),
+            None => Reply::Error(json!({
+                "code":3,
+                "message":"execution reverted: LXP_UNKNOWN_FIELD: unknown field; unknown domain"
+            })),
+        };
+        steps.push(Step {
+            method: "eth_call",
+            params: registry_call(ChainCall::GetChain(id)),
+            reply,
+        });
+    }
+    let (endpoint, worker) = server(steps, vectors);
+    configure_list(directory.path(), &endpoint)?;
+    let expected: Vec<Value> = records
+        .iter()
+        .map(|(id, status)| {
+            json!({
+                "id":id, "name":format!("chain-{id}"),
+                "operator":"0x1111111111111111111111111111111111111111", "status":status,
+                "chainId":125_000_000 + u64::from(*id), "gasAllowance":500_000,
+                "byteAllowance":65_536, "feeShareBps":100, "bond":"0", "baseFeePerGas":"0",
+                "createdHeight":7, "rpcUrl":format!("{endpoint}/chain/{id}")
+            })
+        })
+        .collect();
+    let output = cli(directory.path(), &["chains", "list"]);
+    worker.join().map_err(|_| "RPC server thread failed")?;
+    assert!(
+        output.stderr.is_empty(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert_eq!(
+        success(output),
+        json!({
+            "ok":true, "kind":"chains.list", "message":"Listed chains", "data":{"chains":expected}
+        })
+    );
+    Ok(())
+}
+
+#[test]
+fn chains_list_sparse_id_two() -> Result<(), Box<dyn std::error::Error>> {
+    assert_chain_list(&[(2, 1)])
+}
+
+#[test]
+fn chains_list_gap_between_records() -> Result<(), Box<dyn std::error::Error>> {
+    assert_chain_list(&[(1, 1), (3, 1), (4, 1)])
+}
+
+#[test]
+fn chains_list_sparse_ids_two_and_five() -> Result<(), Box<dyn std::error::Error>> {
+    assert_chain_list(&[(2, 1), (5, 1)])
+}
+
+#[test]
+fn chains_list_contiguous_records() -> Result<(), Box<dyn std::error::Error>> {
+    assert_chain_list(&[(1, 1), (2, 1), (3, 1)])
+}
+
+#[test]
+fn chains_list_empty_registry() -> Result<(), Box<dyn std::error::Error>> {
+    assert_chain_list(&[])
+}
+
+#[test]
+fn chains_list_includes_retired_status() -> Result<(), Box<dyn std::error::Error>> {
+    assert_chain_list(&[(1, 1), (3, 4)])
+}
+
+#[test]
+fn chains_list_preserves_other_refusals() -> Result<(), Box<dyn std::error::Error>> {
+    for message in [
+        "execution reverted: LXP_AUTH_SCOPE: authorization scope mismatch",
+        "execution reverted: LXP_UNKNOWN_FIELD: unknown field; something else",
+    ] {
+        let directory = tempfile::tempdir()?;
+        let error = json!({"code":3, "message":message});
+        let (endpoint, worker) = server(
+            vec![
+                Step {
+                    method: "eth_call",
+                    params: registry_call(ChainCall::ChainCount),
+                    reply: Reply::Result(json!(format!("0x{:064x}", 1))),
+                },
+                Step {
+                    method: "eth_call",
+                    params: registry_call(ChainCall::GetChain(1)),
+                    reply: Reply::Error(error.clone()),
+                },
+            ],
+            serde_json::from_str(VECTORS)?,
+        );
+        configure_list(directory.path(), &endpoint)?;
+        let output = cli(directory.path(), &["chains", "list"]);
+        worker.join().map_err(|_| "RPC server thread failed")?;
+        assert!(!output.status.success());
+        assert!(output.stdout.is_empty());
+        assert_eq!(
+            serde_json::from_slice::<Value>(&output.stderr)?,
+            json!({
+                "ok":false,
+                "error":{"code":"command_failed", "detail":format!("eth_call refused: {error}")}
+            })
+        );
     }
     Ok(())
 }

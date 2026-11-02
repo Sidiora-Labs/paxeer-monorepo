@@ -371,6 +371,7 @@ mod tests {
                 SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos(),
             ));
             fs::create_dir(&directory)?;
+            fs::create_dir(directory.join("appendonly"))?;
             let pem = directory.join("server.pem");
             let key = directory.join("server.key");
             let output = Command::new("openssl")
@@ -409,12 +410,13 @@ mod tests {
             )?;
             let config = directory.join("redis.conf");
             fs::write(&config, format!(
-                "bind 127.0.0.1\nport 0\ntls-port {port}\ntls-cert-file {}\ntls-key-file {}\ntls-ca-cert-file {}\ntls-auth-clients no\naclfile {}\nappendonly yes\nappendfsync always\ndir {}\nprotected-mode yes\n",
+                "bind 127.0.0.1\nport 0\ntls-port {port}\ntls-cert-file {}\ntls-key-file {}\ntls-ca-cert-file {}\ntls-auth-clients no\naclfile {}\nappendonly yes\nappenddirname appendonly\nappendfsync always\ndir {}\nprotected-mode yes\n",
                 pem.display(), key.display(), pem.display(), acl.display(), directory.display(),
             ))?;
             drop(listener);
             let child = Command::new("redis-server")
                 .arg(&config)
+                .current_dir(&directory)
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()?;

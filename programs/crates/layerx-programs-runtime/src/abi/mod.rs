@@ -524,6 +524,27 @@ pub struct ProgramEventLog {
     pub data: Vec<u8>,
 }
 
+impl ProgramEventLog {
+    /// Writes the two topics followed by ABI data, as consumed by the native
+    /// `layerx_programs_event_log_encode` boundary. Bytes after the record are
+    /// left untouched.
+    ///
+    /// # Errors
+    /// Returns `EventBounds` without writing when the output is too short.
+    pub fn write_encoded(&self, output: &mut [u8]) -> Result<usize, AbiError> {
+        let length = self
+            .data
+            .len()
+            .checked_add(64)
+            .ok_or(AbiError::EventBounds)?;
+        let output = output.get_mut(..length).ok_or(AbiError::EventBounds)?;
+        output[..32].copy_from_slice(&self.topics[0]);
+        output[32..64].copy_from_slice(&self.topics[1]);
+        output[64..].copy_from_slice(&self.data);
+        Ok(length)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProgramCall {
     pub caller: ProgramId,
@@ -593,7 +614,8 @@ impl AbiEffects {
         self.events
             .iter()
             .map(|event| {
-                if event.topic.len() > MAX_EVENT_TOPIC_BYTES
+                if event.topic.is_empty()
+                    || event.topic.len() > MAX_EVENT_TOPIC_BYTES
                     || event.data.len() > MAX_EVENT_DATA_BYTES
                 {
                     return Err(AbiError::EventBounds);
@@ -629,7 +651,9 @@ impl AbiEffects {
         let event_count = u32::try_from(self.events.len()).map_err(|_| AbiError::EventBounds)?;
         encoded.extend_from_slice(&event_count.to_be_bytes());
         for event in &self.events {
-            if event.topic.len() > MAX_EVENT_TOPIC_BYTES || event.data.len() > MAX_EVENT_DATA_BYTES
+            if event.topic.is_empty()
+                || event.topic.len() > MAX_EVENT_TOPIC_BYTES
+                || event.data.len() > MAX_EVENT_DATA_BYTES
             {
                 return Err(AbiError::EventBounds);
             }
@@ -665,7 +689,9 @@ impl AbiEffects {
                 .to_be_bytes(),
         );
         for event in &self.events {
-            if event.topic.len() > MAX_EVENT_TOPIC_BYTES || event.data.len() > MAX_EVENT_DATA_BYTES
+            if event.topic.is_empty()
+                || event.topic.len() > MAX_EVENT_TOPIC_BYTES
+                || event.data.len() > MAX_EVENT_DATA_BYTES
             {
                 return Err(AbiError::EventBounds);
             }
