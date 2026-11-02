@@ -13186,3 +13186,38 @@ fix = "When a task deletes or ports an API, grep the crate's tests/support direc
 title = "A path a prerequisite task deletes must not stay in the touches of the task that confirms the deletion"
 symptom = "A task listed a module among its touches while its first step only confirmed that a required task had already deleted it; the attempt changed nothing there, the verify passed, and the done record's graph check refused the task for an untouched path."
 fix = "List as touches only the paths the task itself changes; put confirm-absent paths in the do text, never in touches."
+
+[gotcha.2674]
+title = "Narrow a blocked retirement to the items whose consumers are already gone instead of holding the whole task"
+symptom = "A crate retirement sat blocked behind ninety-four consumer files; a census showed one deleted module had two test consumers and one encoder none, while the rest of the deletion set fed the daemon's whole preparation path."
+fix = "Split the retirement: delete the unconsumed items now with their two fixture ports as requires, and move the consumed items to a blocked follow-up that requires the consumer migration family."
+
+[gotcha.2675]
+title = "A retirement's consumer grep must cover test targets of every crate, or a crate's tests stay broken for weeks unnoticed"
+symptom = "A task deleted four canonical envelope functions and ported the service callers it listed; a KMS test target that only test code includes kept calling them, failed to compile on every main since, and was silently left out of the dependent-crate check as broken at the base."
+fix = "Grep tests/ and tests/support/ of every workspace crate for the deleted names when the retirement is written, and give each broken test target an owner before the retirement runs."
+
+[gotcha.2676]
+title = "A retired exported Go constant must be built across the module, not just its own package"
+symptom = "1.36.1 deleted codec.AvailabilityClassCount and passed its package gate; the layerxanchor keeper still used it, so paxd and every Go test package importing the app failed to build for the next tasks."
+fix = "When a Go retirement deletes an exported identifier, grep the module for its last uses and build ./... or at least the daemon and modules trees in the task's build command."
+
+[gotcha.2677]
+title = "Do not gate a crate with --all-targets while some of its test targets are broken by an earlier task"
+symptom = "10.21.8's --all-targets build of layerx-human-service failed three times on two test files no task owns, after the task's own port was complete."
+fix = "Name the library, binaries and the touched test targets in the build command; record the pre-existing broken targets as a finding against their producer."
+
+[gotcha.2678]
+title = "A vectors producer outlives the type it serialises unless its retirement task names it"
+symptom = "1.12.1 retired lxp_grant_state; the C producer of the wallet capability vectors still emitted grant vectors over it and broke the shared cc step of three later tasks."
+fix = "When retiring a wire type, grep tests/qualification and the vectors producers for it and either delete the vector or move it into the retirement task."
+
+[gotcha.2679]
+title = "Delete a transport module only after a consumer census, and re-home shared types where their users live"
+symptom = "9.24.7 deleted the LNI module whose Version type two RPC files import and whose transport the agent daemon library, seventeen test targets and the pay2e qualification still use."
+fix = "Before a module deletion, grep every crate for its path; re-home shared types next to their consumers in the same task and block the deletion until the transport consumers have port tasks."
+
+[gotcha.2680]
+title = "Re-check a retirement decision's consumer basis before the task runs; new work may have adopted the surface"
+symptom = "Decision 681 counted Governed.sol's importers in September; the .pax names contracts inherited it on 2026-10-31 and a gate written against the old basis failed on four live suites."
+fix = "When a retirement task becomes eligible, grep the repository for the surface again and supersede or re-scope the task if live consumers appeared after the decision."

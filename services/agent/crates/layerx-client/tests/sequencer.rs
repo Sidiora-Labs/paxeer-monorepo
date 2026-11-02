@@ -3,11 +3,12 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::thread::JoinHandle;
 
+use layerx_crypto::evm_transaction::Eip1559Call;
+
 use layerx_client::sequencer::{
     CallRequest, ExecutedReceipt, ReceiptKeyEntry, RpcRefusal, SequencerBlock, SequencerEndpoint,
     SequencerError, SequencerLog, SequencerReceipt,
 };
-use layerx_crypto::evm_transaction::Eip1559Call;
 use serde_json::{json, Value};
 
 trait Must<T> {
