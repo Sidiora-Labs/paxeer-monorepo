@@ -45,6 +45,11 @@ func GetLeadersParam(ctx sdk.Context, paramSpace paramtypes.Subspace) [][32]byte
 	if err != nil {
 		panic(err)
 	}
+	if list != nil {
+		if err := types.ValidateLeaders(leaders); err != nil {
+			panic(ErrCorruptStore.Wrap(err.Error()))
+		}
+	}
 	return leaders
 }
 

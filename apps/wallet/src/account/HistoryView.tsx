@@ -39,13 +39,15 @@ export function HistoryView({ account, pageSize = 20 }: { account: string; pageS
   const [state, setState] = useState<HistoryState>(INITIAL);
   const [selected, setSelected] = useState<string | null>(null);
   const alive = useRef(true);
+  const generation = useRef(0);
 
   const load = useCallback(
     async (cursor: string | null, append: boolean) => {
+      const request = ++generation.current;
       setState((prev) => ({ ...prev, loading: true, error: null }));
       try {
         const page = await endpoint.getChainHistory(account, cursor, { limit: pageSize });
-        if (!alive.current) return;
+        if (!alive.current || request !== generation.current) return;
         setState((prev) => ({
           items: append ? [...prev.items, ...page.items] : page.items,
           cursor: page.next_cursor,
@@ -54,7 +56,7 @@ export function HistoryView({ account, pageSize = 20 }: { account: string; pageS
           error: null,
         }));
       } catch (error) {
-        if (!alive.current) return;
+        if (!alive.current || request !== generation.current) return;
         setState((prev) => ({ ...prev, loading: false, error }));
       }
     },
@@ -64,9 +66,11 @@ export function HistoryView({ account, pageSize = 20 }: { account: string; pageS
   useEffect(() => {
     alive.current = true;
     setState(INITIAL);
+    setSelected(null);
     void load(null, false);
     return () => {
       alive.current = false;
+      ++generation.current;
     };
   }, [load]);
 

@@ -318,6 +318,9 @@ func (t Testnet) Validate() error {
 	if len(t.LeaderPin) > 0 && t.LeaderPinHeight == 0 {
 		return errors.New("leader_pin requires a non-zero leader_pin_height")
 	}
+	if t.LeaderPinHeight != 0 && len(t.LeaderPin) == 0 {
+		return errors.New("leader_pin_height requires a non-empty leader_pin")
+	}
 	if t.LeaderPinHeight != 0 && t.LeaderPinHeight < t.InitialHeight {
 		return fmt.Errorf("leader_pin_height %v is below initial height %v", t.LeaderPinHeight, t.InitialHeight)
 	}
