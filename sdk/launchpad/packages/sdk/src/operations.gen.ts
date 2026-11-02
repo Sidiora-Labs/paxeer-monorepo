@@ -167,7 +167,7 @@ export interface OperationTypes {
 "IF_STREAM_OPERATION_GET":{input:{path:{"operationId":string}};response:V2ContractTypes["StreamOperationGetResponse"]};
 "IF_STREAM_INGEST_CREDENTIAL":{input:{path:{"streamId":string}};response:V2ContractTypes["StreamIngestCredentialResponse"]};
 "IF_STREAM_HEARTBEAT":{input:{path:{"streamId":string};body:V2ContractTypes["StreamHeartbeatBody"]};response:V2ContractTypes["StreamHeartbeatResponse"]};
-"IF_STREAM_END":{input:{path:{"streamId":string}};response:V2ContractTypes["StreamEndResponse"]};
+"IF_STREAM_END":{input:{path:{"streamId":string};body:V2ContractTypes["StreamStartBody"]};response:V2ContractTypes["StreamEndResponse"]};
 "IF_STREAM_START":{input:{path:{"streamId":string};body:V2ContractTypes["StreamStartBody"]};response:V2ContractTypes["StreamStartResponse"]};
 "IF_CONNECTED_TOKEN_ASSET_GET":{input:{path:{"tokenAddress":string;"assetId":string}};response:V2ContractTypes["ConnectedAssetResponse"]};
 "IF_CONNECTED_TOKEN_ASSET_PUT":{input:{path:{"tokenAddress":string;"assetId":string};body:Blob};response:V2ContractTypes["ConnectedAssetResponse"]};
@@ -5807,7 +5807,7 @@ export const operationDefinitions = {
     "authenticated": true,
     "binaryBody": false,
     "binaryResponse": false,
-    "body": null,
+    "body": "StreamStartBody",
     "cookieSession": false,
     "emptyResponse": false,
     "idempotencyKey": true,
