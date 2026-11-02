@@ -196147,7 +196147,7 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 
 [task.9.97.14]
 title = "Port the Python SDK integration and AI market suites off the retired checkpoint verifier and align the stubs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 30
 requires = ["18.1435.3", "9.97.7"]
