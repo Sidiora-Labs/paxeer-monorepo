@@ -82,6 +82,9 @@ export function routeBlockers({
       }
     }
   }
+  if (vaultState.error) {
+    list.push('The vault state could not be read. The route cannot be verified on-chain right now.');
+  }
   if (vaultState.loaded && vaultState.paused) {
     list.push('The vault on the foreign chain is paused.');
   }

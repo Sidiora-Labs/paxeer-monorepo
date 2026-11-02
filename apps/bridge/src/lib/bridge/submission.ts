@@ -1,16 +1,41 @@
-import type { Address } from 'viem';
+import type { Address, Hex } from 'viem';
 
 import type { BridgeAsset } from './chains';
 import { erc20Abi, paxeerXVaultAbi } from './contracts';
 import { paxeerRecipient } from './digests';
 
-export function planDeposit({ asset, amount, allowance, vault, recipient }: {
+export type DepositPlanArgs = {
   asset: Pick<BridgeAsset, 'address' | 'isNative'>;
   amount: bigint;
   allowance: bigint;
   vault: Address;
   recipient: Address;
-}) {
+};
+
+type TokenDeposit = {
+  readonly abi: typeof paxeerXVaultAbi;
+  readonly address: Address;
+  readonly functionName: 'deposit';
+  readonly args: readonly [Address, bigint, Hex];
+};
+
+export type DepositPlan =
+  | readonly [{
+    readonly abi: typeof paxeerXVaultAbi;
+    readonly address: Address;
+    readonly functionName: 'depositNative';
+    readonly args: readonly [Hex];
+    readonly value: bigint;
+  }] |
+  readonly [TokenDeposit] |
+  readonly [{
+    readonly abi: typeof erc20Abi;
+    readonly address: Address;
+    readonly functionName: 'approve';
+    readonly args: readonly [Address, bigint];
+  }, TokenDeposit];
+
+export function planDeposit({ asset, amount, allowance, vault, recipient }: DepositPlanArgs): DepositPlan {
   const recipient32 = paxeerRecipient(recipient);
   if (asset.isNative) {
     return [ {
