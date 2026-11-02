@@ -86,6 +86,7 @@ from layerx_sdk.ai_market import (  # noqa: E402
     ProjectionState,
     Review,
     Reward,
+    Rung,
     Score,
     ScoreStatus,
     SdkState,
@@ -105,7 +106,10 @@ from layerx_sdk.native_program_call import (  # noqa: E402
 from layerx_sdk.production import ProductionClient, SecretBytes  # noqa: E402
 from layerx_sdk.program_wire import _signed_call_envelope  # noqa: E402
 from layerx_sdk.programs import ProgramOperations, ProgramTrustContext  # noqa: E402
-from layerx_sdk.verifier import AuthorizedReceiptBatch  # noqa: E402
+from layerx_sdk.verifier import (  # noqa: E402
+    AuthorizedReceiptBatch,
+    SequencerReceiptVerificationError,
+)
 
 SIGNATURES_SPEC = importlib.util.spec_from_file_location(
     "ai_market_signatures", ROOT / "sdk/integrations/fastapi/layerx_fastapi/signatures.py")
@@ -1051,14 +1055,19 @@ class JournalTests(AiMarketCase):
         self.assertEqual(operations.requests[1], operations.requests[0])
         self.assertEqual(self.on_disk(record), record)
         self.assertEqual(self.journal.resolve(record, None, RECEIPT_0), SdkState.PENDING)
-        self.assertRefused("ProgramsReceiptVerifierUnavailable", None, self.journal.resolve, record,
-                           (MULTICALL / "receipt-0").read_bytes(), RECEIPT_0)
+        record_path = self.journal.record_path(record.activity_id)
+        persisted_bytes = record_path.read_bytes()
+        with self.assertRaises(SequencerReceiptVerificationError) as raised:
+            self.journal.resolve(record, (MULTICALL / "receipt-0").read_bytes(), RECEIPT_0)
+        self.assertEqual(raised.exception.check, "bad_signature")
+        self.assertEqual(record_path.read_bytes(), persisted_bytes)
         self.assertEqual(self.journal.load(record.activity_id), record)
         self.assertEqual(record.signed_bytes, signed_bytes)
 
     def test_records_refuse_corruption_and_foreign_keys(self) -> None:
         record = self.signed("activity-0")
         record.state, record.attempt, record.result_code, record.global_sequence = SdkState.EXECUTED, 1, 0, 5
+        record.rung, record.receipt_height = Rung.RECEIPTED, 5
         encoded = record.encode()
         self.assertEqual(OperationRecord.decode(encoded, VERIFIER), record)
         for corrupt in (

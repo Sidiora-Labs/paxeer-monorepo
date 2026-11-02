@@ -18,7 +18,7 @@ use layerx_human_service::store::{PrincipalScope, PrincipalStore, Table};
 use layerx_human_test_support as support;
 use layerx_proof::checkpoint::SettlementDomain;
 use layerx_types::account::AccountId;
-use layerx_types::clock::{Clock, ClockError, ClockReading};
+use layerx_types::clock::Clock;
 use layerx_types::ids::Did;
 use layerx_types::payload::ModuleRegistry;
 use layerx_types::rung::Rung;
@@ -33,7 +33,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 const RP_ID: &str = "wallet.example";
 const ORIGIN: &str = "https://wallet.example";
@@ -48,34 +48,6 @@ const MAX_FRAME: usize = 65_536;
 fn required<T, E: Debug>(result: Result<T, E>, label: &str) -> T {
     result.unwrap_or_else(|error| panic!("{label}: {error:?}"))
 }
-struct SystemClock {
-    origin: Instant,
-    generation: [u8; 16],
-}
-
-impl Clock for SystemClock {
-    fn sample(&self, budget: Duration) -> Result<ClockReading, ClockError> {
-        if budget.is_zero() {
-            return Err(ClockError::Unavailable);
-        }
-        Ok(ClockReading {
-            generation: self.generation,
-            unix_milliseconds: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_err(|_| ClockError::Regression)?
-                .as_millis()
-                .try_into()
-                .map_err(|_| ClockError::Overflow)?,
-            monotonic_nanoseconds: self
-                .origin
-                .elapsed()
-                .as_nanos()
-                .try_into()
-                .map_err(|_| ClockError::Overflow)?,
-        })
-    }
-}
-
 struct SoftwareAuthenticator {
     signing_key: SigningKey,
     credential_id: Vec<u8>,
@@ -470,12 +442,7 @@ impl LiveRouter {
             &tenancy,
             support::retention_uniform(86_400),
         );
-        let mut generation = [0; 16];
-        getrandom::fill(&mut generation).expect("clock generation");
-        let clock = Arc::new(SystemClock {
-            origin: Instant::now(),
-            generation,
-        });
+        let clock = Arc::new(support::StepClock::new(1_700_000_000_000));
         let now = clock
             .sample(Duration::from_secs(1))
             .expect("clock")

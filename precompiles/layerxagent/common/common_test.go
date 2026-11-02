@@ -226,6 +226,14 @@ func TestGasTable(t *testing.T) {
 	} {
 		t.Run(row.method, func(t *testing.T) {
 			id := selector(t, row.selector)
+			orobSignatures := map[string]string{
+				"resolveOffset":      "resolveOffset(int256,int16)",
+				"resolveOffsetBatch": "resolveOffsetBatch(int256,int16[])",
+				"toOffset":           "toOffset(int256,int256)",
+			}
+			if signature, ok := orobSignatures[row.method]; ok {
+				require.Equal(t, crypto.Keccak256([]byte(signature))[:4], id)
+			}
 			require.Equal(t, row.base, common.MethodGas(id, 0))
 			require.Equal(t, row.at260, common.MethodGas(id, 260))
 			require.Equal(t, row.base+4*row.perByte, common.MethodGas(id, 4))

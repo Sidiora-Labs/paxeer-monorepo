@@ -469,7 +469,7 @@ mod bootstrap {
 
     fn published_bootstrap_sequence() -> String {
         let path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../platform")
+            .join("../../../services/platform")
             .join("docs")
             .join("content")
             .join("install.md");
