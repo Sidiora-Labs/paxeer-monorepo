@@ -127632,7 +127632,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.122.1]
 title = "Prove the node engine path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128208,7 +128208,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.91.1]
 title = "Prove the wasm path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129744,7 +129744,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.26.1]
 title = "Prove the node config path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130096,7 +130096,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.14.1]
 title = "Prove the node metrics path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
