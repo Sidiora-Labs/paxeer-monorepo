@@ -119230,7 +119230,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1500.1]
 title = "Issue #1500: Give the real-node prerequisite script a POSIX function name and a syntax check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125715,7 +125715,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.0.9]
 title = "Gate domain 5 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["5.0.1", "5.0.2", "5.0.3", "5.0.4", "5.7.1", "5.41.3", "5.42.3", "5.47.4", "5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.1", "5.52.2", "5.52.3", "5.52.4", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.7", "5.54.8", "5.54.9", "5.54.10", "5.54.11", "5.55.5", "5.62.6", "5.64.16", "5.69.1", "5.97.1", "5.97.3", "8.47.7", "5.7.3", "5.98.5", "5.98.9", "5.5.24", "6.96.5", "21.10.1", "21.14.1", "21.19.1", "21.26.1", "21.27.1", "21.32.1", "21.35.1", "21.36.1", "21.41.1", "21.47.1", "21.48.1", "21.59.1", "21.74.1", "21.87.1", "21.122.1"]
@@ -216920,7 +216920,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.18.13]
 title = "Disposition of qualification findings 18.1151.1.7 to 18.1430.1.1 (domain 18, part 13)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -216952,7 +216952,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.18.12]
 title = "Disposition of qualification findings 18.1154.1.1 to 18.1156.1.7 (domain 18, part 12)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -217432,7 +217432,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.19]
 title = "Disposition of qualification findings 9.33.8.1 to 9.25.9.1 (domain 9, part 7)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
