@@ -1,0 +1,124 @@
+[disposition.13.0.1]
+finding = "13.0.1"
+status = "resolved"
+evidence = "3df701704 refreshed all eleven dependent Cargo lockfiles, and services/interop/Cargo.lock:1530 now records the registry dependencies on curve25519-dalek, ed25519-dalek and sha2."
+
+[disposition.13.0.2.1]
+finding = "13.0.2.1"
+status = "resolved"
+evidence = "0421d08ec removed the direct trust.rs include from programs/crates/layerx-programs-registry/tests/chain_trust.rs, leaving the whole-tree chain_proof include as the single source of advance."
+
+[disposition.13.0.2.2]
+finding = "13.0.2.2"
+status = "resolved"
+evidence = "0421d08ec ported all five verify_with_batch_context calls in programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs to supply host_store_root and host_multistore_proof as the two additional arguments."
+
+[disposition.13.1.3]
+finding = "13.1.3"
+status = "resolved"
+evidence = "0421d08ec replaced the empty inline ICS23 modules with file modules in programs/crates/layerx-programs-registry/src/chain_proof.rs:5, while 7074a3b32 supplied the sibling ics23.rs include used by chain_ics23_absent.rs."
+
+[disposition.13.1.3.1]
+finding = "13.1.3.1"
+status = "resolved"
+evidence = "9a7022b28 replaced checkpoint finality with block commit finality, and services/agent/crates/layerx-client/src/ai_market.rs:270 constructs FinalityEvidence with block_height, block_hash, app_hash and store_proof_digest."
+
+[disposition.13.1.9]
+finding = "13.1.9"
+status = "resolved"
+evidence = "0421d08ec wired merkle, tx, results and trust to their source files in programs/crates/layerx-programs-registry/src/chain_proof.rs, exposing their implementations through the library instead of empty inline modules."
+
+[disposition.13.1.15.1]
+finding = "13.1.15.1"
+status = "resolved"
+evidence = "ae1d31e6b replaced the empty trust_store module with pub mod trust_store and added the header_hash field populated by head_verify.rs, making TrustRoot available through the library."
+
+[disposition.13.3.7.1]
+finding = "13.3.7.1"
+status = "resolved"
+evidence = "62d5c6125 wired the trust_root file module and implemented from_chain_trust plus the chain_trust accessor, with the constructor present at programs/crates/layerx-programs-registry/src/chain_evidence/trust_root.rs:10."
+
+[disposition.13.4.5.1]
+finding = "13.4.5.1"
+status = "resolved"
+evidence = "42c1fea30 changed both lifecycle.rs and program_state.rs to populate StateLeafWitness.proof with their Vec<ProofOp> values instead of the incompatible StateProof."
+
+[disposition.13.4.5.2]
+finding = "13.4.5.2"
+status = "resolved"
+evidence = "f16b87eab rebuilt shared support on chain proofs, 17c460e52 and 193d0e53b ported registry and bundle tests, 8651b383f ported interface_protocol.rs, and programs/crates/layerx-programs-registry/tests/winddown.rs:188 initializes through replay_journal without constructing DeploymentProof."
+
+[disposition.13.4.6.1]
+finding = "13.4.6.1"
+status = "resolved"
+evidence = "0461a4f71 removed the obsolete authority refresh caller from program_node.rs and ported native_handover_programs.rs and host-tests/serve_routes.rs to persisted chain trust before removing the registry constructors."
+
+[disposition.13.4.6.3]
+finding = "13.4.6.3"
+status = "resolved"
+evidence = "0461a4f71 deleted LayerxdProgramBalanceReader::refresh_authority, its route wrapper and protected_verifier from services/agent/crates/layerx-agentd/src/read/program_node.rs, removing the dangling with_signed_history call."
+
+[disposition.13.4.6.4]
+finding = "13.4.6.4"
+status = "resolved"
+evidence = "0461a4f71 ported program_bundle_verification.rs from global_sequence and batch_header_digest to freshness().observed_sequence and decoded chain header hashes, as shown at programs/crates/layerx-programs-registry/tests/program_bundle_verification.rs:168."
+
+[disposition.13.6.3.1]
+finding = "13.6.3.1"
+status = "resolved"
+evidence = "ecf7ad9c9 ported both lease.rs and snapshot.rs to the six-argument TransitionEvidence::verify_call interface using a verified chain head, canonical lease bytes and proof operations."
+
+[disposition.13.6.4.1]
+finding = "13.6.4.1"
+status = "resolved"
+evidence = "62d5c6125 supplied the chain_trust accessor now present at programs/crates/layerx-programs-registry/src/protocol_evidence.rs:192 and consumed by AuthenticatedTerminalRecord::verify at programs/crates/layerx-programs-sandbox/src/expiry.rs:61."
+
+[disposition.13.7.1]
+finding = "13.7.1"
+status = "resolved"
+evidence = "f29813a20 added explicit AbiError::EffectLimit arms in abi/host_state.rs and host/mod.rs, which remain at programs/crates/layerx-programs-runtime/src/abi/host_state.rs:71 and programs/crates/layerx-programs-runtime/src/host/mod.rs:1269."
+
+[disposition.13.7.3]
+finding = "13.7.3"
+status = "environment"
+evidence = "services/agent/crates/layerx-proof/Cargo.toml:16 declares ed25519-dalek as a dev-dependency, whereas programs/Cargo.toml:2 omits layerx-proof from workspace members and programs/Cargo.lock:1004 records only its normal dependencies, so the reported foreign-workspace all-targets invocation lacked test dependency resolution."
+
+[disposition.13.7.4]
+finding = "13.7.4"
+status = "resolved"
+evidence = "df69cb12e added AbiError::EffectLimit => vec![18] to abi_payload, and the host-ffi match arm remains at programs/crates/layerx-programs-runtime/src/ffi_call.rs:629."
+
+[disposition.13.8.1.1]
+finding = "13.8.1.1"
+status = "resolved"
+evidence = "becc7c6fe added -lssl to the native link command and PAY5_QUAL_DIR support, with programs/fixtures/pay5/test_native_roundtrip.py:12 directing qualification logs to tmp_path instead of creating untracked gate artifacts in the repository."
+
+[disposition.13.8.1.2]
+finding = "13.8.1.2"
+status = "resolved"
+evidence = "becc7c6fe replaced the stale native-token and native-merchant receipt, callgraph and terminal fixtures while retaining the exact committed-versus-replayed byte comparison in programs/fixtures/pay5/run_native_roundtrip.py:53."
+
+[disposition.13.8.1.3]
+finding = "13.8.1.3"
+status = "resolved"
+evidence = "becc7c6fe changed the funding-only merchant call expectation to LXP_ERR_PROGRAM_REFUSED and re-recorded the affected attachments, with the same expectation retained in current main at programs/fixtures/pay5/native_roundtrip.h:506."
+
+[disposition.13.8.1.4]
+finding = "13.8.1.4"
+status = "environment"
+evidence = "becc7c6fe contains the 28 re-recorded native-token and native-merchant fixture files together with the real roundtrip test, demonstrating that the reported directory-versus-file scope rejection belonged to the qualification runner rather than the fixture implementation."
+
+[disposition.13.21.9]
+finding = "13.21.9"
+status = "resolved"
+evidence = "261f9858d removed the duplicate TransferLeg declaration from args.go, leaving decodeLegs at precompiles/layerxprograms/args.go:11 to use the sole type declared at precompiles/layerxprograms/payload_accounts.go:15."
+
+[disposition.13.22.1]
+finding = "13.22.1"
+status = "resolved"
+evidence = "c833bda08 wired the shared application host into PrecompileKeepers and added LayerXHost(), which remains at node/precompiles.go:171 and satisfies the host accessor required by the registered programs constructor."
+
+[disposition.13.22.1.1]
+finding = "13.22.1.1"
+status = "resolved"
+evidence = "e894c7ae4 added layerxprograms.go with constructors and merge registration while reusing Address from events.go and PrecompileExecutor, callContext, RequiredGas and Execute from submit.go instead of redeclaring them."
