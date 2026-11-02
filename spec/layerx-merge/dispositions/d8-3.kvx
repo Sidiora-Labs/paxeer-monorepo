@@ -43,7 +43,7 @@ evidence = "sdk/platform/go/generated.go:421 now declares intent.plan and intent
 finding = "8.42.5.1"
 status = "open"
 evidence = "Although a54c32322 removed the ProgramsClient and test callers, sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java:186 still calls LocalVerifier.verifyReceipt with the deleted AuthorizedReceiptBatch and also references the retired batch and checkpoint verifiers."
-follow_up = "closure"
+follow_up = "22.8.7"
 
 [disposition.8.42.6.1]
 finding = "8.42.6.1"
