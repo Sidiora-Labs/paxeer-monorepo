@@ -112,7 +112,16 @@ func TestMethodActivityMatchesKernelTypes(t *testing.T) {
 				t.Fatalf("activity = %+v (present %t), want %+v", got, mapped, want.row)
 			}
 			kernelType, exists := kernelTypes[want.kernel]
-			if !exists || got.Type != kernelType {
+			if entry.Name == "budgetPull" {
+				if exists {
+					t.Errorf("retired activity %s is declared by the kernel", want.kernel)
+				}
+				for name, value := range kernelTypes {
+					if got.Type == value {
+						t.Errorf("retired activity %#08x is admitted as %s", got.Type, name)
+					}
+				}
+			} else if !exists || got.Type != kernelType {
 				t.Errorf("type = %#08x, kernel %s = %#08x (present %t)", got.Type, want.kernel, kernelType, exists)
 			}
 			if got.Type>>16 != uint32(got.Module) || got.Type&0xffff == 0 {
@@ -120,8 +129,8 @@ func TestMethodActivityMatchesKernelTypes(t *testing.T) {
 			}
 		})
 	}
-	if len(seen) != len(expected) || len(MethodActivity) != len(expected) {
-		t.Errorf("nonpayable ABI methods = %d, table rows = %d, want %d", len(seen), len(MethodActivity), len(expected))
+	if len(seen) != len(expected) || len(MethodActivity) != len(expected)+1 {
+		t.Errorf("nonpayable ABI methods = %d, table rows = %d, want %d ABI methods and one keeper-only activity", len(seen), len(MethodActivity), len(expected))
 	}
 	for name := range expected {
 		if !seen[name] {
@@ -129,9 +138,16 @@ func TestMethodActivityMatchesKernelTypes(t *testing.T) {
 		}
 	}
 	for name := range MethodActivity {
-		if !seen[name] {
+		if !seen[name] && name != "streamRateChange" {
 			t.Errorf("activity row %s has no nonpayable ABI method", name)
 		}
+	}
+	if seen["streamRateChange"] {
+		t.Error("keeper-only streamRateChange unexpectedly has a nonpayable ABI method")
+	}
+	wantRateChange := KernelActivity{ActivityStreamRateChange, StreamModuleID, 82}
+	if got, exists := MethodActivity["streamRateChange"]; !exists || got != wantRateChange {
+		t.Errorf("stream rate change activity = %+v (present %t), want %+v", got, exists, wantRateChange)
 	}
 	if got, exists := kernelTypes["LX_STREAM_RATE_CHANGE"]; !exists || ActivityStreamRateChange != got || ActivityStreamRateChange != 0x00040008 {
 		t.Errorf("stream rate change = %#08x, kernel = %#08x (present %t)", ActivityStreamRateChange, got, exists)

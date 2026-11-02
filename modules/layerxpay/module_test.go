@@ -6,8 +6,10 @@ import (
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/keeper"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/testutil"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
@@ -56,12 +58,14 @@ func TestPayAppModuleGenesisAndServices(t *testing.T) {
 
 	key := sdk.NewKVStoreKey(types.StoreKey)
 	hostKey := sdk.NewKVStoreKey("lxphost")
+	evmKey := sdk.NewKVStoreKey(evmtypes.StoreKey)
 	newContext := func() sdk.Context {
 		db := dbm.NewMemDB()
 		t.Cleanup(func() { require.NoError(t, db.Close()) })
 		cms := store.NewCommitMultiStore(db)
 		cms.MountStoreWithDB(key, sdk.StoreTypeIAVL, db)
 		cms.MountStoreWithDB(hostKey, sdk.StoreTypeIAVL, db)
+		cms.MountStoreWithDB(evmKey, sdk.StoreTypeIAVL, db)
 		require.NoError(t, cms.LoadLatestVersion())
 		return sdk.NewContext(cms, tmproto.Header{ChainID: "hyperpax_125-1", Height: 1}, false)
 	}
@@ -72,7 +76,7 @@ func TestPayAppModuleGenesisAndServices(t *testing.T) {
 	})
 	require.NoError(t, err)
 	t.Cleanup(host.Close)
-	k, err := keeper.NewKeeper(cdc, key, hostKey, host, nil, nil, authority)
+	k, err := keeper.NewKeeper(cdc, key, hostKey, host, testutil.NewEVMBindingReader(cdc, evmKey), nil, authority)
 	require.NoError(t, err)
 	am := layerxpay.NewAppModule(k)
 	require.Equal(t, "layerxpay", am.Name())
@@ -198,7 +202,7 @@ func TestPayAppModuleGenesisAndServices(t *testing.T) {
 	require.Equal(t, msg.Params, exported.Params)
 	require.Equal(t, genesis.KernelRecords, exported.KernelRecords)
 	unauthorized := &types.MsgUpdateParams{
-		Authority: sdk.AccAddress([]byte("other-pay-authority")).String(),
+		Authority: sdk.AccAddress([]byte("other-pay-authority!")).String(),
 		Params:    genesis.Params,
 	}
 	result, err = handler(ctx, unauthorized)
