@@ -327,7 +327,9 @@ def owner_policy():
         uint(value[name], 64, path, name, 1)
     fields(value['limit'], 'scope scope_id_source id name ceiling', path, 'limit')
     require(value['limit']['scope'] == 'agent' and value['limit']['scope_id_source'] == 'owner_account', path, 'owner limit scope')
-    h32(value['limit']['id'], path, 'limit.id')
+    limit_id = value['limit']['id']
+    require(type(limit_id) is str and re.fullmatch('[0-9a-f]{32}', limit_id) is not None
+            and int(limit_id, 16) != 0, path, 'limit.id')
     text(value['limit']['name'], path, 'limit.name')
     uint(value['limit']['ceiling'], 128, path, 'limit.ceiling', 1)
     require(value['activities_source'] == 'owner-registration', path, 'activities source')

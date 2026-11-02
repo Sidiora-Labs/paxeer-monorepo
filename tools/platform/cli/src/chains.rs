@@ -1,3 +1,6 @@
+//! The chain registry ABI exposes no next-id read. Listing scans upward until
+//! chainCount records have been collected, skipping unknown-chain refusals.
+
 use std::path::Path;
 use std::time::{Duration, Instant};
 
@@ -117,11 +120,37 @@ fn record(client: &Client, base: &str, id: u32) -> Result<Value, String> {
     }))
 }
 
+fn unknown_chain_refusal(error: &str) -> bool {
+    let Some(refusal) = error.strip_prefix("eth_call refused: ") else {
+        return false;
+    };
+    let Ok(refusal) = serde_json::from_str::<Value>(refusal) else {
+        return false;
+    };
+    refusal["code"] == 3
+        && refusal["message"]
+            == "execution reverted: LXP_UNKNOWN_FIELD: unknown field; unknown domain"
+}
+
 pub fn list(client: &Client, base: &str) -> Result<Value, String> {
     let count = read_id(client, &ChainCall::ChainCount)?;
     let mut chains = Vec::new();
-    for id in 1..=count {
-        chains.push(record(client, base, id)?);
+    let mut remaining = count;
+    let mut id = 1_u32;
+    while remaining > 0 {
+        match record(client, base, id) {
+            Ok(chain) => {
+                chains.push(chain);
+                remaining -= 1;
+            }
+            Err(error) if unknown_chain_refusal(&error) => {}
+            Err(error) => return Err(error),
+        }
+        if remaining > 0 {
+            id = id
+                .checked_add(1)
+                .ok_or("chain registry count exceeds the records in the uint32 id range")?;
+        }
     }
     Ok(json!({"chains":chains}))
 }

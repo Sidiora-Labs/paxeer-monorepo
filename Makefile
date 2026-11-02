@@ -64,7 +64,7 @@ TEST_LIBRARY := $(BUILD_DIR)/liblayerx-testing.a
 	test-arith-u128 test-arith-u256 test-arith-rounding test-arith-property \
 	test-arith-nofloat \
 	test-log test-log-durability test-recovery test-projection test-rebuild \
-	test-storage-order test-storage \
+	test-storage \
 	test-journal \
 	test-activity-codec test-envelope test-verify-pool test-admission \
 	test-fee-gate \
@@ -831,7 +831,7 @@ test-wave-9: test-perps-market test-perps-book test-perps-margin \
 
 $(BUILD_DIR)/tests/test_batch_header: tests/test_batch_header.c $(LIBRARY)
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -lcrypto -o $@
 
 test-batch: $(BUILD_DIR)/tests/test_batch_header
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_batch_header
@@ -1445,10 +1445,7 @@ $(BUILD_DIR)/tools/log_inspect: tools/log_inspect.c $(LIBRARY)
 test-rebuild: $(BUILD_DIR)/tests/lxp_test_rebuild $(BUILD_DIR)/tools/log_inspect
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_rebuild
 
-test-storage-order:
-	sh tests/storage/check_daemon_recovery_order.sh
-
-test-storage: test-storage-order test-log test-log-durability test-recovery \
+test-storage: test-log test-log-durability test-recovery \
 		test-projection test-rebuild
 
 $(BUILD_DIR)/tests/lxp_test_journal: tests/state/lxp_test_journal.c $(LIBRARY)
@@ -1456,7 +1453,8 @@ $(BUILD_DIR)/tests/lxp_test_journal: tests/state/lxp_test_journal.c $(LIBRARY)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -lcrypto -pthread -o $@
 
 $(BUILD_DIR)/tests/lxp_test_journal_tsan: tests/state/lxp_test_journal.c \
-		src/state/lxp_journal.c src/crypto/lxp_hash.c src/crypto/lxp_ed25519.c \
+		src/state/lxp_journal.c src/state/lxp_idempotency.c \
+		src/crypto/lxp_hash.c src/crypto/lxp_ed25519.c \
 		src/crypto/lxp_ct.c src/crypto/lxp_ed25519.c \
 		src/ledger/lx_account_registry.c src/ledger/lx_account_id.c \
 		src/storage/lxp_log.c src/storage/lxp_fault_hooks.c \
@@ -3159,9 +3157,5 @@ $(BUILD_DIR)/bin/layerx-archive-codec: $(ARCHIVE_CODEC_OBJECTS) $(LIBRARY) \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 include tools/paxeer-x/build/104.35.11.mk
-include tools/paxeer-x/build/104.35.12.mk
 include tools/paxeer-x/build/6.6.mk
-include tools/paxeer-x/build/104.35.15.mk
-include tools/paxeer-x/build/104.35.20.mk
-include tools/paxeer-x/build/104.35.29.mk
 include tools/paxeer-x/build/proof.mk

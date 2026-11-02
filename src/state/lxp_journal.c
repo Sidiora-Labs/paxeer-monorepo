@@ -1,6 +1,5 @@
 #include "layerx/lxp_state.h"
 #include "layerx/lxp_ledger.h"
-#include "layerx/lxp_fee.h"
 #include "layerx/lxp_storage.h"
 
 #include <stdlib.h>

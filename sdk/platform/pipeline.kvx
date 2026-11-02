@@ -5,7 +5,7 @@ outputs = ["agent-api-rust", "agent-rust", "agent-typescript", "agent-python", "
 
 [source.agent-api]
 root = "services/agent/schema/agent-api"
-digest = "64e95f37552c98168a6509b2e476e9bd10607fc89c682e1c684a12be0eb603a8"
+digest = "1e4d396d4f3def8b0cbad99c1850771928b78c4545d1dde0168119fc35f7d609"
 
 [source.human-api]
 root = "services/human/schema/human-api"
@@ -168,6 +168,8 @@ root = "services/agent/sdk"
 "python/layerx_sdk/xweb_api.py" = "handwritten"
 "python/layerx_sdk/xweb_api.pyi" = "handwritten"
 "python/pyproject.toml" = "handwritten"
+"python/tests/market_receipt_producer.c" = "handwritten"
+"python/tests/test_ai_market_commit.py" = "handwritten"
 "python/tests/test_px_commit.py" = "handwritten"
 "python/tests/test_receipt_generated_current.py" = "handwritten"
 "python/tests/test_retired_kernel_receipts.py" = "handwritten"
