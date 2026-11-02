@@ -2,10 +2,11 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeAll, expect, test, vi } from 'vitest';
-import { createPublicClient, createWalletClient, custom, defineChain } from 'viem';
+import { createPublicClient, createWalletClient, custom, defineChain, decodeFunctionResult, encodeAbiParameters, encodeEventTopics, parseAbi, type Hex, type TransactionReceipt } from 'viem';
 import ChainWizard from './chain-wizard';
-import { ChainLaunchAdapter, type ChainLaunchResult, type ChainLaunchStep } from './chain-adapters';
-import { walletNetwork, type ChainDraft, type ChainsParams } from './chain-domain';
+import vectors from '../../../../../../tests/vectors/chains/abi-vectors.json';
+import { ChainLaunchAdapter, chainsAbi, type ChainLaunchResult, type ChainLaunchStep } from './chain-adapters';
+import { CHAINS_PRECOMPILE, walletNetwork, type ChainDraft, type ChainsParams } from './chain-domain';
 import { ChainDraftStorage } from './chain-storage';
 
 const creator = '0x1111111111111111111111111111111111111111';
@@ -14,12 +15,15 @@ const chain = defineChain({
   rpcUrls: { default: { http: ['https://rpc.example'] } },
   blockExplorers: { default: { name: 'Explorer', url: 'https://explorer.example' } },
 });
+let mountedAccount: string = creator;
+let mountedChainId = 125;
+
 const walletRequests = vi.fn(async () => null);
 const client = createPublicClient({ chain, transport: custom({ request: walletRequests }) });
 const wallet = createWalletClient({ chain, account: creator, transport: custom({ request: walletRequests }) });
 
 vi.mock('wagmi', () => ({
-  useAccount: () => ({ address: creator, chainId: 125 }),
+  useAccount: () => ({ address: mountedAccount, chainId: mountedChainId }),
   usePublicClient: () => client,
   useWalletClient: () => ({ data: wallet }),
   useSwitchChain: () => ({ switchChainAsync: vi.fn() }),
@@ -46,6 +50,7 @@ afterEach(async () => {
   localStorage.clear();
   vi.restoreAllMocks();
   walletRequests.mockClear();
+  mountedAccount = creator; mountedChainId = 125;
 });
 
 async function mount() {
@@ -178,5 +183,150 @@ async function chain_wizard_restores_drafts_and_ignores_stale_name_checks() {
   expect(() => storage.restoreDraft()).toThrow('invalid or expired');
 }
 
+function recoveryFixture() {
+  const params = decodeFunctionResult({ abi: chainsAbi, functionName: 'params', data: vectors.params.returndata as Hex });
+  const record = decodeFunctionResult({ abi: chainsAbi, functionName: 'getChain', data: vectors.getChain.returndata as Hex });
+  const txHash = launched.txHash;
+  const blockHash: Hex = `0x${'cd'.repeat(32)}`;
+  const receipt: TransactionReceipt = {
+    status: 'success', transactionHash: txHash, blockHash, blockNumber: 42n, transactionIndex: 0,
+    from: creator, to: CHAINS_PRECOMPILE, contractAddress: null, cumulativeGasUsed: 60000n,
+    gasUsed: 60000n, effectiveGasPrice: 1000000000n, logsBloom: `0x${'00'.repeat(256)}`,
+    type: 'eip1559', logs: [{
+      address: CHAINS_PRECOMPILE,
+      topics: encodeEventTopics({ abi: parseAbi(['event ChainCreated(uint32 indexed id,string name,address indexed operator,uint64 chainId)']), eventName: 'ChainCreated', args: { id: 1, operator: creator } }) as [Hex, ...Hex[]],
+      data: encodeAbiParameters([{ type: 'string' }, { type: 'uint64' }], ['demo', 125000001n]),
+      blockHash, blockNumber: 42n, transactionHash: txHash, transactionIndex: 0, logIndex: 0, removed: false,
+    }],
+  };
+  let receiptError = 'Receipt timeout';
+  let readbackError = '';
+  let sends = 0;
+  let receiptReads = 0;
+  let nameAvailable = true;
+  const read = vi.spyOn(client, 'readContract').mockImplementation(async request => {
+    if (request.functionName === 'params') return params;
+    if (request.functionName === 'chainByName') return nameAvailable ? 0 : 1;
+    if (request.functionName === 'getChain') {
+      if (readbackError) throw new Error(readbackError);
+      return [record[0], record[1], record[2], record[3], record[4], record[5], record[6], 0, ...record.slice(8)];
+    }
+    throw new Error('Unexpected registry method');
+  });
+  vi.spyOn(client, 'getChainId').mockResolvedValue(125);
+  vi.spyOn(client, 'estimateContractGas').mockResolvedValue(60000n);
+  vi.spyOn(client, 'getGasPrice').mockResolvedValue(1000000000n);
+  vi.spyOn(wallet, 'getChainId').mockResolvedValue(125);
+  vi.spyOn(wallet, 'getAddresses').mockResolvedValue([creator]);
+  vi.spyOn(wallet, 'writeContract').mockImplementation(async () => { sends++; return txHash; });
+  vi.spyOn(client, 'waitForTransactionReceipt').mockImplementation(async () => {
+    receiptReads++;
+    if (receiptError) throw new Error(receiptError);
+    return receipt;
+  });
+  return {
+    receipt, read, txHash,
+    get sends() { return sends; }, get receiptReads() { return receiptReads; },
+    receiptError(value: string) { receiptError = value; },
+    readbackError(value: string) { readbackError = value; },
+    nameAvailable(value: boolean) { nameAvailable = value; },
+  };
+}
+
+async function reviewRecoveryLaunch() {
+  await mount();
+  await typeName('demo');
+  await click('Next');
+  await click('Next');
+  await click('Launch');
+}
+
+async function remount() {
+  await act(async () => root!.unmount());
+  root = undefined;
+  container.remove();
+  await mount();
+}
+
+async function chain_wizard_recovers_timeout_across_remount_and_browser_reload() {
+  const f = recoveryFixture();
+  await reviewRecoveryLaunch();
+  expect(f.sends).toBe(1);
+  expect(container.textContent).toContain(f.txHash);
+  expect(container.querySelector('[role="alert"]')?.textContent).toContain('Receipt timeout');
+  expect(button('Launch').disabled).toBe(true);
+  expect(Array.from(container.querySelectorAll('button')).some(node => node.textContent === 'Back')).toBe(false);
+  const saved = new ChainDraftStorage(creator).restoreSubmission();
+  expect(saved).toMatchObject({ draft: { name: 'demo', tier: 'starter' }, submission: { creator, chainId: 125, txHash: f.txHash, phase: 'confirm' } });
+  await click('Launch');
+  expect(f.sends).toBe(1);
+  await remount();
+  expect(container.querySelector('[aria-current="step"]')?.textContent).toBe('3. Review and launch');
+  await click('Retry confirmation');
+  expect(container.textContent).toContain('Receipt timeout');
+  expect(f.sends).toBe(1);
+  const body = localStorage.getItem('chain-submission-v1')!;
+  await act(async () => root!.unmount());
+  root = undefined; container.remove(); localStorage.clear();
+  localStorage.setItem('chain-submission-v1', body);
+  await mount();
+  expect(button('Launch').disabled).toBe(true);
+  f.receiptError(''); f.nameAvailable(false);
+  await click('Retry confirmation');
+  expect(container.querySelector('[aria-label="Live chain"]')?.textContent).toContain('Chain ID: 125000001');
+  expect(f.sends).toBe(1);
+  expect(new ChainDraftStorage(creator).restoreSubmission()).toBeNull();
+}
+
+async function chain_wizard_recovers_registry_readback_and_rejects_mismatched_accounts() {
+  const f = recoveryFixture();
+  f.receiptError(''); f.readbackError('Readback interrupted');
+  await reviewRecoveryLaunch();
+  expect(container.textContent).toContain('Readback interrupted');
+  expect(container.querySelector('[aria-label="Live chain"]')).toBeNull();
+  for (const changed of ['account', 'chain'] as const) {
+    mountedAccount = changed === 'account' ? '0x2222222222222222222222222222222222222222' : creator;
+    mountedChainId = changed === 'chain' ? 1 : 125;
+    await act(async () => root!.render(<ChainWizard />));
+    expect(container.textContent).toContain('belongs to a different account or chain');
+    expect(container.textContent).toContain(f.txHash);
+    expect(button('Retry confirmation').disabled).toBe(true);
+    expect(button('Launch').disabled).toBe(true);
+    const before = f.receiptReads;
+    await click('Retry confirmation');
+    expect(f.receiptReads).toBe(before);
+    expect(f.sends).toBe(1);
+    await remount();
+    expect(container.textContent).toContain('belongs to a different account or chain');
+  }
+  mountedAccount = creator; mountedChainId = 125;
+  await act(async () => root!.render(<ChainWizard />));
+  f.readbackError('');
+  await click('Retry confirmation');
+  expect(container.querySelector('[aria-label="Live chain"]')).not.toBeNull();
+  expect(f.sends).toBe(1);
+}
+
+async function chain_wizard_revalidates_after_a_confirmed_terminal_revert() {
+  const f = recoveryFixture();
+  await reviewRecoveryLaunch();
+  f.receiptError(''); f.receipt.status = 'reverted'; f.nameAvailable(false);
+  await click('Retry confirmation');
+  expect(container.textContent).toContain('transaction reverted');
+  expect(container.querySelector('[aria-current="step"]')?.textContent).toBe('1. Name');
+  expect(button('Next').disabled).toBe(true);
+  expect(container.querySelector('[aria-label="Live chain"]')).toBeNull();
+  expect(new ChainDraftStorage(creator).restoreSubmission()?.submission.phase).toBe('reverted');
+  expect(f.sends).toBe(1);
+  f.nameAvailable(true); f.receipt.status = 'success';
+  await typeName('another'); await typeName('demo');
+  await click('Next'); await click('Next'); await click('Launch');
+  expect(container.querySelector('[aria-label="Live chain"]')).not.toBeNull();
+  expect(f.sends).toBe(2);
+}
+
 test(chain_wizard_walks_three_steps_and_shows_the_live_chain);
 test(chain_wizard_restores_drafts_and_ignores_stale_name_checks);
+test(chain_wizard_recovers_timeout_across_remount_and_browser_reload);
+test(chain_wizard_recovers_registry_readback_and_rejects_mismatched_accounts);
+test(chain_wizard_revalidates_after_a_confirmed_terminal_revert);

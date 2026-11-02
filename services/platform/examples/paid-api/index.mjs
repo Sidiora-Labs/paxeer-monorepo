@@ -1,7 +1,10 @@
+import { pathToFileURL } from "node:url";
 import { createServer } from "node:http";
 import { mkdir, open, readFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import {
+  decodePaymentCommitmentEvidence,
+  encodePaymentCommitmentEvidence,
   MiddlewareError,
   PAYMENT_SIGNATURE_HEADER,
   SellerMiddleware,
@@ -34,7 +37,7 @@ const syncDirectory = async (path) => {
   }
 };
 
-class FileFulfillmentRepository {
+export class FileFulfillmentRepository {
   constructor(directory) {
     this.directory = directory;
   }
@@ -62,7 +65,11 @@ class FileFulfillmentRepository {
     try {
       const file = await open(path, "wx", 0o600);
       try {
-        await file.writeFile(JSON.stringify(record), "utf8");
+        await file.writeFile(JSON.stringify({ ...record,
+          ...(record.commitmentEvidence === undefined ? {} : {
+            commitmentEvidence: encodePaymentCommitmentEvidence(record.commitmentEvidence),
+          }),
+        }), "utf8");
         await file.sync();
       } finally {
         await file.close();
@@ -78,7 +85,10 @@ class FileFulfillmentRepository {
   }
 
   async read(path) {
-    return exactObject(JSON.parse(await readFile(path, "utf8")));
+    const record = exactObject(JSON.parse(await readFile(path, "utf8")));
+    return { ...record, ...(record.commitmentEvidence === undefined ? {} : {
+      commitmentEvidence: decodePaymentCommitmentEvidence(record.commitmentEvidence),
+    }) };
   }
 }
 
@@ -100,83 +110,93 @@ class StatePreservingReceiptAuthority {
   }
 }
 
-const config = await loadApplicationConfig(import.meta.url, "paid-api");
-const resourceBody = exactObject(JSON.parse(await readFile(resolve(config.directory, config.resourceFile), "utf8")));
-const receiptKeys = receiptKeysFromEnvironment(config.receiptKeysEnvironment);
-const resolver = new SequencerReceiptClient(config.rpcUrl, receiptKeys);
-const middleware = new SellerMiddleware({
-  receiptKeys,
-  paymentRequired: {
-    x402Version: 2,
-    resource: {
-      url: config.resourceUrl,
-      description: "Receipt-verified metered weather",
-      mimeType: "application/json",
-      serviceName: "LayerX paid API",
-    },
-    accepts: [{
-      scheme: config.scheme,
-      network: config.network,
-      amount: requiredEnvironment(config.priceEnvironment),
-      asset: requiredEnvironment(config.assetEnvironment),
-      payTo: requiredEnvironment(config.payToEnvironment),
-      maxTimeoutSeconds: 60,
-      extra: {
-        layerx: {
-          commitment: "receipted",
-          account: requiredEnvironment(config.accountEnvironment),
-          currency: requiredEnvironment(config.currencyEnvironment),
-        },
-      },
-    }],
-  },
-  authority: new StatePreservingReceiptAuthority(resolver),
-  fulfillments: new FileFulfillmentRepository(applicationStatePath(config, config.fulfillmentDirectory)),
-});
-
-const port = Number(config.port);
-if (!Number.isSafeInteger(port) || port <= 0 || port > 65535) throw new Error("invalid_port");
-
-createServer(async (request, response) => {
-  try {
-    if (request.method !== "GET" || request.url !== "/paid") {
-      response.writeHead(404).end();
-      return;
-    }
-    const header = request.headers[PAYMENT_SIGNATURE_HEADER.toLowerCase()];
-    const paymentHeader = Array.isArray(header) ? undefined : header;
-    const decision = await middleware.handle("public-paid-api", paymentHeader, async () => resourceBody);
-    const headers = decision.kind === "payment-required" || decision.kind === "refused" || decision.kind === "released"
-      ? decision.headers
-      : { "retry-after": "1" };
-    response.writeHead(decision.status, { "content-type": "application/json", ...headers });
-    response.end(JSON.stringify(decision.kind === "payment-required"
-      ? decision.body
-      : decision.kind === "released"
-        ? decision.resource
-        : { state: decision.kind }));
-  } catch (error) {
-    if (error instanceof LayerXApplicationStateError) {
-      const status = error.state === "pending" ? 202 : error.state === "refused" ? 402 : 503;
+export function createPaidApiServer(middleware, resourceBody) {
+  return createServer(async (request, response) => {
+    try {
+      if (request.method !== "GET" || request.url !== "/paid") {
+        response.writeHead(404).end();
+        return;
+      }
+      const header = request.headers[PAYMENT_SIGNATURE_HEADER.toLowerCase()];
+      const paymentHeader = Array.isArray(header) ? undefined : header;
+      const decision = await middleware.handle("public-paid-api", paymentHeader, async () => resourceBody);
+      const headers = decision.kind === "payment-required" || decision.kind === "refused" || decision.kind === "released"
+        ? decision.headers
+        : { "retry-after": "1" };
+      response.writeHead(decision.status, { "content-type": "application/json", ...headers });
+      response.end(JSON.stringify(decision.kind === "payment-required"
+        ? decision.body
+        : decision.kind === "released"
+          ? decision.resource
+          : { state: decision.kind }));
+    } catch (error) {
+      if (error instanceof LayerXApplicationStateError) {
+        const status = error.state === "pending" ? 202 : error.state === "refused" ? 402 : 503;
+        response.writeHead(status, {
+          "content-type": "application/json",
+          ...(error.state === "pending" || error.state === "unknown" ? { "retry-after": "1" } : {}),
+        }).end(JSON.stringify({ state: error.state, detail: error.message }));
+        return;
+      }
+      const state = error instanceof MiddlewareError
+        ? error.code === "payment-pending"
+          ? "pending"
+          : error.code === "fulfillment-conflict"
+            ? "unknown"
+            : "refused"
+        : "unknown";
+      const status = state === "pending" ? 202 : state === "refused" ? 400 : 503;
       response.writeHead(status, {
         "content-type": "application/json",
-        ...(error.state === "pending" || error.state === "unknown" ? { "retry-after": "1" } : {}),
-      }).end(JSON.stringify({ state: error.state, detail: error.message }));
-      return;
+        ...(state === "pending" || state === "unknown" ? { "retry-after": "1" } : {}),
+      }).end(JSON.stringify({ state, error: error instanceof MiddlewareError ? error.code : "internal-fault" }));
     }
-    const state = error instanceof MiddlewareError
-      ? error.code === "payment-pending"
-        ? "pending"
-        : error.code === "fulfillment-conflict"
-          ? "unknown"
-          : "refused"
-      : "unknown";
-    const status = state === "pending" ? 202 : state === "refused" ? 400 : 503;
-    response.writeHead(status, {
-      "content-type": "application/json",
-      ...(state === "pending" || state === "unknown" ? { "retry-after": "1" } : {}),
-    }).end(JSON.stringify({ state, error: error instanceof MiddlewareError ? error.code : "internal-fault" }));
-  }
-}).listen(port, "127.0.0.1", () => {
-  process.stdout.write(`${JSON.stringify({ application: "paid-api", environment: config.name, listening: port, path: "/paid" })}\n`);
-});
+  });
+}
+
+export async function runPaidApiApplication() {
+  const config = await loadApplicationConfig(import.meta.url, "paid-api");
+  const resourceBody = exactObject(JSON.parse(await readFile(resolve(config.directory, config.resourceFile), "utf8")));
+  const receiptKeys = receiptKeysFromEnvironment(config.receiptKeysEnvironment);
+  const resolver = new SequencerReceiptClient(config.rpcUrl, receiptKeys);
+  const middleware = new SellerMiddleware({
+    receiptKeys,
+    paymentRequired: {
+      x402Version: 2,
+      resource: {
+        url: config.resourceUrl,
+        description: "Receipt-verified metered weather",
+        mimeType: "application/json",
+        serviceName: "LayerX paid API",
+      },
+      accepts: [{
+        scheme: config.scheme,
+        network: config.network,
+        amount: requiredEnvironment(config.priceEnvironment),
+        asset: requiredEnvironment(config.assetEnvironment),
+        payTo: requiredEnvironment(config.payToEnvironment),
+        maxTimeoutSeconds: 60,
+        extra: {
+          layerx: {
+            commitment: "receipted",
+            account: requiredEnvironment(config.accountEnvironment),
+            currency: requiredEnvironment(config.currencyEnvironment),
+          },
+        },
+      }],
+    },
+    authority: new StatePreservingReceiptAuthority(resolver),
+    fulfillments: new FileFulfillmentRepository(applicationStatePath(config, config.fulfillmentDirectory)),
+  });
+
+  const port = Number(config.port);
+  if (!Number.isSafeInteger(port) || port <= 0 || port > 65535) throw new Error("invalid_port");
+
+  createPaidApiServer(middleware, resourceBody).listen(port, "127.0.0.1", () => {
+    process.stdout.write(`${JSON.stringify({ application: "paid-api", environment: config.name, listening: port, path: "/paid" })}\n`);
+  });
+}
+
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  await runPaidApiApplication();
+}

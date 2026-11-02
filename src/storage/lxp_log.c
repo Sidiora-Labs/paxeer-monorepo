@@ -31,6 +31,13 @@ static int valid_kind(uint8_t kind)
            kind <= (uint8_t)LXP_LOG_BATCH_BODY;
 }
 
+static int valid_append_kind(lxp_log_record_kind kind)
+{
+    return kind == LXP_LOG_ACTIVITY || kind == LXP_LOG_RECEIPT ||
+           kind == LXP_LOG_CHECKPOINT || kind == LXP_LOG_STATE_DIFF ||
+           kind == LXP_LOG_GENESIS;
+}
+
 static void store_u32(uint8_t *out, uint32_t value)
 {
     out[0] = (uint8_t)(value >> 24U);
@@ -410,7 +417,7 @@ lxp_result lxp_log_append(lxp_log *log, lxp_log_record_kind kind,
     uint8_t encoded[LXP_LOG_HEADER_BYTES];
     uint64_t end;
     lxp_result status;
-    if (log == NULL || log->descriptor < 0 || !valid_kind((uint8_t)kind) ||
+    if (log == NULL || log->descriptor < 0 || !valid_append_kind(kind) ||
         (body == NULL && body_length != 0U)) return LXP_ERR_NON_CANONICAL;
     if (global_sequence == UINT64_MAX) return LXP_ERR_SEQUENCE_EXHAUSTED;
     end = log->write_offset + LXP_LOG_HEADER_BYTES + body_length;
