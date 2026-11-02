@@ -186610,7 +186610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.2.6]
 title = "Supply the EVM binding reader to the pay module fixtures and reconcile the budget, bank and agent-row expectations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.2.7"]
