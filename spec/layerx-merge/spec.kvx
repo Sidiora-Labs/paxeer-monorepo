@@ -124719,7 +124719,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.90.4]
 title = "Make every target of layerx-intents build on main"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -126672,7 +126672,7 @@ do_6 = "Finding 8.47.12.1: run grep -rn 'AccountPolicy\|VerifiedRpcAccount\|Veri
 
 [task.9.35.13]
 title = "Decode the pay2 executed send as a type-2 transaction instead of a kernel activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -187606,7 +187606,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.0.9]
 title = "Gate domain 15 completion on its retired surfaces and planned paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["15.0.1", "15.0.2", "15.0.3", "15.0.4", "15.3.1", "15.3.2", "15.3.3", "15.3.4", "15.3.5", "15.3.6", "15.3.7", "15.3.8", "15.3.9", "15.3.10", "15.3.11", "15.3.12", "15.3.13", "15.3.14", "15.3.15", "15.3.16", "15.3.17", "21.37.1", "21.113.1"]
