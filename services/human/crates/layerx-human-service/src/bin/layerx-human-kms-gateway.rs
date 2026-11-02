@@ -205,9 +205,10 @@ mod tests {
         GATEWAY_FRAME_LIMIT,
     };
     use layerx_human_service::frame::{read_frame, write_frame};
-    use layerx_intents::owner_activity::{unsigned_native, OwnerEnvelopeContext};
     use layerx_intents::NativeOwnerBootstrap;
-    use layerx_types::ids::Did;
+    use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
+    use layerx_types::amount::Amount;
+    use layerx_types::ids::{Did, IdempotencyKey};
     use layerx_types::intent::PublicKey;
     use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration};
     use rustls::pki_types::ServerName;
@@ -234,6 +235,43 @@ mod tests {
 
     fn checked<T, E: std::fmt::Debug>(value: Result<T, E>) -> TestResult<T> {
         value.map_err(|error| format!("{error:?}").into())
+    }
+
+    struct OwnerEnvelopeContext {
+        actor: Did,
+        owner_public_key: [u8; 32],
+        network_id: u32,
+        account_sequence: u64,
+        not_before_ms: u64,
+        not_after_ms: u64,
+        action_key: [u8; 32],
+        fee_limit: u128,
+    }
+
+    fn unsigned_native(
+        compiled: &layerx_intents::CompiledIntent,
+        context: &OwnerEnvelopeContext,
+        registry: &ModuleRegistry,
+    ) -> TestResult<(Vec<u8>, Disclosure)> {
+        let mut builder = EnvelopeBuilder::new();
+        checked(builder.protocol_version(3))?;
+        checked(builder.network_id(context.network_id))?;
+        checked(builder.activity_type(compiled.activity_type()))?;
+        checked(builder.actor_did(context.actor.clone()))?;
+        checked(builder.authority(checked(Authority::owner(&context.owner_public_key))?))?;
+        checked(builder.account_sequence(context.account_sequence))?;
+        checked(builder.timestamp_bound(checked(TimestampBound::new(
+            context.not_before_ms,
+            context.not_after_ms,
+        ))?))?;
+        checked(builder.idempotency_key(IdempotencyKey::new(context.action_key)))?;
+        checked(builder.fee_limit(Amount::from_u128(context.fee_limit)))?;
+        checked(builder.payload_hash(compiled.payload_hash()))?;
+        checked(builder.payload(compiled.payload().clone()))?;
+        let envelope = checked(builder.build())?;
+        let bytes = checked(layerx_wire::activity::encode_unsigned_envelope(&envelope))?;
+        let disclosure = checked(layerx_crypto::disclosure::bind(&bytes, registry))?;
+        Ok((bytes, disclosure))
     }
 
     fn modules() -> TestResult<ModuleRegistry> {
