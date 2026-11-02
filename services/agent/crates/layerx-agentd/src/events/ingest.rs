@@ -247,6 +247,14 @@ impl EventIngestor {
         &self.tenant
     }
 
+    /// Reads a retained event with its exact bytes and evidence, including after restart.
+    ///
+    /// # Errors
+    /// Returns `CorruptEvent` for an absent or inconsistent retained record.
+    pub fn retained_event(&self, sequence: u64) -> Result<CoreEvent, IngestError> {
+        durable_event(&self.store, &self.tenant, sequence)
+    }
+
     /// Consumes the ingestor and returns its durable store.
     #[must_use]
     pub fn into_store(self) -> Store {

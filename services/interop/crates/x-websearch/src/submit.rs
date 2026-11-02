@@ -4,7 +4,10 @@ use std::path::{Path, PathBuf};
 use k256::ecdsa::SigningKey;
 use serde_json::{json, Value};
 
-use crate::attest::{sign_digest, signer_address, AttestorSet, Ready, SIGNATURE_LENGTH};
+use crate::attest::{
+    recover_signer, sign_digest, signer_address, Attestation, AttestorSet, Ready,
+    MAX_RESPONSE_BYTES, ORIGIN_PROGRAM, SIGNATURE_LENGTH,
+};
 use crate::program::{ProgramKey, MAX_OBSERVATION_SIGNATURES, OBSERVATION_HEADER_BYTES};
 use crate::watch::{hex0x, keccak, parse_quantity, unhex0x, EvmError, EvmRpc, XWEB_PRECOMPILE};
 
@@ -83,6 +86,93 @@ pub fn fulfil_calldata(ready: &Ready) -> Vec<u8> {
     out.extend(response);
     out.extend(signatures);
     out
+}
+
+/// Decodes the origin-2 observation before it can reach the submission journal
+/// or RPC. Signatures must recover in strictly ascending signer order.
+/// Membership and quorum are established by the relay's registered set.
+///
+/// # Errors
+/// Refuses a malformed header, response, signature list or program key.
+pub fn decode_program_observation(
+    key: ProgramKey,
+    observation: &[u8],
+    signatures: usize,
+) -> Result<Ready, SubmitError> {
+    if observation.len() <= OBSERVATION_HEADER_BYTES
+        || observation[0] != ORIGIN_PROGRAM
+        || observation[1..29] != [0; 28]
+        || observation[29..33] == [0; 4]
+        || observation[33..65] != key.0
+        || observation[65..73] != key.1.to_be_bytes()
+        || key.0 == [0; 32]
+        || !matches!(observation[73], 1 | 2)
+        || signatures == 0
+        || signatures > MAX_OBSERVATION_SIGNATURES
+    {
+        return Err(SubmitError::Encode);
+    }
+    let full_length = u32::from_be_bytes(
+        observation[138..142]
+            .try_into()
+            .map_err(|_| SubmitError::Encode)?,
+    );
+    let length = u32::from_be_bytes(
+        observation[142..146]
+            .try_into()
+            .map_err(|_| SubmitError::Encode)?,
+    );
+    if length as usize > MAX_RESPONSE_BYTES || full_length < length {
+        return Err(SubmitError::Encode);
+    }
+    let count_at = OBSERVATION_HEADER_BYTES
+        .checked_add(length as usize)
+        .ok_or(SubmitError::Encode)?;
+    if observation.get(count_at).copied().map(usize::from) != Some(signatures)
+        || observation.len() != count_at + 1 + signatures * SIGNATURE_LENGTH
+    {
+        return Err(SubmitError::Encode);
+    }
+    let response = observation[OBSERVATION_HEADER_BYTES..count_at].to_vec();
+    let attestation = Attestation {
+        origin: ORIGIN_PROGRAM,
+        network_id: observation[1..33]
+            .try_into()
+            .map_err(|_| SubmitError::Encode)?,
+        requester: key.0,
+        request_id: key.1,
+        kind: observation[73],
+        payload_hash: observation[74..106]
+            .try_into()
+            .map_err(|_| SubmitError::Encode)?,
+        content_digest: observation[106..138]
+            .try_into()
+            .map_err(|_| SubmitError::Encode)?,
+        response_hash: keccak(&response),
+        full_length,
+    };
+    let digest = attestation.digest();
+    let mut signers = Vec::with_capacity(signatures);
+    let mut recovered = Vec::with_capacity(signatures);
+    for bytes in observation[count_at + 1..].chunks_exact(SIGNATURE_LENGTH) {
+        let signature = bytes.try_into().map_err(|_| SubmitError::Encode)?;
+        let signer = recover_signer(&digest, &signature).map_err(|_| SubmitError::Encode)?;
+        if signers.last().is_some_and(|previous| previous >= &signer) {
+            return Err(SubmitError::Encode);
+        }
+        signers.push(signer);
+        recovered.push(signature);
+    }
+    Ok(Ready {
+        request_id: key.1,
+        response,
+        content_digest: attestation.content_digest,
+        full_length,
+        callback_gas: 0,
+        digest,
+        signers,
+        signatures: recovered,
+    })
 }
 
 #[must_use]
@@ -928,31 +1018,9 @@ impl Submitter {
         observation: &[u8],
         signatures: usize,
     ) -> Result<Submission, SubmitError> {
+        decode_program_observation(key, observation, signatures)?;
         if let Some(outcome) = self.resume_program(key)? {
             return Ok(outcome);
-        }
-        if observation.len() <= OBSERVATION_HEADER_BYTES
-            || observation[0] != crate::attest::ORIGIN_PROGRAM
-            || observation[33..65] != key.0
-            || observation[65..73] != key.1.to_be_bytes()
-            || key.0 == [0; 32]
-            || signatures == 0
-            || signatures > MAX_OBSERVATION_SIGNATURES
-        {
-            return Err(SubmitError::Encode);
-        }
-        let length = u32::from_be_bytes(
-            observation[142..146]
-                .try_into()
-                .map_err(|_| SubmitError::Encode)?,
-        );
-        let count_at = OBSERVATION_HEADER_BYTES
-            .checked_add(length as usize)
-            .ok_or(SubmitError::Encode)?;
-        if observation.get(count_at).copied().map(usize::from) != Some(signatures)
-            || observation.len() != count_at + 1 + signatures * SIGNATURE_LENGTH
-        {
-            return Err(SubmitError::Encode);
         }
         let nonce = u64::try_from(self.rpc.quantity(
             "eth_getTransactionCount",

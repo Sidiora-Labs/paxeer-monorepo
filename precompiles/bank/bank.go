@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	putils "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -174,11 +175,7 @@ func (r refusal) Unwrap() error {
 // lxpError returns the error whose revert reason is LXPRevert of the
 // refusal's code and detail.
 func (r refusal) lxpError() error {
-	reason, err := abi.UnpackRevert(pcommon.LXPRevert(r.code, r.detail))
-	if err != nil {
-		return r.err
-	}
-	return errors.New(reason)
+	return pcommon.LXPError(r.code, r.detail)
 }
 
 func argCountRefusal(err error) error {
@@ -194,7 +191,7 @@ func nonCanonicalRefusal(err error) error {
 }
 
 func assetPausedRefusal(err error) error {
-	return refusal{code: "LXP_ASSET_PAUSED", detail: err.Error(), err: err}
+	return refusal{code: ledgertypes.AssetPausedCode, detail: err.Error(), err: err}
 }
 
 func staticcallRefusal(method string, err error) error {

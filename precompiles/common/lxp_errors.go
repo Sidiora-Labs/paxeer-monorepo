@@ -9,6 +9,7 @@ import (
 	anchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	bridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
 	exchangetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	perpstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
 	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	tokenfactorytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
@@ -89,7 +90,7 @@ var lxpRevertTable = []lxpRevertEntry{
 	{code: "LXP_INSUFFICIENT_BALANCE", message: "insufficient balance", kernel: true, value: -400},
 	{code: "LXP_ZERO_AMOUNT", message: "zero amount", kernel: true, value: -401},
 	{code: "LXP_ASSET_MISMATCH", message: "asset mismatch", kernel: true, value: -402},
-	{code: "LXP_ASSET_PAUSED", message: "asset paused", kernel: true, value: -403},
+	{code: ledgertypes.AssetPausedCode, message: "asset paused", kernel: true, value: -403},
 	{code: "LXP_ACCOUNT_FROZEN", message: "account frozen", kernel: true, value: -404},
 	{code: "LXP_CONSERVATION", message: "conservation", kernel: true, value: -405},
 	{code: "LXP_TOO_MANY_LEGS", message: "too many legs", kernel: true, value: -406},
@@ -333,7 +334,7 @@ var lxpRevertTable = []lxpRevertEntry{
 	{code: "LXP_PRECOMPILE_NON_PAYABLE", message: "sending funds to a non-payable function"},
 	{code: "LXP_PRECOMPILE_WEI_REMAINDER", message: "selected precompile function does not allow payment with non-zero wei remainder"},
 	{code: "LXP_PRECOMPILE_INVALID_ADDR", message: "invalid addr"},
-	{code: "LXP_AGENT_NOT_ACTIVE", message: "<plan> not active at height <height>; no merge upgrade activation reader bound"},
+	{code: "LXP_AGENT_NOT_ACTIVE", message: "agent function not active"},
 	{code: "LXP_AGENT_ABI_DECODE", message: "argument decode failed"},
 	{code: "LXP_AGENT_READ_ONLY", message: "write under staticcall"},
 	{code: "LXP_AGENT_DELEGATECALL", message: "cannot delegatecall an agent function"},
@@ -456,6 +457,12 @@ func LXPCodeName(value int32) string {
 // code the registry does not list reverts as LXP_UNKNOWN carrying that code
 // ahead of the detail.
 func LXPRevert(code, detail string) []byte {
+	return RevertReason(LXPError(code, detail))
+}
+
+// LXPError constructs the registry reason before its Error(string) transport
+// encoding, so producers never need a fallible encode/decode round trip.
+func LXPError(code, detail string) error {
 	entry, ok := lxpRevertEntryByCode(code)
 	if !ok {
 		entry, _ = lxpRevertEntryByCode(lxpUnknownCode)
@@ -473,7 +480,7 @@ func LXPRevert(code, detail string) []byte {
 		text.WriteString("; ")
 		text.WriteString(detail)
 	}
-	return RevertReason(errors.New(text.String()))
+	return errors.New(text.String())
 }
 
 func lxpRevertEntryByCode(code string) (lxpRevertEntry, bool) {

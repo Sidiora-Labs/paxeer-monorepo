@@ -115,18 +115,7 @@ func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller
 		return nil, fmt.Errorf("%w: %v", agentcommon.ErrABIDecode, err)
 	}
 	if method.Name == "open" {
-		rate, cap := args[2].(*big.Int), args[5].(*big.Int)
-		if rate.BitLen() > 128 || cap.BitLen() > 128 {
-			return nil, agentcommon.ErrOverflow
-		}
-		id, err := p.pay.OpenAgentStream(ctx, caller, args[0].(common.Address), args[1].(common.Address), rate, args[3].(uint64), args[4].(uint64), cap)
-		if err != nil {
-			return nil, err
-		}
-		if err = p.emit(evm, "StreamOpened", []common.Hash{common.BigToHash(id), common.BytesToHash(caller.Bytes()), common.BytesToHash(args[0].(common.Address).Bytes())}, args[1], rate, cap); err != nil {
-			return nil, err
-		}
-		return method.Outputs.Pack(id)
+		return p.open(ctx, method, caller, args, evm)
 	}
 	id := args[0].(*big.Int)
 	if method.Name == "updateRate" && args[1].(*big.Int).BitLen() > 128 {
@@ -140,75 +129,110 @@ func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller
 			return nil, err
 		}
 	}
-	if method.Name == "getStream" {
-		if !found {
-			stream = paykeeper.AgentStream{ID: new(big.Int), RatePerSecond: new(big.Int), Cap: new(big.Int), Settled: new(big.Int)}
-		}
-		return method.Outputs.Pack(streamTuple{stream.ID, stream.Payer, stream.Payee, stream.Token, stream.RatePerSecond, stream.Cap, stream.StartTime, stream.StopTime, stream.Settled, stream.Active})
-	}
-	var kernelID [32]byte
-	id.FillBytes(kernelID[:])
-	if method.Name == "accrued" {
-		if !found {
-			return method.Outputs.Pack(new(big.Int))
-		}
-		accrued, _, err := p.pay.StreamAccrued(ctx, kernelID)
-		if err != nil {
-			return nil, err
-		}
-		return method.Outputs.Pack(accrued.BigInt())
-	}
+
 	switch method.Name {
+	case "getStream":
+		return p.getStream(method, stream, found)
+	case "accrued":
+		return p.accrued(ctx, method, id, found)
 	case "settle":
-		paid, err := p.pay.SettleAgentStream(ctx, caller, id)
-		if err != nil {
-			return nil, err
-		}
-		if err = p.emit(evm, "StreamSettled", []common.Hash{common.BigToHash(id), common.BytesToHash(stream.Payee.Bytes())}, paid, paid); err != nil {
-			return nil, err
-		}
-		return method.Outputs.Pack(paid)
+		return p.settle(ctx, method, caller, id, stream, evm)
 	case "close":
-		paid, refund, err := p.pay.CloseAgentStream(ctx, caller, id)
-		if err != nil {
-			return nil, err
-		}
-		if err = p.emit(evm, "StreamClosed", []common.Hash{common.BigToHash(id)}, paid, refund); err != nil {
-			return nil, err
-		}
-		return method.Outputs.Pack(paid)
+		return p.close(ctx, method, caller, id, evm)
 	case "updateRate":
-		rate := args[1].(*big.Int)
-		oldRate, err := p.pay.UpdateAgentStreamRate(ctx, caller, id, rate)
-		if err != nil {
-			return nil, err
-		}
-		after, _, err := p.pay.AgentStreamView(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		paid := new(big.Int).Sub(after.Settled, stream.Settled)
-		old, err := streamU128(oldRate)
-		if err != nil {
-			return nil, err
-		}
-		next, err := streamU128(rate)
-		if err != nil {
-			return nil, err
-		}
-		committed, err := streamU128(paid)
-		if err != nil {
-			return nil, err
-		}
-		if err = p.emit(evm, "StreamRateUpdated", []common.Hash{common.BigToHash(id)}, oldRate, rate); err != nil {
-			return nil, err
-		}
-		if err = payprecompile.EmitStreamRateUpdated(evm, kernelID, old, next, committed); err != nil {
-			return nil, err
-		}
-		return method.Outputs.Pack()
+		return p.updateRate(ctx, method, caller, id, args[1].(*big.Int), stream, evm)
 	}
 	return nil, agentcommon.ErrUnknownMethod
+}
+
+func (p *PrecompileExecutor) open(ctx sdk.Context, method *abi.Method, caller common.Address, args []interface{}, evm *vm.EVM) ([]byte, error) {
+	rate, cap := args[2].(*big.Int), args[5].(*big.Int)
+	if rate.BitLen() > 128 || cap.BitLen() > 128 {
+		return nil, agentcommon.ErrOverflow
+	}
+	id, err := p.pay.OpenAgentStream(ctx, caller, args[0].(common.Address), args[1].(common.Address), rate, args[3].(uint64), args[4].(uint64), cap)
+	if err != nil {
+		return nil, err
+	}
+	if err = p.emit(evm, "StreamOpened", []common.Hash{common.BigToHash(id), common.BytesToHash(caller.Bytes()), common.BytesToHash(args[0].(common.Address).Bytes())}, args[1], rate, cap); err != nil {
+		return nil, err
+	}
+	return method.Outputs.Pack(id)
+}
+
+func (p *PrecompileExecutor) getStream(method *abi.Method, stream paykeeper.AgentStream, found bool) ([]byte, error) {
+	if !found {
+		stream = paykeeper.AgentStream{ID: new(big.Int), RatePerSecond: new(big.Int), Cap: new(big.Int), Settled: new(big.Int)}
+	}
+	return method.Outputs.Pack(streamTuple{stream.ID, stream.Payer, stream.Payee, stream.Token, stream.RatePerSecond, stream.Cap, stream.StartTime, stream.StopTime, stream.Settled, stream.Active})
+}
+
+func (p *PrecompileExecutor) accrued(ctx sdk.Context, method *abi.Method, id *big.Int, found bool) ([]byte, error) {
+	var kernelID [32]byte
+	id.FillBytes(kernelID[:])
+	if !found {
+		return method.Outputs.Pack(new(big.Int))
+	}
+	accrued, _, err := p.pay.StreamAccrued(ctx, kernelID)
+	if err != nil {
+		return nil, err
+	}
+	return method.Outputs.Pack(accrued.BigInt())
+}
+
+func (p *PrecompileExecutor) settle(ctx sdk.Context, method *abi.Method, caller common.Address, id *big.Int, stream paykeeper.AgentStream, evm *vm.EVM) ([]byte, error) {
+	paid, err := p.pay.SettleAgentStream(ctx, caller, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.emit(evm, "StreamSettled", []common.Hash{common.BigToHash(id), common.BytesToHash(stream.Payee.Bytes())}, paid, paid); err != nil {
+		return nil, err
+	}
+	return method.Outputs.Pack(paid)
+}
+
+func (p *PrecompileExecutor) close(ctx sdk.Context, method *abi.Method, caller common.Address, id *big.Int, evm *vm.EVM) ([]byte, error) {
+	paid, refund, err := p.pay.CloseAgentStream(ctx, caller, id)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.emit(evm, "StreamClosed", []common.Hash{common.BigToHash(id)}, paid, refund); err != nil {
+		return nil, err
+	}
+	return method.Outputs.Pack(paid)
+}
+
+func (p *PrecompileExecutor) updateRate(ctx sdk.Context, method *abi.Method, caller common.Address, id, rate *big.Int, stream paykeeper.AgentStream, evm *vm.EVM) ([]byte, error) {
+	var kernelID [32]byte
+	id.FillBytes(kernelID[:])
+	oldRate, err := p.pay.UpdateAgentStreamRate(ctx, caller, id, rate)
+	if err != nil {
+		return nil, err
+	}
+	after, _, err := p.pay.AgentStreamView(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	paid := new(big.Int).Sub(after.Settled, stream.Settled)
+	old, err := streamU128(oldRate)
+	if err != nil {
+		return nil, err
+	}
+	next, err := streamU128(rate)
+	if err != nil {
+		return nil, err
+	}
+	committed, err := streamU128(paid)
+	if err != nil {
+		return nil, err
+	}
+	if err = p.emit(evm, "StreamRateUpdated", []common.Hash{common.BigToHash(id)}, oldRate, rate); err != nil {
+		return nil, err
+	}
+	if err = payprecompile.EmitStreamRateUpdated(evm, kernelID, old, next, committed); err != nil {
+		return nil, err
+	}
+	return method.Outputs.Pack()
 }
 
 func streamU128(n *big.Int) (codec.U128, error) {

@@ -465,13 +465,28 @@ fn real_kms_envelope_signs_only_the_exact_disclosed_bytes_and_audits_the_grant()
     assert_eq!(signed_call, preparation.transaction.call);
     let signed_activity = attach_external_signature(&preparation, *signature.as_bytes())
         .unwrap_or_else(|error| panic!("attach signature: {error:?}"));
-    assert!(verify_before_submit(
+    let verified = verify_before_submit(
         &signed_activity,
         &preparation,
         &preparation.actor_address,
-        &registry()
+        &registry(),
     )
-    .is_ok());
+    .unwrap_or_else(|error| panic!("verify custody transaction: {error:?}"));
+    assert_eq!(verified.exact_bytes(), action.raw_transaction);
+    assert_eq!(
+        verified.idempotency_key(),
+        preparation.authorization.audit.idempotency_key
+    );
+    assert_eq!(
+        verified.activity_id(),
+        layerx_crypto::evm_transaction::transaction_hash(&action.raw_transaction)
+    );
+    let mut wrong_signer = preparation.actor_address;
+    wrong_signer[0] ^= 1;
+    assert_eq!(
+        verify_before_submit(&signed_activity, &preparation, &wrong_signer, &registry()),
+        Err(layerx_agentd::sign::SigningError::SignerMismatch)
+    );
     drop(signer);
 
     let audits = fixture.audits(&fixture.alice);
