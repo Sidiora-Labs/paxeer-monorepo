@@ -134029,7 +134029,7 @@ do_5 = "Finding 6.60.2.1: delete the two orphaned rules $(BUILD_DIR)/tests/bridg
 
 [task.6.60.3]
 title = "Retire the credit_qualification kernel harness files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["6.51.1", "5.54.9", "8.19.2", "8.19.11", "10.26.16", "16.0.4", "16.5.2", "16.11.11"]
@@ -142334,7 +142334,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.23.2]
 title = "Verify buyer payments and captured settlements as portable receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.23.1", "8.22.1", "8.22.2", "10.92.1", "8.22.7", "8.22.8"]
