@@ -110799,7 +110799,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.8.1]
 title = "Teach the wallet root and virtual networks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -198362,7 +198362,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.10.1]
 title = "Document virtual chains for operators, builders and the programme"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
