@@ -224,6 +224,8 @@ type marketPage struct {
 // fillRows perpetual fills of /api/<symbol>/perp_trades, the funding history of
 // fundingRates and the hourly marketSnapshots of the last snapshotWindow.
 // Chart candles stay on the Chainflow feed, so no candle route is read.
+// The record's market_id must decode as a GraphQL Int before any history is
+// requested; an unsupported identifier fails the page without rendering it.
 func (p *Pages) Market(ctx context.Context, w io.Writer, symbol string) error {
 	upper := strings.ToUpper(symbol)
 	var record struct {

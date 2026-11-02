@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { fetchWithPolicy as fetch } from "@/core/net/fetch";
 import type { ContractFunctionReturnType } from "viem";
 import { PerpsPrecompileABI } from "@/core/network/abi/PerpsPrecompile";
@@ -28,6 +29,32 @@ export interface OpenPositionQuote {
   liquidationPrice: bigint;
   estimatedFunding24h: bigint;
   maintenanceMarginBps: bigint;
+}
+
+const openPositionQuoteSchema = z.object({
+  entryPrice: z.bigint().positive(),
+  sizeUsd: z.bigint().positive(),
+  collateralUsd: z.bigint().positive(),
+  leverage: z.bigint().min(10n ** 18n),
+  tradingFee: z.bigint().nonnegative(),
+  tradingFeeUsd: z.bigint().nonnegative(),
+  priceImpact: z.bigint().nonnegative(),
+  liquidationPrice: z.bigint().nonnegative(),
+  estimatedFunding24h: z.bigint(),
+  maintenanceMarginBps: z.bigint().min(0n).max(10_000n),
+});
+
+export function decodeOpenPositionQuote(result: unknown): OpenPositionQuote {
+  return openPositionQuoteSchema.parse(result);
+}
+
+/** The exact descriptors quoteMarket dispatches, built anew for every request. */
+export function quoterMarketReads(marketId: bigint) {
+  return {
+    config: buildGetMarketConfig(marketId),
+    tiers: buildGetMarginTiers(marketId),
+    mark: buildGetMarkPriceDetails(marketId),
+  };
 }
 
 export interface ClosePositionQuote {
@@ -95,8 +122,9 @@ export function useQuoter() {
    * for backward compatibility with consumers that expect bigints.
    */
   async function quoteMarket(marketId: bigint): Promise<QuoterMarketQuote> {
+    const reads = quoterMarketReads(marketId);
     const config = decodeMarketConfig(
-      (await readContract(buildGetMarketConfig(marketId))) as ContractFunctionReturnType<
+      (await readContract(reads.config)) as ContractFunctionReturnType<
         typeof PerpsPrecompileABI,
         "view",
         "getMarketConfig"
@@ -106,8 +134,8 @@ export function useQuoter() {
     try {
       const [res, tiers, markDetails] = await Promise.all([
         fetch(`${REST_API_URL}/ticker/${encodeURIComponent(symbol)}`),
-        readContract(buildGetMarginTiers(marketId)),
-        readContract(buildGetMarkPriceDetails(marketId)),
+        readContract(reads.tiers),
+        readContract(reads.mark),
       ]);
       if (!res.ok) throw new Error(`Ticker fetch failed: ${res.status}`);
       const json = await res.json();
@@ -169,7 +197,7 @@ export function useQuoter() {
       functionName: "quoteOpenPosition",
       args: [params.marketId, params.collateralToken, params.collateralAmount, params.leverage, params.isLong],
     });
-    return result as unknown as OpenPositionQuote;
+    return decodeOpenPositionQuote(result);
   }
 
   async function quoteClosePosition(positionId: bigint): Promise<ClosePositionQuote> {
