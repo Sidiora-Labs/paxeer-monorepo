@@ -1,0 +1,108 @@
+[sweep.go-launchpad-modules]
+revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+command = "cd TARGET && go vet ./... && go test -count=1 ./..."
+targets_total = 15
+targets_passed = 0
+targets_failed = 10
+targets_not_run = 5
+target_time_limit_seconds = 180
+
+[target.go-launchpad-modules.1]
+target = "services/launchpad/api"
+result = "not_run"
+exit_code = 124
+reason = "The command exceeded its 180-second share of the 30-minute task budget and was terminated before completion."
+
+[target.go-launchpad-modules.2]
+target = "services/launchpad/discovery"
+result = "failed"
+exit_code = 1
+observed = "alerts_disable_test.go:14 (TestPostgresDisableRuleIsOwnerScoped) failed because DISCOVERY_TEST_DATABASE_URL must select an isolated PostgreSQL fixture."
+assumption = "The environment lacks the isolated PostgreSQL fixture configuration required by this test."
+
+[target.go-launchpad-modules.3]
+target = "services/launchpad/gateway"
+result = "not_run"
+exit_code = 124
+reason = "The command exceeded its 180-second share of the 30-minute task budget and was terminated before completion."
+
+[target.go-launchpad-modules.4]
+target = "services/launchpad/indexer"
+result = "not_run"
+exit_code = 124
+reason = "The command exceeded its 180-second share of the 30-minute task budget and was terminated before completion."
+
+[target.go-launchpad-modules.5]
+target = "services/launchpad/livestream"
+result = "not_run"
+exit_code = 124
+reason = "The command exceeded its 180-second share of the 30-minute task budget and was terminated before completion."
+
+[target.go-launchpad-modules.6]
+target = "services/launchpad/metadata"
+result = "not_run"
+exit_code = 124
+reason = "The command exceeded its 180-second share of the 30-minute task budget and was terminated before completion."
+
+[target.go-launchpad-modules.7]
+target = "services/launchpad/notifications"
+result = "failed"
+exit_code = 1
+observed = "phase2_test.go:39 (TestPostgresHundredTriggerReplaysAndFencedRecovery) failed because NOTIFICATIONS_TEST_DATABASE_URL must select an isolated PostgreSQL fixture."
+assumption = "The environment lacks the isolated PostgreSQL fixture configuration required by this test."
+
+[target.go-launchpad-modules.8]
+target = "services/launchpad/pnl-tracker"
+result = "failed"
+exit_code = 1
+observed = "internal/app/proof_launchpad_pnl_tracker_test.go:59 (TestProofLaunchpadPnlTracker) failed because the production fixture requires a local Anvil executable and anvil was not found in PATH."
+assumption = "The environment lacks the Anvil tool required to exercise the real chain fixture."
+
+[target.go-launchpad-modules.9]
+target = "services/launchpad/ranking-algo"
+result = "failed"
+exit_code = 1
+observed = "internal/app/app_test.go:233 (TestNewServesAndRanks) failed because RANKING_TEST_POSTGRES_DSN is not set and must point to PostgreSQL with CREATE DATABASE and CREATE ROLE privileges."
+assumption = "The environment lacks the PostgreSQL fixture configuration and privileged test role required by this test."
+
+[target.go-launchpad-modules.10]
+target = "services/launchpad/security/control"
+result = "failed"
+exit_code = 1
+observed = "control_test.go:125 (TestOperatorDualApprovalTenRetriesOneJob) failed because the real PostgreSQL fixture connection was refused."
+assumption = "The required PostgreSQL fixture service is unavailable in this environment."
+
+[target.go-launchpad-modules.11]
+target = "services/launchpad/security"
+result = "failed"
+exit_code = 1
+observed = "policy/audit_test.go:11 (TestV2PrivilegedMutationRollsBackOnRealAuditFailure) failed because the PostgreSQL fixture connection was refused."
+assumption = "The required PostgreSQL fixture service is unavailable in this environment."
+
+[target.go-launchpad-modules.12]
+target = "services/launchpad/social"
+result = "failed"
+exit_code = 1
+observed = "internal/app/dev_v2_test.go:185 (TestDevelopmentV2SocialSurface) failed because the PostgreSQL fixture connection was refused."
+assumption = "The required PostgreSQL fixture service is unavailable in this environment."
+
+[target.go-launchpad-modules.13]
+target = "services/launchpad/stats-workers"
+result = "failed"
+exit_code = 1
+observed = "internal/analytics/reactions_test.go:17 (TestReactionPostgresAuthority) failed because an explicit private PostgreSQL fixture is required."
+assumption = "The environment lacks the private PostgreSQL fixture configuration required by this test."
+
+[target.go-launchpad-modules.14]
+target = "services/launchpad/trading-charts"
+result = "failed"
+exit_code = 1
+observed = "internal/app/app_dev_test.go:40 (TestDevelopmentRegistersVersionedUDF) failed because CHARTS_TEST_POSTGRES_URL must name a PostgreSQL server whose role may CREATE DATABASE."
+assumption = "The environment lacks the PostgreSQL fixture configuration and database-creation privilege required by this test."
+
+[target.go-launchpad-modules.15]
+target = "services/launchpad/user"
+result = "failed"
+exit_code = 1
+observed = "internal/account/account_test.go:134 (TestPostgresProfilePreferencesWatchConsent) failed because USER_TEST_DATABASE_URL is required to exercise real PostgreSQL."
+assumption = "The environment lacks the real PostgreSQL fixture configuration required by this test."
