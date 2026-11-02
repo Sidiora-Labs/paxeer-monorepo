@@ -8,13 +8,16 @@ import (
 )
 
 const (
-	eip712HashGas    uint64 = 1000
-	eip712RecoverGas uint64 = 4000
-	orobBaseGas      uint64 = 1000
-	orobPerByteGas   uint64 = 3
-	streamsOpenGas   uint64 = 50000
-	streamsSettleGas uint64 = 60000
-	streamsCloseGas  uint64 = 80000
+	eip712HashGas     uint64 = 1000
+	eip712RecoverGas  uint64 = 4000
+	orobBaseGas       uint64 = 1000
+	orobPerByteGas    uint64 = 3
+	schedulerReadGas  uint64 = 1000
+	schedulerWriteGas uint64 = 20000
+	schedulerOpenGas  uint64 = 25000
+	streamsOpenGas    uint64 = 50000
+	streamsSettleGas  uint64 = 60000
+	streamsCloseGas   uint64 = 80000
 )
 
 func MethodGas(selector []byte, inputLen int) uint64 {
@@ -41,17 +44,19 @@ func methodGas(selector []byte) (base, perByte uint64, known bool) {
 		return orobBaseGas, orobPerByteGas, true
 	case 0x81097a95,
 		0xe087a6ba, 0x1b1fba48, 0xa8f32b0e,
-		0x99812615, 0xbf22c457, 0x5eebea20, 0xf52981f4,
+		0x99812615, 0xf52981f4,
 		0x894e9a0d, 0x01ec24b8, 0x26f02502:
 		return 1000, 3, true
+	case 0xbf22c457, 0x5eebea20:
+		return schedulerReadGas, 3, true
 	case 0x8397e9f8:
 		return 6000, 3, true
 	case 0xdc9c2875:
 		return 30000, 30, true
 	case 0x849ba0a3:
-		return 25000, 30, true
+		return schedulerOpenGas, 30, true
 	case 0x40e58ee5, 0x08e6f770:
-		return 20000, 30, true
+		return schedulerWriteGas, 30, true
 	case 0x93e5b08b:
 		return streamsOpenGas, 30, true
 	case 0x8df82800, 0x405abb41:
