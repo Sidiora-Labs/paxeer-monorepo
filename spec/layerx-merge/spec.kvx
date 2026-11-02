@@ -118851,7 +118851,7 @@ do_6 = "Finding 9.24.9.1: in services/agent/crates/layerx-crypto/src/disclosure/
 
 [task.8.51.3]
 title = "Retire the emulator's kernel activity and program routes with their decoders and tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -121415,7 +121415,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.6.96.7]
 title = "Port the custody keeper tests off the retired checkpoint certificate decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
