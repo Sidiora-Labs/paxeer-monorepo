@@ -1,0 +1,47 @@
+[disposition.16.33.2.2]
+finding = "16.33.2.2"
+status = "resolved"
+evidence = "Commit e44bd4fc2 repairs the withdrawal regression with sequence-1 state initialization, bound effects and the canonical ledger apply path at tests/test_bridge_withdraw.c:323, adds failure diagnostics, and exercises the same regression through tests/proof/lxp_proof_lxp_bridge_h.c:49."
+follow_up = "closure"
+
+[disposition.16.33.5.1]
+finding = "16.33.5.1"
+status = "resolved"
+evidence = "Commit ea172f079 changes both receipt and program-outcome expectations for the ungranted spend to LXP_ERR_PROGRAM_REFUSED at tests/programs/test_call_activity.c:2907 and tests/programs/test_call_activity.c:2910, matching the kernel planning refusal."
+follow_up = "closure"
+
+[disposition.16.28.1.1]
+finding = "16.28.1.1"
+status = "resolved"
+evidence = "Commit c0d364a84 teaches the reachability guards to exclude kernel suites, search test scripts and whole-word stems, and recognize nested Cargo packages at tools/repotest/reachability_test.go:48, while ecf2e9fde deletes the three rule-less retired programs and wires the retained trading generator at Makefile:1143."
+follow_up = "closure"
+
+[disposition.16.9.4.4]
+finding = "16.9.4.4"
+status = "open"
+evidence = "tests/daemon/test_handover_chain_no_read_consumer.py:1 and three other Python guards still occupy tests/daemon, which tools/paxeer-x/retired_callers.json:106 declares deleted and tools/paxeer-x/tests/retired_callers_test.py:281 rejects when checking deleted trees, so the 16.90.1 acceptance remains blocked despite the daemon binaries and bridge credit suites having been deleted."
+follow_up = "16.90.1"
+
+[disposition.16.12.1.2]
+finding = "16.12.1.2"
+status = "environment"
+evidence = "foundry.toml:5 still pins solc_version to 0.8.27 and commit eb2500372 changes only retired profile permissions and its test, so the missing cached compiler reported by the offline qualification build was an environment prerequisite rather than a repository defect."
+follow_up = "closure"
+
+[disposition.16.12.1.3]
+finding = "16.12.1.3"
+status = "superseded"
+evidence = "Commits cf48b8df9, ce50d0b57 and 2e40e0068 retire contracts/manager/ManagerContainer.sol, contracts/manager/ManagerMigrator.sol and contracts/storage/WithdrawalNullifierRegistry.sol respectively, removing the named LayerXComponent importers with their retired settlement surfaces."
+follow_up = "closure"
+
+[disposition.16.28.3.1]
+finding = "16.28.3.1"
+status = "resolved"
+evidence = "Commit 08c661292 adds unittest-discovery directory recognition at tools/repotest/pytest_reachability_test.go:58, excludes tests/daemon at tools/repotest/pytest_reachability_test.go:34, and includes the tests/ci directory in the pytest target now at Makefile:254."
+follow_up = "closure"
+
+[disposition.16.12.1.4]
+finding = "16.12.1.4"
+status = "resolved"
+evidence = "Commit eb2500372 lands tools/ci/tests/test_foundry_profile.py:10 using forge config --json followed only by permission and test-directory assertions through line 27, with no forge build invocation against the root Solidity sources."
+follow_up = "closure"

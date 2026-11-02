@@ -905,14 +905,33 @@ type sequencedApp struct {
 	leaderActivation int64
 	leaders          [][32]byte
 
-	mu     sync.Mutex
-	sealed map[int64]types.SealedBlock
+	mu       sync.Mutex
+	sealed   map[int64]types.SealedBlock
+	admitted map[int64]types.Txs
 }
+
+var _ types.SequencerSource = (*sequencedApp)(nil)
 
 func (a *sequencedApp) Sequenced(height int64) bool { return height >= a.activation }
 
 func (a *sequencedApp) LeaderSchedule(_ int64) (int64, [][32]byte, error) {
 	return a.leaderActivation, a.leaders, nil
+}
+
+func (a *sequencedApp) Admit(ctx context.Context, height int64, txs types.Txs) (int, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if !a.Sequenced(height) {
+		return 0, fmt.Errorf("height %d is below activation", height)
+	}
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.admitted == nil {
+		a.admitted = make(map[int64]types.Txs)
+	}
+	a.admitted[height] = append(a.admitted[height], txs...)
+	return len(txs), nil
 }
 
 func (a *sequencedApp) Seal(_ context.Context, height int64) (types.SealedBlock, error) {
@@ -923,6 +942,7 @@ func (a *sequencedApp) Seal(_ context.Context, height int64) (types.SealedBlock,
 		Txs:      types.Txs{types.Tx(fmt.Sprintf("seq-a-%d=1", height)), types.Tx(fmt.Sprintf("seq-b-%d=2", height))},
 		OpenTime: tmtime.Now(),
 	}
+	sb.Txs = append(sb.Txs, a.admitted[height]...)
 	a.sealed[height] = sb
 	return sb, nil
 }

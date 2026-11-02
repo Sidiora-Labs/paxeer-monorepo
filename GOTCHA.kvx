@@ -13545,3 +13545,28 @@ fix = "Probe bank-unit thresholds with values that are whole bank units; assert 
 title = "The spec validator finds requirement ids that tasks reference but no block declares"
 symptom = "tools/specgen TestRepositorySpecIsValidAndCurrent reported nine errors: tasks 17.5.12, 9.25.3 to 9.25.8, 9.25.17 to 9.25.19, 8.98.16, 13.30.6 and 9.24.5 reference reqs 9283, 9258, 9257, 9256, 89816, 13306 and 9275 that were never written."
 fix = "Run the spec lint and the reference check before every spec commit; a task's reqs list names only declared requirement blocks (restored in batch 320)."
+
+[gotcha.2746]
+title = "cargo check -p names a path dependency that is not a workspace member"
+symptom = "cargo check --manifest-path <ws>/Cargo.toml -p <crate> for a crate another workspace owns (services/human naming layerx-agentd) exits 101 with a panic in the feature resolver: did not find features for (PackageId ...) within activated_features."
+fix = "Name the consuming member crates instead; the non-member library is compiled as they use it. Only members and registry packages are valid -p targets."
+
+[gotcha.2747]
+title = "apps/web type-checks the wallet sdk sources under exactOptionalPropertyTypes"
+symptom = "apps/web/tsconfig.json includes ../../sdk/wallet/src/index.ts and provider.ts, so a construct the wallet sdk's own tsc accepts ({ chainId: tx.chainId } with an undefined-able value) fails npm --prefix apps/web run typecheck with TS2379 for every web task."
+fix = "Pass optional properties only when defined or type them as T | undefined; run the web typecheck after any wallet sdk change."
+
+[gotcha.2748]
+title = "material.assemble_policy refuses before it reads inputs when the output is not policy.json"
+symptom = "A test expecting FileNotFoundError for a missing deployment got ValueError 'Human owner bundle refused: canonical policy filename' because material.py:271 checks the output filename first."
+fix = "Name the output policy.json in tests of the missing-input paths; the filename check is the first refusal."
+
+[gotcha.2749]
+title = "tools/platform CLI integration tests spawn dbus-daemon"
+symptom = "cargo test --workspace under tools/platform panics in every CLI integration test at tests/common/credential_environment.rs:54 when dbus-daemon is not installed."
+fix = "Install dbus-daemon or compile the tests with --no-run; task 22.16.9 adds a named skip."
+
+[gotcha.2750]
+title = "pending nonce after a receipt resolved answered the committed nonce"
+symptom = "A second eth_sendRawTransaction signed with eth_getTransactionCount pending right after pax_sequencerReceipt resolved the first transfer was refused with -32000 'incorrect account sequence'."
+fix = "Do not submit twice from a pending nonce until task 18.1502.1 lands; the fallback of rpc/watermark_manager.go:103 serves the committed nonce while it should serve the open block's."
