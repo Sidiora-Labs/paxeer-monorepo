@@ -42,7 +42,7 @@ evidence = "Commit 7b851dcdd removes the export_refusal arm naming HumanRefusal:
 finding = "9.13.3.2"
 status = "open"
 evidence = "tools/qualification/paxeer-x/agent_operation_envelope.py:2064 still expects export.settlement_anchoring_unavailable for a SettlementAnchored export request although commit 7b851dcdd retired that refusal."
-follow_up = "closure"
+follow_up = "22.9.9"
 
 [disposition.9.15.1.1]
 finding = "9.15.1.1"
