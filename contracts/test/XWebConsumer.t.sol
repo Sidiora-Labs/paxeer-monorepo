@@ -282,3 +282,40 @@ contract XWebApiTest is Test {
         assertEq(address(bytes20(ENVELOPE_ATTESTOR_1_API_KEY)), ATTESTOR_1);
     }
 }
+
+/// Executed by TestProofXweb0x1019 against the application's real precompile.
+/// This contract has no result cache: each view crosses 0x1019 again.
+contract XWebProgramProofConsumer is XWebConsumer {
+    error MalformedProgramResult();
+
+    function getKernelNetworkId() external view returns (uint32) {
+        uint32 network = IXWeb(XWEB_PRECOMPILE_ADDRESS).getKernelNetworkId();
+        if (network == 0) revert MalformedProgramResult();
+        return network;
+    }
+
+    function fulfilProgram(bytes calldata observation) external {
+        // Native precompiles have no bytecode. A typed void call inserts an
+        // EXTCODESIZE check and reverts before the observation reaches 0x1019.
+        (bool success, bytes memory result) =
+            XWEB_PRECOMPILE_ADDRESS.call(abi.encodeCall(IXWeb.fulfilProgram, (observation)));
+        if (!success) {
+            assembly ("memory-safe") {
+                revert(add(result, 32), mload(result))
+            }
+        }
+        if (result.length != 0) revert MalformedProgramResult();
+    }
+
+    function getProgramResult(bytes32 programId, uint64 requestId)
+        external
+        view
+        returns (bytes32 contentDigest, uint32 fullLength, uint32 responseLength, bytes memory response)
+    {
+        (contentDigest, fullLength, responseLength, response) =
+            IXWeb(XWEB_PRECOMPILE_ADDRESS).getProgramResult(programId, requestId);
+        if (responseLength != response.length || responseLength > fullLength || responseLength > 4096) {
+            revert MalformedProgramResult();
+        }
+    }
+}
