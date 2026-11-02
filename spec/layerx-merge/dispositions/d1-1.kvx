@@ -1,0 +1,124 @@
+[disposition.1.0.2]
+finding = "1.0.2"
+status = "resolved"
+evidence = "On main, spec/layerx-merge/spec.kvx:99964 requires the two registry functions and two test functions rather than the anonymous enumerator, while tests/codec/lxp_test_surface_frozen.c:183 still asserts LXP_MODULE_RESERVED_COUNT == 11 in landed commit 5737b314c."
+
+[disposition.1.1.1]
+finding = "1.1.1"
+status = "resolved"
+evidence = "On main, spec/layerx-merge/spec.kvx:100092 lists lxp_result_name and the two declared test functions instead of the X-macro enumerators, whose values and names remain asserted at tests/codec/lxp_test_result_codes.c:8 in landed commit a08d79bc7."
+
+[disposition.1.1.2]
+finding = "1.1.2"
+status = "resolved"
+evidence = "On main, spec/layerx-merge/spec.kvx:100124 lists the registration and domain functions and their tests without LXP_RESULT_DOMAIN_UNKNOWN, while tests/codec/lxp_test_result_domain.c:38 retains the unknown-domain assertion from landed commit d17a65a9b."
+
+[disposition.1.2.1]
+finding = "1.2.1"
+status = "resolved"
+evidence = "On main, spec/layerx-merge/spec.kvx:100254 omits the unindexed LXP_ERR_SEQUENCE_REUSED enumerator from the graph requirements, while tests/codec/lxp_test_idempotency_retired.c:270 still asserts that refusal in landed commit 787dd93be."
+
+[disposition.1.3.2]
+finding = "1.3.2"
+status = "resolved"
+evidence = "On main, spec/layerx-merge/spec.kvx:100493 lists the writer functions and declared tests without the X-macro enumerator LXP_ERR_CONTEXT_MISMATCH, whose open-journal refusal remains asserted at tests/codec/lxp_test_kernel_writer.c:105 in landed commit 0775cb31a."
+
+[disposition.1.4.1]
+finding = "1.4.1"
+status = "resolved"
+evidence = "On main, spec/layerx-merge/spec.kvx:100525 requires the state-root functions and tests without the unindexed LXP_ERR_SEQUENCE_REUSED enumerator, while tests/codec/lxp_test_asset_state_root.c:57 preserves the duplicate-key refusal from landed commit 3d42f8601."
+
+[disposition.1.4.3]
+finding = "1.4.3"
+status = "resolved"
+evidence = "Landed commit a589a86a9 builds LX_PROGRAMS_CALL activities at tests/fuzz/lxp_prop_prepare_workers.c:391 and compares preparation with one and four workers at :431, replacing the refused LX_ASSET_SEND fixture on main."
+
+[disposition.1.4.3.1]
+finding = "1.4.3.1"
+status = "resolved"
+evidence = "On main, tests/fuzz/lxp_prop_prepare_workers.c:391 constructs LX_PROGRAMS_CALL batches in landed commit a589a86a9, matching the CALL-only admission at src/protocol/lxp_kernel.c:5403."
+
+[disposition.1.4.3.2]
+finding = "1.4.3.2"
+status = "resolved"
+evidence = "Landed commit a589a86a9 allocates (PREPARE_WORKERS_BATCH_SIZE + 4U) times LXP_MAX_ACTIVITY_BYTES at tests/fuzz/lxp_prop_prepare_workers.c:455 for all sixteen encodes and builds CALL activities at :391, removing both fixture defects on main."
+
+[disposition.1.4.3.4]
+finding = "1.4.3.4"
+status = "resolved"
+evidence = "Landed commit 3fab52136 removed the exclusions for the required idempotency, batch, web, DA and guarantor archive members, and main retains that source closure at Makefile:44 and the equality test from a589a86a9 at tests/fuzz/lxp_prop_prepare_workers.c:453."
+
+[disposition.1.4.3.5]
+finding = "1.4.3.5"
+status = "resolved"
+evidence = "Landed commit a589a86a9 sets the independent CALL activities to LXP_PROTOCOL_VERSION_LEGACY at tests/fuzz/lxp_prop_prepare_workers.c:393 while retaining the maximum_level == 0U assertion at :278, avoiding the occupancy treasury dependency still present at src/modules/programs/call.c:2614 on main."
+
+[disposition.1.4.4]
+finding = "1.4.4"
+status = "resolved"
+evidence = "Landed commit db65f7c9c asserts LXP_ERR_SEQUENCE_GAP for execution refusals at tests/codec/lxp_test_global_sequence.c:264 and retains state-root comparisons at :245, matching the journal guard at src/state/lxp_journal.c:992 on main."
+
+[disposition.1.4.4.1]
+finding = "1.4.4.1"
+status = "resolved"
+evidence = "On main, req.1020 at spec/layerx-merge/spec.kvx:13794 requires LXP_ERR_SEQUENCE_GAP for both sequence mismatch cases, matching the execution assertion at tests/codec/lxp_test_global_sequence.c:264 from landed commit db65f7c9c."
+
+[disposition.1.4.4.2]
+finding = "1.4.4.2"
+status = "resolved"
+evidence = "Landed commit db65f7c9c supplies false for binding_authority in the runtime literal at tests/codec/lxp_test_global_sequence.c:168 and expects LXP_ERR_SEQUENCE_GAP at :264, removing both reported defects on main."
+
+[disposition.1.4.6]
+finding = "1.4.6"
+status = "superseded"
+evidence = "After 3fab52136 initialized binding_authority to false in both command runtimes, landed retirement commits 05b1f8e8e and 42f6725de deleted cmd/layerxd/lxp_daemon_process.c and cmd/layerx-guarantor/runtime.c respectively, so neither reported literal remains on main."
+
+[disposition.1.4.6.1]
+finding = "1.4.6.1"
+status = "resolved"
+evidence = "Landed commit 3fab52136 extends LIBRARY_LINE at tools/ci/tests/test_makefile_wave1.py:9 to cover build-repro-a, build-repro-b and the sanitizer library directories, while main retains the retired-substring assertions at :59 and :72."
+
+[disposition.1.5.1]
+finding = "1.5.1"
+status = "environment"
+evidence = "The reported missing-symbol rejection came from the qualification graph indexing only touched directories, whereas main declares lxp_fee_params_encode at src/protocol/lxp_fee.c:71 and lxp_fee_params_decode at :106 and contains the fee property tests landed in 9d22a8872."
+
+[disposition.1.7.2]
+finding = "1.7.2"
+status = "resolved"
+evidence = "On main, task 1.7.2 at spec/layerx-merge/spec.kvx:101038 requires NON_CANONICAL for every codec extension and landed commit f1bfceca0 asserts that result at tests/fuzz/lxp_prop_stream_codec.c:350, matching the payload length guard at src/modules/stream/lx_stream_payload.c:33."
+
+[disposition.1.7.2.1]
+finding = "1.7.2.1"
+status = "resolved"
+evidence = "Landed commit f1bfceca0 expects LXP_ERR_NON_CANONICAL for STREAM_RECORD as well as payload extensions at tests/fuzz/lxp_prop_stream_codec.c:350, matching the early length refusal at src/modules/stream/lx_stream_record.c:115 and the corrected task text on main."
+
+[disposition.1.7.2.2]
+finding = "1.7.2.2"
+status = "resolved"
+evidence = "Main contains the corrected expected = status == LXP_ERR_NON_CANONICAL assertion at tests/fuzz/lxp_prop_stream_codec.c:350 from landed commit f1bfceca0 rather than the rejected TRAILING_BYTES or LENGTH_LIMIT record branch."
+
+[disposition.1.11.1]
+finding = "1.11.1"
+status = "resolved"
+evidence = "On main, spec/layerx-merge/spec.kvx:101415 requires the runtime and environment types, validation function and declared tests rather than the binding_authority struct field, which remains present at include/layerx/lx_asset.h:129 from landed commit 66e8f097c."
+
+[disposition.1.11.4]
+finding = "1.11.4"
+status = "resolved"
+evidence = "Landed commit 3fab52136 adds rm -f before both archive creations, retained at Makefile:185 and :194 on main, preventing stale lxp_batch_seal members from surviving relinks before the literal fixes landed in e1eb3f189."
+
+[disposition.1.12.1.1]
+finding = "1.12.1.1"
+status = "superseded"
+evidence = "Landed commit 52fda45db deletes lx_asset_receive_execute and its lxp_verify_payer_grant call from src/modules/asset/lx_asset_transfer.c with the retired RECEIVE and payer-grant surface, leaving only the send execution wrapper at src/modules/asset/lx_asset_transfer.c:54 on main."
+
+[disposition.1.12.2.1]
+finding = "1.12.2.1"
+status = "superseded"
+evidence = "Landed commit 52fda45db removes the lx_budget_grant_draws_read declaration from include/layerx/lx_budget.h and its implementation from src/modules/budget/lx_budget_module.c together with lxp_grant_state, retiring the unused receive-grant reader on main."
+
+[disposition.1.14.2]
+finding = "1.14.2"
+status = "resolved"
+evidence = "Landed commit 65d4c02a5 removes the layerx-client dependency from programs/crates/layerx-programs-arbiter/Cargo.toml:13 on main, eliminating the reported tungstenite dependency path, while the sandbox lifecycle implementation and tests landed in fd9474b30 remain."

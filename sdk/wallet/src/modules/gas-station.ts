@@ -519,7 +519,7 @@ export function gasStation(provider: ModuleProvider, options: GasStationOptions)
       }
       return Object.freeze({ ...out, receipt: null } as unknown as SponsoredSubmissionEvidence);
     }
-    if (typeof out.station !== 'object' || Array.isArray(out.station))
+    if (typeof out.station !== 'object' || out.station === null || Array.isArray(out.station))
       throw new ModuleError('invalid_answer', 'station');
     const station = out.station as Record<string, unknown>;
     const completion = station.completion as Record<string, unknown> | null;
@@ -572,6 +572,9 @@ export function gasStation(provider: ModuleProvider, options: GasStationOptions)
     relayerSignature: string,
     signal?: AbortSignal
   ): Promise<SponsoredSubmissionEvidence> => {
+    construction(batch);
+    if (hexAddress(batch.quote.sponsor, 'sponsor') !== config.sponsor)
+      throw new GasStationError({ code: 'sponsor_mismatch', field: 'sponsor' });
     const report = evidence(
       await post(
         '/v1/wallet/sponsored/status',
