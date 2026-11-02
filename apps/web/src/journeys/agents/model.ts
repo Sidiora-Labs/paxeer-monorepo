@@ -162,7 +162,7 @@ export function stageReceiptVerified(stage: JourneyStage): boolean {
   if (stage.state !== "done" && stage.state !== "done-finalised") {
     return false;
   }
-  return stage.evidence.some(receiptBacked);
+  return evidenceReceiptVerified(stage.evidence);
 }
 
 export interface StageView {
