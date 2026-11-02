@@ -13111,3 +13111,18 @@ fix = "While any crate is broken at the base, grep its dependents for the retire
 title = "A retirement task must name every consumer file of the retired item, not only the ones a wiring request lists"
 symptom = "A task retired an owner-activity module naming one KMS test as its consumer; a grep of the workspace shows four service sources, two service tests and one more KMS test calling it."
 fix = "Write the retirement's do lines from a grep of every workspace for the item's path and names, and make the verify repeat that grep."
+
+[gotcha.2659]
+title = "A task block with an empty owner role stalls the collection of every finished task behind it"
+symptom = "A node task was written with owner_role empty because its parent block had no owner key; when its first attempt finished, the collector could not name the branch to merge onto, raised, and nine other finished results waited behind it for a quarter of an hour."
+fix = "Give every task the owner role of its family (the node rpc tasks are fm-node-runtime) and let the collector skip and report a result it cannot merge instead of stopping."
+
+[gotcha.2660]
+title = "A configuration-only task must not declare the whole tree's compiler run as its build"
+symptom = "A task editing the root Foundry profile and one Python test declared forge build at the root as its build; the root Solidity tree had 42 missing imports from retirements already on main, and three attempts failed before any test ran."
+fix = "Declare a build that exercises exactly the files the task touches (a configuration parse, a byte-compile) and leave the tree build to the tasks that own the sources."
+
+[gotcha.2661]
+title = "The recorded receipt vectors carry the sequencer's signing digest under the name receiptDigest, not the portable receipt digest"
+symptom = "An integration test compared the buyer middleware's portable receipt digest, keccak256 of the signed receipt, with the receiptDigest field of the recorded vector, the signing digest over the unsigned receipt, and failed on two valid but different values."
+fix = "Derive the expected portable digest from the vector's signedReceipt bytes with keccak256, as the buyer middleware tests do, and treat the vector's receiptDigest as the signing digest only."

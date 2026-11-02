@@ -16883,3 +16883,19 @@ symbol = "attach_signature"
 observed = "Attempts 10.1.6 a2 (7b9bd8297) and 10.1.10 a2 (2c77e27d3), continued from their first attempts after task 9.27.9 landed, kept their changes and failed on cargo build -p layerx-human-service with five errors that are on main itself: task 10.21.4 (7fe9b50ec, on main since 2026-11-01 22:58Z) deleted layerx_intents::owner_activity, which the service still calls at src/server/agent_creation.rs:436 (attach_signature), src/server/production_onboarding.rs:242 and src/server/production_components.rs:2173 (verify), src/bin/layerx-human-kms-gateway.rs:208 (unsigned_native, OwnerEnvelopeContext), tests/agent_runtime_eip1559.rs:209, tests/agent_creation_rungs.rs:370 and layerx-human-kms tests/retired_crypto_codec_w3.rs:134-156; task 9.27.3 removed layerx_proof::export::CheckpointFact and the verified_checkpoints field, which src/activity/export.rs still imports at :6 and uses at :67, :430, :502, :598, :619 and :1099. The retiring attempt's dependent-crate check left layerx-human-service, layerx-human-kms, layerx-human-test-support, layerx-human-identity-provider and layerx-human-security-provider out because they depend on layerx-agentd, whose library was broken at that base (its log names all five as left out)."
 assumption = "Producer gap: two retirements landed without their human-service consumers; task 10.21.8 ports the service and every task building the human workspace requires it."
 severity = "major"
+
+[finding.16.12.1.3]
+task = "16.12.1"
+file = "contracts/manager/ManagerContainer.sol:12"
+symbol = "LayerXComponent"
+observed = "Attempt 3 (1912f7cd1) kept the two files and failed on the declared build forge build --offline at the repository root with 42 missing-source errors that are on main itself: task 6.80.3 retired contracts/security/LayerXComponent.sol while contracts/manager/ManagerContainer.sol:12, contracts/manager/ManagerMigrator.sol:10, contracts/storage/WithdrawalNullifierRegistry.sol:5 and four more sources still import it, and contracts/libraries/CanonicalCheckpoint.sol is imported but absent; the importers are owned by the pending retirement tasks 6.53.2 to 6.80.5 at waves 38 and 39."
+assumption = "Spec defect: a task that edits foundry.toml and one Python test declared the whole root Foundry build as its build; the build becomes a configuration parse and the task continues from attempt 3."
+severity = "minor"
+
+[finding.15.0.4.3]
+task = "15.0.4"
+file = "services/platform/middleware/buyer/src/index.ts:373"
+symbol = "verifyRpcPayment"
+observed = "Attempt 6 (f2afd6c8c) built and its integration test asserted portable.receiptDigest equal to the receiptDigest of the recorded fixture case V1-layerxledger-pay-exact of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json and failed (0x51588b5a... against 0x3f63045f...): the buyer middleware's portable receipt digest is keccak256 of the signed receipt bytes (services/platform/middleware/buyer/src/index.ts:373, services/platform/middleware/buyer/test/portable-receipts.test.mjs:36), while the fixture's receiptDigest is the sequencer's signing digest over the unsigned receipt (rpc/sequencer_receipt_vectors_test.go:276), which the buyer test at portable-receipts.test.mjs:173 shows is refused as a portable digest."
+assumption = "Attempt defect: the assertion compares the portable digest with the signing digest; the test asserts keccak256 of the fixture's signedReceipt and the task continues from attempt 6."
+severity = "minor"
