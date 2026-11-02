@@ -116,7 +116,12 @@ func TestPendingBlockOpenBlock(t *testing.T) {
 		require.Equal(t, committed+1, accepted.Height)
 		require.Equal(t, abci.CodeTypeOK, accepted.Result.Code)
 		openTimeMs = accepted.TimestampMs
-		want = append(want, pendingBlockEthHash(t, s, tx))
+		hash := pendingBlockEthHash(t, s, tx)
+		pending, ok := s.exec.PendingTx(hash)
+		require.True(t, ok)
+		require.Equal(t, tx, pending.TxBytes)
+		require.Equal(t, accepted.TxIndex, pending.TxIndex)
+		want = append(want, hash)
 	}
 
 	block, err := api.GetBlockByNumber(ctx, rpc.PendingBlockNumber, false)

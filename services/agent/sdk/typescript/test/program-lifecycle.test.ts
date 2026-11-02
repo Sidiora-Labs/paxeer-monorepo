@@ -88,10 +88,15 @@ assert.throws(() => encodeNativeProgramUpgrade({ programId, guestAbi: 2, oldHash
 assert.throws(() => encodeNativeProgramWindDown({ programId, operation: "route", account: programId, asset: programId, destination: programId, seed: Buffer.alloc(129) }));
 
 const nativeCodec = await import("../src/native-program-call.js");
+const decodeNativeProgramCallV1 = nativeCodec.decodeNativeProgramCallV1;
+const supportsProgramGuestAbi = (await import("../src/generated/receipt.js")).supportsProgramGuestAbi;
+let firstUnsupportedGuestAbi = 1;
+while (firstUnsupportedGuestAbi <= 65535 && supportsProgramGuestAbi(firstUnsupportedGuestAbi)) firstUnsupportedGuestAbi++;
+assert.equal(firstUnsupportedGuestAbi, 6);
 for (const name of ["native-program-call-v3", "native-program-call-v4"]) {
   const fixture = JSON.parse(readFileSync(new URL(`../../../../../../sdk/platform/conformance/fixtures/${name}.json`, import.meta.url), "utf8"));
   const payload = Buffer.from(fixture.payload_hex, "hex");
-  const decoded = nativeCodec.decodeNativeProgramCallV1(payload);
+  const decoded = decodeNativeProgramCallV1(payload);
   assert.deepEqual(Buffer.from(nativeCodec.encodeNativeProgramCallV1(decoded)), payload);
   const programs = await import("../src/programs.js");
   const wire = await import("../src/program-wire.js");
@@ -104,20 +109,22 @@ for (const name of ["native-program-call-v3", "native-program-call-v4"]) {
     new programs.ProgramTrustContext(Buffer.from(fixture.public_key_hex, "hex"), () => 0n, 300_000n, 3),
     null as unknown as Parameters<typeof programs.verifyGatewayProgramInterface>[3]));
   assert.deepEqual(Buffer.from(nativeCodec.encodeNativeProgramCall(nativeCodec.decodeNativeProgramCall(payload))), payload);
-  for (const guestAbi of [3, 4] as const) {
+  for (const guestAbi of [3, 4, 5] as const) {
+    assert.equal(supportsProgramGuestAbi(guestAbi), true);
     const call = { ...decoded, guestAbi, programId: new Uint8Array(decoded.programId),
       calldata: new Uint8Array(decoded.calldata), capabilities: new Uint8Array(decoded.capabilities),
       accessDeclaration: new Uint8Array(decoded.accessDeclaration) };
     const canonical = nativeCodec.encodeNativeProgramCallV1(call);
     assert.equal(new DataView(canonical.buffer, canonical.byteOffset).getUint16(32), guestAbi);
-    assert.deepEqual(nativeCodec.decodeNativeProgramCallV1(canonical), call);
+    assert.deepEqual(decodeNativeProgramCallV1(canonical), call);
     assert.throws(() => nativeCodec.decodeNativeProgramCall(canonical));
-    for (const boundary of [0, 32, 105, canonical.length - 1]) assert.throws(() => nativeCodec.decodeNativeProgramCallV1(canonical.subarray(0, boundary)));
-    assert.throws(() => nativeCodec.decodeNativeProgramCallV1(Buffer.concat([canonical, Buffer.from([0])])));
+    for (const boundary of [0, 32, 105, canonical.length - 1]) assert.throws(() => decodeNativeProgramCallV1(canonical.subarray(0, boundary)));
+    assert.throws(() => decodeNativeProgramCallV1(Buffer.concat([canonical, Buffer.from([0])])));
   }
-  for (const guestAbi of [0, 5, 65535]) {
+  for (const guestAbi of [0, firstUnsupportedGuestAbi, 65535]) {
+    assert.equal(supportsProgramGuestAbi(guestAbi), false);
     const invalid = Buffer.from(payload); invalid.writeUInt16BE(guestAbi, 32);
-    assert.throws(() => nativeCodec.decodeNativeProgramCallV1(invalid));
+    assert.throws(() => decodeNativeProgramCallV1(invalid));
   }
 }
 console.log("native-v1 call encoding uses the canonical ABI policy; legacy ABI1/2 refusals retained");

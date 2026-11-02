@@ -18043,3 +18043,51 @@ symbol = "TestDefaultParamsQuoteOneHundredAndTenPax"
 observed = "attempt 2 (37f32f0cf) passed the module tests but the precompile test's refusal leg fails: do_3 probes createChain with 110e18 - 1 wei, and the precompile refuses a value with a wei remainder below one bank unit (10^12 wei) before it reaches the bond comparison, so the bond-too-low reason is never returned."
 assumption = "the probe becomes 110e18 - 10^12 wei (one bank unit short, no remainder) for the bond-too-low reason, and a second probe with 110e18 - 1 wei asserts the remainder refusal; continue from attempt 2."
 severity = "minor"
+
+[finding.21.92.1.2]
+task = "21.92.1"
+file = "services/agent/tests/boundary/src/production.rs"
+symbol = "transfer"
+observed = "Attempts 3 and 4 (bases 69fde7595 and 5efa30a4c): the proof's second crossing signs with the nonce eth_getTransactionCount pending returns after the first transfer's receipt resolved, and eth_sendRawTransaction refuses it with RpcRefusal -32000 'incorrect account sequence' (production.rs:148), so the node served the committed nonce for pending while the first transfer was already executed."
+assumption = "The pending nonce path (rpc/tx.go:472 pendingNonce via WatermarkManager.PendingContext, rpc/watermark_manager.go:103 pendingHeight falling back to the latest committed height) loses the open-versus-idle identity that issue #1502 describes; the producer in this task's touches is correct to ask the node for the pending nonce before each crossing."
+severity = "high"
+
+[finding.21.142.1.2]
+task = "21.142.1"
+file = "sdk/wallet/src/index.ts"
+symbol = "sendTransaction"
+observed = "Attempt 4 (base 5e4cc2862): npm --prefix apps/web run typecheck exits 2 with TS2379 at sdk/wallet/src/index.ts:230 (assertSendTxResponse(response, { chainId: tx.chainId }) passes number | undefined to a readonly chainId?: number parameter under exactOptionalPropertyTypes); apps/web/tsconfig.json:33 includes the wallet sdk sources, and a25c21614 (task 21.131.1) wrote the line."
+assumption = "The wallet sdk's own tsconfig does not set exactOptionalPropertyTypes, so its build passed while every apps/web task is broken at the base; task 22.12.5 repairs the call and the explorer proof requires it."
+severity = "high"
+
+[finding.22.10.7.1]
+task = "22.10.7"
+file = "services/platform/hosted/human/test_material.py"
+symbol = "test_custody_bindings_resolve_to_the_native_custody_precompile"
+observed = "Attempt 1 (base 5e4cc2862): test_custody_bindings_resolve_to_the_native_custody_precompile still calls required_path('PAXEER_X_HUMAN_EVIDENCE_DIR') at test_material.py:76 and fails under the verify's env -u; test_generated_bootstrap_and_protected_inputs expects FileNotFoundError from assemble_policy with output 'output.json' (test_material.py:53-56) but material.py:271 refuses 'canonical policy filename' first because the output must be named policy.json."
+assumption = "do_1 was not carried out for the custody-binding test, and the bootstrap test predates the canonical-filename check 791fdf9c2 (task 8.19.9) added to assemble_policy."
+severity = "medium"
+
+[finding.22.8.10.1]
+task = "22.8.10"
+file = "tools/platform/cli/tests/common/credential_environment.rs"
+symbol = "credential_environment"
+observed = "Attempt 1 (base 5e4cc2862): with the regenerated tools/platform/Cargo.lock the workspace builds with --locked, and cargo test --workspace fails only in the CLI's integration tests, each panicking at credential_environment.rs:54 'dbus-daemon must be installed for real credential tests: No such file or directory'."
+assumption = "dbus-daemon is a property of the qualification environment, not of the repository; the lockfile task's verify compiles the tests without running them, and task 22.16.9 makes the credential tests report the missing daemon as a named skip."
+severity = "low"
+
+[finding.22.16.7.1]
+task = "22.16.7"
+file = "tools/launchpad/production/interfaces/examples_check_test.py"
+symbol = "jsonschema"
+observed = "Attempt 1 (base 5e4cc2862), second verify: pytest --collect-only reports only three errors, each ModuleNotFoundError: No module named 'jsonschema' (tools/launchpad/production/interfaces/examples_check_test.py, tools/launchpad/production/interfaces/test_materialize.py, tools/launchpad/production/load/test_load.py); the compile error, the argv scripts and the sibling-import errors of the first verify are gone."
+assumption = "jsonschema is a third-party package the qualification environment does not install; the three files are left out of the collection check and recorded as an environment disposition at closure."
+severity = "low"
+
+[finding.22.16.5.2]
+task = "22.16.5"
+file = "tools/containers/check.sh"
+symbol = "OUT_OF_SCOPE"
+observed = "Attempt 5 (base 5e4cc2862): with the six Dockerfiles of do_1 placed, bash tools/containers/check.sh reports 14 failures: deploy/launchpad/Dockerfile.svc, deploy/launchpad/Dockerfile.web, services/platform/hosted/feeder/Dockerfile, services/platform/perps-data/deploy/Dockerfile, services/platform/perps-data/deploy/nats/Dockerfile, tools/deploy/charting-library.Dockerfile, tools/loadtest/Dockerfile, tools/paxctl/Dockerfile and the four tools/wasm-tools/ci/docker/*/Dockerfile are tracked outside docker/ and not on the out-of-scope list, and docker/platform-node/Dockerfile and docker/redis/Dockerfile are under docker/ but not known service Dockerfiles."
+assumption = "The out-of-scope list was written against an older tree; every tracked Dockerfile must be either a known service or on the list, and the scope test must assert that identity from git ls-files so the list cannot drift again."
+severity = "medium"

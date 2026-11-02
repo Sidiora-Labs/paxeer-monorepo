@@ -455,7 +455,10 @@ export default function CreateWizard() {
     <div className="mx-auto w-full max-w-content-narrow-max-width px-4 py-4 lg:px-6">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-3">
         <div className="flex min-w-0 flex-1 flex-col gap-4 lg:max-w-form-max-width">
-          <h1 className="text-md font-semibold text-text">Create new coin</h1>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-md font-semibold text-text">Create new coin</h1>
+            <Button variant="link" size="sm" href="/create/chain">Launch a chain</Button>
+          </div>
 
           {draft ? (
             <CreateFormFields
