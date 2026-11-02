@@ -8,10 +8,11 @@ from collections.abc import Mapping
 from urllib.error import URLError
 
 from .account_derivation import keccak256
+from .evm_transaction import decode_signed
 from .production import PlatformSdkError, SdkErrorCode
 from .revert import decode_revert_reason, raise_for_receipt_status
-from .verifier import ReceiptKey, SequencerReceiptVerificationError
-from .x402 import verify_payment_receipt
+from .verifier import ReceiptKey
+from .x402 import payment_commitment, verify_payment_receipt
 
 
 def rpc_hex(value: object, size: int | None = None) -> bytes:
@@ -211,7 +212,7 @@ class PaymentRpc:
 
 def verify_rpc_payment(
     result,
-    expected_activity,
+    expected_tx_hash,
     expected_payer,
     *,
     receipt_keys: tuple[ReceiptKey, ...] | list[ReceiptKey],
@@ -219,19 +220,37 @@ def verify_rpc_payment(
     amount,
     asset,
     pay_to,
-    commitment="executed",
+    commitment="receipted",
 ):
-    rpc_hex(expected_activity, 32)
-    rpc_hex(expected_payer, 32)
-    if result.get("activity_id") != expected_activity:
-        raise ValueError("activity-mismatch")
-    if result.get("state") == "pending":
-        return None
-    if result.get("state") not in (None, "completed"):
-        raise ValueError("payment-refused")
-    if "commitment" in result and result["commitment"] != commitment:
+    """Verify an EVM payment and return txHash, rung, height and keyId.
+
+    A submitted transaction renders as pending with no height or keyId.
+    Receipted and committed results carry the signed receipt's height and keyId.
+    """
+    expected_hash = _transaction_bytes(expected_tx_hash, 32)
+    payer = _transaction_bytes(expected_payer, 32)
+    payment_commitment({"layerx": {"commitment": commitment}})
+    decode_signed(raw_transaction)
+    if expected_hash != keccak256(raw_transaction):
+        raise ValueError("transaction-hash-mismatch")
+    result = _sequencer_result(result, expected_hash)
+    if result is None:
+        raise ValueError("missing-sequencer-receipt")
+    if result["rung"] == "submitted":
+        return {
+            "txHash": "0x" + expected_hash.hex(),
+            "rung": "pending",
+            "height": None,
+            "keyId": None,
+        }
+    if commitment == "committed" and result["rung"] != "committed":
         raise ValueError("commitment-mismatch")
-    canonical_receipt = rpc_hex(result.get("receipt"))
+    height = result.get("height")
+    if not isinstance(height, str) or re.fullmatch(
+        r"0x(?:0|[1-9a-f][0-9a-f]{0,15})", height
+    ) is None:
+        raise ValueError("invalid-receipt-height")
+    canonical_receipt = _transaction_bytes(result["receipt"])
     try:
         verified = verify_payment_receipt(
             canonical_receipt,
@@ -240,21 +259,26 @@ def verify_rpc_payment(
             amount=amount,
             asset=asset,
             pay_to=pay_to,
-            payer=expected_payer,
+            payer=payer.hex(),
             return_data=(
                 _return_data(result["returnData"]) if "returnData" in result else None
             ),
         )
-    except SequencerReceiptVerificationError:
-        raise
     except PlatformSdkError as error:
         raise ValueError("payment-binding-mismatch") from error
     if (
-        verified.receipt.activity_id.hex() != expected_activity
-        or verified.receipt.from_account.hex() != expected_payer
+        verified.receipt.activity_id != expected_hash
+        or verified.receipt.from_account != payer
+        or verified.height != int(height, 16)
+        or verified.receipt.context_hash != _transaction_bytes(result["keyId"], 32)
     ):
         raise ValueError("payment-binding-mismatch")
-    return verified
+    return {
+        "txHash": "0x" + expected_hash.hex(),
+        "rung": result["rung"],
+        "height": verified.height,
+        "keyId": "0x" + verified.receipt.context_hash.hex(),
+    }
 
 
 def rpc_batch_evidence(result, activity_id, receipt, network_id, authorization):

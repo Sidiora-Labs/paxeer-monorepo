@@ -54,6 +54,14 @@ fn metric_schema_covers_every_required_signal_with_bounded_labels() {
     assert_eq!(snapshot.len(), MetricKind::ALL.len());
     assert!(snapshot.iter().all(|(key, _)| key.tenant == alpha));
     assert!(metrics.snapshot(&beta).is_empty());
+    let before_refusal = metrics.snapshot(&alpha);
+    for malformed in ["", "chain_halted\n", "unknown_metric", "executed"] {
+        assert_eq!(
+            metrics.observe_named(&alpha, MetricKind::DegradedState, malformed, 1),
+            Err(MetricsError::InvalidLabel)
+        );
+        assert_eq!(metrics.snapshot(&alpha), before_refusal);
+    }
     assert_eq!(
         metrics.observe(
             &alpha,

@@ -128,6 +128,7 @@ export function encodeAssetRegister(issuerDidId32: string, registration: AssetRe
   const required = ["salt", "symbol", "name", "decimals", "supply_cap", "issuer_kind", "custody_ref"];
   if (Object.keys(input).some((key) => key !== "asset_id" && !required.includes(key))
     || required.some((key) => !Object.hasOwn(input, key))) throw new Error("invalid-asset-register");
+  if (typeof registration.symbol !== "string" || typeof registration.name !== "string") throw new Error("invalid-asset-register");
   const salt = hexBytes(registration.salt);
   const symbol = new TextEncoder().encode(registration.symbol);
   const name = new TextEncoder().encode(registration.name);

@@ -17579,3 +17579,107 @@ symbol = "TestAppRoutesAnchorUpdateParamsRetired"
 observed = "the same verify runs TestAppRoutesAnchorUpdateParamsRetired, which requires the app to route MsgUpdateParams; task 5.7.1 (ae2beed63) removed the anchor module from the application's module manager (node/app.go keeps only the AppModuleBasic at :304), so MsgServiceRouter().Handler returns nil and the test fails at the base."
 assumption = "the test asserts the state 5.7.1 left: the application routes no anchor message, and the keeper's params read still answers; it is renamed accordingly."
 severity = "medium"
+
+[finding.18.1484.1.2]
+task = "18.1484.1"
+file = "tools/bringup/check-live.test.sh:3742"
+symbol = "check_live_relay_env_absent"
+observed = "attempt 3 (7bcbed7dc) removes every mention of the deleted relay env template and rewrites the relay case to unset CHECK_LIVE_RELAY_ORIGIN, yet the verify fails: the suite runs under set -euo pipefail (check-live.test.sh:2), so any command failing before line 3742 ends the run without printing the ok line, and the verify reads the saved log for that line and never prints it, so attempts 1 to 3 left no record of which case stopped the suite."
+assumption = "the verify prints the saved log when the ok line is missing; the next attempt reads the stopping case and repairs it only when its cause lies in the relay section or check_relay."
+severity = "medium"
+
+[finding.18.1451.1.1]
+task = "18.1451.1"
+file = "services/agent/tools/run-real-node-tests.sh"
+symbol = "run-real-node-tests"
+observed = "attempt 2 (76ea1ee32) passes the verify (the pytest file, the real_node_script cargo test and the Makefile grep), but the done record refuses with 'symbol run-real-node-tests not defined in the graph': the task's symbols list names the shell script's file stem, which the symbol graph does not index, while every touched path checks."
+assumption = "the symbols list is emptied (the script is a touched path, not a graph symbol); the implementation of attempt 2 stands."
+severity = "minor"
+
+[finding.9.100.2.1]
+task = "9.100.2"
+file = "services/human/crates/layerx-human-service/tests/native_lifecycle.rs:29"
+symbol = "decode_signed_activity"
+observed = "attempt 1 (3ca901071) fails its build before the agent_create target compiles: the build compiles every test target of layerx-human-service (--tests) and tests/native_lifecycle.rs:29 calls canonical::decode_signed_activity, a function the crate no longer exports, so the target has not compiled on main since the canonical module changed; the task's own arm in create.rs and its agent_create test are not involved."
+assumption = "native_lifecycle.rs is ported by task 9.35.11 (its verify names the target); 9.100.2 and 18.1485.1 compile the library and their own test targets only."
+severity = "medium"
+
+[finding.21.41.1.1]
+task = "21.41.1"
+file = "consensus/test/e2e/pkg/proof_consensus_leader_pin_test.go"
+symbol = "TestProofConsensusLeaderPin"
+observed = "attempt 1 (1a2d82a95) passes its verify (TestProofConsensusLeaderPin ok) and is refused by the done record: 'symbol func not defined in the graph', because the task's symbols list carried the Go keyword func read off a method signature."
+assumption = "the keyword is removed from the symbols of every proof task that carries one (40 tasks); the implementation of attempt 1 stands and the next attempt reruns the verify."
+severity = "minor"
+
+[finding.21.17.1.1]
+task = "21.17.1"
+file = "services/launchpad/api/go.mod"
+symbol = "TestProofLaunchpadApi"
+observed = "attempt 1 (7d22fb13a) fails its build before any test compiles: go build ./services/launchpad/api/internal/app/... run from the repository root answers 'directory prefix services/launchpad/api/internal/app does not contain main module or its selected dependencies', because services/launchpad/api carries its own go.mod and is not part of the root module; attempts 1 of 21.31.1, 21.4.1, 21.40.1, 21.54.1, 21.67.1 and 21.69.1 fail the same way on their own modules."
+assumption = "every proof task whose Go package lives under a nested go.mod (eleven tasks) builds and tests from that module directory, as the done tasks of those services do (cd services/launchpad/api && go test -count=1 ./internal/app/ ...); the proof itself is unchanged."
+severity = "medium"
+
+[finding.21.35.1.1]
+task = "21.35.1"
+file = "daemon/paxd/cmd/proof_node_cli_test.go"
+symbol = "TestProofNodeCli"
+observed = "attempt 1 (b1f3728ee) passes its verify (TestProofNodeCli ok, 14.0s) and is refused by the done record on four symbols that are not in the graph: AddCommand (a method of the cobra dependency, not of this repository), FILE and simulation_gas_limit (a flag placeholder and a configuration key read off app_config.go) and the keyword struct; 21.51.1 attempt 1 (b27cc72be) is refused the same way on Self."
+assumption = "the symbols lists keep AddCommands and NewCustomAppConfig (21.35.1) and drop Self and the other non-graph words across the proof tasks (6 tasks); the implementations stand and the next attempts rerun the verify."
+severity = "minor"
+
+[finding.21.11.1.1]
+task = "21.11.1"
+file = "precompiles/layerxledger/pause_test.go:158"
+symbol = "GetPayerGrant"
+observed = "attempt 1 (90f2f1fef) fails its verify before TestProofLayerxledger0x101a runs: the test package of precompiles/layerxledger does not compile on main, because pause_test.go:158, payments_test.go:204 and :217 and views_test.go:155 call Keeper.GetPayerGrant, which decision.2080 (task 1.12.4) removed together with the host payer-grant read; on main draw (precompiles/layerxledger/payments.go:118), getPayerGrant (:154) and Keeper.Draw (modules/layerxledger/keeper/draw.go:18) answer types.ErrNoPayerGrant (LXP_NO_PAYER_GRANT). 1.12.4's verify vetted precompiles/layerxpay only, so the stale assertions were never compiled."
+assumption = "21.11.1 repairs the three test files in place to the behaviour decision.2080 fixed (no Keeper.GetPayerGrant read; draw and getPayerGrant revert LXP_NO_PAYER_GRANT) because its proof lives in the same package and cannot compile without them."
+severity = "medium"
+
+[finding.21.42.1.1]
+task = "21.42.1"
+file = "services/agent/crates/layerx-client/tests/proof_client.rs:487"
+symbol = "px_getNetwork"
+observed = "attempt 1 (79fe5b622) fails its verify in px_getNetwork: the test reads LAYERX_PROOF_CLIENT_RPC_URL from the environment and panics with 'missing real producer' when the variable is unset, so the proof depends on an operator-supplied gateway and can never pass in the qualification environment."
+assumption = "a client-crate proof hosts its producer inside the test process the way tests/px_reads.rs:20-23 and layerx-sdk tests/rpc_node.rs:15 do (a TcpListener on 127.0.0.1:0 answering the exact JSON-RPC bodies the node's px handlers produce) and never reads a URL from the environment."
+severity = "minor"
+
+[finding.21.115.1.1]
+task = "21.115.1"
+file = "modules/layerxledger/types/params_test.go:22"
+symbol = "KernelKVPrefix"
+observed = "attempt 1 (8c93da01c) fails its verify before TestProofLayerxledgerGenesis runs: the test package of modules/layerxledger/types does not compile on main, because params_test.go:22-23 assert KernelKVPrefix == 0x02, a variable task 2.3.1 retired (215b90bd1, decision.201: the module store keeps only ParamsKey 0x01 and kernel records live in the shared lxphost store); 2.3.1's verify ran the keeper tests only, so the stale assertion was never compiled."
+assumption = "21.115.1 repairs params_test.go in place: the store-prefix assertion keeps ParamsKey == 0x01 and drops KernelKVPrefix, because the proof lives in the same package and cannot compile without it."
+severity = "medium"
+
+[finding.21.89.1.1]
+task = "21.89.1"
+file = "modules/layerxcustody/keeper/deposit_root_test.go:106"
+symbol = "BatchHeader"
+observed = "attempt 1 (a114ce6b9) fails its verify before TestProof0x1013Layerxcustody runs: the test package of modules/layerxcustody/keeper does not compile on main, because deposit_root_test.go:106 calls verify.BatchHeader, which task 1.36.2 retired (e999c6df5) with the other batch-header verifiers of layerxproof; daemon/committed-fixture/vector_v4_test.go carries the same call and is repaired by 18.1491.1."
+assumption = "21.89.1 repairs deposit_root_test.go in place with the retained pair 18.1491.1 uses: the header already decoded at :55 by codec.DecodeBatchHeader supplies the fields, verify.Ed25519Digest(authorization.PublicKey, headerSignature, codec.BatchHeaderDigest(headerBytes)) authenticates the signature, and HeaderDigest becomes codec.BatchHeaderDigest(headerBytes); no retired verifier is restored."
+severity = "medium"
+
+[finding.21.156.1.1]
+task = "21.156.1"
+file = "services/agent/sdk/typescript/test/proof_gas_station.test.ts"
+symbol = "requestGasQuote"
+observed = "attempt 1 (a58d937be) fails its verify on its own precondition: the test asserts that GAS_STATION_PROOF_CONFIG names a provisioned loopback gas-station configuration and stops when the variable is unset, so the proof depends on an operator-supplied environment and can never pass in the qualification environment."
+assumption = "the proof hosts its producer inside the test process (a loopback HTTP listener answering the exact bodies the gas-station routes produce, as the existing gas-station.test.ts does) and never reads a URL, path or configuration name from the environment."
+severity = "minor"
+
+[finding.21.5.1.1]
+task = "21.5.1"
+file = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:329"
+symbol = "test_native_genesis_crossing_reopens_real_artifacts_and_refuses_duplicate"
+observed = "attempt 1 (b6b0613b2) fails its verify on a missing prerequisite: the native genesis crossing runs build/bin/layerx-genesis-build, which the task's build_cmd (python3 -m py_compile of the test) never produced; the Makefile target layerx-genesis-build (Makefile:1000-1013) builds it from cmd/layerx-genesis with the programs runtime archive."
+assumption = "21.5.1 builds the binary in its build_cmd (make layerx-genesis-build, as 5.49.1 and 5.49.2 do) under the mixed environment profile, and the proof keeps using the real binary."
+severity = "minor"
+
+[finding.21.126.1.1]
+task = "21.126.1"
+file = "services/platform/hosted/core/tests/retired_client_modules.rs:35"
+symbol = "include_str"
+observed = "attempt 1 (0ec0c77ba) fails its build before proof_core_env_vars compiles: cargo build -p layerx-platform-core --tests compiles tests/retired_client_modules.rs, whose line 35 does include_str!('../src/withdrawal.rs'), and task 8.99.1 deleted src/withdrawal.rs (8f777f5cf) without touching the scan; the test target has not compiled on main since."
+assumption = "21.126.1 repairs retired_client_modules.rs in place: the sources list keeps src/public_reads.rs and drops the deleted withdrawal.rs entry, the retired-module list is unchanged, and the build keeps compiling every test target of the crate."
+severity = "medium"

@@ -993,6 +993,9 @@ func (r *Resolver) withStates(list []*Market) []*Market {
 }
 
 func (r *Resolver) Market(ctx context.Context, args struct{ MarketID int32 }) (*Market, error) {
+	if args.MarketID < 0 {
+		return nil, errors.New("marketId must be non-negative")
+	}
 	m, err := first(ctx, r.DB, "market", marketSQL+"WHERE market_id = $1::numeric", []any{int64(args.MarketID)}, marketDest)
 	if err != nil || m == nil {
 		return nil, err

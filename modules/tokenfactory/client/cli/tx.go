@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -354,6 +355,16 @@ func ParseAllowListJSON(allowListFile string, queryClient evmtypes.QueryClient) 
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&allowList); err != nil {
 		return allowList, err
+	}
+
+	// A file is one JSON document. Do not silently ignore a second value or
+	// malformed bytes after an otherwise valid allow list.
+	var trailing json.RawMessage
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err != nil {
+			return allowList, fmt.Errorf("invalid trailing allow list data: %w", err)
+		}
+		return allowList, fmt.Errorf("allow list file must contain exactly one JSON document")
 	}
 
 	addressMap := make(map[string]struct{})

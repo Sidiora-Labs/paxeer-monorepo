@@ -17,6 +17,13 @@ export type CardStateInputs = RouteBlockerArgs & {
   busy: boolean;
 };
 
+export type CardState = {
+  inputError: string | undefined;
+  blockers: string[];
+  maxAmount: string | undefined;
+  ready: boolean;
+};
+
 function cardInputError(inputs: CardStateInputs): string | undefined {
   const { amount, asset, balance, direction, foreign, paxeerConfigured, paxeerState, vaultState } = inputs;
   if (amount.trim() === '') {
@@ -54,12 +61,7 @@ function cardInputError(inputs: CardStateInputs): string | undefined {
   return undefined;
 }
 
-export function cardState(inputs: CardStateInputs): {
-  inputError: string | undefined;
-  blockers: string[];
-  maxAmount: string | undefined;
-  ready: boolean;
-} {
+export function cardState(inputs: CardStateInputs): CardState {
   const { amount, asset, balance, direction, gasReserve } = inputs;
   const inputError = cardInputError(inputs);
   const blockers = routeBlockers(inputs);
