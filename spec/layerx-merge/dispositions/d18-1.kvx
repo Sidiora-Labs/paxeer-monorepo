@@ -1,0 +1,124 @@
+[disposition.18.670.1.1]
+finding = "18.670.1.1"
+status = "environment"
+evidence = "services/platform/perps-data/e2e_test.go:58 names the required RPC endpoint and tools/qualification/localnode/v6120-node.sh:800 now exports it, so the recorded absence of a chain endpoint was a qualification-environment prerequisite."
+
+[disposition.18.670.1.2]
+finding = "18.670.1.2"
+status = "environment"
+evidence = "services/platform/perps-data/e2e_test.go:57 declares the database, RPC, Comet and seed-key environment inputs, so their recorded absence concerned external test-service provisioning rather than an implementation defect."
+
+[disposition.18.670.1.3]
+finding = "18.670.1.3"
+status = "resolved"
+evidence = "49386ac2e added the earliest-block read now at services/platform/perps-data/e2e_test.go:432 and the latestFunding clamp at services/platform/perps-data/e2e_test.go:1021, and starts the indexer at that earliest height after waiting for settlement."
+
+[disposition.18.670.1.4]
+finding = "18.670.1.4"
+status = "resolved"
+evidence = "4ff03ef5a supplied the local-chain PAX market 11 price observations and test-account USDL collateral provisioning, with tools/qualification/localnode/v6120-node.sh:764 requiring a fresh market 11 price before readiness."
+
+[disposition.18.670.1.5]
+finding = "18.670.1.5"
+status = "resolved"
+evidence = "4ff03ef5a added market 11 alongside market 0 in the price loop, retained at tools/qualification/localnode/v6120-node.sh:209, and added the test-account collateral approval and deposit."
+
+[disposition.18.694.1.1]
+finding = "18.694.1.1"
+status = "resolved"
+evidence = "a542a9898 added historyCapped to overviewProps and its daily literals, which now supply historyCapped: false at apps/perps/tests/exact-money.test.ts:27 and apps/perps/tests/exact-money.test.ts:29."
+
+[disposition.18.700.1.1]
+finding = "18.700.1.1"
+status = "resolved"
+evidence = "ea2c971cd restored undecoded-log accounting and services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:777 now explicitly puts undecoded_log_count into the parse result."
+
+[disposition.18.741.1.1]
+finding = "18.741.1.1"
+status = "resolved"
+evidence = "956d16b5f added the pax_sequencerReceipt handler now at services/wallet/gateway/test/support/chain.ts:261, which returns null for unknown hashes and a signed receipted result for applied transactions."
+
+[disposition.18.752.1.1]
+finding = "18.752.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:217572 now builds task 18.752.1 with npm --prefix apps/web run typecheck and verifies through node, matching the local package dependency and typecheck script at apps/web/package.json:23."
+
+[disposition.18.754.1.1]
+finding = "18.754.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:217632 clears task 18.754.1 symbols, and the current symbol lists for 18.1058.1, 18.900.1, 18.921.1, 18.922.1, 10.5.2 and 10.13.8 contain code identifiers rather than the recorded filenames or test titles."
+
+[disposition.18.760.1.1]
+finding = "18.760.1.1"
+status = "resolved"
+evidence = "24a5aaf5c updated apps/perps/tests/order-plan.test.ts:204 to call planOrder with only plan.calls and assert no approve step while preserving the subsequent placeOrder decoding assertions."
+
+[disposition.18.776.1.1]
+finding = "18.776.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:205881 now prints /tmp/check-live-test.log when either required indexer result is missing, exposing the failure output previously lost outside collected paths."
+
+[disposition.18.776.1.2]
+finding = "18.776.1.2"
+status = "resolved"
+evidence = "8ea5768ff moved the real kernel readiness stage after the indexer checks, and tools/bringup/check-live.test.sh:1186 and tools/bringup/check-live.test.sh:1257 now invoke both indexer cases without the former preceding runtime-artifact setup."
+
+[disposition.18.776.1.3]
+finding = "18.776.1.3"
+status = "resolved"
+evidence = "8ea5768ff replaced the renamed multicall sleep binaries with bash interpreters, retained for the indexer at tools/bringup/check-live.test.sh:1135 and the agent, event-source and bridge daemons at lines 1575, 1900, 1983 and 1984."
+
+[disposition.18.783.1.1]
+finding = "18.783.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:198140 now declares no symbols for documentation task 18.783.1, while 71733a27a landed the served-method tables including px_getAccount at docs/wiki/PublicRpc.md:41."
+
+[disposition.18.786.1.1]
+finding = "18.786.1.1"
+status = "resolved"
+evidence = "a3d452df1 ported estimate_fee and execute_write to the EVM APIs, with tools/platform/cli/src/wallet.rs:313 using eth_estimateGas and tools/platform/cli/src/wallet.rs:912 submitting through send_raw_transaction instead of the removed send_activity method."
+
+[disposition.18.788.1.1]
+finding = "18.788.1.1"
+status = "resolved"
+evidence = "f977a0dfa added distinct tx_hash values to every unified-history fixture row, retained at apps/web/e2e/fixtures/px-get-unified-history.json:71 and the subsequent rows required by the SDK decoder."
+
+[disposition.18.801.1.1]
+finding = "18.801.1.1"
+status = "resolved"
+evidence = "4d969f0b5 made the address-book test derive each served flag from UNSERVED_PRECOMPILES, retained at services/wallet/gateway/test/precompiles.test.ts:381, so it no longer hard-codes the stale unserved list."
+
+[disposition.18.804.1.1]
+finding = "18.804.1.1"
+status = "resolved"
+evidence = "services/wallet/gateway/src/precompiles.ts:32 now defines UNSERVED_PRECOMPILES as an empty set, so none of the obsolete orob, clearing, eip712, pofq or teeAttestor entries underlying the recorded triage remains."
+
+[disposition.18.826.1.1]
+finding = "18.826.1.1"
+status = "resolved"
+evidence = "a945bc711 regenerated docs/system/chain-modules.md and docs/system/kernel-modules.md and repaired constructor and closure resolution retained at tools/docs/gen/gen_system_docs.py:67 and tools/docs/gen/gen_system_docs.py:85, addressing the recorded stale-page failure."
+
+[disposition.18.837.1.1]
+finding = "18.837.1.1"
+status = "resolved"
+evidence = "8a38369f1 landed both price-feed cases now at services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/capabilities_controller_test.exs:51 and line 76 alongside the retained surface tests beginning at line 95, resolving the recorded merge conflict."
+
+[disposition.18.849.1.1]
+finding = "18.849.1.1"
+status = "environment"
+evidence = "At d69139111916f594f230a86707d2fc8920fdb9bc, docker/layerx/Dockerfile:21 uses a BuildKit cache mount in the native stage, so the recorded missing buildx component was a builder-toolchain limitation rather than a missing repository implementation."
+
+[disposition.18.849.1.2]
+finding = "18.849.1.2"
+status = "resolved"
+evidence = "99b6f9e97 replaced the failing library-host downloads with build-context copies at docker/layerx/Dockerfile:41 and local copies followed by strict checksum validation at docker/layerx/Dockerfile:63."
+
+[disposition.18.849.1.3]
+finding = "18.849.1.3"
+status = "resolved"
+evidence = "Both ledger entries sharing this finding ID are resolved: 99b6f9e97 replaced the libwasmvm downloads with checked local copies at docker/layerx/Dockerfile:52, and 346848747 re-included layerx-committed-proof at docker/layerx/Dockerfile.dockerignore:75."
+
+[disposition.18.849.1.4]
+finding = "18.849.1.4"
+status = "environment"
+evidence = "At d69139111916f594f230a86707d2fc8920fdb9bc, docker/layerx/Dockerfile:88 compiles paxd in the builder stage, and the recorded no-space-left failure during that command concerns exhausted build-host disk capacity rather than a repository source defect."
