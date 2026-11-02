@@ -1,9 +1,10 @@
+use layerx_types::clock::Deadline;
 use std::collections::BTreeMap;
 use std::fs::OpenOptions;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_client::rpc::evidence::{checkpoint, proof_bundle};
@@ -208,15 +209,19 @@ impl AdmissionSequencer {
         };
         let endpoint = checked(SequencerEndpoint::new(&config.url, &[]));
         checked(listener.set_nonblocking(true));
+        let clock = support::StepClock::new(50_000);
         let server = thread::spawn(move || {
             let mut interrupted = false;
             for _ in 0..requests {
-                let deadline = Instant::now() + Duration::from_secs(5);
+                let mut deadline = checked(Deadline::start(&clock, Duration::from_secs(5)));
                 let stream = loop {
                     match listener.accept() {
                         Ok((stream, _)) => break stream,
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            assert!(Instant::now() < deadline, "missing sequencer request");
+                            assert!(
+                                !checked(deadline.remaining(&clock)).is_zero(),
+                                "missing sequencer request"
+                            );
                             thread::sleep(Duration::from_millis(1));
                         }
                         Err(error) => panic!("sequencer accept: {error}"),
