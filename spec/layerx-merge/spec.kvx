@@ -123024,7 +123024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.100.1]
 title = "Drop the handover and trust-history leftovers around the retired agent settings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129114,7 +129114,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.4.2]
 title = "Scope blocks, transactions, receipts and logs to the chain on its path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["20.4.1", "20.3.3"]
@@ -129265,7 +129265,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.3.1]
 title = "Map a transaction's chain id to its chain in the ante handler and charge the chain's base fee"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.1.2"]
@@ -129297,7 +129297,7 @@ do_5 = "Finding 20.3.1.1: signedDomainTx signs the legacy case with ethtypes.Fro
 
 [task.20.2.2]
 title = "Serve the chain registry precompile and gate it on the module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.1.2", "20.2.1"]
