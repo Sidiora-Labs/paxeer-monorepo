@@ -101,7 +101,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 				return nil
 			}
 
-			customAppTemplate, customAppConfig := initAppConfig()
+			customAppTemplate, customAppConfig := InitAppConfig()
 
 			return server.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig)
 		},
@@ -418,6 +418,11 @@ func getPrimeNums(lo int, hi int) []int {
 // return "", nil if no custom configuration is required for the application.
 // nolint: staticcheck
 func initAppConfig() (string, interface{}) {
+	return InitAppConfig()
+}
+
+// InitAppConfig returns the template and defaults used by the root command.
+func InitAppConfig() (string, CustomAppConfig) {
 	// Optionally allow the chain developer to overwrite the SDK's default
 	// server config.
 	srvCfg := serverconfig.DefaultConfig()
