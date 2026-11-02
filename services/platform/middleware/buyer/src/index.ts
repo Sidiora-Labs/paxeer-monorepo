@@ -212,7 +212,7 @@ export class BuyerMiddleware {
     }
     this.#client = config.client;
     this.#source = config.source;
-    this.#supported = config.supported;
+    this.#supported = structuredClone(config.supported);
     this.#receiptKeys = structuredClone(config.receiptKeys);
     this.#commitments = config.commitments;
     this.#retry = retryPolicy(config.retry);
@@ -484,8 +484,13 @@ export class BuyerMiddleware {
       await paid.body?.cancel();
       throw new MiddlewareError("verification-failure");
     }
-    const settlement = await this.captureSettlement(responseHeader, preparation.payment);
-    return { kind: "paid", response: paid, payment: preparation.payment, settlement };
+    try {
+      const settlement = await this.captureSettlement(responseHeader, preparation.payment);
+      return { kind: "paid", response: paid, payment: preparation.payment, settlement };
+    } catch (error) {
+      await paid.body?.cancel();
+      throw error;
+    }
   }
 
   async #findMatchingReceipt(

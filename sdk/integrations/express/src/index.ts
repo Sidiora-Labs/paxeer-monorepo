@@ -64,8 +64,18 @@ export type {
   WebhookDeliveryStore,
   WebhookRequestHeaders,
 } from "@sidiora/layerx-seller-middleware";
-export { BuyerMiddleware, LayerXPaymentHttpTransport } from "@sidiora/layerx-buyer-middleware";
-export type { BuyerSupportedKind, PaidFetchResult, PreparedPayment } from "@sidiora/layerx-buyer-middleware";
+export { BuyerMiddleware, LayerXPaymentHttpTransport, grantPaymentHeader } from "@sidiora/layerx-buyer-middleware";
+export type {
+  BuyerMiddlewareConfig,
+  BuyerSupportedKind,
+  CapturedSettlement,
+  EvidenceMaterial,
+  EvidenceReference,
+  Journey,
+  PaidFetchResult,
+  ParsedOffer,
+  PreparedPayment,
+} from "@sidiora/layerx-buyer-middleware";
 export { ProductionClient, SecretBytes } from "@sidiora/layerx-sdk";
 export type { SequencerReceiptKey, ReceiptVerification } from "@sidiora/layerx-sdk";
 

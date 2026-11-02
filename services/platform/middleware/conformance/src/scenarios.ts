@@ -15,6 +15,7 @@ import {
 import {
   BuyerMiddleware,
   LayerXPaymentHttpTransport,
+  type CapturedSettlement,
   type Journey,
   type MoveQuote,
   type ParsedOffer,
@@ -420,7 +421,7 @@ export async function runScenarios(): Promise<Suite> {
       network: offer.requirements.network,
     });
     await expectThrows(
-      () => buyer.captureSettlement(failure, prepared),
+      () => captureConformanceSettlement(buyer, failure, prepared),
       isMiddlewareError("payment-refused"),
       "failed settlement",
     );
@@ -680,4 +681,14 @@ function expectThrowsSync(body: () => unknown, predicate: (error: unknown) => bo
     return;
   }
   throw new Error(`${description}: expected a throw but the call returned`);
+}
+
+export async function captureConformanceSettlement(
+  buyer: BuyerMiddleware,
+  header: string,
+  payment: PreparedPayment,
+): Promise<CapturedSettlement> {
+  const captured = await buyer.captureSettlement(header, payment);
+  assert(captured.receiptDigest === payment.receiptDigest, "settlement must preserve the prepared receipt digest");
+  return captured;
 }
