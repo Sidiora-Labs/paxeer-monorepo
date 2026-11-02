@@ -1623,7 +1623,25 @@ func (app *App) MidBlocker(ctx sdk.Context, height int64) []abci.Event {
 // InitChainer application update at chain initialization
 func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 	var genesisState GenesisState
-	if !app.genesisImportConfig.StreamGenesisImport {
+	if app.genesisImportConfig.StreamGenesisImport {
+		// The streaming reader reports open errors only on stdout and otherwise
+		// returns an empty stream. Refuse an unavailable input before writing state.
+		file, err := os.Open(filepath.Clean(app.genesisImportConfig.GenesisStreamFile))
+		if err != nil {
+			panic(fmt.Errorf("open genesis stream: %w", err))
+		}
+		info, statErr := file.Stat()
+		closeErr := file.Close()
+		if statErr != nil {
+			panic(fmt.Errorf("stat genesis stream: %w", statErr))
+		}
+		if closeErr != nil {
+			panic(fmt.Errorf("close genesis stream: %w", closeErr))
+		}
+		if !info.Mode().IsRegular() {
+			panic(fmt.Errorf("genesis stream %q must be a regular file", file.Name()))
+		}
+	} else {
 		if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 			panic(err)
 		}
@@ -3798,8 +3816,27 @@ func (app *App) BlacklistedAccAddrs() map[string]bool {
 	return blacklistedAddrs
 }
 
+type chainsPrecompileBankKeeper struct {
+	putils.BankKeeper
+	chains *layerxchainskeeper.Keeper
+}
+
+func (k *chainsPrecompileBankKeeper) LayerXChainsK() *layerxchainskeeper.Keeper { return k.chains }
+
+func (pk *PrecompileKeepers) LayerXChainsK() *layerxchainskeeper.Keeper {
+	wired, ok := pk.BankKeeper.(interface {
+		LayerXChainsK() *layerxchainskeeper.Keeper
+	})
+	if !ok {
+		return nil
+	}
+	return wired.LayerXChainsK()
+}
+
 func (app *App) GetPrecompileKeepers() putils.Keepers {
-	return NewPrecompileKeepers(app)
+	keepers := NewPrecompileKeepers(app)
+	keepers.BankKeeper = &chainsPrecompileBankKeeper{BankKeeper: keepers.BankKeeper, chains: app.LayerXChainsKeeper}
+	return keepers
 }
 
 // v6120Contracts builds the contracts the v6.12.0 set adds or switches: the
