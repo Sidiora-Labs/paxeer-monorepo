@@ -13321,3 +13321,18 @@ fix = "Name launchpad unit tests *.test.ts or *.test.tsx and run them with pnpm 
 title = "Human-service tests that panic 'agent runtime peer: Unavailable' in 0.00s are missing the runtime clock"
 symptom = "AgentRuntime::new and connect read RuntimeClock::from_environment (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2141, :2204) and map its absence to AgentBoundaryError::Unavailable, so every test that builds a runtime fails instantly when the clock is not running."
 fix = "Run human-workspace cargo tests through sh tools/runtime/run-with-clock.sh as the Makefile does (Makefile:1640, :1679); only --no-run invocations may stay bare."
+
+[gotcha.2701]
+title = "An explorer type check run with yarn --cwd resolves -p against the package"
+symptom = "yarn --cwd apps/explorer tsc --noEmit -p apps/explorer/tsconfig.json fails with TS5058 'The specified path does not exist' because tsc runs inside apps/explorer and looks for apps/explorer/apps/explorer/tsconfig.json."
+fix = "Write the project path relative to the package: yarn --cwd apps/explorer tsc --noEmit -p tsconfig.json."
+
+[gotcha.2702]
+title = "cargo build --tests compiles every test target of the crate, including files the task never touches"
+symptom = "A build_cmd of cargo build -p <crate> --tests fails on a pre-existing compile error in an unrelated tests/*.rs file (9.35.11 attempt 3 failed on tests/native_journey_approval.rs:233 and tests/support/canonical_owner.rs:190, neither in its touches)."
+fix = "Before declaring a --tests build, confirm every test target of the crate compiles on main or make the task require the task that repairs the broken target; when a build fails outside the touches, record the finding and add the requirement rather than widening the task."
+
+[gotcha.2703]
+title = "A retirement test that asserts a symbol absent from the kernel archive needs every task that deletes a definer of that symbol"
+symptom = "1.32.1 attempt 1 deleted src/paxeer/lxp_checkpoint_cert.c and still found lxp_guarantor_attestation_verify in build/liblayerx.a because src/guarantor/lxp_attestation.c (deleted by 1.31.1, which landed later) defined it too; 1.32.1 did not require 1.31.1."
+fix = "When a task's test asserts symbols absent from an archive, grep the whole source tree for every definer and add each deleting task to requires."

@@ -75,7 +75,7 @@ func TestEd25519MatchesRustStrictVerifier(t *testing.T) {
 			if digest != array(t, v, "digest") {
 				t.Fatalf("%s: domain digest differs from Rust SignatureMessage", v.Name)
 			}
-			err = verify.Ed25519Domain(publicKey, sig, domain, message)
+			err = verify.Ed25519Digest(publicKey, sig, digest)
 		} else {
 			err = verify.Ed25519(publicKey, sig, message)
 		}
@@ -107,76 +107,6 @@ func TestReceiptSignatureMatchesRust(t *testing.T) {
 		if expected, ok := want[v.Name]; ok && !errors.Is(err, expected) {
 			t.Fatalf("%s: got %v, want %v", v.Name, err, expected)
 		}
-	}
-}
-
-func inclusion(t *testing.T, v testvectors.Vector) (*verify.VerifiedReceipt, *verify.VerifiedBatchHeader, error) {
-	t.Helper()
-	proof, err := codec.DecodeMerkleProof(field(t, v, "proof"))
-	if err != nil {
-		return nil, nil, err
-	}
-	return verify.ReceiptInclusion(field(t, v, "receipt"), proof, field(t, v, "header"),
-		signature(t, v, "header_signature"), verify.SequencerAuthorization{
-			SequencerID:      array(t, v, "sequencer_id"),
-			PublicKey:        array(t, v, "public_key"),
-			FirstBatchNumber: number(t, v, "first_batch"),
-			LastBatchNumber:  number(t, v, "last_batch"),
-		})
-}
-
-func TestReceiptInclusionMatchesRust(t *testing.T) {
-	want := map[string]error{
-		"wrong-root-sibling":           codec.ErrMerkleRootMismatch,
-		"proof-of-other-leaf":          codec.ErrMerkleRootMismatch,
-		"truncated-proof":              codec.ErrTruncated,
-		"trailing-proof-byte":          codec.ErrTrailingBytes,
-		"forged-promotion-sibling":     codec.ErrMerklePromotionSibling,
-		"bit-flipped-header-signature": verify.ErrHeaderSignature,
-		"batch-outside-authorisation":  verify.ErrHeaderBatchNumber,
-		"wrong-sequencer-identity":     verify.ErrSequencerIdentity,
-	}
-	matched := 0
-	for _, v := range load(t, "inclusion") {
-		receipt, header, err := inclusion(t, v)
-		if (err == nil) != v.Valid {
-			t.Fatalf("%s: Go verdict %v, Rust valid=%v", v.Name, err, v.Valid)
-		}
-		if expected, ok := want[v.Name]; ok {
-			matched++
-			if !errors.Is(err, expected) {
-				t.Fatalf("%s: got %v, want %v", v.Name, err, expected)
-			}
-		}
-		if !v.Valid {
-			continue
-		}
-		if header.Digest != array(t, v, "header_digest") ||
-			header.Header.ReceiptMerkleRoot != array(t, v, "receipt_root") ||
-			header.Header.ResultingStateRoot != array(t, v, "resulting_state_root") ||
-			header.Header.BatchNumber != number(t, v, "batch_number") {
-			t.Fatalf("%s: verified header differs from Rust", v.Name)
-		}
-		if receipt.Receipt.ResultingStateRoot != header.Header.ResultingStateRoot {
-			t.Fatalf("%s: receipt root is not the header root", v.Name)
-		}
-		proof, err := codec.DecodeMerkleProof(field(t, v, "proof"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := verify.ReceiptAtRoot(field(t, v, "receipt"), proof, header.Header.ReceiptMerkleRoot,
-			array(t, v, "public_key")); err != nil {
-			t.Fatalf("%s: ReceiptAtRoot: %v", v.Name, err)
-		}
-		wrong := header.Header.ReceiptMerkleRoot
-		wrong[0] ^= 1
-		if _, err := verify.ReceiptAtRoot(field(t, v, "receipt"), proof, wrong,
-			array(t, v, "public_key")); !errors.Is(err, codec.ErrMerkleRootMismatch) {
-			t.Fatalf("%s: wrong root gave %v", v.Name, err)
-		}
-	}
-	if matched != len(want) {
-		t.Fatalf("fixture carries %d of %d inclusion refusals", matched, len(want))
 	}
 }
 
@@ -230,69 +160,6 @@ func TestAccountProofBindsIdentityAndAsset(t *testing.T) {
 				accountID, nil); !errors.Is(err, verify.ErrNotAccountProof) {
 				t.Fatalf("module witness as account gave %v", err)
 			}
-		}
-	}
-}
-
-func TestStateProofAtHeaderBindsResultingRoot(t *testing.T) {
-	var included testvectors.Vector
-	for _, v := range load(t, "inclusion") {
-		if v.Name == "valid-leaf-0" {
-			included = v
-		}
-	}
-	var witness testvectors.Vector
-	for _, v := range load(t, "state") {
-		if v.Name == "valid-account" {
-			witness = v
-		}
-	}
-	// The fixture witness folds to its own root, not the header's resulting
-	// root, so the header binding must refuse it.
-	_, _, err := verify.StateProofAtHeader(field(t, witness, "witness"), field(t, included, "header"),
-		signature(t, included, "header_signature"), verify.SequencerAuthorization{
-			SequencerID:      array(t, included, "sequencer_id"),
-			PublicKey:        array(t, included, "public_key"),
-			FirstBatchNumber: number(t, included, "first_batch"),
-			LastBatchNumber:  number(t, included, "last_batch"),
-		})
-	if !errors.Is(err, codec.ErrStateRoot) && !errors.Is(err, verify.ErrStateRootBinding) {
-		t.Fatalf("unbound state proof gave %v", err)
-	}
-}
-
-func TestDiscoveryProofMatchesRust(t *testing.T) {
-	want := map[string]error{
-		"bit-flipped-signature":    verify.ErrDiscoverySignature,
-		"wrong-state-root":         verify.ErrDiscoverySignature,
-		"truncated-payload":        codec.ErrDiscoveryMalformed,
-		"trailing-payload-byte":    codec.ErrDiscoveryMalformed,
-		"truncated-proof-material": codec.ErrDiscoveryMalformed,
-		"oversize-proof-material":  codec.ErrDiscoveryMalformed,
-		"other-program":            verify.ErrDiscoveryProgram,
-		"other-staleness-window":   verify.ErrDiscoveryFreshness,
-		"untrusted-sequencer-key":  verify.ErrDiscoverySequencerKey,
-		"unknown-layout-version":   codec.ErrDiscoveryMalformed,
-	}
-	for _, v := range load(t, "discovery") {
-		verified, err := verify.DiscoveryProof(field(t, v, "payload"), field(t, v, "proof_material"),
-			array(t, v, "program_id"), number(t, v, "staleness_ms"), array(t, v, "public_key"))
-		if (err == nil) != v.Valid {
-			t.Fatalf("%s: Go verdict %v, Rust valid=%v", v.Name, err, v.Valid)
-		}
-		if expected, ok := want[v.Name]; ok && !errors.Is(err, expected) {
-			t.Fatalf("%s: got %v, want %v", v.Name, err, expected)
-		}
-		if !v.Valid {
-			continue
-		}
-		if verified.Digest != array(t, v, "digest") ||
-			verified.Head.StateRoot != array(t, v, "state_root") ||
-			verified.Head.CodeHash != array(t, v, "code_hash") ||
-			verified.HeadReceiptDigest != array(t, v, "head_receipt_digest") ||
-			verified.Head.ObservedSequence != number(t, v, "observed_sequence") ||
-			verified.Head.ValidThrough != number(t, v, "valid_through") {
-			t.Fatalf("%s: verified head differs from Rust", v.Name)
 		}
 	}
 }

@@ -17451,3 +17451,27 @@ symbol = "Peer::serve"
 observed = "attempt 3 (f910fd21b) fails all three agent_runtime_receipt_frame tests in 0.00s with 'agent runtime peer: Unavailable': AgentRuntime::new (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2204) reads RuntimeClock::from_environment and maps its failure to AgentBoundaryError::Unavailable, and the verify runs the human test targets without tools/runtime/run-with-clock.sh, which the Makefile (:1640, :1679) puts in front of every human-workspace cargo test."
 assumption = "the verify runs the human-workspace targets through the clock wrapper, as 9.35.9 and 9.35.11 already do (finding 9.35.9.1); the daemon target stays bare."
 severity = "medium"
+
+[finding.20.6.1.1]
+task = "20.6.1"
+file = "apps/explorer/tsconfig.json"
+symbol = "tsc -p"
+observed = "attempt 1 (da98739ad) fails the build with TS5058 'The specified path does not exist: apps/explorer/tsconfig.json': yarn --cwd apps/explorer runs tsc inside the package, so the -p argument is resolved against apps/explorer and the repository-relative path points at apps/explorer/apps/explorer/tsconfig.json."
+assumption = "the build names the project as tsconfig.json; every other explorer type check in the spec (18.1402.1 and its siblings) already does."
+severity = "minor"
+
+[finding.9.35.11.2]
+task = "9.35.11"
+file = "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:233"
+symbol = "RemoteKmsProvider::new"
+observed = "attempt 3 (0c0a78a0293) completes its 13 files and fails the build cargo build --locked -p layerx-human-service --tests on two targets it does not touch: tests/native_journey_approval.rs:233 calls RemoteKmsProvider::new with five arguments while src/custody/provider.rs:750 has taken a sixth Arc<dyn Clock> since e557e4440 (issue #1485), and tests/support/canonical_owner.rs:190 calls activity.protocol_version() on the value bound_activity returns, which do_8 turns into BoundLifecycleCall without that accessor."
+assumption = "the clock argument is repaired by task 18.1485.1, which 9.35.11 now requires; BoundLifecycleCall gains protocol_version() so canonical_owner.rs compiles unchanged; attempt 3's tree is otherwise the implementation."
+severity = "major"
+
+[finding.1.32.1.1]
+task = "1.32.1"
+file = "modules/lxphost/retired_checkpoint_cert_test.go:18"
+symbol = "TestRetiredCheckpointCertSymbolsAbsent"
+observed = "attempt 1 (87517e38f) deleted src/paxeer/lxp_checkpoint_cert.c and the Makefile lines, and its test failed on 'kernel archive defines retired checkpoint certificate symbol lxp_guarantor_attestation_verify': at that revision src/guarantor/lxp_attestation.c still defined the same symbol (its object is member 10 of the ar line in the build log) and task 1.31.1 (a91c89ed0), which deletes that file, landed afterwards; 1.32.1 did not require 1.31.1."
+assumption = "1.32.1 requires 1.31.1; rebased onto a main that carries a91c89ed0 the attempt's tree passes unchanged."
+severity = "minor"

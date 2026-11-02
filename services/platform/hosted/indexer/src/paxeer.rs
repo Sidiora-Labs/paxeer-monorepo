@@ -246,24 +246,8 @@ pub fn decode_block(block: &Value, inputs: &BlockInputs<'_>) -> Result<Unit, Ind
                 "receipt of {tx_hash} belongs to another block"
             )));
         }
-        if let Some(chain_id) = transaction.get("chainId").and_then(Value::as_str) {
-            let chain_id = quantity_u64(chain_id)?;
-            if let Some(id) = chain_id
-                .checked_sub(125_000_000)
-                .and_then(|id| u32::try_from(id).ok())
-            {
-                unit.events.push(EventRow {
-                    height_or_seq: height,
-                    source: "chain-transaction".to_owned(),
-                    name: "ChainTransaction".to_owned(),
-                    contract: None,
-                    account: None,
-                    tx_id: tx_hash.clone(),
-                    ordinal: 0,
-                    decoded: json!({"chain": format!("pax:{id}"),
-                        "gas_used": quantity_u64(field_str(receipt, "gasUsed")?)?}),
-                });
-            }
+        if let Some(activity) = chain_activity(transaction, receipt, height, &tx_hash)? {
+            unit.events.push(activity);
         }
         if field_str(receipt, "status")? != "0x1" {
             continue;
@@ -331,6 +315,38 @@ pub fn decode_block(block: &Value, inputs: &BlockInputs<'_>) -> Result<Unit, Ind
         decode_cosmos_tx(&mut unit, transaction, inputs.encoding)?;
     }
     Ok(unit)
+}
+
+fn chain_activity(
+    transaction: &Value,
+    receipt: &Value,
+    height: u64,
+    tx_hash: &str,
+) -> Result<Option<EventRow>, IndexError> {
+    let Some(chain_id) = transaction.get("chainId") else {
+        return Ok(None);
+    };
+    let chain_id =
+        quantity_u64(chain_id.as_str().ok_or_else(|| {
+            IndexError::Decode("transaction chainId is not a quantity".to_owned())
+        })?)?;
+    let Some(id) = chain_id
+        .checked_sub(125_000_000)
+        .and_then(|id| u32::try_from(id).ok())
+    else {
+        return Ok(None);
+    };
+    Ok(Some(EventRow {
+        height_or_seq: height,
+        source: "chain-transaction".to_owned(),
+        name: "ChainTransaction".to_owned(),
+        contract: None,
+        account: None,
+        tx_id: tx_hash.to_owned(),
+        ordinal: 0,
+        decoded: json!({"chain": format!("pax:{id}"), "chain_id": chain_id,
+            "gas_used": quantity_u64(field_str(receipt, "gasUsed")?)?}),
+    }))
 }
 
 /// The transaction a log belongs to.
