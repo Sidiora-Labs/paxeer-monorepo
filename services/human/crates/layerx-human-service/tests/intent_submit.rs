@@ -81,6 +81,17 @@ fn start_kernel_journey(
     assert_eq!(legs.len(), signed.len());
     for (leg, action) in legs.iter().zip(signed) {
         let hash = layerx_crypto::evm_transaction::transaction_hash(&action.raw_transaction);
+        let (call, signature) =
+            layerx_crypto::evm_transaction::decode_signed(&action.raw_transaction)
+                .unwrap_or_else(|error| panic!("persisted journey transaction: {error:?}"));
+        assert_eq!(call.nonce, action.authorization.transaction.nonce);
+        assert_eq!(call.chain_id, action.authorization.transaction.chain_id);
+        assert_eq!(call.data, action.authorization.transaction.calldata);
+        assert_eq!(
+            layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                .unwrap_or_else(|error| panic!("journey transaction signer: {error:?}")),
+            action.authorization.wallet
+        );
         assert_eq!(leg["tx_hash"], format!("0x{}", hex(&hash)));
         assert_eq!(leg["nonce"], action.authorization.transaction.nonce);
     }

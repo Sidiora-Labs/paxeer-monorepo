@@ -16,6 +16,9 @@ AGENT_FUZZ_TOOLCHAIN ?= nightly-2025-11-10
 AGENT_BOUNDARY_HARNESS := $(abspath $(or $(CARGO_TARGET_DIR),services/agent/tests/boundary/target))/debug/agent-boundary-conformance
 AGENT_NODE_RPC_URL ?= http://127.0.0.1:8545
 HUMAN_CARGO ?= cargo
+HUMAN_API_GEN ?= $(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked --
+HUMAN_API_SCHEMA_DIR ?= services/human/schema/human-api
+HUMAN_API_OUT_DIR ?= apps/web/src/api/generated
 HUMAN_MANIFEST := services/human/Cargo.toml
 HUMAN_WEB_DIR := apps/web
 HUMAN_NPM ?= npm --prefix $(HUMAN_WEB_DIR)
@@ -1615,13 +1618,16 @@ human-js-install:
 	npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund
 	$(HUMAN_NPM) ci --ignore-scripts --no-audit --no-fund
 
-human-gen-api:
-	$(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked -- services/human/schema/human-api apps/web/src/api/generated
+.PHONY: human-gen-api human-check-api
+human-gen-api: platform-human-api-generate
+
+human-check-api:
+	$(HUMAN_API_GEN) --check "$(HUMAN_API_SCHEMA_DIR)" "$(HUMAN_API_OUT_DIR)"
 
 human-build:
 	$(MAKE) agent-sdk-ts-build
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(HUMAN_CARGO) test --manifest-path services/human/tools/api-gen/Cargo.toml --locked
-	$(HUMAN_CARGO) run --manifest-path services/human/tools/api-gen/Cargo.toml --locked -- --check services/human/schema/human-api apps/web/src/api/generated
+	$(MAKE) human-check-api
 	$(HUMAN_CARGO) build --manifest-path $(HUMAN_MANIFEST) --locked --workspace
 	$(HUMAN_NPM) run build
 

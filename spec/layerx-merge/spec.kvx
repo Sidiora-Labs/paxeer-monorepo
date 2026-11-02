@@ -113587,7 +113587,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.161.1]
 title = "Prove the x402 receive path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123396,7 +123396,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.129.1]
 title = "Prove the portable receipt path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123620,7 +123620,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.109.1]
 title = "Prove the human tools path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123652,7 +123652,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.108.1]
 title = "Prove the generators path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123716,7 +123716,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.98.1]
 title = "Prove the rs committed proof crate path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123780,7 +123780,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.96.1]
 title = "Prove the mcp path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123940,7 +123940,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.81.1]
 title = "Prove the x websearch payment path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123972,7 +123972,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.80.1]
 title = "Prove the layerx agentd metrics path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124004,7 +124004,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.79.1]
 title = "Prove the precompile 1 layerxledger 0x101a path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124164,7 +124164,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.62.1]
 title = "Prove the crypto path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124356,7 +124356,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.34.1]
 title = "Prove the bridge relayer path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124516,7 +124516,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.9.1]
 title = "Prove the agentd path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124548,7 +124548,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.2.1]
 title = "Prove the registry crate path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128752,7 +128752,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.77.1]
 title = "Prove the 0x1001 bank path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128816,7 +128816,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.75.1]
 title = "Prove the cli path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129104,7 +129104,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.65.1]
 title = "Prove the app env path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129328,7 +129328,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.55.1]
 title = "Prove the spot params path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129905,7 +129905,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.28.1]
 title = "Prove the streams 0x0906 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129937,7 +129937,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.27.1]
 title = "Prove the sequencer wal path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130097,7 +130097,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.22.1]
 title = "Prove the pricefeed errors path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130129,7 +130129,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.21.1]
 title = "Prove the layerxauth 0x101c path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130481,7 +130481,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.8.1]
 title = "Prove the errors path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130513,7 +130513,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.7.1]
 title = "Prove the perps errors path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130545,7 +130545,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.6.1]
 title = "Prove the launchpad errors path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208821,7 +208821,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1463.1]
 title = "Issues #1463, #1464, #1465 and #1448: Port the Python x402 verifier onto the EVM receipt and the rung ladder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

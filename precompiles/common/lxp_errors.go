@@ -9,6 +9,7 @@ import (
 	anchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	bridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
 	exchangetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	perpstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
 	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	tokenfactorytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
@@ -89,7 +90,7 @@ var lxpRevertTable = []lxpRevertEntry{
 	{code: "LXP_INSUFFICIENT_BALANCE", message: "insufficient balance", kernel: true, value: -400},
 	{code: "LXP_ZERO_AMOUNT", message: "zero amount", kernel: true, value: -401},
 	{code: "LXP_ASSET_MISMATCH", message: "asset mismatch", kernel: true, value: -402},
-	{code: "LXP_ASSET_PAUSED", message: "asset paused", kernel: true, value: -403},
+	{code: ledgertypes.AssetPausedCode, message: "asset paused", kernel: true, value: -403},
 	{code: "LXP_ACCOUNT_FROZEN", message: "account frozen", kernel: true, value: -404},
 	{code: "LXP_CONSERVATION", message: "conservation", kernel: true, value: -405},
 	{code: "LXP_TOO_MANY_LEGS", message: "too many legs", kernel: true, value: -406},
@@ -456,6 +457,12 @@ func LXPCodeName(value int32) string {
 // code the registry does not list reverts as LXP_UNKNOWN carrying that code
 // ahead of the detail.
 func LXPRevert(code, detail string) []byte {
+	return RevertReason(LXPError(code, detail))
+}
+
+// LXPError constructs the registry reason before its Error(string) transport
+// encoding, so producers never need a fallible encode/decode round trip.
+func LXPError(code, detail string) error {
 	entry, ok := lxpRevertEntryByCode(code)
 	if !ok {
 		entry, _ = lxpRevertEntryByCode(lxpUnknownCode)
@@ -473,7 +480,7 @@ func LXPRevert(code, detail string) []byte {
 		text.WriteString("; ")
 		text.WriteString(detail)
 	}
-	return RevertReason(errors.New(text.String()))
+	return errors.New(text.String())
 }
 
 func lxpRevertEntryByCode(code string) (lxpRevertEntry, bool) {
