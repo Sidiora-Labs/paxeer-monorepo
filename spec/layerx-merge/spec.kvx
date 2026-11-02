@@ -127013,7 +127013,7 @@ do_6 = "Finding 22.13.9.2: the agentd proof_serve_errors.rs build break is repai
 
 [task.22.13.8]
 title = "Order the program ABI validation so unsupported versions are refused first"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24", "22.9.25"]
