@@ -1,0 +1,124 @@
+[disposition.2.14.2]
+finding = "2.14.2"
+status = "resolved"
+evidence = "Commit 21c5e4e13 compares the returned grant ID with DomainAuthorityHash of the grant body and checks the native receipt result and sequence without an idempotency-key receipt read, as retained in precompiles/layerxauth/parity_test.go:231 and precompiles/layerxauth/parity_test.go:299."
+
+[disposition.2.14.4]
+finding = "2.14.4"
+status = "resolved"
+evidence = "Commit 83489f88f moved the six testutil-backed auth keeper test files into package keeper_test, breaking the node import cycle as shown in modules/layerxauth/keeper/authority_test.go:1."
+
+[disposition.2.14.5]
+finding = "2.14.5"
+status = "resolved"
+evidence = "Commit 333975f7f asserts the empty host prefix 0x04 at modules/layerxauth/keeper/shared_host_test.go:195 and ErrSequenceReused for a consumed sequence at modules/layerxauth/keeper/shared_host_test.go:231 instead of expecting an idempotency replay row."
+
+[disposition.2.22.4]
+finding = "2.22.4"
+status = "resolved"
+evidence = "Commit 2c48362b3 added the exported TimestampWindowMs reader retained at modules/lxphost/host.go:934, which Submit calls at modules/layerxpay/keeper/execute.go:39 instead of accessing a nonexistent Config field."
+
+[disposition.2.22.4.1]
+finding = "2.22.4.1"
+status = "resolved"
+evidence = "Commit 1ab8d6645 registered the service module now present at modules/lxphost/host.go:196, while the Submit conformance test at modules/layerxpay/keeper/execute_test.go:145 now uses a funded escrow activity."
+
+[disposition.2.22.4.2]
+finding = "2.22.4.2"
+status = "resolved"
+evidence = "Commit 2c48362b3 replaced the failing service fixture with funded escrow execution at modules/layerxpay/keeper/execute_test.go:145 and constructs the expected envelope with the current identity sequence and a single timestamp window at modules/layerxpay/keeper/execute_test.go:158."
+
+[disposition.2.22.4.3]
+finding = "2.22.4.3"
+status = "resolved"
+evidence = "Commit 2c48362b3 makes Submit use the unchanged identity sequence, NotBefore equal to block time and NotAfter equal to block time plus the window at modules/layerxpay/keeper/execute.go:49, with no stored-receipt lookup."
+
+[disposition.2.22.4.4]
+finding = "2.22.4.4"
+status = "resolved"
+evidence = "Module custody staging at src/protocol/lxp_module_ctx.c:895 now checks the asset runtime binding_authority flag before calling lxp_activity_verify_signature, so bound escrow activities no longer face the unconditional signature check."
+
+[disposition.2.24.2]
+finding = "2.24.2"
+status = "resolved"
+evidence = "Commit 4606c88a8 makes budget_authorized_signer honor the asset runtime binding_authority flag before signature verification, as retained at src/modules/budget/lx_budget_module.c:285."
+
+[disposition.2.24.3]
+finding = "2.24.3"
+status = "superseded"
+evidence = "Commit 984636931 removed ReadPayerGrant and PayerGrantState with the retired payer-grant store, and commit 1c81ed369 replaced BudgetPull execution with ErrBudgetPullRetired at modules/layerxpay/keeper/budget_pull.go:17."
+
+[disposition.2.24.5]
+finding = "2.24.5"
+status = "resolved"
+evidence = "Commit 44edbdfbc registered the budget and escrow modules in lxphost_reset, with the budget registration retained at modules/lxphost/host.go:179 so budgetCreate is no longer refused for an unregistered module."
+
+[disposition.2.24.5.1]
+finding = "2.24.5.1"
+status = "resolved"
+evidence = "Commit 1d8ccad98 returns canonical sdk.ZeroInt for a zero allowance before constructing a big integer, as retained in modules/layerxpay/keeper/budget_views.go:39."
+
+[disposition.2.24.5.2]
+finding = "2.24.5.2"
+status = "resolved"
+evidence = "Commit 1d8ccad98 aligns the post-defund expected record with the kernel by setting PerPeriodLimit to 400 and remaining to 280, as retained in modules/layerxpay/keeper/budget_views_test.go:245."
+
+[disposition.2.25.1]
+finding = "2.25.1"
+status = "resolved"
+evidence = "Commit 1ab8d6645 registered both stream and service in the hosted kernel, with lx_stream_module_iface at modules/lxphost/host.go:193 and lx_service_module_iface at modules/lxphost/host.go:196."
+
+[disposition.2.26.4]
+finding = "2.26.4"
+status = "resolved"
+evidence = "Commit 1ab8d6645 registered lx_service_module_iface in the hosted kernel at modules/lxphost/host.go:196, removing the absent-module cause of the serviceDisputeOpen refusal."
+
+[disposition.2.26.4.2]
+finding = "2.26.4.2"
+status = "resolved"
+evidence = "Commit e0b3ccfaa binds a service runtime with a read-only escrow-link lookup at modules/lxphost/host.go:208 and modules/lxphost/host.go:270 and includes the escrow module when restoring service activity state at modules/lxphost/host.go:1359."
+
+[disposition.2.27.1]
+finding = "2.27.1"
+status = "resolved"
+evidence = "Commit 0d179df2e uses sdkerrors.ErrUnauthorized for a pay governance authority mismatch, as retained at modules/layerxpay/keeper/msg_server.go:20, without referencing the absent govtypes.ErrInvalidSigner."
+
+[disposition.2.27.1.1]
+finding = "2.27.1.1"
+status = "resolved"
+evidence = "The requirement at spec/layerx-merge/spec.kvx:14884 and acceptance scenario at spec/layerx-merge/spec.kvx:60684 both specify sdkerrors.ErrUnauthorized, matching the implementation at modules/layerxpay/keeper/msg_server.go:20."
+
+[disposition.2.28.4]
+finding = "2.28.4"
+status = "resolved"
+evidence = "Commit d5b037bbf routes escrow writes through escrowHandlers in Execute at precompiles/layerxpay/layerxpay.go:222, and the handler emits the selected escrow event at precompiles/layerxpay/escrow.go:106."
+
+[disposition.2.28.6.1]
+finding = "2.28.6.1"
+status = "resolved"
+evidence = "Commit 1ab8d6645 registered lx_stream_module_iface in lxphost_reset, with the registration retained at modules/lxphost/host.go:193 so streamOpen has a registered module."
+
+[disposition.2.28.6.2]
+finding = "2.28.6.2"
+status = "resolved"
+evidence = "Commit 6dab05b58 moved the seven harness-reaching pay precompile test files into package layerxpay_test and added export_test.go, with the external harness package retained at precompiles/layerxpay/harness_test.go:1."
+
+[disposition.2.28.6.3]
+finding = "2.28.6.3"
+status = "superseded"
+evidence = "Commit 90bda704a retired Keeper.ResultByIdempotency and the resultByIdempotency precompile view, removing the caller of the retired Host.ReadIdempotentReceipt that caused the build failure."
+
+[disposition.2.28.6.4]
+finding = "2.28.6.4"
+status = "resolved"
+evidence = "Commit 6dab05b58 compares ABI encodings of expected and decoded stream results at precompiles/layerxpay/stream_test.go:210 and accrued values at precompiles/layerxpay/stream_test.go:220, preserving the zero values without depending on big integer word-slice representation."
+
+[disposition.2.28.6.5]
+finding = "2.28.6.5"
+status = "resolved"
+evidence = "Commit 6dab05b58 maps lxphost.Code(-7) to LXP_UNKNOWN_FIELD in getStream, getStreamResult and streamAccrued at precompiles/layerxpay/stream.go:22, precompiles/layerxpay/stream.go:31 and precompiles/layerxpay/stream.go:40."
+
+[disposition.2.28.7.1]
+finding = "2.28.7.1"
+status = "resolved"
+evidence = "Commit d994d2471 routes late serviceAccept and serviceReject to ServiceApplyDefaultOutcomes at precompiles/layerxpay/service.go:64 and precompiles/layerxpay/service.go:72, whose keeper implementation calls the hosted default sweep at modules/layerxpay/keeper/service_delivery.go:25."
