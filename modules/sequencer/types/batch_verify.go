@@ -2,6 +2,9 @@ package types
 
 import "bytes"
 
+// VerifyBatchTxs binds the inclusive range, root and sequence hash to the
+// ordered activities. Callers decode the envelope and verify its signature
+// separately; this check alone does not authenticate the receipt key.
 func VerifyBatchTxs(m MsgSequenceBatch, activityIDs [][32]byte) error {
 	if m.FromSeq == 0 {
 		return ErrInvalidSequenceBatch.Wrapf("fromSeq is zero")
