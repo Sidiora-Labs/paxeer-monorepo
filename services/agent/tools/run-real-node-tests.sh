@@ -86,7 +86,7 @@ if [ -n "$test_target" ]; then
     exit 0
 fi
 
-run-real-node-tests() {
+run_real_node_tests() {
     : "${CARGO_TARGET_DIR:?the build output directory of the agent-test path, exported by the Makefile variable AGENT_TEST_TARGET_DIR}"
     export LAYERX_TEST_NATIVE_BUILD_DIR=${LAYERX_TEST_NATIVE_BUILD_DIR:-$repo_root/build}
     make -j4 CC=gcc BUILD_DIR="$LAYERX_TEST_NATIVE_BUILD_DIR" \
@@ -102,4 +102,4 @@ run-real-node-tests() {
     sha256sum "$PAXD"
 }
 
-run-real-node-tests
+run_real_node_tests

@@ -73,6 +73,19 @@ func newSandboxActivationFixture(t *testing.T) sandboxActivationFixture {
 		call: callContext{caller: caller, method: &method, evm: &vm.EVM{}}, leaseID: [32]byte{1}}
 	authority, _, err := principalOf(ctx, evm, caller)
 	require.NoError(t, err)
+	fee := binary.BigEndian.AppendUint32([]byte("LXFR1"), 1)
+	for i := 0; i < 7; i++ {
+		fee = binary.BigEndian.AppendUint64(fee, 1)
+	}
+	asset := [32]byte{9}
+	fee = append(fee, asset[:]...)
+	for _, value := range []uint64{1000, 8, 1, 8, 1, 100, 1, 0, 1} {
+		fee = binary.BigEndian.AppendUint64(fee, value)
+	}
+	fee = append(fee, authority.Actor[:]...)
+	fee = append(fee, make([]byte, 16)...)
+	ctx.KVStore(key).Set(append([]byte{1, 0, 9}, []byte("progfee/active/v1")...), fee)
+	ctx.KVStore(key).Set(append([]byte{1, 0, 9}, binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)...), fee)
 	f.funded, f.state = sandboxActivationFundedLease(t, f.leaseID, authority.Actor)
 	f.digest = sha256.Sum256(f.funded)
 	ctx.KVStore(key).Set(append([]byte{1, 0, 9, 's', 0}, f.leaseID[:]...), f.funded)
@@ -172,6 +185,7 @@ func TestProgramsSandboxActivateLease(t *testing.T) {
 	require.Equal(t, uint64(1), receipt.GlobalSequence)
 	decoded, err := codec.DecodeReceipt(receipt.Encoded)
 	require.NoError(t, err)
+	require.Equal(t, codec.StateCommitmentProtocolVersion, decoded.ProtocolVersion)
 	require.Equal(t, uint16(9), decoded.ModuleID)
 	before := f.dump(f.ctx)
 	branch, _ := f.ctx.CacheContext()

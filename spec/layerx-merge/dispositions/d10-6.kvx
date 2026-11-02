@@ -1,0 +1,149 @@
+[disposition.10.2.9.1]
+finding = "10.2.9.1"
+status = "resolved"
+evidence = "43f4e67ab corrected the archive fixture registry to Budget 8 at services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1013, and 886bdaf0f replaced the reclaim signing path with disclosure-bound EIP-1559 signing at services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1307 and 65-byte signature verification at services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1623."
+follow_up = "closure"
+
+[disposition.10.0.3.1]
+finding = "10.0.3.1"
+status = "resolved"
+evidence = "63aee3813 replaced the external intent fixture with local service setup, now shared through services/human/crates/layerx-human-service/tests/support/production_fixture.rs:915, where Fixture::open creates its temporary store, clock, RPC and agent peers instead of reading LAYERX_TEST_INTENT_FIXTURE_JSON."
+follow_up = "closure"
+
+[disposition.10.13.8.3]
+finding = "10.13.8.3"
+status = "resolved"
+evidence = "2ce82754b ported both native send preview producers to prepare_evm_write_at_nonce and unsigned EIP-1559 call bytes, retained at services/agent/crates/layerx-agentd/src/human_runtime.rs:5973 and services/agent/crates/layerx-agentd/src/human_runtime.rs:6231."
+follow_up = "closure"
+
+[disposition.10.0.3.2]
+finding = "10.0.3.2"
+status = "resolved"
+evidence = "63aee3813 replaced the fixture's external node and authority requirements with an in-process agent socket peer, whose current RealAgentLayer::start binds its own UnixListener at services/human/crates/layerx-human-service/tests/support/production_fixture.rs:374 and is started by Fixture::open at services/human/crates/layerx-human-service/tests/support/production_fixture.rs:991."
+follow_up = "closure"
+
+[disposition.10.13.9.1]
+finding = "10.13.9.1"
+status = "resolved"
+evidence = "2ce82754b removed the impossible equality with Some(purpose.commitment), and services/agent/crates/layerx-agentd/src/human_runtime.rs:6037 now refuses an unexpected disclosed purpose while the capability check at services/agent/crates/layerx-agentd/src/human_runtime.rs:6081 still requires the signed grant's purpose commitment."
+follow_up = "closure"
+
+[disposition.10.0.3.3]
+finding = "10.0.3.3"
+status = "resolved"
+evidence = "63aee3813 implemented the router-level binary socket peer, now at services/human/crates/layerx-human-service/tests/support/production_fixture.rs:406, which decodes HumanRequest frames, answers them from PeerState and encodes HumanResponse frames instead of starting a daemon needing an external native-node socket."
+follow_up = "closure"
+
+[disposition.10.13.9.2]
+finding = "10.13.9.2"
+status = "resolved"
+evidence = "2ce82754b replaced the nonexistent JSON preview test path with the human-frame transport, and services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:804 writes NATIVE_SEND_PREVIEW_V1, calls serve_one at services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:838 and asserts the decoded EIP-1559 response at services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs:1008."
+follow_up = "closure"
+
+[disposition.10.0.3.4]
+finding = "10.0.3.4"
+status = "resolved"
+evidence = "63aee3813 provisioned real wallet identities and inventory approvals, retained at services/human/crates/layerx-human-service/tests/support/production_fixture.rs:1121, where each owner receives a secp256k1 wallet, its address becomes the primary key's policy account and approve_generate admits that primary before create_owned_key."
+follow_up = "closure"
+
+[disposition.10.13.8.4]
+finding = "10.13.8.4"
+status = "resolved"
+evidence = "a5c762631 replaced the release-fixture-dependent nonce tests with local peer and principal-store setup, and services/human/crates/layerx-human-service/tests/native_send_nonces.rs:80 creates a temporary directory and binds its own UnixListener without PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE."
+follow_up = "closure"
+
+[disposition.10.0.3.5]
+finding = "10.0.3.5"
+status = "resolved"
+evidence = "63aee3813 landed the repaired intent fixture with principal-scoped Subject and IdentityResolve replies now at services/human/crates/layerx-human-service/tests/support/production_fixture.rs:180 and services/human/crates/layerx-human-service/tests/support/production_fixture.rs:240, while Fixture::request at services/human/crates/layerx-human-service/tests/support/production_fixture.rs:1359 requires a successful HTTP status and reports served peer requests and attestor refusals on failure."
+follow_up = "closure"
+
+[disposition.10.0.3.6]
+finding = "10.0.3.6"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/tests/support/production_fixture.rs:724 now answers px_getBalances with layerx_did and layerx_account derived from the queried wallet and sets bound only when that identity exists, satisfying the retained identity consistency check at services/human/crates/layerx-network-gateway/src/lib.rs:246."
+follow_up = "closure"
+
+[disposition.10.0.3.7]
+finding = "10.0.3.7"
+status = "resolved"
+evidence = "63aee3813 replaced the oversized observation key with the shared digest-based intent_observation_key helper at services/human/crates/layerx-human-service/src/server/production_components.rs:1688, producing an 83-character key used by both plan and submit at services/human/crates/layerx-human-service/src/server/production_components.rs:4095 and services/human/crates/layerx-human-service/src/server/production_components.rs:4119."
+follow_up = "closure"
+
+[disposition.10.0.3.8]
+finding = "10.0.3.8"
+status = "resolved"
+evidence = "63aee3813 declared all eight EVM leg fields as optional with their emitted scalar types in services/human/schema/human-api/intent.kvx:38 and refreshed the schema baseline, so IntentLeg no longer rejects the planner's transaction fields as undeclared."
+follow_up = "closure"
+
+[disposition.10.0.3.9]
+finding = "10.0.3.9"
+status = "resolved"
+evidence = "63aee3813 added receipt and block replies now retained at services/human/crates/layerx-human-service/tests/support/production_fixture.rs:788 and services/human/crates/layerx-human-service/tests/support/production_fixture.rs:794, and the intent advance path now logs poll and advance errors with the journey id at services/human/crates/layerx-human-service/src/server/production_components.rs:1451."
+follow_up = "closure"
+
+[disposition.10.6.3.1]
+finding = "10.6.3.1"
+status = "resolved"
+evidence = "1bda4331f removed the obsolete custody-deposit nonce test, and 59c7ddde1 restored nonce-reuse coverage using the supported internal top-up route at services/human/crates/layerx-human-service/tests/intent_nonces.rs:143, which obtains two Kernel legs and asserts rejection of a reused nonce without a PaxeerWallet endpoint."
+follow_up = "closure"
+
+[disposition.10.0.3.10]
+finding = "10.0.3.10"
+status = "resolved"
+evidence = "63aee3813 implemented the schema-compatible Journey projection now at services/human/crates/layerx-human-service/src/server/production_reads.rs:545, declared tx_hash and nonce on JourneyStage at services/human/schema/human-api/journeys.kvx:40 and added response-schema diagnostics retained at services/human/crates/layerx-human-service/src/server/http.rs:594."
+follow_up = "closure"
+
+[disposition.10.25.4.1]
+finding = "10.25.4.1"
+status = "resolved"
+evidence = "2a426ffcc added the missing PayBudgetFund arms to ProtocolEvidence::bound_activity, and services/human/crates/layerx-human-service/src/agents/create.rs:638 still handles its budget and amount payload while the idempotency-key match handles PayBudgetFund at services/human/crates/layerx-human-service/src/agents/create.rs:497."
+follow_up = "closure"
+
+[disposition.10.98.12.1]
+finding = "10.98.12.1"
+status = "resolved"
+evidence = "2a426ffcc repaired the non-exhaustive PayBudgetFund matches inherited by the test-support build, with the current funding payload arm at services/human/crates/layerx-human-service/src/agents/create.rs:638 and the funding idempotency-key arm at services/human/crates/layerx-human-service/src/agents/create.rs:497."
+follow_up = "closure"
+
+[disposition.10.27.1.1]
+finding = "10.27.1.1"
+status = "resolved"
+evidence = "9f775b45b removed crates/layerx-explorer-index from the human workspace members and refreshed services/human/Cargo.lock, and the surviving workspace member list at services/human/Cargo.toml:2 contains no explorer-index entry."
+follow_up = "closure"
+
+[disposition.10.98.14.1]
+finding = "10.98.14.1"
+status = "superseded"
+evidence = "7fe9b50ec deleted services/human/crates/layerx-intents/src/owner_activity.rs and its unsigned_native envelope surface, and dff15fef0 deleted services/human/crates/layerx-intents/tests/native_session.rs in favor of session-grant coverage, removing both reported legacy disclosure bind sites."
+follow_up = "closure"
+
+[disposition.10.6.1.1]
+finding = "10.6.1.1"
+status = "resolved"
+evidence = "2a426ffcc supplied the PayBudgetFund arms absent from the attempt's base, retained in the funding payload match at services/human/crates/layerx-human-service/src/agents/create.rs:638 and the idempotency-key match at services/human/crates/layerx-human-service/src/agents/create.rs:497."
+follow_up = "closure"
+
+[disposition.10.95.1.1]
+finding = "10.95.1.1"
+status = "resolved"
+evidence = "2a426ffcc repaired the inherited non-exhaustive PayBudgetFund matches, whose current funding payload and idempotency-key arms remain at services/human/crates/layerx-human-service/src/agents/create.rs:638 and services/human/crates/layerx-human-service/src/agents/create.rs:497."
+follow_up = "closure"
+
+[disposition.10.98.10.1]
+finding = "10.98.10.1"
+status = "resolved"
+evidence = "2a426ffcc added the PayBudgetFund handling missing from the attempt's base, and services/human/crates/layerx-human-service/src/agents/create.rs:638 reconstructs its validated payload while services/human/crates/layerx-human-service/src/agents/create.rs:497 supplies its idempotency-key case."
+follow_up = "closure"
+
+[disposition.10.98.11.1]
+finding = "10.98.11.1"
+status = "resolved"
+evidence = "2a426ffcc eliminated the inherited PayBudgetFund exhaustiveness failure, and the current matches retain explicit funding handling at services/human/crates/layerx-human-service/src/agents/create.rs:638 and services/human/crates/layerx-human-service/src/agents/create.rs:497."
+follow_up = "closure"
+
+[disposition.10.95.1.2]
+finding = "10.95.1.2"
+status = "resolved"
+evidence = "684838ce3 introduced AssetBalance.amount and AccountBalances.height retained at services/human/crates/layerx-network-gateway/src/lib.rs:309 and services/human/crates/layerx-network-gateway/src/lib.rs:318, b8eb63f13 landed the observed-balance consumer, and spec/layerx-merge/spec.kvx:172310 now makes 10.95.1 depend on 10.24.1 while the 10.24.1 task at spec/layerx-merge/spec.kvx:171081 has no reverse dependency."
+follow_up = "closure"

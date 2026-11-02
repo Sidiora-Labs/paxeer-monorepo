@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/big"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
@@ -77,7 +78,7 @@ func submit(ctx sdk.Context, p *PrecompileExecutor, call callContext, activityTy
 	timestamp := uint64(ctx.BlockTime().UnixMilli())
 	activity := lxphost.Activity{
 		ReceiptAuthorities: append([]lxphost.ReceiptAuthority(nil), authorities...),
-		ProtocolVersion:    3,
+		ProtocolVersion:    codec.StateCommitmentProtocolVersion,
 		Type:               activityType,
 		ActorDID:           did,
 		AuthorityKey:       authority.VerifiedKey,
