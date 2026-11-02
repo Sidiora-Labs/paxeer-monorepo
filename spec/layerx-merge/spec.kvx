@@ -132948,7 +132948,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.52.3]
 title = "Retire contracts/GuarantorBond.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "5.54.2", "5.54.9", "8.19.11", "16.0.3", "16.6.1", "16.8.3", "16.30.1", "16.30.2", "16.36.2"]
@@ -133078,7 +133078,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.53.2]
 title = "Retire contracts/custody/AssetRegistry.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "8.19.4", "16.6.1", "16.8.3", "16.30.1", "16.30.2", "16.36.2"]
@@ -133110,7 +133110,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.53.3]
 title = "Retire contracts/custody/LayerXVault.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "8.19.4", "16.6.1", "16.8.3", "16.30.1", "16.30.2", "16.36.2"]
