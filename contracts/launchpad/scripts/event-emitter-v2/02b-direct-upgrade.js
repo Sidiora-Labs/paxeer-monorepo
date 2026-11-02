@@ -55,7 +55,7 @@ function loadImplRecord(network) {
   if (!fs.existsSync(p)) {
     throw new Error(
       `Missing ${p}. Run scripts/event-emitter-v2/01-deploy-impl.js first ` +
-      `(or pass IMPL_ADDRESS env).`
+        `(or pass IMPL_ADDRESS env).`
     );
   }
   return readJson(p);
@@ -68,8 +68,12 @@ function requireAddress(value, label) {
   return ethers.getAddress(value);
 }
 
+async function qualifyUpgrade() {
+  return require("../lib/upgrade-preflight").runUpgradePreflight(["EventEmitter"]);
+}
+
 async function main() {
-  await require("../lib/upgrade-preflight").upgradePreflight(["EventEmitter"]);
+  await qualifyUpgrade();
   const network = hre.network.name;
   const [signer] = await ethers.getSigners();
   const chainId = Number((await ethers.provider.getNetwork()).chainId);
@@ -104,7 +108,7 @@ async function main() {
   if (!hasAdmin) {
     throw new Error(
       `Signer ${signer.address} does NOT hold DEFAULT_ADMIN_ROLE on ${proxyAddr}.\n` +
-      `  upgradeToAndCall is gated by _authorizeUpgrade -> onlyRole(DEFAULT_ADMIN_ROLE).`
+        `  upgradeToAndCall is gated by _authorizeUpgrade -> onlyRole(DEFAULT_ADMIN_ROLE).`
     );
   }
   console.log(`  Role check:        DEFAULT_ADMIN_ROLE held by signer ✅`);
@@ -139,18 +143,14 @@ async function main() {
   if (adminWithEmitterRole !== ethers.ZeroAddress) {
     const hasRole = await proxy.hasRole(EVENT_EMITTER_ROLE, adminWithEmitterRole);
     if (!hasRole) {
-      throw new Error(
-        `EVENT_EMITTER_ROLE NOT granted to ${adminWithEmitterRole}.`
-      );
+      throw new Error(`EVENT_EMITTER_ROLE NOT granted to ${adminWithEmitterRole}.`);
     }
     console.log(`    ✅ hasRole(EVENT_EMITTER_ROLE, ${adminWithEmitterRole}) = true`);
   }
 
   const postRegistry = await proxy.poolRegistry();
   if (postRegistry !== preRegistry) {
-    throw new Error(
-      `Storage drift: poolRegistry changed from ${preRegistry} to ${postRegistry}!`
-    );
+    throw new Error(`Storage drift: poolRegistry changed from ${preRegistry} to ${postRegistry}!`);
   }
   console.log(`    ✅ poolRegistry preserved (${postRegistry})`);
 
@@ -180,11 +180,7 @@ async function main() {
   console.log(`    EventEmitter_impl:      ${newImpl}`);
 
   // ── Save direct-upgrade receipt ─────────────────────────────────────
-  const receiptPath = path.join(
-    DEPLOYMENTS_ROOT,
-    network,
-    "EventEmitterV2DirectUpgrade.json"
-  );
+  const receiptPath = path.join(DEPLOYMENTS_ROOT, network, "EventEmitterV2DirectUpgrade.json");
   fs.writeFileSync(
     receiptPath,
     JSON.stringify(
@@ -213,9 +209,12 @@ async function main() {
   console.log("══════════════════════════════════════════════════════════════════\n");
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error("❌ 02b-direct-upgrade failed:", err);
-    process.exit(1);
-  });
+module.exports = { main, qualifyUpgrade };
+
+if (require.main === module)
+  main()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("❌ 02b-direct-upgrade failed:", err);
+      process.exit(1);
+    });

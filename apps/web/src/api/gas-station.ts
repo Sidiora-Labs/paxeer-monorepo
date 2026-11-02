@@ -45,6 +45,18 @@ export async function sidioraStationMetadata(): Promise<Readonly<{ chainId: stri
   return { chainId: config.chainId.toString(), sponsor: config.sponsor.toLowerCase(), paymaster: config.paymaster.toLowerCase() };
 }
 
+export async function sidioraStationSubmitUrl(): Promise<string | undefined> {
+  const configured = process.env.PAXEER_GAS_STATION_SUBMIT_URL;
+  if (configured === undefined) return undefined;
+  try {
+    const endpoint = new URL(configured);
+    if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password || endpoint.href.includes("#")) return undefined;
+    return endpoint.href;
+  } catch {
+    return undefined;
+  }
+}
+
 export type AccountDidOutcome =
   | Readonly<{ ok: true; did: string }>
   | Readonly<{ ok: false; failure: PrecompileSendOutcome }>;
@@ -88,23 +100,16 @@ export async function sendSponsoredBatch(
   authorizationSignature: string,
 ): Promise<PrecompileSendOutcome> {
   const config = stationConfiguration();
-  const submitUrl = process.env.PAXEER_GAS_STATION_SUBMIT_URL;
+  const submitUrl = await sidioraStationSubmitUrl();
   if (config === undefined || submitUrl === undefined) return { outcome: "unavailable" };
   if (quoted.paymaster.toLowerCase() !== config.paymaster.toLowerCase()) return { outcome: "rejected" };
   const call = sponsoredBatchCall(config, quoted.batch, accountSignature, quoted.relayerSignature);
   if (!call.ok) return { outcome: "rejected" };
   const authorization = assembleEip7702Authorization(config, quoted.batch.account, authorizationNonce, authorizationSignature);
   if (!authorization.ok) return { outcome: "rejected" };
-  let endpoint: URL;
-  try {
-    endpoint = new URL(submitUrl);
-    if (endpoint.protocol !== "https:" || endpoint.username || endpoint.password || endpoint.hash) return { outcome: "unavailable" };
-  } catch {
-    return { outcome: "unavailable" };
-  }
   let response: Response;
   try {
-    response = await fetch(endpoint, {
+    response = await fetch(submitUrl, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ call: call.value, authorization: authorization.value, batch: quoted.batch, accountSignature, relayerSignature: quoted.relayerSignature },

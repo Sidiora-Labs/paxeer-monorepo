@@ -1,6 +1,8 @@
 import type { readConfig } from './config';
 
-export function contentSecurityPolicy(config: ReturnType<typeof readConfig>): string {
+export type BridgeConfig = ReturnType<typeof readConfig>;
+
+export function contentSecurityPolicy(config: BridgeConfig): string {
   const connectSources = new Set([ '\'self\'' ]);
   const endpoints = [
     config.paxeerRpcUrl,
@@ -10,7 +12,12 @@ export function contentSecurityPolicy(config: ReturnType<typeof readConfig>): st
 
   for (const endpoint of endpoints) {
     if (endpoint !== undefined) {
-      connectSources.add(new URL(endpoint).origin);
+      const url = new URL(endpoint);
+      if ((url.protocol !== 'https:' && url.protocol !== 'http:') ||
+        url.username || url.password || /[;\s']/.test(url.origin)) {
+        throw new TypeError('CSP endpoints must be HTTP(S) URLs with an origin safe for a source list and no credentials');
+      }
+      connectSources.add(url.origin);
     }
   }
 

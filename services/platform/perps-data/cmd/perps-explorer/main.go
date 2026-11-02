@@ -44,9 +44,9 @@ func main() {
 }
 
 func run(logger *slog.Logger) error {
-	cfg, err := config.Load(config.Explorer)
+	cfg, err := config.Explorer.Load()
 	if err != nil {
-		return fmt.Errorf("config: %w", err)
+		return err
 	}
 	logger.Info("perps-explorer starting", slog.Any("config", *cfg))
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

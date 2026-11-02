@@ -1,6 +1,6 @@
 import "server-only";
 
-import { explorerLinkPath, parseExplorerBaseUrl, type ExplorerLinkTarget } from "./links";
+import { explorerLinkPath, parseExplorerBaseUrl, type ExplorerLinkTarget } from "./links.ts";
 import {
   decodeAccountActivity,
   decodeNameResolution,
@@ -23,7 +23,7 @@ import {
   type ReceiptRecord,
   type UnifiedAccountRecord,
   type UnifiedAccountAvailabilityRecord,
-} from "./model";
+} from "./model.ts";
 
 const FETCH_TIMEOUT_MS = 8_000;
 
@@ -44,7 +44,7 @@ function explorerOrigin(): URL {
 /// malformed value fails closed with the unavailable state rather than guessing an origin.
 function explorerBaseUrl(): URL {
   const base = parseExplorerBaseUrl(process.env.PAXEER_X_EXPLORER_BASE_URL);
-  if (base === undefined) {
+  if (base === undefined || base.href !== `${base.origin}/`) {
     throw new ExplorerUnavailableError();
   }
   return base;
