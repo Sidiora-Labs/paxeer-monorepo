@@ -95,10 +95,7 @@ func (h *harness) processSequencedBlock(t *testing.T, ms int64, block [][]byte) 
 	}
 	ctx := sdk.NewContext(h.app.CommitMultiStore().CacheMultiStore(), header, false)
 	ctx = ctx.WithConsensusParams(h.app.GetConsensusParams(ctx))
-	events, results, end, err := h.app.ProcessBlock(ctx, block, &app.BlockProcessRequest{
-		Height: openHeight,
-		Time:   header.Time,
-	}, abci.CommitInfo{}, false, nil)
+	events, results, end, err := h.app.ProcessBlock(ctx, block, app.NewBlockProcessRequest(&abci.RequestFinalizeBlock{Header: &header}), abci.CommitInfo{}, false, nil)
 	require.NoError(t, err)
 	require.Len(t, results, len(block))
 	require.Equal(t, abci.ExecTxResult{}, *results[0])

@@ -62,7 +62,7 @@ evidence = "tools/qualification/localnode/v6120-node.sh:534 now checks that the 
 finding = "12.35.4.3"
 status = "open"
 evidence = "daemon/committed-fixture/main.go:233 still makes the standby full mode, daemon/committed-fixture/main.go:455 installs only the primary validator, and daemon/committed-fixture/main.go:477 appends the standby leader although consensus/internal/consensus/types/round_state.go:537 still panics for a leader outside the committee."
-follow_up = "closure"
+follow_up = "22.12.3"
 
 [disposition.12.35.4.4]
 finding = "12.35.4.4"

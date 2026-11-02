@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.MessageDigest;
@@ -30,7 +29,7 @@ public final class ConformanceMain {
         verifySchemaParity();
         verifyProtocolIntegers();
         verifyStreamAndSecrets();
-        invokeLocalVerification();
+        invokeLocalVerification(root);
         Set<String> sdkCodes = new HashSet<>();
         for (PlatformSdkException.Code code : PlatformSdkException.Code.values()) {
             if (!sdkCodes.add(code.wire())) throw new IllegalStateException("duplicate SDK error code");
@@ -178,24 +177,25 @@ public final class ConformanceMain {
         }
     }
 
-    private static void invokeLocalVerification() throws Exception {
+    private static void invokeLocalVerification(Path repositoryRoot) throws Exception {
         byte[] leaf = "layerx-jvm-conformance".getBytes(java.nio.charset.StandardCharsets.UTF_8);
         byte[] root = MessageDigest.getInstance("SHA-256").digest(concat(
             "LXP/v1/merkle-leaf\0".getBytes(java.nio.charset.StandardCharsets.UTF_8), leaf));
         LocalVerifier.verifyMerkleInclusion(leaf, new LocalVerifier.MerkleProof(0, 1, List.of()), root);
-        expectVerificationFailure(() -> LocalVerifier.verifyReceipt(new byte[] {0},
-            new LocalVerifier.AuthorizedReceiptBatch(new byte[32], new byte[32], new byte[32],
-                new byte[32], new byte[32])));
-        expectVerificationFailure(() -> LocalVerifier.verifyBatchInclusion(LocalVerifier.InclusionKind.RECEIPT,
-            leaf, new LocalVerifier.MerkleProof(0, 1, List.of()), new byte[0], new byte[64],
-            new LocalVerifier.SequencerAuthorization(new byte[32], new byte[32], BigInteger.ZERO, BigInteger.ZERO)));
-        expectVerificationFailure(() -> LocalVerifier.verifyCheckpoint(new LocalVerifier.CheckpointVerificationInput(
-            new LocalVerifier.CheckpointCertificate(new byte[0], new byte[0], List.of(), 1, null),
-            List.of(), new byte[32], BigInteger.valueOf(31_337), new byte[20], null, true)));
-        if (LocalVerifier.verifyRecoverableSecp256k1(
-                new byte[33], new byte[64], 27, new byte[20], new byte[32])) {
-            throw new IllegalStateException("invalid recoverable EVM attestation accepted");
+        JsonNode vector = read(repositoryRoot.resolve(
+            "sdk/platform/conformance/fixtures/vector-v1-receipted-positive.json")).required("cases").required(0);
+        JsonNode pin = vector.required("pinnedKey");
+        var keys = new LocalVerifier.ReceiptKeys(List.of(new LocalVerifier.ReceiptKey(
+            HexFormat.of().parseHex(text(pin, "keyId").substring(2)),
+            HexFormat.of().parseHex(text(pin, "publicKey").substring(2)),
+            pin.required("firstHeight").bigIntegerValue(), pin.required("lastHeight").bigIntegerValue())));
+        byte[] rawTransaction = HexFormat.of().parseHex(text(vector, "rawTransaction").substring(2));
+        var verified = LocalVerifier.verifySequencerReceipt(
+            HexFormat.of().parseHex(text(vector, "signedReceipt").substring(2)), rawTransaction, keys);
+        if (verified.level() != LocalVerifier.VerificationLevel.RECEIPTED || verified.status() != 1) {
+            throw new IllegalStateException("valid sequencer receipt did not verify as receipted success");
         }
+        expectVerificationFailure(() -> LocalVerifier.verifySequencerReceipt(new byte[] {0}, rawTransaction, keys));
     }
 
     private static void expectVerificationFailure(Runnable action) {

@@ -10,6 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+// JSON-RPC names shared with metrics and the client parity contract.
+const (
+	eth_getUncleByBlockNumberAndIndex = "eth_getUncleByBlockNumberAndIndex"
+	eth_getUncleByBlockHashAndIndex   = "eth_getUncleByBlockHashAndIndex"
+)
+
 type UncleAPI struct {
 	tmClient       client.LocalClient
 	watermarks     *WatermarkManager
@@ -27,7 +33,7 @@ func NewUncleAPI(tmClient client.LocalClient, watermarks *WatermarkManager, conn
 func (a *UncleAPI) GetUncleByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, index hexutil.Uint) (result map[string]interface{}, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getUncleByBlockNumberAndIndex", a.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, eth_getUncleByBlockNumberAndIndex, a.connectionType, startTime, returnErr, recover())
 	}()
 	return nil, nil
 }
@@ -35,7 +41,7 @@ func (a *UncleAPI) GetUncleByBlockNumberAndIndex(ctx context.Context, blockNr rp
 func (a *UncleAPI) GetUncleByBlockHashAndIndex(ctx context.Context, blockHash common.Hash, index hexutil.Uint) (result map[string]interface{}, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getUncleByBlockHashAndIndex", a.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, eth_getUncleByBlockHashAndIndex, a.connectionType, startTime, returnErr, recover())
 	}()
 	return nil, nil
 }
