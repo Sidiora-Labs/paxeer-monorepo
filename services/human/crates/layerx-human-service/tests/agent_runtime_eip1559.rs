@@ -1,8 +1,11 @@
+use layerx_human_test_support::StepClock;
+use layerx_types::clock::{Clock, Deadline};
 use std::fmt::Debug;
 use std::os::unix::net::UnixListener;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use layerx_agent_api::error::RequestId;
 use layerx_agent_api::idempotency::{BodyDigest, IdempotentMutation, Key};
@@ -177,15 +180,21 @@ impl Peer {
         let socket = root.join("peer.sock");
         let listener = checked(UnixListener::bind(&socket));
         checked(listener.set_nonblocking(true));
+        let clock: Arc<dyn Clock> = Arc::new(StepClock::new(100000));
+        let peer_clock = Arc::clone(&clock);
         let server = thread::spawn(move || {
             let mut prepared = None;
             for _ in 0..2 {
-                let deadline = Instant::now() + Duration::from_secs(5);
+                let mut deadline =
+                    checked(Deadline::start(peer_clock.as_ref(), Duration::from_secs(5)));
                 let mut stream = loop {
                     match listener.accept() {
                         Ok((stream, _)) => break stream,
                         Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
-                            assert!(Instant::now() < deadline, "peer request deadline");
+                            assert!(
+                                !checked(deadline.remaining(peer_clock.as_ref())).is_zero(),
+                                "peer request deadline"
+                            );
                             thread::sleep(Duration::from_millis(1));
                         }
                         Err(error) => panic!("peer accept: {error}"),
@@ -226,7 +235,7 @@ impl Peer {
                 checked(write_frame(&mut stream, &response, MAX_FRAME));
             }
         });
-        let runtime = checked(AgentRuntime::new(
+        let runtime = checked(AgentRuntime::new_with_clock(
             &socket,
             Limits {
                 maximum_frame_bytes: MAX_FRAME,
@@ -236,6 +245,7 @@ impl Peer {
                 deadline: Duration::from_secs(5),
             },
             registry(),
+            clock,
         ));
         (
             Self {
