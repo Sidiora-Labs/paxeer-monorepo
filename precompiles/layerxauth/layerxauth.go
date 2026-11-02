@@ -17,9 +17,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
+// AuthAddress is the canonical emitter and EVM entry point for LayerX authority.
 const AuthAddress = "0x000000000000000000000000000000000000101C"
 const PrecompileName = "layerxauth"
 
+// AuthKeepers supplies the application keeper shared by ABI writes and views.
 type AuthKeepers interface {
 	LayerXAuthK() *authkeeper.Keeper
 }
@@ -42,6 +44,7 @@ func init() {
 	}
 }
 
+// NewPrecompile constructs the ABI dispatcher over the application keeper.
 func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error) {
 	a := GetABI()
 	p := &PrecompileExecutor{abi: a, address: common.HexToAddress(AuthAddress)}
@@ -51,6 +54,7 @@ func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error) {
 	return pcommon.NewPrecompile(a, p, p.address, PrecompileName).WithLXPReasons().WithGasTable(GasTable), nil
 }
 
+// NewMergePrecompile is the merge registry constructor for AuthAddress.
 func NewMergePrecompile(keepers utils.Keepers, _ string) (precompiles.IPrecompile, error) {
 	return NewPrecompile(keepers)
 }
