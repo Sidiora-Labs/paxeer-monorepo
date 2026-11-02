@@ -17643,3 +17643,19 @@ symbol = "px_getNetwork"
 observed = "attempt 1 (79fe5b622) fails its verify in px_getNetwork: the test reads LAYERX_PROOF_CLIENT_RPC_URL from the environment and panics with 'missing real producer' when the variable is unset, so the proof depends on an operator-supplied gateway and can never pass in the qualification environment."
 assumption = "a client-crate proof hosts its producer inside the test process the way tests/px_reads.rs:20-23 and layerx-sdk tests/rpc_node.rs:15 do (a TcpListener on 127.0.0.1:0 answering the exact JSON-RPC bodies the node's px handlers produce) and never reads a URL from the environment."
 severity = "minor"
+
+[finding.21.115.1.1]
+task = "21.115.1"
+file = "modules/layerxledger/types/params_test.go:22"
+symbol = "KernelKVPrefix"
+observed = "attempt 1 (8c93da01c) fails its verify before TestProofLayerxledgerGenesis runs: the test package of modules/layerxledger/types does not compile on main, because params_test.go:22-23 assert KernelKVPrefix == 0x02, a variable task 2.3.1 retired (215b90bd1, decision.201: the module store keeps only ParamsKey 0x01 and kernel records live in the shared lxphost store); 2.3.1's verify ran the keeper tests only, so the stale assertion was never compiled."
+assumption = "21.115.1 repairs params_test.go in place: the store-prefix assertion keeps ParamsKey == 0x01 and drops KernelKVPrefix, because the proof lives in the same package and cannot compile without it."
+severity = "medium"
+
+[finding.21.89.1.1]
+task = "21.89.1"
+file = "modules/layerxcustody/keeper/deposit_root_test.go:106"
+symbol = "BatchHeader"
+observed = "attempt 1 (a114ce6b9) fails its verify before TestProof0x1013Layerxcustody runs: the test package of modules/layerxcustody/keeper does not compile on main, because deposit_root_test.go:106 calls verify.BatchHeader, which task 1.36.2 retired (e999c6df5) with the other batch-header verifiers of layerxproof; daemon/committed-fixture/vector_v4_test.go carries the same call and is repaired by 18.1491.1."
+assumption = "21.89.1 repairs deposit_root_test.go in place with the retained pair 18.1491.1 uses: the header already decoded at :55 by codec.DecodeBatchHeader supplies the fields, verify.Ed25519Digest(authorization.PublicKey, headerSignature, codec.BatchHeaderDigest(headerBytes)) authenticates the signature, and HeaderDigest becomes codec.BatchHeaderDigest(headerBytes); no retired verifier is restored."
+severity = "medium"

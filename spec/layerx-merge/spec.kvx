@@ -6855,6 +6855,12 @@ value = "A build_cmd or verify_cmd for a Go package under a nested go.mod runs a
 basis = "21.17.1 and six sibling attempts failed on 'does not contain main module'; 21.35.1 and 21.51.1 passed their verifies and were refused on AddCommand, FILE, simulation_gas_limit, struct and Self; 21.11.1 attempt 1 failed to compile on four Keeper.GetPayerGrant calls removed by 1.12.4; 21.42.1 attempt 1 panicked for an unset LAYERX_PROOF_CLIENT_RPC_URL."
 affects = ["21.17.1", "21.31.1", "21.4.1", "21.40.1", "21.54.1", "21.67.1", "21.69.1", "21.121.1", "21.68.1", "21.57.1", "21.18.1", "21.35.1", "21.51.1", "21.11.1", "21.42.1"]
 
+[decision.2291]
+title = "A proof task repairs the stale tests of its own Go package before its proof"
+value = "When a proof task's package does not compile on main because an earlier task retired a symbol its sibling tests still use, the proof task repairs those sibling tests in place to the retained behaviour (21.115.1: params_test.go drops KernelKVPrefix after 2.3.1; 21.89.1: deposit_root_test.go uses verify.Ed25519Digest and codec.BatchHeaderDigest after 1.36.2; 21.11.1: the ledger precompile tests after 1.12.4), lists them under touches and never restores the retired symbol."
+basis = "21.115.1 attempt 1 and 21.89.1 attempt 1 failed to compile on KernelKVPrefix and verify.BatchHeader, retired by 2.3.1 and 1.36.2 whose verifies did not compile these packages."
+affects = ["21.115.1", "21.89.1", "2.3.1", "1.36.2"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -128102,7 +128108,7 @@ do_3 = "The anchor persists state: the test stops the component (closes the stor
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
 symbols = ["DefaultGenesis"]
-touches = ["modules/layerxledger/types/proof_layerxledger_genesis_test.go", "modules/layerxledger/types/genesis.go"]
+touches = ["modules/layerxledger/types/proof_layerxledger_genesis_test.go", "modules/layerxledger/types/genesis.go", "modules/layerxledger/types/params_test.go"]
 tests = ["modules/layerxledger/types/proof_layerxledger_genesis_test.go"]
 planned_paths = ["modules/layerxledger/types/proof_layerxledger_genesis_test.go"]
 build_cmd = "go build ./modules/layerxledger/types/..."
@@ -128118,6 +128124,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Finding 21.115.1.1: before writing the proof, repair params_test.go:22-23 so the package compiles: TestParamsDefaultAndValidate asserts ParamsKey == 0x01 only; KernelKVPrefix left with task 2.3.1 (decision.201) and is not restored. Continue from attempt 1."
 
 [task.21.114.1]
 title = "Prove the layerxauth genesis path end to end: producer, transport, consumer"
@@ -128518,7 +128525,7 @@ do_3 = "The anchor carries no persistent state of its own: the test asserts inst
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
 symbols = ["NewMsgServerImpl"]
-touches = ["modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go", "modules/layerxcustody/keeper/msg_server.go", "modules/layerxcustody/keeper/release.go", "modules/layerxcustody/keeper/retire.go", "modules/layerxcustody/handler.go", "modules/layerxcustody/handler_test.go", "modules/layerxcustody/module.go", "node/gov_custody_test.go"]
+touches = ["modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go", "modules/layerxcustody/keeper/msg_server.go", "modules/layerxcustody/keeper/release.go", "modules/layerxcustody/keeper/retire.go", "modules/layerxcustody/handler.go", "modules/layerxcustody/handler_test.go", "modules/layerxcustody/module.go", "node/gov_custody_test.go", "modules/layerxcustody/keeper/deposit_root_test.go"]
 tests = ["modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go"]
 planned_paths = ["modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go"]
 build_cmd = "go build ./modules/layerxcustody/keeper/..."
@@ -128534,6 +128541,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Finding 21.89.1.1: before writing the proof, repair deposit_root_test.go:106 so the package compiles: replace the verify.BatchHeader call with require.NoError(t, verify.Ed25519Digest(authorization.PublicKey, headerSignature, codec.BatchHeaderDigest(headerBytes))) and set HeaderDigest from codec.BatchHeaderDigest(headerBytes) (layerxproof/codec/domain.go:88); the header fields come from the codec.DecodeBatchHeader result already held at :55. No retired verifier is restored (layerxproof/exportcheck/inclusion_exports_test.go:15-25 keeps them absent). Continue from attempt 1."
 
 [task.21.88.1]
 title = "Prove the genesis path end to end: producer, transport, consumer"
