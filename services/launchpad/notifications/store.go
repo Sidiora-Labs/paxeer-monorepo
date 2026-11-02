@@ -232,17 +232,25 @@ func (s Store) SetRead(ctx context.Context, account, id string, read bool) error
 const v2_id = "v2_id"
 
 func (s Store) SetReadV2(ctx context.Context, account, id string, read bool) error {
+	_, err := s.setReadV2(ctx, account, id, read)
+	return err
+}
+
+// Return the timestamp from the same statement that changes the read state, so
+// the HTTP consumer never has to race a second lookup against deletion.
+func (s Store) setReadV2(ctx context.Context, account, id string, read bool) (sql.NullTime, error) {
+	var readAt sql.NullTime
 	if s.DB == nil || account == "" || len(id) != 36 || id[8] != '-' || id[13] != '-' || id[18] != '-' || id[23] != '-' {
-		return ErrInvalid
+		return readAt, ErrInvalid
 	}
 	if raw, err := hex.DecodeString(strings.ReplaceAll(id, "-", "")); err != nil || len(raw) != 16 {
-		return ErrInvalid
+		return readAt, ErrInvalid
 	}
-	var key string
-	if err := s.DB.QueryRowContext(ctx, `SELECT id FROM discovery_notifications.inbox WHERE account_id=$1 AND `+v2_id+`=$2::uuid`, account, id).Scan(&key); err != nil {
-		return err
-	}
-	return s.SetRead(ctx, account, key, read)
+	err := s.DB.QueryRowContext(ctx, `UPDATE discovery_notifications.inbox
+		SET document=jsonb_set(document,'{Read}',to_jsonb($3::boolean)),
+		read_at=CASE WHEN $3 THEN COALESCE(read_at,clock_timestamp()) ELSE read_at END
+		WHERE account_id=$1 AND `+v2_id+`=$2::uuid RETURNING read_at`, account, id, read).Scan(&readAt)
+	return readAt, err
 }
 
 func erasedAccountKey(account string) string {

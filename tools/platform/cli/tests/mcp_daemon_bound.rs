@@ -1,3 +1,5 @@
+mod common;
+
 use std::collections::BTreeSet;
 use std::fs;
 use std::io::{Read as _, Write as _};
@@ -152,7 +154,12 @@ fn success(output: &Output) -> Value {
         "stderr: {}",
         String::from_utf8_lossy(&output.stderr)
     );
-    serde_json::from_slice(&output.stdout).unwrap_or_else(|error| panic!("stdout json: {error}"))
+    let value = common::envelope(output);
+    assert_eq!(value["ok"], true);
+    assert!(value["kind"].is_string());
+    assert!(value["message"].is_string());
+    assert!(value.get("data").is_some());
+    value
 }
 
 /// Answers the daemon's verified balance read for any authorized loopback caller.

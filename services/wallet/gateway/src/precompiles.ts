@@ -1,4 +1,4 @@
-import { decodeEventLog, encodeFunctionData, type Hex } from 'viem';
+import { decodeEventLog, decodeFunctionResult, encodeFunctionData, type Hex } from 'viem';
 import { publicClient } from './chainReads.js';
 
 /**
@@ -14,7 +14,7 @@ import { publicClient } from './chainReads.js';
  * the typed result.
  */
 
-export const PRECOMPILE_ADDRESSES = {
+export const PRECOMPILE_ADDRESSES = Object.freeze({
   orob: '0x0000000000000000000000000000000000000901',
   clearing: '0x0000000000000000000000000000000000000902',
   oracle: '0x0000000000000000000000000000000000000903',
@@ -26,7 +26,7 @@ export const PRECOMPILE_ADDRESSES = {
   staking: '0x0000000000000000000000000000000000001005',
   bech32: '0x0000000000000000000000000000000000001004',
   p256: '0x0000000000000000000000000000000000001011',
-} as const satisfies Record<string, `0x${string}`>;
+} as const satisfies Record<string, `0x${string}`>);
 
 /** Route keys without a registered merge constructor under precompiles/. */
 export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES> = new Set();
@@ -51,6 +51,7 @@ export class PrecompileNotServedError extends Error {
 }
 
 export function servedAddress(key: keyof typeof PRECOMPILE_ADDRESSES): `0x${string}` {
+  if (!Object.hasOwn(PRECOMPILE_ADDRESSES, key)) throw new Error(`unknown precompile ${key}`);
   if (UNSERVED_PRECOMPILES.has(key)) throw new PrecompileNotServedError(key);
   return PRECOMPILE_ADDRESSES[key];
 }
@@ -554,40 +555,68 @@ export const streams = {
 // EIP-712 helper (0x0908) — all pure/view
 // -----------------------------------------------------------------------------
 
-export const eip712 = {
-  async hashTypedData(domainSeparator: Hex, structHash: Hex): Promise<Hex> {
-    await ensureServed('eip712');
-    return (await publicClient().readContract({
-      address: servedAddress('eip712'),
+type Eip712ReadMethod = 'hashTypedData' | 'domainSeparator' | 'recoverTypedSigner';
+
+/** Reject incomplete, trailing, or noncanonical return words before ABI decoding. */
+export function decodeEip712Result(method: Eip712ReadMethod, data: Hex | undefined): Hex {
+  if (!data || !/^0x[0-9a-fA-F]{64}$/.test(data)) {
+    throw new Error(`Malformed EIP-712 ${method} result: expected one ABI word`);
+  }
+  if (method === 'recoverTypedSigner' && !/^0x0{24}/.test(data)) {
+    throw new Error('Malformed EIP-712 recoverTypedSigner result: nonzero address padding');
+  }
+  return decodeFunctionResult({ abi: EIP712_ABI, functionName: method, data });
+}
+
+async function hashTypedData(domainSeparator: Hex, structHash: Hex): Promise<Hex> {
+  await ensureServed('eip712');
+  const { data } = await publicClient().call({
+    to: servedAddress('eip712'),
+    data: encodeFunctionData({
       abi: EIP712_ABI,
       functionName: 'hashTypedData',
       args: [domainSeparator, structHash],
-    })) as Hex;
-  },
-  async domainSeparator(args: {
-    name: string;
-    version: string;
-    chainId: bigint;
-    verifyingContract: `0x${string}`;
-  }): Promise<Hex> {
-    await ensureServed('eip712');
-    return (await publicClient().readContract({
-      address: servedAddress('eip712'),
+    }),
+  });
+  return decodeEip712Result('hashTypedData', data);
+}
+
+async function domainSeparator(args: {
+  name: string;
+  version: string;
+  chainId: bigint;
+  verifyingContract: `0x${string}`;
+}): Promise<Hex> {
+  await ensureServed('eip712');
+  const { data } = await publicClient().call({
+    to: servedAddress('eip712'),
+    data: encodeFunctionData({
       abi: EIP712_ABI,
       functionName: 'domainSeparator',
       args: [args.name, args.version, args.chainId, args.verifyingContract],
-    })) as Hex;
-  },
-  async recoverTypedSigner(domainSeparator: Hex, structHash: Hex, signature: Hex): Promise<Hex> {
-    await ensureServed('eip712');
-    return (await publicClient().readContract({
-      address: servedAddress('eip712'),
+    }),
+  });
+  return decodeEip712Result('domainSeparator', data);
+}
+
+async function recoverTypedSigner(
+  domainSeparator: Hex,
+  structHash: Hex,
+  signature: Hex,
+): Promise<Hex> {
+  await ensureServed('eip712');
+  const { data } = await publicClient().call({
+    to: servedAddress('eip712'),
+    data: encodeFunctionData({
       abi: EIP712_ABI,
       functionName: 'recoverTypedSigner',
       args: [domainSeparator, structHash, signature],
-    })) as Hex;
-  },
-};
+    }),
+  });
+  return decodeEip712Result('recoverTypedSigner', data);
+}
+
+export const eip712 = { hashTypedData, domainSeparator, recoverTypedSigner };
 
 // -----------------------------------------------------------------------------
 // TEE Attestor (0x0907) — all view

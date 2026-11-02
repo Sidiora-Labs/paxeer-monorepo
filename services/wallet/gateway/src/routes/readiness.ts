@@ -4,7 +4,7 @@ import { env } from '../env.js';
 import { getPool } from '../db/pool.js';
 import { attestorClientFromConfig, type AttestorClient } from '../attestor/client.js';
 import { isHealthy } from '../attestor/quorum.js';
-import { RpcPool, rpcPoolFromConfig, type EndpointState } from '../rpc/pool.js';
+import { RpcPool, sharedRpcPool, type EndpointState } from '../rpc/pool.js';
 
 export type ComponentState = 'up' | 'down';
 
@@ -156,13 +156,14 @@ export async function readinessRoutes(app: FastifyInstance, opts: Partial<Readin
   const resolved: ReadinessOptions = {
     attestors: opts.attestors !== undefined ? opts.attestors : attestorClientFromConfig(env),
     pool: opts.pool ?? getPool(),
-    rpc: opts.rpc ?? rpcPoolFromConfig(env),
+    rpc: opts.rpc ?? sharedRpcPool(),
     jwksUrl: opts.jwksUrl ?? identityJwksUrl(env.SUPABASE_URL),
     timeoutMs: opts.timeoutMs ?? Math.max(env.ATTESTOR_TIMEOUT_MS, env.RPC_TIMEOUT_MS),
   };
   if (opts.attestors === undefined) app.addHook('onClose', async () => resolved.attestors?.stop());
 
   app.get('/readyz', async (_req, reply) => {
+    reply.header('Cache-Control', 'no-store');
     const report = await checkReadiness(resolved);
     if (report.ready) return reply.code(200).send(report);
     return reply.code(503).send({ error: 'not_ready', ...report });

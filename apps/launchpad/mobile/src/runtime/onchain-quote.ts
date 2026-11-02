@@ -31,7 +31,15 @@ export async function onchainQuote(
   if (!Number.isInteger(slippageBps) || slippageBps < 1 || slippageBps > 1000)
     throw new RangeError('Slippage must be an integer between 1 and 1000 bps');
   const amountIn = BigInt(inputRaw);
+  if (amountIn >= 1n << 256n)
+    throw new RangeError('Quote input exceeds uint256');
   if (amountIn <= 0n) throw new RangeError('Quote input must be positive');
+  decodeContract('QuoteBody', {
+    poolAddress: pool,
+    side,
+    inputRaw,
+    slippageBps,
+  });
   signal.throwIfAborted();
   const chainId = await client.getChainId();
   signal.throwIfAborted();

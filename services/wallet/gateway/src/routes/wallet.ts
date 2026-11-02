@@ -106,6 +106,7 @@ export async function walletRoutes(
     opts.provision !== undefined ? opts.provision : provisionDepsFromEnv();
 
   app.post('/v1/wallet/provision', { preHandler: requireAuth }, async (req, reply) => {
+    reply.header('Cache-Control', 'no-store');
     const userId = req.user!.id;
     try {
       const provision = deps();

@@ -17,7 +17,8 @@ const SERVED: [ToolDefinition; 3] = [
         kind: ToolKind::Read,
         required_scope: "receipt:read",
         mutation: "none",
-        evidence: "canonical receipt verified by the hosted gateway authority boundary",
+        evidence:
+            "sequencer receipt material; verification requires independently pinned receipt keys",
     },
     ToolDefinition {
         name: "activity.submit",
@@ -165,7 +166,7 @@ pub fn descriptor(tool: ToolDefinition) -> Value {
 
 pub fn description(name: &str) -> &'static str {
     match name {
-        "receipt.get" => "Fetch gateway-verified receipt material for one activity.",
+        "receipt.get" => "Fetch sequencer receipt material for one 0x-prefixed transaction hash.",
         "activity.submit" => {
             "Submit a signed EIP-1559 transaction and return its transaction hash and submitted rung."
         }
@@ -180,7 +181,7 @@ pub fn schema(name: &str) -> Value {
     match name {
         "receipt.get" => json!({
             "type": "object",
-            "properties": {"activity_id": {"type": "string", "pattern": "^[0-9a-fA-F]{64}$"}},
+            "properties": {"activity_id": {"type": "string", "pattern": "^0x[0-9a-fA-F]{64}$"}},
             "required": ["activity_id"],
             "additionalProperties": false,
         }),
@@ -211,11 +212,18 @@ pub fn schema(name: &str) -> Value {
 pub fn invoke(runtime: &Runtime, tool: ToolDefinition, arguments: &Value) -> Result<Value, String> {
     match tool.name {
         "receipt.get" => {
-            let activity = text(arguments, "activity_id")?;
-            validate_hex32(&activity, "activity id")?;
-            runtime
-                .client
-                .get(&format!("/v1/receipts/{}", activity.to_ascii_lowercase()))
+            if arguments.as_object().is_none_or(|object| object.len() != 1) {
+                return Err("receipt.get requires only activity_id (a transaction hash)".into());
+            }
+            let hash = text(arguments, "activity_id")?;
+            let digits = hash
+                .strip_prefix("0x")
+                .ok_or("receipt.get requires a 0x-prefixed transaction hash")?;
+            fixed_hex::<32>("transaction hash", digits)?;
+            let request =
+                layerx_platform_cli::rpc::request("pax_sequencerReceipt", &json!([hash]))?;
+            let response = runtime.client.post("/rpc", &request, None)?;
+            layerx_platform_cli::rpc::decode_response("pax_sequencerReceipt", &response)
         }
         "activity.submit" => submit(runtime, arguments),
         "faucet.request" => claim_faucet(runtime, arguments),

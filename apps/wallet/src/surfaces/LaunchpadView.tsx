@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { parseUnits } from 'viem';
 import {
   launchpad,
   type IntentLeg,
@@ -18,7 +17,13 @@ import {
   TransactionPreview,
   buildOrError,
 } from './Surface';
-import { useFeeSelection, useModuleSend, useSurfaceWallet } from './useSurface';
+import {
+  parseSurfaceAmount,
+  parseSurfaceId,
+  useFeeSelection,
+  useModuleSend,
+  useSurfaceWallet,
+} from './useSurface';
 
 export type LaunchpadAction = 'buy' | 'sell' | 'create' | 'claim';
 
@@ -26,7 +31,30 @@ export function parseDeadlineMinutes(text: string): number {
   if (!/^[1-9][0-9]*$/.test(text)) {
     throw new RangeError('the deadline must be a positive whole number of minutes');
   }
-  return Number(text);
+  const minutes = Number(text);
+  if (!Number.isSafeInteger(minutes) || minutes > Math.floor(Number.MAX_SAFE_INTEGER / 60))
+    throw new RangeError('the deadline exceeds the supported range');
+  return minutes;
+}
+
+export function launchpadOrder(
+  pool: string,
+  amountIn: string,
+  minOut: string,
+  minutes: string,
+  buying: boolean,
+  now: () => number
+) {
+  const seconds = Math.floor(now() / 1000);
+  const deadline = seconds + parseDeadlineMinutes(minutes) * 60;
+  if (!Number.isSafeInteger(seconds) || seconds < 0 || !Number.isSafeInteger(deadline))
+    throw new RangeError('the deadline exceeds the supported range');
+  return {
+    pool,
+    amountIn: parseSurfaceAmount(amountIn, buying ? 6 : 0),
+    minOut: parseSurfaceAmount(minOut, buying ? 0 : 6),
+    deadline: BigInt(deadline),
+  };
 }
 
 const ACTIONS: readonly { value: LaunchpadAction; label: string }[] = [
@@ -64,12 +92,7 @@ export function LaunchpadView({ sidRate, legs, now = Date.now }: LaunchpadViewPr
         case 'sell': {
           if (!pool || !amountIn || !minOut) return null;
           const buying = action === 'buy';
-          const order = {
-            pool,
-            amountIn: buying ? parseUnits(amountIn, 6) : BigInt(amountIn),
-            minOut: buying ? BigInt(minOut) : parseUnits(minOut, 6),
-            deadline: BigInt(Math.floor(now() / 1000) + parseDeadlineMinutes(deadlineMinutes) * 60),
-          };
+          const order = launchpadOrder(pool, amountIn, minOut, deadlineMinutes, buying, now);
           return buying
             ? { tx: surfaceModule.buy(order), spend: { kind: 'buy', order } }
             : { tx: surfaceModule.sell(order), spend: { kind: 'sell', order } };
@@ -82,7 +105,7 @@ export function LaunchpadView({ sidRate, legs, now = Date.now }: LaunchpadViewPr
               }
             : null;
         case 'claim':
-          return nftId ? { tx: surfaceModule.claimFees(BigInt(nftId)) } : null;
+          return nftId ? { tx: surfaceModule.claimFees(parseSurfaceId(nftId)) } : null;
       }
     });
   }, [
