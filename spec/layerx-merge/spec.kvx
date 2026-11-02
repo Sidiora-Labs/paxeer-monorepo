@@ -116547,7 +116547,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1505.1]
 title = "Issue #1505: Preserve the submitted chain-launch identity and allow confirmation recovery"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -127560,7 +127560,7 @@ do_7 = "Finding 22.9.24.2: after the schema and golden edits run the generator w
 
 [task.22.11.7]
 title = "Repair the bridge relayer and interop service suites: commitment refusal, solana fixtures, in-test operator inventory, signer binary and listener startup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
@@ -133461,7 +133461,7 @@ do_4 = "Finding 18.1509.1.1: the two newHeads tests fail on main since commit 5f
 
 [task.18.1508.1]
 title = "Read observed pool fees with the accounting feeBPS key"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -135381,7 +135381,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.71.1]
 title = "Prove the oracle aggregator 0x0903 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
