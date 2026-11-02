@@ -184725,7 +184725,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.6.11]
 title = "Refuse an uncovered activation height from the merge plan as an error, never a panic"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
