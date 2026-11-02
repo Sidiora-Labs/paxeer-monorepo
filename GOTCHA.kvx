@@ -13381,3 +13381,9 @@ fix = "Sign pre-EIP-155 cases with ethtypes.FrontierSigner{} and give typed tran
 title = "A package verify of ./modules/<x>/... runs every test of the package, including ones broken at the base"
 symptom = "A task that ported four tests was failed by two others in the same package that had been broken since earlier tasks deleted the module from the app and removed the script they drove."
 fix = "Before naming a package-wide verify, run the package once at the base and claim the pre-existing failures in the task (fix, delete with reason, or record a finding); a package-wide verify is a statement about the whole package."
+
+[gotcha.2713]
+area = "platform-sdkgen"
+symptom = "The program-contract write and check commands silently accepted excess positional arguments."
+cause = "The CLI dispatched both modes without validating their declared optional repository and lock arguments."
+do = "Reject excess arguments before reading or writing; proof_generators exercises the built writer and the receipt parity gate consumer, including malformed receipt.kvx and generated output. Use 104.38.6.sh --check-program-contracts <repo-root> <sdkgen-binary> for the real focused consumer without running every SDK suite."
