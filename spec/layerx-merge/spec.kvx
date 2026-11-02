@@ -151324,7 +151324,7 @@ do_8 = "Decision 2253: blocked until the kernel-path migration family exists and
 
 [task.9.30.1]
 title = "Drop the lni_frame fuzz target and fuzz the EIP-1559 transaction codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.18.7", "9.28.1", "18.1297.1", "9.25.16", "13.8.3"]
@@ -195789,7 +195789,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1435.3]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Python agent envelope decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1435.2"]
