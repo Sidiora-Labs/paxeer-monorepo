@@ -254,6 +254,9 @@ static int occupancy_vector(lxp_u128 observed, uint64_t expected,
 
 static int activation_and_authority_refusals(void)
 {
+    static lxp_verified_receipt_index receipt_index;
+    lxp_verified_receipt_authority_facts receipt_authority;
+    const uint8_t unknown_receipt[32] = {0x91U};
     static uint8_t arena_bytes[16384];
     const lx_programs_fee_schedule first = {1U, 2U, 3U, 5U, 7U, 11U, 13U, 100U};
     const lx_programs_fee_schedule proposed = {0U, 17U, 19U, 23U, 29U, 31U, 37U, 105U};
@@ -272,6 +275,14 @@ static int activation_and_authority_refusals(void)
         lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK ||
         lxp_module_ctx_init(&ctx, &kernel, LXP_MODULE_PROGRAMS,
                             20U, 77U, 8U, UINT64_MAX, &arena, true) != LXP_OK)
+        return 1;
+    if (lxp_verified_receipt_index_init(&receipt_index) != LXP_OK ||
+        lxp_verified_receipt_index_bind_authority_network(&receipt_index, 1U) != LXP_OK ||
+        lxp_verified_receipt_index_validate(&receipt_index) != LXP_OK)
+        return 1;
+    ctx.verified_receipts = &receipt_index;
+    if (lxp_ctx_verified_receipt_authority_facts(&ctx, unknown_receipt,
+            &receipt_authority) != LXP_ERR_UNKNOWN_FIELD)
         return 1;
     ctx.batch_number = 8U;
     ctx.protocol_version = LXP_PROTOCOL_VERSION;

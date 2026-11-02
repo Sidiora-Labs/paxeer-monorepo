@@ -2923,6 +2923,11 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 }
 
 func (app *App) DomainAllowance(ctx sdk.Context, chainID *big.Int) (id uint32, gas uint64, bytes uint64, active bool, known bool) {
+	// The root chain follows the application's configured EVM chain ID, just
+	// as ante validation does; it does not consume a virtual domain allowance.
+	if chainID != nil && chainID.Cmp(app.EvmKeeper.ChainID(ctx)) == 0 {
+		return 0, 0, 0, true, true
+	}
 	id, known = layerxchainstypes.DomainOfChainID(chainID)
 	if !known {
 		return 0, 0, 0, false, false
@@ -3554,7 +3559,8 @@ func (app *App) SnapshotAwareRPCContextProvider() evmrpc.TraceContextProvider {
 	})
 }
 
-// RegisterTendermintService implements the Application.RegisterLocalServices method.
+// RegisterLocalServices installs the local query services and the RPC options
+// supplied by the sequencer before either EVM server starts.
 func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.TxConfig) {
 	authtx.RegisterTxService(app.GRPCQueryRouter(), node, txConfig, app.Simulate, app.interfaceRegistry)
 	tmservice.RegisterTendermintService(app.GRPCQueryRouter(), node, app.interfaceRegistry)

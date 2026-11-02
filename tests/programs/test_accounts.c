@@ -732,7 +732,8 @@ static int registration_law(const lxp_module_iface *module,
     (void)memcpy(receipt_index.entries[0].resulting_state_root,
                  committed_root, 32U);
     account_ctx.verified_receipts = &receipt_index;
-    if (lxp_effect_buffer_init(&effects) != LXP_OK ||
+    if (lxp_verified_receipt_index_validate(&receipt_index) != LXP_OK ||
+        lxp_effect_buffer_init(&effects) != LXP_OK ||
         lxp_module_ctx_bind_effects(&account_ctx, &effects) != LXP_OK ||
         lxp_programs_account_register(
             &account_ctx, program_id, (const uint8_t *)"vault", 5U,
