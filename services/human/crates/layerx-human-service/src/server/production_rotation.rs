@@ -1,6 +1,6 @@
+use super::owner::owner_identity::OwnerIdentityState;
 use super::*;
 use crate::agents::{AgentFailure, ProtocolEvidence};
-use layerx_crypto::rotation::OwnerRotationState;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -155,12 +155,12 @@ fn milliseconds(value: u64) -> Result<u64, ApiFailure> {
         .checked_mul(1000)
         .ok_or_else(ApiFailure::upstream_degraded)
 }
-fn checked_identity(agent: &mut AgentRuntime, did: &str) -> Result<OwnerRotationState, ApiFailure> {
+fn checked_identity(agent: &mut AgentRuntime, did: &str) -> Result<OwnerIdentityState, ApiFailure> {
     let identity = agent.identity_resolve(did).map_err(agent_failure)?;
     if identity.frozen || identity.verification < 4 || identity.verification > 5 {
         return Err(ApiFailure::upstream_degraded());
     }
-    let state = OwnerRotationState::decode(
+    let state = OwnerIdentityState::decode(
         &identity.canonical_bytes,
         &Did::new(did.as_bytes()).map_err(|_| ApiFailure::upstream_degraded())?,
     )

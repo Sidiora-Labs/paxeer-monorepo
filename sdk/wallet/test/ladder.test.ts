@@ -319,6 +319,17 @@ async function observe_transfer_reaches_committed_only_with_a_matching_explorer_
           ? [{ rung: 'receipted', source: 'explorer', state: `receipted:${transferBlockHash}` }]
           : []
     );
+    if (name === 'nodeCommittedMismatching') {
+      expect(observation.steps.filter((step) => step.source === 'receipt')).toEqual([
+        { rung: 'receipted', source: 'receipt', state: `receipted:${transferBlockHash}` },
+      ]);
+      expect(statusLadder.highest(observation.steps)?.rung).toBe('receipted');
+    }
+    if (name === 'nodeCommittedMatching') {
+      expect(observation.steps.filter((step) => step.source === 'receipt')).toEqual([
+        { rung: 'committed', source: 'receipt', state: `committed:${transferBlockHash}` },
+      ]);
+    }
     if (matching) {
       expect(statusLadder.highest(observation.steps)?.rung).toBe('committed');
       expect(observation.warning).toBeUndefined();
@@ -329,6 +340,10 @@ async function observe_transfer_reaches_committed_only_with_a_matching_explorer_
   const nodeOnly = await observeTransfer(observationRpc('nodeCommitted'), submitted);
   expect(nodeOnly.sequencer).toEqual(sequencerAnswers.committed);
   expect(nodeOnly.steps.some((step) => step.rung === 'committed')).toBe(false);
+  expect(nodeOnly.steps.filter((step) => step.source === 'receipt')).toEqual([
+    { rung: 'receipted', source: 'receipt', state: `receipted:${transferBlockHash}` },
+  ]);
+  expect(statusLadder.highest(nodeOnly.steps)?.rung).toBe('receipted');
 }
 
 test(observe_transfer_reaches_committed_only_with_a_matching_explorer_block);

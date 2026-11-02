@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
 import {
-  perpsCancelOrderCall,
+  perpsCall,
   perpsClosePositionCall,
   perpsDepositCall,
-  perpsOpenPositionCall,
   perpsWithdrawCall,
   waitLaunchpadApproval,
   type PrecompileCall,
+  type PerpsWrite,
 } from "../../api/sdk";
 import { sendWalletPrecompileCall, walletFeePreference, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
 import { windowWalletProvider } from "../../api/provider";
@@ -24,7 +24,7 @@ import { WEI_DECIMALS, parseUnits } from "../_markets/format";
 import { ChoiceField } from "../_markets/select";
 import { SendOutcome } from "../_markets/send-outcome";
 import { SPONSORED_APPROVE_UNSUPPORTED } from "../launchpad/launchpad-client";
-import { preflightPerpsWrite, resolvePerpsAccount } from "./actions";
+import { preflightPerpsWrite } from "./actions";
 
 export type PerpsCollateral = Readonly<{ token: string; decimals: number; symbol: string }>;
 type Choice = Readonly<{ id: string; label: string }>;
@@ -69,11 +69,167 @@ export async function sendPerpsWrite(
   return sendWalletPrecompileCall(from, () => call);
 }
 
-function word(id: string): string {
-  if (!/^(0|[1-9][0-9]*)$/u.test(id)) throw new Error("Enter a decimal id.");
-  const value = BigInt(id);
-  if (value >= 1n << 256n) throw new Error("The id exceeds 32 bytes.");
-  return `0x${value.toString(16).padStart(64, "0")}`;
+export function perpsMarketPositionCall(marketId: bigint, collateral: PerpsCollateral, amount: bigint, leverage: bigint, isLong: boolean): PrecompileCall {
+  return perpsCall("openPosition(uint256,address,uint256,uint256,bool)", [marketId, collateral.token, amount, leverage, isLong]);
+}
+
+export function perpsOrderCancelCall(orderId: bigint): PrecompileCall {
+  return perpsCall("cancelOrder(uint256)", [orderId]);
+}
+
+export type PerpsOrderInputs = Readonly<{
+  market: string;
+  side: string;
+  orderType: string;
+  triggerPrice: string;
+  limitPrice: string;
+  size: string;
+  leverage: string;
+  collateral: string;
+  closeSize: string;
+  takeProfit: string;
+  stopLoss: string;
+  positionCollateral: string;
+}>;
+
+function perpsId(text: string): bigint | undefined {
+  if (!/^(0|[1-9][0-9]*)$/u.test(text)) return undefined;
+  const id = BigInt(text);
+  return id < 1n << 256n ? id : undefined;
+}
+
+function perpsAmount(text: string, decimals: number): bigint | undefined {
+  const amount = parseUnits(text, decimals);
+  return amount !== undefined && amount > 0n && amount < 1n << 256n ? amount : undefined;
+}
+
+export function ExchangeOrderControls({
+  mode,
+  inputs,
+  onChange,
+  collateral,
+  markets,
+  positionId,
+  pending,
+  walletReason,
+  send,
+}: Readonly<{
+  mode: "entry" | "position";
+  inputs: PerpsOrderInputs;
+  onChange: (key: keyof PerpsOrderInputs, value: string) => void;
+  collateral: PerpsCollateral;
+  markets: readonly Choice[];
+  positionId: string;
+  pending: boolean;
+  walletReason: string | undefined;
+  send: (build: () => PrecompileCall, pull: bigint) => void;
+}>) {
+  const field = (label: string, key: keyof PerpsOrderInputs) => (
+    <TextField
+      label={label}
+      inputMode="decimal"
+      value={inputs[key]}
+      onChange={(event) => onChange(key, event.target.value)}
+    />
+  );
+  const write = (
+    label: string,
+    method: PerpsWrite,
+    args: Parameters<typeof perpsCall>[1] | undefined,
+    pull = 0n,
+  ) => (
+    <KitButton
+      loading={pending}
+      onClick={() => {
+        if (args === undefined || walletReason !== undefined) return;
+        send(() => perpsCall(method, args), pull);
+      }}
+      {...availability(walletReason, args === undefined && "Choose a market or position and enter valid positive amounts.")}
+    >
+      {label}
+    </KitButton>
+  );
+
+  if (mode === "entry") {
+    const market = perpsId(inputs.market);
+    const price = perpsAmount(inputs.triggerPrice, WEI_DECIMALS);
+    const limit = perpsAmount(inputs.limitPrice, WEI_DECIMALS);
+    const size = perpsAmount(inputs.size, WEI_DECIMALS);
+    const leverage = perpsAmount(inputs.leverage, WEI_DECIMALS);
+    const amount = perpsAmount(inputs.collateral, collateral.decimals);
+    const valid =
+      market !== undefined && markets.some((choice) => choice.id === inputs.market) &&
+      price !== undefined && size !== undefined && leverage !== undefined && amount !== undefined &&
+      (inputs.side === "long" || inputs.side === "short");
+    return (
+      <div className="flex flex-col gap-3">
+        <ChoiceField
+          label="Order market"
+          value={inputs.market}
+          onChange={(value) => onChange("market", value)}
+          options={markets.map((market) => ({ value: market.id, label: market.label }))}
+        />
+        <ChoiceField
+          label="Order type"
+          value={inputs.orderType}
+          onChange={(value) => onChange("orderType", value)}
+          options={[{ value: "limit", label: "Limit" }, { value: "stop-limit", label: "Stop-limit" }]}
+        />
+        <SegmentedControl
+          aria-label="Order side"
+          value={inputs.side}
+          onValueChange={(value) => onChange("side", value)}
+          options={[{ value: "long", label: "Long" }, { value: "short", label: "Short" }]}
+        />
+        {field("Trigger price", "triggerPrice")}
+        {inputs.orderType === "stop-limit" ? field("Limit price", "limitPrice") : null}
+        {field("Order size", "size")}
+        {field("Order leverage (x)", "leverage")}
+        {field(`Order collateral (${collateral.symbol})`, "collateral")}
+        {inputs.orderType === "limit"
+          ? write(
+              "Place limit order",
+              "placeLimitOrder(uint256,bool,uint256,uint256,uint256,address,uint256)",
+              valid ? [market, inputs.side === "long", price, size, leverage, collateral.token, amount] : undefined,
+              amount,
+            )
+          : write(
+              "Place stop-limit order",
+              "placeStopLimitOrder(uint256,bool,uint256,uint256,uint256,uint256,address,uint256)",
+              valid && inputs.orderType === "stop-limit" && limit !== undefined
+                ? [market, inputs.side === "long", price, limit, size, leverage, collateral.token, amount]
+                : undefined,
+              amount,
+            )}
+      </div>
+    );
+  }
+
+  const position = perpsId(positionId);
+  const closeSize = perpsAmount(inputs.closeSize, WEI_DECIMALS);
+  const takeProfit = perpsAmount(inputs.takeProfit, WEI_DECIMALS);
+  const stopLoss = perpsAmount(inputs.stopLoss, WEI_DECIMALS);
+  const amount = perpsAmount(inputs.positionCollateral, collateral.decimals);
+  return (
+    <>
+      {field("Close size", "closeSize")}
+      {write("Partially close position", "partialClose(uint256,uint256)",
+        position !== undefined && closeSize !== undefined ? [position, closeSize] : undefined)}
+      {field("Take-profit price", "takeProfit")}
+      {write("Place take-profit order", "placeTakeProfitOrder(uint256,uint256)",
+        position !== undefined && takeProfit !== undefined ? [position, takeProfit] : undefined)}
+      {field("Stop-loss price", "stopLoss")}
+      {write("Place stop-loss order", "placeStopLossOrder(uint256,uint256)",
+        position !== undefined && stopLoss !== undefined ? [position, stopLoss] : undefined)}
+      {write("Set position TP/SL", "setPositionTpSl(uint256,uint256,uint256)",
+        position !== undefined && takeProfit !== undefined && stopLoss !== undefined ? [position, takeProfit, stopLoss] : undefined)}
+      {field(`Position collateral (${collateral.symbol})`, "positionCollateral")}
+      {write("Add collateral", "addCollateral(uint256,uint256)",
+        position !== undefined && amount !== undefined ? [position, amount] : undefined, amount)}
+      {write("Remove collateral", "removeCollateral(uint256,uint256)",
+        position !== undefined && amount !== undefined ? [position, amount] : undefined)}
+    </>
+  );
 }
 
 export function ExchangeActions({
@@ -94,7 +250,7 @@ export function ExchangeActions({
   const [approving, setApproving] = useState(false);
   const [marketId, setMarketId] = useState(markets[0]?.id ?? "");
   const [side, setSide] = useState("long");
-  const [sizeText, setSizeText] = useState("");
+  const [openCollateralText, setOpenCollateralText] = useState("");
   const [leverageText, setLeverageText] = useState("");
   const [openOutcome, setOpenOutcome] = useState<PrecompileSendOutcome | undefined>(undefined);
   const [positionId, setPositionId] = useState(positions[0]?.id ?? "");
@@ -104,8 +260,29 @@ export function ExchangeActions({
   const [marginText, setMarginText] = useState("");
   const [marginOutcome, setMarginOutcome] = useState<PrecompileSendOutcome | undefined>(undefined);
 
-  const size = parseUnits(sizeText, WEI_DECIMALS);
-  const leverage = parseUnits(leverageText, WEI_DECIMALS);
+  const [orderInputs, setOrderInputs] = useState<PerpsOrderInputs>({
+    market: markets[0]?.id ?? "",
+    side: "long",
+    orderType: "limit",
+    triggerPrice: "",
+    limitPrice: "",
+    size: "",
+    leverage: "",
+    collateral: "",
+    closeSize: "",
+    takeProfit: "",
+    stopLoss: "",
+    positionCollateral: "",
+  });
+  const [orderOutcome, setOrderOutcome] = useState<PrecompileSendOutcome | undefined>(undefined);
+  const changeOrderInput = (key: keyof PerpsOrderInputs, value: string) => {
+    setOrderInputs((previous) => ({ ...previous, [key]: value }));
+  };
+
+  const openCollateral = perpsAmount(openCollateralText, collateral.decimals);
+  const leverage = perpsAmount(leverageText, WEI_DECIMALS);
+  const openMarket = perpsId(marketId);
+  const cancelOrder = perpsId(orderId);
   const margin = parseUnits(marginText, collateral.decimals);
   const walletReason = account === undefined ? "Connect a wallet first." : undefined;
 
@@ -125,13 +302,6 @@ export function ExchangeActions({
         record(walletSendFailure(error));
       }
     });
-  };
-
-  const resolveAccountId = async () => {
-    if (account === undefined) throw new Error("Connect a wallet first.");
-    const resolved = await resolvePerpsAccount(account);
-    if (resolved.layerxAccount === null) throw new Error("The account has no LayerX main account.");
-    return `0x${resolved.layerxAccount}`;
   };
 
   return (
@@ -158,11 +328,11 @@ export function ExchangeActions({
             ]}
           />
           <TextField
-            label="Size"
+            label={`Collateral (${collateral.symbol})`}
             inputMode="decimal"
-            value={sizeText}
+            value={openCollateralText}
             onChange={(event) => {
-              setSizeText(event.target.value);
+              setOpenCollateralText(event.target.value);
             }}
           />
           <TextField
@@ -176,32 +346,39 @@ export function ExchangeActions({
           <KitButton
             loading={pending}
             onClick={() => {
-              if (size === undefined || leverage === undefined) {
+              if (walletReason !== undefined || openMarket === undefined || openCollateral === undefined || leverage === undefined) {
                 return;
               }
               send(
-                async () =>
-                  perpsOpenPositionCall({
-                    marketId: word(marketId),
-                    accountId: await resolveAccountId(),
-                    side: side === "long" ? 1 : 2,
-                    size,
-                    leverage,
-                  }),
-                0n,
+                () => perpsMarketPositionCall(openMarket, collateral, openCollateral, leverage, side === "long"),
+                openCollateral,
                 setOpenOutcome,
               );
             }}
             {...availability(
               walletReason,
-              (marketId === "" || size === undefined || size === 0n || leverage === undefined || leverage === 0n) &&
-                "Choose a market and enter size and leverage.",
+              (openMarket === undefined || openCollateral === undefined || leverage === undefined) &&
+                "Choose a market and enter collateral and leverage.",
             )}
           >
             Open position
           </KitButton>
           <SendOutcome outcome={openOutcome} />
         </div>
+      </ExplorerPanel>
+      <ExplorerPanel title="Place an order">
+        <ExchangeOrderControls
+          mode="entry"
+          inputs={orderInputs}
+          onChange={changeOrderInput}
+          collateral={collateral}
+          markets={markets}
+          positionId={positionId}
+          pending={pending}
+          walletReason={walletReason}
+          send={(build, pull) => send(build, pull, setOrderOutcome)}
+        />
+        <SendOutcome outcome={orderOutcome} />
       </ExplorerPanel>
       <ExplorerPanel title="Close a position">
         <div className="flex flex-col gap-3">
@@ -228,6 +405,17 @@ export function ExchangeActions({
           >
             Close position
           </KitButton>
+          <ExchangeOrderControls
+            mode="position"
+            inputs={orderInputs}
+            onChange={changeOrderInput}
+            collateral={collateral}
+            markets={markets}
+            positionId={positionId}
+            pending={pending}
+            walletReason={walletReason}
+            send={(build, pull) => send(build, pull, setCloseOutcome)}
+          />
           <SendOutcome outcome={closeOutcome} />
         </div>
       </ExplorerPanel>
@@ -247,9 +435,10 @@ export function ExchangeActions({
             variant="destructive"
             loading={pending}
             onClick={() => {
-              send(async () => perpsCancelOrderCall(word(orderId), await resolveAccountId()), 0n, setCancelOutcome);
+              if (walletReason !== undefined || cancelOrder === undefined) return;
+              send(() => perpsOrderCancelCall(cancelOrder), 0n, setCancelOutcome);
             }}
-            {...availability(walletReason, orderId === "" && "Choose an order.")}
+            {...availability(walletReason, cancelOrder === undefined && "Choose an order.")}
           >
             Cancel order
           </KitButton>

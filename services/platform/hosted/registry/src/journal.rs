@@ -37,6 +37,7 @@ const ADMISSION_SUFFIX: &str = "admission";
 const TEMPORARY_SUFFIX: &str = "tmp";
 const HEAD_FILE: &str = "head";
 const SEAL_BYTES: usize = 32;
+const HOST_STORE_NAME: &str = layerx_programs::chain_evidence::HOST_STORE_NAME;
 
 /// One accepted deployment record together with the protocol admission proof
 /// it was derived from. The two are published to the journal as a single
@@ -1056,8 +1057,8 @@ fn verify_chain_deployment_package(
         chain_freshness(&head, now_ms, verifier.staleness_limit_ms())
             .map_err(|error| format!("chain deployment freshness refused: {error}"))?;
     }
-    if commitment.store_name != "layerx" {
-        return Err("deployment proof must use the layerx store".into());
+    if commitment.store_name != HOST_STORE_NAME {
+        return Err("deployment proof must use the lxphost store".into());
     }
     let prefix = layerx_programs::chain_evidence::programs_state_key(b"program\0");
     let program_bytes = commitment

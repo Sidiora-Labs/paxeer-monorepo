@@ -1,6 +1,8 @@
 //! Batch operations over JSON-RPC.
 
-use crate::sequencer::{SequencerEndpoint, SequencerError};
+use crate::sequencer::SequencerError;
+
+pub type SequencerEndpoint = crate::sequencer::SequencerEndpoint;
 
 pub type SequencerBlock = crate::sequencer::SequencerBlock;
 pub type BatchHeaderError = SequencerError;

@@ -212,6 +212,7 @@ var (
 // in seq order. The sequencer and standby feed it from Accept and from commit;
 // the filter API serves pending logs and pending transaction hashes from it.
 type ReceiptLogFeed struct {
+	receiptMu *sync.Mutex
 	mu        sync.Mutex
 	committed int64
 	lastSeq   uint64
@@ -265,6 +266,7 @@ type receiptLogNotice struct {
 // NewReceiptLogFeed starts an empty feed above the committed height.
 func NewReceiptLogFeed(committedHeight int64) *ReceiptLogFeed {
 	return &ReceiptLogFeed{
+		receiptMu: &sync.Mutex{},
 		committed: committedHeight,
 		filters:   make(map[*pendingTxFilter]struct{}),
 		listeners: make(map[*receiptLogListener]struct{}),
@@ -404,6 +406,8 @@ func (f *ReceiptLogFeed) removeLogListener(l *receiptLogListener) {
 // Committed drops the transactions of every block up to height, which the
 // committed store now serves.
 func (f *ReceiptLogFeed) Committed(height int64) error {
+	f.receiptMu.Lock()
+	defer f.receiptMu.Unlock()
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if height < f.committed {

@@ -12,7 +12,10 @@ use std::fmt::Write as _;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
+use base64::Engine as _;
 use serde_json::{json, Map, Value};
+
+pub use layerx_programs_registry::chain_proof::decode::ProofOp;
 
 /// The `addr` precompile serving the `LayerX` DID binding reads.
 pub const ADDR_PRECOMPILE: [u8; 20] = [
@@ -206,29 +209,19 @@ pub struct SequencerBlock {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StorageProof {
-    pub key: [u8; 32],
-    pub value: [u8; 32],
-    pub proof: Vec<Vec<u8>>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct AccountProof {
+pub struct StorageWitness {
     pub address: [u8; 20],
-    pub balance: [u8; 32],
-    pub nonce: u64,
-    pub code_hash: [u8; 32],
-    pub storage_hash: [u8; 32],
-    pub account_proof: Vec<Vec<u8>>,
-    pub storage: Vec<StorageProof>,
+    pub slot: [u8; 32],
+    pub value: [u8; 32],
+    pub ops: Vec<ProofOp>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct HistoryPage {
     pub items: Vec<Value>,
     pub next_cursor: Option<String>,
-    pub indexed_height: u64,
-    pub chain_height: u64,
+    pub indexed_height: Option<u64>,
+    pub chain_height: Option<u64>,
 }
 
 /// A JSON-RPC 2.0 client for the sequencer methods.
@@ -318,22 +311,37 @@ impl SequencerEndpoint {
         quantity_u256(&result).ok_or(SequencerError::Malformed)
     }
 
-    pub fn account_proof(
+    pub fn storage_witness(
         &self,
         address: &[u8; 20],
         slots: &[[u8; 32]],
         height: u64,
-    ) -> Result<AccountProof, SequencerError> {
-        let slots: Vec<_> = slots.iter().map(|slot| hex(slot)).collect();
+    ) -> Result<Vec<StorageWitness>, SequencerError> {
+        if slots.is_empty() {
+            return Ok(Vec::new());
+        }
+        let encoded_slots: Vec<_> = slots.iter().map(|slot| hex(slot)).collect();
         let result = self.call(
             "eth_getProof",
-            &json!([hex(address), slots, format!("{height:#x}")]),
+            &json!([hex(address), encoded_slots, format!("{height:#x}")]),
         )?;
-        let proof = decode_account_proof(&result).ok_or(SequencerError::Malformed)?;
-        if proof.address != *address {
-            return Err(SequencerError::Malformed);
-        }
-        Ok(proof)
+        decode_storage_witness(&result, address, slots).ok_or(SequencerError::Malformed)
+    }
+
+    pub fn balance_at(&self, address: &[u8; 20], height: u64) -> Result<[u8; 32], SequencerError> {
+        let result = self.call(
+            "eth_getBalance",
+            &json!([hex(address), format!("{height:#x}")]),
+        )?;
+        quantity_u256(&result).ok_or(SequencerError::Malformed)
+    }
+
+    pub fn nonce_at(&self, address: &[u8; 20], height: u64) -> Result<u64, SequencerError> {
+        let result = self.call(
+            "eth_getTransactionCount",
+            &json!([hex(address), format!("{height:#x}")]),
+        )?;
+        quantity_u64(&result).ok_or(SequencerError::Malformed)
     }
 
     pub fn history(
@@ -346,7 +354,10 @@ impl SequencerEndpoint {
             return Err(SequencerError::Endpoint);
         }
         let result = self.call("px_getHistory", &json!([account, cursor, limit]))?;
-        decode_history_page(&result).ok_or(SequencerError::Malformed)
+        let mut page = decode_history_page(&result).ok_or(SequencerError::Malformed)?;
+        // The served history page has no chain height; obtain the node head separately.
+        page.chain_height = Some(self.block_number()?);
+        Ok(page)
     }
 
     /// Next nonce of `address` from the sequencer's pending nonce map.
@@ -523,6 +534,62 @@ impl SequencerEndpoint {
     pub fn block_number(&self) -> Result<u64, SequencerError> {
         let result = self.call("eth_blockNumber", &json!([]))?;
         quantity_u64(&result).ok_or(SequencerError::Malformed)
+    }
+
+    pub fn commit_material(&self, height: u64) -> Result<Value, SequencerError> {
+        let result = self.call("px_getCommit", &json!([height.to_string()]))?;
+        let signed = &result["signedHeader"];
+        if height == 0
+            || decimal_u64(&result["height"]) != Some(height)
+            || !signed["header"].is_object()
+            || !signed["commit"].is_object()
+            || !signed["commit"]["block_id"].is_object()
+            || !signed["commit"]["signatures"].is_array()
+            || decimal_u64(&signed["header"]["height"]) != Some(height)
+            || decimal_u64(&signed["commit"]["height"]) != Some(height)
+        {
+            return Err(SequencerError::Malformed);
+        }
+        Ok(result)
+    }
+
+    pub fn validator_set(&self, height: u64) -> Result<Value, SequencerError> {
+        let result = self.call("px_getValidators", &json!([height.to_string()]))?;
+        let validators = result["validators"]
+            .as_array()
+            .ok_or(SequencerError::Malformed)?;
+        if height == 0
+            || decimal_u64(&result["height"]) != Some(height)
+            || validators.is_empty()
+            || decimal_u64(&result["total"]) != Some(validators.len() as u64)
+            || validators.iter().any(|validator| {
+                validator["address"].as_str().is_none_or(|address| {
+                    address.len() != 40 || !address.bytes().all(|byte| byte.is_ascii_hexdigit())
+                }) || validator["pubKey"]["type"] != "tendermint/PubKeyEd25519"
+                    || validator["pubKey"]["value"].as_str().is_none_or(|key| {
+                        key.len() != 44
+                            || !key.ends_with('=')
+                            || !key.as_bytes()[..43].iter().all(|byte| {
+                                byte.is_ascii_alphanumeric() || matches!(byte, b'+' | b'/')
+                            })
+                    })
+                    || decimal_u64(&validator["votingPower"]).is_none_or(|power| power == 0)
+            })
+        {
+            return Err(SequencerError::Malformed);
+        }
+        Ok(result)
+    }
+
+    pub fn state_root(&self, height: u64) -> Result<[u8; 32], SequencerError> {
+        let result = self.call(
+            "eth_getBlockByNumber",
+            &json!([format!("{height:#x}"), false]),
+        )?;
+        if height == 0 || quantity_u64(&result["number"]) != Some(height) {
+            return Err(SequencerError::Malformed);
+        }
+        fixed(&result["stateRoot"]).ok_or(SequencerError::Malformed)
     }
 
     /// The committed block at `height` with full transactions; `None` when the
@@ -718,40 +785,56 @@ fn word_u64(word: &[u8]) -> Option<u64> {
     Some(u64::from_be_bytes(low.try_into().ok()?))
 }
 
-fn proof_nodes(value: &Value) -> Option<Vec<Vec<u8>>> {
-    value
-        .as_array()?
+fn decode_storage_witness(
+    value: &Value,
+    address: &[u8; 20],
+    slots: &[[u8; 32]],
+) -> Option<Vec<StorageWitness>> {
+    let fields = Fields(value.as_object()?);
+    if fields.fixed::<20>("address")? != *address {
+        return None;
+    }
+    let values = fields.0.get("hexValues")?.as_array()?;
+    let proofs = fields.0.get("storageProof")?.as_array()?;
+    if values.len() != slots.len() || proofs.len() != slots.len() {
+        return None;
+    }
+    slots
         .iter()
-        .map(|node| bytes(node.as_str()?))
+        .zip(values)
+        .zip(proofs)
+        .map(|((slot, value), proof)| {
+            // GetProof uses hex.EncodeToString for values and JSON's base64 for []byte fields.
+            let text = value.as_str()?;
+            if text.len() != 64 {
+                return None;
+            }
+            let value: [u8; 32] = bytes(&format!("0x{text}"))?.try_into().ok()?;
+            let ops = proof.get("ops")?.as_array()?;
+            if ops.len() != 2 {
+                return None;
+            }
+            let ops = ops
+                .iter()
+                .map(|op| {
+                    let op_type = op.get("type")?.as_str()?.to_owned();
+                    let key = base64::engine::general_purpose::STANDARD
+                        .decode(op.get("key")?.as_str()?)
+                        .ok()?;
+                    let data = base64::engine::general_purpose::STANDARD
+                        .decode(op.get("data")?.as_str()?)
+                        .ok()?;
+                    Some(ProofOp { op_type, key, data })
+                })
+                .collect::<Option<Vec<_>>>()?;
+            Some(StorageWitness {
+                address: *address,
+                slot: *slot,
+                value,
+                ops,
+            })
+        })
         .collect()
-}
-
-fn decode_storage_proof(value: &Value) -> Option<StorageProof> {
-    let fields = Fields(value.as_object()?);
-    Some(StorageProof {
-        key: fields.fixed("key")?,
-        value: quantity_u256(fields.0.get("value")?)?,
-        proof: proof_nodes(fields.0.get("proof")?)?,
-    })
-}
-
-fn decode_account_proof(value: &Value) -> Option<AccountProof> {
-    let fields = Fields(value.as_object()?);
-    Some(AccountProof {
-        address: fields.fixed("address")?,
-        balance: quantity_u256(fields.0.get("balance")?)?,
-        nonce: fields.u64("nonce")?,
-        code_hash: fields.fixed("codeHash")?,
-        storage_hash: fields.fixed("storageHash")?,
-        account_proof: proof_nodes(fields.0.get("accountProof")?)?,
-        storage: fields
-            .0
-            .get("storageProof")?
-            .as_array()?
-            .iter()
-            .map(decode_storage_proof)
-            .collect::<Option<_>>()?,
-    })
 }
 
 fn history_cursor(cursor: &str) -> bool {
@@ -762,6 +845,11 @@ fn history_cursor(cursor: &str) -> bool {
 }
 
 fn decode_history_page(value: &Value) -> Option<HistoryPage> {
+    Fields::exact(value, &["items", "next_cursor", "indexedHeight"])?;
+    let indexed_height = match value.get("indexedHeight")? {
+        Value::Null => None,
+        height => Some(height.as_u64()?),
+    };
     let next_cursor = match value.get("next_cursor")? {
         Value::Null => None,
         Value::String(cursor) if history_cursor(cursor) => Some(cursor.clone()),
@@ -770,8 +858,8 @@ fn decode_history_page(value: &Value) -> Option<HistoryPage> {
     Some(HistoryPage {
         items: value.get("items")?.as_array()?.clone(),
         next_cursor,
-        indexed_height: value.get("indexedHeight")?.as_u64()?,
-        chain_height: value.get("chainHeight")?.as_u64()?,
+        indexed_height,
+        chain_height: None,
     })
 }
 
@@ -1262,6 +1350,14 @@ fn quantity_digits(value: &Value, max_digits: usize) -> Option<&str> {
         && digits.bytes().all(|digit| digit.is_ascii_hexdigit())
         && (digits == "0" || !digits.starts_with('0'));
     canonical.then_some(digits)
+}
+
+fn decimal_u64(value: &Value) -> Option<u64> {
+    let text = value.as_str()?;
+    if text.is_empty() || !text.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    text.parse().ok()
 }
 
 fn quantity_u64(value: &Value) -> Option<u64> {

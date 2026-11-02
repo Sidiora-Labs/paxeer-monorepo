@@ -250,18 +250,158 @@ final class ProgramsEvmTests: XCTestCase {
     let lifecycle = try NativeProgramLifecycleRequest(
       operation: NativeProgramDeploy.decode(nativeTransportHex(deploy.payload_hex)),
       signedActivity: nativeTransportHex(deploy.signed_activity_hex))
+    XCTAssertNotEqual(hash, lifecycle.activityID)
     do {
-      _ = try await client(unknownServer).lifecycleReceipt(lifecycle)
+      _ = try await client(unknownServer).lifecycleReceipt(lifecycle, transactionHash: hash)
       XCTFail("Accepted a lifecycle transaction without a sequencer receipt")
     } catch let error as PlatformSDKError {
       XCTAssertEqual(error.code, .unknownOutcome)
       XCTAssertEqual(error.retry, .unknownOutcome)
     }
-    let lifecycleRequest = try XCTUnwrap(unknownServer.requests().last)
+    let unknownRequests = try unknownServer.requests()
+    XCTAssertEqual(unknownRequests.count, 2)
+    let lifecycleRequest = try XCTUnwrap(unknownRequests.last)
     XCTAssertEqual(lifecycleRequest["method"], .string("eth_getTransactionByHash"))
     XCTAssertEqual(
       lifecycleRequest["params"],
-      .array([.string("0x" + lifecycle.activityID.map { String(format: "%02x", $0) }.joined())]))
+      .array([.string("0x" + hash.map { String(format: "%02x", $0) }.joined())]))
+  }
+
+  func testProgramLifecycleReceiptResolvesBySignedTransactionHash() async throws {
+    let vector = try fixture("native-program-deploy-v4")
+    let operation = try NativeProgramDeploy.decode(nativeTransportHex(vector.payload_hex))
+    let lifecycle = try NativeProgramLifecycleRequest(
+      operation: operation, signedActivity: nativeTransportHex(vector.signed_activity_hex))
+    let buildServer = try RPCFixtureServer()
+    defer { buildServer.stop() }
+    let transaction = try await client(buildServer).deploy(
+      operation, signedActivity: lifecycle.signedActivity,
+      idempotencyKey: IdempotencyKey(vector.idempotency_key_hex))
+    try assertTransaction(transaction, fixture: vector, requests: buildServer.requests())
+
+    // EIP-1559 signature of this fixture deploy, using the conformance sender key.
+    let signature = try ProgramABI.hex(
+      "0x00c86d1e2d4442198de61fff30e6aacaa6dfc62825a3f55e5a56a757281ce214b779c855bfdb3362162ca58e1c7363a3"
+        + "784488e131af02502fe0ca0c5df549e207")
+    let fields = try decodeRLPList(Data(transaction.signingPayload().dropFirst()))
+    var signedBody = fields.prefix(8).reduce(into: Data()) { $0.append(ProgramABI.rlp($1)) }
+    signedBody.append(0xc0)
+    signedBody.append(ProgramABI.rlp(Data(signature.prefix(1).drop(while: { $0 == 0 }))))
+    signedBody.append(ProgramABI.rlp(Data(signature[1..<33]).drop(while: { $0 == 0 })))
+    signedBody.append(ProgramABI.rlp(Data(signature[33..<65]).drop(while: { $0 == 0 })))
+    let signedTransaction = Data([2]) + ProgramABI.rlp(signedBody, list: true)
+    let hash = CommittedWire.keccak256(signedTransaction)
+    let hashText = "0x" + hash.map { String(format: "%02x", $0) }.joined()
+    XCTAssertEqual(hashText, "0xe827f22f1857d2d443a5b88b414201cb2bfab1e17974072c306d82412ffce6e6")
+    XCTAssertNotEqual(hash, lifecycle.activityID)
+
+    // Canonical sequencer receipt signed by the conformance receipt key for this transaction.
+    let canonicalReceipt = try ProgramABI.hex(
+      "0x00025201000200000020e827f22f1857d2d443a5b88b414201cb2bfab1e17974072c306d82412ffce6e6000000000000"
+        + "0001000000200000000000000000000000000000000000000000000000000000000000000000000000204d0cafa6bd21"
+        + "5de579b82477db5522e45e9fcb4f9b83d82d0d095c912e1500db00000020e3b0c44298fc1c149afbf4c8996fb92427ae"
+        + "41e4649b934ca495991b7852b8550000000000000001000c000000000100000000200000000000000000000000000000"
+        + "0000000000000000000000000000000000000000007100000000000186a000000000000186a000000000000000640000"
+        + "000100000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc"
+        + "1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000000475687078000000000000000000"
+        + "000000009896800000002000000000000000000000000000000000000000000000000000000000000003e8000c000000"
+        + "010000000002000000200e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f73000000000000"
+        + "0000000000000000000000000020000000000000000000000000fe3b557e8fb62b89f4916b721be55ceb828dbd730000"
+        + "0000000000056bc75e2d6310000000000000000000056bc75e2d62776980000000000000000700000020000000000000"
+        + "000000000000000000000000000000000000000000000000101d00000000000000000000000000000000000000000000"
+        + "000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000"
+        + "00200000000000000000000000000000000000000000000000000000000000000000000000206b6b6b6b6b6b6b6b6b6b"
+        + "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b000001977420dc00010000004080b0f0e6f3d6877cc1b3508ca8"
+        + "3f06434ddc33b69f68d4f4548b7ef21bb4b3fa198e5bc57efd522a0b5e52d6143f5c1f1ff203befc5ba1c09245e3fa02"
+        + "685700")
+    let keyID = Data(repeating: 0x6b, count: 32)
+    let publicKey = try ProgramABI.hex(
+      "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e")
+    let receiptKey = ReceiptKeys(
+      keyId: keyID, publicKey: publicKey, firstHeight: 1000, lastHeight: 1999)
+    var receiptJSON: [String: JSONValue] = [
+      "rung": .string("receipted"),
+      "nonce": .string("0x7"),
+      "seq": .string("0x1"),
+      "height": .string("0x3e8"),
+      "index": .string("0x1"),
+      "timestamp": .string("0x1977420dc00"),
+      "status": .string("0x1"),
+      "returnData": .string("0x"),
+      "logs": .array([]),
+      "gasUsed": .string("0x186a0"),
+      "cumulativeGasUsed": .string("0x186a0"),
+      "effectiveGasPrice": .string("0x64"),
+      "feeDenom": .string("uhpx"),
+      "feeAmount": .string("0x989680"),
+      "sponsor": .string("0x0000000000000000000000000000000000000000"),
+      "from": .string("0xfe3b557e8fb62b89f4916b721be55ceb828dbd73"),
+      "to": .string("0x000000000000000000000000000000000000101d"),
+      "contractAddress": .string("0x0000000000000000000000000000000000000000"),
+      "vmError": .string(""),
+    ]
+    receiptJSON["txHash"] = .string(hashText)
+    receiptJSON["keyId"] = .string("0x" + keyID.map { String(format: "%02x", $0) }.joined())
+    receiptJSON["signingKey"] = .string(
+      "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e")
+    receiptJSON["receipt"] = .string(
+      "0x" + canonicalReceipt.map { String(format: "%02x", $0) }.joined())
+    let server = try RPCFixtureServer(results: [
+      "eth_getTransactionByHash": .object(["hash": .string(hashText)]),
+      "pax_sequencerReceipt": .object(receiptJSON),
+      "eth_getRawTransactionByHash": .string(
+        "0x" + signedTransaction.map { String(format: "%02x", $0) }.joined()),
+    ])
+    defer { server.stop() }
+    let programs = try client(server, receiptKeys: [receiptKey])
+    for invalidHash in [
+      lifecycle.activityID, Data(), Data(repeating: 1, count: 31),
+      Data(repeating: 1, count: 33),
+    ] {
+      do {
+        _ = try await programs.lifecycleReceipt(lifecycle, transactionHash: invalidHash)
+        XCTFail("Accepted an activity ID or malformed transaction hash")
+      } catch let error as PlatformSDKError {
+        XCTAssertEqual(error.code, .invalidArgument)
+        XCTAssertEqual(error.retry, .never)
+      }
+      XCTAssertTrue(try server.requests().isEmpty)
+    }
+    let receipt = try await programs.lifecycleReceipt(lifecycle, transactionHash: hash)
+    XCTAssertEqual(receipt, canonicalReceipt)
+    let requests = try server.requests()
+    XCTAssertEqual(
+      requests.compactMap { $0["method"]?.stringValue },
+      ["eth_getTransactionByHash", "pax_sequencerReceipt", "eth_getRawTransactionByHash"])
+    for request in requests {
+      XCTAssertEqual(request["params"], .array([.string(hashText)]))
+    }
+  }
+
+  func testProgramReceiptCarriesIdempotencyResult() async throws {
+    let key = try IdempotencyKey(String(repeating: "77", count: 32))
+    let hash = Data(repeating: 0x88, count: 32)
+    let server = try RPCFixtureServer(results: ["eth_getTransactionByHash": .null])
+    defer { server.stop() }
+    let submission = try await client(server).receipt(
+      idempotencyKey: key, expectedActivityID: hash, verificationLevel: "pending")
+    XCTAssertEqual(submission.state, "unknown")
+    XCTAssertEqual(submission.idempotencyKey, key.rawValue)
+    XCTAssertEqual(submission.transactionHash, hash)
+    XCTAssertNil(submission.sequencerReceipt)
+    let requests = try server.requests()
+    XCTAssertEqual(requests.count, 1)
+    XCTAssertEqual(requests.first?["method"], .string("eth_getTransactionByHash"))
+    XCTAssertEqual(
+      requests.first?["params"],
+      .array([.string("0x" + hash.map { String(format: "%02x", $0) }.joined())]))
+    XCTAssertFalse(
+      requests.contains { request in
+        guard case .array(let params)? = request["params"] else { return false }
+        return params.contains {
+          $0.objectValue?["data"]?.stringValue?.hasPrefix("0x2eda9f2b") == true
+        }
+      })
   }
 
   func testProgramActivityVerifiesSequencerReceipt() async throws {
@@ -438,6 +578,7 @@ private final class RPCFixtureServer {
     directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     transcript = directory.appendingPathComponent("rpc.jsonl")
+    try Data().write(to: transcript)
     let configuredResults = directory.appendingPathComponent("results.json")
     try JSONEncoder().encode(results).write(to: configuredResults)
     process = Process()

@@ -96,6 +96,31 @@ fn endpoint(url: &str) -> SequencerEndpoint {
     SequencerEndpoint::new(url, &[]).must()
 }
 
+#[test]
+fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
+    assert_eq!(
+        SequencerEndpoint::new("http://router.example/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("https://router.example/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("https://router.example/", &[&[]]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("ftp://127.0.0.1/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
+    assert_eq!(
+        SequencerEndpoint::new("http://router.railway.internal:9443", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+}
+
 fn receipted_members() -> String {
     format!(
         r#""rung":"receipted","txHash":"{TX_HASH}","nonce":"0x7","seq":"0x2a","height":"0x3e8","index":"0x3","timestamp":"0x67a1b2c3","status":"0x1","returnData":"0x0000000000000000000000000000000000000000000000000000000000000001","logs":[{{"address":"0x000000000000000000000000000000000000101a","topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x00000000000000000000000011223344556677889900aabbccddeeff00112233"],"data":"0x0de0b6b3a7640000","logIndex":"0x0"}},{{"address":"0x000000000000000000000000000000000000101A","topics":[],"data":"0x","logIndex":"0x1"}}],"gasUsed":"0x5208","cumulativeGasUsed":"0xa410","effectiveGasPrice":"0x3b9aca00","feeDenom":"upax","feeAmount":"0x1312d00000000","sponsor":"0x0000000000000000000000000000000000000000","from":"0x11223344556677889900aabbccddeeff00112233","to":"0x000000000000000000000000000000000000101a","contractAddress":"0x0000000000000000000000000000000000000000","vmError":"","keyId":"0x0101010101010101010101010101010101010101010101010101010101010101","receipt":"0x00025201000200aabbccdd","signingKey":"0x{}""#,
@@ -353,6 +378,43 @@ fn revert_data(reason: &str) -> String {
 }
 
 #[test]
+fn call_at_sends_the_explicit_height_and_keeps_a_revert_at_that_height() {
+    let reason = revert_data("LXP_ADDR_DID_NOT_BOUND: no binding at this height");
+    let (url, server) = serve(vec![
+        ("eth_call", Some(r#""result":"0x00ff10""#.to_owned())),
+        (
+            "eth_call",
+            Some(format!(
+                r#""error":{{"code":3,"message":"execution reverted","data":"0x{reason}"}}"#
+            )),
+        ),
+    ]);
+    let endpoint = endpoint(&url);
+    let mut to = [0_u8; 20];
+    to[18] = 0x10;
+    to[19] = 0x04;
+    assert_eq!(
+        endpoint.call_at(1000, &to, &[0xc4, 0x13, 0xba, 0xd3]),
+        Ok(vec![0x00, 0xff, 0x10])
+    );
+    assert_eq!(
+        endpoint.call_at(0, &to, &[]),
+        Err(SequencerError::Rpc(RpcRefusal {
+            code: 3,
+            message: "execution reverted".to_owned(),
+            data: Some(Value::String(format!("0x{reason}"))),
+        }))
+    );
+    assert_eq!(
+        server.join().must(),
+        vec![
+            json!([{"to": "0x0000000000000000000000000000000000001004", "data": "0xc413bad3"}, "0x3e8"]),
+            json!([{"to": "0x0000000000000000000000000000000000001004", "data": "0x"}, "0x0"]),
+        ]
+    );
+}
+
+#[test]
 fn bound_address_reads_the_addr_precompile_and_decodes_the_unbound_revert() {
     let did = [0x61_u8; 32];
     let unbound = "LXP_ADDR_DID_NOT_BOUND: LayerX DID is not bound to an EVM address; did:lx:abc";
@@ -601,31 +663,6 @@ fn unusable_send_answer_is_unavailable() {
 }
 
 #[test]
-fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
-    assert_eq!(
-        SequencerEndpoint::new("http://router.example/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("https://router.example/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("https://router.example/", &[&[]]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("ftp://127.0.0.1/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
-    assert_eq!(
-        SequencerEndpoint::new("http://router.railway.internal:9443", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-}
-
-#[test]
 fn railway_private_network_opt_in_accepts_only_strict_private_urls() {
     for url in [
         "http://router.railway.internal:9443",
@@ -871,41 +908,4 @@ fn closed_connection_during_block_read_is_unavailable() {
         Err(SequencerError::Unavailable)
     );
     assert_eq!(server.join().must(), vec![json!(["0x3e8", true])]);
-}
-
-#[test]
-fn call_at_sends_the_explicit_height_and_keeps_a_revert_at_that_height() {
-    let reason = revert_data("LXP_ADDR_DID_NOT_BOUND: no binding at this height");
-    let (url, server) = serve(vec![
-        ("eth_call", Some(r#""result":"0x00ff10""#.to_owned())),
-        (
-            "eth_call",
-            Some(format!(
-                r#""error":{{"code":3,"message":"execution reverted","data":"0x{reason}"}}"#
-            )),
-        ),
-    ]);
-    let endpoint = endpoint(&url);
-    let mut to = [0_u8; 20];
-    to[18] = 0x10;
-    to[19] = 0x04;
-    assert_eq!(
-        endpoint.call_at(1000, &to, &[0xc4, 0x13, 0xba, 0xd3]),
-        Ok(vec![0x00, 0xff, 0x10])
-    );
-    assert_eq!(
-        endpoint.call_at(0, &to, &[]),
-        Err(SequencerError::Rpc(RpcRefusal {
-            code: 3,
-            message: "execution reverted".to_owned(),
-            data: Some(Value::String(format!("0x{reason}"))),
-        }))
-    );
-    assert_eq!(
-        server.join().must(),
-        vec![
-            json!([{"to": "0x0000000000000000000000000000000000001004", "data": "0xc413bad3"}, "0x3e8"]),
-            json!([{"to": "0x0000000000000000000000000000000000001004", "data": "0x"}, "0x0"]),
-        ]
-    );
 }

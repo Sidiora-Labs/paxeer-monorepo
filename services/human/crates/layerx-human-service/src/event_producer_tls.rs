@@ -611,6 +611,7 @@ fn enqueue_journey(scope: &mut crate::store::PrincipalScope<'_>) {
                 "authority",
             ),
             7,
+            7,
             995,
             1010,
             7,

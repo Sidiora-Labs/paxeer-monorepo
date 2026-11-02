@@ -7,7 +7,6 @@ use layerx_platform_gateway::http::{
     unified_account_preflight, write_response_connection_with_browser_profile,
     write_response_connection_with_origin, BrowserRouteProfile, IncomingRequest, OutgoingResponse,
 };
-use layerx_platform_gateway::{production_route, ProductionRoute};
 use serde_json::Value;
 
 const ORIGIN: &str = "https://api-mainnet-beta.paxeer.network";
@@ -330,28 +329,6 @@ fn native_program_and_name_reads_use_exact_public_owner_routes() {
             "layerx-unified-profile",
             "2"
         ));
-    }
-    assert_eq!(
-        production_route("GET", "/v1/programs/registry"),
-        Ok(ProductionRoute::ProgramCatalog)
-    );
-    assert_eq!(
-        production_route("GET", &format!("/v1/programs/registry/{id}")),
-        Ok(ProductionRoute::ProgramRegistry(id.as_str()))
-    );
-    assert_eq!(
-        production_route("GET", &format!("/v1/programs/registry/{id}/interface")),
-        Ok(ProductionRoute::ProgramInterface(id.as_str()))
-    );
-    for (path, owner) in [
-        ("/v1/programs/call", ProductionRoute::ProgramCall),
-        ("/v1/programs/simulate", ProductionRoute::ProgramSimulation),
-        ("/v1/programs/read", ProductionRoute::ProgramRead),
-        ("/v1/programs/deploy", ProductionRoute::ProgramDeploy),
-        ("/v1/programs/upgrade", ProductionRoute::ProgramUpgrade),
-        ("/v1/programs/wind-down", ProductionRoute::ProgramWindDown),
-    ] {
-        assert_eq!(production_route("POST", path), Ok(owner));
     }
 }
 

@@ -11,7 +11,7 @@ use layerx_agent_api::submit::{PreparationRef, SignatureBytes, SubmitRequest};
 use layerx_agent_api::track::{SubmissionRef, SubmissionState, TrackRequest};
 use layerx_human_service::frame::{read_frame, write_frame, Limits};
 use layerx_human_service::journeys::{
-    AgentBoundary, AgentBoundaryError, ReceiptLookup, ReceiptMaterial,
+    AgentBoundary, AgentBoundaryError, ReceiptKeyEntry, ReceiptLookup, ReceiptMaterial,
 };
 use layerx_human_service::server::agent_runtime::{AgentRuntime, TraceContext};
 use layerx_proof::receipt::AuthorizedBatch;
@@ -184,6 +184,14 @@ fn runtime_decodes_finalization_evidence_with_a_65_byte_signature() {
     let batch_fields = [[0x71; 32], [0x72; 32], [0x73; 32], [0x74; 32], [0x75; 32]];
     let expected = ReceiptMaterial {
         canonical_bytes: canonical_bytes.clone(),
+        signed_receipt: canonical_bytes.clone(),
+        receipt_key: ReceiptKeyEntry {
+            key_id: [0x94; 32],
+            public_key: batch_fields[4],
+            first_height: 1,
+            last_height: u64::MAX,
+        },
+        inclusion_height: observed_height,
         authorised_batch: AuthorizedBatch::new(
             batch_fields[0],
             batch_fields[1],
@@ -206,7 +214,14 @@ fn runtime_decodes_finalization_evidence_with_a_65_byte_signature() {
     receipt.extend_from_slice(&tx_hash);
     receipt.extend_from_slice(&receipt_hash);
     receipt.extend_from_slice(&observed_height.to_be_bytes());
+    let rung_offset = receipt.len();
     receipt.push(2);
+    bytes(&mut receipt, &expected.signed_receipt);
+    receipt.extend_from_slice(&expected.receipt_key.key_id);
+    receipt.extend_from_slice(&expected.receipt_key.public_key);
+    receipt.extend_from_slice(&expected.receipt_key.first_height.to_be_bytes());
+    receipt.extend_from_slice(&expected.receipt_key.last_height.to_be_bytes());
+    receipt.extend_from_slice(&expected.inclusion_height.to_be_bytes());
 
     let client = checked(Client::daemon(
         "/run/layerx-agentd.sock",
@@ -245,7 +260,7 @@ fn runtime_decodes_finalization_evidence_with_a_65_byte_signature() {
     let mut trailing = response.clone();
     trailing.push(0);
     let mut retired_rung = response.clone();
-    *checked(retired_rung.last_mut().ok_or("missing rung")) = 3;
+    retired_rung[1 + rung_offset] = 3;
     let mut exchanges = vec![(request(2, &submit), answer(&observation))];
     exchanges.extend(
         [response, truncated, trailing, retired_rung]

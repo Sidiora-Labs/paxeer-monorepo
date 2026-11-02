@@ -385,9 +385,15 @@ func (b *Backend) pendingStateAndHeader(ctx context.Context, blockNrOrHash rpc.B
 	return state.NewDBImpl(sdkCtx, b.keeper, true), header, nil
 }
 
+// StateAndHeaderByNumberOrHash returns the requested state and header. Pending
+// reads return the latest committed block while no block is open.
 func (b *Backend) StateAndHeaderByNumberOrHash(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (vm.StateDB, *ethtypes.Header, error) {
 	if isPendingBlockNrOrHash(blockNrOrHash) {
-		return b.pendingStateAndHeader(ctx, blockNrOrHash)
+		stateDB, header, err := b.pendingStateAndHeader(ctx, blockNrOrHash)
+		if !errors.Is(err, ErrLayerNotOpen) {
+			return stateDB, header, err
+		}
+		blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.LatestBlockNumber)
 	}
 	tmBlock, isLatestBlock, err := b.getBlockByNumberOrHash(ctx, blockNrOrHash)
 	if err != nil {

@@ -1,5 +1,5 @@
 use super::*;
-use layerx_crypto::onboarding::OnboardingConsent;
+use layerx_crypto::payments::OnboardingConsent;
 use layerx_intents::{LxpSend, NativeBudgetCreate};
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]

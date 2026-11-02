@@ -56,7 +56,7 @@ func budgetPullGrant(t *testing.T, payer payActor, from, recipient, asset, purpo
 	return grant, id
 }
 
-func TestBudgetPullWithPayerGrant(t *testing.T) {
+func TestBudgetPullIsRetired(t *testing.T) {
 	h, transientKey := newBudgetPullHarness(t)
 	payer, puller := h.actors[0], h.actors[1]
 	budgetID, purpose := [32]byte{0x31}, [32]byte{0x55}
@@ -80,13 +80,7 @@ func TestBudgetPullWithPayerGrant(t *testing.T) {
 	created, err := h.keeper.Submit(h.ctx, payer.address, "budgetCreate", create, [32]byte{0x33})
 	require.NoError(t, err)
 	require.Zero(t, created.ResultCode)
-	grant, grantID := budgetPullGrant(t, payer, payerMain, recipient, asset, purpose)
-	paySubmitExecute(t, h, payer, 0x00010007, grant, [32]byte{0x34})
-	before, err := h.host.ReadPayerGrant(h.ctx, grantID)
-	require.NoError(t, err)
-	require.Equal(t, grant, before.Grant)
-	require.Equal(t, sdk.ZeroInt(), before.DrawnTotal)
-	require.Equal(t, sdk.ZeroInt(), before.DrawnThisPeriod)
+	grant, _ := budgetPullGrant(t, payer, payerMain, recipient, asset, purpose)
 
 	wire, err := os.ReadFile("../../../precompiles/layerxpay/abi.json")
 	require.NoError(t, err)
@@ -105,84 +99,74 @@ func TestBudgetPullWithPayerGrant(t *testing.T) {
 	require.Equal(t, key[:], payload[82:114])
 	require.Equal(t, grant, payload[114:])
 	require.Equal(t, uint32(0x0003000b), types.MethodActivity["budgetPull"].Type)
-	expectedBranch, _ := h.ctx.CacheContext()
-	expected, err := h.keeper.Submit(expectedBranch, puller.address, "budgetPull", payload, key)
+	for _, test := range []struct {
+		activityType uint32
+		payload      []byte
+	}{
+		{0x00010007, grant},
+		{0x0003000b, payload},
+	} {
+		t.Run(fmt.Sprintf("kernel_%08x", test.activityType), func(t *testing.T) {
+			branch, _ := h.ctx.CacheContext()
+			last, err := h.host.ReadLastSequence(branch, payer.did)
+			require.NoError(t, err)
+			sequence, err := h.host.ReadIdentitySequence(branch, payer.did)
+			require.NoError(t, err)
+			activity := lxphost.Activity{
+				ProtocolVersion: 3, Type: test.activityType, ActorDID: payer.did, AuthorityKey: payer.public,
+				AccountSequence: sequence, NotBefore: uint64(branch.BlockTime().UnixMilli()),
+				NotAfter:       uint64(branch.BlockTime().UnixMilli()) + h.host.TimestampWindowMs(),
+				IdempotencyKey: [32]byte{0x34}, Payload: test.payload,
+			}
+			hash, err := h.host.SigningHash(activity)
+			require.NoError(t, err)
+			activity.Signature = ed25519.Sign(payer.private, hash[:])
+			_, err = h.host.HostExecute(lxphost.WithSequence(branch, last+1), activity, payer.authority())
+			require.EqualError(t, err, "LXP_ERR_UNKNOWN_ACTIVITY")
+			var code lxphost.Code
+			require.ErrorAs(t, err, &code)
+			require.Equal(t, "LXP_ERR_UNKNOWN_ACTIVITY", code.Error())
+			t.Logf("activity 0x%08x: %s", test.activityType, err)
+		})
+	}
+
+	balanceBefore, err := h.host.ReadBalance(h.ctx, budgetAccount, asset)
 	require.NoError(t, err)
+	require.Equal(t, sdk.NewInt(150), balanceBefore)
+	ordinal, err := nextPayCallOrdinal(h.ctx, txHash)
+	require.NoError(t, err)
+	require.Zero(t, ordinal)
+	ordinalKey := append([]byte(payCallOrdinalPrefix), txHash[:]...)
+	ordinalBefore := bytes.Clone(h.ctx.TransientStore(transientKey).Get(ordinalKey))
 	hostBefore, moduleBefore := payStoreSnapshot(h.ctx, h.hostKey), payStoreSnapshot(h.ctx, h.storeKey)
-	last, err := h.host.ReadLastSequence(h.ctx, puller.did)
-	require.NoError(t, err)
-	identitySequence, err := h.host.ReadIdentitySequence(h.ctx, puller.did)
-	require.NoError(t, err)
+	transientBefore := payStoreSnapshot(h.ctx, transientKey)
 	grantBefore := bytes.Clone(grant)
 	receipt, err := h.keeper.BudgetPull(h.ctx, puller.address, budgetID, recipient, amount, grant)
-	require.NoError(t, err)
-	require.Zero(t, receipt.ResultCode)
-	require.Equal(t, expected, receipt)
-	require.Equal(t, last+1, receipt.GlobalSequence)
-	require.NotEqual(t, receipt.PreviousStateRoot, receipt.ResultingStateRoot)
+	require.ErrorIs(t, err, types.ErrBudgetPullRetired)
+	require.EqualError(t, err, "budgetPull is retired with the payer grants")
+	require.Equal(t, lxphost.Receipt{}, receipt)
 	require.Equal(t, grantBefore, grant)
-	require.NotEqual(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
+	balanceAfter, err := h.host.ReadBalance(h.ctx, budgetAccount, asset)
+	require.NoError(t, err)
+	require.Equal(t, balanceBefore, balanceAfter)
+	require.Equal(t, ordinalBefore, h.ctx.TransientStore(transientKey).Get(ordinalKey))
+	require.Equal(t, hostBefore, payStoreSnapshot(h.ctx, h.hostKey))
 	require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
-	require.Equal(t, payStoreSnapshot(expectedBranch, h.hostKey), payStoreSnapshot(h.ctx, h.hostKey))
-	decoded, err := codec.DecodeReceipt(receipt.Encoded)
+	require.Equal(t, transientBefore, payStoreSnapshot(h.ctx, transientKey))
+	ordinal, err = nextPayCallOrdinal(h.ctx, txHash)
 	require.NoError(t, err)
-	require.Equal(t, types.BudgetModuleID, decoded.ModuleID)
-	require.Equal(t, receipt.GlobalSequence, decoded.GlobalSequence)
-	require.Equal(t, receipt.ResultingStateRoot, decoded.ResultingStateRoot)
-	afterSequence, err := h.host.ReadIdentitySequence(h.ctx, puller.did)
-	require.NoError(t, err)
-	require.Equal(t, identitySequence+1, afterSequence)
-	balance, err := h.host.ReadBalance(h.ctx, recipient, asset)
-	require.NoError(t, err)
-	require.Equal(t, sdk.NewInt(40), balance)
-	balance, err = h.host.ReadBalance(h.ctx, budgetAccount, asset)
-	require.NoError(t, err)
-	require.Equal(t, sdk.NewInt(110), balance)
+	require.Equal(t, uint32(1), ordinal)
 
-	t.Run("call_ordinals", func(t *testing.T) {
-		branch, _ := h.ctx.CacheContext()
-		ordinal, err := nextPayCallOrdinal(branch, txHash)
-		require.NoError(t, err)
-		require.Equal(t, uint32(1), ordinal)
-		require.NotEqual(t, key, types.DeriveIdempotencyKey(txHash, ordinal, selector))
-		ordinal, err = nextPayCallOrdinal(branch, [32]byte{0xa2})
-		require.NoError(t, err)
-		require.Zero(t, ordinal)
-		nextKey := types.DeriveIdempotencyKey(txHash, 1, selector)
-		nextPayload, err := types.EncodeBudgetPull(budgetID, recipient, amount, nextKey, grant)
-		require.NoError(t, err)
-		expectedBranch, _ := h.ctx.CacheContext()
-		want, err := h.keeper.Submit(expectedBranch, puller.address, "budgetPull", nextPayload, nextKey)
-		require.NoError(t, err)
-		secondBranch, _ := h.ctx.CacheContext()
-		got, err := h.keeper.BudgetPull(secondBranch, puller.address, budgetID, recipient, amount, grant)
-		require.NoError(t, err)
-		require.Equal(t, want, got)
-		require.Equal(t, payStoreSnapshot(expectedBranch, h.hostKey), payStoreSnapshot(secondBranch, h.hostKey))
-		refusalBranch, _ := h.ctx.CacheContext()
-		transientBefore := payStoreSnapshot(refusalBranch, transientKey)
-		hostBefore := payStoreSnapshot(refusalBranch, h.hostKey)
-		_, err = h.keeper.BudgetPull(refusalBranch, common.Address{}, budgetID, recipient, amount, grant)
-		require.ErrorIs(t, err, types.ErrUnboundCaller)
-		require.Equal(t, transientBefore, payStoreSnapshot(refusalBranch, transientKey))
-		require.Equal(t, hostBefore, payStoreSnapshot(refusalBranch, h.hostKey))
-	})
 	t.Run("missing_transaction_hash", func(t *testing.T) {
 		branch := h.ctx.WithEVMTxHash(common.Hash{})
 		hostBefore := payStoreSnapshot(branch, h.hostKey)
 		transientBefore := payStoreSnapshot(branch, transientKey)
 		receipt, err := h.keeper.BudgetPull(branch, puller.address, budgetID, recipient, amount, grant)
-		require.ErrorContains(t, err, "LXP_NON_CANONICAL: layerxpay missing transaction hash")
+		require.ErrorIs(t, err, types.ErrBudgetPullRetired)
 		require.Equal(t, lxphost.Receipt{}, receipt)
 		require.Equal(t, hostBefore, payStoreSnapshot(branch, h.hostKey))
 		require.Equal(t, transientBefore, payStoreSnapshot(branch, transientKey))
 	})
-
-	after, err := h.host.ReadPayerGrant(h.ctx, grantID)
-	require.NoError(t, err)
-	require.Equal(t, grant, after.Grant)
-	require.Equal(t, sdk.NewInt(40), after.DrawnTotal)
-	require.Equal(t, sdk.NewInt(40), after.DrawnThisPeriod)
 }
 
 func TestBudgetPullRefusesMalformedGrant(t *testing.T) {
@@ -217,7 +201,7 @@ func TestBudgetPullRefusesMalformedGrant(t *testing.T) {
 			last, err := h.host.ReadLastSequence(h.ctx, actor.did)
 			require.NoError(t, err)
 			receipt, err := h.keeper.BudgetPull(h.ctx, actor.address, budgetID, recipient, amount, grant)
-			require.ErrorIs(t, err, encoderErr)
+			require.ErrorIs(t, err, types.ErrBudgetPullRetired)
 			require.Equal(t, lxphost.Receipt{}, receipt)
 			after, err := h.host.ReadLastSequence(h.ctx, actor.did)
 			require.NoError(t, err)
@@ -226,7 +210,7 @@ func TestBudgetPullRefusesMalformedGrant(t *testing.T) {
 			require.Equal(t, moduleBefore, payStoreSnapshot(h.ctx, h.storeKey))
 			require.Equal(t, transientBefore, payStoreSnapshot(h.ctx, transientKey))
 			_, err = (Keeper{}).BudgetPull(sdk.Context{}, actor.address, budgetID, recipient, amount, grant)
-			require.ErrorIs(t, err, encoderErr)
+			require.ErrorIs(t, err, types.ErrBudgetPullRetired)
 		})
 	}
 }

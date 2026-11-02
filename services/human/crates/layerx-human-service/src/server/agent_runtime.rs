@@ -44,6 +44,33 @@ pub(crate) fn validate_call(
     let mut target = [0; 20];
     target[18] = 0x10;
     let data = match (activity_type.module(), activity_type.ordinal()) {
+        (ModuleId::Budget, 1) if payload.len() == 211 && payload[..2] == [0, 1] => {
+            target[19] = 0x1b;
+            let mut data = ledger_selector(
+                "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
+            )
+            .to_vec();
+            data.extend_from_slice(&payload[2..130]);
+            for amount in payload[130..178].chunks_exact(16) {
+                data.extend_from_slice(&[0; 16]);
+                data.extend_from_slice(amount);
+            }
+            for coordinate in payload[178..210].chunks_exact(8) {
+                data.extend_from_slice(&[0; 24]);
+                data.extend_from_slice(coordinate);
+            }
+            data.extend_from_slice(&[0; 31]);
+            data.push(payload[210]);
+            data
+        }
+        (ModuleId::Budget, 2) if payload.len() == 50 && payload[..2] == [0, 1] => {
+            target[19] = 0x1b;
+            let mut data = ledger_selector("budgetFund(bytes32,uint128)").to_vec();
+            data.extend_from_slice(&payload[2..34]);
+            data.extend_from_slice(&[0; 16]);
+            data.extend_from_slice(&payload[34..]);
+            data
+        }
         (ModuleId::Budget, 8) if payload.len() == 50 && payload[..2] == [0, 1] => {
             target[19] = 0x1b;
             let mut data = ledger_selector("budgetDefund(bytes32,uint128)").to_vec();
@@ -2098,83 +2125,6 @@ impl AgentRuntime {
         Ok(())
     }
 
-    pub fn receipt_keys(
-        endpoint: &layerx_paxeer_client::EndpointConfig,
-    ) -> Result<Vec<layerx_client::sequencer::ReceiptKeyEntry>, AgentBoundaryError> {
-        use layerx_paxeer_client::{raw_call, Json};
-        let value = raw_call(endpoint, "px_getReceiptKeys", &[])
-            .map_err(|_| AgentBoundaryError::Unavailable)?;
-        let Json::Array(rows) = value else {
-            return Err(AgentBoundaryError::CorruptResponse);
-        };
-        let mut seen = std::collections::BTreeSet::new();
-        let mut keys = Vec::new();
-        for row in rows {
-            let Json::Object(fields) = &row else {
-                return Err(AgentBoundaryError::CorruptResponse);
-            };
-            if fields.len() != 4
-                || fields.iter().any(|(name, _)| {
-                    !matches!(
-                        name.as_str(),
-                        "keyId" | "publicKey" | "firstHeight" | "lastHeight"
-                    )
-                })
-            {
-                return Err(AgentBoundaryError::CorruptResponse);
-            }
-            let fixed = |name: &str| -> Result<[u8; 32], AgentBoundaryError> {
-                let text = row
-                    .member(name)
-                    .and_then(Json::as_text)
-                    .and_then(|s| s.strip_prefix("0x"))
-                    .ok_or(AgentBoundaryError::CorruptResponse)?;
-                if text.len() != 64 || !text.bytes().all(|b| b.is_ascii_hexdigit()) {
-                    return Err(AgentBoundaryError::CorruptResponse);
-                }
-                let mut bytes = [0; 32];
-                for (index, byte) in bytes.iter_mut().enumerate() {
-                    *byte = u8::from_str_radix(&text[index * 2..index * 2 + 2], 16)
-                        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
-                }
-                Ok(bytes)
-            };
-            let height = |name: &str| -> Result<u64, AgentBoundaryError> {
-                let text = row
-                    .member(name)
-                    .and_then(Json::as_text)
-                    .and_then(|s| s.strip_prefix("0x"))
-                    .ok_or(AgentBoundaryError::CorruptResponse)?;
-                if text.is_empty()
-                    || text.len() > 16
-                    || !text.bytes().all(|byte| byte.is_ascii_hexdigit())
-                    || (text.len() > 1 && text.starts_with('0'))
-                {
-                    return Err(AgentBoundaryError::CorruptResponse);
-                }
-                u64::from_str_radix(text, 16).map_err(|_| AgentBoundaryError::CorruptResponse)
-            };
-            let key = layerx_client::sequencer::ReceiptKeyEntry {
-                key_id: fixed("keyId")?,
-                public_key: fixed("publicKey")?,
-                first_height: height("firstHeight")?,
-                last_height: height("lastHeight")?,
-            };
-            if key.key_id == [0; 32]
-                || key.public_key == [0; 32]
-                || key.first_height > key.last_height
-                || !seen.insert(key.key_id)
-            {
-                return Err(AgentBoundaryError::CorruptResponse);
-            }
-            keys.push(key);
-        }
-        if keys.is_empty() {
-            return Err(AgentBoundaryError::Unavailable);
-        }
-        Ok(keys)
-    }
-
     /// Connects to the authenticated agent peer and adopts only its
     /// core-negotiated module registry.
     /// # Errors
@@ -4199,7 +4149,7 @@ impl AgentBoundary for AgentRuntime {
             &transaction,
             activity_type,
             &payload,
-            account_sequence,
+            transaction.nonce,
             fee_limit,
         )?;
         if actor != request.actor
@@ -4228,6 +4178,7 @@ impl AgentBoundary for AgentRuntime {
             actor,
             authority,
             account_sequence,
+            pending_nonce: transaction.nonce,
             not_before,
             not_after,
             fee_limit,
@@ -4513,6 +4464,25 @@ fn decode_receipt(reader: &mut Reader) -> Result<ReceiptMaterial, AgentBoundaryE
     let receipt_hash = reader.fixed::<32>()?;
     let block_height = reader.u64()?;
     let rung = decode_rung(reader.u8()?)?;
+    let signed_receipt = reader.bytes()?;
+    let receipt_key = crate::journeys::ReceiptKeyEntry {
+        key_id: reader.fixed()?,
+        public_key: reader.fixed()?,
+        first_height: reader.u64()?,
+        last_height: reader.u64()?,
+    };
+    let inclusion_height = reader.u64()?;
+    if rung < Rung::Receipted
+        || signed_receipt != canonical_bytes
+        || inclusion_height == 0
+        || inclusion_height != block_height
+        || inclusion_height < receipt_key.first_height
+        || inclusion_height > receipt_key.last_height
+        || receipt_key.key_id == [0; 32]
+        || receipt_key.public_key != authorised_batch.sequencer_public_key()
+    {
+        return Err(AgentBoundaryError::CorruptResponse);
+    }
     Ok(ReceiptMaterial {
         canonical_bytes,
         authorised_batch,
@@ -4521,6 +4491,9 @@ fn decode_receipt(reader: &mut Reader) -> Result<ReceiptMaterial, AgentBoundaryE
         receipt_hash,
         block_height,
         rung,
+        signed_receipt,
+        receipt_key,
+        inclusion_height,
     })
 }
 
@@ -5024,7 +4997,7 @@ impl AgentRuntime {
             &transaction,
             activity_type,
             request.payload.as_bytes(),
-            request.account_sequence.0,
+            transaction.nonce,
             request.fee_limit.0,
         )?;
         if preimage != transaction.signing_hash() {
@@ -5047,6 +5020,7 @@ impl AgentRuntime {
             actor: request.actor.clone(),
             authority: request.authority.clone(),
             account_sequence: request.account_sequence.0,
+            pending_nonce: transaction.nonce,
             not_before: request.timestamp_bound.not_before.0,
             not_after: request.timestamp_bound.not_after.0,
             fee_limit: request.fee_limit.0,

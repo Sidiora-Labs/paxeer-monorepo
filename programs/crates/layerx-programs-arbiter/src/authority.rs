@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use layerx_client::evidence::VerifiedAdmissionPrestate;
+use crate::AdmissionEvidence;
 use layerx_programs_runtime::CapabilitySet;
 pub use layerx_proof::inclusion::SequencerAuthorization as ReceiptKey;
 use layerx_proof::inclusion::VerifiedBatchHeader;
@@ -101,7 +101,7 @@ pub struct VerifiedReplayAuthority {
 impl VerifiedReplayAuthority {
     pub fn derive(
         receipt: &VerifiedReceipt,
-        admission: &VerifiedAdmissionPrestate,
+        admission: &AdmissionEvidence,
         header: &VerifiedBatchHeader,
         commit: &ChainCommitProof,
     ) -> Result<Self, ReplayError> {
@@ -110,7 +110,7 @@ impl VerifiedReplayAuthority {
 
     pub fn derive_program_call(
         receipt: &VerifiedReceipt,
-        admission: &VerifiedAdmissionPrestate,
+        admission: &AdmissionEvidence,
         header: &VerifiedBatchHeader,
         commit: &ChainCommitProof,
     ) -> Result<Self, ReplayError> {
@@ -119,7 +119,7 @@ impl VerifiedReplayAuthority {
 
     fn derive_call(
         receipt: &VerifiedReceipt,
-        admission: &VerifiedAdmissionPrestate,
+        admission: &AdmissionEvidence,
         header: &VerifiedBatchHeader,
         commit: &ChainCommitProof,
         replay_profile: bool,
@@ -830,10 +830,7 @@ impl Grant {
     }
 }
 
-fn envelope(
-    admission: &VerifiedAdmissionPrestate,
-    epoch: u64,
-) -> Result<(u64, u16, u16), ReplayError> {
+fn envelope(admission: &AdmissionEvidence, epoch: u64) -> Result<(u64, u16, u16), ReplayError> {
     let native = admission.legacy().legacy().canonical_bytes();
     let mut r = Reader(native.get(78..).ok_or(ReplayError::Encoding)?);
     let count = r.u16()?;

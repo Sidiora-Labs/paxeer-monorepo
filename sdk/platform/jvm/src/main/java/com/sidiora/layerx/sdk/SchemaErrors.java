@@ -6,9 +6,7 @@ public final class SchemaErrors {
     static {
         requireParity(AgentClass.values(), GeneratedContract.AGENT_ERROR_CLASSES);
         requireParity(AgentRetriability.values(), GeneratedContract.AGENT_RETRIABILITY);
-        requireParity(HumanCode.values(), java.util.Arrays.stream(GeneratedSchema.HumanModels.ErrorCode.values())
-            .map(GeneratedSchema.HumanModels.ErrorCode::wire)
-            .collect(java.util.stream.Collectors.toUnmodifiableSet()));
+        requireParity(HumanCode.values(), GeneratedContract.HUMAN_ERROR_CODES);
         requireParity(HumanRetriability.values(), GeneratedContract.HUMAN_RETRIABILITY);
     }
     private SchemaErrors() {}
@@ -51,7 +49,7 @@ public final class SchemaErrors {
         CONFIRMATION_MISMATCH("confirmation-mismatch"), NOT_SUPPRESSIBLE("not-suppressible"),
         SUPPORT_UNAVAILABLE("support-unavailable"),
         SUPPORT_CONVERSATION_UNKNOWN("support-conversation-unknown"),
-        SUPPORT_MESSAGE_UNKNOWN("support-message-unknown");
+        SUPPORT_MESSAGE_UNKNOWN("support-message-unknown"), OPERATION_RETIRED("operation-retired");
         private final String wire;
         HumanCode(String wire) { this.wire = wire; }
         @Override public String wire() { return wire; }

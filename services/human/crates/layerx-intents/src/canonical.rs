@@ -1,9 +1,3 @@
-pub use layerx_wire::activity::{
-    decode_signed as decode_signed_activity, decode_unsigned as decode_unsigned_activity,
-    encode_signed as signed_activity_bytes, encode_signed_envelope as signed_envelope_bytes,
-    encode_unsigned as unsigned_activity_bytes,
-    encode_unsigned_envelope as unsigned_envelope_bytes, Activity,
-};
 pub use layerx_wire::hash::{
     account_id_for_protocol, activity_id, batch_header_digest, did_id_for_protocol,
     execution_batch_id, payload_hash, payload_hash_for, program_execution_batch_id, receipt_digest,
@@ -23,18 +17,17 @@ pub use layerx_wire::WireError as CanonicalError;
 
 /// # Errors
 /// Refuses noncanonical debit fields before constructing the authorization preimage.
-pub fn send_authorization_bytes(
-    debit: &layerx_crypto::send::SendDebit,
-) -> Result<Vec<u8>, layerx_crypto::disclosure::DisclosureError> {
+pub fn send_authorization_bytes(debit: &SendDebit) -> Result<Vec<u8>, DisclosureError> {
     debit.authorization_message()
 }
 
 /// # Errors
 /// Refuses malformed debit fields or an authorization signature not bound to them.
 pub fn signed_send_payload(
-    debit: &layerx_crypto::send::SendDebit,
+    debit: &SendDebit,
     public_key: [u8; 32],
     signature: [u8; 64],
-) -> Result<Vec<u8>, layerx_crypto::disclosure::DisclosureError> {
+) -> Result<Vec<u8>, DisclosureError> {
     debit.encode_signed(public_key, signature)
 }
+use layerx_crypto::{disclosure::DisclosureError, send::SendDebit};

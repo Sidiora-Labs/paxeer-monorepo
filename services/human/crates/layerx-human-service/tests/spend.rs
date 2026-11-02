@@ -279,7 +279,9 @@ fn signed_receipt(
     );
     let evidence = support::raw_receipt_evidence(
         canonical_receipt.clone(),
-        authorized_batch,
+        signer.verifying_key().to_bytes(),
+        fields.previous_state_root,
+        fields.resulting_state_root,
         sequence,
         &signer,
     );
@@ -287,10 +289,18 @@ fn signed_receipt(
         authorised_batch: authorized_batch,
         verification_level: layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED,
         receipt_hash: Sha256::digest(&canonical_receipt).into(),
+        signed_receipt: canonical_receipt.clone(),
         canonical_bytes: canonical_receipt,
         tx_hash: activity_id,
         block_height: sequence,
         rung: layerx_types::rung::Rung::Receipted,
+        receipt_key: layerx_human_service::journeys::ReceiptKeyEntry {
+            key_id: [0x94; 32],
+            public_key: signer.verifying_key().to_bytes(),
+            first_height: 1,
+            last_height: u64::MAX,
+        },
+        inclusion_height: sequence,
     };
     let receipt = layerx_intents::canonical::decode_receipt(&material.canonical_bytes)
         .unwrap_or_else(|error| panic!("spend receipt: {error:?}"));

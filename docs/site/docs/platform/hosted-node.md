@@ -660,46 +660,18 @@ the NetworkPolicy.
 
 ## Tests
 
-`make platform-test-node` syntax-checks `bootstrap.sh`,
-`supervisor.sh`, and `node-test.sh`, then runs
-`services/platform/hosted/node/tests/node-test.sh`
-(`services/platform/Makefile.inc:140-142`). That script requires root
-so the LNI client can present a uid other than the daemon
-(`services/platform/hosted/node/tests/node-test.sh:7-9`;
-`services/platform/hosted/node/tests/node-test.sh:42-45`). It resolves
-socat from `LAYERX_TEST_SOCAT_BIN` or, when that is unset, from
-`PATH`, refusing with `socat_invalid` or `socat_missing`
-otherwise, and passes it to both supervisors as `--socat`
-(`services/platform/hosted/node/tests/node-test.sh:35-41`). It builds the
-LXGB v2 metadata suffix with `tests/support/lxgb_metadata.py`
-over the beta asset and the treasury public key it generates,
-keeps that file outside the data directory so the supervisor
-reset can bootstrap again from it, and passes `--asset` and
-`--genesis-metadata` to the sequencer supervisor
-(`services/platform/hosted/node/tests/node-test.sh:91-104`;
-`services/platform/hosted/node/tests/node-test.sh:135-137`). It proves:
+Run the hosted node tests from the repository root:
 
-- `node.env` network id, asset id, treasury public key, run
-  directory mode `0750` and LNI gid, LXGR length `82`, treasury
-  identity line
-  (`services/platform/hosted/node/tests/node-test.sh:152-160`)
-- LNI handshake as the client uid: network id, role
-  `Sequencer`, sequencer public key, `AccountRead`
-  (`services/platform/hosted/node/tests/node-test.sh:163-169`)
-- `layerxctl read-state` `evidence=authenticated_node_snapshot`
-  (`services/platform/hosted/node/tests/node-test.sh:171-176`)
-- treasury balance equals `LAYERX_NODE_TREASURY_BALANCE`
-  (`services/platform/hosted/node/tests/node-test.sh:178-183`)
-- a signed SEND is `acknowledged` and a repeated canonical
-  submit is byte-identical
-  (`services/platform/hosted/node/tests/node-test.sh:185-201`)
-- supervisor `status` is `running` generation `1`; `reset`
-  rebuilds genesis (new manifest inode, a new checkpoint
-  directory whose admission journal is back to its 32-byte
-  superblock) and generation `2`
-  (`services/platform/hosted/node/tests/node-test.sh:420-446`)
-- stopping the supervisors removes `supervisor.sock` and
-  leaves no `layerxd` processes
-  (`services/platform/hosted/node/tests/node-test.sh:227-238`)
+```sh
+python3 -m pytest services/platform/hosted/node/tests
+```
+
+The test files are:
+
+- `services/platform/hosted/node/tests/test_data_directory.py`
+- `services/platform/hosted/node/tests/test_generation_transport.py`
+- `services/platform/hosted/node/tests/test_node_without_guarantor.py`
+- `services/platform/hosted/node/tests/test_reset_state.py`
+- `services/platform/hosted/node/tests/test_retired_node_drivers.py`
 
 [Home](../index.md)
