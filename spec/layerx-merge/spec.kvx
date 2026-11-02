@@ -115092,7 +115092,7 @@ do_7 = "Decision 2294: attempt 2 (ac188a4d4) failed again on its own assertion `
 
 [task.21.141.1]
 title = "Prove the lib path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -126354,7 +126354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.9.8]
 title = "Add lx chains list, show and create to the platform CLI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["20.9.7"]
@@ -188830,7 +188830,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.17]
 title = "Retire IncrValidatorSlashedCounter and the predeclared legacy Prometheus definitions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["15.3.1", "15.3.4", "3.97.1", "6.96.5"]
@@ -212081,7 +212081,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.6]
 title = "Disposition of qualification findings 9.97.8.1 to 9.98.1.1 (domain 9, part 6)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212113,7 +212113,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.5]
 title = "Disposition of qualification findings 9.33.13 to 9.97.7.4 (domain 9, part 5)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212145,7 +212145,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.4]
 title = "Disposition of qualification findings 9.22.4.2 to 9.33.10 (domain 9, part 4)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212177,7 +212177,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.3]
 title = "Disposition of qualification findings 9.12.4.1 to 9.22.4.1 (domain 9, part 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212209,7 +212209,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.2]
 title = "Disposition of qualification findings 9.2.2.2 to 9.12.3 (domain 9, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212241,7 +212241,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.1]
 title = "Disposition of qualification findings 9.0.3.1 to 9.2.2 (domain 9, part 1)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212273,7 +212273,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.8.6]
 title = "Disposition of qualification findings 8.98.8.2 to 8.98.15.2 (domain 8, part 6)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212305,7 +212305,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.8.5]
 title = "Disposition of qualification findings 8.94.3.2 to 8.98.8.1 (domain 8, part 5)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212337,7 +212337,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.8.4]
 title = "Disposition of qualification findings 8.47.4.1 to 8.94.1.2 (domain 8, part 4)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212369,7 +212369,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.8.3]
 title = "Disposition of qualification findings 8.32.1.1 to 8.47.3 (domain 8, part 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212401,7 +212401,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.8.2]
 title = "Disposition of qualification findings 8.14.5.1 to 8.30.4.1 (domain 8, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212433,7 +212433,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.8.1]
 title = "Disposition of qualification findings 8.0.4.1 to 8.11.3.1 (domain 8, part 1)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212465,7 +212465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.7.1]
 title = "Disposition of qualification findings 7.0.2 to 7.29.2.4 (domain 7, part 1)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212497,7 +212497,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.6.2]
 title = "Disposition of qualification findings 6.58.6 to 6.82.1 (domain 6, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212529,7 +212529,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.6.1]
 title = "Disposition of qualification findings 6.0.3.1 to 6.52.4.1 (domain 6, part 1)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212561,7 +212561,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.5.3]
 title = "Disposition of qualification findings 5.55.5.7 to 5.98.1.3 (domain 5, part 3)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212593,7 +212593,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.5.2]
 title = "Disposition of qualification findings 5.19.2 to 5.55.5.6 (domain 5, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212625,7 +212625,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.5.1]
 title = "Disposition of qualification findings 5.0.3 to 5.19.1 (domain 5, part 1)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -212657,7 +212657,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.4.2]
 title = "Disposition of qualification findings 4.22.6.1 to 4.54.1 (domain 4, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
