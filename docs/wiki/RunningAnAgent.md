@@ -715,11 +715,11 @@ The binary reads a disjoint `LAYERX_AGENT_*` set
 | `LAYERX_AGENT_NODE_ENDPOINT` | Node HTTP endpoint for program-balance reads |
 | `LAYERX_AGENT_AUTHORITY_ENDPOINT` | Authority HTTP endpoint |
 | `LAYERX_AGENT_AUTHORITY_REPLICA_ID` | 32-byte hex replica id |
-| `LAYERX_AGENT_SEQUENCER_TRUST_HISTORY` | Protected sequencer trust history path |
 | `LAYERX_AGENT_PROGRAM_MAX_STALENESS_MS` | Non-zero staleness bound |
 | `LAYERX_AGENT_DEPLOYMENT_JOURNAL` | Directory of `*.admission` proofs |
 | `LAYERX_AGENT_PROGRAM_PROBE_ID` | Probe program id |
-| `LAYERX_AGENT_HUMAN_NODE_LNI` | Absolute Human LNI path |
+| `LAYERX_AGENT_NODE_RPC_URL` | Node JSON-RPC URL; HTTPS outside loopback |
+| `LAYERX_AGENT_NODE_CHAIN_ID` | Expected chain id as decimal or canonical `0x` quantity; must match the Human network id |
 | `LAYERX_AGENT_HUMAN_STORE` | Absolute store path |
 | `LAYERX_AGENT_HUMAN_SOCKET` | Absolute Human Unix socket |
 | `LAYERX_AGENT_HUMAN_SESSION_KEY_ROOT` | Absolute session-key root |
@@ -731,8 +731,8 @@ The binary reads a disjoint `LAYERX_AGENT_*` set
 | `LAYERX_AGENT_HUMAN_LIMIT_NAME` | Limit name |
 | `LAYERX_AGENT_HUMAN_LIMIT_CEILING` | Ceiling |
 | `LAYERX_AGENT_HUMAN_LIMIT_CONSUMED` | Consumed |
-| `LAYERX_AGENT_HUMAN_NETWORK_ID` | Human handshake network id |
-| `LAYERX_AGENT_HUMAN_PROTOCOL_VERSION` | Occupancy protocol |
+| `LAYERX_AGENT_HUMAN_NETWORK_ID` | Unsigned 32-bit network id, equal to `LAYERX_AGENT_NODE_CHAIN_ID` |
+| `LAYERX_AGENT_HUMAN_PROTOCOL_VERSION` | Current state-commitment protocol version (`3`); legacy versions are refused |
 | `LAYERX_AGENT_HUMAN_AUTHORITY_ENDPOINT` | Human authority endpoint |
 | `LAYERX_AGENT_HUMAN_AUTHORITY_BEARER` | Human authority bearer |
 | `LAYERX_AGENT_HUMAN_SOCKET_UID` / `SOCKET_GID` / `SOCKET_MODE` | Socket owner and mode |
@@ -752,13 +752,27 @@ other key in this group required
 | `LAYERX_AGENT_MCP_CAPABILITY_ID` | 32-byte hex capability id restored for that tenant |
 | `LAYERX_AGENT_MCP_ACTIVITY_TYPES` | Comma-separated permitted activity types; a repeated type is refused |
 | `LAYERX_AGENT_MCP_SCOPES` | Comma-separated scopes; an empty or repeated scope is refused |
-| `LAYERX_AGENT_MCP_EXPIRY_SEQUENCE` | Session expiry sequence |
+| `LAYERX_AGENT_MCP_EXPIRY_HEIGHT` | Unsigned 64-bit session expiry block height |
 | `LAYERX_AGENT_MCP_OPENING_CLIENT` | Opening client recorded on the session |
 | `LAYERX_AGENT_MCP_POLICY_VERSION` | Policy version recorded on the session |
-| `LAYERX_AGENT_MCP_CORE_SEQUENCE` | Core sequence written into the document |
+| `LAYERX_AGENT_MCP_CORE_HEIGHT` | Unsigned 64-bit block height written into the document's `core_sequence` field |
 | `LAYERX_AGENT_MCP_MODE` | `full` or `read-only`, the mode the document declares |
 | `LAYERX_AGENT_MCP_DEADLINE_MS` | Non-zero transport deadline in milliseconds |
 | `LAYERX_AGENT_MCP_LIMIT_ID` / `LIMIT_NAME` / `LIMIT_SCOPE` / `LIMIT_SCOPE_ID` / `LIMIT_CEILING` / `LIMIT_CONSUMED` | The one `LimitConfig` the document declares, with the same scope names as the human limit |
+
+When `LAYERX_AGENT_MCP_WEB_ENDPOINT` enables the web sidecar, also set
+`LAYERX_AGENT_MCP_WEB_NETWORK`, `LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX`,
+`LAYERX_AGENT_MCP_WEB_TIMEOUT_MS`, `LAYERX_AGENT_MCP_WEB_PENDING_ATTEMPTS`
+and `LAYERX_AGENT_MCP_WEB_APPROVAL_THRESHOLD`. The index selects an entry
+from the node's `px_getReceiptKeys` response after its chain id is checked;
+the public key in the binding comes from that entry.
+
+`LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY`,
+`LAYERX_AGENT_MCP_CORE_SEQUENCE` and `LAYERX_AGENT_MCP_EXPIRY_SEQUENCE`
+are retired and refused at boot, even when empty. Use the receipt-key index
+and the two height keys above. The qualification listener reads these same
+keys from a caller-owned mode `0600` environment file, then passes them as
+process environment values; it does not read a CLI profile.
 
 The daemon endpoint and probe program the document names are the ones
 this binary already serves: `LAYERX_AGENT_PROGRAM_LISTEN`,

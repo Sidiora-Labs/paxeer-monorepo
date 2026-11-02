@@ -11,7 +11,9 @@ const PAYMENT_DRAWN_TOPIC = signatureHash("PaymentDrawn(bytes32,bytes32,bytes32,
 const TRANSFER_TOPIC = signatureHash("Transfer(bytes32,bytes32,bytes32,uint128,uint8)");
 
 export interface LedgerDraw {
+  /** Legacy name for the draw ABI's recipient. */
   readonly from: Uint8Array;
+  /** Legacy name for the draw ABI's purposeHash; the asset comes from the grant. */
   readonly assetId: Uint8Array;
   readonly amount: bigint;
   readonly grantId: Uint8Array;
@@ -57,12 +59,12 @@ export function encodeLedgerDraw(draw: LedgerDraw): Uint8Array {
     throw new MiddlewareError("invalid-payment-payload");
   }
   const words = [
-    draw.from,
-    draw.assetId,
-    encodeUint(draw.amount, 128),
     draw.grantId,
-    encodeUint(draw.receiverSequence, 64),
+    draw.from,
+    encodeUint(draw.amount, 128),
     draw.idempotencyKey,
+    encodeUint(draw.receiverSequence, 64),
+    draw.assetId,
     draw.contextHash,
   ];
   const result = new Uint8Array(4 + 7 * 32);
@@ -89,14 +91,14 @@ export function decodePaymentExactLog(log: LedgerLog): PaymentExactEvent {
 
 export function decodePaymentDrawnLog(log: LedgerLog): PaymentDrawnEvent {
   validateLog(log, PAYMENT_DRAWN_TOPIC, 128);
+  const [, grantId, from, to] = log.topics;
+  const assetId = log.data.slice(0, 32);
+  const amount = decodeUint(log.data.subarray(32, 64), 128);
+  const idempotencyKey = log.data.slice(64, 96);
+  const contextHash = log.data.slice(96, 128);
   return {
-    grantId: log.topics[1]!.slice(),
-    from: log.topics[2]!.slice(),
-    to: log.topics[3]!.slice(),
-    assetId: log.data.slice(0, 32),
-    amount: decodeUint(log.data.subarray(32, 64), 128),
-    idempotencyKey: log.data.slice(64, 96),
-    contextHash: log.data.slice(96, 128),
+    grantId: grantId!.slice(), from: from!.slice(), to: to!.slice(),
+    assetId, amount, idempotencyKey, contextHash,
   };
 }
 

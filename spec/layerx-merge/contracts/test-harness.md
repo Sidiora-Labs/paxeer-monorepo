@@ -288,7 +288,7 @@ No interface block names this anchor; the citing criteria and rules below define
 | <code>acceptance.16.297.2</code> | scenario | Given the repository, when the guard walks tests/ for *.rs, then each file is referenced from a crate and the test passes |
 | <code>acceptance.16.297.2</code> | test | tools/repotest/reachability_test.go::TestEveryRustTestFileIsCompiled (planned) |
 | <code>acceptance.16.297.2</code> | qualification | UNRUN |
-| <code>req.16297</code> | ac_2 | TestEveryRustTestFileIsCompiled (planned) fails naming every tests/**/*.rs file that no #[path = ...] attribute, build.rs string or Cargo.toml path references; at HEAD tests/support/lxgb_metadata.rs is reached by services/platform/hosted/registry/tests/native_deployment.rs:1. |
+| <code>req.16297</code> | ac_2 | TestEveryRustTestFileIsCompiled (planned) fails naming every tests/**/*.rs file outside a Cargo package rooted under tests/ that no #[path = ...] attribute, build.rs string or Cargo.toml path references; at HEAD tests/support/lxgb_metadata.rs is reached by services/agent/crates/layerx-agentd/tests/support/real_authority.rs:2 and services/human/crates/layerx-human-service/tests/production_unhooked.rs:469. |
 | <code>acceptance.16.298.1</code> | req | 16298.1 |
 | <code>acceptance.16.298.1</code> | scenario | Given the Makefile at the wave-6 revision, when the guard checks every go test line with -run, then every expression matches at least one Test function in its package directory and the test passes |
 | <code>acceptance.16.298.1</code> | test | tools/repotest/selectors_test.go::TestMakefileRunSelectorsMatchTests (planned) |

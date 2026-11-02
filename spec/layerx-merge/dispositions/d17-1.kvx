@@ -1,0 +1,34 @@
+[disposition.17.0.1]
+finding = "17.0.1"
+status = "resolved"
+evidence = "Commit 4f51fd61b replaces JSON decoding with raw quoted-string handling in spec/layerx-merge/programme/kvx.py:38, preserving backslash escapes such as the receipt terminator."
+
+[disposition.17.0.1.1]
+finding = "17.0.1.1"
+status = "resolved"
+evidence = "Commit 4f51fd61b implements quote-aware comment stripping at spec/layerx-merge/programme/kvx.py:15, bare booleans at :32, raw quoted strings at :38 and duplicate-header line reporting at :77, matching the grammar now specified by task 17.0.1."
+
+[disposition.17.0.1.2]
+finding = "17.0.1.2"
+status = "resolved"
+evidence = "Commit 4f51fd61b changes test_refuses_duplicate_section at spec/layerx-merge/programme/tests/test_kvx.py:49 to require the unused finding.0.0.0 name and assert the second appended header line at :65."
+
+[disposition.17.1.2]
+finding = "17.1.2"
+status = "resolved"
+evidence = "Commit 0cda599bc adds the missing activationPrecompileGate and mergePrecompileGate declarations, retained at spec/layerx-merge/programme/data/activation-plan.kvx:6 and :24 and checked by check_gates at spec/layerx-merge/programme/activation.py:112."
+
+[disposition.17.1.5]
+finding = "17.1.5"
+status = "resolved"
+evidence = "Commit 6bcaa60ac adds the amended constant-site expectations at spec/layerx-merge/programme/tests/test_merge_constant.py:18, asserting that setup.go derives pcommon.MergeUpgrade and that the three module literals remain among the four declaring sites."
+
+[disposition.17.5.10.1]
+finding = "17.5.10.1"
+status = "resolved"
+evidence = "Commit 4acff8249 removes the wallet gateway webpack alias from apps/web/next.config.mjs:17 and routes wallet receipt reads through the server action imported at apps/web/src/api/wallet.ts:10 and implemented at apps/web/src/api/gateway-actions.ts:5."
+
+[disposition.17.9.1]
+finding = "17.9.1"
+status = "resolved"
+evidence = "Commit 00e26a226 sets the catalogue domain bound to 3..16 at spec/layerx-merge/programme/tests/test_service_catalogue.py:17, matching req.17027 and admitting the domain-16 merge-tools and rollout-controller entries."

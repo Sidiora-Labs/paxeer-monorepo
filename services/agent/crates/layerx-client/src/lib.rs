@@ -2,6 +2,7 @@
 
 pub mod account_binding;
 pub mod budget;
+pub mod chains;
 pub mod fee;
 pub mod grants;
 pub mod lni;

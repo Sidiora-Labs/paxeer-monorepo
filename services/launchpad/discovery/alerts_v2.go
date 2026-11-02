@@ -38,7 +38,7 @@ func AdaptV2AlertCreate(rule AlertRule, wallet string, threshold v2.InputPrice, 
 	if err := rule.Validate(); err != nil {
 		return v2.AlertCreateResponse{}, err
 	}
-	if rule.Metric != "price" || rule.Cooldown%time.Second != 0 {
+	if generatedAt.IsZero() || rule.Metric != "price" || rule.Cooldown%time.Second != 0 {
 		return v2.AlertCreateResponse{}, ErrInvalid
 	}
 	raw, err := json.Marshal(threshold)

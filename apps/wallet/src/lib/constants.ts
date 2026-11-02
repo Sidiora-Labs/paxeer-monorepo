@@ -1,5 +1,6 @@
 import { TOKENS as SWAP_SDK_TOKENS } from '@/lib/swap/sdk/addresses';
 import { preferencesRepository } from '../platform/storage/repositories';
+import { networkForChainId } from './networks';
 
 export const PAXEER_CONFIG = {
   rpcUrl: process.env.NEXT_PUBLIC_PAXEER_RPC_URL ?? '',
@@ -26,8 +27,8 @@ export const PAXEER_CONFIG = {
 } as const;
 
 /**
- * Return the active RPC URL: the user's customRpc from preferences when
- * set and valid, otherwise the environment-backed default.
+ * Return the saved active virtual network's RPC URL, then the user's
+ * valid customRpc, otherwise the environment-backed default.
  *
  * Client-only — reads from the preferencesRepository.  Server routes
  * should keep using PAXEER_CONFIG.rpcUrl directly because the server
@@ -38,7 +39,10 @@ export function getActiveRpcUrl(): string {
   // On the server (SSR / API routes), fall through to the default.
   if (typeof window === 'undefined') return PAXEER_CONFIG.rpcUrl;
   try {
-    const custom = preferencesRepository.read().customRpc;
+    const preferences = preferencesRepository.read();
+    const active = networkForChainId(preferences.activeChainId, preferences.networks);
+    if (active.kind === 'virtual') return active.rpcUrl;
+    const custom = preferences.customRpc;
     if (custom && typeof custom === 'string') {
       const parsed = new URL(custom);
       if (parsed.protocol === 'https:' && !parsed.username && !parsed.password) {

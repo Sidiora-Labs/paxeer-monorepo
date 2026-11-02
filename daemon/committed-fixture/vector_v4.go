@@ -421,7 +421,14 @@ func v4Package(n *node, receipt, sibling *evmrpc.SequencerReceiptResult, settlem
 	unpinned.HeaderSignature = ed25519.Sign(otherPrivate, digest[:])
 	unpinned.SigningKey = hexutil.Bytes(otherPublic)
 	vector := &v4Vector{Name: "vector-v4-committed", Provenance: "Local paxd chain; LayerX inclusion envelope assembled and signed by the recorder under the genesis receipt pin; Comet evidence is collected independently from the committed chain.", Authorization: verify.SequencerAuthorization{SequencerID: [32]byte(public), PublicKey: [32]byte(public), FirstBatchNumber: h.BatchNumber, LastBatchNumber: h.BatchNumber}, Positive: positive, Refusals: []v4Case{flipped, unpinned}, Settlement: settlement}
-	if _, _, err := verify.ReceiptInclusion(positive.Receipt, &positive.Proof, positive.Header, [64]byte(signature), vector.Authorization); err != nil {
+	decodedHeader, err := codec.DecodeBatchHeader(header)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := verify.ReceiptAtRoot(positive.Receipt, &positive.Proof, decodedHeader.ReceiptMerkleRoot, vector.Authorization.PublicKey); err != nil {
+		return nil, err
+	}
+	if err := verify.Ed25519Digest(vector.Authorization.PublicKey, [64]byte(signature), codec.BatchHeaderDigest(header)); err != nil {
 		return nil, err
 	}
 	return vector, nil

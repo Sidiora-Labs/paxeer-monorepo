@@ -274,6 +274,7 @@ pub struct VerifiedLegEvidence {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ReceiptLookup {
     Absent,
+    Submitted { tx_hash: [u8; 32], nonce: u64 },
     Found(ReceiptMaterial),
 }
 
@@ -1108,7 +1109,7 @@ impl JourneyEngine {
                     "unknown leg has no activity identity",
                 ))?;
                 match agent.receipt_by_idempotency_key(leg.action_key, activity_id)? {
-                    ReceiptLookup::Absent => {}
+                    ReceiptLookup::Absent | ReceiptLookup::Submitted { .. } => {}
                     ReceiptLookup::Found(receipt) => {
                         self.verify_and_complete(scope, leg_index, activity_id, &receipt, now)?;
                     }

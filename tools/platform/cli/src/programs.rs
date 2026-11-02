@@ -2,7 +2,6 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_programs::{
     chain_evidence::{
         deployment::ChainDeploymentProof, freshness::chain_freshness,
@@ -30,24 +29,13 @@ use layerx_programs_runtime::{
     WasmEngine, MAX_OCCUPANCY_PAYERS,
 };
 use layerx_programs_runtime::{Capability, CapabilitySet};
-use layerx_proof::program::{
-    verify_authorized_program_execution_with_payers, AuthorizedProgramExecutionExpectation,
-    OccupancyPayer,
-};
-use layerx_proof::receipt::{verify_program_outcome_at_root, AuthorizedBatch};
-use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
+use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::intent::ProgramId;
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
 use layerx_types::program_call::{NativeProgramCall, Resources};
 use layerx_types::program_lifecycle::{
     NativeProgramDeploy, NativeProgramUpgrade, NativeProgramWindDown, ProgramUpgradePolicy,
     ProgramWindDownOperation,
 };
-use layerx_wire::activity::{decode_signed, encode_signed_envelope};
-use layerx_wire::hash::{activity_id, payload_hash_for};
-use layerx_wire::sign::preimage_unsigned;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
@@ -56,8 +44,6 @@ use crate::encoding::{fixed_hex, hex_decode, hex_encode};
 use crate::http::{validate_idempotency_key, validate_resource_id, Client};
 
 const DESCRIPTOR: &str = "layerx-program.json";
-const SIMULATION_EVIDENCE_DOMAIN: &[u8] = b"LayerX/agent/program-simulation-evidence/v1\0";
-const EMULATOR_BOUNDARY_DOMAIN: &[u8] = b"LayerX/emulator/simulation-boundary/v1\0";
 
 pub struct BindingRequest<'a> {
     pub interface: &'a Path,
@@ -1634,36 +1620,6 @@ pub(crate) fn submitted_program_result(raw: &[u8], result: &Value) -> Result<Val
     Ok(json!({"tx_hash":hash,"rung":"submitted"}))
 }
 
-fn complete_call_response(
-    client: &Client,
-    signed: &[u8],
-    response: &Value,
-) -> Result<Value, String> {
-    let activity = decode_signed(signed, &program_call_registry()?)
-        .map_err(|error| format!("invalid retained call: {error:?}"))?;
-    let identifier =
-        activity_id(&activity).map_err(|error| format!("invalid call identity: {error:?}"))?;
-    let result = response.get("result").unwrap_or(response);
-    let returned = fixed_hex::<32>(
-        "call activity id",
-        result["activity_id"]
-            .as_str()
-            .ok_or("call acknowledgement omitted activity id")?,
-    )?;
-    if returned != identifier {
-        return Err("call acknowledgement names another signed activity".into());
-    }
-    if result.get("terminal_payload").is_some() && result.get("call_graph").is_some() {
-        return Ok(result.clone());
-    }
-    let identifier = hex_encode(&identifier);
-    let material = client.get_with_body(
-        &format!("/v1/programs/activities/{identifier}"),
-        &json!({"activity_id":identifier,"requested_verification_level":"sequencer-signed"}),
-    )?;
-    bind_execution_material(result, &material)
-}
-
 fn bind_execution_material(acknowledgement: &Value, material: &Value) -> Result<Value, String> {
     let material = material.get("result").unwrap_or(material);
     for field in ["activity_id", "receipt"] {
@@ -1762,98 +1718,6 @@ pub(crate) fn decode_call_outcome(bytes: &[u8]) -> Result<Value, String> {
     Ok(
         json!({"terminal_result":result,"terminal_kind":bytes[63],"response":format!("0x{}",hex_encode(&bytes[128..end]))}),
     )
-}
-
-fn signed_call(request: &CallRequest<'_>, canonical_payload: &[u8]) -> Result<Vec<u8>, String> {
-    signed_call_with_signer(request, canonical_payload, || {
-        let seed = crate::credential::key_seed(request.key_name)?;
-        Ok(SigningKey::from_bytes(&seed))
-    })
-}
-
-fn signed_call_with_signer(
-    request: &CallRequest<'_>,
-    canonical_payload: &[u8],
-    signer: impl FnOnce() -> Result<SigningKey, String>,
-) -> Result<Vec<u8>, String> {
-    signed_program_with_signer(request, 3, canonical_payload, signer)
-}
-
-fn signed_program_with_signer(
-    request: &CallRequest<'_>,
-    ordinal: u16,
-    canonical_payload: &[u8],
-    load_key: impl FnOnce() -> Result<SigningKey, String>,
-) -> Result<Vec<u8>, String> {
-    validate_program_payload(ordinal, canonical_payload)?;
-    if request.expires_at_ms <= request.not_before_ms
-        || request.expires_at_ms - request.not_before_ms > 300_000
-    {
-        return Err(
-            "program call validity must be non-empty and no wider than 300000 milliseconds"
-                .to_owned(),
-        );
-    }
-    let idempotency = fixed_hex::<32>("idempotency key", request.idempotency_key)?;
-    let activity_type = ActivityType::new(ModuleId::Programs, ordinal)
-        .map_err(|error| format!("program call activity is unavailable: {error:?}"))?;
-    let registry = program_call_registry()?;
-    let payload = Payload::new(&registry, activity_type, canonical_payload)
-        .map_err(|error| format!("program call payload is invalid: {error:?}"))?;
-    let payload_hash = payload_hash_for(&payload)
-        .map_err(|error| format!("program payload hash is invalid: {error:?}"))?;
-    let signing_key = load_key()?;
-    let public_key = signing_key.verifying_key().to_bytes();
-    let actor = Did::new(request.actor_did.as_bytes())
-        .map_err(|error| format!("program caller DID is invalid: {error:?}"))?;
-    let authority = Authority::owner(&public_key)
-        .map_err(|error| format!("program caller authority is invalid: {error:?}"))?;
-    let timestamp = TimestampBound::new(request.not_before_ms, request.expires_at_ms)
-        .map_err(|error| format!("program call timestamp is invalid: {error:?}"))?;
-    let fee_limit = request
-        .fee_limit
-        .parse::<u128>()
-        .map_err(|_| "fee limit must be an unsigned protocol integer".to_owned())?;
-    let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION)
-        .and_then(|value| value.network_id(request.network_id))
-        .and_then(|value| value.activity_type(activity_type))
-        .and_then(|value| value.actor_did(actor))
-        .and_then(|value| value.authority(authority))
-        .and_then(|value| value.account_sequence(request.account_sequence))
-        .and_then(|value| value.timestamp_bound(timestamp))
-        .and_then(|value| value.idempotency_key(IdempotencyKey::new(idempotency)))
-        .and_then(|value| value.fee_limit(Amount::from_u128(fee_limit)))
-        .and_then(|value| value.payload_hash(payload_hash))
-        .and_then(|value| value.payload(payload))
-        .map_err(|error| format!("program call envelope is invalid: {error:?}"))?;
-    let unsigned = builder
-        .build()
-        .map_err(|error| format!("program call envelope is incomplete: {error:?}"))?;
-    let preimage = preimage_unsigned(&unsigned)
-        .map_err(|error| format!("program call signing preimage is invalid: {error:?}"))?;
-    let signature = signing_key.sign(preimage.as_bytes()).to_bytes();
-    let signed = unsigned.attach_signature(
-        Signature::new(&signature)
-            .map_err(|error| format!("program call signature is invalid: {error:?}"))?,
-    );
-    encode_signed_envelope(&signed)
-        .map_err(|error| format!("signed program call is invalid: {error:?}"))
-}
-
-fn program_call_registry() -> Result<ModuleRegistry, String> {
-    let activities = [1, 2, 3, 7]
-        .into_iter()
-        .map(|ordinal| {
-            ActivityType::new(ModuleId::Programs, ordinal)
-                .map_err(|error| format!("program activity unavailable: {error:?}"))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    let registration = ModuleRegistration::new(ModuleId::Programs, &activities)
-        .map_err(|error| format!("program module registration is invalid: {error:?}"))?;
-    ModuleRegistry::new(&[registration])
-        .map_err(|error| format!("program module registry is invalid: {error:?}"))
 }
 
 fn validate_program_payload(ordinal: u16, payload: &[u8]) -> Result<(), String> {
@@ -2006,136 +1870,6 @@ fn parse_capability(value: &str) -> Result<Capability, String> {
             "invalid capability {value}; use a native scoped grant (see Programs guide)"
         )),
     }
-}
-
-/// Re-binds the typed outcome to the returned receipt. The rendered result is
-/// refused unless the receipt's own result code agrees with the typed outcome,
-/// so a call is never reported as completed against a receipt that failed, nor
-/// as refused against a receipt that succeeded.
-fn render_call_result(
-    request: &CallRequest<'_>,
-    payload: &[u8],
-    signed_activity: &[u8],
-    head: &VerifiedCallHead,
-    response: &Value,
-) -> Result<Value, String> {
-    let result = response.get("result").unwrap_or(response);
-    let receipt_hex = result
-        .get("receipt")
-        .and_then(Value::as_str)
-        .ok_or_else(|| "program-call response omitted the canonical receipt".to_string())?;
-    let receipt_bytes = hex_decode("receipt", receipt_hex)?;
-    if receipt_bytes.is_empty() {
-        return Err("program-call response carried an empty receipt".into());
-    }
-    let verified =
-        verify_program_outcome_at_root(&receipt_bytes, head.sequencer_public_key, head.state_root)
-            .map_err(|failure| {
-                format!("program receipt verification failed at {:?}", failure.check)
-            })?;
-    let activity = validate_signed_call(payload, signed_activity)?;
-    let expected_activity = activity_id(&activity)
-        .map_err(|error| format!("program activity id is invalid: {error:?}"))?;
-    let protocol = verified
-        .receipt()
-        .protocol()
-        .ok_or_else(|| "verified program receipt omitted protocol facts".to_owned())?;
-    if protocol.protocol_version() != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION {
-        return Err(
-            "program receipt protocol version differs from the configured protocol version"
-                .to_owned(),
-        );
-    }
-    if protocol.activity_id() != expected_activity || protocol.module_version() != 4 {
-        return Err("program receipt names a different signed activity".to_owned());
-    }
-    let authority = verify_receipt_batch_authority(result, head, protocol)?;
-    let receipt_digest = verified
-        .evidence()
-        .receipt_digest()
-        .ok_or_else(|| "program receipt verifier produced no digest".to_owned())?;
-    let program = protocol
-        .program_outcome()
-        .ok_or_else(|| "verified receipt omitted its Programs outcome".to_owned())?;
-    if program.abi_version() != head.abi_version
-        || program.abi_version() != request.native.abi_version
-    {
-        return Err("program receipt ABI does not match verified discovery".to_owned());
-    }
-    if head.observed_sequence.checked_add(1) != Some(protocol.global_sequence()) {
-        return Err("program receipt sequence does not extend verified discovery".to_owned());
-    }
-    let terminal_payload = hex_decode(
-        "terminal payload",
-        result["terminal_payload"]
-            .as_str()
-            .ok_or_else(|| "program response omitted authenticated terminal payload".to_owned())?,
-    )?;
-    let terminal_digest: [u8; 32] = Sha256::digest(&terminal_payload).into();
-    if terminal_digest != program.terminal_payload_root() {
-        return Err("terminal payload does not match the signed receipt commitment".to_owned());
-    }
-    let result_code = program.result_code();
-    let call_graph = hex_decode(
-        "call graph",
-        result["call_graph"]
-            .as_str()
-            .ok_or_else(|| "program response omitted authenticated call graph".to_owned())?,
-    )?;
-    let hinted_payers = occupancy_payer_hints(result)?;
-    let mut occupancy_payers = vec![OccupancyPayer {
-        did: activity.actor_did(),
-        account: None,
-    }];
-    occupancy_payers.extend(hinted_payers.iter().map(|(did, account)| OccupancyPayer {
-        did,
-        account: Some(*account),
-    }));
-    let execution = verify_authorized_program_execution_with_payers(
-        &receipt_bytes,
-        &terminal_payload,
-        &call_graph,
-        &AuthorizedProgramExecutionExpectation {
-            authority,
-            activity_id: expected_activity,
-            payload_hash: layerx_wire::hash::payload_hash(&activity)
-                .map_err(|error| format!("program payload hash: {error:?}"))?,
-            program_id: fixed_hex("program id", request.program_id)?,
-            guest_abi_version: head.abi_version,
-        },
-        &occupancy_payers,
-    )
-    .map_err(|error| format!("program execution verification: {error:?}"))?;
-    let detail = execution.terminal();
-    verify_terminal_commitments_with_accounts(
-        detail,
-        &call_graph,
-        protocol.protocol_version(),
-        program,
-        execution.occupancy_payment_accounts(),
-    )?;
-    let outcome = render_terminal(&detail.detail, request.program_id, program, result_code)?;
-    Ok(json!({
-        "program_id": request.program_id,
-        "program_version": head.version,
-        "program_code_hash": hex_encode(&head.code_hash),
-        "idempotency_key": request.idempotency_key,
-        "canonical_payload": hex_encode(payload),
-        "protocol_version": 3,
-        "receipt": receipt_hex,
-        "receipt_digest": hex_encode(&receipt_digest),
-        "result_code": result_code,
-        "verified_previous_state_root": hex_encode(&protocol.previous_state_root()),
-        "verified_resulting_state_root": hex_encode(&protocol.resulting_state_root()),
-        "metered_cost": program.fee_units().to_string(),
-        "fee_units": program.fee_units().to_string(),
-        "resources": {"cpu_fuel":program.cpu_fuel(),"memory_bytes":program.memory_bytes(),"storage_read_bytes":program.storage_read_bytes(),"storage_write_bytes":program.storage_write_bytes(),"output_values":program.output_values(),"output_bytes":program.output_bytes()},
-        "outcome": outcome,
-        "execution_evidence": render_execution_evidence(&detail.detail),
-        "call_graph":hex_encode(&call_graph),
-        "terminal_attachments": detail.attachments.iter().map(render_attachment).collect::<Vec<_>>(),
-        "verification": "canonical receipt, configured sequencer signature, pinned prior state root and exact signed activity id verified locally",
-    }))
 }
 
 fn render_execution_evidence(detail: &TerminalDetail) -> Value {
@@ -2622,129 +2356,6 @@ fn verify_call_head(
     })
 }
 
-fn verify_simulation_evidence(
-    request: &CallRequest<'_>,
-    signed_activity: &[u8],
-    head: &VerifiedCallHead,
-    result: &Value,
-) -> Result<(), String> {
-    let evidence = result
-        .get("simulation_evidence")
-        .ok_or_else(|| "program simulation omitted sealed non-commit evidence".to_owned())?;
-    if evidence.get("committed").and_then(Value::as_bool) != Some(false) {
-        return Err("program simulation evidence claims a committed transition".to_owned());
-    }
-    let key = head.sequencer_public_key;
-    let mut boundary_material = EMULATOR_BOUNDARY_DOMAIN.to_vec();
-    boundary_material.extend_from_slice(&key);
-    let boundary_id: [u8; 32] = Sha256::digest(boundary_material).into();
-    if fixed_hex::<32>(
-        "simulation boundary",
-        evidence
-            .get("boundary_id")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "program simulation omitted boundary identity".to_owned())?,
-    )? != boundary_id
-        || fixed_hex::<32>(
-            "simulation prior root",
-            evidence
-                .get("previous_state_root")
-                .and_then(Value::as_str)
-                .ok_or_else(|| "program simulation omitted prior root".to_owned())?,
-        )? != head.state_root
-        || canonical_u64(evidence, "observed_sequence")? != head.observed_sequence
-        || canonical_u64(evidence, "observed_at")? != head.observed_at
-    {
-        return Err("program simulation evidence does not extend verified discovery".to_owned());
-    }
-    let activity = validate_signed_call(&build_call(request)?, signed_activity)?;
-    let expected_activity = activity_id(&activity)
-        .map_err(|error| format!("program simulation activity id is invalid: {error:?}"))?;
-    let evidence_activity: [u8; 32] = fixed_hex(
-        "simulation activity id",
-        evidence
-            .get("activity_id")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "program simulation omitted activity id".to_owned())?,
-    )?;
-    if evidence_activity != expected_activity {
-        return Err("program simulation evidence names another activity".to_owned());
-    }
-    let hypothetical_root: [u8; 32] = fixed_hex(
-        "simulation hypothetical root",
-        evidence
-            .get("hypothetical_state_root")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "program simulation omitted hypothetical root".to_owned())?,
-    )?;
-    let receipt = hex_decode(
-        "simulation receipt",
-        result
-            .get("execution")
-            .ok_or("program simulation omitted execution")?
-            .get("receipt")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "program simulation omitted receipt".to_owned())?,
-    )?;
-    let verified =
-        verify_program_outcome_at_root(&receipt, key, head.state_root).map_err(|failure| {
-            format!(
-                "simulation receipt verification failed at {:?}",
-                failure.check
-            )
-        })?;
-    let protocol = verified
-        .receipt()
-        .protocol()
-        .ok_or_else(|| "verified simulation receipt omitted protocol facts".to_owned())?;
-    if protocol.resulting_state_root() != hypothetical_root
-        || protocol.activity_id() != expected_activity
-        || head.observed_sequence.checked_add(1) != Some(protocol.global_sequence())
-    {
-        return Err("program simulation evidence disagrees with its verified receipt".to_owned());
-    }
-    let mut preimage = SIMULATION_EVIDENCE_DOMAIN.to_vec();
-    preimage.extend_from_slice(&boundary_id);
-    preimage.extend_from_slice(&expected_activity);
-    preimage.extend_from_slice(&head.state_root);
-    preimage.extend_from_slice(&hypothetical_root);
-    preimage.extend_from_slice(&head.observed_sequence.to_be_bytes());
-    preimage.extend_from_slice(&head.observed_at.to_be_bytes());
-    preimage.push(0);
-    let digest: [u8; 32] = Sha256::digest(preimage).into();
-    verify_simulation_signature(evidence, key, digest)
-}
-
-fn verify_simulation_signature(
-    evidence: &Value,
-    key: [u8; 32],
-    digest: [u8; 32],
-) -> Result<(), String> {
-    let declared_key: [u8; 32] = fixed_hex(
-        "simulation evidence public key",
-        evidence
-            .get("public_key")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "program simulation omitted evidence public key".to_owned())?,
-    )?;
-    if declared_key != key {
-        return Err(
-            "simulation evidence authority differs from configured trust anchor".to_owned(),
-        );
-    }
-    let signature: [u8; 64] = hex_decode(
-        "simulation evidence signature",
-        evidence
-            .get("signature")
-            .and_then(Value::as_str)
-            .ok_or_else(|| "program simulation omitted evidence signature".to_owned())?,
-    )?
-    .try_into()
-    .map_err(|_| "simulation evidence signature must be 64 bytes".to_owned())?;
-    ed25519::verify_digest(&key, &signature, &digest)
-        .map_err(|_| "program simulation evidence signature is invalid".to_owned())
-}
-
 fn canonical_u64(document: &Value, field: &str) -> Result<u64, String> {
     match document.get(field) {
         Some(Value::Number(value)) => value.as_u64(),
@@ -2783,31 +2394,6 @@ fn render_resource_refusal(refusal: BudgetMeterRefusal) -> Value {
             "type":"counter-overflow", "resource":resource_name(resource)
         }),
     }
-}
-
-fn validate_signed_call(
-    payload: &[u8],
-    signed_activity: &[u8],
-) -> Result<layerx_wire::activity::Activity, String> {
-    validate_signed_program(3, payload, signed_activity)
-}
-
-fn validate_signed_program(
-    ordinal: u16,
-    payload: &[u8],
-    signed_activity: &[u8],
-) -> Result<layerx_wire::activity::Activity, String> {
-    validate_program_payload(ordinal, payload)?;
-    let activity = decode_signed(signed_activity, &program_call_registry()?)
-        .map_err(|error| format!("signed program activity is invalid: {error:?}"))?;
-    if activity.protocol_version() != 3
-        || activity.activity_type().module() != ModuleId::Programs
-        || activity.activity_type().ordinal() != ordinal
-        || activity.payload() != payload
-    {
-        return Err("signed activity does not carry this exact native Programs payload".into());
-    }
-    Ok(activity)
 }
 
 #[cfg(test)]
@@ -3013,10 +2599,7 @@ fn discover_artifact(project: &Path) -> Result<PathBuf, String> {
 
 #[cfg(test)]
 mod call_tests {
-    use super::{
-        build_call, classify_outcome, render_call_result, signed_call_with_signer,
-        validate_signed_call, verify_call_head, CallRequest, VerifiedCallHead,
-    };
+    use super::{build_call, classify_outcome, verify_call_head, CallRequest};
     use crate::encoding::hex_encode;
     use ed25519_dalek::{Signer as _, SigningKey};
     use layerx_types::amount::Amount;
@@ -3292,174 +2875,6 @@ mod call_tests {
     }
 
     #[test]
-    fn render_refuses_unverified_receipt_bytes_even_with_success_siblings() {
-        let request = golden_request();
-        let payload = build_call(&request).unwrap_or_else(|error| panic!("{error}"));
-        let response = json!({
-            "result": {
-                "receipt": "aabbccdd",
-                "result_code": 0,
-                "outcome": {"status": "completed", "code": 0, "response": "aabb"},
-            }
-        });
-        let head = VerifiedCallHead {
-            sequencer_public_key: [0; 32],
-            state_root: [0; 32],
-            abi_version: 1,
-            version: 1,
-            code_hash: [1; 32],
-            observed_sequence: 0,
-            observed_at: 1,
-        };
-        assert!(render_call_result(&request, &payload, &[], &head, &response).is_err());
-    }
-
-    #[test]
-    fn render_refuses_a_response_without_a_receipt() {
-        let request = golden_request();
-        let payload = build_call(&request).unwrap_or_else(|error| panic!("{error}"));
-        let response = json!({"result": {"result_code": 0}});
-        let head = VerifiedCallHead {
-            sequencer_public_key: [0; 32],
-            state_root: [0; 32],
-            abi_version: 1,
-            version: 1,
-            code_hash: [1; 32],
-            observed_sequence: 0,
-            observed_at: 1,
-        };
-        assert!(render_call_result(&request, &payload, &[], &head, &response).is_err());
-    }
-
-    #[test]
-    fn call_a_refuses_activity_signed_for_call_b() {
-        let request = golden_request();
-        let call_a = build_call(&request).unwrap_or_else(|error| panic!("{error}"));
-        let mut call_b = call_a.clone();
-        let last = 117;
-        call_b[last] ^= 1;
-        let signed_b =
-            signed_call_with_signer(&request, &call_b, || Ok(SigningKey::from_bytes(&[7; 32])))
-                .unwrap_or_else(|error| panic!("source vector signing failed: {error}"));
-        assert!(validate_signed_call(&call_a, &signed_b).is_err());
-    }
-
-    #[test]
-    fn signing_uses_protocol_three_and_exact_native_payload() -> Result<(), String> {
-        use ed25519_dalek::Verifier as _;
-        let request = golden_request();
-        let payload = build_call(&request)?;
-        let key = SigningKey::from_bytes(&[7; 32]);
-        let signed = signed_call_with_signer(&request, &payload, || Ok(key.clone()))?;
-        let activity = validate_signed_call(&payload, &signed)?;
-        assert_eq!(activity.protocol_version(), 3);
-        assert_eq!(activity.network_id(), request.network_id);
-        assert_eq!(activity.activity_type().ordinal(), 3);
-        assert_eq!(activity.payload(), payload);
-        let preimage =
-            layerx_wire::sign::preimage(&activity).map_err(|error| format!("{error:?}"))?;
-        let signature =
-            ed25519_dalek::Signature::from_slice(activity.signature().ok_or("missing signature")?)
-                .map_err(|error| error.to_string())?;
-        key.verifying_key()
-            .verify(preimage.as_bytes(), &signature)
-            .map_err(|error| error.to_string())?;
-        Ok(())
-    }
-
-    #[test]
-    fn c_lifecycle_fixtures_sign_exactly_and_refuse_wrong_ordinal() -> Result<(), String> {
-        let request = golden_request();
-        for (name, ordinal) in [
-            ("deploy", 1),
-            ("upgrade", 2),
-            ("wind-down-route", 7),
-            ("wind-down-deprecate", 7),
-            ("wind-down-tombstone", 7),
-            ("wind-down-exit", 7),
-        ] {
-            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                .join("../../../sdk/platform/conformance/fixtures")
-                .join(format!("native-program-{name}-v3.json"));
-            let fixture: serde_json::Value =
-                serde_json::from_slice(&super::read_program_file(&path)?)
-                    .map_err(|error| error.to_string())?;
-            let payload = crate::encoding::hex_decode(
-                "C payload",
-                fixture["payload_hex"].as_str().ok_or("missing C payload")?,
-            )?;
-            let canonical = crate::encoding::hex_decode(
-                "C signed activity",
-                fixture["signed_activity_hex"]
-                    .as_str()
-                    .ok_or("missing C signed activity")?,
-            )?;
-            let decoded = super::validate_signed_program(ordinal, &payload, &canonical)?;
-            assert_eq!(decoded.network_id(), 7);
-            assert_eq!(decoded.actor_did(), b"did:lxp:native-lifecycle-fixture");
-            assert_eq!(
-                hex_encode(&decoded.idempotency_key()),
-                fixture["idempotency_key_hex"]
-                    .as_str()
-                    .ok_or("missing C idempotency key")?
-            );
-            assert_eq!(
-                hex_encode(&super::activity_id(&decoded).map_err(|error| format!("{error:?}"))?),
-                fixture["activity_id_hex"]
-                    .as_str()
-                    .ok_or("missing C activity id")?
-            );
-            let c_key = fixture["idempotency_key_hex"]
-                .as_str()
-                .ok_or("missing C key")?;
-            let c_request = CallRequest {
-                network_id: 7,
-                actor_did: "did:lxp:native-lifecycle-fixture",
-                fee_limit: "1000",
-                account_sequence: 0,
-                not_before_ms: 1,
-                expires_at_ms: 100,
-                idempotency_key: c_key,
-                ..golden_request()
-            };
-            let mut seed = [0; 32];
-            seed[0] = 0x33;
-            let fixture_key = SigningKey::from_bytes(&seed);
-            assert_eq!(
-                hex_encode(&fixture_key.verifying_key().to_bytes()),
-                fixture["public_key_hex"]
-                    .as_str()
-                    .ok_or("missing C public key")?
-            );
-            let reproduced =
-                super::signed_program_with_signer(&c_request, ordinal, &payload, || {
-                    Ok(fixture_key)
-                })?;
-            assert_eq!(reproduced, canonical);
-            let signed = super::signed_program_with_signer(&request, ordinal, &payload, || {
-                Ok(SigningKey::from_bytes(&[7; 32]))
-            })?;
-            let activity = super::validate_signed_program(ordinal, &payload, &signed)?;
-            assert_eq!(activity.protocol_version(), 3);
-            assert_eq!(activity.activity_type().ordinal(), ordinal);
-            assert_eq!(activity.payload(), payload);
-            assert!(super::validate_signed_program(3, &payload, &signed).is_err());
-            for length in 0..payload.len() {
-                assert!(super::validate_program_payload(ordinal, &payload[..length]).is_err());
-            }
-            let mut trailing = payload.clone();
-            trailing.push(0);
-            assert!(super::validate_program_payload(ordinal, &trailing).is_err());
-            if ordinal != 7 {
-                let mut bad_hash = payload;
-                bad_hash[68] ^= 1;
-                assert!(super::validate_program_payload(ordinal, &bad_hash).is_err());
-            }
-        }
-        Ok(())
-    }
-
-    #[test]
     fn call_bounds_and_ambiguous_legacy_capabilities_are_refused() {
         let mut request = golden_request();
         request.native.response_capacity = 1_048_577;
@@ -3481,12 +2896,7 @@ mod call_tests {
         request.capabilities = &duplicates;
         assert!(build_call(&request).is_err());
         let payload = vec![0; layerx_wire::limits::MAX_MESSAGE_BYTES + 1];
-        assert!(
-            super::signed_program_with_signer(&request, 1, &payload, || Ok(
-                SigningKey::from_bytes(&[7; 32])
-            ))
-            .is_err()
-        );
+        assert!(super::validate_program_payload(1, &payload).is_err());
     }
 
     #[test]
@@ -3651,82 +3061,6 @@ mod call_tests {
         })();
         std::fs::remove_dir_all(&directory).map_err(|error| error.to_string())?;
         result
-    }
-
-    fn fixture_document(name: &str) -> serde_json::Value {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../sdk/platform/conformance/fixtures")
-            .join(name);
-        let source = std::fs::read_to_string(path).unwrap_or_else(|error| panic!("{error}"));
-        serde_json::from_str(&source).unwrap_or_else(|error| panic!("{error}"))
-    }
-
-    fn fixture_text<'a>(document: &'a serde_json::Value, field: &str) -> &'a str {
-        document[field]
-            .as_str()
-            .unwrap_or_else(|| panic!("fixture field {field}"))
-    }
-
-    fn fixture_array(document: &serde_json::Value, field: &str) -> [u8; 32] {
-        crate::encoding::fixed_hex(field, fixture_text(document, field))
-            .unwrap_or_else(|error| panic!("{error}"))
-    }
-
-    fn fixture_bytes(document: &serde_json::Value, field: &str) -> Vec<u8> {
-        crate::encoding::hex_decode(field, fixture_text(document, field))
-            .unwrap_or_else(|error| panic!("{error}"))
-    }
-
-    fn served_authority(batch: &serde_json::Value) -> serde_json::Value {
-        json!({
-            "batch_id": batch["batch_id_hex"],
-            "asset": batch["asset_hex"],
-            "previous_state_root": batch["previous_state_root_hex"],
-            "resulting_state_root": batch["resulting_state_root_hex"],
-            "sequencer_public_key": batch["sequencer_public_key_hex"],
-        })
-    }
-
-    #[test]
-    fn receipt_at_another_protocol_version_is_refused() -> Result<(), String> {
-        let document = fixture_document("receipt-programs-positive-v2.json");
-        let request = golden_request();
-        let payload = build_call(&request)?;
-        let signed =
-            signed_call_with_signer(&request, &payload, || Ok(SigningKey::from_bytes(&[7; 32])))?;
-        let batch = &document["authorized_batch"];
-        let receipt =
-            layerx_wire::receipt::decode(&fixture_bytes(&document, "canonical_receipt_hex"))
-                .unwrap_or_else(|error| panic!("{error:?}"));
-        let protocol = receipt
-            .protocol()
-            .unwrap_or_else(|| panic!("protocol receipt"));
-        assert_eq!(protocol.protocol_version(), 2);
-        let head = VerifiedCallHead {
-            sequencer_public_key: fixture_array(batch, "sequencer_public_key_hex"),
-            state_root: fixture_array(batch, "previous_state_root_hex"),
-            abi_version: 1,
-            version: 1,
-            code_hash: [1; 32],
-            observed_sequence: protocol
-                .global_sequence()
-                .checked_sub(1)
-                .unwrap_or_else(|| panic!("fixture global sequence")),
-            observed_at: 1,
-        };
-        let response = json!({"result": {
-            "receipt": document["canonical_receipt_hex"],
-            "terminal_payload": "",
-            "call_graph": "",
-            "batch_id": batch["batch_id_hex"],
-            "state_root": batch["resulting_state_root_hex"],
-            "authority": served_authority(batch),
-        }});
-        assert_eq!(
-            render_call_result(&request, &payload, &signed, &head, &response).unwrap_err(),
-            "program receipt protocol version differs from the configured protocol version"
-        );
-        Ok(())
     }
 }
 

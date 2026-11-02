@@ -37,6 +37,7 @@ const (
 )
 
 type BlockAPI struct {
+	domainIndex          DomainIndex
 	tmClient             client.LocalClient
 	keeper               *keeper.Keeper
 	ctxProvider          func(int64) sdk.Context
@@ -58,6 +59,7 @@ func NewBlockAPI(tmClient client.LocalClient, k *keeper.Keeper, ctxProvider func
 	return &BlockAPI{
 		tmClient:             tmClient,
 		keeper:               k,
+		domainIndex:          keeperDomainIndex{evm: k},
 		ctxProvider:          ctxProvider,
 		txConfigProvider:     txConfigProvider,
 		connectionType:       connectionType,
@@ -83,6 +85,7 @@ func NewPaxBlockAPI(
 	blockAPI := &BlockAPI{
 		tmClient:             tmClient,
 		keeper:               k,
+		domainIndex:          keeperDomainIndex{evm: k},
 		ctxProvider:          ctxProvider,
 		txConfigProvider:     txConfigProvider,
 		connectionType:       connectionType,
@@ -142,6 +145,16 @@ func (a *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, number 
 		if err != nil {
 			return nil, err
 		}
+		if scope, ok := DomainScopeFrom(ctx); ok {
+			allowed := domainHashSet(a.domainIndex, snapshot, scope, uint64(snapshot.BlockHeight()))
+			scoped := make([]common.Hash, 0, len(hashes))
+			for _, hash := range hashes {
+				if allowed[hash] {
+					scoped = append(scoped, hash)
+				}
+			}
+			hashes = scoped
+		}
 		count := hexutil.Uint(len(hashes))
 		return &count, nil
 	}
@@ -162,6 +175,10 @@ func (a *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, number 
 	}
 	if err = validateBlockExecutionReceipts(a.keeper, a.ctxProvider, a.txConfigProvider, block, a.includeShellReceipts, a.cacheCreationMutex, a.globalBlockCache); err != nil {
 		return nil, err
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		count := hexutil.Uint(len(a.domainIndex.DomainTxs(a.ctxProvider(LatestCtxHeight), scope.ID, uint64(block.Block.Height))))
+		return &count, nil
 	}
 	return a.getEvmTxCount(block), nil
 }
@@ -184,6 +201,10 @@ func (a *BlockAPI) GetBlockTransactionCountByHash(ctx context.Context, blockHash
 	}
 	if err = validateBlockExecutionReceipts(a.keeper, a.ctxProvider, a.txConfigProvider, block, a.includeShellReceipts, a.cacheCreationMutex, a.globalBlockCache); err != nil {
 		return nil, err
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		count := hexutil.Uint(len(a.domainIndex.DomainTxs(a.ctxProvider(LatestCtxHeight), scope.ID, uint64(block.Block.Height))))
+		return &count, nil
 	}
 	return a.getEvmTxCount(block), nil
 }
@@ -232,7 +253,25 @@ func (a *BlockAPI) getBlockByNumber(
 	excludeUntraceable bool,
 ) (result map[string]interface{}, returnErr error) {
 	if number == rpc.PendingBlockNumber && a.watermarks != nil && a.watermarks.pending != nil {
-		return a.pendingBlock(fullTx)
+		encoded, err := a.pendingBlock(fullTx)
+		if err != nil {
+			return nil, err
+		}
+		if scope, ok := DomainScopeFrom(ctx); ok {
+			snapshot, err := a.watermarks.pending.Snapshot()
+			if err != nil {
+				return nil, err
+			}
+			allowed := domainHashSet(a.domainIndex, snapshot, scope, uint64(snapshot.BlockHeight()))
+			hashes := make([]common.Hash, 0)
+			for _, hash := range encoded["transactions"].([]common.Hash) {
+				if allowed[hash] {
+					hashes = append(hashes, hash)
+				}
+			}
+			encoded["transactions"] = hashes
+		}
+		return encoded, nil
 	}
 	numberPtr, err := getBlockNumber(ctx, a.tmClient, a.watermarks, number)
 	if err != nil {
@@ -268,6 +307,23 @@ func (a *BlockAPI) encodeBlock(ctx context.Context, block *coretypes.ResultBlock
 	encoded, err := EncodeTmBlock(a.ctxProvider, a.txConfigProvider, block, a.keeper, fullTx, a.includeBankTransfers, includeSyntheticTxs, excludeUntraceable, a.globalBlockCache, a.cacheCreationMutex)
 	if err != nil {
 		return nil, err
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		allowed := domainHashSet(a.domainIndex, a.ctxProvider(LatestCtxHeight), scope, uint64(height))
+		transactions := make([]interface{}, 0)
+		for _, tx := range encoded["transactions"].([]interface{}) {
+			var hash common.Hash
+			switch tx := tx.(type) {
+			case string:
+				hash = common.HexToHash(tx)
+			case *export.RPCTransaction:
+				hash = tx.Hash
+			}
+			if allowed[hash] {
+				transactions = append(transactions, tx)
+			}
+		}
+		encoded["transactions"] = transactions
 	}
 	encoded["receiptsRoot"] = receiptsRoot
 	return encoded, nil
@@ -459,6 +515,16 @@ func (a *BlockAPI) GetBlockReceipts(ctx context.Context, blockNrOrHash rpc.Block
 	}
 
 	txHashes := getTxHashesFromBlock(a.ctxProvider, a.txConfigProvider, a.keeper, block, includeSynthetic, a.cacheCreationMutex, a.globalBlockCache)
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		allowed := domainHashSet(a.domainIndex, a.ctxProvider(LatestCtxHeight), scope, uint64(height))
+		scoped := make([]typedTxHash, 0, len(txHashes))
+		for _, hash := range txHashes {
+			if allowed[hash.hash] {
+				scoped = append(scoped, hash)
+			}
+		}
+		txHashes = scoped
+	}
 
 	// Get tx receipts for all hashes in parallel
 	wg := sync.WaitGroup{}

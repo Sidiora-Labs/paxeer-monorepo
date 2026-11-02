@@ -247,7 +247,8 @@ impl ProductionComponents {
                 .map_err(agent_failure)?
             {
                 crate::journeys::ReceiptLookup::Found(value) => value,
-                crate::journeys::ReceiptLookup::Absent => {
+                crate::journeys::ReceiptLookup::Absent
+                | crate::journeys::ReceiptLookup::Submitted { .. } => {
                     return Err(ApiFailure::upstream_degraded())
                 }
             };

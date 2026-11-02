@@ -14,6 +14,7 @@ pub mod ai_reputation;
 pub mod api;
 pub mod backfill;
 pub mod blockscout;
+pub mod chains;
 pub mod codec;
 pub mod config;
 pub mod explorer;

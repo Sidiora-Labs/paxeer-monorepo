@@ -601,6 +601,41 @@ impl VerifiedProgramBundle {
     pub const fn interface(&self) -> &VerifiedInterfaceRead {
         &self.interface
     }
+
+    /// Applies the authenticated metadata checks used before agent discovery.
+    pub fn verify_discovery(
+        &self,
+        expected_program: ProgramId,
+        now_ms: u64,
+        staleness_limit_ms: u64,
+    ) -> Result<(), ProgramBundleError> {
+        let head = self.program_head();
+        let chain = self.chain_head();
+        let freshness = chain.freshness();
+        let valid_until = freshness
+            .observed_at
+            .checked_add(staleness_limit_ms)
+            .ok_or(ProgramBundleError::Evidence(ProtocolEvidenceError::Stale))?;
+        if now_ms < freshness.observed_at || now_ms > valid_until || now_ms > head.valid_until_ms()
+        {
+            return Err(ProgramBundleError::Evidence(ProtocolEvidenceError::Stale));
+        }
+        if head.program() != expected_program {
+            return Err(ProgramBundleError::ProgramMismatch);
+        }
+        if head.lifecycle() != ProgramLifecycle::Active {
+            return Err(ProgramBundleError::Evidence(
+                ProtocolEvidenceError::LifecycleProof,
+            ));
+        }
+        if head.receipt_digest() != chain.receipt_digest()
+            || head.state_root() != chain.state_root()
+            || head.freshness() != freshness
+        {
+            return Err(ProgramBundleError::ChainHeadMismatch);
+        }
+        Ok(())
+    }
 }
 
 fn chain_error(error: ChainProofError) -> ProtocolEvidenceError {
@@ -887,6 +922,18 @@ impl ProtocolDeploymentVerifier {
         })
     }
 
+    /// Decodes the node answer before applying the protected bundle verifier.
+    pub fn verify_current_program_bundle_bytes(
+        &self,
+        payload: &[u8],
+        chain: &VerifiedChainHead,
+        expected_program: ProgramId,
+        now_ms: u64,
+    ) -> Result<VerifiedProgramBundle, ProgramBundleError> {
+        let bundle = ProgramStateBundle::decode(payload)?;
+        self.verify_current_program_bundle(&bundle, chain, expected_program, now_ms)
+    }
+
     pub fn verify_current_program_bundle(
         &self,
         bundle: &ProgramStateBundle,
@@ -943,6 +990,74 @@ impl ProtocolDeploymentVerifier {
 }
 
 impl DeploymentProof {
+    /// Publishes canonical admission bytes durably, without replacing an existing
+    /// admission. Repeating identical bytes is idempotent; different bytes refuse.
+    pub fn publish_canonical(&self, path: &std::path::Path) -> std::io::Result<()> {
+        use std::io::Write as _;
+        use std::os::unix::fs::OpenOptionsExt as _;
+        use std::sync::atomic::{AtomicU64, Ordering};
+        static NEXT: AtomicU64 = AtomicU64::new(0);
+        let bytes = self.canonical_encoding().map_err(std::io::Error::other)?;
+        let parent = path
+            .parent()
+            .ok_or_else(|| std::io::Error::other("admission has no parent"))?;
+        let temporary = parent.join(format!(
+            ".admission-{}-{}.tmp",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        ));
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
+            .open(&temporary)?;
+        let result = (|| {
+            file.write_all(&bytes)?;
+            file.sync_all()?;
+            Self::commit_staged_file(&temporary, path)?;
+            std::fs::File::open(parent)?.sync_all()
+        })();
+        drop(file);
+        if result.is_err() {
+            // The original publication error remains authoritative.
+            let _ = std::fs::remove_file(&temporary);
+        }
+        result
+    }
+
+    /// Commits a fully synced journal file without overwriting accepted evidence.
+    /// The caller syncs the parent directory after this commit point.
+    pub fn commit_staged_file(
+        temporary: &std::path::Path,
+        path: &std::path::Path,
+    ) -> std::io::Result<()> {
+        match std::fs::hard_link(temporary, path) {
+            Ok(()) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                if std::fs::read(temporary)? != std::fs::read(path)? {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::AlreadyExists,
+                        "deployment publication conflicts with committed bytes",
+                    ));
+                }
+            }
+            Err(error) => return Err(error),
+        }
+        std::fs::remove_file(temporary)
+    }
+
+    /// Reopens a journal admission with the same bounded canonical decoder used
+    /// by live consumers. Decoding never grants trust; verification is required.
+    pub fn read_canonical(path: &std::path::Path) -> std::io::Result<Self> {
+        use std::io::Read as _;
+        let file = std::fs::File::open(path)?;
+        let mut bytes = Vec::new();
+        file.take(MAX_EVIDENCE_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)?;
+        Self::decode(&bytes)
+            .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))
+    }
+
     pub fn canonical_encoding(&self) -> Result<Vec<u8>, ProtocolEvidenceError> {
         let mut bytes = b"LXDP\x02".to_vec();
         put_chain_field(

@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 )
@@ -369,5 +370,49 @@ func TestErrorCodeRegistry(t *testing.T) {
 			require.Equal(t, row.text, revertText(t, data))
 			require.True(t, bytes.Equal(data[:4], []byte{0x08, 0xc3, 0x79, 0xa0}))
 		})
+	}
+}
+
+func TestStreamsGasCanonicalCallSizes(t *testing.T) {
+	for _, row := range []struct {
+		signature string
+		words     int
+		want      uint64
+	}{
+		{"open(address,address,uint256,uint64,uint64,uint256)", 6, 55880},
+		{"settle(uint256)", 1, 61080},
+		{"close(uint256)", 1, 81080},
+		{"updateRate(uint256,uint256)", 2, 62040},
+		{"accrued(uint256)", 1, 1108},
+		{"getStream(uint256)", 1, 1108},
+	} {
+		t.Run(row.signature, func(t *testing.T) {
+			id := crypto.Keccak256([]byte(row.signature))[:4]
+			require.Equal(t, row.want, common.MethodGas(id, 4+32*row.words))
+		})
+	}
+}
+
+// TestEip712CalldataGas checks the exported schedule against real ABI calldata.
+func TestEip712CalldataGas(t *testing.T) {
+	a, err := abi.JSON(strings.NewReader(`[
+    {"type":"function","name":"hashTypedData","inputs":[{"type":"bytes32"},{"type":"bytes32"}]},
+    {"type":"function","name":"domainSeparator","inputs":[{"type":"string"},{"type":"string"},{"type":"uint256"},{"type":"address"}]},
+    {"type":"function","name":"recoverTypedSigner","inputs":[{"type":"bytes32"},{"type":"bytes32"},{"type":"bytes"}]}
+  ]`))
+	require.NoError(t, err)
+	for _, row := range []struct {
+		name string
+		args []interface{}
+		base uint64
+	}{
+		{"hashTypedData", []interface{}{[32]byte{1}, [32]byte{2}}, 1000},
+		{"domainSeparator", []interface{}{"Paxeer", "1", big.NewInt(125), ethcommon.Address{}}, 1000},
+		{"recoverTypedSigner", []interface{}{[32]byte{1}, [32]byte{2}, make([]byte, 65)}, 4000},
+	} {
+		input, err := a.Pack(row.name, row.args...)
+		require.NoError(t, err)
+		require.Equal(t, crypto.Keccak256([]byte(a.Methods[row.name].Sig))[:4], input[:4])
+		require.Equal(t, row.base+3*uint64(len(input)), common.MethodGas(input[:4], len(input)))
 	}
 }

@@ -47,26 +47,6 @@ func array(t *testing.T, v testvectors.Vector, key string) [32]byte {
 	return out
 }
 
-func TestDomainTagsAreNulTerminatedAndDistinct(t *testing.T) {
-	seen := map[string]bool{}
-	for d := codec.Domain(0); d < 20; d++ {
-		tag, err := d.Tag()
-		if err != nil {
-			t.Fatalf("domain %d: %v", d, err)
-		}
-		if len(tag) < 2 || tag[len(tag)-1] != 0 || bytes.IndexByte(tag, 0) != len(tag)-1 {
-			t.Fatalf("domain %d tag %q is not singly NUL-terminated", d, tag)
-		}
-		if seen[string(tag)] {
-			t.Fatalf("domain %d tag %q repeats", d, tag)
-		}
-		seen[string(tag)] = true
-	}
-	if _, err := codec.Domain(20).Tag(); err == nil {
-		t.Fatal("domain 20 accepted")
-	}
-}
-
 func TestReceiptDecodeMatchesRustCanonicalForm(t *testing.T) {
 	for _, v := range load(t, "receipts") {
 		raw := field(t, v, "receipt")

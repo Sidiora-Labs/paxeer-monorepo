@@ -22,6 +22,9 @@ func init() {
 }
 
 func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPrecompile, error) {
+	if planName == "" {
+		return nil, fmt.Errorf("%w: no merge upgrade activation reader bound", agentcommon.ErrNotActive)
+	}
 	if keepers == nil {
 		return nil, fmt.Errorf("%w: precompile keepers are unavailable", agentcommon.ErrNoContext)
 	}

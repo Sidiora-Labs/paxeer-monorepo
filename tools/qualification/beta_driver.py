@@ -726,7 +726,14 @@ def cli_environment(ctx: CaseContext, endpoint: str) -> tuple[Path, dict[str, st
 
 
 def cli_output(execution: Execution, kind: str) -> dict[str, object]:
-    document = execution.last_json()
+    if execution.exit_code != 0:
+        raise CaseFailure(f"{execution.label} exited {execution.exit_code}")
+    try:
+        document = json.loads(execution.output)
+    except json.JSONDecodeError as error:
+        raise CaseFailure(f"{execution.label} did not print exactly one JSON object") from error
+    if not isinstance(document, dict):
+        raise CaseFailure(f"{execution.label} printed no JSON object")
     if document.get("ok") is not True or document.get("kind") != kind:
         raise CaseFailure(f"{execution.label} did not report {kind}: {json.dumps(document)}")
     data = document.get("data")

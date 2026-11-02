@@ -2240,7 +2240,10 @@ fn creation_material(
     .map_err(agent_failure)?
     {
         crate::journeys::ReceiptLookup::Found(value) => value,
-        crate::journeys::ReceiptLookup::Absent => return Err(ApiFailure::upstream_degraded()),
+        crate::journeys::ReceiptLookup::Absent
+        | crate::journeys::ReceiptLookup::Submitted { .. } => {
+            return Err(ApiFailure::upstream_degraded())
+        }
     };
     let evidence = ProductionAgentCreation::protocol_evidence(
         signed.bytes().to_vec(),
@@ -8764,7 +8767,10 @@ impl ProductionComponents {
             .map_err(agent_failure)?
         {
             crate::journeys::ReceiptLookup::Found(material) => material,
-            _ => return Err(ApiFailure::upstream_degraded()),
+            crate::journeys::ReceiptLookup::Absent
+            | crate::journeys::ReceiptLookup::Submitted { .. } => {
+                return Err(ApiFailure::upstream_degraded())
+            }
         };
         let mut owner = [0; 32];
         owner[12..].copy_from_slice(&wallet);
@@ -8830,6 +8836,14 @@ impl ProductionComponents {
                     if material.rung == Rung::Committed =>
                 {
                     material
+                }
+                crate::journeys::ReceiptLookup::Submitted { tx_hash, nonce } => {
+                    if tx_hash != hash || nonce != call.nonce {
+                        return Err(ApiFailure::upstream_degraded());
+                    }
+                    leg["tx_hash"] = json!(format!("0x{}", hex_bytes(&tx_hash)));
+                    complete = false;
+                    break;
                 }
                 _ => {
                     complete = false;

@@ -3,7 +3,6 @@
 import { useState, type ReactNode } from "react";
 
 import { copyEntry } from "../../../copy/runtime.ts";
-import { formatCopy } from "../../../copy/format.ts";
 import type {
   ActivityEntryDetail,
   ApprovalDetail,
@@ -28,6 +27,7 @@ import {
   canApprove,
   catalogMessage,
   expiryCountdown,
+  evidenceReferenceLabel,
   heldDigest,
   journeyStatus,
   moneyLabel,
@@ -229,10 +229,7 @@ export function ReleasedActivitySection({ entry }: Readonly<{ entry?: ActivityEn
           {entry.evidence.map((evidence) => (
             <CopyableIdentifier
               key={evidence.evidence_id}
-              label={formatCopy("approval.technical.evidence_reference", {
-                evidenceClass: evidence.class,
-                verification: verificationLabel(evidence.verification),
-              })}
+              label={evidenceReferenceLabel(evidence)}
               value={evidence.evidence_id}
             />
           ))}
@@ -263,10 +260,7 @@ export function ApprovalOutcomePanel({
       {outcome.kind === "decided" ? outcome.decision.evidence.map((evidence) => (
         <CopyableIdentifier
           key={evidence.evidence_id}
-          label={formatCopy("approval.technical.evidence_reference", {
-            evidenceClass: evidence.class,
-            verification: verificationLabel(evidence.verification),
-          })}
+          label={evidenceReferenceLabel(evidence)}
           value={evidence.evidence_id}
         />
       )) : null}
@@ -423,10 +417,7 @@ function ApprovalEvidence({ detail, shell }: Readonly<{ detail: ApprovalDetail; 
         {detail.evidence.map((evidence) => (
           <CopyableIdentifier
             key={evidence.evidence_id}
-            label={formatCopy("approval.technical.evidence_reference", {
-              evidenceClass: evidence.class,
-              verification: verificationLabel(evidence.verification),
-            })}
+            label={evidenceReferenceLabel(evidence)}
             value={evidence.evidence_id}
           />
         ))}

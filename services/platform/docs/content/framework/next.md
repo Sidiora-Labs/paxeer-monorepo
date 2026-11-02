@@ -10,6 +10,13 @@ npm install @sidiora/layerx-next next react react-dom
 
 The declared configuration is the same as [Express](framework-express.html), read from the environment on the first request rather than at module scope. `next build` collects your route modules, so a key read at module scope becomes a build input; reading it on the first request keeps `next build` runnable with no key present.
 
+| Variable | Requirement |
+|---|---|
+| `LAYERX_X402_SCHEME` | Required: `exact`, `metered` or `subscription`. |
+| `LAYERX_PAYMENT_PURPOSE_HASH` | Required for every scheme other than `exact`; optional for `exact`. When supplied, it must be a nonzero 32-byte hex value. |
+
+Missing `LAYERX_PAYMENT_PURPOSE_HASH` for a non-exact scheme refuses construction with an error naming the variable and the scheme. With `mountLayerXOnRequest`, this check runs on the first request.
+
 ## The integration
 
 ```js sample=paid-route-next

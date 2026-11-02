@@ -388,6 +388,8 @@ describe('RpcPool', () => {
   it('reads the nonce at latest and surfaces a -32000 pending refusal as a typed error without failing over', async () => {
     const p = pool();
     await p.checkHealth();
+    expect(a.calls).toContain('eth_chainId');
+    expect(b.calls).toContain('eth_chainId');
     a.calls = [];
     b.calls = [];
     expect(await p.getTransactionCount('0x00000000000000000000000000000000000000b4')).toBe(9);

@@ -1,5 +1,6 @@
 import {
   SnapshotStreamV2,
+  decodeV2Contract,
   browserStreamTransportV2,
   type StreamState,
   type V2StreamEvent,
@@ -43,10 +44,33 @@ export class MarketSession {
     });
   }
   async foreground(topics: string[]) {
+    const uniqueTopics = [...new Set(topics)];
+    decodeV2Contract('Subscribe', {
+      op: 'subscribe',
+      subscriptionId: 'mobile-market',
+      topics: uniqueTopics,
+      afterCursor: null,
+    });
+    // TopicName bounds strings but does not encode the public topic families.
+    // Reject malformed input before closing a working session or scheduling retries.
+    const addressTopic = /^market\.(?:price|stats|trades)\.0x[0-9a-fA-F]{40}$/;
+    const candleTopic =
+      /^market\.candles\.0x[0-9a-fA-F]{40}\.(?:1m|5m|15m|1h|4h|1d|1w)$/;
+    const rankingTopic =
+      /^market\.rankings\.(?:trending|breakout|volume|gainers|losers|movers|unusual|new)$/;
+    if (
+      uniqueTopics.some(
+        (topic) =>
+          !addressTopic.test(topic) &&
+          !candleTopic.test(topic) &&
+          !rankingTopic.test(topic),
+      )
+    )
+      throw new TypeError('Invalid public market topic');
     this.background();
     this.active = true;
     const revision = this.revision;
-    this.topics = [...new Set(topics)];
+    this.topics = uniqueTopics;
     try {
       await this.stream.start(this.topics);
     } catch {

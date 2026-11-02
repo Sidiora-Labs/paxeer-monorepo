@@ -8,6 +8,7 @@ import {
   type IntentLegBinding,
   type IntentPlan,
   type Journey,
+  type LadderStep,
   type UnifiedAccountDocument,
 } from '@paxeer/wallet';
 import {
@@ -79,6 +80,21 @@ export function legBindings(
 ): IntentLegBinding[] {
   const actor = document.evm_address;
   if (!actor || !document.bound) throw new Error('the account is not bound to its LayerX identity');
+  if (
+    !Number.isSafeInteger(sequence) ||
+    sequence < 0 ||
+    !Number.isSafeInteger(sequence + plan.legs.filter((leg) => leg.domain === 'layerx').length)
+  )
+    throw new RangeError('the account sequence is outside the supported range');
+  if (
+    !Number.isSafeInteger(window.notBefore) ||
+    !Number.isSafeInteger(window.notAfter) ||
+    window.notBefore < 0 ||
+    window.notAfter <= window.notBefore
+  )
+    throw new RangeError('the signing window is invalid');
+  if (!AMOUNT.test(maxFee.amount) || !CURRENCY.test(maxFee.currency))
+    throw new RangeError('the maximum fee is invalid');
   let next = sequence;
   return plan.legs.map((leg) => {
     const requirement = plan.signing_requirements.find((entry) => entry.leg_index === leg.index);
@@ -142,10 +158,14 @@ function PlanSummary({ plan }: { plan: IntentPlan }) {
   );
 }
 
+export function journeyLadderSteps(journey: Pick<Journey, 'state'>): readonly LadderStep[] {
+  return [statusLadder.fromJourney(journey.state)];
+}
+
 function JourneyView({ journey }: { journey: Journey }) {
   return (
     <div className="space-y-2" data-journey={journey.journey_id} data-state={journey.state}>
-      <StatusLadder steps={[statusLadder.fromJourney(journey.state)]} />
+      <StatusLadder steps={journeyLadderSteps(journey)} />
       <ol aria-label="Journey stages" className="space-y-1 text-xs">
         {journey.stages.map((stage) => (
           <li

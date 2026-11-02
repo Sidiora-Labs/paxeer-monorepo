@@ -62,6 +62,7 @@ class MakefileWaveOneTest(unittest.TestCase):
             "lx_web_adapter",
             "lx_web_root",
             "replay-golden",
+            "lxp_checkpoint_cert",
         ):
             with self.subTest(retired=retired):
                 self.assertNotIn(retired, result.stdout)
@@ -70,7 +71,6 @@ class MakefileWaveOneTest(unittest.TestCase):
         )
         for retired in (
             "lxp_idempotency",
-            "lxp_checkpoint_cert",
         ):
             with self.subTest(retired=retired):
                 self.assertNotIn(retired, non_library_stdout)

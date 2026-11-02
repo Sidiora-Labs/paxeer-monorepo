@@ -408,10 +408,7 @@ impl ProofBundle {
     ) -> Result<(), ContractError> {
         request.selector.encode()?;
         response.value.validate()?;
-        let expected = match request.selector {
-            ProofBundleTarget::Activity(_) | ProofBundleTarget::Receipt(_) => Rung::Receipted,
-            ProofBundleTarget::AccountState { .. } => Rung::Committed,
-        };
+        let expected = request.selector.required_rung();
         if response.achieved_rung != expected
             || response.achieved_rung < request.requested_rung
             || response.value.verification_level != response.achieved_rung
@@ -858,5 +855,379 @@ mod proof_bundle_framing_tests {
         target = ProofBundleTarget::Activity([1; 32]).encode()?;
         assert!(ProofBundle::record(&target, &proofs).is_err());
         Ok(())
+    }
+}
+
+// The daemon's RPC and retained-export codecs share this boundary. Keeping the
+// codec on the public contract makes structural checks identical for both consumers;
+// these checks do not replace independent signature, inclusion or commit verification.
+mod wire {
+    use super::*;
+    use layerx_types::json::{self, JsonValue};
+
+    pub const MAX_FRAME: usize = 1_048_576;
+
+    pub fn malformed() -> ContractError {
+        ContractError::Malformed("agent_api_wire")
+    }
+
+    pub fn parse(text: &str) -> Result<JsonValue, ContractError> {
+        if text.len() > MAX_FRAME {
+            return Err(ContractError::OutOfRange("agent_api_frame"));
+        }
+        json::parse(text).map_err(|_| malformed())
+    }
+
+    pub fn fields<'a>(
+        value: &'a JsonValue,
+        required: &[&str],
+        optional: &[&str],
+    ) -> Result<&'a JsonValue, ContractError> {
+        let JsonValue::Object(fields) = value else {
+            return Err(malformed());
+        };
+        if required.iter().any(|name| value.field(name).is_none())
+            || fields.iter().any(|(name, _)| {
+                !required.contains(&name.as_str()) && !optional.contains(&name.as_str())
+            })
+        {
+            return Err(malformed());
+        }
+        Ok(value)
+    }
+
+    pub fn text<'a>(value: &'a JsonValue, name: &str) -> Result<&'a str, ContractError> {
+        value.str_at(name).map_err(|_| malformed())
+    }
+
+    pub fn decimal(value: &JsonValue, name: &str) -> Result<u64, ContractError> {
+        let text = text(value, name)?;
+        let number: u64 = text.parse().map_err(|_| malformed())?;
+        if number.to_string() != text {
+            return Err(malformed());
+        }
+        Ok(number)
+    }
+
+    pub fn hex(bytes: &[u8]) -> String {
+        use std::fmt::Write as _;
+        let mut text = String::from("0x");
+        for byte in bytes {
+            write!(text, "{byte:02x}").expect("write to String");
+        }
+        text
+    }
+
+    pub fn bytes(value: &JsonValue, name: &str) -> Result<CanonicalBytes, ContractError> {
+        let text = text(value, name)?
+            .strip_prefix("0x")
+            .ok_or_else(malformed)?;
+        if text.len() % 2 != 0
+            || !text
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err(malformed());
+        }
+        CanonicalBytes::new(json::decode_hex(&format!("0x{text}")).map_err(|_| malformed())?)
+    }
+
+    pub fn array<const N: usize>(value: &JsonValue, name: &str) -> Result<[u8; N], ContractError> {
+        bytes(value, name)?
+            .as_bytes()
+            .try_into()
+            .map_err(|_| malformed())
+    }
+
+    pub fn bundle(value: &JsonValue) -> Result<ProofBundle, ContractError> {
+        fields(
+            value,
+            &[
+                "format",
+                "verificationLevel",
+                "rawTransaction",
+                "signedReceipt",
+                "receiptDigest",
+                "receiptKey",
+            ],
+            &[
+                "blockHeader",
+                "receiptInclusion",
+                "commit",
+                "validatorSet",
+                "accountProof",
+            ],
+        )?;
+        let key = value.field("receiptKey").ok_or_else(malformed)?;
+        fields(
+            key,
+            &["keyId", "publicKey", "firstHeight", "lastHeight"],
+            &[],
+        )?;
+        let optional = |name| value.field(name).map(|_| bytes(value, name)).transpose();
+        let bundle = ProofBundle {
+            format: text(value, "format")?.to_owned(),
+            verification_level: Rung::from_name(text(value, "verificationLevel")?)
+                .ok_or_else(malformed)?,
+            raw_transaction: bytes(value, "rawTransaction")?,
+            signed_receipt: bytes(value, "signedReceipt")?,
+            receipt_digest: array(value, "receiptDigest")?,
+            receipt_key: layerx_client::sequencer::ReceiptKeyEntry {
+                key_id: array(key, "keyId")?,
+                public_key: array(key, "publicKey")?,
+                first_height: decimal(key, "firstHeight")?,
+                last_height: decimal(key, "lastHeight")?,
+            },
+            block_header: optional("blockHeader")?,
+            receipt_inclusion: optional("receiptInclusion")?,
+            commit: optional("commit")?,
+            validator_set: optional("validatorSet")?,
+            account_proof: optional("accountProof")?,
+        };
+        bundle.validate()?;
+        Ok(bundle)
+    }
+
+    pub fn freshness(value: &JsonValue) -> Result<Freshness, ContractError> {
+        fields(value, &["chain_head", "value_height", "relative_to"], &[])?;
+        let block = value.field("relative_to").ok_or_else(malformed)?;
+        fields(block, &["height", "hash"], &[])?;
+        Ok(Freshness {
+            chain_head: decimal(value, "chain_head")?,
+            value_height: decimal(value, "value_height")?,
+            relative_to: RelativeTo::Block {
+                height: decimal(block, "height")?,
+                hash: array(block, "hash")?,
+            },
+        })
+    }
+}
+
+impl Freshness {
+    /// Losslessly renders the same coordinates used by the RPC adapter.
+    #[must_use]
+    pub fn encode_json(&self) -> String {
+        let RelativeTo::Block { height, hash } = self.relative_to;
+        format!(
+            r#"{{"chain_head":"{}","value_height":"{}","relative_to":{{"height":"{height}","hash":"{}"}}}}"#,
+            self.chain_head,
+            self.value_height,
+            wire::hex(&hash)
+        )
+    }
+
+    /// Decodes exact decimal heights and the complete block reference.
+    ///
+    /// # Errors
+    /// Refuses unknown fields, noncanonical numbers and malformed hashes.
+    pub fn decode_json(text: &str) -> Result<Self, ContractError> {
+        wire::freshness(&wire::parse(text)?)
+    }
+}
+
+impl ReadRequest<CanonicalBytes> {
+    /// Checks the response at the RPC owner's typed crossing.
+    ///
+    /// # Errors
+    /// Refuses malformed selectors, incomplete evidence and insufficient rungs.
+    pub fn check_proof_response(
+        &self,
+        response: &VerifiedRead<ProofBundle>,
+    ) -> Result<(), ContractError> {
+        ProofBundle::check_response(
+            &ReadRequest {
+                selector: ProofBundleTarget::decode(self.selector.as_bytes())?,
+                requested_rung: self.requested_rung,
+            },
+            response,
+        )
+    }
+
+    /// Converts the RPC's canonical selector bytes into the public typed request.
+    ///
+    /// # Errors
+    /// Refuses malformed selectors and retired or unknown rung names.
+    pub fn proof_bundle(target: Vec<u8>, rung: &str) -> Result<Self, ContractError> {
+        ProofBundleTarget::decode(&target)?;
+        Ok(Self {
+            selector: CanonicalBytes::new(target)?,
+            requested_rung: Rung::from_name(rung)
+                .ok_or(ContractError::Malformed("requested_rung"))?,
+        })
+    }
+}
+
+impl ProofBundleTarget {
+    /// Minimum evidence the consumer needs for this selector.
+    #[must_use]
+    pub const fn required_rung(self) -> Rung {
+        match self {
+            Self::AccountState { .. } => Rung::Committed,
+            _ => Rung::Receipted,
+        }
+    }
+}
+
+impl ProofBundle {
+    /// Serializes the receipt-proof-v2 field set used by RPC and retained exports.
+    ///
+    /// # Errors
+    /// Refuses invalid field combinations and oversized evidence.
+    pub fn encode_json(&self) -> Result<String, ContractError> {
+        self.validate()?;
+        let key = self.receipt_key;
+        let mut text = format!(
+            r#"{{"format":"layerx-receipt-proof-v2","verificationLevel":"{}","rawTransaction":"{}","signedReceipt":"{}","receiptDigest":"{}","receiptKey":{{"keyId":"{}","publicKey":"{}","firstHeight":"{}","lastHeight":"{}"}}"#,
+            self.verification_level.name(),
+            wire::hex(self.raw_transaction.as_bytes()),
+            wire::hex(self.signed_receipt.as_bytes()),
+            wire::hex(&self.receipt_digest),
+            wire::hex(&key.key_id),
+            wire::hex(&key.public_key),
+            key.first_height,
+            key.last_height
+        );
+        for (name, bytes) in [
+            ("blockHeader", &self.block_header),
+            ("receiptInclusion", &self.receipt_inclusion),
+            ("commit", &self.commit),
+            ("validatorSet", &self.validator_set),
+            ("accountProof", &self.account_proof),
+        ] {
+            if let Some(bytes) = bytes {
+                text.push_str(&format!(r#",{name:?}:"{}""#, wire::hex(bytes.as_bytes())));
+            }
+        }
+        text.push('}');
+        Ok(text)
+    }
+
+    /// Structural consumer of the exact receipt-proof-v2 wire item.
+    /// Signatures and commitments still require the consumer's independently pinned trust.
+    ///
+    /// # Errors
+    /// Refuses malformed, trailing, duplicate, unknown, missing or inconsistent fields.
+    pub fn decode_json(text: &str) -> Result<Self, ContractError> {
+        wire::bundle(&wire::parse(text)?)
+    }
+}
+
+impl VerifiedRead<ProofBundle> {
+    /// Checks the producer's envelope before either RPC adapter consumes it.
+    ///
+    /// # Errors
+    /// Refuses a malformed bundle or disagreement between the envelope and bundle rung.
+    pub fn validate(&self) -> Result<(), ContractError> {
+        self.value.validate()?;
+        if self.achieved_rung != self.value.verification_level {
+            return Err(ContractError::Mismatch("proof_bundle_rung"));
+        }
+        Ok(())
+    }
+
+    /// Encodes all authoritative coordinates, including the block hash.
+    ///
+    /// # Errors
+    /// Refuses an inconsistent envelope or a frame exceeding the HTTP bound.
+    pub fn encode_json(&self) -> Result<String, ContractError> {
+        self.validate()?;
+        let text = format!(
+            r#"{{"value":{},"achieved_verification_level":"{}","freshness":{}}}"#,
+            self.value.encode_json()?,
+            self.achieved_rung.name(),
+            self.freshness.encode_json()
+        );
+        if text.len() > wire::MAX_FRAME {
+            return Err(ContractError::OutOfRange("agent_api_frame"));
+        }
+        Ok(text)
+    }
+
+    /// Consumes an authoritative response using the same checks as the daemon adapter.
+    ///
+    /// # Errors
+    /// Refuses malformed data and disagreements between the nested and achieved rungs.
+    pub fn decode_json(text: &str) -> Result<Self, ContractError> {
+        let value = wire::parse(text)?;
+        wire::fields(
+            &value,
+            &["value", "achieved_verification_level", "freshness"],
+            &[],
+        )?;
+        let response = Self::new(
+            wire::bundle(value.field("value").ok_or_else(wire::malformed)?)?,
+            Rung::from_name(wire::text(&value, "achieved_verification_level")?)
+                .ok_or_else(wire::malformed)?,
+            wire::freshness(value.field("freshness").ok_or_else(wire::malformed)?)?,
+        );
+        response.validate()?;
+        Ok(response)
+    }
+}
+
+impl OfflineExport {
+    /// Encodes the portable export consumed by the daemon's durable export reader.
+    ///
+    /// # Errors
+    /// Refuses an invalid export, fact grammar or frame exceeding the HTTP bound.
+    pub fn encode_json(&self) -> Result<String, ContractError> {
+        self.clone().validate()?;
+        parse_fact_set(&self.facts.iter().map(FactRef::as_str).collect::<Vec<_>>())
+            .map_err(|_| ContractError::Malformed("fact_set"))?;
+        let facts = self
+            .facts
+            .iter()
+            .map(|fact| format!("{:?}", fact.as_str()))
+            .collect::<Vec<_>>()
+            .join(",");
+        let bundles = self
+            .bundles
+            .iter()
+            .map(ProofBundle::encode_json)
+            .collect::<Result<Vec<_>, _>>()?
+            .join(",");
+        let text = format!(
+            r#"{{"facts":[{facts}],"bundles":[{bundles}],"height":"{}"}}"#,
+            self.height
+        );
+        if text.len() > wire::MAX_FRAME {
+            return Err(ContractError::OutOfRange("agent_api_frame"));
+        }
+        Ok(text)
+    }
+
+    /// Decodes the producer's portable bytes at the retained-export boundary.
+    ///
+    /// # Errors
+    /// Refuses malformed fields, fact grammar and incomplete committed evidence.
+    pub fn decode_json(text: &str) -> Result<Self, ContractError> {
+        use layerx_types::json::JsonValue;
+        let value = wire::parse(text)?;
+        wire::fields(&value, &["facts", "bundles", "height"], &[])?;
+        let facts = value
+            .array_at("facts")
+            .map_err(|_| wire::malformed())?
+            .iter()
+            .map(|fact| {
+                let JsonValue::String(text) = fact else {
+                    return Err(wire::malformed());
+                };
+                FactRef::new(text.clone())
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        parse_fact_set(&facts.iter().map(FactRef::as_str).collect::<Vec<_>>())
+            .map_err(|_| ContractError::Malformed("fact_set"))?;
+        let bundles = value
+            .array_at("bundles")
+            .map_err(|_| wire::malformed())?
+            .iter()
+            .map(wire::bundle)
+            .collect::<Result<_, _>>()?;
+        Self {
+            facts,
+            bundles,
+            height: wire::decimal(&value, "height")?,
+        }
+        .validate()
     }
 }

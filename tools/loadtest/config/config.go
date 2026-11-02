@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"math/big"
 	"time"
 )
@@ -26,6 +27,21 @@ type BoundsConfig struct {
 	MinAverageTPS   float64 `json:"minAverageTps,omitempty"`
 	MaxP99LatencyMs int64   `json:"maxP99LatencyMs,omitempty"`
 	MinTotalTxs     uint64  `json:"minTotalTxs,omitempty"`
+}
+
+// UnmarshalJSON rejects millisecond bounds that would overflow MergeBounds.
+func (b *BoundsConfig) UnmarshalJSON(data []byte) error {
+	type boundsJSON BoundsConfig
+	var decoded boundsJSON
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	if decoded.MaxP99LatencyMs > math.MaxInt64/int64(time.Millisecond) ||
+		decoded.MaxP99LatencyMs < math.MinInt64/int64(time.Millisecond) {
+		return fmt.Errorf("maxP99LatencyMs is outside the time.Duration range: %d", decoded.MaxP99LatencyMs)
+	}
+	*b = BoundsConfig(decoded)
+	return nil
 }
 
 func MergeBounds(cfg *LoadConfig, s *Settings) {

@@ -7,7 +7,6 @@ package pricefeed
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -50,11 +49,21 @@ func (AppModuleBasic) DefaultGenesis(_ codec.JSONCodec) json.RawMessage {
 
 // ValidateGenesis checks the decoded state with the keeper's genesis checks.
 func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, bz json.RawMessage) error {
-	var genesis types.GenesisState
-	if err := json.Unmarshal(bz, &genesis); err != nil {
-		return types.ErrInvalidGenesis.Wrapf("failed to unmarshal %s genesis state: %v", types.ModuleName, err)
+	genesis, err := decodeGenesis(bz)
+	if err != nil {
+		return err
 	}
 	return keeper.ValidateGenesis(genesis)
+}
+
+// decodeGenesis keeps the validation and import boundaries on the same JSON
+// decoder and registered error, before either path reaches the keeper.
+func decodeGenesis(bz json.RawMessage) (types.GenesisState, error) {
+	var genesis types.GenesisState
+	if err := json.Unmarshal(bz, &genesis); err != nil {
+		return types.GenesisState{}, types.ErrInvalidGenesis.Wrapf("failed to unmarshal %s genesis state: %v", types.ModuleName, err)
+	}
+	return genesis, nil
 }
 
 func (am AppModuleBasic) ValidateGenesisStream(cdc codec.JSONCodec, config client.TxEncodingConfig, genesisCh <-chan json.RawMessage) error {
@@ -100,9 +109,9 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
 func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, gs json.RawMessage) []abci.ValidatorUpdate {
-	var genesis types.GenesisState
-	if err := json.Unmarshal(gs, &genesis); err != nil {
-		panic(fmt.Errorf("failed to unmarshal %s genesis state: %w", types.ModuleName, err))
+	genesis, err := decodeGenesis(gs)
+	if err != nil {
+		panic(err)
 	}
 	if err := am.keeper.InitGenesis(ctx, genesis); err != nil {
 		panic(err)

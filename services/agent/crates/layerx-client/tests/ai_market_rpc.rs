@@ -183,7 +183,8 @@ fn signed_receipt(
         "feeDenom": "upax", "feeAmount": "0x5208", "sponsor": hex(&[0; 20]),
         "from": hex(&sender), "to": hex(&[7; 20]), "contractAddress": hex(&[0; 20]),
         "vmError": if success { "" } else { "execution reverted" },
-        "keyId": hex(&KEY_ID), "receipt": hex(&bytes)
+        "keyId": hex(&KEY_ID), "signingKey": hex(&signer.verifying_key().to_bytes()),
+        "receipt": hex(&bytes)
     });
     (view, bytes, key)
 }
@@ -282,6 +283,14 @@ fn operation_journal_submit_sends_the_exact_raw_bytes_once() {
     ));
     let id = transaction_hash(&raw);
     assert_eq!(record.activity_id(), id);
+    assert_eq!(record.idempotency_key(), id);
+    assert_eq!(record.protocol_version(), 2);
+    assert_eq!(record.network_id(), 125);
+    assert_eq!(record.intent(), [0x81; 32]);
+    let (call, signature) = must(evm_transaction::decode_signed(record.signed_bytes()));
+    let sender = must(evm_transaction::recover_sender(&call, &signature));
+    assert_eq!(&record.signer_public_key()[..12], &[0; 12]);
+    assert_eq!(&record.signer_public_key()[12..], &sender);
     assert_eq!(record.rung(), None);
     must(journal.record_signed(&record));
     assert_eq!(must(journal.load(&id, &registry())), record);

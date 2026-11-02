@@ -6,6 +6,8 @@ from hashlib import sha256
 from typing import Literal, NoReturn
 
 from . import verifier
+from .account_derivation import keccak256
+from .evm_transaction import EvmTransactionError, decode_signed, encode_call
 from .generated.receipt import ReceiptFailureCode
 from .production import PlatformSdkError, SdkErrorCode
 from .revert import decode_revert_reason
@@ -16,8 +18,16 @@ from .verifier import (
     SequencerReceiptVerification,
 )
 
-PaymentCommitment = Literal["executed", "batched", "finalised"]
+PaymentCommitment = Literal["submitted", "receipted", "committed"]
 PAYMENT_RECEIPT_PROTOCOL_VERSIONS = (2, 3)
+PAYMENT_RUNGS = ("submitted", "receipted", "committed")
+LAYERX_LEDGER_ADDRESS = bytes.fromhex("000000000000000000000000000000000000101a")
+
+
+class PaymentCommitmentError(PlatformSdkError):
+    def __init__(self) -> None:
+        super().__init__(SdkErrorCode.VERIFICATION_FAILURE, "never")
+        self.args = ("payment commitment must follow the rung ladder: submitted -> receipted -> committed",)
 
 
 @dataclass(frozen=True)
@@ -53,13 +63,13 @@ def receipt_protocol_version(canonical_receipt: bytes) -> int:
 
 def payment_commitment(extra: object = None) -> PaymentCommitment:
     if not isinstance(extra, Mapping) or "layerx" not in extra:
-        return "executed"
+        return "receipted"
     layerx = extra["layerx"]
     if not isinstance(layerx, Mapping):
-        _failure()
+        raise PaymentCommitmentError()
     commitment = layerx.get("commitment")
-    if commitment not in ("executed", "batched", "finalised"):
-        _failure()
+    if commitment not in PAYMENT_RUNGS:
+        raise PaymentCommitmentError()
     return commitment
 
 
@@ -134,7 +144,11 @@ def verify_payment_receipt(
     pay_to: str,
     payer: str | None = None,
     return_data: bytes | None = None,
+    commitment: PaymentCommitment = "receipted",
 ) -> SequencerReceiptVerification:
+    payment_commitment({"layerx": {"commitment": commitment}})
+    if commitment == "committed":
+        _failure()
     if (
         not isinstance(amount, str)
         or not 0 < len(amount) <= 39
@@ -158,11 +172,72 @@ def verify_payment_receipt(
         receipt_keys,
         return_data=return_data,
     )
+    receipt = verified.receipt
+    try:
+        transaction, _ = decode_signed(raw_transaction)
+    except EvmTransactionError as error:
+        raise PlatformSdkError(SdkErrorCode.VERIFICATION_FAILURE, "never") from error
+    if receipt.module_id <= 11 or not receipt.effects:
+        _failure()
+    summary = receipt.effects[0]
+    body = summary.body
     if (
-        verified.receipt.amount != int(amount)
-        or verified.receipt.asset.hex() != asset
-        or verified.receipt.to_account.hex() != pay_to
-        or (payer is not None and verified.receipt.from_account.hex() != payer)
+        summary.module_id != receipt.module_id
+        or summary.ordinal != 0
+        or summary.kind != 1
+        or summary.monetary
+        or summary.event_type != 0
+        or len(body) < 110
+        or not 1 <= body[108] <= 64
+        or len(body) != 109 + body[108]
+        or int.from_bytes(body[104:108], "big") != len(receipt.effects) - 1
+        or (payer is not None and receipt.from_account.hex() != payer)
     ):
+        _failure()
+    if transaction.to != LAYERX_LEDGER_ADDRESS or transaction.value != 0:
+        _failure()
+    calldata = transaction.data
+    selector = encode_call(
+        "payExact",
+        ("bytes32", "bytes32", "bytes32", "uint128", "uint64", "bytes32"),
+        (bytes(32), bytes(32), bytes(32), 0, 0, bytes(32)),
+    )[:4]
+    if (
+        len(calldata) != 4 + 6 * 32
+        or calldata[:4] != selector
+        or calldata[36:68].hex() != pay_to
+        or calldata[68:100].hex() != asset
+        or int.from_bytes(calldata[100:132], "big") != int(amount)
+        or int.from_bytes(calldata[132:164], "big") >= 1 << 64
+    ):
+        _failure()
+    topic = keccak256(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")
+    data_digest = sha256(bytes.fromhex(asset) + int(amount).to_bytes(32, "big")).digest()
+    payments = 0
+    for index, effect in enumerate(receipt.effects[1:], 1):
+        body = effect.body
+        if (
+            effect.module_id != receipt.module_id
+            or effect.ordinal != index
+            or effect.kind != 3
+            or effect.monetary
+            or effect.event_type != 0
+            or len(body) < 53
+            or body[20] > 4
+            or len(body) != 53 + body[20] * 32
+        ):
+            _failure()
+        if body[:20] != LAYERX_LEDGER_ADDRESS or body[21:53] != topic:
+            continue
+        if (
+            body[20] != 4
+            or body[-32:] != data_digest
+            or body[53:85] != calldata[164:196]
+            or body[85:117] != calldata[4:36]
+            or body[117:149].hex() != pay_to
+        ):
+            _failure()
+        payments += 1
+    if payments != 1:
         _failure()
     return verified

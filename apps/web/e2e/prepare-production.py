@@ -9,6 +9,7 @@ import ssl
 import stat
 import subprocess
 import sys
+import urllib.error
 import urllib.request
 
 
@@ -29,6 +30,70 @@ def regular(path, private=False):
 
 def run(*arguments):
     subprocess.run(arguments, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+
+
+def decode_ramp_response(status, raw, path):
+    """Decode the reference ramp contract, keeping refusals distinct from success."""
+    if len(raw) > 1048576:
+        raise ValueError('Ramp response exceeds the decoding bound')
+    document = json.loads(raw)
+    if not isinstance(document, dict):
+        raise ValueError('Ramp response must be an object')
+    if status not in (200, 201, 202):
+        if (set(document) != {'error'} or not isinstance(document['error'], str)
+                or not document['error']):
+            raise ValueError('Malformed ramp refusal')
+        return document
+    if path == '/readyz':
+        journal = document.get('journal')
+        if (status != 200 or document.get('ready') is not True
+                or document.get('readiness_scope') != 'local-journal'
+                or document.get('external_custody') is not True
+                or type(document.get('chain_id')) is not int
+                or document['chain_id'] <= 0
+                or not isinstance(journal, dict) or journal.get('ready') is not True):
+            raise ValueError('Ramp local journal is not ready')
+    elif path == '/internal/v1/work':
+        if (not isinstance(document.get('stage'), str)
+                or not isinstance(document.get('presentation'), dict)):
+            raise ValueError('Malformed ramp work result')
+    elif path.startswith('/internal/v1/rebalances'):
+        if (document.get('settlement_domain') != 'paxeer'
+                or document.get('status') not in ('submission_planned', 'submitted', 'receipted', 'committed')
+                or not isinstance(document.get('idempotency_key'), list)
+                or len(document['idempotency_key']) != 32
+                or any(type(byte) is not int or not 0 <= byte <= 255
+                       for byte in document['idempotency_key'])):
+            raise ValueError('Malformed ramp rebalance result')
+    else:
+        raise ValueError('Unknown ramp response route')
+    return document
+
+
+def ramp_request(opener, service, path='/readyz', body=None, token=None):
+    """Read fresh HTTP answers; never retain a readiness or operation result."""
+    if path not in ('/readyz', '/internal/v1/work', '/internal/v1/rebalances') and not re.fullmatch(
+            r'/internal/v1/rebalances/[0-9a-f]{64}', path):
+        raise ValueError('Unknown ramp request route')
+    headers = {'Accept': 'application/json', 'Cache-Control': 'no-cache'}
+    if token is not None:
+        headers['Authorization'] = 'Bearer ' + token
+    data = None if body is None else json.dumps(body).encode()
+    if data is not None:
+        headers['Content-Type'] = 'application/json'
+    request = urllib.request.Request(service + path, data=data, headers=headers)
+    try:
+        response = opener.open(request, timeout=10)
+    except urllib.error.HTTPError as refusal:
+        response = refusal
+    with response:
+        if response.geturl() != service + path:
+            raise ValueError('Ramp redirect refused')
+        raw = response.read(1048577)
+        # A 503 readiness answer carries health rather than an error envelope.
+        if path == '/readyz' and response.status != 200:
+            raise ValueError('Ramp readiness refused')
+        return response.status, decode_ramp_response(response.status, raw, path)
 
 
 def prepare(repo, output):
@@ -58,6 +123,11 @@ def prepare(repo, output):
     with opener.open(service + '/readyz', timeout=10) as response:
         if response.status != 200 or response.geturl() != service + '/readyz' or len(response.read(1048577)) > 1048576:
             raise ValueError('Actual Human backend readiness refused')
+    ramp_service = os.environ.get('LAYERX_RAMP_SERVICE_URL')
+    if ramp_service is not None:
+        if re.fullmatch(r'https://[a-zA-Z0-9.-]+(?::[0-9]+)?', ramp_service) is None:
+            raise ValueError('Ramp readiness requires a bare HTTPS service URL')
+        ramp_request(opener, ramp_service)
     key, certificate = output / 'web.key', output / 'web.crt'
     run('openssl', 'genpkey', '-algorithm', 'EC', '-pkeyopt', 'ec_paramgen_curve:P-256', '-out', str(key))
     run('openssl', 'req', '-new', '-key', str(key), '-subj', '/CN=' + host, '-out', str(output / 'web.csr'))

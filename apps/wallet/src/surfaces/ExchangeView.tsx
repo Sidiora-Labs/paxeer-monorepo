@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { parseUnits } from 'viem';
 import { EndpointClient, exchange, type IntentLeg, type ModuleTransaction } from '@paxeer/wallet';
 import { SegmentedControl, TextField } from '@/components/ui/primitives';
 import { TOKENS } from '@/lib/constants';
@@ -15,7 +14,13 @@ import {
   TransactionPreview,
   buildOrError,
 } from './Surface';
-import { useFeeSelection, useModuleSend, useSurfaceWallet } from './useSurface';
+import {
+  parseSurfaceAmount,
+  parseSurfaceId,
+  useFeeSelection,
+  useModuleSend,
+  useSurfaceWallet,
+} from './useSurface';
 
 export type ExchangeAction = 'open' | 'close' | 'cancel' | 'deposit' | 'withdraw';
 
@@ -46,10 +51,8 @@ interface Built {
   readonly pull: bigint;
 }
 
-function word(id: string): string {
-  if (!/^(0|[1-9][0-9]*)$/.test(id)) throw new Error('enter a decimal id');
-  const value = BigInt(id);
-  if (value >= 1n << 256n) throw new Error('the id exceeds 32 bytes');
+export function word(id: string): string {
+  const value = parseSurfaceId(id);
   return `0x${value.toString(16).padStart(64, '0')}`;
 }
 
@@ -92,13 +95,13 @@ export function ExchangeView({ sidRate, legs }: ExchangeViewProps) {
             marketId: word(marketId),
             accountId,
             side: side === 'long' ? 1 : 2,
-            size: parseUnits(size, 18),
-            leverage: parseUnits(leverage, 18),
+            size: parseSurfaceAmount(size, 18),
+            leverage: parseSurfaceAmount(leverage, 18),
           });
           return { tx, pull: 0n };
         }
         case 'close':
-          return id ? { tx: surfaceModule.closePosition(BigInt(id)), pull: 0n } : null;
+          return id ? { tx: surfaceModule.closePosition(parseSurfaceId(id)), pull: 0n } : null;
         case 'cancel': {
           if (!id) return null;
           if (!accountId) throw new Error('the account has no resolved LayerX main account');
@@ -106,13 +109,13 @@ export function ExchangeView({ sidRate, legs }: ExchangeViewProps) {
         }
         case 'deposit': {
           if (!amount) return null;
-          const pull = parseUnits(amount, USDL.decimals);
+          const pull = parseSurfaceAmount(amount, USDL.decimals);
           return { tx: surfaceModule.deposit(USDL.address, pull), pull };
         }
         case 'withdraw':
           return amount
             ? {
-                tx: surfaceModule.withdraw(USDL.address, parseUnits(amount, USDL.decimals)),
+                tx: surfaceModule.withdraw(USDL.address, parseSurfaceAmount(amount, USDL.decimals)),
                 pull: 0n,
               }
             : null;

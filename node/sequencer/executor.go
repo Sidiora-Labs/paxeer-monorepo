@@ -3,6 +3,7 @@ package sequencer
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -32,6 +33,7 @@ var (
 	ErrSeqExhausted  = errors.New("sequencer: sequence number space exhausted")
 	ErrBeginBlock    = errors.New("sequencer: begin block failed")
 	ErrLeaseFenced   = errors.New("sequencer: executor fenced by a later lease")
+	ErrNotAdmitted   = errors.New("sequencer: transaction is not admitted")
 )
 
 var seqHashDomain = []byte(seqtypes.SeqHashDomain)
@@ -76,6 +78,7 @@ type Host interface {
 	GetConsensusParams(ctx sdk.Context) *tmproto.ConsensusParams
 	GetTxConfig() client.TxConfig
 	GetEVMMsg(tx sdk.Tx) *evmtypes.MsgEVMTransaction
+	DomainAllowance(ctx sdk.Context, chainID *big.Int) (id uint32, gas uint64, bytes uint64, active bool, known bool)
 	RefreshPrecompiles(ctx sdk.Context)
 }
 

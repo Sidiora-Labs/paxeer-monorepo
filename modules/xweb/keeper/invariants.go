@@ -10,6 +10,7 @@ import (
 func ProgramCountersInvariant(k Keeper) sdk.Invariant {
 	return func(ctx sdk.Context) (string, bool) {
 		var pending, fulfilled, headers uint64
+		var invalidAnswer string
 		for _, entry := range k.ProgramPendingEntries(ctx) {
 			record, err := DecodeProgramPendingRecord(entry.Record)
 			if err != nil {
@@ -25,13 +26,16 @@ func ProgramCountersInvariant(k Keeper) sdk.Invariant {
 		for _, entry := range k.ProgramAnswerEntries(ctx) {
 			if entry.Part == 0 {
 				headers++
+				if _, err := k.GetProgramResult(ctx, entry.ProgramID, entry.RequestID); err != nil {
+					invalidAnswer = fmt.Sprintf("; invalid program answer for program %x request %d: %v", entry.ProgramID, entry.RequestID, err)
+				}
 			}
 		}
 		storedPending := k.ProgramPendingCount(ctx)
 		storedCommitted := k.ProgramCommittedCount(ctx)
-		broken := pending != storedPending || fulfilled != storedCommitted || headers != storedCommitted
+		broken := pending != storedPending || fulfilled != storedCommitted || headers != storedCommitted || invalidAnswer != ""
 		return sdk.FormatInvariant(types.ModuleName, "program-counters", fmt.Sprintf(
 			"pending: counted=%d stored=%d; committed: counted fulfilled=%d counted answer headers=%d stored=%d",
-			pending, storedPending, fulfilled, headers, storedCommitted)), broken
+			pending, storedPending, fulfilled, headers, storedCommitted)+invalidAnswer), broken
 	}
 }
