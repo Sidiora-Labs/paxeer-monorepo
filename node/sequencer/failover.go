@@ -11,12 +11,15 @@ import (
 
 var ErrDivergentLogs = errors.New("sequencer: two logs hold different receipts for one seq")
 
+// FailoverResult identifies the durable lease and the replayed position to resume.
 type FailoverResult struct {
 	Lease      *wal.Lease
 	LastSeq    uint64
 	OpenHeight int64
 }
 
+// Failover promotes the standby only with its own receipt key pinned at openHeight.
+// The later lease is synced before the recovered position is returned.
 func Failover(s *Standby, key *ReceiptKey, openHeight int64, expiryMs uint64) (FailoverResult, error) {
 	if s == nil || key == nil {
 		return FailoverResult{}, errors.New("sequencer: failover requires a standby and receipt key")
