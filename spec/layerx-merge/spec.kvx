@@ -6603,6 +6603,24 @@ value = "issue_closure treats status superseded like status done: a task is mark
 basis = "Finding 18.0.1.1: 18.1166.1 was superseded by 18.1206.1, which is done, so issue #1166 is resolved while the closure still names it; requiring a superseded task would wait forever."
 affects = ["18.0.1"]
 
+[decision.2249]
+title = "The Foundry root profile test asserts the configuration only; building the root sources is the retirement tasks' gate"
+value = "test_root_profile_grants_no_retired_paths runs forge config --json and asserts the fs_permissions and test entries; it does not run forge build. Compiling the root Foundry sources is verified by the tasks that retire them (6.52.3 to 6.80.5), each of which builds after its deletion."
+basis = "Finding 16.12.1.4: the kept and retired sources share one profile, so a build of the root profile fails from the first retirement that deletes an imported file until the last dependent retirement lands; a configuration test cannot carry that gate."
+affects = ["16.12.1"]
+
+[decision.2250]
+title = "The express integration test proves the recorded sequencer receipt against verifyRpcPayment and restarts the server with the test-signed receipt"
+value = "integrationSettlesSignedSequencerReceipt keeps the direct verifyRpcPayment assertions over the recorded V1-layerxledger-pay-exact vector with its recorded purpose and pinned key, and the server restart loop runs with environment() and the test-signed proof: after each restart the resource is served for 200 with the same settlement header, and the fulfillment store still holds the release recorded before the restart. The served offer's purposeHash stays offerPurposeHash(LAYERX_RESOURCE_URL) (do_8)."
+basis = "Finding 15.0.4.4: the offer purpose is a function of the resource URL by decision of do_8, so no recorded receipt can match it, and the restart coverage the quality ruling asks for is carried by the receipt the test signs itself."
+affects = ["15.0.4"]
+
+[decision.2251]
+title = "The Python SDK's two kernel-era suites and the stale stub names are ported by their own task"
+value = "Task 9.97.14 ports tests/agent/sdk/python/test_integration.py and test_ai_market.py off the retired checkpoint verifier, checkpoint attestation and submission outcome names and the journal finalize they call, deletes the retired names from the layerx_sdk stubs, and adds a test that every stub name is exported; task 18.1435.3 keeps its level-name edits in both files but its verify runs the five suites that collect."
+basis = "Finding 18.1435.3.2: the two suites have failed collection on every main since 9.97.7 landed, which no task's verify observed; issue #1435 is about rung decoding and must not carry that port."
+affects = ["18.1435.3", "9.97.14"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20224,6 +20242,10 @@ title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
 
+[req.8305]
+title = "The Python SDK suites and stubs name only the live verification surface"
+ac_1 = "tests/agent/sdk/python/test_integration.py and test_ai_market.py collect and pass without any checkpoint verification, checkpoint attestation, submission outcome or journal finalize name, and a test asserts that every name services/agent/sdk/python/layerx_sdk/__init__.pyi declares is exported by layerx_sdk."
+
 [req.8304]
 title = "The hosted gateway verifies a withdrawal completion receipt through receipt::verify_outcome"
 ac_1 = "verify_withdrawal_submission verifies a module 1 operation 9 receipt with layerx_proof::receipt::verify_outcome against the authorised batch of the receipt's key and refuses a receipt whose activity id differs from the operation's, with the unit test passing and layerx-platform-gateway building with --all-targets."
@@ -33804,6 +33826,15 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.9.97.14]
+title = "Port the Python SDK integration and AI market suites off the retired checkpoint verifier and align the stubs"
+reqs = ["8305.1"]
+touches = ["tests/agent/sdk/python/test_integration.py", "tests/agent/sdk/python/test_ai_market.py", "services/agent/sdk/python/layerx_sdk/__init__.pyi", "services/agent/sdk/python/layerx_sdk/verifier.pyi", "tests/agent/sdk/python/test_stub_surface.py"]
+tests = ["tests/agent/sdk/python/test_stub_surface.py::test_stub_names_are_exported"]
+verification_contract = "python3 -m pytest -q tests/agent/sdk/python/test_ai_market.py tests/agent/sdk/python/test_integration.py tests/agent/sdk/python/test_stub_surface.py"
+do_1 = "In tests/agent/sdk/python/test_integration.py delete test_checkpoint_attestation_exposes_canonical_paxeer_binding (:458-480) and the CheckpointAttestation import (:29); rewrite test_unknown_idempotency_and_future_result_codes_remain_lossless (:504) without SubmissionUnknown and SubmissionFailed (imports :43-44, uses :505-506), keeping its IdempotentMutation assertions over the request id, key, body digest and the oversized amount."
+symbols = ["test_stub_names_are_exported"]
+
 [capability.8.101.1]
 title = "Port the hosted gateway's withdrawal completion check to receipt::verify_outcome"
 reqs = ["8304.1"]
@@ -33890,7 +33921,7 @@ title = "Issue #1435: Accept the daemon's pending and absent verification status
 reqs = ["8299.1"]
 touches = ["services/agent/sdk/python/layerx_sdk/agent_http.py"]
 tests = ["tests/agent/sdk/python/test_agent_envelope_not_ready.py"]
-verification_contract = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py tests/agent/sdk/python/test_agent_operation_envelope.py tests/agent/sdk/python/test_program_typed_responses.py tests/agent/sdk/python/test_program_trust.py tests/agent/sdk/python/test_ai_market.py tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py tests/agent/sdk/python/test_integration.py"
+verification_contract = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py tests/agent/sdk/python/test_agent_operation_envelope.py tests/agent/sdk/python/test_program_typed_responses.py tests/agent/sdk/python/test_program_trust.py tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py"
 do_1 = "In services/agent/sdk/python/layerx_sdk/agent_http.py _valid_verification_status (:758) accept {state: pending, requested, achieved} with both levels in _LEVELS and achieved strictly below requested, and {state: absent, requested} with requested in _LEVELS; keep every other shape refused."
 symbols = ["_valid_verification_status"]
 
@@ -118340,7 +118371,7 @@ do_3 = "In the test module of services/human/crates/layerx-human-service/src/bin
 do_4 = "In services/human/crates/layerx-human-service/src/activity/export.rs remove CheckpointFact from the import at :6 and the checkpoints field of ReceiptExport (:67) with its constructions at services/human/crates/layerx-human-service/tests/export_receipts.rs:101, services/human/crates/layerx-human-service/tests/export.rs:88 and services/human/crates/layerx-human-service/src/server/production_components.rs:5953; remove verified_checkpoints from BundleReport (field :598, accessor :619, doc example :726, constructions :430 and :502) and from the VerificationReport construction at :1099; verified_receipts and verified_inclusions stay."
 do_5 = "Build the crate with --all-targets, run the export and export_receipts tests and the KMS retired_crypto_codec_w3 test; change nothing in layerx-intents or layerx-proof."
 symbols = ["attach_call_signature", "verify_owner_activity"]
-touches = ["services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs", "services/human/crates/layerx-human-service/src/custody/mod.rs"]
+touches = ["services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs", "services/human/crates/layerx-human-service/src/custody/mod.rs", "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs", "services/human/crates/layerx-human-service/tests/agent_create.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets"
@@ -118357,6 +118388,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 10.21.8.1: in services/human/crates/layerx-human-service/src/custody/mod.rs add `pub(crate) use signer::attach_call_signature;` beside the existing re-exports and call crate::custody::attach_call_signature from agent_creation.rs:436; continue from attempt 1 (6a5931e17) rebased onto current main with that change and run the declared build and verify once as written."
+do_7 = "Finding 10.21.8.2: in services/human/crates/layerx-human-service/tests/support/canonical_owner.rs delete sign (:25-66) and the imports only it used, keeping SignedOwner, sign_transaction, budget_create_calldata and assert_outcome; at services/human/crates/layerx-human-service/tests/agent_create.rs:896 rewrite the case over canonical_owner::sign_transaction as agent_creation_rungs.rs:258 does, or delete the case when it asserts acceptance of a kernel owner envelope, which decision 1023 retires. Continue from attempt 2 (2d3858fb8) rebased onto current main with those changes, and run the declared build and verify once as written."
 
 [task.18.1441.1]
 title = "Issue #1441: Port live_kinds to the retained intent kinds"
@@ -174990,6 +175022,7 @@ do_7 = "Each LAYERX_RECEIPT_KEYS_JSON entry is an object with exactly keyId, pub
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_8 = "Finding 15.0.4.2: in readDeclaredConfig (sdk/integrations/express/src/index.ts:256-264) give the PaymentRequirements extra: { layerx: { commitment: 'receipted', purposeHash: offerPurposeHash(resourceUrl) } }, where the new exported offerPurposeHash(resourceUrl: string) returns the lowercase hex sha256 of 'layerx-express-purpose:' followed by LAYERX_RESOURCE_URL (a non-zero 64-hex value, as seller/src/commitment.ts:59-64 requires; commitment receipted per decision.821); the buyer carries the offer's purposeHash into its draw context unchanged, so the seller's PaymentExact reference matches; have integrationSettlesSignedSequencerReceipt assert the 402 offer's accepts[0].extra.layerx.purposeHash equals offerPurposeHash of the configured URL before paying. Then continue from attempt 5 (fb3e6c9e4) rebased onto current main, keeping its two files, and run the declared build and verify once as written."
 do_9 = "Finding 15.0.4.3: in integrationSettlesSignedSequencerReceipt assert portable.receiptDigest equal to hex(keccak256(bytes(payment.signedReceipt))), as services/platform/middleware/buyer/test/portable-receipts.test.mjs:36 derives it, not to payment.receiptDigest, which is the sequencer's signing digest; the recovered repository entry is compared the same way. Continue from attempt 6 (f2afd6c8c) rebased onto current main with only that change, and run the declared build and verify once as written."
+do_10 = "Decision 2250 (finding 15.0.4.4): in integrationSettlesSignedSequencerReceipt keep the recorded-vector section up to the portable receipt assertions (:310-346 of attempt 7) and make the restart loop (:347 onward) restart the server with environment(), fetch the 402 offer, pay with the test-signed proof encoded as in the first round trip, assert 200, the resource body, settlement.success and settlement.transaction equal to the first round trip, and assert fulfillments.get(releases[0].idempotencyKey) still returns the stored release after the restart; continue from attempt 7 (8cd21079b) rebased onto current main with only that change, and run the declared build and verify once as written."
 
 [task.15.0.5]
 title = "Keep a registered module error's codespace and code through the gRPC query handler of BaseApp"
@@ -179049,7 +179082,7 @@ fulfils = ["wiring.J59.4"]
 do_1 = "Delete the ./tests/vectors/checkpoint and ./contracts/config read entries from fs_permissions in foundry.toml (lines 17-20), whose readers are the retired checkpoint and native withdrawal tests, keeping the profile that forge build reads through workspace-build at Makefile:3311 (decision.1605)."
 do_2 = "Delete test = \"tests/solidity\" from foundry.toml (line 3), because every Solidity suite under tests/solidity is deleted by the tests owner, so forge build --root . at Makefile:3311 and :3317 compiles only src = contracts."
 do_3 = "Keep src = contracts and the optimizer settings in foundry.toml (lines 2 and 5-15), which still build the kept contracts such as contracts/governance/SidioraProxyTimelock.sol:1 for workspace-build at Makefile:3309."
-do_4 = "Create tools/ci/tests/test_foundry_profile.py (planned) with FoundryProfileTest.test_root_profile_grants_no_retired_paths, which runs forge config --json from the repository root, asserts exit 0, that fs_permissions names neither tests/vectors/checkpoint nor contracts/config and that test is not tests/solidity, and runs forge build --offline and asserts exit 0."
+do_4 = "Create tools/ci/tests/test_foundry_profile.py (planned) with FoundryProfileTest.test_root_profile_grants_no_retired_paths, which runs forge config --json from the repository root, asserts exit 0, that fs_permissions names neither tests/vectors/checkpoint nor contracts/config and that test is not tests/solidity; it runs no forge build (decision 2249)."
 symbols = ["FoundryProfileTest", "test_root_profile_grants_no_retired_paths"]
 touches = ["foundry.toml", "tools/ci/tests/test_foundry_profile.py"]
 tests = ["tools/ci/tests/test_foundry_profile.py::FoundryProfileTest.test_root_profile_grants_no_retired_paths"]
@@ -179070,6 +179103,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_5 = "Finding 16.12.1.2: attempt 1 (ee97281de) completed both files and failed only because the qualification environment lacked the pinned solc 0.8.27 for the offline build; continue from attempt 1 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 do_6 = "Finding 16.12.1.3: the build is forge config --json, which parses the edited root profile, plus a byte-compile of the test module; the root Foundry sources are not this task's to compile while their retirement tasks are pending. Continue from attempt 3 (1912f7cd1) rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
+do_7 = "Decision 2249 (finding 16.12.1.4): continue from attempt 4 (80a5b4bb8) rebased onto current main, delete the forge build --offline invocation and its exit assertion from test_root_profile_grants_no_retired_paths (tools/ci/tests/test_foundry_profile.py:30-35 of that attempt), keep everything else unchanged, and run the declared build and verify once as written."
 
 [task.16.21.1]
 title = "Give the C test harness a single-case selector: lxp_test_run_one and --run <name>"
@@ -189630,6 +189664,14 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.9.97.14.1]
+feature = "9"
+req = "8305.1"
+scenario = "Given main after task 9.97.7, when pytest collects test_integration.py, test_ai_market.py and test_stub_surface.py, then every test passes and no checkpoint verification, checkpoint attestation, submission outcome or journal finalize name is imported, and every name the __init__.pyi stub declares is an attribute of layerx_sdk"
+contract = "contracts/clients.md"
+test = "tests/agent/sdk/python/test_stub_surface.py"
+qualification = "UNRUN"
+
 [acceptance.8.101.1.1]
 feature = "8"
 req = "8304.1"
@@ -195520,6 +195562,38 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx-merge/programme/tests/test_issue_closure.py: a temporary spec with one done and one superseded 18.x task returns an empty list."
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
 
+[task.9.97.14]
+title = "Port the Python SDK integration and AI market suites off the retired checkpoint verifier and align the stubs"
+status = "pending"
+mode = "BUILD"
+wave = 30
+requires = ["18.1435.3", "9.97.7"]
+reqs = ["8305.1"]
+capabilities = ["9.97.14"]
+interfaces = []
+do_1 = "In tests/agent/sdk/python/test_integration.py delete test_checkpoint_attestation_exposes_canonical_paxeer_binding (:458-480) and the CheckpointAttestation import (:29); rewrite test_unknown_idempotency_and_future_result_codes_remain_lossless (:504) without SubmissionUnknown and SubmissionFailed (imports :43-44, uses :505-506), keeping its IdempotentMutation assertions over the request id, key, body digest and the oversized amount."
+do_2 = "In tests/agent/sdk/python/test_ai_market.py delete checkpoint_for (:337-357) and the layerx_sdk.verifier imports of CheckpointAttestation, CheckpointCertificate, CheckpointVerificationInput, GuarantorKey, _attestation_message, decode_batch_header and verify_checkpoint (:102-111); OperationJournal (services/agent/sdk/python/layerx_sdk/ai_market.py:1529) defines no finalize, so in test_binding_requires_its_own_checkpoint_root_and_sequence_range (:465) and test_a08_lost_acknowledgment_stays_unknown_until_receipt_and_checkpoint (:1003) drop the finalize calls, the FinalityMismatch refusal and the checkpoint assertions, keep every submit, resolve, resend_exact, expire, persist, load and on-disk assertion, and rename the two tests to say what they still prove."
+do_3 = "Delete from services/agent/sdk/python/layerx_sdk/__init__.pyi and services/agent/sdk/python/layerx_sdk/verifier.pyi the declarations of BatchHeader, CheckpointAttestation, CheckpointCertificate, CheckpointVerification, CheckpointVerificationInput, GuarantorKey, InclusionVerification, PaymentCheckpointEvidence, ProtocolReceipt, ReceiptEffect, RpcCheckpointAuthority, SequencerAuthorization, decode_batch_header, rpc_checkpoint_evidence, verify_batch_inclusion, verify_checkpoint, verify_merkle_inclusion, verify_program_receipt, verify_receipt and verify_receipt_outcome, none of which services/agent/sdk/python/layerx_sdk/__init__.py exports since task 9.97.7; keep every declaration whose name the module exports."
+do_4 = "Create tests/agent/sdk/python/test_stub_surface.py (planned) with test_stub_names_are_exported: read services/agent/sdk/python/layerx_sdk/__init__.pyi, collect every name of its `from .<module> import <Name> as <Name>` lines, import layerx_sdk and assert each name is an attribute of the package, printing the missing names on failure."
+do_5 = "Run the three suites; change nothing under services/agent/sdk/python/layerx_sdk other than the two stub files."
+symbols = ["test_stub_names_are_exported"]
+touches = ["tests/agent/sdk/python/test_integration.py", "tests/agent/sdk/python/test_ai_market.py", "services/agent/sdk/python/layerx_sdk/__init__.pyi", "services/agent/sdk/python/layerx_sdk/verifier.pyi", "tests/agent/sdk/python/test_stub_surface.py"]
+tests = ["tests/agent/sdk/python/test_stub_surface.py::test_stub_names_are_exported"]
+planned_paths = ["tests/agent/sdk/python/test_stub_surface.py"]
+build_cmd = "python3 -m py_compile tests/agent/sdk/python/test_integration.py tests/agent/sdk/python/test_ai_market.py tests/agent/sdk/python/test_stub_surface.py"
+verify_cmd = "python3 -m pytest -q tests/agent/sdk/python/test_ai_market.py tests/agent/sdk/python/test_integration.py tests/agent/sdk/python/test_stub_surface.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits; the two suites return to failing collection and the stubs to their prior names."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1437.1]
 title = "Issue #1437: Document the vulnerability report response targets in SECURITY.md"
 status = "done"
@@ -195564,7 +195638,7 @@ touches = ["services/agent/sdk/python/layerx_sdk/agent_http.py", "tests/agent/sd
 tests = ["tests/agent/sdk/python/test_agent_envelope_not_ready.py"]
 planned_paths = ["tests/agent/sdk/python/test_agent_envelope_not_ready.py"]
 build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/agent_http.py tests/agent/sdk/python/test_agent_envelope_not_ready.py"
-verify_cmd = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py tests/agent/sdk/python/test_agent_operation_envelope.py tests/agent/sdk/python/test_program_typed_responses.py tests/agent/sdk/python/test_program_trust.py tests/agent/sdk/python/test_ai_market.py tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py tests/agent/sdk/python/test_integration.py"
+verify_cmd = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py tests/agent/sdk/python/test_agent_operation_envelope.py tests/agent/sdk/python/test_program_typed_responses.py tests/agent/sdk/python/test_program_trust.py tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-agent"
@@ -195577,6 +195651,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Decision 2243 (finding 18.1435.3.1): replace _LEVELS (services/agent/sdk/python/layerx_sdk/agent_http.py:201-208) with submitted 0, receipted 1 and committed 2, keeping the comparisons at :352, :408, :762 and :769-770 on that table; update the nine sites of the six tests tests/agent/sdk/python/test_agent_operation_envelope.py, tests/agent/sdk/python/test_program_typed_responses.py, tests/agent/sdk/python/test_program_trust.py, tests/agent/sdk/python/test_ai_market.py, tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py, tests/agent/sdk/python/test_integration.py to the rung names; continue from attempt 1 (11d9a4488) rebased onto current main with those changes and run the declared build and verify once as written."
+do_4 = "Decision 2251 (finding 18.1435.3.2): the verify runs the five suites that collect; test_ai_market.py and test_integration.py keep the level-name edits of attempt 2 and are repaired by task 9.97.14. Continue from attempt 2 (ab900e18e) rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.6.60.6]
 title = "Drop the Makefile's test-owner-movement-proof target"
