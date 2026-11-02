@@ -151714,7 +151714,7 @@ do_9 = "Finding 9.28.1.3: attempt 4 (911705b1a) removed the crate and its depend
 
 [task.9.28.2]
 title = "Delete the layerx-paxeer-verifier crate sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.28.1", "18.1304.1", "9.25.16", "13.8.3", "9.28.3"]
