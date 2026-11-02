@@ -16827,3 +16827,35 @@ symbol = "sign-credit"
 observed = "Attempt 1 (4ea8318b6 on 5fba30b5a) deleted the four harness files and added tests/bridge/retired/test_retired_credit_c_harness.py; the retirement check failed because Makefile:944-949 and :950-954 still define the rules $(BUILD_DIR)/tests/bridge/sign-credit and $(BUILD_DIR)/tests/bridge/test-credit from tests/bridge/sign_credit.c and tests/bridge/test_credit.c; no runner target references either rule."
 assumption = "Spec defect: the touches omitted the Makefile rules of the deleted sources; the Makefile is added and the task continues from attempt 1."
 severity = "minor"
+
+[finding.18.670.1.17]
+task = "18.670.1"
+file = "rpc/simulate.go:336"
+symbol = "ctxAtHeight"
+observed = "Attempt 19 (b8b5cd2d3 on 5fba30b5a) kept attempt 18 unchanged; the verify's restart subtests failed at e2e_test.go:503 with 'estimate transfer: method handler crashed', and the node log records eth_estimateGas panicking with the base app's 'cannot query with height in the future' (sdk/baseapp/abci.go:691) raised by RPCContextProvider at node/app.go:3449, reached from ctxAtHeight (rpc/simulate.go:336) through GetCustomPrecompiles (:930), which DoEstimateGas calls with the number of the header it was given for the pending tag: the open block 34742916 sealed between the pending state read and the precompile lookup while the committed state was still 34742915, resolvePending no longer matched the height, and the provider was asked for a query context above the committed height."
+assumption = "Product defect in the simulation backend, not in the task: task 5.5.25 answers a height above the committed one from the committed state after the seal, and 18.670.1 requires it and continues from attempt 19 unchanged."
+severity = "major"
+
+[finding.8.26.1.1]
+task = "8.26.1"
+file = "services/platform/middleware/conformance/src/scenarios.ts:48"
+symbol = "FixedBatchResolver"
+observed = "Attempt 1 (262c13e63) changed receipts.ts and support.ts as the task states and added the three tests; the declared build failed in the conformance package (tsc -p tsconfig.json compiles src/**/*.ts) with 21 errors in src/scenarios.ts, which task 8.26.2 ports: four from this task's own changes (FixedBatchResolver and CONFORMANCE_PROTOCOL_VERSION no longer exported, buyer construction, SignedReceipt fields) and the rest pre-existing on main since 8.22.4 (f362f37d5, 2026-10-27) and the seller and SDK ports: verifyReceipt is no longer exported by the TypeScript SDK, ReceiptVerification is not the seller's PaymentReceiptVerification, authorizedBatch, canonicalReceipt and evidence are not fields of SignedReceipt, protocolVersion is not a BuyerMiddlewareConfig field, InMemoryFulfillmentRepository lacks the get method FulfillmentRepository requires, and one byte parameter is untyped; the package has not compiled on main since then, so 8.26.1, 8.26.2, 8.26.3, 8.26.6 and 8.26.7 all fail their build as written."
+assumption = "Spec defect: the task's build compiles the package's own consumer that it leaves to a later task; 8.26.1 takes the scenarios.ts port so the package compiles, requires 8.23.3 so the buyer API it codes against is final, and continues from attempt 1."
+severity = "major"
+
+[finding.18.1441.1.1]
+task = "18.1441.1"
+file = "services/human/crates/layerx-intents/tests/live_kinds.rs:1"
+symbol = "kind_index"
+observed = "Attempt 1 (024cbd9b0) rewrote tests/live_kinds.rs for the sixteen retained kinds indexed 0 to 15; the declared build (cargo test -p layerx-intents --test live_kinds --no-run) failed in layerx-agentd, a dependency of layerx-intents, with the five export API errors of finding 9.27.3.1 (E0061 at src/audit/export.rs, E0609 verified_checkpoints, E0599 OfflineTrustError::NetworkId and FactSelector::Checkpoint), which task 9.27.9 repairs; the task's own file compiled no further because the dependency did not."
+assumption = "Producer gap already ruled: 18.1441.1 requires 9.27.9 and continues from attempt 1 unchanged once it is on main."
+severity = "minor"
+
+[finding.16.12.1.2]
+task = "16.12.1"
+file = "foundry.toml:6"
+symbol = "solc_version"
+observed = "Attempt 1 (ee97281de) removed the two read permissions and the test directory from foundry.toml and added tools/ci/tests/test_foundry_profile.py as the task states; the declared build forge build --offline exited 1 with 'can't install missing solc 0.8.27 in offline mode' before compiling anything, because the qualification environment had fetched no compiler for the repository root's foundry.toml; the change itself does not touch solc_version."
+assumption = "Environmental: the qualification environment now fetches the pinned compiler of the repository root before an offline build; the task continues from attempt 1 unchanged."
+severity = "minor"
