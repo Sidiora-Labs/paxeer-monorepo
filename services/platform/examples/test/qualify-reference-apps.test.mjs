@@ -3,6 +3,8 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
+import { verifySequencerReceipt } from "@sidiora/layerx-sdk";
+import { programReceiptOutcome } from "../marketplace/receipt-outcome.mjs";
 import { qualifyReferenceAppOutcomes } from "../qualify-reference-apps.mjs";
 
 async function qualifierRefusesSequencerSignedLabel() {
@@ -10,6 +12,22 @@ async function qualifierRefusesSequencerSignedLabel() {
   const path = join(directory, "outcomes.json");
   try {
     const resource = await readFile(new URL("../paid-api/resource.json", import.meta.url), "utf8");
+    const vectors = JSON.parse(await readFile(new URL(
+      "../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", import.meta.url,
+    ), "utf8"));
+    assert.equal(vectors.provenance.generator, "rpc/sequencer_receipt_vectors_test.go");
+    const bytes = (value) => Uint8Array.from(Buffer.from(value.slice(2), "hex"));
+    const marketplace = await Promise.all(["deploy", "list", "buy"].map(async (action, index) => {
+      const vector = vectors.cases[index];
+      const verified = await verifySequencerReceipt(bytes(vector.signedReceipt), bytes(vector.rawTransaction), [{
+        keyId: bytes(vector.pinnedKey.keyId), publicKey: bytes(vector.pinnedKey.publicKey),
+        first_height: BigInt(vector.pinnedKey.firstHeight), last_height: BigInt(vector.pinnedKey.lastHeight),
+      }]);
+      return {
+        application: "marketplace", environment: "emulator", action,
+        ...programReceiptOutcome(vector.receiptJson, verified, vector.expected.rung),
+      };
+    }));
     const outcomes = [
       { application: "paid-api", environment: "emulator", path: "/paid", listening: 8080 },
       {
@@ -21,11 +39,7 @@ async function qualifierRefusesSequencerSignedLabel() {
         application: "merchant-shop", environment: "emulator", state: "paid", orderId: "reference-order",
         rung: "committed", receiptDigest: "2".repeat(64), transactionHash: `0x${"b".repeat(64)}`,
       },
-      ...["deploy", "list", "buy"].map((action, index) => ({
-        application: "marketplace", environment: "emulator", action, state: "completed", resultCode: 0,
-        rung: index === 1 ? "committed" : "receipted",
-        receiptDigest: String(index + 3).repeat(64), transactionHash: `0x${String(index + 3).repeat(64)}`,
-      })),
+      ...marketplace,
       {
         environment: "emulator", state: "completed",
         applications: ["buyer-agent", "paid-api", "merchant-shop", "marketplace"],
@@ -71,6 +85,24 @@ async function qualifierRefusesSequencerSignedLabel() {
       code: "ERR_ASSERTION", message: "distinct real economic operations reused a transaction\n\n4 !== 5\n",
       actual: 4, expected: 5, operator: "strictEqual",
     });
+
+    for (let index = 3; index <= 5; index += 1) {
+      for (const resultCode of [undefined, 1, "0", null]) {
+        const invalidCode = structuredClone(outcomes);
+        invalidCode[index].resultCode = resultCode;
+        await writeFile(path, JSON.stringify(invalidCode));
+        await assert.rejects(qualifyReferenceAppOutcomes(path, "emulator"), {
+          code: "ERR_ASSERTION", message: /result code must indicate success/u,
+        });
+      }
+      const legacyStatus = structuredClone(outcomes);
+      delete legacyStatus[index].resultCode;
+      legacyStatus[index].status = 1;
+      await writeFile(path, JSON.stringify(legacyStatus));
+      await assert.rejects(qualifyReferenceAppOutcomes(path, "emulator"), {
+        code: "ERR_ASSERTION", message: /result code must indicate success/u,
+      });
+    }
 
     const reusedReceipt = structuredClone(outcomes);
     reusedReceipt[5].receiptDigest = reusedReceipt[1].receiptDigest;

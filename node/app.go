@@ -921,6 +921,8 @@ func New(
 		tokenfactorykeeper.NewMsgServerImpl(app.TokenFactoryKeeper), &app.EvmKeeper)
 	app.PricefeedKeeper = pricefeedkeeper.NewKeeper(keys[pricefeedtypes.StoreKey], &app.StakingKeeper, app.AccountKeeper, &app.EvmKeeper)
 	app.PerpsKeeper = perpskeeper.NewKeeper(keys[perpstypes.StoreKey], &app.EvmKeeper, app.PricefeedKeeper)
+	// The module and served spot precompiles share this stateless keeper;
+	// every view reads the store attached to its call context.
 	app.SpotKeeper = spotkeeper.NewKeeper(keys[spottypes.StoreKey], app.BankKeeper, &app.EvmKeeper, app.PricefeedKeeper)
 	app.XWebKeeper = xwebkeeper.NewKeeper(keys[xwebtypes.StoreKey], app.BankKeeper, &app.EvmKeeper)
 	app.SequencerKeeper = seqkeeper.NewKeeper(keys[seqtypes.StoreKey])
@@ -2921,6 +2923,11 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 }
 
 func (app *App) DomainAllowance(ctx sdk.Context, chainID *big.Int) (id uint32, gas uint64, bytes uint64, active bool, known bool) {
+	// The root chain follows the application's configured EVM chain ID, just
+	// as ante validation does; it does not consume a virtual domain allowance.
+	if chainID != nil && chainID.Cmp(app.EvmKeeper.ChainID(ctx)) == 0 {
+		return 0, 0, 0, true, true
+	}
 	id, known = layerxchainstypes.DomainOfChainID(chainID)
 	if !known {
 		return 0, 0, 0, false, false
@@ -3552,7 +3559,8 @@ func (app *App) SnapshotAwareRPCContextProvider() evmrpc.TraceContextProvider {
 	})
 }
 
-// RegisterTendermintService implements the Application.RegisterLocalServices method.
+// RegisterLocalServices installs the local query services and the RPC options
+// supplied by the sequencer before either EVM server starts.
 func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.TxConfig) {
 	authtx.RegisterTxService(app.GRPCQueryRouter(), node, txConfig, app.Simulate, app.interfaceRegistry)
 	tmservice.RegisterTendermintService(app.GRPCQueryRouter(), node, app.interfaceRegistry)

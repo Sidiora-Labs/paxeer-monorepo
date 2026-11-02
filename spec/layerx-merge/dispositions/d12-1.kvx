@@ -1,0 +1,124 @@
+[disposition.12.0.3.1]
+finding = "12.0.3.1"
+status = "resolved"
+evidence = "Current main at spec/layerx-merge/spec.kvx:173884 names only the surviving route and test symbols, removing the graph requirement for startLayerxSync after 4c9c32493 deleted the mirror worker."
+
+[disposition.12.3.3]
+finding = "12.3.3"
+status = "resolved"
+evidence = "Commit 070fba60c removed the ActivityRequest and KindLXActivity branches from Server.evaluate and migrated the server and command tests to EvaluateSendAuthorization, matching services/wallet/attestor/internal/server/sign.go:497 on current main."
+
+[disposition.12.4.4]
+finding = "12.4.4"
+status = "resolved"
+evidence = "Commit 7d811547b preserved ErrorCodes as a map and updated the command caller to pass its keys to health.NewMetrics, as services/wallet/attestor/cmd/attestor/main.go:137 shows on current main."
+
+[disposition.12.5.5]
+finding = "12.5.5"
+status = "resolved"
+evidence = "Commit d74642183 replaced external receipt hashes and RPC inputs with an in-process JSON-RPC server, whose current implementation at services/wallet/gateway/test/chain-reads-receipt.test.ts:60 supplies success, revert and missing receipts."
+
+[disposition.12.6.2]
+finding = "12.6.2"
+status = "resolved"
+evidence = "Commit c7c16a642 created a PKIX authority public key and supplied the three authority variables to every attestor, which remain present at services/wallet/gateway/test/provisioning.test.ts:286 on current main."
+
+[disposition.12.6.2.1]
+finding = "12.6.2.1"
+status = "resolved"
+evidence = "Current main at services/wallet/gateway/test/provisioning.test.ts:427 supplies the identity binding key, tenant and signed inventory files before startPostgres imports env.ts, satisfying the required configuration check at services/wallet/gateway/src/env.ts:260."
+
+[disposition.12.6.3]
+finding = "12.6.3"
+status = "resolved"
+evidence = "Commit f9225cc06 implemented the station-sponsored bind using the account budget selected by services/interop/crates/layerx-gas-station/src/station.rs:664 and added migration 020 to persist station quote nonce, batch nonce and request alongside the bind transaction hash."
+
+[disposition.12.6.3.2]
+finding = "12.6.3.2"
+status = "resolved"
+evidence = "Commit f9225cc06 added eip7702_authorization to the attestor client, migration 020 station columns and sponsored bind submission, with current main at services/wallet/gateway/src/provision/state.ts:518 retaining the account-based quote before submission."
+
+[disposition.12.6.6.1]
+finding = "12.6.6.1"
+status = "resolved"
+evidence = "Commit d7e6dfd9f wired cfg.AgentPaymaster into AuthorityConfig and configured the harness paymaster, as services/wallet/attestor/cmd/attestor/main.go:204 and services/wallet/gateway/test/provisioning.test.ts:282 show on current main."
+
+[disposition.12.6.6.2]
+finding = "12.6.6.2"
+status = "resolved"
+evidence = "Current main at services/wallet/gateway/test/provisioning.test.ts:1037 compares the active agent DID with did:layerx followed by agent.publicKeyHex, as implemented by d7e6dfd9f instead of the obsolete did:matrix expectation."
+
+[disposition.12.6.6.3]
+finding = "12.6.6.3"
+status = "resolved"
+evidence = "Current main admits both migrated-wallet key curves at services/wallet/gateway/test/provisioning.test.ts:466 and returns awaiting owner before signing at services/wallet/gateway/src/provision/state.ts:490, while d7e6dfd9f added the outcome reason to the unchanged awaiting_owner assertion at services/wallet/gateway/test/provisioning.test.ts:893."
+
+[disposition.12.7.2]
+finding = "12.7.2"
+status = "resolved"
+evidence = "Commit 5706f47c3 narrowed ActionKind without deleting retainActionCustodyAuthorization, whose declaration at services/wallet/gateway/src/db/actions.ts:298 still serves the replay caller at services/wallet/gateway/src/routes/agentActions.ts:157 on current main."
+
+[disposition.12.10.4]
+finding = "12.10.4"
+status = "environment"
+evidence = "Current main at services/wallet/gateway/test/support/postgres.ts:40 requires externally installed initdb and pg_ctl through PG_BIN_DIR or the PostgreSQL 16 default, so the recorded missing server binaries were a qualification environment dependency."
+
+[disposition.12.10.4.2]
+finding = "12.10.4.2"
+status = "resolved"
+evidence = "Current main at services/wallet/gateway/test/evm-sign.test.ts:438 removes value from the structural comparison and separately asserts the parsed zero value and transaction serialization, as landed in d84caa914."
+
+[disposition.12.13.2.1]
+finding = "12.13.2.1"
+status = "environment"
+evidence = "The recorded 502 responses required a reachable node serving the precompiles, and current main at spec/layerx-merge/spec.kvx:175251 provisions the local node and passes LOCAL_NODE_RPC as HYPERPAXEER_RPC_URL to the scheduler route tests landed in 6a5f0fcbe."
+
+[disposition.12.13.2.2]
+finding = "12.13.2.2"
+status = "resolved"
+evidence = "Commit d839b262d added the local fixture merge upgrade and handler probes, retained at tools/qualification/localnode/v6120-node.sh:100, while services/wallet/gateway/src/precompiles.ts:61 now probes eth_call instead of requiring bytecode at native precompile addresses."
+
+[disposition.12.18.2]
+finding = "12.18.2"
+status = "resolved"
+evidence = "Commit 0b9902417 replaced the stale budget-fund encoding with the canonical versioned payload and supplied budget state to its binder, and current main at services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/src/main.rs:580 validates vector fields without the old context-free bind call."
+
+[disposition.12.18.2.2]
+finding = "12.18.2.2"
+status = "resolved"
+evidence = "Commit 0b9902417 regenerated budget-fund with the canonical version-1 50-byte payload, still pinned at services/wallet/attestor/internal/policy/lx/testdata/kernel_activities.json:83 instead of the former 0x4202 six-field layout."
+
+[disposition.12.23.4]
+finding = "12.23.4"
+status = "resolved"
+evidence = "Current main at sdk/wallet/src/provider.ts:11 imports the existing waitForSequencerReceipt implementation from receipt.ts and invokes it at sdk/wallet/src/provider.ts:344, completing the provider path landed by d8ec0e761."
+
+[disposition.12.24.5.1]
+finding = "12.24.5.1"
+status = "resolved"
+evidence = "Commit 2548259f3 removed the network.kernel access from KernelAvailability.current, which now derives availability from the consensus head through sdk/wallet/src/kernel.ts:31 on current main."
+
+[disposition.12.33.1]
+finding = "12.33.1"
+status = "resolved"
+evidence = "Commit e90ee7775 migrated WebDataView and useSurface to rung, block_number and state_root, visible at apps/wallet/src/surfaces/WebDataView.tsx:64, and the companion ladder and transfer changes landed in 3e726112a and 2153419b0."
+
+[disposition.12.33.2]
+finding = "12.33.2"
+status = "resolved"
+evidence = "Commit 4a2160446 migrated the exchange module, ExchangeView and web caller to perps v2 shapes, with sdk/wallet/src/modules/exchange.ts:54 on current main passing both orderId and accountId to perpsCancelOrderCall."
+
+[disposition.12.33.5]
+finding = "12.33.5"
+status = "resolved"
+evidence = "Commit 28efdf736 updated the swap hook to destructure hash from the executor result before setTxHash, as apps/wallet/src/widgets/swap/useSwapExecution.ts:68 shows on current main."
+
+[disposition.12.34.1]
+finding = "12.34.1"
+status = "resolved"
+evidence = "Commit 2153419b0 changed transfer completion to the committed rung, and apps/wallet/src/components/TransferSuccess.tsx:253 on current main no longer compares SequencerRung with final."
+
+[disposition.12.34.1.1]
+finding = "12.34.1.1"
+status = "resolved"
+evidence = "Commit e90ee7775 migrated the surface observation producer, consumer and tests together, with apps/wallet/src/surfaces/useSurface.ts:900 producing rung, block_number and state_root and apps/wallet/src/surfaces/WebDataView.tsx:64 reading those fields on current main."

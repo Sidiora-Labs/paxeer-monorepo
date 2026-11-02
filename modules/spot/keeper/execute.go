@@ -106,6 +106,8 @@ func (k *Keeper) restingCursors(ctx sdk.Context) (types.EndBlockCursors, error) 
 	return cursors, nil
 }
 
+// ExecuteResting publishes its cached state only after all scans succeed.
+// EndBlocker exposes the returned counters as the block's resting event.
 func (k *Keeper) ExecuteResting(ctx sdk.Context) (RestingExecution, error) {
 	var work RestingExecution
 	if ctx.BlockHeight() < 0 || ctx.BlockTime().Unix() < 0 {
