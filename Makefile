@@ -2792,7 +2792,6 @@ test-programs-oracle-read: $(BUILD_DIR)/tests/test_programs_oracle_read
 	tests/ledger/lxp_check_sole_writer.sh
 
 $(BUILD_DIR)/tests/test_programs_web_read: tests/test_programs_web_read.c \
-		tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
