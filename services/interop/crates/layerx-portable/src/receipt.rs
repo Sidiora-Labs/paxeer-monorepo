@@ -119,8 +119,8 @@ impl PortableReceiptV2 {
     ///
     /// # Errors
     ///
-    /// Refuses submitted answers, malformed fields, unpinned keys and any
-    /// receipt, inclusion-height or raw-transaction verification failure.
+    /// Refuses submitted answers, malformed fields, unpinned or ambiguous keys
+    /// and any receipt, inclusion-height or raw-transaction verification failure.
     pub fn from_sequencer_receipt(
         answer: &serde_json::Value,
         receipt_keys: &[ReceiptKeyEntry],
@@ -150,12 +150,16 @@ impl PortableReceiptV2 {
             .iter()
             .find(|key| key.sequencer_id() == key_id)
             .ok_or(PortableReceiptError::ReceiptKeyMismatch)?;
-        match raw_transaction {
+        let portable = match raw_transaction {
             Some(raw) => {
                 Self::export_with_transaction(&signed_receipt, receipt_key, inclusion_height, raw)
             }
             None => Self::export(&signed_receipt, receipt_key, inclusion_height),
-        }
+        }?;
+        // Keep the caller's complete trust policy: selecting one entry above
+        // must not hide an ambiguous key id from the receipt verifier.
+        portable.verify_v2(receipt_keys)?;
+        Ok(portable)
     }
 
     /// Exports one signed receipt only after it verifies against the given
