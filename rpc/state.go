@@ -52,12 +52,8 @@ func (a *StateAPI) GetBalance(ctx context.Context, address common.Address, block
 	defer func() {
 		recordMetricsWithError(ctx, "eth_getBalance", a.connectionType, startTime, returnErr, recover())
 	}()
-	height, err := a.watermarks.ResolveHeight(ctx, blockNrOrHash)
+	sdkCtx, err := a.stateContext(ctx, blockNrOrHash)
 	if err != nil {
-		return nil, err
-	}
-	sdkCtx := a.ctxProvider(height)
-	if err := checkStateVersion(sdkCtx, height, a.keeper); err != nil {
 		return nil, err
 	}
 	statedb := state.NewDBImpl(sdkCtx, a.keeper, true)
@@ -69,12 +65,8 @@ func (a *StateAPI) GetCode(ctx context.Context, address common.Address, blockNrO
 	defer func() {
 		recordMetricsWithError(ctx, "eth_getCode", a.connectionType, startTime, returnErr, recover())
 	}()
-	height, err := a.watermarks.ResolveHeight(ctx, blockNrOrHash)
+	sdkCtx, err := a.stateContext(ctx, blockNrOrHash)
 	if err != nil {
-		return nil, err
-	}
-	sdkCtx := a.ctxProvider(height)
-	if err := checkStateVersion(sdkCtx, height, a.keeper); err != nil {
 		return nil, err
 	}
 	code := a.keeper.GetCode(sdkCtx, address)
@@ -86,12 +78,8 @@ func (a *StateAPI) GetStorageAt(ctx context.Context, address common.Address, hex
 	defer func() {
 		recordMetricsWithError(ctx, "eth_getStorageAt", a.connectionType, startTime, returnErr, recover())
 	}()
-	height, err := a.watermarks.ResolveHeight(ctx, blockNrOrHash)
+	sdkCtx, err := a.stateContext(ctx, blockNrOrHash)
 	if err != nil {
-		return nil, err
-	}
-	sdkCtx := a.ctxProvider(height)
-	if err := checkStateVersion(sdkCtx, height, a.keeper); err != nil {
 		return nil, err
 	}
 	key, _, err := decodeHash(hexKey)
@@ -100,6 +88,25 @@ func (a *StateAPI) GetStorageAt(ctx context.Context, address common.Address, hex
 	}
 	state := a.keeper.GetState(sdkCtx, address, key)
 	return state[:], nil
+}
+
+func (a *StateAPI) stateContext(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (sdk.Context, error) {
+	if isPendingBlockNrOrHash(blockNrOrHash) {
+		snapshot, height, open, err := a.watermarks.pendingSnapshot(ctx)
+		if err != nil {
+			return sdk.Context{}, err
+		}
+		if open {
+			return snapshot, nil
+		}
+		blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(height))
+	}
+	height, err := a.watermarks.ResolveHeight(ctx, blockNrOrHash)
+	if err != nil {
+		return sdk.Context{}, err
+	}
+	sdkCtx := a.ctxProvider(height)
+	return sdkCtx, checkStateVersion(sdkCtx, height, a.keeper)
 }
 
 // checkStateVersion checks that the state stores exist at a committed height.

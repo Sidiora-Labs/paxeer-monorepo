@@ -1018,15 +1018,15 @@ fn perform_work(state: &State, request: &Request) -> Result<Response, Response> 
     require_operator(state, request)?;
     let work: Work =
         serde_json::from_slice(&request.body).map_err(|_| error(400, "work_invalid"))?;
+    if work.account_sequence.is_some() && !matches!(work.action, WorkAction::SubmitLayerx) {
+        return Err(error(400, "work_invalid"));
+    }
     let mut journal = state
         .journal
         .lock()
         .map_err(|_| error(503, "journal_unavailable"))?;
     if !journal.health().ready {
         return Err(error(503, "journal_recovery_required"));
-    }
-    if work.account_sequence.is_some() && !matches!(work.action, WorkAction::SubmitLayerx) {
-        return Err(error(400, "work_invalid"));
     }
     let mut engine = engine(state, &mut journal);
     match work.action {
