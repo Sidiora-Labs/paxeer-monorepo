@@ -468,13 +468,27 @@ func (t *TransactionAPI) GetTransactionCount(ctx context.Context, address common
 	return (*hexutil.Uint64)(&nonce), nil
 }
 
-// pendingNonce is the sequencer's next nonce for address on the open block. Held
+// pendingNonce reads the open snapshot, or committed state while idle. Held
 // future nonces never move it: the nonce queue drains them into the open block
 // only once the gap fills, so the open-block nonce is the next executable one.
 func (t *TransactionAPI) pendingNonce(ctx context.Context, address common.Address) (*hexutil.Uint64, error) {
-	sdkCtx, err := t.watermarks.PendingContext(ctx)
+	if t.ctxProvider == nil {
+		snapshot, err := t.watermarks.PendingContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+		nonce := t.keeper.GetNonce(snapshot, address)
+		return (*hexutil.Uint64)(&nonce), nil
+	}
+	sdkCtx, height, open, err := t.watermarks.pendingSnapshot(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if !open {
+		sdkCtx = t.ctxProvider(height)
+		if err := CheckVersion(sdkCtx, t.keeper); err != nil {
+			return nil, err
+		}
 	}
 	nonce := t.keeper.GetNonce(sdkCtx, address)
 	return (*hexutil.Uint64)(&nonce), nil

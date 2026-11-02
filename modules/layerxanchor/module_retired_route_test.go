@@ -16,6 +16,7 @@ func TestAppRoutesAnchorUpdateParamsRetired(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, testApp.Close()) })
 	ctx := testApp.GetContextForDeliverTx(nil).WithBlockHeight(8).WithBlockTime(time.Unix(1_800_000_000, 0))
 	k := testApp.LayerXAnchorKeeper
+	require.Equal(t, types.DefaultParams(types.DefaultAuthority()), k.GetParams(ctx))
 	upgrades := &testApp.UpgradeKeeper
 	handler := testApp.MsgServiceRouter().Handler(&types.MsgUpdateParams{})
 	require.NotNil(t, handler)
