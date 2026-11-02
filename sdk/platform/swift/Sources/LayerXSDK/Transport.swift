@@ -668,6 +668,22 @@ public final class AgentEnvelopeTransport: PlatformTransport, @unchecked Sendabl
     {
       return verificationRungs.contains(rung)
     }
+    if exact(object, ["state", "requested"]), object["state"]?.stringValue == "absent",
+      let requested = object["requested"]?.stringValue
+    {
+      return verificationRungs.contains(requested)
+    }
+    if exact(object, ["state", "requested", "achieved"]),
+      object["state"]?.stringValue == "pending",
+      let requested = object["requested"]?.stringValue.flatMap({
+        verificationRungs.firstIndex(of: $0)
+      }),
+      let achieved = object["achieved"]?.stringValue.flatMap({
+        verificationRungs.firstIndex(of: $0)
+      })
+    {
+      return achieved < requested
+    }
     guard exact(object, ["state", "requested", "achieved", "reason"]),
       object["state"]?.stringValue == "unverified",
       let requested = object["requested"]?.stringValue.flatMap({

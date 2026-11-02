@@ -42,8 +42,8 @@ class TypedProgramResponseTests(unittest.TestCase):
             def do_GET(self) -> None:
                 value = interface if self.path.endswith("/interface") else discovery
                 encoded = json.dumps({"request_id": "1", "value": value,
-                    "verification_status": {"state": "Unverified", "requested": "SequencerSigned",
-                        "achieved": "Unverified", "reason": "server_side_receipt_verification_only"}},
+                    "verification_status": {"state": "Unverified", "requested": "receipted",
+                        "achieved": "submitted", "reason": "server_side_receipt_verification_only"}},
                     separators=(",", ":")).encode()
                 self.send_response(200); self.send_header("Content-Type", "application/json")
                 self.send_header("Content-Length", str(len(encoded))); self.end_headers(); self.wfile.write(encoded)

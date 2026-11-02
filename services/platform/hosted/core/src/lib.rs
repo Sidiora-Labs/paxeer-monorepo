@@ -628,15 +628,9 @@ pub fn custody_source_address(
     source_did: &str,
 ) -> Result<[u8; 20], String> {
     Did::new(source_did.as_bytes()).map_err(|error| format!("custody DID: {error:?}"))?;
-    let accounts = layerx_client::rpc::history::did_accounts(network, source_did)
-        .map_err(|error| format!("custody DID accounts: {error:?}"))?;
-    accounts
-        .first()
-        .and_then(|account| account.get("evm_address"))
-        .and_then(serde_json::Value::as_str)
-        .and_then(|address| address.strip_prefix("0x"))
+    layerx_client::rpc::history::did_evm_address(network, source_did)
+        .map_err(|error| format!("custody DID accounts: {error:?}"))?
         .ok_or_else(|| "custody DID has no bound evm_address".to_owned())
-        .and_then(|address| fixed_hex::<20>("evm_address", address))
 }
 
 pub fn read_custody_asset(

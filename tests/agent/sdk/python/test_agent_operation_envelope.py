@@ -328,8 +328,8 @@ class Probe:
         other = bytearray.fromhex(typed["target"])
         other[3] ^= 1
         reject({**value, "value": {**value["value"], "target": other.hex()}})
-        reject({**value, "achieved_verification_level": "SettlementAnchored"})
-        reject(value, {"state": "achieved", "level": "SettlementAnchored"})
+        reject({**value, "achieved_verification_level": "committed"})
+        reject(value, {"state": "achieved", "level": "committed"})
         reject({**value, "unexpected": True})
         for head in [0, "00", "18446744073709551616"]:
             reject({**value, "freshness": {**value["freshness"], "chain_head": head}})

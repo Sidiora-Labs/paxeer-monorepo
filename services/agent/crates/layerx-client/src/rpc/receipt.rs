@@ -8,12 +8,50 @@ use layerx_types::result::ResultCode;
 use layerx_wire::receipt::Receipt;
 use sha2::{Digest as _, Sha256};
 
-use crate::client::ReconnectPolicy;
 use crate::rpc::submit::Unknown;
 use crate::sequencer::{
     ExecutedReceipt, ReceiptKeyEntry, SequencerEndpoint, SequencerError, SequencerReceipt,
     TransactionReceipt,
 };
+use std::time::Duration;
+
+/// Bounded deterministic jitter schedule for reconnect attempts.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ReconnectPolicy {
+    pub maximum_attempts: u8,
+    pub base_delay: Duration,
+    pub maximum_delay: Duration,
+    pub jitter_percent: u8,
+}
+
+impl ReconnectPolicy {
+    /// Returns one bounded deterministic delay from the attempt and endpoint.
+    #[must_use]
+    pub fn delay(self, attempt: u8, endpoint: &str) -> Duration {
+        let exponent = u32::from(attempt.min(31));
+        let factor = 1_u32.checked_shl(exponent).unwrap_or(u32::MAX);
+        let base = self
+            .base_delay
+            .checked_mul(factor)
+            .unwrap_or(self.maximum_delay)
+            .min(self.maximum_delay);
+        let jitter_bound = base
+            .as_millis()
+            .saturating_mul(u128::from(self.jitter_percent))
+            / 100;
+        if jitter_bound == 0 {
+            return base;
+        }
+        let seed = endpoint.bytes().fold(u128::from(attempt), |value, byte| {
+            value.wrapping_mul(131).wrapping_add(u128::from(byte))
+        });
+        let jitter = seed % (jitter_bound + 1);
+        base.saturating_add(Duration::from_millis(
+            u64::try_from(jitter).unwrap_or(u64::MAX),
+        ))
+        .min(self.maximum_delay)
+    }
+}
 
 pub type Rung = layerx_types::rung::Rung;
 
@@ -101,6 +139,18 @@ pub enum ReceiptError {
     Logs(SequencerLogRefusal),
     FieldMismatch(&'static str),
     InvalidTransactionHash,
+}
+
+impl ReceiptError {
+    #[must_use]
+    pub const fn is_unavailable(&self) -> bool {
+        matches!(
+            self,
+            Self::Sequencer(
+                SequencerError::Endpoint | SequencerError::Tls | SequencerError::Unavailable
+            )
+        )
+    }
 }
 
 impl From<SequencerError> for ReceiptError {
