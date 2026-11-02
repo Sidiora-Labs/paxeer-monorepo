@@ -185107,7 +185107,7 @@ do_8 = "Finding 22.7.3.2: rpc/tests TestGetPaxBlockByHash panics in the merge pr
 
 [task.22.4.5]
 title = "Reconcile the launchpad module, CLI, airdrop and legacy fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
