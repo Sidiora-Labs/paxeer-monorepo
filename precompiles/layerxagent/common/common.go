@@ -16,8 +16,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
+// ErrorCode is an immutable agent refusal token. Callers can match it through
+// wrapped errors with errors.Is; Error returns the token without a detail.
 type ErrorCode string
 
+// Error returns the stable code used by the precompile revert registry.
 func (code ErrorCode) Error() string { return string(code) }
 
 const (
