@@ -1706,10 +1706,9 @@ lxp_result lxp_ctx_ledger_execution_sequence(
         registration->abi_version != LX_PROGRAMS_GUEST_ABI_V5_VERSION)
         return LXP_OK;
     facts = &ctx->ledger_admission;
-    if (facts->activity_type == LX_PROGRAMS_SANDBOX)
-        return LXP_OK;
     if (facts->activity_type != LX_PROGRAMS_CALL &&
-        facts->activity_type != LX_PROGRAMS_WIND_DOWN)
+        facts->activity_type != LX_PROGRAMS_WIND_DOWN &&
+        facts->activity_type != LX_PROGRAMS_SANDBOX)
         return LXP_ERR_CONTEXT_MISMATCH;
     if (!facts->bound ||
         memcmp(facts->activity_binding, ctx->activity_id, 32U) != 0 ||

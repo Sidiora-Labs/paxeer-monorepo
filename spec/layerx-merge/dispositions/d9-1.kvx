@@ -88,7 +88,7 @@ evidence = "Commit cd8fcfa86 replaces the retired web-request callback fixture w
 finding = "9.1.7.7"
 status = "open"
 evidence = "services/platform/tests/support/tls_boundary.rs:170 still reserves a port and drops its listener before spawning the boundary, then accepts one successful TCP readiness probe, leaving the reported port handoff race unaddressed."
-follow_up = "closure"
+follow_up = "22.8.9"
 
 [disposition.9.1.8.2]
 finding = "9.1.8.2"
