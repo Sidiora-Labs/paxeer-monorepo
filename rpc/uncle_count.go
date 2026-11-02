@@ -10,10 +10,16 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
+// JSON-RPC names shared with metrics and the client parity contract.
+const (
+	eth_getUncleCountByBlockNumber = "eth_getUncleCountByBlockNumber"
+	eth_getUncleCountByBlockHash   = "eth_getUncleCountByBlockHash"
+)
+
 func (a *UncleAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNr rpc.BlockNumber) (result *hexutil.Uint, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getUncleCountByBlockNumber", a.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, eth_getUncleCountByBlockNumber, a.connectionType, startTime, returnErr, recover())
 	}()
 
 	height, err := getBlockNumber(ctx, a.tmClient, a.watermarks, blockNr)
@@ -34,7 +40,7 @@ func (a *UncleAPI) GetUncleCountByBlockNumber(ctx context.Context, blockNr rpc.B
 func (a *UncleAPI) GetUncleCountByBlockHash(ctx context.Context, blockHash common.Hash) (result *hexutil.Uint, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_getUncleCountByBlockHash", a.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, eth_getUncleCountByBlockHash, a.connectionType, startTime, returnErr, recover())
 	}()
 
 	block, err := blockByHashRespectingWatermarks(ctx, a.tmClient, a.watermarks, blockHash[:], 1)

@@ -130815,7 +130815,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.33]
 title = "Inventory every Go module under services/launchpad"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132772,7 +132772,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.47.1]
 title = "Prove the node abci path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182782,7 +182782,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.13.5]
 title = "Bind ledger admission for the programs environment execute activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182869,7 +182869,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.41]
 title = "Inventory every test target of the kernel Makefile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182899,7 +182899,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.32]
 title = "Inventory every Go package under services/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182929,7 +182929,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.31]
 title = "Inventory every Go package under tests/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183049,7 +183049,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.27]
 title = "Inventory every Go package under wasm/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183079,7 +183079,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.26]
 title = "Inventory every Go package under engine/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183109,7 +183109,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.25]
 title = "Inventory every Go package under storage/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183139,7 +183139,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.24]
 title = "Inventory every Go package under interchain/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183320,7 +183320,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.18]
 title = "Inventory every Go package under precompiles/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183350,7 +183350,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.17]
 title = "Inventory every Go package under modules/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213818,7 +213818,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.9]
 title = "Drop the retired settlement anchoring refusal from the envelope qualification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
