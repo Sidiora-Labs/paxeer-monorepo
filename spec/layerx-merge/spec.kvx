@@ -116861,7 +116861,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.169.1]
 title = "Prove the b error code registry d6 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -116927,7 +116927,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.167.1]
 title = "Prove the lxp bridge h path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123967,7 +123967,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.126.1]
 title = "Prove the core env vars path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124818,7 +124818,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.42.1]
 title = "Prove the client path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -187443,7 +187443,7 @@ do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go 
 
 [task.15.3.8]
 title = "Delete the legacy telemetry calls of staking Msg"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.8", "15.0.4", "6.96.5"]
