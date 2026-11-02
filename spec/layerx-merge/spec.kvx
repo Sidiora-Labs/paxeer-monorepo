@@ -118735,7 +118735,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.101.3]
 title = "Port the hosted core's sends, funding intents and fee estimate off the kernel activity codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
