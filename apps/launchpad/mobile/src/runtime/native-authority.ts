@@ -22,6 +22,8 @@ export async function verifyRolePins(
   pins: readonly RolePin[],
   block: bigint,
 ): Promise<void> {
+  if (block < 0n || pins.length === 0)
+    throw new RangeError('Mined block and native role pins required');
   for (const pin of pins) {
     const code = await reader.getCode({
       address: pin.address,
@@ -41,6 +43,7 @@ export async function verifyRolePins(
       ]);
       if (
         !storage ||
+        !/^0x0{24}[0-9a-f]{40}$/i.test(storage) ||
         getAddress(`0x${storage.slice(-40)}`) !==
           getAddress(pin.implementation) ||
         !implementation ||
