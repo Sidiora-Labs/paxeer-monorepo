@@ -1149,6 +1149,5 @@ export {
   rpcHex,
   rpcObject,
   verifyRpcPayment,
-  type RpcBatchEvidence,
 } from "./rpc.js";
 export * from "./grant.js";

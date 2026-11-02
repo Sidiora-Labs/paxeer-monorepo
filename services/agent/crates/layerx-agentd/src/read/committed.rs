@@ -1,7 +1,7 @@
 //! Precompile calls and storage witnesses bound to one authenticated committed block.
 
 use super::{CheckpointReadError, ServedCheckpoint};
-use layerx_client::read::Freshness;
+use layerx_client::rpc::account::Freshness;
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError, StorageWitness};
 use layerx_programs::hex;
 use layerx_proof::state::{AccountAsset, CanonicalAccount};
