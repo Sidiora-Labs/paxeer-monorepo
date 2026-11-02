@@ -5,6 +5,7 @@ import {
   X402_VERSION,
   paymentCommitment,
   verifyPaymentReceipt,
+  validatePaymentRequired,
   type JsonValue,
   type PaymentRequired,
   type PaymentReceiptVerification,
@@ -202,7 +203,7 @@ export class MerchantMiddleware {
       scheme: first.scheme,
       network: first.network,
       maxTimeoutSeconds: first.maxTimeoutSeconds,
-      paymentRequired,
+      paymentRequired: validatePaymentRequired(paymentRequired),
     };
   }
 
