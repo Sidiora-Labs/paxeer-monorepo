@@ -143923,7 +143923,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.34.4]
 title = "Qualify reference application outcomes by rung and transaction hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.34.2"]
