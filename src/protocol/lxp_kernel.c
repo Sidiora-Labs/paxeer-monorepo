@@ -485,7 +485,9 @@ lxp_result lxp_kernel_bind_ledger_admission(
         registration->abi_version != LX_PROGRAMS_GUEST_ABI_V5_VERSION)
         return LXP_OK;
     ctx->ledger_admission.activity_type = activity_type;
-    if (activity_type != LX_PROGRAMS_CALL && activity_type != LX_PROGRAMS_WIND_DOWN)
+    if (activity_type != LX_PROGRAMS_CALL &&
+        activity_type != LX_PROGRAMS_WIND_DOWN &&
+        activity_type != LX_PROGRAMS_SANDBOX)
         return LXP_OK;
     ctx->ledger_admission.activity_type = activity_type;
     (void)memcpy(ctx->ledger_admission.actor, authority->actor, 32U);

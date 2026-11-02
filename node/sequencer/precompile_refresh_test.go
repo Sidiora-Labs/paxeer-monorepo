@@ -27,6 +27,7 @@ func TestExecutorOpenRefreshesPrecompilesItself(t *testing.T) {
 	valPub := secp256k1.GenPrivKey().PubKey()
 	tw := app.NewTestWrapper(t, tm, valPub, true)
 	a := tw.App
+	resolutionBlockGas(tw.Ctx, a)
 	a.EvmKeeper.SetAddressMapping(tw.Ctx, sender.AccountAddress, sender.EvmAddress)
 	tw.FundAcc(sender.AccountAddress, sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(fundingUhpx))))
 
@@ -66,7 +67,10 @@ func TestExecutorOpenRefreshesPrecompilesItself(t *testing.T) {
 	require.NotContains(t, a.UpgradeKeeper.GetModuleVersionMap(open), xwebtypes.ModuleName)
 	require.NotContains(t, a.EvmKeeper.CustomPrecompiles(open), xwebAddress)
 
-	info := xwebInfo()
+	if !precompiles.Initialized {
+		require.NoError(t, precompiles.InitializePrecompiles(true, a.GetPrecompileKeepers()))
+	}
+	info := xwebInfo(t)
 	feeInput, err := info.ABI.Pack(xwebprecompile.FeeMethod)
 	require.NoError(t, err)
 	_, bz := evmTx(t, sender, receiptLegacyTx(0, &xwebAddress, big.NewInt(0), callGas, feeInput))

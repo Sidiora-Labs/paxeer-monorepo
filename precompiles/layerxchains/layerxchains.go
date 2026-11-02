@@ -243,11 +243,7 @@ func (p *Executor) view(ctx sdk.Context, method *abi.Method, args []interface{})
 		}
 		return method.Outputs.Pack(d.Id, d.Name, d.Operator, d.Status, chains.ChainIDOf(d.Id).Uint64(), d.GasAllowance, d.ByteAllowance, d.FeeShareBps, chainsWei(d.Bond), p.keeper.NextBaseFee(ctx, d.Id).TruncateInt().BigInt(), uint64(d.CreatedHeight))
 	case "chainByName":
-		d, ok := p.keeper.GetDomainByName(ctx, args[0].(string))
-		if !ok {
-			return nil, chains.ErrUnknownDomain
-		}
-		return method.Outputs.Pack(d.Id)
+		return method.Outputs.Pack(p.chainByName(ctx, args[0].(string)))
 	case "chainCount":
 		return method.Outputs.Pack(p.keeper.DomainCount(ctx))
 	case "chainIdOf":
@@ -265,6 +261,14 @@ func (p *Executor) view(ctx sdk.Context, method *abi.Method, args []interface{})
 	default:
 		return nil, fmt.Errorf("LXP_PRECOMPILE_UNKNOWN_METHOD: %s", method.Name)
 	}
+}
+
+func (p *Executor) chainByName(ctx sdk.Context, name string) uint32 {
+	d, ok := p.keeper.GetDomainByName(ctx, name)
+	if !ok {
+		return uint32(0)
+	}
+	return d.Id
 }
 
 func chainsWei(amount sdk.Int) *big.Int {
