@@ -14,8 +14,8 @@ struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
         let id = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir()
-            .join(format!("layerx-human-boundary-{}-{id}", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("layerx-human-boundary-{}-{id}", std::process::id()));
         fs::create_dir_all(path.join("sample/src"))
             .unwrap_or_else(|error| panic!("create fixture: {error}"));
         fs::write(
@@ -70,6 +70,35 @@ fn node_private_paths_are_rejected() {
         "const DATABASE: &str = \"projection.db\";\n",
     );
     assert!(human_boundary_policy(fixture.path()).is_err());
+}
+
+#[test]
+fn identifier_containing_a_private_path_token_passes() {
+    let fixture = Fixture::new();
+    for source in [
+        "let tenant = state.snapshot.binding_tenant.clone();",
+        "prefixsnapshot.bin snapshot.bin_suffix",
+        "Asnapshot.bin snapshot.binZ 0snapshot.bin snapshot.bin9 _snapshot.bin snapshot.bin_",
+    ] {
+        fixture.write("sample/src/lib.rs", source);
+        assert_eq!(human_boundary_policy(fixture.path()), Ok(()), "{source}");
+    }
+
+    for source in [
+        "'snapshot.bin'",
+        "'state/snapshots/'",
+        "snapshot.bin",
+        "ésnapshot.biné",
+        "state.snapshot.binding_tenant.clone(); 'snapshot.bin'",
+    ] {
+        fixture.write("sample/src/lib.rs", source);
+        let violations = human_boundary_policy(fixture.path())
+            .err()
+            .unwrap_or_else(|| panic!("private path token must be caught: {source}"));
+        assert!(violations
+            .iter()
+            .any(|violation| violation.rule == "node-private-path"));
+    }
 }
 
 #[test]

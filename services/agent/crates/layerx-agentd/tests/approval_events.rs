@@ -38,7 +38,6 @@ use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
 use layerx_client::rpc::evidence::RootSelector;
 use layerx_client::rpc::history::{ReadContext, Requested};
 use layerx_client::rpc::Head;
-use layerx_proof::checkpoint::SettlementDomain;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_types::ids::Did;
 use layerx_types::result::ResultCode;
@@ -347,7 +346,6 @@ fn assert_digest_evidence_exported(audit_path: &Path, lifecycles: &[ApprovalLife
             through_observed_at_ms: None,
         },
         &EvidenceStore::new(tenant()),
-        SettlementDomain::new(31_337, [0x55; 20]),
     )
     .unwrap_or_else(|error| panic!("export: {error}"));
     assert_eq!(exported.entries.len(), 4);
