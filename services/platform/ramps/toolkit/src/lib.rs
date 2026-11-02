@@ -280,6 +280,9 @@ fn field(hasher: &mut Sha256, bytes: &[u8]) {
     hasher.update(bytes);
 }
 
+/// A compiled native ledger destination and its owned ABI calldata.
+/// The transaction signer consumes both fields; this value carries no cached
+/// execution result or receipt authorization.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LedgerCall {
     pub to: [u8; 20],

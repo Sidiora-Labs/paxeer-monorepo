@@ -1,6 +1,7 @@
 use layerx_client::sequencer::SequencerLog;
 use sha3::{Digest as _, Keccak256};
 
+/// Native ledger destination; payment logs from any other emitter are refused.
 pub const LEDGER_ADDRESS: [u8; 20] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
 ];
@@ -11,6 +12,8 @@ const PAYMENT_EXACT_SIGNATURE: &str = "PaymentExact(bytes32,bytes32,bytes32,byte
 const PAYMENT_DRAWN_SIGNATURE: &str =
     "PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)";
 
+/// Owned payment fields decoded from the native ledger event ABI.
+/// Decoding establishes the event shape, not receipt authenticity.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum LedgerPayment {
     Exact {
@@ -31,6 +34,7 @@ pub enum LedgerPayment {
     },
 }
 
+/// Encodes the six native `payExact` arguments in ABI order.
 #[must_use]
 pub fn encode_pay_exact(
     from: [u8; 32],
@@ -53,6 +57,8 @@ pub fn encode_pay_exact(
     )
 }
 
+/// Encodes the seven native `draw` arguments in ABI order. The asset and
+/// payer are determined by the grant; the second argument is the recipient.
 #[must_use]
 pub fn encode_draw(
     grant_id: [u8; 32],
@@ -92,6 +98,9 @@ fn uint_word<const N: usize>(bytes: [u8; N]) -> [u8; 32] {
     word
 }
 
+/// Decodes one canonical `PaymentExact` or `PaymentDrawn` log at 0x101a.
+/// Refuses an unknown emitter or signature, extra or missing topics/data,
+/// and amounts that exceed uint128. Every call reads the supplied log anew.
 #[must_use]
 pub fn decode_ledger_payment(log: &SequencerLog) -> Option<LedgerPayment> {
     if log.address != LEDGER_ADDRESS {
