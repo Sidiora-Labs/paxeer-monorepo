@@ -127136,7 +127136,7 @@ do_3 = "Finding 22.9.12.1: the dependent-crate check stops on layerx-agentd-host
 
 [task.22.9.12]
 title = "Bridge historical deployment proofs with intermediate trust steps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.16", "9.100.2", "22.9.24"]
