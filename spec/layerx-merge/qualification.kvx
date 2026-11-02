@@ -17491,3 +17491,91 @@ symbol = "sign"
 observed = "attempt 1 (15043ea91) fails the build with E0433 'use of unresolved module or unlinked crate k256': chains.rs:438 calls k256::ecdsa::SigningKey::from_slice while tools/platform/cli/Cargo.toml:15-41 lists no k256 dependency; the crate signs EVM transactions through layerx_crypto::evm_transaction::Eip1559Call::sign (services/agent/crates/layerx-crypto/src/evm_transaction.rs:212) and its own wallet_signing::EvmSigningKey (tools/platform/cli/src/wallet.rs:779-786)."
 assumption = "chains create builds an Eip1559Call and signs it with Eip1559Call::sign over the wallet key file's secret, as wallet_signing does; k256 is not added to the CLI's dependencies."
 severity = "medium"
+
+[finding.18.1453.1.1]
+task = "18.1453.1"
+file = "sdk/integrations/next/example/lib/fulfillment.mjs:5"
+symbol = "MiddlewareError"
+observed = "attempts 1 and 2 (c6078bd05 and its rerun) fail before any test runs with ERR_MODULE_NOT_FOUND for node_modules/@sidiora/layerx-seller-middleware/dist/index.js: the verify runs node --test on a file whose module imports the seller middleware through its dist entry, and nothing in the task builds that package (its own build is tsc -p tsconfig.json and it depends on @sidiora/layerx-sdk)."
+assumption = "the qualification environment installs the workspace but builds nothing; the verify builds the imported packages in dependency order before the test, as the merchant example verify already does."
+severity = "medium"
+
+[finding.18.1468.1.1]
+task = "18.1468.1"
+file = "services/platform/examples/run-reference-apps.mjs:6"
+symbol = "BuyerMiddleware"
+observed = "attempt 1 (bf12f2fea) fails with ERR_MODULE_NOT_FOUND for node_modules/@sidiora/layerx-sdk/dist/src/index.js: run-reference-apps.mjs imports the buyer middleware and the SDK, and services/platform/examples/support/runtime.mjs imports the merchant and seller middleware, none of which the verify builds."
+assumption = "the qualification environment installs the workspace but builds nothing; the verify builds SDK, seller, buyer and merchant before the two tests."
+severity = "medium"
+
+[finding.18.1477.1.1]
+task = "18.1477.1"
+file = "services/platform/middleware/conformance/connected.mjs:8"
+symbol = "authenticatedAgentTransport"
+observed = "attempt 1 (fb76aecd6) fails with ERR_MODULE_NOT_FOUND for node_modules/@sidiora/layerx-agent-integrations/dist/index.js: connected.mjs imports the agent integrations, the SDK and the seller middleware, and the integrations package builds on the SDK, the agent middleware and the seller middleware (sdk/integrations/agents/package.json:62-64)."
+assumption = "the qualification environment installs the workspace but builds nothing; the verify builds SDK, seller, merchant, agent middleware and agent integrations before the test."
+severity = "medium"
+
+[finding.18.1463.1.1]
+task = "18.1463.1"
+file = "services/agent/sdk/python/layerx_sdk/x402_agent.py:68"
+symbol = "PaymentBudget.verify_and_commit"
+observed = "attempt 1 (bundle head on 0846268cf) changes verify_payment_receipt to (signed_receipt, raw_transaction, receipt_keys, *, amount, asset, pay_to, payer, return_data, commitment) and the pay6 agent test builds PaymentEvidence(wire, raw_transaction), but x402_agent.py:66-80 (outside the task's touches) still passes evidence.authorized_batch and evidence=evidence.commitment_evidence, so test_budget_receipt_commit_and_replay and test_budget_requires_requested_commitment fail with AttributeError on authorized_batch (21 other tests pass)."
+assumption = "x402_rpc.py:236 already calls the new shape; x402_agent.py is the last caller and joins the task's touches."
+severity = "medium"
+
+[finding.18.1484.1.1]
+task = "18.1484.1"
+file = "tools/bringup/check-live.sh:3213"
+symbol = "check_relay"
+observed = "attempt 1 (f41ad6256) rewrote check_relay and the harness, but the comment block above the function (:3213-3220) still names the deleted relay env template path and the hosted services it used to walk, so the verify's first clause (no services/platform/relay_archive/ mention in either file) exits 1 and the harness never runs."
+assumption = "the comment block is rewritten to describe the CHECK_LIVE_RELAY_ORIGIN form; the function body of the attempt stands."
+severity = "minor"
+
+[finding.18.1485.1.1]
+task = "18.1485.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:610"
+symbol = "bound_activity"
+observed = "attempt 1 (48e87d7e9) fails to build layerx-human-service at the base: task 9.24.9 (1c029af18) added ConstructMethod::ProgramCall to services/agent/crates/layerx-crypto/src/disclosure/call.rs:9 and the bound_activity match of create.rs:610-683 has no arm for it (E0004), so every human-workspace task is red until the arm lands."
+assumption = "one task (9.100.2) owns the arm, as 9.99.2 owned the AuthLifecycle arm (decision 2146); every pending task whose verify runs services/human/Cargo.toml requires it."
+severity = "major"
+
+[finding.18.1487.1.1]
+task = "18.1487.1"
+file = "sdk/platform/pipeline.kvx"
+symbol = "drift_gate"
+observed = "attempt 1 (f0add4331) fails the --check verify with 'stale generated SDKs: schema agent-api at services/agent/schema/agent-api changed after the last generation': tasks 18.1435.1 (f64c4ec41) and 18.1456.1 (16e9b1e3f) changed the agent-api schema and neither ran make platform-sdk-generate, so the digest recorded in sdk/platform/pipeline.kvx no longer matches the schema and every --check fails at the base; the generator change of this task would also move the generator digest."
+assumption = "this task regenerates: it runs make platform-sdk-generate after its generator change and commits sdk/platform/pipeline.kvx with every regenerated output, so --check passes against the committed state."
+severity = "major"
+
+[finding.20.2.2.1]
+task = "20.2.2"
+file = "precompiles/layerxchains/layerxchains_test.go:58"
+symbol = "newChainsHarness"
+observed = "attempt 1 (1d57a01a1) panics in every test from the harness: it sets evmParams.MinimumFeePerGas to 1000000000 and EvmKeeper.SetParams refuses it because MaxMinFeePerGas is 67000000 (modules/evm/types/params.go:55, :286); the four tests never run."
+assumption = "the harness keeps the EVM params it reads from the test app and sizes the chain's funding from GetNextBaseFeePerGas as the ante test of 20.3.1 does; the precompile code of the attempt stands."
+severity = "medium"
+
+[finding.20.3.1.1]
+task = "20.3.1"
+file = "node/ante/evm_checktx_domain_test.go:45"
+symbol = "signedDomainTx"
+observed = "attempt 1 verified at e98728ebb, where the legacy zero case built its signer with LatestSignerForChainID(0), which panics 'invalid chainID 0' in the EVM library; the attempt then repaired the helper (FrontierSigner for the legacy case, chain id 125 for the typed zero case) at efbea67f but had no verify run left, so the bundle head is unqualified."
+assumption = "the repair at efbea67f is the fix; the next attempt continues from it and runs the verify."
+severity = "minor"
+
+[finding.18.1471.1.1]
+task = "18.1471.1"
+file = "modules/layerxanchor/bringup_genesis_test.go:25"
+symbol = "TestBringUpAnchorGenesisValidates"
+observed = "attempt 1 (739639b18) ports the four vector-loader tests but the package verify (go test ./modules/layerxanchor/...) also runs TestBringUpAnchorGenesisValidates, which executes services/platform/hosted/paxeer/anchor-genesis.py; task 8.14.2 (ec111950d) deleted that script, so the test fails with exit status 2 at the base."
+assumption = "the test is deleted with the script it drove; the anchor genesis is retired."
+severity = "medium"
+
+[finding.18.1471.1.2]
+task = "18.1471.1"
+file = "modules/layerxanchor/module_retired_route_test.go:21"
+symbol = "TestAppRoutesAnchorUpdateParamsRetired"
+observed = "the same verify runs TestAppRoutesAnchorUpdateParamsRetired, which requires the app to route MsgUpdateParams; task 5.7.1 (ae2beed63) removed the anchor module from the application's module manager (node/app.go keeps only the AppModuleBasic at :304), so MsgServiceRouter().Handler returns nil and the test fails at the base."
+assumption = "the test asserts the state 5.7.1 left: the application routes no anchor message, and the keeper's params read still answers; it is renamed accordingly."
+severity = "medium"

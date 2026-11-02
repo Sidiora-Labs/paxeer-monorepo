@@ -13351,3 +13351,33 @@ fix = "Sign EIP-1559 calls through layerx_crypto::evm_transaction::Eip1559Call::
 title = "Retired env names survive on purpose in refusal lists"
 symptom = "A search for a retired setting's bare name finds refuse_retired_environment in the agent daemon, RETIRED_VARIABLES in the boundary harness and the host test asserting the refusal; none of them reads the setting."
 fix = "Judge an env_var retirement by the absence of std::env::var and var_os reads outside the refusal list (decision 2279); a test that still sets a retired name before asserting a later required-variable error cannot pass and must drop the setting."
+
+[gotcha.2707]
+title = "A node verify that imports workspace packages lists their builds in dependency order"
+symptom = "Three tasks failed with ERR_MODULE_NOT_FOUND on dist entries of @sidiora packages their tests imported directly or through a support module; the workspace was installed but nothing built, and one build was not enough when the imported package itself depended on another unbuilt one."
+fix = "Prefix the verify with npm --prefix <package> run build for every imported package and its dependencies, ordered SDK, seller, buyer and merchant middleware, agent middleware, then integrations (decision 2282)."
+
+[gotcha.2708]
+title = "Adding a variant to ConstructMethod breaks every exhaustive match in the human service"
+symptom = "A task added ConstructMethod::ProgramCall in layerx-crypto and its gates built the agent workspace; the human service's bound_activity match was non-exhaustive (E0004) and no human-workspace task could build until an arm landed."
+fix = "A task that adds a variant to a cross-workspace enum lists every exhaustive match in every workspace (grep 'ConstructMethod::' under services/) and adds the arm, or spawns the arm task before it qualifies; the human-workspace tasks then require that task."
+
+[gotcha.2709]
+title = "A schema change without make platform-sdk-generate fails every later --check at the base"
+symptom = "Two tasks changed the agent-api schema; sdk/platform/pipeline.kvx kept the old digest and the drift gate reported stale generated SDKs for every unrelated generator task afterwards."
+fix = "Run make platform-sdk-generate in the task that changes a schema or generator and commit pipeline.kvx with the outputs; the first task that meets the stale gate absorbs the regeneration."
+
+[gotcha.2710]
+title = "A Go EVM test harness cannot raise MinimumFeePerGas above the module maximum"
+symptom = "A precompile harness set MinimumFeePerGas to 1 gwei and EvmKeeper.SetParams panicked 'min fee per gas ... exceeds maximum 67000000' before any test body ran."
+fix = "Keep the EVM params the test app provides and size funding from GetNextBaseFeePerGas; MaxMinFeePerGas is 67000000 (modules/evm/types/params.go:55)."
+
+[gotcha.2711]
+title = "LatestSignerForChainID(0) panics; legacy transactions sign with FrontierSigner"
+symptom = "An ante test built a chain-id-zero legacy transaction through LatestSignerForChainID and the EVM library panicked 'invalid chainID 0'."
+fix = "Sign pre-EIP-155 cases with ethtypes.FrontierSigner{} and give typed transactions a real chain id; a repair made after the last verify run is unqualified until the next attempt reruns the verify."
+
+[gotcha.2712]
+title = "A package verify of ./modules/<x>/... runs every test of the package, including ones broken at the base"
+symptom = "A task that ported four tests was failed by two others in the same package that had been broken since earlier tasks deleted the module from the app and removed the script they drove."
+fix = "Before naming a package-wide verify, run the package once at the base and claim the pre-existing failures in the task (fix, delete with reason, or record a finding); a package-wide verify is a statement about the whole package."
