@@ -115466,7 +115466,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1468.1]
 title = "Issues #1468, #1469 and #1458: Carry rung and transaction hash through the reference app outcomes and derive the emulator receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -115497,7 +115497,7 @@ do_4 = "Finding 18.1468.1.1: the verify first builds the SDK, the seller, buyer 
 
 [task.18.1453.1]
 title = "Issues #1453 and #1454: Move the paid-route-next sample and fulfillment repositories onto the receipt-key configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117551,7 +117551,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.168.1]
 title = "Prove the lxp module h path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117683,7 +117683,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.164.1]
 title = "Prove the programs h path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -117745,7 +117745,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1451.1]
 title = "Issues #1451 and #1461: Drop the retired sign-credit build and the custody-proof binary export from the real-node test path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.1481.1"]
@@ -188141,7 +188141,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.3.1]
 title = "Delete the legacy telemetry calls of slashing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.1", "15.0.4", "6.96.5"]
@@ -188208,7 +188208,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.3]
 title = "Delete the legacy telemetry calls of vesting"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.3", "15.0.4", "6.96.5"]
@@ -188240,7 +188240,7 @@ do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go 
 
 [task.15.3.4]
 title = "Delete the legacy telemetry calls of upgrade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.4", "15.0.4", "6.96.5"]
@@ -188274,7 +188274,7 @@ do_6 = "Decision 2294: the last attempt failed only because node/checkpoints.go 
 
 [task.15.3.5]
 title = "Delete the legacy telemetry calls of distribution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.5", "15.0.4", "6.96.5"]
@@ -188339,7 +188339,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.3.7]
 title = "Delete the legacy telemetry calls of staking block hooks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.7", "15.0.4", "6.96.5"]
@@ -188403,7 +188403,7 @@ do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go 
 
 [task.15.3.9]
 title = "Delete the legacy telemetry calls of gov"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.9", "15.0.4", "6.96.5"]
@@ -188437,7 +188437,7 @@ do_6 = "Decision 2294: the last attempt failed only because node/checkpoints.go 
 
 [task.15.3.10]
 title = "Delete the legacy telemetry calls of evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.10", "15.0.4", "6.96.5"]
@@ -188469,7 +188469,7 @@ do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go 
 
 [task.15.3.11]
 title = "Delete the legacy telemetry calls of module manager MidBlock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["15.2.11", "15.0.4", "6.96.5"]
