@@ -17091,3 +17091,27 @@ symbol = "test_security_storage_suites_absent"
 observed = "Attempt 1 of task 16.97.3 (07ba0264f) implemented acceptance 16967.3 as written, scanning every suite under tests/solidity for imports of contracts/security or contracts/storage, and failed on the four names suites that import contracts/security/Governed.sol, a live contract (finding 6.80.2.1); the five retired suites of do_2 are absent and the storage imports are gone."
 assumption = "The criterion was broader than the retirement it gates: it narrows to the five named suites being absent and to contracts/storage imports; contracts/security imports are not a retired surface while Governed stays."
 severity = "minor"
+
+[finding.1.36.3.1]
+task = "1.36.3"
+file = "modules/layerxanchor/keeper/keeper_test.go:355"
+symbol = "testvectors.LoadAnchor"
+observed = "Attempt 1 of task 6.96.5 (c36e1554e) re-homed the availability class count and go build passed, but go vet of the keeper package stopped at modules/layerxanchor/keeper/keeper_test.go:355 (undefined: testvectors.LoadAnchor); task 1.36.3 deleted the loader from layerxproof/testvectors/load.go and named its consumers at modules/layerxanchor/keeper/keeper_test.go and precompiles/layerxanchor/layerxanchor_test.go a wiring request no task wrote, so the layerxanchor keeper test package (modules/layerxanchor/keeper/keeper_test.go:355, with the suite helpers vector, submit and attestation at :137-168 feeding bond_return_test.go:68, :155, :258, merge_handler_test.go:52, retire_merge_test.go:22 and retirement_rehearsal_test.go:72, :96, :106, :252) and the precompile test package (precompiles/layerxanchor/retire_read_gate_test.go:117, retired_wrapper_test.go:26 and :86) have not compiled since 3373522c3."
+assumption = "The anchor retirement tests are the evidence that bonds return and writes revert at the merge; they keep the deleted vectors as a module-local JSON fixture (decision 2258) through task 6.96.6, and 6.96.5 proves its own change through a test package that compiles on main."
+severity = "major"
+
+[finding.9.24.8.1]
+task = "9.24.8"
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs:24"
+symbol = "native_budget_versions_fields_and_extremes"
+observed = "Attempt 1 of task 9.24.8 (e85c8d887) deleted the grant vectors and both grant tests and the build passed; the verify failed before any test ran with `error: Option 'exact' given more than once`, because the declared command passed --exact twice to the libtest harness."
+assumption = "The verify names both budget tests after a single --exact; the implementation of attempt 1 is unchanged."
+severity = "minor"
+
+[finding.9.97.14.2]
+task = "9.97.14"
+file = "tests/agent/sdk/python/test_ai_market.py:412"
+symbol = "test_constants_enums_transitions_and_errors_match_the_frozen_schema"
+observed = "Attempt 3 of task 9.97.14 (8031fd3d2) completed do_1 through do_6 and the verify ran the three suites: 27 passed and 11 failed, all in tests/agent/sdk/python/test_ai_market.py and none touched by the task: the schema contract test reads native_call.protocol_version, a key the frozen schema no longer carries (KeyError at :435); six tests build NativeTerms with twelve positional fields while services/agent/sdk/python/layerx_sdk/ai_market.py:710-725 requires gas_limit, max_fee_per_gas and max_priority_fee_per_gas as well; and four JournalTests build records whose signed bytes are not the type-2 EIP-1559 transaction that _signed_identity (ai_market.py:1331-1353) decodes, so every record is refused as CorruptRecord. The suite was last changed on 2026-10-19 before the SDK's EVM port."
+assumption = "The suite is stale against the SDK on main, not broken by the task; aligning it is in the task's title and becomes do_7, with the SDK itself unchanged per do_5."
+severity = "major"

@@ -6657,6 +6657,12 @@ value = "Governed.sol remains on main with its onlyGovernance and onlyEmergencyC
 basis = "Findings 6.80.2.1 and 16.97.3.1: the names contracts adopted Governed after decision 681 was taken, and no retirement task ports them off it; a governance base of eighteen lines is not worth a port."
 affects = ["6.80.2", "16.97.3", "6.0.9"]
 
+[decision.2258]
+title = "The retired anchor checkpoint vectors return as a module-local test fixture under modules/layerxanchor/testdata, and the two anchor test packages load it through package-local helpers"
+value = "Task 6.96.6 restores the content of the deleted layerxproof/testdata/anchor_vectors.json at modules/layerxanchor/testdata/anchor_vectors.json and ports modules/layerxanchor/keeper/keeper_test.go and the precompiles/layerxanchor/ tests onto package-local loaders; layerxproof/testvectors keeps only Load, LoadPaxeerBind, the Fixture and Vector types and their accessors, and the C generator stays deleted. Task 6.96.5 verifies through TestBringUpAnchorGenesisValidates of the module root package until 6.96.6 lands."
+basis = "Finding 1.36.3.1: task 1.36.3 deleted the loader and left its two consumer packages uncompilable as an unwritten wiring request; the retirement tests they hold (bond return, merge handler, reads and writes after the retirement) are evidence the merge needs, and a 54-kilobyte static fixture is cheaper than rewriting them."
+affects = ["6.96.5", "6.96.6", "1.36.3"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20278,6 +20284,10 @@ title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
 
+[req.8311]
+title = "The anchor retirement tests run against a module-local vector fixture"
+ac_1 = "modules/layerxanchor/testdata/anchor_vectors.json holds the generator, context, guarantors, checkpoints and attestations sections of the retired layerxproof vectors, modules/layerxanchor/keeper/ and precompiles/layerxanchor/ load it through a package-local helper with no LoadAnchor in layerxproof/testvectors, and go test of both packages passes."
+
 [req.8310]
 title = "The wallet capability vectors producer emits only budget vectors"
 ac_1 = "tests/qualification/lxp_wallet_caps_vectors.c defines no grant_vector and names no lxp_grant_state, build/native-vectors.json carries the budget fields and the producer tag, and the budget tests of committed_caps.rs pass against it."
@@ -33882,6 +33892,15 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.6.96.6]
+title = "Restore the anchor retirement vectors as a module-local fixture and port both anchor test packages onto it"
+reqs = ["8311.1"]
+touches = ["modules/layerxanchor/testdata/anchor_vectors.json", "modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/layerxanchor_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
+tests = ["modules/layerxanchor/keeper/keeper_test.go", "modules/layerxanchor/keeper/bond_return_test.go", "modules/layerxanchor/keeper/retirement_rehearsal_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
+verification_contract = "test -s modules/layerxanchor/testdata/anchor_vectors.json && ! grep -rn 'LoadAnchor' layerxproof/testvectors/ && ! test -e layerxproof/testdata/anchor_vectors.json && go vet ./modules/layerxanchor/keeper/ ./precompiles/layerxanchor/ && go test -count=1 ./modules/layerxanchor/keeper/ ./precompiles/layerxanchor/ && go test -count=1 ./layerxproof/exportcheck/ -run '^TestTestvectorsAnchorLoaderAbsent$'"
+do_1 = "Create modules/layerxanchor/testdata/anchor_vectors.json with the exact content of layerxproof/testdata/anchor_vectors.json as it stood before task 1.36.3 (git show 3373522c3^:layerxproof/testdata/anchor_vectors.json; sections generator, context, guarantors, checkpoints with thirteen vectors and attestations with six); it is static test data, not a generated artefact, and no generator returns."
+symbols = ["loadAnchorFixture"]
+
 [capability.9.24.8]
 title = "Drop the grant vectors from the wallet capability vectors producer and its two grant tests"
 reqs = ["8310.1"]
@@ -33896,7 +33915,7 @@ title = "Re-home the availability class count in the layerxanchor keeper after t
 reqs = ["8309.1"]
 touches = ["modules/layerxanchor/keeper/checkpoints.go"]
 tests = ["modules/layerxanchor/keeper/keeper_test.go"]
-verification_contract = "! grep -n 'codec.AvailabilityClassCount' modules/layerxanchor/keeper/checkpoints.go && go vet ./modules/layerxanchor/keeper/ && go test -count=1 ./modules/layerxanchor/keeper/ -run '^(TestDefaultGenesisIsValid|TestSubmitCheckpointIsRetired|TestMsgUpdateParamsRefusals)$'"
+verification_contract = "! grep -n 'codec.AvailabilityClassCount' modules/layerxanchor/keeper/checkpoints.go && go build ./modules/layerxanchor/... ./daemon/... && go test -count=1 ./modules/layerxanchor/ -run '^TestBringUpAnchorGenesisValidates$'"
 do_1 = "In modules/layerxanchor/keeper/checkpoints.go add `const availabilityClassCount = 5` next to availabilityMask (:144-146) with a comment that it is the number of availability classes the attestation ClassMask carries, formerly codec.AvailabilityClassCount, and use it for the counts array (:147) and the class loop (:154)."
 symbols = ["availabilityClassCount"]
 
@@ -118444,7 +118463,7 @@ touches = ["tests/qualification/lxp_wallet_caps_vectors.c", "services/agent/crat
 tests = ["services/agent/crates/layerx-client/tests/committed_caps.rs"]
 planned_paths = []
 build_cmd = "make -C . paxd-native-libs && cc -std=c17 -pedantic -Werror -Wall -Wextra -Wconversion -Wshadow -Wvla -fno-strict-aliasing -ffp-contract=off -O2 -ffunction-sections -fdata-sections -Iinclude -Ibuild/generated tests/qualification/lxp_wallet_caps_vectors.c build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a build/liblayerx.a -Wl,--gc-sections -lcrypto -pthread -ldl -lm -o build/lxp_wallet_caps_vectors && build/lxp_wallet_caps_vectors > build/native-vectors.json && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps"
-verify_cmd = "! grep -nE 'grant_vector|lxp_grant_state' tests/qualification/lxp_wallet_caps_vectors.c && ! grep -nE 'native_grant_signatures|grant_refuses_key' services/agent/crates/layerx-client/tests/committed_caps.rs && env LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_budget_versions_fields_and_extremes --exact budget_refuses_malformed_and_arithmetic_bounds"
+verify_cmd = "! grep -nE 'grant_vector|lxp_grant_state' tests/qualification/lxp_wallet_caps_vectors.c && ! grep -nE 'native_grant_signatures|grant_refuses_key' services/agent/crates/layerx-client/tests/committed_caps.rs && env LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_budget_versions_fields_and_extremes budget_refuses_malformed_and_arithmetic_bounds"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -118456,6 +118475,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 9.24.8.1: the verify passes both test names after one --exact flag. Attempt 1 (e85c8d887) holds the producer and test deletions unchanged; continue from it."
 
 [task.9.35.7]
 title = "Remove the kernel activity codec items from layerx-crypto once the kernel path has migrated"
@@ -120600,6 +120620,38 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.6.96.6]
+title = "Restore the anchor retirement vectors as a module-local fixture and port both anchor test packages onto it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["6.96.5"]
+reqs = ["8311.1"]
+capabilities = ["6.96.6"]
+interfaces = []
+do_1 = "Create modules/layerxanchor/testdata/anchor_vectors.json with the exact content of layerxproof/testdata/anchor_vectors.json as it stood before task 1.36.3 (git show 3373522c3^:layerxproof/testdata/anchor_vectors.json; sections generator, context, guarantors, checkpoints with thirteen vectors and attestations with six); it is static test data, not a generated artefact, and no generator returns."
+do_2 = "In modules/layerxanchor/keeper/keeper_test.go add `func loadAnchorFixture(t *testing.T) testvectors.Fixture` that reads ../testdata/anchor_vectors.json relative to the package directory and decodes it with encoding/json into testvectors.Fixture (the Fixture and Vector types and the Bytes, Array32 and Uint64 accessors stay in layerxproof/testvectors per task 1.36.3 do_2); replace testvectors.LoadAnchor() at :355 with it, and load the fixture in initializeSuite (:93) so every suite test that calls s.submit, s.vector or s.attestation (bond_return_test.go:68, :155, :258; merge_handler_test.go:52; retire_merge_test.go:22; retirement_rehearsal_test.go:72, :96, :106, :112, :252) has the vectors."
+do_3 = "In precompiles/layerxanchor/layerxanchor_test.go add the same helper reading ../../modules/layerxanchor/testdata/anchor_vectors.json and load it where the harness is built so retire_gate_test.go:19, :26, :32, :43, :93, :170, retire_read_gate_test.go:46, :59 and the two LoadAnchor calls at retire_read_gate_test.go:117 and retired_wrapper_test.go:26, :86 read the fixture; delete the LoadAnchor calls."
+do_4 = "Add nothing to layerxproof/testvectors and recreate nothing under layerxproof/testdata: TestTestvectorsAnchorLoaderAbsent of layerxproof/exportcheck (task 1.36.3) keeps passing, and the verify runs it."
+do_5 = "Run go vet and go test of both packages; a test that fails for a reason other than the fixture is a finding in qualification.kvx, not a change to the module."
+symbols = ["loadAnchorFixture"]
+touches = ["modules/layerxanchor/testdata/anchor_vectors.json", "modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/layerxanchor_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
+tests = ["modules/layerxanchor/keeper/keeper_test.go", "modules/layerxanchor/keeper/bond_return_test.go", "modules/layerxanchor/keeper/retirement_rehearsal_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
+planned_paths = []
+build_cmd = "go build ./modules/layerxanchor/... ./precompiles/layerxanchor/..."
+verify_cmd = "test -s modules/layerxanchor/testdata/anchor_vectors.json && ! grep -rn 'LoadAnchor' layerxproof/testvectors/ && ! test -e layerxproof/testdata/anchor_vectors.json && go vet ./modules/layerxanchor/keeper/ ./precompiles/layerxanchor/ && go test -count=1 ./modules/layerxanchor/keeper/ ./precompiles/layerxanchor/ && go test -count=1 ./layerxproof/exportcheck/ -run '^TestTestvectorsAnchorLoaderAbsent$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit; both anchor test packages fail to compile again as on main."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.6.96.5]
 title = "Re-home the availability class count in the layerxanchor keeper after the codec retirement"
 status = "pending"
@@ -120614,10 +120666,10 @@ do_2 = "Drop the github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec impo
 do_3 = "Run go build ./modules/layerxanchor/... ./daemon/... and the keeper tests of the verify command; the keeper tests that compile today keep passing."
 symbols = ["availabilityClassCount"]
 touches = ["modules/layerxanchor/keeper/checkpoints.go"]
-tests = ["modules/layerxanchor/keeper/keeper_test.go"]
+tests = ["modules/layerxanchor/bringup_genesis_test.go::TestBringUpAnchorGenesisValidates"]
 planned_paths = []
 build_cmd = "go build ./modules/layerxanchor/... ./daemon/..."
-verify_cmd = "! grep -n 'codec.AvailabilityClassCount' modules/layerxanchor/keeper/checkpoints.go && go vet ./modules/layerxanchor/keeper/ && go test -count=1 ./modules/layerxanchor/keeper/ -run '^(TestDefaultGenesisIsValid|TestSubmitCheckpointIsRetired|TestMsgUpdateParamsRefusals)$'"
+verify_cmd = "! grep -n 'codec.AvailabilityClassCount' modules/layerxanchor/keeper/checkpoints.go && go build ./modules/layerxanchor/... ./daemon/... && go test -count=1 ./modules/layerxanchor/ -run '^TestBringUpAnchorGenesisValidates$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-chain-modules"
@@ -120629,6 +120681,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 1.36.3.1: the keeper test package does not compile on main because modules/layerxanchor/keeper/keeper_test.go:355 still calls the deleted testvectors.LoadAnchor; this task does not touch the test package. The verify builds modules/layerxanchor/... and daemon/... and runs TestBringUpAnchorGenesisValidates of the module root package, which compiles on main; task 6.96.6 restores the fixture and the keeper tests. Attempt 1 (c36e1554e) holds the constant, both uses and the dropped import unchanged."
 
 [task.5.5.25]
 title = "Serve open-block heights from the committed state once the block seals"
@@ -189922,6 +189975,14 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.6.96.6.1]
+feature = "6"
+req = "8311.1"
+scenario = "Given main after tasks 1.36.3 and 6.96.5, when the keeper and precompile test packages of layerxanchor are vetted and run, then both compile against the module-local fixture, every retirement test passes and the exportcheck test still finds no loader in layerxproof/testvectors"
+contract = "contracts/chain-modules.md"
+test = "modules/layerxanchor/keeper/keeper_test.go"
+qualification = "UNRUN"
+
 [acceptance.9.24.8.1]
 feature = "9"
 req = "8310.1"
@@ -195892,6 +195953,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "In tests/agent/sdk/python/test_integration.py delete decode_and_verify_program_terminal from the import at :51 (keep OccupancyPayer only if a remaining test still uses it) and delete the three tests that call it, test_candidate_terminal_response_and_usage_are_receipt_bound (:231), test_terminal_attachments_bind_canonical_money_and_occupancy_evidence (:251) and test_state_commitment_occupancy_pays_from_the_proven_payer_account (:339), with any helper only they used; they verified kernel program terminals that task 9.97.7 retired (finding 9.97.7.6). Attempt 1 (0eeac80a3) holds the other edits and the stub test."
+do_7 = "Finding 9.97.14.2: port tests/agent/sdk/python/test_ai_market.py to the SDK on main without changing services/agent/sdk/python/layerx_sdk/ai_market.py: in test_constants_enums_transitions_and_errors_match_the_frozen_schema (:412) compare the native_call section by the keys the frozen schema carries (drop the protocol_version pair at :435 when the schema has none); give every NativeTerms construction (:542, :793 and the four other sites the TypeError names) the gas_limit, max_fee_per_gas and max_priority_fee_per_gas values the operation's terms declare; and make the JournalTests record fixtures sign a type-2 EIP-1559 transaction of nine RLP fields with the secp256k1 fixture key so that _signed_identity recovers a public key whose sha256 equals the record key and whose envelope request digest equals the intent (ai_market.py:1331-1353). Attempt 3 (8031fd3d2) holds do_1 through do_6 unchanged; continue from it."
 
 [task.18.1437.1]
 title = "Issue #1437: Document the vulnerability report response targets in SECURITY.md"
