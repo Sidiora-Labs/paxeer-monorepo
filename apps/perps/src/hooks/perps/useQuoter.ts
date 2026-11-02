@@ -3,18 +3,28 @@ import { fetchWithPolicy as fetch } from "@/core/net/fetch";
 import type { ContractFunctionReturnType } from "viem";
 import { PerpsPrecompileABI } from "@/core/network/abi/PerpsPrecompile";
 import { PRECOMPILES } from "@/core/network/precompiles";
-import { buildGetMarketConfig, buildGetMarginTiers, buildGetMarkPriceDetails } from "@/core/perps/calls";
-import { decodeMarketConfig, type MarketConfig, type MarginTier } from "@/core/perps/marketConfig";
+import {
+  buildGetMarketConfig,
+  buildGetMarginTiers,
+  buildGetMarkPriceDetails,
+} from "@/core/perps/calls";
+import {
+  decodeMarketConfig,
+  type MarketConfig,
+  type MarginTier,
+} from "@/core/perps/marketConfig";
 import {
   type MarketQuote,
   type PartialCloseQuote,
   type PrecompileMarketQuote,
-  type PrecompilePartialCloseQuote,
   marketQuoteFromPrecompile,
   partialCloseQuoteFromPrecompile,
   tickerQuoteWithConfig,
 } from "@/core/perps/quoteFallback";
-import { type VenueTicker, parseFundingRateHourly } from "@/core/perps/fundingRate";
+import {
+  type VenueTicker,
+  parseFundingRateHourly,
+} from "@/core/perps/fundingRate";
 import { MARKET_DATA_URL as REST_API_URL } from "@/core/feeds";
 import { readContract } from "./useContract";
 
@@ -31,17 +41,25 @@ export interface OpenPositionQuote {
   maintenanceMarginBps: bigint;
 }
 
+const uint256 = z
+  .bigint()
+  .nonnegative()
+  .max((1n << 256n) - 1n);
+const int256 = z
+  .bigint()
+  .min(-(1n << 255n))
+  .max((1n << 255n) - 1n);
 const openPositionQuoteSchema = z.object({
-  entryPrice: z.bigint().positive(),
-  sizeUsd: z.bigint().positive(),
-  collateralUsd: z.bigint().positive(),
-  leverage: z.bigint().min(10n ** 18n),
-  tradingFee: z.bigint().nonnegative(),
-  tradingFeeUsd: z.bigint().nonnegative(),
-  priceImpact: z.bigint().nonnegative(),
-  liquidationPrice: z.bigint().nonnegative(),
-  estimatedFunding24h: z.bigint(),
-  maintenanceMarginBps: z.bigint().min(0n).max(10_000n),
+  entryPrice: uint256.positive(),
+  sizeUsd: uint256.positive(),
+  collateralUsd: uint256.positive(),
+  leverage: uint256.min(10n ** 18n),
+  tradingFee: uint256,
+  tradingFeeUsd: uint256,
+  priceImpact: uint256,
+  liquidationPrice: uint256,
+  estimatedFunding24h: int256,
+  maintenanceMarginBps: uint256.max(10_000n),
 });
 
 export function decodeOpenPositionQuote(result: unknown): OpenPositionQuote {
@@ -89,10 +107,10 @@ let _oiLastFetch = 0;
 let _oiInflight: Promise<OiEntry[]> | null = null;
 const OI_CACHE_TTL = 60_000;
 
-async function _fetchOi(): Promise<OiEntry[]> {
+async function _fetchOi(marketDataUrl: string): Promise<OiEntry[]> {
   if (_oiCache && Date.now() - _oiLastFetch < OI_CACHE_TTL) return _oiCache;
   if (_oiInflight) return _oiInflight;
-  _oiInflight = fetch(`${REST_API_URL}/open-interest`)
+  _oiInflight = fetch(`${marketDataUrl}/open-interest`)
     .then((r) => r.json())
     .then((json) => {
       if (json.success) {
@@ -115,7 +133,23 @@ function getSymbolForMarket(marketId: bigint, config: MarketConfig): string {
   return config.symbol;
 }
 
-export function useQuoter() {
+const closeQuoteSchema = z.object({
+  exitPrice: uint256.positive(),
+  unrealizedPnl: int256,
+  tradingFee: uint256,
+  tradingFeeUsd: uint256,
+  fundingOwed: int256,
+  netPnl: int256,
+  estimatedPayout: uint256,
+});
+const partialQuoteSchema = z.tuple([
+  uint256.positive(),
+  int256,
+  uint256,
+  uint256,
+]);
+
+export function useQuoter(marketDataUrl = REST_API_URL) {
   /**
    * Fetches market data from the REST /api/ticker/:symbol endpoint.
    * Returns a MarketQuote with values scaled to 18 decimals (bigint)
@@ -133,7 +167,7 @@ export function useQuoter() {
     const symbol = getSymbolForMarket(marketId, config);
     try {
       const [res, tiers, markDetails] = await Promise.all([
-        fetch(`${REST_API_URL}/ticker/${encodeURIComponent(symbol)}`),
+        fetch(`${marketDataUrl}/ticker/${encodeURIComponent(symbol)}`),
         readContract(reads.tiers),
         readContract(reads.mark),
       ]);
@@ -141,18 +175,21 @@ export function useQuoter() {
       const json = await res.json();
       if (!json.success) throw new Error("Ticker response unsuccessful");
       const t: VenueTicker = json.data;
-      const lastSettledFundingRate1h = parseFundingRateHourly(t.last_funding_rate_hourly);
-      const [markPrice, indexPrice, midPrice, fresh] = markDetails as ContractFunctionReturnType<
-        typeof PerpsPrecompileABI,
-        "view",
-        "getMarkPriceDetails"
-      >;
+      const lastSettledFundingRate1h = parseFundingRateHourly(
+        t.last_funding_rate_hourly,
+      );
+      const [markPrice, indexPrice, midPrice, fresh] =
+        markDetails as ContractFunctionReturnType<
+          typeof PerpsPrecompileABI,
+          "view",
+          "getMarkPriceDetails"
+        >;
 
       // Also fetch OI breakdown — cached, refreshed at most every 60 s
       let longOI = 0;
       let shortOI = 0;
       try {
-        const oiData = await _fetchOi();
+        const oiData = await _fetchOi(marketDataUrl);
         const entry = oiData.find((d) => d.paxeerSymbol === symbol);
         if (entry) {
           longOI = entry.long_oi ?? 0;
@@ -173,14 +210,20 @@ export function useQuoter() {
       };
     } catch (err) {
       // Fallback to on-chain if REST fails
-      console.warn("[useQuoter] REST ticker failed, falling back to on-chain:", err);
+      console.warn(
+        "[useQuoter] REST ticker failed, falling back to on-chain:",
+        err,
+      );
       const result = await readContract({
         address: PRECOMPILES.perps,
         abi: PerpsPrecompileABI,
         functionName: "quoteMarket",
         args: [marketId],
       });
-      return { ...marketQuoteFromPrecompile(result as PrecompileMarketQuote), lastSettledFundingRate1h: null };
+      return {
+        ...marketQuoteFromPrecompile(result as PrecompileMarketQuote),
+        lastSettledFundingRate1h: null,
+      };
     }
   }
 
@@ -195,30 +238,46 @@ export function useQuoter() {
       address: PRECOMPILES.perps,
       abi: PerpsPrecompileABI,
       functionName: "quoteOpenPosition",
-      args: [params.marketId, params.collateralToken, params.collateralAmount, params.leverage, params.isLong],
+      args: [
+        params.marketId,
+        params.collateralToken,
+        params.collateralAmount,
+        params.leverage,
+        params.isLong,
+      ],
     });
     return decodeOpenPositionQuote(result);
   }
 
-  async function quoteClosePosition(positionId: bigint): Promise<ClosePositionQuote> {
+  async function quoteClosePosition(
+    positionId: bigint,
+  ): Promise<ClosePositionQuote> {
     const result = await readContract({
       address: PRECOMPILES.perps,
       abi: PerpsPrecompileABI,
       functionName: "quoteClosePosition",
       args: [positionId],
     });
-    return result as unknown as ClosePositionQuote;
+    return closeQuoteSchema.parse(result);
   }
 
-  async function quotePartialClose(positionId: bigint, closeSizeUsd: bigint): Promise<PartialCloseQuote> {
+  async function quotePartialClose(
+    positionId: bigint,
+    closeSizeUsd: bigint,
+  ): Promise<PartialCloseQuote> {
     const result = await readContract({
       address: PRECOMPILES.perps,
       abi: PerpsPrecompileABI,
       functionName: "quotePartialClose",
       args: [positionId, closeSizeUsd],
     });
-    return partialCloseQuoteFromPrecompile(result as PrecompilePartialCloseQuote);
+    return partialCloseQuoteFromPrecompile(partialQuoteSchema.parse(result));
   }
 
-  return { quoteMarket, quoteOpenPosition, quoteClosePosition, quotePartialClose };
+  return {
+    quoteMarket,
+    quoteOpenPosition,
+    quoteClosePosition,
+    quotePartialClose,
+  };
 }
