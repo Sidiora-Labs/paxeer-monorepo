@@ -41,7 +41,7 @@ export interface LayerXAgentIntegration {
 
 export function createAgentIntegration(options: AgentIntegrationOptions): LayerXAgentIntegration {
   const config = readDeclaredConfig(options.environment);
-  if ((options.budgets === undefined) === (options.preparationBudgets === undefined) || options.signer === undefined || options.receipts === undefined) throw new AgentIntegrationError("missing-declared-key");
+  if ((options.budgets === undefined) === (options.preparationBudgets === undefined) || typeof options.signer?.sign !== "function" || typeof options.receipts?.resolve !== "function") throw new AgentIntegrationError("missing-declared-key");
   const authenticated = authenticatedAgentTransport(options.environment, config);
   try {
   const client = new ProductionClient(new LayerXAgentTransport(authenticated.transport));

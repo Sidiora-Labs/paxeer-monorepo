@@ -329,6 +329,9 @@ export class AgentMiddleware {
     if (reservation.state === "committed") {
       try {
         const evidence = await this.#receipts.resolve(reservation.receiptDigest);
+        if (decodeRawEip1559(receiptBytes(evidence.rawTransaction)).chainId !== BigInt(request.networkId)) {
+          throw new AgentMiddlewareError("verification-failure");
+        }
         return await verifyCommittedAgentPayment(evidence, reservation, request, this.#receiptKeys, this.#commitments);
       } catch {
         return { kind: "unknown", reservation };
