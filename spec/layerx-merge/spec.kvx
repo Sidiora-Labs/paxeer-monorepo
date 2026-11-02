@@ -118187,7 +118187,7 @@ title = "Issue #1441: Port live_kinds to the retained intent kinds"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["9.27.9"]
 reqs = ["3537.1"]
 capabilities = ["18.1441.1"]
 interfaces = []
@@ -118210,6 +118210,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Finding 18.1441.1.1: attempt 1 (024cbd9b0) completed tests/live_kinds.rs and failed only on the layerx-agentd build that task 9.27.9 repairs; once 9.27.9 is on main, continue from attempt 1 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.18.1439.1]
 title = "Issue #1439: Remove the Python callback into the retired Rust probe and refuse qualification re-entry"
@@ -118335,7 +118336,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.27.9]
 title = "Port layerx-agentd to the retired offline export API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -134038,7 +134039,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.60.2]
 title = "Retire the credit_c_harness kernel harness files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 35
 requires = ["6.51.1", "5.54.9", "16.0.4", "16.2.4", "16.11.11"]
@@ -143816,7 +143817,7 @@ symbols = ["checkManifest", "merchantCheckout"]
 touches = ["services/platform/examples/run-reference-apps.mjs", "services/platform/examples/test/run-reference-apps.test.mjs"]
 tests = ["services/platform/examples/test/run-reference-apps.test.mjs::referenceAppsCheckPassesWithoutRetiredSurfaces"]
 planned_paths = ["services/platform/examples/test/run-reference-apps.test.mjs"]
-build_cmd = "node --check services/platform/examples/run-reference-apps.mjs"
+build_cmd = "npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/buyer run build && npm --prefix services/platform/middleware/merchant run build && node --check services/platform/examples/run-reference-apps.mjs"
 verify_cmd = "node --test --test-name-pattern='^(referenceAppsCheckPassesWithoutRetiredSurfaces)$' services/platform/examples/test/run-reference-apps.test.mjs"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -143831,6 +143832,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Finding 8.34.2.1: the build now builds the TypeScript SDK and the seller, buyer and merchant middlewares whose dist entries the runner and its support files import; continue from attempt 1 (fbca296ce) rebased onto current main, keeping its two files, and run the declared build and verify once as written."
 
 [task.8.34.3]
 title = "Spend from the agent example without a protocol version selection"
@@ -174781,7 +174783,7 @@ do_1 = "Remove the AuthorizedReceiptBatch and AuthorizedBatchResolver imports at
 do_2 = "Replace the required key LAYERX_AUTHORIZED_BATCH_JSON at sdk/integrations/express/src/index.ts:91 and its read at sdk/integrations/express/src/index.ts:288 with LAYERX_RECEIPT_KEYS_JSON parsed into receiptKeys; delete parseAuthorizedBatch at sdk/integrations/express/src/index.ts:666."
 do_3 = "Delete staticAuthorizedBatches at sdk/integrations/express/src/index.ts:299 and the authorizedBatches option; build ReceiptPayloadAuthority from config.receiptKeys at sdk/integrations/express/src/index.ts:355."
 do_4 = "Write sdk/integrations/express/test/receipt-keys.test.mjs (planned) with node:test cases 'loadConfigReadsReceiptKeysJson' and 'integrationSettlesSignedSequencerReceipt' importing the built dist entry."
-symbols = ["ReceiptKeys", "LAYERX_RECEIPT_KEYS_JSON", "staticAuthorizedBatches", "parseAuthorizedBatch"]
+symbols = ["LAYERX_RECEIPT_KEYS_JSON", "parseReceiptKeys", "offerPurposeHash"]
 touches = ["sdk/integrations/express/src/index.ts", "sdk/integrations/express/test/receipt-keys.test.mjs"]
 tests = ["sdk/integrations/express/test/receipt-keys.test.mjs::loadConfigReadsReceiptKeysJson", "sdk/integrations/express/test/receipt-keys.test.mjs::integrationSettlesSignedSequencerReceipt"]
 planned_paths = ["sdk/integrations/express/test/receipt-keys.test.mjs"]
@@ -174802,6 +174804,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "BuyerMiddlewareConfig (services/platform/middleware/buyer/src/index.ts:62-72) takes receiptKeys and no protocolVersion only after task 8.23.2, and the buyer package compiles against the seller package only after task 8.23.3 ports captureGrantSettlement (services/platform/middleware/buyer/src/index.ts:348-366); in createLayerXMount pass receiptKeys: config.receiptKeys and no protocolVersion to both new SellerMiddleware and new BuyerMiddleware. @sidiora/layerx-sdk exports no ReceiptKeys: declare export type ReceiptKeys = readonly SequencerReceiptKey[] in sdk/integrations/express/src/index.ts over SequencerReceiptKey (services/agent/sdk/typescript/src/verifier.ts:967), the element type of SellerMiddlewareConfig.receiptKeys (services/platform/middleware/seller/src/index.ts:160)."
 do_7 = "Each LAYERX_RECEIPT_KEYS_JSON entry is an object with exactly keyId, publicKey, firstHeight and lastHeight, the field names of the receiptKey the seller middleware parses (services/platform/middleware/seller/src/index.ts:831), heights as decimal strings."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_8 = "Finding 15.0.4.2: in readDeclaredConfig (sdk/integrations/express/src/index.ts:256-264) give the PaymentRequirements extra: { layerx: { commitment: 'receipted', purposeHash: offerPurposeHash(resourceUrl) } }, where the new exported offerPurposeHash(resourceUrl: string) returns the lowercase hex sha256 of 'layerx-express-purpose:' followed by LAYERX_RESOURCE_URL (a non-zero 64-hex value, as seller/src/commitment.ts:59-64 requires; commitment receipted per decision.821); the buyer carries the offer's purposeHash into its draw context unchanged, so the seller's PaymentExact reference matches; have integrationSettlesSignedSequencerReceipt assert the 402 offer's accepts[0].extra.layerx.purposeHash equals offerPurposeHash of the configured URL before paying. Then continue from attempt 5 (fb3e6c9e4) rebased onto current main, keeping its two files, and run the declared build and verify once as written."
 
 [task.15.0.5]
 title = "Keep a registered module error's codespace and code through the gRPC query handler of BaseApp"
@@ -176084,7 +176087,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.15.4.1]
 title = "Repoint the next integration from authorized batches to pinned receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["15.0.3", "8.0.3", "9.0.3", "8.23.2", "8.23.3"]
@@ -178880,6 +178883,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_5 = "Finding 16.12.1.2: attempt 1 (ee97281de) completed both files and failed only because the qualification environment lacked the pinned solc 0.8.27 for the offline build; continue from attempt 1 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.16.21.1]
 title = "Give the C test harness a single-case selector: lxp_test_run_one and --run <name>"
