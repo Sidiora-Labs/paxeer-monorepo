@@ -1,0 +1,124 @@
+[disposition.11.14.1]
+finding = "11.14.1"
+status = "resolved"
+evidence = "cb00b9648 corrected committed_without_proof to carry an empty transaction, preserved at services/interop/specs/conformance/x402/sequenced-settlement.json:55 and refused by SettlementResponse::validate_wire at services/interop/crates/layerx-x402/src/model.rs:462."
+
+[disposition.11.14.3.1]
+finding = "11.14.3.1"
+status = "resolved"
+evidence = "8b8941892 replaced the assembled receipt with recorder data, and services/interop/crates/layerx-committed-proof/tests/committed_vectors.rs:475 binds the vector signedReceipt to the recorder positive.receipt verbatim."
+
+[disposition.11.14.3.3]
+finding = "11.14.3.3"
+status = "resolved"
+evidence = "8b8941892 routes the recorded committed view through verify_committed with its block hash at services/interop/crates/layerx-committed-proof/tests/committed_vectors.rs:311, preserving the recorder receiptJson at line 473."
+
+[disposition.11.14.4]
+finding = "11.14.4"
+status = "resolved"
+evidence = "85b55735b introduced checkout-specific receipt derivation, and services/interop/crates/layerx-ucp/tests/sequenced_vectors.rs:244 now substitutes gateway_key in the native payment reference and verifies the re-signed receipt at line 286."
+
+[disposition.11.14.5]
+finding = "11.14.5"
+status = "resolved"
+evidence = "c03dde7dd derives each credit receipt from the intent idempotency key at services/interop/crates/layerx-fiat/tests/sequenced_vectors.rs:254 and re-signs the replaced payment log at line 219 while the adapter still enforces reference equality at services/interop/crates/layerx-fiat/src/lib.rs:642."
+
+[disposition.11.15.1]
+finding = "11.15.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:171511 names the declared lock_lists_every_member_dependency test instead of the crate name, with the real dependency-coverage test introduced by 70d213655."
+
+[disposition.11.17.1]
+finding = "11.17.1"
+status = "resolved"
+evidence = "0fb793f74 adapted both test targets to the three-argument receipt constructor and expanded payment fields, retained at services/interop/crates/layerx-visa-tap/tests/conformance.rs:122 and services/interop/crates/layerx-visa-tap/tests/middleware.rs:287."
+
+[disposition.11.21.2]
+finding = "11.21.2"
+status = "resolved"
+evidence = "b798d67a4 converted the constructor callers to PaxeerEndpoint, with RelayerConfig::paxeer_endpoints returning Vec<PaxeerEndpoint> at services/interop/crates/layerx-bridge-relayer/src/config.rs:514 and the operator test passing those endpoints to PaxeerRpc::new at services/interop/crates/layerx-bridge-relayer/tests/operator_cosign_contract.rs:1082."
+
+[disposition.11.21.2.1]
+finding = "11.21.2.1"
+status = "superseded"
+evidence = "f0aa4ee07 deleted services/interop/crates/layerx-mirror/src/node.rs and its Freshness-based LNI checkpoint acquisition surface after the read-type port in 05dcc1243."
+
+[disposition.11.21.3]
+finding = "11.21.3"
+status = "resolved"
+evidence = "services/interop/crates/layerx-bridge-relayer/src/relayer.rs:229 now declares PaxeerLink.receipt_keys, matching the configured keys supplied at services/interop/crates/layerx-bridge-relayer/src/config.rs:588."
+
+[disposition.11.22.4]
+finding = "11.22.4"
+status = "resolved"
+evidence = "25f427b5c accepts verifier results for R4 and R6 at services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs:485 and separately asserts raw-transaction binding at line 503 and the previous/resulting sequence hash chain at line 524."
+
+[disposition.11.22.4.2]
+finding = "11.22.4.2"
+status = "resolved"
+evidence = "25f427b5c checks the Decode vector through the verifier result at services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs:460 and expects ReceiptError::Verification with ReceiptCheck::Decode."
+
+[disposition.11.23.3]
+finding = "11.23.3"
+status = "resolved"
+evidence = "d50f1c57f added the read-only GasStation::policy accessor at services/interop/crates/layerx-gas-station/src/station.rs:283, which Service::report uses for did_budget at services/interop/crates/layerx-gas-station/src/service.rs:681."
+
+[disposition.11.23.3.1]
+finding = "11.23.3.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:172117 now names only status_reports_the_did_gas_budget, declared at services/interop/crates/layerx-gas-station/tests/service.rs:1058, instead of the unresolved generic-method graph names."
+
+[disposition.11.24.2]
+finding = "11.24.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:172181 now has an empty symbols list, removing the failing graph lookups while respond and submission_rung remain declared at services/interop/crates/layerx-gas-station/src/service.rs:285 and line 575."
+
+[disposition.11.25.5]
+finding = "11.25.5"
+status = "superseded"
+evidence = "f0aa4ee07 retired LniArchiveSource, NativeCheckpointPolicy and checkpoint_with_native_authority with node.rs, and spec/layerx-merge/spec.kvx:172373 now checks the surviving record_committed definition."
+
+[disposition.11.26.1]
+finding = "11.26.1"
+status = "resolved"
+evidence = "services/interop/crates/layerx-mirror/src/committed.rs:27 declares CommittedBlock and services/interop/crates/layerx-mirror/src/publisher.rs:5 imports it for Archive::from_committed at line 154, with the archive implementation landed in 7defb87c3."
+
+[disposition.11.26.1.1]
+finding = "11.26.1.1"
+status = "resolved"
+evidence = "7defb87c3 landed the committed publisher over the 05dcc1243 read-type port, and services/interop/crates/layerx-mirror/src/publisher.rs:154 now consumes the CommittedBlock declared at services/interop/crates/layerx-mirror/src/committed.rs:27 without the retired checkpoint read path."
+
+[disposition.11.26.2]
+finding = "11.26.2"
+status = "resolved"
+evidence = "b2265cf17 carried the rename through the journal and tests, with CommittedCoordinate imported at services/interop/crates/layerx-mirror/src/store.rs:11, latest_committed constructed at line 363 and the restored committed cursor asserted at services/interop/crates/layerx-mirror/tests/state_directory.rs:163."
+
+[disposition.11.26.4]
+finding = "11.26.4"
+status = "resolved"
+evidence = "edd77cf4a replaced the obsolete Option access in all three readers, which now read committed.block_hash directly at services/interop/crates/layerx-mirror/src/ethereum.rs:862, services/interop/crates/layerx-mirror/src/runtime.rs:338 and services/interop/crates/layerx-mirror/src/solana.rs:957."
+
+[disposition.11.26.4.2]
+finding = "11.26.4.2"
+status = "resolved"
+evidence = "24dba1162 refreshed all fourteen downstream lockfiles after the manifest dependency removal, and the current layerx-mirror package entries at services/agent/Cargo.lock:955 and services/platform/Cargo.lock:1318 omit layerx-agent-api, layerx-client and layerx-types."
+
+[disposition.11.26.5]
+finding = "11.26.5"
+status = "resolved"
+evidence = "d73ca0ee2 removed the SDK SignedHeaderTrust/from_source dependency and services/agent/crates/layerx-sdk/src/production.rs:634 now verifies through MirrorVerifier::from_committed_source followed by committed_receipt."
+
+[disposition.11.29.1]
+finding = "11.29.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:172725 now checks export_with_transaction and RawTransactionMismatch instead of the ambiguous accessor graph name, while the accessor introduced by f7295f007 remains declared at services/interop/crates/layerx-portable/src/receipt.rs:376."
+
+[disposition.11.29.4]
+finding = "11.29.4"
+status = "resolved"
+evidence = "2c4ecdb63 adapted the downstream tests to PORTABLE_RECEIPT_FORMAT and the two-argument verifier, retained at services/interop/crates/layerx-portable/tests/independent_verifier.rs:5 and services/interop/crates/layerx-portable/tests/sequencer_vectors.rs:133."
+
+[disposition.11.30.1]
+finding = "11.30.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:172855 now has an empty symbols list instead of the deleted crate name, with fc9c1c7ce removing the crate and services/interop/crates/layerx-portable/tests/retired_crates.rs:55 retaining the workspace absence test."

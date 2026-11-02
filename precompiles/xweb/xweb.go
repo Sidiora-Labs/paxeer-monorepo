@@ -163,6 +163,21 @@ func NewPrecompile(keepers utils.Keepers) (*Precompile, error) {
 
 func NewPrecompileWithKeeper(keeper *xwebkeeper.Keeper, bankKeeper utils.BankKeeper, evmKeeper utils.EVMKeeper) *Precompile {
 	newABI := pcommon.MustGetABI(f, "abi.json")
+	// These program entry points are also pinned by IXWeb and its consumer proof.
+	// Refuse ABI drift before installing a method table at the native address.
+	for _, entry := range []struct {
+		name     string
+		selector [4]byte
+	}{
+		{FulfilProgramMethod, [4]byte{0x2d, 0x4b, 0xf7, 0xad}},
+		{GetProgramResultMethod, [4]byte{0x2b, 0x2e, 0x13, 0xfc}},
+		{GetKernelNetworkIdMethod, [4]byte{0xfc, 0x0d, 0x26, 0xf4}},
+	} {
+		method, found := newABI.Methods[entry.name]
+		if !found || !bytes.Equal(method.ID, entry.selector[:]) {
+			panic(fmt.Sprintf("xweb: abi.json selector mismatch for %s", entry.name))
+		}
+	}
 	executor := &PrecompileExecutor{
 		abi:        newABI,
 		address:    common.HexToAddress(XWebAddress),

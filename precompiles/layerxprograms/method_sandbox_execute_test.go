@@ -152,12 +152,12 @@ func prepareSandboxExecute(t *testing.T, h *harness, callArgs []interface{}, cal
 	}
 	return args, func() {
 		t.Helper()
-		last, err := h.host.ReadLastSequence(h.stateDB.Ctx(), did)
+		main, err := h.host.ReadAccount(h.stateDB.Ctx(), mainName, mainID)
 		require.NoError(t, err)
-		sequence := last + 1
+		sequence := main.NextSequence
 		store = h.stateDB.Ctx().KVStore(h.key)
 		seedAccount(mainID, mainName, 1, 100000000, mainAsset, 1, sequence, h.publicKey, 1)
-		main, err := h.host.ReadAccount(h.stateDB.Ctx(), mainName, mainID)
+		main, err = h.host.ReadAccount(h.stateDB.Ctx(), mainName, mainID)
 		require.NoError(t, err)
 		require.Equal(t, mainAsset, main.AssetID)
 		require.Equal(t, int64(100000000), main.Balance.Int64())
@@ -298,6 +298,16 @@ func TestProgramsSandboxExecuteEmitsUsage(t *testing.T) {
 	require.Equal(t, beforePlainLogs, h.stateDB.GetAllLogs())
 	t.Log("sandbox assertion ladder: identical ABI-v3 payload settled through the registered call handler")
 
+	payerName, payerID, err := lxphost.AssetAccountID(h.publicKey, asset)
+	require.NoError(t, err)
+	payerBefore, err := h.host.ReadAccount(h.stateDB.Ctx(), payerName, payerID)
+	require.NoError(t, err)
+	_, did, err := lp.PrincipalOf(h.stateDB.Ctx(), h.executor.TestEVMKeeper(), h.caller)
+	require.NoError(t, err)
+	last, err := h.host.ReadLastSequence(h.stateDB.Ctx(), did)
+	require.NoError(t, err)
+	require.NotEqual(t, last+1, payerBefore.NextSequence, "ledger admission must use the payer sequence independently of the legacy global sequence")
+
 	input, err := lp.ProgramsABI.Pack(method.Name, args...)
 	require.NoError(t, err)
 	data, _, err := h.evm.Call(h.caller, h.precompile.Address(), input, 2000000, uint256.NewInt(0))
@@ -317,6 +327,9 @@ func TestProgramsSandboxExecuteEmitsUsage(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int32(0), output[0])
 	require.Equal(t, uint8(1), output[1])
+	payerAfter, err := h.host.ReadAccount(h.stateDB.Ctx(), payerName, payerID)
+	require.NoError(t, err)
+	require.Equal(t, payerBefore.NextSequence+1, payerAfter.NextSequence, "sandbox execution must advance the sequence captured by ledger admission")
 	logs := h.stateDB.GetAllLogs()
 	require.NotEmpty(t, logs)
 	var usage []byte

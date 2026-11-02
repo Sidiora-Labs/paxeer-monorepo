@@ -46,12 +46,14 @@ func TestMergeHandlerRetiresAnchor(t *testing.T) {
 			require.Equal(t, "v7.0", app.MergeUpgrade)
 			require.True(t, s.app.UpgradeKeeper.HasHandler(app.MergeUpgrade))
 			require.Zero(t, s.app.UpgradeKeeper.GetDoneHeight(s.ctx, app.MergeUpgrade))
+			const mergeHeight = int64(42)
+			require.Less(t, s.ctx.BlockHeight(), mergeHeight)
+			require.False(t, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
 			s.bondAll()
 			challengeBond := sdk.ZeroInt()
 			if name == "mixed_escrow" {
-				_, err := s.submit("batch_1_quorum")
-				require.NoError(t, err)
-				_, err = s.k.BeginUnbond(s.ctx, s.operators[0], s.ids[0], sdk.NewInt(1_000_000))
+				s.importHistoricalCheckpoint()
+				_, err := s.k.BeginUnbond(s.ctx, s.operators[0], s.ids[0], sdk.NewInt(1_000_000))
 				require.NoError(t, err)
 				require.Len(t, s.k.GetUnbondings(s.ctx), 1)
 				challengeBond = s.k.GetParams(s.ctx).ChallengeBond
@@ -79,7 +81,6 @@ func TestMergeHandlerRetiresAnchor(t *testing.T) {
 			sequencerBefore, err := s.app.SequencerKeeper.ExportGenesis(s.ctx)
 			require.NoError(t, err)
 
-			const mergeHeight = int64(42)
 			publicKey := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x11}, ed25519.SeedSize)).Public().(ed25519.PublicKey)
 			info, err := json.Marshal(map[string]any{
 				"leaders": [][]byte{bytes.Repeat([]byte{0x51}, 32)},
@@ -141,6 +142,9 @@ func TestMergeHandlerRetiresAnchor(t *testing.T) {
 			s.invariant()
 			require.Equal(t, supply, s.app.BankKeeper.GetSupply(s.ctx, s.k.GetParams(s.ctx).BondDenom))
 			require.Equal(t, mergeHeight, s.app.UpgradeKeeper.GetDoneHeight(s.ctx, app.MergeUpgrade))
+			require.True(t, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
+			_, err = s.submit(nil, [64]byte{}, nil)
+			require.ErrorIs(t, err, types.ErrModuleRetired)
 			_, pending := s.app.UpgradeKeeper.GetUpgradePlan(s.ctx)
 			require.False(t, pending)
 			require.True(t, s.app.Sequenced(s.ctx, mergeHeight+1))

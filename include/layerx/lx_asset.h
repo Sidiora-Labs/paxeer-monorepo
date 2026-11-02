@@ -273,6 +273,14 @@ lxp_result lx_asset_account_open(lx_asset_registry *assets,
 lxp_result lx_asset_total_units(lx_asset_registry *assets,
                                 const lx_account_registry *accounts,
                                 const uint8_t asset_id[32], lxp_u128 *total);
+/* Decode a record only when its embedded identifier matches its state key. */
+lxp_result lx_asset_record_decode_for_id(const uint8_t *bytes, size_t length,
+    const uint8_t asset_id[32], lx_asset_record *record);
+/* Rebuild host inventory from committed KV, preserving runtime configuration.
+ * The caller owns all arrays; transfer_states has registry capacity entries. */
+lxp_result lx_asset_runtime_restore(const struct lxp_kernel *kernel,
+    lx_asset_registry *assets, lxp_transfer_asset_state *transfer_states,
+    lx_asset_runtime *runtime);
 lxp_result lx_asset_state_root(const lx_asset_registry *assets,
                                const lx_account_registry *accounts,
                                uint8_t root[32]);

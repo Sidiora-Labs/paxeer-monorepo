@@ -228,11 +228,7 @@ func prepareNodeHome(ctx context.Context, paxd string, standby bool, parent stri
 		}
 	}()
 	n := &node{home: home, paxd: paxd, ctx: ctx, isStandby: standby, receiptKeyFile: filepath.Join(home, "config", "receipt-key.hex")}
-	mode := "validator"
-	if standby {
-		mode = "full"
-	}
-	if _, err = n.command("init", "committed-fixture", "--chain-id", fixtureChainID, "--mode", mode); err != nil {
+	if _, err = n.command("init", "committed-fixture", "--chain-id", fixtureChainID, "--mode", "validator"); err != nil {
 		return nil, err
 	}
 	output, err := n.command("sequencer", "gen-receipt-key", "--output", n.receiptKeyFile)
@@ -399,6 +395,9 @@ func (n *node) configure() error {
 		return err
 	}
 	if err := editTOML(filepath.Join(n.home, "config", "config.toml"), func(cfg map[string]any) {
+		if n.observer {
+			cfg["mode"] = "full"
+		}
 		cfg["rpc"].(map[string]any)["laddr"] = "tcp://" + listeners[1].Addr().String()
 		cfg["consensus"].(map[string]any)["unsafe-commit-timeout-override"] = "10s"
 		p2p := cfg["p2p"].(map[string]any)
@@ -431,7 +430,9 @@ func (n *node) prepareStandby() (_ *node, err error) {
 		return s, nil
 	}
 	var validator struct {
-		PubKey struct {
+		Address string `json:"address"`
+		PubKey  struct {
+			Type  string `json:"type"`
 			Value []byte `json:"value"`
 		} `json:"pub_key"`
 	}
@@ -440,6 +441,9 @@ func (n *node) prepareStandby() (_ *node, err error) {
 	}
 	if len(validator.PubKey.Value) != 32 || bytes.Equal(s.receiptPublicKey, n.receiptPublicKey) {
 		return nil, errors.New("standby requires its own consensus and receipt keys")
+	}
+	if err := n.addStandbyGenesisValidator(s); err != nil {
+		return nil, err
 	}
 	var doc map[string]json.RawMessage
 	if err := readJSON(filepath.Join(n.home, "config", "genesis.json"), &doc); err != nil {
@@ -452,10 +456,18 @@ func (n *node) prepareStandby() (_ *node, err error) {
 	if err := readJSON(filepath.Join(n.home, "config", "priv_validator_key.json"), &primaryValidator); err != nil {
 		return nil, err
 	}
-	doc["validators"], err = json.Marshal([]map[string]any{{
-		"address": primaryValidator.Address, "pub_key": primaryValidator.PubKey,
-		"power": "7000000000", "name": "committed-fixture",
-	}})
+	doc["validators"], err = json.Marshal([]map[string]any{
+		{
+			"address": primaryValidator.Address, "pub_key": primaryValidator.PubKey,
+			"power": "7000000000", "name": "committed-fixture",
+		},
+		{
+			"address": validator.Address, "pub_key": map[string]any{
+				"type": validator.PubKey.Type, "value": validator.PubKey.Value,
+			},
+			"power": "1", "name": "committed-fixture-standby",
+		},
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -502,6 +514,49 @@ func (n *node) prepareStandby() (_ *node, err error) {
 	}
 	n.standbyPrepared = true
 	return s, nil
+}
+
+func (n *node) addStandbyGenesisValidator(s *node) error {
+	output, err := s.command("keys", "add", "fixture-standby", "--keyring-backend", "test", "--output", "json")
+	if err != nil {
+		return err
+	}
+	var account struct {
+		Address string `json:"address"`
+	}
+	if err := json.Unmarshal(output, &account); err != nil {
+		return err
+	}
+	if _, err := n.command("add-genesis-account", account.Address, "1000000uhpx"); err != nil {
+		return err
+	}
+	genesis, err := os.ReadFile(filepath.Join(n.home, "config", "genesis.json"))
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(s.home, "config", "genesis.json"), genesis, 0600); err != nil {
+		return err
+	}
+	if _, err := s.command("gentx", "fixture-standby", "1000000uhpx", "--chain-id", fixtureChainID, "--keyring-backend", "test"); err != nil {
+		return err
+	}
+	gentxDir := filepath.Join(s.home, "config", "gentx")
+	entries, err := os.ReadDir(gentxDir)
+	if err != nil {
+		return err
+	}
+	if len(entries) != 1 || entries[0].IsDir() {
+		return errors.New("standby must generate exactly one genesis validator transaction")
+	}
+	gentx, err := os.ReadFile(filepath.Join(gentxDir, entries[0].Name()))
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(n.home, "config", "gentx", entries[0].Name()), gentx, 0600); err != nil {
+		return err
+	}
+	_, err = n.command("collect-gentxs")
+	return err
 }
 
 func (n *node) prepareObserver(standby *node) (_ *node, err error) {
@@ -554,6 +609,47 @@ func (n *node) prepareObserver(standby *node) (_ *node, err error) {
 func (n *node) bootstrap(peers ...*node) error {
 	ctx, cancel := context.WithTimeout(n.ctx, 60*time.Second)
 	defer cancel()
+	// A multi-validator genesis enters block sync until two peers report their
+	// heights. Keep both peers serving until the primary has halted, rather
+	// than requiring them to receive the primary's commit before it exits.
+	var stopOnce sync.Once
+	var peerStops []func()
+	stopPeers := func() {
+		stopOnce.Do(func() {
+			for _, stop := range peerStops {
+				stop()
+			}
+		})
+	}
+	defer stopPeers()
+	for _, peer := range peers {
+		log, err := os.OpenFile(filepath.Join(peer.home, "bootstrap.log"), os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0600)
+		if err != nil {
+			return err
+		}
+		cmd := exec.CommandContext(ctx, peer.paxd, "start", "--home", peer.home, "--chain-id", fixtureChainID,
+			"--sequencer.enable=false")
+		cmd.Stdout, cmd.Stderr = log, log
+		if err := cmd.Start(); err != nil {
+			log.Close()
+			return err
+		}
+		done := make(chan struct{})
+		go func() {
+			cmd.Wait()
+			close(done)
+		}()
+		peerStops = append(peerStops, func() {
+			cmd.Process.Signal(os.Interrupt)
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				cmd.Process.Kill()
+				<-done
+			}
+			log.Close()
+		})
+	}
 	logPath := filepath.Join(n.home, "bootstrap.log")
 	log, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0600)
 	if err != nil {
@@ -564,6 +660,7 @@ func (n *node) bootstrap(peers ...*node) error {
 	cmd.Stdout, cmd.Stderr = log, log
 	err = cmd.Run()
 	log.Close()
+	stopPeers()
 	if err != nil {
 		data, readErr := os.ReadFile(logPath)
 		return fmt.Errorf("bootstrap fixture chain: %w (read log: %v)\n%s", err, readErr, data)
@@ -572,6 +669,8 @@ func (n *node) bootstrap(peers ...*node) error {
 	if err != nil {
 		return err
 	}
+	// The primary alone has quorum and halts at height 1. Copy its bootstrap
+	// state so peers cannot miss the commit when the primary shuts down.
 	for _, peer := range peers {
 		for _, entry := range entries {
 			if entry.Name() == "priv_validator_state.json" {
@@ -580,6 +679,9 @@ func (n *node) bootstrap(peers ...*node) error {
 			src := filepath.Join(n.home, "data", entry.Name())
 			dst := filepath.Join(peer.home, "data", entry.Name())
 			if entry.IsDir() {
+				if err := os.RemoveAll(dst); err != nil {
+					return err
+				}
 				if err := os.CopyFS(dst, os.DirFS(src)); err != nil {
 					return err
 				}
@@ -615,14 +717,32 @@ func (n *node) start() (_ func(), err error) {
 	if n.stopProcess != nil {
 		return nil, errors.New("paxd already started")
 	}
-	var stopStandby func()
+	var stopStandby, stopObserver func()
+	defer func() {
+		if err != nil && stopObserver != nil {
+			stopObserver()
+		}
+	}()
 	if n.standby != nil {
 		if !n.bootstrapped {
 			if _, err := n.prepareStandby(); err != nil {
 				return nil, err
 			}
-			if err := n.bootstrap(n.standby); err != nil {
+			observer, err := n.prepareObserver(n.standby)
+			if err != nil {
 				return nil, err
+			}
+			stopObserver = func() { os.RemoveAll(observer.home) }
+			if err := n.bootstrap(n.standby, observer); err != nil {
+				return nil, err
+			}
+			stop, err := observer.start()
+			if err != nil {
+				return nil, err
+			}
+			stopObserver = func() {
+				stop()
+				os.RemoveAll(observer.home)
 			}
 		}
 		stopStandby = n.standby.stopProcess
@@ -676,6 +796,9 @@ func (n *node) start() (_ func(), err error) {
 			log.Close()
 			if stopStandby != nil {
 				stopStandby()
+			}
+			if stopObserver != nil {
+				stopObserver()
 			}
 		})
 	}

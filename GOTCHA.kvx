@@ -13455,3 +13455,93 @@ fix = "Spell touches as plain repository-relative paths; the batch normalises ev
 title = "A finding recorded during qualification is not resolved by the task landing"
 symptom = "1281 of the 2211 [finding.*] blocks of qualification.kvx are cited by no do or decision; the tasks that recorded them are done, and nothing says whether the observed condition still holds on main."
 fix = "Every finding gets a [disposition.<id>] block under spec/layerx-merge/dispositions/ whose evidence cites a commit or a file:line of main (feature 22); the closure refuses while one is missing or open without a landed follow-up."
+
+[gotcha.2728]
+title = "bind_call checks only the recordLifecycle header shape, never the body"
+symptom = "decode_method (layerx-crypto/src/disclosure/call.rs:453-470) accepts a 0x101c recordLifecycle call when payload[0] is 0x71 and (payload[1], payload[2], payload[3], length) is one of (1,0,2,68), (1,2,1,8..=1024), (3,0,3,70), (3,0,5,86); a test that corrupts a body byte and asserts bind_call refuses it fails (9.35.9 attempt 6, native_setup.rs:442)."
+fix = "Assert bind_call refusals only for the target, selector, header bytes and length; assert body validity at the provider or the kernel decoder, and record a refusal the product does not make as a finding."
+
+[gotcha.2729]
+title = "The arbiter's native fee authority key copies a NUL-terminated literal into a 28-byte slice"
+symptom = "programs/crates/layerx-programs-arbiter/src/authority.rs:788 copies the 29-byte literal of the 28-character policy name plus a trailing NUL into policy[..28], so every call that reaches the native fee authority check panics (21.53.1 attempt 3, three proof cases)."
+fix = "Copy byte-string literals without a trailing NUL into fixed slices, or size the slice from the literal; the Go and C producers zero-pad the 28-byte name to 32 bytes."
+
+[gotcha.2730]
+title = "A retirement that relies on a wiring request leaves dead producer references"
+symptom = "5.54.5 deleted nine daemon tests and relied on a wiring request to remove their references; seven qualification scripts and five build fragments included by the Makefile still name them, and 21.5.1's proof found the first one missing."
+fix = "A task that deletes a file greps the tree (scripts, build fragments, Makefile includes, docs) for its path and either removes the references itself or lists them under touches; 22.16.4 closes this set."
+
+[gotcha.2731]
+title = "Stale tests and non-building crates surface only when a later task happens to consume them"
+symptom = "Four of the open dispositions (1.29.1, 4.22.1.1, 8.42.5.1, 8.47.10.1) are tests or programs that reference deleted files, found by chance when another task built the same package; nothing inventoried the tree's build and test targets after the retirements."
+fix = "Run a per-target inventory of every workspace at a named revision (the 22.91.x reports) and treat each failing target as a finding with its own follow-up before claiming closure."
+
+[gotcha.2732]
+title = "A revocation that deletes the authorization hides the revocation reason"
+symptom = "layerxauth RevokeGrant deleted the matching Cosmos grant, so a later exec failed in authz with ErrUnauthorized before the LayerXScopeAuthorization could refuse with ErrAuthRevoked, and the integration test was written to the weaker error (2.12.4.1)."
+fix = "Keep the authorization and let its epoch check refuse with the specific error; delete only on explicit grant deletion."
+
+[gotcha.2733]
+title = "A gate task that finds nothing to change must be declared as a gate"
+symptom = "The crate closure tasks 22.90.x were declared planned work; when the crate already built, the attempt changed no file and was refused for changing nothing."
+fix = "Declare verification-only tasks with gate_kind existing so a passing verify with no change qualifies them."
+
+[gotcha.2734]
+title = "A proof must not import helpers from another test file"
+symptom = "proof_exchange.test.ts imported consumer helpers from precompile-calls.test.ts and xweb-api.test.ts; their module-level assertions ran on import and one failed before any proof case (21.160.1 attempt 2)."
+fix = "Shared consumers live in a support module without top-level assertions; a test file is never an import target."
+
+[gotcha.2735]
+title = "A sweep whose enumeration is empty needs an explicit empty-inventory form"
+symptom = "The go-cmd sweep found no Go package under cmd/ and wrote targets_total = 0 with no target block; the verify required at least one target (22.91.22 attempt 1)."
+fix = "A sweep verify accepts targets_total = 0 when the report carries the enumeration command and its observed result; the other sweeps keep the non-empty rule."
+
+[gotcha.2736]
+title = "A pending-tagged read refuses on an idle proposer"
+symptom = "eth_getBalance with the pending tag returned 'pending block unavailable: sequencer: no block is open' between blocks because resolvePending surfaced the snapshot error instead of the latest committed height (21.92.1 attempt 2)."
+fix = "Pending reads fall back to the latest committed block while no block is open, as the simulation path already does (22.7.2)."
+
+[gotcha.2737]
+title = "Resolving a precompile's info constructs every merge precompile"
+symptom = "precompiles.GetPrecompileInfoE(xweb) failed with the layerxpay merge constructor's LXP_PRECOMPILE_NO_CONTEXT refusal because validating an info entry builds the merge table with a keepers value that lacks LayerXPayKeepers (22.5.5 attempt 1; the same refusal in tests/chain, tests/occ and three layerxagent merge tests)."
+fix = "Keep name, address and ABI resolution static and separate from merge construction; harnesses that build the merge table use one shared keepers helper that satisfies every merge constructor (22.6.4)."
+
+[gotcha.2738]
+title = "A service's own migrations drifted from the production DDL its code reads"
+symptom = "services/launchpad/social/migrations create eight chat tables while the Go code reads twenty-two; the twelve missing tables and three functions exist only in the production migrations under launchpad/spec, so the schema test of 22.4.3 could not pass (attempts 1 and 2)."
+fix = "A service that mirrors production migrations carries a test that every relation its SQL names is created by its own Up sections (22.4.4)."
+
+[gotcha.2739]
+title = "A whole-file verify fails on tests the task did not touch"
+symptom = "22.10.6 added one passing test to services/platform/hosted/human/test_material.py but its verify ran the file, and three pre-existing tests fail in a clean checkout (environment-only inputs, a two-line join of a three-line shell call, a removed guarantor container)."
+fix = "Narrow the task verify to the task's test and open a separate repair task for the pre-existing failures, chained as a requirement so the file passes whole at closure (22.10.7)."
+
+[gotcha.2740]
+title = "A crate that compiles another crate's main.rs by path does not see its pub(crate) re-exports"
+symptom = "layerx-agentd-host builds ../layerx-agentd/src/main.rs as its bin; main.rs re-exports parse_request, response, DeadlineStream and Parsed from serve_http with pub(crate) use, and human_owner_mode.rs imports them from super, which fails under the host build (22.9.12 attempt 1 and every dependent-crate check since)."
+fix = "Import shared helpers from their defining module (super::serve_http::{...}) rather than relying on a parent re-export when the file is compiled under more than one crate root (22.9.16)."
+
+[gotcha.2741]
+title = "Casting an EVM address to sdk.AccAddress bypasses the EVM association"
+symptom = "modules/layerxchains bonds, funds and refunds against sdk.AccAddress(operator.Bytes()); the bank's recipient checker refuses a cast address whose account has a different associated pax address, so every createChain with a bond failed with invalid bank recipient (20.3.4 attempt 2)."
+fix = "Resolve EVM addresses through the EVM keeper association (GetPaxAddressOrDefault) before any bank transfer, in keepers and precompiles alike (20.3.5)."
+
+[gotcha.2742]
+title = "Kernel idempotency records live in memory and vanish on reopen"
+symptom = "A repeated payExact with the same PaymentReference succeeded after Close and reopen because the kernel's idempotency set is not reloaded from the host store prefix the records are persisted under (21.11.1 attempt 3)."
+fix = "Restart-recovery proofs must cover idempotency: the host checks the committed record or reloads the set on open (22.2.7)."
+
+[gotcha.2743]
+title = "A verify that rewrites a tracked file never qualifies"
+symptom = "22.17.3 attempts 1 and 2 passed their verify but the done record was refused because the verify ran the reconcile script, which rewrites the committed interfaces report, so the candidate tree differed from the verified tree."
+fix = "Give report-producing scripts a check mode that compares and exits non-zero on difference, and run that mode in verify_cmd."
+
+[gotcha.2744]
+title = "A bond-too-low probe one wei short hits the remainder refusal first"
+symptom = "18.1496.1 probed createChain with 110e18 - 1 wei expecting the bond-too-low reason, but a value that is not a whole bank unit (10^12 wei) is refused for its remainder before the bond comparison (attempt 2)."
+fix = "Probe bank-unit thresholds with values that are whole bank units; assert the remainder refusal separately."
+
+[gotcha.2745]
+title = "The spec validator finds requirement ids that tasks reference but no block declares"
+symptom = "tools/specgen TestRepositorySpecIsValidAndCurrent reported nine errors: tasks 17.5.12, 9.25.3 to 9.25.8, 9.25.17 to 9.25.19, 8.98.16, 13.30.6 and 9.24.5 reference reqs 9283, 9258, 9257, 9256, 89816, 13306 and 9275 that were never written."
+fix = "Run the spec lint and the reference check before every spec commit; a task's reqs list names only declared requirement blocks (restored in batch 320)."

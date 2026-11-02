@@ -1,0 +1,125 @@
+[disposition.9.12.4.1]
+finding = "9.12.4.1"
+status = "resolved"
+evidence = "Commit 37888aa9c ports payer.rs to signed ledger grants, removes current_height and prepare_budget, and supplies the receiver sequence to prepare_draw."
+
+[disposition.9.12.5.1]
+finding = "9.12.5.1"
+status = "resolved"
+evidence = "Commit 6060e7cdc ports the human runtime from layerx_client::Client to SequencerEndpoint and PxEndpoint, and services/agent/crates/layerx-agentd/src/human_runtime.rs:13483 now constructs ProductionHumanOperations with SequencerEndpoint and a boxed HumanNode."
+
+[disposition.9.12.5.2]
+finding = "9.12.5.2"
+status = "resolved"
+evidence = "The constructor call at services/agent/crates/layerx-agentd/src/main.rs:771 supplies the sequencer endpoint and boxed NodeRpc separately, while main.rs:1564 replays journal admission through verify_journal_admission."
+
+[disposition.9.13.1.1]
+finding = "9.13.1.1"
+status = "superseded"
+evidence = "Commit 633c34349 removes human_peer_still_answers_lxhagt01_frames and its LNI socket fixture when retiring the direct LNI client from daemon tests, retaining the frame codec test."
+
+[disposition.9.13.2.1]
+finding = "9.13.2.1"
+status = "resolved"
+evidence = "Commit 71142289d updates the HumanPrepare constructors in agent_rpc_dispatch.rs and agent_rpc_wire.rs to nonce, not_before_height and not_after_height, as retained at services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:1434."
+
+[disposition.9.13.2.2]
+finding = "9.13.2.2"
+status = "resolved"
+evidence = "Commit 71142289d ports human_runtime.rs and managed_agent.rs to the renamed prepare and finalization fields, with services/agent/crates/layerx-agentd/src/managed_agent.rs:58 reading tx_hash, receipt_hash, observed_height and rung."
+
+[disposition.9.13.2.3]
+finding = "9.13.2.3"
+status = "resolved"
+evidence = "Commit 4a56c7008 replaces the native_human_prepare test assertions on account_sequence, not_before and not_after with nonce, not_before_height and not_after_height."
+
+[disposition.9.13.3.1]
+finding = "9.13.3.1"
+status = "resolved"
+evidence = "Commit 7b851dcdd removes the export_refusal arm naming HumanRefusal::ExportSettlementAnchoringUnavailable, and services/agent/crates/layerx-agentd/src/human_runtime.rs:18617 retains the updated match."
+
+[disposition.9.13.3.2]
+finding = "9.13.3.2"
+status = "open"
+evidence = "tools/qualification/paxeer-x/agent_operation_envelope.py:2064 still expects export.settlement_anchoring_unavailable for a SettlementAnchored export request although commit 7b851dcdd retired that refusal."
+follow_up = "22.9.9"
+
+[disposition.9.15.1.1]
+finding = "9.15.1.1"
+status = "resolved"
+evidence = "services/agent/crates/layerx-mcp/src/tools/faucet.rs:98 sends the DID and encoded signer key with the session token, matching claim_params at services/platform/hosted/gateway/src/rpc_faucet.rs:60."
+
+[disposition.9.15.3.1]
+finding = "9.15.3.1"
+status = "resolved"
+evidence = "Commit 76e7c7b8a builds the approval_get_tool_reports_tx_hash_and_rung fixture from ApprovalRegistry and ApprovalService in the test instead of requiring PAXEER_X_MCP_APPROVAL_MAJOR_TWO_FIXTURE."
+
+[disposition.9.16.2.1]
+finding = "9.16.2.1"
+status = "resolved"
+evidence = "Commit 93f3d50d0 adds payExact selector 0x78ea11db and draw selector 0x2e89490f to the production attestor policy for ledger address 0x101a."
+
+[disposition.9.18.2.1]
+finding = "9.18.2.1"
+status = "resolved"
+evidence = "Commit 78abd539f ports fabrication.rs from Level and sequence-era read fields to Rung, block freshness, BalanceValue.height and the current VerifiedRead constructor."
+
+[disposition.9.18.4.1]
+finding = "9.18.4.1"
+status = "resolved"
+evidence = "services/agent/schema/agent-api/programs.kvx:26 declares NativeProgramDeployRequest.precompile as 0x101d and the following line declares selector 0xbde3ff66."
+
+[disposition.9.18.4.2]
+finding = "9.18.4.2"
+status = "resolved"
+evidence = "services/agent/schema/agent-api/programs.kvx:23 now supplies the deploy request precompile and selector keys required by validate_lifecycle_schema at services/agent/tools/sdk-gen/src/main.rs:372."
+
+[disposition.9.18.4.3]
+finding = "9.18.4.3"
+status = "resolved"
+evidence = "Commit 0246e6ea4 replaces validation of the five retired lifecycle result and error types with ProgramLifecycleResponse variants and ProgramSubmission fields and rungs, retained at services/agent/tools/sdk-gen/src/main.rs:409."
+
+[disposition.9.18.5.1]
+finding = "9.18.5.1"
+status = "resolved"
+evidence = "Commit 78abd539f removes the obsolete Level import and updates fabrication.rs freshness, balance and VerifiedRead construction to the rung and block-height API."
+
+[disposition.9.18.6.1]
+finding = "9.18.6.1"
+status = "resolved"
+evidence = "Commit 78abd539f ports the shared fabrication.rs compile failures to Rung and block-height read fields, including the missing BalanceValue.height field."
+
+[disposition.9.19.2.1]
+finding = "9.19.2.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:162153 sets task 9.19.2 symbols to an empty list, so its graph check no longer requires the deleted LNI_V1_SOURCE constant."
+
+[disposition.9.20.1.1]
+finding = "9.20.1.1"
+status = "resolved"
+evidence = "Commit 519005b56 moves both kernel-envelope helpers in tests/support/mod.rs to attach_kernel_signature and verify_kernel_before_submit, removing the Prepared and 64-byte arguments from the EVM signing API calls."
+
+[disposition.9.21.8.1]
+finding = "9.21.8.1"
+status = "resolved"
+evidence = "services/agent/crates/layerx-client/tests/sequencer.rs:184 initializes expected_receipt.signing_key with public_key(8), matching the required ExecutedReceipt field."
+
+[disposition.9.21.8.2]
+finding = "9.21.8.2"
+status = "resolved"
+evidence = "Commit f2e14e618 adds the derived Ed25519 signing_key to the ExecutedReceipt literal in services/platform/ramps/toolkit/tests/custody_rungs.rs."
+
+[disposition.9.22.1]
+finding = "9.22.1"
+status = "superseded"
+evidence = "Commit 248f109c1 retires SequencerEndpoint::account_proof and rpc::account::account in favor of storage witnesses, removing the account-proof address-mismatch reporting surface."
+
+[disposition.9.22.4]
+finding = "9.22.4"
+status = "resolved"
+evidence = "Commit 7b7e48513 defines list_assets and get_asset with borrowed PxEndpoint arguments while estimate_fee borrows SequencerEndpoint, removing the unsupported conversion from a SequencerEndpoint reference."
+
+[disposition.9.22.4.1]
+finding = "9.22.4.1"
+status = "resolved"
+evidence = "services/agent/crates/layerx-client/src/rpc/payments.rs:54 takes list_assets endpoint as a borrowed PxEndpoint and calls endpoint.list_assets directly without PxEndpoint::from or cloning SequencerEndpoint."

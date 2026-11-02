@@ -1,0 +1,124 @@
+[disposition.10.25.1.1]
+finding = "10.25.1.1"
+status = "resolved"
+evidence = "ec7f4ce49 set the evidence tenant default to VerificationLevel::CHECKPOINT_FINALISED, which remains the correctly typed verification_defaults value at services/human/crates/layerx-human-test-support/src/lib.rs:152."
+
+[disposition.10.25.1.2]
+finding = "10.25.1.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:167841 declares evidence_gate, evidence_startup_config and evidence_gate_defaults_tenant_to_committed_rung as the task symbols instead of the enum path Rung::Committed."
+
+[disposition.10.25.2.1]
+finding = "10.25.2.1"
+status = "superseded"
+evidence = "2772a218f deleted services/human/crates/layerx-human-service/tests/binding.rs with the retired wallet payout binding module, removing both obsolete raw_receipt_evidence callers from main."
+
+[disposition.10.25.3]
+finding = "10.25.3"
+status = "superseded"
+evidence = "1f3778094 removed EvidenceNode and its encode_node_info handshake from services/human/crates/layerx-human-test-support/src/evidence_node.rs, retiring the LNI fixture surface that required a frame-module codec."
+
+[disposition.10.25.3.1]
+finding = "10.25.3.1"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-test-support/Cargo.toml:13 retains layerx-client.workspace while 1f3778094 removed the obsolete envelope and node-info imports rather than importing nonexistent codecs from the human frame module."
+
+[disposition.10.25.3.2]
+finding = "10.25.3.2"
+status = "resolved"
+evidence = "6b9420582 ported layerx-agentd to the reshaped agent-api rung and height types, including the ReadRequest consumers in services/agent/crates/layerx-agentd/src/human_runtime.rs."
+
+[disposition.10.25.5]
+finding = "10.25.5"
+status = "resolved"
+evidence = "db3d23d7f published both the serde_json dependency and the human workspace lock update, whose layerx-human-test-support package entry at services/human/Cargo.lock:1076 includes serde_json."
+
+[disposition.10.92.1]
+finding = "10.92.1"
+status = "resolved"
+evidence = "c55d8901a implemented PortableReceiptV2 export in evidence_get, now at services/human/crates/layerx-human-service/src/server/production_reads.rs:341, with the layerx-portable dependency declared in services/human/crates/layerx-human-service/Cargo.toml:19."
+
+[disposition.10.92.1.2]
+finding = "10.92.1.2"
+status = "resolved"
+evidence = "e03138d96 added the signed receipt, receipt key and inclusion height to journey evidence, retained in VerifiedLegEvidence at services/human/crates/layerx-human-service/src/journeys/engine.rs:268 and supplied to PortableReceiptV2::export."
+
+[disposition.10.92.1.3]
+finding = "10.92.1.3"
+status = "resolved"
+evidence = "c55d8901a replaced the stale kernel receipt response with the PortableReceiptV2 implementation at services/human/crates/layerx-human-service/src/server/production_reads.rs:341 and derives verification from the receipt rung instead of fixing it to Receipted."
+
+[disposition.10.96.2.1]
+finding = "10.96.2.1"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/tests/agent_controls.rs:318 uses GrantRevokedOnChain and its change_limit call at services/human/crates/layerx-human-service/tests/agent_controls.rs:638 supplies all four arguments, while services/human/crates/layerx-human-service/tests/archive.rs:101 sets FundsDispositionEvidence.rung."
+
+[disposition.10.96.2.2]
+finding = "10.96.2.2"
+status = "resolved"
+evidence = "38d00360b scoped human_service_names_no_retired_intent_kind to its declared render and sponsor files, and 25b936be8 subsequently removed the actual BridgeDepositCredit and EvmPayoutBinding intent variants and compiler arms while retained audit codes and wallet-rebinding disclosure names remain separate types."
+
+[disposition.10.98.1.1]
+finding = "10.98.1.1"
+status = "superseded"
+evidence = "eea22dd24 deleted services/human/crates/layerx-explorer-index/src/mirror.rs and its MirrorReceiptReport surface, removing its imports and calls to the retired mirror archive APIs."
+
+[disposition.10.98.1.2]
+finding = "10.98.1.2"
+status = "superseded"
+evidence = "eea22dd24 deleted services/human/crates/layerx-explorer-index/src/mirror.rs, and main retains that deletion rather than restoring the obsolete MirrorVerifier caller."
+
+[disposition.10.98.1.3]
+finding = "10.98.1.3"
+status = "superseded"
+evidence = "d8b9d7244 deleted services/human/crates/layerx-explorer-index/src/lib.rs as part of indexer retirement, so the library and its old ingest_availability entry point no longer exist on main."
+
+[disposition.10.98.1.4]
+finding = "10.98.1.4"
+status = "superseded"
+evidence = "9f775b45b deleted the explorer index manifest and services/human/crates/layerx-explorer-index/src/main.rs, retiring the binary whose IndexHead migration had broken compilation."
+
+[disposition.10.98.2.1]
+finding = "10.98.2.1"
+status = "resolved"
+evidence = "49c3c40f4 migrated provider.rs off layerx_client::lni, and services/human/crates/layerx-human-kms/tests/provider.rs:3 now imports read_frame, write_frame, Limits and MutualTlsConfig from layerx_human_service::frame."
+
+[disposition.10.98.4.1]
+finding = "10.98.4.1"
+status = "superseded"
+evidence = "ad92aa7fc deleted services/human/crates/layerx-human-service/tests/withdraw.rs with the retired settlement journey, while the surviving runtime uses the human frame transport at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:8."
+
+[disposition.10.98.5.1]
+finding = "10.98.5.1"
+status = "resolved"
+evidence = "06534c613 rewrote the three surviving node-fixture tests against sequencer RPC, with services/human/crates/layerx-human-service/tests/evidence_node.rs:8 importing NodeRpc and the rpc evidence and submit APIs instead of requiring an LNI-to-frame rename."
+
+[disposition.10.98.5.2]
+finding = "10.98.5.2"
+status = "resolved"
+evidence = "06534c613 migrated evidence_node.rs, native_journey_approval.rs and native_send_producer.rs off layerx_client::lni and extended the retired-module scan to cover those tests."
+
+[disposition.10.98.6.1]
+finding = "10.98.6.1"
+status = "resolved"
+evidence = "1f3778094 removed the LNI EvidenceNode and connection helpers from layerx-human-test-support, leaving the admission journal implementation at services/human/crates/layerx-human-test-support/src/evidence_node.rs:32 without layerx_client::lni imports."
+
+[disposition.10.98.7.1]
+finding = "10.98.7.1"
+status = "resolved"
+evidence = "a1c4e2dbb migrated sign_activity and its tests to EIP-1559 calls and bind_call, with services/human/crates/layerx-human-kms/src/attestor.rs:814 accepting Eip1559Call and the sender address."
+
+[disposition.10.98.7.2]
+finding = "10.98.7.2"
+status = "resolved"
+evidence = "a1c4e2dbb ported the human-service caller to the call and sender arguments and 65-byte signature result, retained at services/human/crates/layerx-human-service/src/server/production_components.rs:7628."
+
+[disposition.10.98.7.3]
+finding = "10.98.7.3"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/src/server/agent_creation.rs:436 now calls custody::attach_call_signature, whose signature parameter at services/human/crates/layerx-human-service/src/custody/signer.rs:20 is [u8; 65], replacing the retired 64-byte owner-activity attachment."
+
+[disposition.10.98.7.4]
+finding = "10.98.7.4"
+status = "resolved"
+evidence = "9d425c24b removed the retired kernel Level from the human service, and services/human/crates/layerx-human-service/src/activity/detail.rs:7 now imports layerx_types::rung::Rung instead of layerx_agent_api::verify::Level."
