@@ -126750,7 +126750,7 @@ do_4 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fail
 
 [task.22.8.10]
 title = "Bring the platform tools workspace lockfile in step with its manifests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.24"]
