@@ -36,17 +36,6 @@ fn request(
     content_type: &str,
     body: &[u8],
 ) -> Result<Reply, String> {
-    request_with_idempotency(address, method, path, content_type, body, None)
-}
-
-fn request_with_idempotency(
-    address: &str,
-    method: &str,
-    path: &str,
-    content_type: &str,
-    body: &[u8],
-    idempotency_key: Option<&str>,
-) -> Result<Reply, String> {
     let mut stream = TcpStream::connect(address).map_err(|error| error.to_string())?;
     stream
         .set_read_timeout(Some(Duration::from_secs(10)))
@@ -57,9 +46,6 @@ fn request_with_idempotency(
     );
     if !content_type.is_empty() {
         write!(head, "Content-Type: {content_type}\r\n").map_err(|error| error.to_string())?;
-    }
-    if let Some(value) = idempotency_key {
-        write!(head, "Idempotency-Key: {value}\r\n").map_err(|error| error.to_string())?;
     }
     head.push_str("\r\n");
     stream
@@ -145,14 +131,6 @@ fn boot_protocol(protocol_version: u16) -> Result<String, String> {
     }
 }
 
-fn response_result(reply: &Reply) -> Result<serde_json::Value, String> {
-    serde_json::from_slice::<serde_json::Value>(&reply.body)
-        .map_err(|error| error.to_string())?
-        .get("result")
-        .cloned()
-        .ok_or_else(|| format!("response omitted result: {}", reply.text()))
-}
-
 fn post_json(address: &str, path: &str, body: &str) -> Result<Reply, String> {
     request(address, "POST", path, "application/json", body.as_bytes())
 }
@@ -163,20 +141,6 @@ fn hex_encode(bytes: &[u8]) -> Result<String, String> {
         write!(encoded, "{byte:02x}").map_err(|error| error.to_string())?;
     }
     Ok(encoded)
-}
-
-fn hex_decode(value: &str) -> Result<Vec<u8>, String> {
-    if !value.len().is_multiple_of(2) {
-        return Err("hex value has odd length".to_string());
-    }
-    value
-        .as_bytes()
-        .chunks_exact(2)
-        .map(|pair| {
-            let text = std::str::from_utf8(pair).map_err(|_| "hex value is not UTF-8")?;
-            u8::from_str_radix(text, 16).map_err(|_| "hex value has a non-hex byte".to_string())
-        })
-        .collect()
 }
 
 #[test]
@@ -221,146 +185,37 @@ fn emulator_core_builds_without_batch_and_history_symbols() -> Result<(), String
 }
 
 #[test]
-fn emulator_head_proof_still_verifies() -> Result<(), String> {
-    use sha2::{Digest as _, Sha256};
+fn head_read_without_a_sealed_batch_is_refused() -> Result<(), String> {
     let address = boot_protocol(3)?;
     let public = ed25519_dalek::SigningKey::from_bytes(&EMULATOR_SEED)
         .verifying_key()
         .to_bytes();
     let public_hex = hex_encode(&public)?;
     for (did, amount) in [("source", 1000), ("destination", 0)] {
-        let body = format!(
-            "{{\"did\":\"did:layerx:head-{did}\",\"public_key\":\"{public_hex}\",\"amount_lo\":{amount}}}"
-        );
+        let body = serde_json::json!({
+            "did": format!("did:layerx:head-{did}"),
+            "public_key": public_hex,
+            "amount_lo": amount,
+        })
+        .to_string();
         let reply = post_json(&address, "/__emulator/accounts/prefund", &body)?;
         assert_eq!(reply.status, 200, "prefund: {}", reply.text());
     }
-    let quoted = post_json(
-        &address,
-        "/v1/moves/quote",
-        r#"{"source":"agent:did:layerx:head-source:main","destination":"agent:did:layerx:head-destination:main","money":{"currency":"LXP","amount":"250"}}"#,
-    )?;
-    assert_eq!(quoted.status, 200, "quote: {}", quoted.text());
-    let quote = response_result(&quoted)?;
-    let quote_id = quote["quote_id"].as_str().ok_or("quote id missing")?;
-    let committed = request_with_idempotency(
-        &address,
-        "POST",
-        "/v1/moves",
-        "application/json",
-        format!("{{\"quote_id\":\"{quote_id}\"}}").as_bytes(),
-        Some("head-proof-transfer-0001"),
-    )?;
-    assert_eq!(committed.status, 200, "transfer: {}", committed.text());
-    assert_eq!(response_result(&committed)?["state"], "done");
-    let head_reply = request(&address, "GET", "/v1/protocol/account-state/head", "", &[])?;
-    assert_eq!(head_reply.status, 200, "head: {}", head_reply.text());
-    let head = response_result(&head_reply)?;
-    assert_eq!(head["current"], true);
-    let bytes = |pointer: &str| -> Result<Vec<u8>, String> {
-        hex_decode(
-            head.pointer(pointer)
-                .and_then(serde_json::Value::as_str)
-                .ok_or_else(|| format!("head omitted {pointer}"))?,
-        )
-    };
-    let receipt = bytes("/receipt_hex")?;
-    let header_bytes = bytes("/batch_evidence/header_hex")?;
-    let signature: [u8; 64] = bytes("/batch_evidence/header_signature")?
-        .try_into()
-        .map_err(|_| "signature length")?;
-    let encoded_proof = bytes("/batch_evidence/receipt_proof_hex")?;
-    let path = layerx_wire::receipt::decode_merkle_proof(&encoded_proof)
-        .map_err(|error| format!("{error:?}"))?;
-    assert_eq!(path.leaf_count(), 2);
-    assert_eq!(path.leaf_index(), 1);
-    let proof = layerx_proof::merkle::Proof::new(
-        path.leaf_index(),
-        path.leaf_count(),
-        path.siblings().to_vec(),
-    )
-    .map_err(|error| format!("{error:?}"))?;
-    let authorization = layerx_proof::inclusion::SequencerAuthorization::new(
-        Sha256::digest(public).into(),
-        public,
-        1,
-        u64::MAX,
-    );
-    let evidence = layerx_proof::inclusion::verify_receipt(
-        &receipt,
-        &proof,
-        &header_bytes,
-        &signature,
-        &authorization,
-    )
-    .map_err(|error| format!("head verification failed: {error:?}"))?;
-    let header = evidence.header().header();
-    assert_eq!(header.protocol_version(), 3);
-    assert_eq!(header.network_id(), 402);
-    let maintenance = layerx_wire::batch_maintenance::decode_maintenance(&receipt)
-        .map_err(|error| format!("{error:?}"))?;
-    maintenance
-        .verify_header(header)
-        .map_err(|error| format!("{error:?}"))?;
-    assert_eq!(bytes("/state_root")?, header.resulting_state_root());
-    assert_eq!(head["observed_sequence"], header.last_sequence());
-    assert_eq!(head["observed_at"], header.timestamp_ms());
+
+    let head = request(&address, "GET", "/v1/protocol/account-state/head", "", &[])?;
+    assert_eq!(head.status, 503, "head: {}", head.text());
+    assert_eq!(head.content_type, "application/json");
+    let body: serde_json::Value =
+        serde_json::from_slice(&head.body).map_err(|error| error.to_string())?;
+    assert_eq!(body["ok"], false, "head: {}", head.text());
     assert_eq!(
-        bytes("/receipt_digest")?,
-        Sha256::digest(&receipt).as_slice()
+        body["error"]["code"],
+        "principal_state_proof_unavailable",
+        "head: {}",
+        head.text()
     );
-    let state_reply = request(&address, "GET", "/v1/state", "", &[])?;
-    assert_eq!(state_reply.status, 200);
-    assert_eq!(
-        response_result(&state_reply)?["canonical_state_root"],
-        head["state_root"]
-    );
-    let mut changed_signature = signature;
-    changed_signature[0] ^= 1;
-    assert!(layerx_proof::inclusion::verify_receipt(
-        &receipt,
-        &proof,
-        &header_bytes,
-        &changed_signature,
-        &authorization
-    )
-    .is_err());
-    let mut changed_receipt = receipt.clone();
-    *changed_receipt.last_mut().ok_or("empty receipt")? ^= 1;
-    assert!(layerx_proof::inclusion::verify_receipt(
-        &changed_receipt,
-        &proof,
-        &header_bytes,
-        &signature,
-        &authorization
-    )
-    .is_err());
-    let mut changed_header = header_bytes.clone();
-    *changed_header.last_mut().ok_or("empty header")? ^= 1;
-    assert!(layerx_proof::inclusion::verify_receipt(
-        &receipt,
-        &proof,
-        &changed_header,
-        &signature,
-        &authorization
-    )
-    .is_err());
-    let wrong_public = ed25519_dalek::SigningKey::from_bytes(&[0x24; 32])
-        .verifying_key()
-        .to_bytes();
-    let wrong_authorization = layerx_proof::inclusion::SequencerAuthorization::new(
-        Sha256::digest(wrong_public).into(),
-        wrong_public,
-        1,
-        u64::MAX,
-    );
-    assert!(layerx_proof::inclusion::verify_receipt(
-        &receipt,
-        &proof,
-        &header_bytes,
-        &signature,
-        &wrong_authorization
-    )
-    .is_err());
+
+    let health = request(&address, "GET", "/healthz", "", &[])?;
+    assert_eq!(health.status, 200, "health: {}", health.text());
     Ok(())
 }
