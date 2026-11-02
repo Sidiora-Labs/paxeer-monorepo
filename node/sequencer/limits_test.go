@@ -328,6 +328,39 @@ func TestAcceptRefusesPastMaxGasWanted(t *testing.T) {
 	})
 }
 
+func TestAcceptIgnoresUnsetMaxGasWanted(t *testing.T) {
+	admissionChainID(t, 125)
+	for _, maxWanted := range []int64{0, -1, -2} {
+		t.Run(fmt.Sprintf("max wanted %d", maxWanted), func(t *testing.T) {
+			sender, recipient := utils.NewSigner(), utils.NewSigner()
+			h := newSourceHarness(t, openHeight, admissionParams(2*transferGas, maxWanted, 200000), sender)
+			h.open()
+			var accepted [][]byte
+			for nonce := uint64(0); nonce < 2; nonce++ {
+				_, bz := signEVM(t, sender, 125, nonce, recipient.EvmAddress, big.NewInt(1))
+				acc, err := h.exec.Accept(bz)
+				require.NoError(t, err)
+				require.Equal(t, uint32(0), acc.Result.Code, acc.Result.Log)
+				require.Equal(t, int64(transferGas), acc.Result.GasWanted)
+				require.Equal(t, sourceLastSeq+nonce+1, acc.Seq)
+				accepted = append(accepted, bz)
+			}
+			before := h.weiBalance(h.openCtx(), sender.EvmAddress)
+			_, next := signEVM(t, sender, 125, 2, recipient.EvmAddress, big.NewInt(1))
+			acc, err := h.exec.Accept(next)
+			require.Nil(t, acc)
+			require.ErrorIs(t, err, sequencer.ErrBlockFull)
+			require.ErrorContains(t, err, fmt.Sprintf("gas wanted %d exceeds Block.MaxGas %d", 3*transferGas, 2*transferGas))
+			requireWei(t, before, h.weiBalance(h.openCtx(), sender.EvmAddress))
+			require.Equal(t, uint64(2), h.app.EvmKeeper.GetNonce(h.openCtx(), sender.EvmAddress))
+			batch, err := h.exec.Seal(openHeight)
+			require.NoError(t, err)
+			require.Equal(t, accepted, batch.Txs)
+			require.Equal(t, sourceLastSeq+2, batch.LastSeq)
+		})
+	}
+}
+
 func TestAcceptRefusesPastMaxBlockBytes(t *testing.T) {
 	admissionChainID(t, 125)
 	for _, short := range []int64{0, 1} {

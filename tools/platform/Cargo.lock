@@ -1387,6 +1387,7 @@ dependencies = [
  "clap",
  "ed25519-dalek",
  "getrandom 0.4.3",
+ "k256",
  "keyring",
  "keyring-core",
  "layerx-agentd",

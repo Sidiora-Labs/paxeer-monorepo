@@ -107,9 +107,19 @@ func (app *App) setV6120Live(live bool) {
 	app.EvmKeeper.SetCustomPrecompiles(v6120PrecompileSet(app.customPrecompiles, app.v6120Next, live, live), LatestUpgrade)
 }
 
-// v6120LiveInState reports whether the state of ctx records the v6.12.0 plan
-// as done. Only the load path and InitChainer read it; the handler runs before
-// the upgrade keeper records the done height and sets the switch itself.
+// v6120LiveInState reports whether the v6.12.0 plan is done or every module
+// served by its precompile gate is present in the module version map.
 func (app *App) v6120LiveInState(ctx sdk.Context) bool {
-	return app.UpgradeKeeper.GetDoneHeight(ctx, V6120Upgrade) > 0
+	if app.UpgradeKeeper.GetDoneHeight(ctx, V6120Upgrade) > 0 {
+		return true
+	}
+	versions := app.UpgradeKeeper.GetModuleVersionMap(ctx)
+	for _, modules := range v6120PrecompileGate().Modules {
+		for _, name := range modules {
+			if _, known := versions[name]; !known {
+				return false
+			}
+		}
+	}
+	return true
 }

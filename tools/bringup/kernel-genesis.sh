@@ -384,6 +384,7 @@ render_step() {
 	for entry in ${input[LAYERX_GENESIS_ASSETS]}; do
 		[[ $entry =~ ^([A-Z0-9]{1,16}):([0-9a-fA-F]{64}):([0-9]{1,2})$ ]] || fail "not an asset SYMBOL:ID:DECIMALS: $entry"
 		symbol=${BASH_REMATCH[1]} id=${BASH_REMATCH[2],,} decimals=${BASH_REMATCH[3]}
+		[ "$((10#$decimals))" -le 38 ] || fail "asset $symbol decimals must be 0..38"
 		[ -z "${seen[$symbol]:-}" ] || fail "asset $symbol repeated"
 		seen[$symbol]=1
 		[ "$id" = "$(asset_id "$symbol")" ] ||

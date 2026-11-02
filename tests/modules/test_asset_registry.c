@@ -10,7 +10,7 @@
 #include "test_asset_payloads.h"
 
 #define PAUSE_CHECK(condition) do { if (!(condition)) { \
-    (void)fprintf(stderr, "pause dispatch check failed at line %d\n", __LINE__); \
+    (void)fprintf(stderr, "%s:%d: %s\n", __FILE__, __LINE__, #condition); \
     return 1; } } while (0)
 
 typedef struct pause_fixture {
@@ -53,7 +53,8 @@ static int pause_sign(const uint8_t seed[32], const uint8_t *message,
              signature_length == 64U;
     EVP_MD_CTX_free(context);
     EVP_PKEY_free(key);
-    return ok ? 0 : 1;
+    PAUSE_CHECK(ok);
+    return 0;
 }
 
 static int pause_record(const pause_fixture *f, const uint8_t id[32],
@@ -67,10 +68,12 @@ static int pause_record(const pause_fixture *f, const uint8_t id[32],
         const lxp_module_kv_entry *entry = &f->kernel.module_kv[index];
         if (entry->module_id != LXP_MODULE_ASSET || entry->key_length != 38U ||
             memcmp(entry->key, key, 38U) != 0) continue;
-        return lx_asset_record_decode(entry->value, entry->value_length,
-                                      record) == LXP_OK ? 0 : 1;
+        PAUSE_CHECK(lx_asset_record_decode(entry->value, entry->value_length,
+                                           record) == LXP_OK);
+        return 0;
     }
-    return 1;
+    PAUSE_CHECK(false);
+    return 0;
 }
 
 static int pause_submit_receipt(pause_fixture *f, const uint8_t seed[32],
@@ -151,9 +154,10 @@ static int pause_submit(pause_fixture *f, const uint8_t seed[32],
                         size_t payload_length, const uint8_t idempotency[32],
                         uint64_t sequence, bool journal, lxp_result *result)
 {
-    return pause_submit_receipt(f, seed, did, did_length, activity_type,
-                                payload, payload_length, idempotency,
-                                sequence, journal, result, NULL);
+    PAUSE_CHECK(pause_submit_receipt(f, seed, did, did_length, activity_type,
+                                     payload, payload_length, idempotency,
+                                     sequence, journal, result, NULL) == 0);
+    return 0;
 }
 
 static int test_pause_dispatch(void)
@@ -695,8 +699,6 @@ static int test_withdraw_dispatch(void)
     return 0;
 }
 
-#undef PAUSE_CHECK
-
 int main(void)
 {
     lx_asset_registry registry;
@@ -736,88 +738,92 @@ int main(void)
     record.custody_kind = LX_ASSET_CUSTODY_PAXEER;
     (void)memcpy(record.custody_reference, "paxeer:usdc", 11U);
     record.custody_reference_length = 11U;
-    if (lx_asset_registry_init(&registry, 4U) != LXP_OK ||
-        lx_asset_register(&registry, &record, 4U, (lxp_u128){ 0U, 3U }) !=
-            LXP_OK || registry.next_sequence != 5U ||
-        registry.fees_charged.lo != 3U ||
-        lx_asset_register(&registry, &record, 5U, (lxp_u128){ 0U, 3U }) !=
-            LXP_ERR_ASSET_ALREADY_REGISTERED || registry.next_sequence != 6U ||
-        registry.fees_charged.lo != 6U || registry.count != 1U ||
-        lx_asset_lookup(&registry, record.asset_id, &found) != LXP_OK ||
-        found->decimals != 6U ||
-        lx_asset_record_encode(found, encoded, sizeof(encoded), &encoded_length) !=
-            LXP_OK || lx_asset_record_decode(encoded, encoded_length, &decoded) !=
-            LXP_OK || memcmp(decoded.asset_id, record.asset_id, 32U) != 0 ||
-        strcmp(decoded.symbol, "USDC") != 0 ||
-        decoded.custody_reference_length != 11U) return 1;
+    PAUSE_CHECK(lx_asset_registry_init(&registry, 4U) == LXP_OK);
+    PAUSE_CHECK(lx_asset_register(&registry, &record, 4U, (lxp_u128){ 0U, 3U }) ==
+                LXP_OK);
+    PAUSE_CHECK(registry.next_sequence == 5U);
+    PAUSE_CHECK(registry.fees_charged.lo == 3U);
+    PAUSE_CHECK(lx_asset_register(&registry, &record, 5U, (lxp_u128){ 0U, 3U }) ==
+                LXP_ERR_ASSET_ALREADY_REGISTERED);
+    PAUSE_CHECK(registry.next_sequence == 6U);
+    PAUSE_CHECK(registry.fees_charged.lo == 6U);
+    PAUSE_CHECK(registry.count == 1U);
+    PAUSE_CHECK(lx_asset_lookup(&registry, record.asset_id, &found) == LXP_OK);
+    PAUSE_CHECK(found->decimals == 6U);
+    PAUSE_CHECK(lx_asset_record_encode(found, encoded, sizeof(encoded), &encoded_length) ==
+                LXP_OK);
+    PAUSE_CHECK(lx_asset_record_decode(encoded, encoded_length, &decoded) ==
+                LXP_OK);
+    PAUSE_CHECK(memcmp(decoded.asset_id, record.asset_id, 32U) == 0);
+    PAUSE_CHECK(strcmp(decoded.symbol, "USDC") == 0);
+    PAUSE_CHECK(decoded.custody_reference_length == 11U);
     {
         lx_asset_registry bounded;
         lx_asset_record extra = record;
-        if (lx_asset_registry_init(&bounded, 0U) != LXP_OK) return 1;
+        PAUSE_CHECK(lx_asset_registry_init(&bounded, 0U) == LXP_OK);
         for (size_t i = 0U; i < LX_ASSET_REGISTRY_CAPACITY; ++i) {
             extra.asset_id[0] = (uint8_t)(i + 1U);
             extra.asset_id[1] = (uint8_t)((i + 1U) >> 8U);
-            if (lx_asset_register(&bounded, &extra, i, (lxp_u128){0U, 1U}) != LXP_OK)
-                return 1;
+            PAUSE_CHECK(lx_asset_register(&bounded, &extra, i, (lxp_u128){0U, 1U}) == LXP_OK);
         }
         extra.asset_id[0] = 0xffU;
         extra.asset_id[1] = 0xffU;
-        if (lx_asset_register(&bounded, &extra, bounded.next_sequence,
-                (lxp_u128){0U, 1U}) != LXP_ERR_ARENA_EXHAUSTED ||
-            bounded.count != LX_ASSET_REGISTRY_CAPACITY ||
-            bounded.next_sequence != LX_ASSET_REGISTRY_CAPACITY + 1U ||
-            bounded.fees_charged.lo != LX_ASSET_REGISTRY_CAPACITY + 1U)
-            return 1;
+        PAUSE_CHECK(lx_asset_register(&bounded, &extra, bounded.next_sequence,
+                    (lxp_u128){0U, 1U}) == LXP_ERR_ARENA_EXHAUSTED);
+        PAUSE_CHECK(bounded.count == LX_ASSET_REGISTRY_CAPACITY);
+        PAUSE_CHECK(bounded.next_sequence == LX_ASSET_REGISTRY_CAPACITY + 1U);
+        PAUSE_CHECK(bounded.fees_charged.lo == LX_ASSET_REGISTRY_CAPACITY + 1U);
         bounded.next_sequence = UINT64_MAX;
-        if (lx_asset_register(&bounded, &extra, UINT64_MAX,
-                (lxp_u128){0U, 1U}) != LXP_ERR_SEQUENCE_EXHAUSTED ||
-            bounded.next_sequence != UINT64_MAX ||
-            bounded.fees_charged.lo != LX_ASSET_REGISTRY_CAPACITY + 1U)
-            return 1;
+        PAUSE_CHECK(lx_asset_register(&bounded, &extra, UINT64_MAX,
+                    (lxp_u128){0U, 1U}) == LXP_ERR_SEQUENCE_EXHAUSTED);
+        PAUSE_CHECK(bounded.next_sequence == UINT64_MAX);
+        PAUSE_CHECK(bounded.fees_charged.lo == LX_ASSET_REGISTRY_CAPACITY + 1U);
     }
     encoded[encoded_length - 49U] = 0U;
-    if (lx_asset_record_decode(encoded, encoded_length, &decoded) !=
-        LXP_ERR_NON_CANONICAL) return 1;
+    PAUSE_CHECK(lx_asset_record_decode(encoded, encoded_length, &decoded) ==
+                LXP_ERR_NON_CANONICAL);
     encoded[encoded_length - 49U] = 2U;
     record.issuer_kind = 0U;
-    if (lx_asset_record_encode(&record, encoded, sizeof(encoded),
-                               &encoded_length) != LXP_ERR_NON_CANONICAL)
-        return 1;
+    PAUSE_CHECK(lx_asset_record_encode(&record, encoded, sizeof(encoded),
+                &encoded_length) == LXP_ERR_NON_CANONICAL);
     record.issuer_kind = 2U;
-    if (lx_asset_amount_decode((const uint8_t *)"1000000", 7U, &amount) !=
-            LXP_OK || amount.lo != 1000000U || amount.hi != 0U ||
-        lx_asset_amount_decode((const uint8_t *)"1.0", 3U, &amount) !=
-            LXP_ERR_INVALID_AMOUNT ||
-        lx_asset_amount_decode((const uint8_t *)"1e6", 3U, &amount) !=
-            LXP_ERR_INVALID_AMOUNT ||
-        lx_asset_amount_decode((const uint8_t *)"01", 2U, &amount) !=
-            LXP_ERR_INVALID_AMOUNT) return 1;
-    if (iface == NULL || iface->module_id != LXP_MODULE_ASSET ||
-        iface->activity_type_count != 11U ||
-        lxp_state_store_init(&state, 0U) != LXP_OK ||
-        lxp_kernel_create(&kernel, &state, &journal, &parameters, 0U) != LXP_OK ||
-        lxp_kernel_register_module(&kernel, iface) != LXP_OK ||
-        lxp_kernel_module_for_activity(&kernel, LX_ASSET_GRANT_REVOKE, 0U,
-                                       &registration) != LXP_OK ||
-        lxp_kernel_module_for_activity(&kernel, LX_ASSET_WITHDRAW, 0U,
-                                       &registration) != LXP_OK ||
-        registration->activity_type_count != 11U) return 1;
-    if (test_asset_payloads(&kernel) != 0) return 1;
-    if (lx_account_registry_init(&accounts) != LXP_OK ||
-        lx_account_id_from_string((const uint8_t *)from_name, strlen(from_name),
-                                  from_id) != LXP_OK ||
-        lx_account_id_from_string((const uint8_t *)to_name, strlen(to_name),
-                                  to_id) != LXP_OK ||
-        lx_account_open(&accounts, (const uint8_t *)from_name, strlen(from_name),
-                        from_id, 1U, LX_ACCOUNT_OPEN_CREDIT, NULL, &from) != LXP_OK ||
-        lx_account_open(&accounts, (const uint8_t *)to_name, strlen(to_name),
-                        to_id, 1U, LX_ACCOUNT_OPEN_CREDIT, NULL, &to) != LXP_OK ||
-        lxp_ledger_bootstrap_balance(from, record.asset_id,
-                                     (lxp_u128){ 0U, 10U }, 0U) != LXP_OK ||
-        lxp_ledger_bootstrap_balance(to, record.asset_id,
-                                     (lxp_u128){ 0U, 0U }, 0U) != LXP_OK ||
-        lx_asset_pause(&registry, record.asset_id) != LXP_OK ||
-        lx_asset_transfer_state(found, &asset_state) != LXP_OK) return 1;
+    PAUSE_CHECK(lx_asset_amount_decode((const uint8_t *)"1000000", 7U, &amount) ==
+                LXP_OK);
+    PAUSE_CHECK(amount.lo == 1000000U);
+    PAUSE_CHECK(amount.hi == 0U);
+    PAUSE_CHECK(lx_asset_amount_decode((const uint8_t *)"1.0", 3U, &amount) ==
+                LXP_ERR_INVALID_AMOUNT);
+    PAUSE_CHECK(lx_asset_amount_decode((const uint8_t *)"1e6", 3U, &amount) ==
+                LXP_ERR_INVALID_AMOUNT);
+    PAUSE_CHECK(lx_asset_amount_decode((const uint8_t *)"01", 2U, &amount) ==
+                LXP_ERR_INVALID_AMOUNT);
+    PAUSE_CHECK(iface != NULL);
+    PAUSE_CHECK(iface->module_id == LXP_MODULE_ASSET);
+    PAUSE_CHECK(iface->activity_type_count == 8U);
+    PAUSE_CHECK(lxp_state_store_init(&state, 0U) == LXP_OK);
+    PAUSE_CHECK(lxp_kernel_create(&kernel, &state, &journal, &parameters, 0U) == LXP_OK);
+    PAUSE_CHECK(lxp_kernel_register_module(&kernel, iface) == LXP_OK);
+    PAUSE_CHECK(lxp_kernel_module_for_activity(&kernel, LX_ASSET_GRANT_REVOKE, 0U,
+                &registration) == LXP_ERR_UNKNOWN_ACTIVITY);
+    PAUSE_CHECK(lxp_kernel_module_for_activity(&kernel, LX_ASSET_WITHDRAW, 0U,
+                &registration) == LXP_OK);
+    PAUSE_CHECK(registration->activity_type_count == 8U);
+    PAUSE_CHECK(test_asset_payloads(&kernel) == 0);
+    PAUSE_CHECK(lx_account_registry_init(&accounts) == LXP_OK);
+    PAUSE_CHECK(lx_account_id_from_string((const uint8_t *)from_name, strlen(from_name),
+                from_id) == LXP_OK);
+    PAUSE_CHECK(lx_account_id_from_string((const uint8_t *)to_name, strlen(to_name),
+                to_id) == LXP_OK);
+    PAUSE_CHECK(lx_account_open(&accounts, (const uint8_t *)from_name, strlen(from_name),
+                from_id, 1U, LX_ACCOUNT_OPEN_CREDIT, NULL, &from) == LXP_OK);
+    PAUSE_CHECK(lx_account_open(&accounts, (const uint8_t *)to_name, strlen(to_name),
+                to_id, 1U, LX_ACCOUNT_OPEN_CREDIT, NULL, &to) == LXP_OK);
+    PAUSE_CHECK(lxp_ledger_bootstrap_balance(from, record.asset_id,
+                (lxp_u128){ 0U, 10U }, 0U) == LXP_OK);
+    PAUSE_CHECK(lxp_ledger_bootstrap_balance(to, record.asset_id,
+                (lxp_u128){ 0U, 0U }, 0U) == LXP_OK);
+    PAUSE_CHECK(lx_asset_pause(&registry, record.asset_id) == LXP_OK);
+    PAUSE_CHECK(lx_asset_transfer_state(found, &asset_state) == LXP_OK);
     (void)memset(&leg, 0, sizeof(leg));
     leg.from = from;
     leg.to = to;
@@ -827,12 +833,14 @@ int main(void)
     context.assets = &asset_state;
     context.asset_count = 1U;
     (void)memcpy(context.authorized_from, from_id, 32U);
-    if (lxp_apply_transfer(&leg, &context, &transfer_result) !=
-        LXP_ERR_ASSET_PAUSED) return 1;
-    if (lx_asset_unpause(&registry, record.asset_id) != LXP_OK ||
-        lxp_state_store_destroy(&state) != LXP_OK) return 1;
-    if (test_pause_dispatch() != 0) return 1;
-    if (test_supply_binding_dispatch() != 0) return 1;
-    if (test_withdraw_dispatch() != 0) return 1;
+    PAUSE_CHECK(lxp_apply_transfer(&leg, &context, &transfer_result) ==
+                LXP_ERR_ASSET_PAUSED);
+    PAUSE_CHECK(lx_asset_unpause(&registry, record.asset_id) == LXP_OK);
+    PAUSE_CHECK(lxp_state_store_destroy(&state) == LXP_OK);
+    PAUSE_CHECK(test_pause_dispatch() == 0);
+    PAUSE_CHECK(test_supply_binding_dispatch() == 0);
+    PAUSE_CHECK(test_withdraw_dispatch() == 0);
     return 0;
 }
+
+#undef PAUSE_CHECK

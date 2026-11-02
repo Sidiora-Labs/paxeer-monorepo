@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -74,12 +75,14 @@ func fixture(t *testing.T) (*Control, context.Context) {
 		}
 		admin.Close()
 	})
-	ddl, e := os.ReadFile("../../../../../launchpad/spec/production-system/handoffs/L38/schema-proposal.sql")
-	if e != nil {
-		t.Fatal(e)
-	}
-	if _, e = db.Exec(ctx, string(ddl)); e != nil {
-		t.Fatal(e)
+	for _, source := range schemaSources(t) {
+		ddl := strings.NewReplacer(
+			"chat.", ident+".",
+			"CREATE SCHEMA IF NOT EXISTS chat;", "CREATE SCHEMA IF NOT EXISTS "+ident+";",
+		).Replace(source.up)
+		if _, e = db.Exec(ctx, ddl); e != nil {
+			t.Fatalf("apply %s: %v", source.name, e)
+		}
 	}
 	c := &Control{DB: db, Pools: knownPools{}, Policy: allowPolicy{}}
 	ctx = safety.WithPrincipal(ctx, safety.Principal{Wallet: host, SessionID: "voice-fixture", Expires: time.Now().Add(time.Hour)})

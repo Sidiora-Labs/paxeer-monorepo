@@ -155,6 +155,7 @@ def test_history_page_keeps_rows_tied_with_the_limit_row():
             "asset": "0x" + "33" * 20,
             "amount": "100",
             "tx_id": "0x" + "ab" * 32,
+            "tx_hash": "0x" + "ab" * 32,
             "ordinal": "1",
             "final": True,
             "decoded": {"amount": "100"},
@@ -188,6 +189,7 @@ def test_history_page_keeps_rows_tied_with_the_limit_row():
             (row.block_height, row.tx_index, row.log_index) for row in page.items
         ] == [(41, 2, 0), (42, 2, 0), (42, 2, 0)]
         assert page.next_cursor == px.history_cursor(42, 2, 0)
+        assert [row.tx_hash for row in page.items] == ["0x" + "ab" * 32] * 3
         with pytest.raises(ValueError, match="^invalid-history-page$"):
             decode(
                 {
@@ -200,3 +202,13 @@ def test_history_page_keeps_rows_tied_with_the_limit_row():
                 },
                 limit=2,
             )
+
+    for invalid_hash in (
+        None,
+        "ab" * 32,
+        "0x" + "ab" * 31,
+        "0x" + "ab" * 33,
+        "0x" + "gg" * 32,
+    ):
+        with pytest.raises(ValueError, match="^invalid-history-transaction-hash$"):
+            px.decode_history_row({**items[0], "tx_hash": invalid_hash})

@@ -10,7 +10,10 @@ import (
 	"math"
 	"math/big"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -271,6 +274,94 @@ func (o *observed) Read(ctx context.Context, q decode.Querier, h uint64) (store.
 	o.mu.Unlock()
 	o.before(n)
 	return o.Source.Read(ctx, q, h)
+}
+
+func TestReplayRenewsLeaseWithinBatch(t *testing.T) {
+	if os.Getenv(testRPCEnv) == "" || os.Getenv(testCometEnv) == "" {
+		t.Setenv("TMPDIR", t.TempDir())
+		envFile := filepath.Join(os.Getenv("TMPDIR"), "lx-localnode", "localnode.env")
+		const script = "../../../../../tools/qualification/localnode/v6120-node.sh"
+		nodeCtx, stopNode := context.WithTimeout(context.Background(), 6*time.Minute)
+		defer stopNode()
+		cmd := exec.CommandContext(nodeCtx, "bash", script, "--env-out", envFile)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("start in-tree node: %v\n%s", err, out)
+		}
+		cmd = exec.Command("bash", "-c", `. "$1" && printf '%s\n%s\n%s\n' "$PERPS_DATA_TEST_RPC" "$PERPS_DATA_TEST_COMET" "$LOCAL_NODE_HOME"`, "node-env", envFile)
+		out, err := cmd.Output()
+		if err != nil {
+			t.Fatalf("read node endpoints: %v", err)
+		}
+		endpoints := strings.Split(strings.TrimSpace(string(out)), "\n")
+		if len(endpoints) != 3 || endpoints[0] == "" || endpoints[1] == "" || endpoints[2] == "" {
+			t.Fatalf("invalid node endpoints: %q", out)
+		}
+		t.Setenv(testRPCEnv, endpoints[0])
+		t.Setenv(testCometEnv, endpoints[1])
+		t.Cleanup(func() {
+			cmd := exec.Command("bash", script, "--stop", endpoints[2])
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Errorf("stop in-tree node: %v\n%s", err, out)
+			}
+		})
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	db := testDB(t)
+	src, rpc := testSource(t, db)
+	head, err := rpc.Head(ctx)
+	if err != nil || head < 2 {
+		t.Fatalf("node head %d: %v", head, err)
+	}
+	height := int64(head) - 1
+	index(t, db, src, height, height)
+	r := runner(db, &observed{Source: src, before: func(int) {
+		timer := time.NewTimer(2 * MinLeaseTTL)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case <-timer.C:
+		}
+		if err := acquireLease(ctx, db, indexerHolder, MaxLeaseTTL); !errors.Is(err, errLeaseHeld) {
+			t.Fatalf("competing writer after a slow read: %v, want lease held", err)
+		}
+	}})
+	r.LeaseTTL = MinLeaseTTL
+	if err := acquireLease(ctx, db, r.Holder, r.LeaseTTL); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := releaseLease(context.Background(), db, r.Holder); err != nil {
+			t.Error(err)
+		}
+	})
+	tables, err := blockTables(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now()
+	counts, err := r.batch(ctx, tables, height, height, false)
+	if err != nil {
+		t.Fatalf("batch: %v", err)
+	}
+	if elapsed := time.Since(started); elapsed <= r.LeaseTTL {
+		t.Fatalf("batch took %s, want longer than lease TTL %s", elapsed, r.LeaseTTL)
+	}
+	if n := count(t, db, `SELECT count(*) FROM perps.writer_lease WHERE name = $1 AND holder = $2 AND expires_at > clock_timestamp()`, leaseName, r.Holder); n != 1 {
+		t.Fatal("runner did not hold an unexpired writer lease at commit")
+	}
+	if err := acquireLease(ctx, db, indexerHolder, MaxLeaseTTL); !errors.Is(err, errLeaseHeld) {
+		t.Fatalf("competing writer after commit: %v, want lease held", err)
+	}
+	for _, c := range counts {
+		if c.Changed != 0 {
+			t.Errorf("%s changed %d rows", c.Table, c.Changed)
+		}
+	}
+	if got := cursorHeight(t, db); got != height {
+		t.Fatalf("committed cursor %d, want %d", got, height)
+	}
 }
 
 func TestReplaySnapshotScoped(t *testing.T) {

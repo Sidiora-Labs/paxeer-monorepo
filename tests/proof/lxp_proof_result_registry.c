@@ -18,7 +18,7 @@
  */
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_result.h"
-#include "lxp_kernel_case.h"
+#include "../codec/lxp_kernel_case.h"
 
 static lxp_kernel kernel;
 static lxp_state_store store;

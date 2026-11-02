@@ -883,9 +883,10 @@ func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindin
 }
 
 const (
-	codeNonCanonical   = Code(C.LXP_ERR_NON_CANONICAL)
-	codeSequenceReused = Code(C.LXP_ERR_SEQUENCE_REUSED)
-	codeFatalInvariant = Code(C.LXP_FATAL_INVARIANT)
+	codeNonCanonical     = Code(C.LXP_ERR_NON_CANONICAL)
+	codeSequenceReused   = Code(C.LXP_ERR_SEQUENCE_REUSED)
+	codeIdempotentReplay = Code(C.LXP_ERR_IDEMPOTENT_REPLAY)
+	codeFatalInvariant   = Code(C.LXP_FATAL_INVARIANT)
 )
 
 const blobPrefix byte = 0x05
@@ -926,6 +927,8 @@ type ReceiptAuthority struct {
 	BlockHeight      uint64
 }
 
+type IdempotencyKey = [32]byte
+
 type Activity struct {
 	ReceiptAuthorities []ReceiptAuthority
 	ProtocolVersion    uint16
@@ -935,7 +938,7 @@ type Activity struct {
 	AccountSequence    uint64
 	NotBefore          uint64
 	NotAfter           uint64
-	IdempotencyKey     [32]byte
+	IdempotencyKey     IdempotencyKey
 	FeeLimit           [16]byte
 	Payload            []byte
 	Signature          []byte
@@ -1135,6 +1138,9 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 	if err != nil {
 		return Receipt{}, err
 	}
+	if err := branch.checkPaymentReference(activity); err != nil {
+		return Receipt{}, err
+	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	if err := lxphost_reset(h.node, branch.sequence); err != nil {
@@ -1238,6 +1244,7 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 		return Receipt{}, err
 	}
 	commitBlobs(branch.store, loadedBlobs, stagedBlobs)
+	branch.commitPaymentReference(activity, receipt)
 	return receipt, nil
 }
 
