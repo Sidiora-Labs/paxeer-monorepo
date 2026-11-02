@@ -7,7 +7,7 @@ Source: `tools/paxeer-x/route-catalogue.json` (schema `paxeer-x.routes.v1`), the
 - Chain id: `125`
 - Canonical origin: `https://api-mainnet-beta.paxeer.network`
 - Services: 32
-- Routes: 1985
+- Routes: 1966
 
 ## Services
 
@@ -235,9 +235,9 @@ Source: `tools/paxeer-x/route-catalogue.json` (schema `paxeer-x.routes.v1`), the
 | GET | `/explorer/backend/api/v2/main-page/transactions` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/main-page/transactions/watchlist` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/paxeer-x/archive/anchors` | http | public-read | 8 | 0 | explorer |
-| GET | `/explorer/backend/api/v2/paxeer-x/capabilities` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/paxeer-x/archive/receipts` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/paxeer-x/archive/receipts/{id}` | http | public-read | 8 | 0 | explorer |
+| GET | `/explorer/backend/api/v2/paxeer-x/capabilities` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/proxy/account-abstraction/accounts` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/proxy/account-abstraction/accounts/{address_hash_param}` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/proxy/account-abstraction/bundlers` | http | public-read | 8 | 0 | explorer |
@@ -556,8 +556,6 @@ Source: `tools/paxeer-x/route-catalogue.json` (schema `paxeer-x.routes.v1`), the
 | GET | `/v1/programs/{program_id}` | http | public-read | 8 | 0 | wallet, explorer |
 | GET | `/v1/programs/{program_id}/reads/resolve` | http | public-read | 8 | 0 | wallet, explorer |
 
-Other `/api/v2/paxeer-x` paths answer 404.
-
 ### gas
 
 | Method | Path | Transport | Authentication | Timeout (s) | Retries | Consumers |
@@ -846,27 +844,8 @@ Other `/api/v2/paxeer-x` paths answer 404.
 | GET | `/v1/receipts/{activity_id}` | http | gateway-api-key | 8 | 0 | wallet, developer |
 | POST | `/v1/settle` | http | gateway-api-key | 8 | 0 | wallet, developer |
 | GET | `/v1/state` | http | gateway-api-key | 8 | 0 | wallet, developer |
-| POST | `lx_estimateFee` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getAccount` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getActivityStatus` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getAsset` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getBalance` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getBalances` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getBatchHeader` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getCheckpoint` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getNodeInfo` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getProgramEvents` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getProof` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getReceipt` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getSequence` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_getWalletCaps` | json-rpc | verified-wallet-bearer | 8 | 0 | wallet, developer |
-| POST | `lx_listAssets` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_requestFunds` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_sendActivity` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | GET | `lx_subscribe` | websocket | gateway-api-key-and-topic-scope | 8 | 0 | wallet, developer |
-| POST | `lx_subscribe` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | GET | `lx_unsubscribe` | websocket | gateway-api-key-and-topic-scope | 8 | 0 | wallet, developer |
-| POST | `lx_unsubscribe` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | POST | `px_getAccount` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | POST | `px_getBalances` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | POST | `px_getCapabilities` | json-rpc | method-specific | 8 | 0 | wallet, developer |

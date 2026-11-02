@@ -1,6 +1,8 @@
+use layerx_types::clock::{Clock, Deadline};
 use std::collections::BTreeMap;
 use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::frame::{self, ConnectionGate, FrameTransport, Limits, Uds};
@@ -515,6 +517,7 @@ pub trait HumanApiComponents: Send + Sync + 'static {
 /// It uses the same finite framed Unix boundary as the agent/core client and carries
 /// principal plus agent tenancy on every authenticated request.
 pub struct UnixComponents {
+    clock: Arc<dyn Clock>,
     endpoint: PathBuf,
     gate: ConnectionGate,
     stream_gate: ConnectionGate,
@@ -528,12 +531,23 @@ impl UnixComponents {
     ///
     /// Refuses an empty endpoint or any disabled transport bound.
     pub fn new(endpoint: impl AsRef<Path>, limits: Limits) -> Result<Self, ApiFailure> {
+        let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
+            .map_err(|_| ApiFailure::unavailable())?;
+        Self::new_with_clock(endpoint, limits, clock)
+    }
+
+    pub fn new_with_clock(
+        endpoint: impl AsRef<Path>,
+        limits: Limits,
+        clock: Arc<dyn Clock>,
+    ) -> Result<Self, ApiFailure> {
         let endpoint = endpoint.as_ref();
         if endpoint.as_os_str().is_empty() || !endpoint.is_absolute() {
             return Err(ApiFailure::unavailable());
         }
         let limits = limits.validate().map_err(|_| ApiFailure::unavailable())?;
         Ok(Self {
+            clock,
             endpoint: endpoint.to_path_buf(),
             gate: ConnectionGate::new(limits.maximum_connections),
             stream_gate: ConnectionGate::new(limits.maximum_streams),
@@ -716,14 +730,18 @@ impl HumanApiComponents for UnixComponents {
             .principal
             .as_ref()
             .ok_or_else(ApiFailure::unauthenticated)?;
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(|_| ApiFailure::unavailable())?;
+        let now = Duration::from_millis(
+            self.clock
+                .sample(Duration::from_secs(1))
+                .map_err(|_| ApiFailure::unavailable())?
+                .unix_milliseconds,
+        );
         let remaining = Duration::from_secs(context.expires_at())
             .checked_sub(now)
             .filter(|duration| !duration.is_zero() && *duration <= Duration::from_secs(60))
             .ok_or_else(ApiFailure::session_expired)?;
-        let deadline = std::time::Instant::now() + remaining;
+        let deadline = Deadline::start(self.clock.as_ref(), remaining)
+            .map_err(|_| ApiFailure::unavailable())?;
         let _permit = self.gate.acquire().map_err(|_| ApiFailure::unavailable())?;
         let _stream_permit = self
             .stream_gate
@@ -735,6 +753,7 @@ impl HumanApiComponents for UnixComponents {
         let socket = std::os::unix::net::UnixStream::connect(&self.endpoint)
             .map_err(|_| ApiFailure::unavailable())?;
         let mut connection = StreamSocket {
+            clock: self.clock.as_ref(),
             socket,
             deadline,
             cancelled,
@@ -1160,18 +1179,31 @@ pub const fn default_component_limits() -> Limits {
 }
 
 struct StreamSocket<'cancel> {
+    clock: &'cancel dyn Clock,
     socket: std::os::unix::net::UnixStream,
-    deadline: std::time::Instant,
+    deadline: Deadline,
     cancelled: &'cancel dyn Fn() -> bool,
+}
+
+impl StreamSocket<'_> {
+    fn remaining(&mut self) -> std::io::Result<Duration> {
+        let remaining = self
+            .deadline
+            .remaining(self.clock)
+            .map_err(std::io::Error::other)?;
+        if remaining.is_zero() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "stream deadline",
+            ));
+        }
+        Ok(remaining)
+    }
 }
 
 impl std::io::Read for StreamSocket<'_> {
     fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
-        let remaining = self
-            .deadline
-            .checked_duration_since(std::time::Instant::now())
-            .filter(|duration| !duration.is_zero())
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::TimedOut, "stream deadline"))?;
+        let remaining = self.remaining()?;
         if (self.cancelled)() {
             return Err(std::io::Error::new(
                 std::io::ErrorKind::ConnectionAborted,
@@ -1185,7 +1217,11 @@ impl std::io::Read for StreamSocket<'_> {
                 if matches!(
                     error.kind(),
                     std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
-                ) && std::time::Instant::now() < self.deadline
+                ) && !self
+                    .deadline
+                    .remaining(self.clock)
+                    .map_err(std::io::Error::other)?
+                    .is_zero()
                     && !(self.cancelled)() =>
             {
                 Err(std::io::Error::new(
@@ -1206,11 +1242,7 @@ impl std::io::Write for StreamSocket<'_> {
                 "stream cancelled",
             ));
         }
-        let remaining = self
-            .deadline
-            .checked_duration_since(std::time::Instant::now())
-            .filter(|duration| !duration.is_zero())
-            .ok_or_else(|| std::io::Error::new(std::io::ErrorKind::TimedOut, "stream deadline"))?;
+        let remaining = self.remaining()?;
         self.socket.set_write_timeout(Some(remaining))?;
         std::io::Write::write(&mut self.socket, bytes)
     }
