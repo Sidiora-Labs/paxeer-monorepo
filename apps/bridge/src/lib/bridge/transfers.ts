@@ -73,16 +73,16 @@ function isBridgeTransfer(value: unknown): value is BridgeTransfer {
     transfer.id === transferIdOf(transfer.direction, transfer.sourceTxHash) &&
     typeof transfer.account === 'string' && isAddress(transfer.account, { strict: false }) &&
     typeof transfer.foreignChainKey === 'string' && transfer.foreignChainKey.length > 0 &&
-    isDecimal(transfer.foreignChainId) &&
+    isDecimal(transfer.foreignChainId) && BigInt(transfer.foreignChainId) < (1n << 64n) &&
     typeof transfer.symbol === 'string' && transfer.symbol.length > 0 &&
     typeof transfer.decimals === 'number' && Number.isInteger(transfer.decimals) && transfer.decimals >= 0 && transfer.decimals <= 255 &&
-    isDecimal(transfer.amount) &&
+    isDecimal(transfer.amount) && BigInt(transfer.amount) < (1n << 256n) &&
     typeof transfer.assetId === 'string' && isAddress(transfer.assetId, { strict: false }) &&
     typeof transfer.recipient === 'string' && transfer.recipient.length > 0 &&
     typeof transfer.requiredConfirmations === 'number' && Number.isSafeInteger(transfer.requiredConfirmations) && transfer.requiredConfirmations > 0 &&
     typeof transfer.submittedAt === 'number' && Number.isSafeInteger(transfer.submittedAt) && transfer.submittedAt >= 0 &&
     (transfer.vault === undefined || (typeof transfer.vault === 'string' && isAddress(transfer.vault, { strict: false }))) &&
-    [ 'logIndex', 'nonce', 'bridgeOutNonce' ].every((field) => transfer[field] === undefined || isDecimal(transfer[field])) &&
+    [ 'logIndex', 'nonce', 'bridgeOutNonce' ].every((field) => transfer[field] === undefined || (isDecimal(transfer[field]) && BigInt(transfer[field]) < (1n << 64n))) &&
     [ 'claimTxHash', 'releaseTxHash' ].every((field) => transfer[field] === undefined || isHash(transfer[field])) &&
     [ 'claimedAt', 'releasedAt' ].every((field) => transfer[field] === undefined ||
       (typeof transfer[field] === 'number' && Number.isSafeInteger(transfer[field]) && transfer[field] >= 0)) &&

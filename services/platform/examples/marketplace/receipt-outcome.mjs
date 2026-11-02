@@ -77,16 +77,20 @@ export async function verifyProgramOutcome(output, client) {
     first_height: BigInt(key.firstHeight),
     last_height: BigInt(key.lastHeight),
   }]);
+  return programReceiptOutcome(output, verified, proof.verificationLevel);
+}
+
+export function programReceiptOutcome(output, verified, rung) {
   const resultCode = verified.receipt.resultCode;
   if (resultCode !== 0 && resultCode !== 1) {
     throw new LayerXApplicationStateError("refused", "program_receipt_invalid_status");
   }
-  const status = resultCode === 0 ? 1 : 0;
   return {
-    state: status === 1 ? "completed" : "refused",
-    receiptDigest: proof.receiptDigest,
-    rung: proof.verificationLevel,
-    status,
+    state: resultCode === 0 ? "completed" : "refused",
+    receiptDigest: Buffer.from(verified.receiptDigest).toString("hex"),
+    rung,
+    transactionHash: `0x${Buffer.from(verified.receipt.activityId).toString("hex")}`,
+    resultCode,
     output,
   };
 }
