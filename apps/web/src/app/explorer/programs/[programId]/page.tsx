@@ -2,10 +2,18 @@ import { copyEntry } from "../../../../../copy/runtime";
 import { programRecord } from "../../../../explorer/client";
 import {
   ExplorerFrame,
+  explorerReceiptPath,
   ExplorerUnavailable,
   verificationLabel,
 } from "../../../../explorer/components";
-import { ExplorerFreshness, ExplorerTable, ExplorerVerificationBadge } from "../../../../kit/explorer";
+import {
+  ExplorerLink,
+  ExplorerFreshness,
+  ExplorerTable,
+  ExplorerVerificationBadge,
+} from "../../../../kit/explorer";
+
+export const dynamic = "force-dynamic";
 
 export default async function ProgramPage({
   params,
@@ -58,7 +66,16 @@ export default async function ProgramPage({
           { id: "policy", cells: [copyEntry("explorer.program.fact.upgrade_policy").message, policy, verified] },
           { id: "sequence", cells: [copyEntry("explorer.program.fact.observed_sequence").message, program.observedSequence, verified] },
           { id: "observed", cells: [copyEntry("explorer.program.fact.observed_at").message, program.observedAt, verified] },
-          { id: "receipt", cells: [copyEntry("explorer.column.receipt").message, program.receiptDigest, verified] },
+          {
+            id: "receipt",
+            cells: [
+              copyEntry("explorer.column.receipt").message,
+              <ExplorerLink key="receipt" href={explorerReceiptPath(program.receiptDigest)}>
+                {program.receiptDigest}
+              </ExplorerLink>,
+              verified,
+            ],
+          },
           { id: "root", cells: [copyEntry("explorer.program.fact.state_root").message, program.stateRoot, verified] },
         ]}
       />

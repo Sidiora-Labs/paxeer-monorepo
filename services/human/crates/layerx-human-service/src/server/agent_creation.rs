@@ -665,10 +665,10 @@ impl<'a> ProductionAgentCreation<'a> {
             u16::from(expected_operation),
         )
         .map_err(|_| AgentFailure::Refused("lifecycle receipt does not prove successful action"))?;
-        evidence.bound_activity(kind).map_err(|_| {
+        let bound = evidence.bound_activity(kind).map_err(|_| {
             AgentFailure::Refused("lifecycle receipt does not prove successful action")
         })?;
-        let verified = evidence.verify_outcome(kind)?;
+        let verified = evidence.verify_outcome(bound.activity_type())?;
         let protocol = verified.protocol().ok_or(AgentFailure::Refused(
             "lifecycle receipt is not protocol material",
         ))?;

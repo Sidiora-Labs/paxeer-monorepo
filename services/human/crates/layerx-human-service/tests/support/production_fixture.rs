@@ -22,7 +22,7 @@ use layerx_client::runtime_clock::{ClockBinding, RuntimeClock};
 use layerx_human_service::server::{
     HttpConfig, PrincipalLimits, ProductionComponents, ProductionComponentsConfig, Router,
 };
-use layerx_types::clock::Clock;
+use layerx_types::clock::{Clock, Deadline};
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
@@ -1306,11 +1306,13 @@ impl Fixture {
             .read(true)
             .write(true)
             .open(self.root.join("store/provider.lock"))?;
-        let expires = std::time::Instant::now() + Duration::from_secs(5);
+        let mut expires = Deadline::start(self.clock.as_ref(), Duration::from_secs(5))?;
         loop {
             match rustix::fs::flock(&lock, rustix::fs::FlockOperation::NonBlockingLockExclusive) {
                 Ok(()) => return Ok(()),
-                Err(rustix::io::Errno::WOULDBLOCK) if std::time::Instant::now() < expires => {
+                Err(rustix::io::Errno::WOULDBLOCK)
+                    if !expires.remaining(self.clock.as_ref())?.is_zero() =>
+                {
                     std::thread::sleep(Duration::from_millis(1));
                 }
                 Err(error) => return Err(std::io::Error::from(error).into()),

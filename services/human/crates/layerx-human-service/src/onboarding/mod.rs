@@ -1011,7 +1011,7 @@ impl OnboardingJourney {
     ) -> Result<AgentPrepareAction, OnboardingError> {
         let intent = self.intent(stage)?;
         let compiled = compile(&intent, registry)?;
-        let disclosure = DisclosureCheck::verify(&intent, &compiled)?;
+        let disclosure = compiled.verify_disclosure(&intent)?;
         let action_key = self.action_key(stage);
         let request = PrepareRequest {
             protocol_activity_type: compiled.activity_type().value(),

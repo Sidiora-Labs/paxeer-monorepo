@@ -205,6 +205,11 @@ submission path. MCP does not expose the CLI's burn, open-account, token info or
 token list operations. `layerx install mcp` installs the daemon-bound MCP
 server; `layerx mcp serve --daemon-binding FILE` serves it on stdin and stdout.
 
+## Credential integration tests
+
+The real OS credential integration tests require `dbus-daemon`, `dbus-send`, and `gnome-keyring-daemon`; when `dbus-daemon` is absent they print `skipped: dbus-daemon is not installed` and return early.
+Set `LAYERX_CLI_TESTS_REQUIRE_DBUS` to any value (including an empty value) to require these tests to run and preserve the missing-daemon panic.
+
 ## Headless credential storage
 
 The OS keyring is the default. On a headless Linux server, container, or CI

@@ -67,6 +67,7 @@ class MakefileWaveTwoTest(unittest.TestCase):
             "lxp_replica",
             "cmd/layerx-module-registry/node.c",
             "lxp_guarantor",
+            "src/network/lxp_da_bundle.c",
         ):
             with self.subTest(retired=retired):
                 self.assertNotIn(retired, result.stdout)
@@ -74,7 +75,7 @@ class MakefileWaveTwoTest(unittest.TestCase):
             line for line in result.stdout.splitlines() if not LIBRARY_LINE.match(line)
         )
         for retired in (
-            # DA bundle, kernel, service and verification sources remain in the library.
+            # DA kernel, service and verification sources remain in the library.
             "lxp_da_",
             "lxp_batch_seal",
         ):

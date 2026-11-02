@@ -1,7 +1,35 @@
 use std::io::{BufRead as _, BufReader, Write as _};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::OnceLock;
 use std::time::{Duration, Instant};
+
+pub fn dbus_available() -> bool {
+    static AVAILABLE: OnceLock<bool> = OnceLock::new();
+    *AVAILABLE.get_or_init(
+        || match Command::new("dbus-daemon").arg("--version").output() {
+            Ok(output) => {
+                assert!(
+                    output.status.success(),
+                    "dbus-daemon --version must succeed"
+                );
+                true
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => false,
+            Err(error) => {
+                panic!("dbus-daemon must be installed for real credential tests: {error}")
+            }
+        },
+    )
+}
+
+pub fn credential_environment() -> bool {
+    if dbus_available() || std::env::var_os("LAYERX_CLI_TESTS_REQUIRE_DBUS").is_some() {
+        return true;
+    }
+    eprintln!("skipped: dbus-daemon is not installed");
+    false
+}
 
 pub struct CredentialEnvironment {
     root: PathBuf,

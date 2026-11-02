@@ -1,6 +1,7 @@
+use super::serve_http::{parse_request, response, DeadlineStream, Parsed};
 use super::{
-    config, connect_human_authority, human_peers, optional, parse_request, parse_u64, required,
-    response, serve, start_human_owner, DeadlineStream, HttpPool, Parsed, SUPERVISION_INTERVAL,
+    config, connect_human_authority, human_peers, optional, parse_u64, required, serve,
+    start_human_owner, HttpPool, SUPERVISION_INTERVAL,
 };
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use std::env;
@@ -163,7 +164,11 @@ mod tests {
                     .map_err(|e| e.to_string())?;
                 let (sender, receiver) = mpsc::channel();
                 drop(sender);
-                super::serve_health(&mut super::DeadlineStream::new(stream), &bearer, || {
+                let mut stream = super::DeadlineStream {
+                    socket: stream,
+                    expires: std::time::Instant::now() + super::super::serve_http::REQUEST_DEADLINE,
+                };
+                super::serve_health(&mut stream, &bearer, || {
                     super::owner_running(&receiver).is_ok()
                 })
             });

@@ -13775,3 +13775,173 @@ fix = "Read a helper's first require before calling it from a test."
 title = "A package-wide verify carried eleven tests the task never touched"
 symptom = "A task's verify ran four packages whole, and eleven unrelated stale or regressed tests blocked it for three attempts."
 fix = "Gate a task on the tests of its own files and give the whole-package run its own repair task."
+
+[gotcha.2792]
+title = "A crate test run included tests that only a producer script can run"
+symptom = "Bare cargo test of a programs or agent crate fails on tests whose first output line is a missing-input refusal (PAXEER_X_*, LAYERX_INTERPRETER_WASM, a genuine corpus), hiding the genuine failures beside them."
+fix = "Exclude producer-input tests by name (-- --skip <fn>) in a bare verify and name their producer in the finding; the producers (tools/qualification/paxeer-x, tools/paxeer-x/gates, the Makefile recipes) qualify them."
+
+[gotcha.2793]
+title = "A Makefile recipe runs tests as ignored that carry no ignore attribute"
+symptom = "Makefile:3020 runs the bindings conformance tests with -- --ignored --exact, but bindgen_conformance.rs has no #[ignore] attribute, so the recipe selects nothing and reports success."
+fix = "When a test loses its ignore attribute, the recipe that ran it with --ignored is updated in the same commit; a recipe that selects zero tests is a silent pass."
+
+[gotcha.2794]
+title = "A committed config lacked the schema key its only reader requires"
+symptom = "contracts/config/checkpoint-settlement.json had no schema key while layerx-types settlement.rs refuses any document without schema = layerx/checkpoint-settlement/1; eight tests across two crates failed on the first read."
+fix = "When a reader gains a required key, the committed documents it reads and the tests that pin their key sets change in the same commit; check the config directory for every document the reader loads."
+
+[gotcha.2795]
+title = "A loopback RPC fixture answered in a shape its consumer decoder refuses"
+symptom = "tests/sequencer_start.rs answered px_getReceiptKeys with a bare array of hex-string heights while the shared layerx-client decoder requires an object with a keys array and numeric heights; every consumer test reported Malformed."
+fix = "A fixture that stands in for a producer is written against the consumer decoder's exact field names and types (read decode_receipt_keys first), and the finding checks that a real producer for the method exists at all."
+
+[gotcha.2796]
+title = "A TypeScript decoder required a field the published contract never had"
+symptom = "services/agent/sdk/typescript/src/intent.ts demanded a sponsored key on IntentPlan; the generated web contract and the wallet types carry none, so the conformance fixture failed exactKeys."
+fix = "A hand-written decoder's required key set is checked against the generated contract type before the fixture is blamed; derive convenience flags (sponsored) from contract fields instead of adding keys."
+
+[gotcha.2797]
+title = "A parity regex pinned a source shape another task changed"
+symptom = "merge_gateway_parity_test.go and setup_test.go matched an object literal assignment; the gateway table became Object.freeze(... as const satisfies ...) and the parity check silently matched nothing."
+fix = "A regex over another package's source matches the exported identifier and the braces it needs, tolerating wrappers, and fails loudly when the match is empty."
+
+[gotcha.2798]
+title = "A genesis validated without its activation height passed, then panicked at init"
+symptom = "The merge plan path validated the module genesis before the activation height was resolved, so the receipt-key coverage check never ran there; the keeper resolved the height at InitGenesis, failed the same check and panicked where the test expected an error."
+fix = "Validate a genesis with every field the init path will resolve into it, in the caller that can return an error; treat the module's InitGenesis panic as unreachable, not as the refusal."
+
+[gotcha.2799]
+title = "A retirement test removed a store before the height that deletes it"
+symptom = "TestEveryAnchorSelectorRetired unmounted the anchor store at the merge height while the precompile keeps serving views until the store-delete upgrade; the views reverted with an unregistered-store message instead of the retirement text."
+fix = "Model the retirement heights the precompile implements (write height, view/store-delete height) in the test's store setup; remove a store only at the height the upgrade deletes it."
+
+[gotcha.2800]
+area = "human kms"
+symptom = "The retained KMS material producer emits modules, module_id and activity_types, while Config::load accepts only a chain_id snapshot."
+cause = "material.py::kms_prerequisite still serves the retired module registry contract."
+do = "Keep the retained producer manifest intact; project a protected chain snapshot for the KMS consumer, and prove both the legacy refusal and the current path with proof_human_kms."
+
+[gotcha.2801]
+area = "human kms"
+symptom = "A malformed executor certificate could be pinned at startup and a zero EVM address could be accepted by AttestorSigner::from_config."
+cause = "Certificate bytes were hashed without parsing and the public signer constructor relied on its caller to validate the address."
+do = "Decode executor DER before pinning it and refuse the zero address in the public constructor; exercise these refusals with producer-owned protected files."
+
+[gotcha.2802]
+area = "human kms qualification"
+symptom = "The declared all-tests build fails in unchanged provider.rs and sign_eip1559_requests.rs on removed canonical activity APIs, removed owner-rotation variants, and a missing RemoteKmsProvider::new clock argument."
+cause = "Those test targets were not migrated with the interfaces they consume; both paths are outside the proof task scope."
+do = "Record once and stop without changing these tests or running verification: revision 06b17620f8ca0d7f258ea171b401827f478591e7; command cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --tests; exit 101; private evidence /out/logs/build-1.log."
+
+[gotcha.2803]
+area = "human kms proof"
+symptom = "Carried-over gotcha entries conflicted with newly landed entries, and the proof duplicated the entrypoint environment mapping."
+cause = "The appended entry identifiers collided and the test constructed its own material bindings."
+do = "Preserve both ledger histories with distinct identifiers and consume kms_environment output for direct Config::load calls as well as binary startup."
+
+[gotcha.2804]
+area = "human kms qualification"
+symptom = "The declared build stops in services/agent/crates/layerx-agent-api/build.rs:324 because its compatibility check rejects removal of transport.agent_http.operation.faucet.claim.access without a major increment."
+cause = "The dependency schema contract is inconsistent before the KMS test targets compile; the dependency and schema paths are outside task 21.63.1 scope."
+do = "Record without repairing or rerunning this unrelated failure: revision a0bb928babae3964ae304283c926e54a342af0b3; command cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --tests; exit 101; private evidence /out/logs/build-1.log. Verification did not run."
+
+[gotcha.2805]
+title = "A hand-edited fixture list diverged from the golden it was derived from"
+symptom = "holders.json gained 13 addresses in a sweep commit with no matching read in golden.json; two count assertions failed for one token while every other token matched."
+fix = "A derived fixture (holder list, address table) is regenerated from its golden, never edited by hand; when a count assertion fails for one token, diff the fixture's history against the golden's before touching the test."
+
+[gotcha.2806]
+title = "A wrapped SDK error leaked its call site into a revert reason"
+symptom = "sdkerrors.Wrapf appends the wrapping file and line in brackets; a precompile that copies the error text into the revert reason exposed a source path and two pinned-text tests failed only on that suffix."
+fix = "Build kernel-side refusals with fmt.Errorf and %w; when a revert-reason test fails on a trailing bracketed path, repair the error construction site, never the expectation."
+
+[gotcha.2807]
+title = "A daemon logged a reason code and dropped the error behind it"
+symptom = "livestreamd exited 1 with reason=livestream_runtime_failed and no error text, so a proof that starts it saw only the exit status and could not tell which configuration refusal fired."
+fix = "A process exit on error logs err.Error() beside the reason code; a proof that spawns a daemon captures its stderr into the failure message."
+
+[gotcha.2808]
+title = "A crate-root test helper carried pub(super) and broke every dependent build"
+symptom = "Three helpers placed at the crate root of an integration-test file between two cfg(test) modules were declared pub(super); rustc refused with E0433 and five tasks whose dependent-crate check builds layerx-agentd tests failed on a file none of them may edit."
+fix = "Items at the root of a tests/*.rs file are private or pub, never pub(super); a dependents build failure on a file outside the task's scope becomes a root-cause task the others require."
+
+[gotcha.2809]
+title = "A test and a Go producer still routed activity types the kernel had retired"
+symptom = "The kernel asset module shrank to eight activity types and its retirement tests asserted the three dropped types refuse, but the genesis manifest test and the ledger grant keeper kept submitting them and both failed with LXP_ERR_UNKNOWN_ACTIVITY."
+fix = "When a kernel activity type is retired, grep every list of activity types (C tests, Go keepers, contract documents) in the same change; a -106 routing result in a test is a stale list until the registry table says otherwise."
+
+[gotcha.2810]
+title = "A fixture, its decoder and its producer carried three different leg shapes"
+symptom = "The intent plan fixture legs carried chainId, data and payment, the TypeScript decoder required call and nonce, and the human service emitted flat snake_case EVM fields; the decoder failed the fixture and the fixture never matched a real response."
+fix = "Before repairing a decoder against a fixture, read the producer's json! site and the published schema; the fixture is regenerated from the producer and both consumers follow it."
+
+[gotcha.2811]
+title = "A touches entry for a file a prerequisite had already deleted blocked a passing candidate"
+symptom = "The completion check requires a matching change for every touches entry; a test file the task was told to delete had been deleted by a prerequisite task first, so the otherwise green candidate was refused."
+fix = "When a prerequisite lands the deletion or creation a task was told to make, drop that path from the task's touches in the same ruling; never add a path to touches that the task will not change."
+
+[gotcha.2812]
+title = "A fee estimate without a payer address was refused by the real node"
+symptom = "eth_estimateGas with maxFeePerGas set and no from is checked against the zero address's balance and answers insufficient funds for transfer even for a zero-value call; the funded account one line earlier was never consulted."
+fix = "Estimate a fee-bearing call with from set to the account that will sign; keep the fromless estimate for calls whose fee fields are zero and say so in its doc comment."
+
+[gotcha.2813]
+title = "A harness repair let a panicking test run for the first time and it failed on an older change"
+symptom = "A chain test that had panicked for weeks on a missing merge-table dependency ran again once the harness registered the keepers, and failed on fee collection that no run had checked since the last green revision."
+fix = "When a repair makes a long-panicking test run, treat its failure as unlocated: bisect from the last green revision with exit 125 on the old panic before changing the test or the product, and name the commit the bisect finds in the commit message."
+
+[gotcha.2814]
+title = "A proof read its funded key from the process environment and failed where none was set"
+symptom = "The proof declared the node build outside its scope and read LOCAL_NODE_KEY and the RPC URL from the environment; seven of eight tests passed and the eighth found no key."
+fix = "A proof that needs a node builds it in build_cmd and starts it itself, reading key material from the file the node script writes; a doc comment declaring the producer out of scope is a ruling request, not a substitute for one."
+
+[gotcha.2815]
+title = "A TypeScript test imported a Python package through an inline program the dependency scan could not see"
+symptom = "The qualification environment installs the Python packages a pytest target imports by scanning .py files; a TypeScript test spawned python3 -c with its own imports, so cryptography was never installed and one of thirty checks failed."
+fix = "A cross-language parity check names its interpreter-side dependencies where the environment can find them; the environment now also provides them for the TypeScript SDK tests that spawn python3."
+
+[gotcha.2816]
+title = "A module left in the basic manager but outside the module manager fails validate-genesis on every export"
+symptom = "layerxanchor kept its AppModuleBasic for the codec and message route after its genesis lifecycle was removed; exports omit it and the basic manager's ValidateGenesis unmarshals a nil message, so the release rehearsal's validate-genesis step failed on a correct export."
+fix = "A module without a genesis lifecycle accepts an absent state in ValidateGenesis and the export test asserts the key is absent, so the two registrations stay consistent."
+
+[gotcha.2817]
+title = "A proof that asserts a verifier refusal must read the verifier's check order first"
+symptom = "proof_sdk.rs expected ReceiptCheck::ProtocolVersion for a version-2 receipt; the verifier accepts version 2 and refused at ReceiptCheck::Asset because the test built its batch from a different asset."
+fix = "Build the authority from the decoded receipt's own fields, assert success, then assert the one refusal the test deliberately provokes; cite the verifier lines in the doc comment."
+
+[gotcha.2818]
+title = "A Makefile comparison against a file a prior task deleted fails every later run"
+symptom = "test-state-proof compared the generated vectors against a human-client vectors file deleted with its module; the first comparison still held, the second could not open its file."
+fix = "A deletion task greps the Makefile and qualification scripts for the deleted path; a target that compares against two copies drops the one whose owner left."
+
+[gotcha.2819]
+title = "An install that writes a binding document must track every section the daemon client requires"
+symptom = "The platform CLI install wrote no agent.readiness section after the daemon client started requiring the authenticated gateway, so a fresh install could not serve its catalogue through the daemon."
+fix = "The producer of a document and its strict consumer change together; a test installs with the producer and opens with the consumer rather than copying a hand-written document."
+
+[gotcha.2820]
+title = "A whole-crate cargo test in a task verify sweeps other tasks' proof targets"
+symptom = "A reconciliation task's four-crate cargo test failed on node-backed proofs and producer-input TLS tests owned by other tasks after its own targets passed."
+fix = "Name the test targets the task owns in its verify; whole-crate runs belong to crate-level closure gates."
+
+[gotcha.2821]
+title = "A go-ethereum client recomputes block hashes the node never served"
+symptom = "A chain-path proof compared ethclient Block.Hash() with receipt.BlockHash; the node serves the consensus block id as the hash field and the client's keccak of the decoded header differs on every block."
+fix = "Assert the hash fields the node serves (raw eth_getBlockByNumber hash, eth_getBlockByHash round trip, the consensus block id at the receipt height); never Block.Hash() of a decoded block."
+
+[gotcha.2822]
+title = "Two completion outcomes of one receipt must share one journal path"
+symptom = "The relayer journal let an Included completion follow a Receipted entry but demanded a Pending entry for a Reverted completion, so the status-zero integration test failed with a conflict and a unit test had pinned the asymmetry."
+fix = "Model the journal as Pending, Receipted, Completed with the outcome as data; assert conflicts on missing or already completed entries, never on the outcome value."
+
+[gotcha.2823]
+title = "A three-crate verify with two dependent-crate checks does not fit one qualification budget"
+symptom = "A runtime task repaired its candidate after the first verify, rebuilt, and the second dependent-crate check consumed the remaining budget so the verify never ran on the repair."
+fix = "Run the dependent-crate check once per candidate revision and let a gates-only requalification carry an unverified repair."
+
+[gotcha.2824]
+title = "A handwritten test landed in a generated markdown root without its manifest declaration"
+symptom = "A task added a proof test under a directory the platform generator owns; the generator's check refused the unclassified file and every later task whose build runs the generate target failed at the base."
+fix = "A file placed under a generated root is declared in the pipeline manifest in the same change; a generator refusal naming a file none of the candidate's hunks touch is a base break, repaired by declaring the file, never by deleting it."

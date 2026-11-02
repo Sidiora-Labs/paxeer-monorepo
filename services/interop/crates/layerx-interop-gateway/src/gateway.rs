@@ -329,6 +329,15 @@ fn pays_idempotency_key(
     if log.address() != LEDGER_ADDRESS {
         return false;
     }
+    // Both payment events put uint128 amount in the second data word.
+    // A signed log still needs canonical ABI padding before it can settle.
+    if !log
+        .data()
+        .get(32..48)
+        .is_some_and(|padding| padding.iter().all(|byte| *byte == 0))
+    {
+        return false;
+    }
     match log.topics() {
         [topic, reference, _, _] if topic == payment_exact => {
             log.data().len() == PAYMENT_EXACT_DATA_BYTES && reference == idempotency_key
@@ -755,5 +764,54 @@ impl GatewayCore {
         let telemetry = telemetry_row("refuse", idempotency_key).map_err(fail)?;
         scope.put(Table::Telemetry, telemetry, now, emission);
         Ok(record.status)
+    }
+}
+
+#[cfg(test)]
+mod ledger_producer_proof {
+    use super::*;
+
+    #[test]
+    fn proof_layerxledger_0x101a() {
+        let proof: serde_json::Value = serde_json::from_reader(std::io::stdin().lock())
+            .expect("precompiles/layerxledger/proof_layerxledger_0x101a_test.go producer");
+        fn bytes<const N: usize>(value: &str) -> [u8; N] {
+            let value = value.strip_prefix("0x").unwrap();
+            assert_eq!(value.len(), N * 2);
+            std::array::from_fn(|i| u8::from_str_radix(&value[i * 2..i * 2 + 2], 16).unwrap())
+        }
+        let key = bytes::<32>(proof["reference"].as_str().unwrap());
+        let exact = keccak256(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)");
+        let drawn =
+            keccak256(b"PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)");
+        let logs = proof["paymentLogs"].as_array().unwrap();
+        assert_eq!(logs.len(), 2);
+        let produced = &logs[1];
+        let data_hex = produced["data"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("0x")
+            .unwrap();
+        let data: Vec<u8> = (0..data_hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&data_hex[i..i + 2], 16).unwrap())
+            .collect();
+        let log = SequencerLog::new(
+            bytes(produced["address"].as_str().unwrap()),
+            produced["topics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|topic| bytes(topic.as_str().unwrap()))
+                .collect(),
+            data.clone(),
+            1,
+        );
+        assert!(pays_idempotency_key(&log, &key, &exact, &drawn));
+        assert!(!pays_idempotency_key(&log, &[0xff; 32], &exact, &drawn));
+        let mut malformed = data;
+        malformed[47] = 1;
+        let log = SequencerLog::new(log.address(), log.topics().to_vec(), malformed, 1);
+        assert!(!pays_idempotency_key(&log, &key, &exact, &drawn));
     }
 }

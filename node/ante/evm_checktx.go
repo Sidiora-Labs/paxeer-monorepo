@@ -151,12 +151,15 @@ func EvmStatelessChecks(ctx sdk.Context, tx sdk.Tx, chainID *big.Int, chains ...
 		return sdkerrors.Wrapf(sdkerrors.ErrInvalidRequest, "gas fee cap cannot be negative")
 	}
 
-	var chainsKeeper *chainskeeper.Keeper
-	if len(chains) > 0 {
-		chainsKeeper = chains[0]
-	}
-	if _, err := ResolveTransactionChain(ctx, etx, chainID, chainsKeeper); err != nil {
-		return err
+	if len(chains) > 0 && chains[0] != nil {
+		if _, err := ResolveTransactionChain(ctx, etx, chainID, chains[0]); err != nil {
+			return err
+		}
+	} else if etx.ChainId().Cmp(chainID) != 0 && !(etx.Type() == ethtypes.LegacyTxType && etx.ChainId().Sign() == 0) {
+		// Stateful registration and liveness are checked before charging fees.
+		if id, mapped := chainstypes.DomainOfChainID(etx.ChainId()); !mapped || id == 0 {
+			return sdkerrors.ErrInvalidChainID
+		}
 	}
 
 	txGas := ethereumData.GetGas()
@@ -182,7 +185,7 @@ func ResolveTransactionChain(ctx sdk.Context, tx *ethtypes.Transaction, rootID *
 		return ctx, nil
 	}
 	if chains != nil {
-		if domain, ok := chains.ResolveChainID(ctx, txID); ok {
+		if domain, ok := chains.ResolveChainID(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), txID); ok {
 			if domain.Status != chainstypes.StatusActive {
 				return ctx, chainstypes.ErrDomainNotActive
 			}
@@ -294,7 +297,7 @@ func HandleAssociateTx(ctx sdk.Context, ek *evmkeeper.Keeper, atx *ethtx.Associa
 
 func CheckAndDecodeSignature(ctx sdk.Context, txData ethtx.EthereumTxData, chainID *big.Int, isBlockTest bool) (common.Address, sdk.AccAddress, cryptotypes.PubKey, derived.SignerVersion, error) {
 	ethTx := ethtypes.NewTx(txData.AsEthereumData())
-	if ethTx.Type() != ethtypes.LegacyTxType {
+	if ethTx.Protected() {
 		chainID = ethTx.ChainId()
 	}
 	chainCfg := evmtypes.DefaultChainConfig()
@@ -338,16 +341,21 @@ func AssociateAddress(ctx sdk.Context, ek *evmkeeper.Keeper, evmAddr common.Addr
 }
 
 func EvmCheckAndChargeFees(ctx sdk.Context, sender common.Address, ek *evmkeeper.Keeper, upgradeKeeper *upgradekeeper.Keeper, txData ethtx.EthereumTxData, etx *ethtypes.Transaction, msg *evmtypes.MsgEVMTransaction, version derived.SignerVersion, statelessChecks bool) (*state.DBImpl, error) {
+	readCtx := ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+	chains, err := ChainsKeeperForContext(readCtx, ek)
+	if err != nil {
+		return nil, err
+	}
+	ctx, err = ResolveTransactionChain(ctx, etx, ek.ChainID(readCtx), chains)
+	if err != nil {
+		return nil, err
+	}
 	var baseFee *big.Int
 	_, isDomain := chainstypes.DomainFrom(ctx)
 	if id, ok := chainstypes.DomainFrom(ctx); ok {
-		chains, err := ChainsKeeperForContext(ctx, ek)
-		if err != nil {
-			return nil, err
-		}
-		baseFee = chains.NextBaseFee(ctx, id).TruncateInt().BigInt()
+		baseFee = chains.NextBaseFee(readCtx, id).TruncateInt().BigInt()
 	} else {
-		baseFee = GetBaseFee(ctx, ek, upgradeKeeper)
+		baseFee = GetBaseFee(readCtx, ek, upgradeKeeper)
 	}
 	if txData.GetGasFeeCap().Cmp(baseFee) < 0 {
 		return nil, sdkerrors.ErrInsufficientFee
@@ -459,6 +467,7 @@ func IsAccountBalancePositive(ctx sdk.Context, evmKeeper *evmkeeper.Keeper, paxA
 
 // minimum fee per gas required for a tx to be processed
 func GetBaseFee(ctx sdk.Context, evmKeeper *evmkeeper.Keeper, upgradeKeeper *upgradekeeper.Keeper) *big.Int {
+	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
 	if ctx.ChainID() == "pacific-1" && ctx.BlockHeight() < 114945913 {
 		return evmKeeper.GetBaseFeePerGas(ctx).TruncateInt().BigInt()
 	}

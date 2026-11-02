@@ -960,7 +960,7 @@ fn budget_funding(
         legs.push(RouteLeg {
             term: MovementTerm::Fund,
             mechanism: Mechanism::BudgetCreate,
-            intent: Intent::v1(IntentKind::BudgetCreate(intent)),
+            intent: Intent::from(IntentKind::BudgetCreate(intent)),
         });
     }
     let fund = BudgetFund::new(
@@ -974,7 +974,7 @@ fn budget_funding(
     legs.push(RouteLeg {
         term: MovementTerm::Fund,
         mechanism: Mechanism::BudgetFund,
-        intent: Intent::v1(IntentKind::BudgetFund(fund)),
+        intent: Intent::from(IntentKind::BudgetFund(fund)),
     });
     Ok(Route {
         legs,
@@ -1048,7 +1048,7 @@ fn one_leg<T>(
         legs: vec![RouteLeg {
             term,
             mechanism,
-            intent: Intent::v1(wrap(value)),
+            intent: Intent::from(wrap(value)),
         }],
         bank_transfers: Vec::new(),
     }

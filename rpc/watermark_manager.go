@@ -101,18 +101,31 @@ func (m *WatermarkManager) resolvePending() (int64, error) {
 }
 
 func (m *WatermarkManager) pendingHeight(ctx context.Context) (height int64, open bool, err error) {
+	_, height, open, err = m.pendingSnapshot(ctx)
+	return height, open, err
+}
+
+// pendingSnapshot preserves the identity and state of a single snapshot read.
+// An idle answer carries only the committed height, never an open context.
+func (m *WatermarkManager) pendingSnapshot(ctx context.Context) (sdk.Context, int64, bool, error) {
 	if m == nil || m.pending == nil {
-		return 0, false, ErrPendingServedBySequencer
+		return sdk.Context{}, 0, false, ErrPendingServedBySequencer
+	}
+	if err := ctx.Err(); err != nil {
+		return sdk.Context{}, 0, false, err
 	}
 	snapshot, err := m.pending.Snapshot()
 	if errors.Is(err, ErrLayerNotOpen) {
-		height, err := m.LatestHeight(ctx)
-		return height, false, err
+		snapshot, err = m.PendingContext(ctx)
+		if errors.Is(err, ErrPendingBlockClosed) {
+			height, err := m.LatestHeight(ctx)
+			return sdk.Context{}, height, false, err
+		}
 	}
 	if err != nil {
-		return 0, false, fmt.Errorf("pending block unavailable: %w", err)
+		return sdk.Context{}, 0, false, fmt.Errorf("pending block unavailable: %w", err)
 	}
-	return snapshot.BlockHeight(), true, nil
+	return snapshot, snapshot.BlockHeight(), true, nil
 }
 
 // Watermarks returns the earliest block height, earliest state height, and
