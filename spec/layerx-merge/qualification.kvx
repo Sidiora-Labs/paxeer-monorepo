@@ -16947,3 +16947,11 @@ symbol = "signer"
 observed = "Attempt 1 (6a5931e17) wrote attach_call_signature in custody/signer.rs and the three other ports; the build failed with E0603 because custody/mod.rs:11 declares `mod signer;` privately and services/human/crates/layerx-human-service/src/server/agent_creation.rs:436 calls crate::custody::signer::attach_call_signature, and custody/mod.rs is not among the task's touches."
 assumption = "Spec defect: the module's parent must re-export the helper; the task continues from attempt 1 with that one line."
 severity = "minor"
+
+[finding.18.0.1.1]
+task = "18.0.1"
+file = "spec/layerx-merge/programme/issue_closure.py:9"
+symbol = "issue_closure"
+observed = "Attempt 1 (943ca6eff) wrote issue_closure and both tests as specified; the tests passed and the closure run over the live spec exited 1 naming 18.1166.1, 18.1433.1, 18.1434.1 and 18.1435.3. The task's requires list holds 444 issue tasks and omits the 89 written after it, among them the three pending ones, so the task launched before its own precondition held, and five of the omitted tasks sit in waves 20 to 36 above the task's wave 19; 18.1166.1 has status superseded, its work carried by task 18.1206.1 (done), and the closure counts every status other than done as open."
+assumption = "Spec defect: the requires list is completed from the task list and decision 2248 rules that a superseded issue task counts as closed; the implementation continues from attempt 1 with the superseded case added."
+severity = "minor"
