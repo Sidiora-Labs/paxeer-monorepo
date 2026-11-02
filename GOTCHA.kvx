@@ -13196,3 +13196,23 @@ fix = "Split the retirement: delete the unconsumed items now with their two fixt
 title = "A retirement's consumer grep must cover test targets of every crate, or a crate's tests stay broken for weeks unnoticed"
 symptom = "A task deleted four canonical envelope functions and ported the service callers it listed; a KMS test target that only test code includes kept calling them, failed to compile on every main since, and was silently left out of the dependent-crate check as broken at the base."
 fix = "Grep tests/ and tests/support/ of every workspace crate for the deleted names when the retirement is written, and give each broken test target an owner before the retirement runs."
+
+[gotcha.2676]
+title = "A retired exported Go constant must be built across the module, not just its own package"
+symptom = "1.36.1 deleted codec.AvailabilityClassCount and passed its package gate; the layerxanchor keeper still used it, so paxd and every Go test package importing the app failed to build for the next tasks."
+fix = "When a Go retirement deletes an exported identifier, grep the module for its last uses and build ./... or at least the daemon and modules trees in the task's build command."
+
+[gotcha.2677]
+title = "Do not gate a crate with --all-targets while some of its test targets are broken by an earlier task"
+symptom = "10.21.8's --all-targets build of layerx-human-service failed three times on two test files no task owns, after the task's own port was complete."
+fix = "Name the library, binaries and the touched test targets in the build command; record the pre-existing broken targets as a finding against their producer."
+
+[gotcha.2678]
+title = "A vectors producer outlives the type it serialises unless its retirement task names it"
+symptom = "1.12.1 retired lxp_grant_state; the C producer of the wallet capability vectors still emitted grant vectors over it and broke the shared cc step of three later tasks."
+fix = "When retiring a wire type, grep tests/qualification and the vectors producers for it and either delete the vector or move it into the retirement task."
+
+[gotcha.2679]
+title = "Delete a transport module only after a consumer census, and re-home shared types where their users live"
+symptom = "9.24.7 deleted the LNI module whose Version type two RPC files import and whose transport the agent daemon library, seventeen test targets and the pay2e qualification still use."
+fix = "Before a module deletion, grep every crate for its path; re-home shared types next to their consumers in the same task and block the deletion until the transport consumers have port tasks."
