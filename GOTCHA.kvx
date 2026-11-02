@@ -13241,3 +13241,8 @@ fix = "When a task edits a Cargo.toml, list every Cargo.lock whose workspace res
 title = "A retirement task that adds a reference-scan test must list the documents that name the retired assets"
 symptom = "8.32.2 deleted the relay archive installer and added a test asserting no platform file names its variables; the directory's README documented the installer and its variables and failed the task's own test."
 fix = "Before writing a scan test, grep the scanned tree for the retired names and add every hit, documentation included, to touches with a do that rewrites or deletes it."
+
+[gotcha.2685]
+title = "A task that deletes a Rust module file must also touch the parent that declares it"
+symptom = "9.24.6 listed four submodule files of lni for deletion; lni/mod.rs kept their `pub mod` lines and re-exports, the crate failed with E0583, and two attempts stopped at the build because the module root was out of scope."
+fix = "For every src file in a deletion list, add the file holding its `mod name;` line (and any `pub use name::` re-export) to touches with a do that removes those lines; grep the crate for `name::` before writing the verify."

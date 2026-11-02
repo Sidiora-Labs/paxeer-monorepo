@@ -17139,3 +17139,11 @@ symbol = "LAYERX_RELAY_ARCHIVE_"
 observed = "Attempt 1 of task 8.32.2 (72772f28c) deleted the six installer, deployment and configuration assets and added both tests; test_no_platform_file_reads_relay_archive_variables failed because services/platform/relay_archive/README.md:11, :136 and :262 still name LAYERX_RELAY_ARCHIVE_RUNTIME and the LAYERX_RELAY_ARCHIVE_* variables, and the README's Operator quickstart (:45-149) and Container deployment (:242-265) sections still document install.sh, deployment.yaml, deployment.example.yaml and fly.toml, which the task deleted."
 assumption = "The README is a consumer of the retired assets the task's touches omitted; do_7 rewrites it and the implementation of attempt 1 stands."
 severity = "minor"
+
+[finding.9.24.6.1]
+task = "9.24.6"
+file = "services/agent/crates/layerx-client/src/lni/mod.rs:7"
+symbol = "head_attestation"
+observed = "Attempts 1 (d2418f742) and 2 (6e303078b) of task 9.24.6 deleted the six files the touches name and the build of layerx-client stopped with E0583 for the modules head_attestation, preparation, program_read and simulate: services/agent/crates/layerx-client/src/lni/mod.rs:7-13 still declares the four submodules and :18 and :20 re-export PreparationState, PreparationStateError, SimulateError, SimulatedExecution, Simulation and SimulationEvidence from two of them; no other file of the crate or of another crate names those paths or types. The touches of the task omitted the module root."
+assumption = "Spec omission of 9.24.6: deleting a submodule file requires its `mod` declaration and re-exports to go with it; do_5 adds the module root and the six deletions of attempt 2 stand."
+severity = "minor"
