@@ -106,6 +106,47 @@ pub struct GatewayTls {
 }
 
 impl GatewayTls {
+    /// Reads bounded gateway startup material from an absolute, owner-held
+    /// regular file without following links.
+    ///
+    /// # Errors
+    /// Refuses invalid ownership, permissions, links, empty or oversized files.
+    pub fn read_material(
+        path: &std::path::Path,
+        secret: bool,
+    ) -> Result<Zeroizing<Vec<u8>>, &'static str> {
+        use rustix::fs::{Mode, OFlags};
+        use std::fs::File;
+        use std::os::unix::fs::MetadataExt;
+
+        if !path.is_absolute() {
+            return Err("must be absolute");
+        }
+        let descriptor = rustix::fs::open(
+            path,
+            OFlags::RDONLY | OFlags::NOFOLLOW | OFlags::CLOEXEC,
+            Mode::empty(),
+        )
+        .map_err(|_| "cannot be opened")?;
+        let mut file = File::from(descriptor);
+        let metadata = file.metadata().map_err(|_| "has no metadata")?;
+        if !metadata.is_file()
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+            || metadata.mode() & (if secret { 0o077 } else { 0o022 }) != 0
+        {
+            return Err("ownership or permissions were refused");
+        }
+        let mut bytes = Zeroizing::new(Vec::new());
+        Read::by_ref(&mut file)
+            .take(u64::try_from(CERTIFICATE_LIMIT).map_err(|_| "bound is invalid")? + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|_| "is unreadable")?;
+        if bytes.is_empty() || bytes.len() > CERTIFICATE_LIMIT {
+            return Err("size was refused");
+        }
+        Ok(bytes)
+    }
+
     /// Builds a server configuration that always demands a client certificate
     /// chaining to `client_ca` and pins the exact client leaf certificate.
     ///
@@ -306,6 +347,16 @@ impl LxkpGateway {
                 .map_err(CustodyError::Io)?;
         }
         Err(CustodyError::Kms(KmsError::Unavailable))
+    }
+
+    /// Serves one connection using the same admission, authentication,
+    /// framing and dispatch path as `serve`.
+    ///
+    /// # Errors
+    /// Returns authentication, deadline, framing or provider failures.
+    pub fn serve_connection(&self, tcp: TcpStream) -> Result<(), KmsError> {
+        let _permit = self.gate.acquire().map_err(|_| KmsError::Unavailable)?;
+        self.exchange(tcp)
     }
 
     fn exchange(&self, mut tcp: TcpStream) -> Result<(), KmsError> {
