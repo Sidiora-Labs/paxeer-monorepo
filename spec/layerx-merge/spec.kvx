@@ -184687,7 +184687,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.6.8]
 title = "Reconcile the pointer gas, xweb ABI and IBC timestamp expectations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
