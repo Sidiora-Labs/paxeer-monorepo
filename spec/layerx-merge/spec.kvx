@@ -130700,7 +130700,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1497.1]
 title = "Issue #1497: Apply the virtual-chain scope to transaction-by-block-index reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130761,7 +130761,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1495.1]
 title = "Issue #1495: Return uint32 zero from chainByName for an unused name"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
