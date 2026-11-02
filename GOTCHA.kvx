@@ -13655,3 +13655,28 @@ fix = "Select the fixture case by id (V1-layerxledger-pay-exact) and derive the 
 title = "Deleting a test file also removes it from an explicit test script"
 symptom = "The TypeScript SDK's npm test lists each compiled test by path; deleting the source left Cannot find module for its dist file."
 fix = "When a test file is deleted, edit the package.json test script (and any list that names it) in the same change and add package.json to touches."
+
+[gotcha.2768]
+title = "The merge plan gate counted v6.12.0 addresses a full-genesis chain never selected"
+symptom = "Applying the merge plan on a test wrapper panicked with 'missing merge constructors or activation precompiles: 0x1020 ... 0x1025' because the v6.12.0 set was selected only on a done height while the gate counted every activation address."
+fix = "Derive liveness of a versioned set from the module version map as well as the done height (decision 2308), the rule the activation entries already follow."
+
+[gotcha.2769]
+title = "A schema edit leaves the generated SDKs stale"
+symptom = "The platform generator's --check refused after a schema file changed although every crate test passed."
+fix = "Run the generator without --check after any schema edit and commit the regenerated files with the pipeline manifest (decision 2310)."
+
+[gotcha.2770]
+title = "A missing named export fails the whole ESM test file at load"
+symptom = "A buyer test file imported a class the shared runtime module had renamed; node reported the SyntaxError before any test ran, so every case in the file counted as failed."
+fix = "Grep the support module's exports when a test imports it, and port renamed clients with their new constructor arguments."
+
+[gotcha.2771]
+title = "An ABCI error built from an empty log names no reason"
+symptom = "The sequencer's Accept wrapped codespace, code and an empty log into an error whose text was blank, so the test only showed a stack."
+fix = "Include codespace and code in the error text when the log is empty, and have harnesses print them."
+
+[gotcha.2772]
+title = "Grant reads moved from the keeper to the precompile view"
+symptom = "Tests still called Keeper.GetPayerGrant two days after 1.12.4 deleted it; vet failed for the whole test package."
+fix = "Read grants through the getPayerGrant view of the precompile and grep every test package for a deleted accessor, not only the file the finding named."
