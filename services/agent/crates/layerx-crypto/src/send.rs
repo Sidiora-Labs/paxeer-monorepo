@@ -229,22 +229,11 @@ pub fn encode_send_envelope(
     payload: &[u8],
     options: &EnvelopeOptions<'_>,
 ) -> Result<DisclosedEnvelope, DisclosureError> {
-    encode_payment_envelope(ModuleId::Asset, 5, payload, options)
-}
-
-/// # Errors
-/// Rejects unsupported types, malformed envelopes, signatures and incomplete disclosures.
-pub fn encode_payment_envelope(
-    module: ModuleId,
-    ordinal: u16,
-    payload: &[u8],
-    options: &EnvelopeOptions<'_>,
-) -> Result<DisclosedEnvelope, DisclosureError> {
     fn bad<E>(_: E) -> DisclosureError {
         DisclosureError::MalformedPayload
     }
-    let kind = ActivityType::new(module, ordinal).map_err(bad)?;
-    let registration = ModuleRegistration::new(module, &[kind]).map_err(bad)?;
+    let kind = ActivityType::new(ModuleId::Asset, 5).map_err(bad)?;
+    let registration = ModuleRegistration::new(ModuleId::Asset, &[kind]).map_err(bad)?;
     let registry = ModuleRegistry::new(&[registration]).map_err(bad)?;
     let mut hash = Sha256::new();
     hash.update(Domain::PayloadHash.tag());

@@ -111,6 +111,24 @@ func (k *Keeper) EndBlock(ctx sdk.Context, height int64, blockGasUsed int64) {
 		utilmetrics.GaugeEvmBlockBaseFee(baseFeeBI, height) // TODO(PLT-330): remove once evm_block_base_fee verified
 		evmKeeperMetrics.blockBaseFee.Record(ctx.Context(), bigIntToFloat64(baseFeeBI))
 	}
+	if binding := k.chainsBinding(); binding != nil {
+		denom := k.GetBaseDenom(ctx)
+		collector := k.AccountKeeper().GetModuleAddress(authtypes.FeeCollectorName)
+		for _, id := range binding.ActiveDomains(ctx) {
+			gasUsed := binding.DomainGasUsed(ctx, id, height)
+			previousFee := binding.NextBaseFee(ctx, id)
+			binding.AdjustDomainBaseFee(ctx, id, gasUsed, k.GetMinimumFeePerGas(ctx), k.GetMaximumFeePerGas(ctx), k.GetMaxDynamicBaseFeeUpwardAdjustment(ctx), k.GetMaxDynamicBaseFeeDownwardAdjustment(ctx))
+			operator, bps := binding.Operator(ctx, id)
+			if bps == 0 || gasUsed == 0 {
+				continue
+			}
+			share := previousFee.MulInt(sdk.NewIntFromUint64(gasUsed)).MulInt64(int64(bps)).QuoInt64(10000).TruncateInt()
+			if share.IsPositive() && k.BankKeeper().GetBalance(ctx, collector, denom).Amount.GTE(share) {
+				err := k.BankKeeper().SendCoinsFromModuleToAccount(ctx, authtypes.FeeCollectorName, k.GetPaxAddressOrDefault(ctx, operator), sdk.NewCoins(sdk.NewCoin(denom, share)))
+				failEndBlockOnError(fmt.Sprintf("pay domain %d operator share", id), err)
+			}
+		}
+	}
 	var coinbase sdk.AccAddress
 	if k.EthBlockTestConfig.Enabled {
 		blocks := k.BlockTest.Json.Blocks

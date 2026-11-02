@@ -20,6 +20,7 @@ export * from "./account-derivation.js";
 
 export * from "./rpc.js";
 export * from "./names.js";
+export * from "./chains.js";
 
 export * from "./wallet.js";
 export * from "./evm-transaction.js";
