@@ -25,9 +25,9 @@ evidence = "Commit d537f9bc9 supplied --evm-key-file in the walkthrough and wrot
 
 [disposition.8.41.4.1]
 finding = "8.41.4.1"
-status = "open"
-evidence = "spec/layerx-merge/spec.kvx:19553 still requires version 2 and refusal of version 1 while sdk/platform/go/http.go:356 sends version 1, so decision 2198 and the updated schema-field tests have not corrected the literal acceptance criteria."
-follow_up = "closure"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:19553 still requires version 2 and refusal of version 1 while sdk/platform/go/http.go:356 sends version 1, so decision 2198 and the updated schema-field tests have not corrected the literal acceptance criteria. Decision 2299 restated requirement 8484 ac_1 and ac_2 to the version-1 envelope and schema-field refusal that decision 2198 ruled; the acceptance text and the SDK now agree."
+follow_up = "decision.2299"
 
 [disposition.8.41.5.1]
 finding = "8.41.5.1"
@@ -102,9 +102,9 @@ evidence = "Commit f01f2cdc4 added sdk/platform/swift/.gitignore:1 for .build/, 
 
 [disposition.8.44.4.1]
 finding = "8.44.4.1"
-status = "open"
-evidence = "spec/layerx-merge/spec.kvx:19651 still requires version 2 and refusal of version 1 while sdk/platform/swift/Sources/LayerXSDK/Transport.swift:436 sends version 1, so decision 2198 and the updated schema-field tests have not corrected the literal acceptance criteria."
-follow_up = "closure"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:19651 still requires version 2 and refusal of version 1 while sdk/platform/swift/Sources/LayerXSDK/Transport.swift:436 sends version 1, so decision 2198 and the updated schema-field tests have not corrected the literal acceptance criteria. Decision 2299 restated requirement 8502 ac_1 and ac_2 to the version-1 envelope and schema-field refusal that decision 2198 ruled; the acceptance text and the SDK now agree."
+follow_up = "decision.2299"
 
 [disposition.8.44.5.1]
 finding = "8.44.5.1"
