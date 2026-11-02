@@ -1,11 +1,13 @@
-import { BuyerMiddleware, LayerXPaymentHttpTransport } from "@sidiora/layerx-buyer-middleware";
+import { BuyerMiddleware as BuyerMiddlewareImplementation, LayerXPaymentHttpTransport } from "@sidiora/layerx-buyer-middleware";
 import { PlatformSdkError, ProductionClient, SecretBytes } from "@sidiora/layerx-sdk";
 import {
   LayerXApplicationStateError,
-  ReceiptAuthorityClient,
   loadApplicationConfig,
+  receiptKeysFromEnvironment,
   requiredEnvironment,
 } from "../support/runtime.mjs";
+
+const BuyerMiddleware = BuyerMiddlewareImplementation;
 
 export function platform_ref_buyer() {
   return "buyer-middleware-metered-api-receipt-verified";
@@ -14,16 +16,13 @@ export function platform_ref_buyer() {
 const config = await loadApplicationConfig(import.meta.url, "buyer-agent");
 const rawToken = requiredEnvironment(config.tokenEnvironment);
 const token = new SecretBytes(new TextEncoder().encode(rawToken));
-const authority = new ReceiptAuthorityClient(config.receiptAuthorityUrl, rawToken);
-const buyer = new BuyerMiddleware({
-  client: new ProductionClient(new LayerXPaymentHttpTransport({ baseUrl: config.humanUrl, bearerToken: token })),
-  source: requiredEnvironment(config.sourceEnvironment),
-  protocolVersion: config.protocolVersion,
-  supported: [{ scheme: config.scheme, network: config.network }],
-  authorizedBatches: authority,
-});
-
 try {
+  const buyer = new BuyerMiddleware({
+    client: new ProductionClient(new LayerXPaymentHttpTransport({ baseUrl: config.humanUrl, bearerToken: token })),
+    source: requiredEnvironment(config.sourceEnvironment),
+    supported: [{ scheme: config.scheme, network: config.network }],
+    receiptKeys: receiptKeysFromEnvironment(config.receiptKeysEnvironment),
+  });
   const result = await buyer.fetch(
     config.resourceUrl,
     { method: "GET", headers: { accept: "application/json" } },
@@ -46,8 +45,9 @@ try {
       environment: config.name,
       state: "paid",
       status: result.response.status,
-      receiptDigest: result.payment.receiptDigest,
-      verification: result.settlement.verification.level,
+      transactionHash: result.settlement.txHash,
+      receiptDigest: result.settlement.receiptDigest,
+      rung: result.settlement.verification.rung,
       body,
     })}\n`);
   }

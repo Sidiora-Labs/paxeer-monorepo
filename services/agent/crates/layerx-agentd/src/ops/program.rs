@@ -1,9 +1,9 @@
 //! First-class program discovery, interface, simulation, and call operations.
 
+use layerx_client::rpc::submit::SubmitError;
 use layerx_client::sequencer::{
     ExecutedReceipt, SequencerEndpoint, SequencerError, SequencerReceipt,
 };
-use layerx_client::submit::SubmitError;
 use layerx_crypto::ed25519;
 use layerx_programs::{ProgramId, ProgramInterface, ProgramLifecycle, VerifiedProgramBundle};
 use layerx_programs_runtime::terminal::DecodedTerminal;
@@ -1013,21 +1013,20 @@ impl ProgramOperations {
             .observed_at
             .checked_add(self.reader.staleness_limit())
             .ok_or(ProgramOperationError::Stale)?;
-        if now < freshness.observed_at || now > valid_through || now > head.valid_until_ms() {
-            return Err(ProgramOperationError::Stale);
-        }
-        if head.program() != program {
-            return Err(ProgramOperationError::UnknownProgram);
-        }
-        if head.lifecycle() != ProgramLifecycle::Active {
-            return Err(ProgramOperationError::InactiveProgram);
-        }
-        if head.receipt_digest() != chain.receipt_digest()
-            || head.state_root() != chain.state_root()
-            || head.freshness() != freshness
-        {
-            return Err(ProgramOperationError::UnverifiedReceipt);
-        }
+        bound
+            .verify_discovery(program, now, self.reader.staleness_limit())
+            .map_err(|error| match error {
+                layerx_programs::ProgramBundleError::ProgramMismatch => {
+                    ProgramOperationError::UnknownProgram
+                }
+                layerx_programs::ProgramBundleError::Evidence(
+                    layerx_programs::ProtocolEvidenceError::Stale,
+                ) => ProgramOperationError::Stale,
+                layerx_programs::ProgramBundleError::Evidence(
+                    layerx_programs::ProtocolEvidenceError::LifecycleProof,
+                ) => ProgramOperationError::InactiveProgram,
+                _ => ProgramOperationError::UnverifiedReceipt,
+            })?;
         let accounts = self
             .reader
             .value_account_ids(program)

@@ -301,34 +301,75 @@ fn fixture(transaction: &[u8], state: &FixtureState<'_>) -> ProtocolFixture {
 }
 
 fn deploy_payload(wasm: &[u8], policy: UpgradePolicy) -> Vec<u8> {
-    let interface_encoding = fixture_interface_encoding(wasm);
-    let mut payload = Vec::new();
-    payload.extend_from_slice(&PROGRAM_BYTES);
-    payload.extend_from_slice(&1_u16.to_be_bytes());
-    match policy {
-        UpgradePolicy::Immutable => {
-            payload.extend([0, 0]);
-            payload.extend_from_slice(&[0; 32]);
-        }
-        UpgradePolicy::Authority(authority) => {
-            payload.extend([1, 0]);
-            payload.extend_from_slice(&authority);
+    use layerx_types::program_lifecycle::{NativeProgramDeploy, ProgramUpgradePolicy};
+    let interface = fixture_interface_encoding(wasm);
+    NativeProgramDeploy {
+        program_id: layerx_types::intent::ProgramId::new(PROGRAM_BYTES),
+        guest_abi: 1,
+        policy: match policy {
+            UpgradePolicy::Immutable => ProgramUpgradePolicy::Immutable,
+            UpgradePolicy::Authority(authority) => ProgramUpgradePolicy::Authority(authority),
+        },
+        new_hash: code_hash(wasm),
+        interface: Some(&interface),
+        wasm,
+    }
+    .encode()
+    .unwrap_or_else(|error| panic!("native deployment encoding: {error:?}"))
+}
+
+/// Produces an actual runtime deployment before constructing its signed chain
+/// membership proofs. The expected record comes from the runtime receipt.
+pub fn produced_deployment(
+    wasm: &[u8],
+    policy: UpgradePolicy,
+    block_height: u64,
+    timestamp: u64,
+) -> (
+    layerx_programs_runtime::Lifecycle,
+    layerx_programs::DeploymentRecord,
+    ProtocolFixture,
+) {
+    use layerx_programs_runtime::{Deploy, Lifecycle, ProgramVersion};
+    let mut lifecycle = Lifecycle::declared().unwrap_or_else(|error| panic!("runtime: {error}"));
+    let version = ProgramVersion {
+        code_hash: code_hash(wasm),
+        wasm: wasm.to_vec(),
+        abi_version: 1,
+    };
+    let receipt = lifecycle
+        .deploy(Deploy {
+            program: program(),
+            code_hash: version.code_hash,
+            wasm: version.wasm.clone(),
+            abi_version: version.abi_version,
+            upgrade_policy: policy,
+        })
+        .unwrap_or_else(|error| panic!("runtime producer: {error}"));
+    let record = layerx_programs::DeploymentRecord::from_deployment(
+        &receipt,
+        &version,
+        policy,
+        block_height.checked_add(1).expect("header height"),
+        timestamp,
+    )
+    .unwrap_or_else(|error| panic!("producer record: {error}"));
+    let fixture = deploy_fixture(wasm, policy, block_height, timestamp);
+    assert_eq!(fixture.proof.deployment.code, record.module);
+    assert_eq!(fixture.proof.state.state.program, record.program);
+    (lifecycle, record, fixture)
+}
+
+impl ProtocolFixture {
+    pub fn program_bundle(&self) -> layerx_programs::ProgramStateBundle {
+        layerx_programs::ProgramStateBundle {
+            commitment: self.proof.state.commitment.clone(),
+            program: self.proof.state.state.program,
+            program_record_ops: self.proof.state.state.ops.clone(),
+            interface_ops: self.interface_witness.proof.clone(),
+            wind_down: Some(self.proof.state.wind_down.clone()),
         }
     }
-    payload.extend_from_slice(&code_hash(wasm));
-    payload.extend_from_slice(
-        &u32::try_from(wasm.len())
-            .unwrap_or_else(|_| panic!("WASM length"))
-            .to_be_bytes(),
-    );
-    payload.extend_from_slice(
-        &u32::try_from(interface_encoding.len())
-            .unwrap_or_else(|_| panic!("interface length"))
-            .to_be_bytes(),
-    );
-    payload.extend_from_slice(&interface_encoding);
-    payload.extend_from_slice(wasm);
-    payload
 }
 
 fn upgrade_payload(old_wasm: &[u8], new_wasm: &[u8]) -> Vec<u8> {

@@ -68,3 +68,11 @@ pub fn balance(
         .map_err(|_| ReadError::MalformedValue)?;
     Ok(Amount::from_be_bytes(amount))
 }
+/// Freshness coordinates inseparable from a returned read value.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct Freshness {
+    pub global_sequence: u64,
+    pub batch_number: u64,
+    pub observed_head_sequence: u64,
+    pub observed_checkpoint: [u8; 32],
+}

@@ -154,6 +154,7 @@ pub(crate) struct PeerState {
     pub(crate) pending_nonces: Vec<([u8; 20], u64)>,
     pub(crate) receipts: BTreeMap<[u8; 32], Value>,
     pub(crate) blocks: BTreeMap<u64, Value>,
+    pub(crate) receipt_rung: Option<layerx_types::rung::Rung>,
 }
 
 pub(crate) fn bytes(out: &mut Vec<u8>, value: &[u8]) {
@@ -249,8 +250,6 @@ impl PeerState {
                 canonical[77..109].copy_from_slice(&[0x63; 32]);
                 canonical[109..111].copy_from_slice(&1_u16.to_be_bytes());
                 canonical[215..].copy_from_slice(&HEAD.to_be_bytes());
-                layerx_crypto::rotation::OwnerRotationState::decode(&canonical, &did)
-                    .expect("owner state");
                 out.extend_from_slice(&HEAD.to_be_bytes());
                 out.extend_from_slice(&1_u64.to_be_bytes());
                 out.extend_from_slice(&[4, 0]);
@@ -459,6 +458,165 @@ pub(crate) fn unhex(text: &str) -> Vec<u8> {
         .collect()
 }
 
+pub(crate) fn receipt_key() -> layerx_proof::inclusion::SequencerAuthorization {
+    layerx_proof::inclusion::SequencerAuthorization::new(
+        [0x92; 32],
+        ed25519_dalek::SigningKey::from_bytes(&[0x93; 32])
+            .verifying_key()
+            .to_bytes(),
+        HEAD,
+        HEAD + 100,
+    )
+}
+
+fn sequencer_answer(raw: &[u8], block: &Value, rung: layerx_types::rung::Rung) -> Value {
+    use ed25519_dalek::Signer as _;
+    use layerx_wire::encode::Encoder;
+    use sha2::{Digest as _, Sha256};
+    let (call, signature) = layerx_crypto::evm_transaction::decode_signed(raw).expect("signed leg");
+    let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature).expect("sender");
+    let hash = layerx_crypto::evm_transaction::transaction_hash(raw);
+    let sequence = call.nonce - NONCE + 1;
+    let timestamp = u64::from_str_radix(
+        block["timestamp"]
+            .as_str()
+            .expect("timestamp")
+            .strip_prefix("0x")
+            .expect("timestamp prefix"),
+        16,
+    )
+    .expect("timestamp quantity");
+    let gas = 21_000_u64;
+    let fee = u128::from(gas);
+    let previous = [4_u8; 32];
+    let mut sequence_preimage = b"PAXEER/v1/sequence\0".to_vec();
+    sequence_preimage.extend_from_slice(&previous);
+    sequence_preimage.extend_from_slice(&sequence.to_be_bytes());
+    sequence_preimage.extend_from_slice(&hash);
+    let mut height = [0; 32];
+    height[24..].copy_from_slice(&HEAD.to_be_bytes());
+    let mut from = [0; 32];
+    from[12..].copy_from_slice(&sender);
+    let mut to = [0; 32];
+    to[12..].copy_from_slice(&call.to);
+    let key = receipt_key();
+    let encode = |signature: Option<[u8; 64]>| {
+        let mut summary = Encoder::new(256);
+        required(summary.u64(gas), "gas");
+        required(summary.u64(gas), "cumulative gas");
+        required(summary.u64(1), "gas price");
+        required(summary.u32(0), "transaction index");
+        required(summary.fixed(&[0; 20]), "contract");
+        required(summary.fixed(&[0; 20]), "sponsor");
+        required(summary.fixed(&Sha256::digest(b"")), "VM error hash");
+        required(summary.u32(0), "return length");
+        required(summary.u32(0), "log count");
+        required(summary.u8(4), "denom length");
+        required(summary.fixed(b"alxp"), "denom");
+        let mut e = Encoder::new(layerx_wire::limits::MAX_MESSAGE_BYTES);
+        let version = layerx_wire::limits::PROTOCOL_VERSION;
+        required(
+            e.structure_header_version(0x5201, version),
+            "receipt header",
+        );
+        required(e.u16(version), "version");
+        required(e.bytes(&hash, 32), "transaction hash");
+        required(e.u64(sequence), "sequence");
+        required(e.bytes(&previous, 32), "previous root");
+        required(
+            e.bytes(&Sha256::digest(&sequence_preimage), 32),
+            "sequence root",
+        );
+        required(e.bytes(&Sha256::digest(b""), 32), "return hash");
+        required(e.i32(0), "status");
+        required(e.sequence_length(1, 512), "effect count");
+        required(e.u16(12), "effect module");
+        required(e.u16(0), "ordinal");
+        required(e.u16(0), "event type");
+        required(e.u8(1), "summary effect");
+        required(e.u8(0), "monetary");
+        required(e.bytes(&[0; 32], 32), "transfer root");
+        required(e.bytes(&summary.finish(), 256), "summary");
+        required(e.u128(fee), "fee");
+        required(e.bytes(&height, 32), "height");
+        required(e.u16(12), "module");
+        required(e.u32(1), "module version");
+        required(e.u32(0), "parameter version");
+        required(e.u8(2), "operation");
+        required(e.bytes(&ASSET, 32), "asset");
+        required(e.u128(1), "amount");
+        required(e.bytes(&from, 32), "from");
+        required(e.u128(fee + 2), "from before");
+        required(e.u128(1), "from after");
+        required(e.u64(call.nonce), "nonce");
+        required(e.bytes(&to, 32), "to");
+        required(e.u128(0), "to before");
+        required(e.u128(1), "to after");
+        required(e.bytes(&[0; 32], 32), "transfer root");
+        required(e.bytes(&[0; 32], 32), "authorization hash");
+        required(e.bytes(&key.sequencer_id(), 32), "key id");
+        required(e.u64(timestamp), "timestamp");
+        required(e.u8(u8::from(signature.is_some())), "signature option");
+        if let Some(signature) = signature {
+            required(e.bytes(&signature, 64), "signature");
+        }
+        e.finish()
+    };
+    let unsigned = encode(None);
+    let digest = required(
+        layerx_wire::hash::receipt_digest(&unsigned),
+        "receipt digest",
+    );
+    let signer = ed25519_dalek::SigningKey::from_bytes(&[0x93; 32]);
+    let signed = encode(Some(signer.sign(&digest).to_bytes()));
+    let mut answer = json!({
+        "rung": rung.name(), "txHash": format!("0x{}", cluster::hex(&hash)),
+        "nonce": format!("0x{:x}", call.nonce), "seq": format!("0x{sequence:x}"),
+        "height": format!("0x{HEAD:x}"), "index": "0x0", "timestamp": format!("0x{timestamp:x}"),
+        "status": "0x1", "returnData": "0x", "logs": [], "gasUsed": format!("0x{gas:x}"),
+        "cumulativeGasUsed": format!("0x{gas:x}"), "effectiveGasPrice": "0x1",
+        "feeDenom": "alxp", "feeAmount": format!("0x{fee:x}"),
+        "sponsor": format!("0x{}", cluster::hex(&[0; 20])),
+        "from": format!("0x{}", cluster::hex(&sender)), "to": format!("0x{}", cluster::hex(&call.to)),
+        "contractAddress": format!("0x{}", cluster::hex(&[0; 20])), "vmError": "",
+        "keyId": format!("0x{}", cluster::hex(&key.sequencer_id())),
+        "signingKey": format!("0x{}", cluster::hex(&key.public_key())),
+        "receipt": format!("0x{}", cluster::hex(&signed))
+    });
+    if rung == layerx_types::rung::Rung::Committed {
+        answer["blockNumber"] = block["number"].clone();
+        answer["blockHash"] = block["hash"].clone();
+    }
+    answer
+}
+
+fn full_transaction(raw: &[u8], block: &Value) -> Value {
+    let (call, signature) = required(
+        layerx_crypto::evm_transaction::decode_signed(raw),
+        "signed leg",
+    );
+    let from = required(
+        layerx_crypto::evm_transaction::recover_sender(&call, &signature),
+        "sender",
+    );
+    let sig = signature.as_bytes();
+    let quantity = |bytes: &[u8]| {
+        let text = cluster::hex(bytes);
+        let digits = text.trim_start_matches('0');
+        format!("0x{}", if digits.is_empty() { "0" } else { digits })
+    };
+    json!({"blockHash": block["hash"], "blockNumber": block["number"],
+        "from": format!("0x{}", cluster::hex(&from)), "gas": format!("0x{:x}", call.gas_limit),
+        "gasPrice": "0x1", "hash": format!("0x{}", cluster::hex(&layerx_crypto::evm_transaction::transaction_hash(raw))),
+        "input": format!("0x{}", cluster::hex(&call.data)), "nonce": format!("0x{:x}", call.nonce),
+        "to": format!("0x{}", cluster::hex(&call.to)), "transactionIndex": "0x0", "value": "0x0",
+        "type": "0x2", "v": format!("0x{:x}", sig[64] - 27), "yParity": format!("0x{:x}", sig[64] - 27),
+        "r": quantity(&sig[..32]), "s": quantity(&sig[32..64]), "accessList": [],
+        "chainId": format!("0x{:x}", call.chain_id),
+        "maxFeePerGas": format!("0x{:x}", call.max_fee_per_gas),
+        "maxPriorityFeePerGas": format!("0x{:x}", call.max_priority_fee_per_gas)})
+}
+
 impl RpcServer {
     fn start(state: Arc<Mutex<PeerState>>, clock: Arc<SerialClock>) -> Result<Self> {
         let listener = std::net::TcpListener::bind("127.0.0.1:0")?;
@@ -640,8 +798,28 @@ impl RpcServer {
                             16,
                         )
                         .expect("block height quantity");
-                        assert_eq!(request["params"][1], false, "block transaction hashes");
-                        state.blocks.get(&height).cloned().unwrap_or(Value::Null)
+                        let mut block = state.blocks.get(&height).cloned().unwrap_or(Value::Null);
+                        if request["params"][1] == true && !block.is_null() {
+                            let hash: [u8; 32] =
+                                unhex(block["transactions"][0].as_str().expect("transaction hash"))
+                                    .try_into()
+                                    .expect("transaction hash length");
+                            let raw = state.submitted.get(&hash).expect("block transaction");
+                            block["transactions"] = json!([full_transaction(raw, &block)]);
+                            block["parentHash"] = json!(format!("0x{}", cluster::hex(&[0; 32])));
+                            block["transactionsRoot"] =
+                                json!(format!("0x{}", cluster::hex(&[1; 32])));
+                            block["receiptsRoot"] = json!(format!("0x{}", cluster::hex(&[2; 32])));
+                        }
+                        block
+                    }
+                    "px_getReceiptKeys" => {
+                        assert_eq!(request["params"], json!([]));
+                        let key = receipt_key();
+                        json!([{"keyId": format!("0x{}", cluster::hex(&key.sequencer_id())),
+                            "publicKey": format!("0x{}", cluster::hex(&key.public_key())),
+                            "firstHeight": format!("0x{:x}", key.first_batch_number()),
+                            "lastHeight": format!("0x{:x}", key.last_batch_number())}])
                     }
                     "pax_sequencerReceipt" => {
                         let hash: [u8; 32] = unhex(request["params"][0].as_str().expect("hash"))
@@ -651,7 +829,16 @@ impl RpcServer {
                             Some(raw) => {
                                 let (call, _) = layerx_crypto::evm_transaction::decode_signed(raw)
                                     .expect("signed transaction");
-                                json!({"rung": "submitted", "txHash": format!("0x{}", cluster::hex(&hash)), "nonce": format!("0x{:x}", call.nonce)})
+                                if let Some(rung) = state.receipt_rung {
+                                    let height = HEAD + call.nonce - NONCE + 1;
+                                    sequencer_answer(
+                                        raw,
+                                        state.blocks.get(&height).expect("covering block"),
+                                        rung,
+                                    )
+                                } else {
+                                    json!({"rung": "submitted", "txHash": format!("0x{}", cluster::hex(&hash)), "nonce": format!("0x{:x}", call.nonce)})
+                                }
                             }
                             None => Value::Null,
                         }

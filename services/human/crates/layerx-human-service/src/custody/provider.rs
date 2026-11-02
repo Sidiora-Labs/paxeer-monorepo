@@ -3,6 +3,7 @@ use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 
 use crate::frame::{ConnectionGate, FrameTransport, Limits, MutualTlsConfig, Tls, TransportError};
 use layerx_crypto::disclosure::call::bind_call;
@@ -10,6 +11,7 @@ use layerx_crypto::disclosure::Disclosure;
 use layerx_crypto::evm_transaction::{recover_sender, Eip1559Call};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::signer::{sign_disclosed_call, AgentSignature, Signer as _};
+use layerx_types::clock::{Clock, Deadline};
 use layerx_types::payload::ModuleRegistry;
 use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
@@ -728,6 +730,7 @@ impl Debug for RemoteCustodySigner {
 /// TLS to a remote KMS/HSM gateway. Every operation opens a fresh authenticated
 /// connection, so a failed connection cannot silently reuse cached authority.
 pub struct RemoteKmsProvider {
+    clock: Arc<dyn Clock>,
     provider_reference: String,
     endpoint: SocketAddr,
     server_name: String,
@@ -750,6 +753,7 @@ impl RemoteKmsProvider {
         server_name: impl Into<String>,
         tls: MutualTlsConfig,
         limits: Limits,
+        clock: Arc<dyn Clock>,
     ) -> Result<Self, CustodyError> {
         let provider_reference = provider_reference.into();
         if provider_reference.is_empty()
@@ -769,6 +773,7 @@ impl RemoteKmsProvider {
             return Err(CustodyError::Kms(KmsError::InvalidConfiguration));
         }
         Ok(Self {
+            clock,
             provider_reference,
             endpoint,
             server_name,
@@ -787,16 +792,26 @@ impl RemoteKmsProvider {
             .clone()
             .try_into()
             .map_err(|_| KmsError::Authentication)?;
-        let mut transport = Tls::connect(
-            self.endpoint,
-            server_name,
-            &self.tls,
-            &self.gate,
-            self.limits,
-        )
-        .map_err(map_transport)?;
+        let mut deadline = Deadline::start(self.clock.as_ref(), self.limits.deadline)
+            .map_err(|_| KmsError::Unavailable)?;
+        let mut limits = self.limits;
+        limits.deadline = deadline
+            .remaining(self.clock.as_ref())
+            .map_err(|_| KmsError::Unavailable)?;
+        if limits.deadline.is_zero() {
+            return Err(KmsError::Timeout);
+        }
+        let mut transport = Tls::connect(self.endpoint, server_name, &self.tls, &self.gate, limits)
+            .map_err(map_transport)?;
         transport.send(request).map_err(map_transport)?;
         let response = transport.receive().map_err(map_transport)?;
+        if deadline
+            .remaining(self.clock.as_ref())
+            .map_err(|_| KmsError::Unavailable)?
+            .is_zero()
+        {
+            return Err(KmsError::Timeout);
+        }
         decode_response(contract, &response)
     }
 
@@ -1074,10 +1089,10 @@ impl KmsProvider for EnvelopeKms {
         } else {
             serde_json::from_slice(&bytes).map_err(|_| KmsError::Integrity)?
         };
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        let now = layerx_client::runtime_clock::RuntimeClock::from_environment()
+            .and_then(|clock| clock.sample(Duration::from_secs(1)))
             .map_err(|_| KmsError::Unavailable)?
-            .as_secs();
+            .unix_seconds();
         let action_key = if operation == 7 {
             let authorization: super::EvmPlanAuthorization =
                 serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?;

@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 
-use layerx_client::submit::Submission;
+use layerx_client::rpc::submit::Submission;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::activity::{Authority, TimestampBound};
@@ -923,21 +923,62 @@ fn human_receipt_key(
     Ok(*key)
 }
 
-pub(crate) fn receipt_lookup_not_ready_bytes(
+pub fn receipt_lookup_not_ready_bytes(
     lookup: &layerx_client::rpc::receipt::Lookup,
 ) -> Option<Vec<u8>> {
+    use crate::human_receipt_frame::ReceiptLookupAnswer;
     use layerx_client::rpc::receipt::Lookup;
-    let mut out = Encoder::new();
-    match lookup {
-        Lookup::Absent => out.u8(0),
-        Lookup::Submitted { tx_hash, nonce } => {
-            out.u8(2);
-            out.fixed(tx_hash);
-            out.u64(*nonce);
-        }
+    let answer = match lookup {
+        Lookup::Absent => ReceiptLookupAnswer::Absent,
+        Lookup::Submitted { tx_hash, nonce } => ReceiptLookupAnswer::Submitted {
+            tx_hash: *tx_hash,
+            nonce: *nonce,
+        },
         Lookup::Verified(_) => return None,
+    };
+    answer.encode().ok()
+}
+
+pub fn receipt_lookup_found_bytes(
+    served: &crate::receipt::ServedReceipt,
+    evidence: &crate::finality::FinalityRecord,
+    authority: AuthorizedBatch,
+    keys: &[layerx_client::sequencer::ReceiptKeyEntry],
+) -> Result<Vec<u8>, HumanOperationError> {
+    use crate::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
+    let key = human_receipt_key(keys, evidence.receipt_key.key_id, evidence.height)?;
+    let decoded = layerx_wire::receipt::decode(&evidence.receipt_bytes)
+        .map_err(|_| HumanOperationError::Refused)?;
+    let protocol = decoded.protocol().ok_or(HumanOperationError::Refused)?;
+    if evidence.receipt_bytes != served.canonical_bytes
+        || evidence.idempotency_key != served.metadata.idempotency_key
+        || evidence.tx_hash != served.metadata.activity_id
+        || evidence.height == 0
+        || evidence.rung < layerx_types::rung::Rung::Receipted
+        || key != evidence.receipt_key
+        || key.key_id == [0; 32]
+        || key.public_key != authority.sequencer_public_key()
+        || protocol.sequencer_signature().is_none()
+    {
+        return Err(HumanOperationError::Refused);
     }
-    Some(out.0)
+    ReceiptLookupAnswer::Found(ReceiptLookupFrame {
+        canonical_bytes: served.canonical_bytes.clone(),
+        authorised_batch: authority,
+        verification_level: served.metadata.verification_level,
+        tx_hash: evidence.tx_hash,
+        receipt_hash: Sha256::digest(&served.canonical_bytes).into(),
+        block_height: evidence.height,
+        rung: evidence.rung,
+        signed_receipt: evidence.receipt_bytes.clone(),
+        receipt_key_id: key.key_id,
+        public_key: key.public_key,
+        first_height: key.first_height,
+        last_height: key.last_height,
+        inclusion_height: evidence.height,
+    })
+    .encode()
+    .map_err(|_| HumanOperationError::Refused)
 }
 
 pub fn lookup_human_receipt_by_outbox_hash(
@@ -5402,11 +5443,11 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
     }
 }
 
-fn rpc_owner_read_error(error: layerx_client::read::ReadError) -> HumanOperationError {
+fn rpc_owner_read_error(error: layerx_client::sequencer::SequencerError) -> HumanOperationError {
     match error {
-        layerx_client::read::ReadError::Transport(_)
-        | layerx_client::read::ReadError::UnavailableCapability
-        | layerx_client::read::ReadError::Disconnected => HumanOperationError::Unavailable,
+        layerx_client::sequencer::SequencerError::Endpoint
+        | layerx_client::sequencer::SequencerError::Tls
+        | layerx_client::sequencer::SequencerError::Unavailable => HumanOperationError::Unavailable,
         _ => HumanOperationError::Refused,
     }
 }
@@ -12902,7 +12943,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         _raw: &crate::protocol_evidence::RawReceiptEvidence,
         _header: &layerx_wire::receipt::BatchHeader,
         _authorization: &layerx_proof::inclusion::SequencerAuthorization,
-    ) -> Result<Vec<(Vec<u8>, layerx_client::read::HistoryProof)>, HumanOperationError> {
+    ) -> Result<Vec<(Vec<u8>, layerx_client::rpc::history::HistoryProof)>, HumanOperationError>
+    {
         Err(HumanOperationError::Unavailable)
     }
 
@@ -13104,7 +13146,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     protocol.resulting_state_root(),
                     key.public_key,
                 );
-                let mut served = {
+                let served = {
                     let mut store = self
                         .store
                         .lock()
@@ -13133,10 +13175,10 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 {
                     return Err(HumanOperationError::Refused);
                 }
-                served = self.augment_receipt_evidence(
+                let (served, evidence) = self.augment_receipt_evidence(
                     peer,
                     idempotency_key,
-                    tenant,
+                    tenant.clone(),
                     served,
                     &authority,
                     settlement,
@@ -13146,14 +13188,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     served.metadata.result.code.raw(),
                     served.metadata.global_sequence,
                 ));
-                out.u8(1);
-                out.bytes(receipt.canonical_bytes())?;
-                out.fixed(&authority.batch_id());
-                out.fixed(&authority.asset());
-                out.fixed(&authority.previous_state_root());
-                out.fixed(&authority.resulting_state_root());
-                out.fixed(&authority.sequencer_public_key());
-                out.u8(receipt_rung_code(served.metadata.verification_level)?);
+                let bytes = receipt_lookup_found_bytes(&served, &evidence, authority, &keys)?;
+                out.fixed(&bytes);
             }
         }
         out.finish()
@@ -13224,7 +13260,13 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         served: crate::receipt::ServedReceipt,
         authority: &AuthorizedBatch,
         settlement: Option<&NativeProgramSettlementContext<'_>>,
-    ) -> Result<crate::receipt::ServedReceipt, HumanOperationError> {
+    ) -> Result<
+        (
+            crate::receipt::ServedReceipt,
+            crate::finality::FinalityRecord,
+        ),
+        HumanOperationError,
+    > {
         let native_preparation = {
             let store = self
                 .store
@@ -13388,7 +13430,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?;
-        crate::finality::augment_verified(
+        let evidence = crate::finality::augment_verified(
             &mut store,
             tenant.clone(),
             idempotency_key,
@@ -13427,7 +13469,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 )
                 .map_err(|_| HumanOperationError::Unavailable)?;
         }
-        Ok(served)
+        Ok((served, evidence))
     }
 
     /// # Errors
@@ -15585,7 +15627,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         let body = serde_json::json!({"height": page.height.to_string(), "cursor": page.next_cursor.map(|p| [p.block_height.to_string(),p.tx_index.to_string(),p.log_index.to_string()]),
             "items": page.items.iter().map(|item| serde_json::json!({"height": item.position.block_height.to_string(),
                 "txIndex": item.position.tx_index.to_string(), "logIndex": item.position.log_index.to_string(),
-                "kind": match item.kind { layerx_client::read::HistoryKind::Activity => "Activity", layerx_client::read::HistoryKind::Receipt => "Receipt", layerx_client::read::HistoryKind::Event => "Event" },
+                "kind": match item.kind { layerx_client::rpc::history::HistoryKind::Activity => "Activity", layerx_client::rpc::history::HistoryKind::Receipt => "Receipt", layerx_client::rpc::history::HistoryKind::Event => "Event" },
                 "canonical": layerx_programs::hex::encode(&item.canonical), "proof": item.proof.as_ref().map(|p| layerx_programs::hex::encode(p))})).collect::<Vec<_>>()});
         read_json_response(history_operation_value(&selector, &body, head)?)
     }
@@ -16948,7 +16990,7 @@ fn native_rate_read_error(error: layerx_client::sequencer::SequencerError) -> Hu
 
 struct CommittedHistoryItem {
     global_sequence: u64,
-    kind: layerx_client::read::HistoryKind,
+    kind: layerx_client::rpc::history::HistoryKind,
     canonical: Vec<u8>,
     proof: Vec<u8>,
 }
@@ -16979,7 +17021,7 @@ fn read_committed_history(
     _correlation: u64,
     authorization: SequencerAuthorization,
 ) -> Result<CommittedHistoryPage, layerx_client::sequencer::SequencerError> {
-    use layerx_client::read::{HistoryKind, HistoryProof};
+    use layerx_client::rpc::history::{HistoryKind, HistoryProof};
     use layerx_client::sequencer::SequencerError;
     if first == 0 || first > last || maximum_items == 0 {
         return Err(SequencerError::Malformed);
@@ -19435,21 +19477,11 @@ fn production_batch_number(
 }
 
 fn production_batch_header_error(
-    error: layerx_client::batch::BatchHeaderError,
+    error: layerx_client::rpc::batch::BatchHeaderError,
 ) -> HumanOperationError {
-    match error {
-        layerx_client::batch::BatchHeaderError::Transport(_)
-        | layerx_client::batch::BatchHeaderError::UnavailableCapability
-        | layerx_client::batch::BatchHeaderError::Disconnected => HumanOperationError::Unavailable,
-        layerx_client::batch::BatchHeaderError::Envelope(_)
-        | layerx_client::batch::BatchHeaderError::UnexpectedResponse
-        | layerx_client::batch::BatchHeaderError::Malformed
-        | layerx_client::batch::BatchHeaderError::Missing
-        | layerx_client::batch::BatchHeaderError::SelectorMismatch
-        | layerx_client::batch::BatchHeaderError::AuthorityMismatch
-        | layerx_client::batch::BatchHeaderError::Signature => HumanOperationError::Refused,
-    }
+    rpc_owner_read_error(error)
 }
+
 fn encode_subscription_record(
     out: &mut Encoder,
     record: &layerx_agent_api::subscription::SubscriptionRecord,
@@ -21918,7 +21950,7 @@ fn read_policy_history(
             .ok_or(HistoryReadError::Oversized)?;
         let mut boundary = false;
         for item in &page.items {
-            if item.kind != layerx_client::read::HistoryKind::Receipt {
+            if item.kind != layerx_client::rpc::history::HistoryKind::Receipt {
                 continue;
             }
             let receipt = source.prove(

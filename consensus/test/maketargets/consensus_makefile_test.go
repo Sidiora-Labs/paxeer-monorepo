@@ -150,3 +150,51 @@ func TestMakeRetiredContractTestTargets(t *testing.T) {
 		t.Errorf("make build dry run did not print a go build command:\n%s", output)
 	}
 }
+
+func TestMakeRetiredDockerTargets(t *testing.T) {
+	for _, target := range []string{
+		"build-docs",
+		"build-docker",
+		"build-docker-localnode",
+		"build_c-amazonlinux",
+		"localnet-start",
+		"localnet-stop",
+	} {
+		t.Run(target, func(t *testing.T) {
+			output, err := makeDryRun(t, target)
+			if err == nil {
+				t.Fatalf("make %s dry run succeeded for a retired target:\n%s", target, output)
+			}
+			if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() == 0 {
+				t.Fatalf("make %s did not exit with a non-zero status: %v\n%s", target, err, output)
+			}
+			if !strings.Contains(output, "No rule to make target '"+target+"'") {
+				t.Errorf("make %s did not report a missing target:\n%s", target, output)
+			}
+		})
+	}
+}
+
+func TestMakeRetiredDistributionTargets(t *testing.T) {
+	for _, target := range []string{
+		"dist",
+		"go-mod-cache",
+		"go.sum",
+		"draw_deps",
+		"get_deps_bin_size",
+		"build-reproducible",
+	} {
+		t.Run(target, func(t *testing.T) {
+			output, err := makeDryRun(t, target)
+			if err == nil {
+				t.Fatalf("make %s dry run succeeded for a retired target:\n%s", target, output)
+			}
+			if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() == 0 {
+				t.Fatalf("make %s did not exit with a non-zero status: %v\n%s", target, err, output)
+			}
+			if !strings.Contains(output, "No rule to make target '"+target+"'") {
+				t.Errorf("make %s did not report a missing target:\n%s", target, output)
+			}
+		})
+	}
+}

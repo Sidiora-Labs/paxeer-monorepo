@@ -1,6 +1,6 @@
 //! Production composition root for the privileged human component process.
 
-use layerx_types::clock::Clock;
+use layerx_types::clock::{Clock, Deadline};
 use std::env;
 use std::fs;
 use std::net::SocketAddr;
@@ -34,7 +34,7 @@ use layerx_types::intent::{
     BudgetId, PeriodLength, PurposeHash, RolloverPolicy, Sequence as ProtocolSequence,
     TimestampSeconds,
 };
-use layerx_types::payload::ModuleId;
+use layerx_types::payload::{ModuleId, ModuleRegistry};
 use layerx_types::rung::Rung;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::RootCertStore;
@@ -87,6 +87,44 @@ use super::production_auth::{
     SecurityProviderConfig,
 };
 use super::schema::{ApiSchema, Operation};
+
+pub(crate) fn verify_owner_activity(
+    bytes: &[u8],
+    registry: &ModuleRegistry,
+) -> Result<layerx_wire::activity::Activity, ApiFailure> {
+    let activity = layerx_wire::activity::decode_signed(bytes, registry)
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    if layerx_wire::activity::encode_signed(&activity)
+        .map_err(|_| ApiFailure::upstream_degraded())?
+        != bytes
+        || layerx_intents::canonical::payload_hash(&activity)
+            .map_err(|_| ApiFailure::upstream_degraded())?
+            != activity.payload_hash()
+    {
+        return Err(ApiFailure::upstream_degraded());
+    }
+    let owner = activity
+        .authority()
+        .try_into()
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let signature = activity
+        .signature()
+        .ok_or_else(ApiFailure::upstream_degraded)?
+        .try_into()
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let unsigned = layerx_wire::activity::encode_unsigned(&activity)
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let message = layerx_crypto::SignatureMessage::new(
+        layerx_intents::canonical::Domain::SignaturePreimage,
+        activity.protocol_version(),
+        activity.network_id(),
+        &unsigned,
+    )
+    .map_err(|_| ApiFailure::upstream_degraded())?;
+    layerx_crypto::ed25519::verify(owner, signature, message)
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    Ok(activity)
+}
 
 pub const PRODUCTION_OPERATIONS: &[&str] = &[
     "account.balance",
@@ -663,7 +701,9 @@ impl ProductionComponents {
                 AttestorKms::connect(attestor)
                     .map_err(|_| "attestor quorum refused startup".to_owned())?,
             ),
-            (None, Some(kms)) => ProductionKms::Remote(production_kms_provider(&kms)?),
+            (None, Some(kms)) => {
+                ProductionKms::Remote(production_kms_provider(&kms, Arc::clone(&clock))?)
+            }
             (None, None) => {
                 return Err("neither attestor custody nor the remote KMS is configured".to_owned())
             }
@@ -681,7 +721,7 @@ impl ProductionComponents {
         )?;
         let auth_index = production_auth_index(config.auth_index_root, config.auth_index_key)?;
         let (agent_contract, agent, native_asset) =
-            production_agent(config.agent_socket, config.agent_limits)?;
+            production_agent(config.agent_socket, config.agent_limits, Arc::clone(&clock))?;
         let (keystore, attestor) = match provider {
             ProductionKms::Attestor(attestor) => (
                 Keystore::open_production(config.custody_root, config.network_id, attestor.clone()),
@@ -1039,9 +1079,8 @@ impl HumanApiComponents for ProductionComponents {
         if context.assertion().is_some() {
             return Err(ApiFailure::forbidden());
         }
-        let deadline = std::time::Instant::now()
-            .checked_add(Duration::from_secs(lifetime))
-            .ok_or_else(ApiFailure::unavailable)?;
+        let mut deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(lifetime))
+            .map_err(|_| ApiFailure::unavailable())?;
         let maximum_bytes = maximum_bytes.min(1_048_576);
         let mut used = 0_usize;
         let mut count = 0_usize;
@@ -1050,7 +1089,10 @@ impl HumanApiComponents for ProductionComponents {
         loop {
             if cancelled()
                 || count == super::stream_journal::MAX_PAGE
-                || std::time::Instant::now() >= deadline
+                || deadline
+                    .remaining(self.clock.as_ref())
+                    .map_err(|_| ApiFailure::unavailable())?
+                    .is_zero()
                 || self.now()? >= context.expires_at()
             {
                 return Ok(());
@@ -1073,14 +1115,19 @@ impl HumanApiComponents for ProductionComponents {
                 .and_then(serde_json::Value::as_array)
                 .ok_or_else(ApiFailure::upstream_degraded)?;
             if events.is_empty() {
-                let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+                let remaining = deadline
+                    .remaining(self.clock.as_ref())
+                    .map_err(|_| ApiFailure::unavailable())?;
                 super::stream_journal::wait_for_change(observed_change, remaining)?;
                 continue;
             }
             for event in events {
                 if cancelled()
                     || count == super::stream_journal::MAX_PAGE
-                    || std::time::Instant::now() >= deadline
+                    || deadline
+                        .remaining(self.clock.as_ref())
+                        .map_err(|_| ApiFailure::unavailable())?
+                        .is_zero()
                     || self.now()? >= context.expires_at()
                 {
                     return Ok(());
@@ -1142,9 +1189,13 @@ impl HumanApiComponents for ProductionComponents {
             .agent_contract
             .daemon_endpoint()
             .is_some_and(|endpoint| {
-                AgentRuntime::connect(endpoint, self.agent_limits)
-                    .and_then(|mut runtime| runtime.head())
-                    .is_ok()
+                AgentRuntime::connect_with_clock(
+                    endpoint,
+                    self.agent_limits,
+                    Arc::clone(&self.clock),
+                )
+                .and_then(|mut runtime| runtime.head())
+                .is_ok()
             });
         let security_ready = self
             .security
@@ -2170,8 +2221,7 @@ fn creation_material(
         .get(Table::Journeys, &native_key)
         .or_else(|| scope.get(Table::Journeys, &protocol_key))
         .ok_or_else(ApiFailure::upstream_degraded)?;
-    let activity = layerx_intents::owner_activity::verify(signed.bytes(), agent.registry())
-        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let activity = verify_owner_activity(signed.bytes(), agent.registry())?;
     if activity.idempotency_key() != action_key
         || activity.network_id() != journey.projection().network_id
     {
@@ -2190,7 +2240,10 @@ fn creation_material(
     .map_err(agent_failure)?
     {
         crate::journeys::ReceiptLookup::Found(value) => value,
-        crate::journeys::ReceiptLookup::Absent => return Err(ApiFailure::upstream_degraded()),
+        crate::journeys::ReceiptLookup::Absent
+        | crate::journeys::ReceiptLookup::Submitted { .. } => {
+            return Err(ApiFailure::upstream_degraded())
+        }
     };
     let evidence = ProductionAgentCreation::protocol_evidence(
         signed.bytes().to_vec(),
@@ -5950,7 +6003,6 @@ impl ProductionComponents {
                 exports.push(ReceiptExport {
                     receipts: vec![fact],
                     inclusions: Vec::new(),
-                    checkpoints: Vec::new(),
                     derived_aggregates: Vec::new(),
                 });
             }
@@ -6999,7 +7051,10 @@ pub fn validate_production_configuration(
     }
     Ok(())
 }
-fn production_kms_provider(config: &RemoteKmsConfig) -> Result<RemoteKmsProvider, String> {
+fn production_kms_provider(
+    config: &RemoteKmsConfig,
+    clock: Arc<dyn Clock>,
+) -> Result<RemoteKmsProvider, String> {
     let tls = mutual_tls(
         &config.root_certificate,
         &config.client_certificate,
@@ -7011,6 +7066,7 @@ fn production_kms_provider(config: &RemoteKmsConfig) -> Result<RemoteKmsProvider
         config.server_name.clone(),
         tls,
         config.limits,
+        clock,
     )
     .map_err(|_| "KMS configuration was refused".to_owned())?;
     Ok(provider)
@@ -7995,13 +8051,14 @@ fn session_secrets(grant: &crate::auth::SessionGrant, now: u64) -> SessionSecret
 fn production_agent(
     socket: PathBuf,
     limits: Limits,
+    clock: Arc<dyn Clock>,
 ) -> Result<(layerx_sdk::Client, AgentRuntime, [u8; 32]), String> {
     let agent_contract = layerx_sdk::Client::daemon(
         socket.clone(),
         layerx_agent_api::agent_api_schema_v1().version,
     )
     .map_err(|_| "agent SDK contract refused startup".to_owned())?;
-    let mut agent = AgentRuntime::connect(socket, limits)
+    let mut agent = AgentRuntime::connect_with_clock(socket, limits, clock)
         .map_err(|_| "agent boundary refused startup".to_owned())?;
     let native_asset = agent
         .native_fee_policy()
@@ -8710,24 +8767,14 @@ impl ProductionComponents {
             .map_err(agent_failure)?
         {
             crate::journeys::ReceiptLookup::Found(material) => material,
-            _ => return Err(ApiFailure::upstream_degraded()),
+            crate::journeys::ReceiptLookup::Absent
+            | crate::journeys::ReceiptLookup::Submitted { .. } => {
+                return Err(ApiFailure::upstream_degraded())
+            }
         };
         let mut owner = [0; 32];
         owner[12..].copy_from_slice(&wallet);
-        let disclosure = bind_call(&call, wallet).map_err(|_| ApiFailure::forbidden())?;
-        layerx_proof::receipt::verify_native_owner_outcome(
-            &material.canonical_bytes,
-            &material.authorised_batch,
-            &layerx_proof::receipt::NativeOwnerOutcomeContext {
-                canonical_activity: &raw,
-                actor: &wallet,
-                action_key: disclosure.idempotency_key,
-                activity_type: disclosure.activity_type,
-                owner_public_key: owner,
-                network_id: self.network_id,
-            },
-        )
-        .map_err(|_| ApiFailure::upstream_degraded())?;
+        bind_call(&call, wallet).map_err(|_| ApiFailure::forbidden())?;
         ProductionAgentCreation::protocol_evidence(raw, owner, agent.registry(), material)
             .map_err(|_| ApiFailure::upstream_degraded())
     }
@@ -8790,6 +8837,14 @@ impl ProductionComponents {
                 {
                     material
                 }
+                crate::journeys::ReceiptLookup::Submitted { tx_hash, nonce } => {
+                    if tx_hash != hash || nonce != call.nonce {
+                        return Err(ApiFailure::upstream_degraded());
+                    }
+                    leg["tx_hash"] = json!(format!("0x{}", hex_bytes(&tx_hash)));
+                    complete = false;
+                    break;
+                }
                 _ => {
                     complete = false;
                     break;
@@ -8797,19 +8852,6 @@ impl ProductionComponents {
             };
             let mut owner = [0; 32];
             owner[12..].copy_from_slice(&wallet);
-            layerx_proof::receipt::verify_native_owner_outcome(
-                &material.canonical_bytes,
-                &material.authorised_batch,
-                &layerx_proof::receipt::NativeOwnerOutcomeContext {
-                    canonical_activity: &raw,
-                    actor: &wallet,
-                    action_key: disclosure.idempotency_key,
-                    activity_type: disclosure.activity_type,
-                    owner_public_key: owner,
-                    network_id: self.network_id,
-                },
-            )
-            .map_err(|_| ApiFailure::upstream_degraded())?;
             let evidence =
                 ProductionAgentCreation::protocol_evidence(raw, owner, agent.registry(), material)
                     .map_err(|_| ApiFailure::upstream_degraded())?;

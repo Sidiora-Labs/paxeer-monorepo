@@ -35,13 +35,7 @@ fn verifier(fixture: &ProtocolFixture) -> ProtocolDeploymentVerifier {
 }
 
 fn ordinary_bundle(fixture: &ProtocolFixture) -> ProgramStateBundle {
-    ProgramStateBundle {
-        commitment: fixture.proof.state.commitment.clone(),
-        program: program(),
-        program_record_ops: fixture.proof.state.state.ops.clone(),
-        interface_ops: fixture.interface_witness.proof.clone(),
-        wind_down: Some(fixture.proof.state.wind_down.clone()),
-    }
+    fixture.program_bundle()
 }
 
 fn chain_head(
@@ -198,9 +192,14 @@ fn ordinary_bundle_verifies_only_against_its_independent_chain_head() {
         .expect("version two bundle");
     assert_eq!(&encoded[..5], b"LXPB\x02");
     let decoded = ProgramStateBundle::decode(&encoded).expect("decoded version two bundle");
+    assert_eq!(decoded, ordinary_bundle(&fixture));
     let verified = verifier
-        .verify_current_program_bundle(&decoded, &chain, program(), NOW)
+        .verify_current_program_bundle_bytes(&encoded, &chain, program(), NOW)
         .expect("bound program bundle");
+    assert_eq!(
+        verified.verify_discovery(program(), NOW, STALENESS_MS),
+        Ok(())
+    );
     let head = verified.program_head();
     assert_eq!(verified.chain_head(), &chain);
     assert_eq!(head.program(), program());

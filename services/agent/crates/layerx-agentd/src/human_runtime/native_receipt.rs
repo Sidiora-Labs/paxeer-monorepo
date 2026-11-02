@@ -1,5 +1,5 @@
 use super::HumanOperationError;
-use layerx_client::receipt::ReceiptError;
+use layerx_client::rpc::receipt::ReceiptError;
 use layerx_types::payload::ModuleRegistry;
 use layerx_wire::activity::{decode_signed, encode_signed, Activity};
 use layerx_wire::hash::activity_id;
@@ -46,11 +46,10 @@ impl RetainedNativeOwner {
 }
 
 pub(super) fn map_lookup_error(error: ReceiptError) -> HumanOperationError {
-    match error {
-        ReceiptError::Transport(_)
-        | ReceiptError::Disconnected
-        | ReceiptError::UnavailableCapability => HumanOperationError::Unavailable,
-        _ => HumanOperationError::Refused,
+    if error.is_unavailable() {
+        HumanOperationError::Unavailable
+    } else {
+        HumanOperationError::Refused
     }
 }
 

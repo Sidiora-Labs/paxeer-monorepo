@@ -92,6 +92,37 @@ impl DeploymentJournal for CanonicalJournal {
 }
 
 #[test]
+fn registry_consumes_runtime_produced_deployment_and_refuses_duplicate() {
+    let (runtime, expected, fixture) = support::produced_deployment(
+        PROTOCOL_WASM_V1,
+        UpgradePolicy::Authority(AUTHORITY),
+        70,
+        NOW - 100,
+    );
+    let verifier = verifier_for_fixture(&fixture, 1_000);
+    let evidence = verifier
+        .verify_deployment(&fixture.proof, NOW)
+        .expect("verified producer");
+    assert_eq!(evidence.record(), &expected);
+    drop(runtime);
+    let mut registry = Registry::new();
+    registry
+        .record_verified_deployment(&evidence)
+        .expect("consumer admission");
+    assert_eq!(
+        registry.record_verified_deployment(&evidence),
+        Err(RegistryError::VersionHistoryMismatch)
+    );
+    assert_eq!(
+        registry
+            .resolve_deployment(evidence)
+            .expect("consumer resolution")
+            .module(),
+        PROTOCOL_WASM_V1
+    );
+}
+
+#[test]
 fn registry_resolves_historical_and_latest_code_only_from_protocol_evidence() {
     let program = fixture_program();
     let policy = UpgradePolicy::Authority(AUTHORITY);

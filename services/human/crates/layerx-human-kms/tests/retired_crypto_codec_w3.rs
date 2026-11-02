@@ -131,32 +131,42 @@ fn no_retired_layerx_crypto_codec_paths_w3() {
     let (decoded, signature) = decode_signed(&raw).expect("canonical signed call");
     let from = recover_sender(&decoded, &signature).expect("recover sender");
     assert_eq!(
-        layerx_intents::owner_activity::attach_signature(&call, *signature.as_bytes(), from)
-            .expect("attach verified call signature"),
+        layerx_human_service::custody::signer::attach_call_signature(
+            &call,
+            *signature.as_bytes(),
+            from
+        )
+        .expect("attach verified call signature"),
         raw
     );
     let mut wrong_from = from;
     wrong_from[0] ^= 1;
-    assert!(layerx_intents::owner_activity::attach_signature(
-        &call,
-        *signature.as_bytes(),
-        wrong_from
-    )
-    .is_err());
+    assert!(
+        layerx_human_service::custody::signer::attach_call_signature(
+            &call,
+            *signature.as_bytes(),
+            wrong_from
+        )
+        .is_err()
+    );
     let mut changed = call.clone();
     changed.nonce += 1;
-    assert!(layerx_intents::owner_activity::attach_signature(
-        &changed,
-        *signature.as_bytes(),
-        from
-    )
-    .is_err());
+    assert!(
+        layerx_human_service::custody::signer::attach_call_signature(
+            &changed,
+            *signature.as_bytes(),
+            from
+        )
+        .is_err()
+    );
     let mut undisclosable = call;
     undisclosable.to = [0; 20];
-    assert!(layerx_intents::owner_activity::attach_signature(
-        &undisclosable,
-        *signature.as_bytes(),
-        from
-    )
-    .is_err());
+    assert!(
+        layerx_human_service::custody::signer::attach_call_signature(
+            &undisclosable,
+            *signature.as_bytes(),
+            from
+        )
+        .is_err()
+    );
 }

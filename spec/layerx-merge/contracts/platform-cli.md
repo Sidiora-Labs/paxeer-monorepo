@@ -6,6 +6,8 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 ## cli-cli-commands
 
+The kernel activity forms of `program call` and `program simulate` are retired, including their DID key, account-sequence, validity-window and idempotency options. The existing EVM commands remain: `program call` submits a type-2 transaction to `0x101D` with `--evm-key-file`, and `program simulate` uses `eth_call` at `pending` with optional `--from`. Registry, interface, receipt and state reads remain available.
+
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
 | <code>interface.8.cli-cli-layerx</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:86</code> | <code>struct Cli {</code> |
@@ -119,17 +121,14 @@ The context and decision tables reproduce the rules linked by interface identifi
 | <code>interface.8.cli-cli-layerx-program-call</code> | <code>cli_command</code> | <code>change</code> | <code>tools/platform/cli/src/main.rs:355</code> | <code>Call(ProgramExecutionArgs),</code> |
 | <code>interface.8.cli-cli-layerx-program-call-abi-version</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/programs.rs:1013</code> | <code>pub abi_version: u16,</code> |
 | <code>interface.8.cli-cli-layerx-program-call-access-declaration</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/programs.rs:1024</code> | <code>pub access_declaration: Option&lt;String&gt;,</code> |
-| <code>interface.8.cli-cli-layerx-program-call-account-sequence</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1227</code> | <code>account_sequence: u64,</code> |
 | <code>interface.8.cli-cli-layerx-program-call-calldata</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1215</code> | <code>calldata: Option&lt;String&gt;,</code> |
 | <code>interface.8.cli-cli-layerx-program-call-capability</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1221</code> | <code>capabilities: Vec&lt;String&gt;,</code> |
 | <code>interface.8.cli-cli-layerx-program-call-entrypoint</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/programs.rs:1019</code> | <code>pub entrypoint: String,</code> |
-| <code>interface.8.cli-cli-layerx-program-call-expires-at-ms</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1231</code> | <code>expires_at_ms: u64,</code> |
+| <code>interface.8.cli-cli-layerx-program-call-evm-key-file</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1198</code> | <code>evm_key_file: Option&lt;PathBuf&gt;,</code> |
+| <code>interface.8.cli-cli-layerx-program-call-from</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1201</code> | <code>from: Option&lt;String&gt;,</code> |
 | <code>interface.8.cli-cli-layerx-program-call-fee-limit</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1219</code> | <code>fee_limit: String,</code> |
 | <code>interface.8.cli-cli-layerx-program-call-fuel</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1217</code> | <code>fuel: u64,</code> |
-| <code>interface.8.cli-cli-layerx-program-call-idempotency-key</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1223</code> | <code>idempotency_key: String,</code> |
-| <code>interface.8.cli-cli-layerx-program-call-key</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1225</code> | <code>key: Option&lt;String&gt;,</code> |
 | <code>interface.8.cli-cli-layerx-program-call-memory-bytes</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/programs.rs:1028</code> | <code>pub memory_bytes: u64,</code> |
-| <code>interface.8.cli-cli-layerx-program-call-not-before-ms</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1229</code> | <code>not_before_ms: u64,</code> |
 | <code>interface.8.cli-cli-layerx-program-call-output-bytes</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/programs.rs:1036</code> | <code>pub output_bytes: u64,</code> |
 | <code>interface.8.cli-cli-layerx-program-call-output-values</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/programs.rs:1034</code> | <code>pub output_values: u64,</code> |
 | <code>interface.8.cli-cli-layerx-program-call-program-id</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1211</code> | <code>program_id: String,</code> |
@@ -174,17 +173,14 @@ The context and decision tables reproduce the rules linked by interface identifi
 | <code>interface.8.cli-cli-layerx-program-simulate</code> | <code>cli_command</code> | <code>change</code> | <code>tools/platform/cli/src/main.rs:357</code> | <code>Simulate(ProgramExecutionArgs),</code> |
 | <code>interface.8.cli-cli-layerx-program-simulate-abi-version</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/programs.rs:1013</code> | <code>pub abi_version: u16,</code> |
 | <code>interface.8.cli-cli-layerx-program-simulate-access-declaration</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/programs.rs:1024</code> | <code>pub access_declaration: Option&lt;String&gt;,</code> |
-| <code>interface.8.cli-cli-layerx-program-simulate-account-sequence</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1227</code> | <code>account_sequence: u64,</code> |
 | <code>interface.8.cli-cli-layerx-program-simulate-calldata</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1215</code> | <code>calldata: Option&lt;String&gt;,</code> |
 | <code>interface.8.cli-cli-layerx-program-simulate-capability</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1221</code> | <code>capabilities: Vec&lt;String&gt;,</code> |
 | <code>interface.8.cli-cli-layerx-program-simulate-entrypoint</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/programs.rs:1019</code> | <code>pub entrypoint: String,</code> |
-| <code>interface.8.cli-cli-layerx-program-simulate-expires-at-ms</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1231</code> | <code>expires_at_ms: u64,</code> |
+| <code>interface.8.cli-cli-layerx-program-simulate-evm-key-file</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1198</code> | <code>evm_key_file: Option&lt;PathBuf&gt;,</code> |
+| <code>interface.8.cli-cli-layerx-program-simulate-from</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1201</code> | <code>from: Option&lt;String&gt;,</code> |
 | <code>interface.8.cli-cli-layerx-program-simulate-fee-limit</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1219</code> | <code>fee_limit: String,</code> |
 | <code>interface.8.cli-cli-layerx-program-simulate-fuel</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1217</code> | <code>fuel: u64,</code> |
-| <code>interface.8.cli-cli-layerx-program-simulate-idempotency-key</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1223</code> | <code>idempotency_key: String,</code> |
-| <code>interface.8.cli-cli-layerx-program-simulate-key</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1225</code> | <code>key: Option&lt;String&gt;,</code> |
 | <code>interface.8.cli-cli-layerx-program-simulate-memory-bytes</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/programs.rs:1028</code> | <code>pub memory_bytes: u64,</code> |
-| <code>interface.8.cli-cli-layerx-program-simulate-not-before-ms</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1229</code> | <code>not_before_ms: u64,</code> |
 | <code>interface.8.cli-cli-layerx-program-simulate-output-bytes</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/programs.rs:1036</code> | <code>pub output_bytes: u64,</code> |
 | <code>interface.8.cli-cli-layerx-program-simulate-output-values</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/programs.rs:1034</code> | <code>pub output_values: u64,</code> |
 | <code>interface.8.cli-cli-layerx-program-simulate-program-id</code> | <code>cli_command</code> | <code>stable</code> | <code>tools/platform/cli/src/main.rs:1211</code> | <code>program_id: String,</code> |
@@ -453,20 +449,15 @@ The context and decision tables reproduce the rules linked by interface identifi
 | <code>interface.8.cli-cli-layerx-program-bindings-output</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-bindings-trust-history</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-build-artifact</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-cli-layerx-program-call</code> | notes | tools/platform/cli/src/programs.rs:1100 uses the gateway /v1/programs routes that stale task 4.7.5 removes; the design submits 0x101D transactions and reads 0x101D views (spec/layerx-merge/spec.kvx:53202) |
+| <code>interface.8.cli-cli-layerx-program-call</code> | notes | Submits an EVM type-2 transaction to 0x101D through eth_sendRawTransaction; kernel activity signing and /v1/programs/call transport are retired. |
 | <code>interface.8.cli-cli-layerx-program-call-abi-version</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-call-access-declaration</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-cli-layerx-program-call-account-sequence</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-call-calldata</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-call-capability</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-call-entrypoint</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-cli-layerx-program-call-expires-at-ms</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-call-fee-limit</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-call-fuel</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-cli-layerx-program-call-idempotency-key</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-cli-layerx-program-call-key</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-call-memory-bytes</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-cli-layerx-program-call-not-before-ms</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-call-output-bytes</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-call-output-values</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-call-response-capacity</code> | notes | no in-repo invocation outside the defining file |
@@ -504,20 +495,15 @@ The context and decision tables reproduce the rules linked by interface identifi
 | <code>interface.8.cli-cli-layerx-program-registry-verify-source-program-id</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-registry-verify-source-source-digest</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-registry-verify-source-source-uri</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-cli-layerx-program-simulate</code> | notes | tools/platform/cli/src/programs.rs:1190 uses the gateway /v1/programs routes that stale task 4.7.5 removes; the design submits 0x101D transactions and reads 0x101D views (spec/layerx-merge/spec.kvx:53202); no in-repo invocation outside the defining file |
+| <code>interface.8.cli-cli-layerx-program-simulate</code> | notes | Uses eth_call to 0x101D at pending; kernel activity signing and /v1/programs/simulate transport are retired. |
 | <code>interface.8.cli-cli-layerx-program-simulate-abi-version</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-simulate-access-declaration</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-cli-layerx-program-simulate-account-sequence</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-simulate-calldata</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-simulate-capability</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-simulate-entrypoint</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-cli-layerx-program-simulate-expires-at-ms</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-simulate-fee-limit</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-simulate-fuel</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-cli-layerx-program-simulate-idempotency-key</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-cli-layerx-program-simulate-key</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-simulate-memory-bytes</code> | notes | no in-repo invocation outside the defining file |
-| <code>interface.8.cli-cli-layerx-program-simulate-not-before-ms</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-simulate-output-bytes</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-simulate-output-values</code> | notes | no in-repo invocation outside the defining file |
 | <code>interface.8.cli-cli-layerx-program-simulate-program-id</code> | notes | no in-repo invocation outside the defining file |
