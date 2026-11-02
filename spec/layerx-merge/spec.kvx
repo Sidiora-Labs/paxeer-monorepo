@@ -126918,7 +126918,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.16.9]
 title = "Let the platform CLI's credential tests skip with a named reason when dbus-daemon is absent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.8.10", "22.9.24"]
@@ -185789,7 +185789,7 @@ do_4 = "Finding 22.2.4.2: in RevokeGrant (revoke.go:12) answer a repeat of an al
 
 [task.22.13.6]
 title = "Select the storage-retirement programs registration at genesis"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
