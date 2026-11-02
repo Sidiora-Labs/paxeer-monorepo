@@ -101,7 +101,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 				return nil
 			}
 
-			customAppTemplate, customAppConfig := initAppConfig()
+			customAppTemplate, customAppConfig := InitAppConfig()
 
 			return server.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig)
 		},
@@ -228,6 +228,28 @@ func txCommand() *cobra.Command {
 func addModuleInitFlags(startCmd *cobra.Command) {
 	wasm.AddModuleInitFlags(startCmd)
 	sequencer.AddStartFlags(startCmd)
+	// Keep the command's default consistent with the generated app.toml.
+	queryGas := startCmd.Flags().Lookup("wasm.query_gas_limit")
+	queryGas.DefValue = fmt.Sprint(defaultNodeWasmQueryGasLimit)
+	if err := queryGas.Value.Set(queryGas.DefValue); err != nil {
+		panic(err)
+	}
+	preRun := startCmd.PreRunE
+	startCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		if preRun != nil {
+			if err := preRun(cmd, args); err != nil {
+				return err
+			}
+		}
+		opts := server.GetServerContextFromCmd(cmd).Viper
+		if _, err := sequencer.ReadConfig(opts); err != nil {
+			return err
+		}
+		if _, err := wasm.ReadWasmConfig(opts); err != nil {
+			return fmt.Errorf("invalid wasm configuration: %w", err)
+		}
+		return nil
+	}
 }
 
 // newApp creates a new Cosmos SDK app
@@ -418,6 +440,11 @@ func getPrimeNums(lo int, hi int) []int {
 // return "", nil if no custom configuration is required for the application.
 // nolint: staticcheck
 func initAppConfig() (string, interface{}) {
+	return InitAppConfig()
+}
+
+// InitAppConfig returns the template and defaults used by the root command.
+func InitAppConfig() (string, CustomAppConfig) {
 	// Optionally allow the chain developer to overwrite the SDK's default
 	// server config.
 	srvCfg := serverconfig.DefaultConfig()
@@ -468,7 +495,7 @@ func initAppConfig() (string, interface{}) {
 
 [wasm]
 # This is the maximum sdk gas (wasm and storage) that we allow for any x/wasm "smart" queries
-query_gas_limit = 300000
+query_gas_limit = {{ .WASM.QueryGasLimit }}
 memory_cache_size = {{ .WASM.MemoryCacheSize }}
 simulation_gas_limit = "{{ .WASM.SimulationGasLimit }}"
 

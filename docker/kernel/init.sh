@@ -1,4 +1,7 @@
 #!/bin/bash
+# /readyz belongs to each serving process: the mirror publisher checks its own
+# publication state; the reference ramp reports only its local journal. Kernel
+# service startup here does not use ramp readiness as evidence of chain readiness.
 # Root init of the kernel box (docker/kernel/layerx-kernel.service), the node pod
 # of services/platform/hosted/node/deployment.yaml in one container. It replays the pod's
 # init containers on the volume, mounts the pod's memory volumes, and runs each

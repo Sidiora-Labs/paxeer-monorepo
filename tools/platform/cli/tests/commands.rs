@@ -417,3 +417,21 @@ fn unknown_subcommands_are_rejected() {
     let output = cli.run(&["nonsense"]);
     assert!(!output.status.success());
 }
+
+#[test]
+fn malformed_arguments_keep_the_json_error_contract() {
+    let cli = Cli::new();
+    for arguments in [
+        vec!["--json", "token", "list", "--limit", "0"],
+        vec!["program", "call", "--json"],
+        vec!["--json", "mcp", "serve"],
+    ] {
+        let output = cli.run(&arguments);
+        assert_eq!(output.status.code(), Some(2));
+        assert!(output.stdout.is_empty());
+        assert_eq!(
+            error_envelope(&output)["error"]["code"],
+            "invalid_arguments"
+        );
+    }
+}

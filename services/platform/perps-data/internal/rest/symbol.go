@@ -25,7 +25,8 @@ const (
 	maxLimit     = 1000
 )
 
-// Symbol serves the symbol REST routes from schema perps.
+// Symbol serves the symbol REST routes from schema perps. Every request calls
+// records.Symbol; Cache-Control is a client hint, not a server response cache.
 type Symbol struct {
 	data *records.Symbol
 }
@@ -107,7 +108,10 @@ func (s *Symbol) serve(w http.ResponseWriter, r *http.Request) {
 // (Hyperpax:data_api.md:154).
 func parseLimit(q map[string][]string) (int, error) {
 	raw, ok := q["limit"]
-	if !ok || len(raw) == 0 || raw[0] == "" {
+	if ok && len(raw) != 1 {
+		return 0, errors.New("rest: limit must occur once")
+	}
+	if !ok || raw[0] == "" {
 		return defaultLimit, nil
 	}
 	n, err := strconv.ParseInt(raw[0], 10, 64)

@@ -122,6 +122,8 @@ func (k Keeper) ProgramPendingEntries(ctx sdk.Context) []types.ProgramPendingEnt
 	return out
 }
 
+// ProgramAnswerEntries copies every persisted answer part, including headers,
+// for genesis export without lending store-owned buffers to the consumer.
 func (k Keeper) ProgramAnswerEntries(ctx sdk.Context) []types.ProgramAnswerEntry {
 	var out []types.ProgramAnswerEntry
 	k.iterate(ctx, []byte(programAnswerPrefix), func(key, value []byte) {

@@ -5,8 +5,8 @@ use crate::{
     codec::{self, ChunkResponse, ReadHeader, Reader, RosterView, Writer},
     dispatch,
     errors::{
-        ApplicationError, CodecResult, ARITHMETIC, CAPACITY, CONFLICT, NON_CANONICAL, NOT_FOUND,
-        WRONG_DOMAIN, WRONG_MARKET, WRONG_PROGRAM,
+        ApplicationError, CodecResult, ARITHMETIC, BAD_VERSION, CAPACITY, CONFLICT, NON_CANONICAL,
+        NOT_FOUND, WRONG_DOMAIN, WRONG_MARKET, WRONG_PROGRAM,
     },
     evaluators::authority::split_identity_section,
     registry_ops::PolicySection,
@@ -309,7 +309,8 @@ pub struct SnapshotBinding {
 ///
 /// # Errors
 /// `BindingMismatch` when the evidence names another root or the state differs from the
-/// capture, `NON_CANONICAL` for a zero block or app hash, and header refusals of [`read_header`].
+/// capture size/count, `NON_CANONICAL` for a zero block or app hash or a rank above
+/// finalized, and header refusals of [`read_header`]. Evidence rank is preserved.
 pub fn bind_snapshot(
     state_bytes: &[u8],
     facts: &CaptureFacts,
@@ -319,11 +320,16 @@ pub fn bind_snapshot(
     let header = read_header(state_bytes, facts.proof.chain, facts.proof.program)?;
     if header.revision != facts.revision
         || header.digest != facts.digest
+        || header.total_bytes != facts.total_bytes
+        || facts.chunks != state_bytes.len().div_ceil(MAX_CHUNK_BYTES)
         || finality.native_state_root != facts.proof.native_state_root
     {
         return Err(QueryError::BindingMismatch);
     }
-    if finality.block_hash.bytes() == [0; 32] || finality.app_hash.bytes() == [0; 32] {
+    if finality.rank > FINALIZED_RANK
+        || finality.block_hash.bytes() == [0; 32]
+        || finality.app_hash.bytes() == [0; 32]
+    {
         return Err(NON_CANONICAL.into());
     }
     Ok(SnapshotBinding {
@@ -344,12 +350,91 @@ pub fn bind_snapshot(
         block_hash: finality.block_hash,
         app_hash: finality.app_hash,
         store_proof_digest: finality.store_proof_digest,
-        rank: FINALIZED_RANK,
+        rank: finality.rank,
         publication_time_ms,
     })
 }
 
 impl SnapshotBinding {
+    /// Decodes the canonical transport used by clients and saved indexer bindings.
+    ///
+    /// # Errors
+    /// `BAD_VERSION` for another schema; codec refusals for malformed, oversized,
+    /// trailing or reserved bytes, revision zero, or a rank above finalized.
+    pub fn decode(bytes: &[u8]) -> CodecResult<Self> {
+        let mut input = Reader::new(bytes);
+        if input.u16()? != 1 {
+            return Err(BAD_VERSION);
+        }
+        if bytes.len() > BINDING_MAX_BYTES {
+            return Err(NON_CANONICAL);
+        }
+        let binding = SnapshotBinding {
+            chain: ChainDomain::new(input.fixed()?)?,
+            program: ProgramId::new(input.fixed()?)?,
+            market: MarketId::new(input.fixed()?)?,
+            observed_sequence: input.u64()?,
+            execution_height: input.u64()?,
+            batch_id: Digest32::new(input.fixed()?)?,
+            native_state_root: Digest32::new(input.fixed()?)?,
+            revision: input.u64()?,
+            state_digest: StateDigest::new(input.fixed()?)?,
+            epoch: input.presence(Reader::u64)?,
+            config: Version::new(input.u64()?)?,
+            policy: PolicyDigest::new(input.fixed()?)?,
+            roster: input.presence(|reader| RosterDigest::new(reader.fixed()?))?,
+            block_height: input.u64()?,
+            block_hash: Digest32::new(input.fixed()?)?,
+            app_hash: Digest32::new(input.fixed()?)?,
+            store_proof_digest: Digest32::new(input.fixed()?)?,
+            rank: input.u8()?,
+            publication_time_ms: input.u64()?,
+        };
+        input.reserved(8)?;
+        input.finish()?;
+        if binding.revision == 0 || binding.rank > FINALIZED_RANK {
+            return Err(NON_CANONICAL);
+        }
+        Ok(binding)
+    }
+
+    /// Verifies a saved binding against a fresh capture of its exact producer state.
+    /// No previous decode or snapshot identifier substitutes for the capture.
+    ///
+    /// # Errors
+    /// Binding refusals or `BindingMismatch` if any saved content field differs.
+    pub fn verify_capture(&self, state: &[u8], facts: &CaptureFacts) -> QueryResult<()> {
+        let evidence = FinalityEvidence {
+            native_state_root: self.native_state_root,
+            block_height: self.block_height,
+            block_hash: self.block_hash,
+            app_hash: self.app_hash,
+            store_proof_digest: self.store_proof_digest,
+            rank: self.rank,
+        };
+        if bind_snapshot(state, facts, &evidence, self.publication_time_ms)? != *self {
+            return Err(QueryError::BindingMismatch);
+        }
+        Ok(())
+    }
+
+    /// The exact committed head consumed by retention and webhook publication.
+    ///
+    /// # Errors
+    /// `FinalityUnavailable` without rank 4; `BindingMismatch` when the commit
+    /// names another height, block or app root, or the head has no height.
+    pub fn finalized_head(&self) -> QueryResult<(u64, Digest32)> {
+        self.require_finalized()?;
+        if self.execution_height == 0
+            || self.block_height != self.execution_height
+            || self.block_hash != self.batch_id
+            || self.app_hash != self.native_state_root
+        {
+            return Err(QueryError::BindingMismatch);
+        }
+        Ok((self.block_height, self.block_hash))
+    }
+
     fn write_prefix(&self, w: &mut Writer<'_>) -> CodecResult<()> {
         w.u16(SCHEMA_VERSION)?;
         w.put(self.chain.as_bytes())?;

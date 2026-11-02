@@ -88,6 +88,7 @@ describe('served-by header', () => {
       headers: { authorization: `Bearer ${token}` },
     });
     expect(res.status).toBe(200);
+    expect(res.headers.get('cache-control')).toBe('no-store');
     const provisioned = (await res.json()) as { wallet: { id: string; address: string } };
     expect(res.headers.get('x-served-by')).toBe('paxeer-wallet-gateway');
     const me = await fetch(`${base}/v1/wallet/me`, {

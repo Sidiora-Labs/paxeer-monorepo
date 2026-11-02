@@ -6,6 +6,7 @@ import { describe, expect, it, test, vi } from 'vitest';
 import { createPublicClient, http, toFunctionSelector, toFunctionSignature, type Abi } from 'viem';
 import {
   EIP712_ABI,
+  decodeEip712Result,
   PRECOMPILE_ADDRESSES,
   PrecompileNotServedError,
   SCHEDULER_ABI,
@@ -780,3 +781,16 @@ test(
   chainProbeTests['probes the chain before serving a linked agent precompile'],
   chainProbeTests['probes the chain before serving a linked agent precompile'],
 );
+
+function eip712RefusesMalformedReturnWords() {
+  for (const method of ['hashTypedData', 'domainSeparator', 'recoverTypedSigner'] as const) {
+    for (const data of [undefined, '0x', '0x01', `0x${'00'.repeat(31)}`, `0x${'00'.repeat(33)}`] as const) {
+      expect(() => decodeEip712Result(method, data)).toThrow('expected one ABI word');
+    }
+  }
+  expect(() => decodeEip712Result('recoverTypedSigner', `0x01${'00'.repeat(31)}`)).toThrow(
+    'nonzero address padding',
+  );
+}
+
+test(eip712RefusesMalformedReturnWords, eip712RefusesMalformedReturnWords);
