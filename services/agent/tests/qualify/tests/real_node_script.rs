@@ -12,6 +12,9 @@ fn real_node_prepare_builds_no_kernel_daemon() {
         "layerx-genesis-build",
         "lxp_test_daemon_finality_authority",
         "ed25519",
+        "sign-credit",
+        "custody-proof",
+        "LAYERX_CUSTODY_PROOF_BIN",
     ] {
         assert!(
             !script.contains(forbidden),
@@ -28,20 +31,23 @@ fn real_node_prepare_builds_no_kernel_daemon() {
     }
 
     let (setup, prepare) = script
-        .split_once("prepare() {\n")
+        .split_once("run-real-node-tests() {\n")
         .expect("declare the prepare function");
     assert!(setup.contains("make \"$test_target\"\n    exit 0"));
-    assert!(script.trim_end().ends_with("\nprepare"));
+    assert!(script.trim_end().ends_with("\nrun-real-node-tests"));
+    let mut remaining = prepare;
     for required in [
         "tests/lxp_test_program_admission",
         "tests/lxp_test_metered_allowance",
-        "tests/bridge/sign-credit",
-        "custody-proof-build",
         "make paxeer-build",
+        "export LAYERX_TEST_NATIVE_BIN_DIR=$LAYERX_TEST_NATIVE_BUILD_DIR/bin",
         "export PAXD=$repo_root/build/paxd",
         "sha256sum \"$PAXD\"",
     ] {
-        assert!(prepare.contains(required), "prepare must retain {required}");
+        let (_, after) = remaining
+            .split_once(required)
+            .unwrap_or_else(|| panic!("prepare must retain {required} in order"));
+        remaining = after;
     }
 
     let python_check = setup
