@@ -131031,7 +131031,7 @@ do_6 = "Finding 10.21.4.3: the KMS provider and sign_eip1559_requests test targe
 
 [task.10.1.9]
 title = "Port the human service integration tests off ambient clock reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["10.1.8", "9.27.9", "10.21.8", "9.35.10", "9.35.11", "9.100.2", "22.9.24"]
