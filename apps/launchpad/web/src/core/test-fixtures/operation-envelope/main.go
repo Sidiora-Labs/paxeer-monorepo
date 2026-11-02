@@ -21,12 +21,13 @@ import (
 const keyHex = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
 
 type vector struct {
-	Name      string                        `json:"name"`
-	Body      string                        `json:"body"`
-	Envelope  sharedauth.OperationEnvelope  `json:"envelope"`
-	Statement string                        `json:"statement"`
-	Encoded   string                        `json:"encoded"`
-	Signature string                        `json:"signature"`
+	Name            string                       `json:"name"`
+	Body            string                       `json:"body"`
+	Envelope        sharedauth.OperationEnvelope `json:"envelope"`
+	Statement       string                       `json:"statement"`
+	Encoded         string                       `json:"encoded"`
+	Signature       string                       `json:"signature"`
+	SignatureHeader string                       `json:"signatureHeader"`
 }
 
 func sign(statement string) string {
@@ -78,7 +79,7 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "verify" {
 		var in []struct {
 			Name, Encoded, Signature, Body, Environment, Action, Method, Path string
-			IssuedAt int64
+			IssuedAt                                                          int64
 		}
 		if err := json.NewDecoder(os.Stdin).Decode(&in); err != nil {
 			panic(err)
@@ -97,7 +98,11 @@ func main() {
 	pool := "0xce20da50f92d21d8bee497910c782e9aa25b6263"
 	nonce := "9f2c4e1a7b3d5f60819a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f70"
 	issued := int64(1_791_878_400)
-	cases := []struct{ name, action, method, path, body string; version int; env string }{
+	cases := []struct {
+		name, action, method, path, body string
+		version                          int
+		env                              string
+	}{
 		{"v3-profile-patch", "profile.update", "PATCH", "/v3/profiles/" + actor, `{"expectedRevision":"0","displayName":"Ada <Lovelace> & co","bio":"line sep","website":null,"socials":{"twitter":"ada"}}`, 2, "production"},
 		{"v3-preferences-patch", "preferences.update", "PATCH", "/v3/me/preferences", `{"expectedRevision":"3","theme":"dark"}`, 2, "production"},
 		{"v1-profile-patch", "profile.update", "PATCH", "/v1/profiles/" + actor, `{"expectedRevision":"7","displayName":"Ada"}`, 2, "production"},
@@ -119,7 +124,11 @@ func main() {
 		if err := serverCheck(encoded, signature, c.body, c.env, actor, c.action, c.method, c.path, time.Unix(issued+1, 0)); err != nil {
 			panic(fmt.Sprintf("%s: self-check: %v", c.name, err))
 		}
-		out = append(out, vector{Name: c.name, Body: c.body, Envelope: env, Statement: statement, Encoded: encoded, Signature: signature})
+		header := sharedauth.OperationSignatureHeader
+		if c.action == "stream.create" {
+			header = "X-Kindle-Signature"
+		}
+		out = append(out, vector{SignatureHeader: header, Name: c.name, Body: c.body, Envelope: env, Statement: statement, Encoded: encoded, Signature: signature})
 	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetEscapeHTML(false)
