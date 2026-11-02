@@ -389,8 +389,22 @@ impl OnboardingJourney {
             .map_err(|_| OnboardingError::EvidenceConflict)?;
         let registration = SponsoredRegistration::decode(activity.payload())
             .map_err(|_| OnboardingError::EvidenceConflict)?;
+        let sponsor =
+            Did::new(&activity.disclosure.actor).map_err(|_| OnboardingError::EvidenceConflict)?;
+        let sponsor_id = layerx_intents::canonical::did_id_for_protocol(&sponsor, 3)
+            .map_err(|_| OnboardingError::EvidenceConflict)?;
+        let expiry = activity.disclosure.expiry;
         if registration.consent != plan.consent()?
-            || registration.validate_outer(&activity).is_err()
+            || registration.network_id != evidence.network_id
+            || sponsor_id != registration.consent.sponsor
+            || activity.idempotency_key() != registration.consent.action_key
+            || expiry.not_before < registration.not_before
+            || expiry.not_after > registration.consent.expires_at
+            || expiry.not_before >= expiry.not_after
+            || activity.payload()
+                != registration
+                    .payload()
+                    .map_err(|_| OnboardingError::EvidenceConflict)?
         {
             return Err(OnboardingError::EvidenceConflict);
         }

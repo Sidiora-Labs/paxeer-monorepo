@@ -304,12 +304,8 @@ impl CreationJourney {
         }
         let intent = Intent::v1(IntentKind::LxpSend(funded.intent));
         let compiled = compile(&intent, registry)?;
-        if funded
-            .evidence
-            .bound_activity(compiled.activity_type())?
-            .payload()
-            != compiled.payload().as_bytes()
-        {
+        let bound = funded.evidence.bound_activity(compiled.activity_type())?;
+        if bound.payload() != compiled.payload().as_bytes() {
             return Err(AgentCreationError::EvidenceConflict);
         }
         self.accept_native(
@@ -408,8 +404,9 @@ impl CreationJourney {
         let kind = action.compiled.activity_type();
         let payload = action.compiled.payload().as_bytes().to_vec();
         let evidence = agent.submit_protocol_scoped(scope, action)?;
+        let bound = evidence.bound_activity(kind)?;
         if evidence.actor != self.record.did
-            || evidence.bound_activity(kind)?.payload() != payload
+            || bound.payload() != payload
             || Some(evidence.owner_public_key) != self.record.public_key
         {
             return Err(AgentCreationError::EvidenceConflict);
