@@ -16811,3 +16811,19 @@ symbol = "kind_index"
 observed = "Task 10.21.3 (25b936be8) retired EvmPayoutBinding, BridgeDepositCredit, BridgeWithdrawRequest and NativeCustodyCredit from layerx-intents and did not touch tests/live_kinds.rs, which imports them (:5-9), constructs them (:195, :273, :285, :360) and matches them in kind_index (:382, :392-395); the test target does not compile, so the retained-kind and Perps coverage of that file does not run."
 assumption = "Producer gap: the retirement task's touches omitted the integration test; task 18.1441.1 ports it (issue #1441)."
 severity = "major"
+
+[finding.9.27.9.1]
+task = "9.27.9"
+file = "services/agent/crates/layerx-agentd/tests/approval_events.rs:350"
+symbol = "assert_digest_evidence_exported"
+observed = "Attempt 1 (0f7b80f05 on 5fba30b5a) ported the six listed files; the build with --all-targets failed with E0061 at tests/approval_events.rs:340-351, which still passes SettlementDomain::new(31_337, [0x55; 20]) as the fifth argument of export, and tests/audit_export.rs calls export and review with settlement_domain() at :287, :296, :304, :315-320, :372-382, :401, :407 and :439-449; both files are outside the task's touches."
+assumption = "Spec defect: the touches omitted two test targets of the same crate; they are added and the task continues from attempt 1."
+severity = "minor"
+
+[finding.6.60.2.1]
+task = "6.60.2"
+file = "Makefile:944"
+symbol = "sign-credit"
+observed = "Attempt 1 (4ea8318b6 on 5fba30b5a) deleted the four harness files and added tests/bridge/retired/test_retired_credit_c_harness.py; the retirement check failed because Makefile:944-949 and :950-954 still define the rules $(BUILD_DIR)/tests/bridge/sign-credit and $(BUILD_DIR)/tests/bridge/test-credit from tests/bridge/sign_credit.c and tests/bridge/test_credit.c; no runner target references either rule."
+assumption = "Spec defect: the touches omitted the Makefile rules of the deleted sources; the Makefile is added and the task continues from attempt 1."
+severity = "minor"
