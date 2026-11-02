@@ -576,7 +576,7 @@ fn snapshot(state_bytes: &[u8], rank: u8) -> SnapshotBinding {
         native_state_root: digest(0x5a),
         observed_sequence: 77,
         execution_height: 1010,
-        batch_id: digest(0xbb),
+        block_hash: digest(0xcc),
     };
     let mut out = vec![0; CHUNK_RESPONSE_MAX];
     let mut buffer = vec![0; MAX_STATE_BYTES];
@@ -594,8 +594,10 @@ fn snapshot(state_bytes: &[u8], rank: u8) -> SnapshotBinding {
     assert_eq!(captured, state_bytes);
     let finality = FinalityEvidence {
         native_state_root: proof.native_state_root,
-        checkpoint: digest(0xcc),
-        settlement: Presence::Absent,
+        block_height: proof.execution_height,
+        block_hash: proof.block_hash,
+        app_hash: proof.native_state_root,
+        store_proof_digest: digest(0xdd),
         rank,
     };
     bind_snapshot(state_bytes, &facts, &finality, 1_700_000_000_000).unwrap()
@@ -604,7 +606,9 @@ fn snapshot(state_bytes: &[u8], rank: u8) -> SnapshotBinding {
 fn observation(request: String, root: &str, state_bytes: &[u8], rank: u8) -> Value {
     json!({"request_id": request, "root": root, "state": hex::encode(state_bytes),
            "native_state_root": hex::encode(digest(0x5a).bytes()), "observed_sequence": 77,
-           "execution_height": 1010, "batch_id": hex::encode(digest(0xbb).bytes()),
+           "execution_height": 1010, "batch_id": hex::encode(digest(0xcc).bytes()),
+           "block_height": 1010, "app_hash": hex::encode(digest(0x5a).bytes()),
+           "store_proof_digest": hex::encode(digest(0xdd).bytes()),
            "checkpoint": hex::encode(digest(0xcc).bytes()), "rank": rank,
            "publication_time_ms": 1_700_000_000_000u64})
 }
