@@ -132285,7 +132285,7 @@ do_4 = "Finding 22.12.4.2: the verify now vets the module and tests ./cmd/attest
 
 [task.22.16.8]
 title = "Give every C proof main a build reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
