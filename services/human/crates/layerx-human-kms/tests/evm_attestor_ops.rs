@@ -1,12 +1,11 @@
 #[path = "support/attestor_cluster.rs"]
 mod attestor_cluster;
-#[path = "../../../../platform/hosted/runtime-clock/src/server.rs"]
-mod runtime_clock_server;
 
 use attestor_cluster::{checked, hex, scratch, Cluster, Result};
 use layerx_client::lni::framing::{read_frame, write_frame};
 use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
 use layerx_human_service::custody::{EvmAction, EvmPlanAuthorization, EvmTransaction};
+use layerx_types::clock::Deadline;
 use ring::aead::{Aad, LessSafeKey, Nonce, UnboundKey, AES_256_GCM};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
@@ -17,10 +16,8 @@ use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::os::unix::fs::PermissionsExt as _;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::thread::JoinHandle;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 use zeroize::Zeroizing;
 
 const MAX_FRAME: usize = 2_097_152;
@@ -30,45 +27,8 @@ const ACTION: [u8; 32] = [2; 32];
 const EVM_KEY: &str = "evm-owner";
 const OWNER: &str = "evm-wallet-owner";
 
-struct ClockAuthority {
-    socket: PathBuf,
-    shutdown: Arc<AtomicBool>,
-    worker: Option<JoinHandle<std::io::Result<()>>>,
-}
-
-impl ClockAuthority {
-    fn start() -> Result<Self> {
-        let mut server = runtime_clock_server::Server::bind(&std::env::temp_dir())?;
-        let socket = server.socket().to_owned();
-        let shutdown = Arc::new(AtomicBool::new(false));
-        let stopped = Arc::clone(&shutdown);
-        let worker = std::thread::spawn(move || {
-            while !stopped.load(Ordering::Acquire) {
-                server.poll()?;
-                std::thread::sleep(Duration::from_millis(1));
-            }
-            Ok(())
-        });
-        Ok(Self {
-            socket,
-            shutdown,
-            worker: Some(worker),
-        })
-    }
-}
-
-impl Drop for ClockAuthority {
-    fn drop(&mut self) {
-        self.shutdown.store(true, Ordering::Release);
-        if let Some(worker) = self.worker.take() {
-            let _ = worker.join();
-        }
-    }
-}
-
 struct Fixture {
     child: Option<Child>,
-    clock: ClockAuthority,
     cluster: Cluster,
     root: PathBuf,
     address: SocketAddr,
@@ -140,7 +100,6 @@ impl Fixture {
         }
         let mut fixture = Self {
             child: None,
-            clock: ClockAuthority::start()?,
             cluster,
             root,
             address,
@@ -184,7 +143,10 @@ impl Fixture {
         }
         command.env_remove("LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER");
         command
-            .env("LAYERX_RUNTIME_CLOCK_SOCKET", &self.clock.socket)
+            .env(
+                "LAYERX_RUNTIME_CLOCK_SOCKET",
+                &self.cluster.clock_authority.socket,
+            )
             .env("LAYERX_RUNTIME_CLOCK_PID", std::process::id().to_string())
             .env(
                 "LAYERX_RUNTIME_CLOCK_UID",
@@ -197,7 +159,7 @@ impl Fixture {
                 .stderr(log)
                 .spawn()?,
         );
-        let started = Instant::now();
+        let mut deadline = Deadline::start(self.cluster.clock.as_ref(), Duration::from_secs(10))?;
         loop {
             if self.call(1, 0, &[], None).is_ok() {
                 return Ok(());
@@ -208,7 +170,7 @@ impl Fixture {
                 .ok_or("missing KMS process")?
                 .try_wait()?
                 .is_some()
-                || started.elapsed() > Duration::from_secs(10)
+                || deadline.remaining(self.cluster.clock.as_ref())?.is_zero()
             {
                 return Err(format!(
                     "KMS startup failed: {}",
@@ -294,7 +256,7 @@ impl Fixture {
     }
 
     fn authorize(&self, chain_id: u64) -> Result<EvmPlanAuthorization> {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        let now = self.cluster.clock.now()?;
         let authorization = EvmPlanAuthorization {
             plan_id: [1; 32],
             action_key: ACTION,
