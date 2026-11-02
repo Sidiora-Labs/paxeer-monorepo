@@ -38,6 +38,13 @@ export function buildMarketsRows(
 ): MarketRow[] {
   const snapBySymbol = new Map<string, MarketSnapshot>();
   for (const snapshot of snapshots) {
+    if (
+      typeof snapshot.symbol !== "string" || !snapshot.symbol.trim() ||
+      ![snapshot.price, snapshot.change_24h, snapshot.volume_24h, snapshot.open_interest].every(Number.isFinite) ||
+      snapshot.price < 0 || snapshot.volume_24h < 0 || snapshot.open_interest < 0 ||
+      (snapshot.funding_8h !== null && typeof snapshot.funding_8h !== "bigint") ||
+      (snapshot.last_funding_rate_hourly !== null && typeof snapshot.last_funding_rate_hourly !== "bigint")
+    ) throw new Error("Invalid market snapshot");
     snapBySymbol.set(snapshot.symbol.toUpperCase(), snapshot);
   }
 
