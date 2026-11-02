@@ -1,27 +1,28 @@
 use std::fmt::Debug;
 
-use layerx_crypto::disclosure::{
-    bind, bind_budget_mutation, BudgetStateContext, DisclosedNativeOperation, Disclosure,
-};
+use layerx_crypto::disclosure::call::{ledger_selector, ConstructMethod};
+use layerx_crypto::disclosure::{AmountRole, CounterpartyRole, DisclosureError};
+use layerx_crypto::evm_transaction::Eip1559Call;
+use layerx_crypto::payments::{bind_call, Disclosure};
 use layerx_intents::{
     compile, BudgetCreate, BudgetDefund, BudgetFund, CompileField, CompiledIntent, DisclosureCheck,
     Intent, IntentKind,
 };
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
 use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, Did, IdempotencyKey};
+use layerx_types::ids::{AssetId, IdempotencyKey};
 use layerx_types::intent::{
     BudgetId, PeriodLength, PurposeHash, RolloverPolicy, Sequence, TimestampSeconds,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::{activity::encode_unsigned_envelope, hash};
+use layerx_wire::hash;
 
 const BUDGET_ID: [u8; 32] = [0x12; 32];
 const ASSET: [u8; 32] = [0x34; 32];
 const PURPOSE: [u8; 32] = [0x56; 32];
 const AMOUNT: u128 = 0x0102_0304_0506_0708_090a_0b0c_0d0e_0f10;
 const CARRY: u128 = 0x0102_0304_0506_0708;
+const FROM: [u8; 20] = [0x42; 20];
 const ACTOR: &str = "did:layerx:budget-payloads";
 
 fn checked<T, E: Debug>(result: Result<T, E>) -> T {
@@ -93,36 +94,40 @@ fn defund(amount: u128) -> Intent {
     ))))
 }
 
-fn context() -> BudgetStateContext {
-    BudgetStateContext {
-        budget_id: BUDGET_ID,
-        owner: account_id(&owner()),
-        budget_account: account_id(&budget_account()),
-        asset: ASSET,
-        source_account: account_id(&owner()),
-        native_source: false,
-        revocation_sequence: 18,
-        balance: u128::MAX,
-        state_digest: [0xbc; 32],
-        observed_head_sequence: 77,
-        purpose_hash: PURPOSE,
+fn budget_call(compiled: &CompiledIntent) -> Eip1559Call {
+    let payload = compiled.payload().as_bytes();
+    assert_eq!(&payload[..2], &1_u16.to_be_bytes());
+    let (signature, ranges): (&str, &[(usize, usize)]) = match compiled.activity_type().value() {
+        0x0003_0001 => (
+            "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
+            &[
+                (2, 34), (34, 66), (66, 98), (98, 130),
+                (130, 146), (146, 162), (162, 178),
+                (178, 186), (186, 194), (194, 202), (202, 210), (210, 211),
+            ],
+        ),
+        0x0003_0002 => ("budgetFund(bytes32,uint128)", &[(2, 34), (34, 50)]),
+        0x0003_0008 => ("budgetDefund(bytes32,uint128)", &[(2, 34), (34, 50)]),
+        activity => panic!("unexpected budget activity: {activity:#x}"),
+    };
+    assert_eq!(payload.len(), ranges.last().expect("budget fields").1);
+    let mut data = ledger_selector(signature).to_vec();
+    for &(start, end) in ranges {
+        let mut word = [0; 32];
+        word[32 - (end - start)..].copy_from_slice(&payload[start..end]);
+        data.extend_from_slice(&word);
     }
-}
-
-fn unsigned(compiled: &CompiledIntent) -> Vec<u8> {
-    let mut builder = EnvelopeBuilder::new();
-    checked(builder.protocol_version(3));
-    checked(builder.network_id(17));
-    checked(builder.activity_type(compiled.activity_type()));
-    checked(builder.actor_did(checked(Did::new(ACTOR.as_bytes()))));
-    checked(builder.authority(checked(Authority::owner(&[0x42; 32]))));
-    checked(builder.account_sequence(23));
-    checked(builder.timestamp_bound(checked(TimestampBound::new(1_000, 2_000))));
-    checked(builder.idempotency_key(IdempotencyKey::new([0x78; 32])));
-    checked(builder.fee_limit(Amount::from_u128(5)));
-    checked(builder.payload_hash(compiled.payload_hash()));
-    checked(builder.payload(compiled.payload().clone()));
-    checked(encode_unsigned_envelope(&checked(builder.build())))
+    let mut to = [0; 20];
+    to[18..].copy_from_slice(&[0x10, 0x1b]);
+    Eip1559Call {
+        chain_id: 125,
+        nonce: 23,
+        max_priority_fee_per_gas: 2,
+        max_fee_per_gas: 30,
+        gas_limit: 100_000,
+        to,
+        data,
+    }
 }
 
 fn assert_compiled(
@@ -145,16 +150,32 @@ fn assert_compiled(
     compiled
 }
 
-fn assert_disclosure(disclosure: &Disclosure, compiled: &CompiledIntent, bytes: &[u8]) {
+fn assert_disclosure(disclosure: &Disclosure, compiled: &CompiledIntent, call: &Eip1559Call) {
+    assert_eq!(disclosure.activity_type, compiled.activity_type());
+    assert_eq!(disclosure.canonical_payload(), call.data);
+    assert_eq!(checked(disclosure.signing_digest()), call.signing_hash());
+    assert_eq!(disclosure.actor, FROM);
+    assert_eq!(disclosure.authority, FROM);
+    assert_eq!(disclosure.envelope_sequence(), call.nonce);
     assert_eq!(
-        disclosure.canonical_payload(),
-        compiled.payload().as_bytes()
+        disclosure.fee_limit,
+        u128::from(call.gas_limit) * call.max_fee_per_gas
     );
-    assert_eq!(checked(disclosure.reencode()), bytes);
+}
+
+fn assert_mutation_disclosure(disclosure: &Disclosure, amount: u128) {
+    assert_eq!(disclosure.amounts.len(), 1);
+    assert_eq!(disclosure.amounts[0].role, AmountRole::Transfer);
+    assert_eq!(disclosure.amounts[0].value, amount);
+    assert_eq!(disclosure.counterparties.len(), 1);
+    assert_eq!(disclosure.counterparties[0].role, CounterpartyRole::Payer);
+    assert_eq!(disclosure.counterparties[0].account, BUDGET_ID);
+    assert_eq!(disclosure.asset, [0; 32]);
+    assert_eq!(disclosure.idempotency_key, [0; 32]);
 }
 
 #[test]
-fn budget_fund_compiles_to_the_kernel_canonical_payload() {
+fn budget_fund_compiles_to_canonical_call_payload() {
     let registry = registry();
     for amount in [1, AMOUNT, u128::MAX] {
         let intent = fund(BUDGET_ID, amount);
@@ -163,31 +184,36 @@ fn budget_fund_compiles_to_the_kernel_canonical_payload() {
         expected.extend_from_slice(&amount.to_be_bytes());
         assert_eq!(expected.len(), 50);
         let compiled = assert_compiled(&intent, &registry, 2, &expected);
-        let bytes = unsigned(&compiled);
-        assert!(bind(&bytes, &registry).is_err());
-        let disclosure = checked(bind_budget_mutation(&bytes, &registry, &context()));
-        assert_disclosure(&disclosure, &compiled, &bytes);
-        let Some(DisclosedNativeOperation::BudgetFund(value)) = &disclosure.native_operation else {
-            panic!("expected canonical fund disclosure");
-        };
-        assert_eq!(value.encoding_version, 1);
-        assert_eq!(value.budget_id, BUDGET_ID);
-        assert_eq!(value.amount, amount);
-        assert_eq!(value.source_sequence, None);
-        assert_eq!(value.context, context());
+        let call = budget_call(&compiled);
+        let disclosure = checked(bind_call(&call, FROM));
+        assert_disclosure(&disclosure, &compiled, &call);
+        assert_mutation_disclosure(&disclosure, amount);
+        assert_eq!(
+            checked(disclosure.construct_method()),
+            Some(ConstructMethod::PayBudgetFund {
+                budget: BUDGET_ID,
+                amount
+            })
+        );
         assert!(DisclosureCheck::verify(&fund(BUDGET_ID, amount ^ 2), &compiled).is_err());
         assert!(DisclosureCheck::verify(&fund([0x13; 32], amount), &compiled).is_err());
-        let mut wrong = context();
-        wrong.budget_id[0] ^= 1;
-        assert!(bind_budget_mutation(&bytes, &registry, &wrong).is_err());
-        wrong = context();
-        wrong.native_source = true;
-        assert!(bind_budget_mutation(&bytes, &registry, &wrong).is_err());
+        let mut zero = call.clone();
+        zero.data[36..68].fill(0);
+        assert_eq!(
+            bind_call(&zero, FROM),
+            Err(DisclosureError::MalformedPayload)
+        );
+        let mut trailing = call;
+        trailing.data.push(0);
+        assert_eq!(
+            bind_call(&trailing, FROM),
+            Err(DisclosureError::MalformedPayload)
+        );
     }
 }
 
 #[test]
-fn budget_create_compiles_to_the_kernel_canonical_payload() {
+fn budget_create_compiles_to_canonical_call_payload() {
     let registry = registry();
     for (rollover, carry, tag) in [
         (RolloverPolicy::None, 0, 1),
@@ -209,28 +235,68 @@ fn budget_create_compiles_to_the_kernel_canonical_payload() {
         expected.push(tag);
         assert_eq!(expected.len(), 211);
         let compiled = assert_compiled(&intent, &registry, 1, &expected);
-        let bytes = unsigned(&compiled);
-        let disclosure = checked(bind(&bytes, &registry));
-        assert_disclosure(&disclosure, &compiled, &bytes);
-        let Some(DisclosedNativeOperation::BudgetCreate(value)) = &disclosure.native_operation
-        else {
-            panic!("expected canonical create disclosure");
-        };
-        assert_eq!(value.encoding_version, 1);
-        assert_eq!(value.budget_id, BUDGET_ID);
-        assert_eq!(value.budget_account, account_id(&budget_account()));
-        assert_eq!(value.asset, ASSET);
-        assert_eq!(value.purpose, PURPOSE);
-        assert_eq!(value.per_period_limit, AMOUNT);
-        assert_eq!(value.carry_cap, carry);
-        assert_eq!(value.initial_amount, AMOUNT);
-        assert_eq!(value.period_length_ms, 86_400_000);
-        assert_eq!(value.period_start_ms, 0);
-        assert_eq!(value.expiry_ms, 1_900_000_000_000);
-        assert_eq!(value.revocation_sequence, 0);
-        assert_eq!(value.rollover, tag);
-        assert_eq!(value.source_account, account_id(&owner()));
-        assert_eq!(value.source_sequence, 23);
+        let call = budget_call(&compiled);
+        let disclosure = checked(bind_call(&call, FROM));
+        assert_disclosure(&disclosure, &compiled, &call);
+        assert_eq!(
+            checked(disclosure.construct_method()),
+            Some(ConstructMethod::PayBudgetCreate { payload: expected })
+        );
+        assert_eq!(disclosure.amounts.len(), 1);
+        assert_eq!(disclosure.amounts[0].role, AmountRole::Transfer);
+        assert_eq!(disclosure.amounts[0].value, AMOUNT);
+        assert!(disclosure.counterparties.is_empty());
+        assert_eq!(disclosure.asset, ASSET);
+        assert_eq!(disclosure.idempotency_key, BUDGET_ID);
+        for (rule, index, value) in [
+            ("zero budget id", 0, 0_u128),
+            ("zero budget account", 1, 0),
+            ("zero asset", 2, 0),
+            ("zero per-period limit", 4, 0),
+            ("zero initial amount", 6, 0),
+            ("zero period length", 7, 0),
+            ("expiry equals period start", 9, 0),
+            ("expiry before period start", 8, 1_900_000_000_001),
+            ("rollover zero", 11, 0),
+            ("rollover three", 11, 3),
+        ] {
+            let mut invalid = call.clone();
+            let word = &mut invalid.data[4 + index * 32..4 + (index + 1) * 32];
+            word.fill(0);
+            word[16..].copy_from_slice(&value.to_be_bytes());
+            assert_eq!(
+                bind_call(&invalid, FROM),
+                Err(DisclosureError::MalformedPayload),
+                "{rule}"
+            );
+        }
+        let mut invalid_carry = call;
+        for (index, width) in [
+            (4, 16),
+            (5, 16),
+            (6, 16),
+            (7, 8),
+            (8, 8),
+            (9, 8),
+            (10, 8),
+            (11, 1),
+        ] {
+            let mut noncanonical = invalid_carry.clone();
+            noncanonical.data[4 + index * 32 + 31 - width] = 1;
+            assert_eq!(
+                bind_call(&noncanonical, FROM),
+                Err(DisclosureError::MalformedPayload),
+                "noncanonical integer at argument {index}"
+            );
+        }
+        invalid_carry.data[4 + 5 * 32..4 + 6 * 32].fill(0);
+        invalid_carry.data[4 + 6 * 32 - 1] = 1;
+        invalid_carry.data[4 + 11 * 32..4 + 12 * 32].fill(0);
+        invalid_carry.data[4 + 12 * 32 - 1] = 1;
+        assert_eq!(
+            bind_call(&invalid_carry, FROM),
+            Err(DisclosureError::MalformedPayload)
+        );
         assert!(DisclosureCheck::verify(
             &create(rollover, carry, 86_401, 1_900_000_000),
             &compiled
@@ -245,7 +311,7 @@ fn budget_create_compiles_to_the_kernel_canonical_payload() {
 }
 
 #[test]
-fn budget_defund_compiles_to_the_kernel_canonical_payload() {
+fn budget_defund_compiles_to_canonical_call_payload() {
     let registry = registry();
     for amount in [1, AMOUNT, u128::MAX] {
         let intent = defund(amount);
@@ -254,21 +320,30 @@ fn budget_defund_compiles_to_the_kernel_canonical_payload() {
         expected.extend_from_slice(&amount.to_be_bytes());
         assert_eq!(expected.len(), 50);
         let compiled = assert_compiled(&intent, &registry, 8, &expected);
-        let bytes = unsigned(&compiled);
-        assert!(bind(&bytes, &registry).is_err());
-        let disclosure = checked(bind_budget_mutation(&bytes, &registry, &context()));
-        assert_disclosure(&disclosure, &compiled, &bytes);
-        let Some(DisclosedNativeOperation::BudgetDefund(value)) = &disclosure.native_operation
-        else {
-            panic!("expected canonical defund disclosure");
-        };
-        assert_eq!(value.budget_id, BUDGET_ID);
-        assert_eq!(value.amount, amount);
-        assert_eq!(value.context, context());
+        let call = budget_call(&compiled);
+        let disclosure = checked(bind_call(&call, FROM));
+        assert_disclosure(&disclosure, &compiled, &call);
+        assert_mutation_disclosure(&disclosure, amount);
+        assert_eq!(
+            checked(disclosure.construct_method()),
+            Some(ConstructMethod::PayBudgetDefund {
+                budget: BUDGET_ID,
+                amount
+            })
+        );
         assert!(DisclosureCheck::verify(&defund(amount ^ 2), &compiled).is_err());
-        let mut wrong = context();
-        wrong.balance = amount - 1;
-        assert!(bind_budget_mutation(&bytes, &registry, &wrong).is_err());
+        let mut zero = call.clone();
+        zero.data[36..68].fill(0);
+        assert_eq!(
+            bind_call(&zero, FROM),
+            Err(DisclosureError::MalformedPayload)
+        );
+        let mut trailing = call;
+        trailing.data.push(0);
+        assert_eq!(
+            bind_call(&trailing, FROM),
+            Err(DisclosureError::MalformedPayload)
+        );
     }
 }
 
@@ -287,9 +362,9 @@ fn budget_create_rejects_millisecond_overflow() {
     let intent = create(RolloverPolicy::None, 0, maximum_seconds, maximum_seconds);
     let compiled = checked(compile(&intent, &registry));
     checked(DisclosureCheck::verify(&intent, &compiled));
-    let bytes = unsigned(&compiled);
-    let disclosure = checked(bind(&bytes, &registry));
-    assert_disclosure(&disclosure, &compiled, &bytes);
+    let call = budget_call(&compiled);
+    let disclosure = checked(bind_call(&call, FROM));
+    assert_disclosure(&disclosure, &compiled, &call);
     let payload = compiled.payload().as_bytes();
     assert_eq!(&payload[178..186], &(maximum_seconds * 1_000).to_be_bytes());
     assert_eq!(&payload[194..202], &(maximum_seconds * 1_000).to_be_bytes());
