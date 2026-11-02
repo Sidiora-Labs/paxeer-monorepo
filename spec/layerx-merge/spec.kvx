@@ -6903,6 +6903,12 @@ value = "Tasks 22.91.1 through 22.91.41 inventory every Cargo workspace (build a
 basis = "Dispositions keep surfacing stale tests and broken crates discovered only by later consumers (1.29.1, 4.22.1.1, 8.42.5.1, 8.47.10.1, 22.90.x); the closure needs a complete inventory of what builds and passes on main rather than discovery by accident, and the registry still advertises constructors that do not exist (2.40.5.3)."
 affects = ["22.0.1", "22.17.2", "22.17.3", "22.91.1", "22.91.2", "22.91.3", "22.91.4", "22.91.5", "22.91.6", "22.91.7", "22.91.8", "22.91.9", "22.91.10", "22.91.11", "22.91.12", "22.91.13", "22.91.14", "22.91.15", "22.91.16", "22.91.17", "22.91.18", "22.91.19", "22.91.20", "22.91.21", "22.91.22", "22.91.23", "22.91.24", "22.91.25", "22.91.26", "22.91.27", "22.91.28", "22.91.29", "22.91.30", "22.91.31", "22.91.32", "22.91.33", "22.91.34", "22.91.35", "22.91.36", "22.91.37", "22.91.38", "22.91.39", "22.91.40", "22.91.41"]
 
+[decision.2299]
+title = "Follow-up tasks for the open dispositions without an owner, and three dispositions resolved in the spec"
+value = "Twenty follow-up tasks (22.1.3, 22.10.6, 22.12.3, 22.13.5, 22.13.6, 22.16.5, 22.16.6, 22.2.4, 22.4.3, 22.5.4, 22.8.7, 22.8.8, 22.8.9, 22.9.7 to 22.9.13) each repair what one open disposition's evidence sentence describes and point the disposition's follow_up at themselves. Rulings: revocation keeps the Cosmos grant so the refusal is ErrAuthRevoked as requirement 2063 says (2.12.4.1); the committed fixture's standby is a genesis validator (12.35.4.3); the programs environment execute activity is bound to ledger admission like CALL (13.27.1.14); genesis selects the storage-retirement programs registration (13.27.4); gateway asset rows carry verification and paused (16.7.4.2); LastBlockID names the committed block (5.4.5.1); the TypeScript and Python market journals finalize against commit finality like the Rust client (9.97.8.3, 9.97.14.1). Resolved in the spec itself: requirements 8484 and 8502 now state the version-1 envelope decision 2198 ruled (8.41.4.1, 8.44.4.1); the interface row for the layerxpay constructor is corrected to the served one-argument signature (2.40.5.3); release-candidate load measurements are an upgrade-time activity on the candidate network, so 16.24.5.2 and 16.24.6.1 are environment dispositions pointing at this decision. The crate closure tasks 22.90.x are gates (gate_kind existing): a crate that already builds qualifies on its verify record alone."
+basis = "Twenty-four landed dispositions were open with follow_up closure and no task owned them; the closure gate 22.0.1 refuses while any remains, and the five crate tasks that found nothing to change were refused for changing nothing."
+affects = ["22.0.1", "22.1.3", "22.10.6", "22.12.3", "22.13.5", "22.13.6", "22.16.5", "22.16.6", "22.2.4", "22.4.3", "22.5.4", "22.8.7", "22.8.8", "22.8.9", "22.9.7", "22.9.8", "22.9.9", "22.9.10", "22.9.11", "22.9.12", "22.9.13", "22.90.1", "22.90.2", "22.90.3", "22.90.5", "22.90.6", "22.90.7", "22.90.8", "22.90.9", "8.41.4", "8.44.4", "2.40.5"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -19568,8 +19574,8 @@ ac_3 = "program.deploy produces an unsigned EIP-1559 transaction whose calldata 
 
 [req.8484]
 title = "Go SDK agent operation envelope at major 2"
-ac_1 = "Every agent operation request envelope the SDK encodes carries version 2."
-ac_2 = "A response envelope carrying version 1 is refused."
+ac_1 = "'Every agent operation request envelope the SDK encodes carries version 1, the version the agent daemon serves (decision 2198).'"
+ac_2 = "'A response envelope is refused by its schema fields, not by a version field: a body missing a required field or carrying an unknown version is refused (decision 2198).'"
 
 [req.8485]
 title = "Go SDK retires kernel batch, checkpoint and settlement verification"
@@ -19666,8 +19672,8 @@ ac_3 = "program.deploy produces an unsigned EIP-1559 transaction whose calldata 
 
 [req.8502]
 title = "Swift SDK agent operation envelope at major 2"
-ac_1 = "Every agent operation request envelope the SDK encodes carries version 2."
-ac_2 = "A response envelope carrying version 1 is refused."
+ac_1 = "'Every agent operation request envelope the SDK encodes carries version 1, the version the agent daemon serves (decision 2198).'"
+ac_2 = "'A response envelope is refused by its schema fields, not by a version field: a body missing a required field or carrying an unknown version is refused (decision 2198).'"
 
 [req.8503]
 title = "Swift SDK retires kernel batch, checkpoint and settlement verification"
@@ -21553,6 +21559,10 @@ title = "Retire the kernel activity envelope and signing preimage from layerx-wi
 ac_1 = "Every published receipt vector decodes and re-encodes byte for byte with the activity codec deleted (services/agent/crates/layerx-wire/tests/structures.rs:176)."
 ac_2 = "The checkpoint vectors keep their pinned header length, header prefix and identities without the settlement document reader (services/agent/crates/layerx-wire/tests/hashing.rs:244)."
 ac_3 = "The checkpoint certificate and guarantor attestation domain tags equal the literal version-two tags without the settlement document (services/agent/crates/layerx-wire/tests/hashing.rs:215)."
+
+[req.22006]
+title = "Every open disposition without an owner gains a landed follow-up"
+ac_1 = "Each [disposition.*] block whose status is open and whose follow_up was the word closure names a task id in follow_up; that task is done on main and its verify proves the repair the disposition's evidence sentence describes."
 
 [req.9313]
 title = "Drop the lni_frame fuzz target and fuzz the EIP-1559 transaction codec"
@@ -35075,6 +35085,186 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.9.13]
+title = "Restore indexed submissions by the outbox's transaction-hash key"
+reqs = ["22006.1"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/outbox/mod.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs", "spec/layerx-merge/dispositions/d18-8.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- human_runtime outbox protocol_evidence_native"
+do_1 = "services/agent/crates/layerx-agentd/src/human_runtime.rs:2198 restores an indexed submission by indexed.idempotency_key, but the outbox stores records under the transaction hash of the signed bytes (src/outbox/mod.rs:179) and refuses a receipt whose activity id does not match at :462; src/protocol_evidence_native_tests.rs:214 feeds a kernel-id receipt into the hash-keyed outbox. Make the indexed submission carry the transaction hash the outbox used (index it alongside the idempotency key), restore and exact_signed_bytes by that hash, and make the native evidence test enqueue and complete through the transaction hash so the receipt's activity id matches. Tests: a restore after restart by transaction hash succeeds, a restore by idempotency key alone is a compile error or refused."
+symbols = []
+
+[capability.22.9.12]
+title = "Bridge historical deployment proofs with intermediate trust steps"
+reqs = ["22006.1"]
+touches = ["services/agent/crates/layerx-agentd/src/read/program_node.rs", "spec/layerx-merge/dispositions/d18-11.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- read::program_node"
+do_1 = "services/agent/crates/layerx-agentd/src/read/program_node.rs:415 builds the trust chain from the admission step and the current head only, so verify_historical_deployment refuses an admission older than TRUST_PERIOD_MS (programs/crates/layerx-programs-registry/src/chain_proof/trust.rs:27, 14 days) or one separated from the head by a full validator rotation (:71, signed power of the trusted set). Build the chain with intermediate steps: walk the validator-set changes between the admission height and the head through the node's historical validator sets, adding one step per change (and one per trust period when no change occurs) so each step is within the period and overlaps the previous set's power; add tests in program_node (a 20-day-old admission, a full non-adjacent rotation) and keep the registry's trust tests unchanged."
+symbols = []
+
+[capability.22.9.11]
+title = "Give the Python market journal a rung checkpoint and commit-finality finalize"
+reqs = ["22006.1"]
+touches = ["services/agent/sdk/python/layerx_sdk/ai_market.py", "services/agent/sdk/python/tests", "spec/layerx-merge/dispositions/d9-6.kvx"]
+tests = []
+verification_contract = "cd services/agent/sdk/python && python3 -m pytest -q tests"
+do_1 = "services/agent/sdk/python/layerx_sdk/ai_market.py:1381 persists a checkpoint without a rung, OperationJournal (:1529) has no finalize and refuses nonempty receipts with ProgramsReceiptVerifierUnavailable (:1610), while the Rust client finalizes against CommitFinality (services/agent/crates/layerx-client/src/ai_market.rs:146, :261). Port the Rust semantics: checkpoint persists the rung, OperationJournal.finalize resolves against the transaction receipt and commit finality, nonempty receipts are verified through the retained verifier instead of refused, and tests under services/agent/sdk/python/tests cover a committed, a reverted and a not-yet-final operation."
+symbols = ["OperationJournal"]
+
+[capability.22.9.10]
+title = "Finalize TypeScript market operations against commit finality"
+reqs = ["22006.1"]
+touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx"]
+tests = []
+verification_contract = "cd services/agent/sdk/typescript && npm ci && npm run build && npm test"
+do_1 = "services/agent/sdk/typescript/src/ai_market.ts:3273 decodeProgramsReceipt decodes the kernel-shaped 0x5201 receipt against SequencerAuthorization keys and OperationJournal.resolve (:3084) depends on it, but no node serves that receipt any more; the Rust client (services/agent/crates/layerx-client/src/ai_market.rs:146 CommitFinality, :261 finalize) finalizes an operation against the committed transaction receipt and the commit finality view. Port that path: resolve finalizes against the transaction receipt and commit finality, decodeProgramsReceipt and its kernel-receipt tests (test/ai-market.test.ts:2381-2446) are removed, and new tests cover resolve on a committed, a reverted and a not-yet-final operation using the Rust vectors where the crate exposes them."
+symbols = ["decodeProgramsReceipt"]
+
+[capability.22.9.9]
+title = "Drop the retired settlement anchoring refusal from the envelope qualification"
+reqs = ["22006.1"]
+touches = ["tools/qualification/paxeer-x/agent_operation_envelope.py", "spec/layerx-merge/dispositions/d9-3.kvx"]
+tests = []
+verification_contract = "python3 -m py_compile tools/qualification/paxeer-x/agent_operation_envelope.py && ! grep -q settlement_anchoring_unavailable tools/qualification/paxeer-x/agent_operation_envelope.py"
+do_1 = "tools/qualification/paxeer-x/agent_operation_envelope.py:2064 expects an export.offline request with requested_verification_level SettlementAnchored to be refused with 503 UnavailableCapability export.settlement_anchoring_unavailable, a refusal commit 7b851dcdd retired. Replace the case with what the daemon serves today for that request (read services/agent/crates/layerx-agentd for the SettlementAnchored export path and assert its success shape or its retained refusal), remove settlement_anchoring_unavailable from SERVED_READ_REFUSALS and its documentation, and keep the case numbering stable for the report."
+symbols = []
+
+[capability.22.9.8]
+title = "Provision the chain variables the real-node test harness requires"
+reqs = ["22006.1"]
+touches = ["services/agent/tools/run-real-node-tests.sh", "services/agent/tools/test_run_real_node_tests_env.py", "spec/layerx-merge/dispositions/d9-2.kvx"]
+tests = ["services/agent/tools/test_run_real_node_tests_env.py"]
+verification_contract = "bash -n services/agent/tools/run-real-node-tests.sh && python3 -m pytest -q services/agent/tools/test_run_real_node_tests_env.py"
+do_1 = "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1441 requires LAYERX_TEST_PAXEER_CHAIN_ID (and the harness its RPC port) while services/agent/tools/run-real-node-tests.sh:48 invokes the generic make target without exporting them; tools/qualification/paxeer-x/caps-codecs.py:74 supplies LAYERX_TEST_PAXEER_CHAIN_ID and LAYERX_TEST_PAXEER_RPC_PORT from the isolated runtime manifest. Make the script export both from the same source (the isolated runtime manifest when present, otherwise chain id 125 and the configured RPC port) before the make call, and add services/agent/tools/test_run_real_node_tests_env.py asserting the script exports every LAYERX_TEST_PAXEER_ variable the harness reads (grep the harness for std::env::var names)."
+symbols = ["test_run_real_node_tests_env"]
+
+[capability.22.8.9]
+title = "Hand the TLS boundary a bound port instead of a released one"
+reqs = ["22006.1"]
+touches = ["services/platform/tests/support/tls_boundary.rs", "services/platform/hosted/paxeer", "spec/layerx-merge/dispositions/d9-1.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary -- listen tls"
+do_1 = "services/platform/tests/support/tls_boundary.rs:170 binds 127.0.0.1:0 to learn a free port, drops the listener, then starts the layerx-paxeer-boundary binary with LAYERX_PAXEER_BOUNDARY_LISTEN set to that address and accepts one successful TCP readiness probe; another process can take the port in between. Make the boundary accept LAYERX_PAXEER_BOUNDARY_LISTEN with port 0 and report the address it bound on a line of its stdout (or in a file named by LAYERX_PAXEER_BOUNDARY_ADDRESS_FILE), and make the test read that address instead of pre-reserving one; the readiness probe then targets the reported port. Add a unit test in the boundary crate for the port-0 report."
+symbols = []
+
+[capability.22.9.7]
+title = "Port the proof crate's terminal v4 test off the deleted v4 fixtures"
+reqs = ["22006.1"]
+touches = ["services/agent/crates/layerx-proof/tests/terminal_v4.rs", "spec/layerx-merge/dispositions/d8-4.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test terminal_v4"
+do_1 = "services/agent/crates/layerx-proof/tests/terminal_v4.rs:65 loads receipt-programs-executed-v4.json, receipt-programs-principal-v4.json and receipt-programs-mutated-leg-v4.json, which no longer exist under services/agent/crates/layerx-proof/tests/fixtures (retained: receipt-sequencer-v1.json, sequencer-receipt-v1.json, vector-v1-receipted-positive.json, vector-v2-receipted-revert.json, vector-v3-receipt-refusals.json, signed-authority). Port the three cases to the retained vectors where they carry the same receipt shapes, build the mutated-leg case in-test from a retained positive vector, and delete any case whose only producer was a deleted vector, naming it in the commit message. The Go half of the finding is task 22.8.8."
+symbols = []
+
+[capability.22.8.8]
+title = "Port the Go lifecycle verifier test off the deleted v3 receipt fixture"
+reqs = ["22006.1"]
+touches = ["sdk/platform/go/native_program_lifecycle_test.go", "spec/layerx-merge/dispositions/d8-4.kvx"]
+tests = ["sdk/platform/go/native_program_lifecycle_test.go::TestLifecycleVerifierRejectsCallOutcomeReceipt"]
+verification_contract = "cd sdk/platform/go && go test -count=1 ./ -run '^TestLifecycleVerifier'"
+do_1 = "sdk/platform/go/native_program_lifecycle_test.go:169 (TestLifecycleVerifierRejectsCallOutcomeReceipt) opens ../conformance/fixtures/receipt-programs-positive-v3.json, deleted with the v3 vectors. Port the case to a retained fixture under sdk/platform/conformance/fixtures that carries a call-outcome receipt (or build the receipt in-test from the retained v4 or later vector set) so the verifier's refusal is still exercised; if no retained vector carries such a receipt, build it in-test and say so in the test's doc comment. The Rust half of the finding (layerx-proof terminal_v4.rs) is task 22.9.7."
+symbols = ["TestLifecycleVerifierRejectsCallOutcomeReceipt"]
+
+[capability.22.8.7]
+title = "Drop the retired batch and checkpoint verifiers from the JVM conformance main"
+reqs = ["22006.1"]
+touches = ["sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java", "spec/layerx-merge/dispositions/d8-3.kvx"]
+tests = []
+verification_contract = "mvn -q -f sdk/platform/jvm/pom.xml -Pconformance -DskipTests test-compile"
+do_1 = "sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java:186 calls LocalVerifier.verifyReceipt with the deleted AuthorizedReceiptBatch type and :188 calls the retired verifyBatchInclusion, so the conformance source set (pom.xml profile conformance, :124-136) no longer compiles. Remove the retired batch and checkpoint verification calls from invokeLocalVerification, keep the Merkle inclusion case and add a case through the retained receipt verifier the SDK exposes today, and make the conformance profile compile: mvn -q -f sdk/platform/jvm/pom.xml -Pconformance -DskipTests test-compile."
+symbols = []
+
+[capability.22.5.4]
+title = "Return the committed block's own id from LastBlockID"
+reqs = ["22006.1"]
+touches = ["node/app.go", "node/sequencer/executor_header_test.go", "node/last_block_id_test.go", "spec/layerx-merge/dispositions/d5-1.kvx"]
+tests = ["node/last_block_id_test.go::TestLastBlockIDIsTheCommittedBlock"]
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./node/sequencer/ -run '^TestExecutorHeader' && CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestLastBlockIDIsTheCommittedBlock$'"
+do_1 = "node/app.go:3355 returns the check-context header's LastBlockId, which after committing height H still identifies H-1, and node/sequencer/executor_header_test.go:52 gives the committed block its own id as LastBlockID to make the assertion hold. Record the id of the block being committed (hash and part-set header as FinalizeBlock and Commit receive them) and return it from LastBlockID once Commit completes; the test builds the block with its parent's id as LastBlockID and asserts LastBlockID after Commit equals the committed block's own id. Add TestLastBlockIDIsTheCommittedBlock in node/ covering two consecutive commits."
+symbols = ["TestLastBlockIDIsTheCommittedBlock"]
+
+[capability.22.4.3]
+title = "Point the social schema tests at the service's own migrations"
+reqs = ["22006.1"]
+touches = ["services/launchpad/social/internal/interactions/store_test.go", "services/launchpad/social/internal/voice/control_test.go", "services/launchpad/social/internal/interactions/schema_sources_test.go", "services/launchpad/social/internal/voice/schema_sources_test.go", "spec/layerx-merge/dispositions/d4-1.kvx"]
+tests = ["services/launchpad/social/internal/interactions/schema_sources_test.go::TestSchemaSourcesExist", "services/launchpad/social/internal/voice/schema_sources_test.go::TestSchemaSourcesExist"]
+verification_contract = "cd services/launchpad/social && go test -count=1 ./internal/interactions/ ./internal/voice/ -run '^TestSchemaSourcesExist$'"
+do_1 = "services/launchpad/social/internal/interactions/store_test.go:78 and :86 and services/launchpad/social/internal/voice/control_test.go:77 read launchpad/spec/production-system/handoffs/L37/phase1/schema-proposal.sql, L37/phase2/schema-proposal.sql and L38/schema-proposal.sql, none of which exists in the tree; the service's DDL lives in services/launchpad/social/migrations (00001_init.sql through 00004_safety_bans_v1.sql; the interaction tables are in 00002_dev_v2_social.sql:79-109). Make both tests apply the migrations directory in order (through the existing migrations.go loader where it exposes one) instead of the handoff files, and add TestSchemaSourcesExist in each package asserting without a database that every DDL file the package applies exists and declares the tables the package's queries name."
+symbols = ["TestSchemaSourcesExist"]
+
+[capability.22.2.4]
+title = "Refuse an exec under a revoked grant with ErrAuthRevoked"
+reqs = ["22006.1"]
+touches = ["modules/layerxauth/keeper/revoke.go", "modules/layerxauth/ante/integration_test.go", "spec/layerx-merge/dispositions/d2-1.kvx"]
+tests = ["modules/layerxauth/ante/integration_test.go::TestAuthzExecRefusedAfterKernelRevoke"]
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./modules/layerxauth/keeper/ ./modules/layerxauth/ante/"
+do_1 = "Requirement 2063 ac_1 says a MsgExec under a LayerXScopeAuthorization fails with ErrAuthRevoked after the grantor revokes the grant on 0x101C, but modules/layerxauth/keeper/revoke.go:74 deletes the matching Cosmos grant, so authz finds no authorization and the exec fails with ErrUnauthorized before LayerXScopeAuthorization.Accept (which refuses by RevocationEpoch with ErrAuthRevoked, revocation_test.go:150) is reached; modules/layerxauth/ante/integration_test.go:243 asserts the weaker error. Stop deleting the Cosmos grant on revocation (keep the kernel grant's Revoked and RevokedAtSequence record and the revocation sequence), so the retained authorization refuses with ErrAuthRevoked, and change TestAuthzExecRefusedAfterKernelRevoke to assert ErrAuthRevoked and that a later re-grant replaces the authorization and succeeds. DeleteGrant stays available for the explicit grant deletion path."
+symbols = ["TestAuthzExecRefusedAfterKernelRevoke"]
+
+[capability.22.16.6]
+title = "Serve verification and paused on every gateway asset row"
+reqs = ["22006.1"]
+touches = ["services/platform/hosted/gateway/src/paxeer.rs", "spec/layerx-merge/dispositions/d16-1.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway -- paxeer"
+do_1 = "services/platform/hosted/gateway/src/paxeer.rs:665 builds px_listAssets rows with asset_id, denom and kind and custody_asset (:702) adds name, symbol, decimals and supply from the ledger precompile's asset record, while tools/qualification/paxeer-x/paid-web-contract.py:3470 requires verification equal to authenticated_committed_snapshot and paused to be false. The ledger asset decoder already carries paused (evm.rs:144, decoded at :445) and the gateway serves the rows from the committed snapshot it authenticates (:576, :796). Add paused from the decoded asset and verification = authenticated_committed_snapshot (the literal the SDK reader checks at services/agent/crates/layerx-sdk/src/rpc.rs:527) to every layerx asset record, and add a unit test in paxeer.rs asserting a listed asset carries both fields with the decoded paused value."
+symbols = []
+
+[capability.22.16.5]
+title = "Place the six remaining tracked Dockerfiles in the container check's scope list"
+reqs = ["22006.1"]
+touches = ["tools/containers/check.sh", "tools/containers/test_check_all_services_scope.py", "spec/layerx-merge/dispositions/d16-1.kvx"]
+tests = ["tools/containers/test_check_all_services_scope.py"]
+verification_contract = "bash tools/containers/check.sh && python3 -m pytest -q tools/containers/test_check_all_services_scope.py"
+do_1 = "tools/containers/check.sh with no arguments exits 1 because OUT_OF_SCOPE (:92-110) omits six tracked Dockerfiles that the all-services branch (:218) then rejects: apps/perps/Dockerfile, core/deps/db-backend/tools/Dockerfile, core/deps/geth/Dockerfile, core/deps/geth/Dockerfile.alltools, core/deps/geth/crypto/secp256k1/libsecp256k1/ci/linux-debian.Dockerfile and deploy/launchpad/Dockerfile.native. Add them to OUT_OF_SCOPE under the existing comment groups (another lane for apps/perps and deploy/launchpad, vendored upstream trees for core/deps), and add tools/containers/test_check_all_services_scope.py asserting that check.sh with no arguments exits 0 at HEAD and that every tracked Dockerfile is either placed by SERVICES or listed in OUT_OF_SCOPE."
+symbols = ["test_check_all_services_scope"]
+
+[capability.22.13.6]
+title = "Select the storage-retirement programs registration at genesis"
+reqs = ["22006.1"]
+touches = ["src/protocol/lxp_genesis.c", "tests/protocol", "spec/layerx-merge/dispositions/d13-3.kvx"]
+tests = []
+verification_contract = "make -s test-genesis-module-table && make -s test-genesis"
+do_1 = "src/protocol/lxp_genesis.c:55 registers LXP_MODULE_PROGRAMS with programs_module_registration_v4 (src/modules/programs/registration.c:300), whose activity list (:46) omits storage retirement, although programs_module_registration_v4_storage_retirement (:311) carries it under the same ABI version. Make the genesis module table select the storage-retirement variant, and extend the test behind make test-genesis-module-table to assert the genesis programs registration lists the storage retirement activity type. If a consumer test asserts the shorter list, update it to the retained registration and name it in the commit message."
+symbols = []
+
+[capability.22.13.5]
+title = "Bind ledger admission for the programs environment execute activity"
+reqs = ["22006.1"]
+touches = ["src/protocol/lxp_kernel.c", "src/protocol/lxp_module_ctx.c", "tests/protocol", "precompiles/layerxprograms/method_sandbox_execute_test.go", "spec/layerx-merge/dispositions/d13-3.kvx"]
+tests = []
+verification_contract = "make -s test-module-ctx && make -s test-admission && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -run '^TestProgramsS[a-z]+Execute'"
+do_1 = "src/protocol/lxp_kernel.c:488 binds the Programs ledger admission facts only for LX_PROGRAMS_CALL and LX_PROGRAMS_WIND_DOWN, and src/protocol/lxp_module_ctx.c:1709 returns LXP_OK for the environment execute activity (activity type 0x00090009 in include/layerx/programs.h:99) so it runs on the legacy global sequence; the Go method execute test (precompiles/layerxprograms, the file named in touches, :155) compensates by setting the payer's sequence to ReadLastSequence plus one. Bind the environment execute activity exactly as CALL: lxp_kernel.c copies the actor, verified key and account facts for it, lxp_module_ctx.c checks bound, activity_binding and account_id for it instead of returning early, and the Go test drops the compensation and asserts the admission facts drive the sequence. Add a kernel case to the module-ctx test target asserting an unbound environment execute is refused with LXP_ERR_CONTEXT_MISMATCH."
+symbols = []
+
+[capability.22.12.3]
+title = "Register the committed fixture's standby leader in the genesis committee"
+reqs = ["22006.1"]
+touches = ["daemon/committed-fixture/main.go", "daemon/committed-fixture/main_test.go", "spec/layerx-merge/dispositions/d12-2.kvx"]
+tests = ["daemon/committed-fixture/main_test.go::TestStandbyLeaderIsInTheGenesisCommittee"]
+verification_contract = "CGO_ENABLED=1 go vet ./daemon/committed-fixture/ && CGO_ENABLED=1 go test -count=1 ./daemon/committed-fixture/ -run '^TestStandbyLeaderIsInTheGenesisCommittee$'"
+do_1 = "daemon/committed-fixture/main.go:455 writes a genesis validator set holding only the primary, :477 appends the standby's consensus key to the pinned leaders with ActivationHeight 2, and :233 initialises the standby in full mode, while consensus/internal/consensus/types/round_state.go:537 panics when a pinned leader is not in the committee. Make the fixture register the standby as a second genesis validator (its own priv_validator_key, power 1 beside the primary's 7000000000 so the primary alone keeps the quorum) initialised in validator mode, keep the standby's distinct receipt key, and assert the invariant in daemon/committed-fixture/main_test.go with TestStandbyLeaderIsInTheGenesisCommittee: every pinned leader in the generated genesis is a genesis validator. A standby-activation run that reaches a committed block past ActivationHeight is recorded in the test's doc comment with the fixture command used."
+symbols = ["TestStandbyLeaderIsInTheGenesisCommittee"]
+
+[capability.22.10.6]
+title = "Validate the owner policy limit id at the daemon's sixteen-byte width"
+reqs = ["22006.1"]
+touches = ["services/platform/hosted/human/material.py", "services/platform/hosted/human/test_material.py", "services/platform/hosted/human/README.md", "services/platform/hosted/human/provision.py", "docs/site/docs/agents/running.md", "docs/wiki/RunningAnAgent.md", "spec/layerx-merge/dispositions/d10-3.kvx"]
+tests = ["services/platform/hosted/human/test_material.py::test_owner_policy_limit_id_is_sixteen_bytes"]
+verification_contract = "python3 -m pytest -q services/platform/hosted/human/test_material.py"
+do_1 = "services/platform/hosted/human/material.py:1378 requires HUMAN_LIMIT_ID to match [0-9a-f]{64} and :904 writes it as LAYERX_AGENT_HUMAN_LIMIT_ID, but the consumer services/agent/crates/layerx-agentd/src/main.rs:135 parses that variable with parse_hex into a 16-byte LimitId (budget/reserve.rs:11), so every policy material.py accepts is refused by the daemon. Change the check to [0-9a-f]{32}, update every example or fixture value of HUMAN_LIMIT_ID under services/platform/hosted/human (README.md, provision.py and the test fixtures) and in docs/site/docs/agents/running.md and docs/wiki/RunningAnAgent.md to 32 hex characters, and add test_owner_policy_limit_id_is_sixteen_bytes to services/platform/hosted/human/test_material.py: a 64-character id is refused with the existing 'owner policy horizon or limit binding' refusal and a 32-character id is written unchanged as LAYERX_AGENT_HUMAN_LIMIT_ID."
+symbols = ["test_owner_policy_limit_id_is_sixteen_bytes"]
+
+[capability.22.1.3]
+title = "Make the oracle codec archive test assert ownership without the deleted adapter object"
+reqs = ["22006.1"]
+touches = ["modules/lxphost/oracle_codec_test.go", "spec/layerx-merge/dispositions/d1-2.kvx"]
+tests = ["modules/lxphost/oracle_codec_test.go::TestOracleCodecObjectDefinesEncoders"]
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestOracleCodecObjectDefinesEncoders$'"
+do_1 = "modules/lxphost/oracle_codec_test.go:13 fails because it requires the archive member lx_oracle_adapter.o, whose source src/network/lx_oracle_adapter.c was deleted by 01d41cf0b and is excluded at Makefile:45. Rewrite TestOracleCodecObjectDefinesEncoders to assert what the retirement meant: lx_oracle_codec.o defines lx_oracle_observation_encode and lx_oracle_observation_sign, no other member of the kernel archive (kernelArchiveMembers, archive_symbols_test.go:15) defines either symbol, and no member named lx_oracle_adapter.o exists."
+symbols = ["TestOracleCodecObjectDefinesEncoders"]
 
 [capability.22.17.3]
 title = "Reconcile every interface row against the tree at HEAD"
@@ -114741,6 +114931,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.9.10]
+title = "Finalize TypeScript market operations against commit finality"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.9.10"]
+interfaces = []
+do_1 = "services/agent/sdk/typescript/src/ai_market.ts:3273 decodeProgramsReceipt decodes the kernel-shaped 0x5201 receipt against SequencerAuthorization keys and OperationJournal.resolve (:3084) depends on it, but no node serves that receipt any more; the Rust client (services/agent/crates/layerx-client/src/ai_market.rs:146 CommitFinality, :261 finalize) finalizes an operation against the committed transaction receipt and the commit finality view. Port that path: resolve finalizes against the transaction receipt and commit finality, decodeProgramsReceipt and its kernel-receipt tests (test/ai-market.test.ts:2381-2446) are removed, and new tests cover resolve on a committed, a reverted and a not-yet-final operation using the Rust vectors where the crate exposes them."
+do_2 = "Share d9-6.kvx with 22.9.11: set follow_up of [disposition.9.97.8.3] to 22.9.10."
+do_3 = "Set follow_up of [disposition.9.97.8.3] in spec/layerx-merge/dispositions/d9-6.kvx to 22.9.10 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = ["decodeProgramsReceipt"]
+touches = ["services/agent/sdk/typescript/src/ai_market.ts", "services/agent/sdk/typescript/test/ai-market.test.ts", "spec/layerx-merge/dispositions/d9-6.kvx"]
+tests = []
+planned_paths = ["services/agent/sdk/typescript/test/ai-market.test.ts"]
+build_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build"
+verify_cmd = "cd services/agent/sdk/typescript && npm ci && npm run build && npm test"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.91.38]
 title = "Inventory the platform examples packages"
 status = "pending"
@@ -125088,6 +125308,152 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.9.13]
+title = "Restore indexed submissions by the outbox's transaction-hash key"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.9.13"]
+interfaces = []
+do_1 = "services/agent/crates/layerx-agentd/src/human_runtime.rs:2198 restores an indexed submission by indexed.idempotency_key, but the outbox stores records under the transaction hash of the signed bytes (src/outbox/mod.rs:179) and refuses a receipt whose activity id does not match at :462; src/protocol_evidence_native_tests.rs:214 feeds a kernel-id receipt into the hash-keyed outbox. Make the indexed submission carry the transaction hash the outbox used (index it alongside the idempotency key), restore and exact_signed_bytes by that hash, and make the native evidence test enqueue and complete through the transaction hash so the receipt's activity id matches. Tests: a restore after restart by transaction hash succeeds, a restore by idempotency key alone is a compile error or refused."
+do_2 = "Set follow_up of [disposition.18.1200.1.2] in spec/layerx-merge/dispositions/d18-8.kvx to 22.9.13 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/outbox/mod.rs", "services/agent/crates/layerx-agentd/src/protocol_evidence_native_tests.rs", "spec/layerx-merge/dispositions/d18-8.kvx"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/src/human_runtime.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- human_runtime outbox protocol_evidence_native"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.9.12]
+title = "Bridge historical deployment proofs with intermediate trust steps"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.9.12"]
+interfaces = []
+do_1 = "services/agent/crates/layerx-agentd/src/read/program_node.rs:415 builds the trust chain from the admission step and the current head only, so verify_historical_deployment refuses an admission older than TRUST_PERIOD_MS (programs/crates/layerx-programs-registry/src/chain_proof/trust.rs:27, 14 days) or one separated from the head by a full validator rotation (:71, signed power of the trusted set). Build the chain with intermediate steps: walk the validator-set changes between the admission height and the head through the node's historical validator sets, adding one step per change (and one per trust period when no change occurs) so each step is within the period and overlaps the previous set's power; add tests in program_node (a 20-day-old admission, a full non-adjacent rotation) and keep the registry's trust tests unchanged."
+do_2 = "Set follow_up of [disposition.18.1310.1.1] in spec/layerx-merge/dispositions/d18-11.kvx to 22.9.12 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/src/read/program_node.rs", "spec/layerx-merge/dispositions/d18-11.kvx"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/src/read/program_node.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- read::program_node"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.8.9]
+title = "Hand the TLS boundary a bound port instead of a released one"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.8.9"]
+interfaces = []
+do_1 = "services/platform/tests/support/tls_boundary.rs:170 binds 127.0.0.1:0 to learn a free port, drops the listener, then starts the layerx-paxeer-boundary binary with LAYERX_PAXEER_BOUNDARY_LISTEN set to that address and accepts one successful TCP readiness probe; another process can take the port in between. Make the boundary accept LAYERX_PAXEER_BOUNDARY_LISTEN with port 0 and report the address it bound on a line of its stdout (or in a file named by LAYERX_PAXEER_BOUNDARY_ADDRESS_FILE), and make the test read that address instead of pre-reserving one; the readiness probe then targets the reported port. Add a unit test in the boundary crate for the port-0 report."
+do_2 = "Set follow_up of [disposition.9.1.7.7] in spec/layerx-merge/dispositions/d9-1.kvx to 22.8.9 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = []
+touches = ["services/platform/tests/support/tls_boundary.rs", "services/platform/hosted/paxeer", "spec/layerx-merge/dispositions/d9-1.kvx"]
+tests = []
+planned_paths = ["services/platform/hosted/paxeer"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary --all-targets"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary -- listen tls"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.9.7]
+title = "Port the proof crate's terminal v4 test off the deleted v4 fixtures"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.9.7"]
+interfaces = []
+do_1 = "services/agent/crates/layerx-proof/tests/terminal_v4.rs:65 loads receipt-programs-executed-v4.json, receipt-programs-principal-v4.json and receipt-programs-mutated-leg-v4.json, which no longer exist under services/agent/crates/layerx-proof/tests/fixtures (retained: receipt-sequencer-v1.json, sequencer-receipt-v1.json, vector-v1-receipted-positive.json, vector-v2-receipted-revert.json, vector-v3-receipt-refusals.json, signed-authority). Port the three cases to the retained vectors where they carry the same receipt shapes, build the mutated-leg case in-test from a retained positive vector, and delete any case whose only producer was a deleted vector, naming it in the commit message. The Go half of the finding is task 22.8.8."
+do_2 = "Share d8-4.kvx with 22.8.8: set follow_up of [disposition.8.47.10.1] to 22.8.8 if it is still closure, otherwise leave the value 22.8.8 set."
+do_3 = "Set follow_up of [disposition.8.47.10.1] in spec/layerx-merge/dispositions/d8-4.kvx to 22.9.7 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = []
+touches = ["services/agent/crates/layerx-proof/tests/terminal_v4.rs", "spec/layerx-merge/dispositions/d8-4.kvx"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-proof/tests/terminal_v4.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test terminal_v4"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.16.6]
+title = "Serve verification and paused on every gateway asset row"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.16.6"]
+interfaces = []
+do_1 = "services/platform/hosted/gateway/src/paxeer.rs:665 builds px_listAssets rows with asset_id, denom and kind and custody_asset (:702) adds name, symbol, decimals and supply from the ledger precompile's asset record, while tools/qualification/paxeer-x/paid-web-contract.py:3470 requires verification equal to authenticated_committed_snapshot and paused to be false. The ledger asset decoder already carries paused (evm.rs:144, decoded at :445) and the gateway serves the rows from the committed snapshot it authenticates (:576, :796). Add paused from the decoded asset and verification = authenticated_committed_snapshot (the literal the SDK reader checks at services/agent/crates/layerx-sdk/src/rpc.rs:527) to every layerx asset record, and add a unit test in paxeer.rs asserting a listed asset carries both fields with the decoded paused value."
+do_2 = "Set follow_up of [disposition.16.7.4.2] in spec/layerx-merge/dispositions/d16-1.kvx to 22.16.6 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = []
+touches = ["services/platform/hosted/gateway/src/paxeer.rs", "spec/layerx-merge/dispositions/d16-1.kvx"]
+tests = []
+planned_paths = ["services/platform/hosted/gateway/src/paxeer.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway -- paxeer"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.91.16]
 title = "Inventory every test run of the services/explorer/services/smart-contract-verifier/Cargo.toml Rust workspace"
 status = "pending"
@@ -125586,7 +125952,7 @@ tests = []
 planned_paths = ["services/human/crates/layerx-human-kms"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --all-targets"
 verify_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --all-targets && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --no-run"
-gate_kind = "planned"
+gate_kind = "'existing'"
 sandbox_profile = "rust"
 owner_role = "fm-human"
 rollback = "Revert the task's commit; the crate returns to the state before the repair."
@@ -125597,6 +125963,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The task is a gate: when the build and the test compile already pass at main, no file changes and the verify record alone qualifies it."
 
 [task.22.90.8]
 title = "Make every target of layerx-mirror-signer build on main"
@@ -125616,7 +125983,7 @@ tests = []
 planned_paths = ["services/interop/crates/layerx-mirror-signer"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror-signer --all-targets"
 verify_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror-signer --all-targets && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror-signer --no-run"
-gate_kind = "planned"
+gate_kind = "'existing'"
 sandbox_profile = "rust"
 owner_role = "fm-interop"
 rollback = "Revert the task's commit; the crate returns to the state before the repair."
@@ -125627,6 +125994,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The task is a gate: when the build and the test compile already pass at main, no file changes and the verify record alone qualifies it."
 
 [task.22.90.7]
 title = "Make every target of layerx-interop-service build on main"
@@ -125646,7 +126014,7 @@ tests = []
 planned_paths = ["services/interop/crates/layerx-interop-service"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --all-targets"
 verify_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --all-targets && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-interop-service --no-run"
-gate_kind = "planned"
+gate_kind = "'existing'"
 sandbox_profile = "rust"
 owner_role = "fm-interop"
 rollback = "Revert the task's commit; the crate returns to the state before the repair."
@@ -125657,6 +126025,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The task is a gate: when the build and the test compile already pass at main, no file changes and the verify record alone qualifies it."
 
 [task.22.90.6]
 title = "Make every target of layerx-bridge-relayer build on main"
@@ -125676,7 +126045,7 @@ tests = []
 planned_paths = ["services/interop/crates/layerx-bridge-relayer"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --all-targets"
 verify_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --all-targets && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --no-run"
-gate_kind = "planned"
+gate_kind = "'existing'"
 sandbox_profile = "rust"
 owner_role = "fm-interop"
 rollback = "Revert the task's commit; the crate returns to the state before the repair."
@@ -125687,6 +126056,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The task is a gate: when the build and the test compile already pass at main, no file changes and the verify record alone qualifies it."
 
 [task.22.90.5]
 title = "Make every target of layerx-ap2 build on main"
@@ -125706,7 +126076,7 @@ tests = []
 planned_paths = ["services/interop/crates/layerx-ap2"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-ap2 --all-targets"
 verify_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-ap2 --all-targets && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-ap2 --no-run"
-gate_kind = "planned"
+gate_kind = "'existing'"
 sandbox_profile = "rust"
 owner_role = "fm-interop"
 rollback = "Revert the task's commit; the crate returns to the state before the repair."
@@ -125717,6 +126087,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The task is a gate: when the build and the test compile already pass at main, no file changes and the verify record alone qualifies it."
 
 [task.22.90.4]
 title = "Make every target of layerx-intents build on main"
@@ -125766,7 +126137,7 @@ tests = []
 planned_paths = ["services/agent/crates/layerx-mcp"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --all-targets"
 verify_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --all-targets && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --no-run"
-gate_kind = "planned"
+gate_kind = "'existing'"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert the task's commit; the crate returns to the state before the repair."
@@ -125777,6 +126148,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The task is a gate: when the build and the test compile already pass at main, no file changes and the verify record alone qualifies it."
 
 [task.22.90.2]
 title = "Make every target of layerx-sdk build on main"
@@ -125796,7 +126168,7 @@ tests = []
 planned_paths = ["services/agent/crates/layerx-sdk"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --all-targets"
 verify_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --all-targets && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --no-run"
-gate_kind = "planned"
+gate_kind = "'existing'"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert the task's commit; the crate returns to the state before the repair."
@@ -125807,6 +126179,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The task is a gate: when the build and the test compile already pass at main, no file changes and the verify record alone qualifies it."
 
 [task.22.90.1]
 title = "Make every target of layerx-mirror build on main"
@@ -125826,7 +126199,7 @@ tests = []
 planned_paths = ["services/interop/crates/layerx-mirror"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --all-targets"
 verify_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --all-targets && cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --no-run"
-gate_kind = "planned"
+gate_kind = "'existing'"
 sandbox_profile = "rust"
 owner_role = "fm-interop"
 rollback = "Revert the task's commit; the crate returns to the state before the repair."
@@ -125837,6 +126210,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The task is a gate: when the build and the test compile already pass at main, no file changes and the verify record alone qualifies it."
 
 [task.21.130.1]
 title = "Prove the runtime crate path end to end: producer, transport, consumer"
@@ -130205,6 +130579,64 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.8.8]
+title = "Port the Go lifecycle verifier test off the deleted v3 receipt fixture"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.8.8"]
+interfaces = []
+do_1 = "sdk/platform/go/native_program_lifecycle_test.go:169 (TestLifecycleVerifierRejectsCallOutcomeReceipt) opens ../conformance/fixtures/receipt-programs-positive-v3.json, deleted with the v3 vectors. Port the case to a retained fixture under sdk/platform/conformance/fixtures that carries a call-outcome receipt (or build the receipt in-test from the retained v4 or later vector set) so the verifier's refusal is still exercised; if no retained vector carries such a receipt, build it in-test and say so in the test's doc comment. The Rust half of the finding (layerx-proof terminal_v4.rs) is task 22.9.7."
+do_2 = "Set follow_up of [disposition.8.47.10.1] in spec/layerx-merge/dispositions/d8-4.kvx to 22.8.8 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = ["TestLifecycleVerifierRejectsCallOutcomeReceipt"]
+touches = ["sdk/platform/go/native_program_lifecycle_test.go", "spec/layerx-merge/dispositions/d8-4.kvx"]
+tests = ["sdk/platform/go/native_program_lifecycle_test.go::TestLifecycleVerifierRejectsCallOutcomeReceipt"]
+planned_paths = ["sdk/platform/go/native_program_lifecycle_test.go"]
+build_cmd = "cd sdk/platform/go && go vet ./"
+verify_cmd = "cd sdk/platform/go && go test -count=1 ./ -run '^TestLifecycleVerifier'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-platform"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.4.3]
+title = "Point the social schema tests at the service's own migrations"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.4.3"]
+interfaces = []
+do_1 = "services/launchpad/social/internal/interactions/store_test.go:78 and :86 and services/launchpad/social/internal/voice/control_test.go:77 read launchpad/spec/production-system/handoffs/L37/phase1/schema-proposal.sql, L37/phase2/schema-proposal.sql and L38/schema-proposal.sql, none of which exists in the tree; the service's DDL lives in services/launchpad/social/migrations (00001_init.sql through 00004_safety_bans_v1.sql; the interaction tables are in 00002_dev_v2_social.sql:79-109). Make both tests apply the migrations directory in order (through the existing migrations.go loader where it exposes one) instead of the handoff files, and add TestSchemaSourcesExist in each package asserting without a database that every DDL file the package applies exists and declares the tables the package's queries name."
+do_2 = "Set follow_up of [disposition.4.22.1.1] in spec/layerx-merge/dispositions/d4-1.kvx to 22.4.3 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = ["TestSchemaSourcesExist"]
+touches = ["services/launchpad/social/internal/interactions/store_test.go", "services/launchpad/social/internal/voice/control_test.go", "services/launchpad/social/internal/interactions/schema_sources_test.go", "services/launchpad/social/internal/voice/schema_sources_test.go", "spec/layerx-merge/dispositions/d4-1.kvx"]
+tests = ["services/launchpad/social/internal/interactions/schema_sources_test.go::TestSchemaSourcesExist", "services/launchpad/social/internal/voice/schema_sources_test.go::TestSchemaSourcesExist"]
+planned_paths = ["services/launchpad/social/internal/interactions/schema_sources_test.go", "services/launchpad/social/internal/voice/schema_sources_test.go"]
+build_cmd = "cd services/launchpad/social && go vet ./internal/interactions/ ./internal/voice/"
+verify_cmd = "cd services/launchpad/social && go test -count=1 ./internal/interactions/ ./internal/voice/ -run '^TestSchemaSourcesExist$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-launchpad"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.91.34]
 title = "Inventory the Go SDK modules"
@@ -158199,6 +158631,35 @@ do_7 = "Attempts 1 to 4 fail compiling sdk/platform/jvm/src/main/java/com/sidior
 do_8 = "Delete the two tests of sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java that construct LocalVerifier.AuthorizedReceiptBatch: actualKernelExecutionReceiptsKeepPinnedAuthorityAndAttachmentBindings (:437-466, reads the kernel receipt-programs-executed-v3/v4 vectors tasks 8.47.5 and 8.47.6 retire) and nativeTerminalV5CorpusBindsSignedRequestsReceiptsAndEveryOutcome (:468-534, calls the deleted verifyProgramTerminalV5Receipt and verifyReceiptOutcome). Leave every other test and helper, including the /v1/programs route tests task 8.42.6 retires."
 do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/TerminalV4Test.java:28-62 (it constructs LocalVerifier.AuthorizedReceiptBatch and calls the deleted LocalVerifier.verifyReceipt); keep nativeAccountAuthorizationVectors (:19-26) and drop imports that become unused. Task 8.47.6 still deletes the whole file later. The clients.md anchors of do_1 to do_3 now sit at spec/layerx-merge/contracts/clients.md:60 and :121."
 
+[task.22.8.7]
+title = "Drop the retired batch and checkpoint verifiers from the JVM conformance main"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.8.7"]
+interfaces = []
+do_1 = "sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java:186 calls LocalVerifier.verifyReceipt with the deleted AuthorizedReceiptBatch type and :188 calls the retired verifyBatchInclusion, so the conformance source set (pom.xml profile conformance, :124-136) no longer compiles. Remove the retired batch and checkpoint verification calls from invokeLocalVerification, keep the Merkle inclusion case and add a case through the retained receipt verifier the SDK exposes today, and make the conformance profile compile: mvn -q -f sdk/platform/jvm/pom.xml -Pconformance -DskipTests test-compile."
+do_2 = "Set follow_up of [disposition.8.42.5.1] in spec/layerx-merge/dispositions/d8-3.kvx to 22.8.7 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = []
+touches = ["sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java", "spec/layerx-merge/dispositions/d8-3.kvx"]
+tests = []
+planned_paths = ["sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java"]
+build_cmd = "mvn -q -f sdk/platform/jvm/pom.xml -DskipTests test-compile"
+verify_cmd = "mvn -q -f sdk/platform/jvm/pom.xml -Pconformance -DskipTests test-compile"
+gate_kind = "planned"
+sandbox_profile = "jvm"
+owner_role = "fm-platform"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.8.42.6]
 title = "JVM SDK removes the /v1/programs REST transport"
 status = "done"
@@ -182081,6 +182542,180 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.5.4]
+title = "Return the committed block's own id from LastBlockID"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.5.4"]
+interfaces = []
+do_1 = "node/app.go:3355 returns the check-context header's LastBlockId, which after committing height H still identifies H-1, and node/sequencer/executor_header_test.go:52 gives the committed block its own id as LastBlockID to make the assertion hold. Record the id of the block being committed (hash and part-set header as FinalizeBlock and Commit receive them) and return it from LastBlockID once Commit completes; the test builds the block with its parent's id as LastBlockID and asserts LastBlockID after Commit equals the committed block's own id. Add TestLastBlockIDIsTheCommittedBlock in node/ covering two consecutive commits."
+do_2 = "Set follow_up of [disposition.5.4.5.1] in spec/layerx-merge/dispositions/d5-1.kvx to 22.5.4 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = ["TestLastBlockIDIsTheCommittedBlock"]
+touches = ["node/app.go", "node/sequencer/executor_header_test.go", "node/last_block_id_test.go", "spec/layerx-merge/dispositions/d5-1.kvx"]
+tests = ["node/last_block_id_test.go::TestLastBlockIDIsTheCommittedBlock"]
+planned_paths = ["node/last_block_id_test.go"]
+build_cmd = "CGO_ENABLED=1 go build ./node/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./node/sequencer/ -run '^TestExecutorHeader' && CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestLastBlockIDIsTheCommittedBlock$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.2.4]
+title = "Refuse an exec under a revoked grant with ErrAuthRevoked"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.2.4"]
+interfaces = []
+do_1 = "Requirement 2063 ac_1 says a MsgExec under a LayerXScopeAuthorization fails with ErrAuthRevoked after the grantor revokes the grant on 0x101C, but modules/layerxauth/keeper/revoke.go:74 deletes the matching Cosmos grant, so authz finds no authorization and the exec fails with ErrUnauthorized before LayerXScopeAuthorization.Accept (which refuses by RevocationEpoch with ErrAuthRevoked, revocation_test.go:150) is reached; modules/layerxauth/ante/integration_test.go:243 asserts the weaker error. Stop deleting the Cosmos grant on revocation (keep the kernel grant's Revoked and RevokedAtSequence record and the revocation sequence), so the retained authorization refuses with ErrAuthRevoked, and change TestAuthzExecRefusedAfterKernelRevoke to assert ErrAuthRevoked and that a later re-grant replaces the authorization and succeeds. DeleteGrant stays available for the explicit grant deletion path."
+do_2 = "Set follow_up of [disposition.2.12.4.1] in spec/layerx-merge/dispositions/d2-1.kvx to 22.2.4 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = ["TestAuthzExecRefusedAfterKernelRevoke"]
+touches = ["modules/layerxauth/keeper/revoke.go", "modules/layerxauth/ante/integration_test.go", "spec/layerx-merge/dispositions/d2-1.kvx"]
+tests = ["modules/layerxauth/ante/integration_test.go::TestAuthzExecRefusedAfterKernelRevoke"]
+planned_paths = ["modules/layerxauth/ante/integration_test.go"]
+build_cmd = "CGO_ENABLED=1 go build ./modules/layerxauth/... ./node/"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./modules/layerxauth/keeper/ ./modules/layerxauth/ante/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.13.6]
+title = "Select the storage-retirement programs registration at genesis"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.13.6"]
+interfaces = []
+do_1 = "src/protocol/lxp_genesis.c:55 registers LXP_MODULE_PROGRAMS with programs_module_registration_v4 (src/modules/programs/registration.c:300), whose activity list (:46) omits storage retirement, although programs_module_registration_v4_storage_retirement (:311) carries it under the same ABI version. Make the genesis module table select the storage-retirement variant, and extend the test behind make test-genesis-module-table to assert the genesis programs registration lists the storage retirement activity type. If a consumer test asserts the shorter list, update it to the retained registration and name it in the commit message."
+do_2 = "Set follow_up of [disposition.13.27.4] in spec/layerx-merge/dispositions/d13-3.kvx to 22.13.6 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = []
+touches = ["src/protocol/lxp_genesis.c", "tests/protocol", "spec/layerx-merge/dispositions/d13-3.kvx"]
+tests = []
+planned_paths = ["tests/protocol"]
+build_cmd = "make -s all"
+verify_cmd = "make -s test-genesis-module-table && make -s test-genesis"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.13.5]
+title = "Bind ledger admission for the programs environment execute activity"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.13.5"]
+interfaces = []
+do_1 = "src/protocol/lxp_kernel.c:488 binds the Programs ledger admission facts only for LX_PROGRAMS_CALL and LX_PROGRAMS_WIND_DOWN, and src/protocol/lxp_module_ctx.c:1709 returns LXP_OK for the environment execute activity (activity type 0x00090009 in include/layerx/programs.h:99) so it runs on the legacy global sequence; the Go method execute test (precompiles/layerxprograms, the file named in touches, :155) compensates by setting the payer's sequence to ReadLastSequence plus one. Bind the environment execute activity exactly as CALL: lxp_kernel.c copies the actor, verified key and account facts for it, lxp_module_ctx.c checks bound, activity_binding and account_id for it instead of returning early, and the Go test drops the compensation and asserts the admission facts drive the sequence. Add a kernel case to the module-ctx test target asserting an unbound environment execute is refused with LXP_ERR_CONTEXT_MISMATCH."
+do_2 = "Set follow_up of [disposition.13.27.1.14] in spec/layerx-merge/dispositions/d13-3.kvx to 22.13.5 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = []
+touches = ["src/protocol/lxp_kernel.c", "src/protocol/lxp_module_ctx.c", "tests/protocol", "precompiles/layerxprograms/method_sandbox_execute_test.go", "spec/layerx-merge/dispositions/d13-3.kvx"]
+tests = []
+planned_paths = ["tests/protocol"]
+build_cmd = "make -s all && go build ./precompiles/layerxprograms/..."
+verify_cmd = "make -s test-module-ctx && make -s test-admission && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -run '^TestProgramsS[a-z]+Execute'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.12.3]
+title = "Register the committed fixture's standby leader in the genesis committee"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.12.3"]
+interfaces = []
+do_1 = "daemon/committed-fixture/main.go:455 writes a genesis validator set holding only the primary, :477 appends the standby's consensus key to the pinned leaders with ActivationHeight 2, and :233 initialises the standby in full mode, while consensus/internal/consensus/types/round_state.go:537 panics when a pinned leader is not in the committee. Make the fixture register the standby as a second genesis validator (its own priv_validator_key, power 1 beside the primary's 7000000000 so the primary alone keeps the quorum) initialised in validator mode, keep the standby's distinct receipt key, and assert the invariant in daemon/committed-fixture/main_test.go with TestStandbyLeaderIsInTheGenesisCommittee: every pinned leader in the generated genesis is a genesis validator. A standby-activation run that reaches a committed block past ActivationHeight is recorded in the test's doc comment with the fixture command used."
+do_2 = "Set follow_up of [disposition.12.35.4.3] in spec/layerx-merge/dispositions/d12-2.kvx to 22.12.3 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = ["TestStandbyLeaderIsInTheGenesisCommittee"]
+touches = ["daemon/committed-fixture/main.go", "daemon/committed-fixture/main_test.go", "spec/layerx-merge/dispositions/d12-2.kvx"]
+tests = ["daemon/committed-fixture/main_test.go::TestStandbyLeaderIsInTheGenesisCommittee"]
+planned_paths = ["daemon/committed-fixture/main_test.go"]
+build_cmd = "CGO_ENABLED=1 go build ./daemon/committed-fixture/"
+verify_cmd = "CGO_ENABLED=1 go vet ./daemon/committed-fixture/ && CGO_ENABLED=1 go test -count=1 ./daemon/committed-fixture/ -run '^TestStandbyLeaderIsInTheGenesisCommittee$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.1.3]
+title = "Make the oracle codec archive test assert ownership without the deleted adapter object"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.1.3"]
+interfaces = []
+do_1 = "modules/lxphost/oracle_codec_test.go:13 fails because it requires the archive member lx_oracle_adapter.o, whose source src/network/lx_oracle_adapter.c was deleted by 01d41cf0b and is excluded at Makefile:45. Rewrite TestOracleCodecObjectDefinesEncoders to assert what the retirement meant: lx_oracle_codec.o defines lx_oracle_observation_encode and lx_oracle_observation_sign, no other member of the kernel archive (kernelArchiveMembers, archive_symbols_test.go:15) defines either symbol, and no member named lx_oracle_adapter.o exists."
+do_2 = "Set follow_up of [disposition.1.29.1] in spec/layerx-merge/dispositions/d1-2.kvx to 22.1.3 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = ["TestOracleCodecObjectDefinesEncoders"]
+touches = ["modules/lxphost/oracle_codec_test.go", "spec/layerx-merge/dispositions/d1-2.kvx"]
+tests = ["modules/lxphost/oracle_codec_test.go::TestOracleCodecObjectDefinesEncoders"]
+planned_paths = ["modules/lxphost/oracle_codec_test.go"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go vet ./modules/lxphost/"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestOracleCodecObjectDefinesEncoders$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.91.41]
 title = "Inventory every test target of the kernel Makefile"
 status = "pending"
@@ -203861,6 +204496,166 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.22.9.13.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given an indexed submission after a restart, when the runtime restores it from the outbox, then the lookup uses the transaction hash the outbox stored and the native evidence test completes with a matching receipt"
+contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- human_runtime outbox protocol_evidence_native"
+test = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+qualification = "UNRUN"
+
+[acceptance.22.9.12.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given an admission older than the trust period or separated from the head by a full validator rotation, when the reader verifies the historical deployment, then intermediate trust steps bridge the gap and the proof verifies"
+contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- read::program_node"
+test = "services/agent/crates/layerx-agentd/src/read/program_node.rs"
+qualification = "UNRUN"
+
+[acceptance.22.9.11.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given a submitted market operation, when the Python journal checkpoints and finalizes it, then the rung is persisted and the result follows the transaction receipt and commit finality"
+contract = "cd services/agent/sdk/python && python3 -m pytest -q tests"
+test = "services/agent/sdk/python/tests"
+qualification = "UNRUN"
+
+[acceptance.22.9.10.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given a submitted market operation, when the TypeScript journal resolves it, then it finalizes against the transaction receipt and commit finality and no kernel receipt decoder remains"
+contract = "cd services/agent/sdk/typescript && npm ci && npm run build && npm test"
+test = "services/agent/sdk/typescript/test/ai-market.test.ts"
+qualification = "UNRUN"
+
+[acceptance.22.9.9.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given the envelope qualification script, when its served-read cases are listed, then none expects the retired settlement anchoring refusal and the SettlementAnchored export case asserts the daemon's current answer"
+contract = "python3 -m py_compile tools/qualification/paxeer-x/agent_operation_envelope.py && ! grep -q settlement_anchoring_unavailable tools/qualification/paxeer-x/agent_operation_envelope.py"
+test = "tools/qualification/paxeer-x/agent_operation_envelope.py"
+qualification = "UNRUN"
+
+[acceptance.22.9.8.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given the real-node script, when its exported variables are compared with the harness's required variables, then every one is provisioned before the make call"
+contract = "bash -n services/agent/tools/run-real-node-tests.sh && python3 -m pytest -q services/agent/tools/test_run_real_node_tests_env.py"
+test = "services/agent/tools/test_run_real_node_tests_env.py"
+qualification = "UNRUN"
+
+[acceptance.22.8.9.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given the boundary started with port 0, when the test reads the reported address, then the readiness probe succeeds on that port and no port is reserved and released beforehand"
+contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary -- listen tls"
+test = "services/platform/tests/support/tls_boundary.rs"
+qualification = "UNRUN"
+
+[acceptance.22.9.7.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given the retained proof fixtures, when the terminal v4 test target runs, then every case passes on vectors that exist in the tree"
+contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test terminal_v4"
+test = "services/agent/crates/layerx-proof/tests/terminal_v4.rs"
+qualification = "UNRUN"
+
+[acceptance.22.8.8.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given the retained conformance fixtures, when the lifecycle verifier tests run, then the call-outcome refusal case passes without the deleted v3 file"
+contract = "cd sdk/platform/go && go test -count=1 ./ -run '^TestLifecycleVerifier'"
+test = "sdk/platform/go/native_program_lifecycle_test.go"
+qualification = "UNRUN"
+
+[acceptance.22.8.7.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given the JVM SDK at HEAD, when the conformance profile compiles, then ConformanceMain references only retained verifiers and the compile succeeds"
+contract = "mvn -q -f sdk/platform/jvm/pom.xml -Pconformance -DskipTests test-compile"
+test = "sdk/platform/jvm/src/conformance/java/com/sidiora/layerx/sdk/ConformanceMain.java"
+qualification = "UNRUN"
+
+[acceptance.22.5.4.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given two consecutive committed blocks, when LastBlockID is read after each Commit, then it identifies the block just committed, and the executor header test no longer gives a block its own id as its parent"
+contract = "CGO_ENABLED=1 go test -count=1 ./node/sequencer/ -run '^TestExecutorHeader' && CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestLastBlockIDIsTheCommittedBlock$'"
+test = "node/last_block_id_test.go"
+qualification = "UNRUN"
+
+[acceptance.22.4.3.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given the social service at HEAD, when the schema tests resolve their DDL, then every file exists under services/launchpad/social/migrations and declares the tables the queries use"
+contract = "cd services/launchpad/social && go test -count=1 ./internal/interactions/ ./internal/voice/ -run '^TestSchemaSourcesExist$'"
+test = "services/launchpad/social/internal/interactions/schema_sources_test.go"
+qualification = "UNRUN"
+
+[acceptance.22.2.4.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given a MsgExec under a LayerXScopeAuthorization, when the grantor revokes the grant on 0x101C, then the exec fails with ErrAuthRevoked and a later re-grant succeeds"
+contract = "CGO_ENABLED=1 go test -count=1 ./modules/layerxauth/keeper/ ./modules/layerxauth/ante/"
+test = "modules/layerxauth/ante/integration_test.go"
+qualification = "UNRUN"
+
+[acceptance.22.16.6.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given a px_listAssets answer joined with the ledger asset record, when a layerx asset row is served, then it carries verification authenticated_committed_snapshot and the asset's paused flag"
+contract = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway -- paxeer"
+test = "services/platform/hosted/gateway/src/paxeer.rs"
+qualification = "UNRUN"
+
+[acceptance.22.16.5.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given the tracked Dockerfiles at HEAD, when the container check runs with no arguments, then it exits 0 and every tracked Dockerfile is placed or listed out of scope"
+contract = "bash tools/containers/check.sh && python3 -m pytest -q tools/containers/test_check_all_services_scope.py"
+test = "tools/containers/test_check_all_services_scope.py"
+qualification = "UNRUN"
+
+[acceptance.22.13.6.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given the genesis module table, when the programs registration is read, then its activity list includes storage retirement and the genesis tests pass"
+contract = "make -s test-genesis-module-table && make -s test-genesis"
+test = "tests/protocol"
+qualification = "UNRUN"
+
+[acceptance.22.13.5.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given a programs environment execute activity under the state-commitment protocol, when its ledger admission facts are unbound, then the kernel refuses with LXP_ERR_CONTEXT_MISMATCH, and when bound the payer's sequence follows the admission facts without a test-side compensation"
+contract = "make -s test-module-ctx && make -s test-admission && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -run '^TestProgramsS[a-z]+Execute'"
+test = "src/protocol/lxp_module_ctx.c"
+qualification = "UNRUN"
+
+[acceptance.22.12.3.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given the committed fixture's generated genesis with a standby, when the pinned leaders are compared with the validator set, then every leader is a genesis validator and the standby's receipt key stays distinct"
+contract = "CGO_ENABLED=1 go vet ./daemon/committed-fixture/ && CGO_ENABLED=1 go test -count=1 ./daemon/committed-fixture/ -run '^TestStandbyLeaderIsInTheGenesisCommittee$'"
+test = "daemon/committed-fixture/main_test.go"
+qualification = "UNRUN"
+
+[acceptance.22.10.6.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given an owner policy whose HUMAN_LIMIT_ID is 32 hex characters, when material.py renders the agent config, then LAYERX_AGENT_HUMAN_LIMIT_ID carries it unchanged and a 64-character id is refused"
+contract = "python3 -m pytest -q services/platform/hosted/human/test_material.py"
+test = "services/platform/hosted/human/test_material.py"
+qualification = "UNRUN"
+
+[acceptance.22.1.3.1]
+feature = "22"
+req = "22006.1"
+scenario = "Given the kernel archive built at HEAD, when the oracle codec test runs, then it passes with the codec object as the single definer of the observation encoders and no adapter member present"
+contract = "CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^TestOracleCodecObjectDefinesEncoders$'"
+test = "modules/lxphost/oracle_codec_test.go"
+qualification = "UNRUN"
+
 [acceptance.22.17.3.1]
 feature = "22"
 req = "22005.1"
@@ -212814,6 +213609,152 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx-merge/programme/tests/test_issue_closure.py: a temporary spec with one done and one superseded 18.x task returns an empty list."
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
+
+[task.22.9.11]
+title = "Give the Python market journal a rung checkpoint and commit-finality finalize"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.9.11"]
+interfaces = []
+do_1 = "services/agent/sdk/python/layerx_sdk/ai_market.py:1381 persists a checkpoint without a rung, OperationJournal (:1529) has no finalize and refuses nonempty receipts with ProgramsReceiptVerifierUnavailable (:1610), while the Rust client finalizes against CommitFinality (services/agent/crates/layerx-client/src/ai_market.rs:146, :261). Port the Rust semantics: checkpoint persists the rung, OperationJournal.finalize resolves against the transaction receipt and commit finality, nonempty receipts are verified through the retained verifier instead of refused, and tests under services/agent/sdk/python/tests cover a committed, a reverted and a not-yet-final operation."
+do_2 = "Share d9-6.kvx with 22.9.10: set follow_up of [disposition.9.97.14.1] to 22.9.11."
+do_3 = "Set follow_up of [disposition.9.97.14.1] in spec/layerx-merge/dispositions/d9-6.kvx to 22.9.11 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = ["OperationJournal"]
+touches = ["services/agent/sdk/python/layerx_sdk/ai_market.py", "services/agent/sdk/python/tests", "spec/layerx-merge/dispositions/d9-6.kvx"]
+tests = []
+planned_paths = ["services/agent/sdk/python/tests"]
+build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/ai_market.py"
+verify_cmd = "cd services/agent/sdk/python && python3 -m pytest -q tests"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.9.9]
+title = "Drop the retired settlement anchoring refusal from the envelope qualification"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.9.9"]
+interfaces = []
+do_1 = "tools/qualification/paxeer-x/agent_operation_envelope.py:2064 expects an export.offline request with requested_verification_level SettlementAnchored to be refused with 503 UnavailableCapability export.settlement_anchoring_unavailable, a refusal commit 7b851dcdd retired. Replace the case with what the daemon serves today for that request (read services/agent/crates/layerx-agentd for the SettlementAnchored export path and assert its success shape or its retained refusal), remove settlement_anchoring_unavailable from SERVED_READ_REFUSALS and its documentation, and keep the case numbering stable for the report."
+do_2 = "Set follow_up of [disposition.9.13.3.2] in spec/layerx-merge/dispositions/d9-3.kvx to 22.9.9 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = []
+touches = ["tools/qualification/paxeer-x/agent_operation_envelope.py", "spec/layerx-merge/dispositions/d9-3.kvx"]
+tests = []
+planned_paths = ["tools/qualification/paxeer-x/agent_operation_envelope.py"]
+build_cmd = "python3 -m py_compile tools/qualification/paxeer-x/agent_operation_envelope.py"
+verify_cmd = "python3 -m py_compile tools/qualification/paxeer-x/agent_operation_envelope.py && ! grep -q settlement_anchoring_unavailable tools/qualification/paxeer-x/agent_operation_envelope.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.9.8]
+title = "Provision the chain variables the real-node test harness requires"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.9.8"]
+interfaces = []
+do_1 = "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:1441 requires LAYERX_TEST_PAXEER_CHAIN_ID (and the harness its RPC port) while services/agent/tools/run-real-node-tests.sh:48 invokes the generic make target without exporting them; tools/qualification/paxeer-x/caps-codecs.py:74 supplies LAYERX_TEST_PAXEER_CHAIN_ID and LAYERX_TEST_PAXEER_RPC_PORT from the isolated runtime manifest. Make the script export both from the same source (the isolated runtime manifest when present, otherwise chain id 125 and the configured RPC port) before the make call, and add services/agent/tools/test_run_real_node_tests_env.py asserting the script exports every LAYERX_TEST_PAXEER_ variable the harness reads (grep the harness for std::env::var names)."
+do_2 = "Set follow_up of [disposition.9.3.1.3] in spec/layerx-merge/dispositions/d9-2.kvx to 22.9.8 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = ["test_run_real_node_tests_env"]
+touches = ["services/agent/tools/run-real-node-tests.sh", "services/agent/tools/test_run_real_node_tests_env.py", "spec/layerx-merge/dispositions/d9-2.kvx"]
+tests = ["services/agent/tools/test_run_real_node_tests_env.py"]
+planned_paths = ["services/agent/tools/test_run_real_node_tests_env.py"]
+build_cmd = "bash -n services/agent/tools/run-real-node-tests.sh"
+verify_cmd = "bash -n services/agent/tools/run-real-node-tests.sh && python3 -m pytest -q services/agent/tools/test_run_real_node_tests_env.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.16.5]
+title = "Place the six remaining tracked Dockerfiles in the container check's scope list"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.16.5"]
+interfaces = []
+do_1 = "tools/containers/check.sh with no arguments exits 1 because OUT_OF_SCOPE (:92-110) omits six tracked Dockerfiles that the all-services branch (:218) then rejects: apps/perps/Dockerfile, core/deps/db-backend/tools/Dockerfile, core/deps/geth/Dockerfile, core/deps/geth/Dockerfile.alltools, core/deps/geth/crypto/secp256k1/libsecp256k1/ci/linux-debian.Dockerfile and deploy/launchpad/Dockerfile.native. Add them to OUT_OF_SCOPE under the existing comment groups (another lane for apps/perps and deploy/launchpad, vendored upstream trees for core/deps), and add tools/containers/test_check_all_services_scope.py asserting that check.sh with no arguments exits 0 at HEAD and that every tracked Dockerfile is either placed by SERVICES or listed in OUT_OF_SCOPE."
+do_2 = "Set follow_up of [disposition.16.3.1.1] in spec/layerx-merge/dispositions/d16-1.kvx to 22.16.5 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = ["test_check_all_services_scope"]
+touches = ["tools/containers/check.sh", "tools/containers/test_check_all_services_scope.py", "spec/layerx-merge/dispositions/d16-1.kvx"]
+tests = ["tools/containers/test_check_all_services_scope.py"]
+planned_paths = ["tools/containers/test_check_all_services_scope.py"]
+build_cmd = "bash -n tools/containers/check.sh"
+verify_cmd = "bash tools/containers/check.sh && python3 -m pytest -q tools/containers/test_check_all_services_scope.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.10.6]
+title = "Validate the owner policy limit id at the daemon's sixteen-byte width"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22006.1"]
+capabilities = ["22.10.6"]
+interfaces = []
+do_1 = "services/platform/hosted/human/material.py:1378 requires HUMAN_LIMIT_ID to match [0-9a-f]{64} and :904 writes it as LAYERX_AGENT_HUMAN_LIMIT_ID, but the consumer services/agent/crates/layerx-agentd/src/main.rs:135 parses that variable with parse_hex into a 16-byte LimitId (budget/reserve.rs:11), so every policy material.py accepts is refused by the daemon. Change the check to [0-9a-f]{32}, update every example or fixture value of HUMAN_LIMIT_ID under services/platform/hosted/human (README.md, provision.py and the test fixtures) and in docs/site/docs/agents/running.md and docs/wiki/RunningAnAgent.md to 32 hex characters, and add test_owner_policy_limit_id_is_sixteen_bytes to services/platform/hosted/human/test_material.py: a 64-character id is refused with the existing 'owner policy horizon or limit binding' refusal and a 32-character id is written unchanged as LAYERX_AGENT_HUMAN_LIMIT_ID."
+do_2 = "Set follow_up of [disposition.10.20.3.14] in spec/layerx-merge/dispositions/d10-3.kvx to 22.10.6 (status stays open; the closure resolves it when this task is done) and keep the evidence sentence."
+symbols = ["test_owner_policy_limit_id_is_sixteen_bytes"]
+touches = ["services/platform/hosted/human/material.py", "services/platform/hosted/human/test_material.py", "services/platform/hosted/human/README.md", "services/platform/hosted/human/provision.py", "docs/site/docs/agents/running.md", "docs/wiki/RunningAnAgent.md", "spec/layerx-merge/dispositions/d10-3.kvx"]
+tests = ["services/platform/hosted/human/test_material.py::test_owner_policy_limit_id_is_sixteen_bytes"]
+planned_paths = ["services/platform/hosted/human/test_material.py"]
+build_cmd = "python3 -m py_compile services/platform/hosted/human/material.py"
+verify_cmd = "python3 -m pytest -q services/platform/hosted/human/test_material.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-human"
+rollback = "Revert the task's commits; the disposition returns to follow_up closure."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.17.3]
 title = "Reconcile every interface row against the tree at HEAD"
