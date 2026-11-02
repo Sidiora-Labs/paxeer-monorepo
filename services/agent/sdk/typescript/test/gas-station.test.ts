@@ -471,6 +471,7 @@ try {
     ["tokenAmount", "-1", "invalid_response"],
     ["tokenAmount", "2e6", "invalid_response"],
     ["tokenAmount", "02000000", "invalid_response"],
+    ["tokenAmount", (1n << 256n).toString(), "invalid_response"],
   ] as const) {
     responseBody = JSON.stringify({
       ...envelope,
@@ -514,7 +515,7 @@ try {
     await requestGasQuote(config, request, { now: 999n }),
     "invalid_value",
   );
-  assert.equal(requestCount, 17);
+  assert.equal(requestCount, 18);
   for (const feeDenom of ["factory/issuer/usid", "a".repeat(64)]) {
     responseStatus = 200;
     responseBody = JSON.stringify({ ...envelope, feeDenom });
@@ -635,7 +636,7 @@ try {
     "invalid_signature",
     "signature",
   );
-  assert.equal(requestCount, 35);
+  assert.equal(requestCount, 36);
   stallRequests = true;
   const controller = new AbortController();
   const watchdog = setTimeout(() => controller.abort(), 20_000);
@@ -661,7 +662,7 @@ try {
     }),
     "cancelled",
   );
-  assert.equal(requestCount, 38);
+  assert.equal(requestCount, 39);
 } finally {
   const closed = once(server, "close");
   server.close();
@@ -832,10 +833,7 @@ async function paymaster_nonce_stream(): Promise<void> {
       { method: "eth_getCode", params: [batch.account, "latest"] },
       {
         method: "eth_call",
-        params: [
-          { to: batch.account, data: abiSelector("nonce()") },
-          "latest",
-        ],
+        params: [{ to: batch.account, data: abiSelector("nonce()") }, "latest"],
       },
     ]);
     const evmNonce = await rpc({

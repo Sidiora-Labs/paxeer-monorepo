@@ -1,6 +1,6 @@
 import { createContext,createElement,useContext,type ReactNode } from 'react';
 import { decodeFunctionData, decodeErrorResult, decodeEventLog, erc20Abi, getAddress, keccak256, parseAbi, stringToHex, zeroAddress, type Address, type Hash, type Hex, type PublicClient, type WalletClient } from 'viem';
-import { CORE_DEPLOYMENT } from '@/core/network/deployment';
+import { CORE_DEPLOYMENT, CORE_TRADE_EXECUTION_ROLES } from '@/core/network/deployment';
 import type { AccountScope, WalletSessionController } from '@/core/wallet-sdk/session';
 import { EvidenceIntegrityError, executableQuote, raw, contextKey, encodeReviewedRouterCalldata, reviewedRouterAbi, quoteFingerprint, type TradeContext, type QuoteEnvelope, type OpticalSimulation, type TxAttempt, type ReceiptEvidence } from './domain';
 
@@ -25,15 +25,13 @@ export function opticalRejection(error:unknown):unknown {
 const implementationSlot = '0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc' as const;
 export interface CodePin { address: Address; runtimeHash: Hash; implementation?: Address; implementationHash?: Hash }
 export interface TradeDeployment { revision: string; router: Address; quoter: Address; registry: Address; emitter: Address; usdl: Address; pins: readonly CodePin[] }
-const proxyHash = '0xb2f39d5c380b45131e836d4beb5254d4e5c410d35935bf270e8492755f7da6f7' as Hash;
 export const productionTradeDeployment: TradeDeployment = {
   revision: CORE_DEPLOYMENT.manifestSha256, router: CORE_DEPLOYMENT.router, quoter: CORE_DEPLOYMENT.quoter, registry: CORE_DEPLOYMENT.poolRegistry, emitter: CORE_DEPLOYMENT.eventEmitter, usdl: CORE_DEPLOYMENT.usdl,
-  pins: [
-    {address: CORE_DEPLOYMENT.router,runtimeHash:CORE_DEPLOYMENT.roleIdentity.router.runtimeHash},
-    {address:CORE_DEPLOYMENT.quoter,runtimeHash:CORE_DEPLOYMENT.roleIdentity.quoter.runtimeHash},
-    {address:CORE_DEPLOYMENT.poolRegistry,runtimeHash:CORE_DEPLOYMENT.roleIdentity.poolRegistry.runtimeHash},
-    {address:CORE_DEPLOYMENT.eventEmitter,runtimeHash:proxyHash,implementation:'0x6d48a32e313cc4F08acdeE1F39F7e6B56F03a1cB',implementationHash:'0xd0dc6f1aa54811dc2b9ea13e4519b6b6992ba0a082ac55c2d9e312443b289c08'},
-  ],
+  pins: CORE_TRADE_EXECUTION_ROLES.map(role => {
+    const identity = CORE_DEPLOYMENT.roleIdentity[role];
+    return { address: CORE_DEPLOYMENT[role], runtimeHash: identity.runtimeHash,
+      ...('implementationAddress' in identity ? { implementation: identity.implementationAddress, implementationHash: identity.implementationHash } : {}) };
+  }),
 };
 const TradeExecutionContext=createContext<TradeDeployment|undefined>(undefined);
 export function TradeExecutionProvider({deployment,children}:{deployment?:TradeDeployment;children:ReactNode}) {

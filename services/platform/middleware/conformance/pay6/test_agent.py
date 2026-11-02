@@ -1,4 +1,5 @@
 import concurrent.futures
+import hashlib
 import sqlite3
 import tempfile
 import unittest
@@ -7,11 +8,13 @@ from urllib.error import URLError
 
 from test_commitment import CommitmentTests, FIXTURE
 from layerx_sdk.verifier import verify_sequencer_receipt
-from layerx_sdk.x402_agent import PaymentBudget, AgentGrantMiddleware
-from layerx_sdk.x402_draw import PreparedGrantDraws
+from layerx_sdk.x402_agent import PaymentBudget
+from layerx_sdk.account_derivation import _N, _recover, keccak256
+from layerx_sdk.evm_transaction import Type2Transaction, decode_signed, encode_call
+from layerx_sdk.production import PlatformSdkError, SdkErrorCode
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec, utils
 from layerx_sdk.x402_rpc import PaymentRpc
-from layerx_sdk.x402_http import ConfiguredReceiptAuthority
-from layerx_sdk.x402_receive import decode_receive
 from layerx_sdk.x402_http import PaymentEvidence
 
 
@@ -44,7 +47,13 @@ class AgentBudgetTests(CommitmentTests):
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 list(pool.map(lambda _: budget.reserve(key, digest, offer), range(8)))
             for _ in range(2):
-                budget.verify_and_commit(key, digest, offer, evidence, self.receipt_keys)
+                budget = PaymentBudget(
+                    path, "tenant", offer["asset"], int(offer["amount"]) * 2
+                )
+                verified = budget.verify_and_commit(
+                    key, digest, offer, evidence, self.receipt_keys
+                )
+                self.assertEqual(verified.canonical_bytes, evidence.canonical_receipt)
             with self.assertRaises(ValueError):
                 budget.reserve(key, "03" * 32, offer)
             second = "04" * 32
@@ -64,61 +73,90 @@ class AgentBudgetTests(CommitmentTests):
                     ).fetchone(),
                     (1,),
                 )
+                self.assertEqual(
+                    db.execute(
+                        "SELECT receipt_digest FROM payment_reservations WHERE request_key = ?",
+                        (key,),
+                    ).fetchone(),
+                    (
+                        hashlib.sha256(
+                            b"LXP/v1/merkle-leaf\0" + evidence.canonical_receipt
+                        ).hexdigest(),
+                    ),
+                )
 
     def test_agent_draw_preserves_unknown_reservation(self):
-        receive = bytes.fromhex(
-            Path(__file__).with_name("receive.hex").read_text().splitlines()[0]
+        words = (
+            bytes.fromhex("33" * 32),
+            bytes.fromhex("11" * 32),
+            (40).to_bytes(32, "big"),
+            bytes.fromhex("44" * 32),
+            (0x0102030405060708).to_bytes(32, "big"),
+            bytes.fromhex("22" * 32),
+            bytes.fromhex("55" * 32),
         )
-        canonical = bytes.fromhex(
-            Path(__file__).with_name("draw.hex").read_text().splitlines()[0]
+        calldata = encode_call(
+            "draw",
+            ("bytes32", "bytes32", "uint128", "bytes32", "uint64", "bytes32", "bytes32"),
+            (words[0], words[1], 40, words[3], 0x0102030405060708, words[5], words[6]),
         )
-        r = decode_receive(receive)
-        key, digest = "04" + "00" * 31, "ab" * 32
+        self.assertEqual(calldata, bytes.fromhex("2e89490f") + b"".join(words))
+        transaction = Type2Transaction(
+            chain_id=125, nonce=7, max_priority_fee_per_gas=1,
+            max_fee_per_gas=2, gas_limit=200000,
+            to=bytes.fromhex("000000000000000000000000000000000000101a"),
+            value=0, data=calldata,
+        )
+        signing_key = ec.derive_private_key(int.from_bytes(bytes([1]) * 32, "big"), ec.SECP256K1())
+        public = signing_key.public_key().public_numbers()
+        public_xy = public.x.to_bytes(32, "big") + public.y.to_bytes(32, "big")
+        signing_digest = transaction.signing_digest()
+        r, s = utils.decode_dss_signature(signing_key.sign(
+            signing_digest, ec.ECDSA(utils.Prehashed(hashes.SHA256()))
+        ))
+        s = min(s, _N - s)
+        signature = None
+        for parity in (0, 1):
+            if _recover(signing_digest, r, s, parity) == public_xy:
+                signature = r.to_bytes(32, "big") + s.to_bytes(32, "big") + bytes([27 + parity])
+                break
+        self.assertIsNotNone(signature)
+        signer = "0x1a642f0e3c3af545e7acbd38b07251b3990914f1"
+        canonical = transaction.attach_signature(signature, signer)
+        self.assertEqual(decode_signed(canonical)[0], transaction)
+        self.assertEqual(transaction.recover_signer(signature).lower(), signer)
+        key, digest = words[3].hex(), words[6].hex()
         offer = {
-            "scheme": "subscription",
+            "scheme": "exact",
             "network": "layerx:beta",
-            "amount": r["amount"],
-            "asset": r["asset"],
-            "payTo": r["to"],
+            "amount": "40",
+            "asset": "66" * 32,
+            "payTo": signer[2:].rjust(64, "0"),
             "maxTimeoutSeconds": 30,
-            "extra": {
-                "layerx": {
-                    "commitment": "executed",
-                    "payer": r["from"],
-                    "purposeHash": r["payer_grant"]["purpose_hash"],
-                    "windowSeconds": "3600",
-                }
-            },
+            "extra": {"layerx": {"commitment": "receipted"}},
         }
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "budget.sqlite")
-            budget = PaymentBudget(path, "tenant", r["asset"], int(r["amount"]))
-            draws = PreparedGrantDraws(
-                str(Path(directory) / "draws.sqlite"),
-                "did:lxp:pay6-receiver",
-                7,
-                PaymentRpc("http://127.0.0.1:1/rpc"),
-                ConfiguredReceiptAuthority(self.raw_transaction),
-                self.receipt_keys,
-            )
-            draws.register(
-                "payer", digest, canonical, receive, key, "subscription:period:1"
-            )
-            agent = AgentGrantMiddleware(budget, draws, self.receipt_keys)
+            budget = PaymentBudget(path, "tenant", offer["asset"], 40)
+            budget.reserve(key, digest, offer)
+            rpc = PaymentRpc("http://127.0.0.1:1/rpc")
+            with self.assertRaises(PlatformSdkError) as raised:
+                rpc.send("0x" + canonical.hex())
+            self.assertEqual(raised.exception.code, SdkErrorCode.UNKNOWN_OUTCOME)
+            transaction_hash = "0x" + keccak256(canonical).hex()
             for _ in range(2):
+                budget = PaymentBudget(path, "tenant", offer["asset"], 40)
+                budget.reserve(key, digest, offer)
                 with self.assertRaises(URLError):
-                    agent(
-                        "payer",
-                        digest,
-                        {"receive": receive.hex(), "idempotencyKey": key},
-                        offer,
-                    )
+                    rpc.receipt(transaction_hash)
+            with self.assertRaises(ValueError):
+                budget.reserve("66" * 32, digest, offer)
             with sqlite3.connect(path) as db:
                 self.assertEqual(
                     db.execute(
                         "SELECT amount, receipt_digest FROM payment_reservations"
                     ).fetchall(),
-                    [(r["amount"], None)],
+                    [(offer["amount"], None)],
                 )
 
     def test_budget_requires_requested_commitment(self):
@@ -129,14 +167,14 @@ class AgentBudgetTests(CommitmentTests):
             "asset": self.offer["asset"],
             "payTo": self.offer["pay_to"],
             "maxTimeoutSeconds": 30,
-            "extra": {"layerx": {"commitment": "finalised"}},
+            "extra": {"layerx": {"commitment": "committed"}},
         }
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "budgets.sqlite")
             budget = PaymentBudget(path, "tenant", offer["asset"], int(offer["amount"]))
             key, digest = "01" * 32, "02" * 32
             budget.reserve(key, digest, offer)
-            with self.assertRaises(Exception):
+            with self.assertRaises(PlatformSdkError):
                 budget.verify_and_commit(
                     key,
                     digest,

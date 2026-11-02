@@ -16,7 +16,8 @@ export function matchDepositLog(transfer: BridgeTransfer, logs: ReadonlyArray<Lo
   const events = parseEventLogs({
     abi: paxeerXVaultAbi,
     eventName: 'BridgeDeposit',
-    logs: logs.filter((log) => log.address.toLowerCase() === vault),
+    logs: logs.filter((log) => !log.removed && log.transactionHash?.toLowerCase() === transfer.sourceTxHash.toLowerCase() &&
+      log.address.toLowerCase() === vault),
   });
 
   return events.find((event) =>
@@ -28,9 +29,10 @@ export function matchDepositLog(transfer: BridgeTransfer, logs: ReadonlyArray<Lo
 }
 
 export function nonceFromBridgeOutLogs(logs: ReadonlyArray<Log>): bigint | undefined {
-  const events = parseEventLogs({
+  const events = parseEventLogs<typeof layerxBridgeAbi, true, string>({
     abi: layerxBridgeAbi,
-    logs: logs.filter((log) => log.address.toLowerCase() === LAYERX_BRIDGE_ADDRESS),
+    eventName: 'BridgeOut',
+    logs: logs.filter((log) => !log.removed && log.address.toLowerCase() === LAYERX_BRIDGE_ADDRESS),
   });
   const args = events.find((event) => event.eventName === 'BridgeOut')?.args;
   return args && 'nonce' in args && typeof args.nonce === 'bigint' ? args.nonce : undefined;
@@ -43,7 +45,7 @@ export function importDeposit(chain: BridgeChain, receipt: TransactionReceipt): 
   const events = parseEventLogs({
     abi: paxeerXVaultAbi,
     eventName: 'BridgeDeposit',
-    logs: receipt.logs.filter((log) => log.address.toLowerCase() === chain.vault?.toLowerCase()),
+    logs: receipt.logs.filter((log) => !log.removed && log.address.toLowerCase() === chain.vault?.toLowerCase()),
   });
   const event = events[0];
   if (!event || event.logIndex === null) throw new Error(`No BridgeDeposit log from vault ${ chain.vault } was found.`);
@@ -82,7 +84,7 @@ export function importWithdrawal(receipt: TransactionReceipt): BridgeTransfer {
   const events = parseEventLogs<typeof layerxBridgeAbi, true, string>({
     abi: layerxBridgeAbi,
     eventName: 'BridgeOut',
-    logs: receipt.logs.filter((log) => log.address.toLowerCase() === LAYERX_BRIDGE_ADDRESS),
+    logs: receipt.logs.filter((log) => !log.removed && log.address.toLowerCase() === LAYERX_BRIDGE_ADDRESS),
   });
   const event = events.find((entry) => entry.args && 'nonce' in entry.args && entry.args.nonce === nonce);
   const args = event?.args;

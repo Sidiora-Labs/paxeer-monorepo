@@ -802,6 +802,9 @@ impl AgentBoundary for RealAgentLayer {
         let verified =
             verify_before_submit(&signed, &signing, &signing.actor_address, &self.registry)
                 .map_err(|_| AgentBoundaryError::Refused)?;
+        assert_eq!(verified.exact_bytes(), signed);
+        assert_eq!(verified.idempotency_key(), key);
+        assert_eq!(verified.activity_id(), transaction_hash(&signed));
         let raw = if let Some(id) = self.outbox_submissions.get(&key) {
             self.outbox
                 .exact_signed_bytes(*id)

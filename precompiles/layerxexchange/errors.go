@@ -23,6 +23,9 @@ func RevertError(err error) error {
 			return err
 		}
 		code = KernelCodeText(result)
+		if code == "" {
+			return err
+		}
 	}
 	return revertError{cause: err, code: code}
 }

@@ -75,10 +75,13 @@ func rewindBeforeMerge(t *testing.T, a *App, ctx sdk.Context) {
 		store.Delete(key)
 	}
 	params := ctx.KVStore(a.GetKey(paramstypes.StoreKey))
-	params.Delete(append([]byte(seqtypes.ModuleName+"/"), seqkeeper.KeyReceiptKeys...))
+	for _, key := range [][]byte{seqkeeper.KeyReceiptKeys, seqkeeper.KeyLeaders} {
+		params.Delete(append([]byte(seqtypes.ModuleName+"/"), key...))
+	}
 	ctx.KVStore(a.GetKey(upgradetypes.StoreKey)).Delete(append([]byte{upgradetypes.VersionMapByte}, seqtypes.ModuleName...))
 	require.NotContains(t, a.UpgradeKeeper.GetModuleVersionMap(ctx), seqtypes.ModuleName)
 	require.Nil(t, seqkeeper.GetReceiptKeys(ctx, a.GetSubspace(seqtypes.ModuleName)))
+	require.Nil(t, seqkeeper.GetLeadersParam(ctx, a.GetSubspace(seqtypes.ModuleName)))
 	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(ctx, MergeUpgrade))
 }
 

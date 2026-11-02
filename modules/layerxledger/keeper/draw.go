@@ -8,6 +8,7 @@ import (
 
 type DrawArgs = types.DrawArgs
 
+// Draw refuses the retired payer-grant path without submitting a kernel activity.
 func (k *Keeper) Draw(ctx sdk.Context, actor Actor, args types.DrawArgs) (Result, error) {
 	if err := k.checkPause(ctx, "draw"); err != nil {
 		return Result{}, err

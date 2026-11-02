@@ -8,13 +8,22 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
 )
 
-func (k Keeper) SetDenomPausedByIssuer(ctx sdk.Context, denom, callerDid string, paused bool) error {
+// requireIssuer reads and validates the persisted binding on every operation.
+func (k Keeper) requireIssuer(ctx sdk.Context, denom, callerDid string) (string, error) {
 	issuerDid, err := k.IssuerDid(ctx, denom)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if issuerDid == "" || issuerDid != callerDid {
-		return types.ErrIssuerMismatch
+		return "", types.ErrIssuerMismatch
+	}
+	return issuerDid, nil
+}
+
+func (k Keeper) SetDenomPausedByIssuer(ctx sdk.Context, denom, callerDid string, paused bool) error {
+	issuerDid, err := k.requireIssuer(ctx, denom, callerDid)
+	if err != nil {
+		return err
 	}
 	if err := k.setDenomPaused(ctx, denom, paused); err != nil {
 		return err

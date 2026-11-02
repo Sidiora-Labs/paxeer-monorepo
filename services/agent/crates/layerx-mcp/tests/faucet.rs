@@ -259,3 +259,13 @@ fn the_daemon_refuses_a_faucet_claim_the_session_no_longer_authorizes() {
     assert_eq!(server.audit_entries(), 1);
     let _ = fs::remove_dir_all(root);
 }
+
+#[test]
+fn faucet_installation_descriptor_preserves_the_shared_definition() {
+    let schema = layerx_mcp::catalogue::input_schema(FAUCET_REQUEST.name)
+        .unwrap_or_else(|| panic!("faucet schema"));
+    let descriptor = FAUCET_REQUEST.descriptor(schema.clone());
+    assert_eq!(descriptor["name"], FAUCET_REQUEST.name);
+    assert_eq!(descriptor["scope"], FAUCET_REQUEST.required_scope);
+    assert_eq!(descriptor["arguments"], schema);
+}

@@ -2,6 +2,7 @@ package app
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -32,8 +33,17 @@ var productionUnservedOperations = []struct{ method, path string }{
 	{http.MethodPost, "/v2/quotes"},
 }
 
+// WriteV2NotConfiguredError keeps private operation failures private even when
+// credentials arrive in a cookie rather than the Authorization header.
+func WriteV2NotConfiguredError(w http.ResponseWriter, r *http.Request) {
+	if strings.HasPrefix(r.URL.Path, "/v2/me/") || strings.HasPrefix(r.URL.Path, "/v2/admin/") || strings.HasPrefix(r.URL.Path, "/v2/operator/") {
+		w.Header().Set("Cache-Control", "private, no-store")
+	}
+	rest.WriteV2NotConfiguredError(w, r)
+}
+
 func registerUnservedOperations(r chi.Router, admission *rest.Admission, ops []struct{ method, path string }) {
-	var handler http.Handler = http.HandlerFunc(rest.WriteV2NotConfiguredError)
+	var handler http.Handler = http.HandlerFunc(WriteV2NotConfiguredError)
 	if admission != nil {
 		handler = admission.Middleware(rest.AdmissionCached)(handler)
 	}

@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, HashSet};
 
-use layerx_indexer::abi::{keccak, AbiRegistry};
+use layerx_indexer::abi::{keccak, precompile_address, AbiRegistry, LoadedAbi};
 use layerx_indexer::api;
 use layerx_indexer::codec::hex;
 use layerx_indexer::paxeer::{self, AttributeEncoding, BlockInputs};
@@ -607,4 +607,287 @@ fn freshness_carries_the_indexed_and_chain_heights() {
         assert_eq!(page["version"], 1, "{target}");
         assert!(page["freshness"].is_object(), "{target}");
     }
+}
+
+/// Proves real App.DeliverTx receipts from 0x101C survive ABI decoding,
+/// holder projection, SQLite restart and replay before the holder API reads them.
+/// The Go producer is also callable when this consumer test is run on its own.
+#[test]
+fn proof_layerxauth_0x101c_receipts() {
+    use layerx_indexer::abi::{precompile_address, LoadedAbi};
+    use std::path::PathBuf;
+    use std::process::Command;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    struct Scratch(PathBuf);
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.0);
+        }
+    }
+    let nonce = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
+    let scratch = Scratch(
+        std::env::temp_dir().join(format!("layerxauth-proof-{}-{nonce}", std::process::id())),
+    );
+    std::fs::create_dir(&scratch.0).unwrap();
+    let input = match std::env::var_os("LAYERX_AUTH_PROOF_INPUT") {
+        Some(path) => PathBuf::from(path),
+        None => {
+            let path = scratch.0.join("evm-receipts.json");
+            let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .ancestors()
+                .nth(4)
+                .unwrap();
+            let output = Command::new("go")
+                .current_dir(root)
+                .args([
+                    "test",
+                    "-count=1",
+                    "./precompiles/layerxauth/",
+                    "-run",
+                    "^TestProofLayerxauth0x101c$",
+                ])
+                .env("LAYERX_AUTH_PROOF_INPUT", &path)
+                .output()
+                .unwrap();
+            assert!(
+                output.status.success(),
+                "real EVM producer: {}{}",
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            path
+        }
+    };
+    let proof: Value = serde_json::from_slice(&std::fs::read(input).unwrap()).unwrap();
+    let holder = proof["holder"].as_str().unwrap().to_ascii_lowercase();
+    let grant_id = proof["grantId"]
+        .as_str()
+        .unwrap()
+        .trim_start_matches("0x")
+        .to_owned();
+    let mut registry = AbiRegistry::default();
+    registry.insert(LoadedAbi {
+        contract: "layerxauth".to_owned(),
+        address: Some(precompile_address(0x101c)),
+        events: AbiRegistry::parse_events("layerxauth", &proof["abi"]).unwrap(),
+    });
+    let decode = |height: u64, receipt_key: &str, tx_key: &str| {
+        let tx_hash = proof[tx_key].as_str().unwrap().to_owned();
+        let block_hash = hash(0xb10c_0000_0000 + height);
+        let block = json!({
+            "number": format!("0x{height:x}"), "hash": block_hash,
+            "parentHash": hash(0xb10c_0000_0000 + height - 1),
+            "transactions": [{"hash": tx_hash, "from": holder, "to": AUTH,
+                "value": "0x0", "transactionIndex": "0x0"}],
+        });
+        let mut receipt = proof[receipt_key].clone();
+        receipt["blockHash"] = json!(block_hash);
+        let receipts = BTreeMap::from([(tx_hash, receipt)]);
+        let is_pointer = |_: &str| Ok(false);
+        paxeer::decode_block(
+            &block,
+            &BlockInputs {
+                registry: &registry,
+                receipts: &receipts,
+                cosmos_txs: &[],
+                encoding: AttributeEncoding::Base64,
+                is_pointer: &is_pointer,
+            },
+        )
+        .unwrap()
+    };
+    let opened = decode(11, "granted", "grantTx");
+    assert_eq!(
+        opened.holders.len(),
+        1,
+        "body chunks must open exactly one holder record"
+    );
+    let target = format!("/v1/holders/{holder}?kind=grant");
+    let path = scratch.0.join("index.sqlite");
+    let store = Store::open(&path).unwrap();
+    store.commit(&opened, 2).unwrap();
+    let (status, active) = get(&store, &target);
+    assert_eq!(status, 200);
+    let rows = items(&active);
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["holder"], holder);
+    assert_eq!(rows[0]["contract"], "layerxauth");
+    assert_eq!(rows[0]["record_id"], grant_id);
+    assert_eq!(rows[0]["state"], "active");
+    assert_eq!(rows[0]["opened"]["event"], "GrantBody");
+    assert_eq!(rows[0]["opened"]["decoded"]["args"]["sub"], "5");
+    assert_eq!(rows[0]["opened"]["decoded"]["args"]["chunk"], "0");
+    let mut body = String::from("0x");
+    for log in proof["granted"]["logs"].as_array().unwrap() {
+        if log["topics"][0] == topic("GrantBody(bytes32,uint8,uint8,bytes)") {
+            let topics = log["topics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|value| {
+                    layerx_indexer::codec::unhex_fixed::<32>(value.as_str().unwrap()).unwrap()
+                })
+                .collect::<Vec<_>>();
+            let data = layerx_indexer::codec::unhex(log["data"].as_str().unwrap()).unwrap();
+            let (_, event) = registry
+                .decode_log(precompile_address(0x101c), &topics, &data)
+                .unwrap()
+                .unwrap();
+            body.push_str(
+                event
+                    .arg("body")
+                    .unwrap()
+                    .as_str()
+                    .unwrap()
+                    .trim_start_matches("0x"),
+            );
+        }
+    }
+    assert_eq!(body, proof["body"]);
+    drop(store);
+    let store = Store::open(&path).unwrap();
+    assert_eq!(get(&store, &target), (status, active.clone()));
+    assert!(
+        store.commit(&opened, 2).is_err(),
+        "duplicate opening unit must be refused"
+    );
+    assert_eq!(get(&store, &target), (status, active));
+
+    let refused = decode(12, "refused", "refusedTx");
+    assert!(
+        refused.holders.is_empty(),
+        "a refused signer must produce no holder row"
+    );
+    store.commit(&refused, 2).unwrap();
+    assert_eq!(items(&get(&store, &target).1), rows);
+    let revoked = decode(13, "revoked", "revokeTx");
+    assert_eq!(revoked.holders.len(), 1);
+    store.commit(&revoked, 2).unwrap();
+    let (status, ended) = get(&store, &target);
+    assert_eq!(status, 200);
+    let records = items(&ended);
+    assert_eq!(records.len(), 1);
+    assert_eq!(records[0]["record_id"], grant_id);
+    assert_eq!(records[0]["state"], "revoked");
+    assert_eq!(records[0]["opened"], rows[0]["opened"]);
+    assert_eq!(records[0]["latest"]["event"], "GrantRevoked");
+    assert_eq!(
+        records[0]["latest"]["decoded"]["args"]["record"],
+        proof["record"]
+    );
+    drop(store);
+    let store = Store::open(&path).unwrap();
+    assert_eq!(get(&store, &target), (status, ended.clone()));
+    assert!(
+        store.commit(&revoked, 2).is_err(),
+        "duplicate revocation unit must be refused"
+    );
+    assert_eq!(get(&store, &target), (status, ended));
+    let (status, bad_cursor) = get(&store, &format!("{target}&cursor=invalid"));
+    assert_eq!(status, 400);
+    assert_eq!(bad_cursor["error"]["code"], "invalid_cursor");
+}
+
+/// Consumes only logs emitted by the Go application proof; run via its declared gate.
+#[test]
+fn proof_layerxpay_0x101b() {
+    let document: Value =
+        serde_json::from_reader(std::io::stdin().lock()).unwrap_or_else(|error| {
+            panic!("run TestProofLayerxpay0x101b with producer bytes on stdin: {error}")
+        });
+    let abi: Value = serde_json::from_slice(
+        &std::fs::read(document["abi"].as_str().unwrap_or_default())
+            .unwrap_or_else(|error| panic!("{error}")),
+    )
+    .unwrap_or_else(|error| panic!("{error}"));
+    let mut registry = AbiRegistry::default();
+    registry.insert(LoadedAbi {
+        contract: "layerxpay".to_owned(),
+        address: Some(precompile_address(0x101b)),
+        events: AbiRegistry::parse_events("layerxpay", &abi)
+            .unwrap_or_else(|error| panic!("{error}")),
+    });
+    let path = std::path::Path::new(document["store"].as_str().unwrap_or_default());
+    let owner = document["owner"].as_str().unwrap_or_default();
+    let target = format!("/v1/holders/{owner}?kind=budget");
+    let is_pointer = |_: &str| Ok(false);
+    let mut units = Vec::new();
+    for envelope in document["blocks"]
+        .as_array()
+        .unwrap_or_else(|| panic!("blocks"))
+    {
+        let receipts: BTreeMap<String, Value> =
+            serde_json::from_value(envelope["receipts"].clone())
+                .unwrap_or_else(|error| panic!("{error}"));
+        let inputs = BlockInputs {
+            registry: &registry,
+            receipts: &receipts,
+            cosmos_txs: &[],
+            encoding: AttributeEncoding::Base64,
+            is_pointer: &is_pointer,
+        };
+        let unit = paxeer::decode_block(&envelope["block"], &inputs)
+            .unwrap_or_else(|error| panic!("{error}"));
+        let store = Store::open(path).unwrap_or_else(|error| panic!("{error}"));
+        store
+            .commit(&unit, 2)
+            .unwrap_or_else(|error| panic!("{error}"));
+        units.push(unit);
+        drop(store);
+        // Close every connection before querying the durable projection twice.
+        for _ in 0..2 {
+            let store = Store::open(path).unwrap_or_else(|error| panic!("{error}"));
+            let (status, page) = get(&store, &target);
+            assert_eq!(status, 200);
+            let rows = items(&page);
+            assert_eq!(rows.len(), 1);
+            assert_eq!(rows[0]["record_id"], document["budget"]);
+            assert_eq!(rows[0]["opened"]["event"], "BudgetCreated");
+            assert_eq!(rows[0]["opened"]["decoded"]["args"]["amount"], "200");
+            assert_eq!(
+                rows[0]["opened"]["decoded"]["args"]["assetId"],
+                document["asset"]
+            );
+            if units.len() == 1 {
+                assert_eq!(rows[0]["state"], "active");
+            } else {
+                assert_eq!(rows[0]["state"], "revoked");
+                assert_eq!(rows[0]["latest"]["event"], "BudgetRevoked");
+                assert_eq!(rows[0]["latest"]["decoded"]["args"]["drained"], "200");
+                assert_eq!(
+                    rows[0]["latest"]["decoded"]["args"]["revocationSequence"],
+                    "1"
+                );
+            }
+        }
+    }
+    assert_eq!(units.len(), 2);
+    let first = &document["blocks"][0];
+    let mut receipts: BTreeMap<String, Value> =
+        serde_json::from_value(first["receipts"].clone()).unwrap_or_else(|error| panic!("{error}"));
+    let receipt = receipts
+        .values_mut()
+        .next()
+        .unwrap_or_else(|| panic!("receipt"));
+    let emitted = receipt["logs"][0]["data"].as_str().unwrap_or_default();
+    receipt["logs"][0]["data"] = json!(&emitted[..emitted.len() - 2]);
+    let inputs = BlockInputs {
+        registry: &registry,
+        receipts: &receipts,
+        cosmos_txs: &[],
+        encoding: AttributeEncoding::Base64,
+        is_pointer: &is_pointer,
+    };
+    // paxeer::decode_log quarantines invalid producer bytes as undecodable.
+    let malformed =
+        paxeer::decode_block(&first["block"], &inputs).unwrap_or_else(|error| panic!("{error}"));
+    assert!(malformed.holders.is_empty());
+    assert!(malformed
+        .events
+        .iter()
+        .any(|event| event.name == "undecodable"));
 }

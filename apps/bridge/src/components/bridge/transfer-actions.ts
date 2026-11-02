@@ -16,6 +16,7 @@ import { bridgeChainByKey, paxeer } from '@/lib/bridge/chains';
 import { layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS, paxeerXVaultAbi } from '@/lib/bridge/contracts';
 import { inboundDigest, outboundDigest, paxeerRecipient, releaseNullifier, verifyThresholdSignatures } from '@/lib/bridge/digests';
 import { nonceFromBridgeOutLogs } from '@/lib/bridge/import';
+import { phaseOf } from '@/lib/bridge/settlement';
 import type { BridgeTransfer } from '@/lib/bridge/transfers';
 import { wagmiConfig } from '@/lib/bridge/wagmi';
 
@@ -36,6 +37,28 @@ export type TransferLive = {
   sourceFailed: boolean;
 };
 
+/** Refuse malformed live state at the query-to-component boundary. */
+export function decodeTransferLive(value: unknown): TransferLive {
+  if (typeof value !== 'object' || value === null) throw new Error('Invalid live transfer state.');
+  const state = value as Record<string, unknown>;
+  if (
+    !Number.isSafeInteger(state.confirmations) || Number(state.confirmations) < 0 ||
+    !Number.isSafeInteger(state.requiredConfirmations) || Number(state.requiredConfirmations) < 0 ||
+    typeof state.credited !== 'boolean' || typeof state.released !== 'boolean' ||
+    typeof state.attestationReady !== 'boolean' || typeof state.sourceFailed !== 'boolean'
+  ) {
+    throw new Error('Invalid live transfer state.');
+  }
+  return {
+    confirmations: Number(state.confirmations),
+    requiredConfirmations: Number(state.requiredConfirmations),
+    credited: state.credited,
+    released: state.released,
+    attestationReady: state.attestationReady,
+    sourceFailed: state.sourceFailed,
+  };
+}
+
 export function releaseCheckOf(transfer: BridgeTransfer) {
   const chain = bridgeChainByKey(transfer.foreignChainKey);
   if (transfer.direction !== 'out' || !transfer.vault || transfer.bridgeOutNonce === undefined || !chain?.viemChain) {
@@ -51,10 +74,11 @@ export function releaseCheckOf(transfer: BridgeTransfer) {
 }
 
 export function settledRefusal(transfer: BridgeTransfer, live: TransferLive | undefined): string | undefined {
-  if (transfer.direction === 'in' && live?.credited) {
+  if (phaseOf(transfer, live, false) !== 'settled') return undefined;
+  if (transfer.direction === 'in') {
     return 'This deposit is already credited on Paxeer.';
   }
-  if (transfer.direction === 'out' && live?.released) {
+  if (transfer.direction === 'out') {
     return 'This withdrawal is already released from the vault.';
   }
   return undefined;
@@ -63,6 +87,9 @@ export function settledRefusal(transfer: BridgeTransfer, live: TransferLive | un
 /** Source-chain confirmation count and receipt status for a transfer. */
 export async function readTransferLive(transfer: BridgeTransfer): Promise<TransferLive> {
   const chain = bridgeChainByKey(transfer.foreignChainKey);
+  if (!chain || chain.chainId !== BigInt(transfer.foreignChainId)) {
+    throw new Error('Unknown or mismatched bridge chain.');
+  }
   const sourceChainId = transfer.direction === 'in' ? chain?.viemChain?.id : paxeer.id;
   if (sourceChainId === undefined) {
     return {
@@ -129,6 +156,10 @@ export async function buildVerifiedClaim(
   transfer: BridgeTransfer,
   attestation: DepositAttestation,
 ): Promise<VerifiedClaim> {
+  if (transfer.direction !== 'in') throw new Error('Only deposits can be claimed.');
+  if (attestation.status !== 'ready' || attestation.signatures.length === 0) {
+    throw new Error('The deposit attestation is not ready.');
+  }
   assertClaimMatches(transfer, attestation);
   const chainId = BigInt(transfer.foreignChainId);
   const chainInfo = (await readContract(wagmiConfig, {
@@ -223,6 +254,10 @@ export async function buildVerifiedRelease(
   transfer: BridgeTransfer,
   attestation: ReleaseAttestation,
 ): Promise<VerifiedRelease> {
+  if (transfer.direction !== 'out') throw new Error('Only withdrawals can be released.');
+  if (attestation.status !== 'ready' || attestation.signatures.length === 0) {
+    throw new Error('The release attestation is not ready.');
+  }
   const chain = bridgeChainByKey(transfer.foreignChainKey);
   if (!chain?.viemChain || !transfer.vault) {
     throw new Error('This withdrawal cannot be released from an EVM wallet.');

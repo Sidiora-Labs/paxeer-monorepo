@@ -2161,3 +2161,36 @@ def _view_result(status: int, content_type: str | None, encoded: bytes) -> objec
     if isinstance(value, dict) and value.get("ok") is False and not 200 <= status < 300:
         raise _view_error(_object(value, ("ok", "error"))["error"])
     raise _integrity()
+
+
+def decode_programs_state_head(data: bytes) -> bytes:
+    """Decode the canonical ABI bytes returned by getStateHead, a storage manifest head."""
+    if type(data) is not bytes or len(data) < 64 or len(data) % 32:
+        raise _integrity()
+    length = int.from_bytes(data[32:64], "big")
+    if length > _VIEW_MAX_RESPONSE_BYTES:
+        raise AiMarketError("ResponseTooLarge")
+    if (int.from_bytes(data[:32], "big") != 32
+            or len(data) != 64 + (length + 31) // 32 * 32
+            or any(data[64 + length:])):
+        raise _integrity()
+    return data[64:64 + length]
+
+
+def decode_programs_call_result(data: bytes, response_capacity: int) -> tuple[int, int, bytes]:
+    """Decode call/simulateCall terminal output, refusing noncanonical ABI and capacity overflow."""
+    if (type(data) is not bytes or type(response_capacity) is not int
+            or not 0 <= response_capacity <= 1_048_576
+            or len(data) < 128 or len(data) % 32):
+        raise AiMarketError("ReceiptMismatch")
+    result = int.from_bytes(data[:32], "big", signed=True)
+    kind = int.from_bytes(data[32:64], "big")
+    length = int.from_bytes(data[96:128], "big")
+    if (not -(1 << 31) <= result < (1 << 31) or kind not in (1, 2, 3)
+            or (kind == 1) != (result == 0)
+            or int.from_bytes(data[64:96], "big") != 96
+            or length > response_capacity
+            or len(data) != 128 + (length + 31) // 32 * 32
+            or any(data[128 + length:])):
+        raise AiMarketError("ReceiptMismatch")
+    return result, kind, data[128:128 + length]

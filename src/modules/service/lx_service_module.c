@@ -1,5 +1,6 @@
 #include "lx_service_dispatch.h"
 
+#include "layerx/lx_escrow.h"
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_kernel.h"
 
@@ -15,6 +16,31 @@ static const uint32_t activity_types[] = {
 };
 
 enum { LX_SERVICE_ORDINAL_COUNT = 13 };
+
+lxp_result lx_service_kernel_escrow_link_read(
+    void *user, const uint8_t escrow_id[32], lx_service_escrow_link *link)
+{
+    lxp_kernel *kernel = user;
+    lxp_module_ctx ctx;
+    lx_escrow_record record;
+    lxp_arena arena;
+    uint8_t bytes[4096];
+    lxp_result status;
+    if (kernel == NULL || escrow_id == NULL || link == NULL)
+        return LXP_ERR_NON_CANONICAL;
+    status = lxp_arena_init(&arena, bytes, sizeof(bytes));
+    if (status == LXP_OK)
+        status = lxp_module_ctx_init(&ctx, kernel, LXP_MODULE_ESCROW,
+                                     0U, kernel->epoch, 0U, UINT64_MAX, &arena, false);
+    if (status == LXP_OK) status = lx_escrow_lookup(&ctx, escrow_id, &record);
+    if (status != LXP_OK) return status;
+    (void)memcpy(link->holder, record.owner, 32U);
+    (void)memcpy(link->beneficiary, record.beneficiary, 32U);
+    (void)memcpy(link->asset_id, record.asset_id, 32U);
+    (void)memcpy(link->arbiter, record.arbiter, 32U);
+    link->state = (uint8_t)record.state;
+    return LXP_OK;
+}
 
 static lxp_result module_genesis(lxp_module_ctx *ctx, const uint8_t *manifest,
                                  size_t length)

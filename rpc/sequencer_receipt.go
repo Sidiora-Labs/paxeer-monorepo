@@ -162,6 +162,8 @@ type SequencerReceiptResult struct {
 // returnData, each log's data and vmError hash to the digests the bytes carry. It verifies the
 // signature under SigningKey; callers authenticate the key by supplying their pinned ReceiptKeys.
 // Without pins, Verify checks consistency only, not the signer's authority.
+// The gateway px_getReceiptKeys result supplies the governed keyId/publicKey
+// height ranges; the signingKey carried beside a receipt is never a trust pin.
 func (r *SequencerReceiptResult) Verify(pins ...seqkeeper.ReceiptKeys) error {
 	switch r.Rung {
 	case RungSubmitted:

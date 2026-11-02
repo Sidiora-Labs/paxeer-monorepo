@@ -36,9 +36,9 @@ export const STATUS_PRESENTATIONS = Object.freeze({
 } as const);
 
 export const VERIFICATION_PRESENTATIONS = Object.freeze({
-  unverified: { copyKey: "verification.unverified" },
-  "receipt-verified": { copyKey: "verification.receipt_verified" },
-  "checkpoint-finalised": { copyKey: "verification.checkpoint_finalised" },
+  unverified: Object.freeze({ copyKey: "verification.unverified" }),
+  "receipt-verified": Object.freeze({ copyKey: "verification.receipt_verified" }),
+  "checkpoint-finalised": Object.freeze({ copyKey: "verification.checkpoint_finalised" }),
 } as const);
 
 export type StatusKey = keyof typeof STATUS_PRESENTATIONS;

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import { ChevronDown, Eye, EyeOff, X, Search } from "lucide-react";
 import { cn } from "@/ui/utils/cn";
@@ -15,6 +15,11 @@ import { MobileNavTrigger, MobileNavDrawer, useMobileNav } from "@/app/shell/Mob
 import { DepositWithdrawModal } from "@/app/modals/DepositWithdrawModal";
 import { fmtPrice as formatPrice, fmtUsdCompact as fmtUsd } from "@/ui/utils/format";
 import { HyperPaxWordmark } from "@/ui/atoms/HyperPaxWordmark";
+
+export function mobileTradeMarket(selectedPair: string, catalog: readonly MarketCatalogEntry[]) {
+  const symbol = selectedPair.split("/")[0].toUpperCase();
+  return catalog.find((market) => market.symbol === symbol && market.enabled);
+}
 
 function fmtChangePct(open: number, close: number): { text: string; positive: boolean } {
   if (open <= 0) return { text: "—", positive: true };
@@ -48,8 +53,8 @@ export function MobileTradeHeader({
   const markets = usePerpsMarkets();
   const catalog = suppliedCatalog ?? markets.catalog;
 
-  const symbol = selectedPair.split("/")[0];
-  const market = catalog.find((m) => m.symbol === symbol);
+  const symbol = selectedPair.split("/")[0].toUpperCase();
+  const market = mobileTradeMarket(selectedPair, catalog);
   const { data: enriched } = useEnrichedMarketStats(market?.marketId);
 
   // Same fallback pattern as PairHeader: realtime /tickers is primary, subgraph

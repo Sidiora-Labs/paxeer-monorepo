@@ -151,7 +151,7 @@ export async function runServiceScenarios(suite) {
       const settlementHeader = paid.headers.get("PAYMENT-RESPONSE");
       assert(settlementHeader !== null, "a released resource must carry a PAYMENT-RESPONSE settlement");
       const prepared = await preparedPayment(parsed, receipt, receiptKeys);
-      const captured = await buyer.captureSettlement(settlementHeader ?? "", prepared);
+      const captured = await captureServiceSettlement(buyer, settlementHeader ?? "", prepared);
       capturedVerified = captured.verification.rung === "receipted";
       assert(capturedVerified, "the buyer must verify the settlement receipt");
     });
@@ -1029,4 +1029,11 @@ function waitForListening(child, timeoutMs) {
     child.on("exit", (code) => finish(new Error(`paid-api example exited early with code ${code ?? "unknown"}`)));
     child.on("error", (error) => finish(error instanceof Error ? error : new Error(String(error))));
   });
+}
+
+export async function captureServiceSettlement(buyer, header, payment) {
+  const captured = await buyer.captureSettlement(header, payment);
+  assert(captured.verification.rung === payment.verification.rung, "settlement must preserve the prepared verification rung");
+  assert(captured.txHash === payment.txHash, "settlement must bind the prepared transaction");
+  return captured;
 }

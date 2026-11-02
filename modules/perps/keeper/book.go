@@ -3,7 +3,6 @@ package keeper
 import (
 	"bytes"
 	"errors"
-	"fmt"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -22,14 +21,14 @@ const (
 func (k *Keeper) GetOrder(ctx sdk.Context, orderID uint256.Int) (types.Order, error) {
 	bz := k.store(ctx).Get(types.OrderKey(orderID))
 	if bz == nil {
-		return types.Order{}, fmt.Errorf("%w: %s", types.ErrUnknownOrder, orderID.Dec())
+		return types.Order{}, types.ErrUnknownOrder.Wrapf("%s", orderID.Dec())
 	}
 	var order types.Order
 	if err := order.Unmarshal(bz); err != nil {
-		return types.Order{}, fmt.Errorf("%w: corrupt order %s: %v", types.ErrInvalidParams, orderID.Dec(), err)
+		return types.Order{}, types.ErrInvalidParams.Wrapf("corrupt order %s: %v", orderID.Dec(), err)
 	}
 	if !order.ID.Eq(&orderID) {
-		return types.Order{}, fmt.Errorf("%w: order key %s holds order %s", types.ErrInvalidParams, orderID.Dec(), order.ID.Dec())
+		return types.Order{}, types.ErrInvalidParams.Wrapf("order key %s holds order %s", orderID.Dec(), order.ID.Dec())
 	}
 	return order, nil
 }
@@ -52,26 +51,26 @@ func bookKey(order types.Order) []byte {
 // (invariant 3 of contracts/perps.md section 24).
 func (k *Keeper) BookInsert(ctx sdk.Context, order types.Order) error {
 	if order.Status != types.OrderStatusResting {
-		return fmt.Errorf("%w: order %s with status %d cannot rest", types.ErrInvalidParams, order.ID.Dec(), order.Status)
+		return types.ErrInvalidParams.Wrapf("order %s with status %d cannot rest", order.ID.Dec(), order.Status)
 	}
 	if order.ID.IsZero() {
-		return fmt.Errorf("%w: order id 0 cannot rest", types.ErrInvalidParams)
+		return types.ErrInvalidParams.Wrapf("order id 0 cannot rest")
 	}
 	if order.LimitPrice.IsZero() {
-		return fmt.Errorf("%w: order %s rests at price 0", types.ErrInvalidParams, order.ID.Dec())
+		return types.ErrInvalidParams.Wrapf("order %s rests at price 0", order.ID.Dec())
 	}
 	stored, err := k.GetOrder(ctx, order.ID)
 	switch {
 	case err == nil:
 		if stored.Status == types.OrderStatusResting {
-			return fmt.Errorf("%w: order %s already rests", types.ErrInvalidParams, order.ID.Dec())
+			return types.ErrInvalidParams.Wrapf("order %s already rests", order.ID.Dec())
 		}
 	case !errors.Is(err, types.ErrUnknownOrder):
 		return err
 	}
 	key := bookKey(order)
 	if k.store(ctx).Has(key) {
-		return fmt.Errorf("%w: book key %x of order %s is taken", types.ErrInvalidParams, key, order.ID.Dec())
+		return types.ErrInvalidParams.Wrapf("book key %x of order %s is taken", key, order.ID.Dec())
 	}
 	id := order.ID.Bytes32()
 	k.store(ctx).Set(key, id[:])
@@ -88,23 +87,23 @@ func (k *Keeper) BookRemove(ctx sdk.Context, order types.Order) error {
 	switch order.Status {
 	case types.OrderStatusFilled, types.OrderStatusCancelled, types.OrderStatusExpired:
 	default:
-		return fmt.Errorf("%w: order %s leaves the book with status %d", types.ErrInvalidParams, order.ID.Dec(), order.Status)
+		return types.ErrInvalidParams.Wrapf("order %s leaves the book with status %d", order.ID.Dec(), order.Status)
 	}
 	stored, err := k.GetOrder(ctx, order.ID)
 	if err != nil {
 		return err
 	}
 	if stored.Status != types.OrderStatusResting {
-		return fmt.Errorf("%w: order %s does not rest", types.ErrUnknownOrder, order.ID.Dec())
+		return types.ErrUnknownOrder.Wrapf("order %s does not rest", order.ID.Dec())
 	}
 	if stored.Account != order.Account || stored.MarketID != order.MarketID || stored.IsLong != order.IsLong ||
 		!stored.LimitPrice.Eq(&order.LimitPrice) || stored.Sequence != order.Sequence {
-		return fmt.Errorf("%w: order %s disagrees with its stored record", types.ErrInvalidParams, order.ID.Dec())
+		return types.ErrInvalidParams.Wrapf("order %s disagrees with its stored record", order.ID.Dec())
 	}
 	key := bookKey(stored)
 	id := stored.ID.Bytes32()
 	if !bytes.Equal(k.store(ctx).Get(key), id[:]) {
-		return fmt.Errorf("%w: resting order %s has no book entry", types.ErrInvalidParams, order.ID.Dec())
+		return types.ErrInvalidParams.Wrapf("resting order %s has no book entry", order.ID.Dec())
 	}
 	k.store(ctx).Delete(key)
 	k.setOrder(ctx, order)
@@ -118,7 +117,7 @@ func (k *Keeper) BookRemove(ctx sdk.Context, order types.Order) error {
 // market, side, price and sequence is reported as corrupt state.
 func (k *Keeper) IterateBook(ctx sdk.Context, marketID uint64, side byte, visit func(types.Order) (stop bool)) error {
 	if side != types.SideBuy && side != types.SideSell {
-		return fmt.Errorf("%w: book side %d", types.ErrInvalidParams, side)
+		return types.ErrInvalidParams.Wrapf("book side %d", side)
 	}
 	prefix := types.BookSidePrefix(marketID, side)
 	iterator := sdk.KVStorePrefixIterator(k.store(ctx), prefix)
@@ -126,17 +125,17 @@ func (k *Keeper) IterateBook(ctx sdk.Context, marketID uint64, side byte, visit 
 	for ; iterator.Valid(); iterator.Next() {
 		key, value := iterator.Key(), iterator.Value()
 		if len(key) != len(prefix)+bookPriceKeyLength+bookSequenceLength || len(value) != 32 {
-			return fmt.Errorf("%w: book entry %x", types.ErrInvalidParams, key)
+			return types.ErrInvalidParams.Wrapf("book entry %x", key)
 		}
 		var orderID uint256.Int
 		orderID.SetBytes32(value)
 		order, err := k.GetOrder(ctx, orderID)
 		if err != nil {
-			return fmt.Errorf("%w: book entry %x: %v", types.ErrInvalidParams, key, err)
+			return types.ErrInvalidParams.Wrapf("book entry %x: %v", key, err)
 		}
 		if order.Status != types.OrderStatusResting || order.MarketID != marketID || types.SideOf(order.IsLong) != side ||
 			!bytes.Equal(bookKey(order), key) {
-			return fmt.Errorf("%w: book entry %x disagrees with order %s", types.ErrInvalidParams, key, orderID.Dec())
+			return types.ErrInvalidParams.Wrapf("book entry %x disagrees with order %s", key, orderID.Dec())
 		}
 		if visit(order) {
 			return nil

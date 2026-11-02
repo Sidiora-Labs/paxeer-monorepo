@@ -26,6 +26,9 @@ typedef enum lxp_result_domain_id {
 /*
  * Result numbers are embedded in canonical receipts and are consensus data.
  * Renumbering any value is a protocol-version change, never a refactor.
+ * Service arbitration results -737..-739 cross into LXPCodeName/LXPRevert
+ * in precompiles/common/lxp_errors.go and layerx_sdk.revert in Python.
+ * They are terminal refusals, not retryable transport failures.
  */
 #define LXP_RESULT_CODE_LIST(X) \
     X(LXP_OK, 0) \
@@ -166,9 +169,14 @@ LXP_RESULT_CODE_LIST(LXP_DECLARE_RESULT)
 
 const char *lxp_result_name(lxp_result result);
 lxp_result_domain_id lxp_result_domain(lxp_result result);
+/* Membership is exact: unused numbers within a result domain are refused. */
 bool lxp_result_is_registered(lxp_result result);
 bool lxp_result_is_fatal(lxp_result result);
+/* The process-local, immutable registry follows LXP_RESULT_CODE_LIST order. */
 size_t lxp_result_registry_count(void);
+/* On success, both outputs are written; name has static storage duration.
+ * An index at or past count returns LXP_ERR_UNKNOWN_FIELD, checked before
+ * NULL outputs (LXP_ERR_NON_CANONICAL). Failure leaves outputs unchanged. */
 lxp_result lxp_result_registry_at(size_t index, lxp_result *value,
                                   const char **name);
 

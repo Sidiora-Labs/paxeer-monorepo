@@ -11,6 +11,8 @@ import (
 
 type queryServer struct{ Keeper }
 
+// NewQueryServer binds the module service to the same persisted keeper used by
+// the EVM consumers; registration and protobuf transport live in AppModule.
 func NewQueryServer(k Keeper) types.QueryServer { return queryServer{Keeper: k} }
 
 func (q queryServer) Params(goCtx context.Context, req *types.QueryParamsRequest) (*types.QueryParamsResponse, error) {

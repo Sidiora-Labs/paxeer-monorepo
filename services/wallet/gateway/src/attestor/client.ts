@@ -924,7 +924,12 @@ export class AttestorClient {
 }
 
 function isUint(v: unknown): v is number {
-  return typeof v === 'number' && Number.isInteger(v) && v >= 0;
+  return typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;
+}
+
+/** A JSON wire struct must be an object, never an array or null. */
+export function struct(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
 function parseHealth(body: unknown): AttestorHealthReport {
@@ -950,10 +955,11 @@ function parseHealth(body: unknown): AttestorHealthReport {
   return b as AttestorHealthReport;
 }
 
-function parseSignResponse(body: unknown, nodeId: string, curve: Curve): SignResponseWire {
+export function parseSignResponse(body: unknown, nodeId: string, curve: Curve): SignResponseWire {
   const b = body as Partial<SignResponseWire> | null;
   if (
-    !b ||
+    !struct(b) ||
+    b.node_id !== nodeId ||
     typeof b.node_id !== 'string' ||
     typeof b.key_id !== 'string' ||
     typeof b.kind !== 'string' ||
@@ -961,7 +967,7 @@ function parseSignResponse(body: unknown, nodeId: string, curve: Curve): SignRes
     !HEX_RE.test(b.signed_bytes) ||
     typeof b.signature !== 'string' ||
     !HEX_RE.test(b.signature) ||
-    !isUint(b.audit_sequence)
+    (!isUint(b.audit_sequence) || b.audit_sequence === 0)
   ) {
     throw new AttestorSessionError('malformed_response', 'sign answer does not match the attestor schema', nodeId);
   }
@@ -984,10 +990,11 @@ function parseSignResponse(body: unknown, nodeId: string, curve: Curve): SignRes
   return b as SignResponseWire;
 }
 
-function parseKeyResponse(body: unknown, nodeId: string): KeyResponseWire {
+export function parseKeyResponse(body: unknown, nodeId: string): KeyResponseWire {
   const b = body as Partial<KeyResponseWire> | null;
   if (
-    !b ||
+    !struct(b) ||
+    b.node_id !== nodeId ||
     typeof b.node_id !== 'string' ||
     typeof b.key_id !== 'string' ||
     (b.curve !== 'secp256k1' && b.curve !== 'ed25519') ||
@@ -1000,7 +1007,7 @@ function parseKeyResponse(body: unknown, nodeId: string): KeyResponseWire {
     !Array.isArray(b.participants) ||
     !b.participants.every((p) => typeof p === 'string') ||
     typeof b.refreshed !== 'boolean' ||
-    !isUint(b.audit_sequence)
+    (!isUint(b.audit_sequence) || b.audit_sequence === 0)
   ) {
     throw new AttestorSessionError('malformed_response', 'key answer does not match the attestor schema', nodeId);
   }
@@ -1186,9 +1193,9 @@ function parseEvmReview(value: unknown, nodeId: string): EvmReviewWire {
   }
   return answer;
 }
-function parseLxReview(value: unknown, nodeId: string): LxReviewWire {
+export function parseLxReview(value: unknown, nodeId: string): LxReviewWire {
   const answer = value as LxReviewWire | null;
-  if (!answer || typeof answer !== 'object' || answer.kind !== 'lx_send_authorization' || answer.node_id !== nodeId || typeof answer.key_id !== 'string'
+  if (!struct(answer) || answer.kind !== 'lx_send_authorization' || answer.node_id !== nodeId || typeof answer.key_id !== 'string'
     || !/^[0-9a-f]{64}$/.test(answer.public_key) || !/^[0-9a-f]{64}$/.test(answer.signing_preimage)
     || typeof answer.activity !== 'string' || !/^(?:[0-9a-f]{2})+$/.test(answer.activity) || answer.activity.length > 2_097_152
     || !Number.isSafeInteger(answer.network_id) || answer.network_id < 0 || answer.network_id > 0xffffffff

@@ -8,6 +8,8 @@ import (
 
 const ProgramOriginPlan = "v7.0"
 
+// ErrProgramModuleDisabled is shared by the keeper and EVM dispatch so callers
+// can identify the same activation refusal with errors.Is.
 var ErrProgramModuleDisabled = errors.New("LXP_MODULE_DISABLED")
 
 func (k Keeper) ProgramOriginActive(ctx sdk.Context) bool {
