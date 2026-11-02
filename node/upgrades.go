@@ -18,6 +18,7 @@ import (
 	layerxanchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	layerxauthtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
 	layerxbridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
+	layerxchainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	layerxcustodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	layerxexchangetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
 	layerxledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
@@ -37,6 +38,7 @@ import (
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/teeattestor"
 	anchorprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor"
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxchains"
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger"
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
 	verifyprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxverify"
@@ -559,6 +561,7 @@ func mergePrecompileGate() evmkeeper.CustomPrecompileActivation {
 			common.HexToAddress("0x000000000000000000000000000000000000101B"): {layerxpaytypes.ModuleName},
 			common.HexToAddress("0x000000000000000000000000000000000000101C"): {layerxauthtypes.ModuleName},
 			common.HexToAddress("0x000000000000000000000000000000000000101D"): {"layerxprograms"},
+			common.HexToAddress("0x000000000000000000000000000000000000101E"): {layerxchainstypes.ModuleName},
 			common.HexToAddress("0x0000000000000000000000000000000000000901"): {layerxagenttypes.ModuleName},
 			common.HexToAddress("0x0000000000000000000000000000000000000902"): {layerxagenttypes.ModuleName},
 			common.HexToAddress("0x0000000000000000000000000000000000000903"): {layerxagenttypes.ModuleName, layerxexchangetypes.ModuleName},
