@@ -174,3 +174,27 @@ func TestMakeRetiredDockerTargets(t *testing.T) {
 		})
 	}
 }
+
+func TestMakeRetiredDistributionTargets(t *testing.T) {
+	for _, target := range []string{
+		"dist",
+		"go-mod-cache",
+		"go.sum",
+		"draw_deps",
+		"get_deps_bin_size",
+		"build-reproducible",
+	} {
+		t.Run(target, func(t *testing.T) {
+			output, err := makeDryRun(t, target)
+			if err == nil {
+				t.Fatalf("make %s dry run succeeded for a retired target:\n%s", target, output)
+			}
+			if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() == 0 {
+				t.Fatalf("make %s did not exit with a non-zero status: %v\n%s", target, err, output)
+			}
+			if !strings.Contains(output, "No rule to make target '"+target+"'") {
+				t.Errorf("make %s did not report a missing target:\n%s", target, output)
+			}
+		})
+	}
+}
