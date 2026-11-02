@@ -130007,7 +130007,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.97.1]
 title = "Gate the retired daemon binaries as the last consumers of the deleted kernel symbols"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 43
 requires = ["5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.2", "5.52.3", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.5", "5.54.10", "5.54.11", "6.96.5"]
