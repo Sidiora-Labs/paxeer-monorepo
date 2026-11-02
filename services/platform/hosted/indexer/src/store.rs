@@ -38,6 +38,14 @@ CREATE TABLE IF NOT EXISTS chain_transactions(
     PRIMARY KEY(source_chain, tx_id)
 );
 CREATE INDEX IF NOT EXISTS chain_transactions_chain ON chain_transactions(chain, position);
+CREATE TABLE IF NOT EXISTS chain_activity(
+    chain TEXT PRIMARY KEY, tx_count INTEGER NOT NULL,
+    gas_used INTEGER NOT NULL, last_height INTEGER NOT NULL
+);
+INSERT OR IGNORE INTO chain_activity(chain, tx_count, gas_used, last_height)
+    SELECT tx.chain, COUNT(*), SUM(tx.gas_used), MAX(tx.position)
+    FROM chain_transactions tx JOIN chains ON tx.chain = 'pax:' || chains.id
+    GROUP BY tx.chain;
 CREATE TABLE IF NOT EXISTS accounts(
     chain TEXT NOT NULL,
     account TEXT NOT NULL,
@@ -1122,11 +1130,30 @@ impl Store {
             let chain = event.decoded["chain"].as_str().ok_or_else(|| {
                 IndexError::Integrity("chain transaction has no chain".to_owned())
             })?;
+            let chain_id = event.decoded["chain_id"].as_u64().ok_or_else(|| {
+                IndexError::Integrity("chain transaction has no chain id".to_owned())
+            })?;
+            let known: bool = transaction.query_row(
+                "SELECT EXISTS(SELECT 1 FROM chains WHERE 'pax:' || id = ?1 AND chain_id = ?2)",
+                params![chain, signed(chain_id)?],
+                |row| row.get(0),
+            )?;
+            if !known {
+                continue;
+            }
             let gas_used = event.decoded["gas_used"].as_u64().ok_or_else(|| {
                 IndexError::Integrity("chain transaction has no gas usage".to_owned())
             })?;
             transaction.execute("INSERT INTO chain_transactions(source_chain, position, tx_id, chain, gas_used) VALUES(?1, ?2, ?3, ?4, ?5)",
                 params![unit.chain, position, event.tx_id, chain, signed(gas_used)?])?;
+            transaction.execute(
+                "INSERT INTO chain_activity(chain, tx_count, gas_used, last_height)
+                 VALUES(?1, 1, ?2, ?3)
+                 ON CONFLICT(chain) DO UPDATE SET tx_count = chain_activity.tx_count + 1,
+                    gas_used = chain_activity.gas_used + excluded.gas_used,
+                    last_height = MAX(chain_activity.last_height, excluded.last_height)",
+                params![chain, signed(gas_used)?, position],
+            )?;
             chain_transactions.push(ChainTransaction {
                 tx_id: event.tx_id.clone(),
                 chain: chain.to_owned(),
@@ -1608,6 +1635,14 @@ impl Store {
                 .map_err(|error| IndexError::Store(format!("chain journal: {error}")))?;
             Self::apply_chain_event(&transaction, &event)?;
         }
+        transaction.execute("DELETE FROM chain_activity", [])?;
+        transaction.execute(
+            "INSERT INTO chain_activity(chain, tx_count, gas_used, last_height)
+             SELECT tx.chain, COUNT(*), SUM(tx.gas_used), MAX(tx.position)
+             FROM chain_transactions tx JOIN chains ON tx.chain = 'pax:' || chains.id
+             GROUP BY tx.chain",
+            [],
+        )?;
         Self::rebuild_names(&transaction, &nodes)?;
         Self::rewind_projections(&transaction, chain, above)?;
         transaction.commit()?;
@@ -1716,9 +1751,25 @@ impl Store {
     }
 
     pub fn chain_summary(&self, id: u32) -> Result<Value, IndexError> {
-        Ok(self.lock()?.query_row("SELECT COUNT(*), COALESCE(SUM(gas_used), 0), COALESCE(MAX(position), 0) FROM chain_transactions WHERE chain = ?1", [format!("pax:{id}")], |row| Ok(json!({
-            "id": id, "tx_count": row.get::<_, i64>(0)?, "gas_used": row.get::<_, i64>(1)?, "last_height": row.get::<_, i64>(2)?,
-        })))?)
+        let activity = self
+            .lock()?
+            .query_row(
+                "SELECT tx_count, gas_used, last_height FROM chain_activity WHERE chain = ?1",
+                [format!("pax:{id}")],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, i64>(2)?,
+                    ))
+                },
+            )
+            .optional()?
+            .unwrap_or((0, 0, 0));
+        Ok(
+            json!({"id": id, "tx_count": activity.0, "gas_used": activity.1,
+            "last_height": activity.2}),
+        )
     }
 
     pub fn chain_page(

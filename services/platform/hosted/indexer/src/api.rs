@@ -575,7 +575,7 @@ pub fn route_with(store: &Store, readiness: &Readiness, method: &str, target: &s
             Ok(None) => return unknown(),
             Err(error) => return failure(&error),
         };
-        if matches!(feed, Some("transfers" | "events")) {
+        if let Some(feed @ ("transfers" | "events")) = feed {
             let query = match parse_query(query, CursorForm::Row, true) {
                 Ok(query) => query,
                 Err(response) => return response,
@@ -585,7 +585,7 @@ pub fn route_with(store: &Store, readiness: &Readiness, method: &str, target: &s
                 readiness,
                 store.chain_page(
                     id,
-                    feed == Some("events"),
+                    feed == "events",
                     query.cursor,
                     query.limit,
                     query.kind.as_deref(),
