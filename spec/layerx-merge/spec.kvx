@@ -136650,7 +136650,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.96.6]
 title = "Restore the anchor retirement vectors as a module-local fixture and port both anchor test packages onto it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["6.96.5", "22.6.3", "18.1471.1"]
