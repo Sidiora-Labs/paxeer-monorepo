@@ -879,33 +879,17 @@ fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
             "agent preparation differs from creation intent"
         )),
     );
-    let envelope_intent = layerx_intents::Intent::v1(IntentKind::DidRegistration(
-        layerx_intents::DidRegistration::new(
-            layerx_types::ids::Did::new(b"did:layerx:owner-receipt-fixture")
-                .expect("kernel creation actor"),
-            layerx_types::intent::PublicKey::new(
-                SigningKey::from_bytes(&[0x68; 32])
-                    .verifying_key()
-                    .to_bytes(),
-            ),
-        )
-        .expect("kernel creation intent"),
-    ));
-    let envelope_compiled = layerx_intents::compile(&envelope_intent, &fixture.registry)
-        .expect("compiled kernel creation intent");
-    let envelope = canonical_owner::sign(
-        envelope_compiled.payload(),
-        disclosure.idempotency_key,
+    let signed_creation = canonical_owner::sign_transaction(
+        compiled.payload(),
+        projection.agent_id,
         layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION,
         NETWORK_ID,
     );
-    let activity =
-        layerx_intents::canonical::decode_signed_activity(&envelope.bytes, &fixture.registry)
-            .expect("kernel creation activity");
-    let envelope_bytes = layerx_intents::canonical::unsigned_activity_bytes(&activity)
-        .expect("unsigned kernel creation activity");
+    let (signed_call, _) = layerx_crypto::evm_transaction::decode_signed(&signed_creation.bytes)
+        .expect("signed creation transaction");
+    assert_eq!(signed_call, call);
     assert_eq!(
-        verify_creation_call_disclosure(&envelope_bytes, &disclosure),
+        verify_creation_call_disclosure(&signed_creation.bytes, &disclosure),
         Err(AgentFailure::Refused(
             "agent preparation differs from creation intent"
         )),
