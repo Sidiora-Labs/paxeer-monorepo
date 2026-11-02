@@ -27,6 +27,10 @@ func (m MsgUpdateParams) GetSignBytes() []byte {
 	return sdk.MustSortJSON(ModuleCdc.MustMarshalJSON(&m))
 }
 func (m MsgUpdateParams) String() string { return jsonString(m) }
+
+// ValidateBasic preserves Params' registered error code. Malformed role
+// assignments are request-level InvalidParams refusals, with the specific
+// assignment error retained in the diagnostic text.
 func (m MsgUpdateParams) ValidateBasic() error {
 	if _, err := sdk.AccAddressFromBech32(m.Authority); err != nil {
 		return ErrUnauthorized.Wrapf("authority: %v", err)

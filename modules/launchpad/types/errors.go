@@ -129,7 +129,7 @@ func (c ContractError) Signature() string {
 func (c ContractError) Revert(values ...interface{}) ([]byte, error) {
 	data, err := c.Inputs.Pack(values...)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s arguments: %w", ErrInvalidParams, c.Signature(), err)
+		return nil, ErrInvalidParams.Wrapf("%s arguments: %v", c.Signature(), err)
 	}
 	revert := make([]byte, 0, len(c.Selector)+len(data))
 	revert = append(revert, c.Selector[:]...)
