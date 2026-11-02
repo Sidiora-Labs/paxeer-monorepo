@@ -104,6 +104,18 @@ func pendingFilterDeploy(t *testing.T, from utils.TestAcct, nonce uint64) ([]byt
 	return pendingFilterTx(t, from, nonce, nil, big.NewInt(0), pendingFilterInitCode, pendingFilterDeployGas)
 }
 
+func newPendingFilterSequencer(t *testing.T, sender utils.TestAcct) *subscribeSequencer {
+	t.Helper()
+	defaults := app.DefaultConsensusParams
+	params := *defaults
+	block := *defaults.Block
+	block.MaxGasWanted = block.MaxGas
+	params.Block = &block
+	app.DefaultConsensusParams = &params
+	t.Cleanup(func() { app.DefaultConsensusParams = defaults })
+	return newSubscribeSequencer(t, sender)
+}
+
 // pendingFilterReceipt accepts txBytes on the open block and feeds its
 // execution receipt to the feed the way the sequencer does after Accept.
 func pendingFilterReceipt(t *testing.T, a *app.App, exec sequencer.Executor, feed *evmrpc.ReceiptLogFeed, txBytes []byte, hash common.Hash) *sequencer.Accepted {

@@ -22,6 +22,7 @@ use layerx_human_service::store::{
 use layerx_intents::canonical::execution_batch_id as wire_execution_batch_id;
 use layerx_intents::canonical::PROTOCOL_VERSION;
 use layerx_proof::merkle::build_proof;
+use layerx_types::clock::{Clock, ClockError, ClockReading};
 use layerx_types::intent::{AuthorizationSignature, PublicKey, SendAuthorization};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::verify::VerificationLevel;
@@ -34,6 +35,45 @@ pub const EVIDENCE_NETWORK_ID: u32 = 42;
 const EVIDENCE_CHAIN_ID: u64 = 125;
 
 pub type RawReceiptEvidence = layerx_agentd::protocol_evidence::RawReceiptEvidence;
+
+pub struct StepClock {
+    epoch_unix_milliseconds: u64,
+    milliseconds: AtomicU64,
+}
+
+impl StepClock {
+    #[must_use]
+    pub const fn new(epoch_unix_milliseconds: u64) -> Self {
+        Self {
+            epoch_unix_milliseconds,
+            milliseconds: AtomicU64::new(0),
+        }
+    }
+}
+
+impl Clock for StepClock {
+    fn sample(&self, transport_budget: Duration) -> Result<ClockReading, ClockError> {
+        if transport_budget.is_zero() {
+            return Err(ClockError::Unavailable);
+        }
+        let milliseconds = self
+            .milliseconds
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+                value.checked_add(1)
+            })
+            .map_err(|_| ClockError::Overflow)?;
+        Ok(ClockReading {
+            generation: [1; 16],
+            unix_milliseconds: self
+                .epoch_unix_milliseconds
+                .checked_add(milliseconds)
+                .ok_or(ClockError::Overflow)?,
+            monotonic_nanoseconds: milliseconds
+                .checked_mul(1_000_000)
+                .ok_or(ClockError::Overflow)?,
+        })
+    }
+}
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 
@@ -528,4 +568,28 @@ pub fn human_sources_containing(needle: &str) -> Vec<PathBuf> {
     }
     sources.sort();
     sources
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn step_clock_advances_one_millisecond_per_sample() -> Result<(), ClockError> {
+        let epoch = 1_700_000_000_000;
+        let clock = StepClock::new(epoch);
+        assert_eq!(clock.sample(Duration::ZERO), Err(ClockError::Unavailable));
+        let first = clock.sample(Duration::from_secs(1))?;
+        let second = clock.sample(Duration::from_secs(1))?;
+        assert_ne!(first.generation, [0; 16]);
+        assert_eq!(second.generation, first.generation);
+        assert_eq!(first.unix_milliseconds, epoch);
+        assert_eq!(second.unix_milliseconds - first.unix_milliseconds, 1);
+        assert_eq!(
+            second.monotonic_nanoseconds - first.monotonic_nanoseconds,
+            1_000_000
+        );
+        assert_eq!(second.elapsed_since(first)?, Duration::from_millis(1));
+        Ok(())
+    }
 }

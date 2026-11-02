@@ -24,6 +24,7 @@ type retirementVector struct {
 	method     string
 	input      []byte
 	valid      bool
+	retired    bool
 	signatures uint64
 	nodes      uint64
 }
@@ -36,6 +37,9 @@ func retirementVectors(t *testing.T) []retirementVector {
 		vectors = append(vectors, retirementVector{
 			name: method + "/" + name, method: method, input: h.input(method, args...),
 			valid: valid, signatures: signatures, nodes: nodes,
+			retired: method == layerxverify.VerifyReceiptInclusionMethod ||
+				method == layerxverify.VerifyDiscoveryProofMethod ||
+				(method == layerxverify.VerifyEd25519Method && args[1].(uint8) != layerxverify.RawMessageDomain),
 		})
 	}
 	for _, v := range h.cases("ed25519") {
@@ -126,7 +130,13 @@ func TestLayerXVerifyBelowTheMergeKeepsItsResults(t *testing.T) {
 		t.Run(vector.name, func(t *testing.T) {
 			want, wantErr := legacy.precompile.Run(legacy.evm, common.Address{}, common.Address{},
 				vector.input, nil, true, false, nil)
-			if vector.valid || vector.method == layerxverify.VerifyEd25519Method {
+			if vector.retired {
+				require.ErrorIs(t, wantErr, vm.ErrExecutionReverted)
+				require.Equal(t, pcommon.RetiredRevert("layerxVerify"), want)
+				reason, err := abi.UnpackRevert(want)
+				require.NoError(t, err)
+				require.Equal(t, "LXP_MODULE_DISABLED: module disabled; layerxVerify retired", reason)
+			} else if vector.valid || vector.method == layerxverify.VerifyEd25519Method {
 				require.NoError(t, wantErr)
 				require.NotEmpty(t, want)
 				if vector.method == layerxverify.VerifyEd25519Method {

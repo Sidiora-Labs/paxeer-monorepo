@@ -155,82 +155,60 @@ func (f *paymentFixture) assertBalances(t *testing.T, from, to int64) {
 
 func TestPrecompileIssueRevokeGrant(t *testing.T) {
 	f := newPaymentFixture(t)
-	data, err := f.call(t, f.caller, "issueGrant", f.grant)
-	require.NoError(t, err)
-	require.Equal(t, f.grantID[:], data)
-	logs := f.stateDB.GetAllLogs()
-	require.Len(t, logs, 1)
-	f.assertLog(t, logs[0], "PayerGrantIssued", [][32]byte{f.grantID})
-	assertGrant := func(revoked bool, revokedAt uint64) {
-		t.Helper()
-		data, err := f.call(t, f.caller, "getPayerGrant", f.grantID)
-		require.NoError(t, err)
-		values, err := f.precompile.GetABI().Methods["getPayerGrant"].Outputs.Unpack(data)
-		require.NoError(t, err)
-		require.Len(t, values, 7)
-		require.Equal(t, f.grant, values[0])
-		require.Zero(t, values[1].(*big.Int).Sign())
-		require.Zero(t, values[2].(*big.Int).Sign())
-		require.Equal(t, []interface{}{uint64(0), revokedAt, revoked, false}, values[3:])
-	}
-	assertGrant(false, 0)
+	before := storeSnapshot(t, f.ctx.KVStore(f.hostKey))
+	logsBefore := len(f.stateDB.GetAllLogs())
 	sequence, err := f.host.ReadIdentitySequence(f.ctx, f.payer.DID)
 	require.NoError(t, err)
-	global, err := lxphost.NextSequence(f.ctx, f.hostKey)
-	require.NoError(t, err)
-	data, err = f.call(t, f.caller, "revokeGrant", f.grantID, sequence)
-	require.NoError(t, err)
-	require.Empty(t, data)
-	logs = f.stateDB.GetAllLogs()
-	require.Len(t, logs, 2)
-	f.assertLog(t, logs[1], "PayerGrantRevoked", [][32]byte{f.grantID})
-	assertGrant(true, global)
-	f.assertBalances(t, 250, 0)
+	for _, request := range []struct {
+		name string
+		args []interface{}
+	}{
+		{"issueGrant", []interface{}{f.grant}},
+		{"getPayerGrant", []interface{}{f.grantID}},
+		{"revokeGrant", []interface{}{f.grantID, sequence}},
+	} {
+		data, err := f.call(t, f.caller, request.name, request.args...)
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
+		require.Equal(t, before, storeSnapshot(t, f.ctx.KVStore(f.hostKey)))
+		require.Len(t, f.stateDB.GetAllLogs(), logsBefore)
+		after, err := f.host.ReadIdentitySequence(f.ctx, f.payer.DID)
+		require.NoError(t, err)
+		require.Equal(t, sequence, after)
+		f.assertBalances(t, 250, 0)
+	}
 }
 
 func TestPrecompileDraw(t *testing.T) {
 	f := newPaymentFixture(t)
-	_, err := f.call(t, f.caller, "issueGrant", f.grant)
-	require.NoError(t, err)
-	idempotency := [32]byte{0x51}
-	data, err := f.call(t, f.payeeCaller, "draw", f.grantID, f.to, big.NewInt(15), idempotency, uint64(0), f.purpose, f.context)
-	require.NoError(t, err)
-	require.Empty(t, data)
-	logs := f.stateDB.GetAllLogs()
-	require.Len(t, logs, 3)
-	f.assertLog(t, logs[1], "Transfer", [][32]byte{f.from, f.to, f.asset}, big.NewInt(15), uint8(6))
-	f.assertLog(t, logs[2], "PaymentDrawn", [][32]byte{f.grantID, f.from, f.to}, f.asset, big.NewInt(15), idempotency, f.context)
-	f.assertBalances(t, 235, 15)
-	grant, err := f.keeper.GetPayerGrant(f.ctx, f.grantID)
-	require.NoError(t, err)
-	require.Equal(t, sdk.NewInt(15), grant.DrawnTotal)
+	data, err := f.call(t, f.caller, "issueGrant", f.grant)
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
+	before := storeSnapshot(t, f.ctx.KVStore(f.hostKey))
+	logsBefore := len(f.stateDB.GetAllLogs())
 	sequence, err := f.keeper.NextSequence(f.ctx, f.payee.DIDKey, f.asset)
 	require.NoError(t, err)
-	require.Equal(t, uint64(1), sequence)
-	before := storeSnapshot(t, f.ctx.KVStore(f.hostKey))
-	data, err = f.call(t, f.payeeCaller, "draw", f.grantID, f.to, big.NewInt(41), [32]byte{0x52}, sequence, f.purpose, f.context)
-	require.ErrorIs(t, err, vm.ErrExecutionReverted)
-	assertLedgerRevert(t, data, "LXP_GRANT_SCOPE_VIOLATION")
-	require.Len(t, f.stateDB.GetAllLogs(), 3)
-	require.Equal(t, before, storeSnapshot(t, f.ctx.KVStore(f.hostKey)))
-	f.assertBalances(t, 235, 15)
-	after, err := f.keeper.GetPayerGrant(f.ctx, f.grantID)
-	require.NoError(t, err)
-	require.Equal(t, grant, after)
-	for _, invalid := range []struct {
+	require.Zero(t, sequence)
+	for _, request := range []struct {
 		caller             common.Address
 		recipient, purpose [32]byte
-		reason             string
+		amount             int64
 	}{
-		{f.caller, f.to, f.purpose, "LXP_UNAUTHORIZED_DEBIT"},
-		{f.payeeCaller, f.from, f.purpose, "LXP_UNAUTHORIZED_DEBIT"},
-		{f.payeeCaller, f.to, [32]byte{}, "LXP_CONTEXT_MISMATCH"},
+		{f.payeeCaller, f.to, f.purpose, 15},
+		{f.payeeCaller, f.to, f.purpose, 41},
+		{f.caller, f.to, f.purpose, 1},
+		{f.payeeCaller, f.from, f.purpose, 1},
+		{f.payeeCaller, f.to, [32]byte{}, 1},
 	} {
-		data, err := f.call(t, invalid.caller, "draw", f.grantID, invalid.recipient, big.NewInt(1), [32]byte{0x53}, sequence, invalid.purpose, f.context)
+		data, err := f.call(t, request.caller, "draw", f.grantID, request.recipient, big.NewInt(request.amount), [32]byte{0x51}, sequence, request.purpose, f.context)
 		require.ErrorIs(t, err, vm.ErrExecutionReverted)
-		assertLedgerRevert(t, data, invalid.reason)
+		assertLedgerRevert(t, data, "LXP_NO_PAYER_GRANT")
 		require.Equal(t, before, storeSnapshot(t, f.ctx.KVStore(f.hostKey)))
-		require.Len(t, f.stateDB.GetAllLogs(), 3)
+		require.Len(t, f.stateDB.GetAllLogs(), logsBefore)
+		f.assertBalances(t, 250, 0)
+		after, err := f.keeper.NextSequence(f.ctx, f.payee.DIDKey, f.asset)
+		require.NoError(t, err)
+		require.Equal(t, sequence, after)
 	}
 }
 
