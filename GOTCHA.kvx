@@ -13735,3 +13735,43 @@ fix = "Run consensus bookkeeping reads under an infinite gas meter; the sender p
 title = "A test port asked for grant bytes a retired store cannot return"
 symptom = "A ruling ported keeper grant reads to the precompile view, but the view refuses every id since the grant store retired, so the port could not pass."
 fix = "Read the view body before ruling a port; assert the refusal when the underlying store is retired."
+
+[gotcha.2784]
+title = "A fixture carried resolution answers inside the wire request"
+symptom = "A conformance fixture's request object gained the resolver's answers, so the SDK encoders' equality tests against it failed in two languages."
+fix = "Keep the request object of a fixture equal to what the SDK encodes; put derived answers under the result."
+
+[gotcha.2785]
+title = "A test expected decimal heights the producer emits as hex"
+symptom = "A daemon test asserted receipt key heights as decimal strings while the producer and the parser both use 0x quantities."
+fix = "Read the producer's encoding before asserting a wire value."
+
+[gotcha.2786]
+title = "A port premise claimed a module the application still registers was removed"
+symptom = "A ruling said a module left the module manager and asked for nil-keeper assertions; the application still registers it and carries the keeper by a later decision."
+fix = "Check node/app.go and the precompile keepers before ruling what a retirement removed."
+
+[gotcha.2787]
+title = "A Rust test cannot link a C symbol defined outside the library sources"
+symptom = "An FFI function defined in a C file compiled only into the C test targets was called from a cargo test, which failed to link."
+fix = "Prove FFI paths from the side that links the definition; keep Rust tests on the crate's pure paths."
+
+[gotcha.2788]
+title = "A Go proof that drives a Node consumer needs that package's dependencies"
+symptom = "A Go test ran node --import tsx inside a pnpm package whose dependencies were never installed, so it failed on module resolution."
+fix = "Install the consumer package's dependencies in the task's build command before the Go build."
+
+[gotcha.2789]
+title = "The pending tag is refused off the proposing node"
+symptom = "A proof read the pending nonce from a node that does not propose blocks and was refused with -32000."
+fix = "Read nonces at latest or at a height unless the client talks to the proposer."
+
+[gotcha.2790]
+title = "A test handed a document to a helper that takes text"
+symptom = "A rewrite-genesis test passed a validator object to the public-key helper, which requires base64 text."
+fix = "Read a helper's first require before calling it from a test."
+
+[gotcha.2791]
+title = "A package-wide verify carried eleven tests the task never touched"
+symptom = "A task's verify ran four packages whole, and eleven unrelated stale or regressed tests blocked it for three attempts."
+fix = "Gate a task on the tests of its own files and give the whole-package run its own repair task."
