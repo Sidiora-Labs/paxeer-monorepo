@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"bytes"
-	"fmt"
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
@@ -70,7 +69,7 @@ func (k *Keeper) RankADL(ctx sdk.Context, deficitID, previousMark uint256.Int, l
 	for ; iterator.Valid() && len(ranked) < int(limit); iterator.Next() {
 		key := iterator.Key()
 		if len(key) != len(prefix)+64 || len(iterator.Value()) != 0 {
-			return nil, fmt.Errorf("%w: malformed ADL index entry", types.ErrInvalidParams)
+			return nil, types.ErrInvalidParams.Wrapf("malformed ADL index entry")
 		}
 		var id uint256.Int
 		id.SetBytes(key[len(key)-32:])
@@ -80,7 +79,7 @@ func (k *Keeper) RankADL(ctx sdk.Context, deficitID, previousMark uint256.Int, l
 		}
 		expected := types.AdlRankIndexKey(position.MarketID, types.SideOf(position.IsLong), position.RankScore, position.ID)
 		if !bytes.Equal(key, expected) || position.SizeBase.IsZero() {
-			return nil, fmt.Errorf("%w: inconsistent ADL index entry", types.ErrInvalidParams)
+			return nil, types.ErrInvalidParams.Wrapf("inconsistent ADL index entry")
 		}
 		if position.Account != deficit.Account && adlProfitable(position, previousMark) {
 			ranked = append(ranked, position)
@@ -220,7 +219,7 @@ func adlCoverDeficit(store sdk.KVStore, holder common.Address, counterparty type
 	var books types.VenueBooks
 	if raw := store.Get(types.VenueBooksKey); raw != nil {
 		if err := books.Unmarshal(raw); err != nil {
-			return fmt.Errorf("%w: venue books: %v", types.ErrInvalidParams, err)
+			return types.ErrInvalidParams.Wrapf("venue books: %v", err)
 		}
 	}
 	move := new(big.Int).Sub(price.ToBig(), counterparty.EntryPrice.ToBig())
@@ -240,8 +239,7 @@ func adlCoverDeficit(store sdk.KVStore, holder common.Address, counterparty type
 		return err
 	}
 	if books.DeficitSumUsd.ToBig().Cmp(covered) < 0 {
-		return fmt.Errorf("%w: deficit sum %s below the ADL cover %s of account %s",
-			types.ErrInvalidParams, books.DeficitSumUsd.Dec(), covered, holder)
+		return types.ErrInvalidParams.Wrapf("deficit sum %s below the ADL cover %s of account %s", books.DeficitSumUsd.Dec(), covered, holder)
 	}
 	books.DeficitSumUsd.SetFromBig(new(big.Int).Sub(books.DeficitSumUsd.ToBig(), covered))
 	payer.Collateral.SetFromBig(new(big.Int).Sub(payer.Collateral.ToBig(), debit))
@@ -259,7 +257,7 @@ func adlPosition(store sdk.KVStore, id uint256.Int) (types.Position, error) {
 		return position, types.ErrUnknownPosition
 	}
 	if err := position.Unmarshal(raw); err != nil {
-		return position, fmt.Errorf("%w: %v", types.ErrInvalidParams, err)
+		return position, types.ErrInvalidParams.Wrapf("%v", err)
 	}
 	if position.ID != id || position.SizeBase.IsZero() {
 		return position, types.ErrInvalidParams
@@ -274,7 +272,7 @@ func adlAccount(store sdk.KVStore, address common.Address) (types.Account, error
 		return account, types.ErrNoAccount
 	}
 	if err := account.Unmarshal(raw); err != nil {
-		return account, fmt.Errorf("%w: %v", types.ErrInvalidParams, err)
+		return account, types.ErrInvalidParams.Wrapf("%v", err)
 	}
 	if account.Address != address || !account.Created {
 		return account, types.ErrNoAccount
