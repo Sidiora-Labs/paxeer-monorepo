@@ -88,6 +88,7 @@ func (AppModule) QuerierRoute() string { return types.QuerierRoute }
 func (AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier { return nil }
 
 func (am AppModule) RegisterServices(cfg module.Configurator) {
+	// Register the same live keeper-backed service used by governance dispatch.
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 	if err := cfg.RegisterMigration(types.ModuleName, 1, keeper.NewMigrator(am.keeper).Migrate1to2); err != nil {
 		panic(fmt.Sprintf("failed to register x/%s migration 1 to 2: %v", types.ModuleName, err))
