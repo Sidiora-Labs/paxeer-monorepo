@@ -4,7 +4,7 @@
  * re-derived from receipts, isNullified and the attestation API, never from
  * this store. v1 shape; bump the key to migrate.
  */
-import type { Address, Hex } from 'viem';
+import { isAddress, type Address, type Hex } from 'viem';
 
 export type TransferDirection = 'in' | 'out';
 
@@ -56,23 +56,37 @@ export type BridgeTransfer = {
 const STORAGE_KEY = 'paxeer-bridge:transfers:v1';
 const MAX_TRANSFERS_PER_ACCOUNT = 50;
 
+function isHash(value: unknown): value is Hex {
+  return typeof value === 'string' && /^0x[0-9a-fA-F]{64}$/.test(value);
+}
+
+function isDecimal(value: unknown): value is string {
+  return typeof value === 'string' && /^(0|[1-9]\d*)$/.test(value);
+}
+
 function isBridgeTransfer(value: unknown): value is BridgeTransfer {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const transfer = value as Record<string, unknown>;
+  if (transfer.direction !== 'in' && transfer.direction !== 'out') return false;
+  if (!isHash(transfer.sourceTxHash)) return false;
   return (
-    typeof transfer.id === 'string' &&
-    typeof transfer.account === 'string' &&
-    (transfer.direction === 'in' || transfer.direction === 'out') &&
-    typeof transfer.foreignChainKey === 'string' &&
-    typeof transfer.foreignChainId === 'string' &&
-    typeof transfer.symbol === 'string' &&
-    typeof transfer.decimals === 'number' &&
-    typeof transfer.amount === 'string' &&
-    typeof transfer.assetId === 'string' &&
-    typeof transfer.recipient === 'string' &&
-    typeof transfer.sourceTxHash === 'string' &&
-    typeof transfer.requiredConfirmations === 'number' &&
-    typeof transfer.submittedAt === 'number'
+    transfer.id === transferIdOf(transfer.direction, transfer.sourceTxHash) &&
+    typeof transfer.account === 'string' && isAddress(transfer.account, { strict: false }) &&
+    typeof transfer.foreignChainKey === 'string' && transfer.foreignChainKey.length > 0 &&
+    isDecimal(transfer.foreignChainId) &&
+    typeof transfer.symbol === 'string' && transfer.symbol.length > 0 &&
+    typeof transfer.decimals === 'number' && Number.isInteger(transfer.decimals) && transfer.decimals >= 0 && transfer.decimals <= 255 &&
+    isDecimal(transfer.amount) &&
+    typeof transfer.assetId === 'string' && isAddress(transfer.assetId, { strict: false }) &&
+    typeof transfer.recipient === 'string' && transfer.recipient.length > 0 &&
+    typeof transfer.requiredConfirmations === 'number' && Number.isSafeInteger(transfer.requiredConfirmations) && transfer.requiredConfirmations > 0 &&
+    typeof transfer.submittedAt === 'number' && Number.isSafeInteger(transfer.submittedAt) && transfer.submittedAt >= 0 &&
+    (transfer.vault === undefined || (typeof transfer.vault === 'string' && isAddress(transfer.vault, { strict: false }))) &&
+    [ 'logIndex', 'nonce', 'bridgeOutNonce' ].every((field) => transfer[field] === undefined || isDecimal(transfer[field])) &&
+    [ 'claimTxHash', 'releaseTxHash' ].every((field) => transfer[field] === undefined || isHash(transfer[field])) &&
+    [ 'claimedAt', 'releasedAt' ].every((field) => transfer[field] === undefined ||
+      (typeof transfer[field] === 'number' && Number.isSafeInteger(transfer[field]) && transfer[field] >= 0)) &&
+    (transfer.destinationHeldBack === undefined || typeof transfer.destinationHeldBack === 'boolean')
   );
 }
 

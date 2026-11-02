@@ -4,7 +4,10 @@ import { matchDepositLog, nonceFromBridgeOutLogs } from './import';
 import type { BridgeTransfer } from './transfers';
 
 export function enrichRecord(transfer: BridgeTransfer, receipt: TransactionReceipt): BridgeTransfer {
-  if (transfer.direction === 'in' && transfer.logIndex === undefined) {
+  if (receipt.status !== 'success' || receipt.transactionHash.toLowerCase() !== transfer.sourceTxHash.toLowerCase()) {
+    return transfer;
+  }
+  if (transfer.direction === 'in' && (transfer.logIndex === undefined || transfer.nonce === undefined)) {
     const hit = matchDepositLog(transfer, receipt.logs);
     if (hit && hit.logIndex !== null) {
       return { ...transfer, logIndex: String(hit.logIndex), nonce: String(hit.args.nonce) };
