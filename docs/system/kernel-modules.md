@@ -8,9 +8,9 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 
 | Id | Module | ABI version | Activity types | Registration |
 |---|---|---|---|---|
-| 1 | asset | 1 | 11 | `src/modules/asset/lx_asset_registry.c` |
+| 1 | asset | 1 | 8 | `src/modules/asset/lx_asset_registry.c` |
 | 2 | escrow | 1 | 7 | `src/modules/escrow/lx_escrow_module.c` |
-| 3 | budget | 1 | 11 | `src/modules/budget/lx_budget_module.c` |
+| 3 | budget | 1 | 10 | `src/modules/budget/lx_budget_module.c` |
 | 4 | stream | 1 | 8 | `src/modules/stream/lx_stream_open.c` |
 | 5 | service | 1 | 13 | `src/modules/service/lx_service_module.c` |
 | 6 | perps | 1 | 11 | `src/modules/perps/lx_perps_dispatch.c` |
@@ -25,7 +25,6 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 | 9 | programs | 4 | 10 | `src/modules/programs/registration.c` |
 | 9 | programs | 5 | 10 | `src/modules/programs/registration.c` |
 | 10 | spot | 1 | 5 | `src/modules/spot/lx_spot_dispatch.c` |
-| 11 | web | 1 | 2 | `src/modules/web/lx_web_module.c` |
 
 ## asset (`LXP_MODULE_ASSET` = 1)
 
@@ -36,9 +35,6 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 | `LX_ASSET_UNPAUSE` | `0x00010003` |
 | `LX_ASSET_ACCOUNT_OPEN` | `0x00010004` |
 | `LX_ASSET_SEND` | `0x00010005` |
-| `LX_ASSET_RECEIVE` | `0x00010006` |
-| `LX_ASSET_GRANT_ISSUE` | `0x00010007` |
-| `LX_ASSET_GRANT_REVOKE` | `0x00010008` |
 | `LX_ASSET_WITHDRAW` | `0x00010009` |
 | `LX_ASSET_MINT` | `0x0001000a` |
 | `LX_ASSET_BURN` | `0x0001000b` |
@@ -69,7 +65,6 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 | `LX_BUDGET_DEFUND` | `0x00030008` |
 | `LX_BUDGET_REVOKE` | `0x00030009` |
 | `LX_BUDGET_DELEGATE_SPEND` | `0x0003000a` |
-| `LX_BUDGET_PULL` | `0x0003000b` |
 
 ## stream (`LXP_MODULE_STREAM` = 4)
 
@@ -252,10 +247,3 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 | `LX_SPOT_ORDER_CANCEL` | `(LXP_MODULE_SPOT << 16) \| 0x0003` |
 | `LX_SPOT_MARKET_HALT` | `(LXP_MODULE_SPOT << 16) \| 0x0004` |
 | `LX_SPOT_MARKET_RESUME` | `(LXP_MODULE_SPOT << 16) \| 0x0005` |
-
-## web (`LXP_MODULE_WEB` = 11)
-
-| Activity type | Value |
-|---|---|
-| `LX_WEB_OBSERVATION_ACTIVITY` | `0x000B0001` |
-| `LX_WEB_ATTESTOR_SET_ACTIVITY` | `0x000B0002` |

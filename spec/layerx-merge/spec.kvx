@@ -6633,6 +6633,30 @@ value = "Tasks 9.35.7 and 9.29.1 keep status blocked until a family of port task
 basis = "Finding 9.35.1.2 and finding 10.21.4.1: the agent daemon's whole preparation, approval, policy and signing path still produces kernel activities, the KMS test target has been broken since 10.21.4, and no pending task ports any of them; retiring the codec before that path exists would leave the product unable to prepare an owner or agent operation at all. Decision 1023 already fixed the direction (an EIP-1559 call carrying the payload in calldata), so the remaining work is a sequence of consumer ports, not a design question."
 affects = ["9.35.7", "9.29.1"]
 
+[decision.2254]
+title = "Every pending Go task requires task 6.96.5, which re-homes the availability class count the codec retirement removed from under the layerxanchor keeper"
+value = "Task 6.96.5 (wave 1, no requirement) replaces codec.AvailabilityClassCount in modules/layerxanchor/keeper/checkpoints.go with a keeper constant and builds modules/layerxanchor and daemon; every task with status pending and a Go environment profile, plus 5.97.1 and 3.54.7, gains 6.96.5 in requires so no Go gate runs against a daemon that does not compile. Tasks 15.3.1-15.3.16, 3.54.7 and 5.97.1 continue from their last attempt unchanged once 6.96.5 is on main."
+basis = "Finding 1.36.1.1: the Go module has not compiled since 1.36.1 landed (wave 39); sixteen telemetry tasks and the perps-data run failed on the same two lines within one hour."
+affects = ["6.96.5", "5.97.1", "3.54.7", "15.3.1", "15.3.10", "15.3.11", "15.3.15", "15.3.16", "15.3.17", "15.3.2", "15.3.3", "15.3.4", "15.3.5", "15.3.6", "15.3.7", "15.3.8", "15.3.9"]
+
+[decision.2255]
+title = "Task 10.21.8 builds the layerx-human-service targets it touches by name instead of --all-targets"
+value = "The build command and the first step of the verify command of 10.21.8 compile the library, binaries and the eight test targets the task touches or that include canonical_owner.rs; the --all-targets build is not a gate of this task while evidence_node.rs and production_owner_tests.rs stay unported."
+basis = "Finding 10.21.4.2: three attempts of 10.21.8 completed the port and failed only on two files no task owns yet."
+affects = ["10.21.8"]
+
+[decision.2256]
+title = "Task 9.24.7 is blocked until the agent daemon, its tests, the pay2e qualification and the boundary check no longer consume the LNI module"
+value = "9.24.7 keeps status blocked. The ports are written per consumer from the census of finding 9.24.7.1: the Version type re-homes into layerx-client's rpc module (recorded on 9.24.7), the agent daemon library drops FrameTransport, NodeInfo and Limits with the human-runtime port of decision 1927, the agentd test support and the LNI-specific tests (gaps.rs, approval_events.rs, subscription_ops_cursor.rs) move to the node JSON-RPC fixture or are deleted, pay2e drops its capability assertions and the boundary check keeps only its textual rule. Each port task is listed in the requires of 9.24.7 before it is unblocked; 9.24.6 is unaffected because the six files it deletes are orphans."
+basis = "Finding 9.24.7.1: the LNI module has five library consumers in layerx-agentd and a test support file seventeen targets include; deleting it first would leave the daemon uncompilable."
+affects = ["9.24.7", "9.24.6"]
+
+[decision.2257]
+title = "contracts/security/Governed.sol stays as the governance base of the .pax names contracts; task 6.80.2 is superseded and acceptance 16967.3 gates only the storage imports and the five named suites"
+value = "Governed.sol remains on main with its onlyGovernance and onlyEmergencyCouncil modifiers for contracts/names/*.sol; task 6.80.2 takes status superseded and leaves the requires of 6.0.9; decision 681 is amended so that ReentrancyLock and Governed both stay. Acceptance 16967.3 reads: no Solidity suite under tests/solidity imports contracts/storage, and tests/solidity/ContractIntegration.t.sol, ContractExecutionSafety.t.sol, CheckpointChallengeManager.t.sol, ContractInvariants.t.sol and PaxeerBetaDeploy.t.sol are absent. Task 16.97.3 continues from attempt 1 with the test narrowed accordingly."
+basis = "Findings 6.80.2.1 and 16.97.3.1: the names contracts adopted Governed after decision 681 was taken, and no retirement task ports them off it; a governance base of eighteen lines is not worth a port."
+affects = ["6.80.2", "16.97.3", "6.0.9"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20254,6 +20278,14 @@ title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
 
+[req.8310]
+title = "The wallet capability vectors producer emits only budget vectors"
+ac_1 = "tests/qualification/lxp_wallet_caps_vectors.c defines no grant_vector and names no lxp_grant_state, build/native-vectors.json carries the budget fields and the producer tag, and the budget tests of committed_caps.rs pass against it."
+
+[req.8309]
+title = "The layerxanchor keeper compiles without the retired codec constant"
+ac_1 = "modules/layerxanchor/keeper/checkpoints.go names no layerxproof codec symbol, availabilityMask counts the five availability classes with a keeper constant, and go build of modules/layerxanchor/... and daemon/... passes."
+
 [req.8308]
 title = "layerx-crypto carries no owner rotation codec and no payment envelope encoder"
 ac_1 = "services/agent/crates/layerx-crypto/src/rotation.rs is absent, lib.rs declares no rotation module, encode_payment_envelope is gone from src/send.rs while encode_send_envelope still produces an Asset ordinal 5 activity over the same options, and no Rust file outside layerx-crypto and the retired-name sweep tests names layerx_crypto::rotation or encode_payment_envelope."
@@ -24744,7 +24776,7 @@ ac_4 = "tests/bridge/test_credit.c, tests/bridge/test_light_credit.c and tests/b
 title = "Gate the retired relay-archive tree and the retired Solidity suites and scripts"
 ac_1 = "The docker/relay-archive directory is absent."
 ac_2 = "The tests/relay-archive directory is absent."
-ac_3 = "No Solidity suite under tests/solidity imports contracts/security or contracts/storage."
+ac_3 = "No Solidity suite under tests/solidity imports contracts/storage, and tests/solidity/ContractIntegration.t.sol, tests/solidity/ContractExecutionSafety.t.sol, tests/solidity/CheckpointChallengeManager.t.sol, tests/solidity/ContractInvariants.t.sol and tests/solidity/PaxeerBetaDeploy.t.sol are absent."
 ac_4 = "tests/solidity/ContractInvariants.t.sol and tests/solidity/PaxeerBetaDeploy.t.sol are absent."
 ac_5 = "scripts/PaxeerBetaDeploy.s.sol is absent, so no script imports WithdrawalNullifierRegistry."
 ac_6 = "scripts/ci/solidity-state-surface.sh names no WithdrawalNullifierRegistry."
@@ -33850,6 +33882,24 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.9.24.8]
+title = "Drop the grant vectors from the wallet capability vectors producer and its two grant tests"
+reqs = ["8310.1"]
+touches = ["tests/qualification/lxp_wallet_caps_vectors.c", "services/agent/crates/layerx-client/tests/committed_caps.rs"]
+tests = ["services/agent/crates/layerx-client/tests/committed_caps.rs"]
+verification_contract = "! grep -nE 'grant_vector|lxp_grant_state' tests/qualification/lxp_wallet_caps_vectors.c && ! grep -nE 'native_grant_signatures|grant_refuses_key' services/agent/crates/layerx-client/tests/committed_caps.rs && env LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_budget_versions_fields_and_extremes --exact budget_refuses_malformed_and_arithmetic_bounds"
+do_1 = "In tests/qualification/lxp_wallet_caps_vectors.c delete grant_vector (:68 through its closing brace at :120) and its three CHECK calls in main (:126-128, grant_once, grant_recurring and grant_extreme); keep budget_vectors, the opening brace, the producer tag line and the rest of main unchanged, and remove any include or helper that only grant_vector used."
+symbols = []
+
+[capability.6.96.5]
+title = "Re-home the availability class count in the layerxanchor keeper after the codec retirement"
+reqs = ["8309.1"]
+touches = ["modules/layerxanchor/keeper/checkpoints.go"]
+tests = ["modules/layerxanchor/keeper/keeper_test.go"]
+verification_contract = "! grep -n 'codec.AvailabilityClassCount' modules/layerxanchor/keeper/checkpoints.go && go vet ./modules/layerxanchor/keeper/ && go test -count=1 ./modules/layerxanchor/keeper/ -run '^(TestDefaultGenesisIsValid|TestSubmitCheckpointIsRetired|TestMsgUpdateParamsRefusals)$'"
+do_1 = "In modules/layerxanchor/keeper/checkpoints.go add `const availabilityClassCount = 5` next to availabilityMask (:144-146) with a comment that it is the number of availability classes the attestation ClassMask carries, formerly codec.AvailabilityClassCount, and use it for the counts array (:147) and the class loop (:154)."
+symbols = ["availabilityClassCount"]
+
 [capability.9.35.7]
 title = "Remove the kernel activity codec items from layerx-crypto once the kernel path has migrated"
 reqs = ["9341.1"]
@@ -33909,7 +33959,7 @@ title = "Port layerx-human-service off the deleted owner activity envelope and t
 reqs = ["8302.1"]
 touches = ["services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs"]
-verification_contract = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test export --test export_receipts && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test retired_crypto_codec_w3 && ! grep -rlE 'owner_activity::|CheckpointFact|verified_checkpoints' services/human/crates --include='*.rs' | grep -qv no_layerx_intents.rs"
+verification_contract = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --bins --test export --test export_receipts --test agent_runtime_eip1559 --test agent_create --test agent_creation_rungs --test agent_controls --test agent_controls_rungs --test native_onboarding_rungs && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test export --test export_receipts && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test retired_crypto_codec_w3 && ! grep -rlE 'owner_activity::|CheckpointFact|verified_checkpoints' services/human/crates --include='*.rs' | grep -qv no_layerx_intents.rs"
 do_1 = "In services/human/crates/layerx-human-service/src/custody/signer.rs add pub fn attach_call_signature(call: &Eip1559Call, signature: [u8; 65], from: [u8; 20]) -> Result<Vec<u8>, CustodyError> with the body of the deleted layerx_intents owner_activity::attach_signature (7fe9b50ec^ services/human/crates/layerx-intents/src/owner_activity.rs:178-190): bind_call(call, from) must disclose the call, AgentSignature::new wraps the signature, recover_sender must return from, and the result is layerx_crypto::evm_transaction::assemble(call, &signature); map the three refusals to CustodyError::Sign(SignError::InvalidDisclosure) for the binding and sender checks and CustodyError::Sign(SignError::ReturnedSignatureInvalid) for a malformed signature. Call it from services/human/crates/layerx-human-service/src/server/agent_creation.rs:436, services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs:209, services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs:370 and services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs:134-156 (as layerx_human_service::custody::signer::attach_call_signature; the KMS test's four assertions, one accepted call and three refusals, stay)."
 symbols = ["attach_call_signature", "verify_owner_activity"]
 
@@ -95890,7 +95940,7 @@ title = "Gate domain 1 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 48
-requires = ["1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.2.3", "1.2.4", "1.2.5", "1.6.1", "1.6.3", "1.15.2", "1.17.4", "1.18.2", "1.18.3", "1.19.3", "1.26.1", "1.26.2", "1.27.1", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.4", "1.29.5", "1.31.1", "1.31.2", "1.31.3", "1.31.5", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.36.1", "1.36.2", "1.36.3", "1.37.1", "1.38.1", "1.38.2", "1.39.2", "1.97.1", "16.2.1"]
+requires = ["1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.2.3", "1.2.4", "1.2.5", "1.6.1", "1.6.3", "1.15.2", "1.17.4", "1.18.2", "1.18.3", "1.19.3", "1.26.1", "1.26.2", "1.27.1", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.4", "1.29.5", "1.31.1", "1.31.2", "1.31.3", "1.31.5", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.36.1", "1.36.2", "1.36.3", "1.37.1", "1.38.1", "1.38.2", "1.39.2", "1.97.1", "16.2.1", "6.96.5"]
 reqs = ["1999.1"]
 capabilities = ["1.0.9"]
 interfaces = []
@@ -96048,7 +96098,7 @@ title = "Retire LXP_ERR_DA_MISSING from the kernel result registry"
 status = "pending"
 mode = "BUILD"
 wave = 45
-requires = ["1.1.4", "1.1.3", "16.2.1", "6.97.3", "1.31.7", "1.32.2", "1.34.1", "1.34.3", "1.34.4"]
+requires = ["1.1.4", "1.1.3", "16.2.1", "6.97.3", "1.31.7", "1.32.2", "1.34.1", "1.34.3", "1.34.4", "6.96.5"]
 reqs = ["1009.1"]
 capabilities = ["1.1.5"]
 interfaces = ["interface.1.err-c-lxp-err-da-missing"]
@@ -96182,7 +96232,7 @@ title = "Delete the kernel idempotency table and its journal staging"
 status = "pending"
 mode = "BUILD"
 wave = 46
-requires = ["1.2.2", "1.25.1", "1.25.2", "1.0.4", "16.2.1", "1.2.4"]
+requires = ["1.2.2", "1.25.1", "1.25.2", "1.0.4", "16.2.1", "1.2.4", "6.96.5"]
 reqs = ["1012.1", "1012.2"]
 capabilities = ["1.2.3"]
 interfaces = ["interface.1.c-lxp-idempotency-key-state", "interface.1.c-lxp-state-journal", "interface.1.c-lxp-idempotency-reserve", "interface.1.c-lxp-idempotency-prune", "interface.1.c-lxp-idempotency-append", "interface.1.c-lxp-idempotency-live-count", "interface.1.c-lxp-idempotency-can-commit", "interface.1.c-lxp-idempotency-commit-staged", "interface.1.c-lxp-state-store-init", "interface.1.c-lxp-state-journal-commit", "interface.1.c-lxp-state-store"]
@@ -96219,7 +96269,7 @@ title = "Delete retired kernel entry points: capacity ledger, maintenance and cr
 status = "pending"
 mode = "BUILD"
 wave = 45
-requires = ["1.2.1", "1.18.2", "1.0.4", "16.2.1", "16.96.1", "1.34.2"]
+requires = ["1.2.1", "1.18.2", "1.0.4", "16.2.1", "16.96.1", "1.34.2", "6.96.5"]
 reqs = ["1013.1", "1013.2"]
 capabilities = ["1.2.4"]
 interfaces = ["interface.1.c-enum-lxp-capacity-format-version", "interface.1.c-lxp-capacity-kind", "interface.1.c-lxp-capacity-state", "interface.1.c-lxp-capacity-demand", "interface.1.c-lxp-capacity-profile", "interface.1.c-lxp-capacity-request", "interface.1.c-lxp-capacity-reservation", "interface.1.c-lxp-capacity-ledger", "interface.1.c-lxp-capacity-observation", "interface.1.c-lxp-capacity-profile-validate", "interface.1.c-lxp-capacity-ledger-install", "interface.1.c-lxp-kernel-capacity-observe", "interface.1.c-lxp-kernel-capacity-reserve", "interface.1.c-lxp-kernel-capacity-reconcile", "interface.1.c-lxp-kernel-capacity-cancel", "interface.1.c-lxp-capacity-profile-encode", "interface.1.c-lxp-capacity-profile-decode", "interface.1.c-lxp-capacity-request-decode", "interface.1.c-lxp-capacity-reservation-encode", "interface.1.c-lxp-capacity-observation-encode", "interface.1.c-lxp-capacity-ledger-encode", "interface.1.c-lxp-capacity-ledger-decode", "interface.1.c-lxp-kernel-finalize-batch-maintenance", "interface.1.c-lxp-module-ctx"]
@@ -96257,7 +96307,7 @@ title = "Delete the bridge reserve credit from the ledger apply layer"
 status = "pending"
 mode = "BUILD"
 wave = 46
-requires = ["1.2.4", "16.2.1", "16.97.1"]
+requires = ["1.2.4", "16.2.1", "16.97.1", "6.96.5"]
 reqs = ["1014.1", "1014.2"]
 capabilities = ["1.2.5"]
 interfaces = ["interface.1.c-lxp-ledger-apply-bridge-credit"]
@@ -96677,7 +96727,7 @@ title = "Pin the kernel snapshot format with a conformance golden"
 status = "pending"
 mode = "BUILD"
 wave = 47
-requires = ["1.2.3", "1.4.5", "16.2.1"]
+requires = ["1.2.3", "1.4.5", "16.2.1", "6.96.5"]
 reqs = ["1026.1", "1026.2"]
 capabilities = ["1.6.1"]
 interfaces = []
@@ -96741,7 +96791,7 @@ title = "Retire the state diff encoding once DA and replica users leave"
 status = "pending"
 mode = "BUILD"
 wave = 45
-requires = ["1.0.1", "16.2.1", "16.2.4", "1.34.1", "1.34.2", "1.33.3"]
+requires = ["1.0.1", "16.2.1", "16.2.4", "1.34.1", "1.34.2", "1.33.3", "6.96.5"]
 reqs = ["1028.1"]
 capabilities = ["1.6.3"]
 interfaces = ["interface.1.fmt-state-diff", "interface.1.c-lxp-state-diff-entry", "interface.1.c-lxp-state-diff-encode", "interface.1.c-lxp-state-diff-decode"]
@@ -97968,7 +98018,7 @@ title = "Delete the handover protocol source and header"
 status = "pending"
 mode = "BUILD"
 wave = 46
-requires = ["1.17.1", "1.17.3", "1.0.4", "16.2.1", "16.97.1", "1.2.4", "1.34.2"]
+requires = ["1.17.1", "1.17.3", "1.0.4", "16.2.1", "16.97.1", "1.2.4", "1.34.2", "6.96.5"]
 reqs = ["1062.1"]
 capabilities = ["1.17.2"]
 interfaces = ["interface.1.c-enum-lxp-governance-handover", "interface.1.c-lxp-handover-certificate", "interface.1.c-lxp-handover-evidence", "interface.1.c-lxp-handover-genesis-trust-encode", "interface.1.c-lxp-handover-finality-verify-fn", "interface.1.c-lxp-handover-state", "interface.1.c-enum-lxp-handover-max-transitions", "interface.1.c-lxp-handover-trust-chain", "interface.1.c-lxp-handover-trust-finality-fn", "interface.1.c-lxp-handover-trust-initialize", "interface.1.c-lxp-handover-trust-accept", "interface.1.c-lxp-handover-trust-scan-log", "interface.1.c-lxp-handover-trust-authorization", "interface.1.c-lxp-handover-trust-authorization-sequence", "interface.1.c-lxp-handover-trust-matches-kernel", "interface.1.c-lxp-handover-sequencer-id", "interface.1.c-lxp-handover-genesis-authority", "interface.1.c-lxp-handover-certificate-encode", "interface.1.c-lxp-handover-certificate-decode", "interface.1.c-lxp-handover-certificate-sign", "interface.1.c-lxp-handover-certificate-verify", "interface.1.c-lxp-handover-finality-digest", "interface.1.c-lxp-handover-evidence-encode", "interface.1.c-lxp-handover-evidence-decode", "interface.1.c-lxp-handover-evidence-verify-binding", "interface.1.c-lxp-handover-recovery-is-envelope", "interface.1.c-lxp-handover-recovery-encode", "interface.1.c-lxp-handover-recovery-decode", "interface.1.c-lxp-handover-kernel-initialize", "interface.1.c-lxp-handover-history-resolve", "interface.1.c-lxp-handover-history-resolve-sequence", "interface.1.c-lxp-handover-history-latest", "interface.1.c-lxp-handover-prepare", "interface.1.c-lxp-handover-stage", "interface.1.c-lxp-handover-incoming"]
@@ -98269,7 +98319,7 @@ title = "Delete bridge credit and light-client sources and headers"
 status = "pending"
 mode = "BUILD"
 wave = 46
-requires = ["1.18.1", "1.0.4", "16.2.1", "16.97.2", "5.97.4", "1.2.4"]
+requires = ["1.18.1", "1.0.4", "16.2.1", "16.97.2", "5.97.4", "1.2.4", "6.96.5"]
 reqs = ["1070.1", "1070.2"]
 capabilities = ["1.19.3"]
 interfaces = ["interface.1.c-enum-lxp-bridge-credit", "interface.1.c-lxp-bridge-profile", "interface.1.c-lxp-bridge-credit", "interface.1.c-lxp-bridge-profile-beneficiary", "interface.1.c-lxp-bridge-registry-key", "interface.1.c-lxp-bridge-profile-key-asset", "interface.1.c-lxp-bridge-light-trust-key-asset", "interface.1.c-lxp-bridge-reserve-name", "interface.1.c-lxp-bridge-profile-validate-asset", "interface.1.c-lxp-bridge-registry-decode", "interface.1.c-lxp-bridge-registry-append", "interface.1.c-lxp-bridge-registry-profile", "interface.1.c-lxp-bridge-profile-load-asset", "interface.1.c-lxp-bridge-light-trust-load-asset", "interface.1.c-lxp-bridge-credit-verify-asset", "interface.1.c-lxp-bridge-credit-parse", "interface.1.c-lxp-bridge-credit-matches", "interface.1.c-lxp-bridge-credit-owner-bound", "interface.1.c-lxp-bridge-profile-trust", "interface.1.c-lxp-bridge-light-trust-load", "interface.1.c-lxp-bridge-profile-validate", "interface.1.c-lxp-bridge-genesis-profile", "interface.1.c-lxp-bridge-genesis-append", "interface.1.c-lxp-bridge-credit-verify", "interface.1.c-lxp-bridge-module-iface", "interface.1.c-lxp-bridge-credit-bind-receipt", "interface.1.c-lxp-ctx-bridge-credit", "interface.1.c-enum-lxp-bridge-light-max-validators", "interface.1.c-lxp-bridge-light-trust", "interface.1.c-lxp-bridge-light-result", "interface.1.c-lxp-bridge-light-deposit", "interface.1.c-lxp-bridge-light-verify", "interface.1.c-lxp-bridge-light-deposit-decode", "interface.1.c-lxp-bridge-light-trust-encode", "interface.1.c-lxp-bridge-light-trust-decode", "interface.1.c-lxp-bridge-profile-key", "interface.1.c-lxp-bridge-light-trust-key"]
@@ -99011,7 +99061,7 @@ title = "Refuse appends of retired log record kinds while still reading historic
 status = "pending"
 mode = "BUILD"
 wave = 45
-requires = ["1.35.1", "1.35.3", "1.33.1", "1.34.4", "1.0.3", "16.32.12"]
+requires = ["1.35.1", "1.35.3", "1.33.1", "1.34.4", "1.0.3", "16.32.12", "6.96.5"]
 reqs = ["1255.1", "1255.2"]
 capabilities = ["1.27.1"]
 interfaces = ["interface.1.fmt-kernel-log-segment"]
@@ -99175,7 +99225,7 @@ title = "Retire the oracle adapter loop and its activity and transport encoders"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "1.29.1", "5.97.1", "16.33.3", "16.35.2"]
+requires = ["1.21.1", "1.0.3", "1.29.1", "5.97.1", "16.33.3", "16.35.2", "6.96.5"]
 reqs = ["1260.1"]
 capabilities = ["1.29.2"]
 interfaces = ["interface.1.c-lx-oracle-activity-encode", "interface.1.c-lx-oracle-activity-encode-signed", "interface.1.c-lx-oracle-adapter-config", "interface.1.c-lx-oracle-adapter-isolation-check", "interface.1.c-lx-oracle-adapter-run", "interface.1.c-lx-oracle-transport-encode"]
@@ -99342,7 +99392,7 @@ title = "Retire guarantor attestation signing and the secp256k1 signer"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "1.36.3", "5.97.1", "16.32.1", "16.32.2", "16.32.3", "16.32.4", "16.32.5", "16.32.8", "16.32.11", "16.33.1", "16.33.2", "16.33.6"]
+requires = ["1.21.1", "1.0.3", "1.36.3", "5.97.1", "16.32.1", "16.32.2", "16.32.3", "16.32.4", "16.32.5", "16.32.8", "16.32.11", "16.33.1", "16.33.2", "16.33.6", "6.96.5"]
 reqs = ["1265.1"]
 capabilities = ["1.31.1"]
 interfaces = ["interface.1.c-lxp-guarantor-attest", "interface.1.c-lxp-guarantor-attestation-verify", "interface.1.c-lxp-secp256k1-sign"]
@@ -99375,7 +99425,7 @@ title = "Retire the guarantor set and bond state in src/guarantor/lxp_bond_state
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.2", "16.32.4", "16.32.6", "16.32.11", "16.33.1", "16.36.2"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.2", "16.32.4", "16.32.6", "16.32.11", "16.33.1", "16.36.2", "6.96.5"]
 reqs = ["1266.1"]
 capabilities = ["1.31.2"]
 interfaces = ["interface.1.c-lxp-guarantor-eligible", "interface.1.c-lxp-guarantor-set-apply", "interface.1.c-lxp-guarantor-set-init", "interface.1.c-lxp-guarantor-set-rotate-signer", "interface.1.c-lxp-guarantor-set-validate", "interface.1.c-lxp-guarantor-signer-at-epoch", "interface.1.c-lxp-guarantor-signer-authorized"]
@@ -99408,7 +99458,7 @@ title = "Retire guarantor batch processing in src/guarantor/lxp_guarantor.c"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.1", "16.33.6"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.1", "16.33.6", "6.96.5"]
 reqs = ["1267.1"]
 capabilities = ["1.31.3"]
 interfaces = ["interface.1.c-lxp-guarantor-process-batch", "interface.1.c-lxp-guarantor-recompute-roots", "interface.1.c-lxp-guarantor-verify-signatures"]
@@ -99474,7 +99524,7 @@ title = "Retire guarantor equivocation evidence in src/guarantor/lxp_equivocatio
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.1", "16.32.2"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.1", "16.32.2", "6.96.5"]
 reqs = ["1269.1"]
 capabilities = ["1.31.5"]
 interfaces = ["interface.1.c-lxp-equivocation-detect", "interface.1.c-lxp-equivocation-encode", "interface.1.c-lxp-equivocation-verify"]
@@ -99539,7 +99589,7 @@ title = "Retire the data-availability store and possession proofs"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.6", "16.32.7", "16.32.8", "16.32.9"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.6", "16.32.7", "16.32.8", "16.32.9", "6.96.5"]
 reqs = ["1271.1"]
 capabilities = ["1.31.7"]
 interfaces = ["interface.1.c-lxp-da-possession-attest", "interface.1.c-lxp-da-possession-verify", "interface.1.c-lxp-da-store-bundle", "interface.1.c-lxp-da-store-init", "interface.1.c-lxp-da-store-read-bundle"]
@@ -99573,7 +99623,7 @@ title = "Retire guarantor checkpoint certificates in src/paxeer/lxp_checkpoint_c
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "1.36.3", "5.97.1", "16.32.1", "16.32.3", "16.32.4", "16.32.5", "16.32.6", "16.32.8", "16.32.11", "16.33.1", "16.33.2", "16.33.6"]
+requires = ["1.21.1", "1.0.3", "1.36.3", "5.97.1", "16.32.1", "16.32.3", "16.32.4", "16.32.5", "16.32.6", "16.32.8", "16.32.11", "16.33.1", "16.33.2", "16.33.6", "6.96.5"]
 reqs = ["1272.1"]
 capabilities = ["1.32.1"]
 interfaces = ["interface.1.c-lxp-checkpoint-certificate-hash", "interface.1.c-lxp-checkpoint-maximum-attestation-delay-ms", "interface.1.c-lxp-guarantor-cert-assemble", "interface.1.c-lxp-guarantor-cert-verify", "interface.1.c-lxp-receipt-augment"]
@@ -99607,7 +99657,7 @@ title = "Retire checkpoint finalisation and the DA-unavailable mode"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "6.96.1", "16.32.4", "16.32.6", "16.32.11", "16.33.1"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "6.96.1", "16.32.4", "16.32.6", "16.32.11", "16.33.1", "6.96.5"]
 reqs = ["1273.1"]
 capabilities = ["1.32.2"]
 interfaces = ["interface.1.c-lxp-checkpoint-block-on-da", "interface.1.c-lxp-checkpoint-finalisable", "interface.1.c-lxp-da-unavailable-mode", "interface.1.c-lxp-da-withhold-sim"]
@@ -99674,7 +99724,7 @@ title = "Retire the settlement-chain checkpoint client in lxp_paxeer_client.c"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.4", "16.32.11", "16.34.2", "16.36.1"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.4", "16.32.11", "16.34.2", "16.36.1", "6.96.5"]
 reqs = ["1275.1"]
 capabilities = ["1.32.4"]
 interfaces = ["interface.1.c-lxp-checkpoint-register", "interface.1.c-lxp-checkpoint-submit-calldata", "interface.1.c-lxp-paxeer-abi-encode-bytes", "interface.1.c-lxp-paxeer-abi-selector", "interface.1.c-lxp-paxeer-anchor-address", "interface.1.c-lxp-paxeer-checkpoint-certificate-encode", "interface.1.c-lxp-paxeer-custody-abi-init", "interface.1.c-lxp-paxeer-guarantor-attestation-from-core", "interface.1.c-lxp-paxeer-verify-cert"]
@@ -99708,7 +99758,7 @@ title = "Retire the guarantor bond and membership client in lxp_bond_client.c"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.2", "16.36.2"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.2", "16.36.2", "6.96.5"]
 reqs = ["1276.1"]
 capabilities = ["1.32.5"]
 interfaces = ["interface.1.c-lxp-paxeer-bond-binding-adopt", "interface.1.c-lxp-paxeer-bond-binding-decode", "interface.1.c-lxp-paxeer-bond-binding-encode", "interface.1.c-lxp-paxeer-bond-deposit", "interface.1.c-lxp-paxeer-bond-deposit-proof", "interface.1.c-lxp-paxeer-bond-init", "interface.1.c-lxp-paxeer-bond-state-read", "interface.1.c-lxp-paxeer-membership-commitment", "interface.1.c-lxp-paxeer-membership-sync", "interface.1.c-lxp-paxeer-membership-sync-status", "interface.1.c-lxp-paxeer-slash-submit"]
@@ -99741,7 +99791,7 @@ title = "Retire replica batch ingest in src/replica/lxp_replica_ingest.c"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.5", "16.31.6"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.5", "16.31.6", "6.96.5"]
 reqs = ["1277.1"]
 capabilities = ["1.33.1"]
 interfaces = ["interface.1.c-lxp-replica-batch-eligible", "interface.1.c-lxp-replica-bind-eligibility", "interface.1.c-lxp-replica-bind-execution", "interface.1.c-lxp-replica-chain-link", "interface.1.c-lxp-replica-ingest-batch", "interface.1.c-lxp-replica-init", "interface.1.c-lxp-replica-validate-header"]
@@ -99808,7 +99858,7 @@ title = "Retire the replica replay engine in src/replica/lxp_replay.c"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.5", "16.33.5", "16.33.6"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.5", "16.33.5", "16.33.6", "6.96.5"]
 reqs = ["1279.1"]
 capabilities = ["1.33.3"]
 interfaces = ["interface.1.c-lxp-replay-batch", "interface.1.c-lxp-replay-batch-publication", "interface.1.c-lxp-replay-engine-bind-kernel", "interface.1.c-lxp-replay-engine-bind-transaction", "interface.1.c-lxp-replay-engine-init", "interface.1.c-lxp-replay-engine-register", "interface.1.c-lxp-replay-engine-register-batch-finalizer", "interface.1.c-lxp-replay-verify-roots"]
@@ -99841,7 +99891,7 @@ title = "Retire replay checkpoints and replay sections"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.9", "16.32.11", "16.33.5", "16.33.6"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.9", "16.32.11", "16.33.5", "16.33.6", "6.96.5"]
 reqs = ["1280.1"]
 capabilities = ["1.33.4"]
 interfaces = ["interface.1.c-lxp-replay-checkpoint-create", "interface.1.c-lxp-replay-checkpoint-destroy", "interface.1.c-lxp-replay-checkpoint-restore", "interface.1.c-lxp-replay-section-decode", "interface.1.c-lxp-replay-section-encode"]
@@ -99909,7 +99959,7 @@ title = "Retire the receipt history index and its range service"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "8.51.1", "8.96.5", "13.8.1", "16.31.3", "16.32.9", "16.32.10", "16.33.5"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "8.51.1", "8.96.5", "13.8.1", "16.31.3", "16.32.9", "16.32.10", "16.33.5", "6.96.5"]
 reqs = ["1282.1"]
 capabilities = ["1.33.6"]
 interfaces = ["interface.1.c-lxp-history-close", "interface.1.c-lxp-history-index-rebuild", "interface.1.c-lxp-history-open", "interface.1.c-lxp-history-query", "interface.1.c-lxp-history-serve-range", "interface.1.c-lxp-receipt-lookup"]
@@ -99943,7 +99993,7 @@ title = "Retire the data-availability bundle builder in src/network/lxp_da_bundl
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.3", "16.32.6", "16.32.7", "16.32.8", "16.32.9", "16.32.11", "16.33.2", "16.33.5", "16.33.6"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.3", "16.32.6", "16.32.7", "16.32.8", "16.32.9", "16.32.11", "16.33.2", "16.33.5", "16.33.6", "6.96.5"]
 reqs = ["1283.1"]
 capabilities = ["1.34.1"]
 interfaces = ["interface.1.c-lxp-batch-availability-root", "interface.1.c-lxp-da-bundle-body", "interface.1.c-lxp-da-bundle-build", "interface.1.c-lxp-da-bundle-root", "interface.1.c-lxp-da-chunk-hash", "interface.1.c-lxp-da-receipt-section-decode", "interface.1.c-lxp-da-receipt-section-encode", "interface.1.c-lxp-da-recovery-metadata-encode", "interface.1.fmt-da-bundle"]
@@ -99977,7 +100027,7 @@ title = "Retire the kernel DA recovery helpers in src/network/lxp_da_kernel.c"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "13.34.1", "16.32.9", "16.32.10", "16.33.2", "16.33.5", "16.33.6"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "13.34.1", "16.32.9", "16.32.10", "16.33.2", "16.33.5", "16.33.6", "6.96.5"]
 reqs = ["1284.1"]
 capabilities = ["1.34.2"]
 interfaces = ["interface.1.c-lxp-da-body-from-kernels", "interface.1.c-lxp-da-recovery-from-kernel", "interface.1.c-lxp-da-recovery-verify-kernel"]
@@ -100011,7 +100061,7 @@ title = "Retire the DA chunk service in src/network/lxp_da_service.c"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.7"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.7", "6.96.5"]
 reqs = ["1285.1"]
 capabilities = ["1.34.3"]
 interfaces = ["interface.1.c-lxp-da-serve-chunk", "interface.1.c-lxp-da-serve-chunk-proof"]
@@ -100045,7 +100095,7 @@ title = "Retire verified DA body storage in src/storage/lxp_da_verified.c"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.7", "16.32.9", "16.32.11"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.32.7", "16.32.9", "16.32.11", "6.96.5"]
 reqs = ["1286.1"]
 capabilities = ["1.34.4"]
 interfaces = ["interface.1.c-lxp-da-log-read-body", "interface.1.c-lxp-da-log-store-body", "interface.1.c-lxp-da-store-read-verified"]
@@ -100079,7 +100129,7 @@ title = "Retire batch sealing and signing and move signature verification to the
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "8.51.1", "13.34.1", "14.29.2", "16.31.5", "16.31.7", "16.32.1", "16.32.2", "16.32.8", "16.32.9", "16.32.10", "16.32.11", "16.33.5", "16.34.3"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "8.51.1", "13.34.1", "14.29.2", "16.31.5", "16.31.7", "16.32.1", "16.32.2", "16.32.8", "16.32.9", "16.32.10", "16.32.11", "16.33.5", "16.34.3", "6.96.5"]
 reqs = ["1287.1"]
 capabilities = ["1.35.1"]
 interfaces = ["interface.1.c-lxp-batch-seal", "interface.1.c-lxp-batch-sign"]
@@ -100113,7 +100163,7 @@ title = "Retire the batch body archive codec and publisher in lxp_batch_publish.
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.3", "16.31.5", "16.32.1"]
+requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.3", "16.31.5", "16.32.1", "6.96.5"]
 reqs = ["1288.1"]
 capabilities = ["1.35.2"]
 interfaces = ["interface.1.c-lxp-batch-body-decode", "interface.1.c-lxp-batch-body-encode", "interface.1.c-lxp-batch-publish", "interface.1.fmt-batch-body-archive"]
@@ -100246,7 +100296,7 @@ title = "Retire batch-header inclusion, discovery and domain-tag verifiers in la
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["1.21.2", "1.37.1", "1.36.1", "1.0.3", "6.96.2", "5.97.1", "12.18.1"]
+requires = ["1.21.2", "1.37.1", "1.36.1", "1.0.3", "6.96.2", "5.97.1", "12.18.1", "6.96.5"]
 reqs = ["1292.1"]
 capabilities = ["1.36.2"]
 interfaces = ["interface.1.go-layerxproof-codec-domain-tag", "interface.1.go-layerxproof-verify-batch-header", "interface.1.go-layerxproof-verify-discovery-proof", "interface.1.go-layerxproof-verify-ed25519-domain", "interface.1.go-layerxproof-verify-exit-balance", "interface.1.go-layerxproof-verify-receipt-inclusion", "interface.1.go-layerxproof-verify-state-proof-at-header", "interface.1.go-layerxproof-verify-withdrawal-inclusion", "interface.1.go-layerxproof-verify-withdrawal-nullifier-domain"]
@@ -100347,7 +100397,7 @@ title = "Delete the guarantor, settlement and availability-root headers and trim
 status = "pending"
 mode = "BUILD"
 wave = 45
-requires = ["1.0.3", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.3", "1.29.4", "1.29.5", "1.30.1", "1.31.1", "1.31.2", "1.31.3", "1.31.4", "1.31.5", "1.31.6", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "5.97.1", "8.51.1", "9.97.5", "6.97.2", "16.36.1"]
+requires = ["1.0.3", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.3", "1.29.4", "1.29.5", "1.30.1", "1.31.1", "1.31.2", "1.31.3", "1.31.4", "1.31.5", "1.31.6", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "5.97.1", "8.51.1", "9.97.5", "6.97.2", "16.36.1", "6.96.5"]
 reqs = ["1295.1"]
 capabilities = ["1.38.1"]
 interfaces = ["interface.1.c-enum-lx-oracle-leaf-bytes", "interface.1.c-enum-lxp-guarantor-duty-none", "interface.1.c-enum-lxp-paxeer-custody-input-count", "interface.1.c-lx-batch-header", "interface.1.c-lx-oracle-availability-bundle", "interface.1.c-lxp-augmented-receipt", "interface.1.c-lxp-checkpoint-certificate", "interface.1.c-lxp-checkpoint-registration", "interface.1.c-lxp-checkpoint-registry-state", "interface.1.c-lxp-da-challenge", "interface.1.c-lxp-da-challenge-record", "interface.1.c-lxp-da-challenge-registry", "interface.1.c-lxp-da-challenge-response", "interface.1.c-lxp-da-evidence-publish-fn", "interface.1.c-lxp-da-failure-evidence", "interface.1.c-lxp-equivocation-evidence", "interface.1.c-lxp-equivocation-kind", "interface.1.c-lxp-finalisation-requirements", "interface.1.c-lxp-finalisation-state", "interface.1.c-lxp-guarantor-attestation", "interface.1.c-lxp-guarantor-authority-verdict", "interface.1.c-lxp-guarantor-authority-verify-fn", "interface.1.c-lxp-guarantor-bond-state", "interface.1.c-lxp-guarantor-bond-view", "interface.1.c-lxp-guarantor-cert", "interface.1.c-lxp-guarantor-ctx", "interface.1.c-lxp-guarantor-dissent-publish-fn", "interface.1.c-lxp-guarantor-dissent-record", "interface.1.c-lxp-guarantor-divergence", "interface.1.c-lxp-guarantor-divergence-component", "interface.1.c-lxp-guarantor-download-fn", "interface.1.c-lxp-guarantor-key-record", "interface.1.c-lxp-guarantor-oracle-verify-fn", "interface.1.c-lxp-guarantor-set", "interface.1.c-lxp-guarantor-signer-authorization", "interface.1.c-lxp-guarantor-store-fn", "interface.1.c-lxp-paxeer-bond-binding", "interface.1.c-lxp-paxeer-bond-deposit-evidence", "interface.1.c-lxp-paxeer-bond-deposit-record", "interface.1.c-lxp-paxeer-bond-state", "interface.1.c-lxp-paxeer-custody-abi", "interface.1.c-lxp-paxeer-custody-input-kind", "interface.1.c-lxp-paxeer-guarantor-attestation", "interface.1.c-lxp-paxeer-membership-binding", "interface.1.c-lxp-paxeer-membership-observation", "interface.1.c-lxp-paxeer-membership-sync-availability", "interface.1.c-lxp-verify-main", "interface.1.c-lxp-verify-run"]
@@ -100381,7 +100431,7 @@ title = "Delete the DA, replica and sequencer headers; trim the batch, history a
 status = "pending"
 mode = "BUILD"
 wave = 46
-requires = ["1.0.3", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.3", "1.29.4", "1.29.5", "1.30.1", "1.31.1", "1.31.2", "1.31.3", "1.31.4", "1.31.5", "1.31.6", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.38.1", "13.34.1"]
+requires = ["1.0.3", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.3", "1.29.4", "1.29.5", "1.30.1", "1.31.1", "1.31.2", "1.31.3", "1.31.4", "1.31.5", "1.31.6", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.38.1", "13.34.1", "6.96.5"]
 reqs = ["1296.1"]
 capabilities = ["1.38.2"]
 interfaces = ["interface.1.c-enum-lxp-da-class-count", "interface.1.c-enum-lxp-max-divergence-value-bytes", "interface.1.c-enum-lxp-max-replay-transitions", "interface.1.c-enum-lxp-max-sealed-batch-headers", "interface.1.c-lxp-admission-queue", "interface.1.c-lxp-admission-ticket", "interface.1.c-lxp-batch-body", "interface.1.c-lxp-batch-chunk-send-fn", "interface.1.c-lxp-batch-eligibility-state", "interface.1.c-lxp-batch-replica-target", "interface.1.c-lxp-batch-seal-input", "interface.1.c-lxp-da-bundle", "interface.1.c-lxp-da-chunk", "interface.1.c-lxp-da-chunk-fetch-fn", "interface.1.c-lxp-da-class", "interface.1.c-lxp-da-fetch", "interface.1.c-lxp-da-lookup-kind", "interface.1.c-lxp-da-module-root", "interface.1.c-lxp-da-recovery-input", "interface.1.c-lxp-da-retrieval-request", "interface.1.c-lxp-da-store", "interface.1.c-lxp-da-verify-served-bytes", "interface.1.c-lxp-divergence-component", "interface.1.c-lxp-divergence-report-record", "interface.1.c-lxp-divergence-state", "interface.1.c-lxp-equivocation-publish-fn", "interface.1.c-lxp-history-send-fn", "interface.1.c-lxp-replay-activity-output", "interface.1.c-lxp-replay-batch-finalize-fn", "interface.1.c-lxp-replay-batch-result", "interface.1.c-lxp-replay-checkpoint", "interface.1.c-lxp-replay-engine", "interface.1.c-lxp-replay-parameter-version-fn", "interface.1.c-lxp-replay-transaction-begin-fn", "interface.1.c-lxp-replay-transaction-finish-fn", "interface.1.c-lxp-replay-transition-fn", "interface.1.c-lxp-replay-transition-registration", "interface.1.c-lxp-replica", "interface.1.c-lxp-sealed-header-record", "interface.1.c-lxp-seq-allocator", "interface.1.c-lxp-seq-persist-fn", "interface.1.c-lxp-sequencer-equivocation-evidence", "interface.1.c-lxp-sequencer-header-registry", "interface.1.c-lxp-sequencer-liveness", "interface.1.c-lxp-sequencer-projection-rebuild-fn", "interface.1.c-lxp-sequencer-recovery-ops", "interface.1.c-lxp-sequencer-recovery-result", "interface.1.c-lxp-sequencer-replay-record-fn", "interface.1.c-lxp-sequencer-snapshot-load-fn"]
@@ -106041,7 +106091,7 @@ title = "Gate domain 3 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["3.0.1", "3.0.2", "3.0.3", "3.0.4", "3.3.2", "3.7.1", "3.7.2", "3.7.3", "3.7.4", "3.7.5", "3.8.1", "3.8.2", "3.21.4", "3.22.8", "3.23.6", "3.42.6", "3.43.1", "3.43.3", "3.45.4", "3.45.5", "3.45.6", "3.46.4", "3.47.1", "3.47.2", "3.54.2", "3.54.3", "3.54.4", "3.54.5", "3.54.6", "3.55.1", "3.56.1", "3.59.1", "3.97.1", "3.9.5"]
+requires = ["3.0.1", "3.0.2", "3.0.3", "3.0.4", "3.3.2", "3.7.1", "3.7.2", "3.7.3", "3.7.4", "3.7.5", "3.8.1", "3.8.2", "3.21.4", "3.22.8", "3.23.6", "3.42.6", "3.43.1", "3.43.3", "3.45.4", "3.45.5", "3.45.6", "3.46.4", "3.47.1", "3.47.2", "3.54.2", "3.54.3", "3.54.4", "3.54.5", "3.54.6", "3.55.1", "3.56.1", "3.59.1", "3.97.1", "3.9.5", "6.96.5"]
 reqs = ["3999.1"]
 capabilities = ["3.0.9"]
 interfaces = []
@@ -111634,7 +111684,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.97.1]
 title = "Drop the cosmos telemetry validator slashed counter from the oracle slash path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["3.0.4", "15.0.4"]
@@ -117766,7 +117816,7 @@ title = "Gate domain 5 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 44
-requires = ["5.0.1", "5.0.2", "5.0.3", "5.0.4", "5.7.1", "5.41.3", "5.42.3", "5.47.4", "5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.1", "5.52.2", "5.52.3", "5.52.4", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.7", "5.54.8", "5.54.9", "5.54.10", "5.54.11", "5.55.5", "5.62.6", "5.64.16", "5.69.1", "5.97.1", "5.97.3", "8.47.7", "5.7.3", "5.98.5", "5.98.9", "5.5.24"]
+requires = ["5.0.1", "5.0.2", "5.0.3", "5.0.4", "5.7.1", "5.41.3", "5.42.3", "5.47.4", "5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.1", "5.52.2", "5.52.3", "5.52.4", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.7", "5.54.8", "5.54.9", "5.54.10", "5.54.11", "5.55.5", "5.62.6", "5.64.16", "5.69.1", "5.97.1", "5.97.3", "8.47.7", "5.7.3", "5.98.5", "5.98.9", "5.5.24", "6.96.5"]
 reqs = ["5999.1"]
 capabilities = ["5.0.9"]
 interfaces = []
@@ -118377,6 +118427,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.24.8]
+title = "Drop the grant vectors from the wallet capability vectors producer and its two grant tests"
+status = "pending"
+mode = "BUILD"
+wave = 35
+requires = ["1.12.1"]
+reqs = ["8310.1"]
+capabilities = ["9.24.8"]
+interfaces = []
+do_1 = "In tests/qualification/lxp_wallet_caps_vectors.c delete grant_vector (:68 through its closing brace at :120) and its three CHECK calls in main (:126-128, grant_once, grant_recurring and grant_extreme); keep budget_vectors, the opening brace, the producer tag line and the rest of main unchanged, and remove any include or helper that only grant_vector used."
+do_2 = "In services/agent/crates/layerx-client/tests/committed_caps.rs delete native_grant_signatures_and_every_committed_field (:136-195) and grant_refuses_key_signature_identity_lengths_and_booleans (:196 to its end) and any helper used only by them; native_budget_versions_fields_and_extremes (:24) and budget_refuses_malformed_and_arithmetic_bounds (:86) stay as on main."
+do_3 = "Run the build command, which compiles the producer with the same cc flags as task 9.24.6, writes build/native-vectors.json and builds the committed_caps test target; then run the verify command."
+symbols = []
+touches = ["tests/qualification/lxp_wallet_caps_vectors.c", "services/agent/crates/layerx-client/tests/committed_caps.rs"]
+tests = ["services/agent/crates/layerx-client/tests/committed_caps.rs"]
+planned_paths = []
+build_cmd = "make -C . paxd-native-libs && cc -std=c17 -pedantic -Werror -Wall -Wextra -Wconversion -Wshadow -Wvla -fno-strict-aliasing -ffp-contract=off -O2 -ffunction-sections -fdata-sections -Iinclude -Ibuild/generated tests/qualification/lxp_wallet_caps_vectors.c build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a build/liblayerx.a -Wl,--gc-sections -lcrypto -pthread -ldl -lm -o build/lxp_wallet_caps_vectors && build/lxp_wallet_caps_vectors > build/native-vectors.json && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps"
+verify_cmd = "! grep -nE 'grant_vector|lxp_grant_state' tests/qualification/lxp_wallet_caps_vectors.c && ! grep -nE 'native_grant_signatures|grant_refuses_key' services/agent/crates/layerx-client/tests/committed_caps.rs && env LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_budget_versions_fields_and_extremes --exact budget_refuses_malformed_and_arithmetic_bounds"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit; the producer fails to compile again as on main."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.9.35.7]
 title = "Remove the kernel activity codec items from layerx-crypto once the kernel path has migrated"
 status = "blocked"
@@ -118416,7 +118496,7 @@ title = "Drop the layerx-crypto owner rotation decode from the human-service pro
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["10.98.10"]
+requires = ["10.98.10", "10.21.8"]
 reqs = ["8307.1"]
 capabilities = ["9.35.8"]
 interfaces = []
@@ -118442,7 +118522,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.6]
 title = "Delete the KMS owner rotation provider test built on the retired owner envelope"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["10.21.4"]
@@ -118518,8 +118598,8 @@ symbols = ["attach_call_signature", "verify_owner_activity"]
 touches = ["services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs", "services/human/crates/layerx-human-service/src/custody/mod.rs", "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs", "services/human/crates/layerx-human-service/tests/agent_create.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets"
-verify_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test export --test export_receipts && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test retired_crypto_codec_w3 && ! grep -rlE 'owner_activity::|CheckpointFact|verified_checkpoints' services/human/crates --include='*.rs' | grep -qv no_layerx_intents.rs"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --bins --test export --test export_receipts --test agent_runtime_eip1559 --test agent_create --test agent_creation_rungs --test agent_controls --test agent_controls_rungs --test native_onboarding_rungs"
+verify_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --bins --test export --test export_receipts --test agent_runtime_eip1559 --test agent_create --test agent_creation_rungs --test agent_controls --test agent_controls_rungs --test native_onboarding_rungs && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test export --test export_receipts && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test retired_crypto_codec_w3 && ! grep -rlE 'owner_activity::|CheckpointFact|verified_checkpoints' services/human/crates --include='*.rs' | grep -qv no_layerx_intents.rs"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -118533,6 +118613,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 10.21.8.1: in services/human/crates/layerx-human-service/src/custody/mod.rs add `pub(crate) use signer::attach_call_signature;` beside the existing re-exports and call crate::custody::attach_call_signature from agent_creation.rs:436; continue from attempt 1 (6a5931e17) rebased onto current main with that change and run the declared build and verify once as written."
 do_7 = "Finding 10.21.8.2: in services/human/crates/layerx-human-service/tests/support/canonical_owner.rs delete sign (:25-66) and the imports only it used, keeping SignedOwner, sign_transaction, budget_create_calldata and assert_outcome; at services/human/crates/layerx-human-service/tests/agent_create.rs:896 rewrite the case over canonical_owner::sign_transaction as agent_creation_rungs.rs:258 does, or delete the case when it asserts acceptance of a kernel owner envelope, which decision 1023 retires. Continue from attempt 2 (2d3858fb8) rebased onto current main with those changes, and run the declared build and verify once as written."
+do_8 = "Build only the targets the build command names: the library, the binaries, the two export tests and the five test targets that include tests/support/canonical_owner.rs by #[path]. tests/evidence_node.rs and src/server/production_owner_tests.rs (lib test and tests/stream_journal_domain.rs) call layerx_intents::canonical functions deleted by task 10.21.4 and are ported by the family of decision 2253, not by this task (finding 10.21.4.2)."
 
 [task.18.1441.1]
 title = "Issue #1441: Port live_kinds to the retained intent kinds"
@@ -120519,6 +120600,36 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.6.96.5]
+title = "Re-home the availability class count in the layerxanchor keeper after the codec retirement"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8309.1"]
+capabilities = ["6.96.5"]
+interfaces = []
+do_1 = "In modules/layerxanchor/keeper/checkpoints.go add `const availabilityClassCount = 5` next to availabilityMask (:144-146) with a comment that it is the number of availability classes the attestation ClassMask carries, formerly codec.AvailabilityClassCount, and use it for the counts array (:147) and the class loop (:154)."
+do_2 = "Drop the github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec import at modules/layerxanchor/keeper/checkpoints.go:7 when no other use remains in the file; change nothing else in the keeper."
+do_3 = "Run go build ./modules/layerxanchor/... ./daemon/... and the keeper tests of the verify command; the keeper tests that compile today keep passing."
+symbols = ["availabilityClassCount"]
+touches = ["modules/layerxanchor/keeper/checkpoints.go"]
+tests = ["modules/layerxanchor/keeper/keeper_test.go"]
+planned_paths = []
+build_cmd = "go build ./modules/layerxanchor/... ./daemon/..."
+verify_cmd = "! grep -n 'codec.AvailabilityClassCount' modules/layerxanchor/keeper/checkpoints.go && go vet ./modules/layerxanchor/keeper/ && go test -count=1 ./modules/layerxanchor/keeper/ -run '^(TestDefaultGenesisIsValid|TestSubmitCheckpointIsRetired|TestMsgUpdateParamsRefusals)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit; the keeper fails to compile again as on main."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.5.5.25]
 title = "Serve open-block heights from the committed state once the block seals"
 status = "done"
@@ -120583,7 +120694,7 @@ title = "End-to-end: pass the remaining perps data subtests against the in-tree 
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["18.670.1"]
+requires = ["18.670.1", "6.96.5"]
 reqs = ["3536.1"]
 capabilities = ["3.54.7"]
 interfaces = []
@@ -126647,10 +126758,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.62.5]
 title = "Retire the docs, docker and localnet targets with consensus/networks/local"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
-requires = ["5.62.4", "16.96.8"]
+requires = ["5.62.4", "16.96.8", "6.96.5"]
 reqs = ["15247.1"]
 capabilities = ["15.22.5"]
 interfaces = ["interface.15.mk-consensus-build-docs-j57", "interface.15.mk-consensus-build-docker-j57", "interface.15.mk-consensus-build-docker-localnode-j57", "interface.15.mk-consensus-build-c-amazonlinux-j57", "interface.15.mk-consensus-localnet-start-j57", "interface.15.mk-consensus-localnet-stop-j57", "interface.15.mk-consensus-networks-local-all-j57"]
@@ -126683,7 +126794,7 @@ title = "Retire the distribution and dependency-graph targets"
 status = "pending"
 mode = "BUILD"
 wave = 30
-requires = ["5.62.5"]
+requires = ["5.62.5", "6.96.5"]
 reqs = ["15248.1"]
 capabilities = ["15.22.6"]
 interfaces = ["interface.15.mk-consensus-dist-j57", "interface.15.mk-consensus-go-mod-cache-j57", "interface.15.mk-consensus-go-sum-j57", "interface.15.mk-consensus-draw-deps-j57", "interface.15.mk-consensus-get-deps-bin-size-j57", "interface.15.mk-consensus-build-reproducible-j57"]
@@ -127915,7 +128026,7 @@ title = "Gate the retired daemon binaries as the last consumers of the deleted k
 status = "pending"
 mode = "BUILD"
 wave = 43
-requires = ["5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.2", "5.52.3", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.5", "5.54.10", "5.54.11"]
+requires = ["5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.2", "5.52.3", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.5", "5.54.10", "5.54.11", "6.96.5"]
 reqs = ["5961.1"]
 capabilities = []
 interfaces = []
@@ -128382,7 +128493,7 @@ title = "Gate domain 6 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 42
-requires = ["6.0.1", "6.0.2", "6.0.3", "6.0.4", "6.2.3", "6.2.4", "6.13.1", "6.32.3", "6.34.1", "6.52.1", "6.52.2", "6.52.3", "6.52.4", "6.52.5", "6.53.1", "6.53.2", "6.53.3", "6.53.4", "6.54.1", "6.54.2", "6.54.3", "6.54.4", "6.55.1", "6.55.2", "6.56.1", "6.56.3", "6.56.4", "6.57.1", "6.57.2", "6.57.3", "6.57.4", "6.57.5", "6.57.6", "6.57.7", "6.57.8", "6.57.9", "6.57.10", "6.58.1", "6.58.2", "6.58.4", "6.58.5", "6.58.7", "6.58.8", "6.58.9", "6.59.1", "6.59.2", "6.59.3", "6.59.4", "6.59.5", "6.59.6", "6.59.7", "6.59.8", "6.60.2", "6.60.3", "6.60.4", "6.60.5", "6.71.1", "6.80.1", "6.80.2", "6.80.4", "6.80.5", "6.97.2", "6.96.3", "6.96.4"]
+requires = ["6.0.1", "6.0.2", "6.0.3", "6.0.4", "6.2.3", "6.2.4", "6.13.1", "6.32.3", "6.34.1", "6.52.1", "6.52.2", "6.52.3", "6.52.4", "6.52.5", "6.53.1", "6.53.2", "6.53.3", "6.53.4", "6.54.1", "6.54.2", "6.54.3", "6.54.4", "6.55.1", "6.55.2", "6.56.1", "6.56.3", "6.56.4", "6.57.1", "6.57.2", "6.57.3", "6.57.4", "6.57.5", "6.57.6", "6.57.7", "6.57.8", "6.57.9", "6.57.10", "6.58.1", "6.58.2", "6.58.4", "6.58.5", "6.58.7", "6.58.8", "6.58.9", "6.59.1", "6.59.2", "6.59.3", "6.59.4", "6.59.5", "6.59.6", "6.59.7", "6.59.8", "6.60.2", "6.60.3", "6.60.4", "6.60.5", "6.71.1", "6.80.1", "6.80.4", "6.80.5", "6.97.2", "6.96.3", "6.96.4", "6.96.5"]
 reqs = ["6999.1"]
 capabilities = ["6.0.9"]
 interfaces = []
@@ -132948,7 +133059,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.52.3]
 title = "Retire contracts/GuarantorBond.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "5.54.2", "5.54.9", "8.19.11", "16.0.3", "16.6.1", "16.8.3", "16.30.1", "16.30.2", "16.36.2"]
@@ -133078,7 +133189,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.53.2]
 title = "Retire contracts/custody/AssetRegistry.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "8.19.4", "16.6.1", "16.8.3", "16.30.1", "16.30.2", "16.36.2"]
@@ -133110,7 +133221,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.53.3]
 title = "Retire contracts/custody/LayerXVault.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "8.19.4", "16.6.1", "16.8.3", "16.30.1", "16.30.2", "16.36.2"]
@@ -133174,7 +133285,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.54.1]
 title = "Retire contracts/manager/BlockErrors.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.30.1", "16.30.2"]
@@ -133206,7 +133317,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.54.2]
 title = "Retire contracts/manager/ManagerContainer.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.6.1", "16.30.2"]
@@ -133238,7 +133349,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.54.3]
 title = "Retire contracts/manager/ManagerMigrator.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.6.1", "16.30.2"]
@@ -133270,7 +133381,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.54.4]
 title = "Retire contracts/manager/StandardValidatorUtils.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.30.2"]
@@ -133302,7 +133413,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.55.1]
 title = "Retire contracts/governance/LayerXTimelock.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.6.1", "16.30.2"]
@@ -133335,7 +133446,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.55.2]
 title = "Retire contracts/governance/LayerXBetaTimelock.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.6.1", "16.8.3", "16.30.2"]
@@ -134003,7 +134114,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.58.7]
 title = "Retire contracts/libraries/SemverComp.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.30.2"]
@@ -134100,7 +134211,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.59.1]
 title = "Retire contracts/deployment/Blueprint.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.6.1", "16.30.2"]
@@ -134132,7 +134243,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.59.2]
 title = "Retire contracts/deployment/PaxeerBetaDeploymentValidator.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.6.1", "16.30.2"]
@@ -134164,7 +134275,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.59.3]
 title = "Retire contracts/deployment/Predeploys.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.6.1", "16.30.2"]
@@ -134196,7 +134307,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.59.4]
 title = "Retire contracts/deployment/Preinstalls.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.6.1", "16.30.2"]
@@ -134228,7 +134339,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.59.5]
 title = "Retire contracts/config/Features.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.30.2"]
@@ -134261,7 +134372,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.59.6]
 title = "Retire contracts/config/StaticConfig.sol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["6.51.1", "16.6.1", "16.30.2"]
@@ -135652,7 +135763,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.6.80.2]
 title = "Retire contracts/security/Governed.sol"
-status = "pending"
+status = "superseded"
 mode = "BUILD"
 wave = 39
 requires = ["6.51.1", "16.97.3"]
@@ -135681,6 +135792,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Superseded by decision 2257: Governed.sol stays as the governance base of contracts/names; nothing in this task runs."
 
 [task.6.80.3]
 title = "Retire contracts/security/LayerXComponent.sol"
@@ -150725,7 +150837,7 @@ title = "Delete the orphaned LNI request and evidence submodule files"
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.1", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3"]
+requires = ["9.25.1", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3", "9.24.8"]
 reqs = ["9276.1"]
 capabilities = ["9.24.6"]
 interfaces = ["interface.9.rs-client-lni-head-attestation-program-head-attest-request-tag", "interface.9.rs-client-lni-head-attestation-program-head-attest-response-tag", "interface.9.rs-client-lni-head-attestation-program-head-attest-payload-bytes", "interface.9.rs-client-lni-head-attestation-program-head-attest-proof-bytes", "interface.9.rs-client-lni-head-attestation-program-discovery-proof-domain", "interface.9.rs-client-lni-head-attestation-programheadattestcontext", "interface.9.rs-client-lni-head-attestation-programdiscoveryhead", "interface.9.rs-client-lni-head-attestation-programheadattestation", "interface.9.rs-client-lni-head-attestation-programheadattesterror", "interface.9.rs-client-lni-head-attestation-program-discovery-proof-digest", "interface.9.rs-client-lni-head-attestation-encode-program-head-attest-request", "interface.9.rs-client-lni-head-attestation-encode-program-head-attestation", "interface.9.rs-client-lni-head-attestation-decode-program-head-attestation", "interface.9.rs-client-lni-head-attestation-attest-program-head", "interface.9.rs-client-lni-head-attestation-program-head-attest-request-bytes-j44", "interface.9.rs-client-lni-preparation-preparationstate", "interface.9.rs-client-lni-preparation-preparationstatecontext", "interface.9.rs-client-lni-preparation-preparationstateerror", "interface.9.rs-client-lni-preparation-preparation-state", "interface.9.rs-client-lni-preparation-encode-preparation-request-j44", "interface.9.rs-client-lni-preparation-decode-preparation-response-j44", "interface.9.rs-client-lni-program-read-programreadcontext", "interface.9.rs-client-lni-program-read-programreadresult", "interface.9.rs-client-lni-program-read-programreaderror", "interface.9.rs-client-lni-program-read-read-program", "interface.9.rs-client-lni-program-read-program-read-request-tag-j44", "interface.9.rs-client-lni-program-read-program-read-response-tag-j44", "interface.9.rs-client-lni-program-read-programreadsnapshot-j44", "interface.9.rs-client-lni-simulate-simulatedexecution", "interface.9.rs-client-lni-simulate-simulationevidence", "interface.9.rs-client-lni-simulate-simulation", "interface.9.rs-client-lni-simulate-simulatecontext", "interface.9.rs-client-lni-simulate-simulateerror", "interface.9.rs-client-lni-simulate-simulation-boundary-id", "interface.9.rs-client-lni-simulate-simulation-evidence-digest", "interface.9.rs-client-lni-simulate-simulate", "interface.9.rs-client-lni-simulate-simulate-request-tag-j44", "interface.9.rs-client-lni-simulate-simulate-response-tag-j44", "interface.9.rs-client-lni-simulate-simulation-boundary-domain-j44", "interface.9.rs-client-lni-simulate-simulation-evidence-domain-j44", "interface.9.rs-client-lni-simulate-encode-simulation-payload-j44", "interface.9.rs-client-lni-simulate-encode-simulation-evidence-j44", "interface.9.rs-client-lni-simulate-decode-simulation-payload-j44", "interface.9.rs-client-lni-simulate-decode-simulation-evidence-j44", "interface.9.rs-client-lni-simulate-verify-simulation-j44", "interface.9.rs-client-evidence-module-state-verify-module-evidence", "interface.9.rs-client-evidence-module-state-verifiedmoduleevidence-j44", "interface.9.rs-client-evidence-asset-record-verifiedeffectiveasset", "interface.9.rs-client-evidence-asset-record-assetevidenceerror-j44", "interface.9.rs-client-evidence-asset-record-assetsourcekind-j44", "interface.9.rs-client-evidence-asset-record-assetrecordmetadata-j44", "interface.9.rs-client-evidence-asset-record-verifiedissuance-j44", "interface.9.rs-client-evidence-module-state-verify-module-evidence-with-history"]
@@ -150734,10 +150846,10 @@ do_2 = "Delete services/agent/crates/layerx-client/src/evidence/module_state.rs,
 do_3 = "Run the existing native_grant_signatures_and_every_committed_field (services/agent/crates/layerx-client/tests/committed_caps.rs:136) unchanged."
 symbols = ["native_grant_signatures_and_every_committed_field"]
 touches = ["services/agent/crates/layerx-client/src/lni/head_attestation.rs", "services/agent/crates/layerx-client/src/lni/preparation.rs", "services/agent/crates/layerx-client/src/lni/program_read.rs", "services/agent/crates/layerx-client/src/lni/simulate.rs", "services/agent/crates/layerx-client/src/evidence/module_state.rs", "services/agent/crates/layerx-client/src/evidence/asset_record.rs", "services/agent/crates/layerx-client/tests/committed_caps.rs"]
-tests = ["services/agent/crates/layerx-client/tests/committed_caps.rs::native_grant_signatures_and_every_committed_field"]
+tests = ["services/agent/crates/layerx-client/tests/committed_caps.rs::native_budget_versions_fields_and_extremes"]
 planned_paths = []
 build_cmd = "make -C . paxd-native-libs && cc -std=c17 -pedantic -Werror -Wall -Wextra -Wconversion -Wshadow -Wvla -fno-strict-aliasing -ffp-contract=off -O2 -ffunction-sections -fdata-sections -Iinclude -Ibuild/generated tests/qualification/lxp_wallet_caps_vectors.c build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a build/liblayerx.a -Wl,--gc-sections -lcrypto -pthread -ldl -lm -o build/lxp_wallet_caps_vectors && build/lxp_wallet_caps_vectors > build/native-vectors.json && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter"
-verify_cmd = "env LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_grant_signatures_and_every_committed_field"
+verify_cmd = "env LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_budget_versions_fields_and_extremes"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -150750,10 +150862,11 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "The grant vectors and their two tests are gone with task 9.24.8 (finding 1.12.1.3); the verify proves the orphan deletion with native_budget_versions_fields_and_extremes against the regenerated build/native-vectors.json. Attempt 1 (d2418f742) holds the six deletions unchanged."
 
 [task.9.24.7]
 title = "Delete the LNI framing, handshake, schema and transport module"
-status = "pending"
+status = "blocked"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.1", "9.24.4", "9.18.5", "9.13.1", "9.18.1", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3"]
@@ -150765,7 +150878,7 @@ do_1 = "Delete services/agent/crates/layerx-client/src/lni/mod.rs, services/agen
 do_2 = "Remove `pub mod lni;` from services/agent/crates/layerx-client/src/lib.rs (services/agent/crates/layerx-client/src/lib.rs:12) and rewrite the crate doc line (services/agent/crates/layerx-client/src/lib.rs:1) to name the node JSON-RPC client."
 do_3 = "Run the existing refusal_keeps_code_message_and_data (services/agent/crates/layerx-client/tests/sequencer.rs:467) unchanged; the remaining lni submodule files are orphaned and deleted by task 9.24.6."
 symbols = ["refusal_keeps_code_message_and_data"]
-touches = ["services/agent/crates/layerx-client/src/lni/mod.rs", "services/agent/crates/layerx-client/src/lni/abi.rs", "services/agent/crates/layerx-client/src/lni/capabilities.rs", "services/agent/crates/layerx-client/src/lni/framing.rs", "services/agent/crates/layerx-client/src/lni/handshake.rs", "services/agent/crates/layerx-client/src/lni/refusal.rs", "services/agent/crates/layerx-client/src/lni/report.rs", "services/agent/crates/layerx-client/src/lni/schema.rs", "services/agent/crates/layerx-client/src/lni/transport.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/tests/sequencer.rs"]
+touches = ["services/agent/crates/layerx-client/src/lni/mod.rs", "services/agent/crates/layerx-client/src/lni/abi.rs", "services/agent/crates/layerx-client/src/lni/capabilities.rs", "services/agent/crates/layerx-client/src/lni/framing.rs", "services/agent/crates/layerx-client/src/lni/handshake.rs", "services/agent/crates/layerx-client/src/lni/refusal.rs", "services/agent/crates/layerx-client/src/lni/report.rs", "services/agent/crates/layerx-client/src/lni/schema.rs", "services/agent/crates/layerx-client/src/lni/transport.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/tests/sequencer.rs", "services/agent/crates/layerx-client/src/rpc/mod.rs", "services/agent/crates/layerx-client/src/rpc/history.rs", "services/agent/crates/layerx-client/src/rpc/payments.rs"]
 tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::refusal_keeps_code_message_and_data"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test sequencer && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-agentd-host -p layerx-agent-api -p layerx-sdk && cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-arbiter"
@@ -150782,6 +150895,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Blocked by decision 2256 until the LNI consumer ports exist. When it runs: define `pub struct Version { pub major: u16, pub minor: u16 }` with the derives of lni/schema.rs (Clone, Copy, Debug, Eq, PartialEq) in src/rpc/mod.rs and import crate::rpc::Version at src/rpc/history.rs:3 and src/rpc/payments.rs:3 before deleting lni/schema.rs; attempt 1 (ff6311fc4) holds the nine deletions."
 
 [task.9.25.1]
 title = "Delete the kernel-era read, receipt, submit, stream, batch, payments and evidence modules"
@@ -151268,10 +151382,10 @@ do_2 = "services/agent/crates/layerx-paxeer-verifier/src/contract.rs:1 imports l
 do_3 = "Run the existing proof test transported_registration_never_invents_paxeer_chain_finality (services/agent/crates/layerx-proof/tests/checkpoint.rs:201) to show that the proof crate still refuses to treat a transported registration as chain finality once the live verifier is gone."
 symbols = ["transported_registration_never_invents_paxeer_chain_finality"]
 touches = ["services/agent/crates/layerx-paxeer-verifier/Cargo.toml", "services/agent/crates/layerx-paxeer-verifier/src/abi.rs", "services/agent/crates/layerx-paxeer-verifier/src/checkpoint.rs", "services/agent/crates/layerx-paxeer-verifier/src/contract.rs", "services/agent/crates/layerx-paxeer-verifier/src/encoding.rs", "services/agent/crates/layerx-paxeer-verifier/src/json.rs", "services/agent/crates/layerx-paxeer-verifier/src/lib.rs", "services/agent/crates/layerx-paxeer-verifier/src/publication.rs", "services/agent/crates/layerx-paxeer-verifier/src/rpc.rs", "services/agent/crates/layerx-proof/tests/checkpoint.rs"]
-tests = ["services/agent/crates/layerx-proof/tests/checkpoint.rs::transported_registration_never_invents_paxeer_chain_finality"]
+tests = ["services/agent/crates/layerx-proof/tests/checkpoint.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test checkpoint"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --test checkpoint -- --exact transported_registration_never_invents_paxeer_chain_finality"
+verify_cmd = "! test -d services/agent/crates/layerx-paxeer-verifier && ! grep -rnE --include='*.rs' --include='*.toml' 'layerx[-_]paxeer[-_]verifier' services programs | grep -vE 'retired_' && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-proof --tests"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -151284,6 +151398,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "The verify proves the deletion by absence of the crate directory, a repository grep for the crate name and a build of layerx-proof's test targets; transported_registration_never_invents_paxeer_chain_finality fails on main for the settlement-document drift of finding 9.28.2.1 and is not a gate of this task. Attempt 1 (821a87956) holds the deletion unchanged."
 
 [task.9.29.1]
 title = "Retire the kernel activity envelope and signing preimage from layerx-wire"
@@ -175909,7 +176024,7 @@ title = "Delete the legacy telemetry calls of slashing"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.1", "15.0.4"]
+requires = ["15.2.1", "15.0.4", "6.96.5"]
 reqs = ["15024.1"]
 capabilities = ["15.3.1"]
 interfaces = ["interface.15.met-legacy-x-slashing-abci-29-j56", "interface.15.met-legacy-x-slashing-keeper-keeper-74-j56", "interface.15.met-legacy-x-slashing-keeper-infractions-143-j56"]
@@ -175944,7 +176059,7 @@ title = "Delete the legacy telemetry calls of capability"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.2", "15.0.4"]
+requires = ["15.2.2", "15.0.4", "6.96.5"]
 reqs = ["15026.1"]
 capabilities = ["15.3.2"]
 interfaces = ["interface.15.met-legacy-x-capability-abci-22-j56"]
@@ -175975,7 +176090,7 @@ title = "Delete the legacy telemetry calls of vesting"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.3", "15.0.4"]
+requires = ["15.2.3", "15.0.4", "6.96.5"]
 reqs = ["15028.1"]
 capabilities = ["15.3.3"]
 interfaces = ["interface.15.met-legacy-x-auth-vesting-msg-server-89-j56", "interface.15.met-legacy-x-auth-vesting-msg-server-95-j56"]
@@ -176006,7 +176121,7 @@ title = "Delete the legacy telemetry calls of upgrade"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.4", "15.0.4"]
+requires = ["15.2.4", "15.0.4", "6.96.5"]
 reqs = ["15030.1"]
 capabilities = ["15.3.4"]
 interfaces = ["interface.15.met-legacy-x-upgrade-abci-36-j56", "interface.15.met-legacy-x-upgrade-abci-64-j56", "interface.15.met-legacy-x-upgrade-keeper-keeper-207-j56"]
@@ -176039,7 +176154,7 @@ title = "Delete the legacy telemetry calls of distribution"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.5", "15.0.4"]
+requires = ["15.2.5", "15.0.4", "6.96.5"]
 reqs = ["15032.1"]
 capabilities = ["15.3.5"]
 interfaces = ["interface.15.met-legacy-x-distribution-abci-20-j56", "interface.15.met-legacy-x-distribution-keeper-msg-server-75-j56", "interface.15.met-legacy-x-distribution-keeper-msg-server-111-j56"]
@@ -176072,7 +176187,7 @@ title = "Delete the legacy telemetry calls of bank Send"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.6", "15.0.4"]
+requires = ["15.2.6", "15.0.4", "6.96.5"]
 reqs = ["15034.1"]
 capabilities = ["15.3.6"]
 interfaces = ["interface.15.met-legacy-x-bank-keeper-msg-server-66-j56"]
@@ -176103,7 +176218,7 @@ title = "Delete the legacy telemetry calls of staking block hooks"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.7", "15.0.4"]
+requires = ["15.2.7", "15.0.4", "6.96.5"]
 reqs = ["15036.1"]
 capabilities = ["15.3.7"]
 interfaces = ["interface.15.met-legacy-x-staking-abci-20-j56", "interface.15.met-legacy-x-staking-abci-32-j56"]
@@ -176134,7 +176249,7 @@ title = "Delete the legacy telemetry calls of staking Msg"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.8", "15.0.4"]
+requires = ["15.2.8", "15.0.4", "6.96.5"]
 reqs = ["15038.1"]
 capabilities = ["15.3.8"]
 interfaces = ["interface.15.met-legacy-x-staking-keeper-msg-server-230-j56", "interface.15.met-legacy-x-staking-keeper-msg-server-233-j56", "interface.15.met-legacy-x-staking-keeper-msg-server-299-j56", "interface.15.met-legacy-x-staking-keeper-msg-server-302-j56", "interface.15.met-legacy-x-staking-keeper-msg-server-365-j56", "interface.15.met-legacy-x-staking-keeper-msg-server-368-j56"]
@@ -176165,7 +176280,7 @@ title = "Delete the legacy telemetry calls of gov"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.9", "15.0.4"]
+requires = ["15.2.9", "15.0.4", "6.96.5"]
 reqs = ["15040.1"]
 capabilities = ["15.3.9"]
 interfaces = ["interface.15.met-legacy-x-gov-abci-22-j56", "interface.15.met-legacy-x-gov-keeper-msg-server-37-j56", "interface.15.met-legacy-x-gov-keeper-msg-server-81-j56", "interface.15.met-legacy-x-gov-keeper-msg-server-115-j56", "interface.15.met-legacy-x-gov-keeper-msg-server-149-j56"]
@@ -176198,7 +176313,7 @@ title = "Delete the legacy telemetry calls of evidence"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.10", "15.0.4"]
+requires = ["15.2.10", "15.0.4", "6.96.5"]
 reqs = ["15042.1"]
 capabilities = ["15.3.10"]
 interfaces = ["interface.15.met-legacy-x-evidence-abci-23-j56"]
@@ -176229,7 +176344,7 @@ title = "Delete the legacy telemetry calls of module manager MidBlock"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.11", "15.0.4"]
+requires = ["15.2.11", "15.0.4", "6.96.5"]
 reqs = ["15044.1"]
 capabilities = ["15.3.11"]
 interfaces = ["interface.15.met-legacy-types-module-module-614-j56", "interface.15.met-legacy-types-module-module-625-j56"]
@@ -176355,7 +176470,7 @@ title = "Delete the legacy telemetry calls of baseapp ABCI"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.15", "15.0.4", "15.0.5"]
+requires = ["15.2.15", "15.0.4", "15.0.5", "6.96.5"]
 reqs = ["15052.1"]
 capabilities = ["15.3.15"]
 interfaces = ["interface.15.met-legacy-baseapp-abci-111-j56", "interface.15.met-legacy-baseapp-abci-128-j56", "interface.15.met-legacy-baseapp-abci-188-j56", "interface.15.met-legacy-baseapp-abci-191-j56", "interface.15.met-legacy-baseapp-abci-194-j56", "interface.15.met-legacy-baseapp-abci-197-j56", "interface.15.met-legacy-baseapp-abci-200-j56", "interface.15.met-legacy-baseapp-abci-274-j56", "interface.15.met-legacy-baseapp-abci-440-j56", "interface.15.met-legacy-baseapp-abci-991-j56", "interface.15.met-legacy-baseapp-abci-1058-j56", "interface.15.met-legacy-baseapp-abci-1121-j56"]
@@ -176386,7 +176501,7 @@ title = "Delete the legacy telemetry calls of baseapp runTx"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.16", "15.0.4"]
+requires = ["15.2.16", "15.0.4", "6.96.5"]
 reqs = ["15054.1"]
 capabilities = ["15.3.16"]
 interfaces = ["interface.15.met-legacy-baseapp-baseapp-858-j56", "interface.15.met-legacy-baseapp-baseapp-1019-j56", "interface.15.met-legacy-baseapp-baseapp-1062-j56", "interface.15.met-legacy-baseapp-baseapp-1082-j56"]
@@ -176417,7 +176532,7 @@ title = "Retire IncrValidatorSlashedCounter and the predeclared legacy Prometheu
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["15.3.1", "15.3.4", "3.97.1"]
+requires = ["15.3.1", "15.3.4", "3.97.1", "6.96.5"]
 reqs = ["15055.1", "15055.2"]
 capabilities = ["15.3.17"]
 interfaces = ["interface.15.go-telemetry-incr-validator-slashed-counter-j56", "interface.15.met-tel-pax-cosmos-validator-slashed", "interface.15.met-tel-cosmos-upgrade-plan-height"]
@@ -181817,7 +181932,7 @@ do_6 = "Decision 2056: test_bridge_credit_suites_absent is withdrawn; the bridge
 
 [task.16.97.3]
 title = "Gate the retired relay-archive tree and the retired Solidity suites and scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 38
 requires = ["16.3.1", "16.34.4", "16.30.1", "16.30.2", "16.6.1", "16.5.3"]
@@ -181846,6 +181961,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "test_security_storage_suites_absent asserts the absence of the five suites named in acceptance 16967.3 and that no .sol file under tests/solidity imports a path containing contracts/storage/; it does not scan contracts/security imports, because contracts/security/Governed.sol stays as the base of the names contracts (decision 2257). Attempt 1 (07ba0264f) holds the other five tests unchanged."
 
 [task.16.97.4]
 title = "Gate the wave gate scripts provided by the gate runner tasks"
@@ -182069,7 +182185,7 @@ do_4 = "Finding 17.0.3.1: attempts 1 and 2 verified at one candidate and were me
 
 [task.17.0.4]
 title = "Regenerate the system precompile reference with the v6.12.0 venues"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.0.3", "17.1.5", "17.10.2", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.96.9"]
@@ -182081,7 +182197,7 @@ do_1 = "Regenerate docs/system/precompiles.md with tools/docs/gen-system-docs.sh
 do_2 = "Keep layerxexchange listed with its ABI as the legacy replay surface (precompiles/layerxexchange/layerxexchange.go:52) and drop nothing else from the generated file."
 do_3 = "Create spec/layerx-merge/programme/tests/test_system_docs.py (planned) with the two tests named below, running the generator check rather than reading the file."
 symbols = ["test_system_docs_are_current"]
-touches = ["docs/system/precompiles.md", "spec/layerx-merge/programme/tests/test_system_docs.py"]
+touches = ["docs/system/precompiles.md", "spec/layerx-merge/programme/tests/test_system_docs.py", "docs/system/chain-modules.md", "docs/system/INDEX.md", "docs/system/cli.md", "docs/system/governance.md", "docs/system/kernel-modules.md", "docs/system/routes.md", "docs/system/rpc.md", "docs/system/sdk.md"]
 tests = ["spec/layerx-merge/programme/tests/test_system_docs.py::test_system_docs_are_current", "spec/layerx-merge/programme/tests/test_system_docs.py::test_precompile_summary_lists_venues"]
 planned_paths = ["spec/layerx-merge/programme/tests/test_system_docs.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_system_docs.py"
@@ -182098,6 +182214,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Run tools/docs/gen-system-docs.sh without --check and commit every regenerated file under docs/system, not only precompiles.md: chain-modules.md on main still shows the former lowercase module path in its Go type column (finding 17.0.4.1), and the generator check the planned test runs diffs all of them. Attempt 1 (5df81b4c9) holds the precompile summary and the test file."
 
 [task.17.0.9]
 title = "Run the programme gate once on the merged candidate"
@@ -189805,6 +189922,22 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.9.24.8.1]
+feature = "9"
+req = "8310.1"
+scenario = "Given main after task 1.12.1, when the vectors producer is compiled and run and the committed_caps budget tests execute against its output, then the producer names no grant type and the two budget tests pass"
+contract = "contracts/clients.md"
+test = "services/agent/crates/layerx-client/tests/committed_caps.rs"
+qualification = "UNRUN"
+
+[acceptance.6.96.5.1]
+feature = "6"
+req = "8309.1"
+scenario = "Given main after task 1.36.1, when modules/layerxanchor and daemon/paxd are built and the keeper tests run, then nothing names codec.AvailabilityClassCount, the build passes and the keeper tests pass"
+contract = "contracts/chain-modules.md"
+test = "modules/layerxanchor/keeper/keeper_test.go"
+qualification = "UNRUN"
+
 [acceptance.9.35.1.3]
 feature = "9"
 req = "8308.1"
@@ -195758,6 +195891,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "In tests/agent/sdk/python/test_integration.py delete decode_and_verify_program_terminal from the import at :51 (keep OccupancyPayer only if a remaining test still uses it) and delete the three tests that call it, test_candidate_terminal_response_and_usage_are_receipt_bound (:231), test_terminal_attachments_bind_canonical_money_and_occupancy_evidence (:251) and test_state_commitment_occupancy_pays_from_the_proven_payer_account (:339), with any helper only they used; they verified kernel program terminals that task 9.97.7 retired (finding 9.97.7.6). Attempt 1 (0eeac80a3) holds the other edits and the stub test."
 
 [task.18.1437.1]
 title = "Issue #1437: Document the vulnerability report response targets in SECURITY.md"
