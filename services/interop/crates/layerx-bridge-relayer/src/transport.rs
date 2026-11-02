@@ -67,6 +67,15 @@ impl PaxeerEndpoint {
         Ok(endpoint)
     }
 
+    /// Calls the authenticated endpoint, checking its chain id on every request.
+    ///
+    /// # Errors
+    ///
+    /// Refuses transport, framing, JSON-RPC and chain-identity failures.
+    pub fn call(&self, method: &str, params: &Value) -> Result<Value, TransportFault> {
+        PaxeerTransport::call(self, method, params)
+    }
+
     fn validate(&self) -> Result<Target, TransportFault> {
         let target = parse_url(&self.url)?;
         if target.tls {
