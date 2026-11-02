@@ -2898,6 +2898,21 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 	}
 }
 
+func (app *App) DomainAllowance(ctx sdk.Context, chainID *big.Int) (id uint32, gas uint64, bytes uint64, active bool, known bool) {
+	id, known = layerxchainstypes.DomainOfChainID(chainID)
+	if !known {
+		return 0, 0, 0, false, false
+	}
+	if id == 0 {
+		return 0, 0, 0, true, true
+	}
+	domain, known := app.LayerXChainsKeeper.ResolveChainID(ctx, chainID)
+	if !known {
+		return id, 0, 0, false, false
+	}
+	return id, domain.GasAllowance, domain.ByteAllowance, domain.Status == layerxchainstypes.StatusActive, true
+}
+
 func (app *App) GetEVMMsg(tx sdk.Tx) (res *evmtypes.MsgEVMTransaction) {
 	defer func() {
 		if err := recover(); err != nil {
