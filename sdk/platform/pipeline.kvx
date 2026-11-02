@@ -77,6 +77,14 @@ root = "services/agent/crates/layerx-sdk/src"
 "tls.rs" = "handwritten"
 "wallet.rs" = "handwritten"
 
+[proof.agent-wallet-rpc]
+binary = "services/agent/crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs"
+test = "services/agent/crates/layerx-sdk/tests/proof_layerx_wallet_rpc.rs"
+transport = "one JSON request on stdin; one JSON reply on stdout; process exit status"
+producer = "test-owned loopback JSON-RPC listener; layerx-wire canonical receipt encoder"
+clock = "test-owned private runtime-clock protocol listener"
+recovery = "reopen signed transaction and canonical receipt after listener restart"
+
 [output.agent-typescript]
 language = "typescript"
 root = "services/agent/sdk/typescript/src/generated"
