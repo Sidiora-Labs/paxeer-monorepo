@@ -7,6 +7,7 @@ import { MarketWatchlist } from "@/widgets/trading/MarketSelectorPanel";
 import { MobileAppLayout } from "@/widgets/mobile/MobileAppLayout";
 import { ResizeHandle } from "@/ui/atoms/resize-handle";
 import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
+import type { MarketCatalogEntry } from "@/core/perps/marketCatalog";
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { useIsMobile } from "@/hooks/ui/useMobile";
@@ -41,6 +42,13 @@ const PerpsPositionsPanel = dynamic(
   () => import("@/widgets/trading/PerpsPositionsPanel").then((m) => ({ default: m.PerpsPositionsPanel })),
   { ssr: false, loading: () => <PositionsSkeleton /> }
 );
+
+export function tradingMarket<T extends MarketCatalogEntry>(
+  symbol: string,
+  catalog: readonly T[],
+): T | undefined {
+  return catalog.find((market) => market.symbol === symbol.toUpperCase() && market.enabled);
+}
 
 const WATCHLIST_MIN = 160;
 const WATCHLIST_MAX = 320;
@@ -106,7 +114,7 @@ export default function TradingInterface() {
   const selectedSymbol = typeof router.query.market === "string" ? router.query.market.toUpperCase() : "PAX";
   const selectedMarket = useMemo(
     () =>
-      tradeable.find((m) => m.symbol === selectedSymbol),
+      tradingMarket(selectedSymbol, tradeable),
     [tradeable, selectedSymbol]
   );
 

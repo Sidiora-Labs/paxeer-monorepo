@@ -23,7 +23,7 @@ func (k Keeper) Submit(ctx sdk.Context, caller common.Address, method string, pa
 	}
 	mapping, ok := types.MethodActivity[method]
 	if !ok {
-		return lxphost.Receipt{}, fmt.Errorf("LXP_UNKNOWN_ACTIVITY: layerxpay method %q", method)
+		return lxphost.Receipt{}, submitCodeError(method, lxphost.Code(-106))
 	}
 	last, err := k.host.ReadLastSequence(ctx, authority.ActorDID)
 	if err != nil {

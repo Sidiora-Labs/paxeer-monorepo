@@ -5,15 +5,24 @@ import { signedAgentReceiptFixture } from "./protocol-selection.test.mjs";
 
 const { evidence, request, reservation, receiptKeys } = signedAgentReceiptFixture();
 
-test("committed reservation returns the same authenticated native outcome without a new submission", async () => {
-  const first = await verifyCommittedAgentPayment(evidence, reservation, request, receiptKeys);
+export async function committedReceiptConsumer(evidence, reservation, request, receiptKeys) {
+  const result = await verifyCommittedAgentPayment(evidence, reservation, request, receiptKeys);
+  assert.equal(result.kind, "verified");
+  assert.equal(result.verification.payment.amount, BigInt(request.amount));
+  assert.equal(Object.hasOwn(result, "submission"), false);
+  return result;
+}
+
+async function committedReservationReplaysAuthenticatedOutcome() {
+  const first = await committedReceiptConsumer(evidence, reservation, request, receiptKeys);
   const replay = await verifyCommittedAgentPayment(evidence, reservation, request, receiptKeys);
   assert.equal(first.kind, "verified");
   assert.deepEqual(replay, first);
   assert.equal(Object.hasOwn(first, "submission"), false);
   assert.equal(first.verification.payment.amount, BigInt(request.amount));
-});
-test("committed replay refuses substituted receipt, digest, amount, asset and recipient", async () => {
+}
+
+async function committedReplayRefusesSubstitutions() {
   const corrupted = Buffer.from(evidence.signedReceipt.slice(2), "hex");
   corrupted[corrupted.length - 1] ^= 1;
   await assert.rejects(verifyCommittedAgentPayment({
@@ -25,4 +34,7 @@ test("committed replay refuses substituted receipt, digest, amount, asset and re
     { ...request, asset: "00".repeat(32) },
     { ...request, recipient: "00".repeat(32) },
   ]) await assert.rejects(verifyCommittedAgentPayment(evidence, reservation, changed, receiptKeys));
-});
+}
+
+test(committedReservationReplaysAuthenticatedOutcome);
+test(committedReplayRefusesSubstitutions);

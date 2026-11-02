@@ -4,7 +4,7 @@ import { isUserFacingError, makeError } from "@/core/errors/classify";
 import type { ErrorCode, UserFacingError } from "@/core/errors/types";
 import { OrderType, TimeInForce } from "@/core/network/abi/PerpsPrecompile";
 import type { DraftOrderLines } from "@/hooks/perps/useOrderLineStore";
-import type { OpenPositionQuote } from "@/hooks/perps/useQuoter";
+import { decodeOpenPositionQuote, type OpenPositionQuote } from "@/hooks/perps/useQuoter";
 import { deriveImpliedCollateral, safeParseUnits } from "./amounts";
 import { buildOpenPosition, buildPlaceLimitOrder, buildPlaceStopLimitOrder, ladderCloid } from "./calls";
 import { COLLATERAL_TOKENS } from "./config";
@@ -259,11 +259,22 @@ export function buildOrderPlan(state: OrderFormState, quote: OpenPositionQuote |
   const leverage = parseLeverage(state.leverage);
   if (leverage === 0n) return refusal("VALIDATION_BELOW_MIN", "Leverage must be at least 1x.");
   try {
+    if (state.orderType === "market" && quote !== null) {
+      const decoded = decodeOpenPositionQuote(quote);
+      const collateralUsd = safeParseUnits(state.collateralAmount, COLLATERAL_DECIMALS)
+        * (10n ** BigInt(USD_DECIMALS - COLLATERAL_DECIMALS));
+      if (decoded.leverage !== leverage || decoded.collateralUsd !== collateralUsd) {
+        return refusal("VALIDATION_AMOUNT_INVALID", "The quote does not match the order inputs.");
+      }
+    }
     const refused = checkOrderLimits(state, limits);
     if (refused !== null) return refused;
     return planCalls(state, quote, leverage, limits);
   } catch (err) {
     if (isUserFacingError(err)) return { calls: [], error: err };
+    if (err instanceof Error && err.name === "ZodError") {
+      return refusal("API_PAYLOAD_INVALID");
+    }
     throw err;
   }
 }

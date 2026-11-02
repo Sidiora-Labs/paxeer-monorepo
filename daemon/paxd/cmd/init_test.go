@@ -83,7 +83,8 @@ func TestInitModeConfiguration(t *testing.T) {
 				require.False(t, v.GetBool("rosetta.enable"), "Rosetta is disabled by default for all modes")
 				require.True(t, v.GetBool("state-store.ss-enable"), "StateStore should be enabled")
 
-				// Note: EVM config requires custom template, tested separately in TestSetEVMConfigByMode and binary tests
+				require.True(t, v.GetBool("evm.http_enabled"))
+				require.True(t, v.GetBool("evm.ws_enabled"))
 			},
 		},
 		{
@@ -99,7 +100,8 @@ func TestInitModeConfiguration(t *testing.T) {
 				require.True(t, v.GetBool("api.enable"))
 				require.True(t, v.GetBool("grpc.enable"))
 
-				// Note: EVM config requires custom template, tested separately in TestSetEVMConfigByMode and binary tests
+				require.True(t, v.GetBool("evm.http_enabled"))
+				require.True(t, v.GetBool("evm.ws_enabled"))
 			},
 		},
 	}
@@ -129,19 +131,16 @@ func TestInitModeConfiguration(t *testing.T) {
 			// Write app.toml using our custom template that includes PaxDB configs
 			// This mirrors what initAppConfig does in root.go
 			appTomlPath := filepath.Join(configDir, "app.toml")
-			customConfig := NewCustomAppConfig(appConfig, evmrpcconfig.DefaultConfig)
+			customConfig := NewAppConfigForMode(appConfig, tt.mode)
 
-			// Apply mode-specific StateStore settings
+			// Apply mode-specific StateStore settings.
 			if tt.mode == params.NodeModeValidator || tt.mode == params.NodeModeSeed {
 				customConfig.StateStore.Enable = false
 			} else {
 				customConfig.StateStore.Enable = true
 			}
 
-			// Build custom template with all sections
-			customAppTemplate := srvconfig.ManualConfigTemplate + paxdbconfig.StateCommitConfigTemplate + paxdbconfig.StateStoreConfigTemplate +
-				paxdbconfig.ReceiptStoreConfigTemplate +
-				srvconfig.AutoManagedConfigTemplate // Simplified - just need the pruning config
+			customAppTemplate, _ := InitAppConfig()
 
 			srvconfig.SetConfigTemplate(customAppTemplate)
 			srvconfig.WriteConfigFile(appTomlPath, customConfig)

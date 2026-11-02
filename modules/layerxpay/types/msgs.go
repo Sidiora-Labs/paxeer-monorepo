@@ -12,7 +12,10 @@ var _ sdk.Msg = &MsgUpdateParams{}
 func (m MsgUpdateParams) Route() string { return RouterKey }
 func (m MsgUpdateParams) Type() string  { return TypeMsgUpdateParams }
 func (m MsgUpdateParams) GetSigners() []sdk.AccAddress {
-	decoded, _ := sdk.AccAddressFromBech32(m.Authority)
+	decoded, err := sdk.AccAddressFromBech32(m.Authority)
+	if err != nil {
+		panic(err)
+	}
 	return []sdk.AccAddress{decoded}
 }
 func (m MsgUpdateParams) GetSignBytes() []byte {

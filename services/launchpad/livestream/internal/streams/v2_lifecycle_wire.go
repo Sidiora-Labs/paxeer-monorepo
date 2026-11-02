@@ -70,7 +70,7 @@ func marshalV2Lifecycle(name string, response any) ([]byte, error) {
 		return nil, err
 	}
 	if err := v2.ValidateJSON(name, raw); err != nil {
-		return nil, fmt.Errorf("%s: %w", name, err)
+		return nil, fmt.Errorf("%w: %s: %v", ErrInvalid, name, err)
 	}
 	return raw, nil
 }

@@ -6873,6 +6873,12 @@ value = "Tasks 21.164.1 to 21.172.1 extend feature 21 with one proof per landed 
 basis = "The C anchors (programs.h, lx_service.h, lxp_module.h, lxp_bridge.h, lx_asset.h, lxp_result.h, lxp_receipt.h, the error-code registry) and the IXWeb anchor were left for a later batch by decision 2287; 5.0.9 attempt 2, 18.1443.1 attempt 3 and 18.1487.1 attempt 3 failed on an ignored finding, an over-broad matcher and pre-existing sibling test failures."
 affects = ["21.0.1", "5.0.9", "18.1443.1", "18.1487.1", "21.164.1", "21.165.1", "21.166.1", "21.167.1", "21.168.1", "21.169.1", "21.170.1", "21.171.1"]
 
+[decision.2294]
+title = "Parked attempts continue once the break they met is repaired or their scope names the real producer"
+value = "Ten tasks whose only failure was the availabilityClassCount build break (repaired by 6.96.5 at 520414c87) continue from their last attempt; 9.24.7 also drops the lni import from rpc/history.rs and rpc/payments.rs; 21.130.1 builds and tests layerx-programs-runtime with --features host-ffi because read_native_receipt_authority exists only there; 21.53.1's proof target includes no corpus-dependent test module; 20.9.8 adds the k256 0.13.4 pin to the platform CLI; 18.1057.1 maps onto the current ReadRequest/HistorySelector fields; 18.1471.1 ports bond_return_test.go too; 6.96.6 repairs the stale nil-keeper assertion (decision.2218); 9.35.13 makes the pay2 crate self-contained and 8.101.4 requires it before deleting gateway tests/local; 21.19.1 repairs xwebInfo(t) for the node/sequencer package and 21.87.1 follows; 21.95.1 adds layerx-mcp as a dev-dependency; 16.90.1 requires 6.60.2; 21.142.1 hosts its explorer listener in-process; touches with a ./ prefix are normalised because the scope check compares plain paths."
+basis = "Thirty-three attempts sat parked on failures whose causes were already repaired on main, were cross-task breaks (21.49.1's xwebInfo signature, 9.97.2's removed lifecycle generator, 18.1326.1's keeper carry) or were scope spellings."
+affects = ["15.3.1", "15.3.3", "15.3.4", "9.24.7", "21.130.1", "21.53.1", "20.9.8", "18.1471.1", "6.96.6", "9.35.13", "8.101.4", "21.19.1", "21.87.1", "21.95.1", "16.90.1", "21.142.1", "21.86.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -35434,7 +35440,7 @@ title = "Prove the runtime crate path end to end: producer, transport, consumer"
 reqs = ["21130.1"]
 touches = ["programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs", "programs/crates/layerx-programs-runtime/src/abi/mod.rs", "programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/src/transfer.rs"]
 tests = ["programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs"]
-verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test proof_runtime_crate"
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --test proof_runtime_crate"
 do_1 = "The real path this task proves is pub fn canonical_program_event_envelope(&self) -> Result<Vec<u8>, AbiError> (programs/crates/layerx-programs-runtime/src/abi/mod.rs:577); pub unsafe fn read_native_receipt_authority(token: u64, digest: [u8; 32], expected_batch:  (programs/crates/layerx-programs-runtime/src/ffi_call.rs:4028); pub fn program_event_logs(&self, program: ProgramId) -> Result<Vec<ProgramEventLog>, AbiEr (programs/crates/layerx-programs-runtime/src/abi/mod.rs) -> the public Rust item the listed callers compile against -> programs/crates/layerx-programs-runtime/src/transfer.rs. The inventory is every new or changed interface under contract contracts/programs.md#runtime-crate in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 3 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
 symbols = ["canonical_program_event_envelope", "read_native_receipt_authority", "program_event_logs"]
 
@@ -113858,7 +113864,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.156.1]
 title = "Prove the gas station path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -113989,7 +113995,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.152.1]
 title = "Prove the solana route path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114055,7 +114061,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.150.1]
 title = "Prove the config path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114186,7 +114192,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.146.1]
 title = "Prove the settlement path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114348,6 +114354,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Decision 2294: attempt 2 (ac188a4d4) failed again on its own assertion `PAXEER_X_EXPLORER_BASE_URL is required`; delete that assertion and every 'response substitutes are forbidden' guard. The proof starts a node:http listener on 127.0.0.1 inside the test, serving /explorer/batches and the other routes the explorer pages read with bodies built from the repository's explorer response types in apps/web/src/explorer, sets process.env.PAXEER_X_EXPLORER_BASE_URL to that listener's URL itself before importing client.ts (apps/web/src/explorer/client.ts:46 reads it), and asserts the pages render the served records; a listener the test did not start is an assertion failure, never a skip."
 
 [task.21.141.1]
 title = "Prove the lib path end to end: producer, transport, consumer"
@@ -114384,7 +114391,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.140.1]
 title = "Prove the launchpad mobile app path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114417,7 +114424,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.139.1]
 title = "Prove the middleware agent ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -114516,7 +114523,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.136.1]
 title = "Prove the core path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -116788,7 +116795,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.171.1]
 title = "Prove the result registry path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -116986,7 +116993,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.165.1]
 title = "Prove the lx service h path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -123844,8 +123851,8 @@ symbols = ["canonical_program_event_envelope", "read_native_receipt_authority", 
 touches = ["programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs", "programs/crates/layerx-programs-runtime/src/abi/mod.rs", "programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/src/transfer.rs"]
 tests = ["programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs"]
 planned_paths = ["programs/crates/layerx-programs-runtime/tests/proof_runtime_crate.rs"]
-build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --tests"
-verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test proof_runtime_crate"
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --test proof_runtime_crate"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-programs"
@@ -123858,6 +123865,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Decision 2294: read_native_receipt_authority is exported by programs/crates/layerx-programs-runtime/src/lib.rs:47-52 only under `#[cfg(feature = 'host-ffi')]`, so the build_cmd and verify_cmd now pass --features host-ffi; the proof test keeps calling the real export and does not reimplement it. Continue from the last attempt."
 
 [task.21.129.1]
 title = "Prove the portable receipt path end to end: producer, transport, consumer"
@@ -123893,7 +123901,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.128.1]
 title = "Prove the agentd startup path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124297,7 +124305,7 @@ do_3 = "The anchor carries no persistent state of its own: the test asserts inst
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs"]
+touches = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs", "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-mcp/src/boundary.rs", "services/agent/crates/layerx-agentd/Cargo.toml", "services/agent/Cargo.lock"]
 tests = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/tests/proof_native_reads.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -124314,6 +124322,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Decision 2294: attempt 2 (bb8296a22) failed to resolve layerx_mcp from tests/proof_native_reads.rs because layerx-agentd/Cargo.toml has no such dependency; add `layerx-mcp = { path = '../layerx-mcp' }` under [dev-dependencies] (layerx-mcp already depends on layerx-agentd; a dev-dependency cycle is allowed and compiles the crate twice) and commit the services/agent/Cargo.lock the resolver writes so --locked holds. Continue from attempt 2."
 
 [task.21.94.1]
 title = "Prove the serve errors path end to end: producer, transport, consumer"
@@ -124511,7 +124520,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.78.1]
 title = "Prove the gateway jsonrpc methods path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124544,7 +124553,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.70.1]
 title = "Prove the agentd env path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124705,6 +124714,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Decision 2294: the last attempt failed in authority_from_prestate.rs:290, the market fixture test (:208, :794) and verified_step.rs:190, which demand the genuine native replay corpus (NotPresent in the qualification environment); the proof target tests/proof_arbiter_crate.rs contains no `mod`, `#[path]` or include of another test file and exercises the arbiter through its public API with an in-process corpus it builds itself, so the verify (`--test proof_arbiter_crate`) runs the proof alone. Continue from the last attempt."
 
 [task.21.52.1]
 title = "Prove the human network gateway path end to end: producer, transport, consumer"
@@ -125349,7 +125359,7 @@ do_1 = "Write tools/platform/cli/src/chains.rs: the subcommands chains list (cha
 do_2 = "Write tools/platform/cli/tests/chains_commands.rs with the mocked JSON-RPC server tests/program_evm_calls.rs uses: chains_list_show_and_create_round_trip (the list and show answers decode the vector getChain return data; create sends calldata equal to the vector calldata and prints id 1 and chain id 125000001)."
 do_3 = "The real path this task proves is command line -> encoder -> RPC request -> decoded answer."
 symbols = ["chains_list_show_and_create_round_trip"]
-touches = ["tools/platform/cli/src/chains.rs", "tools/platform/cli/src/commands.rs", "tools/platform/cli/src/main.rs", "tools/platform/cli/src/lib.rs", "tools/platform/cli/tests/chains_commands.rs"]
+touches = ["tools/platform/cli/src/chains.rs", "tools/platform/cli/src/commands.rs", "tools/platform/cli/src/main.rs", "tools/platform/cli/src/lib.rs", "tools/platform/cli/tests/chains_commands.rs", "tools/platform/cli/Cargo.toml"]
 tests = ["tools/platform/cli/tests/chains_commands.rs::chains_list_show_and_create_round_trip"]
 planned_paths = ["tools/platform/cli/src/chains.rs", "tools/platform/cli/tests/chains_commands.rs"]
 build_cmd = "cargo build --locked --manifest-path tools/platform/Cargo.toml -p layerx-platform-cli --tests"
@@ -125366,6 +125376,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 20.9.8.1: chains create signs with layerx_crypto::evm_transaction::Eip1559Call::sign (services/agent/crates/layerx-crypto/src/evm_transaction.rs:212) over the secret the EVM key file holds, checking the derived address with layerx_crypto::secp256k1::evm_address as wallet_signing::EvmSigningKey does; the hand-rolled RLP and the k256 import of attempt 1 go, and tools/platform/cli/Cargo.toml gains no dependency. Continue from attempt 1, whose list and show paths and the mocked server test stand."
+do_5 = "Decision 2294: attempt 2 used k256::ecdsa::SigningKey::from_slice and layerx_crypto::secp256k1::evm_address in chains.rs:438-440, but tools/platform/cli/Cargo.toml does not depend on k256 (it is in tools/platform/Cargo.lock:1184 at 0.13.4 through layerx-crypto). Add `k256 = { version = '=0.13.4', default-features = false, features = ['ecdsa'] }` to [dependencies] of tools/platform/cli/Cargo.toml (the same pin layerx-crypto/Cargo.toml:28 uses, so the --locked lock file is unchanged) and keep the address derivation through layerx_crypto::secp256k1::evm_address. Continue from attempt 2."
 
 [task.20.9.7]
 title = "Add chain registry helpers to the Rust client crate"
@@ -125493,7 +125504,7 @@ title = "Delete the hosted gateway's unreachable kernel activity submission path
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["9.35.13"]
 reqs = ["8326.1"]
 capabilities = ["8.101.4"]
 interfaces = []
@@ -125519,6 +125530,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Finding 8.101.4.1: delete the directory services/platform/hosted/gateway/tests/local/ (Cargo.toml, README.md, verifier.rs, lifecycle_sdk.rs and any lock file) instead of porting verifier.rs (do_2 is satisfied by the deletion); it is a standalone package, not a test target, so the verify no longer names `--test local` and asserts the directory is gone. Add no field to Config or Kernel and no program_head item: the crate's existing types are the only ones the deletion needs. Attempt 1 (e8fdbe4e6f) holds lib.rs and main.rs; continue from it."
+do_6 = "Finding 9.35.13.2: attempt 4 edited the four files under tests/local (Cargo.toml, README.md, lifecycle_sdk.rs, verifier.rs) instead of deleting the directory, so the verify's first clause `! test -d services/platform/hosted/gateway/tests/local` failed; do_5 stands: git rm -r the whole directory. The task now requires 9.35.13, which removes the pay2 qualification crate's references to that directory first. Continue from attempt 4."
 
 [task.8.101.3]
 title = "Port the hosted core's sends, funding intents and fee estimate off the kernel activity codec"
@@ -125665,7 +125677,7 @@ do_1 = "In services/agent/qualification/pay2/pay2e_test.rs:594-600 replace layer
 do_2 = "If canonical_activity() on main returns bytes that are not a type-2 transaction, stop, record a finding in qualification.kvx naming services/agent/crates/layerx-sdk/src/rpc_verification.rs:58 as the producer, and leave the test unchanged; the task reports the finding instead of guessing the producer."
 do_3 = "The qualification runs against a funded network, so the verify compiles the test target and asserts the grep; it does not run the funded test."
 symbols = []
-touches = ["services/agent/qualification/pay2/pay2e_test.rs", "services/agent/qualification/pay2/Cargo.lock"]
+touches = ["services/agent/qualification/pay2/pay2e_test.rs", "services/agent/qualification/pay2/Cargo.lock", "services/agent/qualification/pay2/Cargo.toml", "services/agent/qualification/pay2/build.rs", "services/agent/qualification/pay2/required.rs", "services/agent/qualification/pay2/funded.rs", "services/agent/qualification/pay2/tests/build_inputs.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --all-targets"
@@ -125682,6 +125694,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 9.35.13.1: run `cargo generate-lockfile --manifest-path services/agent/qualification/pay2/Cargo.toml` and commit services/agent/qualification/pay2/Cargo.lock so the --locked build and verify resolve; the lock file records the path dependencies as they stand on main and is regenerated the same way whenever they change. Attempt 1 (1d3391cf96) holds the test port; continue from it."
+do_5 = "Finding 9.35.13.2: make the crate self-contained before the decode port: copy services/platform/hosted/gateway/tests/local/required.rs to services/agent/qualification/pay2/required.rs and point build.rs:1 at it (`#[path = 'required.rs']`); pay2_build_inputs returns only required.rs and pay2e_test.rs; delete the [[bin]] gateway-lifecycle-receipt-verify (Cargo.toml:44-46), the [[test]] funded (Cargo.toml:40-42) and funded.rs, whose generated lifecycle.rs no build has produced since 9.97.2; update tests/build_inputs.rs to the two inputs. The crate then references nothing under services/platform/hosted/gateway/tests/local. Continue from attempt 4."
 
 [task.10.21.9]
 title = "Port the layerx-intents budget and bootstrap tests from kernel envelopes onto bind_call"
@@ -128279,7 +128292,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.124.1]
 title = "Prove the xweb 0x1019 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128376,7 +128389,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.121.1]
 title = "Prove the launchpad pnl tracker path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129000,7 +129013,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.89.1]
 title = "Prove the 0x1013 layerxcustody path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129034,7 +129047,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.88.1]
 title = "Prove the genesis path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129070,7 +129083,7 @@ title = "Prove the sequencer receipt path end to end: producer, transport, consu
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["21.19.1"]
 reqs = ["21087.1"]
 capabilities = ["21.87.1"]
 interfaces = []
@@ -129097,6 +129110,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.19.1.1: this proof shares the node/sequencer test package with 21.19.1, which repairs the xwebInfo(t) call at precompile_refresh_test.go:69; this task requires 21.19.1 and does not edit that file. Continue from the last attempt once 21.19.1 is done."
 
 [task.21.86.1]
 title = "Prove the precompile go path end to end: producer, transport, consumer"
@@ -129113,7 +129127,7 @@ do_3 = "The anchor persists state: the test stops the component (closes the stor
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
 symbols = ["SurfaceRuntime", "GetVersioned", "errors"]
-touches = ["precompiles/launchpad/proof_precompile_go_test.go", "precompiles/launchpad/surface.go", "precompiles/launchpad/setup.go", "precompiles/launchpad/abi.json", "precompiles/launchpad/pool.go", "./precompiles/launchpad/surface_test.go", "./precompiles/setup.go", "./precompiles/launchpad/setup_test.go", "precompiles/launchpad/abi_direct_test.go", "precompiles/launchpad/run.go"]
+touches = ["precompiles/launchpad/proof_precompile_go_test.go", "precompiles/launchpad/surface.go", "precompiles/launchpad/setup.go", "precompiles/launchpad/abi.json", "precompiles/launchpad/pool.go", "precompiles/launchpad/surface_test.go", "precompiles/setup.go", "precompiles/launchpad/setup_test.go", "precompiles/launchpad/abi_direct_test.go", "precompiles/launchpad/run.go"]
 tests = ["precompiles/launchpad/proof_precompile_go_test.go"]
 planned_paths = ["precompiles/launchpad/proof_precompile_go_test.go"]
 build_cmd = "go build ./precompiles/launchpad/..."
@@ -129130,6 +129144,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Decision 2294: attempt 1 (5d25bd4f1) was refused for changes outside scope in precompiles/launchpad/setup_test.go, precompiles/launchpad/surface_test.go and precompiles/setup.go, which touches listed with a ./ prefix the scope check does not normalise; the three entries are now plain repository paths. Continue from attempt 1 and resolve the TestProofPrecompileGo/commit-close-reopen mismatch at proof_precompile_go_test.go:158 against the real precompile output."
 
 [task.21.85.1]
 title = "Prove the rest path end to end: producer, transport, consumer"
@@ -129232,7 +129247,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.82.1]
 title = "Prove the pay keeper path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129297,7 +129312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.76.1]
 title = "Prove the retirement path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129426,7 +129441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.72.1]
 title = "Prove the msg layerxpay updateparams path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129526,7 +129541,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.68.1]
 title = "Prove the launchpad livestream path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129658,7 +129673,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.61.1]
 title = "Prove the config path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129691,7 +129706,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.60.1]
 title = "Prove the records path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129756,7 +129771,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.58.1]
 title = "Prove the module keeper path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130253,7 +130268,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.38.1]
 title = "Prove the lxphost host path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130417,7 +130432,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.31.1]
 title = "Prove the launchpad user path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130755,7 +130770,7 @@ do_3 = "The anchor persists state: the test stops the component (closes the stor
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
 symbols = ["NewExecutor", "LoadReceiptKey", "NewReceipter", "seqHashDomain", "ConfigTemplate", "NewFeeFloor", "NewReplicator"]
-touches = ["node/sequencer/proof_sequencer_executor_test.go", "node/sequencer/executor.go", "node/sequencer/receiptkey.go", "node/sequencer/receipt.go", "node/sequencer/standby.go", "node/sequencer/config.go", "node/sequencer/fee.go", "rpc/pending_block_test.go", "rpc/pending_filter_test.go", "rpc/send_sequencer_test.go", "rpc/pending_state_test.go", "node/sequencer_context_test.go", "rpc/sequencer_receipt_vectors_test.go"]
+touches = ["node/sequencer/proof_sequencer_executor_test.go", "node/sequencer/executor.go", "node/sequencer/receiptkey.go", "node/sequencer/receipt.go", "node/sequencer/standby.go", "node/sequencer/config.go", "node/sequencer/fee.go", "rpc/pending_block_test.go", "rpc/pending_filter_test.go", "rpc/send_sequencer_test.go", "rpc/pending_state_test.go", "node/sequencer_context_test.go", "rpc/sequencer_receipt_vectors_test.go", "node/sequencer/precompile_refresh_test.go"]
 tests = ["node/sequencer/proof_sequencer_executor_test.go"]
 planned_paths = ["node/sequencer/proof_sequencer_executor_test.go"]
 build_cmd = "go build ./node/sequencer/..."
@@ -130772,6 +130787,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.19.1.1: before the proof, change precompile_refresh_test.go:69 to `info := xwebInfo(t)` so the package compiles against position_test.go:114 as 21.49.1 left it; nothing else in that file changes. Continue from the last attempt."
 
 [task.21.18.1]
 title = "Prove the launchpad gateway path end to end: producer, transport, consumer"
@@ -130843,7 +130859,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.16.1]
 title = "Prove the layerxledger keeper path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130908,7 +130924,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.13.1]
 title = "Prove the go api path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131203,7 +131219,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.1.1]
 title = "Prove the layerxpay 0x101b path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -131247,7 +131263,7 @@ do_1 = "In modules/layerxanchor/keeper/keeper_test.go TestSubmitCheckpointIsReti
 do_2 = "Delete a test only when its sole purpose was decoding the removed certificate; name it in the commit message."
 do_3 = "The verify vets and runs both packages."
 symbols = ["TestSubmitCheckpointIsRetired", "TestReadsRevertFromStoreDelete", "TestAnchorRetirementSurvivesTheWrapper", "TestAnchorRetiredWriteMalformedCalldata"]
-touches = ["modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go", "modules/layerxanchor/bringup_genesis_test.go", "modules/layerxanchor/module_retired_route_test.go"]
+touches = ["modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go", "modules/layerxanchor/bringup_genesis_test.go", "modules/layerxanchor/module_retired_route_test.go", "modules/layerxanchor/keeper/bond_return_test.go"]
 tests = ["modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
 planned_paths = []
 build_cmd = "go vet ./modules/layerxanchor/... ./precompiles/layerxanchor/..."
@@ -131265,6 +131281,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 18.1471.1.1: delete modules/layerxanchor/bringup_genesis_test.go; the script it ran was removed by task 8.14.2 and the anchor genesis path is retired. Name it in the commit message."
 do_5 = "Finding 18.1471.1.2: rewrite modules/layerxanchor/module_retired_route_test.go as TestAppRoutesNoAnchorMessages: the application built by app.Setup answers nil from MsgServiceRouter().Handler(&types.MsgUpdateParams{}) because task 5.7.1 removed the anchor module from the module manager, and the keeper's GetParams on the store still answers the default params; drop the upgrade scheduling steps. Continue from attempt 1."
+do_6 = "Finding 18.1471.1.3: bond_return_test.go (TestBondReturn :68, TestBondReturnClosedChallenges :155, TestBondReturnRollback) loads the removed vector checkpoints/batch_1_quorum; port it the way do_1 ports the four named tests, building the checkpoint and quorum inputs inline, so go test ./modules/layerxanchor/... passes. Continue from attempt 2."
 
 [task.20.9.3]
 title = "Add chain registry helpers to the Go SDK"
@@ -131707,7 +131724,7 @@ do_3 = "In precompiles/layerxanchor/layerxanchor_test.go add the same helper rea
 do_4 = "Add nothing to layerxproof/testvectors and recreate nothing under layerxproof/testdata: TestTestvectorsAnchorLoaderAbsent of layerxproof/exportcheck (task 1.36.3) keeps passing, and the verify runs it."
 do_5 = "Run go vet and go test of both packages; a test that fails for a reason other than the fixture is a finding in qualification.kvx, not a change to the module."
 symbols = ["loadAnchorFixture"]
-touches = ["modules/layerxanchor/testdata/anchor_vectors.json", "modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/layerxanchor_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go", "modules/layerxanchor/bringup_genesis_test.go", "modules/layerxanchor/module_retired_route_test.go"]
+touches = ["modules/layerxanchor/testdata/anchor_vectors.json", "modules/layerxanchor/keeper/keeper_test.go", "precompiles/layerxanchor/layerxanchor_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go", "modules/layerxanchor/bringup_genesis_test.go", "modules/layerxanchor/module_retired_route_test.go", "precompiles/layerxanchor/retired_surface_test.go"]
 tests = ["modules/layerxanchor/keeper/keeper_test.go", "modules/layerxanchor/keeper/bond_return_test.go", "modules/layerxanchor/keeper/retirement_rehearsal_test.go", "precompiles/layerxanchor/retire_read_gate_test.go", "precompiles/layerxanchor/retired_wrapper_test.go"]
 planned_paths = []
 build_cmd = "go build ./modules/layerxanchor/... ./precompiles/layerxanchor/..."
@@ -131726,6 +131743,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "Finding 8.14.2.2: delete modules/layerxanchor/bringup_genesis_test.go; it runs services/platform/hosted/paxeer/anchor-genesis.py, deleted by task 8.14.2, and the genesis it validated is now built by the module's own genesis code under test in the keeper package. Nothing replaces the file; the verify asserts it is gone."
 do_7 = "Finding 5.7.1.2: delete modules/layerxanchor/module_retired_route_test.go; its assertion that the test app routes MsgUpdateParams cannot hold since task 5.7.1 removed the anchor AppModule from node/app.go, and the parameter message server it exercised is covered by the keeper tests this task restores."
 do_8 = "Finding 1.36.1.2: in modules/layerxanchor/keeper/keeper_test.go replace the DecodeCheckpointCertificate call (:360) and certificate.Header.BatchNumber (:368) with the fixture's batch_number value read through the Vector Uint64 accessor of the batch_1_quorum checkpoint vector; in precompiles/layerxanchor/retire_read_gate_test.go replace the call (:121) with the vector's checkpoint_id read through Array32 and compare len(h.ids) against its signers value, dropping the proofcodec import where nothing else uses it. layerxproof/codec and layerxproof/exportcheck are not changed. Continue from attempt 2 (5b41c3073)."
+do_9 = "Finding 6.96.6.1: before the vector port, repair retired_surface_test.go:42: replace require.Nil(AnchorK()) with require.NotNil (decision.2218, task 18.1326.1 carries the constructed keeper) and keep the per-selector LXP_MODULE_DISABLED assertions, which the height gates of layerxanchor.go decide. Continue from attempt 4."
 
 [task.6.96.5]
 title = "Re-home the availability class count in the layerxanchor keeper after the codec retirement"
@@ -131850,6 +131868,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.18.1134.1]
 title = "Issue #1134: Re-pin libwasmvm-linux.sha256 to the committed libwasmvm.aarch64.so"
@@ -162063,6 +162082,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_4 = "Blocked by decision 2256 until the LNI consumer ports exist. When it runs: define `pub struct Version { pub major: u16, pub minor: u16 }` with the derives of lni/schema.rs (Clone, Copy, Debug, Eq, PartialEq) in src/rpc/mod.rs and import crate::rpc::Version at src/rpc/history.rs:3 and src/rpc/payments.rs:3 before deleting lni/schema.rs; attempt 1 (ff6311fc4) holds the nine deletions."
+do_5 = "Decision 2294: rpc/history.rs:3 and rpc/payments.rs:3 import crate::lni::schema::Version, which do_1 deletes with the module; both files are in touches and drop that import, replacing every use of Version with the retained wire-version type the rest of rpc/ uses (or deleting the unused version parameter when nothing reads it); no lni item is kept behind. Attempt 1 also met the availabilityClassCount build break that 6.96.5 repaired on main at 520414c87; continue from attempt 1."
 
 [task.9.25.1]
 title = "Delete the kernel-era read, receipt, submit, stream, batch, payments and evidence modules"
@@ -187225,6 +187245,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_8 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.2]
 title = "Delete the legacy telemetry calls of capability"
@@ -187287,6 +187308,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.4]
 title = "Delete the legacy telemetry calls of upgrade"
@@ -187320,6 +187342,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.5]
 title = "Delete the legacy telemetry calls of distribution"
@@ -187353,6 +187376,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.6]
 title = "Delete the legacy telemetry calls of bank Send"
@@ -187415,6 +187439,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.8]
 title = "Delete the legacy telemetry calls of staking Msg"
@@ -187446,6 +187471,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.9]
 title = "Delete the legacy telemetry calls of gov"
@@ -187479,6 +187505,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.10]
 title = "Delete the legacy telemetry calls of evidence"
@@ -187510,6 +187537,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.11]
 title = "Delete the legacy telemetry calls of module manager MidBlock"
@@ -187541,6 +187569,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_4 = "Decision 2294: the last attempt failed only because node/checkpoints.go did not compile (AvailabilityClassCount undefined); task 6.96.5 repaired that on main at 520414c87 (checkpoints.go now declares `const availabilityClassCount = 5`), so this task has no repair to make for it. Continue from the last attempt on the current main; the task's own scope is unchanged."
 
 [task.15.3.12]
 title = "Delete the legacy telemetry calls of OCC scheduler"
@@ -209854,7 +209883,7 @@ title = "Write the two tooling acceptance tests the merged spec names"
 status = "pending"
 mode = "BUILD"
 wave = 47
-requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3"]
+requires = ["16.9.4", "16.97.2", "5.54.9", "5.51.1", "5.51.4", "5.50.7", "1.19.3", "6.60.2"]
 reqs = ["16044.1", "16966.4"]
 capabilities = ["16.90.1"]
 interfaces = []
@@ -209878,6 +209907,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Finding 16.9.4.4 and decision 2198: both acceptances hold only once cmd/layerxd (task 5.50.7), cmd/layerx-guarantor (5.51.1 and 5.51.4), tests/daemon (5.54.9) and the bridge credit suites (1.19.3) are deleted, so this task runs at wave 47 after them; the tests themselves stay as written in attempt 1 (0dacda199)."
+do_4 = "Decision 2294: attempt 2 (base a86f1a980) saw tests/bridge/test_credit.c and tests/bridge/sign_credit.c still present; task 6.60.2 (done) deleted them, so this task now requires 6.60.2 and its own scope (the two assertion files) is unchanged. Continue from attempt 2 on the current main."
 
 [task.19.0.1]
 title = "Refuse the name-system closure while any name task is not done"

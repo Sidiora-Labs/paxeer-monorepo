@@ -111,6 +111,8 @@ func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, gs json.RawM
 	return []abci.ValidatorUpdate{}
 }
 
+// ExportGenesis serializes the keeper-produced state consumed by InitGenesis;
+// program entry byte slices retain their canonical storage encoding in JSON.
 func (am AppModule) ExportGenesis(ctx sdk.Context, _ codec.JSONCodec) json.RawMessage {
 	encoded, err := json.Marshal(am.keeper.ExportGenesis(ctx))
 	if err != nil {

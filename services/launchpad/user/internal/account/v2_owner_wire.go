@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 )
 
@@ -111,6 +112,9 @@ func v2OwnerObject(raw []byte) (map[string]json.RawMessage, error) {
 }
 
 func v2OwnerEnvelope(raw []byte) (map[string]json.RawMessage, map[string]json.RawMessage, error) {
+	if _, err := sharedauth.BodyDigestV2(raw); err != nil {
+		return nil, nil, fmt.Errorf("owner envelope: %w", err)
+	}
 	envelope, err := v2OwnerObject(raw)
 	if err != nil {
 		return nil, nil, err

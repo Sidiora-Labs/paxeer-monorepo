@@ -467,7 +467,9 @@ function wireUint(value: unknown, field: string): bigint {
   const text = wireString(value, field);
   if (!/^(0|[1-9][0-9]*)$/u.test(text) || text.length > 78)
     throw new Refusal("invalid_response", field);
-  return uint(BigInt(text), field);
+  const quantity = BigInt(text);
+  if (quantity >= 1n << 256n) throw new Refusal("invalid_response", field);
+  return quantity;
 }
 
 async function stationRefusal(
