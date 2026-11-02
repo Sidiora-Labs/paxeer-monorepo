@@ -770,7 +770,6 @@ dependencies = [
  "layerx-crypto",
  "layerx-identity-binding",
  "layerx-intents",
- "layerx-paxeer-verifier",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
@@ -805,7 +804,6 @@ dependencies = [
  "layerx-identity-binding",
  "layerx-intents",
  "layerx-mcp",
- "layerx-paxeer-verifier",
  "layerx-programs-registry",
  "layerx-programs-runtime",
  "layerx-proof",
@@ -832,7 +830,6 @@ dependencies = [
  "base64 0.22.1",
  "ed25519-dalek",
  "layerx-crypto",
- "layerx-paxeer-verifier",
  "layerx-programs-ai-market",
  "layerx-programs-registry",
  "layerx-programs-runtime",
@@ -972,17 +969,6 @@ dependencies = [
  "sha2",
  "sha3",
  "zeroize",
-]
-
-[[package]]
-name = "layerx-paxeer-verifier"
-version = "0.1.0"
-dependencies = [
- "layerx-proof",
- "layerx-types",
- "layerx-wire",
- "rustls",
- "sha3",
 ]
 
 [[package]]

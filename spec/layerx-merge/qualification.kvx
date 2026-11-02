@@ -17003,3 +17003,11 @@ symbol = "RpcCheckpointAuthority"
 observed = "Attempt 1 (0862a6c3d) found checkpoint.ts already deleted by task 8.22.7 (45176f36b) and rpcBatchEvidence already deleted by task 8.22.8, removed AuthorizedBatchResolver and MERKLE_LEAF_DOMAIN from index.ts, added retired-exports.test.mjs, and the build and both verify tests passed; the done record then refused because touches names src/checkpoint.ts and the attempt made no change to a file that no longer exists, so the graph check failed on a path do_1 asks only to confirm absent."
 assumption = "Spec defect: a path a prerequisite deletes is not a touch of the task that confirms the deletion; touches drops checkpoint.ts and the attempt continues unchanged."
 severity = "minor"
+
+[finding.10.21.4.1]
+task = "10.21.4"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:512"
+symbol = "unsigned_payload"
+observed = "Task 10.21.4 (decision 1023) deleted layerx_intents::canonical's unsigned_envelope_bytes, signed_envelope_bytes, decode_unsigned_activity and decode_signed_activity and ported the human-service callers it listed; the KMS provider test target still calls them at tests/provider.rs:512, :537 and :772, tests/provider/native_setup.rs:10 and tests/provider/owner_rotation.rs:9-11, so cargo build -p layerx-human-kms --all-targets has failed on every main since 10.21.4 landed, and the crate's test targets are left out of the dependent-crate check; the owner_rotation.rs case (kms_owner_rotation_disclosure) also imports layerx_crypto::rotation, which task 9.35.1 deletes."
+assumption = "Producer gap of 10.21.4: the KMS provider target's owner-envelope helpers belong to the kernel-path migration family of decision 2253; task 9.35.6 deletes the rotation case now."
+severity = "major"

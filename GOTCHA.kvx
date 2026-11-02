@@ -13186,3 +13186,13 @@ fix = "When a task deletes or ports an API, grep the crate's tests/support direc
 title = "A path a prerequisite task deletes must not stay in the touches of the task that confirms the deletion"
 symptom = "A task listed a module among its touches while its first step only confirmed that a required task had already deleted it; the attempt changed nothing there, the verify passed, and the done record's graph check refused the task for an untouched path."
 fix = "List as touches only the paths the task itself changes; put confirm-absent paths in the do text, never in touches."
+
+[gotcha.2674]
+title = "Narrow a blocked retirement to the items whose consumers are already gone instead of holding the whole task"
+symptom = "A crate retirement sat blocked behind ninety-four consumer files; a census showed one deleted module had two test consumers and one encoder none, while the rest of the deletion set fed the daemon's whole preparation path."
+fix = "Split the retirement: delete the unconsumed items now with their two fixture ports as requires, and move the consumed items to a blocked follow-up that requires the consumer migration family."
+
+[gotcha.2675]
+title = "A retirement's consumer grep must cover test targets of every crate, or a crate's tests stay broken for weeks unnoticed"
+symptom = "A task deleted four canonical envelope functions and ported the service callers it listed; a KMS test target that only test code includes kept calling them, failed to compile on every main since, and was silently left out of the dependent-crate check as broken at the base."
+fix = "Grep tests/ and tests/support/ of every workspace crate for the deleted names when the retirement is written, and give each broken test target an owner before the retirement runs."
