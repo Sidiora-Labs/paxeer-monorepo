@@ -9,7 +9,7 @@ use layerx_programs_runtime::{
 };
 
 use crate::account_state::{verify_state_membership, StateProof};
-use crate::chain_evidence::programs_state_key;
+use crate::chain_evidence::{programs_state_key, HOST_STORE_NAME};
 use crate::chain_proof::{
     decode::ProofOp,
     ics23::ExistenceProof,
@@ -680,7 +680,7 @@ pub fn verify_interface_read_at_head(
     }
     let height = verify_state(
         next,
-        "layerx",
+        HOST_STORE_NAME,
         &programs_state_key(&witness.key),
         &witness.value,
         &ops[..2],
@@ -701,7 +701,7 @@ pub fn verify_interface_read_at_head(
     key.extend_from_slice(&program.bytes());
     verify_state(
         next,
-        "layerx",
+        HOST_STORE_NAME,
         &programs_state_key(&key),
         &record.value,
         &ops[2..],

@@ -3,8 +3,8 @@ use std::sync::{mpsc, Arc};
 use std::time::{Duration, Instant};
 
 use layerx_client::sequencer::{
-    AccountProof, CallRequest, ReceiptKeyEntry, RpcRefusal, SequencerBlock, SequencerEndpoint,
-    SequencerError, SequencerReceipt,
+    CallRequest, ReceiptKeyEntry, RpcRefusal, SequencerBlock, SequencerEndpoint, SequencerError,
+    SequencerReceipt, StorageWitness,
 };
 use serde_json::{json, Value};
 
@@ -80,8 +80,6 @@ impl From<SequencerError> for NodeRpcError {
 #[derive(Debug)]
 pub struct NodeRpc {
     endpoint: Arc<SequencerEndpoint>,
-    agent: ureq::Agent,
-    url: String,
     chain_id: u64,
     deadline: Duration,
 }
@@ -148,8 +146,6 @@ impl NodeRpc {
             }
             Ok(Self {
                 endpoint: Arc::new(endpoint),
-                agent,
-                url: config.url,
                 chain_id: observed,
                 deadline: config.deadline,
             })
@@ -206,38 +202,20 @@ impl NodeRpc {
         self.request(SequencerEndpoint::block_number)
     }
 
-    pub fn account_proof(
+    pub fn storage_witness(
         &self,
         address: &[u8; 20],
         slots: &[[u8; 32]],
         height: u64,
-    ) -> Result<AccountProof, NodeRpcError> {
+    ) -> Result<Vec<StorageWitness>, NodeRpcError> {
         let address = *address;
         let slots = slots.to_vec();
-        self.request(move |endpoint| endpoint.account_proof(&address, &slots, height))
+        self.request(move |endpoint| endpoint.storage_witness(&address, &slots, height))
     }
 
     pub fn bound_address(&self, public_key: &[u8; 32]) -> Result<Option<[u8; 20]>, NodeRpcError> {
         let public_key = *public_key;
         self.request(move |endpoint| endpoint.bound_address(&public_key))
-    }
-
-    pub fn history_page(
-        &self,
-        params: Value,
-        maximum_response_bytes: usize,
-    ) -> Result<Vec<u8>, NodeRpcError> {
-        let agent = self.agent.clone();
-        let url = self.url.clone();
-        within_deadline(self.deadline, move |_| {
-            rpc_response(
-                &agent,
-                &url,
-                "px_getHistory",
-                params,
-                maximum_response_bytes,
-            )
-        })
     }
 
     fn request<T: Send + 'static>(

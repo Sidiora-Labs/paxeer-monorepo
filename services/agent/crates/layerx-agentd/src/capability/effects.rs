@@ -516,8 +516,7 @@ fn native_effects(
             }
         }
         DisclosedNativeOperation::IdentityRegistration(_)
-        | DisclosedNativeOperation::RecoveryPolicy(_)
-        | DisclosedNativeOperation::OwnerRotation(_) => {}
+        | DisclosedNativeOperation::RecoveryPolicy(_) => {}
         DisclosedNativeOperation::BudgetCreate(budget) => {
             plan.transfer(
                 budget.source_account,

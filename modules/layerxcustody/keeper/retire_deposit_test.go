@@ -12,6 +12,7 @@ import (
 
 func TestDepositIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	e := newEnvWithoutCheckpoint(t, 0)
+	e.ctx, _ = e.ctx.CacheContext()
 	app := testkeeper.EVMTestApp
 	assetID := vectorArray(t, e.withdrawal, "asset")
 	beneficiary := [32]byte{0xbe, 0xef}

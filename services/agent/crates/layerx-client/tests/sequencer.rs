@@ -3,11 +3,12 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::thread::JoinHandle;
 
+use layerx_crypto::evm_transaction::Eip1559Call;
+
 use layerx_client::sequencer::{
     CallRequest, ExecutedReceipt, ReceiptKeyEntry, RpcRefusal, SequencerBlock, SequencerEndpoint,
     SequencerError, SequencerLog, SequencerReceipt,
 };
-use layerx_crypto::evm_transaction::Eip1559Call;
 use serde_json::{json, Value};
 
 trait Must<T> {
@@ -94,6 +95,31 @@ fn serve(exchanges: Vec<Exchange>) -> (String, JoinHandle<Vec<Value>>) {
 
 fn endpoint(url: &str) -> SequencerEndpoint {
     SequencerEndpoint::new(url, &[]).must()
+}
+
+#[test]
+fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
+    assert_eq!(
+        SequencerEndpoint::new("http://router.example/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("https://router.example/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("https://router.example/", &[&[]]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("ftp://127.0.0.1/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
+    assert_eq!(
+        SequencerEndpoint::new("http://router.railway.internal:9443", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
 }
 
 fn receipted_members() -> String {
@@ -635,31 +661,6 @@ fn unusable_send_answer_is_unavailable() {
         Err(SequencerError::Malformed)
     );
     assert_eq!(server.join().must().len(), 4);
-}
-
-#[test]
-fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
-    assert_eq!(
-        SequencerEndpoint::new("http://router.example/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("https://router.example/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("https://router.example/", &[&[]]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("ftp://127.0.0.1/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
-    assert_eq!(
-        SequencerEndpoint::new("http://router.railway.internal:9443", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
 }
 
 #[test]

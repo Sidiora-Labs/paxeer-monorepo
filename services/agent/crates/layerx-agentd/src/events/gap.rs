@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter};
 use crate::read::{history, Cursor, HistoryLimits, HistoryReadError};
 use layerx_agent_api::subscription::SubscriptionTarget;
 use layerx_client::lni::transport::FrameTransport;
-use layerx_client::read::{HistoryKind, ReadContext};
+use layerx_client::rpc::history::{HistoryKind, ReadContext};
 
 use super::ingestion::{decode_log, durable_event, durable_sequences};
 use super::subscription::{Continuity, Store as SubscriptionStore, SubscriptionError};

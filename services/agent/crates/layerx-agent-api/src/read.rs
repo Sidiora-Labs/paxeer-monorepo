@@ -667,15 +667,15 @@ impl FeeProjectionRequest {
     /// # Errors
     /// Returns [`ContractError::OutOfRange`] when `canonical_bytes` exceeds the native maximum.
     pub const fn validate(self) -> Result<Self, ContractError> {
-        if self.canonical_bytes > layerx_client::client::MAX_FEE_METER_CANONICAL_BYTES {
+        if self.canonical_bytes > layerx_client::fee::MAX_FEE_METER_CANONICAL_BYTES {
             return Err(ContractError::OutOfRange("canonical_bytes"));
         }
         Ok(self)
     }
 
     #[must_use]
-    pub const fn meter(self) -> layerx_client::client::FeeMeter {
-        layerx_client::client::FeeMeter {
+    pub const fn meter(self) -> layerx_client::fee::FeeMeter {
+        layerx_client::fee::FeeMeter {
             activity_type: self.protocol_activity_type,
             canonical_bytes: self.canonical_bytes,
             execution_units: self.execution_units,
@@ -706,7 +706,7 @@ impl FeeProjection {
     /// snapshot is not the captured head.
     pub fn from_observation(
         request: FeeProjectionRequest,
-        observation: layerx_client::client::FeeObservation,
+        observation: layerx_client::fee::FeeObservation,
         gas_units: u64,
         denom: String,
     ) -> Result<Self, ContractError> {

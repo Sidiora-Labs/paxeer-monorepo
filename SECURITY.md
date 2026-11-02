@@ -20,6 +20,14 @@ Test only against systems and assets you own or have written permission to test.
 
 The maintainers confirm receipt in the advisory, assess scope and severity, and work on the fix in a private advisory fork when one is needed. The fix lands on `main`, and when it changes the chain node it ships in a release as described in [RELEASE.md](RELEASE.md). The advisory is published once the fix is available, crediting the reporter unless they ask otherwise. A report found to be out of scope is closed with the reason given in the advisory. Please keep details private until the advisory is published.
 
+## Response targets
+
+These response targets are best-effort commitments. The maintainers aim to acknowledge a report within three business days of receipt and complete triage with a scope and severity decision within ten business days of receipt. While remediation is in progress, they provide a status update at least every fourteen days.
+
+Remediation targets, counted from the severity decision, are thirty days for Critical issues, sixty days for High issues, ninety days for Medium issues and the next scheduled release for Low issues. Coordinated disclosure is targeted within fourteen days of the fix being available.
+
+If a target is missed, escalate by commenting in the advisory. After two further business days without a response, email <security@paxeer.app> with the advisory identifier.
+
 ## Bug bounty
 
 The [Paxeer bug bounty programme](https://www.paxeer.app/bug-bounty) rewards vulnerabilities in the in-scope code listed below, subject to the out-of-scope exclusions. One reward in USD is paid per unique vulnerability; if reports are duplicates, only the first reporter receives the reward.

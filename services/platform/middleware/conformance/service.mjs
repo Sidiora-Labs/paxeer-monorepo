@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { secp256k1 } from "@noble/curves/secp256k1.js";
+import { LayerXBudgetLedger, LayerXReceiptResolver, LayerXRemoteSigner, LayerXServiceEndpoint } from "@sidiora/layerx-agent-integrations";
 import { createServer } from "node:http";
 import { mkdtemp, open, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -13,17 +16,15 @@ import {
   LayerXPaymentHttpTransport,
   accountIdentifiers,
 } from "@sidiora/layerx-buyer-middleware";
-import { ProductionClient, SecretBytes } from "@sidiora/layerx-sdk";
+import { ProductionClient, SecretBytes, decodeRawEip1559, eip1559SigningHash } from "@sidiora/layerx-sdk";
 import {
-  CONFORMANCE_PROTOCOL_VERSION,
   ConformanceSequencer,
   buildSignedReceipt,
   buyerPayload,
-  encodeBase64,
   fixedBytes,
   toHex,
 } from "./dist/receipts.js";
-import { FixedBatchResolver, assert } from "./dist/support.js";
+import { FixedReceiptKeys, assert } from "./dist/support.js";
 
 const EXAMPLE_ENTRY = fileURLToPath(new URL("../../examples/paid-api/index.mjs", import.meta.url));
 const MERCHANT_ENTRY = fileURLToPath(new URL("../../examples/merchant-shop/index.mjs", import.meta.url));
@@ -68,7 +69,8 @@ export async function runServiceScenarios(suite) {
     resultingStateRoot: fixedBytes(0xd3),
   };
   const receipt = await buildSignedReceipt(sequencer, facts);
-  const resolver = new FixedBatchResolver(receipt.authorizedBatch);
+  const receiptKeys = await new FixedReceiptKeys([sequencer.receiptKey()]).resolve();
+  const rpc = await listenJsonService((request, body) => receiptRpc(request, body, receipt));
 
   const workDir = await mkdtemp(join(tmpdir(), "layerx-mw-conformance-"));
   const resourceFile = join(workDir, "resource.json");
@@ -80,38 +82,32 @@ export async function runServiceScenarios(suite) {
     ...process.env,
     PORT: port.toString(),
     LAYERX_RESOURCE_FILE: resourceFile,
+    LAYERX_EXAMPLE_STATE_ROOT: workDir,
     LAYERX_FULFILLMENT_DIR: join(workDir, "fulfillments"),
     LAYERX_RESOURCE_URL: `http://127.0.0.1:${port}/paid`,
     LAYERX_RESOURCE_DESCRIPTION: "conformance paid resource",
     LAYERX_X402_SCHEME: "exact",
-    LAYERX_X402_NETWORK: "layerx:beta",
+    LAYERX_X402_NETWORK: "eip155:125",
     LAYERX_PRICE: amount.toString(),
     LAYERX_ASSET: toHex(asset),
     LAYERX_PAY_TO: toHex(payTo),
     LAYERX_ACCOUNT: SERVICE_PAYEE_ACCOUNT,
     LAYERX_CURRENCY: "LXP",
     LAYERX_PAYMENT_TIMEOUT_SECONDS: "120",
-    LAYERX_AUTHORIZED_BATCH_JSON: JSON.stringify({
-      batchId: toHex(receipt.authorizedBatch.batchId),
-      asset: toHex(receipt.authorizedBatch.asset),
-      previousStateRoot: toHex(receipt.authorizedBatch.previousStateRoot),
-      resultingStateRoot: toHex(receipt.authorizedBatch.resultingStateRoot),
-      sequencerPublicKey: toHex(receipt.authorizedBatch.sequencerPublicKey),
-    }),
+    LAYERX_RECEIPT_KEYS_JSON: JSON.stringify(receiptKeysJson(receiptKeys)),
   };
 
   const configFile = join(workDir, "example.json");
   await assertServiceAccountPayTo(environment.LAYERX_ACCOUNT, environment.LAYERX_PAY_TO);
   await writeFile(configFile, JSON.stringify({ version: 1, application: "paid-api", environments: { emulator: {
-    port, resourceFile, fulfillmentDirectory: join(workDir, "fulfillments"),
-    resourceUrl: environment.LAYERX_RESOURCE_URL, scheme: "exact", network: "layerx:beta",
-    protocolVersion: CONFORMANCE_PROTOCOL_VERSION,
+    port, resourceFile, fulfillmentDirectory: "fulfillments",
+    resourceUrl: environment.LAYERX_RESOURCE_URL, scheme: "exact", network: "eip155:125",
     priceEnvironment: "LAYERX_PRICE", assetEnvironment: "LAYERX_ASSET", payToEnvironment: "LAYERX_PAY_TO",
     accountEnvironment: "LAYERX_ACCOUNT", currencyEnvironment: "LAYERX_CURRENCY",
-    authorizedBatchEnvironment: "LAYERX_AUTHORIZED_BATCH_JSON",
+    receiptKeysEnvironment: "LAYERX_RECEIPT_KEYS_JSON", rpcUrl: rpc.url,
   } } }));
   environment.LAYERX_EXAMPLE_CONFIG = configFile;
-  environment.LAYERX_AUTHORIZED_BATCH_JSON = JSON.stringify(batchJson(receipt.authorizedBatch));
+  const config = JSON.parse(await readFile(configFile, "utf8"));
   let child;
   try {
     child = spawn(process.execPath, [EXAMPLE_ENTRY, "--environment", "emulator"], { env: environment, stdio: ["ignore", "pipe", "pipe"] });
@@ -123,9 +119,8 @@ export async function runServiceScenarios(suite) {
         bearerToken: new SecretBytes(new TextEncoder().encode("unused-conformance-token")),
       })),
       source: "acct:conformance-buyer",
-      protocolVersion: CONFORMANCE_PROTOCOL_VERSION,
-      supported: [{ scheme: "exact", network: "layerx:beta" }],
-      authorizedBatches: resolver,
+      supported: [{ scheme: "exact", network: "eip155:125" }],
+      receiptKeys,
     });
 
     await suite.check("service: an unpaid request is answered with a 402 offer the buyer can parse", async () => {
@@ -150,14 +145,14 @@ export async function runServiceScenarios(suite) {
         method: "GET",
         headers: { accept: "application/json", "PAYMENT-SIGNATURE": encodePaymentPayloadHeader(payload) },
       });
-      assert(paid.status === 200, `expected the resource to be released, received ${paid.status}`);
       const body = await paid.text();
+      assert(paid.status === 200, `expected the resource to be released, received ${paid.status}: ${body}`);
       assert(body === resourceBody, "the released body must match the protected resource");
       const settlementHeader = paid.headers.get("PAYMENT-RESPONSE");
       assert(settlementHeader !== null, "a released resource must carry a PAYMENT-RESPONSE settlement");
-      const prepared = await preparedPayment(parsed, receipt, resolver);
+      const prepared = await preparedPayment(parsed, receipt, receiptKeys);
       const captured = await buyer.captureSettlement(settlementHeader ?? "", prepared);
-      capturedVerified = captured.verification.level === "sequencer-signed";
+      capturedVerified = captured.verification.rung === "receipted";
       assert(capturedVerified, "the buyer must verify the settlement receipt");
     });
 
@@ -166,9 +161,9 @@ export async function runServiceScenarios(suite) {
       const header = offerResponse.headers.get("PAYMENT-REQUIRED") ?? "";
       await offerResponse.text();
       const parsed = buyer.parseOffer(header);
-      const tamperedBytes = receipt.canonicalReceipt.slice();
+      const tamperedBytes = Buffer.from(receipt.rawTransaction.slice(2), "hex");
       tamperedBytes[tamperedBytes.length - 1] ^= 0x01;
-      const tampered = { ...receipt, evidence: { ...receipt.evidence, receipt: encodeBase64(tamperedBytes) } };
+      const tampered = { ...receipt, rawTransaction: `0x${toHex(tamperedBytes)}` };
       const payload = buyerPayload({ requirements: parsed.accepted, paymentRequired: parsed.required }, tampered, "service-tamper");
       const response = await fetch(base, {
         method: "GET",
@@ -197,16 +192,19 @@ export async function runServiceScenarios(suite) {
     if (child !== undefined) {
       child.kill("SIGKILL");
     }
+    await rpc.close();
     await rm(workDir, { recursive: true, force: true });
   }
-  await runMerchantServiceScenarios(suite, receipt, resolver, amount, asset, payTo);
-  await runAgentServiceScenarios(suite, sequencer, receipt, amount, asset, payTo);
+  await runMerchantServiceScenarios(suite, sequencer, facts, receipt, receiptKeys);
+  await runAgentServiceScenarios(suite, receipt, receiptKeys, amount, asset, payTo);
+  return { config, receiptKeysEnvironment: environment.LAYERX_RECEIPT_KEYS_JSON, receiptKey: sequencer.receiptKey() };
 }
 
-async function runMerchantServiceScenarios(suite, receipt, resolver, amount, asset, payTo) {
+async function runMerchantServiceScenarios(suite, sequencer, facts, receipt, receiptKeys) {
+  const { amount, asset, payTo } = facts;
   const workDir = await mkdtemp(join(tmpdir(), "layerx-merchant-conformance-"));
-  const expectedReceipt = encodeBase64(receipt.canonicalReceipt);
   const settlement = await listenJsonService(async (request, body) => {
+    if (request.url === "/rpc") return receiptRpc(request, body, receipt);
     if (request.method !== "POST" || request.url !== "/settle") {
       return jsonReply(404, { code: "not-found" });
     }
@@ -221,15 +219,14 @@ async function runMerchantServiceScenarios(suite, receipt, resolver, amount, ass
       requirements.amount !== amount.toString()
       || requirements.asset !== toHex(asset)
       || requirements.payTo !== toHex(payTo)
-      || evidence.receipt !== expectedReceipt
+      || evidence.signedReceipt !== receipt.signedReceipt
       || evidence.receiptDigest !== receipt.receiptDigest
     ) {
       return jsonReply(402, { code: "verification-failure", retry: "never" });
     }
     return jsonReply(200, {
       state: "settled",
-      receipt_base64: expectedReceipt,
-      authorized_batch: batchJson(receipt.authorizedBatch),
+      transaction: receipt.txHash,
     });
   });
   const catalog = join(workDir, "catalog.json");
@@ -240,7 +237,7 @@ async function runMerchantServiceScenarios(suite, receipt, resolver, amount, ass
     asset: toHex(asset),
     payTo: toHex(payTo),
     scheme: "exact",
-    network: "layerx:beta",
+    network: "eip155:125",
     maxTimeoutSeconds: 120,
   }]), "utf8");
   const port = 10_100 + Math.floor(Math.random() * 1_000);
@@ -257,8 +254,8 @@ async function runMerchantServiceScenarios(suite, receipt, resolver, amount, ass
   const configFile = join(workDir, "example.json");
   await writeFile(configFile, JSON.stringify({ version: 1, application: "merchant-shop", environments: { emulator: {
     port, publicUrl: environment.LAYERX_PUBLIC_URL, settlementUrl: environment.LAYERX_SETTLEMENT_URL,
-    receiptAuthorityUrl: settlement.url, stateDirectory: workDir, scheme: "exact", network: "layerx:beta",
-    protocolVersion: CONFORMANCE_PROTOCOL_VERSION,
+    rpcUrl: `${settlement.url}/rpc`, stateDirectory: ".", scheme: "exact", network: "eip155:125",
+    receiptKeysEnvironment: "LAYERX_RECEIPT_KEYS_JSON",
     tokenEnvironment: "LAYERX_SETTLEMENT_TOKEN", priceEnvironment: "LAYERX_PRICE",
     assetEnvironment: "LAYERX_ASSET", payToEnvironment: "LAYERX_PAY_TO",
     accountEnvironment: "LAYERX_ACCOUNT", currencyEnvironment: "LAYERX_CURRENCY",
@@ -267,7 +264,9 @@ async function runMerchantServiceScenarios(suite, receipt, resolver, amount, ass
   Object.assign(environment, { LAYERX_EXAMPLE_CONFIG: configFile, LAYERX_PRICE: amount.toString(),
     LAYERX_ASSET: toHex(asset), LAYERX_PAY_TO: toHex(payTo),
     LAYERX_ACCOUNT: SERVICE_PAYEE_ACCOUNT, LAYERX_CURRENCY: "LXP",
-    LAYERX_WEBHOOK_KEYS: JSON.stringify({ conformance: toHex(receipt.authorizedBatch.sequencerPublicKey) }) });
+    LAYERX_EXAMPLE_STATE_ROOT: workDir,
+    LAYERX_RECEIPT_KEYS_JSON: JSON.stringify(receiptKeysJson(receiptKeys)),
+    LAYERX_WEBHOOK_KEYS: JSON.stringify({ conformance: toHex(receiptKeys[0].publicKey) }) });
   await assertServiceAccountPayTo(environment.LAYERX_ACCOUNT, environment.LAYERX_PAY_TO);
   let child;
   try {
@@ -285,9 +284,8 @@ async function runMerchantServiceScenarios(suite, receipt, resolver, amount, ass
         bearerToken: new SecretBytes(new TextEncoder().encode("unused-merchant-token")),
       })),
       source: "acct:merchant-conformance",
-      protocolVersion: CONFORMANCE_PROTOCOL_VERSION,
-      supported: [{ scheme: "exact", network: "layerx:beta" }],
-      authorizedBatches: resolver,
+      supported: [{ scheme: "exact", network: "eip155:125" }],
+      receiptKeys,
     });
     let offerHeader = "";
     await suite.check("merchant service: catalog checkout opens a receipt-gated order", async () => {
@@ -302,6 +300,10 @@ async function runMerchantServiceScenarios(suite, receipt, resolver, amount, ass
     });
     await suite.check("merchant service: a real verified receipt pays and idempotently replays the order", async () => {
       const parsed = buyer.parseOffer(offerHeader);
+      receipt = await buildSignedReceipt(sequencer, {
+        ...facts,
+        purposeHash: parsed.accepted.extra?.layerx?.purposeHash,
+      });
       const payload = buyerPayload(
         { requirements: parsed.accepted, paymentRequired: parsed.required },
         receipt,
@@ -310,18 +312,18 @@ async function runMerchantServiceScenarios(suite, receipt, resolver, amount, ass
       const headers = { "PAYMENT-SIGNATURE": encodePaymentPayloadHeader(payload) };
       const first = await postJson(checkout, requestBody, headers);
       const firstBody = object(await first.json());
+      assert(first.status === 200 && firstBody.state === "paid", `a verified receipt must pay the order: ${JSON.stringify(firstBody)}`);
       const firstOrder = object(firstBody.order);
-      assert(first.status === 200 && firstBody.state === "paid", "a verified receipt must pay the order");
       assert(firstOrder.state === "paid-verified", "paid state must be explicitly receipt verified");
-      assert(firstOrder.receiptDigest === receipt.receiptDigest, "the stored order must bind the verified receipt digest");
+      assert(firstOrder.receiptDigest === receipt.receiptDigest.slice(2), "the stored order must bind the verified receipt digest");
       const settlementHeader = first.headers.get("PAYMENT-RESPONSE") ?? "";
-      const prepared = await preparedPayment(parsed, receipt, resolver);
+      const prepared = await preparedPayment(parsed, receipt, receiptKeys);
       const captured = await buyer.captureSettlement(settlementHeader, prepared);
-      assert(captured.verification.level === "sequencer-signed", "the merchant settlement must verify locally");
+      assert(captured.verification.rung === "receipted", "the merchant settlement must verify locally");
       const second = await postJson(checkout, requestBody, headers);
       const secondBody = object(await second.json());
       const secondOrder = object(secondBody.order);
-      assert(second.status === 200 && secondOrder.receiptDigest === receipt.receiptDigest, "a replay must return the same paid order");
+      assert(second.status === 200 && secondOrder.receiptDigest === receipt.receiptDigest.slice(2), "a replay must return the same paid order");
     });
     await suite.check("merchant service: tampered receipt evidence never renders a paid order", async () => {
       const tamperRequest = { ...requestBody, checkout_key: "checkout-tamper" };
@@ -329,11 +331,11 @@ async function runMerchantServiceScenarios(suite, receipt, resolver, amount, ass
       const tamperOffer = offerResponse.headers.get("PAYMENT-REQUIRED") ?? "";
       await offerResponse.text();
       const parsed = buyer.parseOffer(tamperOffer);
-      const tamperedBytes = receipt.canonicalReceipt.slice();
+      const tamperedBytes = Buffer.from(receipt.signedReceipt.slice(2), "hex");
       tamperedBytes[tamperedBytes.length - 1] ^= 0x01;
       const tampered = {
         ...receipt,
-        evidence: { ...receipt.evidence, receipt: encodeBase64(tamperedBytes) },
+        signedReceipt: `0x${toHex(tamperedBytes)}`,
       };
       const payload = buyerPayload(
         { requirements: parsed.accepted, paymentRequired: parsed.required },
@@ -353,80 +355,105 @@ async function runMerchantServiceScenarios(suite, receipt, resolver, amount, ass
   }
 }
 
-async function runAgentServiceScenarios(suite, sequencer, receipt, amount, asset, payTo) {
+async function runAgentServiceScenarios(suite, receipt, receiptKeys, amount, asset, payTo) {
+  const transaction = decodeRawEip1559(Buffer.from(receipt.rawTransaction.slice(2), "hex"));
+  const signingHash = toHex(eip1559SigningHash(transaction));
+  const signature = new secp256k1.Signature(transaction.r, transaction.s, transaction.yParity);
+  const signerPublicKey = toHex(signature.recoverPublicKey(eip1559SigningHash(transaction)).toBytes(false));
+  const signatureHex = `${transaction.r.toString(16).padStart(64, "0")}${transaction.s.toString(16).padStart(64, "0")}${transaction.yParity.toString(16).padStart(2, "0")}`;
+  const requests = new Map(["verified", "approval", "rate", "unknown", "pending", "failed"].map((name) => {
+    const request = agentSpendRequest(`agent-${name}`, amount, asset, payTo, signerPublicKey, toHex(transaction.data));
+    return [request.submitIdempotencyKey, { name, request }];
+  }));
+  let latestPreparation;
   const workDir = await mkdtemp(join(tmpdir(), "layerx-agent-conformance-"));
   const budgetPath = join(workDir, "budget.json");
-  let latestDigest = "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d";
   let budgetQueue = Promise.resolve();
   const boundary = await listenJsonService(async (request, body) => {
     const path = new URL(request.url ?? "/", "http://127.0.0.1").pathname;
+    if (path === "/v1/agent/rpc") {
+      const call = object(body);
+      if (request.headers.authorization !== `LayerX-Key conformance:lxp_live_${"11".repeat(32)}`) {
+        return jsonReply(401, { class: "CapabilityRefusal", protocol_result_code: null,
+          retriability: "Terminal", reason: "invalid_credential", request_id: call.request_id });
+      }
+      const operation = String(call.operation ?? "");
+      const payload = object(call.request);
+      const success = (value) => jsonReply(200, {
+        request_id: call.request_id, value, verification_status: { state: "achieved", rung: "receipted" },
+      });
+      if (operation === "prepare") {
+        latestPreparation = payload;
+        return success({
+          ...payload, preparation_ref: signingHash,
+          chain_id: transaction.chainId.toString(), nonce: transaction.nonce.toString(),
+          max_priority_fee_per_gas: transaction.maxPriorityFeePerGas.toString(),
+          max_fee_per_gas: transaction.maxFeePerGas.toString(), gas_limit: transaction.gasLimit.toString(),
+          to: toHex(transaction.to), data: toHex(transaction.data), signing_hash: signingHash,
+        });
+      }
+      if (operation === "submit" || operation === "track") {
+        const scenario = operation === "submit" ? requests.get(call.idempotency_key)
+          : [...requests.values()].find((entry) => payload.submission_ref === `submission:${entry.request.submitIdempotencyKey}`);
+        if (scenario === undefined) throw new Error("unknown_conformance_submission");
+        const key = scenario.request.submitIdempotencyKey;
+        if (operation === "submit") {
+          assert(payload.preparation_ref === signingHash && payload.signature === signatureHex
+            && payload.signer_public_key === signerPublicKey, "submission must bind the real signed EVM transaction");
+        }
+        if (scenario.name === "approval") {
+          return jsonReply(403, { class: "PolicyRefusal", protocol_result_code: null,
+            retriability: "Terminal", reason: "approval_required", request_id: call.request_id });
+        }
+        if (scenario.name === "unknown") { request.socket.destroy(); return undefined; }
+        if (scenario.name === "pending") {
+          const observation = executedSubmission(key, receipt);
+          observation.submission.receipt_ref = "receipt:pending";
+          return success(observation);
+        }
+        if (scenario.name === "failed") {
+          return success({ tx_hash: receipt.txHash.slice(2), receipt: null, submission: {
+            submission_ref: `submission:${key}`, state: "Failed", result_code: "1",
+            verification_level: "Submitted", evidence: [], transitions: [],
+          } });
+        }
+        return success(executedSubmission(key, receipt));
+      }
+      if (operation === "approval.list") {
+        return success({ approvals: [{
+          approval_id: scenarioKey("approval"), canonical_digest: signingHash,
+          activity_type: latestPreparation.activity_type, actor: latestPreparation.actor,
+          authority: latestPreparation.authority, counterparties: [], amounts: [], asset: toHex(asset),
+          fee_limit: latestPreparation.fee_limit, expiry: latestPreparation.not_after,
+          idempotency_key: latestPreparation.idempotency_key, canonical_bytes_digest: signingHash,
+          hold_reason_code: "approval_required", hold_reason: "owner approval required",
+          created_at_sequence: "1", expires_at_sequence: "100", state: "AwaitingApproval",
+        }], next_cursor: null });
+      }
+      throw new Error("unknown_conformance_operation");
+    }
     if (request.headers.authorization !== "Bearer agent-conformance-token") {
       return jsonReply(401, { code: "capability-refusal", retry: "never" });
     }
-    if (path === "/agent") {
-      const call = object(body);
-      const operation = String(call.operation ?? "");
-      const payload = object(call.request);
-      const key = String(request.headers["idempotency-key"] ?? "read");
-      if (operation === "prepare") {
-        latestDigest = String(payload.payload_hash ?? "");
-        return jsonReply(200, { ok: true, result: {
-          preparation_ref: `prep:${key}`,
-          unsigned_canonical_bytes: "AA==",
-          signing_preimage: "AQ==",
-          disclosure: { canonical_digest: latestDigest },
-          expiry: "2999-01-01T00:00:00.000Z",
-        } });
-      }
-      if (operation === "submit") {
-        if (key.includes("approval")) {
-          return jsonReply(403, { code: "policy-refusal", retry: "never" });
-        }
-        if (key.includes("rate")) {
-          return jsonReply(429, { code: "rate-limit", retry: "after", retry_after_ms: 500 });
-        }
-        if (key.includes("unknown")) {
-          request.socket.destroy();
-          return undefined;
-        }
-        if (key.includes("failed")) {
-          return jsonReply(200, { ok: true, result: {
-            submission_ref: `submission:${key}`,
-            state: "Failed",
-            evidence: [],
-          } });
-        }
-        if (key.includes("pending")) {
-          return jsonReply(200, { ok: true, result: {
-            submission_ref: `submission:${key}`,
-            state: { kind: "Executed" },
-            evidence: [],
-          } });
-        }
-        return jsonReply(200, { ok: true, result: executedSubmission(key) });
-      }
-      if (operation === "track") {
-        return jsonReply(200, { ok: true, result: executedSubmission(key) });
-      }
-      if (operation === "approval.list") {
-        return jsonReply(200, { ok: true, result: { approvals: [{
-          state: "Held",
-          approval_id: "approval-conformance",
-          canonical_bytes_digest: latestDigest,
-        }] } });
-      }
-      return jsonReply(400, { code: "unavailable-capability", retry: "never" });
-    }
     if (path === "/signer") {
       const signing = object(body);
-      const signature = await sequencer.sign(new TextEncoder().encode(String(signing.signing_preimage ?? "")));
-      return jsonReply(200, { signature: encodeBase64(signature) });
+      assert(signing.signing_hash === signingHash && signing.preparation_ref === signingHash,
+        "the signer must receive the generated transaction's signing hash");
+      if (signing.disclosure.idempotency_key === scenarioKey("agent-rate:prepare")) {
+        return jsonReply(429, { code: "rate-limit", retry: "after", retry_after_ms: 500 });
+      }
+      return jsonReply(200, { signature: signatureHex });
     }
     if (path === "/receipt") {
-      return jsonReply(200, {
-        canonical_receipt_base64: encodeBase64(receipt.canonicalReceipt),
-        authorized_batch: batchJson(receipt.authorizedBatch),
-      });
+      const reference = object(body).receipt_ref;
+      if (reference === "receipt:pending") return jsonReply(202, { state: "pending" });
+      assert(reference === "receipt:conformance" || reference === receipt.receiptDigest.slice(2),
+        "the resolver must request the generated receipt reference or digest");
+      return jsonReply(200, { ...receipt, receiptKey: {
+        ...receipt.receiptKey,
+        firstHeight: BigInt(receipt.receiptKey.firstHeight).toString(),
+        lastHeight: BigInt(receipt.receiptKey.lastHeight).toString(),
+      } });
     }
     if (path === "/budget") {
       const run = budgetQueue.then(() => budgetCall(budgetPath, object(body)));
@@ -439,21 +466,32 @@ async function runAgentServiceScenarios(suite, sequencer, receipt, amount, asset
     const baseEnvironment = {
       ...process.env,
       LAYERX_TOKEN: "agent-conformance-token",
-      LAYERX_PROTOCOL_VERSION: String(CONFORMANCE_PROTOCOL_VERSION),
-      LAYERX_AGENT_RPC_URL: `${boundary.url}/agent`,
+      LAYERX_TENANT: "tenant:conformance",
+      LAYERX_AGENT_SERVICES_MODULE: fileURLToPath(import.meta.url),
+      LAYERX_AGENT_SURFACE: "gateway",
+      LAYERX_SESSION_ID: "33".repeat(32),
+      LAYERX_SESSION_TOKEN: "22".repeat(32),
+      LAYERX_SESSION_GENERATION: "1",
+      LAYERX_GATEWAY_KEY_ID: "conformance",
+      LAYERX_GATEWAY_KEY: `lxp_live_${"11".repeat(32)}`,
+      LAYERX_RECEIPT_KEYS_JSON: JSON.stringify(receiptKeys.map((key) => ({
+        keyId: toHex(key.keyId), publicKey: toHex(key.publicKey),
+        first_height: key.first_height.toString(), last_height: key.last_height.toString(),
+      }))),
+      LAYERX_AGENT_RPC_URL: boundary.url,
       LAYERX_BUDGET_SERVICE_URL: `${boundary.url}/budget`,
       LAYERX_SIGNER_SERVICE_URL: `${boundary.url}/signer`,
       LAYERX_RECEIPT_SERVICE_URL: `${boundary.url}/receipt`,
     };
     await suite.check("agent service: verified spend commits exact budget facts and replays idempotently", async () => {
-      const request = agentSpendRequest("agent-verified", amount, asset, payTo);
+      const request = agentSpendRequest("agent-verified", amount, asset, payTo, signerPublicKey, toHex(transaction.data));
       const first = await runExample(AGENT_ENTRY, {
         ...baseEnvironment,
         LAYERX_SPEND_REQUEST_JSON: JSON.stringify(request),
       });
       const firstResult = lastJsonLine(first.stdout);
-      assert(first.code === 0 && firstResult.kind === "verified", `verified agent spend failed: ${first.stderr}`);
-      assert(firstResult.receiptDigest === receipt.verificationDigest, "agent result must carry the locally verified receipt digest");
+      assert(first.code === 0 && firstResult.kind === "verified", `verified agent spend failed: ${first.stdout} ${first.stderr}`);
+      assert(firstResult.receiptDigest === receipt.receiptDigest.slice(2), "agent result must carry the locally verified receipt digest");
       const second = await runExample(AGENT_ENTRY, {
         ...baseEnvironment,
         LAYERX_SPEND_REQUEST_JSON: JSON.stringify(request),
@@ -461,24 +499,24 @@ async function runAgentServiceScenarios(suite, sequencer, receipt, amount, asset
       const secondResult = lastJsonLine(second.stdout);
       assert(second.code === 0 && secondResult.kind === "verified", "idempotent replay must return the verified result");
       const state = object(JSON.parse(await readFile(budgetPath, "utf8")));
-      const record = object(object(state.records)[request.idempotencyKey]);
+      const record = object(object(state.records)[request.preparation.idempotency_key]);
       assert(record.state === "committed", "verified spend must durably commit its reservation");
       assert(record.amount === amount.toString() && record.asset === toHex(asset), "budget commit must preserve amount and asset");
-      assert(record.receiptDigest === receipt.verificationDigest, "budget commit must bind the verified receipt digest");
+      assert(record.receiptDigest === receipt.receiptDigest.slice(2), "budget commit must bind the verified receipt digest");
     });
     await suite.check("agent service: approval refusal becomes a durable digest-bound hold", async () => {
-      const request = agentSpendRequest("agent-approval", amount, asset, payTo);
+      const request = agentSpendRequest("agent-approval", amount, asset, payTo, signerPublicKey, toHex(transaction.data));
       const run = await runExample(AGENT_ENTRY, {
         ...baseEnvironment,
         LAYERX_SPEND_REQUEST_JSON: JSON.stringify(request),
       });
       const result = lastJsonLine(run.stdout);
       assert(run.code === 0 && result.kind === "approval-hold", `approval hold failed: ${run.stderr}`);
-      assert(result.approvalId === "approval-conformance", "approval result must name the daemon hold");
+      assert(result.approvalId === scenarioKey("approval"), "approval result must name the daemon hold");
       const state = object(JSON.parse(await readFile(budgetPath, "utf8")));
-      const record = object(object(state.records)[request.idempotencyKey]);
-      assert(record.state === "held" && record.approvalId === "approval-conformance", "budget ledger must persist the approval hold");
-      assert(record.canonicalBytesDigest === request.payloadHash, "hold must remain bound to the prepared digest");
+      const record = object(object(state.records)[request.preparation.idempotency_key]);
+      assert(record.state === "held" && record.approvalId === scenarioKey("approval"), "budget ledger must persist the approval hold");
+      assert(record.canonicalBytesDigest === signingHash, "hold must remain bound to the prepared digest");
       const replay = await runExample(AGENT_ENTRY, {
         ...baseEnvironment,
         LAYERX_SPEND_REQUEST_JSON: JSON.stringify(request),
@@ -487,12 +525,12 @@ async function runAgentServiceScenarios(suite, sequencer, receipt, amount, asset
       assert(
         replay.code === 0
           && replayResult.kind === "approval-hold"
-          && replayResult.approvalId === "approval-conformance",
+          && replayResult.approvalId === scenarioKey("approval"),
         "a process replay must restore the same durable approval hold",
       );
     });
     await suite.check("agent service: typed retry timing remains a refusal and keeps the exact reservation", async () => {
-      const request = agentSpendRequest("agent-rate", amount, asset, payTo);
+      const request = agentSpendRequest("agent-rate", amount, asset, payTo, signerPublicKey, toHex(transaction.data));
       const run = await runExample(AGENT_ENTRY, {
         ...baseEnvironment,
         LAYERX_SPEND_REQUEST_JSON: JSON.stringify(request),
@@ -503,7 +541,7 @@ async function runAgentServiceScenarios(suite, sequencer, receipt, amount, asset
       assert(result.reservationState === "reserved", "retriable refusal must keep its bound reservation");
     });
     await suite.check("agent service: an unknown submit outcome is never remapped to a safe refusal", async () => {
-      const request = agentSpendRequest("agent-unknown", amount, asset, payTo);
+      const request = agentSpendRequest("agent-unknown", amount, asset, payTo, signerPublicKey, toHex(transaction.data));
       const run = await runExample(AGENT_ENTRY, {
         ...baseEnvironment,
         LAYERX_SPEND_REQUEST_JSON: JSON.stringify(request),
@@ -513,8 +551,8 @@ async function runAgentServiceScenarios(suite, sequencer, receipt, amount, asset
       assert(result.retry === undefined && result.code === undefined, "unknown outcome must not acquire a safe refusal code");
       assert(result.reservationState === "reserved", "unknown outcome must retain the budget reservation");
     });
-    await suite.check("agent service: an executed state without receipt evidence remains pending", async () => {
-      const request = agentSpendRequest("agent-pending", amount, asset, payTo);
+    await suite.check("agent service: an executed state without resolved receipt evidence remains pending", async () => {
+      const request = agentSpendRequest("agent-pending", amount, asset, payTo, signerPublicKey, toHex(transaction.data));
       const run = await runExample(AGENT_ENTRY, {
         ...baseEnvironment,
         LAYERX_SPEND_REQUEST_JSON: JSON.stringify(request),
@@ -524,7 +562,7 @@ async function runAgentServiceScenarios(suite, sequencer, receipt, amount, asset
       assert(result.reservationState === "reserved", "pending execution must retain its exact reservation");
     });
     await suite.check("agent service: a terminal refusal durably releases with the shared taxonomy", async () => {
-      const request = agentSpendRequest("agent-failed", amount, asset, payTo);
+      const request = agentSpendRequest("agent-failed", amount, asset, payTo, signerPublicKey, toHex(transaction.data));
       const run = await runExample(AGENT_ENTRY, {
         ...baseEnvironment,
         LAYERX_SPEND_REQUEST_JSON: JSON.stringify(request),
@@ -533,7 +571,7 @@ async function runAgentServiceScenarios(suite, sequencer, receipt, amount, asset
       assert(result.kind === "refused" && result.code === "core-rejection", "terminal failure must use the shared code");
       assert(result.retry === "never" && result.reservationState === "released", "terminal failure must durably release");
       const state = object(JSON.parse(await readFile(budgetPath, "utf8")));
-      const record = object(object(state.records)[request.idempotencyKey]);
+      const record = object(object(state.records)[request.preparation.idempotency_key]);
       const refusal = object(record.refusal);
       assert(
         record.state === "released" && refusal.code === "core-rejection" && refusal.submissionState === "Failed",
@@ -546,29 +584,60 @@ async function runAgentServiceScenarios(suite, sequencer, receipt, amount, asset
   }
 }
 
-function executedSubmission(key) {
+function executedSubmission(key, receipt) {
   return {
-    submission_ref: `submission:${key}`,
-    state: { kind: "Executed", receiptRef: "receipt:conformance" },
-    verification_level: 1,
-    evidence: [{ class: "layerx-receipt", reference: "receipt:conformance" }],
+    tx_hash: receipt.txHash.slice(2),
+    submission: {
+      submission_ref: `submission:${key}`, state: "Executed", receipt_ref: "receipt:conformance",
+      verification_level: "Receipted", evidence: [], transitions: [],
+    },
+    receipt: {
+      signed_receipt: receipt.signedReceipt.slice(2), raw_transaction: receipt.rawTransaction.slice(2),
+      verification_level: "Receipted", receipt_key: {
+        key_id: receipt.receiptKey.keyId.slice(2), public_key: receipt.receiptKey.publicKey.slice(2),
+        first_height: BigInt(receipt.receiptKey.firstHeight).toString(),
+        last_height: BigInt(receipt.receiptKey.lastHeight).toString(),
+      },
+    },
   };
 }
 
-function agentSpendRequest(idempotencyKey, amount, asset, payTo) {
+function scenarioKey(value) {
+  return createHash("sha256").update(value).digest("hex");
+}
+
+function agentSpendRequest(name, amount, asset, payTo, signerPublicKey, payload) {
   return {
     tenant: "tenant:conformance",
-    actor: "did:layerx:agent-conformance",
-    authority: "did:layerx:authority-conformance",
-    accountSequence: "1",
-    timestampBound: "4102444800000",
-    idempotencyKey,
-    feeLimit: "1000",
-    payloadBase64: "AA==",
-    payloadHash: "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
-    asset: toHex(asset),
-    amount: amount.toString(),
-    recipient: toHex(payTo),
+    preparation: {
+      activity_type: "1", actor: "did:layerx:agent-conformance", authority: "did:layerx:authority-conformance",
+      account_sequence: "1", not_before: "0", not_after: "4102444800000", fee_limit: "1000",
+      idempotency_key: scenarioKey(`${name}:prepare`), payload,
+      payload_hash: createHash("sha256").update("LXP/v1/payload-hash\0").update(Buffer.from(payload, "hex")).digest("hex"),
+    },
+    networkId: "125", authorityHex: "00", signerPublicKey, submitIdempotencyKey: scenarioKey(`${name}:submit`),
+    approvalCurrentSequence: "1", asset: toHex(asset), amount: amount.toString(), recipient: toHex(payTo),
+  };
+}
+
+export function createAgentServices(environment) {
+  const token = new SecretBytes(new TextEncoder().encode(environment.LAYERX_TOKEN));
+  const endpoint = (name) => new LayerXServiceEndpoint({ url: environment[name], token, timeoutMs: 30000 });
+  const receipts = new LayerXReceiptResolver(endpoint("LAYERX_RECEIPT_SERVICE_URL"));
+  return {
+    budgets: new LayerXBudgetLedger(endpoint("LAYERX_BUDGET_SERVICE_URL")),
+    signer: new LayerXRemoteSigner(endpoint("LAYERX_SIGNER_SERVICE_URL")),
+    receipts: {
+      async resolve(receiptRef) {
+        const proof = await receipts.resolve(receiptRef);
+        return { ...proof, receiptKey: {
+          ...proof.receiptKey,
+          firstHeight: `0x${BigInt(proof.receiptKey.firstHeight).toString(16)}`,
+          lastHeight: `0x${BigInt(proof.receiptKey.lastHeight).toString(16)}`,
+        } };
+      },
+    },
+    destroy: () => token.destroy(),
   };
 }
 
@@ -788,14 +857,27 @@ function boundedString(value, maximum) {
   return value;
 }
 
-function batchJson(batch) {
-  return {
-    batch_id: toHex(batch.batchId),
-    asset: toHex(batch.asset),
-    previous_state_root: toHex(batch.previousStateRoot),
-    resulting_state_root: toHex(batch.resultingStateRoot),
-    sequencer_public_key: toHex(batch.sequencerPublicKey),
-  };
+export function receiptKeysJson(keys) {
+  return keys.map((key) => ({
+    keyId: toHex(key.keyId), publicKey: toHex(key.publicKey),
+    firstHeight: key.first_height.toString(), lastHeight: key.last_height.toString(),
+  }));
+}
+
+function receiptRpc(request, body, receipt) {
+  const call = object(body);
+  if (request.method !== "POST" || call.jsonrpc !== "2.0" || call.params?.[0] !== receipt.txHash) {
+    return jsonReply(400, { jsonrpc: "2.0", id: call.id, error: { code: -32602, message: "invalid receipt request" } });
+  }
+  if (call.method === "eth_getRawTransactionByHash") {
+    return jsonReply(200, { jsonrpc: "2.0", id: call.id, result: receipt.rawTransaction });
+  }
+  if (call.method !== "pax_sequencerReceipt") {
+    return jsonReply(400, { jsonrpc: "2.0", id: call.id, error: { code: -32601, message: "unknown method" } });
+  }
+  return jsonReply(200, { jsonrpc: "2.0", id: call.id, result: {
+    txHash: receipt.txHash, rung: "receipted", receipt: receipt.signedReceipt,
+  } });
 }
 
 async function listenJsonService(handler) {
@@ -875,13 +957,11 @@ function lastJsonLine(output) {
   return object(JSON.parse(last));
 }
 
-async function preparedPayment(parsed, receipt, resolver) {
-  const batch = await resolver.resolve();
+async function preparedPayment(parsed, receipt, receiptKeys) {
   const verification = await verifyPaymentReceipt(
-    { canonicalReceipt: receipt.canonicalReceipt, authorizedBatch: batch },
+    receipt,
     parsed.accepted,
-    undefined,
-    { protocolVersion: CONFORMANCE_PROTOCOL_VERSION },
+    receiptKeys,
   );
   const payload = buyerPayload({ requirements: parsed.accepted, paymentRequired: parsed.required }, receipt, "service-happy");
   return {
@@ -909,8 +989,7 @@ async function preparedPayment(parsed, receipt, resolver) {
     payload,
     paymentHeader: encodePaymentPayloadHeader(payload),
     idempotencyKey: "service-happy",
-    canonicalReceipt: receipt.canonicalReceipt,
-    authorizedBatch: batch,
+    ...receipt,
     verification,
     receiptDigest: receipt.receiptDigest,
   };

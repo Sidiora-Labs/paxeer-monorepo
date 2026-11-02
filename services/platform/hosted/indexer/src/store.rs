@@ -18,9 +18,34 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use rusqlite::{params, Connection, OptionalExtension as _, Row};
 use serde_json::{json, Value};
 
+use crate::chains::{ChainRecord, ChainRow, ChainTransaction};
 use crate::IndexError;
 
 const SCHEMA: &str = "
+CREATE TABLE IF NOT EXISTS chains(
+    id INTEGER PRIMARY KEY, name TEXT UNIQUE NOT NULL, operator TEXT NOT NULL,
+    status TEXT NOT NULL, chain_id INTEGER NOT NULL, created_height INTEGER NOT NULL,
+    bond TEXT NOT NULL, gas_allowance INTEGER NOT NULL, byte_allowance INTEGER NOT NULL,
+    fee_share_bps INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS chain_registry_events(
+    source_chain TEXT NOT NULL, position INTEGER NOT NULL, ordinal INTEGER NOT NULL,
+    data TEXT NOT NULL, PRIMARY KEY(source_chain, position, ordinal)
+);
+CREATE TABLE IF NOT EXISTS chain_transactions(
+    source_chain TEXT NOT NULL, position INTEGER NOT NULL, tx_id TEXT NOT NULL,
+    chain TEXT NOT NULL, gas_used INTEGER NOT NULL,
+    PRIMARY KEY(source_chain, tx_id)
+);
+CREATE INDEX IF NOT EXISTS chain_transactions_chain ON chain_transactions(chain, position);
+CREATE TABLE IF NOT EXISTS chain_activity(
+    chain TEXT PRIMARY KEY, tx_count INTEGER NOT NULL,
+    gas_used INTEGER NOT NULL, last_height INTEGER NOT NULL
+);
+INSERT OR IGNORE INTO chain_activity(chain, tx_count, gas_used, last_height)
+    SELECT tx.chain, COUNT(*), SUM(tx.gas_used), MAX(tx.position)
+    FROM chain_transactions tx JOIN chains ON tx.chain = 'pax:' || chains.id
+    GROUP BY tx.chain;
 CREATE TABLE IF NOT EXISTS accounts(
     chain TEXT NOT NULL,
     account TEXT NOT NULL,
@@ -448,6 +473,53 @@ pub struct SourceObservation {
 pub struct Page {
     pub items: Vec<Value>,
     pub next_cursor: Option<String>,
+}
+
+fn chain_record(row: &Row<'_>) -> rusqlite::Result<ChainRecord> {
+    Ok(ChainRecord {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        operator: row.get(2)?,
+        status: row.get(3)?,
+        chain_id: row.get(4)?,
+        created_height: row.get(5)?,
+        bond: row.get(6)?,
+        gas_allowance: row.get(7)?,
+        byte_allowance: row.get(8)?,
+        fee_share_bps: row.get(9)?,
+    })
+}
+
+fn add_bond(left: &str, right: &str) -> Result<String, IndexError> {
+    let valid = |text: &str| {
+        !text.is_empty()
+            && text.bytes().all(|byte| byte.is_ascii_digit())
+            && (text == "0" || !text.starts_with('0'))
+    };
+    if !valid(left) || !valid(right) {
+        return Err(IndexError::Integrity("invalid chain bond".to_owned()));
+    }
+    let mut a = left.bytes().rev();
+    let mut b = right.bytes().rev();
+    let mut carry = 0;
+    let mut digits = Vec::new();
+    loop {
+        let (a, b) = (a.next(), b.next());
+        if a.is_none() && b.is_none() && carry == 0 {
+            break;
+        }
+        let sum = a.map_or(0, |v| v - b'0') + b.map_or(0, |v| v - b'0') + carry;
+        digits.push(char::from(b'0' + sum % 10));
+        carry = sum / 10;
+    }
+    let sum: String = digits.into_iter().rev().collect();
+    let max = "115792089237316195423570985008687907853269984665640564039457584007913129639935";
+    if sum.len() > max.len() || (sum.len() == max.len() && sum.as_str() > max) {
+        return Err(IndexError::Integrity(
+            "chain bond exceeds uint256".to_owned(),
+        ));
+    }
+    Ok(sum)
 }
 
 /// The shared SQLite store.
@@ -1037,6 +1109,63 @@ impl Store {
         stamp: i64,
     ) -> Result<(Option<u64>, Option<i64>), IndexError> {
         let position = signed(unit.position)?;
+        for (ordinal, event) in unit
+            .events
+            .iter()
+            .filter(|event| event.source == "chain-registry-change")
+            .enumerate()
+        {
+            let change: ChainRow = serde_json::from_value(event.decoded.clone())
+                .map_err(|error| IndexError::Store(format!("chain registry change: {error}")))?;
+            transaction.execute("INSERT INTO chain_registry_events(source_chain, position, ordinal, data) VALUES(?1, ?2, ?3, ?4)",
+                params![unit.chain, position, ordinal as i64, event.decoded.to_string()])?;
+            Self::apply_chain_event(transaction, &change)?;
+        }
+        let mut chain_transactions = Vec::new();
+        for event in unit
+            .events
+            .iter()
+            .filter(|event| event.source == "chain-transaction")
+        {
+            let chain = event.decoded["chain"].as_str().ok_or_else(|| {
+                IndexError::Integrity("chain transaction has no chain".to_owned())
+            })?;
+            let chain_id = event.decoded["chain_id"].as_u64().ok_or_else(|| {
+                IndexError::Integrity("chain transaction has no chain id".to_owned())
+            })?;
+            let known: bool = transaction.query_row(
+                "SELECT EXISTS(SELECT 1 FROM chains WHERE 'pax:' || id = ?1 AND chain_id = ?2)",
+                params![chain, signed(chain_id)?],
+                |row| row.get(0),
+            )?;
+            if !known {
+                continue;
+            }
+            let gas_used = event.decoded["gas_used"].as_u64().ok_or_else(|| {
+                IndexError::Integrity("chain transaction has no gas usage".to_owned())
+            })?;
+            transaction.execute("INSERT INTO chain_transactions(source_chain, position, tx_id, chain, gas_used) VALUES(?1, ?2, ?3, ?4, ?5)",
+                params![unit.chain, position, event.tx_id, chain, signed(gas_used)?])?;
+            transaction.execute(
+                "INSERT INTO chain_activity(chain, tx_count, gas_used, last_height)
+                 VALUES(?1, 1, ?2, ?3)
+                 ON CONFLICT(chain) DO UPDATE SET tx_count = chain_activity.tx_count + 1,
+                    gas_used = chain_activity.gas_used + excluded.gas_used,
+                    last_height = MAX(chain_activity.last_height, excluded.last_height)",
+                params![chain, signed(gas_used)?, position],
+            )?;
+            chain_transactions.push(ChainTransaction {
+                tx_id: event.tx_id.clone(),
+                chain: chain.to_owned(),
+                gas_used,
+            });
+        }
+        let row_chain = |tx_id: &str| {
+            chain_transactions
+                .iter()
+                .find(|tx| tx.tx_id == tx_id)
+                .map_or(unit.chain.as_str(), |tx| tx.chain.as_str())
+        };
         let mut observed: Vec<&str> = Vec::with_capacity(unit.assets.len());
         for asset in &unit.assets {
             transaction.execute(
@@ -1082,7 +1211,7 @@ impl Store {
                  VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                 params![
                     signed(transfer.height_or_seq)?,
-                    unit.chain,
+                    row_chain(&transfer.tx_id),
                     transfer.kind,
                     transfer.direction,
                     transfer.account,
@@ -1118,14 +1247,19 @@ impl Store {
                 ],
             )?;
         }
-        for event in &unit.events {
+        for event in unit.events.iter().filter(|event| {
+            !matches!(
+                event.source.as_str(),
+                "chain-transaction" | "chain-registry-change"
+            )
+        }) {
             transaction.execute(
                 "INSERT INTO events(height_or_seq, chain, source, name, contract, account, tx_id,
                     ordinal, decoded_json)
                  VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
                 params![
                     signed(event.height_or_seq)?,
-                    unit.chain,
+                    row_chain(&event.tx_id),
                     event.source,
                     event.name,
                     event.contract,
@@ -1476,10 +1610,206 @@ impl Store {
             "DELETE FROM name_events WHERE chain = ?1 AND position > ?2",
             params![chain, above],
         )?;
+        for table in ["transfers", "events"] {
+            transaction.execute(&format!("DELETE FROM {table} WHERE tx_id IN (SELECT tx_id FROM chain_transactions WHERE source_chain = ?1 AND position > ?2) AND chain IN (SELECT chain FROM chain_transactions WHERE source_chain = ?1 AND position > ?2)"), params![chain, above])?;
+        }
+        transaction.execute(
+            "DELETE FROM chain_transactions WHERE source_chain = ?1 AND position > ?2",
+            params![chain, above],
+        )?;
+        transaction.execute(
+            "DELETE FROM chain_registry_events WHERE source_chain = ?1 AND position > ?2",
+            params![chain, above],
+        )?;
+        transaction.execute("DELETE FROM chains", [])?;
+        let retained = {
+            let mut statement = transaction
+                .prepare("SELECT data FROM chain_registry_events ORDER BY position, ordinal")?;
+            let data = statement
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<Result<Vec<_>, _>>()?;
+            data
+        };
+        for data in retained {
+            let event = serde_json::from_str(&data)
+                .map_err(|error| IndexError::Store(format!("chain journal: {error}")))?;
+            Self::apply_chain_event(&transaction, &event)?;
+        }
+        transaction.execute("DELETE FROM chain_activity", [])?;
+        transaction.execute(
+            "INSERT INTO chain_activity(chain, tx_count, gas_used, last_height)
+             SELECT tx.chain, COUNT(*), SUM(tx.gas_used), MAX(tx.position)
+             FROM chain_transactions tx JOIN chains ON tx.chain = 'pax:' || chains.id
+             GROUP BY tx.chain",
+            [],
+        )?;
         Self::rebuild_names(&transaction, &nodes)?;
         Self::rewind_projections(&transaction, chain, above)?;
         transaction.commit()?;
         Ok(())
+    }
+
+    fn insert_chain_in(connection: &Connection, row: &ChainRecord) -> Result<(), IndexError> {
+        connection.execute("INSERT INTO chains(id, name, operator, status, chain_id, created_height, bond, gas_allowance, byte_allowance, fee_share_bps) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![row.id, row.name, row.operator, row.status, signed(row.chain_id)?, signed(row.created_height)?, row.bond, signed(row.gas_allowance)?, signed(row.byte_allowance)?, row.fee_share_bps])?;
+        Ok(())
+    }
+
+    pub fn insert_chain(&self, row: &ChainRecord) -> Result<(), IndexError> {
+        Self::insert_chain_in(&*self.lock()?, row)
+    }
+
+    fn apply_chain_event(connection: &Connection, event: &ChainRow) -> Result<(), IndexError> {
+        let changed = match event {
+            ChainRow::Created(row) => return Self::insert_chain_in(connection, row),
+            ChainRow::Status { id, status } => connection.execute(
+                "UPDATE chains SET status = ?2 WHERE id = ?1",
+                params![id, status],
+            )?,
+            ChainRow::Operator { id, operator } => connection.execute(
+                "UPDATE chains SET operator = ?2 WHERE id = ?1",
+                params![id, operator],
+            )?,
+            ChainRow::Funded { id, amount } => {
+                let old: String =
+                    connection.query_row("SELECT bond FROM chains WHERE id = ?1", [id], |row| {
+                        row.get(0)
+                    })?;
+                let sum = add_bond(&old, amount)?;
+                connection.execute(
+                    "UPDATE chains SET bond = ?2 WHERE id = ?1",
+                    params![id, sum],
+                )?
+            }
+        };
+        if changed != 1 {
+            return Err(IndexError::Integrity(
+                "chain update references an unknown chain".to_owned(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub fn update_chain_status(&self, id: u32, status: &str) -> Result<(), IndexError> {
+        if !matches!(
+            status,
+            "active" | "paused" | "governance_paused" | "retired"
+        ) {
+            return Err(IndexError::Integrity("invalid chain status".to_owned()));
+        }
+        Self::apply_chain_event(
+            &*self.lock()?,
+            &ChainRow::Status {
+                id,
+                status: status.to_owned(),
+            },
+        )
+    }
+
+    pub fn update_chain_bond(&self, id: u32, amount: &str) -> Result<(), IndexError> {
+        Self::apply_chain_event(
+            &*self.lock()?,
+            &ChainRow::Funded {
+                id,
+                amount: amount.to_owned(),
+            },
+        )
+    }
+
+    pub fn update_chain_operator(&self, id: u32, operator: &str) -> Result<(), IndexError> {
+        crate::codec::unhex_fixed::<20>(operator)?;
+        Self::apply_chain_event(
+            &*self.lock()?,
+            &ChainRow::Operator {
+                id,
+                operator: operator.to_ascii_lowercase(),
+            },
+        )
+    }
+
+    pub fn chain(&self, id: u32) -> Result<Option<ChainRecord>, IndexError> {
+        Ok(self
+            .lock()?
+            .query_row("SELECT * FROM chains WHERE id = ?1", [id], chain_record)
+            .optional()?)
+    }
+
+    pub fn chain_by_name(&self, name: &str) -> Result<Option<ChainRecord>, IndexError> {
+        Ok(self
+            .lock()?
+            .query_row("SELECT * FROM chains WHERE name = ?1", [name], chain_record)
+            .optional()?)
+    }
+
+    pub fn chains(&self) -> Result<Vec<ChainRecord>, IndexError> {
+        let connection = self.lock()?;
+        let mut statement = connection.prepare("SELECT * FROM chains ORDER BY id")?;
+        let rows = statement
+            .query_map([], chain_record)?
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(rows)
+    }
+
+    pub fn chain_summary(&self, id: u32) -> Result<Value, IndexError> {
+        let activity = self
+            .lock()?
+            .query_row(
+                "SELECT tx_count, gas_used, last_height FROM chain_activity WHERE chain = ?1",
+                [format!("pax:{id}")],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, i64>(2)?,
+                    ))
+                },
+            )
+            .optional()?
+            .unwrap_or((0, 0, 0));
+        Ok(
+            json!({"id": id, "tx_count": activity.0, "gas_used": activity.1,
+            "last_height": activity.2}),
+        )
+    }
+
+    pub fn chain_page(
+        &self,
+        id: u32,
+        events: bool,
+        cursor: Option<u64>,
+        limit: usize,
+        kind: Option<&str>,
+    ) -> Result<Page, IndexError> {
+        let connection = self.lock()?;
+        let chain = format!("pax:{id}");
+        let finality = Self::finality(&connection)?;
+        let sql = if events {
+            "SELECT id, height_or_seq, chain, source, name, contract, account, tx_id, ordinal, decoded_json FROM events WHERE chain = ?1 AND id > ?2 AND (?3 IS NULL OR name = ?3) ORDER BY id LIMIT ?4"
+        } else {
+            "SELECT id, height_or_seq, chain, kind, direction, account, counterparty, asset, amount, tx_id, ordinal, decoded_json, NULL, tx_index FROM transfers WHERE chain = ?1 AND id > ?2 AND (?3 IS NULL OR kind = ?3) ORDER BY id LIMIT ?4"
+        };
+        let mut statement = connection.prepare(sql)?;
+        let mut rows = statement.query_map(params![chain, signed(cursor.unwrap_or(0))?, kind, signed(limit.max(1).saturating_add(1) as u64)?], |row| {
+            if !events { return Self::transfer_document(row, &finality); }
+            let decoded: String = row.get(9)?;
+            Ok(json!({"id": row.get::<_, i64>(0)?.to_string(), "height_or_seq": row.get::<_, i64>(1)?.to_string(),
+                "chain": row.get::<_, String>(2)?, "source": row.get::<_, String>(3)?, "name": row.get::<_, String>(4)?,
+                "contract": row.get::<_, Option<String>>(5)?, "account": row.get::<_, Option<String>>(6)?,
+                "tx_id": row.get::<_, String>(7)?, "ordinal": row.get::<_, i64>(8)?.to_string(), "decoded": parse_json(&decoded)}))
+        })?.collect::<Result<Vec<_>, _>>()?;
+        let more = rows.len() > limit.max(1);
+        rows.truncate(limit.max(1));
+        let next_cursor = if more {
+            rows.last()
+                .and_then(|row| row["id"].as_str())
+                .map(str::to_owned)
+        } else {
+            None
+        };
+        Ok(Page {
+            items: rows,
+            next_cursor,
+        })
     }
 
     /// True when `address` is registered as a pointer contract.
@@ -1838,9 +2168,14 @@ impl Store {
         let id: i64 = row.get(0)?;
         let position: i64 = row.get(1)?;
         let chain: String = row.get(2)?;
+        let source_chain = if chain.starts_with("pax:") {
+            crate::paxeer::CHAIN
+        } else {
+            chain.as_str()
+        };
         let boundary = finality
             .iter()
-            .find(|(name, _)| *name == chain)
+            .find(|(name, _)| name == source_chain)
             .and_then(|(_, boundary)| *boundary);
         let final_row = boundary.is_some_and(|boundary| position <= boundary);
         let decoded: String = row.get(11)?;

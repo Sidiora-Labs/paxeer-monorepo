@@ -3,7 +3,12 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { type TestContext } from 'node:test';
-import { parseManifest, ProofError, resolveContent } from '@paxeer/names';
+import {
+  parseManifest,
+  ProofError,
+  resolveContent as sdkResolveContent,
+  tendermintHeaders as sdkTendermintHeaders,
+} from '@paxeer/names';
 import { NextRequest } from 'next/server.js';
 import { proxy } from '../src/proxy.ts';
 import { publish } from '../../../tools/names/src/publish.ts';
@@ -15,6 +20,9 @@ import {
   type StorageProofVector,
 } from '../../../tools/names/test/doubles.ts';
 import { nameForHost, serve, type ServeDependencies } from '../src/lib/serve.ts';
+
+const resolveContent = sdkResolveContent;
+const tendermintHeaders = sdkTendermintHeaders;
 
 const index =
   '<!doctype html><link rel="stylesheet" href="/style.css"><h1>Published Paxeer site</h1>';
@@ -51,21 +59,78 @@ async function fixture(t: TestContext) {
   });
   assert.equal(published.uploaded, 2);
   assert.equal(rpc.transactions.length, 1);
-  const headerHeights: bigint[] = [];
-  const headers = {
-    async appHashAt(height: bigint) {
-      headerHeights.push(height);
-      return Buffer.from(vector.app_hash.slice(2), 'hex');
-    },
-  };
+  const headers = tendermintHeaders(rpc.rpcUrl);
   const proven = await resolveContent(vector.name, {
     rpcUrl: rpc.rpcUrl,
     resolver: vector.address,
     headers,
   });
-  assert.deepEqual(proven, { digest: vector.value, height: BigInt(vector.height), verified: true });
-  assert.deepEqual(headerHeights, [BigInt(vector.height) + 1n]);
+  assert.deepEqual(proven, {
+    digest: vector.value,
+    height: BigInt(vector.height),
+    verified: true,
+  });
+  assert.deepEqual(rpc.headerHeights, [BigInt(vector.height) + 1n]);
   assert.ok(rpc.calls.includes('eth_getProof'));
+  const proofResponse = await fetch(rpc.rpcUrl, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'eth_getProof',
+      params: [vector.address, [vector.slot], `0x${vector.height.toString(16)}`],
+    }),
+  });
+  assert.equal(proofResponse.status, 200);
+  const proof = await proofResponse.json();
+  assert.equal(proof.jsonrpc, '2.0');
+  assert.equal(proof.id, 3);
+  assert.deepEqual(Object.keys(proof.result).sort(), [
+    'address',
+    'hexValues',
+    'storageProof',
+  ]);
+  assert.equal(proof.result.address, vector.address);
+  assert.deepEqual(proof.result.hexValues, [vector.value]);
+  for (const tag of [
+    'latest',
+    'pending',
+    String(vector.height),
+    `0x${(vector.height + 1).toString(16)}`,
+    null,
+  ]) {
+    const response = await fetch(rpc.rpcUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'eth_getProof',
+        params: [vector.address, [vector.slot], tag],
+      }),
+    });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      jsonrpc: '2.0',
+      id: 4,
+      error: { code: -32602, message: 'Expected the explicit proof height tag' },
+    });
+  }
+  const commitResponse = await fetch(
+    `${rpc.rpcUrl}/commit?height=${BigInt(vector.height) + 1n}`
+  );
+  assert.equal(commitResponse.status, 200);
+  const commit = await commitResponse.json();
+  assert.equal(
+    commit.result.signed_header.header.height,
+    String(BigInt(vector.height) + 1n)
+  );
+  assert.match(commit.result.signed_header.header.app_hash, /^[0-9A-F]{64}$/);
+  assert.equal(
+    commit.result.signed_header.header.app_hash,
+    vector.app_hash.slice(2).toUpperCase()
+  );
   assert.ok(proven);
   assert.notEqual(published.digest, proven.digest);
   const resolvedNames: string[] = [];

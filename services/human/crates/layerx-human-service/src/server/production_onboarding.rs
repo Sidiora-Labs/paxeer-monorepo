@@ -239,8 +239,7 @@ impl ProductionComponents {
                 .ok_or_else(ApiFailure::upstream_degraded)?
                 .bytes()
                 .to_vec();
-            let activity = layerx_intents::owner_activity::verify(&signed, &registry)
-                .map_err(|_| ApiFailure::upstream_degraded())?;
+            let activity = verify_owner_activity(&signed, &registry)?;
             let activity_id = layerx_intents::canonical::activity_id(&activity)
                 .map_err(|_| ApiFailure::upstream_degraded())?;
             let material = match agent
@@ -248,7 +247,8 @@ impl ProductionComponents {
                 .map_err(agent_failure)?
             {
                 crate::journeys::ReceiptLookup::Found(value) => value,
-                crate::journeys::ReceiptLookup::Absent => {
+                crate::journeys::ReceiptLookup::Absent
+                | crate::journeys::ReceiptLookup::Submitted { .. } => {
                     return Err(ApiFailure::upstream_degraded())
                 }
             };

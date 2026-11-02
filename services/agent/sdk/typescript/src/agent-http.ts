@@ -981,6 +981,16 @@ function decodeVerificationStatus(value: unknown): Readonly<Record<string, unkno
     exactKeys(status, ["state", "rung"]);
     return Object.freeze({ state: "achieved", rung: decodeRung(status.rung) });
   }
+  if (status.state === "pending") {
+    exactKeys(status, ["state", "requested", "achieved"]);
+    const requested = decodeRung(status.requested), achieved = decodeRung(status.achieved);
+    if (achieved >= requested) throw decodeFailure();
+    return Object.freeze({ state: "pending", requested, achieved });
+  }
+  if (status.state === "absent") {
+    exactKeys(status, ["state", "requested"]);
+    return Object.freeze({ state: "absent", requested: decodeRung(status.requested) });
+  }
   exactKeys(status, ["state", "requested", "achieved", "reason"]);
   const requested = decodeRung(status.requested), achieved = decodeRung(status.achieved);
   if (status.state !== "unverified" || achieved >= requested || typeof status.reason !== "string"

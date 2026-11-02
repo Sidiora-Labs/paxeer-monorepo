@@ -30,7 +30,7 @@ func depositRootRegistration(checkpointID, stateRoot, depositRoot, custodyRefere
 	return binary.BigEndian.AppendUint16(out, protocol)
 }
 
-// TestDepositRootRegistration finalizes a checkpoint on the anchor keeper and
+// TestDepositRootRegistration imports a final checkpoint into the anchor keeper and
 // registers its deposit root the way the settlement service does.
 func TestDepositRootRegistration(t *testing.T) {
 	testDepositRootRegistration(t, false)
@@ -105,27 +105,22 @@ func testDepositRootRegistration(t *testing.T, registerByAnotherSender bool) {
 	require.True(t, found)
 	verifiedHeader, err := verify.BatchHeader(headerBytes, headerSignature, authorization)
 	require.NoError(t, err)
-	decodedCertificate, err := codec.DecodeCheckpointCertificate(certificate)
-	require.NoError(t, err)
-	verifiedID, signers, err := verify.CheckpointCertificate(decodedCertificate, verify.SettlementDomain{
-		PaxeerChainID: genesis.Params.PaxeerChainID, SettlementContract: genesis.Params.SettlementContract,
-	}, genesis.Params.MaxAttestationDelayMs, anchor.EligibleSigner(ctx, genesis.Params))
-	require.NoError(t, err)
-	require.Equal(t, checkpointID, verifiedID)
-	require.Equal(t, int(genesis.Params.Threshold), signers)
+	guarantors := []anchortypes.Hash32{anchortypes.Hash32(guarantorID)}
+	_, err = anchor.SubmitCheckpoint(ctx, operator, headerBytes, headerSignature, certificate)
+	require.ErrorIs(t, err, anchortypes.ErrModuleRetired)
 
-	// Submission is retired; restore the verified submitted checkpoint through
-	// genesis and let the anchor's finality rule produce the final checkpoint.
+	// Submission is retired; import the checkpoint through genesis
+	// before and after finality to exercise custody's finality requirement.
 	restored := anchor.ExportGenesis(ctx)
 	restored.Checkpoints = []anchortypes.Checkpoint{{
-		BatchNumber: header.BatchNumber, CheckpointID: anchortypes.Hash32(verifiedID),
+		BatchNumber: header.BatchNumber, CheckpointID: anchortypes.Hash32(checkpointID),
 		HeaderDigest: anchortypes.Hash32(verifiedHeader.Digest), ProtocolVersion: header.ProtocolVersion,
 		NetworkID: header.NetworkID, Epoch: header.Epoch, FirstSequence: header.FirstSequence,
 		LastSequence: header.LastSequence, PreviousStateRoot: anchortypes.Hash32(header.PreviousStateRoot),
 		StateRoot: anchortypes.Hash32(header.ResultingStateRoot), ReceiptRoot: anchortypes.Hash32(header.ReceiptMerkleRoot),
 		DataAvailabilityRoot: anchortypes.Hash32(header.DataAvailabilityRoot), SequencerID: anchortypes.Hash32(header.SequencerID),
 		TimestampMs: header.TimestampMs, Status: anchortypes.CheckpointSubmitted,
-		DeclaredThreshold: decodedCertificate.Threshold, Guarantors: []anchortypes.Hash32{guarantorID},
+		DeclaredThreshold: 1, Guarantors: guarantors,
 		AvailabilityMask: codec.AvailabilityAll, Submitter: operator.String(),
 		SubmittedHeight: ctx.BlockHeight(), SubmittedTime: ctx.BlockTime().Unix(),
 	}}
@@ -133,9 +128,22 @@ func testDepositRootRegistration(t *testing.T, registerByAnotherSender bool) {
 	anchor.InitGenesis(ctx, *restored)
 	_, err = k.RegisterDepositRoot(ctx, operator, registration, signature, ordering)
 	require.ErrorIs(t, err, types.ErrInvalidDepositRoot)
-	checkpoint, err := anchor.Finalize(ctx, header.BatchNumber)
-	require.NoError(t, err)
+	checkpoint := restored.Checkpoints[0]
+	checkpoint.Status = anchortypes.CheckpointFinal
+	checkpoint.FinalizedHeight = ctx.BlockHeight()
+	checkpoint.FinalizedTime = ctx.BlockTime().Unix()
+	restored.Checkpoints = []anchortypes.Checkpoint{checkpoint}
+	restored.HasLatestFinalized = true
+	restored.LatestFinalized = header.BatchNumber
+	require.NoError(t, restored.Validate())
+	anchor.InitGenesis(ctx, *restored)
+	checkpoint, found = anchor.GetCheckpoint(ctx, header.BatchNumber)
+	require.True(t, found)
 	require.Equal(t, anchortypes.CheckpointFinal, checkpoint.Status)
+	require.Equal(t, checkpointID, [32]byte(checkpoint.CheckpointID))
+	require.Equal(t, int(genesis.Params.Threshold), len(checkpoint.Guarantors))
+	require.Equal(t, uint8(1), checkpoint.DeclaredThreshold)
+	require.Equal(t, guarantors, checkpoint.Guarantors)
 	require.Equal(t, operator.String(), checkpoint.Submitter)
 
 	// No authority is configured.

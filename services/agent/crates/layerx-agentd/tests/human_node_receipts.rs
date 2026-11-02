@@ -5,9 +5,17 @@ use std::time::{Duration, Instant};
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::proof::ProofBundleTarget;
+use layerx_agentd::finality::{
+    augment_verified, validator_address, BlockCommit, CommitSignature, Validator, VerifiedBlock,
+    VerifiedReceipt,
+};
 use layerx_agentd::human::HumanOperationError;
 use layerx_agentd::human_node::HumanNode;
-use layerx_agentd::human_runtime::{lookup_human_receipt_by_outbox_hash, receipt_proof_operation};
+use layerx_agentd::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
+use layerx_agentd::human_runtime::{
+    lookup_human_receipt_by_outbox_hash, receipt_lookup_found_bytes,
+    receipt_lookup_not_ready_bytes, receipt_proof_operation,
+};
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_agentd::outbox::Outbox;
 use layerx_agentd::store::{Store, TenantId};
@@ -16,6 +24,7 @@ use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
 use layerx_crypto::evm_transaction::{
     decode_signed, recover_sender, transaction_hash, Eip1559Call,
 };
+use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::rung::Rung;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::receipt_digest;
@@ -320,11 +329,9 @@ fn human_receipt_lookup_reads_pax_sequencer_receipt_by_outbox_hash() {
             assert_eq!(receipt.execution().signing_key, key.public_key);
             assert_eq!(receipt.result_code().raw(), i32::from(!success));
             assert_eq!(receipt.rung(), Rung::Receipted);
-            let receipt_tenant = must(TenantId::new(if success {
-                "human-receipt-success"
-            } else {
-                "human-receipt-failure"
-            }));
+            let receipt_tenant = must(TenantId::new(format!(
+                "human-receipt-{success}-{first}-{last}"
+            )));
             let served = must(layerx_agentd::receipt::store_verified_if_absent(
                 &mut store,
                 receipt_tenant.clone(),
@@ -332,6 +339,64 @@ fn human_receipt_lookup_reads_pax_sequencer_receipt_by_outbox_hash() {
                 receipt.canonical_bytes(),
                 &receipt,
             ));
+            let protocol = receipt.receipt().protocol().unwrap();
+            let authority = AuthorizedBatch::new(
+                protocol.batch_id(),
+                protocol.asset(),
+                protocol.previous_state_root(),
+                protocol.resulting_state_root(),
+                key.public_key,
+            );
+            let verified = must(VerifiedReceipt::verify(hash, &canonical, &keys));
+            let block = committed_block(&raw);
+            for committed in [false, true] {
+                let evidence = must(augment_verified(
+                    &mut store,
+                    receipt_tenant.clone(),
+                    idempotency_key,
+                    &verified,
+                    committed.then_some(&block),
+                ));
+                let answer = must(receipt_lookup_found_bytes(
+                    &served, &evidence, authority, &keys,
+                ));
+                let ReceiptLookupAnswer::Found(frame) = must(ReceiptLookupAnswer::decode(&answer))
+                else {
+                    panic!("found receipt answer required");
+                };
+                assert_eq!(
+                    frame,
+                    ReceiptLookupFrame {
+                        canonical_bytes: served.canonical_bytes.clone(),
+                        authorised_batch: authority,
+                        verification_level: served.metadata.verification_level,
+                        tx_hash: evidence.tx_hash,
+                        receipt_hash: sha256(&canonical),
+                        block_height: evidence.height,
+                        rung: if committed {
+                            Rung::Committed
+                        } else {
+                            Rung::Receipted
+                        },
+                        signed_receipt: evidence.receipt_bytes.clone(),
+                        receipt_key_id: key.key_id,
+                        public_key: key.public_key,
+                        first_height: first,
+                        last_height: last,
+                        inclusion_height: HEIGHT,
+                    }
+                );
+                assert_eq!(
+                    must(ReceiptLookupFrame::decode(&must(frame.encode()))),
+                    frame
+                );
+                let mut mismatched = evidence.clone();
+                mismatched.tx_hash[0] ^= 1;
+                assert!(matches!(
+                    receipt_lookup_found_bytes(&served, &mismatched, authority, &keys),
+                    Err(HumanOperationError::Refused)
+                ));
+            }
             assert_eq!(served.canonical_bytes, canonical);
             assert_eq!(served.metadata.activity_id, hash);
             assert_eq!(served.metadata.idempotency_key, idempotency_key);
@@ -461,8 +526,79 @@ fn human_receipt_lookup_reads_pax_sequencer_receipt_by_outbox_hash() {
         hash,
     ));
     assert_eq!(lookup, Lookup::Absent);
+    assert_eq!(
+        must(ReceiptLookupAnswer::decode(
+            &receipt_lookup_not_ready_bytes(&lookup).unwrap()
+        )),
+        ReceiptLookupAnswer::Absent
+    );
+    assert_eq!(must(server.join()).len(), 4);
+    let submitted = json!({"rung": "submitted", "txHash": rpc_hex(&hash), "nonce": "0x29"});
+    let (node, endpoint, server) = lookup_server(rotated_keys(key), submitted, false);
+    let (lookup, _) = must(lookup_human_receipt_by_outbox_hash(
+        node.as_ref(),
+        &endpoint,
+        &outbox,
+        idempotency_key,
+        hash,
+    ));
+    assert_eq!(
+        lookup,
+        Lookup::Submitted {
+            tx_hash: hash,
+            nonce: 41
+        }
+    );
+    assert_eq!(
+        must(ReceiptLookupAnswer::decode(
+            &receipt_lookup_not_ready_bytes(&lookup).unwrap()
+        )),
+        ReceiptLookupAnswer::Submitted {
+            tx_hash: hash,
+            nonce: 41
+        }
+    );
     assert_eq!(must(server.join()).len(), 4);
     assert_eq!(must(outbox.exact_signed_bytes(idempotency_key)), raw);
     drop(store);
     must(std::fs::remove_dir_all(directory));
+}
+
+fn committed_block(raw: &[u8]) -> VerifiedBlock {
+    let block = layerx_client::sequencer::SequencerBlock {
+        number: HEIGHT,
+        hash: [17; 32],
+        parent_hash: [16; 32],
+        timestamp: 1_000,
+        transactions_root: [18; 32],
+        receipts_root: [20; 32],
+        transactions: vec![raw.to_vec()],
+    };
+    let signer = SigningKey::from_bytes(&[50; 32]);
+    let public_key = signer.verifying_key().to_bytes();
+    let validators = [Validator {
+        public_key,
+        voting_power: 1,
+    }];
+    let mut commit = BlockCommit {
+        height: HEIGHT,
+        round: 0,
+        block_hash: block.hash,
+        part_set_total: 1,
+        part_set_hash: [19; 32],
+        signatures: Vec::new(),
+    };
+    let vote = must(commit.vote_sign_bytes("paxeer-test-125", 1_000, 0));
+    commit.signatures.push(CommitSignature {
+        validator_address: validator_address(&public_key),
+        timestamp_seconds: 1_000,
+        timestamp_nanos: 0,
+        signature: signer.sign(&vote).to_bytes(),
+    });
+    must(VerifiedBlock::verify(
+        &block,
+        &commit,
+        "paxeer-test-125",
+        &validators,
+    ))
 }

@@ -429,10 +429,36 @@ func TestEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("head: %v", err)
 	}
-	// The position projections hold only what the indexer saw, so it follows
-	// the chain from its first block, past at least one hourly settlement.
-	e.latestFunding(t, head)
-	start := uint64(1)
+	var earliest *ethtypes.Header
+	if err := e.client.Client().CallContext(ctx, &earliest, "eth_getBlockByNumber", "earliest", false); err != nil {
+		t.Fatalf("earliest block: %v", err)
+	}
+	if earliest == nil || earliest.Number == nil || !earliest.Number.IsUint64() {
+		t.Fatal("earliest block has no valid height")
+	}
+	start := earliest.Number.Uint64()
+	// Exported-state nodes serve no blocks before start. A fresh node also
+	// needs the next whole hour of block time before SettleFunding emits its
+	// first settlement; wait within the existing catch-up budget for that log.
+	fundingCtx, cancelFunding := context.WithTimeout(ctx, catchUp)
+	defer cancelFunding()
+	waitStarted := time.Now()
+	for e.latestFunding(t, fundingCtx, start, head) == 0 {
+		if time.Since(waitStarted) < time.Second {
+			t.Logf("waiting up to %s for the first hourly FundingSettled log from block %d", catchUp, start)
+		}
+		select {
+		case <-fundingCtx.Done():
+			t.Fatalf("no FundingSettled log within %s: %v", catchUp, fundingCtx.Err())
+		case <-time.After(time.Second):
+		}
+		head, err = e.client.BlockNumber(fundingCtx)
+		if err != nil {
+			t.Fatalf("head while waiting for FundingSettled: %v", err)
+		}
+	}
+	t.Logf("first available FundingSettled log observed after %s", time.Since(waitStarted))
+	// Position projections hold only what the indexer saw, including funding.
 	ix := e.startIndexer(t, "e2e-a", start)
 	e.waitIndexed(t, ix, head, catchUp)
 
@@ -485,28 +511,24 @@ func TestEndToEnd(t *testing.T) {
 
 	nextLive(t, readerA, guard, densityA, perpTopic)
 
-	var welcomeB string
-	var readerB <-chan frameOrErr
+	// The process stops: its server, its hub and every socket it held.
+	gwA.stop(t)
+	if err := connA.Close(); err != nil {
+		t.Fatalf("close socket: %v", err)
+	}
+	for range readerA {
+	}
+	e.startGateway(t, gwAddr)
+	connB, welcomeB := dialData(t, gwURL)
+	readerB := readFrames(connB)
 	densityB := map[string]uint64{}
-	t.Run("restart_new_snapshot_id", func(t *testing.T) {
-		// The process stops: its server, its hub and every socket it held.
-		gwA.stop(t)
-		if err := connA.Close(); err != nil {
-			t.Fatalf("close socket: %v", err)
-		}
-		for range readerA {
-		}
-		e.startGateway(t, gwAddr)
-		var connB *websocket.Conn
-		connB, welcomeB = dialData(t, gwURL)
+	if !t.Run("restart_new_snapshot_id", func(t *testing.T) {
 		if welcomeB == welcomeA {
 			t.Fatalf("welcome snapshotId %q after the restart, want a new one", welcomeB)
 		}
-		readerB = readFrames(connB)
 		subscribe(t, connB, perpTopic)
 		expectSnapshots(t, readerB, guard, densityB, welcomeB, perpTopic)
-	})
-	if readerB == nil {
+	}) {
 		t.FailNow()
 	}
 
@@ -996,16 +1018,18 @@ func (e *e2e) endBlockRows(t *testing.T, table string) map[uint64]common.Hash {
 
 // latestFunding is the height of the newest FundingSettled log of 0x1015 on
 // the node at or below head.
-func (e *e2e) latestFunding(t *testing.T, head uint64) uint64 {
+func (e *e2e) latestFunding(t *testing.T, ctx context.Context, earliest, head uint64) uint64 {
 	t.Helper()
 	perps := mustABI(t, perpsabi.ABI)
 	topic := perps.Events["FundingSettled"].ID
-	for to := head; ; to -= scanWindow {
-		from := uint64(1)
+	for to := head; to >= earliest; {
+		from := earliest
 		if to > scanWindow {
-			from = to - scanWindow + 1
+			if candidate := to - scanWindow + 1; candidate > from {
+				from = candidate
+			}
 		}
-		logs, err := e.client.FilterLogs(context.Background(), ethereum.FilterQuery{FromBlock: new(big.Int).SetUint64(from),
+		logs, err := e.client.FilterLogs(ctx, ethereum.FilterQuery{FromBlock: new(big.Int).SetUint64(from),
 			ToBlock: new(big.Int).SetUint64(to), Addresses: []common.Address{perpsPrecompile}, Topics: [][]common.Hash{{topic}}})
 		if err != nil {
 			t.Fatalf("FundingSettled logs %d-%d: %v", from, to, err)
@@ -1013,10 +1037,12 @@ func (e *e2e) latestFunding(t *testing.T, head uint64) uint64 {
 		if len(logs) > 0 {
 			return logs[len(logs)-1].BlockNumber
 		}
-		if from == 1 {
-			t.Fatal("the node holds no FundingSettled log")
+		if from == earliest {
+			break
 		}
+		to = from - 1
 	}
+	return 0
 }
 
 func (e *e2e) firstEndBlockFunding(t *testing.T) uint64 {
