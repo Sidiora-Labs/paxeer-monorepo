@@ -5,6 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, test, vi } from 'vitest';
 import { createPublicClient, http, toFunctionSelector, toFunctionSignature, type Abi } from 'viem';
 import {
+  AttestationVerified,
+  decodeTeeAttestationResult,
   EIP712_ABI,
   decodeEip712Result,
   PRECOMPILE_ADDRESSES,
@@ -794,3 +796,20 @@ function eip712RefusesMalformedReturnWords() {
 }
 
 test(eip712RefusesMalformedReturnWords, eip712RefusesMalformedReturnWords);
+
+function teeAttestorFrozenEventParity() {
+  const source = readRepositoryFile('precompiles/layerxagent/teeattestor/teeattestor.go');
+  const match = source.match(/const abiJSON = `([\s\S]*?)`/);
+  expect(match).not.toBeNull();
+  const nativeAbi = JSON.parse(match![1]!) as Abi;
+  expect(TEE_ATTESTOR_ABI).toEqual(nativeAbi);
+  expect(AttestationVerified.inputs.filter((input) => input.indexed).map((input) => input.name)).toEqual(['family', 'mrtd']);
+}
+
+function teeAttestorRejectsMalformedResults() {
+  expect(() => decodeTeeAttestationResult('0x', 0)).toThrow();
+  expect(() => decodeTeeAttestationResult('0x01', 0)).toThrow();
+}
+
+test(teeAttestorFrozenEventParity, teeAttestorFrozenEventParity);
+test(teeAttestorRejectsMalformedResults, teeAttestorRejectsMalformedResults);

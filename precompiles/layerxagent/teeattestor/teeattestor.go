@@ -128,7 +128,10 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 }
 
 func (p *PrecompileExecutor) RequiredGas(input []byte, method *abi.Method) uint64 {
-	if method == nil || len(input) > math.MaxInt-4 {
+	if method == nil {
+		return pcommon.UnknownMethodCallGas
+	}
+	if len(input) > math.MaxInt-4 {
 		return math.MaxUint64
 	}
 	return agentcommon.MethodGas(method.ID, len(input)+4)
