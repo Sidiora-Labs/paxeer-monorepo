@@ -220604,7 +220604,7 @@ do_3 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.5.1]
 title = "Prove the qual cli path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.16.4"]
