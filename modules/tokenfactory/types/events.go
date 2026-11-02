@@ -1,5 +1,9 @@
 package types
 
+// set_denom_paused is the shared message and event wire name.
+const set_denom_paused = "set_denom_paused"
+
+// AttributePaused carries the canonical boolean emitted by both pause paths.
 const AttributePaused = "paused"
 
 // event types

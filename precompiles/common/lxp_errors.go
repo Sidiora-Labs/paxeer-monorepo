@@ -333,7 +333,7 @@ var lxpRevertTable = []lxpRevertEntry{
 	{code: "LXP_PRECOMPILE_NON_PAYABLE", message: "sending funds to a non-payable function"},
 	{code: "LXP_PRECOMPILE_WEI_REMAINDER", message: "selected precompile function does not allow payment with non-zero wei remainder"},
 	{code: "LXP_PRECOMPILE_INVALID_ADDR", message: "invalid addr"},
-	{code: "LXP_AGENT_NOT_ACTIVE", message: "<plan> not active at height <height>; no merge upgrade activation reader bound"},
+	{code: "LXP_AGENT_NOT_ACTIVE", message: "agent function not active"},
 	{code: "LXP_AGENT_ABI_DECODE", message: "argument decode failed"},
 	{code: "LXP_AGENT_READ_ONLY", message: "write under staticcall"},
 	{code: "LXP_AGENT_DELEGATECALL", message: "cannot delegatecall an agent function"},
