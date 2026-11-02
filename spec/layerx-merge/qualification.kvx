@@ -16731,3 +16731,43 @@ symbol = "OnboardingConsent"
 observed = "Attempt 1 (3877ce19d on 1bd205de3) deleted src/onboarding.rs and src/rotation.rs as do_1 says and the build failed with E0432 at src/payments.rs:19, where the pub use of OnboardingConsent, OnboardingError and SponsoredRegistration added by task 8.94.4 under decision 1905 still names crate::onboarding; payments.rs is outside the task's touches although do_7 also edits it, and the agent daemon (layerx-agentd/src/human_runtime/subject.rs:245), the KMS provider tests (layerx-human-kms/tests/provider/native_setup.rs:8), create_native.rs of the human service and the authority's dynamic.rs:215 still decode the sponsored registration through those types."
 assumption = "Spec defect: do_1 contradicts decision 1905, which keeps the onboarding definitions reachable through layerx_crypto::payments; the onboarding module stays and payments.rs joins the touches."
 severity = "major"
+
+[finding.18.670.1.16]
+task = "18.670.1"
+file = "services/platform/perps-data/e2e_test.go:584"
+symbol = "TestEndToEnd"
+observed = "Attempt 18 (e38561ca7 on 98eb0cf7f) builds, passes the fixture setup, restart_new_snapshot_id and websocket_dense_seq_after_restart against the replacement gateway and socket, and fails TestEndToEnd on four subtests outside the issue: postgres_rows finds no perps.funding_settlements or perps.funding_rates row with receipt_kind perps_endblock at e2e_test.go:584 although latestFunding saw the FundingSettled log and the indexer cursor passed head; rest_graphql decodes GET /api/markets into a slice at e2e_test.go:621 while serveAll (internal/rest/markets.go:77-84) answers the object {ts, markets} that markets_test.go:124-129 asserts; explorer_portal follows the account history's TxLink to /api/chain/tx/<deposit hash> and gets 404 unknown transaction because perps.tx_actions has no row for that deposit (internal/explorer/server.go:174-194); replay_identical fails with replay: writer lease lost over 313 heights because batch() renews the lease once at its start (internal/replay/replay.go) with the 30-second default TTL of cmd/perps-replay/main.go:34 and the batch took 80 seconds against the in-tree node."
+assumption = "Decision 2238: the issue's acceptance is the restart lifetime, proven by the two restart subtests; the four other failures are the end-to-end suite's own defects and move to task 3.54.7."
+severity = "owner"
+
+[finding.9.27.3.1]
+task = "9.27.3"
+file = "services/agent/crates/layerx-agentd/src/audit/export.rs:356"
+symbol = "verify_protocol_evidence"
+observed = "Task 9.27.3 (8401986db, on main since 2026-11-01) removed the settlement domain argument of layerx_proof::export::verify, the verified_checkpoints field of its VerificationReport, OfflineTrustError::NetworkId and FactSelector::Checkpoint; layerx-agentd still passes the domain at src/audit/export.rs:356 and :527 and examples/review_audit_export.rs:14, reads verified_checkpoints at src/audit/export.rs:540, returns OfflineTrustError::NetworkId at src/export.rs:64 and matches FactSelector::Checkpoint at src/export.rs:309, so cargo build -p layerx-agentd fails with E0061, E0609 and E0599 on every main since then; attempts 10.1.6 a1 (e28a394bf), 10.1.10 a1 (2bc64e607) and 9.25.1 a4 (bcd8a0772) failed on that build with their own changes complete, because layerx-human-service, layerx-human-kms and the agent build commands depend on layerx-agentd."
+assumption = "Producer gap: the retiring task's dependent-crate check built the interop crates only; task 9.27.9 ports the agent daemon and every task building it requires 9.27.9."
+severity = "major"
+
+[finding.8.22.8.1]
+task = "8.22.8"
+file = "services/platform/middleware/conformance/pay6/test_checkpoint.py:10"
+symbol = "MerkleProof"
+observed = "Attempt 1 (ce0e17c1b on 4914a1f0e) removed the reader, its imports, the re-export and the conformance callers and the seller package built; the verify's grep over services/platform/middleware/conformance matched pay6/test_checkpoint.py:10 and pay6/test_commitment.py:15, 99, 107 and 130, which import MerkleProof from layerx_sdk.verifier, the Python SDK that still defines the class (services/agent/sdk/python/layerx_sdk/verifier.py:69); only the TypeScript SDK retired the type in 9.97.8."
+assumption = "Spec defect: the grep over the conformance tree is limited to .mjs and .ts files; the task continues from attempt 1 unchanged."
+severity = "minor"
+
+[finding.9.35.1.2]
+task = "9.35.1"
+file = "services/agent/crates/layerx-client/src/ai_market.rs:9"
+symbol = "bind_call"
+observed = "Attempt 2 (f9e1a5ff0 on 4914a1f0e) implemented decision 2237 exactly (onboarding.rs restored, rotation.rs, disclosure.rs and send.rs deleted, the kept definitions in payments.rs) and the crate built; the dependent-crate check failed on layerx-client (ai_market.rs:9-10 and withdrawal.rs:62 import layerx_crypto::disclosure), and a census of main shows 94 files outside layerx-crypto still naming layerx_crypto::disclosure, layerx_crypto::send, layerx_crypto::rotation, sign_disclosed or the send envelope encoders: 58 under services/human/crates (about 190 sites), 31 under services/agent/crates (layerx-agentd 57 sites, layerx-mcp 12, layerx-sdk 8, layerx-client 3), 4 under services/platform/hosted, 2 under tools/platform/cli, 1 each under services/wallet/attestor, services/agent/tests, services/agent/qualification and tools/paxeer-x; wiring.J44.25 to J44.28 record the human, platform, x-websearch and attestor consumers as wave-4 needs with no owning task, and of the 94 files only 15 have a pending owner, each for the clock change of 10.1.6 to 10.1.10."
+assumption = "Owner decision: the module retirement waits for consumer port tasks; decision 2239 blocks 9.35.1 until they exist."
+severity = "owner"
+
+[finding.9.28.1.2]
+task = "9.28.1"
+file = "services/agent/crates/layerx-agentd/src/audit/export.rs:356"
+symbol = "verify_protocol_evidence"
+observed = "Attempt 3 (d2ca8c3792c on 4914a1f0e) kept the six-file dependency removal of attempts 1 and 2 unchanged and the declared build failed with the five layerx-agentd errors of finding 9.27.3.1 (E0061 at src/audit/export.rs:356 and :527, E0609 on verified_checkpoints, E0599 on OfflineTrustError::NetworkId and FactSelector::Checkpoint), because the build command builds layerx-agentd and layerx-agentd-host."
+assumption = "Same producer gap as finding 9.27.3.1: task 9.27.9 repairs the agent daemon; 9.28.1 requires it and continues from attempt 3 once it is on main."
+severity = "major"
