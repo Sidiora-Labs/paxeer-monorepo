@@ -344,6 +344,8 @@ impl SequencerEndpoint {
         quantity_u64(&result).ok_or(SequencerError::Malformed)
     }
 
+    /// Reads a fresh history page and then the node head on every invocation.
+    /// The cursor is the gateway's canonical 32-character position cursor.
     pub fn history(
         &self,
         account: &str,

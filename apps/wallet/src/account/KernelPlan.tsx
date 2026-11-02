@@ -8,6 +8,7 @@ import {
   type IntentLegBinding,
   type IntentPlan,
   type Journey,
+  type LadderStep,
   type UnifiedAccountDocument,
 } from '@paxeer/wallet';
 import {
@@ -157,10 +158,14 @@ function PlanSummary({ plan }: { plan: IntentPlan }) {
   );
 }
 
+export function journeyLadderSteps(journey: Pick<Journey, 'state'>): readonly LadderStep[] {
+  return [statusLadder.fromJourney(journey.state)];
+}
+
 function JourneyView({ journey }: { journey: Journey }) {
   return (
     <div className="space-y-2" data-journey={journey.journey_id} data-state={journey.state}>
-      <StatusLadder steps={[statusLadder.fromJourney(journey.state)]} />
+      <StatusLadder steps={journeyLadderSteps(journey)} />
       <ol aria-label="Journey stages" className="space-y-1 text-xs">
         {journey.stages.map((stage) => (
           <li
