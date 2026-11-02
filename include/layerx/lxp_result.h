@@ -26,6 +26,9 @@ typedef enum lxp_result_domain_id {
 /*
  * Result numbers are embedded in canonical receipts and are consensus data.
  * Renumbering any value is a protocol-version change, never a refactor.
+ * Service arbitration results -737..-739 cross into LXPCodeName/LXPRevert
+ * in precompiles/common/lxp_errors.go and layerx_sdk.revert in Python.
+ * They are terminal refusals, not retryable transport failures.
  */
 #define LXP_RESULT_CODE_LIST(X) \
     X(LXP_OK, 0) \
