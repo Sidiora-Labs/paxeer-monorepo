@@ -6,12 +6,17 @@ forward users' original signed activities. It does not order activities,
 execute state transitions, hold a sequencer key, or participate in a consensus
 or finality quorum.
 
-`layerxd --relay-archive CONFIG` replaces the native process with the installed
-Python standard-library runtime (`python3 RUNTIME --config CONFIG`, where
-`RUNTIME` is `LAYERX_RELAY_ARCHIVE_RUNTIME` or, by default,
-`/opt/layerx/relay_archive/runtime.py`; see `cmd/layerxd/lxp_daemon_cli.c`). The runtime verifies signed bootstrap and
-batch material through `layerx-archive-codec`; Python does not reimplement or
-weaken the native codecs.
+This directory retains three Python modules:
+
+- `__init__.py` identifies the package.
+- `peers.py` implements bounded peer discovery with trust-pin checks and
+  address validation.
+- `protocol.py` defines configuration, canonical synchronization types,
+  validation, and the native archive-codec interface.
+
+The sections below describe the trust and protocol contracts represented by
+these modules. The standalone runtime and its installation and deployment
+assets have been retired.
 
 ## Trust and network model
 
@@ -42,116 +47,11 @@ advertisements are refused. Literal loopback HTTP is available only for an
 operator-configured development seed when `allow_loopback_dev` is explicitly
 true, and loopback peers are never publicly advertised.
 
-## Operator quickstart
-
-The release is a flat directory containing:
-
-```text
-layerxd
-layerx-archive-codec
-__init__.py
-runtime.py
-store.py
-protocol.py
-forward.py
-peers.py
-layerx-relay-archive.service
-manifest.sha256
-```
-
-`manifest.sha256` contains exactly one canonical `sha256sum` line for each of
-the nine payload files. Obtain the manifest digest through
-an independent release channel. Computing a digest from the same untrusted
-download and passing it back to the installer is trust on first use and is not
-a valid installation.
-
-Install a locally transferred bundle and generate a new service configuration:
-
-```sh
-sudo services/platform/relay_archive/install.sh \
-  --bundle /media/layerx-relay-archive \
-  --manifest-sha256 MANIFEST_SHA256_FROM_RELEASE_CHANNEL \
-  --network-id 402 \
-  --genesis-sha256 PINNED_GENESIS_MANIFEST_SHA256 \
-  --sequencer-id PINNED_SEQUENCER_ID \
-  --sequencer-public-key PINNED_SEQUENCER_PUBLIC_KEY \
-  --data-dir /var/lib/layerx/relay-archive \
-  --listen "$LISTEN_ADDRESS" \
-  --public-url https://relay.example.net \
-  --upstream https://archive-1.example.net \
-  --upstream https://archive-2.example.net \
-  --submission-upstream https://gateway.example.net/v1/activities \
-  --peer-seed https://relay-seed.example.net \
-  --tls-cert /etc/layerx/tls/relay.crt \
-  --tls-key /etc/layerx/tls/relay.key \
-  --ca-file /etc/ssl/certs/ca-certificates.crt
-```
-
-For a published tar archive, pin both the archive and its internal manifest:
-
-```sh
-sudo services/platform/relay_archive/install.sh \
-  --release https://releases.example.net/layerx-relay-archive-VERSION.tar.gz \
-  --expected-sha256 PINNED_ARCHIVE_SHA256 \
-  --manifest-sha256 PINNED_MANIFEST_SHA256 \
-  --network-id 402 \
-  --genesis-sha256 PINNED_GENESIS_MANIFEST_SHA256 \
-  --sequencer-id PINNED_SEQUENCER_ID \
-  --sequencer-public-key PINNED_SEQUENCER_PUBLIC_KEY \
-  --data-dir /var/lib/layerx/relay-archive \
-  --listen "$LISTEN_ADDRESS" \
-  --public-url https://relay.example.net \
-  --upstream https://archive-1.example.net \
-  --tls-cert /etc/layerx/tls/relay.crt \
-  --tls-key /etc/layerx/tls/relay.key
-```
-
-The remote archive URL must be credential-free HTTPS. The installer permits no
-undeclared archive entry, link, path traversal, or checksum mismatch. Releases
-are installed into an immutable manifest-digest directory and stable software
-symlinks are changed atomically. An existing regular configuration and data
-directory are never deleted or replaced. If `--config FILE` already exists,
-the installer preserves it byte-for-byte and refuses all config-generation
-arguments. It never accepts or copies a bearer token, API key, TLS private key,
-or other credential; configuration references operator-managed files.
-
-The service install creates the unprivileged `layerx-relay-archive` account and
-enables `layerx-relay-archive.service`. Non-loopback listeners require a TLS
-certificate and key. Ensure that the service account can read operator-managed
-TLS files without making them world-readable.
-
-`LISTEN_ADDRESS` is a `HOST:PORT` pair; [`config.example.json`](config.example.json)
-uses port 9443 on all interfaces.
-
-For a rootless installation:
-
-```sh
-services/platform/relay_archive/install.sh \
-  --bundle "$BUNDLE" \
-  --manifest-sha256 "$PINNED_MANIFEST_SHA256" \
-  --prefix "$RUN_ROOT/install" \
-  --no-service \
-  --config "$RUN_ROOT/relay-archive.json"
-
-LAYERX_RELAY_ARCHIVE_RUNTIME="$RUN_ROOT/install/runtime.py" \
-  "$RUN_ROOT/install/layerxd" --relay-archive "$RUN_ROOT/relay-archive.json"
-```
-
-That form expects the named configuration to exist already. To have the
-rootless installer create it, add the same explicit pins, paths, listener,
-public URL, and upstream flags used by the service example. Local HTTP requires
-both a literal loopback address (IPv4 loopback or `::1`) and
-`--allow-loopback-dev`. `--config-only` renders a configuration for an
-already installed runtime and installs nothing. `install.sh --help` prints
-every flag of [`install.sh`](install.sh), including `--genesis-manifest` and
-`--genesis-snapshot`, `--source-log`, `--codec`, and `--listener plain` for a
-listener behind a TLS-terminating edge.
-
 ## Configuration
 
-[`config.example.json`](config.example.json) lists every ordinary operator
-setting. Its `REPLACE_...` fields are deliberately invalid until independently
-pinned. `upstreams` are read-only synchronization origins.
+`protocol.py` defines `RelayConfig` and validates configuration values,
+including independently pinned network and sequencer identities.
+`upstreams` are read-only synchronization origins.
 `submission_upstreams` are the only forwarding destinations and may name an
 origin, `/v1/activities`, or `/rpc`; URLs cannot carry credentials, query
 strings, or fragments. Read discovery never mutates that list.
@@ -159,8 +59,7 @@ strings, or fragments. Read discovery never mutates that list.
 An origin colocated with the sequencer may additionally configure
 `source_log`. To accept activity submissions over the real local LNI it must
 configure both `source_lni_socket` and `source_submission_token_file`. Those
-paths are operator configuration, are never advertised, and are not accepted
-by the installer as credential-copy inputs.
+paths are private configuration and are never advertised.
 
 ## Canonical synchronization contract
 
@@ -231,35 +130,3 @@ The peer document has exactly this versioned shape:
   ]
 }
 ```
-
-## Build and test from source
-
-From the repository root, `make relay-archive-build` builds `layerxd`,
-`layerx-genesis-build`, `layerx-archive-codec` and the test activity signer, and
-`make relay-archive-e2e` runs [`tests/relay-archive/e2e.py`](../../../tests/relay-archive/e2e.py)
-against that build.
-
-## Container deployment
-
-Build the image from the repository root so both native executables and the
-Python runtime come from the same source revision:
-
-```sh
-docker build -f docker/relay-archive/Dockerfile \
-  --build-arg LXP_REVISION="$(git rev-parse HEAD)" \
-  -t layerx-relay-archive:local .
-```
-
-Mount a read-only configuration at `/etc/layerx/relay-archive.json`, mount
-durable storage at `/var/lib/layerx/relay-archive`, and mount TLS material at
-the paths named by the configuration. [`deployment.example.yaml`](deployment.example.yaml)
-provides a non-root Kubernetes Deployment, persistent volume, HTTPS Service and
-Ingress, and an egress policy that excludes common private and link-local
-networks. Replace every pin, hostname, certificate Secret, and image digest
-before applying it; the checked-in placeholders intentionally fail closed.
-
-The Dockerfile's `fly` target uses `install.sh --fly-start` as its entrypoint:
-it renders a new configuration from the `LAYERX_RELAY_ARCHIVE_*` environment
-listed by `install.sh --help` and then starts `layerxd --relay-archive`.
-[`fly.toml`](fly.toml) and [`deployment.yaml`](deployment.yaml) are the
-repository's own deployment descriptors for that image.
