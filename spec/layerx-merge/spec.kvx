@@ -6621,6 +6621,18 @@ value = "Task 9.97.14 ports tests/agent/sdk/python/test_integration.py and test_
 basis = "Finding 18.1435.3.2: the two suites have failed collection on every main since 9.97.7 landed, which no task's verify observed; issue #1435 is about rung decoding and must not carry that port."
 affects = ["18.1435.3", "9.97.14"]
 
+[decision.2252]
+title = "Task 9.35.1 deletes only the owner rotation codec and the payment envelope encoder; the kernel activity items with live consumers move to task 9.35.7"
+value = "Task 9.35.1 deletes src/rotation.rs with its pub mod line and encode_payment_envelope of src/send.rs, whose only caller is encode_send_envelope; disclosure.rs, send.rs, signer.rs, payments.rs and onboarding.rs otherwise stay as on main, including Source::Activity, bind, bind_budget_mutation, the onboarding field, EnvelopeOptions, DisclosedEnvelope, encode_send_envelope and sign_disclosed. The two test fixtures that name layerx_crypto::rotation are ported first by tasks 9.35.6 (KMS) and 9.35.8 (human-service), which 9.35.1 requires, and 9.35.1 moves to wave 37 with status pending. The deletions of decision 2237 that remain (Source::Activity, bind, bind_budget_mutation, the onboarding field, the send envelope encoders, sign_disclosed, the move of the kept definitions into payments.rs) become task 9.35.7, blocked under decision 2253 and requiring 9.35.1; attempt 2 of 9.35.1 (f9e1a5ff0) is its reference implementation."
+basis = "Finding 9.35.1.2 counted 94 consumer files; after the 10.98.x ports twenty substantive consumers remain in six crates for the items decision 2237 deletes, while layerx_crypto::rotation has exactly two test consumers and encode_payment_envelope none. Deleting what is unconsumed now lets 9.35.1 land and keeps the remaining retirement honest about its producer-to-consumer path, as the quality ruling asks."
+affects = ["9.35.1", "9.35.6", "9.35.7", "9.35.8"]
+
+[decision.2253]
+title = "The kernel activity path of the agent daemon and its peers migrates to EIP-1559 calls as a task family before tasks 9.35.7 and 9.29.1 run"
+value = "Tasks 9.35.7 and 9.29.1 keep status blocked until a family of port tasks exists for every remaining consumer of the kernel activity codec and preimage, written per crate from the census on main: layerx-agentd (prepare/mod.rs prepare_activity, prepare_activity_for_protocol, prepare_budget_mutation_for_protocol, disclose and verify_disclosure_binding; approval/native_effect.rs; policy/approval.rs; capability/effects.rs; human_runtime.rs; sign.rs attach_kernel_signature and verify_kernel_before_submit; the five native_*_v1 agent RPC request variants; 22 source files and 13 test files in all, plus the two test support signers), layerx-mcp tools/write.rs, layerx-sdk agent_envelope.rs, layerx-client ai_market.rs review, services/agent/tests limits/exactly_once.rs, layerx-human-kms (src/wire.rs:205 and :275 onboarding reads; tests/provider.rs, tests/provider/native_setup.rs, tests/sign_eip1559_requests.rs:716), layerx-human-service (custody/provider.rs:691 and custody/signer.rs sign_disclosed; tests/agent_runtime_eip1559.rs:394), layerx-intents tests/budget_payloads.rs, services/platform/hosted/core/src/main.rs validate_funding_intent (:1648-1710, :754, :1684), and the 66 files that import layerx_wire::activity or layerx_wire::sign. Each family task ports one crate to bind_call, sign_disclosed_call and ledger_payment_call per contracts/clients.md B2 or deletes the kernel-only path it serves, builds the crate with --all-targets and runs its tests; 9.35.7 and 9.29.1 require every family task and add a repository-wide grep to their verifies. The family is written as tasks 9.35.9 onward in the following specification revisions."
+basis = "Finding 9.35.1.2 and finding 10.21.4.1: the agent daemon's whole preparation, approval, policy and signing path still produces kernel activities, the KMS test target has been broken since 10.21.4, and no pending task ports any of them; retiring the codec before that path exists would leave the product unable to prepare an owner or agent operation at all. Decision 1023 already fixed the direction (an EIP-1559 call carrying the payload in calldata), so the remaining work is a sequence of consumer ports, not a design question."
+affects = ["9.35.7", "9.29.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20242,6 +20254,18 @@ title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
 
+[req.8308]
+title = "layerx-crypto carries no owner rotation codec and no payment envelope encoder"
+ac_1 = "services/agent/crates/layerx-crypto/src/rotation.rs is absent, lib.rs declares no rotation module, encode_payment_envelope is gone from src/send.rs while encode_send_envelope still produces an Asset ordinal 5 activity over the same options, and no Rust file outside layerx-crypto and the retired-name sweep tests names layerx_crypto::rotation or encode_payment_envelope."
+
+[req.8307]
+title = "The human-service production fixture decodes no owner state through layerx-crypto"
+ac_1 = "services/human/crates/layerx-human-service/tests/support/production_fixture.rs answers IdentityResolve with the bytes it builds and calls no layerx_crypto::rotation decoder, and the three test targets that include it compile."
+
+[req.8306]
+title = "The KMS provider tests carry no owner rotation case over the retired codec"
+ac_1 = "services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs is absent, tests/provider.rs declares no owner_rotation module, and no Rust file outside layerx-crypto and the retired-name sweep tests names layerx_crypto::rotation."
+
 [req.8305]
 title = "The Python SDK suites and stubs name only the live verification surface"
 ac_1 = "tests/agent/sdk/python/test_integration.py and test_ai_market.py collect and pass without any checkpoint verification, checkpoint attestation, submission outcome or journal finalize name, and a test asserts that every name services/agent/sdk/python/layerx_sdk/__init__.pyi declares is exported by layerx_sdk."
@@ -33825,6 +33849,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.9.35.7]
+title = "Remove the kernel activity codec items from layerx-crypto once the kernel path has migrated"
+reqs = ["9341.1"]
+touches = ["services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/disclosure.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/src/signer.rs", "services/agent/crates/layerx-crypto/tests/disclosure.rs", "services/agent/crates/layerx-crypto/tests/signer.rs", "services/agent/crates/layerx-crypto/tests/remote.rs", "services/agent/crates/layerx-crypto/src/payments.rs", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs", "services/agent/crates/layerx-crypto/tests/send_call.rs"]
+tests = ["services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
+verification_contract = "! test -e services/agent/crates/layerx-crypto/src/disclosure.rs && ! test -e services/agent/crates/layerx-crypto/src/send.rs && test -e services/agent/crates/layerx-crypto/src/onboarding.rs && grep -q '^pub mod onboarding;' services/agent/crates/layerx-crypto/src/lib.rs && ! grep -rnE --include='*.rs' 'layerx_crypto::(disclosure|send)\b|\bsign_disclosed\b|encode_send_envelope|bind_budget_mutation|Source::Activity' services tools | grep -vE 'retired_|no_kernel_codec|layerx-crypto/' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer -- --exact keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+do_1 = "Decision 2253: blocked until every family task it names is on main and listed in requires; attempt 2 of task 9.35.1 (f9e1a5ff0) is the reference implementation of the deletions below."
+symbols = ["KeystoreSigner", "keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
+
+[capability.9.35.8]
+title = "Drop the layerx-crypto owner rotation decode from the human-service production fixture"
+reqs = ["8307.1"]
+touches = ["services/human/crates/layerx-human-service/tests/support/production_fixture.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs"]
+verification_contract = "! grep -n 'layerx_crypto::rotation' services/human/crates/layerx-human-service/tests/support/production_fixture.rs && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test intent_plan_evm --test move_commit_bank_send --test receipt_evidence_v2 && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test receipt_evidence_v2"
+do_1 = "In services/human/crates/layerx-human-service/tests/support/production_fixture.rs delete the statement layerx_crypto::rotation::OwnerRotationState::decode(&canonical, &did).expect('owner state') at :253-254 inside the IdentityResolve arm; the fixture builds the 223-byte canonical owner state itself and the service decodes it with its own owner_identity::OwnerIdentityState (src/server/production_owner.rs:8, task 10.98.10), so the extra decode asserts nothing the tests read."
+symbols = []
+
+[capability.9.35.6]
+title = "Delete the KMS owner rotation provider test built on the retired owner envelope"
+reqs = ["8306.1"]
+touches = ["services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs", "services/human/crates/layerx-human-kms/tests/provider.rs"]
+tests = ["services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs"]
+verification_contract = "! test -e services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs && ! grep -n 'owner_rotation' services/human/crates/layerx-human-kms/tests/provider.rs && ! grep -rnE --include='*.rs' 'layerx_crypto::rotation' services/human/crates/layerx-human-kms/ | grep -vE 'retired_crypto_codec' && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --lib"
+do_1 = "Delete services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs: its one case kms_owner_rotation_disclosure signs an owner rotation consent as a kernel owner envelope through layerx_intents::canonical::signed_envelope_bytes and unsigned_envelope_bytes, deleted by task 10.21.4 under decision 1023, and reads layerx_crypto::rotation, which task 9.35.1 deletes; the EIP-1559 owner path is covered by tests/sign_eip1559_requests.rs."
+symbols = []
 
 [capability.9.97.14]
 title = "Port the Python SDK integration and AI market suites off the retired checkpoint verifier and align the stubs"
@@ -118326,6 +118377,99 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.9.35.7]
+title = "Remove the kernel activity codec items from layerx-crypto once the kernel path has migrated"
+status = "blocked"
+mode = "BUILD"
+wave = 40
+requires = ["9.35.1"]
+reqs = ["9341.1"]
+capabilities = ["9.35.7"]
+interfaces = []
+do_1 = "Decision 2253: blocked until every family task it names is on main and listed in requires; attempt 2 of task 9.35.1 (f9e1a5ff0) is the reference implementation of the deletions below."
+do_2 = "In services/agent/crates/layerx-crypto/src/disclosure.rs delete the layerx_wire::activity import, the Source::Activity variant of task 9.31.1, bind, bind_budget_mutation and the onboarding field and decoder; the payload decoders bind_call uses stay."
+do_3 = "In services/agent/crates/layerx-crypto/src/send.rs delete EnvelopeOptions, DisclosedEnvelope and encode_send_envelope; SendDebit and SendCondition stay for ledger_payment_call."
+do_4 = "In services/agent/crates/layerx-crypto/src/signer.rs delete sign_disclosed and make KeystoreSigner::sign refuse a SigningRequest whose domain is the activity signature preimage with SignError::InvalidDisclosure, keeping the bind message and payer grant authorization of contracts/clients.md B2 (req 9341 ac_1)."
+do_5 = "Rewrite the sign_disclosed and send envelope cases of services/agent/crates/layerx-crypto/tests/signer.rs, tests/remote.rs, tests/disclosure.rs, tests/disclosure_call.rs and tests/send_call.rs onto sign_disclosed_call and bind_call, and add keystore_signer_refuses_activity_preimages_and_signs_the_bind_message to tests/signer.rs using the KeystoreSigner socket fixture."
+do_6 = "Move the kept definitions bind_call, Disclosure, DisclosedCall, CallOptions, ledger_payment_call, send_context_hash, SendCondition and SendDebit into services/agent/crates/layerx-crypto/src/payments.rs so the re-exports of task 8.94.4 become definitions, then delete src/disclosure.rs and src/send.rs with their pub mod lines (decision 1889); src/onboarding.rs, its pub mod line and the pub use crate::onboarding re-export stay (decision 2237)."
+do_7 = "The verify's repository grep must find no file outside layerx-crypto and the retired-name sweep tests naming layerx_crypto::disclosure, layerx_crypto::send, sign_disclosed, encode_send_envelope, bind_budget_mutation or Source::Activity; when it does, the task stops and the missing family task is reported."
+symbols = ["KeystoreSigner", "keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
+touches = ["services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/disclosure.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/src/signer.rs", "services/agent/crates/layerx-crypto/tests/disclosure.rs", "services/agent/crates/layerx-crypto/tests/signer.rs", "services/agent/crates/layerx-crypto/tests/remote.rs", "services/agent/crates/layerx-crypto/src/payments.rs", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs", "services/agent/crates/layerx-crypto/tests/send_call.rs"]
+tests = ["services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --all-targets"
+verify_cmd = "! test -e services/agent/crates/layerx-crypto/src/disclosure.rs && ! test -e services/agent/crates/layerx-crypto/src/send.rs && test -e services/agent/crates/layerx-crypto/src/onboarding.rs && grep -q '^pub mod onboarding;' services/agent/crates/layerx-crypto/src/lib.rs && ! grep -rnE --include='*.rs' 'layerx_crypto::(disclosure|send)\b|\bsign_disclosed\b|encode_send_envelope|bind_budget_mutation|Source::Activity' services tools | grep -vE 'retired_|no_kernel_codec|layerx-crypto/' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer -- --exact keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits; the codec items return."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.35.8]
+title = "Drop the layerx-crypto owner rotation decode from the human-service production fixture"
+status = "pending"
+mode = "BUILD"
+wave = 36
+requires = ["10.98.10"]
+reqs = ["8307.1"]
+capabilities = ["9.35.8"]
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-service/tests/support/production_fixture.rs delete the statement layerx_crypto::rotation::OwnerRotationState::decode(&canonical, &did).expect('owner state') at :253-254 inside the IdentityResolve arm; the fixture builds the 223-byte canonical owner state itself and the service decodes it with its own owner_identity::OwnerIdentityState (src/server/production_owner.rs:8, task 10.98.10), so the extra decode asserts nothing the tests read."
+do_2 = "Build the three test targets that include the fixture by #[path]: intent_plan_evm, move_commit_bank_send and receipt_evidence_v2; change nothing else."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/tests/support/production_fixture.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test intent_plan_evm --test move_commit_bank_send --test receipt_evidence_v2"
+verify_cmd = "! grep -n 'layerx_crypto::rotation' services/human/crates/layerx-human-service/tests/support/production_fixture.rs && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test intent_plan_evm --test move_commit_bank_send --test receipt_evidence_v2 && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test receipt_evidence_v2"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.35.6]
+title = "Delete the KMS owner rotation provider test built on the retired owner envelope"
+status = "pending"
+mode = "BUILD"
+wave = 36
+requires = ["10.21.4"]
+reqs = ["8306.1"]
+capabilities = ["9.35.6"]
+interfaces = []
+do_1 = "Delete services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs: its one case kms_owner_rotation_disclosure signs an owner rotation consent as a kernel owner envelope through layerx_intents::canonical::signed_envelope_bytes and unsigned_envelope_bytes, deleted by task 10.21.4 under decision 1023, and reads layerx_crypto::rotation, which task 9.35.1 deletes; the EIP-1559 owner path is covered by tests/sign_eip1559_requests.rs."
+do_2 = "Remove the #[path = 'provider/owner_rotation.rs'] attribute and `mod owner_rotation;` at services/human/crates/layerx-human-kms/tests/provider.rs:23-24; change nothing else in the provider target, whose remaining canonical envelope helpers (provider.rs:512, :537, :772; provider/native_setup.rs:10) are ported by the family of decision 2253 (finding 10.21.4.1)."
+do_3 = "Verify with the repository grep of the verify command; the provider test target does not compile on main for the reason above and is not built by this task."
+symbols = []
+touches = ["services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs", "services/human/crates/layerx-human-kms/tests/provider.rs"]
+tests = ["services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --lib"
+verify_cmd = "! test -e services/human/crates/layerx-human-kms/tests/provider/owner_rotation.rs && ! grep -n 'owner_rotation' services/human/crates/layerx-human-kms/tests/provider.rs && ! grep -rnE --include='*.rs' 'layerx_crypto::rotation' services/human/crates/layerx-human-kms/ | grep -vE 'retired_crypto_codec' && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --lib"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit; the case returns and the provider target stays uncompilable as before."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.8.101.1]
 title = "Port the hosted gateway's withdrawal completion check to receipt::verify_outcome"
 status = "done"
@@ -143073,7 +143217,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.26.7]
 title = "Move the conformance service account offers to eip155 and the receipted rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.26.1", "8.26.3", "8.23.1"]
@@ -147504,7 +147648,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Gate domain 9 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
-wave = 39
+wave = 42
 requires = ["9.0.1", "9.0.2", "9.0.3", "9.0.4", "9.1.4", "9.1.5", "9.11.3", "9.12.6", "9.13.3", "9.15.3", "9.18.2", "9.18.3", "9.18.5", "9.18.6", "9.18.7", "9.19.1", "9.24.6", "9.24.7", "9.26.3", "9.27.3", "9.27.4", "9.27.5", "9.29.1", "9.30.1", "9.33.9", "9.97.1", "9.97.2", "9.97.3", "9.97.4", "9.97.5", "18.1297.1", "9.25.16", "13.8.3"]
 reqs = ["9999.1"]
 capabilities = ["9.0.9"]
@@ -150641,7 +150785,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.9.25.1]
 title = "Delete the kernel-era read, receipt, submit, stream, batch, payments and evidence modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.2", "9.24.4", "9.22.3", "9.22.5", "9.23.5", "9.23.6", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.16.4", "8.11.3", "8.19.5", "10.27.5", "8.12.3", "8.98.5", "8.98.10", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "9.25.17", "9.25.18", "9.25.19", "13.8.3", "9.27.9", "8.101.1"]
@@ -150782,7 +150926,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Delete the checkpoint settlement document types from layerx-types"
 status = "pending"
 mode = "BUILD"
-wave = 38
+wave = 42
 requires = ["9.27.4", "9.29.1", "9.12.6", "9.25.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "11.26.4", "18.1304.1", "8.4.5", "9.25.16", "13.8.3"]
 reqs = ["9311.1"]
 capabilities = ["9.26.3"]
@@ -150912,7 +151056,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 title = "Delete the guarantor certificate verifier and the embedded settlement document"
 status = "pending"
 mode = "BUILD"
-wave = 37
+wave = 42
 requires = ["9.27.3", "9.27.5", "9.28.2", "9.29.1", "9.5.4", "9.5.5", "9.6.1", "9.4.1", "9.1.4", "9.12.6", "9.25.2", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "9.27.8", "8.1.6", "18.1304.1", "9.25.16", "13.8.3"]
 reqs = ["9310.1"]
 capabilities = ["9.27.4"]
@@ -151074,7 +151218,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.28.1]
 title = "Remove layerx-paxeer-verifier from the agent workspace and its dependents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.2", "9.5.7", "9.27.2", "8.20.3", "5.96.1", "10.26.1", "10.26.3", "10.26.4", "10.27.1", "16.0.4", "11.22.2", "9.1.8", "18.1131.1", "18.1206.1", "18.1304.1", "9.25.16", "13.8.3", "9.27.9", "8.101.1"]
@@ -151143,10 +151287,10 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.9.29.1]
 title = "Retire the kernel activity envelope and signing preimage from layerx-wire"
-status = "pending"
+status = "blocked"
 mode = "BUILD"
-wave = 36
-requires = ["9.30.1", "9.27.3", "9.27.5", "9.27.6", "9.1.5", "9.2.1", "9.2.2", "9.2.3", "9.2.4", "9.4.1", "9.5.5", "9.5.6", "9.5.7", "9.9.2", "9.9.3", "9.10.1", "9.10.2", "9.18.1", "9.18.2", "9.25.1", "9.25.2", "9.35.1", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "12.18.2", "13.4.6", "13.6.5", "13.8.2", "13.30.2", "18.1304.1", "8.4.5", "9.25.16", "13.8.3"]
+wave = 41
+requires = ["9.30.1", "9.27.3", "9.27.5", "9.27.6", "9.1.5", "9.2.1", "9.2.2", "9.2.3", "9.2.4", "9.4.1", "9.5.5", "9.5.6", "9.5.7", "9.9.2", "9.9.3", "9.10.1", "9.10.2", "9.18.1", "9.18.2", "9.25.1", "9.25.2", "9.35.1", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "12.18.2", "13.4.6", "13.6.5", "13.8.2", "13.30.2", "18.1304.1", "8.4.5", "9.25.16", "13.8.3", "9.35.7"]
 reqs = ["9312.1", "9312.2", "9312.3"]
 capabilities = ["9.29.1"]
 interfaces = ["interface.9.rs-wire-activity-timestampbound", "interface.9.rs-wire-activity-activity", "interface.9.rs-wire-activity-decode-signed", "interface.9.rs-wire-activity-decode-unsigned", "interface.9.rs-wire-activity-encode-unsigned", "interface.9.rs-wire-activity-encode-unsigned-envelope", "interface.9.rs-wire-activity-encode-signed", "interface.9.rs-wire-activity-encode-signed-envelope", "interface.9.rs-wire-activity-signing-bytes", "interface.9.rs-wire-activity-signingbytes-j44", "interface.9.rs-wire-sign-signingpreimage-j44", "interface.9.rs-wire-hash-canonical-activity-j44", "interface.9.rs-wire-hash-canonical-payload-j44", "interface.9.rs-wire-hash-activity-id", "interface.9.rs-wire-hash-payload-hash", "interface.9.rs-wire-sign-preimage", "interface.9.rs-wire-sign-preimage-unsigned", "interface.9.rs-wire-activity-protocol-version-j70", "interface.9.rs-wire-activity-network-id-j70", "interface.9.rs-wire-activity-activity-type-j70", "interface.9.rs-wire-activity-actor-did-j70", "interface.9.rs-wire-activity-authority-j70", "interface.9.rs-wire-activity-account-sequence-j70", "interface.9.rs-wire-activity-timestamp-bound-j70", "interface.9.rs-wire-activity-idempotency-key-j70", "interface.9.rs-wire-activity-fee-limit-j70", "interface.9.rs-wire-activity-payload-j70", "interface.9.rs-wire-activity-payload-hash-j70", "interface.9.rs-wire-activity-signature-j70", "interface.9.rs-wire-signingpreimage-as-bytes-j70"]
@@ -151176,6 +151320,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
 do_7 = "Finding 9.28.1.3: services/platform/hosted/gateway/src/main.rs:36, :800, :1903 and :2104 decode signed activities through layerx_wire::activity::decode_signed; the gateway is a consumer of the activity module beside the core sites of wiring.J44.15 and is ported, or its activity submission path retired, in the same change, with layerx-platform-gateway building --all-targets before the task is done."
+do_8 = "Decision 2253: blocked until the kernel-path migration family exists and is listed in requires; 66 files on main import layerx_wire::activity or layerx_wire::sign, and the verify then adds a repository-wide grep that none remains outside layerx-wire and the retired-name sweep tests."
 
 [task.9.30.1]
 title = "Drop the lni_frame fuzz target and fuzz the EIP-1559 transaction codec"
@@ -151971,27 +152116,21 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.9.35.1]
-title = "Remove the kernel activity codec from layerx-crypto"
-status = "blocked"
+title = "Remove the owner rotation codec and the payment envelope encoder from layerx-crypto"
+status = "pending"
 mode = "BUILD"
-wave = 35
-requires = ["9.35.3", "9.31.2", "9.31.3", "9.2.2", "9.23.7", "8.94.3", "11.34.5", "12.95.1", "10.0.3", "10.98.7", "10.98.8", "10.98.9", "10.98.10", "10.98.11", "10.98.12", "10.98.13", "10.98.14", "9.23.6", "18.1115.1", "18.1304.1", "8.4.5", "10.21.4", "10.21.6", "9.25.16", "13.8.3"]
-reqs = ["9341.1"]
+wave = 37
+requires = ["9.35.3", "9.31.2", "9.31.3", "9.2.2", "9.23.7", "8.94.3", "11.34.5", "12.95.1", "10.0.3", "10.98.7", "10.98.8", "10.98.9", "10.98.10", "10.98.11", "10.98.12", "10.98.13", "10.98.14", "9.23.6", "18.1115.1", "18.1304.1", "8.4.5", "10.21.4", "10.21.6", "9.25.16", "13.8.3", "9.35.6", "9.35.8"]
+reqs = ["8308.1"]
 capabilities = ["9.35.1"]
 interfaces = ["interface.9.rs-crypto-onboarding-onboardingconsent", "interface.9.rs-crypto-onboarding-sponsoredregistration", "interface.9.rs-crypto-rotation-ownerrotationstate", "interface.9.rs-crypto-rotation-ownerrotationconsent", "interface.9.rs-crypto-rotation-ownerrotationcommit", "interface.9.rs-crypto-rotation-ownerrotation", "interface.9.rs-crypto-disclosure-bind", "interface.9.rs-crypto-disclosure-bind-budget-mutation", "interface.9.rs-crypto-send-encode-send-envelope", "interface.9.rs-crypto-send-envelopeoptions", "interface.9.rs-crypto-signer-sign-disclosed", "interface.9.rs-crypto-send-encode-payment-envelope", "interface.9.rs-crypto-disclosure-disclosure", "interface.9.rs-crypto-signer-keystoresigner", "interface.9.rs-crypto-signaturemessage-new-j70", "interface.9.rs-crypto-signaturemessage-digest-j70", "interface.9.rs-crypto-verifyerror-result-code-j70", "interface.9.rs-crypto-onboardingconsent-payload-j70", "interface.9.rs-crypto-onboardingconsent-decode-payload-j70", "interface.9.rs-crypto-sponsoredregistration-from-signed-consent-j70", "interface.9.rs-crypto-sponsoredregistration-decode-j70", "interface.9.rs-crypto-sponsoredregistration-payload-j70", "interface.9.rs-crypto-sponsoredregistration-signed-consent-j70", "interface.9.rs-crypto-sponsoredregistration-validate-outer-j70", "interface.9.rs-crypto-ownerrotationstate-decode-j70", "interface.9.rs-crypto-ownerrotationconsent-payload-j70", "interface.9.rs-crypto-ownerrotationconsent-decode-j70", "interface.9.rs-crypto-ownerrotationcommit-from-signed-consent-j70", "interface.9.rs-crypto-ownerrotationcommit-decode-j70", "interface.9.rs-crypto-ownerrotationcommit-payload-j70", "interface.9.rs-crypto-ownerrotation-owner-j70", "interface.9.rs-crypto-ownerrotation-payload-j70", "interface.9.rs-crypto-ownerrotation-decode-j70", "interface.9.rs-crypto-ownerrotation-from-activity-j70"]
 wiring = ["wiring.J44.26", "wiring.J44.27", "wiring.J44.28", "wiring.J44.25"]
-do_1 = "Delete services/agent/crates/layerx-crypto/src/onboarding.rs and services/agent/crates/layerx-crypto/src/rotation.rs, which decode and re-encode signed kernel activities (services/agent/crates/layerx-crypto/src/onboarding.rs:4, services/agent/crates/layerx-crypto/src/rotation.rs:3), and remove `pub mod onboarding;` and `pub mod rotation;` from services/agent/crates/layerx-crypto/src/lib.rs (services/agent/crates/layerx-crypto/src/lib.rs:18, services/agent/crates/layerx-crypto/src/lib.rs:27); onboarding is bindLayerX (spec/layerx-merge/contracts/clients.md:65) and DID rotation is out of scope (spec/layerx-merge/contracts/clients.md:66)."
-do_2 = "In services/agent/crates/layerx-crypto/src/disclosure.rs delete the layerx_wire::activity import (services/agent/crates/layerx-crypto/src/disclosure.rs:22), the Source::Activity variant of task 9.31.1, bind (services/agent/crates/layerx-crypto/src/disclosure.rs:1236), bind_budget_mutation (services/agent/crates/layerx-crypto/src/disclosure.rs:1248) and the onboarding field and decoder (services/agent/crates/layerx-crypto/src/disclosure.rs:687); the payload decoders bind_call uses stay."
-do_3 = "In services/agent/crates/layerx-crypto/src/send.rs delete EnvelopeOptions, DisclosedEnvelope, encode_send_envelope and encode_payment_envelope (services/agent/crates/layerx-crypto/src/send.rs:181, services/agent/crates/layerx-crypto/src/send.rs:190); the send payload builders SendDebit and SendCondition stay for ledger_payment_call."
-do_4 = "In services/agent/crates/layerx-crypto/src/signer.rs delete sign_disclosed (services/agent/crates/layerx-crypto/src/signer.rs:278) and make KeystoreSigner::sign (services/agent/crates/layerx-crypto/src/signer.rs:345) refuse a SigningRequest whose domain is the activity signature preimage with SignError::InvalidDisclosure, keeping the bind message and payer grant authorization of clients.md B2 (spec/layerx-merge/contracts/clients.md:127)."
-do_5 = "Rewrite the sign_disclosed cases of services/agent/crates/layerx-crypto/tests/signer.rs (services/agent/crates/layerx-crypto/tests/signer.rs:47), services/agent/crates/layerx-crypto/tests/remote.rs (services/agent/crates/layerx-crypto/tests/remote.rs:285) and services/agent/crates/layerx-crypto/tests/disclosure.rs (services/agent/crates/layerx-crypto/tests/disclosure.rs:81) onto sign_disclosed_call and bind_call; the human, platform, interop and wallet dependents are wiring.J44.25, wiring.J44.26, wiring.J44.27, wiring.J44.28."
-do_6 = "Add keystore_signer_refuses_activity_preimages_and_signs_the_bind_message to services/agent/crates/layerx-crypto/tests/signer.rs (planned test name in an existing file) using the KeystoreSigner socket fixture (services/agent/crates/layerx-crypto/tests/signer.rs:201)."
-symbols = ["KeystoreSigner", "keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
-touches = ["services/agent/crates/layerx-crypto/src/rotation.rs", "services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/disclosure.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/src/signer.rs", "services/agent/crates/layerx-crypto/tests/disclosure.rs", "services/agent/crates/layerx-crypto/tests/signer.rs", "services/agent/crates/layerx-crypto/tests/remote.rs", "services/agent/crates/layerx-crypto/src/payments.rs"]
-tests = ["services/agent/crates/layerx-crypto/tests/signer.rs::keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"]
+symbols = ["send_envelope_encoder_keeps_asset_ordinal_five"]
+touches = ["services/agent/crates/layerx-crypto/src/rotation.rs", "services/agent/crates/layerx-crypto/src/lib.rs", "services/agent/crates/layerx-crypto/src/send.rs", "services/agent/crates/layerx-crypto/tests/send_call.rs"]
+tests = ["services/agent/crates/layerx-crypto/tests/send_call.rs::send_envelope_encoder_keeps_asset_ordinal_five"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer"
-verify_cmd = "test -e services/agent/crates/layerx-crypto/src/onboarding.rs && ! test -e services/agent/crates/layerx-crypto/src/rotation.rs && ! test -e services/agent/crates/layerx-crypto/src/disclosure.rs && ! test -e services/agent/crates/layerx-crypto/src/send.rs && grep -q '^pub mod onboarding;' services/agent/crates/layerx-crypto/src/lib.rs && grep -q 'pub use crate::onboarding::{OnboardingConsent, OnboardingError, SponsoredRegistration};' services/agent/crates/layerx-crypto/src/payments.rs && ! grep -rnE 'crate::(disclosure|send|rotation)\b|layerx_wire::activity' services/agent/crates/layerx-crypto/src/payments.rs && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test signer -- --exact keystore_signer_refuses_activity_preimages_and_signs_the_bind_message"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --all-targets"
+verify_cmd = "! test -e services/agent/crates/layerx-crypto/src/rotation.rs && ! grep -n 'pub mod rotation' services/agent/crates/layerx-crypto/src/lib.rs && ! grep -rn 'encode_payment_envelope' services/agent/crates/layerx-crypto/src && ! grep -rnE --include='*.rs' 'layerx_crypto::rotation|encode_payment_envelope' services tools | grep -vE 'retired_|no_kernel_codec' && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test send_call -- --exact send_envelope_encoder_keeps_asset_ordinal_five"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -152003,11 +152142,12 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-do_7 = "After do_1 to do_6, move the kept definitions bind_call, Disclosure, DisclosedCall, CallOptions, ledger_payment_call, send_context_hash, SendCondition and SendDebit into services/agent/crates/layerx-crypto/src/payments.rs so the re-exports of task 8.94.4 become definitions, then delete src/disclosure.rs and src/send.rs with their pub mod lines (decision.1889); every hosted crate already names them through layerx_crypto::payments (8.94.5 to 8.94.7)."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
-do_8 = "Decision 2186: the two human-service readers of OwnerRotationState::decode moved to services/human/crates/layerx-human-service/src/server/owner_identity.rs in task 10.98.10, so do_1 deletes rotation.rs with no caller left outside the crate."
-do_9 = "Decision 2237 (finding 9.35.1.1): do_1 deletes only src/rotation.rs and its pub mod line; src/onboarding.rs, its pub mod line and the pub use crate::onboarding re-export at src/payments.rs:19 stay unchanged, so layerx-agentd subject.rs:245, the KMS native_setup.rs test, create_native.rs and the authority's dynamic.rs keep building against the same paths; do_7 edits src/payments.rs, now a declared touch, turning the disclosure and send re-exports into definitions. Continue from attempt 1 (3877ce19d) rebased onto current main: restore src/onboarding.rs and its pub mod line from main, keep every other change, finish do_7, and run the declared build and verify once as written."
-do_10 = "Decision 2239 (finding 9.35.1.2): blocked until the consumer port tasks exist and are listed in requires; then continue from attempt 2 (f9e1a5ff0) rebased onto current main, keeping the tree unchanged, with the repository-wide grep added to the verify."
+do_1 = "Decision 2252: delete services/agent/crates/layerx-crypto/src/rotation.rs and `pub mod rotation;` at services/agent/crates/layerx-crypto/src/lib.rs:27; the two test fixtures that read the module are ported by tasks 9.35.6 and 9.35.8 (requires) and the human-service readers moved in task 10.98.10 (decision 2186)."
+do_2 = "In services/agent/crates/layerx-crypto/src/send.rs delete encode_payment_envelope (:237) and inline its body into encode_send_envelope (:228-233), its only caller, so EnvelopeOptions, DisclosedEnvelope and encode_send_envelope keep their signatures and produce the same bytes."
+do_3 = "Change nothing else in the crate: src/disclosure.rs, src/signer.rs, src/payments.rs and src/onboarding.rs stay as on main; their remaining kernel activity items are task 9.35.7's (decision 2253)."
+do_4 = "Add send_envelope_encoder_keeps_asset_ordinal_five to services/agent/crates/layerx-crypto/tests/send_call.rs (planned test name in an existing file): encode a send envelope with the options fixture at :72, decode it with layerx_wire::activity::decode_signed and assert the activity type is ModuleId::Asset ordinal 5 and the payload equals the encoded SendDebit."
+do_5 = "Attempts 1 (3877ce19d) and 2 (f9e1a5ff0) implemented the wider deletion of decision 2237 and are superseded by this scope; start from current main."
 
 [task.9.35.2]
 title = "Remove the checkpoint settlement types and activity decoders from layerx-sdk"
@@ -189663,6 +189803,30 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.9.35.1.3]
+feature = "9"
+req = "8308.1"
+scenario = "Given main after tasks 9.35.6 and 9.35.8, when layerx-crypto is built with --all-targets and the repository is grepped, then rotation.rs and encode_payment_envelope are gone, no file outside the crate names them, and encode_send_envelope still yields an Asset ordinal 5 activity over the same options"
+contract = "contracts/clients.md"
+test = "services/agent/crates/layerx-crypto/tests/send_call.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.8.1]
+feature = "9"
+req = "8307.1"
+scenario = "Given main after task 10.98.10, when the three human-service test targets that include production_fixture.rs are built and receipt_evidence_v2 runs, then they compile without layerx_crypto::rotation and the tests pass"
+contract = "contracts/clients.md"
+test = "services/human/crates/layerx-human-service/tests/receipt_evidence_v2.rs"
+qualification = "UNRUN"
+
+[acceptance.9.35.6.1]
+feature = "9"
+req = "8306.1"
+scenario = "Given main after task 10.21.4, when the KMS crate is built and its tests are grepped, then no owner rotation provider case exists and no file names layerx_crypto::rotation outside the retired-name sweeps"
+contract = "contracts/clients.md"
+test = "services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs"
 qualification = "UNRUN"
 
 [acceptance.9.97.14.1]
