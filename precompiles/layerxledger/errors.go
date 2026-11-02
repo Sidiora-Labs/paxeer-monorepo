@@ -17,6 +17,11 @@ func RevertError(err error) error {
 	if err == nil {
 		return nil
 	}
+	// Handlers and Execute both normalize refusals. Keep the original cause
+	// directly accessible when an error has already crossed this boundary.
+	if _, ok := err.(revertError); ok {
+		return err
+	}
 	var code string
 	var registered *sdkerrors.Error
 	if errors.As(err, &registered) && registered.Codespace() == types.ModuleName {
