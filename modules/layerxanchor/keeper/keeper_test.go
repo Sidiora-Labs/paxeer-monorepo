@@ -15,9 +15,11 @@ import (
 	"github.com/gogo/protobuf/proto"
 
 	"encoding/json"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -41,6 +43,54 @@ type suite struct {
 	operators []sdk.AccAddress
 	ids       [][32]byte
 	signers   [][20]byte
+	fixture   testvectors.Fixture
+}
+
+func loadAnchorFixture(t *testing.T) testvectors.Fixture {
+	t.Helper()
+	raw, err := os.ReadFile("../testdata/anchor_vectors.json")
+	require.NoError(t, err)
+	var document map[string]json.RawMessage
+	require.NoError(t, json.Unmarshal(raw, &document))
+	fixture := testvectors.Fixture{}
+	for section, body := range document {
+		if section == "generator" {
+			continue
+		}
+		var entries []map[string]json.RawMessage
+		require.NoError(t, json.Unmarshal(body, &entries), "section %s", section)
+		for _, entry := range entries {
+			vector := testvectors.Vector{Fields: map[string]string{}}
+			require.NoError(t, json.Unmarshal(entry["name"], &vector.Name), "section %s", section)
+			require.NotEmpty(t, vector.Name)
+			require.NoError(t, json.Unmarshal(entry["valid"], &vector.Valid), "vector %s", vector.Name)
+			for key, value := range entry {
+				if key == "name" || key == "valid" {
+					continue
+				}
+				var field string
+				require.NoError(t, json.Unmarshal(value, &field), "vector %s field %s", vector.Name, key)
+				vector.Fields[key] = field
+			}
+			fixture[section] = append(fixture[section], vector)
+		}
+	}
+	require.Len(t, fixture["context"], 1)
+	require.Len(t, fixture["guarantors"], 4)
+	require.Len(t, fixture["checkpoints"], 13)
+	require.Len(t, fixture["attestations"], 6)
+	return fixture
+}
+
+func (s *suite) vector(section, name string) testvectors.Vector {
+	s.t.Helper()
+	for _, vector := range s.fixture[section] {
+		if vector.Name == name {
+			return vector
+		}
+	}
+	s.t.Fatalf("no vector %s/%s", section, name)
+	return testvectors.Vector{}
 }
 
 func account(tag byte) sdk.AccAddress {
@@ -89,7 +139,7 @@ func newSuite(t *testing.T, mutate func(*types.Params)) *suite {
 
 func initializeSuite(t *testing.T, testApp *app.App, ctx sdk.Context, mutate func(*types.Params)) *suite {
 	t.Helper()
-	s := &suite{t: t, app: testApp, ctx: ctx, k: testApp.LayerXAnchorKeeper, authority: account(0xa1), reporter: account(0xa2)}
+	s := &suite{t: t, app: testApp, ctx: ctx, k: testApp.LayerXAnchorKeeper, authority: account(0xa1), reporter: account(0xa2), fixture: loadAnchorFixture(t)}
 	params := types.DefaultParams(s.authority.String())
 	params.Threshold = 2
 	params.UnbondingDelaySeconds = unbondingDelay
@@ -350,7 +400,18 @@ func TestSubmitCheckpointIsRetired(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, s.app.Close()) })
 	s.bondAll()
 	const mergeHeight = int64(20)
-	header, signature, certificate := []byte{1}, [64]byte{2}, []byte{3}
+	vector := s.vector("checkpoints", "batch_1_quorum")
+	batchNumber, err := vector.Uint64("batch_number")
+	require.NoError(t, err)
+	header, err := vector.Bytes("header")
+	require.NoError(t, err)
+	rawSignature, err := vector.Bytes("header_signature")
+	require.NoError(t, err)
+	var signature [64]byte
+	require.Len(t, rawSignature, len(signature))
+	copy(signature[:], rawSignature)
+	certificate, err := vector.Bytes("certificate")
+	require.NoError(t, err)
 	s.app.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(mergeHeight), types.MergeUpgrade)
 	for _, height := range []int64{mergeHeight - 1, mergeHeight, mergeHeight + 1} {
 		s.ctx = s.ctx.WithBlockHeight(height)
@@ -360,7 +421,7 @@ func TestSubmitCheckpointIsRetired(t *testing.T) {
 		first, err := s.submit(header, signature, certificate)
 		require.ErrorIs(t, err, types.ErrModuleRetired)
 		require.Equal(t, types.Checkpoint{}, first)
-		stored, found := s.k.GetCheckpoint(s.ctx, 1)
+		stored, found := s.k.GetCheckpoint(s.ctx, batchNumber)
 		require.False(t, found)
 		require.Equal(t, types.Checkpoint{}, stored)
 		require.Empty(t, s.k.GetCheckpoints(s.ctx))
@@ -369,7 +430,7 @@ func TestSubmitCheckpointIsRetired(t *testing.T) {
 		resubmitted, err := s.submit(header, signature, certificate)
 		require.ErrorIs(t, err, types.ErrModuleRetired)
 		require.Equal(t, types.Checkpoint{}, resubmitted)
-		stored, found = s.k.GetCheckpoint(s.ctx, 1)
+		stored, found = s.k.GetCheckpoint(s.ctx, batchNumber)
 		require.False(t, found)
 		require.Equal(t, types.Checkpoint{}, stored)
 		require.Empty(t, s.k.GetCheckpoints(s.ctx))

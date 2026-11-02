@@ -108,7 +108,16 @@ func TestReadsServedUntilStoreDelete(t *testing.T) {
 
 func TestReadsRevertFromStoreDelete(t *testing.T) {
 	h := newHarness(t, nil)
-	checkpointID, stateRoot, receiptRoot := [32]byte{1}, [32]byte{2}, [32]byte{3}
+	vector := h.vector("checkpoints", "batch_1_quorum")
+	checkpointID, err := vector.Array32("checkpoint_id")
+	require.NoError(t, err)
+	signers, err := vector.Uint64("signers")
+	require.NoError(t, err)
+	require.Equal(t, signers, uint64(len(h.ids)))
+	stateRoot, err := vector.Array32("resulting_state_root")
+	require.NoError(t, err)
+	receiptRoot, err := vector.Array32("receipt_root")
+	require.NoError(t, err)
 	guarantors := make([]anchortypes.Hash32, len(h.ids))
 	for i, id := range h.ids {
 		guarantors[i] = id
