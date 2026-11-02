@@ -207,6 +207,7 @@ static lxp_result withdrawal_context(lxp_module_ctx *ctx,
         !ctx->kernel->state->account_root_required ||
         runtime->network_id != activity->network_id ||
         runtime->protocol_version != activity->protocol_version ||
+        ctx->protocol_version != activity->protocol_version ||
         !lxp_protocol_version_uses_occupancy(activity->protocol_version) ||
         lxp_ctx_activity_id(ctx) == NULL ||
         lxp_ct_is_zero(lxp_ctx_activity_id(ctx), 32U))
