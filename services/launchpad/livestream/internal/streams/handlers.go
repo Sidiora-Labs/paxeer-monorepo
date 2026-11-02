@@ -161,7 +161,7 @@ func (h *Handlers) RegisterRoutes(r chi.Router) {
 	r.Post("/webhooks/livepeer", h.provisioned(h.webhook))
 	r.Post("/webhooks/livepeer/playback-access", h.provisioned(h.playbackAccess))
 	r.Route("/v2", func(v chi.Router) {
-		v.Post("/provider-webhooks/livepeer", h.provisioned(h.webhook))
+		v.Post("/provider-webhooks/livepeer", provisioned(h, h.webhook))
 		v.Get("/streams", h.listV2)
 		v.Post("/streams", h.provisioned(h.connectedCreate))
 		v.Patch("/streams/{id}", h.provisioned(h.connectedEdit))
@@ -178,11 +178,24 @@ func (h *Handlers) RegisterRoutes(r chi.Router) {
 		v.Post("/streams/{id}/go-live", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "start") }))
 		v.Post("/streams/{id}/end", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "end") }))
 		v.Post("/streams/{id}/heartbeat", h.connectedHeartbeat)
-		v.Post("/streams/{id}:start", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.frozenAction(w, r, "start") }))
-		v.Post("/streams/{id}:end", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.frozenAction(w, r, "end") }))
-		v.Post("/streams/{id}/viewers:heartbeat", h.frozenHeartbeat)
+		v.Post("/streams/{id}:start", provisioned(h, func(w http.ResponseWriter, r *http.Request) { h.frozenAction(w, r, "start") }))
+		v.Post("/streams/{id}:end", provisioned(h, func(w http.ResponseWriter, r *http.Request) { h.frozenAction(w, r, "end") }))
+		v.Post("/streams/{id}/viewers:heartbeat", alias(h.frozenHeartbeat))
 		v.Get("/streams/{id}", h.getByID)
 	})
+}
+
+// alias prevents an intermediary from reusing a frozen lifecycle observation,
+// including refusals, for a later request.
+func alias(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		next(w, r)
+	}
+}
+
+func provisioned(h *Handlers, next http.HandlerFunc) http.HandlerFunc {
+	return alias(h.provisioned(next))
 }
 
 // ── POST /streams ───────────────────────────────────────────────────────────
@@ -409,6 +422,7 @@ func (h *Handlers) public(ctx context.Context, o Operation) (V2Stream, error) {
 	return withThumbnail(view, sources), nil
 }
 func (h *Handlers) listV2(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	query, err := url.ParseQuery(r.URL.RawQuery)
 	if err != nil {
 		h.lifecycleError(w, ErrInvalidRequest)

@@ -352,7 +352,12 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 
 func registerRewardRoutes(router chi.Router, h l18.HTTP) {
 	router.Get("/v2/me/rewards", h.Rewards)
-	router.Post("/v2/me/rewards:prepare-claim", h.PrepareClaim)
+	router.Post("/v2/me/rewards:prepare-claim", PrepareClaim(h))
+}
+
+// PrepareClaim binds the concrete rewards producer to the claim HTTP operation.
+func PrepareClaim(h l18.HTTP) http.HandlerFunc {
+	return h.PrepareClaim
 }
 
 // shareLabel renders the human footer drawn on the OG image (origin host without

@@ -1,4 +1,5 @@
-//! Paxeer chain reads.
+//! Paxeer chain reads. Each public read crosses the sequencer JSON-RPC transport
+//! again; this endpoint retains neither account state nor a cached network head.
 
 use serde_json::{json, Map, Value};
 

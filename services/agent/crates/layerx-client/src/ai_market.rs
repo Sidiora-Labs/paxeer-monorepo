@@ -300,9 +300,13 @@ fn market_header(state: &[u8]) -> Result<MarketHeader, AiClientError> {
 /// # Errors
 /// `BAD_VERSION` for a schema version other than 1; `NON_CANONICAL` for a length
 /// above `BINDING_MAX_BYTES`, malformed bytes, invalid identities, revision zero
-/// or a rank above 4.
+/// or a rank above 4; `BindingMismatch` when the commit predates execution.
 pub fn decode_snapshot_binding(bytes: &[u8]) -> Result<SnapshotBinding, AiClientError> {
-    Ok(SnapshotBinding::decode(bytes)?)
+    let binding = SnapshotBinding::decode(bytes)?;
+    if binding.block_height < binding.execution_height {
+        return Err(QueryError::BindingMismatch.into());
+    }
+    Ok(binding)
 }
 
 /// Public inspection of a finalized snapshot; staleness is labelled, never hidden.

@@ -17699,3 +17699,35 @@ symbol = "rust_operation_catalogue_matches_the_repository_schema"
 observed = "attempt 3 (b7c4b4602) passes its own check and fails two sibling tests of the generators crate that have failed on main since earlier retirements: rust_operation_catalogue_matches_the_repository_schema (drift.rs:764) requires every [transport.agent_http.operation.<name>] of services/agent/schema/agent-api to have an [operation.<name>], and v1.kvx:320 keeps [transport.agent_http.operation.faucet.claim] with disposition retired although 9.1.5 removed [operation.faucet.claim] (req.9009); execution_v5_profile_must_admit_exactly_the_third_to_fifth_guest_abis (drift.rs:700-720) expects the generator to refuse an altered [type.ProgramExecutionV5], a check 9.97.3 (0555497ea, do_4) removed from main.rs:543 after 9.10.2 (1d0cc3720) deleted those types from programs.kvx; the attempt also left the regenerated apps/web/src/api/generated/index.ts and sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java outside touches."
 assumption = "18.1487.1 repairs both sibling tests to the retained behaviour: the retired faucet.claim transport section leaves v1.kvx and the execution-profile test leaves drift.rs; the regenerated outputs are listed under touches so the publication accepts them."
 severity = "medium"
+
+[finding.18.1471.1.3]
+task = "18.1471.1"
+file = "modules/layerxanchor/keeper/bond_return_test.go:68"
+symbol = "TestBondReturn"
+observed = "attempt 2 (its verify runs go test ./modules/layerxanchor/...) fails in the keeper package on TestBondReturn, TestBondReturnClosedChallenges and TestBondReturnRollback, which load the vector checkpoints/batch_1_quorum (bond_return_test.go:68, :155) that the checkpoint vector removal of issue #1471 took away; the task's do_1 names four tests and bond_return_test.go is not in its touches."
+assumption = "18.1471.1 ports bond_return_test.go off the removed vectors the same way as the four named tests (the checkpoint and quorum inputs are built inline in the test), so the keeper package passes in full."
+severity = "minor"
+
+[finding.6.96.6.1]
+task = "6.96.6"
+file = "precompiles/layerxanchor/retired_surface_test.go:42"
+symbol = "TestEveryAnchorSelectorRetired"
+observed = "attempt 4 (15a5a8db0) fails on `require.Nil(t, testApp.GetPrecompileKeepers().AnchorK())`: task 18.1326.1 (done, decision.2218) makes AnchorK return the constructed app.LayerXAnchorKeeper so the retirement heights alone gate layerxAnchor, so the nil assertion written by 6.32.x is stale on main."
+assumption = "6.96.6 repairs retired_surface_test.go:42 in place: it asserts the keeper is constructed and that every 0x1014 selector returns LXP_MODULE_DISABLED through the height gates after the store-delete height, never that the keeper is nil."
+severity = "medium"
+
+[finding.9.35.13.2]
+task = "9.35.13"
+file = "services/agent/qualification/pay2/Cargo.toml:44"
+symbol = "gateway-lifecycle-receipt-verify"
+observed = "attempt 4 fails its build: funded.rs:1 does include!(concat!(env!('OUT_DIR'), '/lifecycle.rs')) but build.rs has not generated lifecycle.rs since 9.97.2 (a4d7551ed removed adapt_lifecycle), so the `funded` test target has been dead since; moreover Cargo.toml:44 builds the bin gateway-lifecycle-receipt-verify from ../../../../services/platform/hosted/gateway/tests/local/verifier.rs and build.rs:1 and :18-19 read tests/local/required.rs and verifier.rs, the directory task 8.101.4 deletes (finding 8.101.4.1)."
+assumption = "9.35.13 makes the pay2 crate self-contained (own required.rs, no gateway bin, no dead funded target) and 8.101.4 requires 9.35.13 so the directory deletion lands after the last reference leaves."
+severity = "medium"
+
+[finding.21.19.1.1]
+task = "21.19.1"
+file = "node/sequencer/precompile_refresh_test.go:69"
+symbol = "xwebInfo"
+observed = "attempts 2 of 21.19.1 (e7d32dde0) and 21.87.1 (9704de505) fail to build the node/sequencer test package: task 21.49.1 (83a683c37) changed position_test.go:114 to `func xwebInfo(t *testing.T)` while precompile_refresh_test.go:69 still calls xwebInfo(), so go test ./node/sequencer has not compiled on main since 21.49.1 landed."
+assumption = "21.19.1 repairs the call (xwebInfo(t)) because it is the lowest open proof in the package, and 21.87.1 requires 21.19.1 and does not edit precompile_refresh_test.go."
+severity = "medium"
