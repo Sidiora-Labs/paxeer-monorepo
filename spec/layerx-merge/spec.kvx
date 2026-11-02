@@ -6843,6 +6843,12 @@ value = "Every verify_cmd of the shape 'run suite > log 2>&1; grep -q <ok line> 
 basis = "18.1484.1 failed three attempts with no record of the case that stopped the suite because the verify read the log and discarded it, while 18.776.1 and 18.821.1 already print theirs; 18.1451.1 passed its verify and was refused on a script name in symbols."
 affects = ["18.1484.1", "18.1451.1"]
 
+[decision.2289]
+title = "Human-service builds name their test targets, and symbols lists carry graph symbols only"
+value = "A build_cmd or verify_cmd of services/human/Cargo.toml compiles -p layerx-human-service --lib with the --test targets the verify runs, not --tests, while any sibling test target of that crate is broken on main (tests/native_lifecycle.rs until 9.35.11). A symbols list names functions, types, methods and constants the symbol graph indexes; language keywords (func, struct, export, const, type), primitive type names and script file stems are never listed, because the done record refuses an unknown symbol after a passing verify."
+basis = "9.100.2 attempt 1 failed to build on tests/native_lifecycle.rs:29 (canonical::decode_signed_activity no longer exists) although its own target compiles; 21.41.1 attempt 1 and 18.1451.1 attempt 2 passed their verifies and were refused on the symbols func and run-real-node-tests."
+affects = ["9.100.2", "18.1485.1", "21.41.1", "18.1451.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20463,6 +20469,26 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.8365]
+title = "The Swift chain helpers and tests live in the configured target paths"
+ac_1 = "Sources/LayerXSdk and Tests/LayerXSdkTests no longer exist, Chains.swift is under Sources/LayerXSDK, ChainsTests.swift is under Tests/LayerXSDKTests, and the ChainsTests case runs under the configured test target."
+
+[req.8364]
+title = "A running listener's Stop closes every scoped WebSocket server and connection"
+ac_1 = "With root and per-chain WebSocket clients open, one Stop of the running WebSocket listener closes every connection, their next calls fail within a bounded deadline, and a second Stop returns without deadlock."
+
+[req.8363]
+title = "The Settings network view mounts the virtual-network switcher"
+ac_1 = "Navigating the real Settings route into its network view reaches controls that add a virtual network by registry id or explorer URL, switch to it, remove it, persist across a re-mount and refuse a mismatched endpoint chain id, while the custom-RPC controls stay."
+
+[req.8362]
+title = "The committed-fixture recorder compiles and verifies its v4 vector without the removed inclusion verifier"
+ac_1 = "go vet of daemon/committed-fixture passes and TestVectorV4CommittedVerifies accepts the positive case and refuses the flipped proof and the unpinned header signature through ReceiptAtRoot and Ed25519Digest."
+
+[req.8361]
+title = "A successful virtual-chain switch changes the live provider's identity, RPC route and notifications together"
+ac_1 = "After wallet_switchEthereumChain succeeds, the same provider object answers eth_chainId and net_version with the selected chain, sends JSON-RPC to the selected route, emits chainChanged, refuses a transaction naming another chain, and a provider built after a restart answers the saved selection."
 
 [req.21163]
 title = "The kit path is proven from producer through transport to consumer"
@@ -34920,6 +34946,51 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.18.1494.1]
+title = "Issue #1494: Move the Swift chain helpers and their tests into the configured SwiftPM target paths"
+reqs = ["8365.1"]
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Chains.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ChainsTests.swift", "sdk/platform/swift/Sources/LayerXSdk/Chains.swift", "sdk/platform/swift/Tests/LayerXSdkTests/ChainsTests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/ChainsTests.swift"]
+verification_contract = "! test -e sdk/platform/swift/Sources/LayerXSdk && ! test -e sdk/platform/swift/Tests/LayerXSdkTests && swift test --package-path sdk/platform/swift --filter 'ChainsTests/testChainsVectorsMatchAndRoundTrip'"
+do_1 = "Move sdk/platform/swift/Sources/LayerXSdk/Chains.swift to sdk/platform/swift/Sources/LayerXSDK/Chains.swift and sdk/platform/swift/Tests/LayerXSdkTests/ChainsTests.swift to sdk/platform/swift/Tests/LayerXSDKTests/ChainsTests.swift with git mv (sdk/platform/swift/Package.swift:12-21 selects exactly these paths), delete the two emptied directories and change nothing in Package.swift; the Chains API is then part of the exported LayerXSDK module and its test belongs to LayerXSDKTests on a case-sensitive filesystem."
+symbols = []
+
+[capability.18.1493.1]
+title = "Issue #1493: Stop the per-chain WebSocket servers when a running listener stops"
+reqs = ["8364.1"]
+touches = ["rpc/rpcstack.go", "rpc/domain_scope_test.go"]
+tests = ["rpc/domain_scope_test.go"]
+verification_contract = "go test -count=1 ./rpc/ -run '^(TestStopClosesScopedWebSocketClients|TestChainPathServesWebSocketUpgrades)$'"
+do_1 = "In rpc/rpcstack.go doStop (:319-369) the running-listener branch stops every scoped server tracked in h.domainWSServers under h.mu right after it stops the shared wsHandler.server (:343-348), the loop disableWS already runs (:699-701), so each scoped rpc.Server closes its codecs and the hijacked WebSocket connections end before h.server.Shutdown; the map is cleared after the loop, and newDomainWSHandler keeps refusing a new scoped connection once wsAllowed is false (:477-480)."
+symbols = ["doStop", "disableWS", "newDomainWSHandler"]
+
+[capability.18.1492.1]
+title = "Issue #1492: Mount the virtual-network switcher in the wallet Settings network view"
+reqs = ["8363.1"]
+touches = ["apps/wallet/src/widgets/settings/SettingsWidget.tsx", "apps/wallet/src/widgets/settings/SettingsWidget.test.tsx"]
+tests = ["apps/wallet/src/widgets/settings/SettingsWidget.test.tsx"]
+verification_contract = "pnpm --dir apps/wallet exec vitest run src/widgets/settings/SettingsWidget.test.tsx src/components/NetworkSwitcher.test.tsx"
+do_1 = "In apps/wallet/src/widgets/settings/SettingsWidget.tsx NetworkView (:210-295) renders <NetworkSwitcher /> (apps/wallet/src/components/NetworkSwitcher.tsx:61) between the network card and the custom-RPC card, keeping every custom-RPC control and handler; the network card shows the active network's name and chain id from useActiveNetwork (NetworkSwitcher.tsx:27) instead of the constant HyperPaxeer and PAXEER_CONFIG.chainId pair, so the view agrees with the selection."
+symbols = ["NetworkView", "SettingsWidget", "NetworkSwitcher"]
+
+[capability.18.1491.1]
+title = "Issue #1491: Verify the committed v4 vector with the retained receipt and signature checks"
+reqs = ["8362.1"]
+touches = ["daemon/committed-fixture/vector_v4.go", "daemon/committed-fixture/vector_v4_test.go"]
+tests = ["daemon/committed-fixture/vector_v4_test.go"]
+verification_contract = "go vet ./daemon/committed-fixture/ && go test -count=1 ./daemon/committed-fixture/ -run '^TestVectorV4CommittedVerifies$'"
+do_1 = "In daemon/committed-fixture/vector_v4.go:424 the call of the removed verify.ReceiptInclusion becomes the retained pair: codec.DecodeBatchHeader(header) yields the receipt Merkle root, verify.ReceiptAtRoot(positive.Receipt, &positive.Proof, decoded.ReceiptMerkleRoot, vector.Authorization.PublicKey) proves the receipt under it, and verify.Ed25519Digest(vector.Authorization.PublicKey, [64]byte(signature), codec.BatchHeaderDigest(header)) authenticates the header signature; no removed verifier is restored (layerxproof/exportcheck/inclusion_exports_test.go:15-25 keeps them absent)."
+symbols = ["v4Package", "recordV4", "TestVectorV4CommittedVerifies"]
+
+[capability.18.1490.1]
+title = "Issue #1490: Switch the embedded provider's chain identity and RPC route with the selected virtual network"
+reqs = ["8361.1"]
+touches = ["sdk/wallet/src/provider.ts", "apps/wallet/src/wallet/WalletProvider.tsx", "apps/wallet/src/platform/storage/storage.acceptance.test.ts"]
+tests = ["apps/wallet/src/platform/storage/storage.acceptance.test.ts", "apps/wallet/src/wallet/WalletProvider.test.tsx"]
+verification_contract = "pnpm --dir apps/wallet exec vitest run src/platform/storage/storage.acceptance.test.ts src/wallet/WalletProvider.test.tsx"
+do_1 = "In sdk/wallet/src/provider.ts PaxeerProvider gains a protected method switchActiveChain(chainId: number, rpcUrl: string): void that stores the new chainId and RPC destination (rpcUrl at :109 loses readonly), invalidates the capability session (invalidateCapsSession, as the account path does at :232) and emits chainChanged with toQuantity(BigInt(chainId)) when the chain differs; eth_chainId and net_version (:188-191) and the JSON-RPC fetch (:419) then follow the selection and no other public surface changes."
+symbols = ["WalletNetworkProvider", "PaxeerProvider"]
+
 [capability.21.163.1]
 title = "Prove the kit path end to end: producer, transport, consumer"
 reqs = ["21163.1"]
@@ -34963,7 +35034,7 @@ touches = ["contracts/launchpad/test/production/ProofLaunchpadContractsTooling.t
 tests = ["contracts/launchpad/test/production/ProofLaunchpadContractsTooling.test.js"]
 verification_contract = "pnpm --dir contracts/launchpad exec hardhat test test/production/ProofLaunchpadContractsTooling.test.js"
 do_1 = "The real path this task proves is node lib/upgrade-preflight.js (contracts/launchpad/scripts/lib/upgrade-preflight.js:73); node lib/production-health.js (contracts/launchpad/scripts/lib/production-health.js:121); hardhat run scripts/set-creation-fee.js (contracts/launchpad/scripts/set-creation-fee.js:16) -> the command run as a subprocess of the built package -> contracts/launchpad/scripts/event-emitter-v2/02b-direct-upgrade.js, contracts/launchpad/scripts/upgrade.js, contracts/launchpad/scripts/event-emitter-v2/02-queue-upgrade.js, contracts/launchpad/scripts/event-emitter-v2/04-wire-registries.js, contracts/launchpad/scripts/upgrade-launchpad-optical.js, contracts/launchpad/scripts/event-emitter-v2/01-deploy-impl.js. The inventory is every new or changed interface under contract contracts/launchpad.md#launchpad-contracts-tooling in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 3 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["js"]
+symbols = []
 
 [capability.21.157.1]
 title = "Prove the env path end to end: producer, transport, consumer"
@@ -35314,7 +35385,7 @@ touches = ["modules/pricefeed/proof_pricefeed_0x1020_test.go", "modules/pricefee
 tests = ["modules/pricefeed/proof_pricefeed_0x1020_test.go"]
 verification_contract = "go test -count=1 ./modules/pricefeed/ -run '^TestProofPricefeed0x1020'"
 do_1 = "The real path this task proves is func MarkSubmission(ctx sdk.Context, tx sdk.Tx, k keeper.Keeper) error (modules/pricefeed/ante.go:106); func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, bz jso (modules/pricefeed/module.go:51) -> the exported Go surface the listed callers compile against -> node/ante/cosmos_checktx.go. The inventory is every new or changed interface under contract contracts/markets.md#pricefeed-0x1020 in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 2 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["MarkSubmission", "func"]
+symbols = ["MarkSubmission"]
 
 [capability.21.119.1]
 title = "Prove the explorer path end to end: producer, transport, consumer"
@@ -35323,7 +35394,7 @@ touches = ["services/platform/perps-data/internal/explorer/proof_explorer_test.g
 tests = ["services/platform/perps-data/internal/explorer/proof_explorer_test.go"]
 verification_contract = "go test -count=1 ./services/platform/perps-data/internal/explorer/ -run '^TestProofExplorer'"
 do_1 = "The real path this task proves is GET /api/explorer/health (services/platform/perps-data/internal/explorer/server.go:83); type Options struct (services/platform/perps-data/internal/explorer/server.go:38); GET /api/chain/health (services/platform/perps-data/internal/explorer/server.go:82) -> the HTTP route served by the real server; the exported Go surface the listed callers compile against -> services/platform/perps-data/internal/explorer/server_test.go, services/platform/perps-data/cmd/perps-explorer/main.go, services/platform/perps-data/e2e_test.go. The inventory is every new or changed interface under contract contracts/perps-data.md#explorer in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 3 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["struct"]
+symbols = []
 
 [capability.21.118.1]
 title = "Prove the configuration path end to end: producer, transport, consumer"
@@ -35341,7 +35412,7 @@ touches = ["modules/layerxpay/keeper/proof_pay_genesis_test.go", "modules/layerx
 tests = ["modules/layerxpay/keeper/proof_pay_genesis_test.go"]
 verification_contract = "go test -count=1 ./modules/layerxpay/keeper/ -run '^TestProofPayGenesis'"
 do_1 = "The real path this task proves is func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState (modules/layerxpay/keeper/genesis.go); func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error (modules/layerxpay/keeper/genesis.go) -> the exported Go surface the listed callers compile against -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/pay.md#pay-genesis in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 2 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func"]
+symbols = []
 
 [capability.21.116.1]
 title = "Prove the layerxledger errors path end to end: producer, transport, consumer"
@@ -35359,7 +35430,7 @@ touches = ["modules/layerxledger/types/proof_layerxledger_genesis_test.go", "mod
 tests = ["modules/layerxledger/types/proof_layerxledger_genesis_test.go"]
 verification_contract = "go test -count=1 ./modules/layerxledger/types/ -run '^TestProofLayerxledgerGenesis'"
 do_1 = "The real path this task proves is func DefaultGenesis() *GenesisState (modules/layerxledger/types/genesis.go); func (gs GenesisState) Validate() error (modules/layerxledger/types/genesis.go) -> the exported Go surface the listed callers compile against; the protobuf message both sides encode -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/ledger-auth.md#layerxledger-genesis in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 2 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["DefaultGenesis", "func"]
+symbols = ["DefaultGenesis"]
 
 [capability.21.114.1]
 title = "Prove the layerxauth genesis path end to end: producer, transport, consumer"
@@ -35368,7 +35439,7 @@ touches = ["modules/layerxauth/types/proof_layerxauth_genesis_test.go", "modules
 tests = ["modules/layerxauth/types/proof_layerxauth_genesis_test.go"]
 verification_contract = "go test -count=1 ./modules/layerxauth/types/ -run '^TestProofLayerxauthGenesis'"
 do_1 = "The real path this task proves is func DefaultGenesis() *GenesisState (modules/layerxauth/types/genesis.go); func (gs GenesisState) Validate() error (modules/layerxauth/types/genesis.go) -> the exported Go surface the listed callers compile against; the protobuf message both sides encode -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/ledger-auth.md#layerxauth-genesis in spec/layerx-merge/interfaces.kvx (3 entries); the test drives at least the 2 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["DefaultGenesis", "func"]
+symbols = ["DefaultGenesis"]
 
 [capability.21.113.1]
 title = "Prove the rpc autobahn path end to end: producer, transport, consumer"
@@ -35440,7 +35511,7 @@ touches = ["modules/spot/keeper/proof_spot_storage_test.go", "modules/spot/keepe
 tests = ["modules/spot/keeper/proof_spot_storage_test.go"]
 verification_contract = "go test -count=1 ./modules/spot/keeper/ -run '^TestProofSpotStorage'"
 do_1 = "The real path this task proves is func ActiveIndexInvariant(k *Keeper) sdk.Invariant (modules/spot/keeper/invariants.go); func (m Migrator) Migrate1to2(ctx sdk.Context) error (modules/spot/keeper/migrations.go) -> the exported Go surface the listed callers compile against; the store key both sides read and write -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/markets.md#spot-storage in spec/layerx-merge/interfaces.kvx (4 entries); the test drives at least the 2 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["ActiveIndexInvariant", "func"]
+symbols = ["ActiveIndexInvariant"]
 
 [capability.21.105.1]
 title = "Prove the layerxexchange retirement path end to end: producer, transport, consumer"
@@ -35458,7 +35529,7 @@ touches = ["modules/layerxauth/keeper/proof_did_binding_test.go", "modules/layer
 tests = ["modules/layerxauth/keeper/proof_did_binding_test.go"]
 verification_contract = "go test -count=1 ./modules/layerxauth/keeper/ -run '^TestProofDidBinding'"
 do_1 = "The real path this task proves is func (k *Keeper) Actor(ctx sdk.Context, caller common.Address) (Actor, error) (modules/layerxauth/keeper/authority.go) -> the exported Go surface the listed callers compile against -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/ledger-auth.md#did-binding in spec/layerx-merge/interfaces.kvx (4 entries); the test drives at least the 1 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func"]
+symbols = []
 
 [capability.21.103.1]
 title = "Prove the pofq 0x0904 path end to end: producer, transport, consumer"
@@ -35521,7 +35592,7 @@ touches = ["services/human/crates/layerx-intents/tests/proof_human_intents.rs", 
 tests = ["services/human/crates/layerx-intents/tests/proof_human_intents.rs"]
 verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-intents --test proof_human_intents"
 do_1 = "The real path this task proves is pub enum IntentKind (services/human/crates/layerx-intents/src/vocabulary.rs:89); pub fn compile(intent: &Intent, registry: &ModuleRegistry) -> Result<CompiledIntent, Compi (services/human/crates/layerx-intents/src/compile.rs:134); impl IntentKind { pub const fn module(&self) -> ModuleId } (services/human/crates/layerx-intents/src/vocabulary.rs:145); pub fn inspect_intent(input: &[u8]) -> Result<IntentHeader, RejectedIntent<'_>> (services/human/crates/layerx-intents/src/reject.rs:98); pub enum IntentKindTag (services/human/crates/layerx-intents/src/reject.rs:9) -> the public Rust item the listed callers compile against -> services/human/crates/layerx-human-service/src/agents/controls.rs, services/human/crates/layerx-human-service/src/agents/create.rs, services/human/crates/layerx-human-service/src/custody/sessions.rs, services/human/crates/layerx-human-service/src/event_producer_tls.rs, services/human/crates/layerx-human-service/src/journeys/resolver.rs, services/human/crates/layerx-human-service/src/onboarding/mod.rs. The inventory is every new or changed interface under contract contracts/services.md#human-intents in spec/layerx-merge/interfaces.kvx (5 entries); the test drives at least the 5 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["IntentKind", "compile", "module", "inspect_intent", "IntentKindTag"]
+symbols = ["IntentKind", "compile", "inspect_intent", "IntentKindTag"]
 
 [capability.21.96.1]
 title = "Prove the mcp path end to end: producer, transport, consumer"
@@ -35584,7 +35655,7 @@ touches = ["modules/tokenfactory/keeper/proof_issuer_did_test.go", "modules/toke
 tests = ["modules/tokenfactory/keeper/proof_issuer_did_test.go"]
 verification_contract = "go test -count=1 ./modules/tokenfactory/keeper/ -run '^TestProofIssuerDid'"
 do_1 = "The real path this task proves is func (k Keeper) SetIssuerDid(ctx sdk.Context, denom string, issuerDid string) error (modules/tokenfactory/keeper/admins.go:54); func (k Keeper) BurnByIssuer(ctx sdk.Context, callerDid string, amount sdk.Coin, from stri (modules/tokenfactory/keeper/issuer_supply.go); func (k Keeper) MintByIssuer(ctx sdk.Context, callerDid string, amount sdk.Coin, to string (modules/tokenfactory/keeper/issuer_supply.go); func (k Keeper) SetDenomPausedByIssuer(ctx sdk.Context, denom, callerDid string, paused bo (modules/tokenfactory/keeper/issuer.go) -> the exported Go surface the listed callers compile against -> modules/tokenfactory/keeper/admins_test.go. The inventory is every new or changed interface under contract contracts/tokenfactory.md#issuer-did in spec/layerx-merge/interfaces.kvx (5 entries); the test drives at least the 4 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func"]
+symbols = []
 
 [capability.21.89.1]
 title = "Prove the 0x1013 layerxcustody path end to end: producer, transport, consumer"
@@ -35593,7 +35664,7 @@ touches = ["modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go", "m
 tests = ["modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go"]
 verification_contract = "go test -count=1 ./modules/layerxcustody/keeper/ -run '^TestProof0x1013Layerxcustody'"
 do_1 = "The real path this task proves is func NewMsgServerImpl(k *Keeper) types.MsgServer { return msgServer{k} } (modules/layerxcustody/keeper/msg_server.go:13); func (k *Keeper) ReleaseRetired(ctx sdk.Context) error (modules/layerxcustody/keeper/release.go); func (k *Keeper) Retired(ctx sdk.Context) bool (modules/layerxcustody/keeper/retire.go) -> the exported Go surface the listed callers compile against -> modules/layerxcustody/handler.go, modules/layerxcustody/handler_test.go, modules/layerxcustody/module.go, node/gov_custody_test.go. The inventory is every new or changed interface under contract contracts/address-inventory.md#0x1013-layerxcustody in spec/layerx-merge/interfaces.kvx (5 entries); the test drives at least the 3 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["NewMsgServerImpl", "func"]
+symbols = ["NewMsgServerImpl"]
 
 [capability.21.88.1]
 title = "Prove the genesis path end to end: producer, transport, consumer"
@@ -35602,7 +35673,7 @@ touches = ["modules/tokenfactory/keeper/proof_genesis_test.go", "modules/tokenfa
 tests = ["modules/tokenfactory/keeper/proof_genesis_test.go"]
 verification_contract = "go test -count=1 ./modules/tokenfactory/keeper/ -run '^TestProofGenesis'"
 do_1 = "The real path this task proves is func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState (modules/tokenfactory/keeper/genesis.go:33); func (k Keeper) InitGenesis(ctx sdk.Context, genState types.GenesisState) (modules/tokenfactory/keeper/genesis.go:11) -> the exported Go surface the listed callers compile against; the genesis parameter the module reads at start; the protobuf message both sides encode -> interchain/modules/apps/transfer/module.go, modules/launchpad/module.go, modules/layerxanchor/module.go, modules/layerxbridge/module.go, modules/layerxcustody/module.go, modules/layerxexchange/keeper/keeper_test.go. The inventory is every new or changed interface under contract contracts/tokenfactory.md#genesis in spec/layerx-merge/interfaces.kvx (5 entries); the test drives at least the 2 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func"]
+symbols = []
 
 [capability.21.87.1]
 title = "Prove the sequencer receipt path end to end: producer, transport, consumer"
@@ -35611,7 +35682,7 @@ touches = ["node/sequencer/proof_sequencer_receipt_test.go", "node/sequencer/acc
 tests = ["node/sequencer/proof_sequencer_receipt_test.go"]
 verification_contract = "go test -count=1 ./node/sequencer/ -run '^TestProofSequencerReceipt'"
 do_1 = "The real path this task proves is var ErrReplicationHalted = errors.New('sequencer: replication halted') (node/sequencer/accepter.go); func NewFollowerReceiptOption(cfg Config) (evmrpc.SequencerReceiptOption, bool) (node/sequencer/follower.go); func NewAccepter(r *Receipter, rep *Replicator, src *ReceiptSource, m *Metrics) *Accepter (node/sequencer/accepter.go); func NewLogFeedPublisher(feed *evmrpc.ReceiptLogFeed) *LogFeedPublisher (node/sequencer/log_feed.go); type ReceiptSource struct (node/sequencer/receipt_source.go) -> the exported Go surface the listed callers compile against -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/sequencer.md#sequencer-receipt in spec/layerx-merge/interfaces.kvx (5 entries); the test drives at least the 5 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["ErrReplicationHalted", "NewFollowerReceiptOption", "NewAccepter", "NewLogFeedPublisher", "struct"]
+symbols = ["ErrReplicationHalted", "NewFollowerReceiptOption", "NewAccepter", "NewLogFeedPublisher"]
 
 [capability.21.86.1]
 title = "Prove the precompile go path end to end: producer, transport, consumer"
@@ -35620,7 +35691,7 @@ touches = ["precompiles/launchpad/proof_precompile_go_test.go", "precompiles/lau
 tests = ["precompiles/launchpad/proof_precompile_go_test.go"]
 verification_contract = "go test -count=1 ./precompiles/launchpad/ -run '^TestProofPrecompileGo'"
 do_1 = "The real path this task proves is var SurfaceRuntime = common.FromHex('0x363d3d373360601b36523d3d601436013d3d6110175af13d600 (precompiles/launchpad/surface.go:12); func GetVersioned(latestUpgrade string, keepers utils.Keepers) utils.VersionedPrecompiles (precompiles/launchpad/setup.go:11); direct 0x1017 ABI: 113 functions, 12 events, 0 errors (precompiles/launchpad/abi.json:1); type PoolKeeper interface (precompiles/launchpad/pool.go:34) -> the exported Go surface the listed callers compile against; the file the producer writes and the consumer reads -> ./precompiles/launchpad/surface_test.go, ./precompiles/setup.go, ./precompiles/launchpad/setup_test.go, precompiles/launchpad/abi_direct_test.go, precompiles/launchpad/run.go. The inventory is every new or changed interface under contract contracts/launchpad.md#precompile-go in spec/layerx-merge/interfaces.kvx (5 entries); the test drives at least the 4 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["SurfaceRuntime", "GetVersioned", "errors", "interface"]
+symbols = ["SurfaceRuntime", "GetVersioned", "errors"]
 
 [capability.21.85.1]
 title = "Prove the rest path end to end: producer, transport, consumer"
@@ -35629,7 +35700,7 @@ touches = ["services/platform/perps-data/internal/rest/proof_rest_test.go", "ser
 tests = ["services/platform/perps-data/internal/rest/proof_rest_test.go"]
 verification_contract = "go test -count=1 ./services/platform/perps-data/internal/rest/ -run '^TestProofRest'"
 do_1 = "The real path this task proves is GET /api/markets (services/platform/perps-data/internal/rest/markets.go:49); GET /api/markets/{symbol} (services/platform/perps-data/internal/rest/markets.go:51); GET /api/{symbol}/{route...} (price, stats, perp_stats, trades, perp_trades, health) (services/platform/perps-data/internal/rest/symbol.go:49); GET /v1/leaderboards/{kind} (kind pnl, volume, win-rate) (services/platform/perps-data/internal/rest/spotusers.go:116); func (s *SpotUsers) StreamItems(ctx context.Context, env delivery.Envelope) ([]SpotStreamI (services/platform/perps-data/internal/rest/spotusers.go:1409) -> the HTTP route served by the real server; the exported Go surface the listed callers compile against -> services/platform/perps-data/internal/rest/venue.go, services/platform/perps-data/internal/rest/venue_test.go, services/platform/perps-data/internal/rest/markets_test.go, services/platform/perps-data/internal/rest/symbol_test.go, services/platform/perps-data/internal/portal/pages.go, services/platform/perps-data/internal/rest/spotusers_test.go. The inventory is every new or changed interface under contract contracts/perps-data.md#rest in spec/layerx-merge/interfaces.kvx (5 entries); the test drives at least the 5 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func"]
+symbols = []
 
 [capability.21.84.1]
 title = "Prove the markets path end to end: producer, transport, consumer"
@@ -35656,7 +35727,7 @@ touches = ["modules/layerxpay/keeper/proof_pay_keeper_test.go", "modules/layerxp
 tests = ["modules/layerxpay/keeper/proof_pay_keeper_test.go"]
 verification_contract = "go test -count=1 ./modules/layerxpay/keeper/ -run '^TestProofPayKeeper'"
 do_1 = "The real path this task proves is func (k Keeper) GetParams(ctx sdk.Context) types.Params (modules/layerxpay/keeper/keeper.go); type Keeper struct { cdc codec.BinaryCodec; storeKey, hostKey sdk.StoreKey; host *lxphost. (modules/layerxpay/keeper/keeper.go); func (k Keeper) SetParams(ctx sdk.Context, params types.Params) (modules/layerxpay/keeper/keeper.go); func (k Keeper) Submit(ctx sdk.Context, caller Caller, activityType uint32, payload []byte (modules/layerxpay/keeper/execute.go); func NewKeeper(cdc codec.BinaryCodec, storeKey, hostKey sdk.StoreKey, host *lxphost.Host,  (modules/layerxpay/keeper/keeper.go) -> the exported Go surface the listed callers compile against -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/pay.md#pay-keeper in spec/layerx-merge/interfaces.kvx (5 entries); the test drives at least the 5 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func", "NewKeeper"]
+symbols = ["NewKeeper"]
 
 [capability.21.81.1]
 title = "Prove the x websearch payment path end to end: producer, transport, consumer"
@@ -35710,7 +35781,7 @@ touches = ["modules/layerxanchor/proof_retirement_test.go", "modules/layerxancho
 tests = ["modules/layerxanchor/proof_retirement_test.go"]
 verification_contract = "go test -count=1 ./modules/layerxanchor/ -run '^TestProofRetirement'"
 do_1 = "The real path this task proves is func NewAppModule(k keeper.Keeper) AppModule (modules/layerxanchor/module.go:78); func (am AppModule) RegisterServices(cfg module.Configurator) (modules/layerxanchor/module.go:86) -> the exported Go surface the listed callers compile against -> node/app.go. The inventory is every new or changed interface under contract contracts/layerxanchor.md#retirement in spec/layerx-merge/interfaces.kvx (6 entries); the test drives at least the 2 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["NewAppModule", "func"]
+symbols = ["NewAppModule"]
 
 [capability.21.75.1]
 title = "Prove the cli path end to end: producer, transport, consumer"
@@ -35746,7 +35817,7 @@ touches = ["modules/layerxpay/types/proof_msg_layerxpay_updateparams_test.go", "
 tests = ["modules/layerxpay/types/proof_msg_layerxpay_updateparams_test.go"]
 verification_contract = "go test -count=1 ./modules/layerxpay/types/ -run '^TestProofMsgLayerxpayUpdateparams'"
 do_1 = "The real path this task proves is var ModuleCdc = codec.NewAminoCodec(amino) (modules/layerxpay/types/codec.go); func (m MsgUpdateParams) ValidateBasic() error (modules/layerxpay/types/msgs.go); func RegisterCodec(cdc *codec.LegacyAmino) (modules/layerxpay/types/codec.go); func RegisterInterfaces(registry cdctypes.InterfaceRegistry) (modules/layerxpay/types/codec.go) -> the exported Go surface the listed callers compile against; cosmos msg -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/pay.md#msg-layerxpay-updateparams in spec/layerx-merge/interfaces.kvx (6 entries); the test drives at least the 4 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["ModuleCdc", "func", "RegisterCodec", "RegisterInterfaces"]
+symbols = ["ModuleCdc", "RegisterCodec", "RegisterInterfaces"]
 
 [capability.21.71.1]
 title = "Prove the oracle aggregator 0x0903 path end to end: producer, transport, consumer"
@@ -35791,7 +35862,7 @@ touches = ["services/launchpad/notifications/proof_launchpad_notifications_test.
 tests = ["services/launchpad/notifications/proof_launchpad_notifications_test.go"]
 verification_contract = "go test -count=1 ./services/launchpad/notifications/ -run '^TestProofLaunchpadNotifications'"
 do_1 = "The real path this task proves is writeError(w, r, status, code) -> {code, message, requestId, retryable, retryAfterMs, fiel (services/launchpad/notifications/errors.go); func AdaptV2Notifications(requestID string, items []InboxItem, next string, at time.Time)  (services/launchpad/notifications/v2_wire.go); func (s Store) ListPage(ctx context.Context, account string, unreadOnly bool, cursor strin (services/launchpad/notifications/store.go); func (s Store) SetReadV2(ctx context.Context, account string, v2ID uuid.UUID) (InboxItem,  (services/launchpad/notifications/store.go); GET /v2/me/notifications -> HTTP.Handler (services/launchpad/notifications/http.go); PUT /v2/me/notifications/{notificationId}/read -> HTTP.Handler (services/launchpad/notifications/http.go) -> the exported Go surface the listed callers compile against; the HTTP route served by the real server; the error code the consumer matches on -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/services.md#launchpad-notifications in spec/layerx-merge/interfaces.kvx (7 entries); the test drives at least the 6 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["writeError", "AdaptV2Notifications", "func", "Handler"]
+symbols = ["writeError", "AdaptV2Notifications", "Handler"]
 
 [capability.21.66.1]
 title = "Prove the websocket path end to end: producer, transport, consumer"
@@ -35818,7 +35889,7 @@ touches = ["programs/crates/layerx-programs-ai-market/tests/proof_ai_market_gues
 tests = ["programs/crates/layerx-programs-ai-market/tests/proof_ai_market_guest.rs"]
 verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --test proof_ai_market_guest"
 do_1 = "The real path this task proves is pub struct SnapshotBinding (programs/crates/layerx-programs-ai-market/src/queries.rs:284); pub struct ReadProof (programs/crates/layerx-programs-ai-market/src/queries.rs:164); pub struct FinalityEvidence (programs/crates/layerx-programs-ai-market/src/queries.rs:275); pub fn bind_snapshot(state_bytes: &[u8], facts: &CaptureFacts, finality: &FinalityEvidence (programs/crates/layerx-programs-ai-market/src/queries.rs:309); pub const FINALIZED_RANK: u8 = 4 (programs/crates/layerx-programs-ai-market/src/queries.rs:24); pub fn require_finalized(&self) -> QueryResult<()> (programs/crates/layerx-programs-ai-market/src/queries.rs:395); pub const BINDING_MAX_BYTES: usize = BINDING_PREFIX_MAX_BYTES + 32 + 33 + 1 + 8 + 8 (programs/crates/layerx-programs-ai-market/src/queries.rs:37); pub fn encode(&self, out: &mut [u8]) -> CodecResult<usize> (programs/crates/layerx-programs-ai-market/src/queries.rs:367) -> the public Rust item the listed callers compile against -> services/agent/crates/layerx-client/src/ai_market.rs, services/platform/hosted/ai-artifacts/src/main.rs, services/platform/hosted/ai-artifacts/src/retention.rs, services/platform/hosted/ai-artifacts/tests/artifact_recovery.rs, services/platform/hosted/indexer/src/ai_market.rs, services/platform/hosted/webhooks/src/ai_market.rs. The inventory is every new or changed interface under contract contracts/programs.md#ai-market-guest in spec/layerx-merge/interfaces.kvx (8 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["SnapshotBinding", "ReadProof", "FinalityEvidence", "bind_snapshot", "u8", "require_finalized", "usize", "encode"]
+symbols = ["SnapshotBinding", "ReadProof", "FinalityEvidence", "bind_snapshot", "require_finalized", "encode"]
 
 [capability.21.63.1]
 title = "Prove the human kms path end to end: producer, transport, consumer"
@@ -35827,7 +35898,7 @@ touches = ["services/human/crates/layerx-human-kms/tests/proof_human_kms.rs", "s
 tests = ["services/human/crates/layerx-human-kms/tests/proof_human_kms.rs"]
 verification_contract = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test proof_human_kms"
 do_1 = "The real path this task proves is layerx-human-kms (services/human/crates/layerx-human-kms/src/main.rs:1); modules: Vec<Module> (services/human/crates/layerx-human-kms/src/config.rs:34); LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER = std::env::var('LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER (services/human/crates/layerx-human-kms/src/config.rs:143); activity_types: Vec<u32> (services/human/crates/layerx-human-kms/src/config.rs:40); module_id: u16 (services/human/crates/layerx-human-kms/src/config.rs:39); LAYERX_HUMAN_KMS_REGISTRY_FILE = serde_json::from_slice(&read('REGISTRY_FILE', 65536, fals (services/human/crates/layerx-human-kms/src/config.rs:92); impl AttestorSigner { pub fn from_config(config: &AttestorSignerConfig) -> Result<Self, At (services/human/crates/layerx-human-kms/src/attestor.rs:549); impl AttestorSigner { pub fn sign_evm_transaction(&self, unsigned: &[u8], chain_id: u64) - (services/human/crates/layerx-human-kms/src/attestor.rs) -> the configuration key both sides read; env var; the public Rust item the listed callers compile against -> GOTCHA.kvx, docker/human-service/Dockerfile, docker/human-service/entrypoint.sh, docker/kernel/Dockerfile, docker/kernel/init.sh, scripts/wallet/gate-lint.sh. The inventory is every new or changed interface under contract contracts/services.md#human-kms in spec/layerx-merge/interfaces.kvx (8 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["Vec", "LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER", "u16", "LAYERX_HUMAN_KMS_REGISTRY_FILE", "from_config", "sign_evm_transaction"]
+symbols = ["Vec", "LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER", "LAYERX_HUMAN_KMS_REGISTRY_FILE", "from_config", "sign_evm_transaction"]
 
 [capability.21.62.1]
 title = "Prove the crypto path end to end: producer, transport, consumer"
@@ -35845,7 +35916,7 @@ touches = ["rpc/config/proof_config_test.go", "rpc/config/config.go", "daemon/pa
 tests = ["rpc/config/proof_config_test.go"]
 verification_contract = "go test -count=1 ./rpc/config/ -run '^TestProofConfig'"
 do_1 = "The real path this task proves is type Config struct (rpc/config/config.go:38); var DefaultConfig = Config (rpc/config/config.go:176); const ConfigTemplate = ` (rpc/config/config.go:484); func ReadConfig(opts servertypes.AppOptions) (Config, error) (rpc/config/config.go:268); evm.batch_request_limit int (default 1000) (rpc/config/config.go); evm.batch_response_max_size int (default 25000000) (rpc/config/config.go); evm.max_subscriptions_logs uint64 (default 10000) (rpc/config/config.go); evm.send_raw_tx_sync_timeout duration (default 2s) (rpc/config/config.go) -> the configuration key both sides read; the exported Go surface the listed callers compile against -> daemon/paxd/cmd/app_config.go, daemon/paxd/cmd/root.go, node/app.go, node/params/config.go, daemon/paxd/cmd/init.go, daemon/paxd/cmd/init_test.go. The inventory is every new or changed interface under contract contracts/evm-rpc.md#config in spec/layerx-merge/interfaces.kvx (8 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["struct", "DefaultConfig", "ConfigTemplate", "ReadConfig", "int", "uint64", "duration"]
+symbols = ["DefaultConfig", "ConfigTemplate", "ReadConfig", "uint64", "duration"]
 
 [capability.21.60.1]
 title = "Prove the records path end to end: producer, transport, consumer"
@@ -35854,7 +35925,7 @@ touches = ["services/platform/perps-data/internal/records/proof_records_test.go"
 tests = ["services/platform/perps-data/internal/records/proof_records_test.go"]
 verification_contract = "go test -count=1 ./services/platform/perps-data/internal/records/ -run '^TestProofRecords'"
 do_1 = "The real path this task proves is type MarketRecord struct (services/platform/perps-data/internal/records/records.go:72); func (s *Symbol) PerpStats(ctx context.Context, symbol string) (PerpStats, error) (services/platform/perps-data/internal/records/records.go:369); func (s *Symbol) Stats(ctx context.Context, symbol string) (Stats, error) (services/platform/perps-data/internal/records/records.go:353); func (s *Symbol) PerpTrades(ctx context.Context, symbol string, limit int) (Trades[PerpTra (services/platform/perps-data/internal/records/records.go:504); func (s *Symbol) Trades(ctx context.Context, symbol string, limit int) (Trades[SpotTrade], (services/platform/perps-data/internal/records/records.go:450); func (s *Symbol) Health(ctx context.Context, symbol string) (Health, error) (services/platform/perps-data/internal/records/records.go:551); func (s *Symbol) Price(ctx context.Context, symbol string) (Price, error) (services/platform/perps-data/internal/records/records.go:313); type MarketSet struct; func NewMarketSet(db *sql.DB, ttl time.Duration) *MarketSet; func ( (services/platform/perps-data/internal/records/marketset.go) -> the exported Go surface the listed callers compile against -> services/platform/perps-data/internal/feeds/topics.go, services/platform/perps-data/internal/portal/pages.go, services/platform/perps-data/internal/rest/markets.go, services/platform/perps-data/internal/feeds/feeds_test.go, services/platform/perps-data/internal/rest/symbol.go. The inventory is every new or changed interface under contract contracts/perps-data.md#records in spec/layerx-merge/interfaces.kvx (8 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["struct", "func", "NewMarketSet"]
+symbols = ["NewMarketSet"]
 
 [capability.21.59.1]
 title = "Prove the sequencer msg path end to end: producer, transport, consumer"
@@ -35872,7 +35943,7 @@ touches = ["modules/launchpad/keeper/proof_module_keeper_test.go", "modules/laun
 tests = ["modules/launchpad/keeper/proof_module_keeper_test.go"]
 verification_contract = "go test -count=1 ./modules/launchpad/keeper/ -run '^TestProofModuleKeeper'"
 do_1 = "The real path this task proves is func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) (modules/launchpad/keeper/genesis.go:14); func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState (modules/launchpad/keeper/genesis.go:205); func (k *Keeper) PriceHistory(ctx sdk.Context, denom string, fromHeight, toHeight uint64)  (modules/launchpad/keeper/price_history.go); var SurfaceRuntime = common.FromHex('0x363d...6000f3') (modules/launchpad/keeper/market.go) -> the exported Go surface the listed callers compile against -> modules/launchpad/module.go, node/app.go, modules/launchpad/launchpadtest/domain_test.go, precompiles/launchpad/fees_test.go, precompiles/launchpad/launchpad_test.go, precompiles/launchpad/nft_test.go. The inventory is every new or changed interface under contract contracts/launchpad.md#module-keeper in spec/layerx-merge/interfaces.kvx (9 entries); the test drives at least the 4 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func", "SurfaceRuntime"]
+symbols = ["SurfaceRuntime"]
 
 [capability.21.57.1]
 title = "Prove the launchpad sdk protocol go path end to end: producer, transport, consumer"
@@ -35890,7 +35961,7 @@ touches = ["modules/spot/keeper/proof_go_exported_modules_spot_keeper_test.go", 
 tests = ["modules/spot/keeper/proof_go_exported_modules_spot_keeper_test.go"]
 verification_contract = "go test -count=1 ./modules/spot/keeper/ -run '^TestProofGoExportedModulesSpotKeeper'"
 do_1 = "The real path this task proves is func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) (modules/spot/keeper/genesis.go:55); func (k *Keeper) ActiveLimitOrderID(ctx sdk.Context, position uint64) (uint64, error) (modules/spot/keeper/orders.go:293); func (k *Keeper) ActiveStopLimitOrderIDs(ctx sdk.Context, index uint64) (uint64, error) (modules/spot/keeper/stoporders.go:761); func (k *Keeper) ActiveStopLossOrderIDs(ctx sdk.Context, index uint64) (uint64, error) (modules/spot/keeper/stoporders.go:765); func (k *Keeper) ExecuteResting(ctx sdk.Context) (RestingExecution, error) (modules/spot/keeper/execute.go:108); func (k *Keeper) GetActiveLimitOrderCount(ctx sdk.Context) (uint64, error) (modules/spot/keeper/orders.go:289); func (k *Keeper) GetActiveStopLimitOrderCount(ctx sdk.Context) (uint64, error) (modules/spot/keeper/stoporders.go:749); func (k *Keeper) GetActiveStopLossOrderCount(ctx sdk.Context) (uint64, error) (modules/spot/keeper/stoporders.go:753) -> the exported Go surface the listed callers compile against -> modules/spot/module.go, node/app.go, modules/spot/module_test.go, precompiles/spot/orders.go, precompiles/spot/stoporders.go, modules/spot/abci.go. The inventory is every new or changed interface under contract contracts/markets.md#go-exported-modules-spot-keeper in spec/layerx-merge/interfaces.kvx (9 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func"]
+symbols = []
 
 [capability.21.55.1]
 title = "Prove the spot params path end to end: producer, transport, consumer"
@@ -35962,7 +36033,7 @@ touches = ["node/proof_node_go_api_test.go", "node/app.go", "node/precompiles.go
 tests = ["node/proof_node_go_api_test.go"]
 verification_contract = "go test -count=1 ./node/ -run '^TestProofNodeGoApi'"
 do_1 = "The real path this task proves is func (app *App) SetOpenBlock(ob OpenBlock) (node/app.go:3049); func (pk *PrecompileKeepers) LayerXAuthK() *layerxauthkeeper.Keeper (node/precompiles.go); func (pk *PrecompileKeepers) LayerXLedgerK() *layerxledgerkeeper.Keeper (node/precompiles.go); func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.TxConfig) (node/app.go:3248); func (app *App) Sequenced(ctx sdk.Context, height int64) bool (node/app.go:3099); func (app *App) SequencerSource() tmtypes.SequencerSource (node/app.go); func (app *App) SetCommitListener(fn func(height int64, appHash []byte)) (node/app.go); func (app *App) SetSequencerRPC(opt evmrpc.SequencerOption, rcpt evmrpc.SequencerReceiptOp (node/app.go) -> the exported Go surface the listed callers compile against -> node/sequencer/resolution_test.go. The inventory is every new or changed interface under contract contracts/sequencer.md#node-go-api in spec/layerx-merge/interfaces.kvx (11 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func"]
+symbols = []
 
 [capability.21.47.1]
 title = "Prove the node abci path end to end: producer, transport, consumer"
@@ -35971,7 +36042,7 @@ touches = ["node/proof_node_abci_test.go", "node/app.go", "node/abci.go", "node/
 tests = ["node/proof_node_abci_test.go"]
 verification_contract = "go test -count=1 ./node/ -run '^TestProofNodeAbci'"
 do_1 = "The real path this task proves is func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessRequest, last (node/app.go:2207); func (app *App) BeginBlock( (node/abci.go:25); func (app *App) CheckTx(ctx context.Context, req *abci.RequestCheckTxV2) *abci.ResponseChe (node/abci.go:95); func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error) (node/abci.go:260); func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock) (*abci.Re (node/app.go:1657); func (app *App) LeaderSchedule(height int64) (int64, [][32]byte, error) (node/leader_source.go); func (app *App) ProcessProposalHandler(ctx sdk.Context, req *abci.RequestProcessProposal)  (node/app.go:1533); var ErrSequencedBlockHalt = errors.New('sequenced block halt') (node/sequenced_halt.go) -> the exported Go surface the listed callers compile against -> tests/occ/utils/utils.go, engine/tests/state_harness_test.go, engine/tests/giga_test.go, modules/evm/keeper/feecollect_test.go, node/sequencer/seal_test.go, node/sequencer/seal_batch_test.go. The inventory is every new or changed interface under contract contracts/sequencer.md#node-abci in spec/layerx-merge/interfaces.kvx (11 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func", "ErrSequencedBlockHalt"]
+symbols = ["ErrSequencedBlockHalt"]
 
 [capability.21.46.1]
 title = "Prove the payload codec path end to end: producer, transport, consumer"
@@ -36025,7 +36096,7 @@ touches = ["consensus/test/e2e/pkg/proof_consensus_leader_pin_test.go", "consens
 tests = ["consensus/test/e2e/pkg/proof_consensus_leader_pin_test.go"]
 verification_contract = "go test -count=1 ./consensus/test/e2e/pkg/ -run '^TestProofConsensusLeaderPin'"
 do_1 = "The real path this task proves is func (t Testnet) Validate() error (consensus/test/e2e/pkg/testnet.go:294); LeaderPinHeight int64 `toml:'leader_pin_height'` (consensus/test/e2e/pkg/manifest.go); LeaderPin []string `toml:'leader_pin'` (consensus/test/e2e/pkg/manifest.go) -> the exported Go surface the listed callers compile against; the configuration key both sides read -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/sequencer.md#consensus-leader-pin in spec/layerx-merge/interfaces.kvx (13 entries); the test drives at least the 3 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func"]
+symbols = []
 
 [capability.21.40.1]
 title = "Prove the launchpad discovery path end to end: producer, transport, consumer"
@@ -36034,7 +36105,7 @@ touches = ["services/launchpad/discovery/proof_launchpad_discovery_test.go", "se
 tests = ["services/launchpad/discovery/proof_launchpad_discovery_test.go"]
 verification_contract = "go test -count=1 ./services/launchpad/discovery/ -run '^TestProofLaunchpadDiscovery'"
 do_1 = "The real path this task proves is writeError(w, r, status, code) -> {code, message, requestId, retryable, retryAfterMs, fiel (services/launchpad/discovery/errors.go); func AdaptV2AlertCreate(requestID, wallet string, r AlertRule, at time.Time) ([]byte, erro (services/launchpad/discovery/alerts_v2.go); func AdaptV2SquadCreate / AdaptV2SquadRead / AdaptV2SquadMembership(requestID string, ...) (services/launchpad/discovery/squads_v2.go); HTTP.Wallet func(*http.Request) (string, error) (services/launchpad/discovery/http.go); func (s Store) DisableRule(ctx context.Context, actor, id string) error (services/launchpad/discovery/alerts.go); func (s Store) RequestJoin(ctx context.Context, actor, squadID string, now time.Time) (Mem (services/launchpad/discovery/squads.go); func (s Store) SetMemberRole(ctx context.Context, actor, squadID, account, role string, ex (services/launchpad/discovery/squads.go); func (s Store) Squad(ctx context.Context, id string) (Squad, error) (services/launchpad/discovery/squads.go) -> the exported Go surface the listed callers compile against; the HTTP route served by the real server; the error code the consumer matches on -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/services.md#launchpad-discovery in spec/layerx-merge/interfaces.kvx (13 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["writeError", "AdaptV2AlertCreate", "AdaptV2SquadMembership", "func"]
+symbols = ["writeError", "AdaptV2AlertCreate", "AdaptV2SquadMembership"]
 
 [capability.21.39.1]
 title = "Prove the scheduler 0x0905 path end to end: producer, transport, consumer"
@@ -36052,7 +36123,7 @@ touches = ["modules/lxphost/proof_lxphost_host_test.go", "modules/lxphost/host.g
 tests = ["modules/lxphost/proof_lxphost_host_test.go"]
 verification_contract = "go test -count=1 ./modules/lxphost/ -run '^TestProofLxphostHost'"
 do_1 = "The real path this task proves is func (c Code) Error() string (modules/lxphost/host.go:518); type Code int32 (modules/lxphost/host.go:516); type Activity struct (modules/lxphost/host.go:555); type AuthorityScope struct (modules/lxphost/host.go); func (h *Host) Close() (modules/lxphost/host.go:612); type Config struct (modules/lxphost/host.go:546); func ExecuteActivity(ctx sdk.Context, host *Host, authority KernelAuthority, activityType  (modules/lxphost/execute.go); func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelAuthority)  (modules/lxphost/host.go:678) -> the exported Go surface the listed callers compile against -> precompiles/layerxexchange/errors.go. The inventory is every new or changed interface under contract contracts/kernel.md#lxphost-host in spec/layerx-merge/interfaces.kvx (13 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func", "int32", "struct", "ExecuteActivity"]
+symbols = ["int32", "ExecuteActivity"]
 
 [capability.21.37.1]
 title = "Prove the rpc routes path end to end: producer, transport, consumer"
@@ -36079,7 +36150,7 @@ touches = ["daemon/paxd/cmd/proof_node_cli_test.go", "daemon/paxd/cmd/root.go", 
 tests = ["daemon/paxd/cmd/proof_node_cli_test.go"]
 verification_contract = "go test -count=1 ./daemon/paxd/cmd/ -run '^TestProofNodeCli'"
 do_1 = "The real path this task proves is rootCmd.AddCommand( (daemon/paxd/cmd/root.go:126); paxd sequencer gen-receipt-key --output FILE (daemon/paxd/cmd/sequencer.go); Use: 'sequencer\ (daemon/paxd/cmd/sequencer.go); server.AddCommands( (daemon/paxd/cmd/root.go:152); paxd start --sequencer.enable --sequencer.mode --sequencer.wal-dir --sequencer.receipt-key (daemon/paxd/cmd/root.go); paxd start --wasm.memory_cache_size --wasm.query_gas_limit --wasm.simulation_gas_limit (daemon/paxd/cmd/root.go); type CustomAppConfig struct (daemon/paxd/cmd/app_config.go:23); func NewCustomAppConfig(baseConfig *srvconfig.Config, evmConfig evmrpcconfig.Config) Custo (daemon/paxd/cmd/app_config.go:40) -> the command run as a subprocess of the built binary; the exported Go surface the listed callers compile against -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/sequencer.md#node-cli in spec/layerx-merge/interfaces.kvx (15 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["AddCommand", "FILE", "AddCommands", "simulation_gas_limit", "struct", "NewCustomAppConfig"]
+symbols = ["AddCommand", "FILE", "AddCommands", "simulation_gas_limit", "NewCustomAppConfig"]
 
 [capability.21.34.1]
 title = "Prove the bridge relayer path end to end: producer, transport, consumer"
@@ -36169,7 +36240,7 @@ touches = ["modules/perps/keeper/proof_perps_governance_test.go", "modules/perps
 tests = ["modules/perps/keeper/proof_perps_governance_test.go"]
 verification_contract = "go test -count=1 ./modules/perps/keeper/ -run '^TestProofPerpsGovernance'"
 do_1 = "The real path this task proves is perps_market_set attrs [market_id, enabled] (modules/perps/keeper/msg_server.go); perps_params_updated attrs [authority] (modules/perps/keeper/msg_server.go); perps_pause_set attrs [paused] (modules/perps/keeper/msg_server.go); func NewMsgServerImpl(k *Keeper) types.MsgServer (modules/perps/keeper/msg_server.go); func (k *Keeper) SetPaused(ctx sdk.Context, authority string, paused bool) error (modules/perps/keeper/pause.go) -> the exported Go surface the listed callers compile against; the protobuf message both sides encode; event -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/markets.md#perps-governance in spec/layerx-merge/interfaces.kvx (18 entries); the test drives at least the 5 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["NewMsgServerImpl", "func"]
+symbols = ["NewMsgServerImpl"]
 
 [capability.21.24.1]
 title = "Prove the module cli path end to end: producer, transport, consumer"
@@ -36214,7 +36285,7 @@ touches = ["modules/layerxauth/keeper/proof_layerxauth_keeper_test.go", "modules
 tests = ["modules/layerxauth/keeper/proof_layerxauth_keeper_test.go"]
 verification_contract = "go test -count=1 ./modules/layerxauth/keeper/ -run '^TestProofLayerxauthKeeper'"
 do_1 = "The real path this task proves is func AuthEvents(receipt lxphost.Receipt) ([]Event, error) (modules/layerxauth/keeper/events.go); func (k *Keeper) CapabilityScope(ctx sdk.Context, grantID [32]byte) ([]byte, error) (modules/layerxauth/keeper/views.go); func (k *Keeper) CheckActivity(ctx sdk.Context, grantID [32]byte, activityType uint32, ass (modules/layerxauth/keeper/views.go); func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState (modules/layerxauth/keeper/genesis.go); func (k *Keeper) GetGrant(ctx sdk.Context, grantID [32]byte) ([]byte, error) (modules/layerxauth/keeper/views.go); func (k *Keeper) GetParams(ctx sdk.Context) types.Params (modules/layerxauth/keeper/keeper.go); func (k *Keeper) GrantCapability(ctx sdk.Context, actor Actor, grant []byte, idempotencyKe (modules/layerxauth/keeper/capability.go); func (k *Keeper) GrantSession(ctx sdk.Context, actor Actor, grant []byte, expirySequence u (modules/layerxauth/keeper/sessions.go) -> the exported Go surface the listed callers compile against -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/ledger-auth.md#layerxauth-keeper in spec/layerx-merge/interfaces.kvx (23 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["AuthEvents", "func"]
+symbols = ["AuthEvents"]
 
 [capability.21.19.1]
 title = "Prove the sequencer executor path end to end: producer, transport, consumer"
@@ -36223,7 +36294,7 @@ touches = ["node/sequencer/proof_sequencer_executor_test.go", "node/sequencer/ex
 tests = ["node/sequencer/proof_sequencer_executor_test.go"]
 verification_contract = "go test -count=1 ./node/sequencer/ -run '^TestProofSequencerExecutor'"
 do_1 = "The real path this task proves is func NewExecutor(host Host, opts Options) (Executor, error) (node/sequencer/executor.go:194); func LoadReceiptKey(keyFile, consensusKeyFile string, pins []verify.SequencerAuthorization (node/sequencer/receiptkey.go:42); func NewReceipter(exec Executor, host Host, evm *evmkeeper.Keeper, key *ReceiptKey, module (node/sequencer/receipt.go:311); var seqHashDomain = []byte('PAXEER/v1/sequence\\x00') (node/sequencer/executor.go:37); type Ack struct (node/sequencer/standby.go:64); const ConfigTemplate = ` (node/sequencer/config.go:189); func NewFeeFloor(exec Executor, host Host, minGasPrices string, params paramskeeper.Keeper (node/sequencer/fee.go:38); func NewReplicator(cfg ReplicatorConfig) (*Replicator, error) (node/sequencer/standby.go:196) -> the exported Go surface the listed callers compile against; the file the producer writes and the consumer reads -> rpc/pending_block_test.go, rpc/pending_filter_test.go, rpc/send_sequencer_test.go, rpc/pending_state_test.go, node/sequencer_context_test.go, rpc/sequencer_receipt_vectors_test.go. The inventory is every new or changed interface under contract contracts/sequencer.md#sequencer-executor in spec/layerx-merge/interfaces.kvx (24 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["NewExecutor", "LoadReceiptKey", "NewReceipter", "seqHashDomain", "struct", "ConfigTemplate", "NewFeeFloor", "NewReplicator"]
+symbols = ["NewExecutor", "LoadReceiptKey", "NewReceipter", "seqHashDomain", "ConfigTemplate", "NewFeeFloor", "NewReplicator"]
 
 [capability.21.18.1]
 title = "Prove the launchpad gateway path end to end: producer, transport, consumer"
@@ -36250,7 +36321,7 @@ touches = ["modules/layerxledger/keeper/proof_layerxledger_keeper_test.go", "mod
 tests = ["modules/layerxledger/keeper/proof_layerxledger_keeper_test.go"]
 verification_contract = "go test -count=1 ./modules/layerxledger/keeper/ -run '^TestProofLayerxledgerKeeper'"
 do_1 = "The real path this task proves is func AccountID(didKey, assetID [32]byte) ([32]byte, error) (modules/layerxledger/keeper/accounts.go); func (k *Keeper) AccountOwner(ctx sdk.Context, accountID [32]byte) ([32]byte, error) (modules/layerxledger/keeper/views.go); func (k *Keeper) BalanceOf(ctx sdk.Context, accountID, assetID [32]byte) (sdk.Int, error) (modules/layerxledger/keeper/views.go); func (k *Keeper) Burn(ctx sdk.Context, actor Actor, assetID, fromAccount [32]byte, amount  (modules/layerxledger/keeper/supply.go); func (k *Keeper) Draw(ctx sdk.Context, actor Actor, args types.DrawArgs) (Result, error) (modules/layerxledger/keeper/draw.go); func (k *Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState (modules/layerxledger/keeper/genesis.go); func (k *Keeper) GetAsset(ctx sdk.Context, assetID [32]byte) (lxphost.AssetRecord, error) (modules/layerxledger/keeper/views.go); func (k *Keeper) GetParams(ctx sdk.Context) types.Params (modules/layerxledger/keeper/keeper.go) -> the exported Go surface the listed callers compile against -> the test itself, standing where the first real consumer will (the anchor lists no caller outside its own files yet). The inventory is every new or changed interface under contract contracts/ledger-auth.md#layerxledger-keeper in spec/layerx-merge/interfaces.kvx (30 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["AccountID", "func"]
+symbols = ["AccountID"]
 
 [capability.21.15.1]
 title = "Prove the cli cli commands path end to end: producer, transport, consumer"
@@ -36277,7 +36348,7 @@ touches = ["modules/xweb/keeper/proof_go_api_test.go", "modules/xweb/keeper/gene
 tests = ["modules/xweb/keeper/proof_go_api_test.go"]
 verification_contract = "go test -count=1 ./modules/xweb/keeper/ -run '^TestProofGoApi'"
 do_1 = "The real path this task proves is func (k Keeper) ExportGenesis(ctx sdk.Context) types.GenesisState (modules/xweb/keeper/genesis.go:35); func (k Keeper) InitGenesis(ctx sdk.Context, genesis types.GenesisState) (modules/xweb/keeper/genesis.go:12); var ErrProgramModuleDisabled = errors.New('LXP_MODULE_DISABLED') (modules/xweb/keeper/activation.go); func (k Keeper) FulfilProgram(ctx sdk.Context, raw []byte) error (modules/xweb/keeper/program_fulfil.go:117); func (k Keeper) GetProgramResult(ctx sdk.Context, programID types.Hash32, requestID uint64 (modules/xweb/keeper/program_result.go); func NewQueryServer(k Keeper) types.QueryServer (modules/xweb/keeper/grpc_query.go); func (k Keeper) ProgramAnswerEntries(ctx sdk.Context) []types.ProgramAnswerEntry (modules/xweb/keeper/keeper.go); func ProgramCountersInvariant(k Keeper) sdk.Invariant (modules/xweb/keeper/invariants.go) -> the exported Go surface the listed callers compile against; the genesis parameter the module reads at start; the store key both sides read and write -> modules/xweb/module.go, node/upgrades_xweb_test.go, precompiles/layerxagent/teeattestor/teeattestor_test.go, node/upgrades.go, precompiles/xweb/xweb_test.go. The inventory is every new or changed interface under contract contracts/web.md#go-api in spec/layerx-merge/interfaces.kvx (32 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func", "ErrProgramModuleDisabled", "NewQueryServer", "ProgramCountersInvariant"]
+symbols = ["ErrProgramModuleDisabled", "NewQueryServer", "ProgramCountersInvariant"]
 
 [capability.21.12.1]
 title = "Prove the layerxagent module path end to end: producer, transport, consumer"
@@ -36286,7 +36357,7 @@ touches = ["modules/layerxagent/keeper/proof_layerxagent_module_test.go", "modul
 tests = ["modules/layerxagent/keeper/proof_layerxagent_module_test.go"]
 verification_contract = "go test -count=1 ./modules/layerxagent/keeper/ -run '^TestProofLayerxagentModule'"
 do_1 = "The real path this task proves is func DefaultParams() Params (modules/layerxagent/keeper/keeper.go:56); func (k Keeper) EndBlocker(ctx sdk.Context) error (modules/layerxagent/keeper/scheduler.go:27); func (k Keeper) Reschedule(ctx sdk.Context, caller common.Address, id, newBlock uint64) er (modules/layerxagent/keeper/keeper.go:331); func (k Keeper) Schedule(ctx sdk.Context, payer sdk.AccAddress, creator, target common.Add (modules/layerxagent/keeper/keeper.go:265); func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState (modules/layerxagent/keeper/genesis.go); func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error (modules/layerxagent/keeper/genesis.go); ModuleName = 'layerxagent\ (modules/layerxagent/keeper/keeper.go:22); func NewMsgServerImpl(k Keeper, authority string) types.MsgServer (modules/layerxagent/keeper/msg_server.go) -> the exported Go surface the listed callers compile against; the protobuf message both sides encode; the genesis parameter the module reads at start -> modules/layerxagent/keeper/scheduler_test.go. The inventory is every new or changed interface under contract contracts/agent-functions.md#layerxagent-module in spec/layerx-merge/interfaces.kvx (32 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["DefaultParams", "func", "ModuleName", "NewMsgServerImpl"]
+symbols = ["DefaultParams", "ModuleName", "NewMsgServerImpl"]
 
 [capability.21.11.1]
 title = "Prove the layerxledger 0x101a path end to end: producer, transport, consumer"
@@ -36304,7 +36375,7 @@ touches = ["modules/sequencer/keeper/proof_sequencer_module_test.go", "modules/s
 tests = ["modules/sequencer/keeper/proof_sequencer_module_test.go"]
 verification_contract = "go test -count=1 ./modules/sequencer/keeper/ -run '^TestProofSequencerModule'"
 do_1 = "The real path this task proves is func (k Keeper) Leaders(ctx sdk.Context) ([][32]byte, error) (modules/sequencer/keeper/keeper.go:149); func (k Keeper) DeliverSequenceBatch(ctx sdk.Context, msg types.MsgSequenceBatch) error (modules/sequencer/keeper/keeper.go:56); func ParamKeyTable() paramtypes.KeyTable (modules/sequencer/keeper/receipt_keys.go:172); ErrNotActivated = Register('sequencer', 11, 'sequence batch below the activation height') (modules/sequencer/keeper/keeper.go); ErrNotActivated = sdkerrors.Register(types.ModuleName, 11, 'sequence batch below the activ (modules/sequencer/keeper/keeper.go); func GetLeadersParam(ctx sdk.Context, paramSpace paramtypes.Subspace) [][32]byte (modules/sequencer/keeper/leaders_param.go); func (k Keeper) ActivationHeight(ctx sdk.Context) (int64, error) (modules/sequencer/keeper/activation.go); func (k Keeper) ExportGenesis(ctx sdk.Context) (types.GenesisState, error) (modules/sequencer/keeper/keeper.go:199) -> the exported Go surface the listed callers compile against; the store key both sides read and write; the error code the consumer matches on -> modules/sequencer/module.go, node/upgrades_sequencer_test.go, node/sequenced_block_test.go, node/app.go, rpc/sequencer_receipt_test.go. The inventory is every new or changed interface under contract contracts/sequencer.md#sequencer-module in spec/layerx-merge/interfaces.kvx (37 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["func", "ParamKeyTable", "ErrNotActivated", "GetLeadersParam"]
+symbols = ["ParamKeyTable", "ErrNotActivated", "GetLeadersParam"]
 
 [capability.21.9.1]
 title = "Prove the agentd path end to end: producer, transport, consumer"
@@ -36358,7 +36429,7 @@ touches = ["services/wallet/attestor/internal/server/proof_s28_wallet_attestors_
 tests = ["services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go"]
 verification_contract = "go test -count=1 ./services/wallet/attestor/internal/server/ -run '^TestProofS28WalletAttestorsTss'"
 do_1 = "The real path this task proves is POST /v1/sign (signRoute: kind operator_verification goes to operatorOnly HandleVerificati (services/wallet/attestor/internal/server/server.go:147); POST /v1/keys/generate (gateway certificate (gatewayOnly keys.generate), inventory check) (services/wallet/attestor/internal/server/server.go:140); server.LXReviewResponse: type LXReviewResponse struct (services/wallet/attestor/internal/server/sign.go:788); server.SignRequest: type SignRequest struct (services/wallet/attestor/internal/server/sign.go:82); POST /v2/sign/native (gateway certificate (gatewayOnly sign.native-v2)) (services/wallet/attestor/internal/server/server.go:148); server.SignKinds: func SignKinds() []string (services/wallet/attestor/internal/server/sign.go:58); server.PathLXReview: PathLXReview = '/v1/lx/review\ (services/wallet/attestor/internal/server/server.go:39); POST /v1/authority (gateway certificate (gatewayOnly custody.authority)) (services/wallet/attestor/internal/server/server.go:146) -> the exported Go surface the listed callers compile against; the HTTP route served by the real server; the metric the consumer scrapes -> services/human/crates/layerx-human-kms/src/attestor.rs, services/wallet/attestor/cmd/loadtest/main.go, services/wallet/ceremony/internal/attestor/client.go, services/wallet/ceremony/internal/testsupport/postgres.go, services/wallet/gateway/src/agent/actions/orchestrator.ts, services/wallet/gateway/src/attestor/client.ts. The inventory is every new or changed interface under contract contracts/services.md#s28-wallet-attestors-tss in spec/layerx-merge/interfaces.kvx (51 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["struct", "SignKinds", "PathLXReview"]
+symbols = ["SignKinds", "PathLXReview"]
 
 [capability.21.3.1]
 title = "Prove the layerxprograms 0x101d path end to end: producer, transport, consumer"
@@ -36376,7 +36447,7 @@ touches = ["programs/crates/layerx-programs-registry/tests/proof_registry_crate.
 tests = ["programs/crates/layerx-programs-registry/tests/proof_registry_crate.rs"]
 verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --test proof_registry_crate"
 do_1 = "The real path this task proves is pub enum ProgramBundleError (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:610); pub enum ProgramHeadKind (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:406); pub enum ProtocolEvidenceError (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:116); pub struct VerifiedDeploymentEvidence (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:185); pub fn module(&self) -> &[u8] (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:271); pub const fn receipt_digest(&self) -> [u8; 32] (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:236); pub fn verify_deployment(&self, proof: &DeploymentProof, now_ms: u64) -> Result<VerifiedDe (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:836); pub const fn abi_version(&self) -> u16 (programs/crates/layerx-programs-registry/src/protocol_evidence.rs:219) -> the public Rust item the listed callers compile against; the file the producer writes and the consumer reads -> services/agent/crates/layerx-agentd/src/ops/program.rs, services/agent/crates/layerx-agentd/src/read/program_node.rs, programs/crates/layerx-programs-registry/tests/program_bundle_verification.rs, programs/crates/layerx-programs-registry/tests/registry.rs, programs/crates/layerx-programs-registry/tests/support/mod.rs, services/platform/hosted/registry/src/journal.rs. The inventory is every new or changed interface under contract contracts/programs.md#registry-crate in spec/layerx-merge/interfaces.kvx (93 entries); the test drives at least the 8 producers listed here and reaches the consumers through the real crossing layer, with no replacement of that layer."
-symbols = ["ProgramBundleError", "ProgramHeadKind", "ProtocolEvidenceError", "VerifiedDeploymentEvidence", "module", "receipt_digest", "verify_deployment", "abi_version"]
+symbols = ["ProgramBundleError", "ProgramHeadKind", "ProtocolEvidenceError", "VerifiedDeploymentEvidence", "receipt_digest", "verify_deployment", "abi_version"]
 
 [capability.21.1.1]
 title = "Prove the layerxpay 0x101b path end to end: producer, transport, consumer"
@@ -36392,7 +36463,7 @@ title = "Match the ProgramCall disclosure method in the agent creation lifecycle
 reqs = ["8360.1"]
 touches = ["services/human/crates/layerx-human-service/src/agents/create.rs", "services/human/crates/layerx-human-service/tests/agent_create.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/agent_create.rs::program_call_disclosure_is_refused_as_a_lifecycle_method"]
-verification_contract = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_create"
+verification_contract = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --test agent_create && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_create"
 do_1 = "In services/human/crates/layerx-human-service/src/agents/create.rs bound_activity (:610) adds layerx_crypto::disclosure::call::ConstructMethod::ProgramCall { .. } to the refusing arm that already lists LedgerOpenAccount, LedgerRegister, LedgerMint and LedgerBurn (:664-667), because a program call is not a lifecycle transaction; no other arm changes."
 symbols = ["bound_activity", "program_call_disclosure_is_refused_as_a_lifecycle_method"]
 
@@ -36464,7 +36535,7 @@ title = "Issue #1485: Pass the injected clock to the retained KMS and custody te
 reqs = ["8352.1"]
 touches = ["services/human/crates/layerx-human-service/tests/custody_frame.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/custody_frame.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs"]
-verification_contract = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test custody_frame"
+verification_contract = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --test custody_frame && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test custody_frame"
 do_1 = "In services/human/crates/layerx-human-service/tests/custody_frame.rs pass an Arc<dyn Clock> (the file's own HostClock at :29 implements layerx_types::clock::Clock) as the sixth argument of RemoteKmsProvider::new (:215) and the fourth of LxkpGateway::new (:364), and in services/human/crates/layerx-human-service/tests/native_journey_approval.rs:233 pass the clock the test already holds (or a HostClock) as the sixth argument, as src/bin/layerx-human-kms-gateway.rs:81-95 does with Arc::clone(&clock)."
 symbols = ["RemoteKmsProvider::new", "LxkpGateway::new"]
 
@@ -113388,6 +113459,68 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.18.1492.1]
+title = "Issue #1492: Mount the virtual-network switcher in the wallet Settings network view"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8363.1"]
+capabilities = ["18.1492.1"]
+interfaces = []
+do_1 = "In apps/wallet/src/widgets/settings/SettingsWidget.tsx NetworkView (:210-295) renders <NetworkSwitcher /> (apps/wallet/src/components/NetworkSwitcher.tsx:61) between the network card and the custom-RPC card, keeping every custom-RPC control and handler; the network card shows the active network's name and chain id from useActiveNetwork (NetworkSwitcher.tsx:27) instead of the constant HyperPaxeer and PAXEER_CONFIG.chainId pair, so the view agrees with the selection."
+do_2 = "Write apps/wallet/src/widgets/settings/SettingsWidget.test.tsx with the mount helper of NetworkSwitcher.test.tsx (@/account/test/render): it renders SettingsWidget with the props ShellWidget passes at apps/wallet/src/widgets/shell/ShellWidget.tsx:191 (onNavigate, onPaxscan), clicks the network row into NetworkView, and from there adds a virtual network by registry id and by explorer URL against a mocked fetch answering eth_chainId, switches to it, asserts getActiveRpcUrl and preferencesRepository follow, removes it, re-mounts the widget and asserts the saved networks persist, and asserts the refusal when the endpoint's eth_chainId mismatches the registry id; the component tests of NetworkSwitcher.test.tsx stay and are not the integration evidence."
+do_3 = "Issue #1492; spec/layerx-merge/contracts/virtual-chains.md#wallet requires Settings to expose adding, switching and removing virtual networks. Provider identity after a switch is task 18.1490.1."
+symbols = ["NetworkView", "SettingsWidget", "NetworkSwitcher"]
+touches = ["apps/wallet/src/widgets/settings/SettingsWidget.tsx", "apps/wallet/src/widgets/settings/SettingsWidget.test.tsx"]
+tests = ["apps/wallet/src/widgets/settings/SettingsWidget.test.tsx"]
+planned_paths = ["apps/wallet/src/widgets/settings/SettingsWidget.test.tsx"]
+build_cmd = "pnpm --dir apps/wallet run typecheck"
+verify_cmd = "pnpm --dir apps/wallet exec vitest run src/widgets/settings/SettingsWidget.test.tsx src/components/NetworkSwitcher.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1490.1]
+title = "Issue #1490: Switch the embedded provider's chain identity and RPC route with the selected virtual network"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8361.1"]
+capabilities = ["18.1490.1"]
+interfaces = []
+do_1 = "In sdk/wallet/src/provider.ts PaxeerProvider gains a protected method switchActiveChain(chainId: number, rpcUrl: string): void that stores the new chainId and RPC destination (rpcUrl at :109 loses readonly), invalidates the capability session (invalidateCapsSession, as the account path does at :232) and emits chainChanged with toQuantity(BigInt(chainId)) when the chain differs; eth_chainId and net_version (:188-191) and the JSON-RPC fetch (:419) then follow the selection and no other public surface changes."
+do_2 = "In apps/wallet/src/wallet/WalletProvider.tsx the wallet_switchEthereumChain arm of WalletNetworkProvider (:90-96) calls this.switchActiveChain(chainId, getActiveRpcUrl()) after persisting activeChainId, for a virtual chain and for the switch back to the root chain (PAXEER_CONFIG.chainId with the root or saved custom RPC); the constructor applies the saved activeChainId of preferencesRepository so a provider built after a restart answers the saved selection before any switch."
+do_3 = "Transaction and signing requests on a virtual chain travel through the selected RPC under the selected chainId: the chainId comparisons of sendTransaction and the typed-data path (:283, :320) compare against the switched identity, so a request naming the root chain while a virtual chain is active is refused with ChainDisconnectedError and nothing claims success while retaining the root identity."
+do_4 = "Extend apps/wallet/src/platform/storage/storage.acceptance.test.ts (:189-199) on the same WalletNetworkProvider object: after a successful switch to 125000001 it answers eth_chainId 0x7735941 and net_version 125000001, a mocked fetch records the destination `${PAXEER_CONFIG.rpcUrl}/chain/1` for an eth_blockNumber request, a chainChanged listener receives 0x7735941, switching back to the root chain restores 0x7d, 125 and the root RPC, and a provider constructed after the switch (the restart) answers the saved selection; the existing preference and read-URL assertions stay."
+do_5 = "The preferences shape and NetworkSwitcher are unchanged; the Settings mounting is issue #1492 (task 18.1492.1)."
+symbols = ["WalletNetworkProvider", "PaxeerProvider"]
+touches = ["sdk/wallet/src/provider.ts", "apps/wallet/src/wallet/WalletProvider.tsx", "apps/wallet/src/platform/storage/storage.acceptance.test.ts"]
+tests = ["apps/wallet/src/platform/storage/storage.acceptance.test.ts", "apps/wallet/src/wallet/WalletProvider.test.tsx"]
+planned_paths = []
+build_cmd = "pnpm --dir sdk/wallet run typecheck && pnpm --dir apps/wallet run typecheck"
+verify_cmd = "pnpm --dir apps/wallet exec vitest run src/platform/storage/storage.acceptance.test.ts src/wallet/WalletProvider.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.21.163.1]
 title = "Prove the kit path end to end: producer, transport, consumer"
 status = "pending"
@@ -113530,7 +113663,7 @@ do_2 = "Write contracts/launchpad/test/production/ProofLaunchpadContractsTooling
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's leading comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's leading comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real modules and functions, so a reader of the file knows which path is covered without the spec. Every workspace package the test imports through a dist entry is built by the verify in dependency order (decision 2282)."
-symbols = ["js"]
+symbols = []
 touches = ["contracts/launchpad/test/production/ProofLaunchpadContractsTooling.test.js", "contracts/launchpad/scripts/lib/upgrade-preflight.js", "contracts/launchpad/scripts/lib/production-health.js", "contracts/launchpad/scripts/set-creation-fee.js", "contracts/launchpad/scripts/event-emitter-v2/02b-direct-upgrade.js", "contracts/launchpad/scripts/upgrade.js", "contracts/launchpad/scripts/event-emitter-v2/02-queue-upgrade.js", "contracts/launchpad/scripts/event-emitter-v2/04-wire-registries.js", "contracts/launchpad/scripts/upgrade-launchpad-optical.js", "contracts/launchpad/scripts/event-emitter-v2/01-deploy-impl.js"]
 tests = ["contracts/launchpad/test/production/ProofLaunchpadContractsTooling.test.js"]
 planned_paths = ["contracts/launchpad/test/production/ProofLaunchpadContractsTooling.test.js"]
@@ -116446,6 +116579,35 @@ gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-markets"
 rollback = "Revert the touched files of task 3.98.1; the gateway state and env file live outside the repository, so no repository state depends on them."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1494.1]
+title = "Issue #1494: Move the Swift chain helpers and their tests into the configured SwiftPM target paths"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8365.1"]
+capabilities = ["18.1494.1"]
+interfaces = []
+do_1 = "Move sdk/platform/swift/Sources/LayerXSdk/Chains.swift to sdk/platform/swift/Sources/LayerXSDK/Chains.swift and sdk/platform/swift/Tests/LayerXSdkTests/ChainsTests.swift to sdk/platform/swift/Tests/LayerXSDKTests/ChainsTests.swift with git mv (sdk/platform/swift/Package.swift:12-21 selects exactly these paths), delete the two emptied directories and change nothing in Package.swift; the Chains API is then part of the exported LayerXSDK module and its test belongs to LayerXSDKTests on a case-sensitive filesystem."
+do_2 = "ChainsTests keeps its testChainsVectorsMatchAndRoundTrip case and vectors reference; only an import of a differently cased module name changes. Issue #1494."
+symbols = []
+touches = ["sdk/platform/swift/Sources/LayerXSDK/Chains.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ChainsTests.swift", "sdk/platform/swift/Sources/LayerXSdk/Chains.swift", "sdk/platform/swift/Tests/LayerXSdkTests/ChainsTests.swift"]
+tests = ["sdk/platform/swift/Tests/LayerXSDKTests/ChainsTests.swift"]
+planned_paths = ["sdk/platform/swift/Sources/LayerXSDK/Chains.swift", "sdk/platform/swift/Tests/LayerXSDKTests/ChainsTests.swift"]
+build_cmd = "swift build --package-path sdk/platform/swift --build-tests"
+verify_cmd = "! test -e sdk/platform/swift/Sources/LayerXSdk && ! test -e sdk/platform/swift/Tests/LayerXSdkTests && swift test --package-path sdk/platform/swift --filter 'ChainsTests/testChainsVectorsMatchAndRoundTrip'"
+gate_kind = "planned"
+sandbox_profile = "swift"
+owner_role = "fm-platform"
+rollback = "Revert the task's commits."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -123598,7 +123760,7 @@ do_2 = "Write services/human/crates/layerx-intents/tests/proof_human_intents.rs:
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["IntentKind", "compile", "module", "inspect_intent", "IntentKindTag"]
+symbols = ["IntentKind", "compile", "inspect_intent", "IntentKindTag"]
 touches = ["services/human/crates/layerx-intents/tests/proof_human_intents.rs", "services/human/crates/layerx-intents/src/vocabulary.rs", "services/human/crates/layerx-intents/src/compile.rs", "services/human/crates/layerx-intents/src/reject.rs", "services/human/crates/layerx-human-service/src/agents/controls.rs", "services/human/crates/layerx-human-service/src/agents/create.rs", "services/human/crates/layerx-human-service/src/custody/sessions.rs", "services/human/crates/layerx-human-service/src/event_producer_tls.rs", "services/human/crates/layerx-human-service/src/journeys/resolver.rs", "services/human/crates/layerx-human-service/src/onboarding/mod.rs"]
 tests = ["services/human/crates/layerx-intents/tests/proof_human_intents.rs"]
 planned_paths = ["services/human/crates/layerx-intents/tests/proof_human_intents.rs"]
@@ -123950,7 +124112,7 @@ do_2 = "Write programs/crates/layerx-programs-ai-market/tests/proof_ai_market_gu
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["SnapshotBinding", "ReadProof", "FinalityEvidence", "bind_snapshot", "u8", "require_finalized", "usize", "encode"]
+symbols = ["SnapshotBinding", "ReadProof", "FinalityEvidence", "bind_snapshot", "require_finalized", "encode"]
 touches = ["programs/crates/layerx-programs-ai-market/tests/proof_ai_market_guest.rs", "programs/crates/layerx-programs-ai-market/src/queries.rs", "services/agent/crates/layerx-client/src/ai_market.rs", "services/platform/hosted/ai-artifacts/src/main.rs", "services/platform/hosted/ai-artifacts/src/retention.rs", "services/platform/hosted/ai-artifacts/tests/artifact_recovery.rs", "services/platform/hosted/indexer/src/ai_market.rs", "services/platform/hosted/webhooks/src/ai_market.rs"]
 tests = ["programs/crates/layerx-programs-ai-market/tests/proof_ai_market_guest.rs"]
 planned_paths = ["programs/crates/layerx-programs-ai-market/tests/proof_ai_market_guest.rs"]
@@ -123982,7 +124144,7 @@ do_2 = "Write services/human/crates/layerx-human-kms/tests/proof_human_kms.rs: i
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["Vec", "LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER", "u16", "LAYERX_HUMAN_KMS_REGISTRY_FILE", "from_config", "sign_evm_transaction"]
+symbols = ["Vec", "LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER", "LAYERX_HUMAN_KMS_REGISTRY_FILE", "from_config", "sign_evm_transaction"]
 touches = ["services/human/crates/layerx-human-kms/tests/proof_human_kms.rs", "services/human/crates/layerx-human-kms/src/main.rs", "services/human/crates/layerx-human-kms/src/config.rs", "services/human/crates/layerx-human-kms/src/attestor.rs", "GOTCHA.kvx", "docker/human-service/Dockerfile", "docker/human-service/entrypoint.sh", "docker/kernel/Dockerfile", "docker/kernel/init.sh", "scripts/wallet/gate-lint.sh"]
 tests = ["services/human/crates/layerx-human-kms/tests/proof_human_kms.rs"]
 planned_paths = ["services/human/crates/layerx-human-kms/tests/proof_human_kms.rs"]
@@ -124398,7 +124560,7 @@ do_2 = "Write programs/crates/layerx-programs-registry/tests/proof_registry_crat
 do_3 = "The anchor persists state: the test stops the component (closes the store, drops the service, or ends the process it started) after the producer step, reopens or restarts it, and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["ProgramBundleError", "ProgramHeadKind", "ProtocolEvidenceError", "VerifiedDeploymentEvidence", "module", "receipt_digest", "verify_deployment", "abi_version"]
+symbols = ["ProgramBundleError", "ProgramHeadKind", "ProtocolEvidenceError", "VerifiedDeploymentEvidence", "receipt_digest", "verify_deployment", "abi_version"]
 touches = ["programs/crates/layerx-programs-registry/tests/proof_registry_crate.rs", "programs/crates/layerx-programs-registry/src/protocol_evidence.rs", "services/agent/crates/layerx-agentd/src/ops/program.rs", "services/agent/crates/layerx-agentd/src/read/program_node.rs", "programs/crates/layerx-programs-registry/tests/program_bundle_verification.rs", "programs/crates/layerx-programs-registry/tests/registry.rs", "programs/crates/layerx-programs-registry/tests/support/mod.rs", "services/platform/hosted/registry/src/journal.rs"]
 tests = ["programs/crates/layerx-programs-registry/tests/proof_registry_crate.rs"]
 planned_paths = ["programs/crates/layerx-programs-registry/tests/proof_registry_crate.rs"]
@@ -124432,8 +124594,8 @@ symbols = ["bound_activity", "program_call_disclosure_is_refused_as_a_lifecycle_
 touches = ["services/human/crates/layerx-human-service/src/agents/create.rs", "services/human/crates/layerx-human-service/tests/agent_create.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/agent_create.rs::program_call_disclosure_is_refused_as_a_lifecycle_method"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
-verify_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_create"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --test agent_create"
+verify_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --test agent_create && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_create"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -124445,6 +124607,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Finding 9.100.2.1: the build and the verify compile the library and the agent_create target only (-p layerx-human-service --lib --test agent_create); tests/native_lifecycle.rs belongs to task 9.35.11 and is not touched here. Continue from attempt 1."
 
 [task.8.99.1]
 title = "Delete the orphan withdrawal module of the core boundary"
@@ -124611,8 +124774,8 @@ symbols = ["RemoteKmsProvider::new", "LxkpGateway::new"]
 touches = ["services/human/crates/layerx-human-service/tests/custody_frame.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/custody_frame.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
-verify_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test custody_frame"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --test custody_frame"
+verify_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --lib --test custody_frame && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test custody_frame"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -124625,6 +124788,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Finding 18.1485.1.1: the task requires 9.100.2, which adds the ProgramCall arm to bound_activity; nothing in this task's files changes for it. Continue from attempt 1 once the human service builds at the base."
+do_5 = "Decision 2289: the build compiles the library and the custody_frame target only (-p layerx-human-service --lib --test custody_frame), because tests/native_lifecycle.rs of the same crate does not compile on main until task 9.35.11 lands."
 
 [task.18.1481.1]
 title = "Issue #1481: Refresh the lock files that still record the removed verifier crate"
@@ -127534,6 +127698,66 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
 
+[task.18.1493.1]
+title = "Issue #1493: Stop the per-chain WebSocket servers when a running listener stops"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8364.1"]
+capabilities = ["18.1493.1"]
+interfaces = []
+do_1 = "In rpc/rpcstack.go doStop (:319-369) the running-listener branch stops every scoped server tracked in h.domainWSServers under h.mu right after it stops the shared wsHandler.server (:343-348), the loop disableWS already runs (:699-701), so each scoped rpc.Server closes its codecs and the hijacked WebSocket connections end before h.server.Shutdown; the map is cleared after the loop, and newDomainWSHandler keeps refusing a new scoped connection once wsAllowed is false (:477-480)."
+do_2 = "Add TestStopClosesScopedWebSocketClients to rpc/domain_scope_test.go with newDomainScopeHarness (:31) and domainWSClient (:89): open a root client and two /chain/1 clients, assert eth_chainId on each (assertDomainChainID :99), call h.ws.Stop() once without closing any client, assert each client's next call fails within a bounded context deadline because its connection is closed, then call Stop again and assert it returns; TestChainPathServesWebSocketUpgrades keeps passing."
+do_3 = "Issue #1493; root shutdown behaviour and the disableWS path are unchanged."
+symbols = ["doStop", "disableWS", "newDomainWSHandler"]
+touches = ["rpc/rpcstack.go", "rpc/domain_scope_test.go"]
+tests = ["rpc/domain_scope_test.go"]
+planned_paths = []
+build_cmd = "go build ./rpc/"
+verify_cmd = "go test -count=1 ./rpc/ -run '^(TestStopClosesScopedWebSocketClients|TestChainPathServesWebSocketUpgrades)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1491.1]
+title = "Issue #1491: Verify the committed v4 vector with the retained receipt and signature checks"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8362.1"]
+capabilities = ["18.1491.1"]
+interfaces = []
+do_1 = "In daemon/committed-fixture/vector_v4.go:424 the call of the removed verify.ReceiptInclusion becomes the retained pair: codec.DecodeBatchHeader(header) yields the receipt Merkle root, verify.ReceiptAtRoot(positive.Receipt, &positive.Proof, decoded.ReceiptMerkleRoot, vector.Authorization.PublicKey) proves the receipt under it, and verify.Ed25519Digest(vector.Authorization.PublicKey, [64]byte(signature), codec.BatchHeaderDigest(header)) authenticates the header signature; no removed verifier is restored (layerxproof/exportcheck/inclusion_exports_test.go:15-25 keeps them absent)."
+do_2 = "In daemon/committed-fixture/vector_v4_test.go the check closure (:41-46), the positive header check (:56) and the refusal loop (:94-98) use the same retained pair: the positive case verifies, flipped-proof-sibling is refused by the Merkle path check inside ReceiptAtRoot, header-signature-by-unpinned-key is refused by Ed25519Digest, the verify.ErrHeaderSignature assertion becomes an assertion that Ed25519Digest returns an error, and VerifiedBatchHeader is no longer referenced."
+do_3 = "recordV4 stays registered (:77-81) and vectors/vector-v4-committed.json is unchanged; go vet ./daemon/committed-fixture/ passes so the retirement gate's daemon-wide vet sees a compiling package. Issue #1491."
+symbols = ["v4Package", "recordV4", "TestVectorV4CommittedVerifies"]
+touches = ["daemon/committed-fixture/vector_v4.go", "daemon/committed-fixture/vector_v4_test.go"]
+tests = ["daemon/committed-fixture/vector_v4_test.go"]
+planned_paths = []
+build_cmd = "go build ./daemon/committed-fixture/"
+verify_cmd = "go vet ./daemon/committed-fixture/ && go test -count=1 ./daemon/committed-fixture/ -run '^TestVectorV4CommittedVerifies$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.21.125.1]
 title = "Prove the metrics path end to end: producer, transport, consumer"
 status = "pending"
@@ -127708,7 +127932,7 @@ do_2 = "Write modules/pricefeed/proof_pricefeed_0x1020_test.go: it builds the re
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["MarkSubmission", "func"]
+symbols = ["MarkSubmission"]
 touches = ["modules/pricefeed/proof_pricefeed_0x1020_test.go", "modules/pricefeed/ante.go", "modules/pricefeed/module.go", "node/ante/cosmos_checktx.go"]
 tests = ["modules/pricefeed/proof_pricefeed_0x1020_test.go"]
 planned_paths = ["modules/pricefeed/proof_pricefeed_0x1020_test.go"]
@@ -127740,7 +127964,7 @@ do_2 = "Write services/platform/perps-data/internal/explorer/proof_explorer_test
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["struct"]
+symbols = []
 touches = ["services/platform/perps-data/internal/explorer/proof_explorer_test.go", "services/platform/perps-data/internal/explorer/server.go", "services/platform/perps-data/internal/explorer/server_test.go", "services/platform/perps-data/cmd/perps-explorer/main.go", "services/platform/perps-data/e2e_test.go"]
 tests = ["services/platform/perps-data/internal/explorer/proof_explorer_test.go"]
 planned_paths = ["services/platform/perps-data/internal/explorer/proof_explorer_test.go"]
@@ -127804,7 +128028,7 @@ do_2 = "Write modules/layerxpay/keeper/proof_pay_genesis_test.go: it builds the 
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func"]
+symbols = []
 touches = ["modules/layerxpay/keeper/proof_pay_genesis_test.go", "modules/layerxpay/keeper/genesis.go"]
 tests = ["modules/layerxpay/keeper/proof_pay_genesis_test.go"]
 planned_paths = ["modules/layerxpay/keeper/proof_pay_genesis_test.go"]
@@ -127868,7 +128092,7 @@ do_2 = "Write modules/layerxledger/types/proof_layerxledger_genesis_test.go: it 
 do_3 = "The anchor persists state: the test stops the component (closes the store, drops the service, or ends the process it started) after the producer step, reopens or restarts it, and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["DefaultGenesis", "func"]
+symbols = ["DefaultGenesis"]
 touches = ["modules/layerxledger/types/proof_layerxledger_genesis_test.go", "modules/layerxledger/types/genesis.go"]
 tests = ["modules/layerxledger/types/proof_layerxledger_genesis_test.go"]
 planned_paths = ["modules/layerxledger/types/proof_layerxledger_genesis_test.go"]
@@ -127900,7 +128124,7 @@ do_2 = "Write modules/layerxauth/types/proof_layerxauth_genesis_test.go: it buil
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["DefaultGenesis", "func"]
+symbols = ["DefaultGenesis"]
 touches = ["modules/layerxauth/types/proof_layerxauth_genesis_test.go", "modules/layerxauth/types/genesis.go"]
 tests = ["modules/layerxauth/types/proof_layerxauth_genesis_test.go"]
 planned_paths = ["modules/layerxauth/types/proof_layerxauth_genesis_test.go"]
@@ -127996,7 +128220,7 @@ do_2 = "Write modules/spot/keeper/proof_spot_storage_test.go: it builds the real
 do_3 = "The anchor persists state: the test stops the component (closes the store, drops the service, or ends the process it started) after the producer step, reopens or restarts it, and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["ActiveIndexInvariant", "func"]
+symbols = ["ActiveIndexInvariant"]
 touches = ["modules/spot/keeper/proof_spot_storage_test.go", "modules/spot/keeper/invariants.go", "modules/spot/keeper/migrations.go"]
 tests = ["modules/spot/keeper/proof_spot_storage_test.go"]
 planned_paths = ["modules/spot/keeper/proof_spot_storage_test.go"]
@@ -128060,7 +128284,7 @@ do_2 = "Write modules/layerxauth/keeper/proof_did_binding_test.go: it builds the
 do_3 = "The anchor persists state: the test stops the component (closes the store, drops the service, or ends the process it started) after the producer step, reopens or restarts it, and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func"]
+symbols = []
 touches = ["modules/layerxauth/keeper/proof_did_binding_test.go", "modules/layerxauth/keeper/authority.go"]
 tests = ["modules/layerxauth/keeper/proof_did_binding_test.go"]
 planned_paths = ["modules/layerxauth/keeper/proof_did_binding_test.go"]
@@ -128252,7 +128476,7 @@ do_2 = "Write modules/tokenfactory/keeper/proof_issuer_did_test.go: it builds th
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func"]
+symbols = []
 touches = ["modules/tokenfactory/keeper/proof_issuer_did_test.go", "modules/tokenfactory/keeper/admins.go", "modules/tokenfactory/keeper/issuer_supply.go", "modules/tokenfactory/keeper/issuer.go", "modules/tokenfactory/keeper/admins_test.go"]
 tests = ["modules/tokenfactory/keeper/proof_issuer_did_test.go"]
 planned_paths = ["modules/tokenfactory/keeper/proof_issuer_did_test.go"]
@@ -128284,7 +128508,7 @@ do_2 = "Write modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go: i
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["NewMsgServerImpl", "func"]
+symbols = ["NewMsgServerImpl"]
 touches = ["modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go", "modules/layerxcustody/keeper/msg_server.go", "modules/layerxcustody/keeper/release.go", "modules/layerxcustody/keeper/retire.go", "modules/layerxcustody/handler.go", "modules/layerxcustody/handler_test.go", "modules/layerxcustody/module.go", "node/gov_custody_test.go"]
 tests = ["modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go"]
 planned_paths = ["modules/layerxcustody/keeper/proof_0x1013_layerxcustody_test.go"]
@@ -128316,7 +128540,7 @@ do_2 = "Write modules/tokenfactory/keeper/proof_genesis_test.go: it builds the r
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func"]
+symbols = []
 touches = ["modules/tokenfactory/keeper/proof_genesis_test.go", "modules/tokenfactory/keeper/genesis.go", "interchain/modules/apps/transfer/module.go", "modules/launchpad/module.go", "modules/layerxanchor/module.go", "modules/layerxbridge/module.go", "modules/layerxcustody/module.go", "modules/layerxexchange/keeper/keeper_test.go"]
 tests = ["modules/tokenfactory/keeper/proof_genesis_test.go"]
 planned_paths = ["modules/tokenfactory/keeper/proof_genesis_test.go"]
@@ -128348,7 +128572,7 @@ do_2 = "Write node/sequencer/proof_sequencer_receipt_test.go: it builds the real
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["ErrReplicationHalted", "NewFollowerReceiptOption", "NewAccepter", "NewLogFeedPublisher", "struct"]
+symbols = ["ErrReplicationHalted", "NewFollowerReceiptOption", "NewAccepter", "NewLogFeedPublisher"]
 touches = ["node/sequencer/proof_sequencer_receipt_test.go", "node/sequencer/accepter.go", "node/sequencer/follower.go", "node/sequencer/log_feed.go", "node/sequencer/receipt_source.go"]
 tests = ["node/sequencer/proof_sequencer_receipt_test.go"]
 planned_paths = ["node/sequencer/proof_sequencer_receipt_test.go"]
@@ -128380,7 +128604,7 @@ do_2 = "Write precompiles/launchpad/proof_precompile_go_test.go: it builds the r
 do_3 = "The anchor persists state: the test stops the component (closes the store, drops the service, or ends the process it started) after the producer step, reopens or restarts it, and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["SurfaceRuntime", "GetVersioned", "errors", "interface"]
+symbols = ["SurfaceRuntime", "GetVersioned", "errors"]
 touches = ["precompiles/launchpad/proof_precompile_go_test.go", "precompiles/launchpad/surface.go", "precompiles/launchpad/setup.go", "precompiles/launchpad/abi.json", "precompiles/launchpad/pool.go", "./precompiles/launchpad/surface_test.go", "./precompiles/setup.go", "./precompiles/launchpad/setup_test.go", "precompiles/launchpad/abi_direct_test.go", "precompiles/launchpad/run.go"]
 tests = ["precompiles/launchpad/proof_precompile_go_test.go"]
 planned_paths = ["precompiles/launchpad/proof_precompile_go_test.go"]
@@ -128412,7 +128636,7 @@ do_2 = "Write services/platform/perps-data/internal/rest/proof_rest_test.go: it 
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func"]
+symbols = []
 touches = ["services/platform/perps-data/internal/rest/proof_rest_test.go", "services/platform/perps-data/internal/rest/markets.go", "services/platform/perps-data/internal/rest/symbol.go", "services/platform/perps-data/internal/rest/spotusers.go", "services/platform/perps-data/internal/rest/venue.go", "services/platform/perps-data/internal/rest/venue_test.go", "services/platform/perps-data/internal/rest/markets_test.go", "services/platform/perps-data/internal/rest/symbol_test.go", "services/platform/perps-data/internal/portal/pages.go", "services/platform/perps-data/internal/rest/spotusers_test.go"]
 tests = ["services/platform/perps-data/internal/rest/proof_rest_test.go"]
 planned_paths = ["services/platform/perps-data/internal/rest/proof_rest_test.go"]
@@ -128508,7 +128732,7 @@ do_2 = "Write modules/layerxpay/keeper/proof_pay_keeper_test.go: it builds the r
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func", "NewKeeper"]
+symbols = ["NewKeeper"]
 touches = ["modules/layerxpay/keeper/proof_pay_keeper_test.go", "modules/layerxpay/keeper/keeper.go", "modules/layerxpay/keeper/execute.go"]
 tests = ["modules/layerxpay/keeper/proof_pay_keeper_test.go"]
 planned_paths = ["modules/layerxpay/keeper/proof_pay_keeper_test.go"]
@@ -128572,7 +128796,7 @@ do_2 = "Write modules/layerxanchor/proof_retirement_test.go: it builds the real 
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["NewAppModule", "func"]
+symbols = ["NewAppModule"]
 touches = ["modules/layerxanchor/proof_retirement_test.go", "modules/layerxanchor/module.go", "node/app.go"]
 tests = ["modules/layerxanchor/proof_retirement_test.go"]
 planned_paths = ["modules/layerxanchor/proof_retirement_test.go"]
@@ -128700,7 +128924,7 @@ do_2 = "Write modules/layerxpay/types/proof_msg_layerxpay_updateparams_test.go: 
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["ModuleCdc", "func", "RegisterCodec", "RegisterInterfaces"]
+symbols = ["ModuleCdc", "RegisterCodec", "RegisterInterfaces"]
 touches = ["modules/layerxpay/types/proof_msg_layerxpay_updateparams_test.go", "modules/layerxpay/types/codec.go", "modules/layerxpay/types/msgs.go"]
 tests = ["modules/layerxpay/types/proof_msg_layerxpay_updateparams_test.go"]
 planned_paths = ["modules/layerxpay/types/proof_msg_layerxpay_updateparams_test.go"]
@@ -128828,7 +129052,7 @@ do_2 = "Write services/launchpad/notifications/proof_launchpad_notifications_tes
 do_3 = "The anchor persists state: the test stops the component (closes the store, drops the service, or ends the process it started) after the producer step, reopens or restarts it, and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["writeError", "AdaptV2Notifications", "func", "Handler"]
+symbols = ["writeError", "AdaptV2Notifications", "Handler"]
 touches = ["services/launchpad/notifications/proof_launchpad_notifications_test.go", "services/launchpad/notifications/errors.go", "services/launchpad/notifications/v2_wire.go", "services/launchpad/notifications/store.go", "services/launchpad/notifications/http.go"]
 tests = ["services/launchpad/notifications/proof_launchpad_notifications_test.go"]
 planned_paths = ["services/launchpad/notifications/proof_launchpad_notifications_test.go"]
@@ -128924,7 +129148,7 @@ do_2 = "Write rpc/config/proof_config_test.go: it builds the real producer state
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["struct", "DefaultConfig", "ConfigTemplate", "ReadConfig", "int", "uint64", "duration"]
+symbols = ["DefaultConfig", "ConfigTemplate", "ReadConfig", "uint64", "duration"]
 touches = ["rpc/config/proof_config_test.go", "rpc/config/config.go", "daemon/paxd/cmd/app_config.go", "daemon/paxd/cmd/root.go", "node/app.go", "node/params/config.go", "daemon/paxd/cmd/init.go", "daemon/paxd/cmd/init_test.go"]
 tests = ["rpc/config/proof_config_test.go"]
 planned_paths = ["rpc/config/proof_config_test.go"]
@@ -128956,7 +129180,7 @@ do_2 = "Write services/platform/perps-data/internal/records/proof_records_test.g
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["struct", "func", "NewMarketSet"]
+symbols = ["NewMarketSet"]
 touches = ["services/platform/perps-data/internal/records/proof_records_test.go", "services/platform/perps-data/internal/records/records.go", "services/platform/perps-data/internal/records/marketset.go", "services/platform/perps-data/internal/feeds/topics.go", "services/platform/perps-data/internal/portal/pages.go", "services/platform/perps-data/internal/rest/markets.go", "services/platform/perps-data/internal/feeds/feeds_test.go", "services/platform/perps-data/internal/rest/symbol.go"]
 tests = ["services/platform/perps-data/internal/records/proof_records_test.go"]
 planned_paths = ["services/platform/perps-data/internal/records/proof_records_test.go"]
@@ -129020,7 +129244,7 @@ do_2 = "Write modules/launchpad/keeper/proof_module_keeper_test.go: it builds th
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func", "SurfaceRuntime"]
+symbols = ["SurfaceRuntime"]
 touches = ["modules/launchpad/keeper/proof_module_keeper_test.go", "modules/launchpad/keeper/genesis.go", "modules/launchpad/keeper/price_history.go", "modules/launchpad/keeper/market.go", "modules/launchpad/module.go", "node/app.go", "modules/launchpad/launchpadtest/domain_test.go", "precompiles/launchpad/fees_test.go", "precompiles/launchpad/launchpad_test.go", "precompiles/launchpad/nft_test.go"]
 tests = ["modules/launchpad/keeper/proof_module_keeper_test.go"]
 planned_paths = ["modules/launchpad/keeper/proof_module_keeper_test.go"]
@@ -129084,7 +129308,7 @@ do_2 = "Write modules/spot/keeper/proof_go_exported_modules_spot_keeper_test.go:
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func"]
+symbols = []
 touches = ["modules/spot/keeper/proof_go_exported_modules_spot_keeper_test.go", "modules/spot/keeper/genesis.go", "modules/spot/keeper/orders.go", "modules/spot/keeper/stoporders.go", "modules/spot/keeper/execute.go", "modules/spot/module.go", "node/app.go", "modules/spot/module_test.go", "precompiles/spot/orders.go", "precompiles/spot/stoporders.go", "modules/spot/abci.go"]
 tests = ["modules/spot/keeper/proof_go_exported_modules_spot_keeper_test.go"]
 planned_paths = ["modules/spot/keeper/proof_go_exported_modules_spot_keeper_test.go"]
@@ -129244,7 +129468,7 @@ do_2 = "Write node/proof_node_go_api_test.go: it builds the real producer state,
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func"]
+symbols = []
 touches = ["node/proof_node_go_api_test.go", "node/app.go", "node/precompiles.go", "node/sequencer/resolution_test.go"]
 tests = ["node/proof_node_go_api_test.go"]
 planned_paths = ["node/proof_node_go_api_test.go"]
@@ -129276,7 +129500,7 @@ do_2 = "Write node/proof_node_abci_test.go: it builds the real producer state, c
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func", "ErrSequencedBlockHalt"]
+symbols = ["ErrSequencedBlockHalt"]
 touches = ["node/proof_node_abci_test.go", "node/app.go", "node/abci.go", "node/leader_source.go", "node/sequenced_halt.go", "tests/occ/utils/utils.go", "engine/tests/state_harness_test.go", "engine/tests/giga_test.go", "modules/evm/keeper/feecollect_test.go", "node/sequencer/seal_test.go", "node/sequencer/seal_batch_test.go"]
 tests = ["node/proof_node_abci_test.go"]
 planned_paths = ["node/proof_node_abci_test.go"]
@@ -129404,7 +129628,7 @@ do_2 = "Write consensus/test/e2e/pkg/proof_consensus_leader_pin_test.go: it buil
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func"]
+symbols = []
 touches = ["consensus/test/e2e/pkg/proof_consensus_leader_pin_test.go", "consensus/test/e2e/pkg/testnet.go", "consensus/test/e2e/pkg/manifest.go"]
 tests = ["consensus/test/e2e/pkg/proof_consensus_leader_pin_test.go"]
 planned_paths = ["consensus/test/e2e/pkg/proof_consensus_leader_pin_test.go"]
@@ -129421,6 +129645,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Finding 21.41.1.1: the symbols list names graph symbols only. Continue from attempt 1 and rerun the verify."
 
 [task.21.40.1]
 title = "Prove the launchpad discovery path end to end: producer, transport, consumer"
@@ -129436,7 +129661,7 @@ do_2 = "Write services/launchpad/discovery/proof_launchpad_discovery_test.go: it
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["writeError", "AdaptV2AlertCreate", "AdaptV2SquadMembership", "func"]
+symbols = ["writeError", "AdaptV2AlertCreate", "AdaptV2SquadMembership"]
 touches = ["services/launchpad/discovery/proof_launchpad_discovery_test.go", "services/launchpad/discovery/errors.go", "services/launchpad/discovery/alerts_v2.go", "services/launchpad/discovery/squads_v2.go", "services/launchpad/discovery/http.go", "services/launchpad/discovery/alerts.go", "services/launchpad/discovery/squads.go"]
 tests = ["services/launchpad/discovery/proof_launchpad_discovery_test.go"]
 planned_paths = ["services/launchpad/discovery/proof_launchpad_discovery_test.go"]
@@ -129500,7 +129725,7 @@ do_2 = "Write modules/lxphost/proof_lxphost_host_test.go: it builds the real pro
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func", "int32", "struct", "ExecuteActivity"]
+symbols = ["int32", "ExecuteActivity"]
 touches = ["modules/lxphost/proof_lxphost_host_test.go", "modules/lxphost/host.go", "modules/lxphost/execute.go", "precompiles/layerxexchange/errors.go"]
 tests = ["modules/lxphost/proof_lxphost_host_test.go"]
 planned_paths = ["modules/lxphost/proof_lxphost_host_test.go"]
@@ -129596,7 +129821,7 @@ do_2 = "Write daemon/paxd/cmd/proof_node_cli_test.go: it builds the real produce
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["AddCommand", "FILE", "AddCommands", "simulation_gas_limit", "struct", "NewCustomAppConfig"]
+symbols = ["AddCommand", "FILE", "AddCommands", "simulation_gas_limit", "NewCustomAppConfig"]
 touches = ["daemon/paxd/cmd/proof_node_cli_test.go", "daemon/paxd/cmd/root.go", "daemon/paxd/cmd/sequencer.go", "daemon/paxd/cmd/app_config.go"]
 tests = ["daemon/paxd/cmd/proof_node_cli_test.go"]
 planned_paths = ["daemon/paxd/cmd/proof_node_cli_test.go"]
@@ -129788,7 +130013,7 @@ do_2 = "Write modules/perps/keeper/proof_perps_governance_test.go: it builds the
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["NewMsgServerImpl", "func"]
+symbols = ["NewMsgServerImpl"]
 touches = ["modules/perps/keeper/proof_perps_governance_test.go", "modules/perps/keeper/msg_server.go", "modules/perps/keeper/pause.go"]
 tests = ["modules/perps/keeper/proof_perps_governance_test.go"]
 planned_paths = ["modules/perps/keeper/proof_perps_governance_test.go"]
@@ -129948,7 +130173,7 @@ do_2 = "Write modules/layerxauth/keeper/proof_layerxauth_keeper_test.go: it buil
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["AuthEvents", "func"]
+symbols = ["AuthEvents"]
 touches = ["modules/layerxauth/keeper/proof_layerxauth_keeper_test.go", "modules/layerxauth/keeper/events.go", "modules/layerxauth/keeper/views.go", "modules/layerxauth/keeper/genesis.go", "modules/layerxauth/keeper/keeper.go", "modules/layerxauth/keeper/capability.go", "modules/layerxauth/keeper/sessions.go"]
 tests = ["modules/layerxauth/keeper/proof_layerxauth_keeper_test.go"]
 planned_paths = ["modules/layerxauth/keeper/proof_layerxauth_keeper_test.go"]
@@ -129980,7 +130205,7 @@ do_2 = "Write node/sequencer/proof_sequencer_executor_test.go: it builds the rea
 do_3 = "The anchor persists state: the test stops the component (closes the store, drops the service, or ends the process it started) after the producer step, reopens or restarts it, and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["NewExecutor", "LoadReceiptKey", "NewReceipter", "seqHashDomain", "struct", "ConfigTemplate", "NewFeeFloor", "NewReplicator"]
+symbols = ["NewExecutor", "LoadReceiptKey", "NewReceipter", "seqHashDomain", "ConfigTemplate", "NewFeeFloor", "NewReplicator"]
 touches = ["node/sequencer/proof_sequencer_executor_test.go", "node/sequencer/executor.go", "node/sequencer/receiptkey.go", "node/sequencer/receipt.go", "node/sequencer/standby.go", "node/sequencer/config.go", "node/sequencer/fee.go", "rpc/pending_block_test.go", "rpc/pending_filter_test.go", "rpc/send_sequencer_test.go", "rpc/pending_state_test.go", "node/sequencer_context_test.go", "rpc/sequencer_receipt_vectors_test.go"]
 tests = ["node/sequencer/proof_sequencer_executor_test.go"]
 planned_paths = ["node/sequencer/proof_sequencer_executor_test.go"]
@@ -130076,7 +130301,7 @@ do_2 = "Write modules/layerxledger/keeper/proof_layerxledger_keeper_test.go: it 
 do_3 = "The anchor persists state: the test stops the component (closes the store, drops the service, or ends the process it started) after the producer step, reopens or restarts it, and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["AccountID", "func"]
+symbols = ["AccountID"]
 touches = ["modules/layerxledger/keeper/proof_layerxledger_keeper_test.go", "modules/layerxledger/keeper/accounts.go", "modules/layerxledger/keeper/views.go", "modules/layerxledger/keeper/supply.go", "modules/layerxledger/keeper/draw.go", "modules/layerxledger/keeper/genesis.go", "modules/layerxledger/keeper/keeper.go"]
 tests = ["modules/layerxledger/keeper/proof_layerxledger_keeper_test.go"]
 planned_paths = ["modules/layerxledger/keeper/proof_layerxledger_keeper_test.go"]
@@ -130140,7 +130365,7 @@ do_2 = "Write modules/xweb/keeper/proof_go_api_test.go: it builds the real produ
 do_3 = "The anchor persists state: the test stops the component (closes the store, drops the service, or ends the process it started) after the producer step, reopens or restarts it, and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func", "ErrProgramModuleDisabled", "NewQueryServer", "ProgramCountersInvariant"]
+symbols = ["ErrProgramModuleDisabled", "NewQueryServer", "ProgramCountersInvariant"]
 touches = ["modules/xweb/keeper/proof_go_api_test.go", "modules/xweb/keeper/genesis.go", "modules/xweb/keeper/activation.go", "modules/xweb/keeper/program_fulfil.go", "modules/xweb/keeper/program_result.go", "modules/xweb/keeper/grpc_query.go", "modules/xweb/keeper/keeper.go", "modules/xweb/keeper/invariants.go", "modules/xweb/module.go", "node/upgrades_xweb_test.go", "precompiles/layerxagent/teeattestor/teeattestor_test.go", "node/upgrades.go", "precompiles/xweb/xweb_test.go"]
 tests = ["modules/xweb/keeper/proof_go_api_test.go"]
 planned_paths = ["modules/xweb/keeper/proof_go_api_test.go"]
@@ -130172,7 +130397,7 @@ do_2 = "Write modules/layerxagent/keeper/proof_layerxagent_module_test.go: it bu
 do_3 = "The anchor carries no persistent state of its own: the test asserts instead that the consumer observes the producer's result twice in a row with no cached shortcut, and that a malformed producer result is refused where the consumer decodes it."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["DefaultParams", "func", "ModuleName", "NewMsgServerImpl"]
+symbols = ["DefaultParams", "ModuleName", "NewMsgServerImpl"]
 touches = ["modules/layerxagent/keeper/proof_layerxagent_module_test.go", "modules/layerxagent/keeper/keeper.go", "modules/layerxagent/keeper/scheduler.go", "modules/layerxagent/keeper/genesis.go", "modules/layerxagent/keeper/msg_server.go", "modules/layerxagent/keeper/scheduler_test.go"]
 tests = ["modules/layerxagent/keeper/proof_layerxagent_module_test.go"]
 planned_paths = ["modules/layerxagent/keeper/proof_layerxagent_module_test.go"]
@@ -130236,7 +130461,7 @@ do_2 = "Write modules/sequencer/keeper/proof_sequencer_module_test.go: it builds
 do_3 = "The anchor persists state: the test stops the component (closes the store, drops the service, or ends the process it started) after the producer step, reopens or restarts it, and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["func", "ParamKeyTable", "ErrNotActivated", "GetLeadersParam"]
+symbols = ["ParamKeyTable", "ErrNotActivated", "GetLeadersParam"]
 touches = ["modules/sequencer/keeper/proof_sequencer_module_test.go", "modules/sequencer/keeper/keeper.go", "modules/sequencer/keeper/receipt_keys.go", "modules/sequencer/keeper/leaders_param.go", "modules/sequencer/keeper/activation.go", "modules/sequencer/module.go", "node/upgrades_sequencer_test.go", "node/sequenced_block_test.go", "node/app.go", "rpc/sequencer_receipt_test.go"]
 tests = ["modules/sequencer/keeper/proof_sequencer_module_test.go"]
 planned_paths = ["modules/sequencer/keeper/proof_sequencer_module_test.go"]
@@ -130364,7 +130589,7 @@ do_2 = "Write services/wallet/attestor/internal/server/proof_s28_wallet_attestor
 do_3 = "The anchor persists state: the test stops the component (closes the store, drops the service, or ends the process it started) after the producer step, reopens or restarts it, and asserts the consumer observes the same state and that a repeated producer step is idempotent or refused as a duplicate."
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
-symbols = ["struct", "SignKinds", "PathLXReview"]
+symbols = ["SignKinds", "PathLXReview"]
 touches = ["services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go", "services/wallet/attestor/internal/server/server.go", "services/wallet/attestor/internal/server/sign.go", "services/human/crates/layerx-human-kms/src/attestor.rs", "services/wallet/attestor/cmd/loadtest/main.go", "services/wallet/ceremony/internal/attestor/client.go", "services/wallet/ceremony/internal/testsupport/postgres.go", "services/wallet/gateway/src/agent/actions/orchestrator.ts", "services/wallet/gateway/src/attestor/client.ts"]
 tests = ["services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go"]
 planned_paths = ["services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go"]
@@ -194534,7 +194759,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158", "181161", "181162", "181163", "181164", "181165", "181166", "181167", "181171", "181172", "181176", "181177", "181173", "181174", "181175", "181178", "181184", "181185", "181182", "181183", "181186", "181188", "18756", "18757", "18769", "18813", "18821", "18962", "181214", "181238", "181271", "181303", "181311", "181312", "181313", "181314", "181315", "181316", "181317", "181318", "181320", "181322", "181323", "181325", "181327", "181328", "181329", "181330", "181331", "181333", "181335", "181337", "181338", "181339", "181341", "181344", "181346", "181347", "181348", "181349", "181350", "181351", "181352", "181353", "181355", "181356", "181357", "181358", "181359", "181360", "181362", "181363", "181364", "181365", "181366", "181367", "181369", "181370", "181371", "181373", "181374", "181375", "181376", "181377", "181378", "181379", "181381", "181382", "181383", "181387", "181388", "181389", "181391", "181392", "181394", "181396", "181402", "181403", "181404", "181405", "181406", "181408", "181409", "181410", "181412", "181413", "181417", "181423", "181424", "181425", "181426", "181427", "181326"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158", "181161", "181162", "181163", "181164", "181165", "181166", "181167", "181171", "181172", "181176", "181177", "181173", "181174", "181175", "181178", "181184", "181185", "181182", "181183", "181186", "181188", "18756", "18757", "18769", "18813", "18821", "18962", "181214", "181238", "181271", "181303", "181311", "181312", "181313", "181314", "181315", "181316", "181317", "181318", "181320", "181322", "181323", "181325", "181327", "181328", "181329", "181330", "181331", "181333", "181335", "181337", "181338", "181339", "181341", "181344", "181346", "181347", "181348", "181349", "181350", "181351", "181352", "181353", "181355", "181356", "181357", "181358", "181359", "181360", "181362", "181363", "181364", "181365", "181366", "181367", "181369", "181370", "181371", "181373", "181374", "181375", "181376", "181377", "181378", "181379", "181381", "181382", "181383", "181387", "181388", "181389", "181391", "181392", "181394", "181396", "181402", "181403", "181404", "181405", "181406", "181408", "181409", "181410", "181412", "181413", "181417", "181423", "181424", "181425", "181426", "181427", "181326", "8361", "8362", "8363", "8364", "8365"]
 completion_task = "18.0.1"
 
 [feature.21]
@@ -200365,6 +200590,46 @@ req = "18790.1"
 scenario = "Given two recipients of 1 ether each, when batchTransferEqualAmount is called with 3 ether, then it reverts with Incorrect amount sent, and with 2 ether it succeeds leaving the contract balance at zero"
 contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
+qualification = "UNRUN"
+
+[acceptance.18.1494.1.1]
+feature = "18"
+req = "8365.1"
+scenario = "The package is built and ChainsTests runs from the configured target directories on a case-sensitive filesystem"
+contract = "! test -e sdk/platform/swift/Sources/LayerXSdk && ! test -e sdk/platform/swift/Tests/LayerXSdkTests && swift test --package-path sdk/platform/swift --filter 'ChainsTests/testChainsVectorsMatchAndRoundTrip'"
+test = "sdk/platform/swift/Tests/LayerXSDKTests/ChainsTests.swift"
+qualification = "UNRUN"
+
+[acceptance.18.1493.1.1]
+feature = "18"
+req = "8364.1"
+scenario = "Root and two per-chain WebSocket clients stay open while the listener stops once and then again"
+contract = "go test -count=1 ./rpc/ -run '^(TestStopClosesScopedWebSocketClients|TestChainPathServesWebSocketUpgrades)$'"
+test = "rpc/domain_scope_test.go"
+qualification = "UNRUN"
+
+[acceptance.18.1492.1.1]
+feature = "18"
+req = "8363.1"
+scenario = "The Settings route is driven from its root into the network view and through add, switch, remove, persistence and refusal"
+contract = "pnpm --dir apps/wallet exec vitest run src/widgets/settings/SettingsWidget.test.tsx src/components/NetworkSwitcher.test.tsx"
+test = "apps/wallet/src/widgets/settings/SettingsWidget.test.tsx"
+qualification = "UNRUN"
+
+[acceptance.18.1491.1.1]
+feature = "18"
+req = "8362.1"
+scenario = "The recorded v4 vector is verified with the retained receipt-at-root and digest-signature checks"
+contract = "go vet ./daemon/committed-fixture/ && go test -count=1 ./daemon/committed-fixture/ -run '^TestVectorV4CommittedVerifies$'"
+test = "daemon/committed-fixture/vector_v4_test.go"
+qualification = "UNRUN"
+
+[acceptance.18.1490.1.1]
+feature = "18"
+req = "8361.1"
+scenario = "The same live WalletNetworkProvider is switched to 125000001, queried, driven back to the root chain and rebuilt after a restart"
+contract = "pnpm --dir apps/wallet exec vitest run src/platform/storage/storage.acceptance.test.ts src/wallet/WalletProvider.test.tsx"
+test = "apps/wallet/src/platform/storage/storage.acceptance.test.ts"
 qualification = "UNRUN"
 
 [acceptance.21.163.1.1]
@@ -208231,7 +208496,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 37
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3", "18.1172.2", "18.1245.1", "18.1246.1", "18.1159.1", "18.1201.1", "18.1241.1", "18.1244.1", "18.1240.1", "18.1243.1", "18.1242.1", "18.756.1", "18.757.1", "18.769.1", "18.813.1", "18.821.1", "18.962.1", "18.1214.1", "18.1238.1", "18.1271.1", "18.1303.1", "18.1311.1", "18.1312.1", "18.1313.1", "18.1314.1", "18.1315.1", "18.1316.1", "18.1317.1", "18.1318.1", "18.1320.1", "18.1322.1", "18.1323.1", "18.1325.1", "18.1327.1", "18.1328.1", "18.1329.1", "18.1330.1", "18.1331.1", "18.1333.1", "18.1335.1", "18.1337.1", "18.1338.1", "18.1339.1", "18.1341.1", "18.1344.1", "18.1346.1", "18.1347.1", "18.1348.1", "18.1349.1", "18.1350.1", "18.1351.1", "18.1352.1", "18.1353.1", "18.1355.1", "18.1356.1", "18.1357.1", "18.1358.1", "18.1359.1", "18.1360.1", "18.1362.1", "18.1363.1", "18.1364.1", "18.1365.1", "18.1366.1", "18.1367.1", "18.1369.1", "18.1370.1", "18.1371.1", "18.1373.1", "18.1374.1", "18.1375.1", "18.1376.1", "18.1377.1", "18.1378.1", "18.1379.1", "18.1381.1", "18.1382.1", "18.1383.1", "18.1387.1", "18.1388.1", "18.1389.1", "18.1391.1", "18.1392.1", "18.1394.1", "18.1396.1", "18.1402.1", "18.1403.1", "18.1404.1", "18.1405.1", "18.1406.1", "18.1408.1", "18.1409.1", "18.1410.1", "18.1412.1", "18.1413.1", "18.1417.1", "18.1423.1", "18.1424.1", "18.1425.1", "18.1426.1", "18.1427.1", "18.1326.1", "18.1075.1", "18.1134.1", "18.1148.1", "18.1188.2", "18.1202.1", "18.1204.2", "18.1211.1", "18.1211.2", "18.1211.3", "18.1211.4", "18.1211.5", "18.1228.2", "18.1232.1", "18.1243.2", "18.1250.1", "18.1252.1", "18.1254.1", "18.1255.1", "18.1256.1", "18.1257.1", "18.1258.1", "18.1259.1", "18.1262.1", "18.1263.1", "18.1264.1", "18.1265.1", "18.1268.1", "18.1269.1", "18.1270.1", "18.1272.1", "18.1273.1", "18.1275.1", "18.1279.1", "18.1279.2", "18.1279.3", "18.1286.1", "18.1287.1", "18.1288.1", "18.1289.1", "18.1291.1", "18.1291.2", "18.1292.1", "18.1293.1", "18.1293.2", "18.1293.3", "18.1293.4", "18.1294.1", "18.1295.1", "18.1296.1", "18.1297.1", "18.1297.2", "18.1298.1", "18.1299.1", "18.1300.1", "18.1301.1", "18.1302.1", "18.1304.1", "18.1305.1", "18.1306.1", "18.1307.1", "18.1308.1", "18.1308.2", "18.1308.3", "18.1309.1", "18.1310.1", "18.1429.1", "18.1430.1", "18.1431.1", "18.1432.1", "18.1433.1", "18.1434.1", "18.1435.1", "18.1435.2", "18.1435.3", "18.1435.4", "18.1435.5", "18.1437.1", "18.1439.1", "18.1441.1", "18.835.1", "18.893.1", "18.90.1", "18.905.1", "18.911.2", "18.918.1", "18.927.1", "18.960.1", "18.963.1", "18.1443.1", "18.1444.1", "18.1445.1", "18.1446.1", "18.1451.1", "18.1452.1", "18.1453.1", "18.1456.1", "18.1459.1", "18.1460.1", "18.1463.1", "18.1467.1", "18.1468.1", "18.1471.1", "18.1472.1", "18.1475.1", "18.1477.1", "18.1478.1", "18.1479.1", "18.1481.1", "18.1482.1", "18.1483.1", "18.1484.1", "18.1485.1", "18.1486.1", "18.1487.1", "18.1476.1", "18.1488.1", "18.1489.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1", "18.1178.1", "18.1184.1", "18.1185.1", "18.1182.1", "18.1182.2", "18.1183.1", "18.1186.1", "18.1188.1", "18.766.1", "18.914.1", "18.1092.1", "18.1113.1", "18.1180.1", "18.1189.1", "18.1192.1", "18.1194.1", "18.1195.1", "18.1196.1", "18.1197.1", "18.1199.1", "18.1200.1", "18.1203.1", "18.1204.1", "18.1205.1", "18.1206.1", "18.1218.1", "18.1219.1", "18.1221.1", "18.1222.1", "18.1223.1", "18.1224.1", "18.1225.1", "18.1227.1", "18.1228.1", "18.1229.1", "18.1230.1", "18.1231.1", "18.1233.1", "18.1234.1", "18.1235.1", "18.1236.1", "18.1237.1", "18.1239.1", "18.1193.1", "18.1215.1", "18.1043.1", "18.1209.1", "18.1001.3", "18.1172.2", "18.1245.1", "18.1246.1", "18.1159.1", "18.1201.1", "18.1241.1", "18.1244.1", "18.1240.1", "18.1243.1", "18.1242.1", "18.756.1", "18.757.1", "18.769.1", "18.813.1", "18.821.1", "18.962.1", "18.1214.1", "18.1238.1", "18.1271.1", "18.1303.1", "18.1311.1", "18.1312.1", "18.1313.1", "18.1314.1", "18.1315.1", "18.1316.1", "18.1317.1", "18.1318.1", "18.1320.1", "18.1322.1", "18.1323.1", "18.1325.1", "18.1327.1", "18.1328.1", "18.1329.1", "18.1330.1", "18.1331.1", "18.1333.1", "18.1335.1", "18.1337.1", "18.1338.1", "18.1339.1", "18.1341.1", "18.1344.1", "18.1346.1", "18.1347.1", "18.1348.1", "18.1349.1", "18.1350.1", "18.1351.1", "18.1352.1", "18.1353.1", "18.1355.1", "18.1356.1", "18.1357.1", "18.1358.1", "18.1359.1", "18.1360.1", "18.1362.1", "18.1363.1", "18.1364.1", "18.1365.1", "18.1366.1", "18.1367.1", "18.1369.1", "18.1370.1", "18.1371.1", "18.1373.1", "18.1374.1", "18.1375.1", "18.1376.1", "18.1377.1", "18.1378.1", "18.1379.1", "18.1381.1", "18.1382.1", "18.1383.1", "18.1387.1", "18.1388.1", "18.1389.1", "18.1391.1", "18.1392.1", "18.1394.1", "18.1396.1", "18.1402.1", "18.1403.1", "18.1404.1", "18.1405.1", "18.1406.1", "18.1408.1", "18.1409.1", "18.1410.1", "18.1412.1", "18.1413.1", "18.1417.1", "18.1423.1", "18.1424.1", "18.1425.1", "18.1426.1", "18.1427.1", "18.1326.1", "18.1075.1", "18.1134.1", "18.1148.1", "18.1188.2", "18.1202.1", "18.1204.2", "18.1211.1", "18.1211.2", "18.1211.3", "18.1211.4", "18.1211.5", "18.1228.2", "18.1232.1", "18.1243.2", "18.1250.1", "18.1252.1", "18.1254.1", "18.1255.1", "18.1256.1", "18.1257.1", "18.1258.1", "18.1259.1", "18.1262.1", "18.1263.1", "18.1264.1", "18.1265.1", "18.1268.1", "18.1269.1", "18.1270.1", "18.1272.1", "18.1273.1", "18.1275.1", "18.1279.1", "18.1279.2", "18.1279.3", "18.1286.1", "18.1287.1", "18.1288.1", "18.1289.1", "18.1291.1", "18.1291.2", "18.1292.1", "18.1293.1", "18.1293.2", "18.1293.3", "18.1293.4", "18.1294.1", "18.1295.1", "18.1296.1", "18.1297.1", "18.1297.2", "18.1298.1", "18.1299.1", "18.1300.1", "18.1301.1", "18.1302.1", "18.1304.1", "18.1305.1", "18.1306.1", "18.1307.1", "18.1308.1", "18.1308.2", "18.1308.3", "18.1309.1", "18.1310.1", "18.1429.1", "18.1430.1", "18.1431.1", "18.1432.1", "18.1433.1", "18.1434.1", "18.1435.1", "18.1435.2", "18.1435.3", "18.1435.4", "18.1435.5", "18.1437.1", "18.1439.1", "18.1441.1", "18.835.1", "18.893.1", "18.90.1", "18.905.1", "18.911.2", "18.918.1", "18.927.1", "18.960.1", "18.963.1", "18.1443.1", "18.1444.1", "18.1445.1", "18.1446.1", "18.1451.1", "18.1452.1", "18.1453.1", "18.1456.1", "18.1459.1", "18.1460.1", "18.1463.1", "18.1467.1", "18.1468.1", "18.1471.1", "18.1472.1", "18.1475.1", "18.1477.1", "18.1478.1", "18.1479.1", "18.1481.1", "18.1482.1", "18.1483.1", "18.1484.1", "18.1485.1", "18.1486.1", "18.1487.1", "18.1476.1", "18.1488.1", "18.1489.1", "18.1490.1", "18.1491.1", "18.1492.1", "18.1493.1", "18.1494.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []

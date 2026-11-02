@@ -17595,3 +17595,19 @@ symbol = "run-real-node-tests"
 observed = "attempt 2 (76ea1ee32) passes the verify (the pytest file, the real_node_script cargo test and the Makefile grep), but the done record refuses with 'symbol run-real-node-tests not defined in the graph': the task's symbols list names the shell script's file stem, which the symbol graph does not index, while every touched path checks."
 assumption = "the symbols list is emptied (the script is a touched path, not a graph symbol); the implementation of attempt 2 stands."
 severity = "minor"
+
+[finding.9.100.2.1]
+task = "9.100.2"
+file = "services/human/crates/layerx-human-service/tests/native_lifecycle.rs:29"
+symbol = "decode_signed_activity"
+observed = "attempt 1 (3ca901071) fails its build before the agent_create target compiles: the build compiles every test target of layerx-human-service (--tests) and tests/native_lifecycle.rs:29 calls canonical::decode_signed_activity, a function the crate no longer exports, so the target has not compiled on main since the canonical module changed; the task's own arm in create.rs and its agent_create test are not involved."
+assumption = "native_lifecycle.rs is ported by task 9.35.11 (its verify names the target); 9.100.2 and 18.1485.1 compile the library and their own test targets only."
+severity = "medium"
+
+[finding.21.41.1.1]
+task = "21.41.1"
+file = "consensus/test/e2e/pkg/proof_consensus_leader_pin_test.go"
+symbol = "TestProofConsensusLeaderPin"
+observed = "attempt 1 (1a2d82a95) passes its verify (TestProofConsensusLeaderPin ok) and is refused by the done record: 'symbol func not defined in the graph', because the task's symbols list carried the Go keyword func read off a method signature."
+assumption = "the keyword is removed from the symbols of every proof task that carries one (40 tasks); the implementation of attempt 1 stands and the next attempt reruns the verify."
+severity = "minor"

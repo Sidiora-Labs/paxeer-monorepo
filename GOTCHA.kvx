@@ -13386,3 +13386,13 @@ fix = "Before naming a package-wide verify, run the package once at the base and
 title = "A verify that greps a saved test log and never prints it leaves nothing to read"
 symptom = "tools/bringup/check-live.test.sh runs under set -euo pipefail, so its first failing command ends the suite; a verify of the shape 'suite > log 2>&1; grep -q <ok line> log' then fails with an empty verify log, and 18.1484.1 burned three attempts without a record of the stopping case."
 fix = "End such verifies with || { cat <log>; exit 1; } as 18.776.1 does, and never list a shell script's file stem under symbols (the done record checks symbols against the graph; scripts are touched paths)."
+
+[gotcha.2714]
+title = "A symbols entry that is not in the graph refuses a passing attempt"
+symptom = "The done record checks every symbols entry against the symbol graph after the verify passes; 21.41.1 listed the Go keyword func (read off a method signature) and was refused with 'symbol func not defined in the graph' after a green verify, and 40 proof tasks carried the same kind of entry."
+fix = "Derive symbols from identifiers only: drop keywords (func, struct, export, const, class, function, type, interface), primitive type names and file stems before writing a task."
+
+[gotcha.2715]
+title = "cargo build --tests of layerx-human-service fails on a sibling test target until 9.35.11 lands"
+symptom = "tests/native_lifecycle.rs:29 calls canonical::decode_signed_activity, which the crate no longer exports, so any build of -p layerx-human-service --tests fails before the task's own target compiles (9.100.2 attempt 1)."
+fix = "Build -p layerx-human-service --lib --test <target> for the targets the verify runs; 9.35.11 owns the port of native_lifecycle.rs."
