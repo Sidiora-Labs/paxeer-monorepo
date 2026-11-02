@@ -122,4 +122,4 @@ evidence = "Commit 1542220c2 exposes the application auth keeper through node/pr
 finding = "2.12.4.1"
 status = "open"
 evidence = "modules/layerxauth/keeper/revoke.go:74 still deletes matching Cosmos grants and modules/layerxauth/ante/integration_test.go:243 expects ErrUnauthorized afterward, whereas requirement 2063 ac_1 at spec/layerx-merge/spec.kvx:14686 still requires ErrAuthRevoked for that path."
-follow_up = "closure"
+follow_up = "22.2.4"
