@@ -423,10 +423,13 @@ export function receiptBacked(reference: EvidenceRef): boolean {
   return reference.class === "layerx-receipt" && RECEIPT_LEVELS.includes(reference.verification);
 }
 
+export function detailEvidence(detail: ActivityEntryDetail): readonly EvidenceRef[] {
+  return [...detail.evidence, ...detail.stages.flatMap((stage) => stage.evidence)];
+}
+
 export function validatedDetail(detail: ActivityEntryDetail): ActivityEntryDetail {
   const completion = detail.state === "done" || detail.state === "done-finalised";
-  const hasReceipt = detail.evidence.some(receiptBacked)
-    || detail.stages.some((stage) => stage.evidence.some(receiptBacked));
+  const hasReceipt = detailEvidence(detail).some(receiptBacked);
   if (completion && !hasReceipt) {
     throw new Error("A completed activity is missing a verified receipt");
   }

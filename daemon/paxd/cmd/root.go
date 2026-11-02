@@ -228,6 +228,28 @@ func txCommand() *cobra.Command {
 func addModuleInitFlags(startCmd *cobra.Command) {
 	wasm.AddModuleInitFlags(startCmd)
 	sequencer.AddStartFlags(startCmd)
+	// Keep the command's default consistent with the generated app.toml.
+	queryGas := startCmd.Flags().Lookup("wasm.query_gas_limit")
+	queryGas.DefValue = fmt.Sprint(defaultNodeWasmQueryGasLimit)
+	if err := queryGas.Value.Set(queryGas.DefValue); err != nil {
+		panic(err)
+	}
+	preRun := startCmd.PreRunE
+	startCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		if preRun != nil {
+			if err := preRun(cmd, args); err != nil {
+				return err
+			}
+		}
+		opts := server.GetServerContextFromCmd(cmd).Viper
+		if _, err := sequencer.ReadConfig(opts); err != nil {
+			return err
+		}
+		if _, err := wasm.ReadWasmConfig(opts); err != nil {
+			return fmt.Errorf("invalid wasm configuration: %w", err)
+		}
+		return nil
+	}
 }
 
 // newApp creates a new Cosmos SDK app
@@ -473,7 +495,7 @@ func InitAppConfig() (string, CustomAppConfig) {
 
 [wasm]
 # This is the maximum sdk gas (wasm and storage) that we allow for any x/wasm "smart" queries
-query_gas_limit = 300000
+query_gas_limit = {{ .WASM.QueryGasLimit }}
 memory_cache_size = {{ .WASM.MemoryCacheSize }}
 simulation_gas_limit = "{{ .WASM.SimulationGasLimit }}"
 

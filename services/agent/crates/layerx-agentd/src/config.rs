@@ -369,7 +369,10 @@ fn parse_file(source: &str) -> Result<BTreeMap<String, String>, ConfigError> {
 fn reject_retired_setting(setting: &str) -> Result<(), ConfigError> {
     if matches!(
         setting,
-        "expected_protocol_version" | "LAYERX_EXPECTED_PROTOCOL_VERSION"
+        "expected_protocol_version"
+            | "LAYERX_EXPECTED_PROTOCOL_VERSION"
+            | "sequencer_authority_source"
+            | "LAYERX_SEQUENCER_AUTHORITY_SOURCE"
     ) {
         Err(error(setting, RejectionReason::Retired))
     } else {

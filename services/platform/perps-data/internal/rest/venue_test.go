@@ -378,3 +378,19 @@ func TestVenueREST(t *testing.T) {
 		}
 	})
 }
+
+func ProofRESTObserveVenue(t *testing.T, client *http.Client, base string, mark float64) {
+	t.Helper()
+	for _, prefix := range []string{"/api", "/api/markets"} {
+		body := ProofRESTGet(t, client, base, prefix+"/ticker/btc", http.StatusOK)
+		if !field[bool](t, body, "success") {
+			t.Fatal(body)
+		}
+		ticker := field[map[string]json.RawMessage](t, body, "data")
+		wantNumber(t, ticker, "mark_price", mark)
+		if field[string](t, ticker, "symbol") != "BTC" {
+			t.Fatal(ticker)
+		}
+		ProofRESTGet(t, client, base, prefix+"/ticker/unknown", http.StatusNotFound)
+	}
+}

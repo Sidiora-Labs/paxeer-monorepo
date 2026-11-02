@@ -30,6 +30,14 @@ function rank(rung: LadderRung | null): number {
 }
 
 export function StatusLadder({ steps }: { steps: readonly LadderStep[] }) {
+  for (const step of steps) {
+    if (
+      (step.rung !== null && !LADDER_RUNGS.includes(step.rung)) ||
+      !Object.hasOwn(SOURCE_LABELS, step.source) ||
+      typeof step.state !== 'string'
+    )
+      throw new TypeError('the status ladder carries malformed evidence');
+  }
   return (
     <ol aria-label="Status" className="flex gap-2">
       {LADDER_RUNGS.map((rung) => {

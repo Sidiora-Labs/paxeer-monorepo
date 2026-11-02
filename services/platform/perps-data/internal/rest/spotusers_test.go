@@ -966,3 +966,78 @@ func TestSpotUsersREST(t *testing.T) {
 		spotEqual(t, "holdings address", upperH.Address, spotUserHex)
 	})
 }
+
+// ProofRESTProduceSpot uses the actual fact writer and projections; the
+// returned envelope is decoded from their transactional outbox bytes.
+func ProofRESTProduceSpot(t *testing.T, db *sql.DB, at time.Time, first uint64) delivery.Envelope {
+	t.Helper()
+	user, token := common.BytesToAddress(spotUser), common.BytesToAddress(paxToken)
+	write := func(height uint64, kind string, rows func(decode.Fact) []decode.Row) {
+		block := store.Block{Number: height, Hash: common.BigToHash(new(big.Int).SetUint64(height)), Time: at, Proposer: strings.Repeat("ab", 20), TxCount: 1}
+		f := decode.Fact{Block: height, BlockHash: block.Hash, TxHash: block.Hash, BlockTime: at, ReceiptKind: "tx", Emitter: decode.SpotPoolAddress, Kind: kind, Account: user, TxFrom: &user}
+		decoded := rows(f)
+		result := &decode.Result{}
+		for _, row := range decoded {
+			result.Decoded = append(result.Decoded, decode.Decoded{Event: decode.Event{EventName: kind}, Rows: []decode.Row{row}})
+		}
+		tx, err := db.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer tx.Rollback()
+		inserted, err := store.WriteFacts(context.Background(), tx, block, result)
+		if err != nil {
+			t.Fatalf("store.WriteFacts: %v", err)
+		}
+		if err := store.Project(context.Background(), tx, inserted); err != nil {
+			t.Fatalf("store.Project: %v", err)
+		}
+		if err := tx.Commit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if first == 50 {
+		write(first, "token_registered", func(f decode.Fact) []decode.Row {
+			f.Emitter = decode.SpotVaultAddress
+			stable := decode.SpotTokenRegisteredRow{Fact: f, Token: store.USDL, Decimals: 6, IsStablecoin: true}
+			f.LogIndex = 1
+			return []decode.Row{stable, decode.SpotTokenRegisteredRow{Fact: f, Token: token, Decimals: 6}}
+		})
+	}
+	for i, buy := range []bool{true, false} {
+		write(first+1+uint64(i), "market_order", func(f decode.Fact) []decode.Row {
+			stable := "100"
+			if !buy {
+				stable = "120"
+			}
+			return []decode.Row{decode.SpotMarketOrderRow{Fact: f, User: user, Stablecoin: store.USDL, Token: token, StablecoinAmount: e6(t, stable), TokenAmount: e6(t, "50"), IsBuy: buy}}
+		})
+	}
+	var wire []byte
+	var subject string
+	if err := db.QueryRow(`SELECT subject, envelope FROM perps.delivery_outbox WHERE
+		convert_from(envelope, 'UTF8')::jsonb #>> '{source_order,height}' = $1
+		AND convert_from(envelope, 'UTF8')::jsonb #>> '{payload,table}' = 'spot_swaps'
+		ORDER BY event_id LIMIT 1`, strconv.FormatUint(first+2, 10)).Scan(&subject, &wire); err != nil {
+		t.Fatal(err)
+	}
+	env, err := delivery.Decode(wire, store.Policy(125), subject)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return env
+}
+
+func ProofRESTObserveSpot(t *testing.T, client *http.Client, base string, round int) {
+	t.Helper()
+	for kind, value := range map[string]string{"pnl": e6(t, strconv.Itoa(round*20)), "volume": e6(t, strconv.Itoa(round*220)), "win-rate": "100.0000"} {
+		body := ProofRESTGet(t, client, base, "/v1/leaderboards/"+kind, http.StatusOK)
+		items := field[[]spotRankJSON](t, body, "items")
+		if len(items) != 1 || items[0].Rank != 1 || items[0].Address != spotUserHex || items[0].Value != value {
+			t.Fatalf("%s: %+v; want %s", kind, items, value)
+		}
+	}
+	ProofRESTGet(t, client, base, "/v1/leaderboards/unknown", http.StatusBadRequest)
+	ProofRESTGet(t, client, base, "/v1/leaderboards/pnl?limit=bad", http.StatusBadRequest)
+	ProofRESTGet(t, client, base, "/v1/users/bad/trades", http.StatusBadRequest)
+}

@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url";
 import { BuyerMiddleware as BuyerMiddlewareImplementation, LayerXPaymentHttpTransport } from "@sidiora/layerx-buyer-middleware";
 import { PlatformSdkError, ProductionClient, SecretBytes } from "@sidiora/layerx-sdk";
 import {
@@ -13,51 +14,49 @@ export function platform_ref_buyer() {
   return "buyer-middleware-metered-api-receipt-verified";
 }
 
-const config = await loadApplicationConfig(import.meta.url, "buyer-agent");
-const rawToken = requiredEnvironment(config.tokenEnvironment);
-const token = new SecretBytes(new TextEncoder().encode(rawToken));
-try {
-  const buyer = new BuyerMiddleware({
-    client: new ProductionClient(new LayerXPaymentHttpTransport({ baseUrl: config.humanUrl, bearerToken: token })),
-    source: requiredEnvironment(config.sourceEnvironment),
-    supported: [{ scheme: config.scheme, network: config.network }],
-    receiptKeys: receiptKeysFromEnvironment(config.receiptKeysEnvironment),
-  });
-  const result = await buyer.fetch(
-    config.resourceUrl,
-    { method: "GET", headers: { accept: "application/json" } },
-    requiredEnvironment(config.idempotencyEnvironment),
-  );
-  if (result.kind === "pending" || result.kind === "unknown" || result.kind === "refused") {
-    process.stdout.write(`${JSON.stringify({ application: "buyer-agent", environment: config.name, state: result.kind, result })}\n`);
-    process.exitCode = result.kind === "pending" ? 2 : result.kind === "unknown" ? 3 : 4;
-  } else if (result.kind === "not-payment-required") {
-    await result.response.body?.cancel();
-    throw new LayerXApplicationStateError("refused", `metered_resource_did_not_require_payment_http_${result.response.status}`);
-  } else {
+export async function runBuyerAgent(config) {
+  const token = new SecretBytes(new TextEncoder().encode(requiredEnvironment(config.tokenEnvironment)));
+  try {
+    const buyer = new BuyerMiddleware({
+      client: new ProductionClient(new LayerXPaymentHttpTransport({ baseUrl: config.humanUrl, bearerToken: token })),
+      source: requiredEnvironment(config.sourceEnvironment),
+      supported: [{ scheme: config.scheme, network: config.network }],
+      receiptKeys: receiptKeysFromEnvironment(config.receiptKeysEnvironment),
+    });
+    const result = await buyer.fetch(
+      config.resourceUrl,
+      { method: "GET", headers: { accept: "application/json" } },
+      requiredEnvironment(config.idempotencyEnvironment),
+    );
+    if (result.kind === "pending" || result.kind === "unknown" || result.kind === "refused") {
+      return { application: "buyer-agent", environment: config.name, state: result.kind, result };
+    }
+    if (result.kind === "not-payment-required") {
+      await result.response.body?.cancel();
+      throw new LayerXApplicationStateError("refused", `metered_resource_did_not_require_payment_http_${result.response.status}`);
+    }
     if (!result.response.ok) {
       await result.response.body?.cancel();
       throw new LayerXApplicationStateError("unknown", `paid_resource_http_${result.response.status}`);
     }
-    const body = await result.response.text();
-    process.stdout.write(`${JSON.stringify({
-      application: "buyer-agent",
-      environment: config.name,
-      state: "paid",
-      status: result.response.status,
-      transactionHash: result.settlement.txHash,
-      receiptDigest: result.settlement.receiptDigest,
-      rung: result.settlement.verification.rung,
-      body,
-    })}\n`);
+    return {
+      application: "buyer-agent", environment: config.name, state: "paid", status: result.response.status,
+      transactionHash: result.settlement.txHash, receiptDigest: result.settlement.receiptDigest,
+      rung: result.settlement.verification.rung, body: await result.response.text(),
+    };
+  } catch (error) {
+    const stateError = classifyBoundaryError(error);
+    if (stateError === undefined) throw error;
+    return { application: "buyer-agent", environment: config.name, state: stateError.state, detail: stateError.message };
+  } finally {
+    token.destroy();
   }
-} catch (error) {
-  const stateError = classifyBoundaryError(error);
-  if (stateError === undefined) throw error;
-  process.stdout.write(`${JSON.stringify({ application: "buyer-agent", environment: config.name, state: stateError.state, detail: stateError.message })}\n`);
-  process.exitCode = stateError.state === "pending" ? 2 : stateError.state === "unknown" ? 3 : 4;
-} finally {
-  token.destroy();
+}
+
+if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const outcome = await runBuyerAgent(await loadApplicationConfig(import.meta.url, "buyer-agent"));
+  process.stdout.write(`${JSON.stringify(outcome)}\n`);
+  process.exitCode = outcome.state === "paid" ? 0 : outcome.state === "pending" ? 2 : outcome.state === "unknown" ? 3 : 4;
 }
 
 function classifyBoundaryError(error) {

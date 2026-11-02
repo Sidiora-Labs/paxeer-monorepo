@@ -78,8 +78,14 @@ const SPOT_VENUE_SYMBOLS = new Set(["PAX", "SID"]);
 const connections = new Map<string, Connection>();
 
 export function registerVenueSymbols(symbols: readonly string[]): void {
+  const next = symbols.map((symbol) => {
+    if (!symbol || symbol.trim() !== symbol || symbol.includes("@")) {
+      throw new TypeError("Invalid venue symbol");
+    }
+    return symbol.toUpperCase();
+  });
   registeredVenueSymbols.clear();
-  for (const symbol of symbols) registeredVenueSymbols.add(symbol.toUpperCase());
+  for (const symbol of next) registeredVenueSymbols.add(symbol);
 }
 
 export function isVenueSymbol(symbol: string | null | undefined): boolean {

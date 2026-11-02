@@ -352,3 +352,66 @@ func TestNoEstimatedFundingEmitter(t *testing.T) {
 		t.Fatalf("%s still named in %v", needle, found)
 	}
 }
+
+// ProofRESTGet reads the wire response through the same JSON decoder as the
+// route consumers, using a real HTTP connection instead of a recorder.
+func ProofRESTGet(t *testing.T, client *http.Client, base, path string, status int) map[string]json.RawMessage {
+	t.Helper()
+	resp, err := client.Get(base + path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != status {
+		t.Fatalf("%s: status %d, want %d", path, resp.StatusCode, status)
+	}
+	if resp.Header.Get("Content-Type") != "application/json" {
+		t.Fatalf("%s: not JSON", path)
+	}
+	var body map[string]json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("%s: %v", path, err)
+	}
+	return body
+}
+
+func ProofRESTSeedMarkets(t *testing.T, db *sql.DB, at time.Time) {
+	t.Helper()
+	markPrice(t, db, 0, 40, at, "70000", "69999")
+	fill(t, db, 0, 41, 0, at, true, "70000", "140000")
+	rollingStats(t, db, 0, "140000", "140000", "140000", 1, "100", "50", "70000")
+}
+
+func ProofRESTObserveMarkets(t *testing.T, client *http.Client, base string, mark float64) {
+	t.Helper()
+	for _, path := range []string{"/api/markets", "/api/markets/btc"} {
+		resp, err := client.Get(base + path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if resp.Header.Get("Cache-Control") != "no-store" {
+			t.Errorf("%s: market records must not be cached", path)
+		}
+		resp.Body.Close()
+		body := ProofRESTGet(t, client, base, path, http.StatusOK)
+		var rec map[string]json.RawMessage
+		if path == "/api/markets" {
+			all := field[[]map[string]json.RawMessage](t, body, "markets")
+			if len(all) != 18 {
+				t.Fatalf("markets: %d rows", len(all))
+			}
+			rec = all[0]
+		} else {
+			rec = field[map[string]json.RawMessage](t, body, "market")
+		}
+		if field[string](t, rec, "market_id") != "0" || field[string](t, rec, "symbol") != "BTC" {
+			t.Fatalf("market identity: %s", rec)
+		}
+		wantNumber(t, rec, "perp_mark_price", mark)
+		wantNumber(t, rec, "volume_24h", 140000)
+	}
+	body := ProofRESTGet(t, client, base, "/api/markets/UNKNOWN", http.StatusNotFound)
+	if field[string](t, body, "error") != "Unknown symbol: UNKNOWN" {
+		t.Fatal(body)
+	}
+}

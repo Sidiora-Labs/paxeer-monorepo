@@ -7,14 +7,10 @@ import (
 	"net/http"
 
 	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
-	"github.com/google/uuid"
 )
 
 func writeError(w http.ResponseWriter, r *http.Request, status int, code string) {
-	requestID := r.Header.Get("X-Request-Id")
-	if requestID == "" {
-		requestID = uuid.NewString()
-	}
+	requestID := squadRequestID(r)
 	w.Header().Set("Content-Type", "application/json")
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.WriteHeader(status)

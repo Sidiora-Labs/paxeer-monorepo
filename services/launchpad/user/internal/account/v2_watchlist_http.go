@@ -42,6 +42,14 @@ func (h HTTP) watchV2Put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h HTTP) watchV2Delete(w http.ResponseWriter, r *http.Request) {
+	if _, err := authenticated(r); err != nil {
+		WriteError(w, err, requestID(r))
+		return
+	}
+	if len(r.URL.Query()) != 0 {
+		WriteError(w, ErrInvalid, requestID(r))
+		return
+	}
 	h.watchDelete(w, r)
 }
 

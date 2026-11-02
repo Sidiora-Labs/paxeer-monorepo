@@ -52,6 +52,7 @@
             }
         },
         "/readyz": {
+            "description": "Spot API readiness. This is not the reference ramp's bare local-journal readiness document or the Human service envelope.",
             "get": {
                 "tags": [
                     "Health"

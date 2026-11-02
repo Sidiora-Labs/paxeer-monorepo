@@ -6,8 +6,8 @@ export function phaseOf(
   live: TransferLive | undefined,
   attestationReady: boolean,
 ): TransferPhase {
-  if (transfer.direction === 'in' && (transfer.claimTxHash || live?.credited)) return 'settled';
-  if (transfer.direction === 'out' && transfer.releaseTxHash) return 'settled';
+  if (transfer.direction === 'in' && (transfer.claimedAt !== undefined || transfer.claimTxHash || live?.credited)) return 'settled';
+  if (transfer.direction === 'out' && (transfer.releasedAt !== undefined || transfer.releaseTxHash || live?.released)) return 'settled';
   if (live?.sourceFailed) return 'failed';
   if (attestationReady) return 'ready';
   if (live && live.confirmations > 0 && live.confirmations >= live.requiredConfirmations) return 'attesting';
