@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
@@ -61,21 +60,21 @@ func (k *Keeper) PlaceOrder(ctx sdk.Context, account common.Address, p OrderPara
 		return PlaceResult{}, err
 	}
 	if params.Paused && !p.ReduceOnly {
-		return PlaceResult{}, fmt.Errorf("%w: opening orders are stopped", types.ErrPaused)
+		return PlaceResult{}, types.ErrPaused.Wrapf("opening orders are stopped")
 	}
 	holder, exists, err := loadBookedAccount(k.store(ctx), account)
 	if err != nil {
 		return PlaceResult{}, err
 	}
 	if !exists || !holder.Created {
-		return PlaceResult{}, fmt.Errorf("%w: %s", types.ErrNoAccount, account)
+		return PlaceResult{}, types.ErrNoAccount.Wrapf("%s", account)
 	}
 	market, err := k.GetMarket(ctx, p.MarketID)
 	if err != nil {
 		return PlaceResult{}, err
 	}
 	if !market.Enabled && !p.ReduceOnly {
-		return PlaceResult{}, fmt.Errorf("%w: market %d", types.ErrMarketDisabled, p.MarketID)
+		return PlaceResult{}, types.ErrMarketDisabled.Wrapf("market %d", p.MarketID)
 	}
 	orderType := types.OrderType(p.OrderType)
 	if !p.ReduceOnly || orderType == types.OrderTypeMarket {
@@ -92,7 +91,7 @@ func (k *Keeper) PlaceOrder(ctx sdk.Context, account common.Address, p OrderPara
 		return PlaceResult{}, err
 	}
 	if p.Deadline != 0 && p.Deadline < now {
-		return PlaceResult{}, fmt.Errorf("%w: deadline %d below block time %d", types.ErrDeadlineExpired, p.Deadline, now)
+		return PlaceResult{}, types.ErrDeadlineExpired.Wrapf("deadline %d below block time %d", p.Deadline, now)
 	}
 
 	order := types.Order{
@@ -123,11 +122,11 @@ func (k *Keeper) PlaceOrder(ctx sdk.Context, account common.Address, p OrderPara
 		return PlaceResult{}, err
 	}
 	if holder.OpenOrderCount >= params.MaxOpenOrdersPerAccount {
-		return PlaceResult{}, fmt.Errorf("%w: %s holds %d open orders", types.ErrTooManyOpenOrders, account,
+		return PlaceResult{}, types.ErrTooManyOpenOrders.Wrapf("%s holds %d open orders", account,
 			holder.OpenOrderCount)
 	}
 	if order.Cloid != ([16]byte{}) && k.store(ctx).Has(types.CloidKey(account, p.MarketID, order.Cloid)) {
-		return PlaceResult{}, fmt.Errorf("%w: %x in market %d", types.ErrDuplicateCloid, order.Cloid, p.MarketID)
+		return PlaceResult{}, types.ErrDuplicateCloid.Wrapf("%x in market %d", order.Cloid, p.MarketID)
 	}
 	if order.ReduceOnly {
 		if err := k.checkReduceOnly(ctx, order); err != nil {
@@ -183,13 +182,13 @@ func (k *Keeper) PlaceOrder(ctx sdk.Context, account common.Address, p OrderPara
 // a triggered market order fill at once, so they take IOC or FOK only.
 func validateOrderKind(orderType types.OrderType, timeInForce types.TimeInForce) error {
 	if orderType > types.OrderTypeStopMarket {
-		return fmt.Errorf("%w: %d", types.ErrInvalidOrderType, orderType)
+		return types.ErrInvalidOrderType.Wrapf("%d", orderType)
 	}
 	if timeInForce > types.TimeInForcePostOnly {
-		return fmt.Errorf("%w: %d", types.ErrInvalidTimeInForce, timeInForce)
+		return types.ErrInvalidTimeInForce.Wrapf("%d", timeInForce)
 	}
 	if isMarketKind(orderType) && timeInForce != types.TimeInForceIOC && timeInForce != types.TimeInForceFOK {
-		return fmt.Errorf("%w: order type %d takes IOC or FOK, not %d", types.ErrInvalidTimeInForce, orderType, timeInForce)
+		return types.ErrInvalidTimeInForce.Wrapf("order type %d takes IOC or FOK, not %d", orderType, timeInForce)
 	}
 	return nil
 }
@@ -221,7 +220,7 @@ func (k *Keeper) orderPrices(ctx sdk.Context, market types.Market, p OrderParams
 	tick := decimalStep(market.PxDecimals)
 	if order.Type == types.OrderTypeLimit || order.Type == types.OrderTypeStopLimit {
 		if p.LimitPrice.IsZero() {
-			return uint256.Int{}, fmt.Errorf("%w: zero limit price", types.ErrZeroAmount)
+			return uint256.Int{}, types.ErrZeroAmount.Wrapf("zero limit price")
 		}
 		if err := checkTick(p.LimitPrice, tick, "limit"); err != nil {
 			return uint256.Int{}, err
@@ -238,13 +237,13 @@ func (k *Keeper) orderPrices(ctx sdk.Context, market types.Market, p OrderParams
 	}
 	mark := state.MarkPrice
 	if mark.IsZero() {
-		return uint256.Int{}, fmt.Errorf("%w: market %d has no mark", types.ErrPriceStale, market.ID)
+		return uint256.Int{}, types.ErrPriceStale.Wrapf("market %d has no mark", market.ID)
 	}
 	if order.Type == types.OrderTypeMarket {
 		return mark, nil
 	}
 	if p.TriggerPrice.IsZero() {
-		return uint256.Int{}, fmt.Errorf("%w: zero trigger price", types.ErrInvalidTriggerPrice)
+		return uint256.Int{}, types.ErrInvalidTriggerPrice.Wrapf("zero trigger price")
 	}
 	if err := checkTick(p.TriggerPrice, tick, "trigger"); err != nil {
 		return uint256.Int{}, err
@@ -252,8 +251,7 @@ func (k *Keeper) orderPrices(ctx sdk.Context, market types.Market, p OrderParams
 	order.TriggerPrice = p.TriggerPrice
 	if rising := triggerDirection(*order) == types.TriggerRising; (rising && !mark.Lt(&p.TriggerPrice)) ||
 		(!rising && !mark.Gt(&p.TriggerPrice)) {
-		return uint256.Int{}, fmt.Errorf("%w: trigger %s already reached at mark %s", types.ErrInvalidTriggerPrice,
-			p.TriggerPrice.Dec(), mark.Dec())
+		return uint256.Int{}, types.ErrInvalidTriggerPrice.Wrapf("trigger %s already reached at mark %s", p.TriggerPrice.Dec(), mark.Dec())
 	}
 	if order.Type == types.OrderTypeStopLimit {
 		return p.LimitPrice, nil
@@ -273,7 +271,7 @@ func decimalStep(decimals uint8) uint256.Int {
 func checkTick(price, tick uint256.Int, name string) error {
 	var residue uint256.Int
 	if !residue.Mod(&price, &tick).IsZero() {
-		return fmt.Errorf("%w: %s price %s is not a multiple of %s", types.ErrTickSize, name, price.Dec(), tick.Dec())
+		return types.ErrTickSize.Wrapf("%s price %s is not a multiple of %s", name, price.Dec(), tick.Dec())
 	}
 	return nil
 }
@@ -287,7 +285,7 @@ func sizeOrder(market types.Market, sizeUsd, sizeBase, price uint256.Int, order 
 		var overflow bool
 		base, overflow = new(uint256.Int).MulOverflow(&sizeUsd, fixedPointOne)
 		if overflow {
-			return fmt.Errorf("%w: size %s USD at %s", types.ErrOverflow, sizeUsd.Dec(), price.Dec())
+			return types.ErrOverflow.Wrapf("size %s USD at %s", sizeUsd.Dec(), price.Dec())
 		}
 		base.Div(base, &price)
 	}
@@ -295,11 +293,11 @@ func sizeOrder(market types.Market, sizeUsd, sizeBase, price uint256.Int, order 
 	var residue uint256.Int
 	base.Sub(base, residue.Mod(base, &lot))
 	if base.IsZero() {
-		return fmt.Errorf("%w: %s USD at %s is below one lot of %s", types.ErrLotSize, sizeUsd.Dec(), price.Dec(), lot.Dec())
+		return types.ErrLotSize.Wrapf("%s USD at %s is below one lot of %s", sizeUsd.Dec(), price.Dec(), lot.Dec())
 	}
 	notional, overflow := new(uint256.Int).MulDivOverflow(base, &price, fixedPointOne)
 	if overflow {
-		return fmt.Errorf("%w: notional of %s base at %s", types.ErrOverflow, base.Dec(), price.Dec())
+		return types.ErrOverflow.Wrapf("notional of %s base at %s", base.Dec(), price.Dec())
 	}
 	order.SizeBase = *base
 	order.SizeUsd = *notional
@@ -312,7 +310,7 @@ func sizeOrder(market types.Market, sizeUsd, sizeBase, price uint256.Int, order 
 func checkOrderValue(params types.Params, market types.Market, order types.Order) error {
 	notional := order.SizeUsd.ToBig()
 	if notional.Cmp(params.MinOrderValueUsd.BigInt()) < 0 {
-		return fmt.Errorf("%w: %s USD below %s", types.ErrMinOrderValue, notional, params.MinOrderValueUsd)
+		return types.ErrMinOrderValue.Wrapf("%s USD below %s", notional, params.MinOrderValueUsd)
 	}
 	var maxValue *big.Int
 	for _, row := range params.MarketOrderMaxValues {
@@ -321,13 +319,13 @@ func checkOrderValue(params types.Params, market types.Market, order types.Order
 		}
 	}
 	if maxValue == nil {
-		return fmt.Errorf("%w: no order value bound for max leverage %d", types.ErrInvalidParams, market.MaxLeverage)
+		return types.ErrInvalidParams.Wrapf("no order value bound for max leverage %d", market.MaxLeverage)
 	}
 	if !isMarketKind(order.Type) {
 		maxValue = new(big.Int).Mul(maxValue, new(big.Int).SetUint64(params.LimitOrderValueMultiple))
 	}
 	if notional.Cmp(maxValue) > 0 {
-		return fmt.Errorf("%w: %s USD above %s", types.ErrMaxOrderValue, notional, maxValue)
+		return types.ErrMaxOrderValue.Wrapf("%s USD above %s", notional, maxValue)
 	}
 	return nil
 }
@@ -338,7 +336,7 @@ func checkOrderValue(params types.Params, market types.Market, order types.Order
 // tier of the resulting position.
 func checkOrderLeverage(market types.Market, order types.Order) error {
 	if order.Leverage.Lt(fixedPointOne) {
-		return fmt.Errorf("%w: leverage %s below 1e18", types.ErrLeverageTooHigh, order.Leverage.Dec())
+		return types.ErrLeverageTooHigh.Wrapf("leverage %s below 1e18", order.Leverage.Dec())
 	}
 	tiers, err := types.TiersFor(market)
 	if err != nil {
@@ -354,7 +352,7 @@ func checkOrderLeverage(market types.Market, order types.Order) error {
 	var limit uint256.Int
 	limit.Mul(uint256.NewInt(maxLeverage), fixedPointOne)
 	if order.Leverage.Gt(&limit) {
-		return fmt.Errorf("%w: leverage %s above %dx for %s USD", types.ErrLeverageTooHigh, order.Leverage.Dec(),
+		return types.ErrLeverageTooHigh.Wrapf("leverage %s above %dx for %s USD", order.Leverage.Dec(),
 			maxLeverage, order.SizeUsd.Dec())
 	}
 	return nil
@@ -368,8 +366,7 @@ func (k *Keeper) checkReduceOnly(ctx sdk.Context, order types.Order) error {
 		return err
 	}
 	if !exists || position.IsLong == order.IsLong || order.SizeBase.Gt(&position.SizeBase) {
-		return fmt.Errorf("%w: order %s base against the position of %s in market %d", types.ErrReduceOnlyViolation,
-			order.SizeBase.Dec(), order.Account, order.MarketID)
+		return types.ErrReduceOnlyViolation.Wrapf("order %s base against the position of %s in market %d", order.SizeBase.Dec(), order.Account, order.MarketID)
 	}
 	return nil
 }
@@ -383,19 +380,17 @@ func (k *Keeper) orderPosition(ctx sdk.Context, account common.Address, marketID
 		return types.Position{}, false, nil
 	}
 	if len(idBytes) != 32 {
-		return types.Position{}, false, fmt.Errorf("%w: position index of %s in market %d holds %d bytes",
-			types.ErrInvalidParams, account, marketID, len(idBytes))
+		return types.Position{}, false, types.ErrInvalidParams.Wrapf("position index of %s in market %d holds %d bytes", account, marketID, len(idBytes))
 	}
 	var positionID uint256.Int
 	positionID.SetBytes32(idBytes)
 	bz := store.Get(types.PositionKey(positionID))
 	if bz == nil {
-		return types.Position{}, false, fmt.Errorf("%w: position index of %s in market %d names missing position %s",
-			types.ErrInvalidParams, account, marketID, positionID.Dec())
+		return types.Position{}, false, types.ErrInvalidParams.Wrapf("position index of %s in market %d names missing position %s", account, marketID, positionID.Dec())
 	}
 	var position types.Position
 	if err := position.Unmarshal(bz); err != nil {
-		return types.Position{}, false, fmt.Errorf("%w: corrupt position %s: %v", types.ErrInvalidParams, positionID.Dec(), err)
+		return types.Position{}, false, types.ErrInvalidParams.Wrapf("corrupt position %s: %v", positionID.Dec(), err)
 	}
 	return position, true, nil
 }
@@ -412,7 +407,7 @@ func (k *Keeper) admitOrder(ctx sdk.Context, order *types.Order) error {
 		return err
 	}
 	if !sequence.IsUint64() {
-		return fmt.Errorf("%w: placement sequence above 2^64-1", types.ErrOverflow)
+		return types.ErrOverflow.Wrapf("placement sequence above 2^64-1")
 	}
 	order.ID = id
 	order.Sequence = sequence.Uint64()
@@ -459,7 +454,7 @@ func (k *Keeper) CancelOrder(ctx sdk.Context, account common.Address, orderID ui
 		return types.EventRecord{}, err
 	}
 	if order.Account != account {
-		return types.EventRecord{}, fmt.Errorf("%w: order %s", types.ErrNotOrderHolder, orderID.Dec())
+		return types.EventRecord{}, types.ErrNotOrderHolder.Wrapf("order %s", orderID.Dec())
 	}
 	if err := k.withdrawOrder(ctx, order, types.OrderStatusCancelled); err != nil {
 		return types.EventRecord{}, err
@@ -471,14 +466,14 @@ func (k *Keeper) CancelOrder(ctx sdk.Context, account common.Address, orderID ui
 // market, as CancelOrder.
 func (k *Keeper) CancelByCloid(ctx sdk.Context, account common.Address, marketID uint64, cloid [16]byte) (types.EventRecord, error) {
 	if cloid == ([16]byte{}) {
-		return types.EventRecord{}, fmt.Errorf("%w: zero cloid", types.ErrUnknownOrder)
+		return types.EventRecord{}, types.ErrUnknownOrder.Wrapf("zero cloid")
 	}
 	idBytes := k.store(ctx).Get(types.CloidKey(account, marketID, cloid))
 	if idBytes == nil {
-		return types.EventRecord{}, fmt.Errorf("%w: cloid %x in market %d", types.ErrUnknownOrder, cloid, marketID)
+		return types.EventRecord{}, types.ErrUnknownOrder.Wrapf("cloid %x in market %d", cloid, marketID)
 	}
 	if len(idBytes) != 32 {
-		return types.EventRecord{}, fmt.Errorf("%w: cloid %x holds %d bytes", types.ErrInvalidParams, cloid, len(idBytes))
+		return types.EventRecord{}, types.ErrInvalidParams.Wrapf("cloid %x holds %d bytes", cloid, len(idBytes))
 	}
 	var orderID uint256.Int
 	orderID.SetBytes32(idBytes)
@@ -505,7 +500,7 @@ func (k *Keeper) ExpireOrders(ctx sdk.Context) ([]types.EventRecord, error) {
 		key := iterator.Key()
 		if len(key) != len(types.ExpiryPrefix)+8+32 {
 			iterator.Close()
-			return nil, fmt.Errorf("%w: expiry key %x", types.ErrInvalidParams, key)
+			return nil, types.ErrInvalidParams.Wrapf("expiry key %x", key)
 		}
 		var orderID uint256.Int
 		orderID.SetBytes32(key[len(types.ExpiryPrefix)+8:])
@@ -517,7 +512,7 @@ func (k *Keeper) ExpireOrders(ctx sdk.Context) ([]types.EventRecord, error) {
 	for _, orderID := range due {
 		order, err := k.openOrder(ctx, orderID)
 		if err != nil {
-			return nil, fmt.Errorf("%w: expiry entry of order %s: %v", types.ErrInvalidParams, orderID.Dec(), err)
+			return nil, types.ErrInvalidParams.Wrapf("expiry entry of order %s: %v", orderID.Dec(), err)
 		}
 		if err := k.withdrawOrder(ctx, order, types.OrderStatusExpired); err != nil {
 			return nil, err
@@ -535,14 +530,14 @@ func (k *Keeper) ExpireOrders(ctx sdk.Context) ([]types.EventRecord, error) {
 func (k *Keeper) openOrder(ctx sdk.Context, orderID uint256.Int) (types.Order, error) {
 	bz := k.store(ctx).Get(types.OrderKey(orderID))
 	if bz == nil {
-		return types.Order{}, fmt.Errorf("%w: %s", types.ErrUnknownOrder, orderID.Dec())
+		return types.Order{}, types.ErrUnknownOrder.Wrapf("%s", orderID.Dec())
 	}
 	var order types.Order
 	if err := order.Unmarshal(bz); err != nil {
-		return types.Order{}, fmt.Errorf("%w: corrupt order %s: %v", types.ErrInvalidParams, orderID.Dec(), err)
+		return types.Order{}, types.ErrInvalidParams.Wrapf("corrupt order %s: %v", orderID.Dec(), err)
 	}
 	if order.Status != types.OrderStatusResting && order.Status != types.OrderStatusUntriggered {
-		return types.Order{}, fmt.Errorf("%w: order %s is closed", types.ErrUnknownOrder, orderID.Dec())
+		return types.Order{}, types.ErrUnknownOrder.Wrapf("order %s is closed", orderID.Dec())
 	}
 	return order, nil
 }
@@ -572,7 +567,7 @@ func (k *Keeper) closeOrder(ctx sdk.Context, order types.Order, status types.Ord
 		return err
 	}
 	if !exists || holder.OpenOrderCount == 0 {
-		return fmt.Errorf("%w: order %s of %s is not counted open", types.ErrInvalidParams, order.ID.Dec(), order.Account)
+		return types.ErrInvalidParams.Wrapf("order %s of %s is not counted open", order.ID.Dec(), order.Account)
 	}
 	holder.OpenOrderCount--
 	store.Set(types.AccountKey(order.Account), holder.Marshal())

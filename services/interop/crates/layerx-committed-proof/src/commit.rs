@@ -97,9 +97,7 @@ pub fn verify_commit(
             }
             continue;
         }
-        if !(-62_135_596_800..=253_402_300_799).contains(&vote.timestamp.seconds)
-            || vote.timestamp.nanos >= 1_000_000_000
-        {
+        if !vote.timestamp.is_valid() {
             return Err(ProofError::InvalidCommit);
         }
         let signature = vote.signature.ok_or(ProofError::InvalidCommit)?;
