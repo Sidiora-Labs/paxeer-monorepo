@@ -640,7 +640,7 @@ The explorer is REST only; chain@blocks (snapshot of 20) and chain@transactions 
 | GET /api/chain/markets/<symbol>/history?cursor=C&limit=N | as above |
 | GET /api/chain/tx/<hash> | the tx_actions rows of the transaction or synthetic receipt; 404 {error: unknown transaction} |
 
-Action mapping (the six actions of the application data protocol):
+Action mapping (seven actions, including collateral deposits):
 
 | action | rows |
 | --- | --- |
@@ -650,9 +650,11 @@ Action mapping (the six actions of the application data protocol):
 | OROB Fill | one row per Fill (user the taker, side the taker side, price, size sizeUsd); LimitOrderExecuted, StopLimitExecuted, StopLossOrderExecuted, MarketOrderExecuted, NativeSwap, SimpleSwap |
 | Oracle Updated | one row per block that carries pricefeed_aggregate events: hash the block hash, size the count of markets updated, keyed at the first aggregate event of the block |
 | Sealed Batch Executed | one row per perps_endblock and per spot_endblock synthetic receipt: hash the receipt hash, size the count of its logs |
+| Collateral Deposited | one row per CollateralDeposited log: user the depositing account, hash the transaction hash, size the deposited USDL amount divided by 10^6; symbol, side and price null |
 
 - user is the bech32 form with prefix pax (node/const.go:5) of the row account; proposer is the upper-case hex of the CometBFT header (section 5).
 - A synthetic receipt hash is rendered from the stored rows only; the explorer never calls eth_getTransactionByHash for it.
+- Finding 3.54.7.1: account history linked collateral deposits while the six-action mapping omitted CollateralDeposited, so `store.txActions` wrote no row and the transaction route returned 404. The seventh mapping stores the deposit in `perps.tx_actions` so the history link resolves from the same indexed facts.
 
 link is PERPS_EXPLORER_TX_BASE + /tx/<hash> or /address/<address>; it is omitted when the variable is empty. Responses carry Cache-Control max-age 2; excess requests answer 429 with Retry-After.
 
