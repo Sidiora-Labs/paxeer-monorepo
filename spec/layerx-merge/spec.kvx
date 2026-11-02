@@ -106214,7 +106214,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.34.1]
 title = "Retire the data-availability bundle builder in src/network/lxp_da_bundle.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.3", "16.32.6", "16.32.7", "16.32.8", "16.32.9", "16.32.11", "16.33.2", "16.33.5", "16.33.6", "6.96.5"]
@@ -106350,7 +106350,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.35.1]
 title = "Retire batch sealing and signing and move signature verification to the header codec"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "8.51.1", "13.34.1", "14.29.2", "16.31.5", "16.31.7", "16.32.1", "16.32.2", "16.32.8", "16.32.9", "16.32.10", "16.32.11", "16.33.5", "16.34.3", "6.96.5"]
@@ -116985,7 +116985,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.154.1]
 title = "Prove the middleware merchant ts exports path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -134244,7 +134244,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.102.1]
 title = "Prove the orob 0x0901 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
