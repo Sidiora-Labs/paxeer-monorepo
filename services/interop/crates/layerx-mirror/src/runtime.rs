@@ -43,6 +43,19 @@ pub struct RuntimeConfig {
     pub solana: Option<SolanaFileConfig>,
 }
 
+impl RuntimeConfig {
+    /// Returns the source chain identity carried by the archive wire format.
+    ///
+    /// # Errors
+    /// Refuses zero or a chain identity that cannot be represented by an archive.
+    pub fn committed_network_id(&self) -> Result<u32, CommittedRefusal> {
+        u32::try_from(self.paxeer.chain_id)
+            .ok()
+            .filter(|network_id| *network_id != 0)
+            .ok_or(CommittedRefusal::ChainMismatch)
+    }
+}
+
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EthereumFileConfig {
@@ -203,7 +216,7 @@ fn spawn_committed(
     mut next_height: u64,
 ) {
     thread::spawn(move || {
-        let Ok(network_id) = u32::try_from(config.paxeer.chain_id) else {
+        let Ok(network_id) = config.committed_network_id() else {
             update_status(&status, |value| {
                 record_committed(value, Err(CommittedRefusal::ChainMismatch));
             });
@@ -930,8 +943,7 @@ fn solana_error_class(error: &SolanaError) -> &'static str {
 
 fn validate_runtime(config: &RuntimeConfig) -> Result<(), RuntimeError> {
     let paxeer = &config.paxeer;
-    if paxeer.chain_id == 0
-        || u32::try_from(paxeer.chain_id).is_err()
+    if config.committed_network_id().is_err()
         || fixed_hex::<32>(&paxeer.genesis_hash_hex).map_err(|_| RuntimeError::Configuration)?
             == [0; 32]
         || paxeer.receipt_keys.is_empty()
