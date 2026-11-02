@@ -35,15 +35,15 @@ evidence = "Commit 2ccc6e017dd85ef865d3de0589bda74e03aac6e5 added bounds to all 
 
 [disposition.16.24.5.2]
 finding = "16.24.5.2"
-status = "open"
-evidence = "spec/layerx-merge/spec.kvx:5942 explicitly records that the release-candidate measurements are absent from this feature and defers retightening to a later feature, while tools/loadtest/profiles/local.json:3 still carries the provisional 5 TPS and 5000 ms bounds."
-follow_up = "closure"
+status = "environment"
+evidence = "spec/layerx-merge/spec.kvx:5942 explicitly records that the release-candidate measurements are absent from this feature and defers retightening to a later feature, while tools/loadtest/profiles/local.json:3 still carries the provisional 5 TPS and 5000 ms bounds. Decision 2299: release-candidate load measurement runs on the candidate network at upgrade time, outside the merge; tools/loadtest/profiles/local.json keeps the provisional development bounds."
+follow_up = "decision.2299"
 
 [disposition.16.24.6.1]
 finding = "16.24.6.1"
-status = "open"
-evidence = "spec/layerx-merge/spec.kvx:5942 supersedes task 16.24.6 without supplying release-candidate measurements, and tools/loadtest/profiles/profiles_test.go:196 checks only that the provisional bounds exist and are positive, leaving measured tightening unimplemented."
-follow_up = "closure"
+status = "environment"
+evidence = "spec/layerx-merge/spec.kvx:5942 supersedes task 16.24.6 without supplying release-candidate measurements, and tools/loadtest/profiles/profiles_test.go:196 checks only that the provisional bounds exist and are positive, leaving measured tightening unimplemented. Decision 2299: release-candidate load measurement runs on the candidate network at upgrade time, outside the merge; the profile test checks only that bounds exist and are positive."
+follow_up = "decision.2299"
 
 [disposition.16.25.2]
 finding = "16.25.2"

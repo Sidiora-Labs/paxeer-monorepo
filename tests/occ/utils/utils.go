@@ -329,7 +329,8 @@ func RunWithoutOCC(testCtx *TestContext, msgs []*TestMessage) ([]types.Event, []
 func runTxs(testCtx *TestContext, msgs []*TestMessage, occ bool) ([]types.Event, []*types.ExecTxResult, types.ResponseEndBlock, error) {
 	app.EnableOCC = occ
 	txs := toTxBytes(testCtx, msgs)
-	req := &app.BlockProcessRequest{Height: testCtx.Ctx.BlockHeader().Height}
+	header := testCtx.Ctx.BlockHeader()
+	req := app.NewBlockProcessRequest(&types.RequestFinalizeBlock{Header: &header, Hash: testCtx.Ctx.HeaderHash()})
 	return testCtx.TestApp.ProcessBlock(testCtx.Ctx, txs, req, types.CommitInfo{}, false, nil)
 }
 
@@ -338,7 +339,8 @@ func runTxs(testCtx *TestContext, msgs []*TestMessage, occ bool) ([]types.Event,
 // excluding the overhead of transaction encoding, signing, and state preparation.
 func ProcessBlockDirect(testCtx *TestContext, txs [][]byte, occ bool) ([]types.Event, []*types.ExecTxResult, types.ResponseEndBlock, error) {
 	app.EnableOCC = occ
-	req := &app.BlockProcessRequest{Height: testCtx.Ctx.BlockHeader().Height}
+	header := testCtx.Ctx.BlockHeader()
+	req := app.NewBlockProcessRequest(&types.RequestFinalizeBlock{Header: &header, Hash: testCtx.Ctx.HeaderHash()})
 	return testCtx.TestApp.ProcessBlock(testCtx.Ctx, txs, req, types.CommitInfo{}, false, nil)
 }
 

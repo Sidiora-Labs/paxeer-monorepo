@@ -1,0 +1,29 @@
+[sweep.rust-test-tools-platform]
+revision = "03e2d849d7f3e9ca51cada79f6d3cfe90938a0fb"
+command = "cargo test --locked --manifest-path tools/platform/Cargo.toml -p TARGET --no-fail-fast"
+targets_total = 3
+targets_passed = 0
+targets_failed = 3
+targets_not_run = 0
+qualification_record = "/out/logs/rust-test-tools-platform-qualification.json"
+
+[target.rust-test-tools-platform.1]
+target = "layerx-platform-cli"
+result = "failed"
+exit_code = 101
+observed = "Cargo rejected tools/platform/Cargo.lock because it needs to be updated but --locked prevents modification; it exited before compiling or reporting any failing file:line or test name."
+assumption = "The committed workspace lockfile likely differs from the current workspace or path dependency manifests, preventing test execution."
+
+[target.rust-test-tools-platform.2]
+target = "layerx-platform-emulator"
+result = "failed"
+exit_code = 101
+observed = "Cargo rejected tools/platform/Cargo.lock because it needs to be updated but --locked prevents modification; it exited before compiling or reporting any failing file:line or test name."
+assumption = "The committed workspace lockfile likely differs from the current workspace or path dependency manifests, preventing test execution."
+
+[target.rust-test-tools-platform.3]
+target = "layerx-platform-release"
+result = "failed"
+exit_code = 101
+observed = "Cargo rejected tools/platform/Cargo.lock because it needs to be updated but --locked prevents modification; it exited before compiling or reporting any failing file:line or test name."
+assumption = "The committed workspace lockfile likely differs from the current workspace or path dependency manifests, preventing test execution."

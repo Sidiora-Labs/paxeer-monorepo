@@ -121,6 +121,9 @@ func (app *App) CheckTx(ctx context.Context, req *abci.RequestCheckTxV2) *abci.R
 			},
 		}
 	}
+	if req == nil {
+		return wrapErr(sdkerrors.ErrInvalidRequest.Wrap("nil CheckTx request"))
+	}
 	_, span := app.GetBaseApp().TracingInfo.StartWithContext("CheckTx", ctx)
 	defer span.End()
 	checkTxStart := time.Now()

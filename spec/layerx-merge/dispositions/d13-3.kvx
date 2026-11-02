@@ -37,7 +37,7 @@ evidence = "867cb1560 removes the refusal-code collapse at src/modules/programs/
 finding = "13.27.1.14"
 status = "open"
 evidence = "src/protocol/lxp_kernel.c:488 still binds Programs ledger admission only for CALL and WIND_DOWN, src/protocol/lxp_module_ctx.c:1709 leaves sandbox execution on the legacy global sequence, and precompiles/layerxprograms/method_sandbox_execute_test.go:155 still compensates by seeding the payer to ReadLastSequence plus one."
-follow_up = "closure"
+follow_up = "22.13.5"
 
 [disposition.13.27.1.15]
 finding = "13.27.1.15"
