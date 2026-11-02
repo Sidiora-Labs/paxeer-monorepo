@@ -12,6 +12,7 @@ use layerx_human_service::custody::{
     GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, RemoteKmsProvider,
 };
 use layerx_human_service::frame::{Limits, MutualTlsConfig};
+use layerx_types::clock::Clock;
 use layerx_types::payload::ModuleRegistry;
 use rustix::fs::{Mode, OFlags};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
@@ -41,6 +42,8 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), String> {
+    let clock: Arc<dyn Clock> = layerx_client::runtime_clock::RuntimeClock::from_environment()
+        .map_err(|error| format!("runtime clock unavailable: {error}"))?;
     rustls::crypto::ring::default_provider()
         .install_default()
         .map_err(|_| "the TLS cryptographic provider is already configured".to_owned())?;
@@ -87,6 +90,7 @@ fn run() -> Result<(), String> {
             maximum_queued_bytes: number("PROVIDER_MAX_QUEUED_BYTES")?,
             deadline: Duration::from_secs(number("PROVIDER_DEADLINE_SECONDS")?),
         },
+        Arc::clone(&clock),
     )
     .map_err(|error| format!("the KMS provider was refused: {}", error.refusal_code()))?;
     let tls = GatewayTls::new(
@@ -117,6 +121,7 @@ fn run() -> Result<(), String> {
                 operation_window: Duration::from_secs(number("RATE_WINDOW_SECONDS")?),
             },
         },
+        Arc::clone(&clock),
     )
     .map_err(|error| format!("the gateway was refused: {}", error.refusal_code()))?;
     let listener =
@@ -192,11 +197,11 @@ fn number<T: std::str::FromStr>(suffix: &str) -> Result<T, String> {
 
 #[cfg(test)]
 mod tests {
+    use layerx_types::clock::Deadline;
     use std::fs;
     use std::net::TcpStream;
     use std::os::unix::fs::PermissionsExt;
     use std::process::{Child, Command, Output, Stdio};
-    use std::time::Instant;
 
     use layerx_crypto::disclosure::{AmountRole, CounterpartyRole, Disclosure};
     use layerx_crypto::ed25519::verify_digest;
@@ -205,9 +210,10 @@ mod tests {
         GATEWAY_FRAME_LIMIT,
     };
     use layerx_human_service::frame::{read_frame, write_frame};
-    use layerx_intents::owner_activity::{unsigned_native, OwnerEnvelopeContext};
     use layerx_intents::NativeOwnerBootstrap;
-    use layerx_types::ids::Did;
+    use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
+    use layerx_types::amount::Amount;
+    use layerx_types::ids::{Did, IdempotencyKey};
     use layerx_types::intent::PublicKey;
     use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration};
     use rustls::pki_types::ServerName;
@@ -234,6 +240,43 @@ mod tests {
 
     fn checked<T, E: std::fmt::Debug>(value: Result<T, E>) -> TestResult<T> {
         value.map_err(|error| format!("{error:?}").into())
+    }
+
+    struct OwnerEnvelopeContext {
+        actor: Did,
+        owner_public_key: [u8; 32],
+        network_id: u32,
+        account_sequence: u64,
+        not_before_ms: u64,
+        not_after_ms: u64,
+        action_key: [u8; 32],
+        fee_limit: u128,
+    }
+
+    fn unsigned_native(
+        compiled: &layerx_intents::CompiledIntent,
+        context: &OwnerEnvelopeContext,
+        registry: &ModuleRegistry,
+    ) -> TestResult<(Vec<u8>, Disclosure)> {
+        let mut builder = EnvelopeBuilder::new();
+        checked(builder.protocol_version(3))?;
+        checked(builder.network_id(context.network_id))?;
+        checked(builder.activity_type(compiled.activity_type()))?;
+        checked(builder.actor_did(context.actor.clone()))?;
+        checked(builder.authority(checked(Authority::owner(&context.owner_public_key))?))?;
+        checked(builder.account_sequence(context.account_sequence))?;
+        checked(builder.timestamp_bound(checked(TimestampBound::new(
+            context.not_before_ms,
+            context.not_after_ms,
+        ))?))?;
+        checked(builder.idempotency_key(IdempotencyKey::new(context.action_key)))?;
+        checked(builder.fee_limit(Amount::from_u128(context.fee_limit)))?;
+        checked(builder.payload_hash(compiled.payload_hash()))?;
+        checked(builder.payload(compiled.payload().clone()))?;
+        let envelope = checked(builder.build())?;
+        let bytes = checked(layerx_wire::activity::encode_unsigned_envelope(&envelope))?;
+        let disclosure = checked(layerx_crypto::disclosure::bind(&bytes, registry))?;
+        Ok((bytes, disclosure))
     }
 
     fn modules() -> TestResult<ModuleRegistry> {
@@ -417,6 +460,7 @@ mod tests {
     }
 
     struct Fixture {
+        clock: Arc<dyn Clock>,
         root: PathBuf,
         backend: SocketAddr,
         child: Option<Child>,
@@ -445,6 +489,7 @@ mod tests {
             fs::create_dir(&root)?;
             fs::set_permissions(&root, fs::Permissions::from_mode(0o700))?;
             let fixture = Self {
+                clock: layerx_client::runtime_clock::RuntimeClock::from_environment()?,
                 root,
                 backend: free_address()?,
                 child: None,
@@ -604,7 +649,7 @@ mod tests {
                     .stderr(Stdio::null())
                     .spawn()?,
             );
-            let started = Instant::now();
+            let mut deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(15))?;
             loop {
                 if self.provider(self.backend, "relay")?.probe().is_ok() {
                     return Ok(());
@@ -618,7 +663,7 @@ mod tests {
                 {
                     return Err("the KMS backend exited at startup".into());
                 }
-                if started.elapsed() > Duration::from_secs(15) {
+                if deadline.remaining(self.clock.as_ref())?.is_zero() {
                     return Err("the KMS backend startup deadline passed".into());
                 }
                 std::thread::sleep(Duration::from_millis(20));
@@ -653,6 +698,7 @@ mod tests {
                     maximum_queued_bytes: GATEWAY_FRAME_LIMIT,
                     deadline: Duration::from_secs(5),
                 },
+                Arc::clone(&self.clock),
             )?)
         }
 
@@ -672,6 +718,7 @@ mod tests {
                 Arc::new(self.provider(self.backend, "relay")?),
                 self.tls("service")?,
                 policy(limits)?,
+                Arc::clone(&self.clock),
             )?);
             let listener = TcpListener::bind("127.0.0.1:0")?;
             let address = listener.local_addr()?;
@@ -792,6 +839,7 @@ mod tests {
             Arc::new(development),
             fixture.tls("service")?,
             policy(limits())?,
+            Arc::clone(&fixture.clock),
         );
         assert!(matches!(
             outcome,
@@ -807,6 +855,7 @@ mod tests {
             Arc::new(fixture.provider(free_address()?, "relay")?),
             fixture.tls("service")?,
             policy(limits())?,
+            Arc::clone(&fixture.clock),
         );
         assert!(matches!(absent, Err(CustodyError::Kms(_))));
         for bounds in [
@@ -835,6 +884,7 @@ mod tests {
                 Arc::new(fixture.provider(free_address()?, "relay")?),
                 fixture.tls("service")?,
                 policy(bounds)?,
+                Arc::clone(&fixture.clock),
             );
             assert!(matches!(outcome, Err(CustodyError::InvalidLimits)));
         }
@@ -845,6 +895,7 @@ mod tests {
                 network_id: 0,
                 ..policy(limits())?
             },
+            Arc::clone(&fixture.clock),
         );
         assert!(matches!(wrong_network, Err(CustodyError::InvalidNetwork)));
         Ok(())
@@ -1048,6 +1099,7 @@ mod tests {
             Arc::new(fixture.provider(fixture.backend, "foreign")?),
             fixture.tls("service")?,
             policy(limits())?,
+            Arc::clone(&fixture.clock),
         );
         assert!(matches!(unauthenticated, Err(CustodyError::Kms(_))));
         let wrong_provider = fixture.call(address, Some("service"), &header(1, 0, "other-kms")?)?;
@@ -1123,12 +1175,12 @@ mod tests {
 
     fn serve_probe(fixture: &Fixture, listen: SocketAddr, gateway: &mut Child) -> TestResult {
         let client = fixture.provider(listen, "service")?;
-        let started = Instant::now();
+        let mut deadline = Deadline::start(fixture.clock.as_ref(), Duration::from_secs(15))?;
         while client.probe().is_err() {
             if gateway.try_wait()?.is_some() {
                 return Err("the gateway binary exited at startup".into());
             }
-            if started.elapsed() > Duration::from_secs(15) {
+            if deadline.remaining(fixture.clock.as_ref())?.is_zero() {
                 return Err("the gateway binary startup deadline passed".into());
             }
             std::thread::sleep(Duration::from_millis(20));
