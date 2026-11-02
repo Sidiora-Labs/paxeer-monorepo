@@ -1,4 +1,5 @@
 import {
+  encodePaymentCommitmentEvidence,
   paymentAccount,
   paymentCommitment,
   paymentCurrency,
@@ -229,7 +230,7 @@ export class SellerMiddleware<T> {
       kind: "payment-required",
       status: 402,
       headers: { [PAYMENT_REQUIRED_HEADER]: encodePaymentRequiredHeader(this.#required) },
-      body: this.#required,
+      body: structuredClone(this.#required),
     };
   }
 
@@ -314,7 +315,7 @@ export class SellerMiddleware<T> {
       receiptDigest: stored.receiptDigest,
       receiptKey: stored.receiptKey,
       ...(storedVerification.commitmentEvidence === undefined ? {} :
-        portableCommitmentEvidence(storedVerification.commitmentEvidence)),
+        encodePaymentCommitmentEvidence(storedVerification.commitmentEvidence)),
     };
     const settlement: SettlementResponse = {
       success: true,
@@ -474,40 +475,6 @@ export async function verifyPaymentReceipt(
   });
 }
 
-function portableCommitmentEvidence(evidence: PaymentCommitmentEvidence) {
-  const hex = (value: Uint8Array): string => `0x${toHex(value)}`;
-  const quantity = (value: bigint): string => `0x${value.toString(16)}`;
-  const blockId = (value: PaymentCommitmentEvidence["blockHeader"]["blockId"]) => ({
-    hash: hex(value.hash),
-    partSetHeader: { total: value.partSetHeader.total, hash: hex(value.partSetHeader.hash) },
-  });
-  return {
-    landingBlockHeight: quantity(evidence.landingBlockHeight),
-    blockHeader: { chainId: evidence.blockHeader.chainId, blockId: blockId(evidence.blockHeader.blockId) },
-    receiptInclusion: {
-      transactionHash: hex(evidence.receiptInclusion.transactionHash),
-      receiptDigest: hex(evidence.receiptInclusion.receiptDigest),
-      sequence: quantity(evidence.receiptInclusion.sequence),
-    },
-    commit: {
-      height: quantity(evidence.commit.height),
-      round: evidence.commit.round,
-      blockId: blockId(evidence.commit.blockId),
-      signatures: evidence.commit.signatures.map((signature) => ({
-        blockIdFlag: signature.blockIdFlag,
-        validatorAddress: hex(signature.validatorAddress),
-        timestamp: { seconds: quantity(signature.timestamp.seconds), nanos: signature.timestamp.nanos },
-        signature: hex(signature.signature),
-      })),
-    },
-    validatorSet: evidence.validatorSet.map((validator) => ({
-      address: hex(validator.address),
-      publicKey: hex(validator.publicKey),
-      votingPower: quantity(validator.votingPower),
-    })),
-  };
-}
-
 export interface WebhookRequestHeaders {
   readonly id: string;
   readonly timestamp: string;
@@ -633,7 +600,7 @@ export class VerifiedWebhookConsumer {
   }
 }
 
-function validatePaymentRequired(value: PaymentRequired): PaymentRequired {
+export function validatePaymentRequired(value: PaymentRequired): PaymentRequired {
   return parsePaymentRequired(value as unknown);
 }
 
@@ -1153,7 +1120,6 @@ function concatenate(...values: readonly Uint8Array[]): Uint8Array {
 async function sha256(...values: readonly Uint8Array[]): Promise<Uint8Array> {
   return new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", arrayBuffer(concatenate(...values))));
 }
-
 
 export {
   PaymentRpc,

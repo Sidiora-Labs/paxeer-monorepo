@@ -180,6 +180,7 @@ fn chains_scope_namespaces_rows_and_serves_them() -> Checked<()> {
     let store = Store::open(&database.0)?;
     let unit = block(&store, 42)?;
     store.commit(&unit, 100)?;
+    assert_eq!(store.chain(1)?.ok_or("chain missing")?.status, "paused");
     let chain_hashes: Vec<_> = unit
         .events
         .iter()
