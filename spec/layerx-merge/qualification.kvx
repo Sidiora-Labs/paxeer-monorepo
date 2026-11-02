@@ -18955,3 +18955,11 @@ symbol = "produce_transaction"
 observed = "At ecf9f785 the seventh candidate (boundary.rs null-evidence refusal, SequencerEndpoint::latest_nonce, 335-line proof in the consumer crate) passes seven of eight proof tests and panics at proof_native_reads.rs:153 funded real-node key: NotPresent: produce_transaction reads LOCAL_NODE_KEY and the RPC URL (:249 LOCAL_NODE_RPC) from the process environment, which decision 2292 forbids and which the qualification environment does not provide; the module doc comment records the conflict and says the node build is outside the task's scope."
 assumption = "The build installs the node and the proof starts it itself, exactly as 21.45.1 does (finding 21.45.1.1): build_cmd gains make -f chain.mk install and the proof reads the key and endpoint from the env file the node script writes."
 severity = "medium"
+
+[finding.22.9.10.6]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/test/ai-market.test.ts"
+symbol = "python_market_signs_secp256k1"
+observed = "At 717ce20b9 the ninth candidate (producer key set per decision 2341, commit-finality changes kept) passes 29 of 30 ai-market checks and every other test file; python_market_signs_secp256k1 (ai-market.test.ts:2552, unchanged since 606dc7e96) runs an inline Python program that imports cryptography.hazmat (:2570-2571) through execFileSync python3, and the qualification environment's Python has no cryptography package (ModuleNotFoundError); the package is the optional derivation extra of services/agent/sdk/python/pyproject.toml:21, not a dependency of the TypeScript package."
+assumption = "Environmental: the qualification environment now provides the Python packages a TypeScript test imports through an inline program; the candidate requalifies unchanged."
+severity = "low"
