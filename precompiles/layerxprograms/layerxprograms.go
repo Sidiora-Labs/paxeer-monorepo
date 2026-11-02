@@ -3,6 +3,9 @@ package layerxprograms
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	layerxcustodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
@@ -89,4 +92,25 @@ func init() {
 	if err := precompiles.RegisterMergeConstructor(Address, NewMergePrecompile); err != nil {
 		panic(err)
 	}
+}
+
+// ProgramTransferred is the transfer set root emitted after an atomic transfer set.
+type ProgramTransferred struct {
+	ProgramID       common.Hash
+	TransferSetRoot common.Hash
+}
+
+// Address identifies the only emitter accepted by DecodeProgramTransferred.
+func (ProgramTransferred) Address() common.Address { return Address }
+
+// DecodeProgramTransferred refuses logs from another contract and noncanonical frames.
+func DecodeProgramTransferred(log *types.Log) (ProgramTransferred, error) {
+	var event ProgramTransferred
+	if log == nil || log.Address != event.Address() || len(log.Topics) != 2 ||
+		log.Topics[0] != programsABI.Events["ProgramTransferred"].ID || len(log.Data) != 32 {
+		return event, fmt.Errorf("LXP_NON_CANONICAL: invalid ProgramTransferred log")
+	}
+	event.ProgramID = log.Topics[1]
+	copy(event.TransferSetRoot[:], log.Data)
+	return event, nil
 }
