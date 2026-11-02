@@ -246,6 +246,8 @@ func (h *sendSeqHarness) verifiedReceipt(t *testing.T, i int) *codec.Receipt {
 	t.Helper()
 	verified, err := verify.ReceiptSignature(h.accepter.receipts[i], h.key.PublicKey())
 	require.NoError(t, err)
+	require.Equal(t, h.accepter.accepted[i].Seq, verified.Receipt.GlobalSequence)
+	require.Equal(t, h.accepter.accepted[i].SeqHash, verified.Receipt.ResultingStateRoot)
 	return verified.Receipt
 }
 
