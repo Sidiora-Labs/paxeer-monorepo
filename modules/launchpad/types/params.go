@@ -1,7 +1,6 @@
 package types
 
 import (
-	"fmt"
 	"math/big"
 	"strings"
 
@@ -59,36 +58,36 @@ func DefaultParams() Params {
 
 func (p Params) Validate() error {
 	if len(p.QuoteToken) != 42 || !strings.HasPrefix(p.QuoteToken, "0x") || !common.IsHexAddress(p.QuoteToken) {
-		return fmt.Errorf("%w: quote token %q is not a 0x-prefixed 20-byte hex address", ErrInvalidParams, p.QuoteToken)
+		return ErrInvalidParams.Wrapf("quote token %q is not a 0x-prefixed 20-byte hex address", p.QuoteToken)
 	}
 	if common.HexToAddress(p.QuoteToken) == (common.Address{}) {
-		return fmt.Errorf("%w: quote token is the zero address", ErrInvalidParams)
+		return ErrInvalidParams.Wrapf("quote token is the zero address")
 	}
 	for _, value := range []sdk.Int{p.VirtualQuoteDefault, p.VirtualTokenDefault, p.CreationFee} {
 		if value.IsNil() || value.IsNegative() || fits(value.BigInt()) != nil {
-			return fmt.Errorf("%w: reserve defaults and creation fee must be uint256 integers", ErrInvalidParams)
+			return ErrInvalidParams.Wrapf("reserve defaults and creation fee must be uint256 integers")
 		}
 	}
 	if !p.VirtualQuoteDefault.IsPositive() || !p.VirtualTokenDefault.IsPositive() {
-		return fmt.Errorf("%w: virtual reserves must be positive", ErrInvalidParams)
+		return ErrInvalidParams.Wrapf("virtual reserves must be positive")
 	}
 	if p.VirtualQuoteDefault.BigInt().Cmp(maxUint112) > 0 || p.VirtualTokenDefault.BigInt().Cmp(maxUint112) > 0 {
-		return fmt.Errorf("%w: virtual reserves must fit uint112", ErrInvalidParams)
+		return ErrInvalidParams.Wrapf("virtual reserves must fit uint112")
 	}
 	if p.MinFeeBps > p.MaxFeeBps || p.MaxFeeBps >= BpsDenominator {
-		return fmt.Errorf("%w: fee bounds must satisfy min <= max < 10000", ErrInvalidParams)
+		return ErrInvalidParams.Wrapf("fee bounds must satisfy min <= max < 10000")
 	}
 	if p.BaseFeeBps < p.MinFeeBps || p.BaseFeeBps > p.MaxFeeBps {
-		return fmt.Errorf("%w: base fee must satisfy min <= base <= max", ErrInvalidParams)
+		return ErrInvalidParams.Wrapf("base fee must satisfy min <= base <= max")
 	}
 	if p.ProtocolFeeBps > MaxProtocolFeeBps {
-		return fmt.Errorf("%w: protocol fee above 5000 bps", ErrInvalidParams)
+		return ErrInvalidParams.Wrapf("protocol fee above 5000 bps")
 	}
 	if p.FeeDecayRate > MaxFeeWeight || p.VolatilityWeight > MaxFeeWeight {
-		return fmt.Errorf("%w: fee decay rate and volatility weight must be at most 10000", ErrInvalidParams)
+		return ErrInvalidParams.Wrapf("fee decay rate and volatility weight must be at most 10000")
 	}
 	if p.ConcentrationWeight != 0 {
-		return fmt.Errorf("%w: concentration weight must be 0", ErrInvalidParams)
+		return ErrInvalidParams.Wrapf("concentration weight must be 0")
 	}
 	return nil
 }

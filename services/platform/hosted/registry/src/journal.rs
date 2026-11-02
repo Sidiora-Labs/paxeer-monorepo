@@ -634,7 +634,14 @@ impl FileDeploymentJournal {
             } else {
                 WriteStep::WriteRecord
             })?;
-            protected_replace(&path, &bytes)?;
+            if suffix == ADMISSION_SUFFIX {
+                evidence
+                    .proof()
+                    .publish_canonical(&path)
+                    .map_err(|error| error.to_string())?;
+            } else {
+                protected_replace(&path, &bytes)?;
+            }
         }
         self.reach(WriteStep::SyncTemporary)?;
         File::open(&stage)
@@ -687,7 +694,7 @@ impl FileDeploymentJournal {
             .map_err(|error| format!("could not sync {}: {error}", temporary.display()))?;
         drop(file);
         self.reach(WriteStep::Commit)?;
-        fs::rename(&temporary, &path)
+        DeploymentProof::commit_staged_file(&temporary, &path)
             .map_err(|error| format!("could not commit {}: {error}", path.display()))?;
         self.reach(WriteStep::SyncDirectory)?;
         File::open(&self.root)
@@ -888,11 +895,15 @@ fn read_legacy(record_path: &Path, proof_path: &Path) -> Result<DeploymentEnvelo
     let record_bytes =
         fs::read(record_path).map_err(|error| UnitDefect::Unreadable(error.to_string()))?;
     let record = decode_record(&record_bytes)?;
-    let proof_bytes =
-        fs::read(proof_path).map_err(|error| UnitDefect::Unreadable(error.to_string()))?;
-    let proof = DeploymentProof::decode(&proof_bytes).map_err(|error| UnitDefect::Corrupt {
-        part: UnitPart::Proof,
-        reason: error.to_string(),
+    let proof = DeploymentProof::read_canonical(proof_path).map_err(|error| {
+        if error.kind() == std::io::ErrorKind::InvalidData {
+            UnitDefect::Corrupt {
+                part: UnitPart::Proof,
+                reason: error.to_string(),
+            }
+        } else {
+            UnitDefect::Unreadable(error.to_string())
+        }
     })?;
     DeploymentEnvelope::pair(record, proof)
 }
