@@ -64,9 +64,9 @@ export function poolSpotPrice(pool: Pool, tokenDecimals: number | null): string 
 export async function fetchPoolDetailListing(operations: Operations, poolAddress: string, signal?: AbortSignal): Promise<PoolDetailListing> {
   const pool = marketAddress(poolAddress);
   const response = await operations.call('IF_POOL_DETAIL', { path: { poolAddress: pool } }, { signal });
-  if (response.quality === 'quarantined' || response.watermark?.integrity === 'quarantined') throw new Error('Pool integrity quarantined');
+  if (response.quality === 'quarantined' || response.watermark?.integrity === 'quarantined' || response.data.stats.watermark.integrity === 'quarantined') throw new Error('Pool integrity quarantined');
   const detail = response.data;
-  if (marketAddress(detail.pool.poolAddress) !== pool || marketAddress(detail.token.address) !== marketAddress(detail.pool.tokenAddress)) throw new Error('Pool identity disagreement');
+  if (detail.pool.chainId !== '125' || marketAddress(detail.stats.poolAddress) !== pool || marketAddress(detail.pool.poolAddress) !== pool || marketAddress(detail.token.address) !== marketAddress(detail.pool.tokenAddress)) throw new Error('Pool identity disagreement');
   const decimals = detail.token.decimalsQuality === 'verified' ? detail.token.decimals : null;
   return { ...poolListing(detail.pool), spotPrice: poolSpotPrice(detail.pool, decimals) };
 }
