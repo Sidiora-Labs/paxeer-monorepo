@@ -63,7 +63,7 @@ evidence = "86bfb85ae uses the complete pcommon.LXPRevert encoding for write-und
 finding = "13.27.4"
 status = "open"
 evidence = "src/protocol/lxp_genesis.c:55 still selects programs_module_registration_v4, whose src/modules/programs/registration.c:46 activity list omits storage retirement even though the separate storage-retirement variant at src/modules/programs/registration.c:311 includes it."
-follow_up = "closure"
+follow_up = "22.13.6"
 
 [disposition.13.27.5.1]
 finding = "13.27.5.1"

@@ -32,7 +32,7 @@ evidence = "b7220cd6e replaces all five SessionKeyRevoked references in services
 finding = "18.1200.1.2"
 status = "open"
 evidence = "services/agent/crates/layerx-agentd/src/human_runtime.rs:2198 still restores indexed submissions by the kernel idempotency key although src/outbox/mod.rs:179 stores transaction hashes, and src/protocol_evidence_native_tests.rs:214 still feeds a kernel-ID receipt into the hash-keyed outbox whose src/outbox/mod.rs:462 refuses the mismatch; the wait refusal decoder is corrected at src/agent_rpc_adapters.rs:699 and the TLS cases still require the external binary at services/platform/tests/support/tls_boundary.rs:188."
-follow_up = "closure"
+follow_up = "22.9.13"
 
 [disposition.18.1200.1.3]
 finding = "18.1200.1.3"

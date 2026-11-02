@@ -1,5 +1,6 @@
 use super::*;
 use crate::outbox::{Outbox, SubmissionState};
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
 use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
 use layerx_types::amount::Amount;
 use layerx_types::ids::IdempotencyKey;
@@ -122,9 +123,33 @@ fn signed_submission() -> crate::sign::VerifiedSubmission {
             disclosure_digest: disclosure.digest,
         },
     };
-    let key: [u8; 32] = must(activity.authority().try_into());
-    must(crate::sign::verify_kernel_before_submit(
-        bytes, &prepared, &key, &registry,
+    let call = Eip1559Call {
+        chain_id: u64::from(activity.network_id()),
+        nonce: activity.account_sequence(),
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 7,
+        gas_limit: 100_000,
+        to: [0x1a; 20],
+        data: activity.payload().to_vec(),
+    };
+    let signed = must(call.sign(&[1; 32]));
+    let (decoded, signature) = must(decode_signed(&signed));
+    assert_eq!(decoded, call);
+    let actor_address = must(recover_sender(&call, &signature));
+    let prepared = crate::sign::SigningPreparation {
+        transaction: crate::prepare::EvmPrepared {
+            signing_hash: call.signing_hash(),
+            call,
+            observed_head_height: 0,
+        },
+        actor_address,
+        authorization: prepared,
+    };
+    must(crate::sign::verify_before_submit(
+        &signed,
+        &prepared,
+        &actor_address,
+        &registry,
     ))
 }
 
