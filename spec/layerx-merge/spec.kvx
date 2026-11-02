@@ -6729,6 +6729,18 @@ value = "Task 17.0.9 requires 18.0.1, 19.0.1 and 20.0.1."
 basis = "The gate listed only the numbered-area completion tasks; the open-issues, name-system and virtual-chains closures were reachable only through their own features, so the programme could have closed with them open."
 affects = ["17.0.9", "18.0.1", "19.0.1", "20.0.1"]
 
+[decision.2270]
+title = "Human-workspace test targets run through the runtime clock wrapper"
+value = "Every verify_cmd that runs a cargo test of services/human/Cargo.toml (not --no-run) prefixes it with sh tools/runtime/run-with-clock.sh, exactly as Makefile:1640 and :1679 do; a human-service test that panics 'agent runtime peer: Unavailable' or refuses Host::new in 0.00s is missing the wrapper, not a product defect."
+basis = "AgentRuntime::new and AgentRuntime::connect (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2141, :2204) and backend.rs:534 read RuntimeClock::from_environment and map its absence to Unavailable; findings 9.35.9.1 and 18.1433.1.2 are the same defect in two verifies."
+affects = ["18.1433.1", "18.1434.1", "9.35.9", "9.35.11"]
+
+[decision.2271]
+title = "Launchpad unit tests are vitest *.test.ts files"
+value = "A new apps/launchpad/web test is a src/**/*.test.ts or *.test.tsx file run with pnpm --dir apps/launchpad/web exec vitest run <file>; node:test *.mjs files beside the widgets are not collected and are not a verify."
+basis = "20.7.1 attempt 1 (f910fd21b) exits 1 with 'No test files found' because apps/launchpad/web/vitest.config.ts:11 includes only src/**/*.test.ts and src/**/*.test.tsx while the task named a .test.mjs file after creation-domain.test.mjs."
+affects = ["20.7.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -110799,7 +110811,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.8.1]
 title = "Teach the wallet root and virtual networks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -110897,14 +110909,14 @@ reqs = ["20008.1"]
 capabilities = ["20.7.1"]
 interfaces = []
 do_1 = "Write apps/launchpad/web/src/widgets/create-chain/chain-domain.ts in the style of widgets/create/creation-domain.ts: CHAINS_PRECOMPILE = '0x000000000000000000000000000000000000101e', VIRTUAL_CHAIN_ID_BASE = 125000000, chainIdOf(id), validateChainName (3 to 32 characters of lowercase a-z, digits and hyphen, no leading or trailing hyphen) returning an error code, SIZE_TIERS {starter: {gas 500000, bytes 65536}, growth: {gas 1500000, bytes 262144}, pro: {gas 4000000, bytes 1048576}}, ChainDraft {draftId, version, creator, chainId 125, name, tier, feeShareBps, updatedAt} with validateChainDraft (creator address, chainId 125, name rule, tier key, feeShareBps 0 to 5000, 30-day expiry as validateDraft does), chainCost(params read from the precompile params() tuple) -> {bondRaw, feeRaw, totalValueRaw, gasEstimatePaxRaw} refusing when the tier's gas exceeds maxGasAllowance or totalGasAllowanceLeft, decodeChainCreated(log) -> {id, name, operator, chainId} from the ChainCreated event, walletNetwork(record, rpcBase, explorerBase) -> the EIP-3085 parameter (chainId hex, chainName <name> on Paxeer, rpcUrls [<rpcBase>/chain/<id>], nativeCurrency PAX 18, blockExplorerUrls [<explorerBase>/chains/<id>])."
-do_2 = "Write apps/launchpad/web/src/widgets/create-chain/chain-domain.test.mjs like creation-domain.test.mjs: chain_domain_validates_names_tiers_cost_and_wallet_params (ab, -abc, abc-, ABC and a 33-character name refused; demo accepted; a draft with tier pro and 60 bps is valid; chainCost for params minBond 100e18, creationFee 10e18, maxGasAllowance 4000000, totalGasAllowanceLeft 1000000 refuses pro and accepts starter with totalValueRaw 110e18; decodeChainCreated on the vector topics yields id 1 and chainId 125000001; walletNetwork yields chainId 0x7735941 and the two URLs)."
+do_2 = "Write apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts with vitest's test and expect, in the style of creation-storage.test.ts (the node:test file creation-domain.test.mjs is not collected by vitest): chain_domain_validates_names_tiers_cost_and_wallet_params (ab, -abc, abc-, ABC and a 33-character name refused; demo accepted; a draft with tier pro and 60 bps is valid; chainCost for params minBond 100e18, creationFee 10e18, maxGasAllowance 4000000, totalGasAllowanceLeft 1000000 refuses pro and accepts starter with totalValueRaw 110e18; decodeChainCreated on the vector topics yields id 1 and chainId 125000001; walletNetwork yields chainId 0x7735941 and the two URLs)."
 do_3 = "The real path this task proves is params tuple -> cost -> ChainCreated log -> wallet parameter, with no UI in the loop."
 symbols = ["CHAINS_PRECOMPILE", "VIRTUAL_CHAIN_ID_BASE", "chainIdOf", "validateChainName", "SIZE_TIERS", "validateChainDraft", "chainCost", "decodeChainCreated", "walletNetwork", "chain_domain_validates_names_tiers_cost_and_wallet_params"]
-touches = ["apps/launchpad/web/src/widgets/create-chain/chain-domain.ts", "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.mjs"]
-tests = ["apps/launchpad/web/src/widgets/create-chain/chain-domain.test.mjs::chain_domain_validates_names_tiers_cost_and_wallet_params"]
+touches = ["apps/launchpad/web/src/widgets/create-chain/chain-domain.ts", "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts"]
+tests = ["apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts::chain_domain_validates_names_tiers_cost_and_wallet_params"]
 planned_paths = ["apps/launchpad/web/src/widgets/create-chain/chain-domain.ts", "apps/launchpad/web/src/widgets/create-chain/chain-domain.test.mjs"]
 build_cmd = "pnpm --dir apps/launchpad/web exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/create-chain/chain-domain.test.mjs"
+verify_cmd = "pnpm --dir apps/launchpad/web exec vitest run src/widgets/create-chain/chain-domain.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-launchpad"
@@ -110916,6 +110928,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2271: the test file is apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts under vitest (apps/launchpad/web/vitest.config.ts:11 includes src/**/*.test.ts and src/**/*.test.tsx only); attempt 1 wrote the module and a node:test file the runner never collected, so continue from attempt 1 and move its cases into the vitest file."
 
 [task.20.6.2]
 title = "Show one virtual chain with its activity and an add-to-wallet action"
@@ -119527,6 +119540,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 9.24.9.1: in services/agent/crates/layerx-crypto/src/disclosure/program.rs add `pub fn encode_program_call(call: &NativeProgramCall<'_>, fee_limit: u128) -> Vec<u8>` with the layout of attempt 2's program_call_data (selector of call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128), fifteen head words, four dynamic tails) and its inverse `pub fn decode_program_call(data: &[u8]) -> Result<(DisclosedProgramCall, u128), DisclosureError>` that refuses any deviation from the layout as MalformedPayload, both byte-for-byte equal to _encode_programs_call and _decode_programs_call of services/agent/sdk/python/layerx_sdk/ai_market.py:966-1029; in services/agent/crates/layerx-crypto/src/disclosure/call.rs add ConstructMethod::ProgramCall { call: Box<DisclosedProgramCall>, fee_limit: u128 } returned by decode_method for a call whose target is the programs precompile (suffix 0x10 0x1d), and give it in fields the activity type (ModuleId::Programs, the ordinal program::fields at services/agent/crates/layerx-crypto/src/disclosure.rs:949 decodes as a program call), native_operation DisclosedNativeOperation::ProgramCall, idempotency_key and expiry from the envelope the calldata carries, and the gas product as fee_limit like every other call. layerx-client's prepare calls encode_program_call and drops its private copy. Add program_call_round_trips_through_bind_call to services/agent/crates/layerx-crypto/tests/disclosure_call.rs (planned test name in an existing file): encode a call, bind it with bind_call and assert the disclosed program id, entrypoint, calldata, resources and fee limit equal the input, and that one flipped head word is MalformedPayload. Continue from attempt 2."
+do_7 = "Finding 9.24.9.2: in services/agent/crates/layerx-client/tests/ai_market_rpc.rs signed_receipt adds 'signingKey': hex(&signer.verifying_key().to_bytes()) to the receipted view beside keyId and receipt so the view decodes under RECEIPTED_FIELDS; every other field stays, and operation_journal_resolve_records_the_receipted_rung then reaches verify_sequencer_signature and asserts the ReceiptError::Verification it asserts at :423 today. Continue from attempt 4."
 
 [task.8.51.3]
 title = "Retire the emulator's kernel activity and program routes with their decoders and tests"
@@ -119563,7 +119577,7 @@ do_6 = "Finding 8.51.3.1: in tools/platform/emulator/tests/core_linkage.rs delet
 
 [task.8.47.12]
 title = "Retire the kernel program call and simulate signing path of the platform CLI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["8.101.3"]
@@ -119912,6 +119926,8 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Findings 9.35.9.1 and 9.35.9.2: the verify now runs the two suites through tools/runtime/run-with-clock.sh, which the Makefile uses for every human-workspace test, so Host::new finds the runtime clock; and task 9.35.12 (required) makes bind_call refuse budgetCreate terms the kernel path refuses. In tests/provider/native_setup.rs replace the two single-byte flips at offsets 2 and 34 of the corruption loop (:377-409) with zero fills of [2..34] (budget id) and [34..66] (budget account), keep the zero fills of the per-period limit, initial amount, period length, expiry and rollover and the version-2 and trailing-byte cases, and add rollover 3 and rollover 1 with a non-zero carry cap; every case is refused by bind_call once 9.35.12 is on main. Attempt 1 (c81177dc6) holds do_1 through do_6; continue from it."
 do_8 = "Finding 9.35.9.3: port the four restart fixtures of services/human/crates/layerx-human-kms/tests/provider.rs (the monetary roles loop at :880-910, native creation disclosures, owner fee grants and session registration/replacement) from unsigned_payload plus construct_signing_call over kernel payloads to type-2 calls to the ledger, pay or auth precompile whose calldata is the method and arguments call.rs decodes for that operation, bound with bind_call and signed through the real provider; and make native_setup_refuses_wrong_accounts_limits_and_payload_shapes pass by refusing corruption 9 (budget version 2) in the provider's budgetCreate term check, where it is admitted today. A fixture that cannot be expressed as a type-2 call is deleted with a one-line comment naming the kernel operation it covered. Continue from attempt 4."
+do_9 = "Finding 9.35.9.4: in tests/provider/native_setup.rs the corruption loop of native_setup_refuses_wrong_accounts_limits_and_payload_shapes runs for budget version 1 only and drops the three version-2 cases (byte 211 flip, bytes 243.. fill, byte 66 flip under version 2); setup_call refuses a budget payload whose length is not 211 with an error naming the version (no ledger call form carries version 2) and the test asserts that refusal once for native_budget(2); the trailing-byte case stays and keeps appending the extra byte as trailing calldata so bind_call refuses it. The creation list of native_creation_disclosures_sign_through_real_kms_before_and_after_restart carries the version-1 budget only. Continue from attempt 5."
+do_10 = "Finding 9.35.9.5: owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart and session_registration_and_replacement_disclosures_survive_provider_restart follow do_1, not do_8: each signs the ledger payment call canonical_send returns, binds it with bind_call through construct_signing_call, and sets disclosure.authority_grant (:1657) or disclosure.session_grant (:1772) on the bound disclosure as main does; neither grant payload goes through setup_call. If native_creation_disclosures_sign_through_real_kms_before_and_after_restart still answers MalformedPayload, bind each target operation separately with the activity type in the error message, record the refused operation in a finding and keep the operations that bind."
 
 [task.9.24.8]
 title = "Drop the grant vectors from the wallet capability vectors producer and its two grant tests"
@@ -120210,7 +120226,7 @@ touches = ["services/human/crates/layerx-human-service/src/server/production_com
 tests = ["services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test move_commit_bank_send --no-run"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test move_commit_bank_send"
+verify_cmd = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test move_commit_bank_send"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -120222,6 +120238,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Decision 2270: the verify runs the move_commit_bank_send target through sh tools/runtime/run-with-clock.sh, as the Makefile runs every human-workspace test."
 
 [task.18.1433.1]
 title = "Issue #1433: Encode the owner receipt lookup answer as one shared frame the Human decoder reads"
@@ -120242,7 +120259,7 @@ touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services
 tests = ["services/agent/crates/layerx-agentd/tests/human_node_receipts.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs"]
 planned_paths = ["services/agent/crates/layerx-agentd/src/human_receipt_frame.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_receipt_frame.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_runtime_receipt_frame --test agent_runtime_rungs --no-run"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_node_receipts && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_runtime_receipt_frame --test agent_runtime_rungs"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_node_receipts && sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_runtime_receipt_frame --test agent_runtime_rungs"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -120255,6 +120272,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 18.1433.1.1: extend the three matches on ReceiptLookup at services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:349, services/human/crates/layerx-human-service/src/server/agent_creation.rs:538 and services/human/crates/layerx-human-service/src/server/production_onboarding.rs:245 with a Submitted { tx_hash, nonce } arm that keeps the journey waiting as the Absent arm does and records the transaction hash where the pending record has a field for it; grep the crate for every other `match` on ReceiptLookup and cover it the same way. Continue from attempt 1."
+do_7 = "Finding 18.1433.1.2: the verify runs the two human-service targets through sh tools/runtime/run-with-clock.sh so AgentRuntime::new finds the runtime clock; nothing in the tests changes for it. Continue from attempt 3: the shared encoder, the runtime decoder and the Submitted arms are in place and human_node_receipts passes."
 
 [task.9.27.9]
 title = "Port layerx-agentd to the retired offline export API"
@@ -130007,7 +130025,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.97.1]
 title = "Gate the retired daemon binaries as the last consumers of the deleted kernel symbols"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 43
 requires = ["5.50.1", "5.50.2", "5.50.3", "5.50.4", "5.50.5", "5.50.6", "5.50.7", "5.51.1", "5.51.2", "5.51.3", "5.51.4", "5.52.2", "5.52.3", "5.53.1", "5.54.1", "5.54.2", "5.54.3", "5.54.5", "5.54.10", "5.54.11", "6.96.5"]
@@ -198362,7 +198380,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.10.1]
 title = "Document virtual chains for operators, builders and the programme"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
