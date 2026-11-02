@@ -559,7 +559,7 @@
     ],
     "outputs": [
       {
-        "name": "stateRecord",
+        "name": "stateHead",
         "type": "bytes",
         "internalType": "bytes"
       }

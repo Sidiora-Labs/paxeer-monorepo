@@ -28,6 +28,7 @@ import {
   REFUND_FREE,
   activityIdOf,
   decodeProgramsCallResult,
+  decodeProgramTransferred,
   decodeProgramsReceipt,
   decodeProgramsRpcRevert,
   decodeProgramsStateHead,
@@ -67,6 +68,101 @@ import {
 
 function assert(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
+}
+
+// The Go application proof provides producer outputs after real EVM execution.
+async function TestProofLayerxprograms0x101dConsumer(): Promise<void> {
+  const fixture = JSON.parse(await readFile(process.argv[3]!, "utf8"));
+  const input = new Uint8Array(Buffer.from(fixture.callInput, "hex"));
+  const activity = decodeProgramCallActivity(input);
+  const encoded = encodeProgramCallActivity(activity);
+  assert(
+    Buffer.from(encoded).toString("hex") === fixture.callInput,
+    "SDK calldata differs from ABI",
+  );
+  if (process.argv[4] === "produce") {
+    console.log(Buffer.from(encoded).toString("hex"));
+    return;
+  }
+  assert(
+    fixture.calls.length === 2 && fixture.heads.length === 2,
+    "missing repeated EVM crossings",
+  );
+  for (const output of [...fixture.calls, ...fixture.simulations]) {
+    // Host.Execute/Simulate expose the terminal frame instead of guest bytes.
+    // The current producer defect must fail the unchanged guest capacity check.
+    let refused = false;
+    try {
+      decodeProgramsCallResult(new Uint8Array(Buffer.from(output, "hex")), 64);
+    } catch (error) {
+      refused =
+        error instanceof AiMarketError && error.code === "ReceiptMismatch";
+    }
+    assert(refused, "accepted terminal frame exceeding guest capacity");
+  }
+  for (const output of fixture.heads) {
+    assert(
+      Buffer.from(decodeProgramsStateHead(`0x${output}`)).toString("hex") ===
+        fixture.stateHead,
+      "consumer observed a different state head",
+    );
+  }
+  for (const output of fixture.malformedCalls) {
+    let refused = false;
+    try {
+      decodeProgramsCallResult(new Uint8Array(Buffer.from(output, "hex")), 64);
+    } catch (error) {
+      refused =
+        error instanceof AiMarketError && error.code === "ReceiptMismatch";
+    }
+    assert(refused, "accepted malformed terminal result");
+  }
+  for (const output of fixture.malformedHeads) {
+    let refused = false;
+    try {
+      decodeProgramsStateHead(`0x${output}`);
+    } catch (error) {
+      refused = error instanceof AiMarketError;
+    }
+    assert(refused, "accepted malformed state head");
+  }
+  assert(
+    Object.keys(fixture.refusals).length === 2,
+    "missing real EVM refusals",
+  );
+  for (const [code, output] of Object.entries(fixture.refusals)) {
+    const error = decodeProgramsRpcRevert({ code: 3, data: `0x${output}` });
+    assert(error?.code === code, "consumer did not observe the EVM refusal");
+  }
+  assert(fixture.transfers.length === 2, "missing repeated transfers");
+  for (const log of fixture.transfers) {
+    const event = decodeProgramTransferred(log);
+    assert(
+      event.program === fixture.transferProgram &&
+        event.transferSetRoot === log.data.slice(2),
+      "consumer observed a different transfer receipt",
+    );
+    for (const malformed of [
+      { ...log, data: `${log.data}00` },
+      { ...log, address: "0x" + "00".repeat(20) },
+    ]) {
+      let refused = false;
+      try {
+        decodeProgramTransferred(malformed);
+      } catch (error) {
+        refused = error instanceof AiMarketError;
+      }
+      assert(refused, "accepted malformed or foreign transfer log");
+    }
+  }
+  console.log(
+    "typescript observed real terminal outputs, state heads and transfer events",
+  );
+}
+
+if (process.argv[2] === "--programs-proof") {
+  await TestProofLayerxprograms0x101dConsumer();
+  process.exit(0);
 }
 
 let passed = 0;
