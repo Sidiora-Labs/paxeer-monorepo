@@ -119384,7 +119384,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.5.1]
 title = "Index the chain registry events and serve the chains API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -122442,7 +122442,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.2.1]
 title = "Fix the chain registry ABI, Solidity interface, gas table and the cross-language vector file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -122503,7 +122503,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.1.1]
 title = "Write the chain registry module: a virtual chain is one record with a lifecycle"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
