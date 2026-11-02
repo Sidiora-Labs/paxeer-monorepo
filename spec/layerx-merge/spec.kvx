@@ -110023,7 +110023,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.22.9]
 title = "Require the purpose hash only for metered and subscription offers in the seller's receipt verification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -118297,7 +118297,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.101.1]
 title = "Port the hosted gateway's withdrawal completion check to receipt::verify_outcome"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -142971,7 +142971,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.26.5]
 title = "Replace the kernel batch and checkpoint fixtures with a committed rung fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.22.2", "8.26.1", "8.22.7"]
