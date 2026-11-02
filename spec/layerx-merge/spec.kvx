@@ -126757,7 +126757,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.16.11]
 title = "Repair the emulator bootstrap path and the daemon-bound MCP tests of the platform CLI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.16.9"]
