@@ -100709,7 +100709,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.97.1]
 title = "Gate the anchor vector generator as no longer referencing the retired daemon core"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 41
 requires = ["1.36.3"]
