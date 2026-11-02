@@ -186,6 +186,8 @@ func GetCustomPrecompiles(
 	return custom
 }
 
+// GetCustomPrecompilesE includes launchpad.GetVersioned at the direct 0x1017
+// address; surface runtime calls must reach this same registered implementation.
 func GetCustomPrecompilesE(
 	latestUpgrade string,
 	keepers utils.Keepers,
