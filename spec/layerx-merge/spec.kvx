@@ -179696,7 +179696,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.28.3]
 title = "Guard that every pytest suite under tests/ is run by a Makefile, workflow or script"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["16.28.1", "16.2.4"]
