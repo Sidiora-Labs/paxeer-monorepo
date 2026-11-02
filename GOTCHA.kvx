@@ -13610,3 +13610,23 @@ fix = "Write durations as integers (whole seconds or milliseconds) or quoted str
 title = "A go test -run pattern that matches nothing passes silently"
 symptom = "go test prints '[no tests to run]' and exits 0 when -run matches no test; a verify leg naming a test file another task creates later proves nothing."
 fix = "Name tests that exist at the task's base with anchored patterns (^TestName$) and let the task that creates a test carry its own verify leg."
+
+[gotcha.2759]
+title = "Consensus params that set MaxGas but not MaxGasWanted refused every transaction at Accept"
+symptom = "node/sequencer limits.go compared gas wanted with Block.MaxGasWanted even when it was 0, so every RPC fixture that set only MaxGas refused each transaction with 'gas wanted 21000 exceeds Block.MaxGasWanted 0'."
+fix = "Read a zero or negative MaxGasWanted as unbounded (decision 2306) and state the bound explicitly in fixtures that mean to test it."
+
+[gotcha.2760]
+title = "A task whose verify runs the cgo node package needs the go-cgo profile"
+symptom = "Programme gates under the python profile called go test ./node and failed to link: cannot find -llayerx and the programs runtime archive."
+fix = "Give any task that runs go test ./node, ./rpc or another cgo package the go-cgo profile, whatever language its own files are in."
+
+[gotcha.2761]
+title = "Errors returned through a gRPC client carry text, not a wrapped chain"
+symptom = "require.ErrorIs(err, sdkerrors.ErrInvalidAddress) on a gRPC client error failed although the keeper wrapped that error: the status error holds the message as text only."
+fix = "Assert status.Code and the message text on the client path, and assert errors.Is / errors.As on a direct call of the query server."
+
+[gotcha.2762]
+title = "Check the headers before asserting that a type is retired"
+symptom = "A CI test asserted lxp_verified_receipt_authority_facts was gone while include/layerx/lxp_receipt.h still defines it and src/modules/programs/call.c uses it; three legitimate test files failed the assertion."
+fix = "An absence test names deleted files and their references, taken from the deleting commit, never a type or symbol unless the header no longer declares it."
