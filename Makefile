@@ -1797,9 +1797,14 @@ human-e2e: human-test-e2e
 
 .PHONY: qualification-runner-test human-qualify-journeys \
 	human-qualify-fabrication human-qualify-faults human-qualify-perf \
-	human-qualify platform-qualify
+	human-qualify platform-qualify test-mcp-binding-receipt-keys
 
-qualification-runner-test:
+test-mcp-binding-receipt-keys:
+	@python3 -c 'import pytest' || \
+		{ echo "pytest is required for MCP binding receipt-key qualification" >&2; exit 1; }
+	python3 -m pytest -q tests/qualification/test_mcp_binding_receipt_keys.py
+
+qualification-runner-test: test-mcp-binding-receipt-keys
 	python3 -m unittest tools.qualification.test_release_runner
 
 human-qualify-journeys:
@@ -1871,6 +1876,7 @@ agent-test agent-test-sanitize: export PAXD = $(abspath build/paxd)
 agent-test agent-test-sanitize: export LAYERX_TEST_NATIVE_BIN_DIR = $(abspath $(BUILD_DIR)/bin)
 agent-test agent-test-sanitize: export LAYERX_TEST_NATIVE_BUILD_DIR = $(abspath $(BUILD_DIR))
 agent-test-native-prerequisites:
+	sh -n services/agent/tools/run-real-node-tests.sh
 	LAYERX_TEST_NATIVE_BUILD_DIR="$(abspath $(BUILD_DIR))" CARGO_TARGET_DIR="$(AGENT_TEST_TARGET_DIR)" sh services/agent/tools/run-real-node-tests.sh prepare
 
 agent-test: public-tls-test-prerequisites
@@ -3158,3 +3164,4 @@ include tools/paxeer-x/build/6.6.mk
 include tools/paxeer-x/build/104.35.15.mk
 include tools/paxeer-x/build/104.35.20.mk
 include tools/paxeer-x/build/104.35.29.mk
+include tools/paxeer-x/build/proof.mk

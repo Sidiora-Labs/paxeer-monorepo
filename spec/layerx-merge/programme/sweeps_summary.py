@@ -34,7 +34,7 @@ def sweeps_summary(spec_dir: str | PathLike[str]) -> Path:
     directory = Path(spec_dir) / "programme" / "sweeps"
     destination = directory / "summary.kvx"
     totals: Counter[str] = Counter()
-    failures: list[dict[str, str]] = []
+    outcomes: dict[tuple[str, str], tuple[int, dict[str, str]]] = {}
     names: set[str] = set()
     revisions: set[str] = set()
 
@@ -63,6 +63,11 @@ def sweeps_summary(spec_dir: str | PathLike[str]) -> Path:
             if name in names:
                 raise ValueError(f"{location}: sweep is duplicated")
             names.add(name)
+            family, separator, suffix = name.rpartition("-")
+            if separator and suffix.isdecimal():
+                pass_number = int(suffix)
+            else:
+                family, pass_number = name, 1
             _text(sweep, "command", location)
             revision = _text(sweep, "revision", location)
             if not re.fullmatch(r"[0-9a-f]{40}", revision):
@@ -94,26 +99,24 @@ def sweeps_summary(spec_dir: str | PathLike[str]) -> Path:
                 if result not in RESULTS:
                     raise ValueError(f"{target_location}: result {result!r} is invalid")
                 counts[result] += 1
+                outcome = {"sweep": name, "target": target, "result": result}
                 if result in ("failed", "not_run"):
-                    failures.append(
-                        {
-                            "sweep": name,
-                            "target": target,
-                            "result": result,
-                            "observed": _text(
-                                section,
-                                "observed",
-                                target_location,
-                                required=result == "failed",
-                            ),
-                            "assumption": _text(
-                                section,
-                                "assumption",
-                                target_location,
-                                required=result == "failed",
-                            ),
-                        }
+                    outcome["observed"] = _text(
+                        section,
+                        "observed",
+                        target_location,
+                        required=result == "failed",
                     )
+                    outcome["assumption"] = _text(
+                        section,
+                        "assumption",
+                        target_location,
+                        required=result == "failed",
+                    )
+                identity = (family, target)
+                previous = outcomes.get(identity)
+                if previous is None or pass_number > previous[0]:
+                    outcomes[identity] = (pass_number, outcome)
 
             expected = {"targets_total": len(targets[name])}
             expected.update({f"targets_{result}": counts[result] for result in RESULTS})
@@ -123,10 +126,16 @@ def sweeps_summary(spec_dir: str | PathLike[str]) -> Path:
                     raise ValueError(
                         f"{location}: {field} is {actual!r}, expected {count} from target blocks"
                     )
-                totals[field] += count
 
     if not names:
         raise ValueError(f"{directory}: reports contains no [sweep.<name>] blocks")
+
+    failures: list[dict[str, str]] = []
+    for _, outcome in outcomes.values():
+        totals["targets_total"] += 1
+        totals[f"targets_{outcome['result']}"] += 1
+        if outcome["result"] in ("failed", "not_run"):
+            failures.append(outcome)
 
     lines = ["[summary]", f"reports = {len(names)}"]
     for field in ("targets_total", *(f"targets_{result}" for result in RESULTS)):

@@ -1,0 +1,149 @@
+[disposition.9.25.1.3]
+finding = "9.25.1.3"
+status = "superseded"
+evidence = "Commit 2620682e9 deleted services/agent/crates/layerx-client/src/evidence/asset_record.rs with the retired evidence submodules, so the orphaned Freshness import no longer exists on main."
+follow_up = "closure"
+
+[disposition.9.25.1.4]
+finding = "9.25.1.4"
+status = "superseded"
+evidence = "Commit 2620682e9 deleted the retired services/agent/crates/layerx-client/src/evidence/asset_record.rs, eliminating the orphaned import that the repeated verification grep matched."
+follow_up = "closure"
+
+[disposition.9.28.1.1]
+finding = "9.28.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:166815 omits examples/native_handover_reads.rs from task 9.28.1 touches, matching its earlier deletion in commit 633c34349 and removing the impossible graph change requirement."
+follow_up = "closure"
+
+[disposition.9.27.3.1]
+finding = "9.27.3.1"
+status = "resolved"
+evidence = "Commit 10905bdeb removed the obsolete settlement arguments, verified_checkpoints fields and Checkpoint selector arm from the daemon and reviewer example and replaced OfflineTrustError::NetworkId with ExportTrustError::InvalidEntry."
+follow_up = "closure"
+
+[disposition.9.35.1.2]
+finding = "9.35.1.2"
+status = "resolved"
+evidence = "services/agent/crates/layerx-crypto/src/lib.rs:10 and services/agent/crates/layerx-crypto/src/lib.rs:29 retain the disclosure and send modules used by consumers, while commit ab8627a71 limits retirement to rotation and encode_payment_envelope."
+follow_up = "closure"
+
+[disposition.9.28.1.2]
+finding = "9.28.1.2"
+status = "resolved"
+evidence = "Commit 10905bdeb ports both verify_protocol_evidence calls to the single-argument API and removes the deleted report fields and enum variants responsible for the five daemon errors blocking task 9.28.1."
+follow_up = "closure"
+
+[disposition.9.27.9.1]
+finding = "9.27.9.1"
+status = "resolved"
+evidence = "Commit 10905bdeb removes SettlementDomain arguments from approval_events.rs and audit_export.rs, as retained by the four-argument export call at services/agent/crates/layerx-agentd/tests/approval_events.rs:339."
+follow_up = "closure"
+
+[disposition.9.28.1.3]
+finding = "9.28.1.3"
+status = "resolved"
+evidence = "Commit c3124cb13 replaces the deleted withdrawal verifier with verify_withdrawal_receipt, which calls receipt::verify_outcome and checks the operation activity identifier at services/platform/hosted/gateway/src/main.rs:2933."
+follow_up = "closure"
+
+[disposition.9.28.2.1]
+finding = "9.28.2.1"
+status = "open"
+evidence = "services/agent/crates/layerx-proof/src/settlement.rs:12 still embeds contracts/config/checkpoint-settlement.json:1 without a schema field, while services/agent/crates/layerx-types/src/settlement.rs:267 requires it, leaving the checkpoint test configuration failure for task 9.27.4 to retire."
+follow_up = "9.27.4"
+
+[disposition.9.97.7.6]
+finding = "9.97.7.6"
+status = "resolved"
+evidence = "Commit 67704e1b5 removes the decode_and_verify_program_terminal import and the three retired kernel-terminal tests from tests/agent/sdk/python/test_integration.py, eliminating the collection-time dependency on the removed SDK export."
+follow_up = "closure"
+
+[disposition.9.24.8.1]
+finding = "9.24.8.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:129766 passes both retained budget test names after a single --exact flag in task 9.24.8 verify_cmd, removing the duplicate libtest option."
+follow_up = "closure"
+
+[disposition.9.97.14.2]
+finding = "9.97.14.2"
+status = "resolved"
+evidence = "Commit 67704e1b5 aligns the schema assertion with EVM native-call fields, supplies all three gas terms through native_terms and signs type-2 journal records, as retained at tests/agent/sdk/python/test_ai_market.py:429, tests/agent/sdk/python/test_ai_market.py:798 and tests/agent/sdk/python/test_ai_market.py:1014."
+follow_up = "closure"
+
+[disposition.9.28.1.4]
+finding = "9.28.1.4"
+status = "resolved"
+evidence = "Commits c8c6eaf0b and 72757eb7a refresh services/platform/Cargo.lock after verifier dependency retirement, and the current layerx-agentd and layerx-client entries at services/platform/Cargo.lock:1157 and services/platform/Cargo.lock:1197 contain no verifier dependency."
+follow_up = "closure"
+
+[disposition.9.24.6.1]
+finding = "9.24.6.1"
+status = "resolved"
+evidence = "Commit 2620682e9 removes the head_attestation, preparation, program_read and simulate module declarations and both obsolete re-exports from services/agent/crates/layerx-client/src/lni/mod.rs alongside the six submodule deletions."
+follow_up = "closure"
+
+[disposition.9.97.14.3]
+finding = "9.97.14.3"
+status = "resolved"
+evidence = "Commit 67704e1b5 rewrites the journal tests against JSON-RPC exact-byte submission, UNKNOWN and PENDING transitions, unavailable receipt verification and expiry, retained at tests/agent/sdk/python/test_ai_market.py:1031 and tests/agent/sdk/python/test_ai_market.py:1080."
+follow_up = "closure"
+
+[disposition.9.28.1.5]
+finding = "9.28.1.5"
+status = "resolved"
+evidence = "Commit 72757eb7a removes the authority verifier dependency and ports chain identity, block, state-root and account reads to SequencerEndpoint and PxEndpoint, retained at services/platform/hosted/authority/src/human/budget_state.rs:79."
+follow_up = "closure"
+
+[disposition.9.24.6.2]
+finding = "9.24.6.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:166310 now declares native_budget_versions_fields_and_extremes as task 9.24.6's symbol, matching the retained test function at services/agent/crates/layerx-client/tests/committed_caps.rs:23."
+follow_up = "closure"
+
+[disposition.9.35.1.3]
+finding = "9.35.1.3"
+status = "resolved"
+evidence = "Commit ab8627a71 preserves disclosure and send module declarations and inlines the asset-send encoder in services/agent/crates/layerx-crypto/src/send.rs:238 while deleting rotation, so the attempt's missing-module condition is absent."
+follow_up = "closure"
+
+[disposition.9.27.3.2]
+finding = "9.27.3.2"
+status = "resolved"
+evidence = "Commit cd1646ee0e removes decode_signed from export_complete.rs and feeds fixtures/signed-authority/handover.payload directly to SignedAuthorityHistory::advance at services/agent/crates/layerx-proof/tests/export_complete.rs:130."
+follow_up = "closure"
+
+[disposition.9.35.13.1]
+finding = "9.35.13.1"
+status = "resolved"
+evidence = "Commit 808af49bb adds services/agent/qualification/pay2/Cargo.lock for the standalone qualification workspace, whose committed lock format is present at services/agent/qualification/pay2/Cargo.lock:3."
+follow_up = "closure"
+
+[disposition.9.35.1.4]
+finding = "9.35.1.4"
+status = "resolved"
+evidence = "Commit ab8627a71 deletes DisclosedNativeOperation::OwnerRotation, its encoder and decoder arms and the daemon capability match arm together with rotation.rs, removing every reported dangling reference."
+follow_up = "closure"
+
+[disposition.9.24.9.1]
+finding = "9.24.9.1"
+status = "resolved"
+evidence = "Commit 1c029af18 adds the programs-precompile branch at services/agent/crates/layerx-crypto/src/disclosure/call.rs:264, decoding the shared program-call ABI into ConstructMethod::ProgramCall before disclosure binding."
+follow_up = "closure"
+
+[disposition.9.25.17.3]
+finding = "9.25.17.3"
+status = "resolved"
+evidence = "Commit eacff83ef removes AccountPolicy and the retired account and balance from_rpc_result calls from wallet.rs while preserving account and asset equality checks and validated_account_records at tools/platform/cli/src/wallet.rs:1588."
+follow_up = "closure"
+
+[disposition.9.24.9.2]
+finding = "9.24.9.2"
+status = "resolved"
+evidence = "Commit 1c029af18 adds the signer's 32-byte signingKey to the signed_receipt view at services/agent/crates/layerx-client/tests/ai_market_rpc.rs:186, satisfying the sequencer decoder's required field."
+follow_up = "closure"
+
+[disposition.9.100.2.1]
+finding = "9.100.2.1"
+status = "open"
+evidence = "services/human/crates/layerx-human-service/tests/native_lifecycle.rs:29 still calls canonical::decode_signed_activity although services/human/crates/layerx-intents/src/canonical.rs:20 exports only send helpers, and task 9.35.11's lifecycle-test port remains pending."
+follow_up = "9.35.11"

@@ -23,8 +23,8 @@ func TestApplyUpgradesDeletesAnchorTreeAndKeepsMergeTrees(t *testing.T) {
 	}
 	initialStores, err := keys.AllModulesExcept(mergeStores...)
 	require.NoError(t, err)
-	initialStores = append(initialStores, anchorName)
-	expectedNames := append([]string(nil), keys.MemIAVLStoreKeys...)
+	expectedNames, err := keys.AllModulesExcept(anchorName)
+	require.NoError(t, err)
 	sort.Strings(expectedNames)
 
 	for _, initialVersion := range []uint32{0, 100} {
