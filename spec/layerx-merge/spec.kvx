@@ -133371,7 +133371,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.35]
 title = "Mount the sequencer and chain registry stores in the RPC test application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -135121,7 +135121,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.83.1]
 title = "Prove the tee attestor 0x0907 path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
