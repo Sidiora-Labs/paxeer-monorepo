@@ -13306,3 +13306,8 @@ fix = "Use `go vet <tree>` to type-check and compile cgo without linking, as the
 title = "A deleted exported SDK type can have consumers outside the services tree; grep tools/ and apps/ before deleting"
 symptom = "9.25.17 deleted three rpc_verification types after grepping services/agent; tools/platform/cli/src/wallet.rs constructed them at eight sites and the CLI stopped compiling for every later task."
 fix = "Before a task deletes an exported item, grep the whole repository for its path and name, and list each consumer workspace in the task's do items or in a follow-up task that the deletion task requires."
+
+[gotcha.2698]
+title = "Explorer unit tests are *.spec.ts under vitest, not *.test.ts"
+symptom = "A new apps/explorer test file named *.test.ts is never collected: apps/explorer/vitest.config.ts:18 includes only **/*.spec.ts and **/*.spec.tsx, and the package has no jest."
+fix = "Name explorer unit tests *.spec.ts and run them with yarn --cwd apps/explorer vitest run <file>; the playwright scripts (test:pw) are for component screenshots only."
