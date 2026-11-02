@@ -284,7 +284,7 @@ func (app *App) refreshXWebPrecompile(ctx sdk.Context) {
 
 // RefreshPrecompiles reselects the custom precompile set from the state of ctx.
 func (app *App) RefreshPrecompiles(ctx sdk.Context) {
-	app.v6120Live = app.v6120LiveInState(ctx)
+	app.setV6120Live(app.v6120LiveInState(ctx))
 	app.refreshXWebPrecompile(ctx)
 }
 
@@ -470,9 +470,22 @@ func (app *App) mergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan, fromVM
 
 func (app *App) continueMergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 	cached, write := ctx.CacheContext()
+	if plan.Name != MergeUpgrade || plan.Height != ctx.BlockHeight() {
+		return fromVM, fmt.Errorf("upgrade %s: plan %s at height %d is not running at height %d", MergeUpgrade, plan.Name, plan.Height, ctx.BlockHeight())
+	}
+	scheduled, found := app.UpgradeKeeper.GetUpgradePlan(cached)
+	if found && (scheduled.Name != plan.Name || scheduled.Height != plan.Height || scheduled.Info != plan.Info) {
+		return fromVM, fmt.Errorf("upgrade %s: executing plan differs from scheduled plan", MergeUpgrade)
+	}
+	if err := app.UpgradeKeeper.ScheduleUpgrade(cached, plan); err != nil {
+		return fromVM, fmt.Errorf("upgrade %s: executing plan: %w", MergeUpgrade, err)
+	}
 	versions, err := app.migrateMergeState(cached, plan, fromVM)
 	if err != nil {
 		return versions, err
+	}
+	if !found {
+		app.UpgradeKeeper.ClearUpgradePlan(cached)
 	}
 	write()
 	ctx.EventManager().EmitEvents(cached.EventManager().Events())

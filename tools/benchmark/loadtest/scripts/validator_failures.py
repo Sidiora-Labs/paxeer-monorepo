@@ -89,7 +89,7 @@ def _get_admin_acc():
     accs_output = _run_paxd_cmd(paxd_query_cmd)
     return filter(lambda x: x['name'] == 'admin', accs_output)['address']
 
-def _run_paxd_cmd(cmd)
+def _run_paxd_cmd(cmd):
     paxd_cmd = "printf '12345678\n' " + cmd
     output = json.loads(
         subprocess.check_output([paxd_cmd], stderr=subprocess.STDOUT,

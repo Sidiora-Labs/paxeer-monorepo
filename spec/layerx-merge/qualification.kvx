@@ -18091,3 +18091,427 @@ symbol = "OUT_OF_SCOPE"
 observed = "Attempt 5 (base 5e4cc2862): with the six Dockerfiles of do_1 placed, bash tools/containers/check.sh reports 14 failures: deploy/launchpad/Dockerfile.svc, deploy/launchpad/Dockerfile.web, services/platform/hosted/feeder/Dockerfile, services/platform/perps-data/deploy/Dockerfile, services/platform/perps-data/deploy/nats/Dockerfile, tools/deploy/charting-library.Dockerfile, tools/loadtest/Dockerfile, tools/paxctl/Dockerfile and the four tools/wasm-tools/ci/docker/*/Dockerfile are tracked outside docker/ and not on the out-of-scope list, and docker/platform-node/Dockerfile and docker/redis/Dockerfile are under docker/ but not known service Dockerfiles."
 assumption = "The out-of-scope list was written against an older tree; every tracked Dockerfile must be either a known service or on the list, and the scope test must assert that identity from git ls-files so the list cannot drift again."
 severity = "medium"
+
+[finding.22.5.7.1]
+task = "22.5.7"
+file = "storage/state_db/sc/memiavl/snapshot_methods_test.go"
+symbol = "TestWriterLoopErrors"
+observed = "TestWriterLoopErrors (snapshot_methods_test.go:161) and TestSnapshotWriterErrorHandling expect WriteSnapshot to fail on /invalid/path/snapshot and get nil: the qualification environment runs the tests as root, which may create that directory, so the error path cannot be exercised there."
+assumption = "Both tests are properties of the qualification environment, not of the repository; they are skipped in this task's verify and the package's remaining tests stay in it."
+severity = "low"
+
+[finding.22.6.7.1]
+task = "22.6.7"
+file = "precompiles/layerxverify/retire_gate_test.go"
+symbol = "TestLayerXVerifyBelowTheMergeKeepsItsResults"
+observed = "At base 5e4cc2862 the first attempt's verify fails TestLayerXVerifyBelowTheMergeKeepsItsResults (retire_gate_test.go:130): the legacy harness built by newHarness answers verifyEd25519 (domains 2, 7, 8, 9, 19) and verifyReceiptInclusion (valid leaves) with execution reverted, although the merge-plan retirement applies only from the merge height."
+assumption = "Either the legacy harness no longer sits below the merge height or the precompile reverts those methods regardless of height; the task repairs whichever holds inside precompiles/layerxverify."
+severity = "medium"
+
+[finding.22.6.8.1]
+task = "22.6.8"
+file = "precompiles/xweb/XWeb.sol"
+symbol = "XWebProgramRequested"
+observed = "precompiles/xweb/abi.json declares four events (XWebProgramRequested(bytes32,uint64,uint8,bytes,uint64) since 383bbbbd8) while XWeb.sol:73-91 and contracts/src/precompiles/IXWeb.sol:73-91 declare three, and IXWeb.sol carries three selector doc comments (:103, :120, :126 from dc92aa359) that XWeb.sol lacks; TestABIMatchesTheSolidityInterface/consumer_interface (xweb_test.go:829) requires the two files byte-identical, consumer_selectors requires contracts/test/XWebConsumer.t.sol to quote every signature, and TestEventTopics (xweb_test.go:1043) counts the events of the Solidity source."
+assumption = "The Solidity interfaces are behind the ABI; both declare the fourth event byte-identically and the consumer suite quotes it."
+severity = "medium"
+
+[finding.22.8.12.1]
+task = "22.8.12"
+file = "services/platform/hosted/authority/tests/retired_client_modules.rs"
+symbol = "budget_reader_uses_only_node_read_interfaces"
+observed = "budget_reader_uses_only_node_read_interfaces (retired_client_modules.rs:60) reads src/human/budget_state.rs and requires the strings getBudget(bytes32), budgetRemaining(bytes32), latestFinalized(), checkpoint(uint64) and layerx.human.budget-proof.v2; latestFinalized() and checkpoint(uint64) are issued from src/main.rs:682-693, so the test fails with 'missing node interface latestFinalized()' at base 5e4cc2862, outside the task's touches."
+assumption = "The finalized-head and checkpoint reads moved out of the budget reader without the test following; the task reconciles them."
+severity = "medium"
+
+[finding.22.11.5.1]
+task = "22.11.5"
+file = "services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs"
+symbol = "invalid_commitments_are_refused_during_load"
+observed = "Beyond the task's three targets, cargo test of layerx-bridge-relayer and layerx-interop-service fails at base 5e4cc2862 in operator_config.rs:484 (a non-string solana commitment is not refused with a message starting 'invalid type:'), solana.rs:266 (fixture lacks receipt_keys), solana.rs:634 and solana_release.rs:1045 (restart: rpc quorum unavailable), operator_cosign_contract.rs:68 and :1091 (no authorized operator inventory inputs; generated signers not approved membership), proof_bridge_relayer.rs:252 and :265 (the TypeScript consumer fails and the signer binary at target/debug is missing) and plain_listener.rs:335 (startup refused: LAYERX_INTEROP_SEQUENCER_URL is required)."
+assumption = "These are repository defects and fixture gaps of the two suites, not of this task; 22.11.7 repairs them and this task's verify runs only its three targets."
+severity = "medium"
+
+[finding.22.9.11.1]
+task = "22.9.11"
+file = "services/agent/sdk/python/layerx_sdk/px.py"
+symbol = "decode_history_row"
+observed = "The fourth attempt's verify (python3 -m pytest tests) fails six tests unrelated to the market journal at base 5e4cc2862: test_px_commit.py::test_history_page_keeps_rows_tied_with_the_limit_row (px.py:689 raises invalid-history-transaction-hash), test_sequencer_receipt.py::test_verify_rpc_payment_uses_receipt_keys and the x402 draw and http receipt-key tests (x402_rpc.py:67 raises invalid-rpc-hex for a 64-hex hash without 0x)."
+assumption = "The validators landed with the x402 receipt port and the fixtures were not moved to 0x-prefixed hashes; 22.9.23 reconciles them and this task's verify deselects the six."
+severity = "medium"
+
+[finding.22.12.4.1]
+task = "22.12.4"
+file = "services/wallet/attestor/cmd/attestor/main_test.go"
+symbol = "TestRunServesHealthOverMutualTLS"
+observed = "TestRunServesHealthOverMutualTLS, TestRunSeparatesOperatorAndGatewayAuthority and TestRunWritesSnapshotsOnTheInterval fail at main_test.go:151 with 'run exited early: attestor: pinned custody producer authority: custody authority unavailable or refused': main.go:206 requires agent.NewAuthority (ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, _ISSUER, _TENANT; authority.go:118-130 refuses when one is missing) and the test environment at main_test.go:127-141 sets none of them."
+assumption = "The authority requirement landed after the run() tests were written; the test environment supplies a fixture authority so run() starts."
+severity = "medium"
+
+[finding.22.16.8.1]
+task = "22.16.8"
+file = "tools/repotest/pytest_reachability_test.go"
+symbol = "TestEveryPytestSuiteIsReferenced"
+observed = "TestEveryPytestSuiteIsReferenced (pytest_reachability_test.go:79) reports tests/qualification/test_mcp_binding_receipt_keys.py (a pytest module added by 18.1498.1 at 9a389433b) with no exact path reference or containing directory passed to pytest in the Makefile, chain.mk, the workflows, tools/ or scripts/."
+assumption = "The module landed without a build reference; the task adds one in the Makefile, which is under its touches."
+severity = "low"
+
+[finding.22.13.6.2]
+task = "22.13.6"
+file = "src/protocol/lxp_genesis.c"
+symbol = "module_table"
+observed = "The fifth attempt replaced programs_module_registration_v4 with programs_module_registration_v4_storage_retirement in the LXP_GENESIS_MODULE_GATE_ALWAYS programs row (lxp_genesis.c:54); make test-genesis-module-table then fails genesis.module-table.defaults (lxp_genesis_module_plan_default(LXP_PROTOCOL_VERSION_STATE_COMMITMENT, true, &plan) no longer returns LXP_OK) and the public-fixture-v3 and public-fixture-v4 cases verify tests/fixtures/public-testnet-genesis-v3 and public-testnet-genesis with result -801 (LXP_ERR_ROOT_MISMATCH)."
+assumption = "The published fixtures pin the module-table root of the live network and are never regenerated; the storage-retirement registration must be selected behind a gate those fixtures do not satisfy."
+severity = "high"
+
+[finding.21.63.1.1]
+task = "21.63.1"
+file = "services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs"
+symbol = "decode_unsigned_activity"
+observed = "The second attempts of 21.63.1 and 21.110.1 fail in the build of layerx-human-kms --tests at base f599d3122: E0432 unresolved layerx_intents::canonical::unsigned_envelope_bytes and decode_unsigned_activity (sign_eip1559_requests.rs:443-447, :700; provider/native_setup.rs:10), the type Activity missing, and in 21.63.1 E0599 DisclosedNativeOperation::OwnerRotation not found."
+assumption = "9.35.9 ports the KMS provider and signing tests off the kernel activity envelope; both proofs start after it."
+severity = "medium"
+
+[finding.22.8.11.1]
+task = "22.8.11"
+file = "services/platform/middleware/seller/test/ledger.test.mjs"
+symbol = "encodesLedgerDrawCalldataWithDrawSelector"
+observed = "The first attempt committed sdk/integrations/next/example/.next build output, and the seller tests fail against the freshly built dist: ledger.test.mjs:139 encodesLedgerDrawCalldataWithDrawSelector expects a 32-byte field and observes the ASCII bytes 65..88 of the fixture string, and grant-draw.test.mjs:129 grantAuthorityForwardsLedgerDrawTransaction is refused with invalid-payment-payload by GrantPaymentAuthority.settle (dist/grant.js:39)."
+assumption = "Build output is never committed, and the seller source and tests disagree on how the ledger draw reference is encoded; the task reconciles them inside services/platform/middleware."
+severity = "medium"
+
+[finding.22.9.16.1]
+task = "22.9.16"
+file = "services/agent/schema/agent-api/v1.kvx"
+symbol = "compatibility_gate"
+observed = "At bases 17990ad65 and c1cc55d15 the build of every layerx-agent-api dependent panics at build.rs:324:33: breaking contract removal without a major increment: transport.agent_http.operation.faucet.claim.access (2ddf941d9 removed the block at major 2)."
+assumption = "22.9.24 restores the block; every open task that builds with cargo requires it and continues from its last attempt once it is done."
+severity = "high"
+
+[finding.22.2.4.2]
+task = "22.2.4"
+file = "modules/layerxauth/keeper/revoke.go"
+symbol = "RevokeGrant"
+observed = "Fourth attempt at base 17990ad65: TestRevokeGrantAdvancesRevocation/capability and /session (revoke_test.go:132) expect ErrIdempotentReplay from the second RevokeGrant with the same grant and idempotency key and get LXP_AUTH_SCOPE: now that the grant is retained with RevocationEpoch set, the repeat reaches the grant's scope validation before the replay check."
+assumption = "The replay check on (grant, idempotency key) precedes every state validation of the revoke; the test's expectation stands."
+severity = "medium"
+
+[finding.22.2.7.1]
+task = "22.2.7"
+file = "precompiles/layerxpay/execute.go"
+symbol = "IdempotencyKey"
+observed = "Second attempt at base 17990ad65 implemented the restart proof in modules/lxphost (TestPaymentReferenceStaysRefusedAfterReopen passes) and changed nothing in precompiles/layerxpay/execute.go, which already builds the activity with the idempotency key (do_1); the graph check refused the untouched file and the verify's layerxpay leg -run 'Proof.*0x101a|ProofLayerxledger' matched no test ([no tests to run]) because proof_layerxledger_0x101a_test.go is created by 21.11.1, which requires this task."
+assumption = "execute.go leaves the touches; the verify runs the lxphost proof and compiles layerxpay; 21.11.1 adds its own leg."
+severity = "low"
+
+[finding.22.9.10.2]
+task = "22.9.10"
+file = "services/agent/sdk/typescript/test/program-executed-v3.test.ts"
+symbol = "fixture"
+observed = "Fourth attempt at base c1cc55d15: npm test fails with ENOENT on sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json, read by test/program-executed-v3.test.ts:5; 88faddb09 (task 8.47.5) removed the kernel programs-module receipt vectors v1 to v3 and their generators because no node serves that receipt."
+assumption = "The test belongs to the receipt shape this task retires (do_1); it is deleted with the decoder path it exercised."
+severity = "medium"
+
+[finding.22.10.7.2]
+task = "22.10.7"
+file = "services/platform/hosted/human/test_material.py"
+symbol = "required_path"
+observed = "Third attempt at base 17990ad65: test_custody_bindings_resolve_to_the_native_custody_precompile and test_generated_bootstrap_and_protected_inputs still fail with 'required genuine producer input is missing: PAXEER_X_HUMAN_EVIDENCE_DIR' (test_material.py:68, reached from :76) while the verify unsets the five variables on purpose."
+assumption = "The refusal at :68 is for inputs the test neither received nor built; the hermetic rewrite builds them with the producer functions of material.py first."
+severity = "medium"
+
+[finding.22.17.4.1]
+task = "22.17.4"
+file = "spec/layerx-merge/programme/sweeps/go-modules-2.kvx"
+symbol = "elapsed_seconds"
+observed = "First attempt at base 84dd3db40: sweeps_summary.py stops at go-modules-2.kvx:18 'expected a quoted string, integer, boolean or string list value' because the sweep (ad466647e) wrote elapsed_seconds = 600.071, a decimal, for a target that hit its 600-second budget."
+assumption = "kvx values are quoted strings, integers, booleans or string lists; the sweep file is repaired in this task and the summary tolerates nothing else."
+severity = "low"
+
+[finding.22.90.9.2]
+task = "22.90.9"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs"
+symbol = "ConstructMethod::ProgramCall"
+observed = "First attempt at base 17990ad65: cargo build --all-targets of layerx-human-kms compiles layerx-human-service and fails E0004 at create.rs:610, non-exhaustive match missing Some(ConstructMethod::ProgramCall { .. }); the candidate changed nothing because the failure sits outside its touches."
+assumption = "9.100.2 added the ProgramCall construct method without the human service following; this task adds the arm."
+severity = "medium"
+
+[finding.18.1502.1.1]
+task = "18.1502.1"
+file = "node/sequencer/limits.go"
+symbol = "Accept"
+observed = "First attempt at base 17990ad65: TestPendingBlockCarriesHeaderFields, TestPendingBlockOpenBlock, TestPendingBlockNumberStaysCommitted, TestPendingBlockTransactionCount and TestPendingNonceWaitsForTheOpenBlock fail with 'transaction does not fit the block limits: gas wanted 21000 exceeds Block.MaxGasWanted 0' from limits.go:53; the RPC fixture's consensus params set no MaxGasWanted."
+assumption = "22.5.9 reads an unset MaxGasWanted as unbounded and states it in rpc/setup_test.go; this task requires it and continues from its last candidate."
+severity = "high"
+
+[finding.22.7.3.1]
+task = "22.7.3"
+file = "rpc/header_receipts_root_test.go"
+symbol = "TestHeaderReceiptsRootIsSameBlockResults"
+observed = "Second attempt at base c1cc55d15: besides the MaxGasWanted refusals, TestHeaderReceiptsRootIsSameBlockResults waits 180 s for a newHeads payload that never arrives (header_receipts_root_test.go:161 and :194) and TestDebugTraceTransactionCallTracerShape / TestDebugTraceTransactionPrestateTracerShape expect result code 0x0 and get 0x2."
+assumption = "The newHeads wait is the downstream of the same refused transactions (no block is sealed); the tracer shape tests are judged again once 22.5.9 is in."
+severity = "medium"
+
+[finding.17.1.7.1]
+task = "17.1.7"
+file = "spec/layerx-merge/programme/tests/test_bringup_run.py"
+symbol = "test_bringup_goldens_pass_on_merged_revision"
+observed = "First attempts of 17.1.7 and 17.3.4 at fb8864428 and 5857e2d41: go test ./node fails to link ('cannot find -llayerx' and the programs runtime archive) because the environment profile of both tasks never builds the kernel archives that the cgo node package needs."
+assumption = "The two tasks run under the go-cgo profile, which builds the archives before go test ./node; nothing in the repository is at fault."
+severity = "low"
+
+[finding.22.16.4.3]
+task = "22.16.4"
+file = "tests/ci/test_requested_suites_absent.py"
+symbol = "test_arbiter_native_authority_absent"
+observed = "Fourth attempt at base 17990ad65: test_arbiter_native_authority_absent fails because tests/programs/test_lifecycle.c:1109, tests/proof/lxp_proof_lxp_module_h.c:300 and tests/proof/lxp_proof_lxp_receipt_h.c:302 name lxp_verified_receipt_authority_facts, and test_qualification_producers_exist.py:33 fails with 'No daemon producer references found' once every deleted daemon test reference is gone."
+assumption = "lxp_verified_receipt_authority_facts is a live type (include/layerx/lxp_receipt.h:128, lxp_module.h:37, used by src/modules/programs/call.c and src/protocol/lxp_module_ctx.c), so the absence test must not name it; zero references is exactly the retired state the producers test should accept."
+severity = "medium"
+
+[finding.22.4.5.1]
+task = "22.4.5"
+file = "modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go"
+symbol = "TestQueryAirdropEpochRefusals"
+observed = "Second attempt at base 17990ad65: the malformed-pool and malformed-address cases (grpc_query_airdrop_epoch_test.go:94) call require.ErrorIs(err, sdkerrors.ErrInvalidAddress) on an error returned through the gRPC client; the status error carries 'rpc error: code = InvalidArgument desc = pool must be a 0x-prefixed 40-hex-digit address: invalid address' as text and no wrapped chain, so ErrorIs and ErrorAs fail twenty times."
+assumption = "The chain assertions belong on the in-process query server; the client path keeps the status-code assertion it already makes at :86."
+severity = "low"
+
+[finding.22.6.4.1]
+task = "22.6.4"
+file = "precompiles/missing_merge_test.go"
+symbol = "TestMergeAddressTable"
+observed = "First attempt at base 17990ad65: TestMergeAddressTable, TestMissingMergeConstructorsInTableOrder and TestGatewayUnservedMatchesMissingConstructors expect the merge table without layerxchains while the table carries layerxchains at 0x101E (20.2.2); TestGetPrecompileInfoEUnknownName expects 'merge precompile eip712 at 0x...0908: LXP_PRECOMPILE_NO_CONTEXT: evm keeper is unavailable' and gets 'unknown_precompile doesn't exist as a precompile'; TestProofStreams0x0906 (proof_streams_0x0906_test.go:180) gets an unexpected error."
+assumption = "The expectations predate the chain registry precompile and the keeper wiring this task adds; the task reconciles them with the real table and the real refusal order."
+severity = "medium"
+
+[finding.22.12.4.2]
+task = "22.12.4"
+file = "services/wallet/attestor/internal/server/server_test.go"
+symbol = "TestSchemaDescribesEveryServedRoute"
+observed = "Third attempt at base 17990ad65: with the custody-authority fixture in place, go test ./... of the attestor still fails six tests outside cmd/attestor: TestSchemaDescribesEveryServedRoute (server_test.go:318: v1.kvx describes /v1/lx/review with 0 operations, want exactly one), the key-import and generate cases (server_test.go:365, :714, :776: key_invalid_share 'custody import requires exactly five approved members' / 'owner-approved wallet inventory does not admit operation' where key_curve_mismatch or success is expected), TestSnapshotFollowsAddShare, TestShippedPolicyAllowsWalletSDKWrites, TestShippedPolicyAllowsLaunchpadApproveThenBuy, TestShippedPolicyListsSendAuthorizationKind (policy_test.go:799, :1245) and TestXweb0x1019ApplicationPolicy (policy_test.go:1938: application proof must supply its real fulfilment calldata)."
+assumption = "Those failures are independent of the fixture; 22.12.7 repairs them and this task's verify runs the attestor command package and vet only."
+severity = "medium"
+
+[finding.22.13.6.3]
+task = "22.13.6"
+file = "src/protocol/lxp_genesis.c"
+symbol = "lxp_genesis_module_plan_default"
+observed = "Sixth attempt at base 17990ad65: the candidate added the storage-retirement enable flag but also replaced the programs row's gate key with LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER when the flag is off (lxp_genesis.c module_table branch for LXP_MODULE_PROGRAMS), so the published fixtures still verify with -801 LXP_ERR_ROOT_MISMATCH (tests/fixtures/public-testnet-genesis-v3 and public-testnet-genesis)."
+assumption = "Decision 2304 means the table is unchanged when the flag is off: same rows, same keys, same roots; the retirement registration is selected only when the flag is on."
+severity = "medium"
+
+[finding.20.3.4.2]
+task = "20.3.4"
+file = "modules/evm/ante/sig.go"
+symbol = "ErrInvalidChainID"
+observed = "20.3.4 a3 (base 5b2283aa7, node/layerxchains_block_test.go:160 accept) and 20.4.4 a4 (base c1cc55d15, rpc/domain_ws_test.go:237, TestChainPathLogSubscriptionDeliversOnlyTheChainsLogs/receipted): the transaction signed with the chain's derived chain id is refused by Accept with the ante result 'invalid chain-id' (sdkerrors.ErrInvalidChainID, returned at modules/evm/ante/sig.go:60 and :66, modules/evm/ante/preprocess.go:199 and node/ante/evm_checktx.go:192 and :324)."
+assumption = "20.3.1 maps a transaction's chain id to its chain in the ante handler, but at least one of the five refusal sites still compares against the root EVM chain id alone, or the test harness signs before the chain is created and active; the proof task carries the repair."
+severity = "high"
+
+[finding.22.9.24.1]
+task = "22.9.24"
+file = "services/agent/crates/layerx-agent-api/tests/schema.rs"
+symbol = "generated_contract_is_pinned_to_the_schema"
+observed = "First attempt at base 3454fc9ab restored [transport.agent_http.operation.faucet.claim] byte-identical to golden/v1.kvx:317-323 (v1.kvx now equals 243552138) and the build passed, but cargo test -p layerx-agent-api --test schema fails four tests: generated_contract_is_pinned_to_the_schema (schema.rs:69) and submission_state_retains_all_nine_variants (:375) require declarations(BASELINE) == declarations(AGENT_API_V1_SOURCE) while golden/v1.kvx lacks the [record.VerificationStatus] block that 16e9b1e3f (18.1456.1) added at v1.kvx:121-122; write_and_error_goldens_match_major_two_schema (:206) expects the pre-16e9b1e3f text of record.AgentHttpSuccess.verification_status; programs_contract_is_included_with_receipt_resolution_and_call_idempotency (:233) expects operation.program.call.unknown_outcome = retain_signed_activity_and_resolve_by_receipt while programs.kvx:251 and golden/programs.kvx:251 have carried retain_exact_signed_EIP1559_transaction_and_resolve_by_hash since 1d0cc3720 (9.10.2)."
+assumption = "The schema is current and the golden and the literal pins are stale: the compatibility gate of build.rs checks removals only, so the two producer tasks shipped additive edits without moving the baseline or the test (decision 2307). This task moves them."
+severity = "high"
+
+[finding.22.1.4.1]
+task = "22.1.4"
+file = "tests/test_state_commitment_transition.c"
+symbol = "transition"
+observed = "Fourth attempt at base 3454fc9ab: all six targets compile, and make -s test-state-commitment-transition fails inside transition(LXP_PROTOCOL_VERSION_STATE_COMMITMENT, false) at 'f->state.idempotency_count == 1U' (candidate line 374, reached from main() line 1161): after a successful LX_ASSET_SEND the test expects one idempotency entry, a receipt_state_tamper() round trip and a state-root change when idempotency[0].key_hash is flipped."
+assumption = "787dd93be (task 1.2.1, decision 101) stopped the kernel reading and recording idempotency entries: no caller of lxp_idempotency_record or lxp_idempotency_append remains under src/protocol, so idempotency_count stays 0 after any activity and the three expectations describe the retired table, not the current kernel. The test asserts the current contract."
+severity = "medium"
+
+[finding.17.1.7.2]
+task = "17.1.7"
+file = "node/upgrades.go"
+symbol = "validateMergePrecompiles"
+observed = "At a941d047c the programme bring-up golden go test ./node -run TestMergePlanRequiresKeyForFirstSequencedHeight panics with 'upgrade v7.0: missing merge constructors or activation precompiles: 0x1020 0x1021 0x1022 0x1023 0x1024 0x1025'; the rehearsal golden TestMergeRehearsalFirstSequencedBlock fails in the same programme run at a3c3d17bd and 11e0d526f."
+assumption = "validateMergePrecompiles (node/upgrades.go:581) counts every address of every activation entry against the selected set (modules/evm/keeper/keeper.go:243), while v6120PrecompileSet (node/precompiles_v6120.go:71-93) adds the v6.12.0 gate addresses only when the v6.12.0 plan is live and v6120LiveInState (node/precompiles_v6120.go:113) reads only the done height, so a chain started from a full genesis never selects them and the merge handler refuses."
+severity = "high"
+
+[finding.22.13.6.4]
+task = "22.13.6"
+file = "src/protocol/lxp_genesis.c"
+symbol = "lxp_genesis_module_enable_key"
+observed = "Seventh attempt at base 52edb9fad: lxp_genesis_module_enable_key still returns LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER for LXP_MODULE_PROGRAMS unconditionally, so genesis.module-table.defaults, public-fixture-v3 and public-fixture-v4 verify -801 as in attempt 6."
+assumption = "The batch 324 do item was not applied: with the storage-retirement flag off the key must be the one 17990ad65 returned."
+severity = "medium"
+
+[finding.22.6.7.2]
+task = "22.6.7"
+file = "precompiles/layerxverify/layerxverify_test.go"
+symbol = "newHarness"
+observed = "Third attempt at base 3454fc9ab: the candidate replaced the legacy harness with newRetirementHarness, so every pre-merge call returns the LXP_MODULE_DISABLED retirement reason and TestLayerXVerifyBelowTheMergeKeepsItsResults fails 66 assertions at retire_gate_test.go:134 and :143; in precompiles/layerxexchange TestOrderIntentsAreRecordedAndEmitted, TestWithdrawMarginRecordsARequestAndMovesNothing, TestNativeTimeInForceCapabilityPrecompile (layerxexchange_test.go:278, :319, :339, :384) receive execution reverted, TestNativeTimeInForceCapabilityRefusesBeforeNonce sees an EventCheckpointRegistered event, and TestKernelCodeTable (errors_test.go:127) expects LXP_DA_MISSING for -804 and reads LXP_UNKNOWN."
+assumption = "The legacy harness (NewPrecompile(nil) at height 1, where RetiredAt is false) is the below-merge fixture; the exchange failures also appear in six other attempt logs whose candidates did not touch the package, so they are failures of main that this task's verify covers."
+severity = "medium"
+
+[finding.22.6.4.2]
+task = "22.6.4"
+file = "precompiles/missing_merge_test.go"
+symbol = "TestMissingMergeConstructorsInTableOrder"
+observed = "Third attempt at base 1c1050032: the want list at missing_merge_test.go:31-41 still has ten entries while MergeAddressTable has eleven (layerxchains at 0x101E since 290ac0b03), TestGatewayUnservedMatchesMissingConstructors expects one item and gets none, TestMergeAddressTable lists the old table, and TestGetPrecompileInfoEUnknownName (precompile_info_e_test.go:70) still expects the eip712 missing-keeper message for an unknown name."
+assumption = "The batch 325 do item (do_5) was not applied in attempt 3."
+severity = "medium"
+
+[finding.22.9.24.2]
+task = "22.9.24"
+file = "sdk/platform/generators/src/main.rs"
+symbol = "check"
+observed = "Third attempt at base 1c1050032: all layerx-agent-api tests pass and the verify fails in the generator check: 'stale generated SDKs: schema agent-api at services/agent/schema/agent-api changed after the last generation; run make platform-sdk-generate'."
+assumption = "The schema edit changes the source manifest the generator records in sdk/platform/pipeline.kvx, so the generated SDK files and the manifest must be regenerated and committed with the schema change (do_3 already names it)."
+severity = "medium"
+
+[finding.22.8.11.2]
+task = "22.8.11"
+file = "services/platform/middleware/buyer/test/evm-terms.test.mjs"
+symbol = "ReceiptAuthorityClient"
+observed = "Fourth attempt at base 52edb9fad: the buyer package's test fails at module load: evm-terms.test.mjs:5 imports ReceiptAuthorityClient from services/platform/examples/support/runtime.mjs, which has exported SequencerReceiptClient (constructor rpcUrl, receiptKeys) instead since 7e7b01a14 (8.33.1)."
+assumption = "The import predates 8.33.1 (ec7e3592d, 8.23.1) and no attempt ported it; the whole buyer test file fails before any case runs."
+severity = "medium"
+
+[finding.22.10.7.3]
+task = "22.10.7"
+file = "services/platform/hosted/human/test_material.py"
+symbol = "required_path"
+observed = "Fifth attempt at base 1c1050032: test_custody_bindings_resolve_to_the_native_custody_precompile still fails with 'required genuine producer input is missing: PAXEER_X_HUMAN_EVIDENCE_DIR' because the required_path reads at test_material.py:60-80 were kept."
+assumption = "The batch 323 and 325 do items were not applied: the five inputs are produced by material.py and provision.py in a temporary directory."
+severity = "medium"
+
+[finding.22.9.23.1]
+task = "22.9.23"
+file = "services/agent/sdk/python/layerx_sdk/x402.py"
+symbol = "verify_payment"
+observed = "Fourth attempt at base 1c1050032: the five receipt-key tests fail with PlatformSdkError 'Local verification failed' raised from payment-binding-mismatch (test_sequencer_receipt.py, test_x402_http_sequencer.py) and invalid-grant-draw (test_x402_draw_sequencer.py)."
+assumption = "The terms the tests pass (amount, asset, pay_to, payer) are not those decoded from the fixture receipt's first log, and the grant-draw fixtures fail one of the predicates of the invalid-grant-draw check (network_id as int, receiver_authorization controller equal to the receiver, signed_context_hash equal to context_hash, has_reference false, reference_hash zero)."
+severity = "medium"
+
+[finding.22.16.4.4]
+task = "22.16.4"
+file = "tests/ci/test_requested_suites_absent.py"
+symbol = "test_arbiter_native_authority_absent"
+observed = "Fifth attempt at base 52edb9fad: the absence test still reports five 'retired test references' that are uses of lxp_verified_receipt_authority_facts in tests/programs and tests/proof."
+assumption = "Batch 324 ruled the type live; the absence test's pattern list still names it."
+severity = "medium"
+
+[finding.22.4.5.2]
+task = "22.4.5"
+file = "modules/launchpad/module_services_test.go"
+symbol = "TestRegisterServicesServesQuery"
+observed = "Third attempt at base 52edb9fad: the Surface and Retired cases still assert errors.Is through the gRPC client (module_services_test.go:71 and :90 via :307) and read 'rpc error: code = InvalidArgument desc = address must be a 0x-prefixed 40-hex-digit address: invalid address' without the target in the chain."
+assumption = "The batch 324 do item was not applied to these two sites."
+severity = "medium"
+
+[finding.22.2.5.1]
+task = "22.2.5"
+file = "precompiles/layerxledger/payments_test.go"
+symbol = "GetPayerGrant"
+observed = "First attempt at base 9c977f631: vet fails on payments_test.go:204 and :217 and views_test.go:155 calling Keeper.GetPayerGrant, deleted in 984636931 (1.12.4); do_2 named only pause_test.go:158."
+assumption = "The precompile serves the grant read as the getPayerGrant view (precompiles/layerxledger/views.go:92); the tests read grants through it, as 7d9310759 (1.12.5) ported the keeper tests."
+severity = "medium"
+
+[finding.22.12.7.1]
+task = "22.12.7"
+file = "services/wallet/attestor/go.mod"
+symbol = "go.mod"
+observed = "First attempt at base 64cf2cf70: the verify stops at 'go: updates to go.mod needed; to update it: go mod tidy' before vet runs."
+assumption = "The candidate imported a module the attestor's go.mod does not list; go.mod and go.sum were not in touches."
+severity = "low"
+
+[finding.20.3.4.3]
+task = "20.3.4"
+file = "node/sequencer/accept.go"
+symbol = "Accept"
+observed = "Fifth attempt at base 52edb9fad: TestOneBlockCarriesRootAndChainTransactions and TestChainStateSurvivesRestart fail at layerxchains_block_test.go:160 with an ABCIError whose text is empty: accept.go:48 wraps res.Codespace, res.Code and an empty res.Log, so the log names no reason."
+assumption = "The refusing site cannot be read from the log; the error must carry codespace and code when the log is empty."
+severity = "medium"
+
+[finding.22.1.4.2]
+task = "22.1.4"
+file = "tests/modules/test_asset_registry.c"
+symbol = "main"
+observed = "Fifth attempt at base 1c1050032: the first five targets pass and make -s test-asset-registry exits 1 with no check line in the log, so the failing case is not named."
+assumption = "A check in test_asset_registry.c or test_asset_payloads.h returns 1 without the PAUSE_CHECK line report, or the report went to a stream the make run did not capture."
+severity = "medium"
+
+[finding.22.7.3.2]
+task = "22.7.3"
+file = "rpc/debug_tracer_shape_test.go"
+symbol = "newDebugTracerShapeFixture"
+observed = "At 1c1050032 (carrying 22.5.9) go test ./rpc/ fails in four places: TestDebugTraceTransactionCallTracerShape and TestDebugTraceTransactionPrestateTracerShape stop in newDebugTracerShapeFixture at rpc/debug_tracer_shape_test.go:72 (expected nonce 0x0, actual 0x2); TestHeaderReceiptsRootIsSameBlockResults times out after 180 s at rpc/header_receipts_root_test.go:161 with 'no newHeads payload height 13: context deadline exceeded'; TestEstimateGasWithoutOpenBlockUsesLatestState panics 'sequencer: no block is open' through rpc/simulate.go:110, :334 and :935 (rpc/pending_state_test.go:92); and rpc/tests TestGetPaxBlockByHash panics 'merge precompile layerxpay at 0x101B: LXP_PRECOMPILE_NO_CONTEXT: LayerXPayKeepers is required' from rpc/tests/tx.go:113-118 through rpc/tests/block_test.go:30."
+assumption = "The tracer fixture pins Nonce 0 while the shared package account already holds nonce 2 after earlier tests; the estimate path still requires an open block although 5.98.5 repaired only the send path; the rpc/tests harness registers the merge precompiles without the pay keepers, the 22.6.4 harness class; the newHeads stall is not pinned yet and needs the subscription that stops to be named."
+severity = "high"
+
+[finding.18.1502.1.2]
+task = "18.1502.1"
+file = "rpc/watermark_manager.go"
+symbol = "resolvePending"
+observed = "At 1c1050032 the candidate fails three tests of its own verify filter: TestPendingNonceWaitsForTheOpenBlock (rpc/pending_context_test.go:123) returns the pending nonce in 67 us although the fixture opens the block only after 20 ms; TestPendingStateResolvesOpenHeight (rpc/pending_state_test.go:185) still expects ErrLayerNotOpen for the pending tag after Seal and gets nil; TestResolutionPendingSubscriptionOverflow (rpc/resolution_pending_test.go:377 via :411) sends 1024 transfers of 241 bytes into one open block and the sequencer refuses the 829th with 'transaction does not fit the block limits: bytes 199648 plus transaction 241 ... exceed Block.MaxBytes 200000' (node/sequencer/limits.go:70, the test application's consensus params at node/test_helpers.go:666)."
+assumption = "The nonce read treats a registered but not yet opened pending snapshot as idle and falls back to the committed state; the :185 expectation predates do_4 (the pending tag never answers ErrLayerNotOpen); the overflow test exceeds the test application's byte limit now that Accept enforces it against the fixture's consensus params."
+severity = "medium"
+
+[finding.22.2.6.1]
+task = "22.2.6"
+file = "precompiles/common/retire_test.go"
+symbol = "TestRetiredAtMergePlan"
+observed = "At 1c1050032 the first candidate leaves five failures: TestParamsJSONRoundTrip (modules/layerxpay/types/params_test.go:252) expects a default genesis JSON without agent_stream_metadata, which e70ead0fc (issue 1312) added; TestBudgetPayloads (modules/layerxpay/types/payload_budget_test.go:310) compiles a C decoder that names lxp_payer_grant, a type 52fda45db removed with the kernel grant store; TestPayPrecompileChargesGasTable/budgetPull (precompiles/layerxpay/layerxpay_test.go:103) expects a staticcall refusal but gets 'LXP_MODULE_DISABLED: module disabled; layerxpay retired' because precompiles/layerxpay/layerxpay.go:176 retires budgetPull before the readOnly check; TestPrecompileServiceViews (precompiles/layerxpay/service_views_test.go:182) calls StaticCall with the executor's gas (1096) while the registered contract charges lp.RequiredGas (gas.go:82, 12 more) and reports out of gas; TestRetiredAtMergePlan (precompiles/common/retire_test.go:96) expects the precompile set below H_act to equal the set taken before SetDone, but customPrecompileReached (modules/evm/keeper/keeper.go:348-365) removes the merge-activated 0x101B and 0x101C below the done height once the plan is done."
+assumption = "Each expectation is stale against a landed product change; none of the five product behaviours is wrong: the done height governs activation, budgetPull is retired at the merge, the registered contract charges the wrapper gas, the genesis carries the stream metadata, and the grant type is gone."
+severity = "medium"
+
+[finding.22.9.23.2]
+task = "22.9.23"
+file = "services/agent/sdk/python/layerx_sdk/x402.py"
+symbol = "verify_payment_receipt"
+observed = "At 2edadaf0a the fifth candidate still fails the five receipt-key tests with payment-binding-mismatch: tests/test_sequencer_receipt.py:190 passes payer = logs[0].topics[2] (0x1fb0082a...d769, the ledger account named in the payExact calldata) while verify_payment_receipt (x402.py:196) requires payer == receipt.from_account.hex(); the V1-layerxledger-pay-exact receipt decodes with its pinned key to from_account 000000000000000000000000fe3b557e8fb62b89f4916b721be55ceb828dbd73 (the 20-byte sender left-padded to 32 bytes), module 12, two effects, height 1001, and verify_payment_receipt accepts it with amount 1000000, asset and pay_to from logs[0].data and topics[3] and that payer."
+assumption = "Finding 22.9.23.1 named the wrong payer source; with payer = the receipt's from-account the SDK accepts the conformance receipt unchanged, so the remaining work is in the four test files."
+severity = "medium"
+
+[finding.22.16.4.5]
+task = "22.16.4"
+file = "tests/ci/test_requested_suites_absent.py"
+symbol = "test_arbiter_native_authority_absent"
+observed = "At 2edadaf0a the sixth candidate leaves test_arbiter_native_authority_absent asserting the absence of lxp_verified_receipt_authority_facts (five live uses in tests/programs/test_fee_governance.c:258, tests/proof/lxp_proof_lxp_receipt_h.c:383 and others) although findings 22.16.4.3 and 22.16.4.4 ruled the pattern out; the candidate changed sixteen qualification scripts and build fragments but not that test file."
+assumption = "tests/ci/test_requested_suites_absent.py was not in the task's touches, so the ruling could not be carried out within the task's scope; the touches list is the scope every do item is applied within."
+severity = "medium"
+
+[finding.22.10.7.4]
+task = "22.10.7"
+file = "services/platform/hosted/human/test_material.py"
+symbol = "test_custody_bindings_resolve_to_the_native_custody_precompile"
+observed = "At 2edadaf0a the sixth candidate still reads the five PAXEER_X_HUMAN_ inputs: the test (test_material.py:58-135) copies an owner-evidence tree (identity/source-binding.json, human-owner-result.json, naming-deployment-result.json, the human-evidence-input records and the owner-native-run activity and receipt pairs), runs provision.assemble, material.assemble_policy and material.verify_bundle, and material.assemble_policy requires custody.profile and owner-custody.json that provision.producer_records (provision.py:621) does not emit; native owner registration needs a running node, and no committed owner-evidence tree exists."
+assumption = "Five rulings asked for a producer-built fixture that the committed producers cannot build; the test is an operator-evidence integration check, not a unit test, and the custody binding it proves (components PAXEER_EXIT_CONTRACT and PAXEER_WITHDRAWAL_CLAIMS_CONTRACT equal 0x1013) can be proven on a minimal deployment pair."
+severity = "medium"
+
+[finding.22.6.7.3]
+task = "22.6.7"
+file = "precompiles/layerxverify/layerxverify.go"
+symbol = "verifyEd25519"
+observed = "At 2edadaf0a TestLayerXVerifyBelowTheMergeKeepsItsResults (precompiles/layerxverify/retire_gate_test.go:122-140) expects every valid vector and every verifyEd25519 vector to answer below the merge, but 8fe2607dd (task 6.96.2) retired the tagged-domain verifyEd25519 branch (layerxverify.go:236-238), verifyReceiptInclusion (:279-280) and verifyDiscoveryProof (:294-295) at every height, so eight vectors revert with the retirement text below the merge too; in precompiles/layerxexchange TestKernelCodeTable/LXP_DA_MISSING gets LXP_UNKNOWN for -804 from KernelCodeText (precompiles/layerxexchange/errors.go:11), and TestDepositMarginCustodiesNativeValue (layerxexchange_test.go:278) and TestDepositMarginTokenCustodiesTheDenom (:319) receive 'execution reverted' without a decoded reason."
+assumption = "The below-merge expectations predate the 6.96.2 retirement, which is a landed product decision; the -804 row is missing from the exchange code table; the two margin deposits revert for a reason the test does not decode yet."
+severity = "medium"
+
+[finding.22.13.6.5]
+task = "22.13.6"
+file = "src/protocol/lxp_genesis.c"
+symbol = "lxp_genesis_module_enable_key"
+observed = "At 2edadaf0a the eighth candidate still returns LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER unconditionally for LXP_MODULE_PROGRAMS from lxp_genesis_module_enable_key(module_id, key), a function that has no manifest to read a flag from; both public fixtures (tests/fixtures/public-testnet-genesis-v3 and public-testnet-genesis) then verify with LXP_ERR_ROOT_MISMATCH (-801) because every module-table root changes; the candidate's new case at test_genesis_module_table.c line 191 also calls lxp_genesis_module_plan_default(LXP_PROTOCOL_VERSION_STATE_COMMITMENT, true, &plan) and expects LXP_OK, but custody_credit_enabled true returns LXP_ERR_UNKNOWN_MODULE by design (lxp_genesis.c:211)."
+assumption = "The enable key is the identity of a module's enable parameter and must not change; the storage-retirement flag needs its own parameter key read by a dedicated lookup, and the known-parameter check must accept that key."
+severity = "high"
+
+[finding.20.3.4.4]
+task = "20.3.4"
+file = "modules/evm/keeper/msg_server.go"
+symbol = "EVMTransaction"
+observed = "At 2edadaf0a the sixth candidate routes the registered chain id (modules/evm/ante/sig.go, preprocess.go, node/ante/evm_checktx.go) and TestOneBlockCarriesRootAndChainTransactions (node/layerxchains_block_test.go:283) and TestChainStateSurvivesRestart (:293) still receive an ABCIError from Accept with an empty message: the domain lookups at modules/evm/keeper/msg_server.go:77-85 (binding.ActiveDomains) and :248-252 (binding.NextBaseFee) read the chains registry under the transaction's gas meter, 2542 gas, so a 21000-gas transfer on a sub-chain runs out of gas; node/sequencer/accept.go is unchanged, so the refusal still carries no codespace or code."
+assumption = "Routing a transaction to its domain is consensus bookkeeping, not execution the sender pays for; the Accept naming item of batch 326 was not applied although accept.go is in touches."
+severity = "high"
+
+[finding.22.2.5.2]
+task = "22.2.5"
+file = "precompiles/layerxledger/payments.go"
+symbol = "getPayerGrant"
+observed = "At 2edadaf0a the second candidate stops at vet on Keeper.GetPayerGrant (precompiles/layerxledger/payments_test.go:204 and :217, views_test.go:155) and reports that the getPayerGrant view (views.go:92 -> payments.go:149-154) returns RevertError(ErrNoPayerGrant) for every grant id since 52fda45db retired the ledger grant store, so the finding 22.2.5.1 port 'asserting the same grant bytes and revoked flag' cannot pass."
+assumption = "The grant store is retired, so no read of a grant succeeds; the tests keep their balance and log assertions and assert the view's refusal instead of grant bytes."
+severity = "medium"
