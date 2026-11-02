@@ -18,8 +18,6 @@ import (
 	"testing"
 	"time"
 
-	proofcodec "github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -43,7 +41,6 @@ type suite struct {
 	operators []sdk.AccAddress
 	ids       [][32]byte
 	signers   [][20]byte
-	fixture   testvectors.Fixture
 }
 
 func account(tag byte) sdk.AccAddress {
@@ -134,36 +131,36 @@ func (s *suite) invariant() {
 	require.False(s.t, broken, message)
 }
 
-func (s *suite) vector(section, name string) testvectors.Vector {
+func (s *suite) importHistoricalCheckpoint() types.Checkpoint {
 	s.t.Helper()
-	for _, v := range s.fixture[section] {
-		if v.Name == name {
-			return v
-		}
+	checkpoint := types.Checkpoint{
+		BatchNumber: 1, CheckpointID: types.Hash32{0x11}, StateRoot: types.Hash32{0x12}, ReceiptRoot: types.Hash32{0x13},
+		Status: types.CheckpointSubmitted, Guarantors: []types.Hash32{s.ids[0], s.ids[1]}, DeclaredThreshold: 2,
+		Submitter: s.reporter.String(), SubmittedHeight: s.ctx.BlockHeight(), SubmittedTime: s.ctx.BlockTime().Unix(),
 	}
-	s.t.Fatalf("no vector %s/%s", section, name)
-	return testvectors.Vector{}
+	genesis := s.k.ExportGenesis(s.ctx)
+	require.Empty(s.t, genesis.Checkpoints)
+	genesis.Checkpoints = []types.Checkpoint{checkpoint}
+	require.NoError(s.t, genesis.Validate())
+	s.k.InitGenesis(s.ctx, *genesis)
+	finalized, err := s.k.Finalize(s.ctx, checkpoint.BatchNumber)
+	require.NoError(s.t, err)
+	require.Equal(s.t, types.CheckpointFinal, finalized.Status)
+	s.invariant()
+	return finalized
 }
 
-func (s *suite) submit(name string) (types.Checkpoint, error) {
+func (s *suite) submit(header []byte, signature [64]byte, certificate []byte) (types.Checkpoint, error) {
 	s.t.Helper()
-	v := s.vector("checkpoints", name)
-	header, err := v.Bytes("header")
-	require.NoError(s.t, err)
-	raw, err := v.Bytes("header_signature")
-	require.NoError(s.t, err)
-	var signature [64]byte
-	copy(signature[:], raw)
-	certificate, err := v.Bytes("certificate")
-	require.NoError(s.t, err)
-	return s.k.SubmitCheckpoint(s.ctx, s.reporter, header, signature, certificate)
-}
-
-func (s *suite) attestation(name string) []byte {
-	s.t.Helper()
-	raw, err := s.vector("attestations", name).Bytes("attestation")
-	require.NoError(s.t, err)
-	return raw
+	before := s.k.ExportGenesis(s.ctx)
+	events := s.ctx.EventManager().Events()
+	checkpoint, err := s.k.SubmitCheckpoint(s.ctx, s.reporter, header, signature, certificate)
+	require.ErrorIs(s.t, err, types.ErrModuleRetired)
+	require.EqualError(s.t, err, types.ErrModuleRetired.Wrap("SubmitCheckpoint").Error())
+	require.Equal(s.t, types.Checkpoint{}, checkpoint)
+	require.Equal(s.t, before, s.k.ExportGenesis(s.ctx))
+	require.Equal(s.t, events, s.ctx.EventManager().Events())
+	return checkpoint, err
 }
 
 func (s *suite) advance(seconds uint64) {
@@ -351,30 +348,29 @@ func TestSubmitCheckpointIsRetired(t *testing.T) {
 		params.ChallengeWindowSeconds = 50
 	})
 	t.Cleanup(func() { require.NoError(t, s.app.Close()) })
-	var err error
-	s.fixture, err = testvectors.LoadAnchor()
-	require.NoError(t, err)
 	s.bondAll()
-	raw, err := s.vector("checkpoints", "batch_1_quorum").Bytes("certificate")
-	require.NoError(t, err)
-	certificate, err := proofcodec.DecodeCheckpointCertificate(raw)
-	require.NoError(t, err)
-	require.Empty(t, s.k.GetCheckpoints(s.ctx))
+	const mergeHeight = int64(20)
+	s.app.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(mergeHeight), types.MergeUpgrade)
+	for _, height := range []int64{mergeHeight - 1, mergeHeight, mergeHeight + 1} {
+		s.ctx = s.ctx.WithBlockHeight(height)
+		require.Equal(t, height >= mergeHeight, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
+		require.Empty(t, s.k.GetCheckpoints(s.ctx))
 
-	first, err := s.submit("batch_1_quorum")
-	require.ErrorIs(t, err, types.ErrModuleRetired)
-	require.Equal(t, types.Checkpoint{}, first)
-	stored, found := s.k.GetCheckpoint(s.ctx, certificate.Header.BatchNumber)
-	require.False(t, found)
-	require.Equal(t, types.Checkpoint{}, stored)
-	require.Empty(t, s.k.GetCheckpoints(s.ctx))
+		first, err := s.submit([]byte{0xff}, [64]byte{0xff}, []byte{0xff})
+		require.ErrorIs(t, err, types.ErrModuleRetired)
+		require.Equal(t, types.Checkpoint{}, first)
+		stored, found := s.k.GetCheckpoint(s.ctx, 1)
+		require.False(t, found)
+		require.Equal(t, types.Checkpoint{}, stored)
+		require.Empty(t, s.k.GetCheckpoints(s.ctx))
 
-	s.advance(30)
-	resubmitted, err := s.submit("batch_1_quorum")
-	require.ErrorIs(t, err, types.ErrModuleRetired)
-	require.Equal(t, types.Checkpoint{}, resubmitted)
-	stored, found = s.k.GetCheckpoint(s.ctx, certificate.Header.BatchNumber)
-	require.False(t, found)
-	require.Equal(t, types.Checkpoint{}, stored)
-	require.Empty(t, s.k.GetCheckpoints(s.ctx))
+		s.ctx = s.ctx.WithBlockTime(s.ctx.BlockTime().Add(30 * time.Second))
+		resubmitted, err := s.submit([]byte{0xff}, [64]byte{0xff}, []byte{0xff})
+		require.ErrorIs(t, err, types.ErrModuleRetired)
+		require.Equal(t, types.Checkpoint{}, resubmitted)
+		stored, found = s.k.GetCheckpoint(s.ctx, 1)
+		require.False(t, found)
+		require.Equal(t, types.Checkpoint{}, stored)
+		require.Empty(t, s.k.GetCheckpoints(s.ctx))
+	}
 }
