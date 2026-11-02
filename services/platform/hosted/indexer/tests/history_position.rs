@@ -891,3 +891,163 @@ fn proof_layerxpay_0x101b() {
         .iter()
         .any(|event| event.name == "undecodable"));
 }
+
+#[test]
+fn layerxledger_producer_abi_preserves_the_history_decoder_inventory() {
+    let document: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../precompiles/layerxledger/abi.json"
+    )))
+    .unwrap();
+    let events = AbiRegistry::parse_events("layerxledger", &document).unwrap();
+    for (name, signature, indexed) in [
+        ("PayerGrantIssued", "PayerGrantIssued(bytes32)", 1),
+        (
+            "PaymentDrawn",
+            "PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)",
+            3,
+        ),
+        (
+            "PaymentExact",
+            "PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)",
+            3,
+        ),
+        (
+            "Transfer",
+            "Transfer(bytes32,bytes32,bytes32,uint128,uint8)",
+            3,
+        ),
+    ] {
+        let event = events.iter().find(|event| event.name == name).unwrap();
+        assert_eq!(event.signature, signature);
+        assert_eq!(event.topic, keccak(signature.as_bytes()));
+        assert_eq!(
+            event.params.iter().filter(|param| param.indexed).count(),
+            indexed
+        );
+    }
+    // Identifier-returning writes must retain their return type when this
+    // published producer ABI is loaded by clients alongside the history ABI.
+    for name in ["register", "openAccount", "issueGrant"] {
+        let method = document
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["type"] == "function" && entry["name"] == name)
+            .unwrap();
+        assert_eq!(method["outputs"].as_array().unwrap().len(), 1);
+        assert_eq!(method["outputs"][0]["type"], "bytes32");
+    }
+}
+
+/// Consumes application-produced logs over stdin, then restarts the real store.
+#[test]
+fn proof_layerxledger_0x101a() {
+    let proof: Value = serde_json::from_reader(std::io::stdin().lock())
+        .expect("precompiles/layerxledger/proof_layerxledger_0x101a_test.go producer");
+    let abi: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../precompiles/layerxledger/abi.json"
+    )))
+    .unwrap();
+    let mut registry = AbiRegistry::default();
+    registry.insert(LoadedAbi {
+        contract: "layerxledger".to_owned(),
+        address: Some(precompile_address(0x101a)),
+        events: AbiRegistry::parse_events("layerxledger", &abi).unwrap(),
+    });
+    let owner = proof["owner"].as_str().unwrap().to_ascii_lowercase();
+    let target = format!("/v1/holders/{owner}?kind=grant");
+    let path = std::path::Path::new(proof["store"].as_str().unwrap());
+    let mut units = Vec::new();
+    for (offset, key) in ["paymentLogs", "grantLogs", "refusedLogs"]
+        .iter()
+        .enumerate()
+    {
+        let height = 11 + offset as u64;
+        let tx_hash = hash(height);
+        let mut logs = proof[*key].as_array().unwrap().clone();
+        for (index, log) in logs.iter_mut().enumerate() {
+            log["logIndex"] = json!(format!("0x{index:x}"));
+            log["transactionIndex"] = json!("0x0");
+        }
+        let receipts = BTreeMap::from([(
+            tx_hash.clone(),
+            json!({
+                "status": if *key == "paymentLogs" { "0x1" } else { "0x0" },
+                "logs": logs, "blockHash": hash(height + 100),
+            }),
+        )]);
+        let block = json!({
+            "number": format!("0x{height:x}"), "hash": hash(height + 100),
+            "parentHash": hash(height + 99),
+            "transactions": [{ "hash": tx_hash, "from": owner, "to": LEDGER,
+                "value": "0x0", "transactionIndex": "0x0" }],
+        });
+        let is_pointer = |_: &str| Ok(false);
+        let unit = paxeer::decode_block(
+            &block,
+            &BlockInputs {
+                registry: &registry,
+                receipts: &receipts,
+                cosmos_txs: &[],
+                encoding: AttributeEncoding::Base64,
+                is_pointer: &is_pointer,
+            },
+        )
+        .unwrap();
+        if *key != "paymentLogs" {
+            assert!(unit.events.is_empty());
+            assert!(unit.holders.is_empty());
+        }
+        let store = Store::open(path).unwrap();
+        store.commit(&unit, 2).unwrap();
+        units.push(unit);
+        drop(store);
+    }
+    let store = Store::open(path).unwrap();
+    let events = store.events("paxeer").unwrap();
+    assert_eq!(events.len(), 2);
+    let exact = events
+        .iter()
+        .find(|event| event["name"] == "PaymentExact")
+        .unwrap();
+    assert_eq!(exact["decoded"]["args"]["amount"], "15");
+    assert_eq!(
+        exact["decoded"]["args"]["paymentReference"],
+        proof["reference"]
+    );
+    assert_eq!(exact["decoded"]["args"]["from"], proof["from"]);
+    assert_eq!(exact["decoded"]["args"]["to"], proof["to"]);
+    assert_eq!(exact["decoded"]["args"]["assetId"], proof["asset"]);
+    assert!(events.iter().any(|event| event["name"] == "Transfer"));
+    let (status, page) = get(&store, &target);
+    assert_eq!(status, 200);
+    let rows = items(&page);
+    // Retired issuance emitted no grant and cannot create an active holder.
+    assert!(proof["grantLogs"].as_array().unwrap().is_empty());
+    assert!(rows.is_empty());
+    assert!(events
+        .iter()
+        .all(|event| event["name"] != "PayerGrantIssued"));
+    drop(store);
+    let store = Store::open(path).unwrap();
+    assert_eq!(get(&store, &target), (status, page.clone()));
+    assert_eq!(store.events("paxeer").unwrap(), events);
+    assert!(store.commit(&units[0], 2).is_err());
+    assert_eq!(get(&store, &target), (status, page));
+    assert_eq!(store.events("paxeer").unwrap(), events);
+    // Reject a truncated real payment body at the consumer's own ABI boundary.
+    let payment = &proof["paymentLogs"][1];
+    let topics = payment["topics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|topic| layerx_indexer::codec::unhex_fixed::<32>(topic.as_str().unwrap()).unwrap())
+        .collect::<Vec<_>>();
+    let mut data = layerx_indexer::codec::unhex(payment["data"].as_str().unwrap()).unwrap();
+    data.pop().unwrap();
+    assert!(registry
+        .decode_log(precompile_address(0x101a), &topics, &data)
+        .is_err());
+}

@@ -54,8 +54,8 @@ func TestAnchorRetirementSurvivesTheWrapper(t *testing.T) {
 		}
 	}
 	writes := map[string][]interface{}{
-		layerxanchor.SubmitCheckpointMethod:          {[]byte{1}, []byte{2}, []byte{3}},
-		layerxanchor.SubmitAvailabilityMethod:        {[]byte{4}},
+		layerxanchor.SubmitCheckpointMethod:          h.checkpointArgs("batch_1_quorum"),
+		layerxanchor.SubmitAvailabilityMethod:        {h.attestation("batch_1_attestation_1")},
 		layerxanchor.FinalizeMethod:                  {uint64(1)},
 		layerxanchor.RegisterGuarantorMethod:         {h.ids[0], h.signers[0]},
 		layerxanchor.IncreaseBondMethod:              {h.ids[0]},
@@ -78,7 +78,9 @@ func TestAnchorRetirementSurvivesTheWrapper(t *testing.T) {
 		writeCount++
 	}
 	require.Equal(t, 12, writeCount)
-	reads := anchorRetirementReads(h, [32]byte{1})
+	checkpointID, err := h.vector("checkpoints", "batch_1_quorum").Array32("checkpoint_id")
+	require.NoError(t, err)
+	reads := anchorRetirementReads(h, checkpointID)
 	viewCount := 0
 	for name, method := range h.precompile.GetABI().Methods {
 		if method.StateMutability != "view" && method.StateMutability != "pure" {
@@ -110,8 +112,8 @@ func TestAnchorRetiredWriteMalformedCalldata(t *testing.T) {
 	want := pcommon.RetiredRevert(layerxanchor.PrecompileName)
 	require.Len(t, want, 132)
 	writes := map[string][]interface{}{
-		layerxanchor.SubmitCheckpointMethod:          {[]byte{1}, []byte{2}, []byte{3}},
-		layerxanchor.SubmitAvailabilityMethod:        {[]byte{4}},
+		layerxanchor.SubmitCheckpointMethod:          h.checkpointArgs("batch_1_quorum"),
+		layerxanchor.SubmitAvailabilityMethod:        {h.attestation("batch_1_attestation_1")},
 		layerxanchor.FinalizeMethod:                  {uint64(1)},
 		layerxanchor.RegisterGuarantorMethod:         {h.ids[0], h.signers[0]},
 		layerxanchor.IncreaseBondMethod:              {h.ids[0]},
