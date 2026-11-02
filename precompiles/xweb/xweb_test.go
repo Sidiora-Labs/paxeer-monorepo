@@ -94,6 +94,8 @@ func newHarness(t *testing.T) *harness {
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
 	k, ctx := xwebtestutil.NewKeeper(app, ctx)
 	k.InitGenesis(ctx, *types.DefaultGenesis())
+	// The ABI consumer starts on the same paused genesis exposed by the Go API.
+	require.Equal(t, *types.DefaultGenesis(), k.ExportGenesis(ctx))
 	h := &harness{t: t, keeper: &k, attestors: xwebtestutil.Attestors(3)}
 	for _, attestor := range h.attestors {
 		require.NoError(t, k.RegisterAttestor(ctx, types.MsgRegisterAttestor{Authority: authority,
