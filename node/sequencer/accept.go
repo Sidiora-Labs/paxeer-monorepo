@@ -2,6 +2,7 @@ package sequencer
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"math"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
@@ -45,7 +46,11 @@ func (s *sequential) Accept(txBytes []byte) (*Accepted, error) {
 	}
 	if !receipted(res) {
 		s.open.ctx = beforeAdmission
-		return nil, sdkerrors.ABCIError(res.Codespace, res.Code, res.Log)
+		log := res.Log
+		if log == "" {
+			log = fmt.Sprintf("refused with code %d in %s", res.Code, res.Codespace)
+		}
+		return nil, sdkerrors.ABCIError(res.Codespace, res.Code, log)
 	}
 	branch.Write()
 

@@ -17,7 +17,7 @@ use std::pin::pin;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use ed25519_dalek::{Signer as _, SigningKey};
@@ -37,6 +37,7 @@ use layerx_agentd::prepare::{
 use layerx_agentd::receipt::{self as daemon_receipt, ReceiptLookupKey as DaemonReceiptKey};
 use layerx_agentd::sign::{attach_kernel_signature, verify_kernel_before_submit};
 use layerx_agentd::store::{Store as AgentStore, TenantId};
+use layerx_client::runtime_clock::RuntimeClock;
 use layerx_human_identity_provider::{AssertionConfig, AssertionVerifier, Policy, Server, State};
 use layerx_human_service::custody::{
     CustodyError, EvmAction, EvmPlanAuthorization, EvmTransaction, KeyClass, KeyId, Keystore,
@@ -57,7 +58,7 @@ use layerx_sdk::{Call, Client as AgentClient};
 use layerx_types::account::AccountId;
 use layerx_types::activity::{Authority, TimestampBound};
 use layerx_types::amount::Amount;
-use layerx_types::clock::{Clock, ClockError, ClockReading};
+use layerx_types::clock::Clock;
 use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::TimestampSeconds;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
@@ -153,11 +154,11 @@ fn hex(bytes: &[u8]) -> String {
     })
 }
 
-fn wall_clock() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
+fn wall_clock(clock: &dyn Clock) -> u64 {
+    clock
+        .sample(Duration::from_secs(1))
         .unwrap_or_else(|error| panic!("clock: {error}"))
-        .as_secs()
+        .unix_seconds()
 }
 
 fn fees() -> FeeSchedule {
@@ -966,6 +967,7 @@ fn kernel_policy() -> Value {
 }
 
 struct SigningClock {
+    clock: Arc<RuntimeClock>,
     original: Vec<(&'static str, Option<std::ffi::OsString>)>,
     shutdown: Arc<AtomicBool>,
     worker: Option<std::thread::JoinHandle<std::io::Result<()>>>,
@@ -1002,7 +1004,10 @@ impl SigningClock {
             (name, previous)
         })
         .collect();
+        let clock = RuntimeClock::from_environment()
+            .unwrap_or_else(|error| panic!("connect signing clock: {error}"));
         Self {
+            clock,
             original,
             shutdown,
             worker: Some(worker),
@@ -1028,34 +1033,6 @@ impl Drop for SigningClock {
     }
 }
 
-struct SystemClock {
-    origin: Instant,
-    generation: [u8; 16],
-}
-
-impl Clock for SystemClock {
-    fn sample(&self, budget: Duration) -> Result<ClockReading, ClockError> {
-        if budget.is_zero() {
-            return Err(ClockError::Unavailable);
-        }
-        Ok(ClockReading {
-            generation: self.generation,
-            unix_milliseconds: SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_err(|_| ClockError::Regression)?
-                .as_millis()
-                .try_into()
-                .map_err(|_| ClockError::Overflow)?,
-            monotonic_nanoseconds: self
-                .origin
-                .elapsed()
-                .as_nanos()
-                .try_into()
-                .map_err(|_| ClockError::Overflow)?,
-        })
-    }
-}
-
 fn wallet_binding(producer: &BindingSigningKey, did: &str) -> String {
     let header = json!({"alg": "ES256", "typ": "layerx-wallet-binding+jwt"});
     let claims = json!({
@@ -1070,7 +1047,12 @@ fn wallet_binding(producer: &BindingSigningKey, did: &str) -> String {
     format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature.to_bytes()))
 }
 
-fn identity_state(root: &Path, key_set_url: String, producer: &BindingSigningKey) -> State {
+fn identity_state(
+    root: &Path,
+    key_set_url: String,
+    producer: &BindingSigningKey,
+    clock: Arc<dyn Clock>,
+) -> State {
     let policy = Policy {
         root: [0x43; 32],
         threshold: 1,
@@ -1079,17 +1061,12 @@ fn identity_state(root: &Path, key_set_url: String, producer: &BindingSigningKey
     let state =
         State::open(root, policy.clone()).unwrap_or_else(|error| panic!("identity state: {error}"));
     let uid = rustix::process::geteuid().as_raw();
-    let mut generation = [0; 16];
-    getrandom::fill(&mut generation).unwrap_or_else(|error| panic!("clock generation: {error}"));
     let server = Server::bind(
         &root.join("identity.sock"),
         state,
         uid,
         Duration::from_secs(1),
-        Arc::new(SystemClock {
-            origin: Instant::now(),
-            generation,
-        }),
+        clock,
     )
     .unwrap_or_else(|error| panic!("identity server: {error}"))
     .with_binding_reader(&root.join("binding.sock"), BINDING_TENANT, &[uid])
@@ -1135,18 +1112,24 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
     fs::set_permissions(&root, fs::Permissions::from_mode(0o700))
         .unwrap_or_else(|error| panic!("fixture root permissions: {error}"));
 
-    let _clock = SigningClock::start(&root);
+    let signing_clock = SigningClock::start(&root);
+    let clock = Arc::clone(&signing_clock.clock);
     let mut producer_scalar = [0; 32];
     getrandom::fill(&mut producer_scalar)
         .unwrap_or_else(|error| panic!("binding producer entropy: {error}"));
     let producer = BindingSigningKey::from_slice(&producer_scalar)
         .unwrap_or_else(|error| panic!("binding producer: {error}"));
-    let mut identity = identity_state(&root.join("identity"), cluster.key_set_url(), &producer);
+    let mut identity = identity_state(
+        &root.join("identity"),
+        cluster.key_set_url(),
+        &producer,
+        clock.clone(),
+    );
     let assertion = cluster
         .tokens
         .mint(SUBJECT)
         .unwrap_or_else(|error| panic!("assertion: {error}"));
-    let signed_in = wall_clock();
+    let signed_in = wall_clock(clock.as_ref());
     let (principal, created) = identity
         .open_or_create_by_assertion(&assertion, None, signed_in)
         .unwrap_or_else(|error| panic!("assertion sign-in: {error}"));
@@ -1200,12 +1183,12 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
     let did = format!("did:layerx:{}", hex(&public_key));
     let binding = wallet_binding(&producer, &did);
     let (reopened, created) = identity
-        .open_or_create_by_assertion(&assertion, Some(&binding), wall_clock())
+        .open_or_create_by_assertion(&assertion, Some(&binding), wall_clock(clock.as_ref()))
         .unwrap_or_else(|error| panic!("wallet DID: {error}"));
     assert!(!created);
     assert_eq!(reopened.principal(), principal.principal());
     let resolved = identity
-        .resolve_assertion(&assertion, wall_clock())
+        .resolve_assertion(&assertion, wall_clock(clock.as_ref()))
         .unwrap_or_else(|error| panic!("resolve assertion: {error}"));
     assert_eq!(resolved.principal(), principal.principal());
     assert_eq!(resolved.did(), Some(did.as_str()));
@@ -1224,7 +1207,7 @@ fn wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_r
 
     let home = format!("agent:{did}:main");
     let actor = AgentDid::new(did.clone()).unwrap_or_else(|error| panic!("actor: {error:?}"));
-    let now = wall_clock();
+    let now = wall_clock(clock.as_ref());
     let plan = kernel_plan(&home, now);
     assert_eq!(
         plan.legs()[0].mechanism(),

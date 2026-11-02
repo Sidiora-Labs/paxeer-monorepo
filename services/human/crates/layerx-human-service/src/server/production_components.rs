@@ -14,7 +14,9 @@ use crate::journeys::AgentBoundary as _;
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_crypto::disclosure::call::{bind_call, ledger_selector};
-use layerx_crypto::evm_transaction::{assemble, transaction_hash, Eip1559Call};
+use layerx_crypto::evm_transaction::{
+    assemble, decode_signed, recover_sender, transaction_hash, Eip1559Call,
+};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::payments::{ledger_payment_call, CallOptions};
 use layerx_crypto::session::{issue_session_key, SessionKeyRequest};
@@ -88,42 +90,15 @@ use super::production_auth::{
 };
 use super::schema::{ApiSchema, Operation};
 
-pub(crate) fn verify_owner_activity(
-    bytes: &[u8],
-    registry: &ModuleRegistry,
-) -> Result<layerx_wire::activity::Activity, ApiFailure> {
-    let activity = layerx_wire::activity::decode_signed(bytes, registry)
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-    if layerx_wire::activity::encode_signed(&activity)
-        .map_err(|_| ApiFailure::upstream_degraded())?
-        != bytes
-        || layerx_intents::canonical::payload_hash(&activity)
-            .map_err(|_| ApiFailure::upstream_degraded())?
-            != activity.payload_hash()
-    {
+pub(crate) fn verify_owner_activity(bytes: &[u8]) -> Result<(Eip1559Call, [u8; 32]), ApiFailure> {
+    let (call, signature) = decode_signed(bytes).map_err(|_| ApiFailure::upstream_degraded())?;
+    if call.chain_id != 125 {
         return Err(ApiFailure::upstream_degraded());
     }
-    let owner = activity
-        .authority()
-        .try_into()
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-    let signature = activity
-        .signature()
-        .ok_or_else(ApiFailure::upstream_degraded)?
-        .try_into()
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-    let unsigned = layerx_wire::activity::encode_unsigned(&activity)
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-    let message = layerx_crypto::SignatureMessage::new(
-        layerx_intents::canonical::Domain::SignaturePreimage,
-        activity.protocol_version(),
-        activity.network_id(),
-        &unsigned,
-    )
-    .map_err(|_| ApiFailure::upstream_degraded())?;
-    layerx_crypto::ed25519::verify(owner, signature, message)
-        .map_err(|_| ApiFailure::upstream_degraded())?;
-    Ok(activity)
+    let sender = recover_sender(&call, &signature).map_err(|_| ApiFailure::upstream_degraded())?;
+    let mut authority = [0; 32];
+    authority[12..].copy_from_slice(&sender);
+    Ok((call, authority))
 }
 
 pub const PRODUCTION_OPERATIONS: &[&str] = &[
@@ -2221,14 +2196,17 @@ fn creation_material(
         .get(Table::Journeys, &native_key)
         .or_else(|| scope.get(Table::Journeys, &protocol_key))
         .ok_or_else(ApiFailure::upstream_degraded)?;
-    let activity = verify_owner_activity(signed.bytes(), agent.registry())?;
-    if activity.idempotency_key() != action_key
-        || activity.network_id() != journey.projection().network_id
+    let (call, authority) = verify_owner_activity(signed.bytes())?;
+    let sender = authority[12..]
+        .try_into()
+        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let disclosure = bind_call(&call, sender).map_err(|_| ApiFailure::upstream_degraded())?;
+    if disclosure.idempotency_key != action_key
+        || call.chain_id != u64::from(journey.projection().network_id)
     {
         return Err(ApiFailure::upstream_degraded());
     }
-    let activity_id = layerx_intents::canonical::activity_id(&activity)
-        .map_err(|_| ApiFailure::upstream_degraded())?;
+    let activity_id = transaction_hash(signed.bytes());
     if source_stage != CreationStage::SessionProvision && activity_id != object {
         return Err(ApiFailure::upstream_degraded());
     }
@@ -2247,13 +2225,13 @@ fn creation_material(
     };
     let evidence = ProductionAgentCreation::protocol_evidence(
         signed.bytes().to_vec(),
-        <[u8; 32]>::try_from(activity.authority()).map_err(|_| ApiFailure::upstream_degraded())?,
+        authority,
         agent.registry(),
         material,
     )
     .map_err(|_| ApiFailure::upstream_degraded())?;
     evidence
-        .verify_outcome(activity.activity_type())
+        .verify_outcome(disclosure.activity_type)
         .map_err(agent_failure_from_creation_contract)?;
     if <[u8; 32]>::from(Sha256::digest(evidence.receipt_bytes.as_slice())) != expected
         || (source_stage != CreationStage::SessionProvision

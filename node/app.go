@@ -2523,10 +2523,23 @@ func (app *App) CompleteBlock(ctx sdk.Context, height int64, txResults []*abci.E
 	lazyWriteEvents := app.BankKeeper.WriteDeferredBalances(ctx)
 	events = append(events, lazyWriteEvents...)
 
-	// Sum up total used per block only for evm transactions
+	// Decision 2335: domain-routed transactions must not contribute to the root base fee.
+	domainTxs := make(map[string]struct{})
+	readCtx := ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+	app.LayerXChainsKeeper.IterateDomains(readCtx, func(domain layerxchainstypes.Domain) bool {
+		for _, hash := range app.LayerXChainsKeeper.DomainTxs(readCtx, domain.Id, uint64(height)) {
+			domainTxs[hash.Hex()] = struct{}{}
+		}
+		return false
+	})
+
+	// Sum up total used per block only for root EVM transactions.
 	var evmTotalGasUsed int64
 	for _, txResult := range txResults {
 		if txResult.EvmTxInfo != nil {
+			if _, domain := domainTxs[txResult.EvmTxInfo.TxHash]; domain {
+				continue
+			}
 			evmTotalGasUsed += txResult.GasUsed
 		}
 	}
