@@ -121390,7 +121390,7 @@ do_7 = "Finding 5.7.1.2: delete modules/layerxanchor/module_retired_route_test.g
 
 [task.6.96.5]
 title = "Re-home the availability class count in the layerxanchor keeper after the codec retirement"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -151626,7 +151626,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.24.6]
 title = "Delete the orphaned LNI request and evidence submodule files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.1", "18.1304.1", "9.24.5", "13.30.6", "9.25.16", "13.8.3", "9.24.8"]
