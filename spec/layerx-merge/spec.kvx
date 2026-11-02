@@ -218269,7 +218269,7 @@ do_4 = "Finding 22.16.5.2: fourteen further tracked Dockerfiles fail the all-ser
 
 [task.22.10.6]
 title = "Validate the owner policy limit id at the daemon's sixteen-byte width"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.10.7"]
