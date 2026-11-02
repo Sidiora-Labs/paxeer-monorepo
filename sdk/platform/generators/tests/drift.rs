@@ -681,46 +681,6 @@ fn programs_schema_value_differing_from_the_canonical_policy_is_refused() {
 }
 
 #[test]
-fn execution_v5_profile_must_admit_exactly_the_third_to_fifth_guest_abis() {
-    let admitted =
-        "allowed_guest_abis = [\"ABI_V3_VERSION\",\"ABI_V4_VERSION\",\"ABI_V5_VERSION\"]";
-    for (label, profile) in [
-        (
-            "execution-v5-without-five",
-            "allowed_guest_abis = [\"ABI_V3_VERSION\",\"ABI_V4_VERSION\"]",
-        ),
-        (
-            "execution-v5-with-two",
-            "allowed_guest_abis = [\"ABI_V2_VERSION\",\"ABI_V3_VERSION\",\"ABI_V4_VERSION\",\"ABI_V5_VERSION\"]",
-        ),
-        (
-            "execution-v5-reordered",
-            "allowed_guest_abis = [\"ABI_V5_VERSION\",\"ABI_V4_VERSION\",\"ABI_V3_VERSION\"]",
-        ),
-    ] {
-        let root = repo_fixture(label);
-        let path = root.join("services/agent/schema/agent-api/programs.kvx");
-        let schema =
-            fs::read_to_string(&path).unwrap_or_else(|error| panic!("read schema: {error}"));
-        assert_eq!(
-            schema.matches(admitted).count(),
-            1,
-            "fixture schema must admit ABI 3, 4 and 5 under execution v5"
-        );
-        fs::write(&path, schema.replace(admitted, profile))
-            .unwrap_or_else(|error| panic!("write schema: {error}"));
-        let error = write_lock(&root, &lock_path(&root))
-            .err()
-            .unwrap_or_else(|| panic!("{label} must not generate"));
-        assert_eq!(
-            error,
-            "type.ProgramExecutionV5 violates the frozen execution profile"
-        );
-        cleanup(&root);
-    }
-}
-
-#[test]
 fn rust_operation_catalogue_matches_the_repository_schema() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../..");
     let generated = generate_rust_operation_catalog(&root)

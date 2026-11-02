@@ -18,6 +18,7 @@ import (
 	lc "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxchains"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -308,6 +309,50 @@ func TestChainsPrecompileCreatesReadsAndPausesAChain(t *testing.T) {
 	require.Equal(t, uint8(4), retired[3])
 	require.Zero(t, retired[8].(*big.Int).Sign())
 	require.Equal(t, []interface{}{id}, h.read(t, "chainByName", "demo"))
+}
+
+func TestChainsPrecompileCreatesChainFromAssociatedCaller(t *testing.T) {
+	h := newChainsHarness(t)
+	ctx := h.db.Ctx()
+	baseDenom := h.app.EvmKeeper.GetBaseDenom(ctx)
+	raw := sdk.AccAddress(h.caller.Bytes())
+	account := sdk.AccAddress(common.HexToAddress("0xaabbccdd").Bytes())
+	require.NotEqual(t, raw, account)
+	funds := h.app.BankKeeper.GetBalance(ctx, raw, baseDenom)
+	require.NoError(t, h.app.BankKeeper.SendCoins(ctx, raw, account, sdk.NewCoins(funds)))
+	h.app.EvmKeeper.SetAddressMapping(ctx, account, h.caller)
+	require.False(t, h.app.EvmKeeper.CanAddressReceive(ctx, raw))
+	require.True(t, h.app.EvmKeeper.CanAddressReceive(ctx, account))
+	probe, _ := ctx.CacheContext()
+	err := h.app.BankKeeper.SendCoins(probe, account, raw, sdk.NewCoins(sdk.NewCoin(baseDenom, sdk.OneInt())))
+	require.ErrorContains(t, err, "invalid bank recipient")
+	balance := func(address sdk.AccAddress) sdk.Int {
+		return h.app.BankKeeper.GetBalance(h.db.Ctx(), address, baseDenom).Amount
+	}
+	p := h.keeper.GetParams(ctx)
+	module := authtypes.NewModuleAddress(chains.ModuleName)
+	collector := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
+	moduleBefore, feesBefore := balance(module), balance(collector)
+	id := h.create(t)
+	require.Equal(t, h.caller, h.read(t, "getChain", id)[2])
+	require.True(t, balance(account).Equal(funds.Amount.Sub(p.MinBond).Sub(p.CreationFee)))
+	require.True(t, balance(raw).IsZero())
+	require.True(t, balance(module).Equal(moduleBefore.Add(p.MinBond)))
+	require.True(t, balance(collector).Equal(feesBefore.Add(p.CreationFee)))
+	extra := sdk.NewInt(123)
+	value := new(big.Int).Mul(extra.BigInt(), state.UhpxToSweiMultiplier)
+	_, _, err = h.call(t, h.caller, value, "fundChain", id)
+	require.NoError(t, err)
+	require.True(t, balance(account).Equal(funds.Amount.Sub(p.MinBond).Sub(p.CreationFee).Sub(extra)))
+	require.True(t, balance(module).Equal(moduleBefore.Add(p.MinBond).Add(extra)))
+	require.True(t, balance(raw).IsZero())
+	_, _, err = h.call(t, h.caller, big.NewInt(0), "retireChain", id)
+	require.NoError(t, err)
+	require.True(t, balance(account).Equal(funds.Amount.Sub(p.CreationFee)))
+	require.True(t, balance(module).Equal(moduleBefore))
+	require.True(t, balance(raw).IsZero())
+	require.True(t, balance(h.app.EvmKeeper.GetPaxAddressOrDefault(h.db.Ctx(), h.precompile.Address())).IsZero())
+	require.Equal(t, chains.StatusRetired, h.read(t, "getChain", id)[3])
 }
 
 func TestChainsPrecompileRefusesNonOperatorAndNonAuthority(t *testing.T) {

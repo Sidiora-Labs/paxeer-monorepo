@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	chains "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/keeper"
@@ -19,6 +20,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
+	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
@@ -116,11 +118,12 @@ func newHarness(t *testing.T) *harness {
 	bankKey := sdk.NewKVStoreKey("bank")
 	cms.MountStoreWithDB(key, sdk.StoreTypeIAVL, db)
 	cms.MountStoreWithDB(bankKey, sdk.StoreTypeIAVL, db)
+	cms.MountStoreWithDB(testkeeper.EVMTestApp.EvmKeeper.GetStoreKey(), sdk.StoreTypeIAVL, db)
 	require.NoError(t, cms.LoadLatestVersion())
 	ctx := sdk.NewContext(cms, tmproto.Header{ChainID: "hyperpax_125-1", Height: 7}, false)
 	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
 	bank := &bankStub{key: bankKey}
-	k, err := keeper.NewKeeper(cdc, key, bank, func(sdk.Context) string { return denom })
+	k, err := keeper.NewKeeperWithAddressResolver(cdc, key, bank, func(sdk.Context) string { return denom }, &testkeeper.EVMTestApp.EvmKeeper)
 	require.NoError(t, err)
 	h := &harness{ctx: ctx, cms: cms, cdc: cdc, key: key, bank: bank, k: k}
 	for _, addr := range []common.Address{operator, other} {
@@ -149,6 +152,68 @@ func snapshot(ctx sdk.Context, key sdk.StoreKey) map[string]string {
 		out[string(it.Key())] = string(it.Value())
 	}
 	return out
+}
+
+func TestBondFundAndRefundUseTheAssociatedAccount(t *testing.T) {
+	application := testkeeper.EVMTestApp
+	ctx, _ := application.GetContextForDeliverTx(nil).CacheContext()
+	k := application.LayerXChainsKeeper
+	p := k.GetParams(ctx)
+	baseDenom := application.EvmKeeper.GetBaseDenom(ctx)
+	account := sdk.AccAddress(common.HexToAddress("0xaabbccdd").Bytes())
+	funder := sdk.AccAddress(common.HexToAddress("0x11223344").Bytes())
+	application.EvmKeeper.SetAddressMapping(ctx, account, operator)
+	application.EvmKeeper.SetAddressMapping(ctx, funder, other)
+	require.NotEqual(t, sdk.AccAddress(operator.Bytes()), account)
+	require.NotEqual(t, sdk.AccAddress(other.Bytes()), funder)
+	value := p.MinBond.Add(p.CreationFee)
+	extra := sdk.NewInt(123)
+	initial := value.MulRaw(3)
+	coins := sdk.NewCoins(sdk.NewCoin(baseDenom, initial))
+	require.NoError(t, application.BankKeeper.MintCoins(ctx, evmtypes.ModuleName, coins.Add(coins...)))
+	for _, address := range []sdk.AccAddress{account, funder} {
+		require.NoError(t, application.BankKeeper.SendCoinsFromModuleToAccount(ctx, evmtypes.ModuleName, address, coins))
+	}
+	balance := func(address sdk.AccAddress) sdk.Int {
+		return application.BankKeeper.GetBalance(ctx, address, baseDenom).Amount
+	}
+	module := authtypes.NewModuleAddress(types.ModuleName)
+	collector := authtypes.NewModuleAddress(authtypes.FeeCollectorName)
+	moduleBefore, feesBefore := balance(module), balance(collector)
+	assertRawBalances := func() {
+		t.Helper()
+		require.True(t, balance(sdk.AccAddress(operator.Bytes())).IsZero())
+		require.True(t, balance(sdk.AccAddress(other.Bytes())).IsZero())
+	}
+	assertRawBalances()
+	domain, err := k.Create(ctx, operator, "associated", 500000, 65536, 100, value, application.EvmKeeper.GetMinimumFeePerGas(ctx))
+	require.NoError(t, err)
+	require.Equal(t, operator, domain.Operator)
+	require.True(t, balance(account).Equal(initial.Sub(value)))
+	require.True(t, balance(funder).Equal(initial))
+	require.True(t, balance(module).Equal(moduleBefore.Add(p.MinBond)))
+	require.True(t, balance(collector).Equal(feesBefore.Add(p.CreationFee)))
+	assertRawBalances()
+	for _, sender := range []common.Address{operator, other} {
+		require.NoError(t, k.Fund(ctx, domain.Id, sender, extra))
+		assertRawBalances()
+	}
+	require.True(t, balance(account).Equal(initial.Sub(value).Sub(extra)))
+	require.True(t, balance(funder).Equal(initial.Sub(extra)))
+	require.True(t, balance(module).Equal(moduleBefore.Add(p.MinBond).Add(extra.MulRaw(2))))
+	stored, ok := k.GetDomain(ctx, domain.Id)
+	require.True(t, ok)
+	require.True(t, stored.Bond.Equal(p.MinBond.Add(extra.MulRaw(2))))
+	require.NoError(t, k.Retire(ctx, operator, domain.Id))
+	require.True(t, balance(account).Equal(initial.Sub(p.CreationFee).Add(extra)))
+	require.True(t, balance(funder).Equal(initial.Sub(extra)))
+	require.True(t, balance(module).Equal(moduleBefore))
+	require.True(t, balance(collector).Equal(feesBefore.Add(p.CreationFee)))
+	assertRawBalances()
+	stored, ok = k.GetDomain(ctx, domain.Id)
+	require.True(t, ok)
+	require.Equal(t, types.StatusRetired, stored.Status)
+	require.True(t, stored.Bond.IsZero())
 }
 
 func TestCreateFundPauseRetireRoundTrip(t *testing.T) {
@@ -270,12 +335,23 @@ func TestCreateRefusesBadNamesAllowancesAndBond(t *testing.T) {
 	_, err = limited.k.Create(limited.ctx, operator, "another", 500000, 65536, 100, value, sdk.OneDec())
 	require.ErrorIs(t, err, types.ErrTooManyDomains)
 	var nilBank *bankStub
-	_, err = keeper.NewKeeper(h.cdc, h.key, nilBank, func(sdk.Context) string { return denom })
+	_, err = keeper.NewKeeperWithAddressResolver(h.cdc, h.key, nilBank, func(sdk.Context) string { return denom }, &testkeeper.EVMTestApp.EvmKeeper)
 	require.Error(t, err)
-	_, err = keeper.NewKeeper(h.cdc, nil, h.bank, func(sdk.Context) string { return denom })
+	_, err = keeper.NewKeeperWithAddressResolver(h.cdc, nil, h.bank, func(sdk.Context) string { return denom }, &testkeeper.EVMTestApp.EvmKeeper)
 	require.Error(t, err)
-	_, err = keeper.NewKeeper(h.cdc, h.key, nil, func(sdk.Context) string { return denom })
+	_, err = keeper.NewKeeperWithAddressResolver(h.cdc, h.key, nil, func(sdk.Context) string { return denom }, &testkeeper.EVMTestApp.EvmKeeper)
 	require.Error(t, err)
+	_, err = keeper.NewKeeperWithAddressResolver(h.cdc, h.key, h.bank, func(sdk.Context) string { return denom }, nil)
+	require.ErrorContains(t, err, "missing address resolver")
+	var nilResolver *evmkeeper.Keeper
+	_, err = keeper.NewKeeperWithAddressResolver(h.cdc, h.key, h.bank, func(sdk.Context) string { return denom }, nilResolver)
+	require.ErrorContains(t, err, "missing address resolver")
+	readOnly, err := keeper.NewKeeper(h.cdc, h.key, h.bank, func(sdk.Context) string { return denom })
+	require.NoError(t, err)
+	_, err = readOnly.Create(h.ctx, operator, "unresolved", 500000, 65536, 100, value, sdk.OneDec())
+	require.ErrorContains(t, err, "address resolver is required for bank transfers")
+	require.ErrorContains(t, readOnly.Fund(h.ctx, first.Id, operator, sdk.OneInt()), "address resolver is required for bank transfers")
+	require.ErrorContains(t, readOnly.Retire(h.ctx, operator, first.Id), "address resolver is required for bank transfers")
 }
 
 func TestGenesisExportImportRoundTrip(t *testing.T) {
@@ -289,7 +365,7 @@ func TestGenesisExportImportRoundTrip(t *testing.T) {
 	h.k.SetNextBaseFee(h.ctx, first.Id, sdk.MustNewDecFromStr("123.456"))
 	h.k.SetNextBaseFee(h.ctx, second.Id, sdk.MustNewDecFromStr("987.654"))
 	h.cms.Commit(true)
-	reopened, err := keeper.NewKeeper(h.cdc, h.key, h.bank, func(sdk.Context) string { return denom })
+	reopened, err := keeper.NewKeeperWithAddressResolver(h.cdc, h.key, h.bank, func(sdk.Context) string { return denom }, &testkeeper.EVMTestApp.EvmKeeper)
 	require.NoError(t, err)
 	gs := reopened.ExportGenesis(h.ctx)
 	require.NoError(t, gs.Validate())

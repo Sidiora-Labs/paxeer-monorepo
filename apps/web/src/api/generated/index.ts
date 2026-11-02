@@ -1994,6 +1994,8 @@ export interface EvidenceMaterial {
   content_type: string;
   bytes_base64: string;
   settlement_domain?: SettlementDomain;
+  rung?: Rung;
+  inclusion_height?: number;
 }
 
 export function decodeEvidenceMaterial(value: JsonValue | undefined, at: string): EvidenceMaterial {
@@ -2008,6 +2010,12 @@ export function decodeEvidenceMaterial(value: JsonValue | undefined, at: string)
   if (object["settlement_domain"] !== undefined) {
     result.settlement_domain = decodeSettlementDomain(object["settlement_domain"], at + ".settlement_domain");
   }
+  if (object["rung"] !== undefined) {
+    result.rung = decodeRung(object["rung"], at + ".rung");
+  }
+  if (object["inclusion_height"] !== undefined) {
+    result.inclusion_height = expectInteger(object["inclusion_height"], at + ".inclusion_height");
+  }
   return result;
 }
 
@@ -2021,6 +2029,12 @@ export function encodeEvidenceMaterial(value: EvidenceMaterial): JsonValue {
   };
   if (value.settlement_domain !== undefined) {
     result["settlement_domain"] = value.settlement_domain;
+  }
+  if (value.rung !== undefined) {
+    result["rung"] = value.rung;
+  }
+  if (value.inclusion_height !== undefined) {
+    result["inclusion_height"] = value.inclusion_height;
   }
   return result;
 }
