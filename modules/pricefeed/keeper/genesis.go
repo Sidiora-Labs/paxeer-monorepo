@@ -119,7 +119,8 @@ func (k Keeper) InitGenesis(ctx sdk.Context, genesis types.GenesisState) error {
 
 // ExportGenesis reads the params (the defaults before any are stored), the feed keys, the observations and the
 // aggregates in store key order, so an export of an imported export is
-// byte-identical. Last submission heights are not exported.
+// byte-identical. Decoded state must also pass ValidateGenesis before it can
+// cross the export boundary. Last submission heights are not exported.
 func (k Keeper) ExportGenesis(ctx sdk.Context) (types.GenesisState, error) {
 	genesis := types.GenesisState{Params: k.GetParams(ctx)}
 	store := ctx.KVStore(k.storeKey)
@@ -165,6 +166,9 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) (types.GenesisState, error) {
 			return types.GenesisState{}, types.ErrInvalidGenesis.Wrapf("aggregate of market %d: %v", entry.MarketID, err)
 		}
 		genesis.Aggregates = append(genesis.Aggregates, entry)
+	}
+	if err := ValidateGenesis(genesis); err != nil {
+		return types.GenesisState{}, err
 	}
 	return genesis, nil
 }

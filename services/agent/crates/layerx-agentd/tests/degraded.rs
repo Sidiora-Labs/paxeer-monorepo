@@ -311,5 +311,14 @@ fn halted_emergency_and_data_unavailable_modes_propagate_and_cap_reads() {
             .snapshot(&tenant)
             .iter()
             .any(|(key, _)| key.kind == MetricKind::DegradedState && key.label == metric_label));
+        controller
+            .record_metric(&mut metrics, &tenant)
+            .unwrap_or_else(|error| panic!("second mode metric: {error}"));
+        let snapshot = metrics.snapshot(&tenant);
+        assert_eq!(snapshot.len(), 1);
+        assert_eq!(snapshot[0].0.label, metric_label);
+        assert_eq!(snapshot[0].1.total, 2);
+        assert_eq!(snapshot[0].1.samples, 2);
+        assert_eq!(snapshot[0].1.maximum, 1);
     }
 }

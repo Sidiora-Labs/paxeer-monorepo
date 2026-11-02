@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
@@ -92,12 +91,10 @@ func (k *Keeper) match(ctx sdk.Context, market types.Market, taker types.Order, 
 	}
 	resting := restsRemainder(taker)
 	if taker.TimeInForce == types.TimeInForcePostOnly && hasBest && crossesBound(taker.IsLong, best, bound) {
-		return MatchResult{}, fmt.Errorf("%w: order %s crosses best price %s", types.ErrPostOnlyWouldCross,
-			taker.ID.Dec(), best.Dec())
+		return MatchResult{}, types.ErrPostOnlyWouldCross.Wrapf("order %s crosses best price %s", taker.ID.Dec(), best.Dec())
 	}
 	if !resting && !hasBest {
-		return MatchResult{}, fmt.Errorf("%w: market %d opposite side of order %s is empty", types.ErrNoLiquidity,
-			market.ID, taker.ID.Dec())
+		return MatchResult{}, types.ErrNoLiquidity.Wrapf("market %d opposite side of order %s is empty", market.ID, taker.ID.Dec())
 	}
 
 	var candidates []types.Order
@@ -150,26 +147,24 @@ func (k *Keeper) match(ctx sdk.Context, market types.Market, taker types.Order, 
 		remaining.Sub(&remaining, &fill.SizeBase)
 		filledBase.Add(&filledBase, &fill.SizeBase)
 		if _, overflow := filledUsd.AddOverflow(&filledUsd, &fill.SizeUsd); overflow {
-			return MatchResult{}, fmt.Errorf("%w: filled notional of order %s", types.ErrOverflow, taker.ID.Dec())
+			return MatchResult{}, types.ErrOverflow.Wrapf("filled notional of order %s", taker.ID.Dec())
 		}
 		takerPosition = fill.TakerPositionID
 		lastTradePrice = fill.Price
 	}
 
 	if taker.TimeInForce == types.TimeInForceFOK && !remaining.IsZero() {
-		return MatchResult{}, fmt.Errorf("%w: order %s leaves %s base unfilled", types.ErrFokNotFilled,
-			taker.ID.Dec(), remaining.Dec())
+		return MatchResult{}, types.ErrFokNotFilled.Wrapf("order %s leaves %s base unfilled", taker.ID.Dec(), remaining.Dec())
 	}
 	if !resting && len(result.Fills) == 0 {
-		return MatchResult{}, fmt.Errorf("%w: order %s fills nothing within bound %s", types.ErrSlippageExceeded,
-			taker.ID.Dec(), bound.Dec())
+		return MatchResult{}, types.ErrSlippageExceeded.Wrapf("order %s fills nothing within bound %s", taker.ID.Dec(), bound.Dec())
 	}
 
 	taker.FilledBase.Add(&taker.FilledBase, &filledBase)
 	if len(result.Fills) > 0 {
 		vwap, overflow := new(uint256.Int).MulDivOverflow(&filledUsd, matchUnit, &filledBase)
 		if overflow {
-			return MatchResult{}, fmt.Errorf("%w: execution price of order %s", types.ErrOverflow, taker.ID.Dec())
+			return MatchResult{}, types.ErrOverflow.Wrapf("execution price of order %s", taker.ID.Dec())
 		}
 		result.Events = append(result.Events, orderExecuted(taker.ID, takerPosition, *vwap))
 		attached, err := k.attachOrderTpSl(ctx, taker)
@@ -220,33 +215,30 @@ func (k *Keeper) match(ctx sdk.Context, market types.Market, taker types.Order, 
 // base size of the order.
 func validateTaker(market types.Market, taker types.Order) (uint256.Int, error) {
 	if taker.MarketID != market.ID {
-		return uint256.Int{}, fmt.Errorf("%w: order %s of market %d matched in market %d", types.ErrUnknownMarket,
-			taker.ID.Dec(), taker.MarketID, market.ID)
+		return uint256.Int{}, types.ErrUnknownMarket.Wrapf("order %s of market %d matched in market %d", taker.ID.Dec(), taker.MarketID, market.ID)
 	}
 	if taker.ID.IsZero() {
-		return uint256.Int{}, fmt.Errorf("%w: order id 0", types.ErrUnknownOrder)
+		return uint256.Int{}, types.ErrUnknownOrder.Wrapf("order id 0")
 	}
 	if taker.Type > types.OrderTypeStopMarket {
-		return uint256.Int{}, fmt.Errorf("%w: %d", types.ErrInvalidOrderType, taker.Type)
+		return uint256.Int{}, types.ErrInvalidOrderType.Wrapf("%d", taker.Type)
 	}
 	if taker.TimeInForce > types.TimeInForcePostOnly {
-		return uint256.Int{}, fmt.Errorf("%w: %d", types.ErrInvalidTimeInForce, taker.TimeInForce)
+		return uint256.Int{}, types.ErrInvalidTimeInForce.Wrapf("%d", taker.TimeInForce)
 	}
 	if taker.TimeInForce == types.TimeInForcePostOnly && !isLimitType(taker.Type) {
-		return uint256.Int{}, fmt.Errorf("%w: POST_ONLY order %s of type %d", types.ErrInvalidTimeInForce,
-			taker.ID.Dec(), taker.Type)
+		return uint256.Int{}, types.ErrInvalidTimeInForce.Wrapf("POST_ONLY order %s of type %d", taker.ID.Dec(), taker.Type)
 	}
 	if isLimitType(taker.Type) && taker.LimitPrice.IsZero() {
-		return uint256.Int{}, fmt.Errorf("%w: limit order %s has no limit price", types.ErrTickSize, taker.ID.Dec())
+		return uint256.Int{}, types.ErrTickSize.Wrapf("limit order %s has no limit price", taker.ID.Dec())
 	}
 	if taker.FilledBase.Gt(&taker.SizeBase) {
-		return uint256.Int{}, fmt.Errorf("%w: order %s filled %s above its size %s", types.ErrInvalidParams,
-			taker.ID.Dec(), taker.FilledBase.Dec(), taker.SizeBase.Dec())
+		return uint256.Int{}, types.ErrInvalidParams.Wrapf("order %s filled %s above its size %s", taker.ID.Dec(), taker.FilledBase.Dec(), taker.SizeBase.Dec())
 	}
 	var remaining uint256.Int
 	remaining.Sub(&taker.SizeBase, &taker.FilledBase)
 	if remaining.IsZero() {
-		return uint256.Int{}, fmt.Errorf("%w: order %s has nothing left to fill", types.ErrZeroAmount, taker.ID.Dec())
+		return uint256.Int{}, types.ErrZeroAmount.Wrapf("order %s has nothing left to fill", taker.ID.Dec())
 	}
 	return remaining, nil
 }
@@ -287,18 +279,18 @@ func (k *Keeper) slippageBound(ctx sdk.Context, market types.Market, taker types
 		return taker.AcceptablePrice, nil
 	}
 	if market.PxDecimals > types.USDDecimals {
-		return uint256.Int{}, fmt.Errorf("%w: market %d pxDecimals %d above %d", types.ErrInvalidParams, market.ID,
+		return uint256.Int{}, types.ErrInvalidParams.Wrapf("market %d pxDecimals %d above %d", market.ID,
 			market.PxDecimals, types.USDDecimals)
 	}
 	if slippagePpm >= types.PpmDenominator {
-		return uint256.Int{}, fmt.Errorf("%w: default slippage %d ppm", types.ErrInvalidParams, slippagePpm)
+		return uint256.Int{}, types.ErrInvalidParams.Wrapf("default slippage %d ppm", slippagePpm)
 	}
 	state, err := k.GetMarketState(ctx, market.ID)
 	if err != nil {
 		return uint256.Int{}, err
 	}
 	if state.MarkPrice.IsZero() {
-		return uint256.Int{}, fmt.Errorf("%w: market %d has no mark price", types.ErrPriceStale, market.ID)
+		return uint256.Int{}, types.ErrPriceStale.Wrapf("market %d has no mark price", market.ID)
 	}
 	tick := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(types.USDDecimals-market.PxDecimals)), nil)
 	factor := new(big.Int).SetUint64(types.PpmDenominator - slippagePpm)
@@ -313,7 +305,7 @@ func (k *Keeper) slippageBound(ctx sdk.Context, market types.Market, taker types
 	}
 	bound, overflow := uint256.FromBig(ticks.Mul(ticks, tick))
 	if overflow {
-		return uint256.Int{}, fmt.Errorf("%w: slippage bound of market %d", types.ErrOverflow, market.ID)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("slippage bound of market %d", market.ID)
 	}
 	return *bound, nil
 }
@@ -349,8 +341,7 @@ func (k *Keeper) crossingMakers(ctx sdk.Context, marketID uint64, taker types.Or
 		}
 		if maker.MarketID != marketID || maker.IsLong == taker.IsLong || maker.Status != types.OrderStatusResting ||
 			!maker.FilledBase.Lt(&maker.SizeBase) {
-			failure = fmt.Errorf("%w: book entry of market %d holds order %s that is not resting there",
-				types.ErrInvalidParams, marketID, maker.ID.Dec())
+			failure = types.ErrInvalidParams.Wrapf("book entry of market %d holds order %s that is not resting there", marketID, maker.ID.Dec())
 			return true
 		}
 		makers = append(makers, maker)
@@ -360,7 +351,7 @@ func (k *Keeper) crossingMakers(ctx sdk.Context, marketID uint64, taker types.Or
 		others++
 		makerLeft.Sub(&maker.SizeBase, &maker.FilledBase)
 		if _, overflow := reach.AddOverflow(&reach, &makerLeft); overflow {
-			failure = fmt.Errorf("%w: resting size of market %d", types.ErrOverflow, marketID)
+			failure = types.ErrOverflow.Wrapf("resting size of market %d", marketID)
 			return true
 		}
 		return others > maxFills || !reach.Lt(&remaining)
@@ -388,11 +379,10 @@ func (k *Keeper) fillMaker(ctx sdk.Context, marketID uint64, maker, taker types.
 	price := maker.LimitPrice
 	notional, overflow := new(uint256.Int).MulDivOverflow(&size, &price, matchUnit)
 	if overflow {
-		return FillResult{}, nil, fmt.Errorf("%w: notional of fill of order %s", types.ErrOverflow, maker.ID.Dec())
+		return FillResult{}, nil, types.ErrOverflow.Wrapf("notional of fill of order %s", maker.ID.Dec())
 	}
 	if notional.IsZero() {
-		return FillResult{}, nil, fmt.Errorf("%w: fill of order %s rounds to zero notional", types.ErrZeroAmount,
-			maker.ID.Dec())
+		return FillResult{}, nil, types.ErrZeroAmount.Wrapf("fill of order %s rounds to zero notional", maker.ID.Dec())
 	}
 
 	buyer, seller := taker.Account, maker.Account
@@ -502,23 +492,20 @@ func (k *Keeper) openingBase(ctx sdk.Context, account common.Address, marketID u
 		return size, nil
 	}
 	if len(idBytes) != 32 {
-		return uint256.Int{}, fmt.Errorf("%w: position index of %s in market %d holds %d bytes", types.ErrInvalidParams,
-			account, marketID, len(idBytes))
+		return uint256.Int{}, types.ErrInvalidParams.Wrapf("position index of %s in market %d holds %d bytes", account, marketID, len(idBytes))
 	}
 	var positionID uint256.Int
 	positionID.SetBytes32(idBytes)
 	bz := store.Get(types.PositionKey(positionID))
 	if bz == nil {
-		return uint256.Int{}, fmt.Errorf("%w: position %s of %s is indexed but not stored", types.ErrInvalidParams,
-			positionID.Dec(), account)
+		return uint256.Int{}, types.ErrInvalidParams.Wrapf("position %s of %s is indexed but not stored", positionID.Dec(), account)
 	}
 	var position types.Position
 	if err := position.Unmarshal(bz); err != nil {
-		return uint256.Int{}, fmt.Errorf("%w: corrupt position %s: %v", types.ErrInvalidParams, positionID.Dec(), err)
+		return uint256.Int{}, types.ErrInvalidParams.Wrapf("corrupt position %s: %v", positionID.Dec(), err)
 	}
 	if position.Account != account || position.MarketID != marketID {
-		return uint256.Int{}, fmt.Errorf("%w: position %s is not the position of %s in market %d",
-			types.ErrInvalidParams, positionID.Dec(), account, marketID)
+		return uint256.Int{}, types.ErrInvalidParams.Wrapf("position %s is not the position of %s in market %d", positionID.Dec(), account, marketID)
 	}
 	if position.IsLong == isLong {
 		return size, nil
