@@ -13,6 +13,9 @@ func KernelCodeText(code lxphost.Code) string {
 	return pcommon.LXPCodeName(int32(code))
 }
 
+// RevertError exposes the canonical LXP name of a registered auth, governance,
+// or kernel error while retaining its identity through Unwrap and Cause.
+// Unknown Go errors pass through for the precompile's LXPReason transport.
 func RevertError(err error) error {
 	if err == nil {
 		return nil
@@ -45,6 +48,8 @@ type revertError struct {
 	code  string
 }
 
+// Error returns the code consumers match; diagnostic context stays in the cause.
+// The precompile packs this text as Solidity Error(string) through LXPReason.
 func (e revertError) Error() string {
 	return e.code
 }
