@@ -23,7 +23,7 @@ evidence = "Commit 39f0199fb2281a37102d9ebafdd5608bcfe4aac0 removed the MerklePr
 finding = "9.97.14.1"
 status = "open"
 evidence = "services/agent/sdk/python/layerx_sdk/ai_market.py:1381 still persists checkpoint without a rung, and OperationJournal at :1529 has no finalize and refuses nonempty receipts with ProgramsReceiptVerifierUnavailable at :1610, while services/agent/crates/layerx-client/src/ai_market.rs:1742 finalizes against CommitFinality; commit 67704e1b527704f5e57b535171b161e88e7e0cba ported tests and stubs without repairing this Python journal gap."
-follow_up = "closure"
+follow_up = "22.9.11"
 
 [disposition.9.98.1.1]
 finding = "9.98.1.1"

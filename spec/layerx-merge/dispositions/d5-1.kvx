@@ -17,7 +17,7 @@ evidence = "238dc2034 adds App.LastBlockID, still declared at node/app.go:3348, 
 finding = "5.4.5.1"
 status = "open"
 evidence = "node/app.go:3349 still returns the check-context header LastBlockId, identifying H-1 after committing H, and node/sequencer/executor_header_test.go:52 still gives the committed block its own id as its parent."
-follow_up = "closure"
+follow_up = "22.5.4"
 
 [disposition.5.5.12]
 finding = "5.5.12"

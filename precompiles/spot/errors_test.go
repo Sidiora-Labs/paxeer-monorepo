@@ -357,7 +357,7 @@ func TestErrorTokenNotRegistered(t *testing.T) {
 
 func TestErrorTokenAlreadyRegistered(t *testing.T) {
 	requireNoArgs(t, types.ErrTokenAlreadyRegistered, "TokenAlreadyRegistered()", "0x7d4fffb2")
-	token := types.TokenParams{Address: errorToken, Kind: types.TokenKindERC20, Decimals: 6, MaxUtilizationBps: 9000}
+	token := types.TokenParams{Address: errorToken, Kind: types.TokenKindERC20, MarketID: 1, Decimals: 6, MaxUtilizationBps: 9000}
 	p := types.DefaultParams()
 	p.Tokens = []types.TokenParams{token, token}
 	requireParamsRefusal(t, p, types.ErrParamsTokenAlreadyRegistered, types.ErrTokenAlreadyRegistered)
@@ -366,7 +366,7 @@ func TestErrorTokenAlreadyRegistered(t *testing.T) {
 func TestErrorUnsupportedToken(t *testing.T) {
 	requireNoArgs(t, types.ErrUnsupportedToken, "UnsupportedToken()", "0x6a172882")
 	p := types.DefaultParams()
-	p.Tokens = []types.TokenParams{{Address: errorToken, Kind: types.TokenKindERC20, Decimals: types.MaxTokenDecimals + 1, MaxUtilizationBps: 9000}}
+	p.Tokens = []types.TokenParams{{Address: errorToken, Kind: types.TokenKindERC20, MarketID: 1, Decimals: types.MaxTokenDecimals + 1, MaxUtilizationBps: 9000}}
 	requireParamsRefusal(t, p, types.ErrParamsUnsupportedToken, types.ErrUnsupportedToken)
 }
 

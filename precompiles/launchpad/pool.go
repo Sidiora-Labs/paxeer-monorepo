@@ -31,6 +31,7 @@ var (
 )
 
 // PoolKeeper is the launchpad keeper surface the SidioraPool role drives.
+// The concrete keeper is checked here so servePool cannot defer a mismatch to a call.
 type PoolKeeper interface {
 	GetParams(ctx sdk.Context) types.Params
 	GetMarket(ctx sdk.Context, denom string) (types.Market, bool)
