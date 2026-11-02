@@ -563,6 +563,13 @@ fn verification_json(
             )),
         };
     };
+    status.validate().map_err(|_| {
+        Rejection::new(
+            ErrorClass::VerificationFailure,
+            request_id,
+            "verification.inconsistent",
+        )
+    })?;
     match status {
         VerificationStatus::Achieved(level) => Ok(serde_json::json!({
             "state": "achieved",
@@ -572,21 +579,12 @@ fn verification_json(
             requested,
             achieved,
             reason,
-        } => {
-            if achieved >= requested {
-                return Err(Rejection::new(
-                    ErrorClass::VerificationFailure,
-                    request_id,
-                    "verification.inconsistent",
-                ));
-            }
-            Ok(serde_json::json!({
-                "state": "unverified",
-                "requested": level_name(*requested),
-                "achieved": level_name(*achieved),
-                "reason": reason.as_str(),
-            }))
-        }
+        } => Ok(serde_json::json!({
+            "state": "unverified",
+            "requested": level_name(*requested),
+            "achieved": level_name(*achieved),
+            "reason": reason.as_str(),
+        })),
     }
 }
 

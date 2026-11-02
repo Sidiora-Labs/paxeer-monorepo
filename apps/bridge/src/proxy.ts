@@ -4,7 +4,7 @@ import type { NextRequest } from 'next/server';
 import { bridgeConfig } from './lib/bridge/config';
 import { contentSecurityPolicy } from './lib/bridge/csp';
 
-export function proxy(_request: NextRequest) {
+export function proxy(_request: NextRequest): NextResponse {
   const response = NextResponse.next();
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-Frame-Options', 'DENY');

@@ -30,13 +30,16 @@ function submittedRecord(direction: TransferDirection, input: SubmittedTransferI
   };
 }
 
-export function depositRecord(input: SubmittedTransferInput & { vault: Address; recipient: string }): BridgeTransfer {
+export type DepositRecordInput = SubmittedTransferInput & { vault: Address; recipient: string };
+export type WithdrawalRecordInput = SubmittedTransferInput & { destination: string };
+
+export function depositRecord(input: DepositRecordInput): BridgeTransfer {
   return {
     ...submittedRecord('in', input, input.recipient),
     vault: input.vault,
   };
 }
 
-export function withdrawalRecord(input: SubmittedTransferInput & { destination: string }): BridgeTransfer {
+export function withdrawalRecord(input: WithdrawalRecordInput): BridgeTransfer {
   return submittedRecord('out', input, input.destination);
 }
