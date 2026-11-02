@@ -16859,3 +16859,155 @@ symbol = "solc_version"
 observed = "Attempt 1 (ee97281de) removed the two read permissions and the test directory from foundry.toml and added tools/ci/tests/test_foundry_profile.py as the task states; the declared build forge build --offline exited 1 with 'can't install missing solc 0.8.27 in offline mode' before compiling anything, because the qualification environment had fetched no compiler for the repository root's foundry.toml; the change itself does not touch solc_version."
 assumption = "Environmental: the qualification environment now fetches the pinned compiler of the repository root before an offline build; the task continues from attempt 1 unchanged."
 severity = "minor"
+
+[finding.15.0.4.2]
+task = "15.0.4"
+file = "services/platform/middleware/seller/src/index.ts:405"
+symbol = "paymentPurpose"
+observed = "Attempt 5 (fb3e6c9e4) completed the receipt-key migration of sdk/integrations/express/src/index.ts (receiptKeys parsed from LAYERX_RECEIPT_KEYS_JSON with camelCase decimal heights, both middlewares built without protocolVersion) and the two tests; loadConfigReadsReceiptKeysJson passed and integrationSettlesSignedSequencerReceipt failed with 402 instead of 200 at test/receipt-keys.test.mjs:286, because the seller verifier reads the payment purpose from the offer terms with paymentPurpose(requirements.extra, true) (seller/src/index.ts:405, commitment.ts:59-64: a non-zero 64-hex purposeHash under extra.layerx) and readDeclaredConfig builds the PaymentRequirements (sdk/integrations/express/src/index.ts:256-264) with no extra at all; the agent middleware (agent/src/index.ts:849) and every seller test carry extra.layerx with commitment receipted and purposeHash. The task's symbols also still name staticAuthorizedBatches and parseAuthorizedBatch, which do_2 and do_3 delete, so the graph check would refuse the done record even with a passing verify."
+assumption = "Spec defect in the task, not in the attempt: the mount's offer must carry the receipted commitment and a purpose, and the symbols list must name definitions the task keeps; 15.0.4 continues from attempt 5."
+severity = "major"
+
+[finding.8.34.2.1]
+task = "8.34.2"
+file = "services/platform/examples/run-reference-apps.mjs:6"
+symbol = "BuyerMiddleware"
+observed = "Attempt 1 (fbca296ce) rewrote run-reference-apps.mjs for receipt keys and added test/run-reference-apps.test.mjs; node --check passed and referenceAppsCheckPassesWithoutRetiredSurfaces failed at import time with ERR_MODULE_NOT_FOUND for node_modules/@sidiora/layerx-buyer-middleware/dist/index.js, because the runner imports the buyer middleware and the TypeScript SDK (run-reference-apps.mjs:6-7) and its support files import the seller and merchant middlewares (support/merchant-app.mjs:5-11, support/runtime.mjs:4), all resolved through their dist entries, and the declared build is node --check alone, which builds none of them."
+assumption = "Spec defect: the build must produce the dist entries the test imports; the build command now builds the SDK and the seller, buyer and merchant packages before the syntax check, and the task continues from attempt 1."
+severity = "minor"
+
+[finding.10.1.6.1]
+task = "10.1.6"
+file = "services/human/crates/layerx-human-service/src/server/agent_creation.rs:436"
+symbol = "attach_signature"
+observed = "Attempts 10.1.6 a2 (7b9bd8297) and 10.1.10 a2 (2c77e27d3), continued from their first attempts after task 9.27.9 landed, kept their changes and failed on cargo build -p layerx-human-service with five errors that are on main itself: task 10.21.4 (7fe9b50ec, on main since 2026-11-01 22:58Z) deleted layerx_intents::owner_activity, which the service still calls at src/server/agent_creation.rs:436 (attach_signature), src/server/production_onboarding.rs:242 and src/server/production_components.rs:2173 (verify), src/bin/layerx-human-kms-gateway.rs:208 (unsigned_native, OwnerEnvelopeContext), tests/agent_runtime_eip1559.rs:209, tests/agent_creation_rungs.rs:370 and layerx-human-kms tests/retired_crypto_codec_w3.rs:134-156; task 9.27.3 removed layerx_proof::export::CheckpointFact and the verified_checkpoints field, which src/activity/export.rs still imports at :6 and uses at :67, :430, :502, :598, :619 and :1099. The retiring attempt's dependent-crate check left layerx-human-service, layerx-human-kms, layerx-human-test-support, layerx-human-identity-provider and layerx-human-security-provider out because they depend on layerx-agentd, whose library was broken at that base (its log names all five as left out)."
+assumption = "Producer gap: two retirements landed without their human-service consumers; task 10.21.8 ports the service and every task building the human workspace requires it."
+severity = "major"
+
+[finding.16.12.1.3]
+task = "16.12.1"
+file = "contracts/manager/ManagerContainer.sol:12"
+symbol = "LayerXComponent"
+observed = "Attempt 3 (1912f7cd1) kept the two files and failed on the declared build forge build --offline at the repository root with 42 missing-source errors that are on main itself: task 6.80.3 retired contracts/security/LayerXComponent.sol while contracts/manager/ManagerContainer.sol:12, contracts/manager/ManagerMigrator.sol:10, contracts/storage/WithdrawalNullifierRegistry.sol:5 and four more sources still import it, and contracts/libraries/CanonicalCheckpoint.sol is imported but absent; the importers are owned by the pending retirement tasks 6.53.2 to 6.80.5 at waves 38 and 39."
+assumption = "Spec defect: a task that edits foundry.toml and one Python test declared the whole root Foundry build as its build; the build becomes a configuration parse and the task continues from attempt 3."
+severity = "minor"
+
+[finding.15.0.4.3]
+task = "15.0.4"
+file = "services/platform/middleware/buyer/src/index.ts:373"
+symbol = "verifyRpcPayment"
+observed = "Attempt 6 (f2afd6c8c) built and its integration test asserted portable.receiptDigest equal to the receiptDigest of the recorded fixture case V1-layerxledger-pay-exact of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json and failed (0x51588b5a... against 0x3f63045f...): the buyer middleware's portable receipt digest is keccak256 of the signed receipt bytes (services/platform/middleware/buyer/src/index.ts:373, services/platform/middleware/buyer/test/portable-receipts.test.mjs:36), while the fixture's receiptDigest is the sequencer's signing digest over the unsigned receipt (rpc/sequencer_receipt_vectors_test.go:276), which the buyer test at portable-receipts.test.mjs:173 shows is refused as a portable digest."
+assumption = "Attempt defect: the assertion compares the portable digest with the signing digest; the test asserts keccak256 of the fixture's signedReceipt and the task continues from attempt 6."
+severity = "minor"
+
+[finding.18.1435.3.1]
+task = "18.1435.3"
+file = "services/agent/sdk/python/layerx_sdk/agent_http.py:201"
+symbol = "_LEVELS"
+observed = "Attempt 1 (11d9a4488) implemented the pending and absent decoding with its tests; the two golden cases failed with verification-failure because the Python agent envelope decoder's level table (services/agent/sdk/python/layerx_sdk/agent_http.py:201-208) still lists the retired kernel levels Unverified, SequencerSigned, BatchIncluded, StateProven, CheckpointFinalised and SettlementAnchored, while the daemon answers the rungs submitted, receipted and committed (services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:1346-1348), the goldens of 18.1435.2 carry those rungs and the Python x402 client already accepts them (services/agent/sdk/python/layerx_sdk/x402_rpc.py:83); six Python SDK tests still use the retired names at nine sites."
+assumption = "Consumer gap: the Python agent envelope decoder never followed the three-rung model; the task ports the level table and the six tests with it."
+severity = "major"
+
+[finding.8.26.3.1]
+task = "8.26.3"
+file = "services/platform/middleware/seller/src/index.ts:405"
+symbol = "paymentPurpose"
+observed = "Attempt 1 (79c64ebe5) implemented the receipt-key configuration, the Receipted submission and the EVM preparation checks; the config test passed and the service scenarios failed with verification-failure from the paid API example, because the seller's receipt verification requires a purposeHash in every offer's extra.layerx (services/platform/middleware/seller/src/index.ts:405 passes required=true and :439 refuses an undefined reference) while the documented contract (docs/site/docs/interop/x402.md:133-134), the seller's own offer parser (:743) and the interop seller (services/interop/crates/layerx-x402/src/seller.rs:665) require it only for metered and subscription offers; the exact offer of services/platform/examples/paid-api/index.mjs:124-130 carries none. The conformance receipt builder (services/platform/middleware/conformance/src/receipts.ts:103) also derives the ledger reference from payTo, asset and amount, so an offer that does carry a purposeHash, the merchant shop, cannot be answered with a matching receipt."
+assumption = "Producer defect in the seller from task 8.22.1; task 8.22.9 corrects it and 8.26.3 continues after it with the receipt builder taking the offer's purposeHash."
+severity = "major"
+
+[finding.8.26.5.1]
+task = "8.26.5"
+file = "services/platform/middleware/seller/src/commitment.ts:118"
+symbol = "verifyPaymentCommitmentEvidence"
+observed = "Attempt 1 (7e05720f0) deleted the kernel fixtures and generators and wrote both tests; committedFixtureAcceptsThreeOfFourValidators passed and committedFixtureRefusesValidatorSetMismatch failed, because it replaced the one validator whose signature is absent from the commit and expected a refusal: PaymentCommitmentEvidence carries chainId and blockId only (services/platform/middleware/seller/src/commitment.ts:11-23), so the verifier cannot compare the validator set with the header's validators hash, and the three signing validators still hold three quarters of the power."
+assumption = "Spec defect: the resolver's validator set is the seller's trust source; the detectable mismatch is a signature from a validator outside that set."
+severity = "minor"
+
+[finding.16.28.3.1]
+task = "16.28.3"
+file = "tools/repotest/pytest_reachability_test.go:76"
+symbol = "TestEveryPytestSuiteIsReferenced"
+observed = "Attempt 1 (c3abaa07d) wrote the guard and go vet passed; the guard reported 77 suites: the 21 of tests/agent/sdk/python, which Makefile:2311 runs through python3 -m unittest discover -s tests/agent/sdk/python rather than pytest; 52 of the 54 suites of tests/ci, of which the Makefile target test-tests-python (Makefile:258-262) names two; and the four of tests/daemon, a directory the wave-6 Makefile test (tools/ci/tests/test_makefile_wave6.py:95-105) forbids in the aggregate dry run."
+assumption = "Spec defect: the guard accepts a unittest discover directory, the Makefile target lists the tests/ci directory, and tests/daemon is skipped like tests/bridge until the daemon retirement decides its four Python guards."
+severity = "minor"
+
+[finding.9.28.1.3]
+task = "9.28.1"
+file = "services/platform/hosted/gateway/src/main.rs:2924"
+symbol = "verify_withdrawal_submission"
+observed = "Attempt 4 (911705b1a) removed the verifier crate and the declared build passed; the dependent-crate check failed on layerx-platform-gateway, whose verify_withdrawal_submission (services/platform/hosted/gateway/src/main.rs:2902-2932) calls layerx_proof::receipt::withdrawal::verify, deleted by task 9.27.5 (2455fbc51, on main since 2026-11-01) under decision 929; 9.27.5 do_5 routed the platform callers through wiring.J44.15, which names services/platform/hosted/core only, so the gateway has not compiled on any main since."
+assumption = "Producer gap of the class of finding 9.27.3.1: task 8.101.1 ports the gateway, 9.28.1 requires it, and any attempt whose dependents check fails only on the gateway continues after it."
+severity = "major"
+
+[finding.10.21.8.1]
+task = "10.21.8"
+file = "services/human/crates/layerx-human-service/src/custody/mod.rs:11"
+symbol = "signer"
+observed = "Attempt 1 (6a5931e17) wrote attach_call_signature in custody/signer.rs and the three other ports; the build failed with E0603 because custody/mod.rs:11 declares `mod signer;` privately and services/human/crates/layerx-human-service/src/server/agent_creation.rs:436 calls crate::custody::signer::attach_call_signature, and custody/mod.rs is not among the task's touches."
+assumption = "Spec defect: the module's parent must re-export the helper; the task continues from attempt 1 with that one line."
+severity = "minor"
+
+[finding.18.0.1.1]
+task = "18.0.1"
+file = "spec/layerx-merge/programme/issue_closure.py:9"
+symbol = "issue_closure"
+observed = "Attempt 1 (943ca6eff) wrote issue_closure and both tests as specified; the tests passed and the closure run over the live spec exited 1 naming 18.1166.1, 18.1433.1, 18.1434.1 and 18.1435.3. The task's requires list holds 444 issue tasks and omits the 89 written after it, among them the three pending ones, so the task launched before its own precondition held, and five of the omitted tasks sit in waves 20 to 36 above the task's wave 19; 18.1166.1 has status superseded, its work carried by task 18.1206.1 (done), and the closure counts every status other than done as open."
+assumption = "Spec defect: the requires list is completed from the task list and decision 2248 rules that a superseded issue task counts as closed; the implementation continues from attempt 1 with the superseded case added."
+severity = "minor"
+
+[finding.16.12.1.4]
+task = "16.12.1"
+file = "tools/ci/tests/test_foundry_profile.py:30"
+symbol = "test_root_profile_grants_no_retired_paths"
+observed = "Attempt 4 (80a5b4bb8) kept attempt 3's two files unchanged; forge config --json passed and the test then ran forge build --offline, as do_4 asks, which failed on contracts/storage/WithdrawalNullifierRegistry.sol:5 importing contracts/security/LayerXComponent.sol, deleted by task 6.80.3 (f68b3311d) while task 6.80.5 that retires the registry sits at wave 39 with twenty other contract retirements at waves 38 and 39; the root sources cannot compile on any main until those land."
+assumption = "Spec defect: do_4's build clause contradicts do_6 (finding 16.12.1.3); the test asserts the profile configuration only and the retirement tasks' verifies gate the root build."
+severity = "minor"
+
+[finding.15.0.4.4]
+task = "15.0.4"
+file = "sdk/integrations/express/test/receipt-keys.test.mjs:359"
+symbol = "integrationSettlesSignedSequencerReceipt"
+observed = "Attempt 7 (8cd21079b) made the two digest changes of finding 15.0.4.3; the build passed and the first round trip settled the test-signed receipt twice with one release; the test then restarted the server over the recorded vector V1-layerxledger-pay-exact of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json and paid with it, and the server answered 402 at :359, because readDeclaredConfig offers purposeHash = offerPurposeHash(LAYERX_RESOURCE_URL) (do_8) while the recorded receipt carries the purpose of its own log topic, which verifyRpcPayment accepted directly at :327-333 only because the test passed that purpose explicitly."
+assumption = "Spec defect: a recorded sequencer receipt proves the verifier, not the served offer; the restart round trip uses the test-signed receipt whose reference is the offer's purpose."
+severity = "minor"
+
+[finding.18.1435.3.2]
+task = "18.1435.3"
+file = "tests/agent/sdk/python/test_integration.py:29"
+symbol = "CheckpointAttestation"
+observed = "Attempt 2 (ab900e18e) ported the rung table, the pending and absent statuses and the level names in the seven touched files and the build passed; the verify's pytest stopped at collection because tests/agent/sdk/python/test_integration.py:29-44 imports CheckpointAttestation, SubmissionFailed and SubmissionUnknown from layerx_sdk and tests/agent/sdk/python/test_ai_market.py:102-111 imports CheckpointAttestation, CheckpointCertificate, CheckpointVerificationInput, GuarantorKey, _attestation_message, decode_batch_header and verify_checkpoint from layerx_sdk.verifier, all removed by task 9.97.7 (efc169938) whose verify ran neither suite; test_ai_market.py:466, :1017 and :1033-1035 also call OperationJournal.finalize, which services/agent/sdk/python/layerx_sdk/ai_market.py:1529-1621 no longer defines, and services/agent/sdk/python/layerx_sdk/__init__.pyi:160 and verifier.pyi:138 still declare twenty retired names."
+assumption = "Producer gap of 9.97.7: the two suites and the stubs are ported by task 9.97.14; issue #1435 verifies its decoding in the five suites that collect."
+severity = "major"
+
+[finding.9.97.14.1]
+task = "9.97.14"
+file = "services/agent/sdk/python/layerx_sdk/ai_market.py:1381"
+symbol = "OperationRecord"
+observed = "The Python OperationRecord keeps a checkpoint field (services/agent/sdk/python/layerx_sdk/ai_market.py:1381, encoded at :1433 and decoded at :1460) and OperationJournal has no finalize, while the Rust record (services/agent/crates/layerx-client/src/ai_market.rs:1306-1322) carries checkpoint and rung and the Rust journal finalizes a record against CommitFinality (block height, block hash, app hash, store proof digest; :1789); the Python SDK's AI market journal therefore stops at EXECUTED and never reaches FINALIZED."
+assumption = "Owner decision pending: whether the Python journal gains finalize over CommitFinality and the rung field to match the Rust client; task 9.97.14 ports the tests to the journal as it is and does not add it."
+severity = "owner"
+
+[finding.10.21.8.2]
+task = "10.21.8"
+file = "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:42"
+symbol = "sign"
+observed = "Attempt 2 (2d3858fb8) made the custody re-export of finding 10.21.8.1 and kept attempt 1's ports; cargo build --all-targets failed in the agent_controls_rungs test target because tests/support/canonical_owner.rs:25-66 sign still calls layerx_intents::canonical::unsigned_envelope_bytes (:42), signed_envelope_bytes (:51) and decode_signed_activity (:58), re-exports task 10.21.4 deleted under decision 1023; the file is included by #[path] from agent_controls.rs, agent_controls_rungs.rs, agent_creation_rungs.rs, native_onboarding_rungs.rs and agent_create.rs, and only agent_create.rs:896 calls sign, every other caller using sign_transaction (:67), the EIP-1559 builder."
+assumption = "Spec defect: the support file and agent_create.rs are this task's touches; sign is deleted and its one caller moves to sign_transaction or is deleted with the kernel owner envelope it asserts."
+severity = "minor"
+
+[finding.8.22.6.1]
+task = "8.22.6"
+file = "services/platform/middleware/seller/src/checkpoint.ts:1"
+symbol = "RpcCheckpointAuthority"
+observed = "Attempt 1 (0862a6c3d) found checkpoint.ts already deleted by task 8.22.7 (45176f36b) and rpcBatchEvidence already deleted by task 8.22.8, removed AuthorizedBatchResolver and MERKLE_LEAF_DOMAIN from index.ts, added retired-exports.test.mjs, and the build and both verify tests passed; the done record then refused because touches names src/checkpoint.ts and the attempt made no change to a file that no longer exists, so the graph check failed on a path do_1 asks only to confirm absent."
+assumption = "Spec defect: a path a prerequisite deletes is not a touch of the task that confirms the deletion; touches drops checkpoint.ts and the attempt continues unchanged."
+severity = "minor"
+
+[finding.10.21.4.1]
+task = "10.21.4"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:512"
+symbol = "unsigned_payload"
+observed = "Task 10.21.4 (decision 1023) deleted layerx_intents::canonical's unsigned_envelope_bytes, signed_envelope_bytes, decode_unsigned_activity and decode_signed_activity and ported the human-service callers it listed; the KMS provider test target still calls them at tests/provider.rs:512, :537 and :772, tests/provider/native_setup.rs:10 and tests/provider/owner_rotation.rs:9-11, so cargo build -p layerx-human-kms --all-targets has failed on every main since 10.21.4 landed, and the crate's test targets are left out of the dependent-crate check; the owner_rotation.rs case (kms_owner_rotation_disclosure) also imports layerx_crypto::rotation, which task 9.35.1 deletes."
+assumption = "Producer gap of 10.21.4: the KMS provider target's owner-envelope helpers belong to the kernel-path migration family of decision 2253; task 9.35.6 deletes the rotation case now."
+severity = "major"
