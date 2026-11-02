@@ -83,6 +83,9 @@ func AdaptV2VoiceLeave(requestID, grantState string, revision int64, at time.Tim
 }
 
 func AdaptV2VoiceJoinTicket(requestID, ticket, providerEndpoint string, expiresAt, at time.Time) ([]byte, error) {
+	if !expiresAt.After(at) || expiresAt.After(at.Add(time.Minute)) {
+		return nil, fmt.Errorf("VoiceJoinTicketResponse: ticket expiry outside issuance lifetime")
+	}
 	return marshalV2Voice("VoiceJoinTicketResponse", requestID, v2.VoiceJoinTicketData{
 		Ticket: ticket, ProviderEndpoint: providerEndpoint,
 		ExpiresAt: expiresAt.UTC().Format("2006-01-02T15:04:05.000Z"),
