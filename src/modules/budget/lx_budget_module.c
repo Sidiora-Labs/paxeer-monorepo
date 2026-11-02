@@ -524,22 +524,6 @@ static lxp_result budget_spend_apply(lxp_module_ctx *ctx,
         status;
 }
 
-static lxp_result budget_execute_spend(lxp_module_ctx *ctx,
-                                       const lxp_activity *activity,
-                                       const lxp_authority_resolved *authority,
-                                       const lx_budget_spend_payload *payload,
-                                       lx_account *signer)
-{
-    lx_budget_record record;
-    lxp_result status = budget_load(ctx, payload->budget_id, &record);
-    if (status != LXP_OK) return status;
-    if (memcmp(record.owner, signer->id, 32U) != 0 &&
-        !lx_budget_delegate_present(&record, authority->actor))
-        return LXP_ERR_UNAUTHORIZED_DELEGATE;
-    return budget_spend_apply(ctx, activity, &record, payload->recipient,
-                              payload->amount, signer);
-}
-
 static void budget_capability_key(const uint8_t budget_id[32],
                                   const uint8_t holder[32],
                                   uint8_t key[BUDGET_CAPABILITY_KEY_BYTES])
@@ -621,29 +605,59 @@ static lxp_result budget_capability_save(
     return lxp_ctx_kv_put(ctx, key, sizeof(key), bytes, sizeof(bytes));
 }
 
-static lxp_result budget_execute_delegate_spend(
+static lxp_result budget_authorized_delegate_spend(
     lxp_module_ctx *ctx, const lxp_activity *activity,
     const lxp_authority_resolved *authority,
-    const lx_budget_delegate_spend_payload *payload, lx_account *signer)
+    const uint8_t budget_id[32], const uint8_t recipient[32],
+    lxp_u128 amount, lx_account *signer)
 {
     lx_budget_record record;
     lx_budget_delegate_capability capability;
     lxp_module_savepoint savepoint = {0};
     lxp_result status = lxp_module_savepoint_begin(ctx, &savepoint);
-    if (status == LXP_OK) status = budget_load(ctx, payload->budget_id, &record);
+    if (status == LXP_OK) status = budget_load(ctx, budget_id, &record);
     if (status == LXP_OK)
         status = budget_capability_load(ctx, record.budget_id,
                                         authority->actor, &capability);
     if (status == LXP_OK)
         status = lx_budget_authorize_delegate(
-            &record, authority->actor, &capability, payload->recipient,
-            payload->amount, lxp_ctx_batch_timestamp_ms(ctx));
+            &record, authority->actor, &capability, recipient,
+            amount, lxp_ctx_batch_timestamp_ms(ctx));
     if (status == LXP_OK)
-        status = budget_spend_apply(ctx, activity, &record, payload->recipient,
-                                    payload->amount, signer);
+        status = budget_spend_apply(ctx, activity, &record, recipient,
+                                    amount, signer);
     if (status == LXP_OK)
         status = budget_capability_save(ctx, record.budget_id, &capability);
     return budget_savepoint_end(ctx, &savepoint, status);
+}
+
+static lxp_result budget_execute_spend(lxp_module_ctx *ctx,
+                                       const lxp_activity *activity,
+                                       const lxp_authority_resolved *authority,
+                                       const lx_budget_spend_payload *payload,
+                                       lx_account *signer)
+{
+    lx_budget_record record;
+    lxp_result status = budget_load(ctx, payload->budget_id, &record);
+    if (status != LXP_OK) return status;
+    if (memcmp(record.owner, signer->id, 32U) == 0)
+        return budget_spend_apply(ctx, activity, &record, payload->recipient,
+                                  payload->amount, signer);
+    if (!lx_budget_delegate_present(&record, authority->actor))
+        return LXP_ERR_UNAUTHORIZED_DELEGATE;
+    return budget_authorized_delegate_spend(
+        ctx, activity, authority, payload->budget_id, payload->recipient,
+        payload->amount, signer);
+}
+
+static lxp_result budget_execute_delegate_spend(
+    lxp_module_ctx *ctx, const lxp_activity *activity,
+    const lxp_authority_resolved *authority,
+    const lx_budget_delegate_spend_payload *payload, lx_account *signer)
+{
+    return budget_authorized_delegate_spend(
+        ctx, activity, authority, payload->budget_id, payload->recipient,
+        payload->amount, signer);
 }
 
 static lxp_result budget_execute_close(lxp_module_ctx *ctx,
