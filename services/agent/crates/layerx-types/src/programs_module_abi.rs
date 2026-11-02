@@ -17,7 +17,14 @@ include!(concat!(env!("OUT_DIR"), "/programs_module_abi.rs"));
 /// the module registers at now.
 #[must_use]
 pub const fn supported(version: u32) -> bool {
-    version != 0 && version <= CURRENT
+    let mut index = 0;
+    while index < VERSIONS.len() {
+        if VERSIONS[index].1 == version {
+            return true;
+        }
+        index += 1;
+    }
+    false
 }
 
 #[cfg(test)]

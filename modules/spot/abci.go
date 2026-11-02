@@ -9,6 +9,8 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
+// EndBlocker reports the current ExecuteResting result on each invocation,
+// including a failure event when persisted cursors cannot be decoded.
 func EndBlocker(ctx sdk.Context, k *keeper.Keeper) error {
 	work, err := k.ExecuteResting(evmkeeper.SyntheticReceiptContext(ctx, evmkeeper.SyntheticReceiptSpot))
 	if err != nil {

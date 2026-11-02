@@ -1,0 +1,64 @@
+[disposition.6.58.6]
+finding = "6.58.6"
+status = "environment"
+evidence = "The SafeTransfer reference was injected by the qualification index scope rather than product code: committed .cgignore:11 names the authority test-support directory, and 4025093a3 landed tests/bridge/retired/test_retired_safe_transfer.py:4 with the library absent from main."
+
+[disposition.6.63.3]
+finding = "6.63.3"
+status = "resolved"
+evidence = "Main spec/layerx-merge/spec.kvx:146918 lists splitProgramFee, ProgramFeeDenom and the three test declarations instead of the deleted helpers, matching a2ab6d9f2 and the recorded-asset lookup at modules/xweb/keeper/program_fulfil.go:203."
+
+[disposition.6.68.2.1]
+finding = "6.68.2.1"
+status = "resolved"
+evidence = "Commit 90bda704a removed ResultByIdempotency and its call to the deleted host method, and main modules/layerxauth/keeper/views.go:168 now proceeds directly from CheckActivity to RevocationSequence."
+
+[disposition.6.69.1]
+finding = "6.69.1"
+status = "resolved"
+evidence = "Commit 7f65d97eb landed all seven query methods on queryServer across grpc_query.go, grpc_query_requests.go and grpc_query_program.go, and main modules/xweb/keeper/grpc_query.go:23 returns only the stored Params required by api/xweb/query.proto:83."
+
+[disposition.6.69.1.1]
+finding = "6.69.1.1"
+status = "resolved"
+evidence = "Main modules/xweb/keeper/grpc_query.go:23 and grpc_query_test.go:39 use only Params after 7f65d97eb, while spec/layerx-merge/contracts/web.md:129 and spec/layerx-merge/contracts/web.md:182 describe that same response without a paused field."
+
+[disposition.6.69.2]
+finding = "6.69.2"
+status = "resolved"
+evidence = "Commit 7f65d97eb landed the receiver declaration retained at modules/xweb/keeper/grpc_query.go:12 together with the Request and Result methods retained at modules/xweb/keeper/grpc_query_requests.go:12 and modules/xweb/keeper/grpc_query_requests.go:23, so main has no missing queryServer type."
+
+[disposition.6.69.2.2]
+finding = "6.69.2.2"
+status = "resolved"
+evidence = "Main modules/xweb/keeper/grpc_query.go:12 defines queryServer and modules/xweb/keeper/grpc_query_requests.go:12 implements its Request method from the combined 7f65d97eb commit, so the undefined receiver condition is gone independently of the superseded task status."
+
+[disposition.6.72.1]
+finding = "6.72.1"
+status = "resolved"
+evidence = "Main spec/layerx-merge/spec.kvx:147518 names only EncodeGovMsg and ErrUnknownMsg rather than the GovMsg.VoteWeighted field, and 2cfe80438 landed the refusal retained at wasm/x/wasm/keeper/handler_plugin_encoders.go:297."
+
+[disposition.6.80.2.1]
+finding = "6.80.2.1"
+status = "resolved"
+evidence = "Main spec/layerx-merge/spec.kvx:6656 explicitly amends decision 681 to retain Governed, which remains declared at contracts/security/Governed.sol:4 and imported by contracts/names/PaxBaseRegistrar.sol:4, preserving the live names deployment instead of deleting its base."
+
+[disposition.6.80.3]
+finding = "6.80.3"
+status = "environment"
+evidence = "The LayerXComponent reference came from injected qualification index scope rather than a live importer: committed .cgignore:11 names the authority test-support directory and f68b3311d landed tests/bridge/retired/test_retired_layer_x_component.py:4, while tests/bridge/retired/kernel_retirement.py:185 still scans .cgignore."
+
+[disposition.6.81.1]
+finding = "6.81.1"
+status = "environment"
+evidence = "The signal 11 followed a passing test inside the external qualification indexer, while main contracts/test/hardhat_solc_parity.test.js:6 retains the real parity function registered at contracts/test/hardhat_solc_parity.test.js:23 and 7d6bc73b2 aligned the Hardhat pin with Foundry."
+
+[disposition.6.81.1.1]
+finding = "6.81.1.1"
+status = "environment"
+evidence = "The timeout followed the passing parity test during qualification indexing of installed dependencies, while main .cgignore:34 excludes node_modules and contracts/test/hardhat_solc_parity.test.js:17 still compares the actual Hardhat compiler version with the Foundry configuration after 7d6bc73b2."
+
+[disposition.6.82.1]
+finding = "6.82.1"
+status = "resolved"
+evidence = "Main spec/layerx-merge/spec.kvx:148017 and spec/layerx-merge/spec.kvx:148018 select foundry.paxeer.toml through FOUNDRY_CONFIG instead of --config-path for both gates, and ab637e137 landed the six-selector IBank interface retained at contracts/src/precompiles/IBank.sol:8."

@@ -114,21 +114,6 @@ func (m *Metrics) setupPrometheus(cfg Config) (*metricsprom.PrometheusSink, erro
 	m.prometheusEnabled = true
 	prometheusOpts := metricsprom.PrometheusOpts{
 		Expiration: time.Duration(cfg.PrometheusRetentionTime) * time.Second,
-		// Default definitions, this allows Prometheus to persist metrics between scrapes instead
-		// not reporting them if they are not updated. Please use this only if needed as it
-		// will mean the metrics are stored in memory.
-		GaugeDefinitions: []metricsprom.GaugeDefinition{
-			{
-				Name: []string{"cosmos", "upgrade", "plan", "height"},
-				Help: "Next upgrade height",
-			},
-		},
-		CounterDefinitions: []metricsprom.CounterDefinition{
-			{
-				Name: []string{"pax_cosmos_validator_slashed"},
-				Help: "Total number of validator was slashed",
-			},
-		},
 	}
 
 	promSink, err := metricsprom.NewPrometheusSinkFrom(prometheusOpts)

@@ -295,6 +295,7 @@ async function deriveEmulatorInputs(emulator) {
     LAYERX_CREDENTIAL_STORE: emulator.cliEnvironment.LAYERX_CREDENTIAL_STORE,
     LAYERX_CREDENTIAL_PASSPHRASE: emulator.cliEnvironment.LAYERX_CREDENTIAL_PASSPHRASE,
     LAYERX_EMULATOR_TOKEN: token,
+    LAYERX_EMULATOR_RECEIPT_KEYS_JSON: emulatorReceiptKeys(emulator.anchor),
     LAYERX_EMULATOR_ASSET: seeded.asset,
     LAYERX_EMULATOR_SOURCE: source,
     LAYERX_EMULATOR_SELLER: accountIdentifier(accounts, sellerAccount),
@@ -316,6 +317,16 @@ async function deriveEmulatorInputs(emulator) {
     if (supplied !== undefined) derived[name] = supplied;
   }
   return derived;
+}
+
+export function emulatorReceiptKeys(anchor) {
+  const publicKey = requiredHex32(anchor, "invalid_emulator_receipt_public_key");
+  return JSON.stringify([{
+    keyId: createHash("sha256").update(Buffer.from(publicKey, "hex")).digest("hex"),
+    publicKey,
+    firstHeight: "1",
+    lastHeight: "18446744073709551615",
+  }]);
 }
 
 function accountName(did) {
@@ -472,7 +483,14 @@ async function merchantCheckout(environment, inputs) {
   }
 }
 
-function scenarioReceiptKeys(inputs, name) {
+export function merchantCheckoutOutcome(environment, orderId, receiptDigest, settlement) {
+  return {
+    application: "merchant-shop", environment, state: "paid", orderId,
+    receiptDigest, rung: settlement.verification.rung, transactionHash: settlement.txHash,
+  };
+}
+
+export function scenarioReceiptKeys(inputs, name) {
   const value = scenarioEnvironment(inputs, name);
   const previous = process.env[name];
   try {
@@ -566,9 +584,5 @@ export async function paidMerchantOutcome(result, environment, checkoutKey) {
   }
   const receiptDigest = requiredHex32(result.payment.receiptDigest, "merchant_reference_missing_receipt_digest");
   if (order.receiptDigest !== receiptDigest) throw new Error("merchant_reference_order_receipt_mismatch");
-  const outcome = {
-    application: "merchant-shop", environment, state: "paid", orderId: order.orderId,
-    receiptDigest, verification: result.settlement.verification.level,
-  };
-  return outcome;
+  return merchantCheckoutOutcome(environment, order.orderId, receiptDigest, result.settlement);
 }
