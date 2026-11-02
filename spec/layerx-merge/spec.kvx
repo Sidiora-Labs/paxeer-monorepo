@@ -120220,7 +120220,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.5.5.25]
 title = "Serve open-block heights from the committed state once the block seals"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.5.24"]
@@ -125272,7 +125272,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.51.1]
 title = "Retire the layerx-guarantor runtime, producer and binary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["5.0.3", "6.97.2", "8.19.1", "16.2.4", "16.3.2", "16.3.4", "16.8.1"]
@@ -125367,7 +125367,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.51.4]
 title = "Retire the layerx-guarantor settlement, publication and authorization scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["5.0.3", "6.97.2", "8.14.2", "8.19.1", "8.19.2", "10.8.2", "16.3.2", "16.7.2", "16.36.2"]
@@ -125527,7 +125527,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.5.53.1]
 title = "Retire the layerx-custody-proof daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["5.0.3", "6.97.2", "8.19.2", "8.19.11", "8.20.2", "9.96.3", "10.8.2", "10.26.16", "16.0.4", "16.3.2", "16.7.2", "16.7.3", "16.9.4", "16.11.5", "16.11.6", "16.11.9", "16.11.10", "16.35.1", "16.35.2"]
@@ -141690,7 +141690,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.19.4]
 title = "Remove the custody deposits from human provisioning"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 37
 requires = ["8.0.4", "8.10.1", "8.19.10", "8.14.2", "16.0.4", "6.97.2"]
@@ -142743,7 +142743,7 @@ do_8 = "Finding %s: port services/platform/middleware/conformance/src/scenarios.
 
 [task.8.26.2]
 title = "Run the in-process conformance scenarios on rungs and transaction hashes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.26.1", "8.24.3", "8.25.2", "8.23.3", "8.22.7"]
