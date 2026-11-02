@@ -4,13 +4,151 @@
 
 mod custody;
 
-pub use custody::{did_for_public_key, SeedSigner, SendError, SocketSigner, TreasurySigner};
+use custody::TreasurySigner as DidSigner;
+pub use custody::{did_for_public_key, SendError};
+use layerx_crypto::signer::{
+    AgentSignature, SignError, SignFuture, Signer, SigningRequest, TransactionSignFuture,
+};
+use layerx_platform_internal::evm_sender::EvmSender;
+use std::sync::Arc;
+
+pub trait TreasurySigner: Send + Sync {
+    fn public_key(&self) -> [u8; 32];
+    fn sign_digest(&self, digest: &[u8; 32]) -> Result<[u8; 64], String>;
+    fn transaction_signer(&self) -> &dyn Signer;
+}
+
+#[derive(Clone)]
+pub struct TreasuryIdentity<D> {
+    did: D,
+    evm: Result<Arc<EvmSender>, String>,
+}
+
+pub type SeedSigner = TreasuryIdentity<custody::SeedSigner>;
+pub type SocketSigner = TreasuryIdentity<custody::SocketSigner>;
+
+impl SeedSigner {
+    #[must_use]
+    pub fn new(seed: &[u8; 32]) -> Self {
+        let evm = layerx_crypto::account_derivation::derive_from_seed(seed, 0)
+            .map_err(|error| error.to_string())
+            .and_then(|account| {
+                let secret = account.evm_secret().ok_or("EVM key unavailable")?;
+                let encoded = zeroize::Zeroizing::new(hex_encode(secret));
+                EvmSender::from_hex_secret(&encoded)
+                    .map(Arc::new)
+                    .map_err(|error| error.to_string())
+            });
+        Self {
+            did: custody::SeedSigner::new(seed),
+            evm,
+        }
+    }
+}
+
+impl SocketSigner {
+    pub fn connect(path: &std::path::Path) -> Result<Self, String> {
+        Self::connect_with_timeout(path, custody::SIGNER_TIMEOUT)
+    }
+
+    pub fn connect_with_timeout(
+        path: &std::path::Path,
+        timeout: std::time::Duration,
+    ) -> Result<Self, String> {
+        let did = custody::SocketSigner::connect_with_timeout(path, timeout)?;
+        let evm =
+            EvmSender::from_env("LAYERX_CORE_FUNDING_SENDER").map_err(|error| error.to_string())?;
+        Ok(Self {
+            did,
+            evm: Ok(Arc::new(evm)),
+        })
+    }
+
+    pub fn connect_with_evm_sender(path: &std::path::Path, evm: EvmSender) -> Result<Self, String> {
+        Ok(Self {
+            did: custody::SocketSigner::connect(path)?,
+            evm: Ok(Arc::new(evm)),
+        })
+    }
+
+    #[must_use]
+    pub fn path(&self) -> &std::path::Path {
+        self.did.path()
+    }
+}
+
+impl<D: DidSigner> std::fmt::Debug for TreasuryIdentity<D> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("TreasuryIdentity")
+            .field("public_key", &hex_encode(&self.did.public_key()))
+            .finish_non_exhaustive()
+    }
+}
+
+impl<D: DidSigner> TreasurySigner for TreasuryIdentity<D> {
+    fn public_key(&self) -> [u8; 32] {
+        self.did.public_key()
+    }
+    fn sign_digest(&self, digest: &[u8; 32]) -> Result<[u8; 64], String> {
+        self.did.sign_digest(digest)
+    }
+    fn transaction_signer(&self) -> &dyn Signer {
+        self
+    }
+}
+
+impl<D: DidSigner> Signer for TreasuryIdentity<D> {
+    fn public_key(&self) -> [u8; 32] {
+        self.did.public_key()
+    }
+    fn sign<'a>(&'a self, _request: SigningRequest<'a>) -> SignFuture<'a> {
+        Box::pin(std::future::ready(Err(SignError::KeystoreRefused)))
+    }
+    fn evm_address(&self) -> Option<[u8; 20]> {
+        self.evm.as_ref().ok().map(|sender| sender.address())
+    }
+    fn sign_transaction<'a>(
+        &'a self,
+        call: &'a layerx_crypto::evm_transaction::Eip1559Call,
+    ) -> TransactionSignFuture<'a> {
+        Box::pin(async move {
+            let sender = self
+                .evm
+                .as_ref()
+                .map_err(|_| SignError::EvmKeyUnavailable)?;
+            let signature = sender
+                .sign_prehash(&call.signing_hash())
+                .map_err(|_| SignError::KeyRejected)?;
+            AgentSignature::new(signature).map_err(|_| SignError::KeyRejected)
+        })
+    }
+}
+
+fn complete<F: std::future::Future>(future: F) -> F::Output {
+    struct WakeThread(std::thread::Thread);
+    impl std::task::Wake for WakeThread {
+        fn wake(self: Arc<Self>) {
+            self.0.unpark();
+        }
+        fn wake_by_ref(self: &Arc<Self>) {
+            self.0.unpark();
+        }
+    }
+    let waker = std::task::Waker::from(Arc::new(WakeThread(std::thread::current())));
+    let mut context = std::task::Context::from_waker(&waker);
+    let mut future = std::pin::pin!(future);
+    loop {
+        match future.as_mut().poll(&mut context) {
+            std::task::Poll::Ready(result) => return result,
+            std::task::Poll::Pending => std::thread::park(),
+        }
+    }
+}
 
 use ed25519_dalek::SigningKey;
-use layerx_crypto::SignatureMessage;
 use layerx_intents::{compile, Intent, IntentKind, LxpSend};
 use layerx_types::account::AccountId;
-use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBound};
 use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, Did, IdempotencyKey};
 use layerx_types::intent::{
@@ -127,7 +265,7 @@ pub fn build_send_with_identity_sequence(
         .map_err(|error| error.to_string())
 }
 
-/// Builds one SEND whose two signatures come from `signer`, which may hold the
+/// Builds one SEND whose authorization and transaction signatures come from `signer`, which may hold the
 /// treasury identity in process or reach it over the treasury signer socket.
 ///
 /// # Errors
@@ -206,48 +344,41 @@ fn build_send_for_accounts(
             "compiled intent is not an asset send".into(),
         ));
     }
-    let actor = Did::new(request.source_did.as_bytes())
-        .map_err(|error| SendError::Invalid(format!("source DID is invalid: {error:?}")))?;
-    let authority = Authority::owner(&public_key)
-        .map_err(|error| SendError::Invalid(format!("owner authority is invalid: {error:?}")))?;
-    let timestamp = TimestampBound::new(request.not_before_ms, request.expires_at_ms)
-        .map_err(|error| SendError::Invalid(format!("timestamp bound is invalid: {error:?}")))?;
-    let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION)
-        .and_then(|value| value.network_id(request.network_id))
-        .and_then(|value| value.activity_type(activity_type))
-        .and_then(|value| value.actor_did(actor))
-        .and_then(|value| value.authority(authority))
-        .and_then(|value| value.account_sequence(identity_sequence))
-        .and_then(|value| value.timestamp_bound(timestamp))
-        .and_then(|value| value.idempotency_key(IdempotencyKey::new(request.idempotency_key)))
-        .and_then(|value| value.fee_limit(Amount::from_u128(request.fee_limit)))
-        .and_then(|value| value.payload_hash(compiled.payload_hash()))
-        .and_then(|value| value.payload(compiled.payload().clone()))
-        .map_err(|error| SendError::Invalid(format!("send envelope is invalid: {error:?}")))?;
-    let unsigned = builder
-        .build()
-        .map_err(|error| SendError::Invalid(format!("send envelope is incomplete: {error:?}")))?;
-    let unsigned_bytes =
-        layerx_wire::activity::encode_unsigned_envelope(&unsigned).map_err(|error| {
-            SendError::Invalid(format!("send signing bytes are invalid: {error:?}"))
-        })?;
-    let digest = domain_hash(Domain::SignaturePreimage, &unsigned_bytes);
-    let signature = disclosed_signature(signer, &unsigned_bytes, request.network_id)?;
-    layerx_crypto::ed25519::verify_digest(&public_key, &signature, &digest).map_err(|error| {
-        SendError::Invalid(format!("send signature does not verify: {error:?}"))
-    })?;
-    let envelope = unsigned
-        .attach_signature(Signature::new(&signature).map_err(|error| {
-            SendError::Invalid(format!("send signature is invalid: {error:?}"))
-        })?);
-    let canonical = layerx_wire::activity::encode_signed_envelope(&envelope)
-        .map_err(|error| SendError::Invalid(format!("signed send is invalid: {error:?}")))?;
-    let decoded = layerx_wire::activity::decode_signed(&canonical, &registry)
-        .map_err(|error| SendError::Invalid(format!("signed send does not decode: {error:?}")))?;
-    let activity_id = layerx_wire::hash::activity_id(&decoded)
-        .map_err(|error| SendError::Invalid(format!("send activity id is invalid: {error:?}")))?;
+    use layerx_crypto::payments::{ledger_payment_call, CallOptions};
+    let transaction_signer = signer.transaction_signer();
+    let sender = transaction_signer
+        .evm_address()
+        .ok_or_else(|| SendError::Signer("treasury EVM key is unavailable".to_owned()))?;
+    let disclosed = ledger_payment_call(
+        compiled.payload().as_bytes(),
+        &CallOptions {
+            from: sender,
+            chain_id: 125,
+            nonce: identity_sequence,
+            max_priority_fee_per_gas: 0,
+            max_fee_per_gas: 1,
+            gas_limit: u64::try_from(request.fee_limit).map_err(|_| {
+                SendError::Invalid("fee limit exceeds the gas budget range".to_owned())
+            })?,
+        },
+    )
+    .map_err(|error| SendError::Invalid(format!("send call is invalid: {error:?}")))?;
+    let signature = complete(layerx_crypto::signer::sign_disclosed_call(
+        transaction_signer,
+        &disclosed.call,
+        &disclosed.disclosure,
+        sender,
+    ))
+    .map_err(|error| SendError::Signer(error.to_string()))?;
+    let canonical = layerx_crypto::evm_transaction::assemble(&disclosed.call, &signature);
+    let recovered = layerx_crypto::evm_transaction::recover_sender(&disclosed.call, &signature)
+        .map_err(|error| SendError::Signer(error.to_string()))?;
+    if recovered != sender {
+        return Err(SendError::Signer(
+            "treasury transaction sender differs".to_owned(),
+        ));
+    }
+    let activity_id = layerx_crypto::evm_transaction::transaction_hash(&canonical);
     Ok(SignedSend {
         canonical,
         activity_id,
@@ -270,27 +401,6 @@ fn validate_send_request(request: &SendRequest) -> Result<(), SendError> {
         ));
     }
     Ok(())
-}
-
-fn disclosed_signature(
-    signer: &dyn TreasurySigner,
-    canonical: &[u8],
-    network_id: u32,
-) -> Result<[u8; 64], SendError> {
-    let message = SignatureMessage::new(
-        Domain::SignaturePreimage,
-        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-        network_id,
-        canonical,
-    )
-    .map_err(|error| SendError::Invalid(format!("send signing scope is invalid: {error:?}")))?;
-    let signature = signer
-        .sign_digest(&message.digest())
-        .map_err(SendError::Signer)?;
-    layerx_crypto::ed25519::verify(&signer.public_key(), &signature, message).map_err(|error| {
-        SendError::Signer(format!("treasury signature does not verify: {error:?}"))
-    })?;
-    Ok(signature)
 }
 
 fn send_authorization(
