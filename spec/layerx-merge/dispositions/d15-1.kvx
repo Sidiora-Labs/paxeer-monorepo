@@ -1,0 +1,79 @@
+[disposition.15.0.4.1]
+finding = "15.0.4.1"
+status = "resolved"
+evidence = "94cb28443 removed the buyer AuthorizedBatchResolver import and added BuyerMiddlewareConfig.receiptKeys at services/platform/middleware/buyer/src/index.ts:69, and aa4a00f62 wired the Express buyer to those keys without protocolVersion at sdk/integrations/express/src/index.ts:388."
+
+[disposition.15.4.1.1]
+finding = "15.4.1.1"
+status = "resolved"
+evidence = "94cb28443 removed the buyer AuthorizedBatchResolver import and added BuyerMiddlewareConfig.receiptKeys at services/platform/middleware/buyer/src/index.ts:69, and 69e6dc53d wired the Next buyer to those keys without protocolVersion at sdk/integrations/next/src/index.ts:377."
+
+[disposition.15.4.2.1]
+finding = "15.4.2.1"
+status = "resolved"
+evidence = "ffcc3d2b4 used the existing PxReceiptKeyEntry and decode_px_receipt_keys imports at sdk/integrations/fastapi/layerx_fastapi/config.py:12 and implemented parse_receipt_keys with those SDK types at sdk/integrations/fastapi/layerx_fastapi/config.py:150 instead of importing the nonexistent ReceiptKeys."
+
+[disposition.15.4.2.2]
+finding = "15.4.2.2"
+status = "resolved"
+evidence = "ffcc3d2b4 replaced the deleted parse_authorized_batch import and export with the receipt-key parser, whose current package import is at sdk/integrations/fastapi/layerx_fastapi/__init__.py:13."
+
+[disposition.15.4.5.1]
+finding = "15.4.5.1"
+status = "environment"
+evidence = "sdk/integrations/spring/pom.xml:33 declares com.sidiora.layerx:layerx-sdk using version 0.1.0 from sdk/integrations/spring/pom.xml:25, matching the sibling artifact at sdk/platform/jvm/pom.xml:6, so the recorded resolution failure concerns provisioning that artifact in the qualification Maven repository."
+
+[disposition.15.4.5.2]
+finding = "15.4.5.2"
+status = "resolved"
+evidence = "b327d535a replaced AuthorizedReceiptBatch throughout SellerMiddleware, Fulfillments and DurableStores with signed sequencer receipts and receipt keys, including sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/SellerMiddleware.java:43 and sdk/integrations/spring/src/main/java/com/sidiora/layerx/spring/Fulfillments.java:11."
+
+[disposition.15.4.7.1]
+finding = "15.4.7.1"
+status = "environment"
+evidence = "sdk/integrations/android/pom.xml:37 declares com.sidiora.layerx:layerx-sdk using version 0.1.0 from sdk/integrations/android/pom.xml:27, matching the sibling artifact at sdk/platform/jvm/pom.xml:6, so the recorded resolution failure concerns provisioning that artifact in the qualification Maven repository."
+
+[disposition.15.4.7.2]
+finding = "15.4.7.2"
+status = "resolved"
+evidence = "26400d399 changed sdk/integrations/android/src/main/java/com/sidiora/layerx/android/LayerXAndroid.java:79 to pass configuration-held receipt keys to the two-argument ReceiptGate constructor, with layerx.receipt_keys declared at sdk/integrations/android/src/main/java/com/sidiora/layerx/android/PublishableConfiguration.java:30."
+
+[disposition.15.4.7.3]
+finding = "15.4.7.3"
+status = "resolved"
+evidence = "26400d399 ported sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java:70 to decode raw_transaction, signed_receipt and receipt_key and construct the three-field ReceiptGate.Evidence at sdk/integrations/android/src/sample/java/com/sidiora/layerx/android/sample/RelayReceiptResolver.java:86."
+
+[disposition.15.4.7.4]
+finding = "15.4.7.4"
+status = "resolved"
+evidence = "26400d399 landed the expanded Android port including the sample resolver, while sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java:40 retains a one-method resolver and sdk/integrations/android/src/main/java/com/sidiora/layerx/android/ReceiptGate.java:47 retains only the two-argument constructor, with the SDK an unconditional dependency at sdk/integrations/android/pom.xml:37."
+
+[disposition.15.4.9.1]
+finding = "15.4.9.1"
+status = "resolved"
+evidence = "88d9b698c replaced the sample AuthorizedReceiptBatch decode with ReceiptGate.Evidence carrying rawTransaction, signedReceipt, receiptKey, receiptJSON and prevSeqHash at sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift:72."
+
+[disposition.15.4.9.2]
+finding = "15.4.9.2"
+status = "resolved"
+evidence = "88d9b698c landed the previously omitted SampleEnvironment port at sdk/integrations/ios/Sources/LayerXMobileSampleKit/SampleEnvironment.swift:72 and configuration-held key propagation at sdk/integrations/ios/Sources/LayerXMobile/LayerXMobile.swift:72, implementing both do_4 and do_5 beyond the unchanged failed candidates."
+
+[disposition.15.4.9.3]
+finding = "15.4.9.3"
+status = "resolved"
+evidence = "88d9b698c added layerx.receipt_keys parsing at sdk/integrations/ios/Sources/LayerXMobile/PublishableConfiguration.swift:40 and changed sdk/integrations/ios/Sources/LayerXMobile/LayerXMobile.swift:72 to pass configuration.receiptKeys to ReceiptGate and refuse missing keys before constructing a gate."
+
+[disposition.15.4.11.1]
+finding = "15.4.11.1"
+status = "resolved"
+evidence = "0ccb6f5eb ported the affected agents consumers, including decodeDaemonPrepared at sdk/integrations/agents/src/daemon-budget.ts:111, receiptKeys at sdk/integrations/agents/src/integration.ts:51, signing_hash at sdk/integrations/agents/src/services.ts:185 and sequencer receipt verification at sdk/integrations/agents/src/tools.ts:409, and removed the obsolete wallet provider."
+
+[disposition.15.4.11.2]
+finding = "15.4.11.2"
+status = "resolved"
+evidence = "0ccb6f5eb changed all seven declared agents source files, applying the expanded port visible in sdk/integrations/agents/src/daemon-budget.ts:179, sdk/integrations/agents/src/integration.ts:51, sdk/integrations/agents/src/services.ts:218 and sdk/integrations/agents/src/service-providers.ts:37 instead of retaining the byte-identical failed candidates."
+
+[disposition.15.4.11.3]
+finding = "15.4.11.3"
+status = "superseded"
+evidence = "0ccb6f5eb retired ApprovedWalletSigner, its wallet artifact types and the walletSigner selection branch, leaving only explicit AgentSigner providers at sdk/integrations/agents/src/service-providers.ts:27 and sdk/integrations/agents/src/service-providers.ts:37 while EVM signing and submission remain in services/wallet/gateway/src/routes/evmApprovals.ts:254."

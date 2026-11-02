@@ -463,6 +463,8 @@ impl VerifiedStep {
     }
 }
 impl VerifiedReplay {
+    /// Authenticate the signed batch and independently derived native authority
+    /// before returning a replay consumer for the committed boundary proofs.
     pub fn verify_with_batch_context(
         receipt: &VerifiedReceipt,
         admission: &crate::AdmissionEvidence,
@@ -491,6 +493,8 @@ impl VerifiedReplay {
         Ok(replay)
     }
 
+    /// Consume chain-authenticated replay artifacts and construct fresh runtime inputs.
+    /// Call `verify_with_batch_context` when independent batch authority is required.
     pub fn verify(
         receipt: &VerifiedReceipt,
         admission: &crate::AdmissionEvidence,
