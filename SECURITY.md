@@ -26,14 +26,15 @@ The [Paxeer bug bounty programme](https://www.paxeer.app/bug-bounty) rewards vul
 
 ### Response SLAs
 
-These targets represent our best effort to provide timely responses. Exceptions may occur due to holidays, complex investigations, or coordination with upstream maintainers.
+These targets represent our best effort to provide timely responses. Exceptions
+may occur due to holidays, complex investigations, or coordination with
+upstream maintainers.
 
-- **Receipt acknowledgement:** Within 48 hours of initial report receipt
-- **Initial triage & scope/severity decision:** Within 5 business days of receipt
-- **Status updates:** Provided every two weeks while remediation is in progress
+- **Receipt acknowledgement:** Promptly upon report receipt
+- **Initial triage & scope/severity decision:** Following receipt
+- **Status updates:** Provided periodically while remediation is in progress
 - **Resolution & coordinated disclosure:** Target remediation timelines depend on
-  severity (Critical: 7 calendar days, High: 14 calendar days, Medium: 30
-  calendar days, Low: 60 calendar days)
+  severity and project capacity
 - **Escalation path:** If a response target is missed, you may escalate by
   emailing <security@paxeer.app> with the reference to your original advisory
   or report for a status review by the security lead.
