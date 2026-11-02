@@ -82,6 +82,7 @@ export interface ReceiptFacts {
   readonly asset: Uint8Array;
   readonly payTo: Uint8Array;
   readonly amount: bigint;
+  readonly purposeHash?: string;
   readonly from: Uint8Array;
   readonly batchId: Uint8Array;
   readonly previousStateRoot: Uint8Array;
@@ -100,7 +101,13 @@ export async function buildSignedReceipt(
     if (word.length !== 32) throw new Error("receipt facts must contain 32-byte words");
   }
   bigEndian(facts.amount, 16);
-  const reference = paymentReference(facts.payTo, facts.asset, facts.amount);
+  if (facts.purposeHash !== undefined
+    && (!/^[0-9a-f]{64}$/u.test(facts.purposeHash) || /^0+$/u.test(facts.purposeHash))) {
+    throw new Error("receipt purpose hash must be a nonzero 32-byte lowercase hex string");
+  }
+  const reference = facts.purposeHash === undefined
+    ? paymentReference(facts.payTo, facts.asset, facts.amount)
+    : fromHex(`0x${facts.purposeHash}`);
   const ledger = fromHex(LAYERX_LEDGER_ADDRESS);
   const rawTransaction = sequencer.signTransaction({
     chainId: 125n,
