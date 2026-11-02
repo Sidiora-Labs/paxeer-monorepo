@@ -100890,7 +100890,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.36.2]
 title = "Retire batch-header inclusion, discovery and domain-tag verifiers in layerxproof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.2", "1.37.1", "1.36.1", "1.0.3", "6.96.2", "5.97.1", "12.18.1", "6.96.5"]
@@ -119354,7 +119354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.5.2]
 title = "Namespace a chain's activity in the indexer and serve it per chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.5.1"]
@@ -122472,7 +122472,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.20.1.2]
 title = "Wire the chain registry module into the application and its merge store upgrade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.1.1"]
