@@ -116863,7 +116863,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.7]
 title = "Evaluate the agent rate limit before reserving the daily cap in the wallet gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -186648,7 +186648,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.23.6]
 title = "Authorize a delegate's spend through the delegate authorization in the kernel budget module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -187334,7 +187334,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.1.9]
 title = "Reconcile the genesis, state-proof and module-registry kernel checks with the current registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.13.6"]
