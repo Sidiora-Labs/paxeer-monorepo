@@ -1,4 +1,5 @@
 use layerx_client::rpc::evidence::checkpoint;
+use layerx_client::runtime_clock::RuntimeClock;
 use layerx_client::sequencer::SequencerEndpoint;
 use std::fmt::Debug;
 use std::fs;
@@ -214,6 +215,7 @@ fn runtime(fixture: &Value, principal: &str, owner: &str, account: &str) -> Agen
     )
 }
 fn custody(fixture: &Value, registry: &layerx_types::payload::ModuleRegistry) -> CustodySigner {
+    let clock = checked(RuntimeClock::from_environment());
     let mut roots = RootCertStore::empty();
     checked(roots.add(CertificateDer::from(protected(
         text(fixture, "kms_ca_der"),
@@ -236,6 +238,7 @@ fn custody(fixture: &Value, registry: &layerx_types::payload::ModuleRegistry) ->
         text(fixture, "kms_server_name"),
         tls,
         frame_limits(),
+        clock,
     ));
     let keys = checked(Keystore::open_production(
         text(fixture, "custody_store"),

@@ -562,6 +562,9 @@ func TestVersionSwitchV69Vectors(t *testing.T) {
 			require.NoError(t, a.LayerXCustodyKeeper.SetAsset(ctx, custodytypes.AssetMapping{
 				AssetId: custodytypes.Hash32(token), Denom: "ufoo", Pointer: common.HexToAddress("0xf00f0").Hex(), Enabled: true,
 			}))
+			require.NoError(t, a.LayerXCustodyKeeper.SetAsset(ctx, custodytypes.AssetMapping{
+				AssetId: custodytypes.Hash32([32]byte{0xee}), Denom: "ubar", Pointer: common.HexToAddress("0xf00f1").Hex(), Enabled: true,
+			}))
 			for _, market := range []exchangetypes.Market{
 				{MarketId: custodytypes.Hash32([32]byte{0x6d, 0x01}), MarginAssetId: custodytypes.Hash32(native), Enabled: true},
 				{MarketId: custodytypes.Hash32([32]byte{0x6d, 0x02}), MarginAssetId: custodytypes.Hash32(token), Enabled: true},
@@ -634,6 +637,21 @@ func TestVersionSwitchV69Vectors(t *testing.T) {
 					} else {
 						require.NoError(t, err)
 						returned = output
+						if call.Method == layerxexchange.DepositMarginMethod || call.Method == layerxexchange.DepositMarginTokenMethod {
+							method := selected.GetABI().Methods[call.Method]
+							values, err := method.Outputs.Unpack(returned)
+							require.NoError(t, err)
+							intentID := values[0].([32]byte)
+							intent, found := a.LayerXExchangeKeeper.GetIntent(db.Ctx(), intentID)
+							require.True(t, found)
+							require.Equal(t, exchangetypes.IntentID(a.EvmKeeper.ChainID(db.Ctx()), caller,
+								exchangetypes.IntentKind_INTENT_KIND_DEPOSIT, intent.Nonce), intentID)
+							require.Empty(t, intent.DepositId)
+							require.Empty(t, intent.Denom)
+							encoded, err := method.Outputs.Pack(intentID, [32]byte{})
+							require.NoError(t, err)
+							require.Equal(t, encoded, returned)
+						}
 					}
 					require.Equal(t, decodeHex(t, "return", call.Return), append([]byte{}, returned...))
 					require.Equal(t, decodeHex(t, "revert", call.Revert), append([]byte{}, reverted...))
