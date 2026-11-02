@@ -68,9 +68,9 @@ func TestAnchorRetirementRehearsal(t *testing.T) {
 	for i, operator := range s.operators {
 		initialBalances[i] = s.balance(operator)
 	}
+	require.Less(t, s.ctx.BlockHeight(), mergeHeight)
 	s.bondAll()
-	checkpoint, err := s.submit("batch_1_quorum")
-	require.NoError(t, err)
+	checkpoint := s.importHistoricalCheckpoint()
 	require.Equal(t, types.CheckpointFinal, checkpoint.Status)
 	total := sdk.NewInt(int64(len(s.ids)) * bond)
 	supply := s.app.BankKeeper.GetSupply(s.ctx, s.k.GetParams(s.ctx).BondDenom)
@@ -93,23 +93,16 @@ func TestAnchorRetirementRehearsal(t *testing.T) {
 		layerxanchor.CheckpointBatchMethod:      {[32]byte(checkpoint.CheckpointID)},
 		layerxanchor.CheckpointGuarantorsMethod: {uint64(1)},
 	}
-	v := s.vector("checkpoints", "batch_1_quorum")
-	header, err := v.Bytes("header")
-	require.NoError(t, err)
-	signature, err := v.Bytes("header_signature")
-	require.NoError(t, err)
-	certificate, err := v.Bytes("certificate")
-	require.NoError(t, err)
 	authorization := s.k.GetSequencerAuthorizations(s.ctx)[0]
 	writes := map[string][]interface{}{
-		layerxanchor.SubmitCheckpointMethod:          {header, signature, certificate},
-		layerxanchor.SubmitAvailabilityMethod:        {s.attestation("batch_1_attestation_1")},
+		layerxanchor.SubmitCheckpointMethod:          {[]byte{0xff}, make([]byte, 64), []byte{0xff}},
+		layerxanchor.SubmitAvailabilityMethod:        {[]byte{0xff}},
 		layerxanchor.FinalizeMethod:                  {uint64(1)},
 		layerxanchor.RegisterGuarantorMethod:         {s.ids[0], common.Address(s.signers[0])},
 		layerxanchor.IncreaseBondMethod:              {s.ids[0]},
 		layerxanchor.BeginUnbondMethod:               {s.ids[0], big.NewInt(1_000_000)},
 		layerxanchor.CompleteUnbondMethod:            {s.ids[0]},
-		layerxanchor.SubmitEquivocationMethod:        {s.attestation("batch_1_attestation_0"), s.attestation("batch_1_conflicting_attestation_0")},
+		layerxanchor.SubmitEquivocationMethod:        {[]byte{0xff}, []byte{0xff}},
 		layerxanchor.OpenChallengeMethod:             {uint64(1), types.ChallengeFraud, [32]byte{1}},
 		layerxanchor.ResolveChallengeMethod:          {uint64(1), false},
 		layerxanchor.ActivateGuarantorMethod:         {s.ids[0]},
@@ -143,6 +136,8 @@ func TestAnchorRetirementRehearsal(t *testing.T) {
 			}
 			require.Equal(t, height >= mergeHeight, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
 			require.Equal(t, height >= deleteHeight, pcommon.RetiredAt(s.ctx, &s.app.UpgradeKeeper, types.StoreDeleteUpgrade, height))
+			_, err := s.submit(nil, [64]byte{}, nil)
+			require.ErrorIs(t, err, types.ErrModuleRetired)
 			before := s.k.ExportGenesis(s.ctx)
 			logs := len(db.GetAllLogs())
 			if height < mergeHeight {
@@ -248,9 +243,11 @@ func TestExportAfterRetireValidates(t *testing.T) {
 	for _, name := range []string{"bonded", "unbonding", "mixed_escrow"} {
 		t.Run(name, func(t *testing.T) {
 			s := newAnchorRetirementSuite(t)
+			const mergeHeight = int64(20)
+			s.app.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(mergeHeight), types.MergeUpgrade)
+			require.False(t, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
 			s.bondAll()
-			checkpoint, err := s.submit("batch_1_quorum")
-			require.NoError(t, err)
+			checkpoint := s.importHistoricalCheckpoint()
 			if name != "bonded" {
 				amount := int64(1_000_000)
 				if name == "unbonding" {
@@ -277,7 +274,8 @@ func TestExportAfterRetireValidates(t *testing.T) {
 				balances[i] = s.balance(operator)
 			}
 			reporterBalance := s.balance(s.reporter)
-			s.ctx = s.ctx.WithBlockHeight(20)
+			s.ctx = s.ctx.WithBlockHeight(mergeHeight)
+			require.True(t, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
 			returned, err := s.k.RetireAtMerge(s.ctx)
 			require.NoError(t, err)
 			require.Equal(t, sdk.NewInt(int64(len(s.ids))*bond).Add(challengeBond), returned)
@@ -300,6 +298,8 @@ func TestExportAfterRetireValidates(t *testing.T) {
 				require.Equal(t, balances[i].AddRaw(bond), s.balance(operator))
 			}
 			require.Equal(t, reporterBalance.Add(challengeBond), s.balance(s.reporter))
+			_, err = s.submit(nil, [64]byte{}, nil)
+			require.ErrorIs(t, err, types.ErrModuleRetired)
 			require.Equal(t, sdk.ZeroInt(), s.k.ModuleBalance(s.ctx))
 			require.Equal(t, sdk.ZeroInt(), s.k.Escrowed(s.ctx))
 			message, broken := keeper.BalanceInvariant(s.k)(s.ctx)
