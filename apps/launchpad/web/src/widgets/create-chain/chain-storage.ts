@@ -1,5 +1,8 @@
-import { address } from '../create/creation-domain';
+import { address, hash, raw } from '../create/creation-domain';
+import type { ChainSubmission } from './chain-adapters';
 import { validateChainDraft, type ChainDraft } from './chain-domain';
+
+const submissionKey = 'chain-submission-v1';
 
 export class ChainDraftStorage {
   private creator: string;
@@ -32,6 +35,44 @@ export class ChainDraftStorage {
     if (body === null) return null;
     if (body.length > 4096) throw new Error('Your saved chain draft is too large.');
     return this.checked(JSON.parse(body));
+  }
+
+  saveSubmission(draft: ChainDraft, submission: ChainSubmission): void {
+    const checked = this.checked(draft);
+    if (address(submission.creator) !== this.creator || submission.chainId !== checked.chainId
+      || !['confirm', 'reverted'].includes(submission.phase)) throw new Error('Invalid saved submission.');
+    const saved: ChainSubmission = {
+      creator: this.creator, chainId: 125, txHash: hash(submission.txHash) as ChainSubmission['txHash'],
+      phase: submission.phase, bondRaw: raw(submission.bondRaw).toString(),
+    };
+    localStorage.setItem(submissionKey, JSON.stringify({ draft: checked, submission: saved }));
+  }
+
+  restoreSubmission(): { draft: ChainDraft; submission: ChainSubmission } | null {
+    return ChainDraftStorage.restoreSubmission();
+  }
+
+  static restoreSubmission(): { draft: ChainDraft; submission: ChainSubmission } | null {
+    const body = localStorage.getItem(submissionKey);
+    if (body === null) return null;
+    if (body.length > 4096) throw new Error('Your saved submission is too large.');
+    const saved = JSON.parse(body) as { draft: ChainDraft; submission: ChainSubmission };
+    const owner = new ChainDraftStorage(saved.submission.creator);
+    const draft = owner.checked(saved.draft);
+    const submission = saved.submission;
+    if (address(submission.creator) !== address(draft.creator) || submission.chainId !== draft.chainId
+      || !['confirm', 'reverted'].includes(submission.phase)) throw new Error('Invalid saved submission.');
+    return { draft, submission: {
+      creator: address(submission.creator), chainId: 125, txHash: hash(submission.txHash) as ChainSubmission['txHash'],
+      phase: submission.phase, bondRaw: raw(submission.bondRaw).toString(),
+    } };
+  }
+
+  clearSubmission(txHash: string): void {
+    const saved = this.restoreSubmission();
+    if (saved && saved.submission.txHash === hash(txHash) && saved.submission.creator === this.creator) {
+      localStorage.removeItem(submissionKey);
+    }
   }
 
   clearDraft(): void {

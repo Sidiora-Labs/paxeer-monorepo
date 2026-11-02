@@ -18,11 +18,24 @@ pub const MAX_TRANSACTION_BYTES: usize = 1232;
 
 /// The commitment the relayer reads Solana at. `processed` is never accepted:
 /// a processed slot can still be skipped.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
-#[serde(rename_all = "snake_case")]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Commitment {
     Confirmed,
     Finalized,
+}
+
+impl<'de> Deserialize<'de> for Commitment {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = String::deserialize(deserializer)?;
+        match value.as_str() {
+            "confirmed" => Ok(Self::Confirmed),
+            "finalized" => Ok(Self::Finalized),
+            _ => Err(serde::de::Error::unknown_variant(
+                &value,
+                &["confirmed", "finalized"],
+            )),
+        }
+    }
 }
 
 impl Commitment {
