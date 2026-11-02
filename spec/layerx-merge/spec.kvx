@@ -109961,7 +109961,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1435.1]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the TypeScript agent envelope decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1435.2"]
@@ -111518,7 +111518,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1435.5]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Swift agent envelope decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1435.2"]
@@ -120250,7 +120250,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1435.4]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the Go agent envelope decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["18.1435.2"]
