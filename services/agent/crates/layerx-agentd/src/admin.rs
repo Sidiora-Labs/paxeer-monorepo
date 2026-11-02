@@ -299,6 +299,23 @@ pub struct VerificationBacklog {
     pub attempts: u32,
 }
 
+impl VerificationBacklog {
+    /// Compares the observed evidence with the exact requested level.
+    #[must_use]
+    pub const fn is_backlogged(&self) -> bool {
+        matches!(
+            self.observed.compare(self.requested),
+            std::cmp::Ordering::Less
+        )
+    }
+
+    /// Returns the write rung supported by the normal evidence observer.
+    #[must_use]
+    pub const fn retry_rung(&self) -> Option<layerx_types::rung::Rung> {
+        self.requested.rung()
+    }
+}
+
 /// A new-activity request that can only be handed to the ordinary client write path.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ClientWritePlan {
@@ -531,7 +548,7 @@ impl Surface {
             context,
             OperatorCommand::InspectVerificationBacklog(backlog.idempotency_key),
         )?;
-        if backlog.observed >= backlog.requested {
+        if !backlog.is_backlogged() {
             return Err(AdminError::NotBacklogged);
         }
         Ok(backlog)
@@ -558,8 +575,7 @@ impl Surface {
             OperatorCommand::RetryVerification(backlog.idempotency_key),
         )?;
         let requested = backlog
-            .requested
-            .rung()
+            .retry_rung()
             .ok_or(AdminError::Verification(FinalityError::ProgressUnavailable))?;
         finality::wait_for_rung(
             progress,
