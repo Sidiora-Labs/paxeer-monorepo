@@ -1133,7 +1133,7 @@ const OIContractsSQL = `(SELECT COALESCE(sum(p.size_usd / p.entry_price), 0) FRO
 // last fill price, the time of the block that last updated them, the 24-hour
 // fill volume in contracts, the open interest in contracts and the settled
 // hourly rate and eight times it of the latest FundingSettled.
-const rollingSQL = `SELECT m.symbol, m.name, s.volume_7d / $1::numeric, s.volume_30d / $1::numeric, s.trades_count,
+const rollingSQL = `SELECT m.market_id::text, m.symbol, m.name, s.volume_7d / $1::numeric, s.volume_30d / $1::numeric, s.trades_count,
 	(s.last_price - s.open_24h) / NULLIF(s.open_24h, 0), b.time,
 	(SELECT COALESCE(sum(f.size_usd / NULLIF(f.price, 0)), 0) FROM perps.fills f
 		WHERE f.market_id = m.market_id AND f.block_time >= $2), ` + OIContractsSQL + `,
@@ -1167,7 +1167,7 @@ func (p *Providers) records(ctx context.Context, syms []string) ([]records.Marke
 			trades                           sql.NullInt64
 			updated                          sql.NullTime
 		)
-		if err := rows.Scan(&r.Symbol, &r.SymbolFull, &vol7, &vol30, &trades, &change, &updated, &volContract,
+		if err := rows.Scan(&r.MarketID, &r.Symbol, &r.SymbolFull, &vol7, &vol30, &trades, &change, &updated, &volContract,
 			&oiContracts, &hourly, &funding8h); err != nil {
 			return nil, err
 		}
