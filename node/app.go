@@ -629,11 +629,15 @@ type App struct {
 	GigaOCCEnabled bool
 
 	// openBlock is the sequencer executor's open block; nil in full-node mode.
-	openBlock        OpenBlock
-	sequencerSource  tmtypes.SequencerSource
-	sequencerRPC     evmrpc.SequencerOption
-	sequencerReceipt evmrpc.SequencerReceiptOption
-	commitListener   func(height int64, appHash []byte) error
+	openBlock             OpenBlock
+	sequencerSource       tmtypes.SequencerSource
+	sequencerRPC          evmrpc.SequencerOption
+	sequencerReceipt      evmrpc.SequencerReceiptOption
+	commitListener        func(height int64, appHash []byte) error
+	lastBlockIDMutex      sync.RWMutex
+	committedBlockID      tmproto.BlockID
+	committingBlockID     tmproto.BlockID
+	committingBlockHeight int64
 }
 
 const LayerXHostStoreKey = storekeys.LayerXHostStoreKey
@@ -1440,7 +1444,16 @@ func (app *App) Close() error {
 
 // HandlePreCommit happens right before the block is committed
 func (app *App) HandlePreCommit(ctx sdk.Context) error {
-	return app.EvmKeeper.FlushTransientReceipts(ctx)
+	if err := app.EvmKeeper.FlushTransientReceipts(ctx); err != nil {
+		return err
+	}
+	committed := app.LastBlockID()
+	app.lastBlockIDMutex.Lock()
+	defer app.lastBlockIDMutex.Unlock()
+	app.committedBlockID = committed
+	app.committingBlockID = tmproto.BlockID{Hash: ctx.HeaderHash()}
+	app.committingBlockHeight = ctx.BlockHeight()
+	return nil
 }
 
 // Close closes all items that needs closing (called by baseapp)
@@ -3359,7 +3372,15 @@ func (app *App) SetCommitListener(fn func(height int64, appHash []byte) error) {
 }
 
 func (app *App) LastBlockID() tmproto.BlockID {
-	return app.GetCheckCtx().BlockHeader().LastBlockId
+	app.lastBlockIDMutex.RLock()
+	defer app.lastBlockIDMutex.RUnlock()
+	id := app.committedBlockID
+	if app.committingBlockHeight > 0 && app.committingBlockHeight == app.LastBlockHeight() {
+		id = app.committingBlockID
+	}
+	id.Hash = append([]byte(nil), id.Hash...)
+	id.PartSetHeader.Hash = append([]byte(nil), id.PartSetHeader.Hash...)
+	return id
 }
 
 // LatestCtx is the ante read context. In sequencer mode it is a branch of L_open while a block
