@@ -111156,7 +111156,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1475.1]
 title = "Issue #1475: Drop the dead purpose-hash conditional and prove the metered refusal past the scheme gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -111275,7 +111275,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1445.1]
 title = "Issues #1445 and #1447: Accept the Human service evidence labels in the buyer and read the ledger draw in the precompile's word order"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199468,7 +199468,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1472.1]
 title = "Issue #1472: Read the daemon's rung key and names in the Python agent client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["18.1435.1"]
@@ -199498,7 +199498,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1467.1]
 title = "Issue #1467: Name the live readers of the paxeer-light-v1 custody vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199558,7 +199558,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1460.1]
 title = "Issue #1460: Check the custody-proof daemon retirement against the package path Go recipes print"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199587,7 +199587,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1459.1]
 title = "Issue #1459: Replace the guarantor operator guide with a retirement notice"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
