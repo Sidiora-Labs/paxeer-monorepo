@@ -184693,7 +184693,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.5.7]
 title = "Preserve every key in the Litt 3-to-3 migration and open the anchor tree once in the memiavl fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
