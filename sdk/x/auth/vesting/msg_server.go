@@ -5,8 +5,6 @@ import (
 
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 
-	"github.com/armon/go-metrics"
-
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
@@ -85,18 +83,10 @@ func (s msgServer) CreateVestingAccount(goCtx context.Context, msg *types.MsgCre
 
 	defer func() {
 		vestingMetrics.newAccount.Add(goCtx, 1)
-		// TODO(PLT-353): remove once vesting_new_account verified
-		telemetry.IncrCounter(1, "new", "account")
 
 		for _, a := range msg.Amount {
 			if a.Amount.IsInt64() {
 				vestingMetrics.accountAmount.Record(goCtx, a.Amount.Int64(), otelmetric.WithAttributes(attribute.String("denom_class", telemetry.DenomClass(a.Denom))))
-				// TODO(PLT-353): remove once vesting_account_amount verified
-				telemetry.SetGaugeWithLabels(
-					[]string{"tx", "msg", "create_vesting_account"},
-					float32(a.Amount.Int64()),
-					[]metrics.Label{telemetry.NewLabel("denom", a.Denom)},
-				)
 			}
 		}
 	}()

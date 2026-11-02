@@ -28,7 +28,7 @@ export default function Home() {
             Move assets to Paxeer — and back
           </h1>
           <p className="max-w-xl leading-relaxed text-muted-foreground">
-            One bridge for Ethereum, Base, Arbitrum, Optimism, BNB Chain, Polygon, Avalanche, HyperEVM and Solana.
+            One bridge for {BRIDGE_CHAINS.map((chain) => chain.label).join(', ')}.
             Deposits lock in the chain's vault, attestors sign, and the bridged asset lands on Paxeer at 1:1.
           </p>
         </div>

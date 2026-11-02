@@ -1,0 +1,39 @@
+[disposition.16.96.5.1]
+finding = "16.96.5.1"
+status = "resolved"
+evidence = "Commit d90dfd88cb47a4ff49ed6142480219e168965eb1 removed both the custody_asset_send compile command and its artifact row from tools/paxeer-x/gates/5.1.sh, whose build now records only the probe artifact at tools/paxeer-x/gates/5.1.sh:35."
+
+[disposition.16.97.1.1]
+finding = "16.97.1.1"
+status = "resolved"
+evidence = "Commit 95cef437cadd8a8e7aacd7ae4094541c43b213b8 implements test_no_receive_or_grant_store_caller at tests/ci/test_kernel_suite_retired_uses.py:26 as a retired gateway-suite absence check and asset-registry grant checks without scanning live lxp_receive_environment uses."
+
+[disposition.16.97.1.2]
+finding = "16.97.1.2"
+status = "resolved"
+evidence = "Commit 95cef437cadd8a8e7aacd7ae4094541c43b213b8 scopes the grant-store scan to tests/modules/test_asset_registry.c at tests/ci/test_kernel_suite_retired_uses.py:28, removing the erroneous scan of grant-store uses in other kernel suites."
+
+[disposition.16.97.1.3]
+finding = "16.97.1.3"
+status = "resolved"
+evidence = "Commit 31abffb07 sets LXP_QUAL_ACTIVITY_TYPE_COUNT to 50 at include/layerx/lxp_qualification.h:11 to match the 50-entry replay table at tests/qualification/lxp_qual_replay.c:28, while tests/ci/test_kernel_suite_retired_uses.py:60 compares the table length to the header rather than a fixed 49."
+
+[disposition.16.97.1.4]
+finding = "16.97.1.4"
+status = "resolved"
+evidence = "Commit 95cef437cadd8a8e7aacd7ae4094541c43b213b8 removes web_genesis_checks and its invocation from tests/protocol/lxp_test_kernel.c, so the remaining suite no longer requires the retired web genesis row."
+
+[disposition.16.97.1.5]
+finding = "16.97.1.5"
+status = "resolved"
+evidence = "Commit 95cef437cadd8a8e7aacd7ae4094541c43b213b8 derives capacity_checks fill transitions from LXP_KERNEL_MAX_MODULE_KV at tests/protocol/lxp_test_kernel.c:231 and retains the overflow refusal and unchanged state assertions at tests/protocol/lxp_test_kernel.c:248."
+
+[disposition.16.97.2.1]
+finding = "16.97.2.1"
+status = "resolved"
+evidence = "Commit 754519b4ed888ce60a506e547462f4ffe7977a2a checks the retired tests/modules/test_web_intake.c path and scans for the web_intake identifier at tests/ci/test_requested_suites_absent.py:31 instead of rejecting live suites that include layerx/lx_web.h."
+
+[disposition.16.97.3.1]
+finding = "16.97.3.1"
+status = "resolved"
+evidence = "Commit 94835c047fe77d5aa0f9dd26d1021f029c338ea5 checks the five named retired Solidity suites at tests/ci/test_requested_retirements_absent.py:18 and restricts the import scan to contracts/storage at tests/ci/test_requested_retirements_absent.py:7, leaving live Governed.sol imports outside the retired surface."

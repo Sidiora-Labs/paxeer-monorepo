@@ -1,0 +1,125 @@
+[disposition.5.19.2]
+finding = "5.19.2"
+status = "resolved"
+evidence = "storage/common/keys/store_keys.go:53 defines LayerXHostStoreKey as lxphost and node/app.go:891 constructs the shared host over that key, matching the ledger and auth keeper lookups."
+
+[disposition.5.19.4]
+finding = "5.19.4"
+status = "resolved"
+evidence = "node/precompiles.go:150 declares LayerXPayK over the pay keeper initialized at node/app.go:908, so the registered pay constructor now has its required accessor."
+
+[disposition.5.31.1]
+finding = "5.31.1"
+status = "environment"
+evidence = "consensus/types/sequencer.go:25 declares LeaderSource.LeaderSchedule as introduced by 9056b1996, so the reported missing graph declaration was a qualification-tool extractor limitation rather than missing repository code."
+
+[disposition.5.41.3]
+finding = "5.41.3"
+status = "resolved"
+evidence = "node/app.go:1586 deletes the anchor store using retiredAnchorStoreName and node/store_delete_test.go:35 asserts that literal-backed name, removing the dependency on the deleted constant that broke compilation."
+
+[disposition.5.41.4]
+finding = "5.41.4"
+status = "resolved"
+evidence = "node/store_delete_test.go:124 takes BeforeBalanceChange from LaunchpadV610K, whose method exists at modules/launchpad/legacy/v610/keeper/history.go:110, instead of the retired method on the current launchpad keeper."
+
+[disposition.5.46.7]
+finding = "5.46.7"
+status = "resolved"
+evidence = "daemon/paxd/cmd/new_app_test.go:70 marshals an explicitly tagged genesis object with activation_height, leaders and receipt_keys, as landed in 71ea3e796."
+
+[disposition.5.46.8]
+finding = "5.46.8"
+status = "resolved"
+evidence = "36ff6305d changes the genesis receipt-key command to preserve the wire object and write moduleState[receipt_keys], which remains at daemon/paxd/cmd/genreceiptkey.go:95."
+
+[disposition.5.47.4.1]
+finding = "5.47.4.1"
+status = "resolved"
+evidence = "526209089 re-records V1 as a type-2 transaction, visible at daemon/committed-fixture/vectors/vector-v1-receipted-positive.json:11, and 98b857055 adds signingKey to the client decoder still present at services/agent/crates/layerx-client/src/sequencer.rs:918."
+
+[disposition.5.47.4.2]
+finding = "5.47.4.2"
+status = "resolved"
+evidence = "af6f353b1 adds the submit receipt checks retained at cmd/layerxctl/src/main.rs:247 for activity identity, sequence-root recomputation and signed log contents, rejecting the mutations previously accepted or misclassified."
+
+[disposition.5.48.1]
+finding = "5.48.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:137364 lists only the surviving main and pytest declarations for task 5.48.1, while 1e850131c records the intentional node.c deletion in the tagged task commit."
+
+[disposition.5.49.1]
+finding = "5.49.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:137427 lists the surviving CLI, builder and test declarations without lxp_genesis_build_fresh_custody, whose intentional removal is recorded in 817eafdef."
+
+[disposition.5.54.4.1]
+finding = "5.54.4.1"
+status = "resolved"
+evidence = "27c460ec4 removes test-daemon-allowance from the aggregate test prerequisites and deletes its Makefile rule referencing the retired tests/daemon/lxp_test_daemon_allowance.c source."
+
+[disposition.5.54.6.1]
+finding = "5.54.6.1"
+status = "resolved"
+evidence = "14d5dae3b removes the lxp_test_epoch_escrow_timeout build rule and its test-escrow-timeout prerequisite and invocation from Makefile along with the other retired epoch daemon test rules."
+
+[disposition.5.55.2]
+finding = "5.55.2"
+status = "resolved"
+evidence = "daemon/committed-fixture/vectors/vector-v1-receipted-positive.json:3 contains recorder provenance and the file contains the signed two-log receipt, replacing the missing vector with the recording landed by 0bd7bfb30 and subsequently updated by 526209089."
+
+[disposition.5.55.2.2]
+finding = "5.55.2.2"
+status = "resolved"
+evidence = "daemon/committed-fixture/main.go:376 assigns a loopback standby address shared with the primary configuration at line 387, and line 139 starts that standby before the primary."
+
+[disposition.5.55.2.3]
+finding = "5.55.2.3"
+status = "resolved"
+evidence = "daemon/committed-fixture/main.go:233 initializes the standby in full mode and line 211 copies the primary genesis into its home, avoiding a second independent validator committee."
+
+[disposition.5.55.2.4]
+finding = "5.55.2.4"
+status = "resolved"
+evidence = "af717f85a changes the proposer comparison to crypto.AddressHash of each pinned leader key, which remains at node/process_proposal_proposer.go:17."
+
+[disposition.5.55.2.5]
+finding = "5.55.2.5"
+status = "resolved"
+evidence = "node/app.go:3395 forwards the pending base fee, node/sequencer/standby.go:873 queues OPEN application until the prior height commits, and daemon/committed-fixture/main.go:419 peers the standby with the primary."
+
+[disposition.5.55.3]
+finding = "5.55.3"
+status = "open"
+evidence = "daemon/committed-fixture/vectors/vector-v2-receipted-revert.json:8 still names rpc/sequencer_receipt_vectors_test.go and line 10 identifies the conformance fixture source, so the fresh recorder provenance required by task 5.55.3 has not landed."
+follow_up = "5.55.3"
+
+[disposition.5.55.5]
+finding = "5.55.5"
+status = "resolved"
+evidence = "daemon/committed-fixture/main.go:387 configures the shared standby address and daemon/committed-fixture/vectors/vector-v4-committed.json:217 now contains recorded settlement evidence rather than an incomplete vector."
+
+[disposition.5.55.5.2]
+finding = "5.55.5.2"
+status = "resolved"
+evidence = "59417423e fixes sealed-state adoption by updating the staking historical header to the decided header before commit, retained at node/app.go:1859, and 45733c5c2 lands the completed V4 recording."
+
+[disposition.5.55.5.3]
+finding = "5.55.5.3"
+status = "resolved"
+evidence = "f93d74e1c carries the standby refusal reason to the primary and filters stale retained leases during retransmission, retained at node/sequencer/standby.go:489, after which 45733c5c2 lands the V4 recording beyond openAccount."
+
+[disposition.5.55.5.4]
+finding = "5.55.5.4"
+status = "resolved"
+evidence = "45733c5c2 publishes the canonical daemon/committed-fixture/vectors/vector-v4-committed.json with positive name committed-payExact at line 77 and non-null settlement at line 217, replacing the reported placeholder."
+
+[disposition.5.55.5.5]
+finding = "5.55.5.5"
+status = "resolved"
+evidence = "f93d74e1c skips retained leases older than the current epoch and transmits refusal reasons, as retained at node/sequencer/standby.go:489, and the subsequent 45733c5c2 V4 recording includes settlement after the formerly refused openAccount group."
+
+[disposition.5.55.5.6]
+finding = "5.55.5.6"
+status = "resolved"
+evidence = "07d11e56d serializes standby receipt rebuilding with the Receipter mutex before its pre-snapshot, retained at node/sequencer/standby_role.go:206, and 45733c5c2 subsequently records the complete V4 vector."

@@ -19,6 +19,7 @@ contract XWebConsumer is IXWebConsumer {
     error AlreadyAnswered(uint64 requestId);
     error NotRefundable(uint64 requestId);
     error RefundTransferFailed(uint64 requestId);
+    error UnexpectedProgramReturn();
 
     event Asked(uint64 indexed requestId, uint8 kind, bytes payload, uint64 callbackGas);
     event Answered(uint64 indexed requestId, bytes32 contentDigest, uint32 fullLength, bytes response);
@@ -68,5 +69,30 @@ contract XWebConsumer is IXWebConsumer {
 
     function answer(uint64 requestId) external view returns (Answer memory) {
         return answers[requestId];
+    }
+
+    /// Forwards a signed program observation to the native precompile.
+    function submitProgramObservation(bytes calldata observation) external {
+        // A typed void call checks EXTCODESIZE, but native precompiles have no code.
+        (bool success, bytes memory result) =
+            XWEB_PRECOMPILE_ADDRESS.call(abi.encodeCall(IXWeb.fulfilProgram, (observation)));
+        if (!success) {
+            assembly ("memory-safe") {
+                revert(add(result, 32), mload(result))
+            }
+        }
+        if (result.length != 0) revert UnexpectedProgramReturn();
+    }
+
+    function programResult(bytes32 programId, uint64 requestId)
+        external
+        view
+        returns (bytes32 contentDigest, uint32 fullLength, uint32 responseLength, bytes memory response)
+    {
+        return XWEB_CONTRACT.getProgramResult(programId, requestId);
+    }
+
+    function kernelNetworkId() external view returns (uint32) {
+        return XWEB_CONTRACT.getKernelNetworkId();
     }
 }

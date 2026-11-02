@@ -4,22 +4,22 @@
  * transport comes from deploy config; foreign transports fall back to the
  * viem chain defaults unless a deploy RPC override is set.
  */
-import { createConfig, http } from "wagmi";
-import { injected } from "wagmi/connectors";
+import { createConfig, http } from 'wagmi';
+import { injected } from 'wagmi/connectors';
 
-import { BRIDGE_CHAINS, paxeer } from "./chains";
-import { bridgeConfig } from "./config";
+import { walletBridgeChains, paxeer } from './chains';
+import { bridgeConfig } from './config';
 
-const evmViemChains = BRIDGE_CHAINS.flatMap((c) => (c.viemChain ? [c.viemChain] : []));
-const evmBridgeChains = BRIDGE_CHAINS.filter((c) => c.viemChain);
+const evmBridgeChains = walletBridgeChains();
+const evmViemChains = evmBridgeChains.map((chain) => chain.viemChain);
 
 export const wagmiConfig = createConfig({
-  chains: [paxeer, ...evmViemChains],
-  connectors: [injected()],
+  chains: [ paxeer, ...evmViemChains ],
+  connectors: [ injected() ],
   transports: {
     ...Object.fromEntries(
       evmBridgeChains.map((c) => [
-        c.viemChain!.id,
+        c.viemChain.id,
         http(bridgeConfig.foreignRpcUrls[c.key as keyof typeof bridgeConfig.foreignRpcUrls]),
       ]),
     ),
@@ -28,7 +28,7 @@ export const wagmiConfig = createConfig({
   ssr: true,
 });
 
-declare module "wagmi" {
+declare module 'wagmi' {
   interface Register {
     config: typeof wagmiConfig;
   }

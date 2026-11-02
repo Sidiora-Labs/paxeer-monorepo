@@ -94,9 +94,6 @@ fn timeout(v: &Value) -> Result<Duration, ()> {
     Ok(Duration::from_millis(millis))
 }
 fn wait(v: &Value, rpc: RpcClient, policy: &ReceiptPolicy) -> Result<Value, BridgeError> {
-    if v.get("commitment").is_some() {
-        return Err(BridgeError::Invalid);
-    }
     let requested = Rung::from_name(text(v, "rung")?).ok_or(())?;
     let hash = transaction_hash(v)?;
     if hash == [0; 32] {
@@ -224,7 +221,23 @@ impl From<()> for BridgeError {
         Self::Invalid
     }
 }
+fn action(v: &Value) -> Result<&str, BridgeError> {
+    let action = text(v, "action")?;
+    match action {
+        "accounts" | "balance" => Ok(action),
+        "wait" | "submit" => {
+            if v.get("commitment").is_some()
+                || (action == "submit" && v.get("rung").is_some_and(|rung| rung != "submitted"))
+            {
+                return Err(BridgeError::Invalid);
+            }
+            Ok(action)
+        }
+        _ => Err(BridgeError::Invalid),
+    }
+}
 fn execute(v: &Value) -> Result<Value, BridgeError> {
+    let action = action(v)?;
     let c = &v["configuration"];
     let credential = if c.get("key_id").is_some() {
         Some(
@@ -258,7 +271,7 @@ fn execute(v: &Value) -> Result<Value, BridgeError> {
             None
         },
     };
-    match text(v, "action")? {
+    match action {
         "accounts" => {
             let rpc = rpc.with_clock(
                 layerx_client::runtime_clock::RuntimeClock::from_environment().map_err(|_| ())?,

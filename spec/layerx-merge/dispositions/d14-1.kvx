@@ -1,0 +1,124 @@
+[disposition.14.0.1]
+finding = "14.0.1"
+status = "environment"
+evidence = "Commit 6c15ae36e records the deletion of sdk/js/VENDOR.kvx that remains absent on main, so the refusal concerned the qualification tool snapshot accounting for deleted paths."
+
+[disposition.14.0.1.1]
+finding = "14.0.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:182088 declares the three actual package test functions for task 14.0.1 and no longer requires the package.json exports field as a graph symbol."
+
+[disposition.14.0.6.1]
+finding = "14.0.6.1"
+status = "resolved"
+evidence = "Commit 3d45f5298 replaces the deleted VerifiedNativeExecutionPrestate consumers with execution_state::CommittedExecutionState, which services/agent/crates/layerx-agentd/src/budget/program_settlement.rs:465 now accepts."
+
+[disposition.14.3.6]
+finding = "14.3.6"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:182986 no longer requires Query as a graph symbol, while commit 38a87d20e supplies the tokenfactory route changes and their declared test functions."
+
+[disposition.14.4.1]
+finding = "14.4.1"
+status = "resolved"
+evidence = "Commit 016527176 adds the missing reverted switch arm, and apps/web/src/app/_markets/send-outcome.tsx:40 still returns its danger notice and receipt line for that outcome."
+
+[disposition.14.4.2]
+finding = "14.4.2"
+status = "resolved"
+evidence = "Commit 9e279c646 supplies committed TLS fixtures, and apps/web/e2e/gas-station-receipt.test.ts:99 reads those fixtures in withStation instead of invoking openssl."
+
+[disposition.14.5.1]
+finding = "14.5.1"
+status = "resolved"
+evidence = "Commit 4a2160446 ports all five reported wallet, web and test callers to the perps v2 accountId, side and size shapes and the two-argument cancellation call, eliminating the recorded caller mismatch."
+
+[disposition.14.5.2]
+finding = "14.5.2"
+status = "superseded"
+evidence = "Commit b4db21e5a retires the mirror verification surface and deletes apps/web/src/explorer/mirror-server.ts, so the level function that returned retired verification levels no longer exists on main."
+
+[disposition.14.5.5]
+finding = "14.5.5"
+status = "environment"
+evidence = "Commit 7e8bf026b records the literal apps/web/src/app/explorer/programs/[programId]/page.tsx edit still visible at line 33, so the missing-change refusal concerned the qualification tool interpretation of the route brackets as a glob."
+
+[disposition.14.7.2]
+finding = "14.7.2"
+status = "superseded"
+evidence = "Commit 0af5ae3b4 deletes the retired custody journey-screen.tsx together with its index re-export and the deposit, withdraw and exit models, leaving no surviving screen imports of those deleted models on main."
+
+[disposition.14.7.2.1]
+finding = "14.7.2.1"
+status = "resolved"
+evidence = "Commit 0ffb993d2 guards the evmStorage assignment with config.evmReview, and sdk/wallet/src/index.ts:111 retains that conditional assignment without widening the optional field type."
+
+[disposition.14.7.5]
+finding = "14.7.5"
+status = "resolved"
+evidence = "Commit 4a2160446 updates the reported perps callers to v2, and sdk/wallet/src/modules/exchange.ts:54 now forwards both orderId and accountId to perpsCancelOrderCall."
+
+[disposition.14.8.1]
+finding = "14.8.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:183694 requires WalletFeeSettings and its two retained tests rather than the removed WalletBindingController and WalletBindingScreen definitions, matching the fee-only screen landed in 7f05b5853."
+
+[disposition.14.8.1.1]
+finding = "14.8.1.1"
+status = "resolved"
+evidence = "Commit 0ffb993d2 removes the possibly undefined evmStorage assignment, and sdk/wallet/src/index.ts:111 assigns storage only when config.evmReview is present."
+
+[disposition.14.8.2]
+finding = "14.8.2"
+status = "resolved"
+evidence = "Commit 4a2160446 updates the wallet exchange module, web exchange component and exchange-perps tests to the v2 open-position and cancellation signatures that caused the five recorded type errors."
+
+[disposition.14.8.2.1]
+finding = "14.8.2.1"
+status = "resolved"
+evidence = "Commit b60ec74e8 regenerates the minor-10 client, and apps/web/src/api/generated/index.ts:229 now includes operation-retired in errorCodeVariants consumed by decodeErrorCode."
+
+[disposition.14.9.1]
+finding = "14.9.1"
+status = "environment"
+evidence = "Commit f0223aea8 lands the three-rung implementation and apps/web/e2e/verification-rungs.test.ts:37 still declares verification_rung_keeps_three_rungs, while the recorded exit 124 concerned qualification graph indexing time rather than a failed rung assertion."
+
+[disposition.14.21.1]
+finding = "14.21.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:184112, :184670, :184857, :184360 and :184919 declare empty symbol lists for tasks 14.21.1, 14.25.1, 14.26.1, 14.22.5 and 14.27.1 respectively, removing their unsupported Elixir graph requirements while retaining their paths and verification commands."
+
+[disposition.14.21.3.1]
+finding = "14.21.3.1"
+status = "resolved"
+evidence = "Commit 85a0f3720 deletes the capabilities.custody expectation from apps/explorer/lib/api/services/general/paxeerX.spec.ts, whose current line 56 retains only the supported addr capability expectation."
+
+[disposition.14.22.1]
+finding = "14.22.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:184236 declares symbols = [] for task 14.22.1, removing the unsupported SequencerReceipt.verify and ExUnit graph requirements while the committed-vector assertions landed in df2b12a84 remain in the test file."
+
+[disposition.14.22.1.1]
+finding = "14.22.1.1"
+status = "environment"
+evidence = "services/explorer/backend/mix.lock:69 still pins ex_pbkdf2 0.8.5 with rustler_precompiled, so the recorded HTTP 504 fetching its native release asset concerned external download availability rather than the committed-vector code landed in df2b12a84."
+
+[disposition.14.22.2]
+finding = "14.22.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:184267 declares symbols = [] for task 14.22.2, removing its unsupported Elixir graph requirements while services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/status.ex:43 retains the committed-verification promotion landed in fb8a0f491."
+
+[disposition.14.22.3]
+finding = "14.22.3"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:184298 declares symbols = [] for task 14.22.3, removing its unsupported Elixir graph requirements while transaction_status_controller.ex:82 retains the R7 and R8 verification options landed in f4a6d808b."
+
+[disposition.14.22.4]
+finding = "14.22.4"
+status = "environment"
+evidence = "Commit 476beaf4e lands the signature schema and its 64-byte signature test, while spec/layerx-merge/spec.kvx:184328 removes the unsupported graph symbols, leaving the recorded cold dependency compilation timeout as a qualification builder condition."
+
+[disposition.14.22.6]
+finding = "14.22.6"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:184390 declares symbols = [] for task 14.22.6, removing its unsupported graph requirements while transaction_signature_controller.ex:73 retains the committed_height function landed in 83cf2f0dc."
