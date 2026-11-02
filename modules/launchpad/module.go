@@ -58,7 +58,10 @@ func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConf
 	if err := json.Unmarshal(bz, &genState); err != nil {
 		return fmt.Errorf("failed to unmarshal %s genesis state: %w", types.ModuleName, err)
 	}
-	return genState.Validate()
+	if err := genState.Validate(); err != nil {
+		return fmt.Errorf("invalid %s genesis state: %w", types.ModuleName, err)
+	}
+	return nil
 }
 
 func (am AppModuleBasic) ValidateGenesisStream(cdc codec.JSONCodec, config client.TxEncodingConfig, genesisCh <-chan json.RawMessage) error {

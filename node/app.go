@@ -304,7 +304,7 @@ var (
 		layerxanchormodule.AppModuleBasic{},
 		layerxexchangemodule.AppModuleBasic{},
 		layerxbridgemodule.AppModuleBasic{},
-		launchpadmodule.AppModuleBasic{},
+		launchpadmodule.NewAppModuleBasic(),
 		perpsmodule.AppModuleBasic{},
 		spotmodule.AppModuleBasic{},
 		pricefeedmodule.AppModuleBasic{},
