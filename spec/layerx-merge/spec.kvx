@@ -125368,7 +125368,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.8.9]
 title = "Hand the TLS boundary a bound port instead of a released one"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125427,7 +125427,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.16.6]
 title = "Serve verification and paused on every gateway asset row"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125546,7 +125546,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.13]
 title = "Inventory every test run of the services/platform/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125666,7 +125666,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.9]
 title = "Inventory every test run of the programs/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125726,7 +125726,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.7]
 title = "Inventory every build target of the services/explorer/services/libs/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125786,7 +125786,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.5]
 title = "Inventory every build target of the services/platform/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125816,7 +125816,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.4]
 title = "Inventory every build target of the services/interop/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125846,7 +125846,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.3]
 title = "Inventory every build target of the services/human/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125876,7 +125876,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.2]
 title = "Inventory every build target of the services/agent/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130582,7 +130582,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.8.8]
 title = "Port the Go lifecycle verifier test off the deleted v3 receipt fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130640,7 +130640,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.34]
 title = "Inventory the Go SDK modules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -158633,7 +158633,7 @@ do_9 = "Delete the test signedSharedVectors at sdk/platform/jvm/src/test/java/co
 
 [task.22.8.7]
 title = "Drop the retired batch and checkpoint verifiers from the JVM conformance main"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182808,7 +182808,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.30]
 title = "Inventory every Go package under tools/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182838,7 +182838,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.29]
 title = "Inventory every Go package under utils/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183018,7 +183018,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.23]
 title = "Inventory every Go package under consensus/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183078,7 +183078,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.21]
 title = "Inventory every Go package under daemon/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183108,7 +183108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.20]
 title = "Inventory every Go package under node/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183138,7 +183138,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.19]
 title = "Inventory every Go package under rpc/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213671,7 +213671,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.8]
 title = "Provision the chain variables the real-node test harness requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213818,7 +213818,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.40]
 title = "Inventory every pytest tree for collection errors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213848,7 +213848,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.39]
 title = "Inventory every tracked Python file for compilation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
