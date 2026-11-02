@@ -2,7 +2,6 @@ use super::Config;
 use layerx_platform_authority::{parse_replica_evidence, BatchEvidence, EvidenceRefusal};
 use layerx_proof::inclusion::SequencerAuthorization;
 use sha2::Digest as _;
-use std::time::Duration;
 
 pub(crate) struct CommittedCheckpoint {
     pub batch_number: u64,
@@ -116,14 +115,4 @@ pub(super) fn authorization(
     Ok(key)
 }
 
-pub(super) fn chain_endpoint(
-    url: &str,
-    timeout: Duration,
-) -> layerx_paxeer_verifier::EndpointConfig {
-    layerx_paxeer_verifier::EndpointConfig {
-        url: url.to_owned(),
-        request_timeout: timeout,
-        transport: layerx_paxeer_verifier::EndpointTransport::LocalEmulator,
-        expected_chain_id: 125,
-    }
-}
+pub(crate) const EXPECTED_CHAIN_ID: u64 = 125;
