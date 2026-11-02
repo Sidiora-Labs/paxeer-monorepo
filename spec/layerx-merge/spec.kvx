@@ -6567,6 +6567,36 @@ value = "Task 10.21.8 restores attach_signature as custody::signer::attach_call_
 basis = "Finding 10.1.6.1: layerx-human-service has not built on main since 2026-11-01 22:58Z and every task of the human workspace fails its build on that gap; the smallest change that restores the build is the deleted code behind crate-local names, which the later retirements grep for by name."
 affects = ["10.21.8", "9.29.1", "9.35.1"]
 
+[decision.2243]
+title = "The Python agent envelope decoder's verification levels are the three rungs submitted, receipted and committed"
+value = "_LEVELS in services/agent/sdk/python/layerx_sdk/agent_http.py maps submitted to 0, receipted to 1 and committed to 2; every comparison of requested and achieved levels (:352, :408, :762, :769-770) uses that table, and the Python SDK tests name those rungs."
+basis = "Finding 18.1435.3.1: the daemon emits the three rungs, the published goldens carry them and the Python x402 client accepts them; the six-level table is the retired kernel verification ladder."
+affects = ["18.1435.3"]
+
+[decision.2244]
+title = "An exact offer carries no purpose hash; the seller compares the ledger reference only with a purpose hash the offer states"
+value = "The seller requires purposeHash for metered and subscription offers only (services/platform/middleware/seller/src/index.ts:405 follows :743) and skips the reference comparison at :439 when the offer has none; the conformance receipt builder takes the offer's purposeHash as the ledger reference when present and derives it from payTo, asset and amount otherwise."
+basis = "Finding 8.26.3.1: docs/site/docs/interop/x402.md:133-134, the seller's offer parser and the interop seller agree that exact offers carry no purpose; the paid API example is exact and has verified no receipt since 8.22.1."
+affects = ["8.22.9", "8.26.3", "15.0.4"]
+
+[decision.2245]
+title = "The committed-rung validator mismatch a seller detects is a commit signature from a validator outside the resolver's set"
+value = "PaymentCommitmentEvidence stays as 8.22.2 defined it; committedFixtureRefusesValidatorSetMismatch replaces a validator whose signature is in the commit with a stranger, so the signed power falls to two of four and verifyCommittedReceipt refuses with insufficient_power, which the seller surfaces as verification-failure."
+basis = "Finding 8.26.5.1: the evidence shape has no validators hash, so the set is trusted from the resolver and only the signatures can be checked against it."
+affects = ["8.26.5"]
+
+[decision.2246]
+title = "The pytest reachability guard accepts unittest discover and skips tests/daemon; test-tests-python runs the tests/ci directory"
+value = "Makefile test-tests-python keeps its four suite paths and appends the tests/ci directory to the same pytest line (pytest drops duplicate paths); the guard accepts a directory passed to python3 -m unittest discover -s as a reference; tests/daemon is skipped with tests/bridge and tests/explorer* until the daemon retirement decides its four Python guards."
+basis = "Finding 16.28.3.1: tools/ci/tests/test_makefile_wave6.py:100 refuses tests/daemon in the dry run and :106-118 asserts the single pytest line carrying the four suites; the Python SDK suites run under unittest at Makefile:2311."
+affects = ["16.28.3"]
+
+[decision.2247]
+title = "The hosted gateway's withdrawal completion keeps receipt verification through receipt::verify_outcome and drops the kernel activity binding"
+value = "verify_withdrawal_submission binds the completion receipt to its operation by activity id over receipt::verify_outcome; the checks the deleted verifier made against the signed kernel activity retire with it (decision 929), and the gateway's remaining decode_signed sites are ported or retired by 9.29.1."
+basis = "Finding 9.28.1.3: the gateway has not built since 9.27.5 landed; decision 929 keeps receipts verifying through receipt::verify_outcome and names no replacement for the activity binding."
+affects = ["8.101.1", "9.28.1", "9.29.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20188,6 +20218,14 @@ title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
 
+[req.8304]
+title = "The hosted gateway verifies a withdrawal completion receipt through receipt::verify_outcome"
+ac_1 = "verify_withdrawal_submission verifies a module 1 operation 9 receipt with layerx_proof::receipt::verify_outcome against the authorised batch of the receipt's key and refuses a receipt whose activity id differs from the operation's, with the unit test passing and layerx-platform-gateway building with --all-targets."
+
+[req.8303]
+title = "The seller requires a purpose hash only for metered and subscription offers"
+ac_1 = "verifyPaymentReceipt accepts an exact offer whose extra.layerx carries no purposeHash and compares the ledger payment reference only with a purposeHash the offer carries, while a metered or subscription offer without a purposeHash is refused with verification-failure, as docs/site/docs/interop/x402.md:133-134 states."
+
 [req.8302]
 title = "layerx-human-service builds against the retired owner activity envelope and offline export API"
 ac_1 = "layerx-human-service attaches a custody signature to a creation call, verifies a retained signed creation activity and builds a gateway test owner envelope without layerx_intents::owner_activity, and its receipt export carries no checkpoint facts or verified_checkpoints count, so cargo build -p layerx-human-service --all-targets passes and the export, export_receipts and retired_crypto_codec_w3 tests pass."
@@ -33760,6 +33798,24 @@ verification_contract = "cargo test --locked --manifest-path services/agent/Carg
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
 
+[capability.8.101.1]
+title = "Port the hosted gateway's withdrawal completion check to receipt::verify_outcome"
+reqs = ["8304.1"]
+touches = ["services/platform/hosted/gateway/src/main.rs"]
+tests = ["services/platform/hosted/gateway/src/main.rs::withdrawal_completion_binds_the_receipt_to_its_operation"]
+verification_contract = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway withdrawal_completion_binds_the_receipt_to_its_operation"
+do_1 = "In services/platform/hosted/gateway/src/main.rs:2902-2932 split verify_withdrawal_submission: keep the decode, the module 1 operation 9 filter and the AuthorizedBatch construction, and move the verification into fn verify_withdrawal_receipt(receipt: &[u8], authorized: &AuthorizedBatch, activity_id: &[u8; 32]) -> Result<(), ()> that calls layerx_proof::receipt::verify_outcome(receipt, authorized) and refuses when the verified protocol receipt's activity_id differs from activity_id; the signed activity, the network id and the fee and timestamp bounds of the deleted verifier belong to the kernel activity path decision 929 retires and are not re-checked."
+symbols = ["verify_withdrawal_receipt"]
+
+[capability.8.22.9]
+title = "Require the purpose hash only for metered and subscription offers in the seller's receipt verification"
+reqs = ["8303.1"]
+touches = ["services/platform/middleware/seller/src/index.ts", "services/platform/middleware/seller/test/receipt-verification.test.mjs"]
+tests = ["services/platform/middleware/seller/test/receipt-verification.test.mjs::exactOfferWithoutPurposeHashVerifies", "services/platform/middleware/seller/test/receipt-verification.test.mjs::meteredOfferWithoutPurposeHashRefuses"]
+verification_contract = "npm --prefix services/platform/middleware/seller run build && node --test --test-name-pattern='^(exactOfferWithoutPurposeHashVerifies|meteredOfferWithoutPurposeHashRefuses)$' services/platform/middleware/seller/test/receipt-verification.test.mjs"
+do_1 = "In services/platform/middleware/seller/src/index.ts:405 require the purposeHash only when requirements.scheme is not exact (paymentPurpose(requirements.extra, requirements.scheme !== 'exact')), matching the offer parser at :743 and docs/site/docs/interop/x402.md:133-134."
+symbols = ["paymentPurpose", "verifyPaymentReceipt"]
+
 [capability.10.21.8]
 title = "Port layerx-human-service off the deleted owner activity envelope and the retired offline export API"
 reqs = ["8302.1"]
@@ -33828,7 +33884,7 @@ title = "Issue #1435: Accept the daemon's pending and absent verification status
 reqs = ["8299.1"]
 touches = ["services/agent/sdk/python/layerx_sdk/agent_http.py"]
 tests = ["tests/agent/sdk/python/test_agent_envelope_not_ready.py"]
-verification_contract = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py"
+verification_contract = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py tests/agent/sdk/python/test_agent_operation_envelope.py tests/agent/sdk/python/test_program_typed_responses.py tests/agent/sdk/python/test_program_trust.py tests/agent/sdk/python/test_ai_market.py tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py tests/agent/sdk/python/test_integration.py"
 do_1 = "In services/agent/sdk/python/layerx_sdk/agent_http.py _valid_verification_status (:758) accept {state: pending, requested, achieved} with both levels in _LEVELS and achieved strictly below requested, and {state: absent, requested} with requested in _LEVELS; keep every other shape refused."
 symbols = ["_valid_verification_status"]
 
@@ -109959,6 +110015,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.8.22.9]
+title = "Require the purpose hash only for metered and subscription offers in the seller's receipt verification"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8303.1"]
+capabilities = ["8.22.9"]
+interfaces = []
+do_1 = "In services/platform/middleware/seller/src/index.ts:405 require the purposeHash only when requirements.scheme is not exact (paymentPurpose(requirements.extra, requirements.scheme !== 'exact')), matching the offer parser at :743 and docs/site/docs/interop/x402.md:133-134."
+do_2 = "At services/platform/middleware/seller/src/index.ts:439 compare payment.paymentReference with the reference only when the offer carries one; an exact offer without a purposeHash accepts the ledger reference as paid, and a metered or subscription offer still refuses a missing or different reference."
+do_3 = "Add to services/platform/middleware/seller/test/receipt-verification.test.mjs the cases exactOfferWithoutPurposeHashVerifies (an exact offer whose extra.layerx carries only commitment receipted verifies the signed receipt fixture of that file) and meteredOfferWithoutPurposeHashRefuses (the same offer with scheme metered and no purposeHash is refused with verification-failure)."
+do_4 = "Register every test named in tests as a node:test case whose name is exactly that name, because node --test --test-name-pattern exits 0 when no case matches; the gate counts only when the run reports one passing case per name."
+do_5 = "Build the seller and run the two cases; change nothing in the buyer, merchant or conformance packages."
+symbols = ["paymentPurpose", "verifyPaymentReceipt"]
+touches = ["services/platform/middleware/seller/src/index.ts", "services/platform/middleware/seller/test/receipt-verification.test.mjs"]
+tests = ["services/platform/middleware/seller/test/receipt-verification.test.mjs::exactOfferWithoutPurposeHashVerifies", "services/platform/middleware/seller/test/receipt-verification.test.mjs::meteredOfferWithoutPurposeHashRefuses"]
+planned_paths = []
+build_cmd = "npm --prefix services/platform/middleware/seller run build"
+verify_cmd = "npm --prefix services/platform/middleware/seller run build && node --test --test-name-pattern='^(exactOfferWithoutPurposeHashVerifies|meteredOfferWithoutPurposeHashRefuses)$' services/platform/middleware/seller/test/receipt-verification.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Revert the two files; the seller returns to requiring the purpose hash on every offer."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.18.1435.1]
 title = "Issue #1435: Accept the daemon's pending and absent verification statuses in the TypeScript agent envelope decoder"
 status = "done"
@@ -118201,6 +118289,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.8.101.1]
+title = "Port the hosted gateway's withdrawal completion check to receipt::verify_outcome"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8304.1"]
+capabilities = ["8.101.1"]
+interfaces = []
+do_1 = "In services/platform/hosted/gateway/src/main.rs:2902-2932 split verify_withdrawal_submission: keep the decode, the module 1 operation 9 filter and the AuthorizedBatch construction, and move the verification into fn verify_withdrawal_receipt(receipt: &[u8], authorized: &AuthorizedBatch, activity_id: &[u8; 32]) -> Result<(), ()> that calls layerx_proof::receipt::verify_outcome(receipt, authorized) and refuses when the verified protocol receipt's activity_id differs from activity_id; the signed activity, the network id and the fee and timestamp bounds of the deleted verifier belong to the kernel activity path decision 929 retires and are not re-checked."
+do_2 = "Add a unit test withdrawal_completion_binds_the_receipt_to_its_operation in services/platform/hosted/gateway/src/main.rs over the fixture tests/fixtures/asset/bound-native-withdrawal (receipt, header and sequencer.public, building the AuthorizedBatch from the header as layerx-proof's paid_withdrawal_receipt_verifies_without_the_signed_activity test in services/agent/crates/layerx-proof/tests/withdrawal.rs does): the receipt's own activity id passes and a different activity id is refused."
+do_3 = "Build layerx-platform-gateway with --all-targets and run the test; change nothing in layerx-proof and leave the decode_signed sites (:36, :800, :1903, :2104) to task 9.29.1."
+symbols = ["verify_withdrawal_receipt"]
+touches = ["services/platform/hosted/gateway/src/main.rs"]
+tests = ["services/platform/hosted/gateway/src/main.rs::withdrawal_completion_binds_the_receipt_to_its_operation"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets"
+verify_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --all-targets && cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --bin layerx-gateway withdrawal_completion_binds_the_receipt_to_its_operation"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the commit; the gateway returns to its prior source."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.10.21.8]
 title = "Port layerx-human-service off the deleted owner activity envelope and the retired offline export API"
 status = "pending"
@@ -118216,7 +118334,7 @@ do_3 = "In the test module of services/human/crates/layerx-human-service/src/bin
 do_4 = "In services/human/crates/layerx-human-service/src/activity/export.rs remove CheckpointFact from the import at :6 and the checkpoints field of ReceiptExport (:67) with its constructions at services/human/crates/layerx-human-service/tests/export_receipts.rs:101, services/human/crates/layerx-human-service/tests/export.rs:88 and services/human/crates/layerx-human-service/src/server/production_components.rs:5953; remove verified_checkpoints from BundleReport (field :598, accessor :619, doc example :726, constructions :430 and :502) and from the VerificationReport construction at :1099; verified_receipts and verified_inclusions stay."
 do_5 = "Build the crate with --all-targets, run the export and export_receipts tests and the KMS retired_crypto_codec_w3 test; change nothing in layerx-intents or layerx-proof."
 symbols = ["attach_call_signature", "verify_owner_activity"]
-touches = ["services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs"]
+touches = ["services/human/crates/layerx-human-service/src/custody/signer.rs", "services/human/crates/layerx-human-service/src/server/agent_creation.rs", "services/human/crates/layerx-human-service/src/server/production_onboarding.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_eip1559.rs", "services/human/crates/layerx-human-service/tests/agent_creation_rungs.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs", "services/human/crates/layerx-human-service/src/custody/mod.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --all-targets"
@@ -118232,6 +118350,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Finding 10.21.8.1: in services/human/crates/layerx-human-service/src/custody/mod.rs add `pub(crate) use signer::attach_call_signature;` beside the existing re-exports and call crate::custody::attach_call_signature from agent_creation.rs:436; continue from attempt 1 (6a5931e17) rebased onto current main with that change and run the declared build and verify once as written."
 
 [task.18.1441.1]
 title = "Issue #1441: Port live_kinds to the retained intent kinds"
@@ -142782,7 +142901,7 @@ title = "Drive service conformance and connected acceptance with receipt keys an
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["8.26.1", "8.33.2", "8.34.1", "8.34.3", "8.22.7"]
+requires = ["8.26.1", "8.33.2", "8.34.1", "8.34.3", "8.22.7", "8.22.9"]
 reqs = ["8260.1", "8260.2"]
 capabilities = ["8.26.3"]
 interfaces = ["interface.8.ts-middleware-conformance-service-runservicescenarios-j41", "interface.8.env-middleware-conformance-layerx-authorized-batch-json", "interface.8.env-middleware-conformance-layerx-receipt-keys-json-j41", "interface.8.env-middleware-conformance-layerx-protocol-version"]
@@ -142793,7 +142912,7 @@ do_4 = "services/platform/middleware/conformance/service.mjs:878 preparedPayment
 do_5 = "services/platform/middleware/conformance/connected.mjs:97 compares the merchant protocolVersion with LAYERX_PROTOCOL_VERSION; remove the comparison and the variable per decision.824, and replace the native preparation checks at services/platform/middleware/conformance/connected.mjs:88 and :116-119 with the EVM preparation fields (signing_hash, to, data) of wiring.J41.4."
 do_6 = "Create services/platform/middleware/conformance/test/service-scenarios.test.mjs (planned) with the two tests below."
 symbols = ["runServiceScenarios", "receiptKeysJson", "executedSubmission", "preparedPayment"]
-touches = ["services/platform/middleware/conformance/service.mjs", "services/platform/middleware/conformance/connected.mjs", "services/platform/middleware/conformance/test/service-scenarios.test.mjs"]
+touches = ["services/platform/middleware/conformance/service.mjs", "services/platform/middleware/conformance/connected.mjs", "services/platform/middleware/conformance/test/service-scenarios.test.mjs", "services/platform/middleware/conformance/src/receipts.ts"]
 tests = ["services/platform/middleware/conformance/test/service-scenarios.test.mjs::runServiceScenariosPassesAgainstExampleApps", "services/platform/middleware/conformance/test/service-scenarios.test.mjs::serviceConfigCarriesReceiptKeysEnvironment"]
 planned_paths = ["services/platform/middleware/conformance/test/service-scenarios.test.mjs"]
 build_cmd = "npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/buyer run build && npm --prefix services/platform/middleware/merchant run build && npm --prefix services/platform/middleware/agent run build && npm --prefix services/platform/middleware/conformance run build"
@@ -142811,6 +142930,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_8 = "Decision 2244 (finding 8.26.3.1): buildSignedReceipt (services/platform/middleware/conformance/src/receipts.ts:95-103) takes the offer's extra.layerx.purposeHash as the ledger reference when the offer carries one and derives it from payTo, asset and amount only otherwise, and services/platform/middleware/conformance/service.mjs passes the merchant shop's offer purpose through it. Once 8.22.9 is on main, continue from attempt 1 (79c64ebe5) rebased onto current main with that change and run the declared build and verify once as written."
 
 [task.8.26.4]
 title = "Replace the kernel receive and draw payment fixtures with a 0x101A draw fixture"
@@ -142875,6 +142995,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_6 = "Decision 2245 (finding 8.26.5.1): in committedFixtureRefusesValidatorSetMismatch replace a validator whose signature is in the commit, not the unsigned one, so the signed power falls to two of four; keep the rest of attempt 1 (7e05720f0), continue from it rebased onto current main with that change and run the declared build and verify once as written."
 
 [task.8.26.6]
 title = "Move the commitment, RPC and agent conformance tests to an EVM receipt fixture"
@@ -150916,7 +151037,7 @@ title = "Remove layerx-paxeer-verifier from the agent workspace and its dependen
 status = "pending"
 mode = "BUILD"
 wave = 36
-requires = ["9.25.2", "9.5.7", "9.27.2", "8.20.3", "5.96.1", "10.26.1", "10.26.3", "10.26.4", "10.27.1", "16.0.4", "11.22.2", "9.1.8", "18.1131.1", "18.1206.1", "18.1304.1", "9.25.16", "13.8.3", "9.27.9"]
+requires = ["9.25.2", "9.5.7", "9.27.2", "8.20.3", "5.96.1", "10.26.1", "10.26.3", "10.26.4", "10.27.1", "16.0.4", "11.22.2", "9.1.8", "18.1131.1", "18.1206.1", "18.1304.1", "9.25.16", "13.8.3", "9.27.9", "8.101.1"]
 reqs = ["9306.1"]
 capabilities = ["9.28.1"]
 interfaces = ["interface.9.rs-paxeer-verifier-checkpoint-paxeercheckpointpolicy", "interface.9.rs-paxeer-verifier-checkpoint-paxeercheckpointverifier", "interface.9.rs-paxeer-verifier-checkpoint-verifiedcheckpointpublication", "interface.9.rs-paxeer-verifier-rpc-endpointtransport", "interface.9.rs-paxeer-verifier-rpc-endpointconfig", "interface.9.rs-paxeer-verifier-rpc-endpointfault", "interface.9.rs-paxeer-verifier-rpc-endpointfailure", "interface.9.rs-paxeer-verifier-rpc-canonical-endpoint-identity", "interface.9.rs-paxeer-verifier-rpc-raw-call", "interface.9.rs-paxeer-verifier-json-json", "interface.9.rs-paxeer-verifier-json-jsonerrorreason", "interface.9.rs-paxeer-verifier-json-jsonerror", "interface.9.rs-paxeer-verifier-json-parse", "interface.9.rs-paxeer-verifier-publication-publication", "interface.9.rs-paxeer-verifier-publication-publication-at", "interface.9.rs-paxeer-verifier-publication-blockanchor-j44", "interface.9.rs-paxeer-verifier-publication-publication-type-j44"]
@@ -150947,6 +151068,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 do_6 = "Decision 2201: task 9.25.9 deletes examples/native_handover_reads.rs first, so do_3 is satisfied when the file is already absent and this task changes nothing there."
 do_7 = "Finding 9.28.1.1: examples/native_handover_reads.rs is no longer a declared touch; continue from attempt 1 (46665c3c6), or a later attempt with the same six changed files, rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 do_8 = "Finding 9.28.1.2: attempt 3 (d2ca8c3792c) completed the six manifest changes and failed only on the layerx-agentd build that task 9.27.9 repairs; once 9.27.9 is on main, continue from attempt 3 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
+do_9 = "Finding 9.28.1.3: attempt 4 (911705b1a) removed the crate and its dependents and failed only on the dependent-crate check of layerx-platform-gateway, which task 8.101.1 repairs; once 8.101.1 is on main, continue from attempt 4 rebased onto current main, keeping the tree unchanged, and run the declared build and verify once as written."
 
 [task.9.28.2]
 title = "Delete the layerx-paxeer-verifier crate sources"
@@ -151013,6 +151135,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 proof_policy = "Interface-changing task: the declared test drives the real producer through the real transport the interfaces list names (socket, RPC, HTTP, queue or on-disk record) into the real consumer and asserts the consumer's observable result; where the interface carries state across a restart (outbox, recovery, checkpoint, receipt, ledger), the test restarts the consumer and proves recovery. A mocked transport, a hand-built message or a fixture the real producer did not produce is not a proof. Extend the declared test itself; verify_cmd stays (decision.1990)."
+do_7 = "Finding 9.28.1.3: services/platform/hosted/gateway/src/main.rs:36, :800, :1903 and :2104 decode signed activities through layerx_wire::activity::decode_signed; the gateway is a consumer of the activity module beside the core sites of wiring.J44.15 and is ported, or its activity submission path retired, in the same change, with layerx-platform-gateway building --all-targets before the task is done."
 
 [task.9.30.1]
 title = "Drop the lni_frame fuzz target and fuzz the EIP-1559 transaction codec"
@@ -179578,7 +179701,7 @@ do_1 = "Create tools/repotest/pytest_reachability_test.go (planned) walking test
 do_2 = "Search Makefile, chain.mk, .github/workflows/*.yml and *.sh, *.py and *.mk files under tools/ and scripts/ for each root-relative path in tools/repotest/pytest_reachability_test.go (planned), also accepting a reference to the containing directory passed to pytest."
 do_3 = "Request the test-tests-python Makefile target for tests/ci/test_real_node_build_ownership.py, tests/ci/test_runner_routing_container_runtime.py, tests/test_lxgb_producers.py, tests/test_beta_withdrawal_genesis.py through wiring so the guard passes at the wave-6 revision (Makefile:286 is the insertion point)."
 symbols = ["TestEveryPytestSuiteIsReferenced"]
-touches = ["tools/repotest/pytest_reachability_test.go"]
+touches = ["tools/repotest/pytest_reachability_test.go", "Makefile"]
 tests = ["tools/repotest/pytest_reachability_test.go::TestEveryPytestSuiteIsReferenced"]
 planned_paths = ["tools/repotest/pytest_reachability_test.go"]
 build_cmd = "go vet ./tools/repotest/"
@@ -179594,6 +179717,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Decision 2246 (finding 16.28.3.1): accept a directory passed to python3 -m unittest discover -s as a reference; skip tests/daemon with tests/bridge and tests/explorer*; in Makefile:258-262 append the tests/ci directory to the test-tests-python pytest line after the four suite paths, keeping the one-line shape tools/ci/tests/test_makefile_wave6.py:106-118 asserts; continue from attempt 1 (c3abaa07d) rebased onto current main with those changes and run the declared build and verify once as written. The pass state of the 52 newly reachable suites is not part of this task's gate."
 
 [task.16.28.4]
 title = "Apply the banned-module check to every go.mod in the repository"
@@ -189499,6 +189623,22 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.8.101.1.1]
+feature = "8"
+req = "8304.1"
+scenario = "Given the bound-native-withdrawal fixture receipt and its authorised batch, when verify_withdrawal_receipt runs with the receipt's activity id, then it returns Ok; when it runs with any other activity id, then it refuses; and layerx-platform-gateway builds with --all-targets on main"
+contract = "contracts/services.md"
+test = "services/platform/hosted/gateway/src/main.rs"
+qualification = "UNRUN"
+
+[acceptance.8.22.9.1]
+feature = "8"
+req = "8303.1"
+scenario = "Given an exact offer whose extra.layerx carries only commitment receipted, when a signed receipt paying its payTo, asset and amount is verified, then verifyPaymentReceipt returns the receipted verification; given the same offer with scheme metered and no purposeHash, then it throws verification-failure"
+contract = "docs/site/docs/interop/x402.md"
+test = "services/platform/middleware/seller/test/receipt-verification.test.mjs"
+qualification = "UNRUN"
+
 [acceptance.10.21.8.1]
 feature = "10"
 req = "8302.1"
@@ -195411,11 +195551,11 @@ interfaces = []
 do_1 = "In services/agent/sdk/python/layerx_sdk/agent_http.py _valid_verification_status (:758) accept {state: pending, requested, achieved} with both levels in _LEVELS and achieved strictly below requested, and {state: absent, requested} with requested in _LEVELS; keep every other shape refused."
 do_2 = "Write tests/agent/sdk/python/test_agent_envelope_not_ready.py loading the two golden files of 18.1435.2 through the transport's envelope decode and asserting not-ready results, plus refusals for achieved equal to requested and for an absent status carrying achieved."
 symbols = ["_valid_verification_status"]
-touches = ["services/agent/sdk/python/layerx_sdk/agent_http.py"]
+touches = ["services/agent/sdk/python/layerx_sdk/agent_http.py", "tests/agent/sdk/python/test_agent_operation_envelope.py", "tests/agent/sdk/python/test_program_typed_responses.py", "tests/agent/sdk/python/test_program_trust.py", "tests/agent/sdk/python/test_ai_market.py", "tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py", "tests/agent/sdk/python/test_integration.py"]
 tests = ["tests/agent/sdk/python/test_agent_envelope_not_ready.py"]
 planned_paths = ["tests/agent/sdk/python/test_agent_envelope_not_ready.py"]
 build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/agent_http.py tests/agent/sdk/python/test_agent_envelope_not_ready.py"
-verify_cmd = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py"
+verify_cmd = "python3 -m pytest -q tests/agent/sdk/python/test_agent_envelope_not_ready.py tests/agent/sdk/python/test_agent_operation_envelope.py tests/agent/sdk/python/test_program_typed_responses.py tests/agent/sdk/python/test_program_trust.py tests/agent/sdk/python/test_ai_market.py tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py tests/agent/sdk/python/test_integration.py"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-agent"
@@ -195427,6 +195567,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2243 (finding 18.1435.3.1): replace _LEVELS (services/agent/sdk/python/layerx_sdk/agent_http.py:201-208) with submitted 0, receipted 1 and committed 2, keeping the comparisons at :352, :408, :762 and :769-770 on that table; update the nine sites of the six tests tests/agent/sdk/python/test_agent_operation_envelope.py, tests/agent/sdk/python/test_program_typed_responses.py, tests/agent/sdk/python/test_program_trust.py, tests/agent/sdk/python/test_ai_market.py, tests/agent/sdk/python/test_agent_envelope_bootstrap_credential.py, tests/agent/sdk/python/test_integration.py to the rung names; continue from attempt 1 (11d9a4488) rebased onto current main with those changes and run the declared build and verify once as written."
 
 [task.6.60.6]
 title = "Drop the Makefile's test-owner-movement-proof target"
