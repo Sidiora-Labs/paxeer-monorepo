@@ -16,6 +16,7 @@ import { bridgeChainByKey, paxeer } from '@/lib/bridge/chains';
 import { layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS, paxeerXVaultAbi } from '@/lib/bridge/contracts';
 import { inboundDigest, outboundDigest, paxeerRecipient, releaseNullifier, verifyThresholdSignatures } from '@/lib/bridge/digests';
 import { nonceFromBridgeOutLogs } from '@/lib/bridge/import';
+import { phaseOf } from '@/lib/bridge/settlement';
 import type { BridgeTransfer } from '@/lib/bridge/transfers';
 import { wagmiConfig } from '@/lib/bridge/wagmi';
 
@@ -73,10 +74,11 @@ export function releaseCheckOf(transfer: BridgeTransfer) {
 }
 
 export function settledRefusal(transfer: BridgeTransfer, live: TransferLive | undefined): string | undefined {
-  if (transfer.direction === 'in' && live?.credited) {
+  if (phaseOf(transfer, live, false) !== 'settled') return undefined;
+  if (transfer.direction === 'in') {
     return 'This deposit is already credited on Paxeer.';
   }
-  if (transfer.direction === 'out' && live?.released) {
+  if (transfer.direction === 'out') {
     return 'This withdrawal is already released from the vault.';
   }
   return undefined;
