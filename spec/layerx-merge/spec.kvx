@@ -136013,7 +136013,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.18.1471.1]
 title = "Issues #1471 and #1474: Port the four anchor tests off the removed checkpoint vector loaders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
