@@ -125486,7 +125486,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.15]
 title = "Inventory every test run of the services/explorer/services/libs/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125576,7 +125576,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.12]
 title = "Inventory every test run of the services/interop/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125606,7 +125606,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.11]
 title = "Inventory every test run of the services/human/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125636,7 +125636,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.10]
 title = "Inventory every test run of the services/agent/Cargo.toml Rust workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182689,7 +182689,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.1.3]
 title = "Make the oracle codec archive test assert ownership without the deleted adapter object"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
