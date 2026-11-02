@@ -126752,7 +126752,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.62.5]
 title = "Retire the docs, docker and localnet targets with consensus/networks/local"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["5.62.4", "16.96.8", "6.96.5"]
