@@ -269,7 +269,9 @@ func makeNode(
 			nodeMetrics.state,
 			consensusPolicy,
 		)
-		if provider, ok := app.(interface{ SequencerSource() types.SequencerSource }); ok {
+		if src, ok := app.(types.SequencerSource); ok {
+			blockExec.SetSequencerSource(src)
+		} else if provider, ok := app.(interface{ SequencerSource() types.SequencerSource }); ok {
 			if src := provider.SequencerSource(); src != nil {
 				blockExec.SetSequencerSource(src)
 			}
