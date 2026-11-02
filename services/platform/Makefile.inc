@@ -234,9 +234,12 @@ platform-sdk-check:
 	$(PLATFORM_CARGO) run --offline --manifest-path $(PLATFORM_SDKGEN_MANIFEST) --locked -p layerx-platform-sdkgen -- --check
 	$(PLATFORM_CARGO) run --offline --manifest-path $(PLATFORM_SDKGEN_MANIFEST) --locked -p layerx-platform-sdkgen -- --check-paxai
 
-platform-sdk-generate:
+.PHONY: platform-human-api-generate
+platform-human-api-generate:
+	$(HUMAN_API_GEN) "$(HUMAN_API_SCHEMA_DIR)" "$(HUMAN_API_OUT_DIR)"
+
+platform-sdk-generate: platform-human-api-generate
 	cargo run --manifest-path services/agent/tools/sdk-gen/Cargo.toml --locked -- --write
-	cargo run --manifest-path services/human/tools/api-gen/Cargo.toml --locked -- services/human/schema/human-api apps/web/src/api/generated
 	python3 sdk/platform/generators/generate_portable.py $(CURDIR)
 	python3 sdk/platform/generators/generate_jvm.py $(CURDIR)
 	$(PLATFORM_CARGO) run --manifest-path $(PLATFORM_SDKGEN_MANIFEST) --locked -p layerx-platform-sdkgen -- --write

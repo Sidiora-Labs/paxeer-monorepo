@@ -50,7 +50,9 @@ fn parse_kvx(source: &str) -> Result<Sections, String> {
             .and_then(|value| value.strip_suffix(']'))
         {
             name.clone_into(&mut current);
-            sections.entry(current.clone()).or_default();
+            if sections.insert(current.clone(), BTreeMap::new()).is_some() {
+                return Err(format!("line {}: duplicate section {current}", index + 1));
+            }
             continue;
         }
         let Some((key, value)) = line.split_once('=') else {

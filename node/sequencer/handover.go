@@ -10,6 +10,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 )
 
+// Fencer stops primary admission before the retained WAL is drained to the standby.
 type Fencer interface {
 	Fence() error
 }
@@ -43,6 +44,8 @@ func (r *Replicator) Drain(ctx context.Context) (Ack, error) {
 	return ack, nil
 }
 
+// Handover fences admission, drains replication and durably promotes the standby.
+// A failure after Fence leaves admission fenced so an unacknowledged send cannot escape.
 func Handover(ctx context.Context, cfg HandoverConfig) (HandoverResult, error) {
 	if cfg.Key == nil {
 		return HandoverResult{}, errors.New("sequencer: handover requires a receipt key")
