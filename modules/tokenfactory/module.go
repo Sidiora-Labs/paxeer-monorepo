@@ -39,7 +39,7 @@ var (
 // AppModuleBasic
 // ----------------------------------------------------------------------------
 
-// AppModuleBasic implements the AppModuleBasic interface for the capability module.
+// AppModuleBasic registers tokenfactory codecs and the CLI command producers.
 type AppModuleBasic struct{}
 
 func NewAppModuleBasic() AppModuleBasic {
@@ -138,8 +138,8 @@ func (am AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier {
 	return nil
 }
 
-// RegisterServices registers a GRPC query service to respond to the
-// module-specific GRPC queries.
+// RegisterServices connects the CLI query and transaction messages to the real
+// tokenfactory keeper through the SDK query and message service routers.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)

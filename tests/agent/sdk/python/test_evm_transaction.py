@@ -442,5 +442,57 @@ class EncodeCallTests(EvmTransactionCase):
         )
 
 
+
+def proof_layerxprograms_0x101d(path: str, mode: str) -> None:
+    """Invoked by the Go application proof with actual EVM outputs, never synthetic success frames."""
+    import json
+    from layerx_sdk.ai_market import (
+        AiMarketError, _decode_programs_call,
+        decode_programs_call_result, decode_programs_state_head,
+    )
+    fixture = json.loads(Path(path).read_text())
+    data = bytes.fromhex(fixture["callInput"])
+    native, fee = _decode_programs_call(data)
+    if mode == "produce":
+        # The bytes sent by the Go EVM must be produced by the shipping SDK encoder.
+        assert _encode_programs_call(native, fee) == data
+        print(_encode_programs_call(native, fee).hex())
+        return
+    from layerx_sdk.revert import decode_revert_reason
+    assert len(fixture["refusals"]) == 2
+    for code, output in fixture["refusals"].items():
+        assert decode_revert_reason(bytes.fromhex(output)).code == code
+    assert len(fixture["calls"]) == len(fixture["heads"]) == 2
+    for output in fixture["calls"] + fixture["simulations"]:
+        # Host.Execute/Simulate currently expose the terminal frame as guest response.
+        # Preserve the guest capacity and refuse the producer defect.
+        assert native.response_capacity == 64
+        try:
+            decode_programs_call_result(bytes.fromhex(output), native.response_capacity)
+        except AiMarketError as error:
+            assert error.code == "ReceiptMismatch"
+        else:
+            raise AssertionError("accepted terminal frame exceeding guest capacity")
+    for output in fixture["heads"]:
+        assert decode_programs_state_head(bytes.fromhex(output)).hex() == fixture["stateHead"]
+    for output in fixture["malformedCalls"]:
+        try:
+            decode_programs_call_result(bytes.fromhex(output), native.response_capacity)
+        except AiMarketError as error:
+            assert error.code == "ReceiptMismatch"
+        else:
+            raise AssertionError("accepted malformed producer terminal output")
+    for output in fixture["malformedHeads"]:
+        try:
+            decode_programs_state_head(bytes.fromhex(output))
+        except AiMarketError:
+            pass
+        else:
+            raise AssertionError("accepted malformed producer state head")
+    print("python observed two real calls and state heads and refused malformed output")
+
 if __name__ == "__main__":
-    unittest.main()
+    if len(sys.argv) == 4 and sys.argv[1] == "--programs-proof":
+        proof_layerxprograms_0x101d(sys.argv[2], sys.argv[3])
+    else:
+        unittest.main()

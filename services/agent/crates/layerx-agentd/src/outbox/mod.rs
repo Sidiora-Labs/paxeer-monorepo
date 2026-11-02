@@ -245,7 +245,10 @@ impl Outbox {
         let encoded = store.get(&outbox_key).ok_or(OutboxError::NotFound)?;
         let signed = store.get(&signed_key).ok_or(OutboxError::Corrupt)?;
         let mut record = decode_record(encoded.bytes(), tenant)?;
+        let (call, signature) = decode_signed(signed.bytes()).map_err(|_| OutboxError::Corrupt)?;
+        recover_sender(&call, &signature).map_err(|_| OutboxError::Corrupt)?;
         if record.status.submission_id != submission_id
+            || record.status.activity_id != submission_id
             || transaction_hash(signed.bytes()) != submission_id
         {
             return Err(OutboxError::Corrupt);

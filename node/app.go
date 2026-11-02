@@ -911,6 +911,7 @@ func New(
 	if err != nil {
 		panic(fmt.Sprintf("error creating LayerX chains keeper: %s", err))
 	}
+	app.EvmKeeper.SetChainsBinding(evmChainsBinding{app.LayerXChainsKeeper})
 	app.LayerXExchangeKeeper = layerxexchangekeeper.NewKeeper(appCodec, keys[layerxexchangetypes.StoreKey],
 		app.LayerXCustodyKeeper, &app.EvmKeeper)
 	app.LayerXExchangeKeeper.SetUpgradeKeeper(app.UpgradeKeeper)
@@ -1622,7 +1623,25 @@ func (app *App) MidBlocker(ctx sdk.Context, height int64) []abci.Event {
 // InitChainer application update at chain initialization
 func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 	var genesisState GenesisState
-	if !app.genesisImportConfig.StreamGenesisImport {
+	if app.genesisImportConfig.StreamGenesisImport {
+		// The streaming reader reports open errors only on stdout and otherwise
+		// returns an empty stream. Refuse an unavailable input before writing state.
+		file, err := os.Open(filepath.Clean(app.genesisImportConfig.GenesisStreamFile))
+		if err != nil {
+			panic(fmt.Errorf("open genesis stream: %w", err))
+		}
+		info, statErr := file.Stat()
+		closeErr := file.Close()
+		if statErr != nil {
+			panic(fmt.Errorf("stat genesis stream: %w", statErr))
+		}
+		if closeErr != nil {
+			panic(fmt.Errorf("close genesis stream: %w", closeErr))
+		}
+		if !info.Mode().IsRegular() {
+			panic(fmt.Errorf("genesis stream %q must be a regular file", file.Name()))
+		}
+	} else {
 		if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 			panic(err)
 		}
@@ -2898,6 +2917,21 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 	}
 }
 
+func (app *App) DomainAllowance(ctx sdk.Context, chainID *big.Int) (id uint32, gas uint64, bytes uint64, active bool, known bool) {
+	id, known = layerxchainstypes.DomainOfChainID(chainID)
+	if !known {
+		return 0, 0, 0, false, false
+	}
+	if id == 0 {
+		return 0, 0, 0, true, true
+	}
+	domain, known := app.LayerXChainsKeeper.ResolveChainID(ctx, chainID)
+	if !known {
+		return id, 0, 0, false, false
+	}
+	return id, domain.GasAllowance, domain.ByteAllowance, domain.Status == layerxchainstypes.StatusActive, true
+}
+
 func (app *App) GetEVMMsg(tx sdk.Tx) (res *evmtypes.MsgEVMTransaction) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -3782,8 +3816,27 @@ func (app *App) BlacklistedAccAddrs() map[string]bool {
 	return blacklistedAddrs
 }
 
+type chainsPrecompileBankKeeper struct {
+	putils.BankKeeper
+	chains *layerxchainskeeper.Keeper
+}
+
+func (k *chainsPrecompileBankKeeper) LayerXChainsK() *layerxchainskeeper.Keeper { return k.chains }
+
+func (pk *PrecompileKeepers) LayerXChainsK() *layerxchainskeeper.Keeper {
+	wired, ok := pk.BankKeeper.(interface {
+		LayerXChainsK() *layerxchainskeeper.Keeper
+	})
+	if !ok {
+		return nil
+	}
+	return wired.LayerXChainsK()
+}
+
 func (app *App) GetPrecompileKeepers() putils.Keepers {
-	return NewPrecompileKeepers(app)
+	keepers := NewPrecompileKeepers(app)
+	keepers.BankKeeper = &chainsPrecompileBankKeeper{BankKeeper: keepers.BankKeeper, chains: app.LayerXChainsKeeper}
+	return keepers
 }
 
 // v6120Contracts builds the contracts the v6.12.0 set adds or switches: the
@@ -4203,4 +4256,41 @@ func (b layerXGovernanceBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) 
 func (b layerXGovernanceBasic) RegisterInterfaces(registry types.InterfaceRegistry) {
 	b.AppModuleBasic.RegisterInterfaces(registry)
 	layerxgovtypes.RegisterInterfaces(registry)
+}
+
+type evmChainsBinding struct {
+	*layerxchainskeeper.Keeper
+}
+
+func (b evmChainsBinding) RecordDomainTx(ctx sdk.Context, id uint32, height int64, hash common.Hash, gasUsed uint64) {
+	if height < 0 {
+		panic("negative domain transaction height")
+	}
+	b.Keeper.RecordDomainTx(ctx, id, uint64(height), hash, gasUsed)
+}
+
+func (b evmChainsBinding) DomainGasUsed(ctx sdk.Context, id uint32, height int64) uint64 {
+	if height < 0 {
+		panic("negative domain gas height")
+	}
+	return b.Keeper.DomainGasUsed(ctx, id, uint64(height))
+}
+
+func (b evmChainsBinding) ActiveDomains(ctx sdk.Context) []uint32 {
+	var ids []uint32
+	b.IterateDomains(ctx, func(d layerxchainstypes.Domain) bool {
+		if d.Status == layerxchainstypes.StatusActive {
+			ids = append(ids, d.Id)
+		}
+		return false
+	})
+	return ids
+}
+
+func (b evmChainsBinding) Operator(ctx sdk.Context, id uint32) (common.Address, uint16) {
+	d, ok := b.GetDomain(ctx, id)
+	if !ok {
+		panic(layerxchainstypes.ErrUnknownDomain)
+	}
+	return d.Operator, d.FeeShareBps
 }

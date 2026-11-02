@@ -68,7 +68,36 @@ func (i *InfoAPI) BlockNumber(ctx context.Context) (result hexutil.Uint64, retur
 func (i *InfoAPI) ChainId(ctx context.Context) *hexutil.Big {
 	startTime := time.Now()
 	defer recordMetrics(ctx, "eth_chainId", i.connectionType, startTime)
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		return (*hexutil.Big)(scope.ChainID)
+	}
 	return (*hexutil.Big)(i.keeper.ChainID(i.ctxProvider(LatestCtxHeight)))
+}
+
+type domainInfoAPI struct {
+	*InfoAPI
+	scope DomainScope
+}
+
+func (i *domainInfoAPI) ChainId(ctx context.Context) *hexutil.Big {
+	return i.InfoAPI.ChainId(WithDomainScope(ctx, i.scope))
+}
+
+type domainNetAPI struct {
+	*NetAPI
+	scope *DomainScope
+}
+
+func (i *domainNetAPI) Version(ctx context.Context) string {
+	if i.scope != nil {
+		ctx = WithDomainScope(ctx, *i.scope)
+	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		startTime := time.Now()
+		defer recordMetrics(ctx, "net_version", i.connectionType, startTime)
+		return scope.ChainID.String()
+	}
+	return i.NetAPI.Version(ctx)
 }
 
 func (i *InfoAPI) Coinbase(ctx context.Context) (addr common.Address, err error) {

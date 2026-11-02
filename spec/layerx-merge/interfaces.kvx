@@ -241609,9 +241609,9 @@ path = "storage/common/keys/store_keys.go"
 line = 35
 signature = "LayerXAnchorStoreKey = \"layerxanchor\" // modules/layerxanchor/types.StoreKey"
 callers = ["storage/state_db/sc/composite/pending_store_test.go:19"]
-status = "retire"
+status = "keep"
 contract = "contracts/sequencer.md#node-storage"
-notes = "anchor store is deleted at the store-delete step (stale task 11.7.43, pending); callers: cross-package references in importing files"
+notes = "kept by decision 1954: LayerXAnchorStoreKey, kvStoreKeyNames and MemIAVLStoreKeys keep the anchor store key until the v7.0 anchor-store-delete step has run (capability 5.7.5 do_1 restored it); a later change after that step drops it; decision 2278 turns the retire status into keep"
 
 [interface.5.go-storage-common-keys-layer-x-auth-store-key]
 kind = "go_exported"
@@ -248393,9 +248393,9 @@ path = "storage/common/keys/store_keys.go"
 line = 35
 signature = "LayerXAnchorStoreKey = \"layerxanchor\" // modules/layerxanchor/types.StoreKey"
 callers = ["storage/common/keys/store_keys.go:76", "storage/state_db/sc/composite/pending_store_test.go:19"]
-status = "retire"
+status = "keep"
 contract = "contracts/sequencer.md#node-storage"
-notes = "design retires layerxanchor: its writes retire at activation and the store is deleted after every guarantor bond and challenge deposit is returned"
+notes = "kept by decision 1954 with the Go constant above: the store-delete step deletes the anchor store contents, the key name stays registered until a later change after that step; decision 2278 turns the retire status into keep"
 
 [interface.5.key-storage-common-keys-layer-x-auth-store-key]
 kind = "storage_key"
@@ -306281,9 +306281,9 @@ path = "utils/metrics/metrics_util.go"
 line = 274
 signature = "func IncrementRpcRequestCounter(endpoint string, connectionType string, success bool)"
 callers = ["rpc/utils.go:493"]
-status = "retire"
+status = "keep"
 contract = "contracts/evm-rpc.md#metrics-legacy"
-notes = "pax_rpc_request_counter; legacy telemetry dual-emitted beside the evmrpc OTel metrics; a TODO above the helper marks it for removal once dashboards use evmrpc_* and no dashboard in the repository reads it; utils/ is not in the domain table, the only emitter is rpc/"
+notes = "legacy telemetry dual-emitted beside the evmrpc OTel metrics (utils/metrics/metrics_util.go:274); rpc/utils_metrics_test.go:100 and rpc/websockets_metrics_test.go:78 assert the legacy sink is active; the TODO(PLT-326) removal waits for the dashboards to move and is an operations step after the merge; decision 2278 turns the retire status into keep"
 
 [interface.7.met-pax-rpc-request-latency-ms]
 kind = "metric"
@@ -306291,9 +306291,9 @@ path = "utils/metrics/metrics_util.go"
 line = 291
 signature = "func MeasureRpcRequestLatency(endpoint string, connectionType string, startTime time.Time)"
 callers = ["rpc/utils.go:494"]
-status = "retire"
+status = "keep"
 contract = "contracts/evm-rpc.md#metrics-legacy"
-notes = "pax_rpc_request_latency_ms; legacy telemetry dual-emitted beside the evmrpc OTel metrics; a TODO above the helper marks it for removal once dashboards use evmrpc_* and no dashboard in the repository reads it; utils/ is not in the domain table, the only emitter is rpc/"
+notes = "legacy telemetry dual-emitted beside the evmrpc OTel metrics (utils/metrics/metrics_util.go:291); rpc/utils_metrics_test.go:100 and rpc/websockets_metrics_test.go:78 assert the legacy sink is active; the TODO(PLT-326) removal waits for the dashboards to move and is an operations step after the merge; decision 2278 turns the retire status into keep"
 
 [interface.7.met-pax-websocket-connect]
 kind = "metric"
@@ -306301,9 +306301,9 @@ path = "utils/metrics/metrics_util.go"
 line = 265
 signature = "func IncWebsocketConnects()"
 callers = ["rpc/websockets.go:16"]
-status = "retire"
+status = "keep"
 contract = "contracts/evm-rpc.md#metrics-legacy"
-notes = "pax_websocket_connect; legacy telemetry dual-emitted beside the evmrpc OTel metrics; a TODO above the helper marks it for removal once dashboards use evmrpc_* and no dashboard in the repository reads it; utils/ is not in the domain table, the only emitter is rpc/"
+notes = "legacy telemetry dual-emitted beside the evmrpc OTel metrics (utils/metrics/metrics_util.go:265); rpc/utils_metrics_test.go:100 and rpc/websockets_metrics_test.go:78 assert the legacy sink is active; the TODO(PLT-326) removal waits for the dashboards to move and is an operations step after the merge; decision 2278 turns the retire status into keep"
 
 [interface.7.msg-cosmos-authz-v1beta1-exec-j39]
 kind = "cosmos_msg"
@@ -468807,9 +468807,9 @@ path = "services/interop/crates/layerx-portable/src/receipt.rs"
 line = 598
 signature = "FormatProbe { format: String }"
 callers = []
-status = "retire"
+status = "keep"
 contract = "contracts/interop-portable.md#fmt-portable-format-probe"
-notes = "portable receipt JSON via serde Deserialize"
+notes = "FormatProbe (services/interop/crates/layerx-portable/src/receipt.rs:432) is the format discriminator verify_portable_json reads before the v2 verifier; the v1 arm went with task 11.29.4 and the probe survives as the v2 entry check; decision 2278 turns the retire status into keep"
 overridden_by = "override.J48.44"
 
 [interface.11.fmt-portable-portable-receipt]

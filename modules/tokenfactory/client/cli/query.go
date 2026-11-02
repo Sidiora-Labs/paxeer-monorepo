@@ -91,6 +91,7 @@ func GetCmdDenomAuthorityMetadata() *cobra.Command {
 	return cmd
 }
 
+// GetCmdDenomPaused queries the live pause status and issuer of one denom.
 func GetCmdDenomPaused() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "denom-paused [denom]",
@@ -159,6 +160,7 @@ func GetCmdDenomsFromCreator() *cobra.Command {
 	return cmd
 }
 
+// GetCmdDenomMetadata queries the bank metadata of one factory denom.
 func GetCmdDenomMetadata() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "denom-metadata [denom]",
@@ -187,6 +189,7 @@ func GetCmdDenomMetadata() *cobra.Command {
 	return cmd
 }
 
+// GetCmdDenomAllowList queries the addresses allowed to transfer one denom.
 func GetCmdDenomAllowList() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "denom-allow-list [denom]",

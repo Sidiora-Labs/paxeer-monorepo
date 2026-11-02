@@ -173,6 +173,17 @@ pub struct DisclosedCall {
     pub disclosure: Disclosure,
 }
 
+impl DisclosedCall {
+    /// Binds a prepared call at the consumer boundary, independently of its producer.
+    ///
+    /// # Errors
+    /// Refuses malformed or unsupported construct calldata.
+    pub fn from_call(call: Eip1559Call, from: [u8; 20]) -> Result<Self, DisclosureError> {
+        let disclosure = bind_call(&call, from)?;
+        Ok(Self { call, disclosure })
+    }
+}
+
 /// # Errors
 /// Rejects malformed send payloads and calls whose maximum fee overflows uint128.
 pub fn ledger_payment_call(
@@ -200,8 +211,7 @@ pub fn ledger_payment_call(
         to,
         data,
     };
-    let disclosure = bind_call(&call, options.from)?;
-    Ok(DisclosedCall { call, disclosure })
+    DisclosedCall::from_call(call, options.from)
 }
 
 pub struct EnvelopeOptions<'a> {

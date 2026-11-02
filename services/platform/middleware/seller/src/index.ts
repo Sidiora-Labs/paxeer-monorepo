@@ -3,7 +3,7 @@ import {
   paymentCommitment,
   paymentCurrency,
   paymentPayer,
-  paymentPurpose,
+  paymentPurpose as readPaymentPurpose,
   verifyPaymentCommitment,
   type PaymentCommitment,
   type PaymentCommitmentEvidence,
@@ -28,6 +28,7 @@ export const PAYMENT_RESPONSE_HEADER = "PAYMENT-RESPONSE" as const;
 const MAX_U128 = 340282366920938463463374607431768211455n;
 const MAX_HEADER_BYTES = 64 * 1024;
 const PAYMENT_KEY_DOMAIN = new TextEncoder().encode("LayerX/middleware/x402/idempotency\0");
+const paymentPurpose = readPaymentPurpose;
 
 export type JsonValue = null | boolean | number | string | JsonValue[] | { readonly [key: string]: JsonValue };
 
@@ -116,8 +117,8 @@ export type MiddlewareErrorCode =
   | "webhook-replay";
 
 export class MiddlewareError extends Error {
-  public constructor(public readonly code: MiddlewareErrorCode) {
-    super(code);
+  public constructor(public readonly code: MiddlewareErrorCode, public readonly detail?: string) {
+    super(detail === undefined ? code : `${code}: ${detail}`);
     this.name = "MiddlewareError";
   }
 }
@@ -387,8 +388,19 @@ export async function verifyPaymentReceipt(
     throw error;
   }
   const { receipt } = verified;
-  if (requirements.scheme !== "exact" || receipt.resultCode !== 0 || receipt.moduleId <= 11) {
+  if (!["exact", "metered", "subscription"].includes(requirements.scheme)
+    || receipt.resultCode !== 0 || receipt.moduleId <= 11) {
     throw new MiddlewareError("verification-failure");
+  }
+  if (requirements.scheme !== "exact") {
+    try {
+      paymentPurpose(requirements.extra, true);
+    } catch (error) {
+      if (error instanceof PlatformSdkError) {
+        throw new MiddlewareError("verification-failure", "metered and subscription offers require a purpose hash");
+      }
+      throw error;
+    }
   }
   const summary = receipt.effects[0];
   if (summary === undefined || summary.moduleId !== receipt.moduleId || summary.ordinal !== 0
@@ -402,7 +414,7 @@ export async function verifyPaymentReceipt(
   let reference: string | undefined;
   try {
     payer = paymentPayer(requirements.extra);
-    reference = paymentPurpose(requirements.extra, requirements.scheme !== "exact");
+    reference = paymentPurpose(requirements.extra, false);
   } catch (error) {
     if (error instanceof PlatformSdkError) throw new MiddlewareError("verification-failure");
     throw error;
