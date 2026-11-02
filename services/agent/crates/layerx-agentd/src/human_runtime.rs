@@ -21494,49 +21494,13 @@ pub fn receipt_proof_operation(
 pub fn proof_bundle_operation_value(
     response: &layerx_agent_api::read::VerifiedRead<layerx_agent_api::proof::ProofBundle>,
 ) -> Result<Value, HumanOperationError> {
-    let bundle = &response.value;
-    bundle
-        .validate()
+    let encoded = response
+        .encode_json()
         .map_err(|_| HumanOperationError::Refused)?;
-    if response.achieved_rung != bundle.verification_level {
+    if encoded.len() > MAX_RESPONSE {
         return Err(HumanOperationError::Refused);
     }
-    let relative = if response.freshness.value_height > response.freshness.chain_head {
-        "pending".to_owned()
-    } else {
-        response.freshness.value_height.to_string()
-    };
-    let key = bundle.receipt_key;
-    let mut value = serde_json::json!({"format": bundle.format, "verificationLevel": bundle.verification_level.name(),
-        "rawTransaction": rpc_hex(bundle.raw_transaction.as_bytes()), "signedReceipt": rpc_hex(bundle.signed_receipt.as_bytes()),
-        "receiptDigest": rpc_hex(&bundle.receipt_digest), "receiptKey": {"keyId": rpc_hex(&key.key_id),
-            "publicKey": rpc_hex(&key.public_key), "firstHeight": key.first_height.to_string(), "lastHeight": key.last_height.to_string()}});
-    for (name, bytes) in [
-        ("blockHeader", &bundle.block_header),
-        ("receiptInclusion", &bundle.receipt_inclusion),
-        ("commit", &bundle.commit),
-        ("validatorSet", &bundle.validator_set),
-        ("accountProof", &bundle.account_proof),
-    ] {
-        if let Some(bytes) = bytes {
-            value[name] = Value::String(rpc_hex(bytes.as_bytes()));
-        }
-    }
-    let mut result = ordinary_read(
-        value,
-        response.freshness.chain_head,
-        response.freshness.value_height,
-        &relative,
-    );
-    result["achieved_verification_level"] = Value::String(response.achieved_rung.name().into());
-    if serde_json::to_vec(&result)
-        .map_err(|_| HumanOperationError::Refused)?
-        .len()
-        > MAX_RESPONSE
-    {
-        return Err(HumanOperationError::Refused);
-    }
-    Ok(result)
+    serde_json::from_str(&encoded).map_err(|_| HumanOperationError::Refused)
 }
 
 fn program_rpc_error(error: crate::ops::program::ProgramRpcOperationError) -> HumanOperationError {

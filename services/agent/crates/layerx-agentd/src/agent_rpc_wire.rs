@@ -1631,12 +1631,7 @@ impl ProofBundleWire {
             return Err(malformed(id));
         }
         let bytes = hex_bytes(&self.target, id)?;
-        layerx_agent_api::proof::ProofBundleTarget::decode(&bytes).map_err(|_| malformed(id))?;
-        Ok(ReadRequest {
-            selector: layerx_agent_api::prepare::CanonicalBytes::new(bytes)
-                .map_err(|_| malformed(id))?,
-            requested_rung: export_level(&self.requested_rung, id)?,
-        })
+        ReadRequest::proof_bundle(bytes, &self.requested_rung).map_err(|_| malformed(id))
     }
 }
 

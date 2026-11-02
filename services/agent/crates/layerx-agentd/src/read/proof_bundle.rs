@@ -172,6 +172,10 @@ fn committed(
 pub(crate) fn verify_bundle(
     request: &ProofBundleRequest<'_>,
 ) -> Result<ServedProofBundle, CheckpointReadError> {
+    request
+        .target
+        .encode()
+        .map_err(|_| CheckpointReadError::TargetMismatch)?;
     let checkpoint = committed(request)?;
     let receipt = request.receipt;
     let kind = match request.target {
@@ -179,11 +183,7 @@ pub(crate) fn verify_bundle(
         ProofBundleTarget::Receipt(_) => ProofBundleKind::Receipt,
         ProofBundleTarget::AccountState { .. } => ProofBundleKind::State,
     };
-    let rung = if kind == ProofBundleKind::State {
-        Rung::Committed
-    } else {
-        Rung::Receipted
-    };
+    let rung = request.target.required_rung();
     if rung < request.requested_rung {
         return Err(CheckpointReadError::BelowRequestedRung);
     }

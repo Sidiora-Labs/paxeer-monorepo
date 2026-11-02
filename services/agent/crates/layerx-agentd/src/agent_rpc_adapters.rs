@@ -1835,14 +1835,7 @@ pub fn budget_state_operation(
 }
 
 fn freshness_value(freshness: &Freshness) -> Value {
-    serde_json::json!({
-        "chain_head": dec(freshness.chain_head),
-        "value_height": dec(freshness.value_height),
-        "relative_to": match freshness.relative_to {
-            layerx_agent_api::read::RelativeTo::Block {height, hash} =>
-                serde_json::json!({"height": dec(height), "hash": hexv(&hash)}),
-        },
-    })
+    serde_json::from_str(&freshness.encode_json()).expect("contract freshness JSON")
 }
 
 fn legacy_level(rung: Rung) -> Rung {
@@ -1871,8 +1864,15 @@ pub(crate) fn read_proof_bundle<A: HumanAuthorityBoundary>(
     let typed = decode_wire::<ProofBundleWire>(request, id)?.into_request(id)?;
     let response = owner
         .lock()
-        .and_then(|mut guard| guard.rpc_read_proof_bundle(context, typed))
+        .and_then(|mut guard| guard.rpc_read_proof_bundle(context, typed.clone()))
         .map_err(|error| owner_error(id, error))?;
+    typed.check_proof_response(&response).map_err(|_| {
+        Rejection::new(
+            layerx_agent_api::error::ErrorClass::VerificationFailure,
+            id,
+            "read.invalid_proof",
+        )
+    })?;
     Ok(Dispatched {
         verification: Some(VerificationStatus::Achieved(response.achieved_rung)),
         value: crate::human_runtime::proof_bundle_operation_value(&response)

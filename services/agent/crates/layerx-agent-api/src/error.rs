@@ -147,6 +147,26 @@ pub enum RungStatus {
     },
 }
 
+impl RungStatus {
+    /// Refuses an impossible shortfall before a transport renders it as success.
+    ///
+    /// # Errors
+    /// Returns a mismatch when a Below status has already reached its requested rung.
+    pub fn validate(&self) -> Result<(), ContractError> {
+        if let Self::Below {
+            requested,
+            achieved,
+            ..
+        } = self
+        {
+            if achieved >= requested {
+                return Err(ContractError::Mismatch("verification.inconsistent"));
+            }
+        }
+        Ok(())
+    }
+}
+
 /// The only successful API envelope; verification status cannot be omitted.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ApiSuccess<T> {
