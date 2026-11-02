@@ -50,10 +50,19 @@ func (s Store) Squad(ctx context.Context, id string) (Squad, error) {
 	var q Squad
 	var b []byte
 	e := s.DB.QueryRowContext(ctx, `SELECT document FROM narrative_discovery.squads WHERE id=$1`, id).Scan(&b)
-	if e == nil {
-		e = json.Unmarshal(b, &q)
+	if e != nil {
+		return Squad{}, e
 	}
-	return q, e
+	if e = json.Unmarshal(b, &q); e != nil {
+		return Squad{}, e
+	}
+	if q.ID != id {
+		return Squad{}, ErrInvalid
+	}
+	if e = q.Validate(); e != nil {
+		return Squad{}, e
+	}
+	return q, nil
 }
 func (s Store) Invite(ctx context.Context, actor, squadID, account, token string, expires time.Time) error {
 	if len(token) < 32 || len(token) > 512 || account == "" || account == actor || !expires.After(time.Now()) || expires.After(time.Now().Add(7*24*time.Hour)) {

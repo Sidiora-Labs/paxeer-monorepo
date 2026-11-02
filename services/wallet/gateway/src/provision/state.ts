@@ -395,16 +395,21 @@ async function signStationPayload(
   return requireAttestors(deps).signAuthorized(wallet.attestor_key_id, payload, authorisation);
 }
 
-export async function provisionAccount(deps: ProvisionDeps, subject: ProvisionSubject): Promise<ProvisionResult> {
-  if (!deps.station) {
-    throw new ProvisionError('gas_station_unconfigured', 503, 'no gas station is configured');
-  }
+/** Apply the same typed station refusal to interactive provisioning and the backfill command. */
+export function requireProvisionStation<T extends Pick<ProvisionDeps, 'station'>>(
+  deps: T,
+): asserts deps is T & { station: GasStationClient } {
+  if (!deps.station) throw new ProvisionError('gas_station_unconfigured', 503, 'no gas station is configured');
   try {
     deps.station.requireConfiguredUrl();
   } catch (err) {
     if (err instanceof StationAdapterError) throw new ProvisionError(err.code, err.status, err.message);
     throw err;
   }
+}
+
+export async function provisionAccount(deps: ProvisionDeps, subject: ProvisionSubject): Promise<ProvisionResult> {
+  requireProvisionStation(deps);
   let userId: string;
   let kind: WalletKind;
   let principal: AgentPrincipal | null = null;

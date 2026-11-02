@@ -13,6 +13,8 @@ import (
 	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 )
 
+const defaultNodeWasmQueryGasLimit uint64 = 300000
+
 // WASMConfig defines configuration for the wasm module.
 type WASMConfig struct {
 	QueryGasLimit      uint64 `mapstructure:"query_gas_limit"`
@@ -46,7 +48,7 @@ func NewCustomAppConfig(baseConfig *srvconfig.Config, evmConfig evmrpcconfig.Con
 		StateStore:   paxdbconfig.DefaultStateStoreConfig(),
 		ReceiptStore: paxdbconfig.DefaultReceiptStoreConfig(),
 		WASM: WASMConfig{
-			QueryGasLimit:   300000,
+			QueryGasLimit:   defaultNodeWasmQueryGasLimit,
 			MemoryCacheSize: wasmtypes.DefaultWasmConfig().MemoryCacheSize,
 		},
 		EVM:             evmConfig,

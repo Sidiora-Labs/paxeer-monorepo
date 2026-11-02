@@ -3424,7 +3424,8 @@ const lxpModuleReservedCount uint16 = 11
 // kernel module set, so no kernel module id is reused.
 const EVMReceiptModuleID = lxpModuleReservedCount + 1
 
-// Sequenced reports whether height has reached the keeper's activation height.
+// Sequenced reports whether height has reached the keeper's persisted activation
+// height; reconstructing the application does not reset the sequencing boundary.
 func (app *App) Sequenced(ctx sdk.Context, height int64) bool {
 	sequenced, err := app.SequencerKeeper.Sequenced(ctx, height)
 	if err != nil {
