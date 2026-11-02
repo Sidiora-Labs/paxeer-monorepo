@@ -132839,7 +132839,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.44.1]
 title = "Prove the client parity path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -132873,7 +132873,7 @@ do_7 = "Finding 21.44.1.1 and decision 2300: for an unknown hash, block or out-o
 
 [task.21.43.1]
 title = "Prove the views path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
