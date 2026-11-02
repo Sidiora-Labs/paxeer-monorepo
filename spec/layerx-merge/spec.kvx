@@ -129247,7 +129247,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.82.1]
 title = "Prove the pay keeper path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129441,7 +129441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.72.1]
 title = "Prove the msg layerxpay updateparams path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129541,7 +129541,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.68.1]
 title = "Prove the launchpad livestream path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129706,7 +129706,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.60.1]
 title = "Prove the records path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130859,7 +130859,7 @@ do_7 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.16.1]
 title = "Prove the layerxledger keeper path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -130924,7 +130924,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.13.1]
 title = "Prove the go api path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
