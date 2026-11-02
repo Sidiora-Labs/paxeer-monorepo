@@ -126697,7 +126697,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.26]
 title = "Repair the agentd human runtime policy-history and subject queue tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.9.25"]
