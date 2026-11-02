@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"io"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -56,6 +57,11 @@ func srvOpenDB(t *testing.T) *sql.DB {
 	if dsn == "" {
 		t.Fatal("PERPS_DATA_TEST_DATABASE_URL is unset")
 	}
+	return srvOpenDSN(t, dsn)
+}
+
+func srvOpenDSN(t *testing.T, dsn string) *sql.DB {
+	t.Helper()
 	db, err := sql.Open("postgres", dsn)
 	if err != nil {
 		t.Fatal(err)
@@ -145,28 +151,50 @@ func srvNew(t *testing.T, db *sql.DB, requests int) *Server {
 	return s
 }
 
-func srvGet(t *testing.T, s *Server, path string, header http.Header) (*httptest.ResponseRecorder, map[string]any) {
+func srvGet(t *testing.T, s *Server, path string, header http.Header) (*http.Response, map[string]any) {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, path, nil)
+	server := httptest.NewServer(s.Handler())
+	defer server.Close()
+	return srvRead(t, server.Client(), server.URL+path, header)
+}
+
+// srvRead is the HTTP/JSON consumer used by the server tests and the proof.
+func srvRead(t *testing.T, client *http.Client, url string, header http.Header) (*http.Response, map[string]any) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
 	for k, v := range header {
 		req.Header[k] = v
 	}
-	rec := httptest.NewRecorder()
-	s.ServeHTTP(rec, req)
-	var body map[string]any
-	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
-		t.Fatalf("%s: %v: %s", path, err, rec.Body.String())
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatalf("%s: %v", url, err)
 	}
-	return rec, body
+	defer resp.Body.Close()
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("%s: %v", url, err)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(raw, &body); err != nil {
+		t.Fatalf("%s: %v: %s", url, err, raw)
+	}
+	return resp, body
 }
 
 func srvOK(t *testing.T, s *Server, path string) map[string]any {
 	t.Helper()
 	rec, body := srvGet(t, s, path, nil)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("%s: status %d: %s", path, rec.Code, rec.Body.String())
+	if rec.StatusCode != http.StatusOK {
+		t.Fatalf("%s: status %d: %v", path, rec.StatusCode, body)
 	}
-	if got := rec.Header().Get("Cache-Control"); got != "max-age=2" {
+	wantCache := "max-age=2"
+	if path == "/api/chain/health" || path == "/api/explorer/health" {
+		wantCache = "no-store"
+	}
+	if got := rec.Header.Get("Cache-Control"); got != wantCache {
 		t.Fatalf("%s: Cache-Control %q", path, got)
 	}
 	return body
@@ -175,8 +203,8 @@ func srvOK(t *testing.T, s *Server, path string) map[string]any {
 func srvError(t *testing.T, s *Server, path string, code int, msg string) {
 	t.Helper()
 	rec, body := srvGet(t, s, path, nil)
-	if rec.Code != code || body["error"] != msg {
-		t.Fatalf("%s: got %d %v, want %d %q", path, rec.Code, body, code, msg)
+	if rec.StatusCode != code || body["error"] != msg {
+		t.Fatalf("%s: got %d %v, want %d %q", path, rec.StatusCode, body, code, msg)
 	}
 }
 
@@ -419,16 +447,16 @@ SELECT 900, $1, hash, time + interval '1 second', proposer, 0 FROM perps.blocks 
 	t.Run("rate_limited_429", func(t *testing.T) {
 		limited := srvNew(t, db, 2)
 		for i := range 2 {
-			if rec, _ := srvGet(t, limited, "/api/explorer/health", nil); rec.Code != http.StatusOK {
-				t.Fatalf("request %d: status %d", i, rec.Code)
+			if rec, _ := srvGet(t, limited, "/api/explorer/health", nil); rec.StatusCode != http.StatusOK {
+				t.Fatalf("request %d: status %d", i, rec.StatusCode)
 			}
 		}
 		rec, body := srvGet(t, limited, "/api/explorer/health", nil)
-		if rec.Code != http.StatusTooManyRequests || body["error"] != "rate limit exceeded" || rec.Header().Get("Retry-After") != "60" {
-			t.Fatalf("third request: %d %v Retry-After %q", rec.Code, body, rec.Header().Get("Retry-After"))
+		if rec.StatusCode != http.StatusTooManyRequests || body["error"] != "rate limit exceeded" || rec.Header.Get("Retry-After") != "60" {
+			t.Fatalf("third request: %d %v Retry-After %q", rec.StatusCode, body, rec.Header.Get("Retry-After"))
 		}
-		if rec, _ := srvGet(t, limited, "/api/explorer/health", http.Header{"X-Api-Key": {"client-b"}}); rec.Code != http.StatusTooManyRequests {
-			t.Fatalf("same client with another api key: status %d, want 429", rec.Code)
+		if rec, _ := srvGet(t, limited, "/api/explorer/health", http.Header{"X-Api-Key": {"client-b"}}); rec.StatusCode != http.StatusTooManyRequests {
+			t.Fatalf("same client with another api key: status %d, want 429", rec.StatusCode)
 		}
 		other := httptest.NewRequest(http.MethodGet, "/api/explorer/health", nil)
 		other.RemoteAddr = "198.51.100.7:4321"

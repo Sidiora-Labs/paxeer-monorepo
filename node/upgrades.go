@@ -263,6 +263,10 @@ func (app *App) xwebInitialised(ctx sdk.Context) bool {
 // xweb upgrade is done, or the chain started with xweb in its module versions
 // and its genesis initialised it.
 func (app *App) xwebLive(ctx sdk.Context) bool {
+	// An upgrade marker cannot supply the genesis parameters consumers read.
+	if !app.xwebInitialised(ctx) {
+		return false
+	}
 	if app.UpgradeKeeper.GetDoneHeight(ctx, xwebUpgrade) > 0 {
 		return true
 	}

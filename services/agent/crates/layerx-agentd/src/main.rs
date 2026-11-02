@@ -27,6 +27,9 @@ use layerx_agentd::human_runtime::{
     UnifiedAgentOwner,
 };
 use layerx_agentd::identity::{self, CoreIdentity, IdentityError, IdentityResolver};
+use layerx_agentd::node_rpc::environment::{
+    parse_digest, parse_u64, refuse_retired_environment, required, HumanNodeEnvironment, McpHeights,
+};
 use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_agentd::ops::program::ProgramOperations;
 use layerx_agentd::read::{
@@ -83,10 +86,6 @@ fn optional(name: &str) -> Option<String> {
     env::var(name).ok().filter(|value| !value.is_empty())
 }
 
-fn required(name: &str) -> Result<String, String> {
-    optional(name).ok_or_else(|| format!("{name} is required"))
-}
-
 fn absolute_path(name: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(required(name)?);
     if path.is_absolute() {
@@ -102,16 +101,6 @@ fn read_ca(name: &str) -> Result<Vec<u8>, String> {
         return Err(format!("{name} is empty"));
     }
     Ok(bytes)
-}
-
-fn parse_u64(name: &str) -> Result<u64, String> {
-    required(name)?
-        .parse()
-        .map_err(|_| format!("{name} must be an unsigned integer"))
-}
-
-fn parse_digest(name: &str) -> Result<[u8; 32], String> {
-    hex::decode_digest(&required(name)?).map_err(|error| format!("{name} is invalid: {error}"))
 }
 
 fn parse_hex<const N: usize>(name: &str) -> Result<[u8; N], String> {
@@ -329,6 +318,7 @@ fn mcp_enrolment(config: &Config) -> Result<Option<McpEnrolment>, String> {
     let peer_uid = required("LAYERX_AGENT_MCP_PEER_UID")?
         .parse()
         .map_err(|_| "LAYERX_AGENT_MCP_PEER_UID is invalid")?;
+    let heights = McpHeights::from_environment()?;
     Ok(Some(McpEnrolment {
         root: absolute_path("LAYERX_AGENT_MCP_BINDING_ROOT")?,
         audit_root: absolute_path("LAYERX_AGENT_MCP_AUDIT_ROOT")?,
@@ -340,10 +330,10 @@ fn mcp_enrolment(config: &Config) -> Result<Option<McpEnrolment>, String> {
             capability_id: CapabilityId(parse_digest("LAYERX_AGENT_MCP_CAPABILITY_ID")?),
             permitted_activity_types: mcp_activity_types()?,
             scopes: mcp_scopes()?,
-            expiry_sequence: parse_u64("LAYERX_AGENT_MCP_EXPIRY_HEIGHT")?,
+            expiry_sequence: heights.expiry_height,
             opening_client: required("LAYERX_AGENT_MCP_OPENING_CLIENT")?,
             policy_version: required("LAYERX_AGENT_MCP_POLICY_VERSION")?,
-            core_sequence: parse_u64("LAYERX_AGENT_MCP_CORE_HEIGHT")?,
+            core_sequence: heights.core_height,
         },
         limit: mcp_limit()?,
         deadline: Duration::from_millis(parse_u64("LAYERX_AGENT_MCP_DEADLINE_MS")?),
@@ -495,22 +485,8 @@ fn human_lni_limits(deadline: Duration) -> Result<Limits, String> {
 }
 
 fn connect_human_node() -> Result<SequencerEndpoint, String> {
-    let human_protocol_version = required("LAYERX_AGENT_HUMAN_PROTOCOL_VERSION")?
-        .parse()
-        .map_err(|_| "human protocol version is invalid")?;
-    if !layerx_wire::limits::protocol_version_uses_occupancy(human_protocol_version)
-        || human_protocol_version != layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
-    {
-        return Err("human protocol version is not the current beta protocol".to_owned());
-    }
-    let expected_network_id: u32 = required("LAYERX_AGENT_HUMAN_NETWORK_ID")?
-        .parse()
-        .map_err(|_| "human network id is invalid")?;
-    let config = NodeRpcConfig::from_environment()
-        .map_err(|error| format!("human node RPC configuration is invalid: {error}"))?;
-    if config.chain_id != u64::from(expected_network_id) {
-        return Err("human node RPC network id mismatch".to_owned());
-    }
+    let environment = HumanNodeEnvironment::from_environment()?;
+    let config = environment.rpc;
     let certificates = if config.url.starts_with("https://") {
         let loaded = rustls_native_certs::load_native_certs();
         if loaded.certs.is_empty() || !loaded.errors.is_empty() {
@@ -1856,21 +1832,6 @@ fn mcp_evidence_mode() -> Option<Result<(), String>> {
         );
         Ok(())
     })())
-}
-
-fn refuse_retired_environment() -> Result<(), String> {
-    for name in [
-        "LAYERX_AGENT_HUMAN_EXPORT_SETTLEMENT_DOMAIN",
-        "LAYERX_AGENT_SEQUENCER_TRUST_HISTORY",
-        "LAYERX_AGENT_GENESIS_TRUST",
-        "LAYERX_AGENT_HANDOVER_FINALITY",
-        "LAYERX_AGENT_MCP_WEB_SEQUENCER_PUBLIC_KEY",
-    ] {
-        if env::var_os(name).is_some() {
-            return Err(format!("{name} is retired"));
-        }
-    }
-    Ok(())
 }
 
 fn main() {

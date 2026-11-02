@@ -13,12 +13,18 @@ var ErrUnrepresentable = errors.New("UNREPRESENTABLE")
 func AdaptV2Watchlist(input Envelope[[]WireWatchEntry]) ([]byte, error) {
 	items := make([]v2.WatchlistEntry, len(input.Data))
 	for i, entry := range input.Data {
+		if entry.Order < 0 || entry.Order >= 500 {
+			return nil, fmt.Errorf("WatchlistGetResponse order: %w", ErrUnrepresentable)
+		}
 		items[i] = v2WatchEntry(entry)
 	}
 	return marshalV2Envelope("WatchlistGetResponse", input, v2.WatchlistGetData{Items: items})
 }
 
 func AdaptV2WatchPut(input Envelope[WireWatchEntry]) ([]byte, error) {
+	if input.Data.Order < 0 || input.Data.Order >= 500 {
+		return nil, fmt.Errorf("WatchlistPutResponse order: %w", ErrUnrepresentable)
+	}
 	return marshalV2Envelope("WatchlistPutResponse", input, v2.WatchlistPutData{Entry: v2WatchEntry(input.Data)})
 }
 

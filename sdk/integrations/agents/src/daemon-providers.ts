@@ -5,7 +5,7 @@ import type {
   AgentReceiptContext, AgentReceiptEvidence, AgentReceiptRecording, AgentReceiptResolver,
 } from "@sidiora/layerx-agent-middleware";
 import {
-  AgentEnvelopeTransport, PlatformSdkError, isSelectableProtocolVersion, keccak256,
+  AgentEnvelopeTransport, PlatformSdkError, Rung, isSelectableProtocolVersion, keccak256,
   verifySequencerReceipt as verifySignedSequencerReceipt,
   type AgentEnvelopeSuccess, type SelectableProtocolVersion,
 } from "@sidiora/layerx-sdk";
@@ -197,8 +197,8 @@ export async function verifySequencerReceipt(
   const level = receipt["verification_level"];
   if (typeof level !== "string" || !VERIFIED_LEVELS.has(level)) throw verificationFailure();
   const status = record(verificationStatus, decodeFailure);
-  exact(status, ["state", "level"], decodeFailure);
-  if (status["state"] !== "achieved" || status["level"] !== level) throw verificationFailure();
+  exact(status, ["state", "rung"], decodeFailure);
+  if (status["state"] !== "achieved" || status["rung"] !== Rung.Receipted) throw verificationFailure();
   const key = record(receipt["receipt_key"], decodeFailure);
   exact(key, ["key_id", "public_key", "first_height", "last_height"], decodeFailure);
   const rawTransaction = hex(receipt["raw_transaction"], MAX_RECEIPT_BYTES);
@@ -219,7 +219,7 @@ export async function verifySequencerReceipt(
     const evidence: AgentReceiptEvidence = {
       format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
       rawTransaction: `0x${rawTransaction}`, signedReceipt: `0x${signedReceipt}`, receiptDigest: `0x${receiptDigest}`,
-      receiptKey: { keyId: `0x${keyId}`, publicKey: `0x${publicKey}`, firstHeight, lastHeight },
+      receiptKey: { keyId: `0x${keyId}`, publicKey: `0x${publicKey}`, firstHeight: `0x${BigInt(firstHeight).toString(16)}`, lastHeight: `0x${BigInt(lastHeight).toString(16)}` },
     };
     return { evidence, receiptDigest };
   } catch { throw verificationFailure(); }

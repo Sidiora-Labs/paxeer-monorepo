@@ -13435,3 +13435,23 @@ fix = "A task that retires a schema section or a generator check runs the genera
 title = "A retirement matcher that counts bare stems reports prose and sibling assertions as live references"
 symptom = "18.1443.1 attempt 3 matched the stems Ed25519, EOA and owner-custody inside error messages, a comment and owner-custody.json, and matched the quoted paths of other retirement-assertion suites under tests/ci and cmd/retirement, failing 13 suites."
 fix = "Exclude retirement-assertion files by pattern and require the retired file's own extension after a stem; the one real stale reference (103.6.11.sh:33) is removed by the task."
+
+[gotcha.2724]
+title = "node/sequencer tests stopped compiling when a proof task changed a shared helper's signature"
+symptom = "21.49.1 (83a683c37) changed position_test.go:114 to xwebInfo(t *testing.T) and ran only its own proof; precompile_refresh_test.go:69 still calls xwebInfo(), so every later go test ./node/sequencer fails to build (21.19.1 and 21.87.1 attempts 2)."
+fix = "A task that changes a test helper's signature greps the package for every caller before its verify; 21.19.1 repairs the call and 21.87.1 requires it."
+
+[gotcha.2725]
+title = "The pay2 qualification crate still builds a gateway test binary and a dead funded target"
+symptom = "services/agent/qualification/pay2/Cargo.toml:44 builds a bin from services/platform/hosted/gateway/tests/local/verifier.rs and build.rs reads that directory, which 8.101.4 deletes; funded.rs includes an OUT_DIR lifecycle.rs that no build has generated since 9.97.2 removed adapt_lifecycle (a4d7551ed), so the funded test target has been unbuildable since."
+fix = "A task that deletes a directory greps Cargo manifests and build scripts across the repository for its path; 9.35.13 makes pay2 self-contained and 8.101.4 requires it."
+
+[gotcha.2726]
+title = "A touches entry spelled with a ./ prefix is treated as outside scope"
+symptom = "21.86.1 listed ./precompiles/setup.go, ./precompiles/launchpad/surface_test.go and ./precompiles/launchpad/setup_test.go; the scope check compares plain repository paths, so attempt 1 was refused for editing files the task names."
+fix = "Spell touches as plain repository-relative paths; the batch normalises every ./ entry."
+
+[gotcha.2727]
+title = "A finding recorded during qualification is not resolved by the task landing"
+symptom = "1281 of the 2211 [finding.*] blocks of qualification.kvx are cited by no do or decision; the tasks that recorded them are done, and nothing says whether the observed condition still holds on main."
+fix = "Every finding gets a [disposition.<id>] block under spec/layerx-merge/dispositions/ whose evidence cites a commit or a file:line of main (feature 22); the closure refuses while one is missing or open without a landed follow-up."
