@@ -8,6 +8,8 @@ import (
 	"time"
 )
 
+// MarketSet caches only symbol identities; Symbol reads prices, trades and
+// statistics from the database on every call. It owns no persistent state.
 type MarketSet struct {
 	db          *sql.DB
 	ttl         time.Duration
