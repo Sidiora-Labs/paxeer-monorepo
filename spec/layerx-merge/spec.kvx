@@ -119563,7 +119563,7 @@ do_6 = "Finding 8.51.3.1: in tools/platform/emulator/tests/core_linkage.rs delet
 
 [task.8.47.12]
 title = "Retire the kernel program call and simulate signing path of the platform CLI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["8.101.3"]
