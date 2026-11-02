@@ -13311,3 +13311,13 @@ fix = "Before a task deletes an exported item, grep the whole repository for its
 title = "Explorer unit tests are *.spec.ts under vitest, not *.test.ts"
 symptom = "A new apps/explorer test file named *.test.ts is never collected: apps/explorer/vitest.config.ts:18 includes only **/*.spec.ts and **/*.spec.tsx, and the package has no jest."
 fix = "Name explorer unit tests *.spec.ts and run them with yarn --cwd apps/explorer vitest run <file>; the playwright scripts (test:pw) are for component screenshots only."
+
+[gotcha.2699]
+title = "Launchpad vitest collects src/**/*.test.ts(x) only"
+symptom = "A verify naming a node:test *.test.mjs file under apps/launchpad/web exits 1 with 'No test files found': apps/launchpad/web/vitest.config.ts:11 includes only src/**/*.test.ts and src/**/*.test.tsx, and the existing creation-domain.test.mjs is not part of any verify."
+fix = "Name launchpad unit tests *.test.ts or *.test.tsx and run them with pnpm --dir apps/launchpad/web exec vitest run <file>."
+
+[gotcha.2700]
+title = "Human-service tests that panic 'agent runtime peer: Unavailable' in 0.00s are missing the runtime clock"
+symptom = "AgentRuntime::new and connect read RuntimeClock::from_environment (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2141, :2204) and map its absence to AgentBoundaryError::Unavailable, so every test that builds a runtime fails instantly when the clock is not running."
+fix = "Run human-workspace cargo tests through sh tools/runtime/run-with-clock.sh as the Makefile does (Makefile:1640, :1679); only --no-run invocations may stay bare."
