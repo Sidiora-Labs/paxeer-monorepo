@@ -58,7 +58,7 @@ func NewEVMPreprocessDecorator(evmKeeper *evmkeeper.Keeper, accountKeeper *accou
 //nolint:revive
 func (p *EVMPreprocessDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate bool, next sdk.AnteHandler) (sdk.Context, error) {
 	msg := evmtypes.MustGetEVMTransactionMessage(tx)
-	if err := Preprocess(ctx, msg, p.evmKeeper.ChainID(ctx), p.evmKeeper.EthBlockTestConfig.Enabled); err != nil {
+	if err := Preprocess(ctx, msg, p.evmKeeper.ChainID(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))), p.evmKeeper.EthBlockTestConfig.Enabled); err != nil {
 		return ctx, err
 	}
 
@@ -169,7 +169,7 @@ func PreprocessUnpacked(ctx sdk.Context, msgEVMTransaction *evmtypes.MsgEVMTrans
 		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, "unsupported EVM transaction envelope")
 	}
 	ethTx := ethtypes.NewTx(ethereumData.AsEthereumData())
-	if ethTx.Type() != ethtypes.LegacyTxType {
+	if ethTx.Protected() {
 		chainID = ethTx.ChainId()
 	}
 	chainCfg := evmtypes.DefaultChainConfig()
