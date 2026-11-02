@@ -48,8 +48,8 @@ export function paxeerAddressUrlFrom(base: string | undefined, address: Address)
   return explorer ? `${ explorer }/address/${ address }` : undefined;
 }
 
-export function paxeerAddressUrl(address: Address): string | undefined {
-  return paxeerAddressUrlFrom(bridgeConfig.paxeerExplorerUrl, address);
+export function paxeerAddressUrl(address: Address, base = bridgeConfig.paxeerExplorerUrl): string | undefined {
+  return paxeerAddressUrlFrom(base, address);
 }
 
 export function foreignAddressUrl(chain: BridgeChain, address: Address): string | undefined {
