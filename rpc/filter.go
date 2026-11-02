@@ -179,10 +179,11 @@ const (
 )
 
 type filter struct {
-	typ        FilterType
-	fc         filters.FilterCriteria
-	cancelFunc context.CancelFunc
-	lastAccess time.Time
+	domainScope *DomainScope
+	typ         FilterType
+	fc          filters.FilterCriteria
+	cancelFunc  context.CancelFunc
+	lastAccess  time.Time
 
 	// BlocksSubscription
 	blockCursor string
@@ -567,6 +568,7 @@ func (h *logMergeHeap) Pop() interface{} {
 }
 
 type FilterAPI struct {
+	domainIndex      DomainIndex
 	tmClient         client.LocalClient
 	filtersMu        sync.RWMutex
 	filters          map[ethrpc.ID]filter
@@ -679,6 +681,7 @@ func NewFilterAPI(
 	filters := make(map[ethrpc.ID]filter)
 	api := &FilterAPI{
 		namespace:        namespace,
+		domainIndex:      keeperDomainIndex{evm: k},
 		tmClient:         tmClient,
 		filtersMu:        sync.RWMutex{},
 		filters:          filters,
@@ -786,6 +789,9 @@ func (a *FilterAPI) NewFilter(
 		lastAccess:   time.Now(),
 		lastToHeight: 0,
 	}
+	if scope, ok := DomainScopeFrom(ctx); ok {
+		f.domainScope = &scope
+	}
 	if isPendingTag(crit.ToBlock) || isPendingTag(crit.FromBlock) {
 		if err := a.pendingServed(crit); err != nil {
 			cancel()
@@ -882,6 +888,27 @@ func (a *FilterAPI) GetFilterChanges(
 	ctx context.Context,
 	filterID ethrpc.ID,
 ) (res interface{}, err error) {
+	defer func() {
+		if err != nil {
+			return
+		}
+		switch logs := res.(type) {
+		case []*ethtypes.Log:
+			filtered, filterErr := a.scopeFilterLogs(ctx, toFilterLogs(logs))
+			if filterErr != nil {
+				res, err = nil, filterErr
+				return
+			}
+			kept := make([]*ethtypes.Log, 0, len(filtered))
+			for _, log := range filtered {
+				kept = append(kept, log.Log)
+			}
+			res = kept
+		case []*FilterLog:
+			res, err = a.scopeFilterLogs(ctx, logs)
+		}
+	}()
+
 	startTime := time.Now()
 	defer func() {
 		recordMetricsWithError(ctx, fmt.Sprintf("%s_getFilterChanges", a.namespace), a.connectionType, startTime, err, recover())
@@ -894,6 +921,13 @@ func (a *FilterAPI) GetFilterChanges(
 
 	if !ok {
 		return nil, errors.New("filter does not exist")
+	}
+
+	if filter.domainScope != nil {
+		if scope, ok := DomainScopeFrom(ctx); ok && scope.ID != filter.domainScope.ID {
+			return nil, errors.New("filter belongs to another chain")
+		}
+		ctx = WithDomainScope(ctx, *filter.domainScope)
 	}
 
 	// Update access time
@@ -995,6 +1029,12 @@ func (a *FilterAPI) GetFilterLogs(
 	ctx context.Context,
 	filterID ethrpc.ID,
 ) (res []*FilterLog, err error) {
+	defer func() {
+		if err == nil {
+			res, err = a.scopeFilterLogs(ctx, res)
+		}
+	}()
+
 	startTime := time.Now()
 	defer func() {
 		recordMetricsWithError(ctx, fmt.Sprintf("%s_getFilterLogs", a.namespace), a.connectionType, startTime, err, recover())
@@ -1007,6 +1047,13 @@ func (a *FilterAPI) GetFilterLogs(
 
 	if !ok {
 		return nil, errors.New("filter does not exist")
+	}
+
+	if filter.domainScope != nil {
+		if scope, ok := DomainScopeFrom(ctx); ok && scope.ID != filter.domainScope.ID {
+			return nil, errors.New("filter belongs to another chain")
+		}
+		ctx = WithDomainScope(ctx, *filter.domainScope)
 	}
 
 	// Update access time
@@ -1048,6 +1095,12 @@ func (a *FilterAPI) GetFilterLogs(
 // sequencer and standby add the logs of the transactions receipted into L_N
 // and L_open, in seq order; every other node refuses it.
 func (a *FilterAPI) GetLogs(ctx context.Context, crit filters.FilterCriteria) (res []*FilterLog, err error) {
+	defer func() {
+		if err == nil {
+			res, err = a.scopeFilterLogs(ctx, res)
+		}
+	}()
+
 	startTime := time.Now()
 	defer func() {
 		recordMetricsWithError(ctx, fmt.Sprintf("%s_getLogs", a.namespace), a.connectionType, startTime, err, recover())
@@ -1840,4 +1893,32 @@ func (f *LogFetcher) processBatch(ctx context.Context, start, end int64, crit fi
 		wpMetrics.RecordDBSemaphoreRelease()
 		res <- block
 	}
+}
+
+func (a *FilterAPI) scopeFilterLogs(ctx context.Context, logs []*FilterLog) ([]*FilterLog, error) {
+	scope, ok := DomainScopeFrom(ctx)
+	if !ok {
+		return logs, nil
+	}
+	result := make([]*FilterLog, 0, len(logs))
+	byHeight := make(map[uint64]map[common.Hash]bool)
+	for _, log := range logs {
+		allowed, cached := byHeight[log.BlockNumber]
+		if !cached {
+			sdkctx := a.logFetcher.ctxProvider(LatestCtxHeight)
+			if log.BlockHash == (common.Hash{}) && a.logFetcher.watermarks != nil && a.logFetcher.watermarks.pending != nil {
+				snapshot, err := a.logFetcher.watermarks.pending.Snapshot()
+				if err != nil {
+					return nil, err
+				}
+				sdkctx = snapshot
+			}
+			allowed = domainHashSet(a.domainIndex, sdkctx, scope, log.BlockNumber)
+			byHeight[log.BlockNumber] = allowed
+		}
+		if allowed[log.TxHash] {
+			result = append(result, log)
+		}
+	}
+	return result, nil
 }

@@ -12,7 +12,6 @@ import (
 	tmutils "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	evmCfg "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
-	chainskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/keeper"
 	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
@@ -123,26 +122,20 @@ func domainResolverForServer(app *baseapp.BaseApp, k *keeper.Keeper, ctxProvider
 	if resolver != nil {
 		return resolver, nil
 	}
-	for _, key := range app.CommitMultiStore().StoreKeys() {
-		if key.Name() != chainstypes.StoreKey {
-			continue
-		}
-		chains, err := chainskeeper.NewKeeper(k.AccountKeeper().GetCodec(), key, k.BankKeeper(), k.GetBaseDenom)
-		if err != nil {
-			return nil, err
-		}
-		return func(id uint32) (DomainScope, bool) {
-			if id == 0 {
-				return DomainScope{}, false
-			}
-			domain, ok := chains.GetDomain(ctxProvider(LatestCtxHeight), id)
-			if !ok || domain.Status == chainstypes.StatusRetired {
-				return DomainScope{}, false
-			}
-			return DomainScope{ID: id, ChainID: chainstypes.ChainIDOf(id)}, true
-		}, nil
+	chains, err := chainsKeeperForDomainIndex(ctxProvider(LatestCtxHeight), k)
+	if err != nil {
+		return nil, err
 	}
-	return nil, errors.New("EVM server chain registry store is not configured")
+	return func(id uint32) (DomainScope, bool) {
+		if id == 0 {
+			return DomainScope{}, false
+		}
+		domain, ok := chains.GetDomain(ctxProvider(LatestCtxHeight), id)
+		if !ok || domain.Status == chainstypes.StatusRetired {
+			return DomainScope{}, false
+		}
+		return DomainScope{ID: id, ChainID: chainstypes.ChainIDOf(id)}, true
+	}, nil
 }
 
 func NewEVMHTTPServer(
