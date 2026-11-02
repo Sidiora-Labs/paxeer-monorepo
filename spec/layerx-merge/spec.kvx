@@ -183350,7 +183350,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.17]
 title = "Inventory every Go package under modules/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
