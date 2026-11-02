@@ -6885,6 +6885,12 @@ value = "Feature 22 (closure) carries 61 disposition tasks (22.<domain>.<part>, 
 basis = "The spotless ruling: 2211 findings were recorded during qualification and 1281 of them are cited by no task or decision; nine crates have been excluded from the dependent-crate check since their test targets broke at the base; neither can stay implicit at closure."
 affects = ["22.0.1", "22.1.1", "22.1.2", "22.2.1", "22.2.2", "22.2.3", "22.3.1", "22.90.1", "22.90.2", "22.90.3"]
 
+[decision.2296]
+title = "Four issue tasks for #1495 to #1498 and the 9.35.9 ruling on binder refusals"
+value = "18.1495.1 makes chainByName answer uint32 zero for an unused name; 18.1496.1 stores MinBond and CreationFee in bank base units (100_000_000 and 10_000_000) so params() quotes 100 PAX and 10 PAX in wei; 18.1497.1 applies domainAllowsTransaction to both transaction-by-block-index readers; 18.1498.1 decodes px_getReceiptKeys result as {keys: [...]}; 9.35.9 binds every native creation fixture before signing, asserts bind_call refusals only for the header shape decode_method checks and body corruptions at the provider, and names the stage of a canonical_send refusal."
+basis = "Issues #1495 to #1498 (source-proven, no task owned them); 9.35.9 attempt 6 failed four tests on refusals the binder does not make and on a form it refuses."
+affects = ["18.1495.1", "18.1496.1", "18.1497.1", "18.1498.1", "9.35.9"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -20505,6 +20511,22 @@ ac_2 = "The native owner receipt fixture verifies through receipt::verify_outcom
 title = "Retire checkpoint and activity facts from offline exports"
 ac_1 = "The complete export decoder refuses an `activity:` fact, a `checkpoint:` fact and a non-empty certificate bucket (services/agent/crates/layerx-proof/src/export_codec.rs:41)."
 ac_2 = "export::verify accepts an OfflineExport of receipt and inclusion facts with no settlement domain argument and reports their digests (services/agent/crates/layerx-proof/src/export.rs:138)."
+
+[req.8369]
+title = "The MCP binding qualification decodes the gateway's receipt-key result object"
+ac_1 = "web_receipt_public_key accepts a px_getReceiptKeys response whose result is {keys: [...]} as the gateway produces it and returns the indexed publicKey; a bare list or an object with other keys is refused; the pytest file passes at HEAD."
+
+[req.8368]
+title = "Transaction-by-block-index reads honour the virtual-chain request scope"
+ac_1 = "On a /chain/N request path eth_getTransactionByBlockNumberAndIndex and eth_getTransactionByBlockHashAndIndex answer null for a transaction of another chain or the root and the chain's own transactions at their canonical indices; the root path and out-of-range indices are unchanged; the scoped read tests pass at HEAD."
+
+[req.8367]
+title = "The default chain bond and creation fee quote 100 PAX and 10 PAX"
+ac_1 = "params() on default genesis decodes minBond 100e18 wei and creationFee 10e18 wei; createChain with 110 PAX succeeds and with less is refused; the module and precompile test packages pass at HEAD."
+
+[req.8366]
+title = "chainByName answers zero for an unused name instead of reverting"
+ac_1 = "An eth_call of chainByName with a name no record carries returns the ABI encoding of uint32(0); names with a record, retired ones included, return their id; the precompile test package passes at HEAD."
 
 [req.22500]
 title = "The closure refuses while a finding lacks a disposition, a disposition is open without a landed follow-up, or a dependent crate does not build"
@@ -35029,6 +35051,42 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.18.1498.1]
+title = "Issue #1498: Decode the receipt-key result object in the MCP binding qualification"
+reqs = ["8369.1"]
+touches = ["tools/qualification/paxeer-x/mcp_binding_listener.py", "tests/qualification/test_mcp_binding_receipt_keys.py"]
+tests = ["tests/qualification/test_mcp_binding_receipt_keys.py"]
+verification_contract = "python3 -m pytest -q tests/qualification/test_mcp_binding_receipt_keys.py"
+do_1 = "In tools/qualification/paxeer-x/mcp_binding_listener.py web_receipt_public_key (:167-190) decodes the served gateway's result shape: result is an object whose only key is keys (services/platform/hosted/gateway/src/chain_reads.rs:281-300 answers result: {keys: [...]}), keys is a list of objects each carrying keyId, publicKey, firstHeight and lastHeight, and the entry at LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX supplies publicKey; a bare list, an object with other keys, a missing keys list, an out-of-range index or a malformed publicKey keep being refused with the existing messages."
+symbols = ["web_receipt_public_key"]
+
+[capability.18.1497.1]
+title = "Issue #1497: Apply the virtual-chain scope to transaction-by-block-index reads"
+reqs = ["8368.1"]
+touches = ["rpc/tx.go", "rpc/domain_reads_test.go"]
+tests = ["rpc/domain_reads_test.go"]
+verification_contract = "go test -count=1 ./rpc/ -run '^TestChainPathIndexedReadsHideOtherChainsTransactions$' -v 2>&1 | grep -q -- '--- PASS: TestChainPathIndexedReadsHideOtherChainsTransactions' && go test -count=1 ./rpc/ -run '^(TestChainPath|TestRootPath)'"
+do_1 = "In rpc/tx.go getTransactionByBlockNumberAndIndex and GetTransactionByBlockHashAndIndex (:218-293) check the request's domain scope on the transaction resolved at the canonical index exactly as GetTransactionByHash does at :312 and :395 (domainAllowsTransaction, rpc/domain_index.go:59): a transaction outside the scoped chain answers null, the canonical shared index is preserved (the filtered list is never renumbered), root requests are unchanged, and a missing or out-of-range index still answers null."
+symbols = ["GetTransactionByBlockNumberAndIndex", "GetTransactionByBlockHashAndIndex", "domainAllowsTransaction"]
+
+[capability.18.1496.1]
+title = "Issue #1496: Express the default chain bond and creation fee in bank base units"
+reqs = ["8367.1"]
+touches = ["modules/layerxchains/types/params.go", "modules/layerxchains/types/params_test.go", "modules/layerxchains/keeper/keeper_test.go", "precompiles/layerxchains/layerxchains_test.go", "spec/layerx-merge/contracts/virtual-chains.md"]
+tests = ["modules/layerxchains/types/params_test.go", "precompiles/layerxchains/layerxchains_test.go"]
+verification_contract = "go test -count=1 ./modules/layerxchains/... && go test -count=1 ./precompiles/layerxchains/ -run '^TestDefaultParamsQuoteOneHundredAndTenPax$' -v 2>&1 | grep -q -- '--- PASS: TestDefaultParamsQuoteOneHundredAndTenPax' && go test -count=1 ./precompiles/layerxchains/"
+do_1 = "In modules/layerxchains/types/params.go DefaultParams (:22-25) stores MinBond and CreationFee in bank base units: MinBond = sdk.NewInt(100_000_000) and CreationFee = sdk.NewInt(10_000_000), with a comment stating that one PAX is 10^6 bank units (modules/evm/state/utils.go:10-13 converts bank units to wei with 10^12), so the served params() (precompiles/layerxchains/layerxchains.go, chainsWei) reports 100 PAX and 10 PAX in wei as spec/layerx-merge/contracts/virtual-chains.md:30-34 freezes; the keeper, which compares the bank-unit amount pcommon.HandlePaymentUhpx returns against MinBond + CreationFee, needs no change."
+symbols = ["DefaultParams", "chainsWei"]
+
+[capability.18.1495.1]
+title = "Issue #1495: Return uint32 zero from chainByName for an unused name"
+reqs = ["8366.1"]
+touches = ["precompiles/layerxchains/layerxchains.go", "precompiles/layerxchains/layerxchains_test.go", "spec/layerx-merge/contracts/virtual-chains.md"]
+tests = ["precompiles/layerxchains/layerxchains_test.go"]
+verification_contract = "go test -count=1 ./precompiles/layerxchains/ -run '^TestChainByNameReturnsZeroForAnUnusedName$' -v 2>&1 | grep -q -- '--- PASS: TestChainByNameReturnsZeroForAnUnusedName' && go test -count=1 ./precompiles/layerxchains/"
+do_1 = "In precompiles/layerxchains/layerxchains.go the chainByName view (:245-250) packs uint32(0) when the keeper reports no record for the name, instead of returning chains.ErrUnknownDomain; the registry contract (spec/layerx-merge/contracts/virtual-chains.md:57 and the name rules at :19-32) reserves zero for an unused name, and the error wrapper (:82-96) must never turn an unused-name read into a revert."
+symbols = ["chainByName"]
 
 [capability.22.0.1]
 title = "Refuse the closure while any finding lacks a grounded disposition or a follow-up is not done"
@@ -126914,6 +126972,7 @@ do_7 = "Findings 9.35.9.1 and 9.35.9.2: the verify now runs the two suites throu
 do_8 = "Finding 9.35.9.3: port the four restart fixtures of services/human/crates/layerx-human-kms/tests/provider.rs (the monetary roles loop at :880-910, native creation disclosures, owner fee grants and session registration/replacement) from unsigned_payload plus construct_signing_call over kernel payloads to type-2 calls to the ledger, pay or auth precompile whose calldata is the method and arguments call.rs decodes for that operation, bound with bind_call and signed through the real provider; and make native_setup_refuses_wrong_accounts_limits_and_payload_shapes pass by refusing corruption 9 (budget version 2) in the provider's budgetCreate term check, where it is admitted today. A fixture that cannot be expressed as a type-2 call is deleted with a one-line comment naming the kernel operation it covered. Continue from attempt 4."
 do_9 = "Finding 9.35.9.4: in tests/provider/native_setup.rs the corruption loop of native_setup_refuses_wrong_accounts_limits_and_payload_shapes runs for budget version 1 only and drops the three version-2 cases (byte 211 flip, bytes 243.. fill, byte 66 flip under version 2); setup_call refuses a budget payload whose length is not 211 with an error naming the version (no ledger call form carries version 2) and the test asserts that refusal once for native_budget(2); the trailing-byte case stays and keeps appending the extra byte as trailing calldata so bind_call refuses it. The creation list of native_creation_disclosures_sign_through_real_kms_before_and_after_restart carries the version-1 budget only. Continue from attempt 5."
 do_10 = "Finding 9.35.9.5: owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart and session_registration_and_replacement_disclosures_survive_provider_restart follow do_1, not do_8: each signs the ledger payment call canonical_send returns, binds it with bind_call through construct_signing_call, and sets disclosure.authority_grant (:1657) or disclosure.session_grant (:1772) on the bound disclosure as main does; neither grant payload goes through setup_call. If native_creation_disclosures_sign_through_real_kms_before_and_after_restart still answers MalformedPayload, bind each target operation separately with the activity type in the error message, record the refused operation in a finding and keep the operations that bind."
+do_11 = "Finding 9.35.9.6: (1) in tests/provider/native_setup.rs bind every native creation fixture with layerx_crypto::disclosure::call::bind_call before signing; a fixture the binder refuses (Governance ordinal 1 has no recordLifecycle form, as the test already notes) leaves the signing set and is recorded in qualification.kvx as a finding naming the payload shape, never asserted; (2) the corruption loop of native_setup_refuses_wrong_accounts_limits_and_payload_shapes asserts bind_call refusals only for corruptions decode_method checks (call.rs:453-470: another target, another selector, payload[0] not 0x71, a (payload[1], payload[2], payload[3], length) tuple outside (1,0,2,68), (1,2,1,8..=1024), (3,0,3,70), (3,0,5,86), a length outside 4..=1024) and asserts a corrupted recovery or budget body at the provider: host.call answers result byte 1, and if the provider accepts it the case becomes a finding, not an assertion (do_5); (3) in tests/provider.rs owner_fee_grants_bind_every_disclosed_budget_field_across_provider_restart and session_registration_and_replacement_disclosures_survive_provider_restart check each stage of canonical_send with its own message (SendDebit accounts parse as AccountId, authorization_message, the DisclosedCall build, bind_call of the resulting ledger payment call) so the failing stage is named, and the ledger payment call takes the form decode_send accepts. Continue from attempt 6."
 
 [task.9.24.8]
 title = "Drop the grant vectors from the wallet capability vectors producer and its two grant tests"
@@ -129125,6 +129184,98 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.18.1497.1]
+title = "Issue #1497: Apply the virtual-chain scope to transaction-by-block-index reads"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8368.1"]
+capabilities = ["18.1497.1"]
+interfaces = []
+do_1 = "In rpc/tx.go getTransactionByBlockNumberAndIndex and GetTransactionByBlockHashAndIndex (:218-293) check the request's domain scope on the transaction resolved at the canonical index exactly as GetTransactionByHash does at :312 and :395 (domainAllowsTransaction, rpc/domain_index.go:59): a transaction outside the scoped chain answers null, the canonical shared index is preserved (the filtered list is never renumbered), root requests are unchanged, and a missing or out-of-range index still answers null."
+do_2 = "The check runs in the committed path (getTransactionWithBlock, :511, or its callers) and in the pending-snapshot branch so both methods agree with eth_getTransactionByHash and the scoped block reads for the same hashes."
+do_3 = "Add TestChainPathIndexedReadsHideOtherChainsTransactions to rpc/domain_reads_test.go on the existing mixed-block harness (root transaction at canonical index 0, chain 1 at indices 1 and 2, chain 2 at index 3): through the /chain/1 request path call eth_getTransactionByBlockNumberAndIndex and eth_getTransactionByBlockHashAndIndex for indices 0 to 3, require null at 0 and 3 and the chain-1 transactions with transactionIndex 1 and 2 at 1 and 2, require the /chain/2 path answers only index 3, and require the root path still answers all four."
+symbols = ["GetTransactionByBlockNumberAndIndex", "GetTransactionByBlockHashAndIndex", "domainAllowsTransaction"]
+touches = ["rpc/tx.go", "rpc/domain_reads_test.go"]
+tests = ["rpc/domain_reads_test.go"]
+planned_paths = []
+build_cmd = "go build ./rpc/..."
+verify_cmd = "go test -count=1 ./rpc/ -run '^TestChainPathIndexedReadsHideOtherChainsTransactions$' -v 2>&1 | grep -q -- '--- PASS: TestChainPathIndexedReadsHideOtherChainsTransactions' && go test -count=1 ./rpc/ -run '^(TestChainPath|TestRootPath)'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-rpc-api"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1496.1]
+title = "Issue #1496: Express the default chain bond and creation fee in bank base units"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1495.1"]
+reqs = ["8367.1"]
+capabilities = ["18.1496.1"]
+interfaces = []
+do_1 = "In modules/layerxchains/types/params.go DefaultParams (:22-25) stores MinBond and CreationFee in bank base units: MinBond = sdk.NewInt(100_000_000) and CreationFee = sdk.NewInt(10_000_000), with a comment stating that one PAX is 10^6 bank units (modules/evm/state/utils.go:10-13 converts bank units to wei with 10^12), so the served params() (precompiles/layerxchains/layerxchains.go, chainsWei) reports 100 PAX and 10 PAX in wei as spec/layerx-merge/contracts/virtual-chains.md:30-34 freezes; the keeper, which compares the bank-unit amount pcommon.HandlePaymentUhpx returns against MinBond + CreationFee, needs no change."
+do_2 = "Every test or fixture under modules/layerxchains and precompiles/layerxchains that expresses the defaults, a bond or a balance in 18-decimal units (modules/layerxchains/keeper/keeper_test.go:127 and :185 and the served test setup) moves to bank units so the amounts it supplies still clear the defaults; a genesis export of the defaults carries the bank-unit values."
+do_3 = "Add TestDefaultParamsAreBankBaseUnits to modules/layerxchains/types/params_test.go (MinBond is 100_000_000, CreationFee is 10_000_000, Validate passes) and TestDefaultParamsQuoteOneHundredAndTenPax to precompiles/layerxchains/layerxchains_test.go: on default genesis params() decodes minBond 100e18 and creationFee 10e18 wei; createChain with msg.value 110e18 wei succeeds and with 110e18 - 1 wei is refused with the bond-too-low reason."
+do_4 = "Add one sentence to spec/layerx-merge/contracts/virtual-chains.md after the defaults line: the keeper stores MinBond and CreationFee in bank base units (10^6 per PAX) and the precompile reports them in wei."
+symbols = ["DefaultParams", "chainsWei"]
+touches = ["modules/layerxchains/types/params.go", "modules/layerxchains/types/params_test.go", "modules/layerxchains/keeper/keeper_test.go", "precompiles/layerxchains/layerxchains_test.go", "spec/layerx-merge/contracts/virtual-chains.md"]
+tests = ["modules/layerxchains/types/params_test.go", "precompiles/layerxchains/layerxchains_test.go"]
+planned_paths = []
+build_cmd = "go build ./modules/layerxchains/... ./precompiles/... ./node/"
+verify_cmd = "go test -count=1 ./modules/layerxchains/... && go test -count=1 ./precompiles/layerxchains/ -run '^TestDefaultParamsQuoteOneHundredAndTenPax$' -v 2>&1 | grep -q -- '--- PASS: TestDefaultParamsQuoteOneHundredAndTenPax' && go test -count=1 ./precompiles/layerxchains/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1495.1]
+title = "Issue #1495: Return uint32 zero from chainByName for an unused name"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8366.1"]
+capabilities = ["18.1495.1"]
+interfaces = []
+do_1 = "In precompiles/layerxchains/layerxchains.go the chainByName view (:245-250) packs uint32(0) when the keeper reports no record for the name, instead of returning chains.ErrUnknownDomain; the registry contract (spec/layerx-merge/contracts/virtual-chains.md:57 and the name rules at :19-32) reserves zero for an unused name, and the error wrapper (:82-96) must never turn an unused-name read into a revert."
+do_2 = "Existing names, including retired ones, keep returning their retained IDs; getChain of an unknown id keeps its current refusal; no other view changes and the ABI (tests/vectors/chains/abi-vectors.json) is unchanged because the return type is already uint32."
+do_3 = "Add TestChainByNameReturnsZeroForAnUnusedName to precompiles/layerxchains/layerxchains_test.go: against an initialised empty registry, call chainByName('unused-name') through the served precompile at 0x101E and require the 32-byte ABI encoding of uint32(0) with no revert; then create a chain and require chainByName returns its id and a retired chain keeps its id."
+do_4 = "Update the chainByName row of spec/layerx-merge/contracts/virtual-chains.md if its wording does not already say that an unused name answers zero."
+symbols = ["chainByName"]
+touches = ["precompiles/layerxchains/layerxchains.go", "precompiles/layerxchains/layerxchains_test.go", "spec/layerx-merge/contracts/virtual-chains.md"]
+tests = ["precompiles/layerxchains/layerxchains_test.go"]
+planned_paths = []
+build_cmd = "go build ./precompiles/... ./node/"
+verify_cmd = "go test -count=1 ./precompiles/layerxchains/ -run '^TestChainByNameReturnsZeroForAnUnusedName$' -v 2>&1 | grep -q -- '--- PASS: TestChainByNameReturnsZeroForAnUnusedName' && go test -count=1 ./precompiles/layerxchains/"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.18.1493.1]
 title = "Issue #1493: Stop the per-chain WebSocket servers when a running listener stops"
@@ -202118,6 +202269,38 @@ contract = "contracts/launchpad.md#scope-and-reading-guide"
 test = "contracts/test/MultiSender.t.sol::test_batchTransferRejectsOverpayment (planned)"
 qualification = "UNRUN"
 
+[acceptance.18.1498.1.1]
+feature = "18"
+req = "8369.1"
+scenario = "Given a loopback listener answering {jsonrpc: 2.0, id: 1, result: {keys: [{keyId, publicKey: 0x<64 hex>, firstHeight, lastHeight}]}}, when web_receipt_public_key runs with key index 0, then it returns the 64 lowercase hex characters, and a bare-list result is refused"
+contract = "python3 -m pytest -q tests/qualification/test_mcp_binding_receipt_keys.py"
+test = "tests/qualification/test_mcp_binding_receipt_keys.py"
+qualification = "UNRUN"
+
+[acceptance.18.1497.1.1]
+feature = "18"
+req = "8368.1"
+scenario = "Given a block holding a root transaction at index 0, chain-1 transactions at 1 and 2 and a chain-2 transaction at 3, when /chain/1 reads indices 0 to 3 by block number and by block hash, then indices 0 and 3 answer null and indices 1 and 2 answer the chain-1 transactions with their canonical transactionIndex"
+contract = "go test -count=1 ./rpc/ -run '^TestChainPathIndexedReadsHideOtherChainsTransactions$' -v 2>&1 | grep -q -- '--- PASS: TestChainPathIndexedReadsHideOtherChainsTransactions' && go test -count=1 ./rpc/ -run '^(TestChainPath|TestRootPath)'"
+test = "rpc/domain_reads_test.go"
+qualification = "UNRUN"
+
+[acceptance.18.1496.1.1]
+feature = "18"
+req = "8367.1"
+scenario = "Given default genesis, when params() is read and createChain is sent with 110e18 wei, then the quote is 100e18 plus 10e18 wei and the creation succeeds, while 110e18 - 1 wei is refused as bond too low"
+contract = "go test -count=1 ./modules/layerxchains/... && go test -count=1 ./precompiles/layerxchains/ -run '^TestDefaultParamsQuoteOneHundredAndTenPax$' -v 2>&1 | grep -q -- '--- PASS: TestDefaultParamsQuoteOneHundredAndTenPax' && go test -count=1 ./precompiles/layerxchains/"
+test = "precompiles/layerxchains/layerxchains_test.go"
+qualification = "UNRUN"
+
+[acceptance.18.1495.1.1]
+feature = "18"
+req = "8366.1"
+scenario = "Given an initialised empty chain registry, when chainByName('unused-name') is called at the served precompile address, then the result is 32 zero bytes and the call does not revert; after createChain the same read returns the new id"
+contract = "go test -count=1 ./precompiles/layerxchains/ -run '^TestChainByNameReturnsZeroForAnUnusedName$' -v 2>&1 | grep -q -- '--- PASS: TestChainByNameReturnsZeroForAnUnusedName' && go test -count=1 ./precompiles/layerxchains/"
+test = "precompiles/layerxchains/layerxchains_test.go"
+qualification = "UNRUN"
+
 [acceptance.22.0.1.1]
 feature = "22"
 req = "22500.1"
@@ -210687,6 +210870,36 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Add test_issue_closure_treats_a_superseded_task_as_closed to spec/layerx-merge/programme/tests/test_issue_closure.py: a temporary spec with one done and one superseded 18.x task returns an empty list."
 do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its tests passed; the closure over the live spec named three pending issue tasks that the requires list now carries and one superseded task. Once every required task is done, continue from attempt 1 rebased onto current main, add the superseded case of decision 2248 with its test, and run the declared build and verify once as written."
+
+[task.18.1498.1]
+title = "Issue #1498: Decode the receipt-key result object in the MCP binding qualification"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["8369.1"]
+capabilities = ["18.1498.1"]
+interfaces = []
+do_1 = "In tools/qualification/paxeer-x/mcp_binding_listener.py web_receipt_public_key (:167-190) decodes the served gateway's result shape: result is an object whose only key is keys (services/platform/hosted/gateway/src/chain_reads.rs:281-300 answers result: {keys: [...]}), keys is a list of objects each carrying keyId, publicKey, firstHeight and lastHeight, and the entry at LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX supplies publicKey; a bare list, an object with other keys, a missing keys list, an out-of-range index or a malformed publicKey keep being refused with the existing messages."
+do_2 = "Add tests/qualification/test_mcp_binding_receipt_keys.py (pytest) that loads the script with importlib.util.spec_from_file_location, starts an http.server listener on 127.0.0.1 inside the test answering the producer-shaped body for px_getReceiptKeys, and requires web_receipt_public_key({LAYERX_AGENT_NODE_ENDPOINT: the listener URL, LAYERX_AGENT_MCP_WEB_RECEIPT_KEY_INDEX: '0'}) to return the 64 lowercase hex characters of the key; a second case answers a bare list and a third an object with an extra key and requires the refusal the script's require helper raises; no network beyond the loopback listener is used."
+do_3 = "The web-reference case (:702-728) keeps calling the helper; nothing else in the script changes."
+symbols = ["web_receipt_public_key"]
+touches = ["tools/qualification/paxeer-x/mcp_binding_listener.py", "tests/qualification/test_mcp_binding_receipt_keys.py"]
+tests = ["tests/qualification/test_mcp_binding_receipt_keys.py"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/qualification/paxeer-x/mcp_binding_listener.py tests/qualification/test_mcp_binding_receipt_keys.py"
+verify_cmd = "python3 -m pytest -q tests/qualification/test_mcp_binding_receipt_keys.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commits."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.0.1]
 title = "Refuse the closure while any finding lacks a grounded disposition or a follow-up is not done"

@@ -13455,3 +13455,8 @@ fix = "Spell touches as plain repository-relative paths; the batch normalises ev
 title = "A finding recorded during qualification is not resolved by the task landing"
 symptom = "1281 of the 2211 [finding.*] blocks of qualification.kvx are cited by no do or decision; the tasks that recorded them are done, and nothing says whether the observed condition still holds on main."
 fix = "Every finding gets a [disposition.<id>] block under spec/layerx-merge/dispositions/ whose evidence cites a commit or a file:line of main (feature 22); the closure refuses while one is missing or open without a landed follow-up."
+
+[gotcha.2728]
+title = "bind_call checks only the recordLifecycle header shape, never the body"
+symptom = "decode_method (layerx-crypto/src/disclosure/call.rs:453-470) accepts a 0x101c recordLifecycle call when payload[0] is 0x71 and (payload[1], payload[2], payload[3], length) is one of (1,0,2,68), (1,2,1,8..=1024), (3,0,3,70), (3,0,5,86); a test that corrupts a body byte and asserts bind_call refuses it fails (9.35.9 attempt 6, native_setup.rs:442)."
+fix = "Assert bind_call refusals only for the target, selector, header bytes and length; assert body validity at the provider or the kernel decoder, and record a refusal the product does not make as a finding."
