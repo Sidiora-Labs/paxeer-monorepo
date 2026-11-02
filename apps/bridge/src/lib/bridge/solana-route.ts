@@ -1,7 +1,7 @@
 import { base58Decode } from './solana';
 import type { recipientRecordFromResponse } from './solana';
 
-type RecipientLookup = ReturnType<typeof recipientRecordFromResponse>;
+export type RecipientLookup = ReturnType<typeof recipientRecordFromResponse>;
 
 export function solanaWithdrawalBlocker(lookup: RecipientLookup | undefined, destination: string): string | undefined {
   if (lookup === undefined) {
