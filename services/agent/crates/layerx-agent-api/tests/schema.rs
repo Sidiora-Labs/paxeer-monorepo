@@ -205,7 +205,11 @@ fn write_and_error_goldens_match_major_two_schema() {
     let root = declarations(AGENT_API_V1_SOURCE);
     assert_eq!(
         root["record.AgentHttpSuccess.verification_status"],
-        "\"Either {state:\\\"achieved\\\",rung:R} or {state:\\\"unverified\\\",requested:R,achieved:R,reason:ReasonCode} with achieved strictly below requested; R is one of submitted, receipted, committed. An unverified status that violates the ordering is refused as VerificationFailure verification.inconsistent.\""
+        "\"The four shapes and ordering requirements defined by [record.VerificationStatus].\""
+    );
+    assert_eq!(
+        root["record.VerificationStatus.verification_status"],
+        "\"Either {state:\\\"achieved\\\",rung:R}, {state:\\\"unverified\\\",requested:R,achieved:R,reason:ReasonCode} with achieved strictly below requested, {state:\\\"pending\\\",requested:R,achieved:R} with achieved strictly below requested for a submitted-but-unreceipted lookup, or {state:\\\"absent\\\",requested:R} when no submission is known; R is one of submitted, receipted, committed. An unverified or pending status that violates the ordering is refused as VerificationFailure verification.inconsistent.\""
     );
 }
 
@@ -232,7 +236,7 @@ fn programs_contract_is_included_with_receipt_resolution_and_call_idempotency() 
     );
     assert_eq!(
         programs["operation.program.call.unknown_outcome"],
-        "\"retain_signed_activity_and_resolve_by_receipt\""
+        "\"retain_exact_signed_EIP1559_transaction_and_resolve_by_hash\""
     );
 }
 

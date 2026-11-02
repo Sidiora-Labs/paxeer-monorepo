@@ -164,6 +164,8 @@ chain id, the head block, the LayerX node info, and the latest finalized
 checkpoint with its status from the anchor's ladder. Both joins are bounded to
 the first sixteen assets and say so in `joined_limit`.
 
+Successful `px_listAssets` ledger rows include `paused` (boolean) and `verification` (`"authenticated_committed_snapshot"`); both fields are optional in the closed result schema and absent from bank, token-factory and failed-read rows.
+
 The exact parameter and result shapes are in the gateway's
 [`openrpc.json`](https://github.com/Sidiora-Labs/Layerx-protocol/blob/main/platform/hosted/gateway/openrpc.json),
 served live at `GET /rpc/schema`.

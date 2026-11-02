@@ -350,13 +350,14 @@ func TestSubmitCheckpointIsRetired(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, s.app.Close()) })
 	s.bondAll()
 	const mergeHeight = int64(20)
+	header, signature, certificate := []byte{1}, [64]byte{2}, []byte{3}
 	s.app.UpgradeKeeper.SetDone(s.ctx.WithBlockHeight(mergeHeight), types.MergeUpgrade)
 	for _, height := range []int64{mergeHeight - 1, mergeHeight, mergeHeight + 1} {
 		s.ctx = s.ctx.WithBlockHeight(height)
 		require.Equal(t, height >= mergeHeight, keeper.MergeRetired(s.ctx, &s.app.UpgradeKeeper))
 		require.Empty(t, s.k.GetCheckpoints(s.ctx))
 
-		first, err := s.submit([]byte{0xff}, [64]byte{0xff}, []byte{0xff})
+		first, err := s.submit(header, signature, certificate)
 		require.ErrorIs(t, err, types.ErrModuleRetired)
 		require.Equal(t, types.Checkpoint{}, first)
 		stored, found := s.k.GetCheckpoint(s.ctx, 1)
@@ -365,7 +366,7 @@ func TestSubmitCheckpointIsRetired(t *testing.T) {
 		require.Empty(t, s.k.GetCheckpoints(s.ctx))
 
 		s.ctx = s.ctx.WithBlockTime(s.ctx.BlockTime().Add(30 * time.Second))
-		resubmitted, err := s.submit([]byte{0xff}, [64]byte{0xff}, []byte{0xff})
+		resubmitted, err := s.submit(header, signature, certificate)
 		require.ErrorIs(t, err, types.ErrModuleRetired)
 		require.Equal(t, types.Checkpoint{}, resubmitted)
 		stored, found = s.k.GetCheckpoint(s.ctx, 1)

@@ -265,6 +265,7 @@ impl Host {
                 maximum_queued_bytes: MAX,
                 deadline: Duration::from_secs(30),
             },
+            RuntimeClock::from_environment()?,
         )?)
     }
     fn connection(&self, name: Option<&str>) -> Result<StreamOwned<ClientConnection, TcpStream>> {
@@ -507,7 +508,7 @@ fn unsigned_payload(
     network: u32,
     payload: layerx_types::payload::Payload,
 ) -> Result<Vec<u8>> {
-    checked(layerx_intents::canonical::unsigned_envelope_bytes(
+    checked(layerx_wire::activity::encode_unsigned_envelope(
         &setup_envelope(public, network, payload, (b"did:layerx:alice", 7, 1))?,
     ))
 }
@@ -767,7 +768,7 @@ fn canonical_signing_and_disclosure_refusals() -> Result<()> {
         &call, wallet,
     ))?)?;
     let forged = canonical_send(public, 125, [6; 64])?;
-    let forged_activity = checked(layerx_intents::canonical::decode_unsigned_activity(
+    let forged_activity = checked(layerx_wire::activity::decode_unsigned(
         &forged,
         &registry()?,
     ))?;

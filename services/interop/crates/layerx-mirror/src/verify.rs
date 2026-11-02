@@ -428,7 +428,17 @@ mod tests {
         assert_eq!(verified.batch_number(), archive.data().batch_number);
         let unsigned = layerx_wire::receipt::encode_unsigned(verified.value())
             .map_err(|_| MirrorVerifyError::ReceiptDecode)?;
-        assert!(layerx_wire::hash::receipt_digest(&unsigned).is_ok());
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/committed_blocks.json"))
+                .unwrap_or_else(|error| panic!("recorded committed block: {error}"));
+        assert_eq!(
+            layerx_wire::hash::receipt_digest(&unsigned)
+                .map_err(|_| MirrorVerifyError::ReceiptDecode)?
+                .as_slice(),
+            fixture_bytes(&fixture["receipts"][0]["receiptDigest"])
+        );
+        let header = crate::committed::CommittedHeader::from_block_json(&fixture["committedBlock"])
+            .unwrap_or_else(|error| panic!("committed header: {error:?}"));
 
         let mut changed = archive.data().clone();
         let canonical = &mut changed.committed.receipts[0];
@@ -438,14 +448,7 @@ mod tests {
         *last ^= 1;
         let altered = crate::Archive::from_committed(
             &crate::committed::CommittedBlock {
-                header: crate::committed::CommittedHeader {
-                    height: changed.batch_number,
-                    block_hash: changed.committed.block_hash,
-                    parent_hash: changed.committed.parent_hash,
-                    app_hash: changed.committed.app_hash,
-                    timestamp: changed.committed.timestamp,
-                    transactions: Vec::new(),
-                },
+                header,
                 receipts: changed.committed.receipts,
             },
             changed.network_id,

@@ -19,7 +19,6 @@ import (
 	clienttx "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/tx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
-	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/tx/signing"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/utils/tracing"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/ante"
@@ -66,7 +65,8 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 		private := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{seed}, ed25519.SeedSize))
 		var public [32]byte
 		copy(public[:], private.Public().(ed25519.PublicKey))
-		message, err := evmtypes.LayerXBindMessage(application.EvmKeeper.ChainID(ctx), address, 0)
+		message, err := evmtypes.LayerXBindMessage(application.EvmKeeper.ChainID(ctx), address,
+			application.EvmKeeper.GetLayerXBindNonce(ctx, address))
 		require.NoError(t, err)
 		var signature [64]byte
 		copy(signature[:], ed25519.Sign(private, message))
@@ -99,6 +99,7 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 	field(actor.Authority.Actor[:])
 	field(actor.Authority.Actor[:])
 	body = append(body, 3)
+	delegateKeyOffset := len(body) + 4
 	field(delegateKey[:])
 	u64(1 << 9)
 	body = binary.BigEndian.AppendUint16(body, 4)
@@ -114,6 +115,7 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 	field(purpose[:])
 	u64(timestamp - 1000)
 	u64(timestamp + 1000)
+	revocationEpochOffset := len(body)
 	u64(41)
 	body = append(body, 0)
 	u64(0)
@@ -236,25 +238,52 @@ func TestAuthzExecRefusedAfterKernelRevoke(t *testing.T) {
 	before = application.BankKeeper.GetBalance(ctx, recipient, denom).Amount
 	grantorBefore = application.BankKeeper.GetBalance(ctx, grantor, denom).Amount
 
-	// RevokeGrant removes the matching Cosmos grant as well as updating the
-	// kernel identity epoch. First prove that removal prevents execution.
 	stored, _ := application.AuthzKeeper.GetCleanAuthorization(ctx, grantee, grantor, sdk.MsgTypeURL(send))
-	require.Nil(t, stored)
-	require.ErrorIs(t, deliver(), sdkerrors.ErrUnauthorized)
-	require.Equal(t, before, application.BankKeeper.GetBalance(ctx, recipient, denom).Amount)
-	require.Equal(t, grantorBefore, application.BankKeeper.GetBalance(ctx, grantor, denom).Amount)
-
-	// A delayed Cosmos grant can reintroduce the old scope after the revoke.
-	// Use the real MsgGrant path so Accept must reject that stale epoch using
-	// the current sequence supplied by NewAnteHandler's RevocationDecorator.
-	_, err = application.AuthzKeeper.Grant(sdk.WrapSDKContext(ctx), msgGrant)
-	require.NoError(t, err)
-	stored, _ = application.AuthzKeeper.GetCleanAuthorization(ctx, grantee, grantor, sdk.MsgTypeURL(send))
 	require.IsType(t, &types.LayerXScopeAuthorization{}, stored)
+	require.Equal(t, grantID[:], stored.(*types.LayerXScopeAuthorization).GrantId)
 	require.Equal(t, uint64(41), stored.(*types.LayerXScopeAuthorization).RevocationEpoch)
 	err = deliver()
 	require.Equal(t, before, application.BankKeeper.GetBalance(ctx, recipient, denom).Amount)
 	require.Equal(t, grantorBefore, application.BankKeeper.GetBalance(ctx, grantor, denom).Amount)
 	require.ErrorIs(t, err, types.ErrAuthRevoked)
 	require.ErrorContains(t, err, "revocation epoch 41, grantor revocation 43")
+
+	unboundKey, _, err := application.EvmKeeper.UnbindLayerX(ctx, delegate)
+	require.NoError(t, err)
+	require.Equal(t, delegateKey, unboundKey)
+	replacementKey := bind(delegate, 73)
+	regrantBody := bytes.Clone(body)
+	copy(regrantBody[delegateKeyOffset:delegateKeyOffset+32], replacementKey[:])
+	binary.BigEndian.PutUint64(regrantBody[revocationEpochOffset:revocationEpochOffset+8], sequence)
+	regrantValues := call("grantCapability", regrantBody)
+	require.Len(t, regrantValues, 1)
+	regrantID := regrantValues[0].([32]byte)
+	require.NotEqual(t, grantID, regrantID)
+	regrant, err := application.LayerXHost.ReadGrant(ctx, regrantID)
+	require.NoError(t, err)
+	require.False(t, regrant.Revoked)
+	require.Equal(t, sequence, regrant.GrantorRevocationSequence)
+	live, reason, err = application.LayerXAuthKeeper.IsLive(ctx, regrantID, 44, timestamp)
+	require.NoError(t, err)
+	require.True(t, live)
+	require.Empty(t, reason)
+	replacement := *authorization
+	replacement.GrantId = bytes.Clone(regrantID[:])
+	replacement.RevocationEpoch = regrant.GrantorRevocationSequence
+	require.NoError(t, replacement.ValidateBasic())
+	msgRegrant, err := authz.NewMsgGrant(grantor, grantee, &replacement, time.UnixMilli(int64(regrant.NotAfter)))
+	require.NoError(t, err)
+	_, err = application.AuthzKeeper.Grant(sdk.WrapSDKContext(ctx), msgRegrant)
+	require.NoError(t, err)
+	stored, _ = application.AuthzKeeper.GetCleanAuthorization(ctx, grantee, grantor, sdk.MsgTypeURL(send))
+	require.IsType(t, &types.LayerXScopeAuthorization{}, stored)
+	require.Equal(t, regrantID[:], stored.(*types.LayerXScopeAuthorization).GrantId)
+	require.Equal(t, uint64(43), stored.(*types.LayerXScopeAuthorization).RevocationEpoch)
+	require.NoError(t, deliver())
+	require.Equal(t, before.AddRaw(7), application.BankKeeper.GetBalance(ctx, recipient, denom).Amount)
+	require.Equal(t, grantorBefore.SubRaw(7), application.BankKeeper.GetBalance(ctx, grantor, denom).Amount)
+	grant, err = application.LayerXHost.ReadGrant(ctx, grantID)
+	require.NoError(t, err)
+	require.True(t, grant.Revoked)
+	require.Equal(t, uint64(43), grant.RevokedAtSequence)
 }

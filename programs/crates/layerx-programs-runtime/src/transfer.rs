@@ -1520,7 +1520,13 @@ fn domain_hash(domain: &[u8], bytes: &[u8]) -> Result<[u8; 32], TransferLawError
     hash_bytes(HashAlgorithm::Sha256, &preimage).map_err(|_| TransferLawError::InvariantViolation)
 }
 
-fn parse_event_envelope(encoded: &[u8]) -> Result<Vec<u8>, TransferLawError> {
+/// Validates the event envelope consumed by transfer authorization decoding.
+/// The returned bytes retain the producing program, principal and frame.
+/// This validation grants no authority to execute a transfer.
+///
+/// # Errors
+/// Refuses malformed, oversized or non-canonical event envelopes.
+pub fn parse_event_envelope(encoded: &[u8]) -> Result<Vec<u8>, TransferLawError> {
     const DOMAIN: &[u8] = b"LayerX/programs/events/v1\0";
     let mut cursor = TransferCursor::new(encoded);
     if cursor.take(DOMAIN.len())? != DOMAIN {
@@ -1540,7 +1546,7 @@ fn parse_event_envelope(encoded: &[u8]) -> Result<Vec<u8>, TransferLawError> {
             PrincipalId::new(cursor.array()?).map_err(|_| TransferLawError::InvalidTransferSet)?;
         let frame = frame_from_cursor(&mut cursor)?;
         let topic_length = u32::from_be_bytes(cursor.array()?) as usize;
-        if topic_length > MAX_EVENT_TOPIC_BYTES {
+        if topic_length == 0 || topic_length > MAX_EVENT_TOPIC_BYTES {
             return Err(TransferLawError::InvalidTransferSet);
         }
         let topic = cursor.take(topic_length)?;
