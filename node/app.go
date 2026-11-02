@@ -921,6 +921,8 @@ func New(
 		tokenfactorykeeper.NewMsgServerImpl(app.TokenFactoryKeeper), &app.EvmKeeper)
 	app.PricefeedKeeper = pricefeedkeeper.NewKeeper(keys[pricefeedtypes.StoreKey], &app.StakingKeeper, app.AccountKeeper, &app.EvmKeeper)
 	app.PerpsKeeper = perpskeeper.NewKeeper(keys[perpstypes.StoreKey], &app.EvmKeeper, app.PricefeedKeeper)
+	// The module and served spot precompiles share this stateless keeper;
+	// every view reads the store attached to its call context.
 	app.SpotKeeper = spotkeeper.NewKeeper(keys[spottypes.StoreKey], app.BankKeeper, &app.EvmKeeper, app.PricefeedKeeper)
 	app.XWebKeeper = xwebkeeper.NewKeeper(keys[xwebtypes.StoreKey], app.BankKeeper, &app.EvmKeeper)
 	app.SequencerKeeper = seqkeeper.NewKeeper(keys[seqtypes.StoreKey])

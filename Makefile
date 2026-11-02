@@ -1868,7 +1868,6 @@ AGENT_TEST_TARGET_DIR := $(abspath $(or $(CARGO_TARGET_DIR),.lane-target))
 agent-test agent-test-sanitize: agent-test-native-prerequisites
 agent-test agent-test-sanitize: export CARGO_TARGET_DIR = $(AGENT_TEST_TARGET_DIR)
 agent-test agent-test-sanitize: export PAXD = $(abspath build/paxd)
-agent-test agent-test-sanitize: export LAYERX_CUSTODY_PROOF_BIN = $(abspath $(BUILD_DIR)/bin/layerx-custody-proof)
 agent-test agent-test-sanitize: export LAYERX_TEST_NATIVE_BIN_DIR = $(abspath $(BUILD_DIR)/bin)
 agent-test agent-test-sanitize: export LAYERX_TEST_NATIVE_BUILD_DIR = $(abspath $(BUILD_DIR))
 agent-test-native-prerequisites:
