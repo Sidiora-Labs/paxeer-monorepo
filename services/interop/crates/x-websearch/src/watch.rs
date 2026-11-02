@@ -541,6 +541,20 @@ impl RequestWatcher {
                     next_block = progress.next_block;
                     chain_id = progress.chain_id;
                     for entry in progress.program_entries {
+                        if entry.request.program_id == [0; 32]
+                            || !matches!(entry.request.kind, 1 | 2)
+                            || entry.request.payload.is_empty()
+                            || entry.request.payload.len() > MAX_PAYLOAD_BYTES
+                            || entry.source.block_hash == [0; 32]
+                            || entry.source.transaction_hash == [0; 32]
+                            || chain_id != Some(entry.source.chain_id)
+                            || next_block.is_none_or(|next| entry.block_number >= next)
+                        {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "watch program request malformed",
+                            ));
+                        }
                         let key = (entry.request.program_id, entry.request.request_id);
                         if program_pending.insert(key, entry).is_some() {
                             return Err(io::Error::new(

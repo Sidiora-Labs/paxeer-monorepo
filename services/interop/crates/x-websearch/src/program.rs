@@ -380,6 +380,9 @@ struct ProgramRecord {
     program_id: [u8; 32],
     request_id: u64,
     digest: [u8; 32],
+    content_digest: [u8; 32],
+    response_hash: [u8; 32],
+    full_length: u32,
     signer: [u8; 20],
     signature: [u8; SIGNATURE_LENGTH],
 }
@@ -403,13 +406,13 @@ fn parse_program_record(record: &Value) -> Option<ProgramRecord> {
     if object.keys().any(|key| !known.contains(&key.as_str())) {
         return None;
     }
-    fixed0x::<32>(object.get("content_digest"))?;
-    fixed0x::<32>(object.get("response_hash"))?;
-    u32::try_from(object.get("full_length")?.as_u64()?).ok()?;
     Some(ProgramRecord {
         program_id: fixed0x(object.get("program_id"))?,
         request_id: object.get("request_id")?.as_u64()?,
         digest: fixed0x(object.get("digest"))?,
+        content_digest: fixed0x(object.get("content_digest"))?,
+        response_hash: fixed0x(object.get("response_hash"))?,
+        full_length: u32::try_from(object.get("full_length")?.as_u64()?).ok()?,
         signer: fixed0x(object.get("signer"))?,
         signature: fixed0x(object.get("signature"))?,
     })
@@ -652,7 +655,14 @@ impl ProgramExchange {
             Some(record) if (record.program_id, record.request_id) != key => {
                 Err(Discard::WrongRequest)
             }
-            Some(record) if record.digest != local.digest => Err(Discard::DifferentDigest),
+            Some(record)
+                if record.digest != local.digest
+                    || record.content_digest != local.attestation.content_digest
+                    || record.response_hash != local.attestation.response_hash
+                    || record.full_length != local.attestation.full_length =>
+            {
+                Err(Discard::DifferentDigest)
+            }
             Some(record) => match recover_signer(&local.digest, &record.signature) {
                 Ok(signer) if signer != record.signer => Err(Discard::BadSignature),
                 Err(_) => Err(Discard::BadSignature),
@@ -804,6 +814,21 @@ impl ProgramRelay {
             .collect()
     }
 
+    /// Independently answers a watched request and exchanges signatures.
+    /// `None` means the registered quorum has not yet agreed. This is also
+    /// the preparation boundary used by [`Self::step`] before submission.
+    ///
+    /// # Errors
+    /// Returns the attestor's refusal of the request.
+    pub fn prepare_program(&self, request: &ProgramRequest) -> Result<Option<Ready>, AttestError> {
+        let key = (request.program_id, request.request_id);
+        if self.exchange.answer(key).is_none() {
+            self.exchange.record(self.attestor.attest(request)?);
+        }
+        let _ = self.exchange.collect(key, &self.set);
+        Ok(self.exchange.ready(key, &self.set))
+    }
+
     pub fn step(&mut self) -> Result<Vec<Step>, EvmError> {
         let discarded = self.discarded()?;
         self.watcher.poll()?;
@@ -827,45 +852,40 @@ impl ProgramRelay {
             let outcome = if let Some(outcome) = resumed {
                 outcome
             } else {
-                if self.exchange.answer(key).is_none() {
-                    match self.attestor.attest(&request) {
-                        Ok(answer) => self.exchange.record(answer),
-                        Err(reason) => {
-                            let code = match &reason {
-                                AttestError::Fetch(error) => error.code().to_owned(),
-                                _ => reason.to_string(),
-                            };
-                            let record = serde_json::to_string(&ProgramRefusal {
-                                program_id: key.0,
-                                request_id: key.1,
-                                code: code.clone(),
-                            })
+                let ready = match self.prepare_program(&request) {
+                    Ok(Some(ready)) => ready,
+                    Ok(None) => continue,
+                    Err(reason) => {
+                        let code = match &reason {
+                            AttestError::Fetch(error) => error.code().to_owned(),
+                            _ => reason.to_string(),
+                        };
+                        let record = serde_json::to_string(&ProgramRefusal {
+                            program_id: key.0,
+                            request_id: key.1,
+                            code: code.clone(),
+                        })
+                        .map_err(|_| EvmError::Journal)?;
+                        let mut file = std::fs::OpenOptions::new()
+                            .create(true)
+                            .append(true)
+                            .open(
+                                self.exchange
+                                    .log_path()
+                                    .with_file_name("program-requests-discarded.jsonl"),
+                            )
                             .map_err(|_| EvmError::Journal)?;
-                            let mut file = std::fs::OpenOptions::new()
-                                .create(true)
-                                .append(true)
-                                .open(
-                                    self.exchange
-                                        .log_path()
-                                        .with_file_name("program-requests-discarded.jsonl"),
-                                )
-                                .map_err(|_| EvmError::Journal)?;
-                            writeln!(file, "{record}").map_err(|_| EvmError::Journal)?;
-                            file.sync_all().map_err(|_| EvmError::Journal)?;
-                            self.watcher.retire_program(key.0, key.1)?;
-                            self.exchange.forget(key);
-                            steps.push(Step::Discarded {
-                                program_id: key.0,
-                                request_id: key.1,
-                                code,
-                            });
-                            continue;
-                        }
+                        writeln!(file, "{record}").map_err(|_| EvmError::Journal)?;
+                        file.sync_all().map_err(|_| EvmError::Journal)?;
+                        self.watcher.retire_program(key.0, key.1)?;
+                        self.exchange.forget(key);
+                        steps.push(Step::Discarded {
+                            program_id: key.0,
+                            request_id: key.1,
+                            code,
+                        });
+                        continue;
                     }
-                }
-                let _ = self.exchange.collect(key, &self.set);
-                let Some(ready) = self.exchange.ready(key, &self.set) else {
-                    continue;
                 };
                 let observation = observation_bytes(self.attestor.network_id, &request, &ready)
                     .map_err(|_| EvmError::Malformed)?;
