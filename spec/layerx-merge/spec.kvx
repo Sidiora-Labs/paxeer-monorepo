@@ -118513,7 +118513,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.8]
 title = "Drop the layerx-crypto owner rotation decode from the human-service production fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["10.98.10", "10.21.8"]
