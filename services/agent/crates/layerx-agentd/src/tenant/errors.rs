@@ -203,6 +203,35 @@ impl BoundedMetrics {
         &self.counters
     }
 
+    /// Scrapes this tenant's normalized error counters into the shared metric schema.
+    /// Each scrape reads current counters into a fresh registry, without cached totals.
+    ///
+    /// # Errors
+    ///
+    /// Returns `MetricsError::InvalidLabel` if an error counter carries a label that
+    /// the shared error schema cannot decode.
+    pub fn scrape_errors(
+        &self,
+        tenant: &TenantId,
+    ) -> Result<
+        Vec<(
+            crate::obs::metrics::MetricKey,
+            crate::obs::metrics::MetricPoint,
+        )>,
+        crate::obs::metrics::MetricsError,
+    > {
+        use crate::obs::metrics::{MetricKind as SharedKind, Metrics};
+
+        let mut metrics = Metrics::new(1)?;
+        metrics.register_tenant(tenant.clone())?;
+        for (key, count) in &self.counters {
+            if &key.tenant == tenant && key.kind == MetricKind::ErrorClass {
+                metrics.observe_named(tenant, SharedKind::ErrorClass, key.label.name(), *count)?;
+            }
+        }
+        Ok(metrics.snapshot(tenant))
+    }
+
     #[must_use]
     pub fn traces(&self) -> &[SanitizedTrace] {
         &self.traces

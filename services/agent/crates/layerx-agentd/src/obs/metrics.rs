@@ -57,6 +57,7 @@ pub enum MetricLabel {
     AccessDenied,
     InvalidRequest,
     StorageFailure,
+    BoundaryFailure,
     InternalFailure,
     Allowed,
     Denied,
@@ -68,7 +69,7 @@ pub enum MetricLabel {
 }
 
 impl MetricLabel {
-    pub const ALL: [Self; 27] = [
+    pub const ALL: [Self; 28] = [
         Self::Executed,
         Self::Failed,
         Self::Unknown,
@@ -88,6 +89,7 @@ impl MetricLabel {
         Self::AccessDenied,
         Self::InvalidRequest,
         Self::StorageFailure,
+        Self::BoundaryFailure,
         Self::InternalFailure,
         Self::Allowed,
         Self::Denied,
@@ -97,6 +99,16 @@ impl MetricLabel {
         Self::Lagging,
         Self::RateExceeded,
     ];
+
+    // The merge's public metrics use node availability and chain finality names.
+    #[allow(non_upper_case_globals)]
+    pub const BoundaryBehind: Self = Self::NodeBehind;
+    #[allow(non_upper_case_globals)]
+    pub const CoreHalted: Self = Self::ChainHalted;
+    #[allow(non_upper_case_globals)]
+    pub const CoreEmergency: Self = Self::ChainHalted;
+    #[allow(non_upper_case_globals)]
+    pub const DataUnavailable: Self = Self::BlockUnavailable;
 
     #[must_use]
     pub const fn name(self) -> &'static str {
@@ -120,6 +132,7 @@ impl MetricLabel {
             Self::AccessDenied => "access_denied",
             Self::InvalidRequest => "invalid_request",
             Self::StorageFailure => "storage_failure",
+            Self::BoundaryFailure => "node_failure",
             Self::InternalFailure => "internal_failure",
             Self::Allowed => "allowed",
             Self::Denied => "denied",
@@ -247,6 +260,27 @@ impl Metrics {
         Ok(())
     }
 
+    /// Decodes a producer's bounded label before recording a sample.
+    ///
+    /// # Errors
+    ///
+    /// Returns `InvalidLabel` for unknown names or labels belonging to another kind,
+    /// and `UnknownTenant` for a tenant that has not been admitted. Refusals never
+    /// change the registry.
+    pub fn observe_named(
+        &mut self,
+        tenant: &TenantId,
+        kind: MetricKind,
+        label: &str,
+        value: u64,
+    ) -> Result<(), MetricsError> {
+        let label = MetricLabel::ALL
+            .into_iter()
+            .find(|candidate| candidate.name() == label)
+            .ok_or(MetricsError::InvalidLabel)?;
+        self.observe(tenant, kind, label, value)
+    }
+
     #[must_use]
     pub fn snapshot(&self, tenant: &TenantId) -> Vec<(MetricKey, MetricPoint)> {
         self.points
@@ -285,6 +319,7 @@ fn valid_label(kind: MetricKind, label: MetricLabel) -> bool {
             MetricLabel::AccessDenied
                 | MetricLabel::InvalidRequest
                 | MetricLabel::StorageFailure
+                | MetricLabel::BoundaryFailure
                 | MetricLabel::BoundaryUnavailable
                 | MetricLabel::InternalFailure
         ),
