@@ -123780,7 +123780,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.96.1]
 title = "Prove the mcp path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -208821,7 +208821,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1463.1]
 title = "Issues #1463, #1464, #1465 and #1448: Port the Python x402 verifier onto the EVM receipt and the rung ladder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
