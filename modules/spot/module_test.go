@@ -68,6 +68,7 @@ func TestGenesisRoundTrip(t *testing.T) {
 	require.Empty(t, am.InitGenesis(ctx, nil, input))
 	exported := am.ExportGenesis(ctx, nil)
 	require.JSONEq(t, string(input), string(exported))
+	require.Equal(t, exported, am.ExportGenesis(ctx, nil), "exports must read the same keeper state on each call")
 	require.Equal(t, types.DefaultGenesis(), k.ExportGenesis(ctx))
 	require.NoError(t, am.ValidateGenesis(nil, nil, exported))
 }

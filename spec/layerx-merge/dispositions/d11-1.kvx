@@ -1,0 +1,124 @@
+[disposition.11.0.4]
+finding = "11.0.4"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:169847 names the declared test_template_names_every_variable_the_service_reads function at services/interop/deploy/gateway/tests/test_env_template.py:5 instead of the template filename."
+
+[disposition.11.0.9.1]
+finding = "11.0.9.1"
+status = "resolved"
+evidence = "Commit cb9143d9f deleted PAYER_DID from services/interop/crates/x-websearch/src/payment.rs, whose current constants at services/interop/crates/x-websearch/src/payment.rs:58 retain PAYER_ADDRESS and proceed directly to COMMITMENT."
+
+[disposition.11.1.4]
+finding = "11.1.4"
+status = "resolved"
+evidence = "Commit 7babe5fe9 removed the deleted layerx-intent-ingester manifest from the member_manifests list, which remains absent at services/interop/crates/layerx-interop-gateway/tests/workspace_lock.rs:14."
+
+[disposition.11.1.4.3]
+finding = "11.1.4.3"
+status = "resolved"
+evidence = "Commit b44a14724 ported migration completion to settle_with_sequencer_evidence, and services/interop/crates/layerx-migrate/src/lib.rs:1044 passes evidence and receipt_keys while preserving the ReceiptVerified check at line 1061."
+
+[disposition.11.1.4.4]
+finding = "11.1.4.4"
+status = "resolved"
+evidence = "services/interop/crates/layerx-migrate/src/lib.rs:595 defines MigrationPlaneResult::Executed with SequencerEvidence and receipt_keys, and its completion arm at services/interop/crates/layerx-migrate/src/lib.rs:1044 uses the sequencer settlement method introduced by b44a14724."
+
+[disposition.11.2.6]
+finding = "11.2.6"
+status = "resolved"
+evidence = "services/interop/crates/layerx-committed-proof/src/lib.rs:316 accepts receipt_json and four-field pinned key tuples, the verifier matches key_id at line 466, and verify_receipt_view at line 499 compares the supplied JSON with decoded receipt contents."
+
+[disposition.11.2.6.1]
+finding = "11.2.6.1"
+status = "resolved"
+evidence = "Commit ecdaab902 added serde_json to the layerx-committed-proof dependency entries retained at services/interop/Cargo.lock:1256, services/agent/Cargo.lock:847, services/agent/fuzz/Cargo.lock:824, services/agent/tests/isolation/Cargo.lock:792 and tools/platform/Cargo.lock:1281."
+
+[disposition.11.3.1]
+finding = "11.3.1"
+status = "resolved"
+evidence = "services/interop/crates/layerx-x402/src/facilitator.rs:562 takes SequencerEvidence and pinned keys directly, and services/interop/crates/layerx-x402/tests/transports.rs:648 constructs the matching Executed outcome from sequencer_evidence rather than the retired ExecutedPayment fields."
+
+[disposition.11.3.1.1]
+finding = "11.3.1.1"
+status = "resolved"
+evidence = "Commit 96173816e adapted the pending variants and websearch payload, retained at services/interop/crates/layerx-x402/tests/e2e.rs:71 with transaction_hash, services/interop/crates/layerx-x402/tests/e2e.rs:197 with a struct-variant match, and services/interop/crates/x-websearch/src/payment.rs:2344 with SequencerEvidence."
+
+[disposition.11.3.1.2]
+finding = "11.3.1.2"
+status = "resolved"
+evidence = "services/interop/crates/layerx-x402/tests/e2e.rs:71 uses the pending struct variant landed in 96173816e, and services/interop/Cargo.lock:1256 includes the serde_json dependency added by ecdaab902, removing both recorded blockers."
+
+[disposition.11.3.1.3]
+finding = "11.3.1.3"
+status = "resolved"
+evidence = "services/interop/crates/layerx-x402/tests/seller.rs:658 builds PaymentExact topics with reference, payer and account_id(PAYEE_ACCOUNT), and services/interop/crates/layerx-x402/tests/seller.rs:772 signs the corresponding receipt with the test sequencer key while retaining the transaction hash."
+
+[disposition.11.4.1]
+finding = "11.4.1"
+status = "resolved"
+evidence = "Commit f2c0fc0ee migrated FaultInjectingPlane, whose receipt_keys implementation remains at services/interop/crates/layerx-x402/tests/transports.rs:616 and whose Executed outcomes at line 648 carry SequencerEvidence."
+
+[disposition.11.4.1.1]
+finding = "11.4.1.1"
+status = "resolved"
+evidence = "The duplicate finding is resolved by f2c0fc0ee, with FaultInjectingPlane returning pinned receipt keys at services/interop/crates/layerx-x402/tests/transports.rs:616 and sequencer evidence in the settlement outcome at line 648."
+
+[disposition.11.4.1.2]
+finding = "11.4.1.2"
+status = "resolved"
+evidence = "services/interop/crates/layerx-x402/tests/facilitator_evidence.rs:170 contains the corrected 64-digit asset matching the recorded payment log, and its settling test at line 255 binds and re-signs the log for the request payee and settlement identity."
+
+[disposition.11.5.1]
+finding = "11.5.1"
+status = "resolved"
+evidence = "Commit 4e013c19c adapted the buyer capture callers to pinned keys, retained at services/interop/crates/layerx-x402/tests/buyer.rs:849 and services/interop/crates/layerx-x402/tests/layerx_evidence.rs:67, replacing their AuthorizedBatch arguments."
+
+[disposition.11.5.3.1]
+finding = "11.5.3.1"
+status = "resolved"
+evidence = "Commit cc0c29aaa corrected the signed settlement payee and topic order, and the subsequent unmodified-fixture capture in b68a59e08 is retained at services/interop/crates/layerx-x402/tests/buyer.rs:217 with reference and payer in topics 1 and 2 and the account-derived payee assertion at line 303."
+
+[disposition.11.7.1]
+finding = "11.7.1"
+status = "resolved"
+evidence = "services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs:393 rewrites and signs the PaymentExact tuple with the authorized idempotency key, and the settling test at line 441 uses that helper and pins the fresh signing key at line 454."
+
+[disposition.11.7.1.1]
+finding = "11.7.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:170530 names ExecutedPayment and the two declared settlement test functions, including ap2_execute_settles_receipted_evidence at services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs:433, instead of the generic impl methods."
+
+[disposition.11.7.4]
+finding = "11.7.4"
+status = "resolved"
+evidence = "services/interop/crates/layerx-ap2/tests/mandates.rs:176 puts the authorized idempotency key in the signed PaymentExact tuple, while the mandate test preserves the original digest assertion at line 682 before re-signing at line 723 and pinning the fresh key at line 729."
+
+[disposition.11.8.1]
+finding = "11.8.1"
+status = "resolved"
+evidence = "services/interop/crates/layerx-fiat/tests/adapter.rs:427 implements SandboxPlane::receipt_keys and its execution arm at line 443 constructs ExecutedFiatOutcome with evidence, matching the migration landed by 1877290e6."
+
+[disposition.11.9.1]
+finding = "11.9.1"
+status = "resolved"
+evidence = "services/interop/crates/layerx-ucp/tests/merchant_profile.rs:177 and services/interop/crates/layerx-ucp/tests/e2e_client_seller.rs:312 construct ExecutedUcpPayment with evidence, while the StoredOrder fixture at services/interop/crates/layerx-ucp/tests/merchant_profile.rs:475 stores transaction_hash, signed_receipt, logs and rung."
+
+[disposition.11.9.2]
+finding = "11.9.2"
+status = "resolved"
+evidence = "Commit ee3e4aaac split the UCP digest assertions, retained at services/interop/crates/layerx-ucp/tests/sequencer_checkout.rs:214 for the original fixture and line 234 for checkout evidence re-signed with the gateway key by the helper at line 146."
+
+[disposition.11.10.2]
+finding = "11.10.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:170866 names portability_v2_example_parses, declared at services/interop/crates/layerx-ap2/tests/portability_v2.rs:29 by a5a66c64d, instead of the PORTABILITY filename."
+
+[disposition.11.11.4]
+finding = "11.11.4"
+status = "resolved"
+evidence = "services/interop/crates/layerx-interop-service/src/server.rs:1144 and line 1288 implement receipt_keys for both facilitator planes, line 1333 returns sequencer evidence, line 1916 builds ExecutedUcpPayment with evidence, and line 2012 calls complete_checkout with the configured receipt keys."
+
+[disposition.11.13.5]
+finding = "11.13.5"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:171265 names test_search_location_clears_the_payer_did, declared at services/interop/deploy/search-front/tests/test_nginx_headers.py:5 by d55171847, instead of nginx.conf."

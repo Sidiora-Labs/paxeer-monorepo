@@ -51,7 +51,8 @@ func getRecord(store sdk.KVStore, key []byte, out any) (bool, error) {
 }
 
 // InitGenesis imports every prefix of gs. It panics when gs fails
-// validation or a record cannot be written.
+// validation or a record cannot be written. AppModule passes its decoded JSON
+// here; active list positions are rebuilt in the supplied genesis order.
 func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 	if err := k.initGenesis(ctx, gs); err != nil {
 		panic(fmt.Errorf("spot: invalid genesis: %w", err))

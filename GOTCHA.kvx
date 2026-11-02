@@ -13455,3 +13455,18 @@ fix = "Spell touches as plain repository-relative paths; the batch normalises ev
 title = "A finding recorded during qualification is not resolved by the task landing"
 symptom = "1281 of the 2211 [finding.*] blocks of qualification.kvx are cited by no do or decision; the tasks that recorded them are done, and nothing says whether the observed condition still holds on main."
 fix = "Every finding gets a [disposition.<id>] block under spec/layerx-merge/dispositions/ whose evidence cites a commit or a file:line of main (feature 22); the closure refuses while one is missing or open without a landed follow-up."
+
+[gotcha.2728]
+title = "bind_call checks only the recordLifecycle header shape, never the body"
+symptom = "decode_method (layerx-crypto/src/disclosure/call.rs:453-470) accepts a 0x101c recordLifecycle call when payload[0] is 0x71 and (payload[1], payload[2], payload[3], length) is one of (1,0,2,68), (1,2,1,8..=1024), (3,0,3,70), (3,0,5,86); a test that corrupts a body byte and asserts bind_call refuses it fails (9.35.9 attempt 6, native_setup.rs:442)."
+fix = "Assert bind_call refusals only for the target, selector, header bytes and length; assert body validity at the provider or the kernel decoder, and record a refusal the product does not make as a finding."
+
+[gotcha.2729]
+title = "The arbiter's native fee authority key copies a NUL-terminated literal into a 28-byte slice"
+symptom = "programs/crates/layerx-programs-arbiter/src/authority.rs:788 copies the 29-byte literal of the 28-character policy name plus a trailing NUL into policy[..28], so every call that reaches the native fee authority check panics (21.53.1 attempt 3, three proof cases)."
+fix = "Copy byte-string literals without a trailing NUL into fixed slices, or size the slice from the literal; the Go and C producers zero-pad the 28-byte name to 32 bytes."
+
+[gotcha.2730]
+title = "A retirement that relies on a wiring request leaves dead producer references"
+symptom = "5.54.5 deleted nine daemon tests and relied on a wiring request to remove their references; seven qualification scripts and five build fragments included by the Makefile still name them, and 21.5.1's proof found the first one missing."
+fix = "A task that deletes a file greps the tree (scripts, build fragments, Makefile includes, docs) for its path and either removes the references itself or lists them under touches; 22.16.4 closes this set."
