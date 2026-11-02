@@ -18091,3 +18091,91 @@ symbol = "OUT_OF_SCOPE"
 observed = "Attempt 5 (base 5e4cc2862): with the six Dockerfiles of do_1 placed, bash tools/containers/check.sh reports 14 failures: deploy/launchpad/Dockerfile.svc, deploy/launchpad/Dockerfile.web, services/platform/hosted/feeder/Dockerfile, services/platform/perps-data/deploy/Dockerfile, services/platform/perps-data/deploy/nats/Dockerfile, tools/deploy/charting-library.Dockerfile, tools/loadtest/Dockerfile, tools/paxctl/Dockerfile and the four tools/wasm-tools/ci/docker/*/Dockerfile are tracked outside docker/ and not on the out-of-scope list, and docker/platform-node/Dockerfile and docker/redis/Dockerfile are under docker/ but not known service Dockerfiles."
 assumption = "The out-of-scope list was written against an older tree; every tracked Dockerfile must be either a known service or on the list, and the scope test must assert that identity from git ls-files so the list cannot drift again."
 severity = "medium"
+
+[finding.22.5.7.1]
+task = "22.5.7"
+file = "storage/state_db/sc/memiavl/snapshot_methods_test.go"
+symbol = "TestWriterLoopErrors"
+observed = "TestWriterLoopErrors (snapshot_methods_test.go:161) and TestSnapshotWriterErrorHandling expect WriteSnapshot to fail on /invalid/path/snapshot and get nil: the qualification environment runs the tests as root, which may create that directory, so the error path cannot be exercised there."
+assumption = "Both tests are properties of the qualification environment, not of the repository; they are skipped in this task's verify and the package's remaining tests stay in it."
+severity = "low"
+
+[finding.22.6.7.1]
+task = "22.6.7"
+file = "precompiles/layerxverify/retire_gate_test.go"
+symbol = "TestLayerXVerifyBelowTheMergeKeepsItsResults"
+observed = "At base 5e4cc2862 the first attempt's verify fails TestLayerXVerifyBelowTheMergeKeepsItsResults (retire_gate_test.go:130): the legacy harness built by newHarness answers verifyEd25519 (domains 2, 7, 8, 9, 19) and verifyReceiptInclusion (valid leaves) with execution reverted, although the merge-plan retirement applies only from the merge height."
+assumption = "Either the legacy harness no longer sits below the merge height or the precompile reverts those methods regardless of height; the task repairs whichever holds inside precompiles/layerxverify."
+severity = "medium"
+
+[finding.22.6.8.1]
+task = "22.6.8"
+file = "precompiles/xweb/XWeb.sol"
+symbol = "XWebProgramRequested"
+observed = "precompiles/xweb/abi.json declares four events (XWebProgramRequested(bytes32,uint64,uint8,bytes,uint64) since 383bbbbd8) while XWeb.sol:73-91 and contracts/src/precompiles/IXWeb.sol:73-91 declare three, and IXWeb.sol carries three selector doc comments (:103, :120, :126 from dc92aa359) that XWeb.sol lacks; TestABIMatchesTheSolidityInterface/consumer_interface (xweb_test.go:829) requires the two files byte-identical, consumer_selectors requires contracts/test/XWebConsumer.t.sol to quote every signature, and TestEventTopics (xweb_test.go:1043) counts the events of the Solidity source."
+assumption = "The Solidity interfaces are behind the ABI; both declare the fourth event byte-identically and the consumer suite quotes it."
+severity = "medium"
+
+[finding.22.8.12.1]
+task = "22.8.12"
+file = "services/platform/hosted/authority/tests/retired_client_modules.rs"
+symbol = "budget_reader_uses_only_node_read_interfaces"
+observed = "budget_reader_uses_only_node_read_interfaces (retired_client_modules.rs:60) reads src/human/budget_state.rs and requires the strings getBudget(bytes32), budgetRemaining(bytes32), latestFinalized(), checkpoint(uint64) and layerx.human.budget-proof.v2; latestFinalized() and checkpoint(uint64) are issued from src/main.rs:682-693, so the test fails with 'missing node interface latestFinalized()' at base 5e4cc2862, outside the task's touches."
+assumption = "The finalized-head and checkpoint reads moved out of the budget reader without the test following; the task reconciles them."
+severity = "medium"
+
+[finding.22.11.5.1]
+task = "22.11.5"
+file = "services/interop/crates/layerx-bridge-relayer/tests/operator_config.rs"
+symbol = "invalid_commitments_are_refused_during_load"
+observed = "Beyond the task's three targets, cargo test of layerx-bridge-relayer and layerx-interop-service fails at base 5e4cc2862 in operator_config.rs:484 (a non-string solana commitment is not refused with a message starting 'invalid type:'), solana.rs:266 (fixture lacks receipt_keys), solana.rs:634 and solana_release.rs:1045 (restart: rpc quorum unavailable), operator_cosign_contract.rs:68 and :1091 (no authorized operator inventory inputs; generated signers not approved membership), proof_bridge_relayer.rs:252 and :265 (the TypeScript consumer fails and the signer binary at target/debug is missing) and plain_listener.rs:335 (startup refused: LAYERX_INTEROP_SEQUENCER_URL is required)."
+assumption = "These are repository defects and fixture gaps of the two suites, not of this task; 22.11.7 repairs them and this task's verify runs only its three targets."
+severity = "medium"
+
+[finding.22.9.11.1]
+task = "22.9.11"
+file = "services/agent/sdk/python/layerx_sdk/px.py"
+symbol = "decode_history_row"
+observed = "The fourth attempt's verify (python3 -m pytest tests) fails six tests unrelated to the market journal at base 5e4cc2862: test_px_commit.py::test_history_page_keeps_rows_tied_with_the_limit_row (px.py:689 raises invalid-history-transaction-hash), test_sequencer_receipt.py::test_verify_rpc_payment_uses_receipt_keys and the x402 draw and http receipt-key tests (x402_rpc.py:67 raises invalid-rpc-hex for a 64-hex hash without 0x)."
+assumption = "The validators landed with the x402 receipt port and the fixtures were not moved to 0x-prefixed hashes; 22.9.23 reconciles them and this task's verify deselects the six."
+severity = "medium"
+
+[finding.22.12.4.1]
+task = "22.12.4"
+file = "services/wallet/attestor/cmd/attestor/main_test.go"
+symbol = "TestRunServesHealthOverMutualTLS"
+observed = "TestRunServesHealthOverMutualTLS, TestRunSeparatesOperatorAndGatewayAuthority and TestRunWritesSnapshotsOnTheInterval fail at main_test.go:151 with 'run exited early: attestor: pinned custody producer authority: custody authority unavailable or refused': main.go:206 requires agent.NewAuthority (ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, _ISSUER, _TENANT; authority.go:118-130 refuses when one is missing) and the test environment at main_test.go:127-141 sets none of them."
+assumption = "The authority requirement landed after the run() tests were written; the test environment supplies a fixture authority so run() starts."
+severity = "medium"
+
+[finding.22.16.8.1]
+task = "22.16.8"
+file = "tools/repotest/pytest_reachability_test.go"
+symbol = "TestEveryPytestSuiteIsReferenced"
+observed = "TestEveryPytestSuiteIsReferenced (pytest_reachability_test.go:79) reports tests/qualification/test_mcp_binding_receipt_keys.py (a pytest module added by 18.1498.1 at 9a389433b) with no exact path reference or containing directory passed to pytest in the Makefile, chain.mk, the workflows, tools/ or scripts/."
+assumption = "The module landed without a build reference; the task adds one in the Makefile, which is under its touches."
+severity = "low"
+
+[finding.22.13.6.2]
+task = "22.13.6"
+file = "src/protocol/lxp_genesis.c"
+symbol = "module_table"
+observed = "The fifth attempt replaced programs_module_registration_v4 with programs_module_registration_v4_storage_retirement in the LXP_GENESIS_MODULE_GATE_ALWAYS programs row (lxp_genesis.c:54); make test-genesis-module-table then fails genesis.module-table.defaults (lxp_genesis_module_plan_default(LXP_PROTOCOL_VERSION_STATE_COMMITMENT, true, &plan) no longer returns LXP_OK) and the public-fixture-v3 and public-fixture-v4 cases verify tests/fixtures/public-testnet-genesis-v3 and public-testnet-genesis with result -801 (LXP_ERR_ROOT_MISMATCH)."
+assumption = "The published fixtures pin the module-table root of the live network and are never regenerated; the storage-retirement registration must be selected behind a gate those fixtures do not satisfy."
+severity = "high"
+
+[finding.21.63.1.1]
+task = "21.63.1"
+file = "services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs"
+symbol = "decode_unsigned_activity"
+observed = "The second attempts of 21.63.1 and 21.110.1 fail in the build of layerx-human-kms --tests at base f599d3122: E0432 unresolved layerx_intents::canonical::unsigned_envelope_bytes and decode_unsigned_activity (sign_eip1559_requests.rs:443-447, :700; provider/native_setup.rs:10), the type Activity missing, and in 21.63.1 E0599 DisclosedNativeOperation::OwnerRotation not found."
+assumption = "9.35.9 ports the KMS provider and signing tests off the kernel activity envelope; both proofs start after it."
+severity = "medium"
+
+[finding.22.8.11.1]
+task = "22.8.11"
+file = "services/platform/middleware/seller/test/ledger.test.mjs"
+symbol = "encodesLedgerDrawCalldataWithDrawSelector"
+observed = "The first attempt committed sdk/integrations/next/example/.next build output, and the seller tests fail against the freshly built dist: ledger.test.mjs:139 encodesLedgerDrawCalldataWithDrawSelector expects a 32-byte field and observes the ASCII bytes 65..88 of the fixture string, and grant-draw.test.mjs:129 grantAuthorityForwardsLedgerDrawTransaction is refused with invalid-payment-payload by GrantPaymentAuthority.settle (dist/grant.js:39)."
+assumption = "Build output is never committed, and the seller source and tests disagree on how the ledger draw reference is encoded; the task reconciles them inside services/platform/middleware."
+severity = "medium"
