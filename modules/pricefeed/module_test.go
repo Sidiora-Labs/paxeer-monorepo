@@ -218,3 +218,21 @@ func TestAppModuleValidateGenesis(t *testing.T) {
 	require.NoError(t, err)
 	require.ErrorIs(t, basic.ValidateGenesis(nil, nil, encoded), types.ErrInvalidGenesis)
 }
+
+func TestProofPricefeedErrorsMalformedGenesisPanic(t *testing.T) {
+	_, am, _, key, ctx := newModule(t, 1)
+	for i := 0; i < 2; i++ {
+		func() {
+			defer func() {
+				err, ok := recover().(error)
+				require.True(t, ok, "InitGenesis must panic with a registered error")
+				require.ErrorIs(t, err, types.ErrInvalidGenesis)
+				name, found := types.LXPName(err)
+				require.True(t, found)
+				require.Equal(t, "LXP_PRICEFEED_INVALID_GENESIS", name)
+			}()
+			am.InitGenesis(ctx, nil, json.RawMessage(`{"params":`))
+		}()
+	}
+	require.Nil(t, ctx.KVStore(key).Get(types.ParamsKey))
+}

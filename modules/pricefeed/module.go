@@ -7,7 +7,6 @@ package pricefeed
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -102,7 +101,7 @@ func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, gs json.RawMessage) []abci.ValidatorUpdate {
 	var genesis types.GenesisState
 	if err := json.Unmarshal(gs, &genesis); err != nil {
-		panic(fmt.Errorf("failed to unmarshal %s genesis state: %w", types.ModuleName, err))
+		panic(types.ErrInvalidGenesis.Wrapf("failed to unmarshal %s genesis state: %v", types.ModuleName, err))
 	}
 	if err := am.keeper.InitGenesis(ctx, genesis); err != nil {
 		panic(err)
