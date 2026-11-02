@@ -111245,7 +111245,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1452.1]
 title = "Issue #1452: Require LAYERX_PAYMENT_PURPOSE_HASH in the Next integration for non-exact schemes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -119968,7 +119968,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1446.1]
 title = "Issues #1446 and #1466: Render an operation submitted at its requested rung as achieved"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199616,7 +199616,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1456.1]
 title = "Issue #1456: State the four verification status shapes in the AgentHttpSuccess record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -199645,7 +199645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1444.1]
 title = "Issues #1444 and #1462: Remove the retired custody scripts and subcommands from the operator and wallet docs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
