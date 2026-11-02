@@ -115344,7 +115344,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.131.1]
 title = "Prove the wallet sdk path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -115769,7 +115769,7 @@ do_4 = "Decision 2271: the test file is apps/launchpad/web/src/widgets/create-ch
 
 [task.20.6.2]
 title = "Show one virtual chain with its activity and an add-to-wallet action"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["20.6.1"]
