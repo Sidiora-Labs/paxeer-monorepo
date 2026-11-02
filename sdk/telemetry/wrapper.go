@@ -79,19 +79,6 @@ func MeasureSinceWithLabels(keys []string, start time.Time, labels []metrics.Lab
 	metrics.MeasureSinceWithLabels(keys, start.UTC(), labels)
 }
 
-// Measure Validator slashing events
-// validator_slashed
-func IncrValidatorSlashedCounter(validator string, slashingType string) {
-	metrics.IncrCounterWithLabels(
-		[]string{"pax", "cosmos", "validator", "slashed"},
-		1,
-		[]metrics.Label{
-			NewLabel("type", slashingType),
-			NewLabel("validator", validator),
-		},
-	)
-}
-
 // Measures throughput
 // Metric Name:
 //
