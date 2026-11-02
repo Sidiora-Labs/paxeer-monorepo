@@ -118506,7 +118506,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.101.2]
 title = "Refresh the platform workspace lock file after the agent crate manifest changes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
