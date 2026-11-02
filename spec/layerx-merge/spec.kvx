@@ -117562,7 +117562,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.170.1]
 title = "Prove the lxp receipt h path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -125689,7 +125689,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.53.1]
 title = "Prove the arbiter crate path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -210993,7 +210993,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.19.1]
 title = "Disposition of qualification findings 19.5.2.1 to 19.5.2.1 (domain 19, part 1)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -211025,7 +211025,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.18.11]
 title = "Disposition of qualification findings 18.1308.3.1 to 18.1408.1.1 (domain 18, part 11)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -211121,7 +211121,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.18.8]
 title = "Disposition of qualification findings 18.1188.2.2 to 18.1206.1.1 (domain 18, part 8)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -211153,7 +211153,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.18.7]
 title = "Disposition of qualification findings 18.1159.1.1 to 18.1188.2.1 (domain 18, part 7)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -211217,7 +211217,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.18.5]
 title = "Disposition of qualification findings 18.1119.1.3 to 18.1142.1.1 (domain 18, part 5)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -211313,7 +211313,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.18.2]
 title = "Disposition of qualification findings 18.849.1.5 to 18.911.1.10 (domain 18, part 2)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
@@ -211345,7 +211345,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.18.1]
 title = "Disposition of qualification findings 18.670.1.1 to 18.849.1.4 (domain 18, part 1)"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = []
