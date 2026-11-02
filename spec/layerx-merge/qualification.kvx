@@ -17659,3 +17659,27 @@ symbol = "BatchHeader"
 observed = "attempt 1 (a114ce6b9) fails its verify before TestProof0x1013Layerxcustody runs: the test package of modules/layerxcustody/keeper does not compile on main, because deposit_root_test.go:106 calls verify.BatchHeader, which task 1.36.2 retired (e999c6df5) with the other batch-header verifiers of layerxproof; daemon/committed-fixture/vector_v4_test.go carries the same call and is repaired by 18.1491.1."
 assumption = "21.89.1 repairs deposit_root_test.go in place with the retained pair 18.1491.1 uses: the header already decoded at :55 by codec.DecodeBatchHeader supplies the fields, verify.Ed25519Digest(authorization.PublicKey, headerSignature, codec.BatchHeaderDigest(headerBytes)) authenticates the signature, and HeaderDigest becomes codec.BatchHeaderDigest(headerBytes); no retired verifier is restored."
 severity = "medium"
+
+[finding.21.156.1.1]
+task = "21.156.1"
+file = "services/agent/sdk/typescript/test/proof_gas_station.test.ts"
+symbol = "requestGasQuote"
+observed = "attempt 1 (a58d937be) fails its verify on its own precondition: the test asserts that GAS_STATION_PROOF_CONFIG names a provisioned loopback gas-station configuration and stops when the variable is unset, so the proof depends on an operator-supplied environment and can never pass in the qualification environment."
+assumption = "the proof hosts its producer inside the test process (a loopback HTTP listener answering the exact bodies the gas-station routes produce, as the existing gas-station.test.ts does) and never reads a URL, path or configuration name from the environment."
+severity = "minor"
+
+[finding.21.5.1.1]
+task = "21.5.1"
+file = "tools/qualification/paxeer-x/tests/test_proof_qual_cli.py:329"
+symbol = "test_native_genesis_crossing_reopens_real_artifacts_and_refuses_duplicate"
+observed = "attempt 1 (b6b0613b2) fails its verify on a missing prerequisite: the native genesis crossing runs build/bin/layerx-genesis-build, which the task's build_cmd (python3 -m py_compile of the test) never produced; the Makefile target layerx-genesis-build (Makefile:1000-1013) builds it from cmd/layerx-genesis with the programs runtime archive."
+assumption = "21.5.1 builds the binary in its build_cmd (make layerx-genesis-build, as 5.49.1 and 5.49.2 do) under the mixed environment profile, and the proof keeps using the real binary."
+severity = "minor"
+
+[finding.21.126.1.1]
+task = "21.126.1"
+file = "services/platform/hosted/core/tests/retired_client_modules.rs:35"
+symbol = "include_str"
+observed = "attempt 1 (0ec0c77ba) fails its build before proof_core_env_vars compiles: cargo build -p layerx-platform-core --tests compiles tests/retired_client_modules.rs, whose line 35 does include_str!('../src/withdrawal.rs'), and task 8.99.1 deleted src/withdrawal.rs (8f777f5cf) without touching the scan; the test target has not compiled on main since."
+assumption = "21.126.1 repairs retired_client_modules.rs in place: the sources list keeps src/public_reads.rs and drops the deleted withdrawal.rs entry, the retired-module list is unchanged, and the build keeps compiling every test target of the crate."
+severity = "medium"

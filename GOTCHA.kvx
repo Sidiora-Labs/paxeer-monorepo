@@ -13415,3 +13415,13 @@ fix = "When a task removes a keeper method, grep the precompile test packages fo
 title = "Two more Go test packages on main do not compile after a retirement"
 symptom = "modules/layerxledger/types/params_test.go:22 asserts KernelKVPrefix (retired by 2.3.1, 215b90bd1) and modules/layerxcustody/keeper/deposit_root_test.go:106 calls verify.BatchHeader (retired by 1.36.2, e999c6df5); the retiring tasks' verifies ran other packages, so go test of either package has failed to compile since."
 fix = "A task that retires an exported symbol greps every _test.go caller across modules/, precompiles/ and daemon/ and vets those packages in its verify; 21.115.1 and 21.89.1 repair these two."
+
+[gotcha.2720]
+title = "retired_client_modules.rs of layerx-platform-core includes a deleted source file"
+symptom = "services/platform/hosted/core/tests/retired_client_modules.rs:35 does include_str!('../src/withdrawal.rs'); 8.99.1 deleted that module (8f777f5cf), so every cargo build --tests of the crate fails on this target (21.126.1 attempt 1)."
+fix = "A task that deletes a source file greps the crate's tests for include_str! and module scans naming it; 21.126.1 drops the entry."
+
+[gotcha.2721]
+title = "A proof that reads its producer from the environment never passes qualification"
+symptom = "21.42.1 and 21.156.1 attempt 1 asserted LAYERX_PROOF_CLIENT_RPC_URL and GAS_STATION_PROOF_CONFIG and failed when unset; the qualification environment provides no operator-provisioned services."
+fix = "Host the producer in-process (loopback listener, in-memory store, application harness) or build it in build_cmd (21.5.1: make layerx-genesis-build); never read URLs or configuration names from the environment in a proof."

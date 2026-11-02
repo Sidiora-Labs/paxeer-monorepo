@@ -6861,6 +6861,12 @@ value = "When a proof task's package does not compile on main because an earlier
 basis = "21.115.1 attempt 1 and 21.89.1 attempt 1 failed to compile on KernelKVPrefix and verify.BatchHeader, retired by 2.3.1 and 1.36.2 whose verifies did not compile these packages."
 affects = ["21.115.1", "21.89.1", "2.3.1", "1.36.2"]
 
+[decision.2292]
+title = "Proof producers are in-process or built by the task, and a proof follows the repair of its package"
+value = "Every open proof task carries the rule that its producers run inside the test process or are built by its build_cmd, never read from the environment (21.42.1 and 21.156.1 attempt 1 demanded operator-provisioned URLs); 21.5.1 builds layerx-genesis-build in its build_cmd under the mixed profile; 21.116.1 requires 21.11.1 and 21.46.1 requires 21.115.1 because those tasks repair the shared test packages; 21.126.1 repairs tests/retired_client_modules.rs, whose include_str! of src/withdrawal.rs has not compiled since 8.99.1."
+basis = "21.42.1, 21.156.1, 21.5.1, 21.116.1, 21.46.1 and 21.126.1 attempts 1 failed on environment preconditions, a missing binary or a package another task repairs."
+affects = ["21.5.1", "21.116.1", "21.46.1", "21.126.1", "21.156.1", "21.163.1", "21.160.1", "21.154.1", "21.153.1", "21.152.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -113564,6 +113570,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.162.1]
 title = "Prove the security headers path end to end: producer, transport, consumer"
@@ -113660,6 +113667,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.158.1]
 title = "Prove the launchpad contracts tooling path end to end: producer, transport, consumer"
@@ -113756,6 +113764,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Finding 21.156.1.1: the test hosts its own gas-station producer in-process on a loopback listener, the way test/gas-station.test.ts already does, and never reads GAS_STATION_PROOF_CONFIG or any other variable from the environment; a missing producer is a plain assertion failure, never a skip. Continue from attempt 1."
 
 [task.21.155.1]
 title = "Prove the submission path end to end: producer, transport, consumer"
@@ -113820,6 +113829,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.153.1]
 title = "Prove the widgets path end to end: producer, transport, consumer"
@@ -113852,6 +113862,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.152.1]
 title = "Prove the solana route path end to end: producer, transport, consumer"
@@ -113884,6 +113895,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.151.1]
 title = "Prove the attestation api path end to end: producer, transport, consumer"
@@ -113916,6 +113928,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.150.1]
 title = "Prove the config path end to end: producer, transport, consumer"
@@ -113948,6 +113961,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.149.1]
 title = "Prove the hooks path end to end: producer, transport, consumer"
@@ -113980,6 +113994,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.148.1]
 title = "Prove the ledger path end to end: producer, transport, consumer"
@@ -114044,6 +114059,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.146.1]
 title = "Prove the settlement path end to end: producer, transport, consumer"
@@ -114076,6 +114092,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.145.1]
 title = "Prove the middleware conformance ts exports path end to end: producer, transport, consumer"
@@ -114108,6 +114125,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.144.1]
 title = "Prove the middleware buyer ts exports path end to end: producer, transport, consumer"
@@ -114140,6 +114158,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.143.1]
 title = "Prove the journeys path end to end: producer, transport, consumer"
@@ -114172,6 +114191,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.142.1]
 title = "Prove the explorer path end to end: producer, transport, consumer"
@@ -114204,6 +114224,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.141.1]
 title = "Prove the lib path end to end: producer, transport, consumer"
@@ -114236,6 +114257,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.140.1]
 title = "Prove the launchpad mobile app path end to end: producer, transport, consumer"
@@ -114268,6 +114290,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.139.1]
 title = "Prove the middleware agent ts exports path end to end: producer, transport, consumer"
@@ -114300,6 +114323,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.138.1]
 title = "Prove the api path end to end: producer, transport, consumer"
@@ -114332,6 +114356,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.137.1]
 title = "Prove the launchpad sdk sdk path end to end: producer, transport, consumer"
@@ -114364,6 +114389,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.136.1]
 title = "Prove the core path end to end: producer, transport, consumer"
@@ -114396,6 +114422,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.135.1]
 title = "Prove the middleware seller ts exports path end to end: producer, transport, consumer"
@@ -114428,6 +114455,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.134.1]
 title = "Prove the launchpad web app path end to end: producer, transport, consumer"
@@ -114492,6 +114520,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.132.1]
 title = "Prove the s27 embedded wallet gateway path end to end: producer, transport, consumer"
@@ -114524,6 +114553,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.131.1]
 title = "Prove the wallet sdk path end to end: producer, transport, consumer"
@@ -114556,6 +114586,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.18.1476.1]
 title = "Issue #1476: Build the merchant settlement webhook evidence from the committed fixture"
@@ -123405,6 +123436,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.129.1]
 title = "Prove the portable receipt path end to end: producer, transport, consumer"
@@ -123469,6 +123501,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.127.1]
 title = "Prove the ramp reference http routes path end to end: producer, transport, consumer"
@@ -123501,6 +123534,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.126.1]
 title = "Prove the core env vars path end to end: producer, transport, consumer"
@@ -123517,7 +123551,7 @@ do_3 = "The anchor carries no persistent state of its own: the test asserts inst
 do_4 = "A defect the proof exposes in a file listed under touches is repaired in that file and named in the test's module doc comment and in the commit message; a defect outside touches is not repaired here: the test asserts the current behaviour under a doc comment naming the path, the symbol and the expected behaviour, so the finding survives the merge."
 do_5 = "The test's doc comment opens with the line 'Proves: <producer> -> <transport> -> <consumer>' naming the real types and functions, so a reader of the file knows which path is covered without the spec."
 symbols = ["LAYERX_CORE_CHAIN_RPC_URL", "LAYERX_CORE_FUNDING_SENDER_KEY_FILE", "LAYERX_CORE_FUNDING_SENDER_KMS_KEY_ID"]
-touches = ["services/platform/hosted/core/tests/proof_core_env_vars.rs", "services/platform/hosted/core/src/chain_fund.rs"]
+touches = ["services/platform/hosted/core/tests/proof_core_env_vars.rs", "services/platform/hosted/core/src/chain_fund.rs", "services/platform/hosted/core/tests/retired_client_modules.rs"]
 tests = ["services/platform/hosted/core/tests/proof_core_env_vars.rs"]
 planned_paths = ["services/platform/hosted/core/tests/proof_core_env_vars.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-core --tests"
@@ -123533,6 +123567,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.126.1.1: before writing the proof, repair tests/retired_client_modules.rs so the crate's test targets compile: remove the ('src/withdrawal.rs', include_str!('../src/withdrawal.rs')) entry at :35 (8.99.1 deleted that module) and keep the public_reads.rs scan and the retired-module list as they are. Continue from attempt 1."
 
 [task.21.112.1]
 title = "Prove the gateway sequencer evidence path end to end: producer, transport, consumer"
@@ -123597,6 +123633,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.110.1]
 title = "Prove the human kms wire path end to end: producer, transport, consumer"
@@ -123629,6 +123666,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.109.1]
 title = "Prove the human tools path end to end: producer, transport, consumer"
@@ -123789,6 +123827,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.96.1]
 title = "Prove the mcp path end to end: producer, transport, consumer"
@@ -123853,6 +123892,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.94.1]
 title = "Prove the serve errors path end to end: producer, transport, consumer"
@@ -123917,6 +123957,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.92.1]
 title = "Prove the agent boundary conformance path end to end: producer, transport, consumer"
@@ -123949,6 +123990,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.81.1]
 title = "Prove the x websearch payment path end to end: producer, transport, consumer"
@@ -124077,6 +124119,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.70.1]
 title = "Prove the agentd env path end to end: producer, transport, consumer"
@@ -124109,6 +124152,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.64.1]
 title = "Prove the ai market guest path end to end: producer, transport, consumer"
@@ -124141,6 +124185,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.63.1]
 title = "Prove the human kms path end to end: producer, transport, consumer"
@@ -124173,6 +124218,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.62.1]
 title = "Prove the crypto path end to end: producer, transport, consumer"
@@ -124237,6 +124283,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.52.1]
 title = "Prove the human network gateway path end to end: producer, transport, consumer"
@@ -124269,6 +124316,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.51.1]
 title = "Prove the types path end to end: producer, transport, consumer"
@@ -124302,6 +124350,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.35.1.1: the symbols list drops Self, which is a keyword and not a graph symbol. Continue from attempt 1 and rerun the verify."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.45.1]
 title = "Prove the sdk path end to end: producer, transport, consumer"
@@ -124334,6 +124383,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.42.1]
 title = "Prove the client path end to end: producer, transport, consumer"
@@ -124527,6 +124577,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.9.1]
 title = "Prove the agentd path end to end: producer, transport, consumer"
@@ -127835,6 +127886,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.123.1]
 title = "Prove the events path end to end: producer, transport, consumer"
@@ -127932,6 +127984,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2290: the build and the verify run from services/launchpad/pnl-tracker, the Go module that owns the package (cd services/launchpad/pnl-tracker && go build ./internal/app/...); run from the repository root the package is outside the main module."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.120.1]
 title = "Prove the pricefeed 0x1020 path end to end: producer, transport, consumer"
@@ -127964,6 +128017,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.119.1]
 title = "Prove the explorer path end to end: producer, transport, consumer"
@@ -127996,6 +128050,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.118.1]
 title = "Prove the configuration path end to end: producer, transport, consumer"
@@ -128060,13 +128115,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.116.1]
 title = "Prove the layerxledger errors path end to end: producer, transport, consumer"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["21.11.1"]
 reqs = ["21116.1"]
 capabilities = ["21.116.1"]
 interfaces = []
@@ -128092,6 +128148,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: this proof shares the precompiles/layerxledger test package with 21.11.1, which repairs pause_test.go, payments_test.go and views_test.go (finding 21.11.1.1) so the package compiles; this task requires 21.11.1 and does not edit those three files. Attempt 1 (61647cfcb) failed on that compile error; continue from it once 21.11.1 is done."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.115.1]
 title = "Prove the layerxledger genesis path end to end: producer, transport, consumer"
@@ -128125,6 +128183,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.115.1.1: before writing the proof, repair params_test.go:22-23 so the package compiles: TestParamsDefaultAndValidate asserts ParamsKey == 0x01 only; KernelKVPrefix left with task 2.3.1 (decision.201) and is not restored. Continue from attempt 1."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.114.1]
 title = "Prove the layerxauth genesis path end to end: producer, transport, consumer"
@@ -128157,6 +128216,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.113.1]
 title = "Prove the rpc autobahn path end to end: producer, transport, consumer"
@@ -128253,6 +128313,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.105.1]
 title = "Prove the layerxexchange retirement path end to end: producer, transport, consumer"
@@ -128317,6 +128378,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.103.1]
 title = "Prove the pofq 0x0904 path end to end: producer, transport, consumer"
@@ -128349,6 +128411,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.102.1]
 title = "Prove the orob 0x0901 path end to end: producer, transport, consumer"
@@ -128381,6 +128444,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.101.1]
 title = "Prove the eip712 0x0908 path end to end: producer, transport, consumer"
@@ -128413,6 +128477,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.100.1]
 title = "Prove the layerxauth errors path end to end: producer, transport, consumer"
@@ -128509,6 +128574,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.89.1]
 title = "Prove the 0x1013 layerxcustody path end to end: producer, transport, consumer"
@@ -128542,6 +128608,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.89.1.1: before writing the proof, repair deposit_root_test.go:106 so the package compiles: replace the verify.BatchHeader call with require.NoError(t, verify.Ed25519Digest(authorization.PublicKey, headerSignature, codec.BatchHeaderDigest(headerBytes))) and set HeaderDigest from codec.BatchHeaderDigest(headerBytes) (layerxproof/codec/domain.go:88); the header fields come from the codec.DecodeBatchHeader result already held at :55. No retired verifier is restored (layerxproof/exportcheck/inclusion_exports_test.go:15-25 keeps them absent). Continue from attempt 1."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.88.1]
 title = "Prove the genesis path end to end: producer, transport, consumer"
@@ -128574,6 +128641,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.87.1]
 title = "Prove the sequencer receipt path end to end: producer, transport, consumer"
@@ -128606,6 +128674,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.86.1]
 title = "Prove the precompile go path end to end: producer, transport, consumer"
@@ -128638,6 +128707,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.85.1]
 title = "Prove the rest path end to end: producer, transport, consumer"
@@ -128670,6 +128740,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.84.1]
 title = "Prove the markets path end to end: producer, transport, consumer"
@@ -128702,6 +128773,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.83.1]
 title = "Prove the tee attestor 0x0907 path end to end: producer, transport, consumer"
@@ -128734,6 +128806,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.82.1]
 title = "Prove the pay keeper path end to end: producer, transport, consumer"
@@ -128766,6 +128839,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.77.1]
 title = "Prove the 0x1001 bank path end to end: producer, transport, consumer"
@@ -128830,6 +128904,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.75.1]
 title = "Prove the cli path end to end: producer, transport, consumer"
@@ -128958,6 +129033,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.71.1]
 title = "Prove the oracle aggregator 0x0903 path end to end: producer, transport, consumer"
@@ -128990,6 +129066,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.69.1]
 title = "Prove the launchpad social path end to end: producer, transport, consumer"
@@ -129023,6 +129100,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.17.1.1: the build and the verify run from services/launchpad/social, the Go module that owns the package (cd services/launchpad/social && go build ./internal/social/...); run from the repository root the package is outside the main module. Continue from attempt 1."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.68.1]
 title = "Prove the launchpad livestream path end to end: producer, transport, consumer"
@@ -129056,6 +129134,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2290: the build and the verify run from services/launchpad/livestream, the Go module that owns the package (cd services/launchpad/livestream && go build ./internal/streams/...); run from the repository root the package is outside the main module."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.67.1]
 title = "Prove the launchpad notifications path end to end: producer, transport, consumer"
@@ -129089,6 +129168,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.17.1.1: the build and the verify run from services/launchpad/notifications, the Go module that owns the package (cd services/launchpad/notifications && go build ./...); run from the repository root the package is outside the main module. Continue from attempt 1."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.66.1]
 title = "Prove the websocket path end to end: producer, transport, consumer"
@@ -129185,6 +129265,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.60.1]
 title = "Prove the records path end to end: producer, transport, consumer"
@@ -129217,6 +129298,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.59.1]
 title = "Prove the sequencer msg path end to end: producer, transport, consumer"
@@ -129281,6 +129363,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.57.1]
 title = "Prove the launchpad sdk protocol go path end to end: producer, transport, consumer"
@@ -129314,6 +129397,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2290: the build and the verify run from sdk/launchpad/protocol, the Go module that owns the package (cd sdk/launchpad/protocol && go build ./bindings/...); run from the repository root the package is outside the main module."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.56.1]
 title = "Prove the go exported modules spot keeper path end to end: producer, transport, consumer"
@@ -129346,6 +129430,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.55.1]
 title = "Prove the spot params path end to end: producer, transport, consumer"
@@ -129411,6 +129496,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.17.1.1: the build and the verify run from tools/loadtest, the Go module that owns the package (cd tools/loadtest && go build ./config/...); run from the repository root the package is outside the main module. Continue from attempt 1."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.50.1]
 title = "Prove the error registry path end to end: producer, transport, consumer"
@@ -129507,6 +129593,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.47.1]
 title = "Prove the node abci path end to end: producer, transport, consumer"
@@ -129539,13 +129626,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.46.1]
 title = "Prove the payload codec path end to end: producer, transport, consumer"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["21.115.1"]
 reqs = ["21046.1"]
 capabilities = ["21.46.1"]
 interfaces = []
@@ -129571,6 +129659,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: this proof shares the modules/layerxledger/types test package with 21.115.1, which repairs params_test.go (finding 21.115.1.1) so the package compiles; this task requires 21.115.1 and does not edit params_test.go. Attempt 1 (2d1b08881) failed on that compile error; continue from it once 21.115.1 is done."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.44.1]
 title = "Prove the client parity path end to end: producer, transport, consumer"
@@ -129603,6 +129693,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.43.1]
 title = "Prove the views path end to end: producer, transport, consumer"
@@ -129635,6 +129726,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.41.1]
 title = "Prove the consensus leader pin path end to end: producer, transport, consumer"
@@ -129668,6 +129760,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.41.1.1: the symbols list names graph symbols only. Continue from attempt 1 and rerun the verify."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.40.1]
 title = "Prove the launchpad discovery path end to end: producer, transport, consumer"
@@ -129701,6 +129794,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.17.1.1: the build and the verify run from services/launchpad/discovery, the Go module that owns the package (cd services/launchpad/discovery && go build ./...); run from the repository root the package is outside the main module. Continue from attempt 1."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.39.1]
 title = "Prove the scheduler 0x0905 path end to end: producer, transport, consumer"
@@ -129733,6 +129827,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.38.1]
 title = "Prove the lxphost host path end to end: producer, transport, consumer"
@@ -129765,6 +129860,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.37.1]
 title = "Prove the rpc routes path end to end: producer, transport, consumer"
@@ -129797,6 +129893,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.36.1]
 title = "Prove the node storage path end to end: producer, transport, consumer"
@@ -129862,6 +129959,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.35.1.1: the symbols list names symbols of this repository only (AddCommands, NewCustomAppConfig). Continue from attempt 1 and rerun the verify."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.32.1]
 title = "Prove the sequencer config path end to end: producer, transport, consumer"
@@ -129927,6 +130025,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.17.1.1: the build and the verify run from services/launchpad/user, the Go module that owns the package (cd services/launchpad/user && go build ./internal/account/...); run from the repository root the package is outside the main module. Continue from attempt 1."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.28.1]
 title = "Prove the streams 0x0906 path end to end: producer, transport, consumer"
@@ -130055,6 +130154,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.24.1]
 title = "Prove the module cli path end to end: producer, transport, consumer"
@@ -130119,6 +130219,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.22.1]
 title = "Prove the pricefeed errors path end to end: producer, transport, consumer"
@@ -130215,6 +130316,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.19.1]
 title = "Prove the sequencer executor path end to end: producer, transport, consumer"
@@ -130247,6 +130349,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.18.1]
 title = "Prove the launchpad gateway path end to end: producer, transport, consumer"
@@ -130280,6 +130383,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Decision 2290: the build and the verify run from services/launchpad/gateway, the Go module that owns the package (cd services/launchpad/gateway && go build ./internal/proxy/...); run from the repository root the package is outside the main module."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.17.1]
 title = "Prove the launchpad api path end to end: producer, transport, consumer"
@@ -130313,6 +130417,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.17.1.1: the build and the verify run from services/launchpad/api, the Go module that owns the package (cd services/launchpad/api && go build ./internal/app/...); run from the repository root the package is outside the main module. Continue from attempt 1."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.16.1]
 title = "Prove the layerxledger keeper path end to end: producer, transport, consumer"
@@ -130345,6 +130450,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.14.1]
 title = "Prove the node metrics path end to end: producer, transport, consumer"
@@ -130409,6 +130515,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.12.1]
 title = "Prove the layerxagent module path end to end: producer, transport, consumer"
@@ -130441,6 +130548,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.11.1]
 title = "Prove the layerxledger 0x101a path end to end: producer, transport, consumer"
@@ -130474,6 +130582,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.11.1.1: before writing the proof, repair the package's existing tests to the behaviour of decision.2080 so the package compiles: pause_test.go:158, payments_test.go:204 and :217 and views_test.go:155 drop their Keeper.GetPayerGrant reads (the keeper no longer has one); where a test drew on a grant (payments_test.go draw happy path) it now asserts that draw reverts LXP_NO_PAYER_GRANT (precompiles/layerxledger/payments.go:118) with balances and logs unchanged, and getPayerGrant is asserted to revert LXP_NO_PAYER_GRANT (payments.go:154); the revokeGrant and view assertions that do not read the grant stay. The proof's refusal case is draw or getPayerGrant answering LXP_NO_PAYER_GRANT; payExact remains the served happy path. Continue from attempt 1."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.10.1]
 title = "Prove the sequencer module path end to end: producer, transport, consumer"
@@ -130506,6 +130615,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.8.1]
 title = "Prove the errors path end to end: producer, transport, consumer"
@@ -130635,6 +130745,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Finding 21.17.1.1: the build and the verify run from services/wallet/attestor, the Go module that owns the package (cd services/wallet/attestor && go build ./internal/server/...); run from the repository root the package is outside the main module. Continue from attempt 1."
+do_7 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.3.1]
 title = "Prove the layerxprograms 0x101d path end to end: producer, transport, consumer"
@@ -130699,6 +130810,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.18.1471.1]
 title = "Issues #1471 and #1474: Port the four anchor tests off the removed checkpoint vector loaders"
@@ -208579,6 +208691,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
 
 [task.21.5.1]
 title = "Prove the qual cli path end to end: producer, transport, consumer"
@@ -208598,10 +208711,10 @@ symbols = ["parser", "__name__"]
 touches = ["tools/qualification/paxeer-x/tests/test_proof_qual_cli.py", "tools/qualification/paxeer-x/custody_governance.py", "tools/qualification/paxeer-x/replay-authority.py", "tools/qualification/paxeer-x/program_spend_composition.py", "tools/qualification/paxeer-x/registry-router-bootstrap.py", "tools/qualification/paxeer_x_release.py", "tools/qualification/paxeer-x/agent_http_bounds.py", "tools/qualification/paxeer-x/agent_operation_envelope.py", "tools/qualification/paxeer-x/program_balance_read.py", "tools/bringup/kernel-genesis.sh", "tools/paxeer-x/build/108.1.10.mk", "tools/paxeer-x/gates/108.1.10.sh", "tools/paxeer-x/build/104.35.29.mk", "scripts/qualification/paxeer-x/reference-custody.py", "tools/paxeer-x/gates/104.30.4.sh"]
 tests = ["tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"]
 planned_paths = ["tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"]
-build_cmd = "python3 -m py_compile tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
+build_cmd = "make layerx-genesis-build && python3 -m py_compile tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
 verify_cmd = "python3 -m pytest -q tools/qualification/paxeer-x/tests/test_proof_qual_cli.py"
 gate_kind = "planned"
-sandbox_profile = "python"
+sandbox_profile = "mixed"
 owner_role = "fm-tools-ops"
 rollback = "Revert the task's commit; the proof adds a test and repairs only files it lists."
 max_builds = 1
@@ -208611,6 +208724,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Decision 2292: the proof hosts every producer it needs inside the test process (a loopback listener, an in-memory store, the application harness) or builds it from this repository in its build_cmd; it never reads a URL, path or configuration name from the environment, never requires an operator-provisioned service, and never skips: a missing producer is an assertion failure that names the path."
+do_7 = "Finding 21.5.1.1: the build_cmd now runs make layerx-genesis-build before compiling the test, so build/bin/layerx-genesis-build exists when the native genesis crossing runs; the test keeps calling the real binary and the profile key (line 4) is the mixed environment. Continue from attempt 1."
 
 [task.18.1486.1]
 title = "Issue #1486: Read the capability qualification counts from the producers"
