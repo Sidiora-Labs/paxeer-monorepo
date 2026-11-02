@@ -1,9 +1,10 @@
-use layerx_proof::receipt::{ReceiptCheck, VerificationFailure};
+use layerx_proof::receipt::{canonical_protocol_facts, ReceiptCheck, VerificationFailure};
 use layerx_proof::sequencer_logs::SequencerLog;
 use sha2::{Digest as _, Sha256};
 
 use crate::error::GatewayError;
 
+/// The settlement stage reported by the sequencer; submitted evidence has no receipt.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SettlementRung {
     Submitted,
@@ -25,6 +26,8 @@ impl SettlementRung {
     }
 }
 
+/// Owned evidence passed across the public gateway settlement boundary.
+/// Receipt authenticity and the served logs are checked by `GatewayCore`.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SequencerEvidence {
     pub transaction_hash: [u8; 32],
@@ -33,6 +36,11 @@ pub struct SequencerEvidence {
     pub rung: SettlementRung,
 }
 
+/// Computes the domain-separated digest of a canonical signed receipt's unsigned encoding.
+/// This validates encoding, while signer authorization remains the consumer's responsibility.
+///
+/// # Errors
+/// Refuses missing signature framing and malformed or non-canonical receipt bodies.
 pub fn canonical_receipt_digest(signed_receipt: &[u8]) -> Result<[u8; 32], GatewayError> {
     let missing_signature = GatewayError::ReceiptRejected(VerificationFailure {
         check: ReceiptCheck::MissingSignature,
@@ -45,6 +53,7 @@ pub fn canonical_receipt_digest(signed_receipt: &[u8]) -> Result<[u8; 32], Gatew
     if !signature.starts_with(&[1, 0, 0, 0, 64]) {
         return Err(missing_signature);
     }
+    canonical_protocol_facts(signed_receipt).map_err(GatewayError::ReceiptRejected)?;
     let mut digest = Sha256::new();
     digest.update(b"LXP/v1/receipt\0");
     digest.update(unsigned_prefix);

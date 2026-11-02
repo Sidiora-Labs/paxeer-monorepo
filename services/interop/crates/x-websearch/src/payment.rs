@@ -218,6 +218,9 @@ fn payer_grant_payload(bytes: &[u8]) -> Option<&[u8]> {
     bytes.get(payload_start..payload_end)
 }
 
+/// Reads the pending ledger view on the configured settlement chain. The
+/// ledger's explicit no-grant results mean absence; transport failures and
+/// malformed or mismatched grant answers remain errors for the caller.
 pub fn read_payer_grant(
     rpc: &SettlementRpc,
     grant_id: &[u8; 32],
@@ -651,6 +654,10 @@ pub struct PaymentExactLog {
     pub amount: u128,
 }
 
+/// Decodes the ledger's exact-payment event. This checks its ABI shape and
+/// emitter; callers must bind the log to a verified settlement receipt before
+/// treating it as evidence of payment.
+#[must_use]
 pub fn decode_payment_exact(log: &SettlementLog) -> Option<PaymentExactLog> {
     if log.address != LEDGER_PRECOMPILE
         || log.topics.len() != 4

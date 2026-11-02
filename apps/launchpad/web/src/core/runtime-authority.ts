@@ -101,6 +101,14 @@ export function parsePrivateFixtureAuthorityProfileV1(input: unknown): PrivateFi
   })) as Record<RuntimeAuthorityRoleV1, Readonly<PrivateFixtureRoleIdentityV1>>;
   return Object.freeze({ schemaVersion: 1, profile: 'PRIVATE_FIXTURE', chainId: 125, applicationOrigin: loopbackHTTPS(profile.applicationOrigin, true), sourceManifestSha256: fixtureDigest(profile.sourceManifestSha256), revision: Object.freeze(parsedRevision), networkSha256: fixtureDigest(profile.networkSha256), publicRPC: loopbackHTTPS(profile.publicRPC), explorerBase: loopbackHTTPS(profile.explorerBase), expectedBeaconOwner: fixtureAddress(profile.expectedBeaconOwner), roles: Object.freeze(parsedRoles), sourceArtifacts: Object.freeze({ chainSha256: fixtureDigest(artifacts.chainSha256), compilerArtifactsSha256: fixtureDigest(artifacts.compilerArtifactsSha256), reviewedManifestSha256: fixtureDigest(artifacts.reviewedManifestSha256) }) });
 }
+export function resolvePrivateFixtureAuthorityProfileV1({ privateFixtureProfile, privateFixtureProfileInput }: {
+  privateFixtureProfile?: PrivateFixtureAuthorityProfileV1;
+  privateFixtureProfileInput?: string;
+}): PrivateFixtureAuthorityProfileV1 | undefined {
+  if (privateFixtureProfile !== undefined && privateFixtureProfileInput !== undefined) throw new Error('Approved network input is ambiguous');
+  const input = privateFixtureProfileInput === undefined ? privateFixtureProfile : privateFixtureProfileInput;
+  return input === undefined ? undefined : parsePrivateFixtureAuthorityProfileV1(input);
+}
 function assertFixtureOrigin(profile: PrivateFixtureAuthorityProfileV1) {
   if (typeof window === 'undefined' || loopbackHTTPS(window.location.origin, true) !== profile.applicationOrigin) throw new Error('Approved local network origin is unavailable');
 }

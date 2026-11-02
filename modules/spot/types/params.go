@@ -129,6 +129,8 @@ func GovernanceEVMAddress() common.Address {
 }
 
 const (
+	// MaxRegisteredTokens caps the token registry accepted by Params.Validate,
+	// including params decoded from GenesisState at module startup.
 	MaxRegisteredTokens         = 64
 	MaxActiveOrdersPerUserLimit = 1000
 	MaxExpiriesPerBlockLimit    = 2000
@@ -200,6 +202,8 @@ func OpeningTokens(paxPointer, sidPointer common.Address) []TokenParams {
 	}
 }
 
+// Validate checks the parameter sheet, including nonzero bounded scan budgets
+// and the token registry, for both genesis and governance updates.
 func (p Params) Validate() error {
 	// PECOR setTieredFees and setSwapFee; each term is bounded first so the
 	// sum cannot wrap.

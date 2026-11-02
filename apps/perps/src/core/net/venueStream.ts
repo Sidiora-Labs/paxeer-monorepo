@@ -121,10 +121,14 @@ function finite(value: unknown): number | null {
 export function parseVenueBook(data: unknown, ts: number): VenueBook | null {
   if (!data || typeof data !== "object") return null;
   const d = data as Record<string, unknown>;
-  if (!Array.isArray(d.asks) && !Array.isArray(d.bids)) return null;
+  if (!Array.isArray(d.asks) || !Array.isArray(d.bids)) return null;
+  const asks = normalizeLevels(d.asks, "asks");
+  const bids = normalizeLevels(d.bids, "bids");
+  // Refuse the whole frame: dropping a malformed level would invent liquidity.
+  if (asks.length !== d.asks.length || bids.length !== d.bids.length) return null;
   return {
-    asks: normalizeLevels(d.asks, "asks"),
-    bids: normalizeLevels(d.bids, "bids"),
+    asks,
+    bids,
     markPrice: finite(d.mark_price),
     indexPrice: finite(d.index_price),
     basisBps: finite(d.basis_bps),
@@ -140,7 +144,7 @@ export function parseVenueFill(raw: unknown): VenueFill | null {
   const contracts = finite(t.contracts);
   const notional = finite(t.notional);
   const tradeTime = finite(t.trade_time);
-  if ((side !== "BUY" && side !== "SELL") || price === null || contracts === null || notional === null || tradeTime === null) return null;
+  if ((side !== "BUY" && side !== "SELL") || price === null || contracts === null || notional === null || tradeTime === null || price <= 0 || tradeTime <= 0) return null;
   return {
     id: typeof t.id === "string" || typeof t.id === "number" ? String(t.id) : null,
     side,
@@ -159,7 +163,7 @@ export function parseSpotVenueTrade(raw: unknown): SpotVenueTrade | null {
   const price = finite(t.price);
   const size = finite(t.size);
   const tradeTime = finite(t.trade_time);
-  if ((side !== "BUY" && side !== "SELL") || price === null || size === null || tradeTime === null) return null;
+  if ((side !== "BUY" && side !== "SELL") || price === null || size === null || tradeTime === null || price <= 0 || tradeTime <= 0) return null;
   return {
     id: typeof t.id === "string" || typeof t.id === "number" ? String(t.id) : null,
     side,

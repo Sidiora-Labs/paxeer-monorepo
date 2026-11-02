@@ -17,6 +17,12 @@ pub struct Timestamp {
     pub nanos: u32,
 }
 
+impl Timestamp {
+    pub(crate) fn is_valid(self) -> bool {
+        (-62_135_596_800..=253_402_300_799).contains(&self.seconds) && self.nanos < 1_000_000_000
+    }
+}
+
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct PartSetHeader {
     pub total: u32,
@@ -56,8 +62,7 @@ impl Header {
     /// Panics if the timestamp is outside protobuf's permitted range.
     #[must_use]
     pub fn hash(&self) -> [u8; 32] {
-        assert!((-62_135_596_800..=253_402_300_799).contains(&self.time.seconds));
-        assert!(self.time.nanos < 1_000_000_000);
+        assert!(self.time.is_valid());
 
         let mut version = Vec::new();
         nonzero_varint(1, self.version.block, &mut version);

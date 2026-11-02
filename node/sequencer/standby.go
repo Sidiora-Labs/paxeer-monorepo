@@ -99,7 +99,7 @@ func decodeAck(b [ackSize]byte) (Ack, error) {
 		Status:  AckStatus(b[0]),
 		LastSeq: binary.BigEndian.Uint64(b[1:9]),
 		GapFrom: binary.BigEndian.Uint64(b[9:17]),
-		GapTo:   binary.BigEndian.Uint64(b[17:25]),
+		GapTo:   gapTo(b),
 		Epoch:   binary.BigEndian.Uint64(b[25:33]),
 	}
 	switch a.Status {
@@ -108,6 +108,12 @@ func decodeAck(b [ackSize]byte) (Ack, error) {
 	default:
 		return Ack{}, fmt.Errorf("sequencer: unknown ack status %d", b[0])
 	}
+}
+
+// gapTo decodes the final word of the original 25-byte acknowledgement prefix;
+// the current wire format follows it with the fencing epoch.
+func gapTo(b [ackSize]byte) uint64 {
+	return binary.BigEndian.Uint64(b[17:25])
 }
 
 func encodeGroup(frames []wal.Frame) ([]byte, error) {
@@ -523,6 +529,7 @@ type standbyCursor struct {
 	sealedHeight    uint64
 	committedHeight uint64
 	leaseEpoch      uint64
+	lease           *wal.Lease
 }
 
 // gapError reports records missing before the one admitted.
@@ -576,6 +583,11 @@ func (c *standbyCursor) admit(e wal.Entry) (bool, error) {
 		if v.Epoch < c.leaseEpoch {
 			return false, fmt.Errorf("%w: epoch %d, held %d", ErrStaleLease, v.Epoch, c.leaseEpoch)
 		}
+		// Reconnecting primaries resend retained leases as well as ACCEPTs.
+		// Keep a later renewal, but never append a duplicate or rewind expiry.
+		if c.lease != nil && v.Epoch == c.lease.Epoch && v.KeyID == c.lease.KeyID && v.ExpiryMs <= c.lease.ExpiryMs {
+			return false, nil
+		}
 	default:
 		return false, fmt.Errorf("%w: entry %T", wal.ErrUnknownKind, e)
 	}
@@ -594,6 +606,8 @@ func (c *standbyCursor) advance(e wal.Entry) {
 		c.committedHeight = v.Height
 	case *wal.Lease:
 		c.leaseEpoch = v.Epoch
+		lease := *v
+		c.lease = &lease
 	}
 }
 
@@ -675,7 +689,7 @@ func NewStandby(ctx context.Context, cfg StandbyConfig) (*Standby, error) {
 		return nil, fmt.Errorf("sequencer: standby wal replay: %w", err)
 	}
 	if res.Lease != nil {
-		s.cur.leaseEpoch = res.Lease.Epoch
+		s.cur.advance(res.Lease)
 	}
 	return s, nil
 }
@@ -710,6 +724,9 @@ func (s *Standby) LastSeq() uint64 {
 
 // TakeLease durably takes a later lease and fences further replication from the primary.
 func (s *Standby) TakeLease(l *wal.Lease) error {
+	if l == nil {
+		return fmt.Errorf("%w: missing lease", wal.ErrMalformed)
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if l.Epoch <= s.cur.leaseEpoch {

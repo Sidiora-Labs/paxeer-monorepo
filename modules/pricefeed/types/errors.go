@@ -8,6 +8,8 @@ import (
 
 const ModuleName = "pricefeed"
 
+// Registered codes and descriptions are the pricefeed wire contract. Keep their
+// identity when adding context so ABCIError and LXPName resolve the same refusal.
 var (
 	ErrUnauthorized        = sdkerrors.Register(ModuleName, 2, "unauthorized")
 	ErrInvalidParams       = sdkerrors.Register(ModuleName, 3, "invalid params")
@@ -31,6 +33,7 @@ type LXPCode struct {
 	Name string
 }
 
+// LXPCodes returns a fresh registry view; callers cannot mutate later lookups.
 func LXPCodes() []LXPCode {
 	return []LXPCode{
 		{ErrUnauthorized, "LXP_PRICEFEED_UNAUTHORIZED"},
@@ -51,6 +54,7 @@ func LXPCodes() []LXPCode {
 	}
 }
 
+// LXPName resolves registered identity through wrapping, never by message text.
 func LXPName(err error) (string, bool) {
 	for _, code := range LXPCodes() {
 		if errors.Is(err, code.Err) {

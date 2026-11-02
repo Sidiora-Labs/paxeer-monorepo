@@ -152,6 +152,18 @@ impl ResultCode {
         Self(raw)
     }
 
+    /// Decodes the signed, big-endian result field without dropping unknown codes.
+    #[must_use]
+    pub const fn from_wire_bytes(bytes: [u8; 4]) -> Self {
+        Self::from_raw(i32::from_be_bytes(bytes))
+    }
+
+    /// Encodes the exact signed result field for transport to API consumers.
+    #[must_use]
+    pub const fn to_wire_bytes(self) -> [u8; 4] {
+        self.raw().to_be_bytes()
+    }
+
     /// Returns the byte-for-byte numeric value carried in a receipt.
     #[must_use]
     pub const fn raw(self) -> i32 {
