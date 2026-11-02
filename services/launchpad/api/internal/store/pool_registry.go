@@ -143,7 +143,7 @@ func (s *AccountingReadModel) ObservedFeeBps(ctx context.Context, pools []string
 	if _, err = tx.Exec(ctx, "SET LOCAL statement_timeout = '150ms'"); err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query(ctx, `SELECT DISTINCT ON (pool) pool,fill->'execution'->>'feeBps' FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_market_commits_v1 WHERE pool=ANY($1) AND projection_version=$2 AND fill->'execution'->>'quality'='qualified_execution' AND fill->'execution'->>'feeBps' IS NOT NULL ORDER BY pool,sequence DESC`, pools, s.config.ProjectionVersion)
+	rows, err := tx.Query(ctx, `SELECT DISTINCT ON (pool) pool,COALESCE(fill->'execution'->>'feeBPS',fill->'execution'->>'feeBps') FROM `+pgx.Identifier{s.config.StatsSchema}.Sanitize()+`.accounting_market_commits_v1 WHERE pool=ANY($1) AND projection_version=$2 AND fill->'execution'->>'quality'='qualified_execution' AND COALESCE(fill->'execution'->>'feeBPS',fill->'execution'->>'feeBps') IS NOT NULL ORDER BY pool,sequence DESC`, pools, s.config.ProjectionVersion)
 	if err != nil {
 		return nil, err
 	}
