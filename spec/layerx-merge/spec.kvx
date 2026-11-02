@@ -128249,7 +128249,7 @@ do_7 = "Finding 22.9.16.1: the build (or the dependent-crate check) at main fail
 
 [task.21.110.1]
 title = "Prove the human kms wire path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.100.2", "9.35.9", "22.9.24"]
@@ -128808,7 +128808,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.63.1]
 title = "Prove the human kms path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.100.2", "9.35.9", "22.9.24"]
@@ -132400,7 +132400,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.12.7]
 title = "Repair the attestor server, snapshot and shipped-policy suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
