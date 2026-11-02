@@ -13630,3 +13630,28 @@ fix = "Assert status.Code and the message text on the client path, and assert er
 title = "Check the headers before asserting that a type is retired"
 symptom = "A CI test asserted lxp_verified_receipt_authority_facts was gone while include/layerx/lxp_receipt.h still defines it and src/modules/programs/call.c uses it; three legitimate test files failed the assertion."
 fix = "An absence test names deleted files and their references, taken from the deleting commit, never a type or symbol unless the header no longer declares it."
+
+[gotcha.2763]
+title = "A contract build that passes does not prove the schema tests pass"
+symptom = "The agent API build-script gate checks removals only; two additive schema edits (a new record block, a reworded outcome) built fine while cargo test -p layerx-agent-api --test schema failed on a stale golden and stale literal pins."
+fix = "A task that edits services/agent/schema/agent-api/*.kvx moves golden/v1.kvx and the schema.rs pins in the same commit and runs the schema tests in its verify (decision 2307)."
+
+[gotcha.2764]
+title = "A test that expects a raised type must follow the wrapper that converts it"
+symptom = "test_material.py expected FileNotFoundError from assemble_policy while read_bytes had converted it into a ValueError bundle refusal a month earlier."
+fix = "When a test expects an exception type, read the call path for a converting wrapper and assert the type and message the product raises now."
+
+[gotcha.2765]
+title = "A test for a later validation must satisfy the earlier mandatory configuration"
+symptom = "The seller network-identifier test constructed SellerMiddleware without receipt keys; the constructor refuses missing keys before it reads the networks, so the expected unsupported-payment never surfaced."
+fix = "Give such a test the mandatory fixtures (a pinned key) so it reaches the validation it asserts; do not reorder product checks to suit the test."
+
+[gotcha.2766]
+title = "Pick the fixture case the verifier decodes, not the first vector of the file"
+symptom = "Python x402 payment tests fed the plain transfer vector to a verifier that decodes a ledger draw and failed with Local verification failed."
+fix = "Select the fixture case by id (V1-layerxledger-pay-exact) and derive the terms from its log, the way the TypeScript seller tests do."
+
+[gotcha.2767]
+title = "Deleting a test file also removes it from an explicit test script"
+symptom = "The TypeScript SDK's npm test lists each compiled test by path; deleting the source left Cannot find module for its dist file."
+fix = "When a test file is deleted, edit the package.json test script (and any list that names it) in the same change and add package.json to touches."

@@ -18307,3 +18307,19 @@ symbol = "ErrInvalidChainID"
 observed = "20.3.4 a3 (base 5b2283aa7, node/layerxchains_block_test.go:160 accept) and 20.4.4 a4 (base c1cc55d15, rpc/domain_ws_test.go:237, TestChainPathLogSubscriptionDeliversOnlyTheChainsLogs/receipted): the transaction signed with the chain's derived chain id is refused by Accept with the ante result 'invalid chain-id' (sdkerrors.ErrInvalidChainID, returned at modules/evm/ante/sig.go:60 and :66, modules/evm/ante/preprocess.go:199 and node/ante/evm_checktx.go:192 and :324)."
 assumption = "20.3.1 maps a transaction's chain id to its chain in the ante handler, but at least one of the five refusal sites still compares against the root EVM chain id alone, or the test harness signs before the chain is created and active; the proof task carries the repair."
 severity = "high"
+
+[finding.22.9.24.1]
+task = "22.9.24"
+file = "services/agent/crates/layerx-agent-api/tests/schema.rs"
+symbol = "generated_contract_is_pinned_to_the_schema"
+observed = "First attempt at base 3454fc9ab restored [transport.agent_http.operation.faucet.claim] byte-identical to golden/v1.kvx:317-323 (v1.kvx now equals 243552138) and the build passed, but cargo test -p layerx-agent-api --test schema fails four tests: generated_contract_is_pinned_to_the_schema (schema.rs:69) and submission_state_retains_all_nine_variants (:375) require declarations(BASELINE) == declarations(AGENT_API_V1_SOURCE) while golden/v1.kvx lacks the [record.VerificationStatus] block that 16e9b1e3f (18.1456.1) added at v1.kvx:121-122; write_and_error_goldens_match_major_two_schema (:206) expects the pre-16e9b1e3f text of record.AgentHttpSuccess.verification_status; programs_contract_is_included_with_receipt_resolution_and_call_idempotency (:233) expects operation.program.call.unknown_outcome = retain_signed_activity_and_resolve_by_receipt while programs.kvx:251 and golden/programs.kvx:251 have carried retain_exact_signed_EIP1559_transaction_and_resolve_by_hash since 1d0cc3720 (9.10.2)."
+assumption = "The schema is current and the golden and the literal pins are stale: the compatibility gate of build.rs checks removals only, so the two producer tasks shipped additive edits without moving the baseline or the test (decision 2307). This task moves them."
+severity = "high"
+
+[finding.22.1.4.1]
+task = "22.1.4"
+file = "tests/test_state_commitment_transition.c"
+symbol = "transition"
+observed = "Fourth attempt at base 3454fc9ab: all six targets compile, and make -s test-state-commitment-transition fails inside transition(LXP_PROTOCOL_VERSION_STATE_COMMITMENT, false) at 'f->state.idempotency_count == 1U' (candidate line 374, reached from main() line 1161): after a successful LX_ASSET_SEND the test expects one idempotency entry, a receipt_state_tamper() round trip and a state-root change when idempotency[0].key_hash is flipped."
+assumption = "787dd93be (task 1.2.1, decision 101) stopped the kernel reading and recording idempotency entries: no caller of lxp_idempotency_record or lxp_idempotency_append remains under src/protocol, so idempotency_count stays 0 after any activity and the three expectations describe the retired table, not the current kernel. The test asserts the current contract."
+severity = "medium"
