@@ -130244,7 +130244,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.11]
 title = "Port the human service lifecycle evidence, owner verification and their tests off the kernel activity type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.35.10", "10.21.8", "10.1.7", "18.1485.1", "9.100.2", "22.9.24"]
