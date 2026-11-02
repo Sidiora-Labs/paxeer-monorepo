@@ -13470,3 +13470,8 @@ fix = "Copy byte-string literals without a trailing NUL into fixed slices, or si
 title = "A retirement that relies on a wiring request leaves dead producer references"
 symptom = "5.54.5 deleted nine daemon tests and relied on a wiring request to remove their references; seven qualification scripts and five build fragments included by the Makefile still name them, and 21.5.1's proof found the first one missing."
 fix = "A task that deletes a file greps the tree (scripts, build fragments, Makefile includes, docs) for its path and either removes the references itself or lists them under touches; 22.16.4 closes this set."
+
+[gotcha.2731]
+title = "Stale tests and non-building crates surface only when a later task happens to consume them"
+symptom = "Four of the open dispositions (1.29.1, 4.22.1.1, 8.42.5.1, 8.47.10.1) are tests or programs that reference deleted files, found by chance when another task built the same package; nothing inventoried the tree's build and test targets after the retirements."
+fix = "Run a per-target inventory of every workspace at a named revision (the 22.91.x reports) and treat each failing target as a finding with its own follow-up before claiming closure."
