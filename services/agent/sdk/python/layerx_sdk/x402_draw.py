@@ -3,7 +3,7 @@ import time
 
 from .x402_activity import bind_receive_activity
 from .x402_grant import validate_grant_draw
-from .x402_rpc import PaymentRpcError, rpc_hex, verify_rpc_payment
+from .x402_rpc import PaymentRpcError, _transaction_bytes, rpc_hex, verify_rpc_payment
 
 
 class PreparedGrantDraws:
@@ -95,16 +95,16 @@ class PreparedGrantDraws:
             ):
                 return None
             raise
-        if result.get("activity_id") != row["activity_id"]:
+        if result.get("txHash") != row["activity_id"]:
             raise ValueError("draw-activity-mismatch")
-        if result.get("state") == "pending":
+        if result.get("rung") == "submitted":
             return None
-        receipt = rpc_hex(result.get("receipt"))
+        receipt = _transaction_bytes(result.get("receipt"))
         evidence = self.authority(receipt, offer)
         verified = verify_rpc_payment(
             result,
             row["activity_id"],
-            receive["from"],
+            "0x" + receive["from"],
             receipt_keys=self.receipt_keys,
             raw_transaction=evidence.raw_transaction,
             amount=offer["amount"],
@@ -112,7 +112,7 @@ class PreparedGrantDraws:
             pay_to=offer["payTo"],
             commitment=offer["extra"]["layerx"]["commitment"],
         )
-        if verified is None:
+        if verified["rung"] == "pending":
             return None
         if evidence.canonical_receipt != receipt:
             raise ValueError("draw-receipt-mismatch")
