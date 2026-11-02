@@ -202,3 +202,10 @@ func SetEVMConfigByMode(config *evmrpcconfig.Config, mode NodeMode) {
 	config.HTTPEnabled = evmEnabled
 	config.WSEnabled = evmEnabled
 }
+
+// DefaultEVMConfigByMode creates the EVM config used by paxd init.
+func DefaultEVMConfigByMode(mode NodeMode) evmrpcconfig.Config {
+	config := evmrpcconfig.DefaultConfig
+	SetEVMConfigByMode(&config, mode)
+	return config
+}

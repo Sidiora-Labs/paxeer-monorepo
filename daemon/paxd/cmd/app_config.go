@@ -7,6 +7,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/querier"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/replay"
 	paxapp "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	srvconfig "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/config"
 	paxdbconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
@@ -59,4 +60,10 @@ func NewCustomAppConfig(baseConfig *srvconfig.Config, evmConfig evmrpcconfig.Con
 		LightInvariance: paxapp.DefaultLightInvarianceConfig,
 		Admin:           admin.DefaultConfig,
 	}
+}
+
+// NewAppConfigForMode creates the mode-specific configuration written by init.
+func NewAppConfigForMode(baseConfig *srvconfig.Config, mode params.NodeMode) CustomAppConfig {
+	params.SetAppConfigByMode(baseConfig, mode)
+	return NewCustomAppConfig(baseConfig, params.DefaultEVMConfigByMode(mode))
 }

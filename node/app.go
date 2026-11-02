@@ -928,9 +928,9 @@ func New(
 	bApp.SetPreCommitHandler(app.HandlePreCommit)
 	bApp.SetCloseHandler(app.HandleClose)
 
-	app.evmRPCConfig, err = evmrpcconfig.ReadConfig(appOpts)
+	app.evmRPCConfig, err = ReadEVMRPCConfig(appOpts)
 	if err != nil {
-		panic(fmt.Sprintf("error reading EVM config due to %s", err))
+		panic(err)
 	}
 	// TODO: remove the mode gate and always construct the notifier once
 	// non-Autobahn is also producer-wired to feed it (i.e. a listener
@@ -4297,4 +4297,13 @@ func (b evmChainsBinding) Operator(ctx sdk.Context, id uint32) (common.Address, 
 		panic(layerxchainstypes.ErrUnknownDomain)
 	}
 	return d.Operator, d.FeeShareBps
+}
+
+// ReadEVMRPCConfig decodes the startup options consumed by the node's EVM servers.
+func ReadEVMRPCConfig(appOpts servertypes.AppOptions) (evmrpcconfig.Config, error) {
+	config, err := evmrpcconfig.ReadConfig(appOpts)
+	if err != nil {
+		return config, fmt.Errorf("error reading EVM config due to %w", err)
+	}
+	return config, nil
 }
