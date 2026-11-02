@@ -317,14 +317,6 @@ surface = "Export"
 idempotency_key = "absent"
 disposition = "served_adapter_arm"
 
-[transport.agent_http.operation.faucet.claim]
-request = "The request object of this catalogue operation; the daemon declares no typed decoder for it in this contract revision."
-access = "read"
-operation_class = "Write"
-surface = "Contract"
-idempotency_key = "absent"
-disposition = "retired"
-
 [transport.agent_http.operation.policy.dry_run]
 request = "The request object of this catalogue operation; the daemon declares no typed decoder for it in this contract revision."
 access = "read"
