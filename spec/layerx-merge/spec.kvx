@@ -100757,7 +100757,7 @@ proof_policy = "Interface-changing task: the declared test drives the real produ
 
 [task.1.35.2]
 title = "Retire the batch body archive codec and publisher in lxp_batch_publish.c"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 44
 requires = ["1.21.1", "1.0.3", "5.97.1", "16.31.3", "16.31.5", "16.32.1", "6.96.5"]
