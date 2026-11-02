@@ -77,7 +77,7 @@ W8_DECIMAL = '(0|[1-9][0-9]{0,38})'
 SERVED_READ_DIRECT = ('project_fee_projection', 'policy_dry_run_explained', 'export_offline_bounded', 'program_discover_registry', 'program_interface_registry')
 SERVED_READ_REFUSALS = ('project_refuse_over_bound', 'project_refuse_legacy_payload', 'policy_dry_run_refuse_unknown_capability',
                         'export_refuse_seventeen_facts', 'export_refuse_duplicate_fact', 'export_refuse_uppercase_fact',
-                        'export_refuse_settlement_anchored', 'prepare_refuse_uppercase_capability_id',
+                        'export_refuse_legacy_verification_field', 'prepare_refuse_uppercase_capability_id',
                         'program_interface_refuse_unknown_field', 'program_interface_refuse_bad_level')
 PROJECT_REQUEST = ('protocol_activity_type', 'canonical_bytes', 'execution_units', 'storage_units')
 PROJECTED = ('request', 'parameter_version', 'fee', 'canonical_schedule', 'snapshot_sequence', 'snapshot_state_root')
@@ -2059,9 +2059,10 @@ class Qualification:
         require(rest.upper() != rest, 'provisioned fact reference has no hex letter to uppercase')
         self.served_read_refused(SERVED_READ_REFUSALS[5], 'export.offline', dict(export, fact_set=[kind + ':' + rest.upper()]),
                                  400, 'ProtocolIncompatibility', 'envelope.malformed')
+        # ExportOfflineWire accepts requested_rung and rejects the legacy field before dispatch.
         self.served_read_refused(SERVED_READ_REFUSALS[6], 'export.offline',
                                  dict(export, requested_verification_level='SettlementAnchored'),
-                                 503, 'UnavailableCapability', 'export.settlement_anchoring_unavailable')
+                                 400, 'ProtocolIncompatibility', 'envelope.unknown_field')
 
         discover = req['operation.program.discover']['request']
         case = SERVED_READ_DIRECT[3]
