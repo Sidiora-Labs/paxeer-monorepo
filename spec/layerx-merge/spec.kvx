@@ -143073,7 +143073,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.26.7]
 title = "Move the conformance service account offers to eip155 and the receipted rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["8.26.1", "8.26.3", "8.23.1"]
@@ -151074,7 +151074,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.28.1]
 title = "Remove layerx-paxeer-verifier from the agent workspace and its dependents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 36
 requires = ["9.25.2", "9.5.7", "9.27.2", "8.20.3", "5.96.1", "10.26.1", "10.26.3", "10.26.4", "10.27.1", "16.0.4", "11.22.2", "9.1.8", "18.1131.1", "18.1206.1", "18.1304.1", "9.25.16", "13.8.3", "9.27.9", "8.101.1"]
