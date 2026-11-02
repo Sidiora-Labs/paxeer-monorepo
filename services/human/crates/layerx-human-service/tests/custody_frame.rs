@@ -57,6 +57,7 @@ impl Clock for HostClock {
 struct Host {
     root: PathBuf,
     child: Option<Child>,
+    clock: Arc<dyn Clock>,
 }
 
 impl Drop for Host {
@@ -79,6 +80,10 @@ impl Host {
                 u128::from_be_bytes(random)
             )),
             child: None,
+            clock: Arc::new(HostClock {
+                generation: random,
+                started: Instant::now(),
+            }),
         };
         fs::create_dir(&host.root)?;
         fs::set_permissions(&host.root, fs::Permissions::from_mode(0o700))?;
@@ -165,17 +170,9 @@ impl Host {
         let mut seal = Zeroizing::new([0; 32]);
         getrandom::fill(&mut *seal).map_err(|error| io::Error::other(error.to_string()))?;
         fs::write(host.path("seal"), &*seal)?;
-        let modules: Vec<_> = registry()?.registrations().iter().map(|module| {
-            serde_json::json!({
-                "module_id": module.module() as u16,
-                "activity_types": module.activity_types().iter().map(|kind| kind.value()).collect::<Vec<_>>()
-            })
-        }).collect();
         fs::write(
             host.path("registry.json"),
-            serde_json::to_vec(&serde_json::json!({
-                "network_id": 42, "protocol_version": 3, "modules": modules
-            }))?,
+            serde_json::to_vec(&serde_json::json!({"chain_id": 125}))?,
         )?;
         for entry in fs::read_dir(&host.root)? {
             fs::set_permissions(entry?.path(), fs::Permissions::from_mode(0o600))?;
@@ -218,6 +215,7 @@ impl Host {
             "localhost",
             self.tls()?,
             limits(),
+            Arc::clone(&self.clock),
         )?)
     }
 
@@ -381,6 +379,7 @@ fn custody_gateway_relays_an_lxkp_probe_over_the_human_frame_module() -> Result 
                 operation_window: Duration::from_secs(60),
             },
         },
+        Arc::clone(&host.clock),
     )?);
     gateway_listener.set_nonblocking(true)?;
     let gate = ConnectionGate::new(1);
