@@ -11,6 +11,7 @@
 #include "layerx/lxp_state.h"
 
 #include "lxp_test_harness.h"
+#include "protocol/lxp_test_genesis_storage_retirement.h"
 
 #include <openssl/evp.h>
 #include <stdio.h>
@@ -117,6 +118,17 @@ static int check_table(void)
         REQUIRE(iface->module_id == table[index].module_id);
         REQUIRE(iface->name != NULL);
         REQUIRE(iface->activity_type_count != 0U);
+        if (iface->module_id == LXP_MODULE_PROGRAMS) {
+            size_t retirement_count = 0U;
+            REQUIRE(table[index].iface ==
+                    programs_module_registration_v4);
+            REQUIRE(iface->activity_types != NULL);
+            for (size_t type = 0U; type < iface->activity_type_count; ++type)
+                if (iface->activity_types[type] ==
+                    LX_PROGRAMS_STORAGE_RETIREMENT)
+                    ++retirement_count;
+            REQUIRE(retirement_count == 0U);
+        }
         for (other = 0U; other < index; ++other)
             REQUIRE(table[other].module_id != table[index].module_id);
         name_length = strlen(iface->name);
@@ -160,22 +172,74 @@ static int check_defaults(void)
     REQUIRE(lxp_genesis_module_plan_default(
         LXP_PROTOCOL_VERSION_OCCUPANCY, false, &plan) == LXP_OK);
     REQUIRE(plan.count == 1U);
-    REQUIRE(plan.modules[0]->module_id == LXP_MODULE_PROGRAMS);
+    REQUIRE(plan.modules[0] == programs_module_registration_v4());
     REQUIRE(lxp_genesis_module_plan_default(
         LXP_PROTOCOL_VERSION_STATE_COMMITMENT, false, &plan) == LXP_OK);
     REQUIRE(plan.count == 3U);
-    REQUIRE(plan.modules[0]->module_id == LXP_MODULE_PROGRAMS);
+    REQUIRE(plan.modules[0] == programs_module_registration_v4());
     REQUIRE(plan.modules[1]->module_id == LXP_MODULE_ASSET);
     REQUIRE(plan.modules[2]->module_id == LXP_MODULE_GOVERNANCE);
     REQUIRE(lxp_genesis_module_plan_default(
-        LXP_PROTOCOL_VERSION_STATE_COMMITMENT, true, &plan) == LXP_OK);
-    REQUIRE(plan.count == 4U);
-    REQUIRE(plan.modules[3]->module_id == LXP_MODULE_BRIDGE);
+        LXP_PROTOCOL_VERSION_STATE_COMMITMENT, true, &plan) ==
+            LXP_ERR_UNKNOWN_MODULE);
     REQUIRE(lxp_genesis_module_plan_default(0U, false, &plan) != LXP_OK);
     REQUIRE(lxp_genesis_module_plan_default(
         LXP_PROTOCOL_VERSION_STATE_COMMITMENT + 1U, false, &plan) != LXP_OK);
     REQUIRE(lxp_genesis_module_plan_default(
         LXP_PROTOCOL_VERSION_STATE_COMMITMENT, false, NULL) != LXP_OK);
+    return 0;
+}
+
+static int check_storage_retirement_registration(void)
+{
+    static const uint8_t key[32] = LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER;
+    static const uint16_t versions[] = {
+        LXP_PROTOCOL_VERSION_OCCUPANCY, LXP_PROTOCOL_VERSION_STATE_COMMITMENT
+    };
+    lxp_genesis_manifest manifest;
+    lxp_genesis_module_plan plan;
+    uint8_t enable_key[32];
+    memset(enable_key, 0xa5, sizeof(enable_key));
+    REQUIRE(lxp_genesis_module_enable_key(LXP_MODULE_PROGRAMS, enable_key) ==
+            LXP_ERR_UNKNOWN_FIELD);
+    for (size_t i = 0U; i < sizeof(enable_key); ++i)
+        REQUIRE(enable_key[i] == 0xa5U);
+    for (size_t version = 0U; version < sizeof(versions) / sizeof(versions[0]);
+         ++version) {
+        draft_manifest(&manifest, NULL, 0U);
+        manifest.protocol_version = versions[version];
+        REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_OK);
+        REQUIRE(plan.modules[0] == programs_module_registration_v4());
+        draft_manifest(&manifest, key, 0U);
+        manifest.protocol_version = versions[version];
+        REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_OK);
+        REQUIRE(plan.modules[0] == programs_module_registration_v4());
+        manifest.parameters[0].value[31] = 1U;
+        REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_OK);
+        REQUIRE(plan.modules[0] ==
+                programs_module_registration_v4_storage_retirement());
+        REQUIRE(check_storage_retirement_activity_types(plan.modules[0]) == 0);
+        size_t retirement_count = 0U;
+        for (size_t type = 0U; type < plan.modules[0]->activity_type_count; ++type)
+            if (plan.modules[0]->activity_types[type] == LX_PROGRAMS_STORAGE_RETIREMENT)
+                ++retirement_count;
+        REQUIRE(retirement_count == 1U);
+    }
+    manifest.parameters[0].value[31] = 2U;
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_NON_CANONICAL);
+    manifest.parameters[0].value[31] = 1U;
+    manifest.parameters[0].value[0] = 1U;
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_NON_CANONICAL);
+    manifest.parameters[0].value[0] = 0U;
+    manifest.parameters[0].module_id = LXP_MODULE_PROGRAMS;
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_NON_CANONICAL);
+    manifest.parameters[0].module_id = LXP_MODULE_GOVERNANCE;
+    manifest.parameters[2] = manifest.parameters[0];
+    manifest.parameter_count = 3U;
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_SEQUENCE_REUSED);
+    manifest.parameter_count = 2U;
+    manifest.parameters[0].key[31] = 1U;
+    REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_ERR_UNKNOWN_MODULE);
     return 0;
 }
 
@@ -249,6 +313,24 @@ static int check_kernel(const built_genesis *built,
     REQUIRE(lxp_snapshot_load(built->snapshot.bytes, built->snapshot.length,
                               &built->snapshot_manifest, &kernel) == LXP_OK);
     {
+        static const uint8_t key[32] = LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER;
+        const lxp_module_registration *registration = NULL;
+        bool enabled = false;
+        for (size_t i = 0U; i < built->manifest.parameter_count; ++i)
+            if (memcmp(built->manifest.parameters[i].key, key, 32U) == 0)
+                enabled = built->manifest.parameters[i].value[31] == 1U;
+        lxp_result status = lxp_kernel_module_for_activity(
+            &kernel, LX_PROGRAMS_STORAGE_RETIREMENT, kernel.epoch,
+            &registration);
+        REQUIRE(status == (enabled ? LXP_OK : LXP_ERR_UNKNOWN_ACTIVITY));
+        if (enabled) {
+            REQUIRE(registration != NULL);
+            REQUIRE(registration->module_id == LXP_MODULE_PROGRAMS);
+            REQUIRE(registration->abi_version ==
+                    LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION);
+        }
+    }
+    {
         static const uint8_t key[32] = LXP_NATIVE_FEE_AUTHORITY_PARAMETER;
         bool expected = false;
         bool enforced = false;
@@ -262,6 +344,33 @@ static int check_kernel(const built_genesis *built,
     REQUIRE(memcmp(kernel.current_state_root,
                    built->snapshot_manifest.receipt_state_root, 32U) == 0);
     REQUIRE(lxp_state_store_destroy(&state) == LXP_OK);
+    return 0;
+}
+
+static int check_storage_retirement_roundtrip(void)
+{
+    static const uint8_t key[32] = LXP_PROGRAMS_STORAGE_RETIREMENT_PARAMETER;
+    static uint8_t arena_bytes[8388608U];
+    static built_genesis built;
+    static lxp_genesis_manifest parsed;
+    lxp_genesis_module_plan plan;
+    lxp_arena arena;
+    REQUIRE(lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) == LXP_OK);
+    for (uint8_t flag = 0U; flag <= 1U; ++flag) {
+        REQUIRE(lxp_arena_reset(&arena, 0U) == LXP_OK);
+        REQUIRE(build(key, flag, &arena, &built) == LXP_OK);
+        REQUIRE(lxp_genesis_parse(built.encoded_manifest.bytes,
+                                  built.encoded_manifest.length,
+                                  LXP_GENESIS_INPUT_MANIFEST, &parsed) == LXP_OK);
+        REQUIRE(lxp_genesis_verify_signature(&parsed, &arena) == LXP_OK);
+        REQUIRE(lxp_genesis_module_plan_resolve(&parsed, &plan) == LXP_OK);
+        REQUIRE(plan.modules[0] == (flag == 1U ?
+                programs_module_registration_v4_storage_retirement() :
+                programs_module_registration_v4()));
+        REQUIRE(check_kernel(&built, &plan) == 0);
+        if (flag == 1U)
+            REQUIRE(check_storage_retirement_activity_types(plan.modules[0]) == 0);
+    }
     return 0;
 }
 
@@ -503,6 +612,7 @@ static int check_public_fixture(const char *directory, uint16_t fee_version)
                                    &arena, &snapshot_manifest, &snapshot) == LXP_OK);
     REQUIRE(lxp_genesis_module_plan_resolve(&manifest, &plan) == LXP_OK);
     REQUIRE(plan.count == sizeof(expected_modules) / sizeof(expected_modules[0]));
+    REQUIRE(plan.modules[0] == programs_module_registration_v4());
     for (size_t i = 0U; i < plan.count; ++i) REQUIRE(plan.modules[i]->module_id == expected_modules[i]);
     REQUIRE(lx_account_registry_init(&accounts) == LXP_OK);
     REQUIRE(lxp_state_store_init(&state, 1U) == LXP_OK);
@@ -719,6 +829,10 @@ static int check_public_fixture_v4(void)
 
 int main(int argc, char **argv)
 {
+    REQUIRE(lxp_test_register("genesis.module-table.storage-retirement-registration",
+                              check_storage_retirement_registration) == 0);
+    REQUIRE(lxp_test_register("genesis.module-table.storage-retirement-roundtrip",
+                              check_storage_retirement_roundtrip) == 0);
     REQUIRE(lxp_test_register("genesis.module-table.oracle-transport-registration",
                               check_oracle_transport_registration) == 0);
     REQUIRE(lxp_test_register("genesis.module-table.perps-tif-registration",
