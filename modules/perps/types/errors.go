@@ -10,6 +10,9 @@ func PerpsCode(name string) string {
 	return "LXP_PERPS_" + name
 }
 
+// Registered errors are the shared identity of keeper refusals, ABCI codes and
+// LXP reasons. Add context with Error.Wrapf: ABCIInfo follows Cause(), whereas
+// fmt.Errorf with %w only provides Unwrap() and loses the registered wire code.
 var (
 	ErrInvalidParams            = sdkerrors.Register(ModuleName, 2, PerpsCode("INVALID_PARAMS"))
 	ErrUnknownMarket            = sdkerrors.Register(ModuleName, 3, PerpsCode("UNKNOWN_MARKET"))
