@@ -1,3 +1,5 @@
+import { EXPLORER_NAVIGATION } from "../explorer/links.ts";
+
 export const WEB_VITAL_NAMES = ["LCP", "INP", "CLS"] as const;
 export type WebVitalName = (typeof WEB_VITAL_NAMES)[number];
 
@@ -91,7 +93,7 @@ export function classifyPerformanceRoute(pathname: string): PerformanceRoute | u
   if (pathname === "/") {
     return "root";
   }
-  if (pathname === "/explorer" || pathname.startsWith("/explorer/")) {
+  if (EXPLORER_NAVIGATION.some((item) => item.href === pathname)) {
     return "explorer";
   }
   if (pathname === "/app" || pathname.startsWith("/app/")) {

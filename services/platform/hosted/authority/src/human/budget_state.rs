@@ -76,6 +76,12 @@ pub(super) fn identity_key(did: &str) -> Result<[u8; 32], ()> {
 }
 
 impl Session {
+    fn budget_call(&self, signature: &[u8], id: &[u8; 32]) -> Result<Vec<u8>, ()> {
+        self.sequencer
+            .call_at(self.committed_height, &PAY, &data(signature, Some(id)))
+            .map_err(|_| ())
+    }
+
     pub(super) fn open(config: &Config) -> Result<Self, ()> {
         let sequencer = SequencerEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
         let network = PxEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
@@ -227,14 +233,7 @@ fn produce_at(
     now_ms: u128,
 ) -> Result<Response, ()> {
     let session = Session::open(config)?;
-    let budget_call = session
-        .sequencer
-        .call_at(
-            session.committed_height,
-            &PAY,
-            &data(b"getBudget(bytes32)", Some(&id)),
-        )
-        .map_err(|_| ())?;
+    let budget_call = session.budget_call(b"getBudget(bytes32)", &id)?;
     let record = Record::from_call(id, &budget_call)?;
     if hex::encode(&record.asset) != p.asset_id
         || record.revocation == 0
@@ -242,14 +241,7 @@ fn produce_at(
     {
         return Err(());
     }
-    let remaining_call = session
-        .sequencer
-        .call_at(
-            session.committed_height,
-            &PAY,
-            &data(b"budgetRemaining(bytes32)", Some(&id)),
-        )
-        .map_err(|_| ())?;
+    let remaining_call = session.budget_call(b"budgetRemaining(bytes32)", &id)?;
     if remaining_call.len() != 32 {
         return Err(());
     }

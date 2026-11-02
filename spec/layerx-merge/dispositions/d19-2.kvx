@@ -1,0 +1,59 @@
+[disposition.19.4.1.1]
+finding = "19.4.1.1"
+status = "resolved"
+evidence = "Commit 3b93e8db4 replaces the literal contract addresses with validated environment configuration at apps/wallet/src/lib/pns.ts:23 and disables widget actions until configured at apps/wallet/src/widgets/pns/PNSWidget.tsx:64, while commit 2cf64d083 supplies the in-tree registry, registrar and wallet-compatible controller."
+follow_up = "closure"
+
+[disposition.19.1.1.1]
+finding = "19.1.1.1"
+status = "resolved"
+evidence = "Commit 2cf64d083 adds the isolated names profile retained at foundry.toml:21, and task 19.1.1 now builds and verifies with FOUNDRY_PROFILE=names so unrelated default-profile contracts and tests no longer block names qualification."
+follow_up = "closure"
+
+[disposition.19.4.2.1]
+finding = "19.4.2.1"
+status = "resolved"
+evidence = "Task 19.4.2 lists the actual types paths at spec/layerx-merge/spec.kvx:136642, and commit f05477cf9 changes both modules/xweb/types/observation.go:33 and modules/xweb/types/genesis.go:125 to admit KindStorageReceipt."
+follow_up = "closure"
+
+[disposition.19.3.1.1]
+finding = "19.3.1.1"
+status = "resolved"
+evidence = "The build command at spec/layerx-merge/spec.kvx:118016 installs sdk/names and tools/names separately with --ignore-workspace, avoiding the root workspace's unpublished SDK dependency, and commit c1fbc1407 supplies the publisher package and its standalone lockfile."
+follow_up = "closure"
+
+[disposition.19.0.1.1]
+finding = "19.0.1.1"
+status = "resolved"
+evidence = "Commit 33d2ea9aa adds the hosted indexer's wallet-compatible name API retained at services/platform/hosted/indexer/src/api.rs:285, and commit d31ddd34b replaces the literal wallet upstream with validated PNS_API_ORIGIN configuration and a 503 refusal when unconfigured at apps/wallet/src/server/wallet-read-proxy.ts:28."
+follow_up = "closure"
+
+[disposition.19.1.1.2]
+finding = "19.1.1.2"
+status = "resolved"
+evidence = "Commit 2cf64d083 removes the names test's dependency on the retired timelock: tests/solidity/names/PaxRegistrarController.t.sol:24 declares a plain GOVERNANCE address and the setup at line 31 passes that address to the registrar and controller and pranks it for governance calls."
+follow_up = "closure"
+
+[disposition.19.2.2.1]
+finding = "19.2.2.1"
+status = "resolved"
+evidence = "Commit a23ef8706 replaces the EVM store-only proof query with the root multistore query retained at rpc/state.go:168 using /evm/key and Prove=true, returning both the IAVL and multistore proof operations needed to verify against the app hash."
+follow_up = "closure"
+
+[disposition.19.7.1.1]
+finding = "19.7.1.1"
+status = "resolved"
+evidence = "Commit 0696e5b44 supplies name_events in node_unit at services/platform/hosted/indexer/src/explorer.rs:531, while services/platform/hosted/indexer/src/names.rs:180 derives reverse_name_set from resolver NameChanged and services/platform/hosted/indexer/tests/names_ingest.rs:600 reads the registrar and resolver event declarations."
+follow_up = "closure"
+
+[disposition.19.7.1.2]
+finding = "19.7.1.2"
+status = "resolved"
+evidence = "Commit dfe5532d3 removes all nine retired ProductionRoute variant assertions and their import from services/platform/hosted/gateway/tests/browser_profiles.rs, whose native_program_and_name_reads_use_exact_public_owner_routes function remains at line 280 without those compile errors."
+follow_up = "closure"
+
+[disposition.19.2.3.1]
+finding = "19.2.3.1"
+status = "resolved"
+evidence = "The install command at spec/layerx-merge/spec.kvx:118046 uses --ignore-workspace, and sdk/names/src/resolve.ts:75 reads eth_blockNumber before pinning eth_getProof to that height at line 102 and requesting the app hash for height plus one at line 139 instead of reading a nonexistent proof-response height."
+follow_up = "closure"

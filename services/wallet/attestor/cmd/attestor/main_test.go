@@ -115,22 +115,17 @@ func freeAddr(t *testing.T) string {
 func TestRunServesHealthOverMutualTLS(t *testing.T) {
 	dir := t.TempDir()
 	ca, caPath, _ := makeCert(t, dir, "ca", nil, true)
-	_, nodeCert, nodeKey := makeCert(t, dir, "node-1", ca, false)
-	peer, _, _ := makeCert(t, dir, "node-2", ca, false)
+	node, nodeCert, nodeKey := makeCert(t, dir, "node-1", ca, false)
 	_, clientCert, clientKey := makeCert(t, dir, "client", ca, false)
 	keyFile := filepath.Join(dir, "store.key")
 	if err := os.WriteFile(keyFile, []byte(hex.EncodeToString(make([]byte, 31))+"01"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	pin := transport.SPKIHash(peer.cert)
-	peerPin := hex.EncodeToString(pin[:])
 	env := map[string]string{
 		config.EnvNodeID:         "node-1",
 		config.EnvRegion:         "region-a",
 		config.EnvListenAddr:     "127.0.0.1:0",
 		config.EnvPeerListenAddr: freeAddr(t),
-		config.EnvPeers:          "node-2=" + freeAddr(t),
-		config.EnvPeerPins:       "node-2=" + peerPin,
 		config.EnvNodeKeyFile:    keyFile,
 		config.EnvDataDir:        filepath.Join(dir, "data"),
 		config.EnvChainID:        "125",
@@ -140,6 +135,7 @@ func TestRunServesHealthOverMutualTLS(t *testing.T) {
 		config.EnvOperatorCAFile: caPath,
 		config.EnvActivityTypes:  "0x10005",
 	}
+	configureAuthority(t, dir, ca, node, env)
 	ctx, cancel := context.WithCancel(context.Background())
 	readyCh := make(chan listening, 1)
 	done := make(chan error, 1)
@@ -309,8 +305,7 @@ func TestRunSeparatesOperatorAndGatewayAuthority(t *testing.T) {
 	}
 	gateway, gatewayCA, _ := makeCert(t, gatewayDir, "ca", nil, true)
 	operator, operatorCA, _ := makeCert(t, operatorDir, "ca", nil, true)
-	_, nodeCert, nodeKey := makeCert(t, gatewayDir, "node-1", gateway, false)
-	peer, _, _ := makeCert(t, gatewayDir, "node-2", gateway, false)
+	node, nodeCert, nodeKey := makeCert(t, gatewayDir, "node-1", gateway, false)
 	_, gatewayCert, gatewayKey := makeCert(t, gatewayDir, "gateway-client", gateway, false)
 	_, operatorCert, operatorKey := makeCert(t, operatorDir, "operator-client", operator, false)
 	keyFile := filepath.Join(dir, "store.key")
@@ -327,13 +322,10 @@ func TestRunSeparatesOperatorAndGatewayAuthority(t *testing.T) {
 	if err := os.WriteFile(agentsFile, []byte(`[{"public_key":"`+hex.EncodeToString(agentKey)+`","key_ids":["key-1"]}]`), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	pin := transport.SPKIHash(peer.cert)
 	env := map[string]string{
 		config.EnvNodeID:         "node-1",
 		config.EnvListenAddr:     "127.0.0.1:0",
 		config.EnvPeerListenAddr: freeAddr(t),
-		config.EnvPeers:          "node-2=" + freeAddr(t),
-		config.EnvPeerPins:       "node-2=" + hex.EncodeToString(pin[:]),
 		config.EnvNodeKeyFile:    keyFile,
 		config.EnvDataDir:        filepath.Join(dir, "data"),
 		config.EnvChainID:        "125",
@@ -348,6 +340,7 @@ func TestRunSeparatesOperatorAndGatewayAuthority(t *testing.T) {
 		config.EnvAgentMaxExpiry: "2m",
 		config.EnvJWTMaxAge:      "30m",
 	}
+	configureAuthority(t, dir, gateway, node, env)
 	ctx, cancel := context.WithCancel(context.Background())
 	readyCh := make(chan listening, 1)
 	done := make(chan error, 1)
@@ -400,18 +393,8 @@ func TestRunSeparatesOperatorAndGatewayAuthority(t *testing.T) {
 	}
 }
 
-func runMetricsDaemon(t *testing.T) (string, *http.Client, *http.Client) {
+func configureAuthority(t *testing.T, dir string, ca, node *pki, env map[string]string) {
 	t.Helper()
-	dir := t.TempDir()
-	gateway, gatewayCA, _ := makeCert(t, dir, "gateway-ca", nil, true)
-	operator, operatorCA, _ := makeCert(t, dir, "operator-ca", nil, true)
-	node, nodeCert, nodeKey := makeCert(t, dir, "node-1", gateway, false)
-	_, gatewayCert, gatewayKey := makeCert(t, dir, "gateway-client", gateway, false)
-	_, operatorCert, operatorKey := makeCert(t, dir, "operator-client", operator, false)
-	keyFile := filepath.Join(dir, "store.key")
-	if err := os.WriteFile(keyFile, []byte(hex.EncodeToString(make([]byte, 31))+"06"), 0o600); err != nil {
-		t.Fatal(err)
-	}
 	producer, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -427,7 +410,7 @@ func runMetricsDaemon(t *testing.T) (string, *http.Client, *http.Client) {
 	var peers, pins []string
 	for n := 2; n <= 5; n++ {
 		id := "node-" + strconv.Itoa(n)
-		peer, _, _ := makeCert(t, dir, id, gateway, false)
+		peer, _, _ := makeCert(t, dir, id, ca, false)
 		pin := transport.SPKIHash(peer.cert)
 		encoded := hex.EncodeToString(pin[:])
 		members = append(members, server.InventoryMember{ID: id, Pin: encoded})
@@ -463,16 +446,35 @@ func runMetricsDaemon(t *testing.T) (string, *http.Client, *http.Client) {
 	if err := os.WriteFile(inventoryFile, []byte(input+"."+base64.RawURLEncoding.EncodeToString(signature)), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	env[config.EnvPeers] = strings.Join(peers, ",")
+	env[config.EnvPeerPins] = strings.Join(pins, ",")
+	env[config.EnvAuthorityPublicKey] = publicFile
+	env[config.EnvAuthorityIssuer] = "metrics-test"
+	env[config.EnvAuthorityTenant] = "metrics-test"
+	env[config.EnvInventoryPublicKey] = publicFile
+	env[config.EnvInventoryFile] = inventoryFile
+}
+
+func runMetricsDaemon(t *testing.T) (string, *http.Client, *http.Client) {
+	t.Helper()
+	dir := t.TempDir()
+	gateway, gatewayCA, _ := makeCert(t, dir, "gateway-ca", nil, true)
+	operator, operatorCA, _ := makeCert(t, dir, "operator-ca", nil, true)
+	node, nodeCert, nodeKey := makeCert(t, dir, "node-1", gateway, false)
+	_, gatewayCert, gatewayKey := makeCert(t, dir, "gateway-client", gateway, false)
+	_, operatorCert, operatorKey := makeCert(t, dir, "operator-client", operator, false)
+	keyFile := filepath.Join(dir, "store.key")
+	if err := os.WriteFile(keyFile, []byte(hex.EncodeToString(make([]byte, 31))+"06"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	env := map[string]string{
 		config.EnvNodeID: "node-1", config.EnvListenAddr: "127.0.0.1:0", config.EnvPeerListenAddr: "127.0.0.1:0",
-		config.EnvPeers: strings.Join(peers, ","), config.EnvPeerPins: strings.Join(pins, ","),
 		config.EnvNodeKeyFile: keyFile, config.EnvDataDir: filepath.Join(dir, "data"), config.EnvChainID: "125",
 		config.EnvTLSCertFile: nodeCert, config.EnvTLSKeyFile: nodeKey,
 		config.EnvTLSCAFile: gatewayCA, config.EnvOperatorCAFile: operatorCA,
-		config.EnvActivityTypes: "0x10005", config.EnvAuthorityPublicKey: publicFile,
-		config.EnvAuthorityIssuer: "metrics-test", config.EnvAuthorityTenant: "metrics-test",
-		config.EnvInventoryPublicKey: publicFile, config.EnvInventoryFile: inventoryFile,
+		config.EnvActivityTypes: "0x10005",
 	}
+	configureAuthority(t, dir, gateway, node, env)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer func() {
 		if t.Failed() {
@@ -618,8 +620,7 @@ func TestRunRefusesKernelPolicyWithoutChainReader(t *testing.T) {
 func TestRunWritesSnapshotsOnTheInterval(t *testing.T) {
 	dir := t.TempDir()
 	ca, caPath, _ := makeCert(t, dir, "ca", nil, true)
-	_, nodeCert, nodeKey := makeCert(t, dir, "node-1", ca, false)
-	peer, _, _ := makeCert(t, dir, "node-2", ca, false)
+	node, nodeCert, nodeKey := makeCert(t, dir, "node-1", ca, false)
 	_, clientCert, clientKey := makeCert(t, dir, "client", ca, false)
 	keyFile := filepath.Join(dir, "store.key")
 	if err := os.WriteFile(keyFile, []byte(hex.EncodeToString(make([]byte, 31))+"03"), 0o600); err != nil {
@@ -629,15 +630,12 @@ func TestRunWritesSnapshotsOnTheInterval(t *testing.T) {
 	if err := os.WriteFile(backupKeyFile, []byte(hex.EncodeToString(make([]byte, 31))+"04"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	pin := transport.SPKIHash(peer.cert)
 	backupDir := filepath.Join(dir, "backup")
 	env := map[string]string{
 		config.EnvNodeID:           "node-1",
 		config.EnvRegion:           "region-a",
 		config.EnvListenAddr:       "127.0.0.1:0",
 		config.EnvPeerListenAddr:   freeAddr(t),
-		config.EnvPeers:            "node-2=" + freeAddr(t),
-		config.EnvPeerPins:         "node-2=" + hex.EncodeToString(pin[:]),
 		config.EnvNodeKeyFile:      keyFile,
 		config.EnvDataDir:          filepath.Join(dir, "data"),
 		config.EnvChainID:          "125",
@@ -650,6 +648,7 @@ func TestRunWritesSnapshotsOnTheInterval(t *testing.T) {
 		config.EnvSnapshotInterval: "1s",
 		config.EnvSnapshotRetain:   "2",
 	}
+	configureAuthority(t, dir, ca, node, env)
 	ctx, cancel := context.WithCancel(context.Background())
 	readyCh := make(chan listening, 1)
 	done := make(chan error, 1)

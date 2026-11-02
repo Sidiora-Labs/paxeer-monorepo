@@ -89,13 +89,18 @@ func TestQueryAirdropEpochRefusals(t *testing.T) {
 
 	for _, malformed := range []string{"", "0x1234", strings.Repeat("g", 42), pool.Hex()[2:]} {
 		t.Run("malformed pool "+malformed, func(t *testing.T) {
-			response, err := client.AirdropEpoch(goCtx, &types.QueryAirdropEpochRequest{Pool: malformed, Epoch: 1})
+			request := &types.QueryAirdropEpochRequest{Pool: malformed, Epoch: 1}
+			response, err := client.AirdropEpoch(goCtx, request)
+			require.Nil(t, response)
+			require.Equal(t, codes.InvalidArgument, status.Code(err))
+			require.Contains(t, status.Convert(err).Message(), "invalid address")
+			response, err = querier.AirdropEpoch(sdk.WrapSDKContext(e.ctx), request)
 			require.Nil(t, response)
 			require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 			var addressErr *sdkerrors.Error
 			require.ErrorAs(t, err, &addressErr)
 			require.Same(t, sdkerrors.ErrInvalidAddress, addressErr)
-			codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+			codespace, code, _ := sdkerrors.ABCIInfo(addressErr, false)
 			require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
 			require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
 		})
@@ -178,7 +183,7 @@ func TestQueryAirdropEpochABCICodes(t *testing.T) {
 		root    *sdkerrors.Error
 		context string
 	}{
-		{"malformed pool", "0x1234", 1, sdkerrors.ErrInvalidAddress, "pool must be a 0x-prefixed 40-hex-digit address"},
+		{"malformed pool", "0x1234", 1, sdkerrors.ErrInvalidRequest, "pool must be a 0x-prefixed 40-hex-digit address"},
 		{"zero pool", (common.Address{}).Hex(), 1, types.ErrZeroAddress, "pool must not be the zero address"},
 		{"zero epoch", pool.Hex(), 0, types.ErrInvalidAirdropEpoch, types.ErrInvalidAirdropEpoch.Error()},
 		{"invalid epoch JSON", pool.Hex(), 1, types.ErrAirdropBasis, pool.Hex() + "/1"},
@@ -187,6 +192,21 @@ func TestQueryAirdropEpochABCICodes(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			request := &types.QueryAirdropEpochRequest{Pool: tc.pool, Epoch: tc.epoch}
+			if tc.name == "malformed pool" {
+				querier := keeper.NewQuerier(e.k)
+				router := baseapp.NewQueryServerTestHelper(ctx, testkeeper.EVMTestApp.InterfaceRegistry())
+				types.RegisterQueryServer(router, querier)
+				response, err := types.NewQueryClient(router).AirdropEpoch(context.Background(), request)
+				require.Nil(t, response)
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Contains(t, status.Convert(err).Message(), "invalid address")
+				response, err = querier.AirdropEpoch(sdk.WrapSDKContext(ctx), request)
+				require.Nil(t, response)
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				var addressErr *sdkerrors.Error
+				require.ErrorAs(t, err, &addressErr)
+				require.Same(t, sdkerrors.ErrInvalidAddress, addressErr)
+			}
 			data, err := request.Marshal()
 			require.NoError(t, err)
 			response, err := app.Query(context.Background(), &abci.RequestQuery{

@@ -5,8 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	proofcodec "github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
 	anchorkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/keeper"
 	anchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -26,7 +24,7 @@ type wiredAnchorKeepers struct {
 
 func (k wiredAnchorKeepers) AnchorK() putils.AnchorKeeper { return k.anchor }
 
-func anchorRetirementReads(h *harness) map[string][]interface{} {
+func anchorRetirementReads(h *harness, checkpointID [32]byte) map[string][]interface{} {
 	return map[string][]interface{}{
 		layerxanchor.LatestFinalizedMethod:      {},
 		layerxanchor.CheckpointMethod:           {uint64(1)},
@@ -35,7 +33,7 @@ func anchorRetirementReads(h *harness) map[string][]interface{} {
 		layerxanchor.GuarantorMethod:            {h.ids[0]},
 		layerxanchor.ThresholdMethod:            {},
 		layerxanchor.StatusOfMethod:             {uint64(1)},
-		layerxanchor.CheckpointBatchMethod:      {h.vectorIDForRetirement()},
+		layerxanchor.CheckpointBatchMethod:      {checkpointID},
 		layerxanchor.CheckpointGuarantorsMethod: {uint64(1)},
 	}
 }
@@ -43,9 +41,9 @@ func anchorRetirementReads(h *harness) map[string][]interface{} {
 func TestReadsServedUntilStoreDelete(t *testing.T) {
 	h := newHarness(t, nil)
 	h.bootstrap()
-	_, err := h.submit("batch_1_quorum")
-	require.NoError(t, err)
-	reads := anchorRetirementReads(h)
+	checkpointState := importRetirementCheckpoint(h, anchortypes.CheckpointFinal)
+	checkpointID := [32]byte(checkpointState.CheckpointID)
+	reads := anchorRetirementReads(h, checkpointID)
 	require.Len(t, reads, 9)
 	viewCount := 0
 	for name, method := range h.precompile.GetABI().Methods {
@@ -56,20 +54,17 @@ func TestReadsServedUntilStoreDelete(t *testing.T) {
 	}
 	require.Equal(t, len(reads), viewCount)
 
-	vector := h.vector("checkpoints", "batch_1_quorum")
-	stateRoot, err := vector.Array32("resulting_state_root")
-	require.NoError(t, err)
-	receiptRoot, err := vector.Array32("receipt_root")
-	require.NoError(t, err)
+	stateRoot, receiptRoot := [32]byte(checkpointState.StateRoot), [32]byte(checkpointState.ReceiptRoot)
+	var err error
 	require.Equal(t, []interface{}{uint64(1), true}, h.view(layerxanchor.LatestFinalizedMethod))
 	require.Equal(t, []interface{}{stateRoot, true}, h.view(layerxanchor.FinalizedStateRootMethod, uint64(1)))
 	require.Equal(t, []interface{}{receiptRoot, true}, h.view(layerxanchor.FinalizedReceiptRootMethod, uint64(1)))
 	require.Equal(t, []interface{}{uint32(2)}, h.view(layerxanchor.ThresholdMethod))
 	require.Equal(t, []interface{}{anchortypes.CheckpointFinal}, h.view(layerxanchor.StatusOfMethod, uint64(1)))
-	require.Equal(t, []interface{}{uint64(1), anchortypes.CheckpointFinal}, h.view(layerxanchor.CheckpointBatchMethod, h.vectorIDForRetirement()))
+	require.Equal(t, []interface{}{uint64(1), anchortypes.CheckpointFinal}, h.view(layerxanchor.CheckpointBatchMethod, checkpointID))
 	require.Equal(t, []interface{}{h.ids}, h.view(layerxanchor.CheckpointGuarantorsMethod, uint64(1)))
 	checkpoint := abi.ConvertType(h.view(layerxanchor.CheckpointMethod, uint64(1))[0], new(layerxanchor.CheckpointView)).(*layerxanchor.CheckpointView)
-	require.Equal(t, h.vectorIDForRetirement(), checkpoint.CheckpointId)
+	require.Equal(t, checkpointID, checkpoint.CheckpointId)
 	require.Equal(t, stateRoot, checkpoint.StateRoot)
 	require.Equal(t, receiptRoot, checkpoint.ReceiptRoot)
 	require.Equal(t, anchortypes.CheckpointFinal, checkpoint.Status)
@@ -113,42 +108,31 @@ func TestReadsServedUntilStoreDelete(t *testing.T) {
 
 func TestReadsRevertFromStoreDelete(t *testing.T) {
 	h := newHarness(t, nil)
-	var err error
-	h.fixture, err = testvectors.LoadAnchor()
-	require.NoError(t, err)
-	encoded, err := h.vector("checkpoints", "batch_1_quorum").Bytes("certificate")
-	require.NoError(t, err)
-	certificate, err := proofcodec.DecodeCheckpointCertificate(encoded)
-	require.NoError(t, err)
-	require.Equal(t, h.vectorIDForRetirement(), certificate.CheckpointID())
-	require.Len(t, certificate.Attestations, len(h.ids))
+	checkpointID, stateRoot, receiptRoot := [32]byte{1}, [32]byte{2}, [32]byte{3}
 	guarantors := make([]anchortypes.Hash32, len(h.ids))
-	for i, attestation := range certificate.Attestations {
-		h.ids[i], h.signers[i] = attestation.GuarantorID, attestation.Signer
-		guarantors[i] = attestation.GuarantorID
+	for i, id := range h.ids {
+		guarantors[i] = id
 	}
+	require.Len(t, guarantors, len(h.ids))
 	withAnchor, err := layerxanchor.NewPrecompile(wiredAnchorKeepers{
 		Keepers: h.app.GetPrecompileKeepers(), anchor: h.app.LayerXAnchorKeeper,
 	})
 	require.NoError(t, err)
 	h.precompile = withAnchor
 	h.bootstrap()
-	header := certificate.Header
 	genesis := h.anchor.ExportGenesis(h.ctx())
 	genesis.Checkpoints = []anchortypes.Checkpoint{{
-		BatchNumber: header.BatchNumber, CheckpointID: certificate.CheckpointID(),
-		HeaderDigest:    proofcodec.BatchHeaderDigest(certificate.HeaderBytes),
-		ProtocolVersion: header.ProtocolVersion, NetworkID: header.NetworkID, Epoch: header.Epoch,
-		FirstSequence: header.FirstSequence, LastSequence: header.LastSequence,
-		PreviousStateRoot: header.PreviousStateRoot, StateRoot: header.ResultingStateRoot,
-		ReceiptRoot: header.ReceiptMerkleRoot, DataAvailabilityRoot: header.DataAvailabilityRoot,
-		SequencerID: header.SequencerID, TimestampMs: header.TimestampMs,
-		Status: anchortypes.CheckpointFinal, DeclaredThreshold: certificate.Threshold, Guarantors: guarantors,
+		BatchNumber: 1, CheckpointID: checkpointID, HeaderDigest: [32]byte{4},
+		ProtocolVersion: 1, NetworkID: 125, Epoch: 1, FirstSequence: 1, LastSequence: 2,
+		PreviousStateRoot: [32]byte{5}, StateRoot: stateRoot, ReceiptRoot: receiptRoot,
+		DataAvailabilityRoot: [32]byte{6}, SequencerID: [32]byte{1},
+		TimestampMs: uint64(h.ctx().BlockTime().UnixMilli()),
+		Status:      anchortypes.CheckpointFinal, DeclaredThreshold: 2, Guarantors: guarantors,
 		Submitter: h.reporter.account.String(), SubmittedHeight: h.ctx().BlockHeight(),
 		SubmittedTime: h.ctx().BlockTime().Unix(), FinalizedHeight: h.ctx().BlockHeight(),
 		FinalizedTime: h.ctx().BlockTime().Unix(),
 	}}
-	genesis.HasLatestFinalized, genesis.LatestFinalized = true, header.BatchNumber
+	genesis.HasLatestFinalized, genesis.LatestFinalized = true, 1
 	require.NoError(t, genesis.Validate())
 	h.anchor.InitGenesis(h.ctx(), *genesis)
 	h.invariant()
@@ -161,13 +145,13 @@ func TestReadsRevertFromStoreDelete(t *testing.T) {
 	withoutAnchor, err := layerxanchor.NewPrecompile(keepers)
 	require.NoError(t, err)
 	precompiles := map[string]*pcommon.Precompile{"wired": withAnchor, "unwired": withoutAnchor}
-	reads := anchorRetirementReads(h)
+	reads := anchorRetirementReads(h, checkpointID)
 	require.Len(t, reads, 9)
 	h.stateDB.WithCtx(h.ctx().WithBlockHeight(deleteHeight - 1))
 	require.Equal(t, []interface{}{uint64(1), true}, h.view(layerxanchor.LatestFinalizedMethod))
-	require.Equal(t, []interface{}{header.ResultingStateRoot, true}, h.view(layerxanchor.FinalizedStateRootMethod, uint64(1)))
-	require.Equal(t, []interface{}{header.ReceiptMerkleRoot, true}, h.view(layerxanchor.FinalizedReceiptRootMethod, uint64(1)))
-	require.Equal(t, []interface{}{uint64(1), anchortypes.CheckpointFinal}, h.view(layerxanchor.CheckpointBatchMethod, h.vectorIDForRetirement()))
+	require.Equal(t, []interface{}{stateRoot, true}, h.view(layerxanchor.FinalizedStateRootMethod, uint64(1)))
+	require.Equal(t, []interface{}{receiptRoot, true}, h.view(layerxanchor.FinalizedReceiptRootMethod, uint64(1)))
+	require.Equal(t, []interface{}{uint64(1), anchortypes.CheckpointFinal}, h.view(layerxanchor.CheckpointBatchMethod, checkpointID))
 	require.Equal(t, []interface{}{h.ids}, h.view(layerxanchor.CheckpointGuarantorsMethod, uint64(1)))
 	for name, args := range reads {
 		for _, readOnly := range []bool{false, true} {
