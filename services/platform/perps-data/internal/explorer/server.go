@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/bech32"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/httpx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ratelimit"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
 )
@@ -31,6 +32,7 @@ const (
 	sweepInterval   = time.Minute
 	unmatchedRoute  = "unmatched"
 	errInternal     = "internal error"
+	maxInFlight     = 10000
 )
 
 var symbolPattern = regexp.MustCompile(`^[A-Z0-9]{1,32}$`)
@@ -92,6 +94,15 @@ func NewServer(db *sql.DB, opts Options) (*Server, error) {
 		writeError(w, http.StatusNotFound, "not found")
 	})
 	return s, nil
+}
+
+// Handler assembles the command's API, probes, metrics and ingress limit.
+func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
+	httpx.RegisterHealth(mux, httpx.HealthDeps{Postgres: s.db.PingContext})
+	mux.Handle("GET /metrics", s.metrics)
+	mux.Handle("/api/", s)
+	return ratelimit.NewLimiter(maxInFlight).Middleware(mux)
 }
 
 // ServeHTTP applies the per-client-key rate limit, serves the route and
@@ -226,6 +237,7 @@ func (s *Server) status(ctx context.Context) (chainStatus, error) {
 }
 
 func (s *Server) chainHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	st, err := s.status(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, errInternal)
@@ -235,7 +247,7 @@ func (s *Server) chainHealth(w http.ResponseWriter, r *http.Request) {
 	if !st.connected {
 		status = "degraded"
 	}
-	writeRows(w, map[string]any{
+	writeJSON(w, http.StatusOK, map[string]any{
 		"status":          status,
 		"ts":              time.Now().UnixMilli(),
 		"chain_connected": st.connected,
@@ -245,6 +257,7 @@ func (s *Server) chainHealth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) explorerHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
 	st, err := s.status(r.Context())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, errInternal)
@@ -254,7 +267,7 @@ func (s *Server) explorerHealth(w http.ResponseWriter, r *http.Request) {
 	if st.latest.Valid {
 		latest = &st.latest.Int64
 	}
-	writeRows(w, map[string]any{"latest_block": latest, "chain_connected": st.connected})
+	writeJSON(w, http.StatusOK, map[string]any{"latest_block": latest, "chain_connected": st.connected})
 }
 
 // parseAccount accepts the 0x hex or the pax bech32 form of an account.

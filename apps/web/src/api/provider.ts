@@ -7,7 +7,7 @@ export function windowWalletProvider(): Eip1193Provider | undefined {
     return undefined;
   }
   const candidate = (window as Readonly<{ ethereum?: unknown }>).ethereum;
-  if (typeof candidate !== "object" || candidate === null) {
+  if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
     return undefined;
   }
   const request = (candidate as Readonly<{ request?: unknown }>).request;

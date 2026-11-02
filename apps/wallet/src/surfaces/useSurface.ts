@@ -37,6 +37,7 @@ import {
   parseAbi,
   toEventSelector,
   type Hex,
+  parseUnits,
 } from 'viem';
 import { useWallet } from '@/wallet/WalletProvider';
 
@@ -106,11 +107,39 @@ export function receiptEvents(
     .map((log) => surfaceModule.decodeEvent(log));
 }
 
+export function surfaceReceipt(
+  receipt: SequencerReceiptAnswer,
+  surfaceModule: Pick<SurfaceModule, 'address' | 'decodeEvent'>
+): SentTransaction {
+  return {
+    hash: receipt.txHash,
+    rung: receipt.rung,
+    status: receiptStatus(receipt),
+    events: receiptEvents(receipt, surfaceModule),
+  };
+}
+
 export function receiptStatus(receipt: unknown): ReceiptStatus {
   if (!isRecord(receipt) || receipt.status === undefined) return 'pending';
   if (receipt.status === '0x1') return 'confirmed';
   if (receipt.status === '0x0') return 'reverted';
   throw new Error('the receipt carries an invalid status');
+}
+
+export function parseSurfaceAmount(text: string, decimals: number): bigint {
+  if (!Number.isInteger(decimals) || decimals < 0 || decimals > 255)
+    throw new RangeError('asset decimals must be an integer from 0 to 255');
+  const match = /^(0|[1-9][0-9]*)(?:\.([0-9]+))?$/.exec(text);
+  if (!match || (match[2]?.length ?? 0) > decimals)
+    throw new RangeError('enter an exact non-negative amount in the asset precision');
+  return parseUnits(text, decimals);
+}
+
+export function parseSurfaceId(text: string, bits = 256): bigint {
+  if (!/^(0|[1-9][0-9]*)$/.test(text)) throw new RangeError('enter a decimal id');
+  const value = BigInt(text);
+  if (value >= 1n << BigInt(bits)) throw new RangeError(`the id exceeds ${bits} bits`);
+  return value;
 }
 
 export function formatField(value: bigint | boolean | string): string {
@@ -191,12 +220,7 @@ export function useModuleSend(
         }
         const receipt = await submit(tx);
         if (!alive.current) return;
-        setSent({
-          hash: receipt.txHash,
-          rung: receipt.rung,
-          status: receiptStatus(receipt),
-          events: receiptEvents(receipt, surfaceModule),
-        });
+        setSent(surfaceReceipt(receipt, surfaceModule));
       } catch (cause) {
         if (alive.current) setError(errorMessage(cause));
       } finally {
@@ -880,24 +904,26 @@ export async function readGrantCaps(
     },
     history,
     budgets: [],
-    grants: owned.map((grant): WalletGrantCap => ({
-      id: grant.grantId.slice(2),
-      owner: grant.from.slice(2),
-      recipient: grant.recipient.slice(2),
-      asset: grant.asset.slice(2),
-      per_draw_maximum: grant.perDrawMaximum.toString(),
-      allowance: grant.allowance.toString(),
-      drawn_total: grant.drawnTotal.toString(),
-      drawn_this_period: grant.drawnThisPeriod.toString(),
-      recurring: grant.recurring,
-      window_length: grant.windowLength.toString(),
-      window_start: grant.windowStart.toString(),
-      expiration: grant.expiration.toString(),
-      revocation_height: grant.revocationSequence.toString(),
-      revoked_at_height: grant.revokedAt.toString(),
-      revoked: grant.revoked,
-      invoice_settled: grant.invoiceSettled,
-    })),
+    grants: owned.map(
+      (grant): WalletGrantCap => ({
+        id: grant.grantId.slice(2),
+        owner: grant.from.slice(2),
+        recipient: grant.recipient.slice(2),
+        asset: grant.asset.slice(2),
+        per_draw_maximum: grant.perDrawMaximum.toString(),
+        allowance: grant.allowance.toString(),
+        drawn_total: grant.drawnTotal.toString(),
+        drawn_this_period: grant.drawnThisPeriod.toString(),
+        recurring: grant.recurring,
+        window_length: grant.windowLength.toString(),
+        window_start: grant.windowStart.toString(),
+        expiration: grant.expiration.toString(),
+        revocation_height: grant.revocationSequence.toString(),
+        revoked_at_height: grant.revokedAt.toString(),
+        revoked: grant.revoked,
+        invoice_settled: grant.invoiceSettled,
+      })
+    ),
   };
 }
 

@@ -16,6 +16,8 @@ type capabilityBindings interface {
 
 const capabilityAuthorizationTypeURL = "/paxprotocol.paxchain.layerxauth.LayerXScopeAuthorization"
 
+// GrantCapability publishes a kernel grant and its SDK authz mirror atomically;
+// receipt decoding or mirror failures discard both writes.
 func (k *Keeper) GrantCapability(ctx sdk.Context, actor Actor, grant []byte, idempotencyKey [32]byte) (Result, error) {
 	if err := k.checkPause(ctx, "grantCapability"); err != nil {
 		return Result{}, err

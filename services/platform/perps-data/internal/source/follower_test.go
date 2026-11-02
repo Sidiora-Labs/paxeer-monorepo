@@ -800,11 +800,27 @@ func TestFollower(t *testing.T) {
 		}
 		client := ethclient.NewClient(rc)
 		defer client.Close()
-		if err := markets.Refresh(h.ctx, h.db, client); err != nil {
-			t.Fatalf("markets refresh over the pool: %v", err)
-		}
-		if got := h.count(t, "SELECT count(*) FROM perps.markets"); got != 18 {
-			t.Fatalf("%d markets, want 18", got)
+		for pass := range 2 {
+			before, err := client.BlockNumber(h.ctx)
+			if err != nil {
+				t.Fatalf("pool height: %v", err)
+			}
+			if err := markets.Refresh(h.ctx, h.db, client); err != nil {
+				t.Fatalf("markets refresh over the pool, pass %d: %v", pass, err)
+			}
+			after, err := client.BlockNumber(h.ctx)
+			if err != nil {
+				t.Fatalf("pool height after refresh: %v", err)
+			}
+			if got := h.count(t, "SELECT count(*) FROM perps.markets"); got != 18 {
+				t.Fatalf("%d markets, want 18", got)
+			}
+			if got := h.count(t, "SELECT count(*) FROM perps.markets WHERE source = 'chain' AND refreshed_block BETWEEN $1 AND $2", before, after); got != 18 {
+				t.Fatalf("pass %d: %d markets carry the pool's current chain height, want 18", pass, got)
+			}
+			if got := h.count(t, "SELECT count(*) FROM perps.fee_config f WHERE f.id = 1 AND f.refreshed_block = (SELECT MAX(refreshed_block) FROM perps.markets)"); got != 1 {
+				t.Fatalf("pass %d: fees and markets do not share the refresh height", pass)
+			}
 		}
 	})
 }

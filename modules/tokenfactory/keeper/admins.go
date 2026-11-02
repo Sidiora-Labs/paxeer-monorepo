@@ -16,6 +16,9 @@ func (k Keeper) GetAuthorityMetadata(ctx sdk.Context, denom string) (types.Denom
 	if err != nil {
 		return types.DenomAuthorityMetadata{}, err
 	}
+	if err := metadata.Validate(); err != nil {
+		return types.DenomAuthorityMetadata{}, err
+	}
 	return metadata, nil
 }
 

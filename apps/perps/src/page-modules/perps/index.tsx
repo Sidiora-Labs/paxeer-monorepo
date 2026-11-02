@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/router";
 import { cn } from "@/ui/utils/cn";
@@ -7,6 +7,7 @@ import { MarketWatchlist } from "@/widgets/trading/MarketSelectorPanel";
 import { MobileAppLayout } from "@/widgets/mobile/MobileAppLayout";
 import { ResizeHandle } from "@/ui/atoms/resize-handle";
 import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
+import type { MarketCatalogEntry } from "@/core/perps/marketCatalog";
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { useIsMobile } from "@/hooks/ui/useMobile";
@@ -29,14 +30,25 @@ const DepthPanel = dynamic(
   () => import("@/widgets/trading/Orderbook").then((m) => ({ default: m.DepthPanel })),
   { ssr: false, loading: () => <OrderbookSkeleton /> }
 );
+export function loadPerpsOrderForm() {
+  return import("@/widgets/trading/PerpsOrderForm").then((m) => ({ default: m.PerpsOrderForm }));
+}
+
 const PerpsOrderForm = dynamic(
-  () => import("@/widgets/trading/PerpsOrderForm").then((m) => ({ default: m.PerpsOrderForm })),
+  loadPerpsOrderForm,
   { ssr: false, loading: () => <OrderFormSkeleton /> }
 );
 const PerpsPositionsPanel = dynamic(
   () => import("@/widgets/trading/PerpsPositionsPanel").then((m) => ({ default: m.PerpsPositionsPanel })),
   { ssr: false, loading: () => <PositionsSkeleton /> }
 );
+
+export function tradingMarket<T extends MarketCatalogEntry>(
+  symbol: string,
+  catalog: readonly T[],
+): T | undefined {
+  return catalog.find((market) => market.symbol === symbol.toUpperCase() && market.enabled);
+}
 
 const WATCHLIST_MIN = 160;
 const WATCHLIST_MAX = 320;
@@ -99,11 +111,10 @@ export default function TradingInterface() {
   const { presets, activePreset, activeId, applyPreset } = useLayoutPresets();
   const [layoutMenuOpen, setLayoutMenuOpen] = useState(false);
 
-  const selectedSymbol = (router.query.market as string)?.toUpperCase() || "PAX";
+  const selectedSymbol = typeof router.query.market === "string" ? router.query.market.toUpperCase() : "PAX";
   const selectedMarket = useMemo(
     () =>
-      tradeable.find((m) => m.symbol === selectedSymbol) ??
-      tradeable.find((m) => m.symbol === "PAX"),
+      tradingMarket(selectedSymbol, tradeable),
     [tradeable, selectedSymbol]
   );
 
@@ -186,7 +197,7 @@ export default function TradingInterface() {
   if (isLoading) return <div role="status">Loading markets…</div>;
   if (error) return <div role="alert">Unable to load markets: {error.message}</div>;
   if (!selectedMarket) {
-    return <div role="alert">The selected market and PAX are unavailable.</div>;
+    return <div role="alert">The selected market is unavailable.</div>;
   }
 
   // ═══════════════════ MOBILE ═══════════════════

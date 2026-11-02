@@ -16,7 +16,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 
-	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	clientconfig "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/flags"
@@ -167,19 +166,9 @@ For validator or seed nodes, pass --mode validator or --mode seed so RPC and P2P
 			}
 
 			// Create and configure app config (outputs to app.toml)
-			appConfig := srvconfig.DefaultConfig()
-			params.SetAppConfigByMode(appConfig, nodeMode)
-
-			// Configure EVM based on node mode
-			evmConfig := evmrpcconfig.DefaultConfig
-			params.SetEVMConfigByMode(&evmConfig, nodeMode)
-
-			// Get custom template from root.go
-			customAppTemplate, _ := initAppConfig()
+			customAppConfig := NewAppConfigForMode(srvconfig.DefaultConfig(), nodeMode)
+			customAppTemplate, _ := InitAppConfig()
 			srvconfig.SetConfigTemplate(customAppTemplate)
-
-			// Build custom app config with mode-specific values
-			customAppConfig := NewCustomAppConfig(appConfig, evmConfig)
 
 			appTomlPath := filepath.Join(configPath, "app.toml")
 			srvconfig.WriteConfigFile(appTomlPath, customAppConfig)

@@ -292,22 +292,34 @@ const (
 	flagIPRateLimitBurst             = "evm.ip_rate_limit_burst"
 )
 
+// duration decodes a timeout without accepting a negative wait interval.
+func duration(value interface{}) (time.Duration, error) {
+	result, err := cast.ToDurationE(value)
+	if err != nil {
+		return 0, err
+	}
+	if result < 0 {
+		return 0, fmt.Errorf("timeout must be non-negative")
+	}
+	return result, nil
+}
+
 func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	cfg := DefaultConfig // copy
 	var err error
 	if v := opts.Get(flagBatchRequestLimit); v != nil {
 		if cfg.BatchRequestLimit, err = cast.ToIntE(v); err != nil {
-			return cfg, err
+			return cfg, fmt.Errorf("%s: %w", flagBatchRequestLimit, err)
 		}
 	}
 	if v := opts.Get(flagBatchResponseMaxSize); v != nil {
 		if cfg.BatchResponseMaxSize, err = cast.ToIntE(v); err != nil {
-			return cfg, err
+			return cfg, fmt.Errorf("%s: %w", flagBatchResponseMaxSize, err)
 		}
 	}
 	if v := opts.Get(flagSendRawTxSyncTimeout); v != nil {
-		if cfg.SendRawTxSyncTimeout, err = cast.ToDurationE(v); err != nil {
-			return cfg, err
+		if cfg.SendRawTxSyncTimeout, err = duration(v); err != nil {
+			return cfg, fmt.Errorf("%s: %w", flagSendRawTxSyncTimeout, err)
 		}
 	}
 	if v := opts.Get(flagHTTPAddress); v != nil {
@@ -416,7 +428,7 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	}
 	if v := opts.Get(flagMaxSubscriptionsLogs); v != nil {
 		if cfg.MaxSubscriptionsLogs, err = cast.ToUint64E(v); err != nil {
-			return cfg, err
+			return cfg, fmt.Errorf("%s: %w", flagMaxSubscriptionsLogs, err)
 		}
 	}
 	if v := opts.Get(flagEnableTestAPI); v != nil {

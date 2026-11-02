@@ -16,7 +16,8 @@ export function matchDepositLog(transfer: BridgeTransfer, logs: ReadonlyArray<Lo
   const events = parseEventLogs({
     abi: paxeerXVaultAbi,
     eventName: 'BridgeDeposit',
-    logs: logs.filter((log) => !log.removed && log.address.toLowerCase() === vault),
+    logs: logs.filter((log) => !log.removed && log.transactionHash?.toLowerCase() === transfer.sourceTxHash.toLowerCase() &&
+      log.address.toLowerCase() === vault),
   });
 
   return events.find((event) =>
@@ -28,8 +29,9 @@ export function matchDepositLog(transfer: BridgeTransfer, logs: ReadonlyArray<Lo
 }
 
 export function nonceFromBridgeOutLogs(logs: ReadonlyArray<Log>): bigint | undefined {
-  const events = parseEventLogs({
+  const events = parseEventLogs<typeof layerxBridgeAbi, true, string>({
     abi: layerxBridgeAbi,
+    eventName: 'BridgeOut',
     logs: logs.filter((log) => !log.removed && log.address.toLowerCase() === LAYERX_BRIDGE_ADDRESS),
   });
   const args = events.find((event) => event.eventName === 'BridgeOut')?.args;

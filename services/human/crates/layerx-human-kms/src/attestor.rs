@@ -353,7 +353,10 @@ impl AttestorClient {
         for (node, result) in self.post_all(&nodes, PATH_GENERATE, &body, None) {
             let raw = result?;
             let response: KeyBody = serde_json::from_slice(&raw).map_err(|_| malformed(&node))?;
-            if response.node_id != node || response.key_id != key_id || response.curve != "ed25519"
+            if response.node_id != node
+                || response.key_id != key_id
+                || response.curve != "ed25519"
+                || response.audit_sequence == 0
             {
                 return Err(malformed(&node));
             }
@@ -882,7 +885,7 @@ impl AttestorSigner {
         let signature = match future.as_mut().poll(&mut context) {
             std::task::Poll::Ready(result) => result,
             std::task::Poll::Pending => {
-                return Err(AttestorError::Configuration("synchronous attestor signer"))
+                return Err(AttestorError::Configuration("synchronous attestor signer"));
             }
         };
         drop(future);

@@ -21,6 +21,19 @@ func (m Migrator) Migrate1to2(ctx sdk.Context) error {
 		if err != nil {
 			return err
 		}
+		// Reverse positions are derived from the version-1 forward index.
+		// Rebuild the whole list so a retry cannot retain stale positions.
+		iterator := sdk.KVStorePrefixIterator(store, recordKey(types.ActivePositionPrefix, prefix))
+		var staleKeys [][]byte
+		for ; iterator.Valid(); iterator.Next() {
+			staleKeys = append(staleKeys, append([]byte(nil), iterator.Key()...))
+		}
+		if err := iterator.Close(); err != nil {
+			return err
+		}
+		for _, key := range staleKeys {
+			store.Delete(key)
+		}
 		count := uint64(len(ids))
 		seen := make(map[uint64]bool, len(ids))
 		for _, id := range ids {

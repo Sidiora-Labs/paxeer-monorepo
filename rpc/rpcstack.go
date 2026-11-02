@@ -342,6 +342,10 @@ func (h *HTTPServer) doStop() {
 	if wsHandler != nil {
 		h.wsHandler.Store((*rpcHandler)(nil))
 		wsHandler.server.Stop()
+		for server := range h.domainWSServers {
+			server.Stop()
+		}
+		clear(h.domainWSServers)
 		wsHandler.limiter.stop()
 		h.wsAPIs = nil
 	}

@@ -1,6 +1,10 @@
 package account
 
-import "net/http"
+import (
+	"io"
+	"net/http"
+	"time"
+)
 
 func serveV2Owner(w http.ResponseWriter, r *http.Request, core http.HandlerFunc, adapt func([]byte) ([]byte, error)) {
 	capture := &captureWriter{}
@@ -30,10 +34,23 @@ func (h HTTP) deviceV2Put(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h HTTP) deviceV2Delete(w http.ResponseWriter, r *http.Request) {
+	if _, err := authenticated(r); err != nil {
+		WriteError(w, err, requestID(r))
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(r.Body, 1))
+	if err != nil || len(body) != 0 {
+		WriteError(w, ErrInvalid, requestID(r))
+		return
+	}
 	h.deviceDelete(w, r)
 }
 
 func (h HTTP) exportV2Post(w http.ResponseWriter, r *http.Request) {
+	// RequestExport reads the store clock for both its result and its INSERT.
+	// Keep those timestamps identical so reopening returns the created job.
+	at := h.Store.now()
+	h.Store.Clock = func() time.Time { return at }
 	serveV2Owner(w, r, h.exportPost, func(raw []byte) ([]byte, error) { return AdaptV2AccountJob(raw, "export", false) })
 }
 

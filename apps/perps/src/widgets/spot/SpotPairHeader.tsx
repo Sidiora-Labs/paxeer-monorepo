@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { cn } from "@/ui/utils/cn";
-import { SPOT_MARKETS, spotCoinLogoUrl } from "@/core/spot/config";
+import { getSpotMarket, spotCoinLogoUrl } from "@/core/spot/config";
 import { useSpotOrderbook, useSpotTrades, useSpotStats } from "@/hooks/spot/useSpotMarketStream";
 import { ChevronDown } from "lucide-react";
 import { PriceFlash } from "@/ui/atoms/PriceFlash";
@@ -64,8 +64,12 @@ function StatChip({
 export function SpotPairHeader({ selectedPair, onPairChange }: SpotPairHeaderProps) {
   const [marketSelectorOpen, setMarketSelectorOpen] = useState(false);
 
-  const symbol = selectedPair.split("/")[0]!;
-  const market = SPOT_MARKETS.find((m) => m.symbol === symbol) ?? SPOT_MARKETS[0]!;
+  const [symbol, quote, extra] = selectedPair.toUpperCase().split("/");
+  if (!symbol || extra !== undefined || (quote !== undefined && quote !== "USD" && quote !== "USDL")) {
+    throw new Error("Unknown spot market");
+  }
+  const market = getSpotMarket(symbol);
+  if (!market) throw new Error("Unknown spot market");
 
   const orderbook = useSpotOrderbook(market.symbol);
   const trades = useSpotTrades(market.symbol);
@@ -127,7 +131,7 @@ export function SpotPairHeader({ selectedPair, onPairChange }: SpotPairHeaderPro
             <SpotMarketWatchlist
               selectedSymbol={market.symbol}
               onSelect={(sym) => {
-                onPairChange(`${sym}/USD`);
+                onPairChange(`${sym}/USDL`);
                 setMarketSelectorOpen(false);
               }}
             />

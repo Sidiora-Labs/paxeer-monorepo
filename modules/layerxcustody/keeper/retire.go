@@ -5,6 +5,8 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
+// Retired reads the upgrade keeper on every call, so an existing service or
+// proposal handler observes retirement without being reconstructed.
 func (k *Keeper) Retired(ctx sdk.Context) bool {
 	if k.upgrade == nil {
 		return false

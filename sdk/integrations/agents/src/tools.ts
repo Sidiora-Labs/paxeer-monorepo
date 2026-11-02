@@ -7,12 +7,15 @@ import {
   type AgentSpendResult,
 } from "@sidiora/layerx-agent-middleware";
 import {
+  decodeRawEip1559,
+  keccak256,
   PlatformSdkError,
   verifySequencerReceipt as verifyPinnedSequencerReceipt,
   type ProductionClient,
   type SequencerReceiptKey,
   type SequencerReceiptVerification,
 } from "@sidiora/layerx-sdk";
+import { verifyPaymentReceipt } from "@sidiora/layerx-seller-middleware";
 import { AgentIntegrationError, toHex, type AgentDeclaredConfig } from "./config.js";
 
 export type ToolJson =
@@ -276,7 +279,7 @@ export const SPEND_TOOL: ToolDefinition = {
 },
       networkId: { type: "string", pattern: AMOUNT_PATTERN },
       authorityHex: { type: "string", pattern: "^(?:[0-9a-f]{2})+$" },
-      signerPublicKey: { type: "string", pattern: HEX32_PATTERN },
+      signerPublicKey: { type: "string", pattern: "^(?:0[23][0-9a-f]{64}|04[0-9a-f]{128})$" },
       submitIdempotencyKey: { type: "string", pattern: HEX32_PATTERN },
       approvalCurrentSequence: { type: "string", pattern: AMOUNT_PATTERN },
       approvalReleaseRef: { type: "string", pattern: HEX32_PATTERN },
@@ -376,7 +379,7 @@ export class AgentToolExecutor {
       preparation: asObject(object["preparation"]) as unknown as AgentSpendRequest["preparation"],
       networkId: canonicalInteger(object, "networkId"),
       authorityHex: text(object, "authorityHex", 1048576),
-      signerPublicKey: hex32(object, "signerPublicKey"),
+      signerPublicKey: signerPublicKey(object["signerPublicKey"]),
       submitIdempotencyKey: hex32(object, "submitIdempotencyKey"),
       approvalCurrentSequence: canonicalInteger(object, "approvalCurrentSequence"),
       ...(object["approvalReleaseRef"] === undefined ? {} : { approvalReleaseRef: hex32(object, "approvalReleaseRef") }),
@@ -405,7 +408,7 @@ export class AgentToolExecutor {
       try {
         const verified = await verifySequencerReceipt(receiptBytes(evidence.signedReceipt), receiptBytes(evidence.rawTransaction), this.#config.receiptKeys);
         if (toHex(verified.receipt.activityId) !== submission.tx_hash) throw new AgentMiddlewareError("verification-failure");
-        output["receiptDigest"] = toHex(verified.receiptDigest);
+        output["receiptDigest"] = toHex(keccak256(receiptBytes(evidence.signedReceipt)));
         output["verificationLevel"] = verified.level;
       } catch { throw new AgentMiddlewareError("verification-failure"); }
     } else if (submission.verification_level !== undefined) {
@@ -421,20 +424,20 @@ export class AgentToolExecutor {
     const amount = canonicalInteger(object, "amount");
     const recipient = hex32(object, "recipient");
     const evidence = await this.#receipts.resolve(receiptRef);
-    const verification = await verifySequencerReceipt(
-      receiptBytes(evidence.signedReceipt), receiptBytes(evidence.rawTransaction), this.#config.receiptKeys,
-    );
-    if (
-      verification.receipt.amount !== BigInt(amount)
-      || toHex(verification.receipt.asset) !== asset
-      || toHex(verification.receipt.to) !== recipient
-    ) {
+    let verification: Awaited<ReturnType<typeof verifyPaymentReceipt>>;
+    try {
+      const network = `eip155:${decodeRawEip1559(receiptBytes(evidence.rawTransaction)).chainId}`;
+      verification = await verifyPaymentReceipt(evidence, {
+        scheme: "exact", network, amount, asset: `0x${asset}`, payTo: `0x${recipient}`,
+        maxTimeoutSeconds: 120,
+      }, this.#config.receiptKeys);
+    } catch {
       throw new AgentMiddlewareError("verification-failure");
     }
     return {
       receiptRef,
       level: verification.level,
-      receiptDigest: toHex(verification.receiptDigest),
+      receiptDigest: toHex(keccak256(receiptBytes(evidence.signedReceipt))),
       resultCode: verification.receipt.resultCode,
       amount,
       asset,
@@ -579,6 +582,13 @@ function optionalText(
   maximum: number,
 ): string | undefined {
   return object[name] === undefined ? undefined : text(object, name, maximum);
+}
+
+function signerPublicKey(value: unknown): string {
+  if (typeof value !== "string" || !/^(?:0[23][0-9a-f]{64}|04[0-9a-f]{128})$/u.test(value)) {
+    throw new AgentIntegrationError("invalid-tool-input");
+  }
+  return value;
 }
 
 function hex32(object: Readonly<Record<string, unknown>>, name: string): string {

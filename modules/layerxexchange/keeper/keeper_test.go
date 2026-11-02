@@ -21,6 +21,7 @@ import (
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
+	custodymodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody"
 	custodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/keeper"
@@ -180,7 +181,11 @@ func newFixture(t *testing.T) *fixture {
 		require.NoError(t, app.BankKeeper.MintCoins(ctx, "evm", coins))
 		require.NoError(t, app.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", f.callerAcc, coins))
 	}
-	f.custody.InitGenesis(ctx, *custodytypes.DefaultGenesis())
+	// Use the module's actual JSON genesis boundary, including pause fields.
+	custodyModule := custodymodule.NewAppModule(f.custody)
+	custodyGenesis := custodyModule.DefaultGenesis(app.AppCodec())
+	require.NoError(t, custodyModule.ValidateGenesis(app.AppCodec(), nil, custodyGenesis))
+	custodyModule.InitGenesis(ctx, app.AppCodec(), custodyGenesis)
 	require.NoError(t, f.custody.SetAsset(ctx, custodytypes.AssetMapping{AssetId: custodytypes.Hash32(f.native),
 		Denom: sdk.MustGetBaseDenom(), Enabled: true}))
 	require.NoError(t, f.custody.SetAsset(ctx, custodytypes.AssetMapping{AssetId: custodytypes.Hash32(f.token),
