@@ -13680,3 +13680,138 @@ fix = "Include codespace and code in the error text when the log is empty, and h
 title = "Grant reads moved from the keeper to the precompile view"
 symptom = "Tests still called Keeper.GetPayerGrant two days after 1.12.4 deleted it; vet failed for the whole test package."
 fix = "Read grants through the getPayerGrant view of the precompile and grep every test package for a deleted accessor, not only the file the finding named."
+
+[gotcha.2773]
+title = "A ruling naming a file outside the task's touches is never applied"
+symptom = "Six candidates of one task left a one-line test repair undone because the test file the finding named was not in the task's touches list, which bounds every change a task may make."
+fix = "Every do item that names a file adds that file (or its directory) to touches in the same ruling; check the touches list before writing the do item."
+
+[gotcha.2774]
+title = "A fixture pins nonce 0 on a shared package account"
+symptom = "Two tracer shape tests failed on 'expected 0x0 actual 0x2' because the fixture pinned the transaction nonce while earlier tests in the package had advanced the account."
+fix = "Build fixture transactions with the account's current nonce (EVMKeeper.GetNonce) and assert that value."
+
+[gotcha.2775]
+title = "eth_estimateGas panics while no block is open"
+symptom = "The estimate path still required an open sequencer block after the send path had been taught to use the committed state, so a quiet node panicked 'sequencer: no block is open'."
+fix = "Resolve the pending tag to the committed height on every RPC path, not only the one the failing test exercised."
+
+[gotcha.2776]
+title = "A generated C decoder names a type the header retired"
+symptom = "A Go test that compiles a C decoder against the kernel headers failed on 'unknown type name' after the header dropped the grant type with the retired kernel grant store."
+fix = "Drop the decoder arm with the retired payload and keep the test on the structs the header defines."
+
+[gotcha.2777]
+title = "StaticCall given the executor's gas runs out of gas"
+symptom = "A precompile view test passed the executor's RequiredGas to the EVM call while the registered contract charges a wrapper surcharge, so every call reported out of gas."
+fix = "Charge the EVM call what the registered contract requires (the package RequiredGas) and assert zero gas left."
+
+[gotcha.2778]
+title = "The payment payer is the receipt from-account, not the log topic"
+symptom = "Five payment tests failed payment-binding-mismatch because the payer passed to the verifier was the PaymentExact log's payer topic (the ledger account) while the SDK binds payer to the receipt's from-account (the EVM sender left-padded to 32 bytes)."
+fix = "Decode the conformance receipt with its pinned key and read from_account before writing a fixture ruling."
+
+[gotcha.2779]
+title = "An operator-evidence test cannot be rebuilt from committed producers"
+symptom = "Repeated rulings asked a test to build an owner-evidence tree with the committed producers, which do not emit every record the policy assembler requires and need a running node."
+fix = "Skip the operator test with the reason named when the inputs are absent and prove the property on a minimal fixture in a separate unit test."
+
+[gotcha.2780]
+title = "Redefining a module's enable key changes every genesis root"
+symptom = "A storage-retirement flag was wired by returning its parameter key from the module enable-key function, so every manifest without the flag verified with LXP_ERR_ROOT_MISMATCH."
+fix = "Give a new flag its own parameter key and a dedicated lookup; never change the key an existing parameter is identified by."
+
+[gotcha.2781]
+title = "A plan-default test passes a retired argument and expects success"
+symptom = "A genesis plan test called the plan default with custody credit enabled and expected LXP_OK, while the function refuses that argument by design."
+fix = "Read the function's refusal arms before writing a test expectation for a retired option."
+
+[gotcha.2782]
+title = "Routing reads charged the transaction's gas meter"
+symptom = "Chain-domain lookups made while routing a transaction read the registry under the sender's gas meter, so a plain transfer at the minimum gas ran out of gas on a virtual chain."
+fix = "Run consensus bookkeeping reads under an infinite gas meter; the sender pays only for execution."
+
+[gotcha.2783]
+title = "A test port asked for grant bytes a retired store cannot return"
+symptom = "A ruling ported keeper grant reads to the precompile view, but the view refuses every id since the grant store retired, so the port could not pass."
+fix = "Read the view body before ruling a port; assert the refusal when the underlying store is retired."
+
+[gotcha.2784]
+title = "A fixture carried resolution answers inside the wire request"
+symptom = "A conformance fixture's request object gained the resolver's answers, so the SDK encoders' equality tests against it failed in two languages."
+fix = "Keep the request object of a fixture equal to what the SDK encodes; put derived answers under the result."
+
+[gotcha.2785]
+title = "A test expected decimal heights the producer emits as hex"
+symptom = "A daemon test asserted receipt key heights as decimal strings while the producer and the parser both use 0x quantities."
+fix = "Read the producer's encoding before asserting a wire value."
+
+[gotcha.2786]
+title = "A port premise claimed a module the application still registers was removed"
+symptom = "A ruling said a module left the module manager and asked for nil-keeper assertions; the application still registers it and carries the keeper by a later decision."
+fix = "Check node/app.go and the precompile keepers before ruling what a retirement removed."
+
+[gotcha.2787]
+title = "A Rust test cannot link a C symbol defined outside the library sources"
+symptom = "An FFI function defined in a C file compiled only into the C test targets was called from a cargo test, which failed to link."
+fix = "Prove FFI paths from the side that links the definition; keep Rust tests on the crate's pure paths."
+
+[gotcha.2788]
+title = "A Go proof that drives a Node consumer needs that package's dependencies"
+symptom = "A Go test ran node --import tsx inside a pnpm package whose dependencies were never installed, so it failed on module resolution."
+fix = "Install the consumer package's dependencies in the task's build command before the Go build."
+
+[gotcha.2789]
+title = "The pending tag is refused off the proposing node"
+symptom = "A proof read the pending nonce from a node that does not propose blocks and was refused with -32000."
+fix = "Read nonces at latest or at a height unless the client talks to the proposer."
+
+[gotcha.2790]
+title = "A test handed a document to a helper that takes text"
+symptom = "A rewrite-genesis test passed a validator object to the public-key helper, which requires base64 text."
+fix = "Read a helper's first require before calling it from a test."
+
+[gotcha.2791]
+title = "A package-wide verify carried eleven tests the task never touched"
+symptom = "A task's verify ran four packages whole, and eleven unrelated stale or regressed tests blocked it for three attempts."
+fix = "Gate a task on the tests of its own files and give the whole-package run its own repair task."
+
+[gotcha.2792]
+title = "A crate test run included tests that only a producer script can run"
+symptom = "Bare cargo test of a programs or agent crate fails on tests whose first output line is a missing-input refusal (PAXEER_X_*, LAYERX_INTERPRETER_WASM, a genuine corpus), hiding the genuine failures beside them."
+fix = "Exclude producer-input tests by name (-- --skip <fn>) in a bare verify and name their producer in the finding; the producers (tools/qualification/paxeer-x, tools/paxeer-x/gates, the Makefile recipes) qualify them."
+
+[gotcha.2793]
+title = "A Makefile recipe runs tests as ignored that carry no ignore attribute"
+symptom = "Makefile:3020 runs the bindings conformance tests with -- --ignored --exact, but bindgen_conformance.rs has no #[ignore] attribute, so the recipe selects nothing and reports success."
+fix = "When a test loses its ignore attribute, the recipe that ran it with --ignored is updated in the same commit; a recipe that selects zero tests is a silent pass."
+
+[gotcha.2794]
+title = "A committed config lacked the schema key its only reader requires"
+symptom = "contracts/config/checkpoint-settlement.json had no schema key while layerx-types settlement.rs refuses any document without schema = layerx/checkpoint-settlement/1; eight tests across two crates failed on the first read."
+fix = "When a reader gains a required key, the committed documents it reads and the tests that pin their key sets change in the same commit; check the config directory for every document the reader loads."
+
+[gotcha.2795]
+title = "A loopback RPC fixture answered in a shape its consumer decoder refuses"
+symptom = "tests/sequencer_start.rs answered px_getReceiptKeys with a bare array of hex-string heights while the shared layerx-client decoder requires an object with a keys array and numeric heights; every consumer test reported Malformed."
+fix = "A fixture that stands in for a producer is written against the consumer decoder's exact field names and types (read decode_receipt_keys first), and the finding checks that a real producer for the method exists at all."
+
+[gotcha.2796]
+title = "A TypeScript decoder required a field the published contract never had"
+symptom = "services/agent/sdk/typescript/src/intent.ts demanded a sponsored key on IntentPlan; the generated web contract and the wallet types carry none, so the conformance fixture failed exactKeys."
+fix = "A hand-written decoder's required key set is checked against the generated contract type before the fixture is blamed; derive convenience flags (sponsored) from contract fields instead of adding keys."
+
+[gotcha.2797]
+title = "A parity regex pinned a source shape another task changed"
+symptom = "merge_gateway_parity_test.go and setup_test.go matched an object literal assignment; the gateway table became Object.freeze(... as const satisfies ...) and the parity check silently matched nothing."
+fix = "A regex over another package's source matches the exported identifier and the braces it needs, tolerating wrappers, and fails loudly when the match is empty."
+
+[gotcha.2798]
+title = "A genesis validated without its activation height passed, then panicked at init"
+symptom = "The merge plan path validated the module genesis before the activation height was resolved, so the receipt-key coverage check never ran there; the keeper resolved the height at InitGenesis, failed the same check and panicked where the test expected an error."
+fix = "Validate a genesis with every field the init path will resolve into it, in the caller that can return an error; treat the module's InitGenesis panic as unreachable, not as the refusal."
+
+[gotcha.2799]
+title = "A retirement test removed a store before the height that deletes it"
+symptom = "TestEveryAnchorSelectorRetired unmounted the anchor store at the merge height while the precompile keeps serving views until the store-delete upgrade; the views reverted with an unregistered-store message instead of the retirement text."
+fix = "Model the retirement heights the precompile implements (write height, view/store-delete height) in the test's store setup; remove a store only at the height the upgrade deletes it."

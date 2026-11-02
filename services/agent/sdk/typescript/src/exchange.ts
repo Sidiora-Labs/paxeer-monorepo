@@ -378,6 +378,15 @@ export function precompileTransactionRequest(from: string, call: PrecompileCall)
   if (!ADDRESS.test(from)) {
     throw new PrecompileAbiError("invalid_value", "from");
   }
+  if (!ADDRESS.test(call.to)) {
+    throw new PrecompileAbiError("invalid_value", "to");
+  }
+  if (!HEX.test(call.data) || call.data.length < 10) {
+    throw new PrecompileAbiError("invalid_value", "calldata");
+  }
+  if (typeof call.value !== "bigint" || call.value < 0n || call.value >= 1n << 256n) {
+    throw new PrecompileAbiError("invalid_value", "value");
+  }
   return {
     method: "eth_sendTransaction",
     params: [{ from, to: call.to, data: call.data, value: `0x${call.value.toString(16)}`, type: "0x2", chainId: "0x7d" }],
@@ -583,6 +592,12 @@ export function exchangePlaceOrderCall(order: {
   readonly quantity: bigint;
   readonly timeInForce: number;
 }): PrecompileCall {
+  if (
+    !Number.isInteger(order.side) || order.side < 0 || order.side > 255 ||
+    !Number.isInteger(order.timeInForce) || order.timeInForce < 0 || order.timeInForce > 255
+  ) {
+    throw new PrecompileAbiError("invalid_value", "order uint8");
+  }
   return exchangeCall(
     "placeOrder",
     ["bytes32", "bytes32", "uint8", "uint256", "uint256", "uint8"],

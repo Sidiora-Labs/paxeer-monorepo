@@ -9,6 +9,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import urlsplit
 
+from .account_derivation import keccak256
 from .production import PlatformSdkError
 from .x402 import (
     payment_commitment,
@@ -16,7 +17,7 @@ from .x402 import (
     payment_purpose,
     verify_payment_receipt,
 )
-from .x402_rpc import rpc_hex, verify_rpc_payment
+from .x402_rpc import _transaction_bytes, rpc_hex, verify_rpc_payment
 
 
 def _object(value):
@@ -362,11 +363,11 @@ class BuyerMiddleware:
         if offer["scheme"] != "exact":
             raise ValueError("grant-requires-receive-payload")
         result = self.rpc.send(canonical_hex, payment_commitment(offer.get("extra")))
-        if result.get("state") == "pending":
-            if result.get("activity_id") != activity_id:
+        if result.get("rung") == "submitted":
+            if result.get("txHash") != activity_id:
                 raise ValueError("activity-mismatch")
             return None
-        receipt = rpc_hex(result.get("receipt"))
+        receipt = _transaction_bytes(result.get("receipt"))
         evidence = self.resolve_receipt(receipt, offer)
         verified = verify_rpc_payment(
             result,
@@ -379,7 +380,7 @@ class BuyerMiddleware:
             pay_to=offer["payTo"],
             commitment=payment_commitment(offer.get("extra")),
         )
-        if verified is None or evidence.canonical_receipt != receipt:
+        if verified["rung"] == "pending" or evidence.canonical_receipt != receipt:
             raise ValueError("receipt-mismatch")
         return encode_header(
             {
@@ -480,7 +481,7 @@ class BuyerMiddleware:
     def capture_grant_settlement(self, header, payment_header, expected_activity):
         from .x402_receive import decode_receive
 
-        rpc_hex(expected_activity, 32)
+        expected_hash = _transaction_bytes(expected_activity, 32)
         payment = validate_payload(decode_header(payment_header))
         receive = decode_receive(rpc_hex(payment["payload"]["receive"], 733))
         offer = payment["accepted"]
@@ -508,15 +509,16 @@ class BuyerMiddleware:
         evidence = self.resolve_receipt(receipt, offer)
         if evidence.canonical_receipt != receipt:
             raise ValueError("receipt-mismatch")
-        return verify_rpc_payment(
-            {"activity_id": expected_activity, "receipt": receipt.hex()},
-            expected_activity,
-            receive["from"],
-            receipt_keys=self.receipt_keys,
-            raw_transaction=evidence.raw_transaction,
+        if keccak256(evidence.raw_transaction) != expected_hash:
+            raise ValueError("transaction-hash-mismatch")
+        return verify_payment_receipt(
+            receipt,
+            evidence.raw_transaction,
+            self.receipt_keys,
             amount=offer["amount"],
             asset=offer["asset"],
             pay_to=offer["payTo"],
+            payer=receive["from"],
             commitment=payment_commitment(offer.get("extra")),
         )
 
