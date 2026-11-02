@@ -17,6 +17,8 @@ import (
 
 	"github.com/BurntSushi/toml"
 	tmconfig "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
+	tmhttp "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/http"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	paxdcmd "github.com/Sidiora-Labs/Paxeer-X-Network/daemon/paxd/cmd"
 	seqmodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
@@ -293,4 +295,168 @@ func TestRecorderHomeStartsSequencerReceiptRPC(t *testing.T) {
 			t.Fatalf("stop did not terminate paxd in %s", peer.home)
 		}
 	}
+}
+
+// TestStandbyLeaderIsInTheGenesisCommittee runs the real fixture through standby
+// activation at height 2 and verifies a signed commit at height 3. Reproduce with:
+//
+//	CGO_ENABLED=1 go test -count=1 ./daemon/committed-fixture/ -run '^TestStandbyLeaderIsInTheGenesisCommittee$'
+//
+// The fixture starts its embedded paxd processes with:
+//
+//	paxd start --home <temporary-home> --chain-id committed-fixture
+func TestStandbyLeaderIsInTheGenesisCommittee(t *testing.T) {
+	paxd, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("COMMITTED_FIXTURE_EXEC_PAXD", "1")
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	t.Cleanup(cancel)
+	n, err := prepareHome(ctx, paxd)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.RemoveAll(n.home) })
+	standby, err := n.prepareStandby()
+	if err != nil {
+		t.Fatal(err)
+	}
+	genesisPath := filepath.Join(n.home, "config", "genesis.json")
+	genesis, err := tmtypes.GenesisDocFromFile(genesisPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var app struct {
+		Sequencer struct {
+			Leaders          [][]byte              `json:"leaders"`
+			ReceiptKeys      seqkeeper.ReceiptKeys `json:"receipt_keys"`
+			ActivationHeight uint64                `json:"activation_height"`
+		} `json:"sequencer"`
+	}
+	if err := json.Unmarshal(genesis.AppState, &app); err != nil {
+		t.Fatal(err)
+	}
+	state := app.Sequencer
+	if len(genesis.Validators) != 2 || len(state.Leaders) != 2 || state.ActivationHeight != 2 {
+		t.Fatalf("want two validators and pinned leaders activating at 2, got %d, %d, %d",
+			len(genesis.Validators), len(state.Leaders), state.ActivationHeight)
+	}
+	committee := make([]*tmtypes.Validator, 0, len(genesis.Validators))
+	for _, validator := range genesis.Validators {
+		committee = append(committee, tmtypes.NewValidator(validator.PubKey, validator.Power))
+	}
+	set := tmtypes.NewValidatorSet(committee)
+	for _, leader := range state.Leaders {
+		found := false
+		for _, validator := range genesis.Validators {
+			if bytes.Equal(leader, validator.PubKey.Bytes()) {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("pinned leader %X is outside the genesis committee", leader)
+		}
+	}
+	if err := state.ReceiptKeys.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if len(state.ReceiptKeys) != 2 || bytes.Equal(n.receiptPublicKey, standby.receiptPublicKey) {
+		t.Fatal("primary and standby must retain distinct receipt keys")
+	}
+	for i, peer := range []*node{n, standby} {
+		var key struct {
+			Address string `json:"address"`
+			PubKey  struct {
+				Value []byte `json:"value"`
+			} `json:"pub_key"`
+		}
+		if err := readJSON(filepath.Join(peer.home, "config", "priv_validator_key.json"), &key); err != nil {
+			t.Fatal(err)
+		}
+		validator := genesis.Validators[i]
+		wantPower := int64(7000000000)
+		if peer == standby {
+			wantPower = 1
+		}
+		if !bytes.Equal(validator.PubKey.Bytes(), key.PubKey.Value) ||
+			!strings.EqualFold(hex.EncodeToString(validator.Address), key.Address) || validator.Power != wantPower ||
+			!bytes.Equal(state.Leaders[i], key.PubKey.Value) {
+			t.Fatalf("validator %d must use its own consensus key and power %d", i, wantPower)
+		}
+		if peer == n && validator.Power <= set.TotalVotingPower()*2/3 {
+			t.Fatal("primary alone must retain the quorum")
+		}
+		if !bytes.Equal(state.ReceiptKeys[i].PublicKey, peer.receiptPublicKey) || bytes.Equal(peer.receiptPublicKey, key.PubKey.Value) {
+			t.Fatalf("validator %d must retain its distinct pinned receipt key", i)
+		}
+		var cfg struct {
+			Mode string `toml:"mode"`
+		}
+		if _, err := toml.DecodeFile(filepath.Join(peer.home, "config", "config.toml"), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Mode != "validator" {
+			t.Fatalf("validator %d runs in mode %q", i, cfg.Mode)
+		}
+		data, err := os.ReadFile(filepath.Join(peer.home, "config", "genesis.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		primaryData, err := os.ReadFile(genesisPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(data, primaryData) {
+			t.Fatal("both validators must use the same genesis")
+		}
+	}
+	t.Cleanup(func() {
+		if t.Failed() {
+			for _, peer := range []*node{n, standby} {
+				var tail bytes.Buffer
+				peer.printLogTail(&tail)
+				t.Log(tail.String())
+			}
+		}
+	})
+	stop, err := n.start()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(stop)
+	client, err := tmhttp.New("http://" + n.consensusAddress)
+	if err != nil {
+		t.Fatal(err)
+	}
+	height := int64(state.ActivationHeight) + 1
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		status, err := client.Status(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if status.SyncInfo.LatestBlockHeight >= height {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("fixture did not commit past activation height %d: %v", state.ActivationHeight, ctx.Err())
+		case <-ticker.C:
+		}
+	}
+	commit, err := client.Commit(ctx, &height)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if commit == nil || commit.Header == nil || commit.Commit == nil || commit.Header.Height != height ||
+		!bytes.Equal(commit.Header.ValidatorsHash, set.Hash()) || !bytes.Equal(commit.Commit.BlockID.Hash, commit.Header.Hash()) {
+		t.Fatal("committed block past activation must bind the genesis committee and header")
+	}
+	if err := set.VerifyCommit(fixtureChainID, commit.Commit.BlockID, height, commit.Commit); err != nil {
+		t.Fatalf("verify committed block past standby activation: %v", err)
+	}
+	t.Logf("fixture committed block %d past standby ActivationHeight %d", height, state.ActivationHeight)
 }

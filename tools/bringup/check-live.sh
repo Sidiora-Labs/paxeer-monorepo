@@ -203,8 +203,8 @@ router    requires protected material and registry-bootstrap records under
           missing=program_registry when the router's program_registry backend
           is absent or not configured.
 
-relay     reads the relay archive of services/platform/relay_archive/railway.env.example
-          (its public URL) and the relay-archive Railway services of
+relay     reads the public relay archive at CHECK_LIVE_RELAY_ORIGIN
+          (env=absent when unset) and the relay-archive Railway services of
           deploy/rollout.kvx against its origin in the kernel app of
           services/wallet/deploy/human.toml and prints one line per check:
           relay-origin (ready, fresh, genesis equal to the kernel's manifest),
@@ -243,8 +243,8 @@ Environment:
   CHECK_LIVE_KERNEL_DATA_DIR, CHECK_LIVE_KERNEL_RUN_DIR, CHECK_LIVE_KERNEL_INIT_DIR
                        explicit local node, sockets and service PID directories
   CHECK_LIVE_KERNEL_CTL  path of the actual prebuilt layerxctl operator executable
-  CHECK_LIVE_RELAY_ORIGIN  public relay archive route, default
-                       https://archive.paxeer.network
+  CHECK_LIVE_RELAY_ORIGIN  public relay archive route, required by relay;
+                       reports env=absent when unset
   CHECK_LIVE_RELAY_CA  optional CA file for that route
   CHECK_LIVE_RELAY_ACTIVITY  file of original signed activity bytes, required by relay
   CHECK_LIVE_RELAY_ACTIVITY_ID  the activity id the router answers for it
@@ -3210,16 +3210,16 @@ else:
 	finish "$failures"
 }
 
-# check_relay: the relay archive of services/platform/relay_archive/railway.env.example
+# check_relay: reads the public relay archive URL only from
+# CHECK_LIVE_RELAY_ORIGIN and reports env=absent when unset. Checks that route
 # against its origin, the relay-archive service the kernel app of
 # services/wallet/deploy/human.toml runs beside the sequencer. Reads the origin
 # inside the kernel machine over its internal-CA TLS listener (head, pins,
 # readiness, the genesis.manifest digest and the bytes of the batch one below
-# its head), then the public route CHECK_LIVE_RELAY_ORIGIN (default the
-# LAYERX_RELAY_ARCHIVE_PUBLIC_URL of the env example), then every Railway
-# service of image layerx-relay-archive in deploy/rollout.kvx through railway
-# ssh, then the origin again: the ledger names at least two replica services
-# and every one answers, and each
+# its head), then the required public route CHECK_LIVE_RELAY_ORIGIN, then
+# every Railway service of image layerx-relay-archive in deploy/rollout.kvx
+# through railway ssh, then the origin again: the ledger names at least two
+# replica services and every one answers, and each
 # replica and the public route answer ready and fresh, carry the origin's
 # network, genesis and sequencer pins with the genesis equal to the kernel's
 # manifest, hold a head no more than one batch behind the first origin read
@@ -3262,11 +3262,9 @@ except (OSError, ValueError, TypeError, AttributeError) as error:
 print("@@relay " + json.dumps(out, sort_keys=True))'
 
 check_relay() {
-	local origin public_url
+	local origin="${CHECK_LIVE_RELAY_ORIGIN:-}"
 	local ca="${CHECK_LIVE_RELAY_CA:--}"
 	local name kernel records services svcs svc answered probe reply target answer code activity refusal failures=0
-	public_url="$(sed -n 's/^LAYERX_RELAY_ARCHIVE_PUBLIC_URL=\(https:\/\/[a-z0-9.-]*\)$/\1/p' "$repo_root/services/platform/relay_archive/railway.env.example" 2>/dev/null | head -n 1)"
-	origin="${CHECK_LIVE_RELAY_ORIGIN:-$public_url}"
 	for name in CHECK_LIVE_RELAY_ACTIVITY CHECK_LIVE_RELAY_KEY_FILE; do
 		if [ -z "${!name:-}" ]; then
 			echo "check-live: $name is unset" >&2
@@ -3280,7 +3278,7 @@ check_relay() {
 		echo "check-live: CHECK_LIVE_RELAY_ACTIVITY_ID is unset or malformed" >&2
 		exit 2
 	fi
-	if ! [[ "$origin" =~ ^https://[a-z0-9.-]+(:[0-9]+)?$ || "$origin" =~ ^http://(127\.0\.0\.1|\[::1\]):[0-9]+(/[a-z0-9]+)?$ ]]; then
+	if [ -n "$origin" ] && ! [[ "$origin" =~ ^https://[a-z0-9.-]+(:[0-9]+)?$ || "$origin" =~ ^http://(127\.0\.0\.1|\[::1\]):[0-9]+(/[a-z0-9]+)?$ ]]; then
 		echo "check-live: CHECK_LIVE_RELAY_ORIGIN must be an https origin or a loopback http origin" >&2
 		exit 2
 	fi
@@ -3294,8 +3292,8 @@ with open(sys.argv[1], "rb") as source:
     rows = tomllib.load(source).get("service", {}).values()
 print(" ".join(r["railway_service"] for r in rows if r.get("image") == "layerx-relay-archive" and r.get("target") == "railway"))
 ' "$repo_root/deploy/rollout.kvx" 2>/dev/null)" || services=""
-	if [ -z "$public_url" ] || [ -z "$services" ] || ! kernel="$(fly_app services/wallet/deploy/human.toml)"; then
-		echo "fail relay env=$([ -n "$public_url" ] && echo present || echo absent) services=$(tr " " , <<<"${services:-absent}")"
+	if [ -z "$origin" ] || [ -z "$services" ] || ! kernel="$(fly_app services/wallet/deploy/human.toml)"; then
+		echo "fail relay env=$([ -n "$origin" ] && echo present || echo absent) services=$(tr " " , <<<"${services:-absent}")"
 		finish 1
 	fi
 

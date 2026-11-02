@@ -13500,3 +13500,48 @@ fix = "A sweep verify accepts targets_total = 0 when the report carries the enum
 title = "A pending-tagged read refuses on an idle proposer"
 symptom = "eth_getBalance with the pending tag returned 'pending block unavailable: sequencer: no block is open' between blocks because resolvePending surfaced the snapshot error instead of the latest committed height (21.92.1 attempt 2)."
 fix = "Pending reads fall back to the latest committed block while no block is open, as the simulation path already does (22.7.2)."
+
+[gotcha.2737]
+title = "Resolving a precompile's info constructs every merge precompile"
+symptom = "precompiles.GetPrecompileInfoE(xweb) failed with the layerxpay merge constructor's LXP_PRECOMPILE_NO_CONTEXT refusal because validating an info entry builds the merge table with a keepers value that lacks LayerXPayKeepers (22.5.5 attempt 1; the same refusal in tests/chain, tests/occ and three layerxagent merge tests)."
+fix = "Keep name, address and ABI resolution static and separate from merge construction; harnesses that build the merge table use one shared keepers helper that satisfies every merge constructor (22.6.4)."
+
+[gotcha.2738]
+title = "A service's own migrations drifted from the production DDL its code reads"
+symptom = "services/launchpad/social/migrations create eight chat tables while the Go code reads twenty-two; the twelve missing tables and three functions exist only in the production migrations under launchpad/spec, so the schema test of 22.4.3 could not pass (attempts 1 and 2)."
+fix = "A service that mirrors production migrations carries a test that every relation its SQL names is created by its own Up sections (22.4.4)."
+
+[gotcha.2739]
+title = "A whole-file verify fails on tests the task did not touch"
+symptom = "22.10.6 added one passing test to services/platform/hosted/human/test_material.py but its verify ran the file, and three pre-existing tests fail in a clean checkout (environment-only inputs, a two-line join of a three-line shell call, a removed guarantor container)."
+fix = "Narrow the task verify to the task's test and open a separate repair task for the pre-existing failures, chained as a requirement so the file passes whole at closure (22.10.7)."
+
+[gotcha.2740]
+title = "A crate that compiles another crate's main.rs by path does not see its pub(crate) re-exports"
+symptom = "layerx-agentd-host builds ../layerx-agentd/src/main.rs as its bin; main.rs re-exports parse_request, response, DeadlineStream and Parsed from serve_http with pub(crate) use, and human_owner_mode.rs imports them from super, which fails under the host build (22.9.12 attempt 1 and every dependent-crate check since)."
+fix = "Import shared helpers from their defining module (super::serve_http::{...}) rather than relying on a parent re-export when the file is compiled under more than one crate root (22.9.16)."
+
+[gotcha.2741]
+title = "Casting an EVM address to sdk.AccAddress bypasses the EVM association"
+symptom = "modules/layerxchains bonds, funds and refunds against sdk.AccAddress(operator.Bytes()); the bank's recipient checker refuses a cast address whose account has a different associated pax address, so every createChain with a bond failed with invalid bank recipient (20.3.4 attempt 2)."
+fix = "Resolve EVM addresses through the EVM keeper association (GetPaxAddressOrDefault) before any bank transfer, in keepers and precompiles alike (20.3.5)."
+
+[gotcha.2742]
+title = "Kernel idempotency records live in memory and vanish on reopen"
+symptom = "A repeated payExact with the same PaymentReference succeeded after Close and reopen because the kernel's idempotency set is not reloaded from the host store prefix the records are persisted under (21.11.1 attempt 3)."
+fix = "Restart-recovery proofs must cover idempotency: the host checks the committed record or reloads the set on open (22.2.7)."
+
+[gotcha.2743]
+title = "A verify that rewrites a tracked file never qualifies"
+symptom = "22.17.3 attempts 1 and 2 passed their verify but the done record was refused because the verify ran the reconcile script, which rewrites the committed interfaces report, so the candidate tree differed from the verified tree."
+fix = "Give report-producing scripts a check mode that compares and exits non-zero on difference, and run that mode in verify_cmd."
+
+[gotcha.2744]
+title = "A bond-too-low probe one wei short hits the remainder refusal first"
+symptom = "18.1496.1 probed createChain with 110e18 - 1 wei expecting the bond-too-low reason, but a value that is not a whole bank unit (10^12 wei) is refused for its remainder before the bond comparison (attempt 2)."
+fix = "Probe bank-unit thresholds with values that are whole bank units; assert the remainder refusal separately."
+
+[gotcha.2745]
+title = "The spec validator finds requirement ids that tasks reference but no block declares"
+symptom = "tools/specgen TestRepositorySpecIsValidAndCurrent reported nine errors: tasks 17.5.12, 9.25.3 to 9.25.8, 9.25.17 to 9.25.19, 8.98.16, 13.30.6 and 9.24.5 reference reqs 9283, 9258, 9257, 9256, 89816, 13306 and 9275 that were never written."
+fix = "Run the spec lint and the reference check before every spec commit; a task's reqs list names only declared requirement blocks (restored in batch 320)."

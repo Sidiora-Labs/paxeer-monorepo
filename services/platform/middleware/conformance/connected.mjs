@@ -6,7 +6,7 @@ import { open, realpath } from "node:fs/promises";
 import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { authenticatedAgentTransport, loadAgentServiceProviders } from "@sidiora/layerx-agent-integrations";
-import { PlatformSdkError, idempotencyKey } from "@sidiora/layerx-sdk";
+import { PlatformSdkError, eip1559SigningHash, idempotencyKey } from "@sidiora/layerx-sdk";
 import { decodePaymentRequiredHeader, decodeSettlementHeader, encodePaymentPayloadHeader, verifyPaymentReceipt } from "@sidiora/layerx-seller-middleware";
 
 import { receiptKeysFromEnvironment } from "../../examples/support/runtime.mjs";
@@ -87,10 +87,7 @@ async function main() {
   assert.ok(typeof fixture.walletReviewId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(fixture.walletReviewId));
   assert.ok(typeof fixture.payerAccount === "string" && /^[0-9a-f]{64}$/u.test(fixture.payerAccount));
   assert.equal(request.walletApprovalId, undefined);
-  const preparation = object(request.preparation);
-  assert.match(preparation.signing_hash, /^[0-9a-f]{64}$/u);
-  assert.match(preparation.to, /^[0-9a-f]{40}$/u);
-  assert.match(preparation.data, /^(?:[0-9a-f]{2})*$/u);
+  object(request.preparation);
   assert.equal(request.tenant, process.env.LAYERX_TENANT);
   endpoint(process.env.LAYERX_AGENT_RPC_URL);
   const base = endpoint(fixture.merchantUrl, true);
@@ -114,6 +111,16 @@ async function main() {
   const consent = await example("spend", request);
   check(consent.kind === "owner-budget" && consent.ownerState === "wallet-consent" && consent.admissionObserved === true, "EVM preparation remains unsigned pending original-wallet consent");
   const prepared = object(consent.prepared);
+  assert.match(prepared.signing_hash, /^[0-9a-f]{64}$/u);
+  assert.match(prepared.to, /^[0-9a-f]{40}$/u);
+  assert.match(prepared.data, /^(?:[0-9a-f]{2})*$/u);
+  assert.equal(prepared.chain_id, request.networkId);
+  assert.equal(prepared.signing_hash, Buffer.from(eip1559SigningHash({
+    chainId: BigInt(prepared.chain_id), nonce: BigInt(prepared.nonce),
+    maxPriorityFeePerGas: BigInt(prepared.max_priority_fee_per_gas), maxFeePerGas: BigInt(prepared.max_fee_per_gas),
+    gasLimit: BigInt(prepared.gas_limit), to: Buffer.from(prepared.to, "hex"),
+    value: 0n, data: Buffer.from(prepared.data, "hex"), accessList: [],
+  })).toString("hex"), "prepared signing hash binds the EVM transaction with zero value");
   phase = "original wallet consent";
   const status = await example("wallet-status", request, {
     LAYERX_WALLET_PREPARATION_REF: prepared.preparation_ref, LAYERX_WALLET_REVIEW_ID: fixture.walletReviewId,
