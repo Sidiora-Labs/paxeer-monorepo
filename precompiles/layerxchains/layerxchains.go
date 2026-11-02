@@ -178,7 +178,7 @@ func (p *Executor) Execute(ctx sdk.Context, method *abi.Method, caller, _ common
 		if value == nil || value.Sign() < 0 {
 			return nil, chains.ErrBondTooLow
 		}
-		coin, err := pcommon.HandlePaymentUhpx(ctx, p.evm.GetPaxAddressOrDefault(ctx, common.HexToAddress(ChainsAddress)), sdk.AccAddress(caller.Bytes()), value, p.evm.BankKeeper(), p.evm, hooks, evm.GetDepth())
+		coin, err := pcommon.HandlePaymentUhpx(ctx, p.evm.GetPaxAddressOrDefault(ctx, common.HexToAddress(ChainsAddress)), p.evm.GetPaxAddressOrDefault(ctx, caller), value, p.evm.BankKeeper(), p.evm, hooks, evm.GetDepth())
 		if err != nil {
 			return nil, err
 		}
