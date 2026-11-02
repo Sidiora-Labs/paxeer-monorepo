@@ -1,6 +1,6 @@
 use layerx_client::px::PxAssetEntry;
 use layerx_client::rpc::evidence::{verification_label, Rung};
-use layerx_client::rpc::{account as account_rpc, evidence as evidence_rpc, history, payments};
+use layerx_client::rpc::{evidence as evidence_rpc, history, payments};
 use layerx_client::sequencer::SequencerError;
 
 use super::{fixed_hex, hex_encode, refusal, success, Config, Request, Response};
@@ -65,17 +65,10 @@ pub(super) fn account(config: &Config, id: &str) -> Response {
     let Ok(head) = config.network.network() else {
         return refusal(503, "node_unavailable", Some(5));
     };
-    let Ok(requested) = account_rpc::Requested::new(Rung::Committed) else {
-        return refusal(503, "account_evidence_unavailable", Some(5));
-    };
-    let Ok(value) = account_rpc::account(
-        &config.sequencer,
-        address,
-        account_rpc::ReadContext {
-            committed_height: head.latest_committed_height,
-            requested,
-        },
-    ) else {
+    let Ok(nonce) = config
+        .sequencer
+        .nonce_at(&address, head.latest_committed_height)
+    else {
         return refusal(503, "account_evidence_unavailable", Some(5));
     };
     let mut result = serde_json::Map::new();
@@ -87,7 +80,7 @@ pub(super) fn account(config: &Config, id: &str) -> Response {
         }
     }
     result.insert("account_id".to_owned(), account_id.into());
-    result.insert("next_sequence".to_owned(), value.nonce.to_string().into());
+    result.insert("next_sequence".to_owned(), nonce.to_string().into());
     result.insert(
         "batch_number".to_owned(),
         head.latest_committed_height.to_string().into(),
@@ -180,48 +173,50 @@ fn did_accounts(config: &Config, did: &str) -> Response {
     }
 }
 
-fn estimate_fee(config: &Config, body: &[u8]) -> Response {
-    let Ok(value) = serde_json::from_slice::<serde_json::Value>(body) else {
-        return refusal(400, "invalid_fee_request", None);
-    };
-    let Some(hex) = value
-        .get("canonical_hex")
-        .and_then(serde_json::Value::as_str)
-    else {
-        return refusal(400, "invalid_fee_request", None);
-    };
-    let Ok(canonical) = layerx_platform_core::hex_decode(hex) else {
-        return refusal(400, "invalid_fee_request", None);
-    };
-    let Ok((transaction, signature)) = layerx_crypto::evm_transaction::decode_signed(&canonical)
-    else {
-        return refusal(400, "invalid_activity", None);
-    };
-    let Ok(sender) = layerx_crypto::evm_transaction::recover_sender(&transaction, &signature)
-    else {
-        return refusal(400, "invalid_activity", None);
-    };
-    let Ok(chain_id) = config.sequencer.chain_id() else {
-        return refusal(503, "node_unavailable", Some(5));
-    };
-    if transaction.chain_id != chain_id {
-        return refusal(400, "invalid_activity_domain", None);
+fn validate_fee_payload(
+    body: &[u8],
+) -> Result<(layerx_crypto::evm_transaction::Eip1559Call, usize), Response> {
+    if !valid_fee_request(body) {
+        return Err(refusal(400, "invalid_fee_request", None));
     }
-    let call = payments::CallRequest {
-        from: Some(sender),
-        to: Some(transaction.to),
-        value: 0,
-        data: transaction.data,
-    };
-    match payments::estimate_fee(&config.sequencer, &call) {
-        Ok(estimate) => success(&serde_json::json!({
-            "fee": estimate.fee.to_string(),
-            "parameter_version": estimate.parameter_version,
-            "canonical_schedule": hex_encode(&estimate.canonical_schedule),
-            "canonical_bytes": canonical.len()
-        })),
-        Err(_) => refusal(503, "fee_evidence_unavailable", Some(5)),
+    let value: serde_json::Value =
+        serde_json::from_slice(body).map_err(|_| refusal(400, "invalid_fee_request", None))?;
+    let hex = value["canonical_hex"]
+        .as_str()
+        .ok_or_else(|| refusal(400, "invalid_fee_request", None))?;
+    let canonical = layerx_platform_core::hex_decode(hex)
+        .map_err(|_| refusal(400, "invalid_fee_request", None))?;
+    let transaction = layerx_crypto::evm_transaction::decode_unsigned(&canonical)
+        .map_err(|_| refusal(400, "invalid_activity", None))?;
+    if transaction.chain_id != 125 {
+        return Err(refusal(400, "invalid_activity_domain", None));
     }
+    if transaction.gas_limit == 0
+        || transaction.max_priority_fee_per_gas > transaction.max_fee_per_gas
+        || u128::from(transaction.gas_limit)
+            .checked_mul(transaction.max_fee_per_gas)
+            .is_none()
+    {
+        return Err(refusal(400, "invalid_fee_request", None));
+    }
+    Ok((transaction, canonical.len()))
+}
+
+fn estimate_fee(_config: &Config, body: &[u8]) -> Response {
+    let (transaction, canonical_bytes) = match validate_fee_payload(body) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let Some(fee) = u128::from(transaction.gas_limit).checked_mul(transaction.max_fee_per_gas)
+    else {
+        return refusal(400, "invalid_fee_request", None);
+    };
+    success(&serde_json::json!({
+        "fee": fee.to_string(),
+        "parameter_version": 0,
+        "canonical_schedule": "",
+        "canonical_bytes": canonical_bytes
+    }))
 }
 
 fn asset_route(config: &Config, request: &Request) -> Response {

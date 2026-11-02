@@ -13266,3 +13266,33 @@ fix = "Prefix every human-workspace cargo test in a verify with `sh tools/runtim
 title = "A verify test that runs a repository script must be checked for the script on main"
 symptom = "6.96.5's verify named TestBringUpAnchorGenesisValidates, which runs services/platform/hosted/paxeer/anchor-genesis.py through os/exec; task 8.14.2 had deleted the script, so the test failed on main before the task's change was exercised."
 fix = "Before naming a test in a verify, grep it for exec.Command, subprocess or a script path and confirm the target exists on main; otherwise choose another test of the package and delete or port the orphan in its own task."
+
+[gotcha.2690]
+title = "A route retirement must delete the helpers the route called, and its verify must assert the import absent"
+symptom = "Tasks 8.7.3, 8.8.3 and 8.20.1 retired the hosted kernel routes and passed verifies that checked the routes answer 404, leaving decode, verify and submit helpers compiled behind them; the kernel codec deletion later found 65 importing files."
+fix = "When a task retires a route, list the handler chain it alone reached in the do items and end the verify with `! grep -rnE 'retired::path' crate/` so the deletion is provable per crate."
+
+[gotcha.2691]
+title = "A generator task must not reintroduce an import an earlier task retired; the retirement test must name the import, not only symbols"
+symptom = "12.95.1 added `use layerx_wire::activity::{decode_unsigned, encode_unsigned}` back into the attestor vectors generator a month after 12.18.2 removed it; the generator's retired-name test scanned for other strings and passed."
+fix = "A retired-name test asserts the module path (`layerx_wire::activity`) absent, not just the functions; a task that touches a file with such a test reads the test's list first."
+
+[gotcha.2692]
+title = "A runcard check that compares every card against the spec fails on the first mismatch; fix all cards in one attempt"
+symptom = "17.7.5 attempt 2 fixed the domain-15 card and failed on domain 4; three more cards (12, 16, 17) would have cost three more attempts."
+fix = "When a verify iterates a collection against the spec, compute the expectation for every element from the installed spec before the repair and fix them all in one attempt."
+
+[gotcha.2693]
+title = "A module whose AppModule was removed from the app has no routed message handler; its route tests fail for ever"
+symptom = "6.96.5 attempt 4 ran modules/layerxanchor TestAppRoutesAnchorUpdateParamsRetired, which asserts MsgServiceRouter().Handler(MsgUpdateParams) is not nil; task 5.7.1 had removed the anchor AppModule from node/app.go, so the handler is nil on main."
+fix = "Before picking a Go test for a verify, confirm the module is still wired in node/app.go (NewAppModule in the module manager, not only AppModuleBasic); otherwise build and vet without a test and delete the stale test in the task that restores the package's tests."
+
+[gotcha.2694]
+title = "A standalone package under a crate's tests/ directory is not a cargo test target"
+symptom = "A verify named `--test local` for services/platform/hosted/gateway/tests/local/, which has its own Cargo.toml and [workspace]; cargo answered `no test target named local` and the attempt failed after a passing implementation."
+fix = "Before declaring --test <name>, check that tests/<name>.rs or tests/<name>/main.rs exists in the crate; a directory with its own Cargo.toml is a separate package that needs its own --manifest-path or its own retirement."
+
+[gotcha.2695]
+title = "A --locked build of a standalone qualification package needs a committed Cargo.lock"
+symptom = "services/agent/qualification/pay2 had no Cargo.lock on main; `cargo build --locked` failed before compiling anything."
+fix = "When a task declares --locked against a manifest outside the main workspaces, confirm the lock file exists on main or make the task generate and commit it."
