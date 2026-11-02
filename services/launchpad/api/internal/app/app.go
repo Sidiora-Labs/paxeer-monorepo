@@ -391,7 +391,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 		authority.Register(router, admission)
 		authority.RegisterNetworkReads(router, admission)
 		app.sqlDB = stdlib.OpenDBFromPool(pool)
-		if err = app.registerDiscovery(ctx, router, identityRequest, admission, secretChecks); err != nil {
+		if err = app.registerProductionOperations(ctx, router, identityRequest, admission, secretChecks); err != nil {
 			app.Close()
 			return nil, err
 		}
@@ -399,7 +399,6 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 			app.Close()
 			return nil, err
 		}
-		registerUnservedOperations(router, admission, productionUnservedOperations)
 	}
 	if metrics != nil {
 		router.Handle("/metrics", metrics)
@@ -604,6 +603,14 @@ type discoveryRuntimeDocument struct {
 	DeletePeerDNS    string                       `json:"deletePeerDNS"`
 	ChatPeerDNS      string                       `json:"chatPeerDNS"`
 	Push             notifications.RuntimeOptions `json:"push"`
+}
+
+func (a *App) registerProductionOperations(ctx context.Context, router chi.Router, identity requestIdentity, admission *rest.Admission, checks map[string]sharedhttp.Check) error {
+	if err := a.registerDiscovery(ctx, router, identity, admission, checks); err != nil {
+		return err
+	}
+	registerUnservedOperations(router, admission, productionUnservedOperations)
+	return nil
 }
 
 func (a *App) registerDiscovery(ctx context.Context, router chi.Router, identity requestIdentity, admission *rest.Admission, checks map[string]sharedhttp.Check) error {
