@@ -218419,7 +218419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.16.4]
 title = "Retire the deleted batch-WAL daemon producers from the qualification scripts and build fragments"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
