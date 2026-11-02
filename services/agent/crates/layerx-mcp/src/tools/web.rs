@@ -534,11 +534,48 @@ pub trait WebPayer {
         grant_id: [u8; 32],
     ) -> Result<PrecompileCall, WebPayerError> {
         let result = self.view(&terms.next_sequence_call())?;
-        let sequence = sequence_result(&result)?;
-        Ok(terms.prepare_draw(grant_id, sequence))
+        terms.draw_from_sequence_result(grant_id, &result)
     }
 
     fn submit(&mut self, call: &PrecompileCall) -> Result<ExactPayment, WebPayerError>;
+}
+
+impl dyn WebPayer + '_ {
+    /// The tool's consumer boundary for a host-produced grant call.
+    pub fn decode_grant_call(
+        terms: &GrantTerms,
+        prepared: &PrecompileCall,
+    ) -> Result<Grant, WebToolError> {
+        let refuse = || WebToolError::PaymentArtifact("grant_call");
+        let [AbiArgument::Bytes(payload)] = prepared.arguments.as_slice() else {
+            return Err(refuse());
+        };
+        let Payment::IssueGrant(grant) = Payment::decode(
+            ModuleId::Asset,
+            GRANT_OPERATION,
+            payload,
+            terms.payer_did.as_bytes(),
+        )
+        .map_err(|_| refuse())?
+        else {
+            return Err(refuse());
+        };
+        if *prepared != terms.prepare_grant(&grant).map_err(WebToolError::Payer)? {
+            return Err(refuse());
+        }
+        Ok(grant)
+    }
+
+    /// The tool's consumer boundary for a host-produced exact payment call.
+    pub fn validate_exact_call(
+        terms: &ExactTerms,
+        prepared: &PrecompileCall,
+    ) -> Result<(), WebToolError> {
+        if *prepared != terms.prepare_pay_exact() {
+            return Err(WebToolError::PaymentArtifact("pay_exact_call"));
+        }
+        Ok(())
+    }
 }
 
 fn address_word(address: [u8; 20]) -> [u8; 32] {
@@ -581,6 +618,40 @@ impl ExactTerms {
 }
 
 impl GrantTerms {
+    /// Canonical unsigned grant used by the host before its external signing step.
+    #[must_use]
+    pub fn unsigned_grant(&self, public_key: [u8; 32]) -> Grant {
+        Grant {
+            id: [0; 32],
+            from: self.payer_account,
+            recipient: self.recipient,
+            asset: self.asset,
+            per_draw_maximum: self.amount,
+            allowance: self.amount,
+            recurring: false,
+            window_length: 0,
+            expiration: self.expires_at_ms,
+            purpose_hash: self.purpose_hash,
+            has_reference: true,
+            reference_hash: self.idempotency_key,
+            revocation_sequence: 0,
+            public_key,
+            signature: [0; 64],
+        }
+    }
+
+    /// Decodes the ledger view before either payer prepares a draw.
+    pub fn draw_from_sequence_result(
+        &self,
+        grant_id: [u8; 32],
+        result: &[u8],
+    ) -> Result<PrecompileCall, WebPayerError> {
+        if grant_id == [0; 32] || self.purpose_hash == [0; 32] {
+            return Err(WebPayerError::Refused);
+        }
+        Ok(self.prepare_draw(grant_id, sequence_result(result)?))
+    }
+
     pub fn prepare_grant(&self, grant: &Grant) -> Result<PrecompileCall, WebPayerError> {
         if grant.from != self.payer_account
             || grant.recipient != self.recipient
@@ -1280,22 +1351,7 @@ impl WebPlane<'_, '_> {
                     return Ok(json!({ "grantId": hex(&id), "idempotencyKey": hex(&key) }));
                 } else {
                     let prepared = self.payer.grant(&terms).map_err(WebToolError::Payer)?;
-                    let [AbiArgument::Bytes(payload)] = prepared.arguments.as_slice() else {
-                        return Err(WebToolError::PaymentArtifact("grant_call"));
-                    };
-                    let Payment::IssueGrant(grant) = Payment::decode(
-                        ModuleId::Asset,
-                        GRANT_OPERATION,
-                        payload,
-                        terms.payer_did.as_bytes(),
-                    )
-                    .map_err(|_| WebToolError::PaymentArtifact("grant_call"))?
-                    else {
-                        return Err(WebToolError::PaymentArtifact("grant_call"));
-                    };
-                    if prepared != terms.prepare_grant(&grant).map_err(WebToolError::Payer)? {
-                        return Err(WebToolError::PaymentArtifact("grant_call"));
-                    }
+                    let grant = <dyn WebPayer>::decode_grant_call(&terms, &prepared)?;
                     let payment = self.payer.submit(&prepared).map_err(WebToolError::Payer)?;
                     check_grant(self.config, &payment, grant.id)?;
                     grant.id
@@ -1307,9 +1363,7 @@ impl WebPlane<'_, '_> {
                     self.call
                         .exact_terms_for_disclosure(self.config, offer, disclosure, &facts)?;
                 let prepared = self.payer.pay(&terms).map_err(WebToolError::Payer)?;
-                if prepared != terms.prepare_pay_exact() {
-                    return Err(WebToolError::PaymentArtifact("pay_exact_call"));
-                }
+                <dyn WebPayer>::validate_exact_call(&terms, &prepared)?;
                 let payment = self.payer.submit(&prepared).map_err(WebToolError::Payer)?;
                 let digest = check_receipt(self.config, &payment, &facts, None, key)?;
                 Ok(json!({

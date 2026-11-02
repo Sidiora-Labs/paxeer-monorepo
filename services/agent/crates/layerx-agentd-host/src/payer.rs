@@ -353,23 +353,7 @@ impl ProductionWebPayer {
             terms.amount,
             terms.idempotency_key,
         )?;
-        let mut grant = Grant {
-            id: [0; 32],
-            from: terms.payer_account,
-            recipient: terms.recipient,
-            asset: terms.asset,
-            per_draw_maximum: terms.amount,
-            allowance: terms.amount,
-            recurring: false,
-            window_length: 0,
-            expiration: terms.expires_at_ms,
-            purpose_hash: terms.purpose_hash,
-            has_reference: true,
-            reference_hash: terms.idempotency_key,
-            revocation_sequence: 0,
-            public_key: self.signer.public_key(),
-            signature: [0; 64],
-        };
+        let mut grant = terms.unsigned_grant(self.signer.public_key());
         grant.id = grant.signing_digest().map_err(|_| WebPayerError::Refused)?;
         grant.signature = *self
             .signer
@@ -401,15 +385,7 @@ impl ProductionWebPayer {
             .call_pending(&call.target.address(), &data)
             .map_err(node_error)
             .map_err(WebPayerError::from)?;
-        if result.len() != 32 || result[..24] != [0; 24] {
-            return Err(WebPayerError::Refused);
-        }
-        let receiver_sequence = u64::from_be_bytes(
-            result[24..]
-                .try_into()
-                .map_err(|_| WebPayerError::Refused)?,
-        );
-        self.remember(terms.prepare_draw(grant_id, receiver_sequence))
+        self.remember(terms.draw_from_sequence_result(grant_id, &result)?)
     }
 }
 

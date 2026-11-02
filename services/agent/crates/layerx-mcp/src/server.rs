@@ -60,6 +60,21 @@ pub struct ToolDefinition {
     pub evidence: &'static str,
 }
 
+impl ToolDefinition {
+    /// Installation metadata consumed by the platform CLI.
+    #[must_use]
+    pub fn descriptor(self, arguments: Value) -> Value {
+        json!({
+            "name": self.name,
+            "kind": match self.kind { ToolKind::Read => "read", ToolKind::Write => "write" },
+            "scope": self.required_scope,
+            "mutation": self.mutation,
+            "evidence": self.evidence,
+            "arguments": arguments,
+        })
+    }
+}
+
 /// The one faucet tool definition every `LayerX` MCP surface serves.
 pub const FAUCET_REQUEST: ToolDefinition = ToolDefinition {
     name: "faucet.request",

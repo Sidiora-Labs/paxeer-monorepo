@@ -2168,9 +2168,14 @@ impl Store {
         let id: i64 = row.get(0)?;
         let position: i64 = row.get(1)?;
         let chain: String = row.get(2)?;
+        let source_chain = if chain.starts_with("pax:") {
+            crate::paxeer::CHAIN
+        } else {
+            chain.as_str()
+        };
         let boundary = finality
             .iter()
-            .find(|(name, _)| *name == chain)
+            .find(|(name, _)| name == source_chain)
             .and_then(|(_, boundary)| *boundary);
         let final_row = boundary.is_some_and(|boundary| position <= boundary);
         let decoded: String = row.get(11)?;
