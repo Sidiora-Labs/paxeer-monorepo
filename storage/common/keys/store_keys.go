@@ -43,6 +43,7 @@ const (
 	LayerXLedgerStoreKey   = "layerxledger"   // modules/layerxledger/types.StoreKey
 	LayerXAuthStoreKey     = "layerxauth"     // modules/layerxauth/types.StoreKey
 	LayerXPayStoreKey      = "layerxpay"      // modules/layerxpay/types.StoreKey
+	LayerXChainsStoreKey   = "layerxchains"   // modules/layerxchains/types.StoreKey
 	LayerXProgramsStoreKey = "layerxprograms" // precompiles/layerxprograms
 	SequencerStoreKey      = "sequencer"      // modules/sequencer/types.StoreKey
 	LayerXAgentStoreKey    = "layerxagent"    // modules/layerxagent/keeper.StoreKey
@@ -87,6 +88,7 @@ var MemIAVLStoreKeys = []string{
 	LayerXLedgerStoreKey,
 	LayerXAuthStoreKey,
 	LayerXPayStoreKey,
+	LayerXChainsStoreKey,
 	LayerXProgramsStoreKey,
 	LayerXAgentStoreKey,
 	LayerXHostStoreKey,

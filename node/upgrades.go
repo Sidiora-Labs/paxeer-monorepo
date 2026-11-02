@@ -439,6 +439,7 @@ func mergeStoreUpgrades() storetypes.StoreUpgrades {
 			storekeys.LayerXLedgerStoreKey,
 			storekeys.LayerXAuthStoreKey,
 			storekeys.LayerXPayStoreKey,
+			storekeys.LayerXChainsStoreKey,
 			storekeys.LayerXProgramsStoreKey,
 			storekeys.LayerXAgentStoreKey,
 			storekeys.LayerXHostStoreKey,
