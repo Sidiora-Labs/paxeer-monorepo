@@ -118582,7 +118582,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.21.8]
 title = "Port layerx-human-service off the deleted owner activity envelope and the retired offline export API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
