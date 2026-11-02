@@ -119,7 +119,7 @@ func ERC20toCWAssets(tCtx *utils.TestContext, count int) []*utils.TestMessage {
 
 	// Get the pointer precompile information
 	pInfo := precompiles.GetPrecompileInfo(pointer.PrecompileName)
-	pointerAddress := common.HexToAddress(pointer.PointerAddress)
+	pointerAddress := pInfo.Address
 
 	// Generate EVM transactions to register CW20 pointers
 	for i := 0; i < count; i++ {

@@ -111,15 +111,19 @@ func uhpx(a *app.App, ctx sdk.Context, addr sdk.AccAddress) int64 {
 	return a.BankKeeper.GetBalance(ctx, addr, "uhpx").Amount.Int64()
 }
 
-func xwebInfo() precompiles.PrecompileInfo {
-	return precompiles.GetPrecompileInfo(xwebprecompile.PrecompileName)
+func xwebInfo(t *testing.T) precompiles.PrecompileInfo {
+	t.Helper()
+	info, err := precompiles.GetPrecompileInfoE(xwebprecompile.PrecompileName)
+	require.NoError(t, err)
+	require.Equal(t, xwebAddress, info.Address)
+	return info
 }
 
 // unknownMethodError is the error the xweb precompile fails with for a
 // selector its ABI does not carry.
 func unknownMethodError(t *testing.T) error {
 	t.Helper()
-	info := xwebInfo()
+	info := xwebInfo(t)
 	_, err := info.ABI.MethodById(unknownMethod)
 	require.Error(t, err)
 	return err
@@ -366,7 +370,7 @@ func TestPositionPrecompileSetRefreshedOnOpen(t *testing.T) {
 	}
 	rh := newPrecompileHarness(t, rewind, sender)
 	require.True(t, rh.app.UpgradeKeeper.HasHandler(precompiles.XWebUpgrade))
-	info := xwebInfo()
+	info := xwebInfo(t)
 	feeInput, err := info.ABI.Pack(xwebprecompile.FeeMethod)
 	require.NoError(t, err)
 

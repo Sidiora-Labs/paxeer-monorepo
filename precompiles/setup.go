@@ -426,7 +426,7 @@ func GetPrecompileInfo(name string) PrecompileInfo {
 
 func GetPrecompileInfoE(name string) (PrecompileInfo, error) {
 	if i, ok := PrecompileNamesToInfo[name]; ok {
-		return i, nil
+		return validatePrecompileInfo(name, i)
 	}
 	if !Initialized {
 		if err := InitializePrecompiles(true, &utils.EmptyKeepers{}); err != nil {
@@ -437,7 +437,16 @@ func GetPrecompileInfoE(name string) (PrecompileInfo, error) {
 	if !ok {
 		return PrecompileInfo{}, fmt.Errorf("%s doesn't exist as a precompile", name)
 	}
-	return i, nil
+	return validatePrecompileInfo(name, i)
+}
+
+// A registry entry must carry a destination before a caller can build a call.
+// Returning the zero address would silently turn it into an ordinary EVM send.
+func validatePrecompileInfo(name string, info PrecompileInfo) (PrecompileInfo, error) {
+	if info.Address == (ecommon.Address{}) {
+		return PrecompileInfo{}, fmt.Errorf("%s precompile has no address", name)
+	}
+	return info, nil
 }
 
 // This function modifies global variable in `vm` module. It should only be called once
