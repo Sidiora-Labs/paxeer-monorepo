@@ -9,7 +9,8 @@ import (
 // SurfaceRuntime is the 41-byte runtime held by every surface address: it
 // copies the calldata, appends CALLER and CALLs 0x1017 with all gas and no
 // value, then returns or reverts with the callee's return data.
-var SurfaceRuntime = launchpadkeeper.SurfaceRuntime
+// This exported snapshot does not alias the keeper's installation bytecode.
+var SurfaceRuntime = common.CopyBytes(launchpadkeeper.SurfaceRuntime)
 
 // codeWriter is the EVM keeper method that installs runtime code.
 type codeWriter interface {
@@ -26,7 +27,7 @@ func InstallSurface(ctx sdk.Context, evmKeeper codeWriter, k *launchpadkeeper.Ke
 	if err := k.SetSurface(ctx, address, surface); err != nil {
 		return err
 	}
-	evmKeeper.SetCode(ctx, address, SurfaceRuntime)
+	evmKeeper.SetCode(ctx, address, launchpadkeeper.SurfaceRuntime)
 	return nil
 }
 

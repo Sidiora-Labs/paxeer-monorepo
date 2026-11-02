@@ -280,6 +280,11 @@ func (s *surfaceHarness) exported() string {
 
 func surfaceAt(role string) common.Address { return launchpadkeeper.Generation2Surfaces[role] }
 
+func assertSurfaceRuntime(t *testing.T, db *state.DBImpl, address common.Address) {
+	t.Helper()
+	require.Equal(t, launchpadkeeper.SurfaceRuntime, db.GetCode(address), address.Hex())
+}
+
 func TestSurfaceRuntimeForwards(t *testing.T) {
 	s := newSurfaceHarness(t)
 	require.Equal(t, launchpadkeeper.SurfaceRuntime, launchpad.SurfaceRuntime)
@@ -289,14 +294,14 @@ func TestSurfaceRuntimeForwards(t *testing.T) {
 
 	require.Len(t, launchpadkeeper.Generation2Surfaces, 9)
 	for role, address := range launchpadkeeper.Generation2Surfaces {
-		require.Equal(t, launchpad.SurfaceRuntime, s.stateDB.GetCode(address), role)
+		assertSurfaceRuntime(t, s.stateDB, address)
 		got, found, err := s.keeper.GetSurface(s.ctx(), address)
 		require.NoError(t, err, role)
 		require.True(t, found, role)
 		require.Equal(t, launchpadkeeper.Surface{Role: role, Generation: types.Generation2}, got, role)
 	}
 	for i, pool := range s.pools {
-		require.Equal(t, launchpad.SurfaceRuntime, s.stateDB.GetCode(pool), pool.Hex())
+		assertSurfaceRuntime(t, s.stateDB, pool)
 		got, found, err := s.keeper.GetSurface(s.ctx(), pool)
 		require.NoError(t, err)
 		require.True(t, found)
