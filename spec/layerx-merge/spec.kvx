@@ -132772,7 +132772,7 @@ do_6 = "Decision 2292: the proof hosts every producer it needs inside the test p
 
 [task.21.47.1]
 title = "Prove the node abci path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183139,7 +183139,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.91.24]
 title = "Inventory every Go package under interchain/ of the root module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -213818,7 +213818,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.9.9]
 title = "Drop the retired settlement anchoring refusal from the envelope qualification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
