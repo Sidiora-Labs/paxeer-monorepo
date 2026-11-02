@@ -107,6 +107,9 @@ func notificationListQuery(raw string) (bool, string, int, error) {
 }
 
 func notificationRequestID(r *http.Request) string {
+	if r == nil {
+		return uuid.NewString()
+	}
 	id, err := uuid.Parse(r.Header.Get("X-Request-Id"))
 	if err != nil {
 		id = uuid.New()
@@ -184,17 +187,12 @@ func (h HTTP) readV2Notification(w http.ResponseWriter, r *http.Request) {
 		writeV2Notification(w, r, nil, ErrUnavailable)
 		return
 	}
-	if err = h.Store.SetReadV2(r.Context(), account, id.String(), true); err != nil {
-		writeV2Notification(w, r, nil, err)
-		return
-	}
-	var readAt time.Time
-	err = h.Store.DB.QueryRowContext(r.Context(), `SELECT read_at FROM discovery_notifications.inbox WHERE account_id=$1 AND v2_id=$2::uuid`, account, id.String()).Scan(&readAt)
+	readAt, err := h.Store.setReadV2(r.Context(), account, id.String(), true)
 	if err != nil {
 		writeV2Notification(w, r, nil, err)
 		return
 	}
-	raw, err := AdaptV2NotificationRead(notificationRequestID(r), readAt, time.Now().UTC())
+	raw, err := AdaptV2NotificationRead(notificationRequestID(r), readAt.Time, time.Now().UTC())
 	writeV2Notification(w, r, raw, err)
 }
 
