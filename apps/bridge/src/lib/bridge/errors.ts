@@ -12,7 +12,7 @@ function humanizePrecompileReason(reason: string): string | undefined {
   if (!normalized) return undefined;
   const match = normalized.match(/LXP_BRIDGE_([A-Z_]+):/);
   if (match) {
-    const sentence = PRECOMPILE_CODES[match[1]];
+    const sentence = Object.hasOwn(PRECOMPILE_CODES, match[1]) ? PRECOMPILE_CODES[match[1]] : undefined;
     if (sentence) return sentence;
   }
   return normalized.endsWith('.') ? normalized : `${ normalized }.`;
@@ -59,7 +59,7 @@ export function describeWriteError(error: unknown): string {
       (e) => e instanceof Error && e.name === 'ContractFunctionRevertedError',
     ) as { data?: { errorName?: string; args?: readonly unknown[] }; reason?: string } | null;
     if (revert?.data?.errorName) {
-      const describe = VAULT_ERRORS[revert.data.errorName];
+      const describe = Object.hasOwn(VAULT_ERRORS, revert.data.errorName) ? VAULT_ERRORS[revert.data.errorName] : undefined;
       if (describe) return describe(revert.data.args ?? []);
       return `The contract rejected this: ${ revert.data.errorName }.`;
     }
@@ -77,7 +77,7 @@ export function describeWriteError(error: unknown): string {
     if (typeof hexData === 'string' && isHex(hexData) && hexData.length >= 10) {
       try {
         const decoded = decodeErrorResult({ abi: paxeerXVaultAbi, data: hexData });
-        const describe = VAULT_ERRORS[decoded.errorName];
+        const describe = Object.hasOwn(VAULT_ERRORS, decoded.errorName) ? VAULT_ERRORS[decoded.errorName] : undefined;
         if (describe) return describe(decoded.args ?? []);
         return `The contract rejected this: ${ decoded.errorName }.`;
       } catch { // Not a vault error selector — fall through to the generic line.

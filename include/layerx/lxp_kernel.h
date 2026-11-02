@@ -458,6 +458,8 @@ typedef struct lxp_kernel_batch_boundary {
     uint64_t next_sequence;
 } lxp_kernel_batch_boundary;
 
+/* Copies both verified receipt indexes after validating their bounds and the
+ * authority network binding. No receipt fallback context crosses this boundary. */
 lxp_result lxp_kernel_batch_snapshot_create(
     const lxp_kernel *kernel, const lxp_identity_store *identities,
     const lxp_verified_receipt_index *verified_receipts,

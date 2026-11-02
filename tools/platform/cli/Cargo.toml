@@ -18,6 +18,7 @@ ed25519-dalek.workspace = true
 getrandom.workspace = true
 keyring.workspace = true
 keyring-core.workspace = true
+k256 = { version = '=0.13.4', default-features = false, features = ['ecdsa'] }
 layerx-client = { path = "../../../services/agent/crates/layerx-client" }
 layerx-mcp = { path = "../../../services/agent/crates/layerx-mcp" }
 layerx-platform-emulator = { path = "../emulator" }
