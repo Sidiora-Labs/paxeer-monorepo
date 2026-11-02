@@ -20,7 +20,8 @@ type Params struct {
 }
 
 func DefaultParams() Params {
-	return Params{MinBond: sdk.NewIntWithDecimal(100, 18), CreationFee: sdk.NewIntWithDecimal(10, 18),
+	// One PAX is 10^6 bank base units; the EVM converts each bank unit to 10^12 wei.
+	return Params{MinBond: sdk.NewInt(100_000_000), CreationFee: sdk.NewInt(10_000_000),
 		MinGasAllowance: 250000, MaxGasAllowance: 4000000, MaxTotalGasAllowance: 6250000,
 		MinByteAllowance: 16384, MaxByteAllowance: 1048576, MaxChains: 1024, MaxFeeShareBps: 5000}
 }

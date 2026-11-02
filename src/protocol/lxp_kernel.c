@@ -533,9 +533,6 @@ lxp_result lxp_kernel_withdraw_execution_sequence(
         lxp_ct_memcmp(facts->actor, authority->actor, 32U) != 0 ||
         lxp_ct_memcmp(facts->verified_key, authority->verified_key, 32U) != 0)
         return LXP_ERR_CONTEXT_MISMATCH;
-    if (lxp_ct_is_zero(facts->account_id, 32U) &&
-        lxp_ct_is_zero(authority->principal, 32U) && !facts->account_present)
-        return LXP_OK;
     if (lxp_ct_memcmp(facts->account_id, account_id, 32U) != 0 ||
         lxp_ct_memcmp(facts->account_id, authority->principal, 32U) != 0)
         return LXP_ERR_CONTEXT_MISMATCH;
