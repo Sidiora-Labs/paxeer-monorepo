@@ -182185,7 +182185,7 @@ do_4 = "Finding 17.0.3.1: attempts 1 and 2 verified at one candidate and were me
 
 [task.17.0.4]
 title = "Regenerate the system precompile reference with the v6.12.0 venues"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 29
 requires = ["17.0.3", "17.1.5", "17.10.2", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.96.9"]
