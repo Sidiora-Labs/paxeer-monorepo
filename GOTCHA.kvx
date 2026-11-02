@@ -13286,3 +13286,13 @@ fix = "When a verify iterates a collection against the spec, compute the expecta
 title = "A module whose AppModule was removed from the app has no routed message handler; its route tests fail for ever"
 symptom = "6.96.5 attempt 4 ran modules/layerxanchor TestAppRoutesAnchorUpdateParamsRetired, which asserts MsgServiceRouter().Handler(MsgUpdateParams) is not nil; task 5.7.1 had removed the anchor AppModule from node/app.go, so the handler is nil on main."
 fix = "Before picking a Go test for a verify, confirm the module is still wired in node/app.go (NewAppModule in the module manager, not only AppModuleBasic); otherwise build and vet without a test and delete the stale test in the task that restores the package's tests."
+
+[gotcha.2694]
+title = "A standalone package under a crate's tests/ directory is not a cargo test target"
+symptom = "A verify named `--test local` for services/platform/hosted/gateway/tests/local/, which has its own Cargo.toml and [workspace]; cargo answered `no test target named local` and the attempt failed after a passing implementation."
+fix = "Before declaring --test <name>, check that tests/<name>.rs or tests/<name>/main.rs exists in the crate; a directory with its own Cargo.toml is a separate package that needs its own --manifest-path or its own retirement."
+
+[gotcha.2695]
+title = "A --locked build of a standalone qualification package needs a committed Cargo.lock"
+symptom = "services/agent/qualification/pay2 had no Cargo.lock on main; `cargo build --locked` failed before compiling anything."
+fix = "When a task declares --locked against a manifest outside the main workspaces, confirm the lock file exists on main or make the task generate and commit it."
