@@ -1232,6 +1232,9 @@ func New(
 	app.mm.RegisterRoutes(app.Router(), app.QueryRouter(), encodingConfig.Amino)
 	app.configurator = module.NewConfigurator(app.appCodec, app.MsgServiceRouter(), app.GRPCQueryRouter())
 	app.mm.RegisterServices(app.configurator)
+	// Keep the retirement-gated message route without restoring the anchor's
+	// genesis, export or migration lifecycle after its store is deleted.
+	layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper, &app.UpgradeKeeper).RegisterServices(app.configurator)
 
 	// create the simulation manager and define the order of the modules for deterministic simulations
 	app.sm = module.NewSimulationManager(
