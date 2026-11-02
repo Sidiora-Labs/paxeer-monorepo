@@ -12,6 +12,19 @@ function trim(base: string): string {
   return base.replace(/\/+$/, '');
 }
 
+function explorerBase(base: string | undefined): string | undefined {
+  const raw = base?.trim();
+  if (!raw) return undefined;
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return undefined;
+    if (url.username || url.password || raw.includes('?') || raw.includes('#')) return undefined;
+    return trim(url.href);
+  } catch {
+    return undefined;
+  }
+}
+
 function evmTx(base: string | undefined, hash: Hex): string | undefined {
   return base ? `${ trim(base) }/tx/${ hash }` : undefined;
 }
@@ -23,7 +36,7 @@ export function foreignTxUrl(chain: BridgeChain, hash: Hex): string | undefined 
 }
 
 export function paxeerTxUrlFrom(base: string | undefined, hash: Hex): string | undefined {
-  return evmTx(base, hash);
+  return evmTx(explorerBase(base), hash);
 }
 
 export function paxeerTxUrl(hash: Hex): string | undefined {
@@ -31,7 +44,8 @@ export function paxeerTxUrl(hash: Hex): string | undefined {
 }
 
 export function paxeerAddressUrlFrom(base: string | undefined, address: Address): string | undefined {
-  return base ? `${ trim(base) }/address/${ address }` : undefined;
+  const explorer = explorerBase(base);
+  return explorer ? `${ explorer }/address/${ address }` : undefined;
 }
 
 export function paxeerAddressUrl(address: Address): string | undefined {
