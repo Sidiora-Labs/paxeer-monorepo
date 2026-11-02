@@ -124226,7 +124226,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.33.1]
 title = "Prove the ramp layerx config path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -124258,7 +124258,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.30.1]
 title = "Prove the mirror archive path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -127600,7 +127600,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.123.1]
 title = "Prove the events path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -127920,7 +127920,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.113.1]
 title = "Prove the rpc autobahn path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -128976,7 +128976,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.59.1]
 title = "Prove the sequencer msg path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129168,7 +129168,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.50.1]
 title = "Prove the error registry path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129552,7 +129552,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.36.1]
 title = "Prove the node storage path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -129616,7 +129616,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.21.32.1]
 title = "Prove the sequencer config path end to end: producer, transport, consumer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
