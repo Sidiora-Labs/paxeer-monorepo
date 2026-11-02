@@ -42,8 +42,7 @@ export type ReleaseAttestation = {
 
 export class AttestationApiError extends Error {}
 
-async function fetchJson(path: string): Promise<unknown> {
-  const base = bridgeConfig.attestationApiUrl;
+async function fetchJson(path: string, base: string | undefined): Promise<unknown> {
   if (!base) throw new AttestationApiError('The bridge backend is not configured.');
   let response: Response;
   try {
@@ -148,8 +147,8 @@ export async function fetchDepositAttestation(args: {
   chainId: bigint;
   txHash: Hex;
   logIndex: bigint;
-}): Promise<DepositAttestation | null> {
-  const raw = await fetchJson(depositAttestationPath(args));
+}, base = bridgeConfig.attestationApiUrl): Promise<DepositAttestation | null> {
+  const raw = await fetchJson(depositAttestationPath(args), base);
   if (raw === null) return null;
   return parseDepositAttestation(args, raw);
 }
@@ -198,8 +197,8 @@ export async function fetchReleaseAttestation(args: {
   chainId: bigint;
   paxeerTxHash: Hex;
   paxeerNonce: bigint;
-}): Promise<ReleaseAttestation | null> {
-  const raw = await fetchJson(releaseAttestationPath(args));
+}, base = bridgeConfig.attestationApiUrl): Promise<ReleaseAttestation | null> {
+  const raw = await fetchJson(releaseAttestationPath(args), base);
   if (raw === null) return null;
   return parseReleaseAttestation(args, raw);
 }
