@@ -2126,7 +2126,7 @@ fn dispatch_program_receipt(
 }
 
 #[cfg(test)]
-mod receipt_lookup_tests {
+mod verification_receipt_lookup_tests {
     use super::*;
     use layerx_client::rpc::receipt::Lookup;
 
@@ -2175,9 +2175,13 @@ mod receipt_lookup_tests {
                             "nonce": "72623859790382856",
                         },
                     }),
-                    serde_json::json!({
-                        "state": "pending", "requested": name, "achieved": "submitted",
-                    }),
+                    if requested == Rung::Submitted {
+                        serde_json::json!({"state": "achieved", "rung": "submitted"})
+                    } else {
+                        serde_json::json!({
+                            "state": "pending", "requested": name, "achieved": "submitted",
+                        })
+                    },
                 )
             } else {
                 (
