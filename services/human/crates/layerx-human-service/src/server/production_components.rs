@@ -701,7 +701,9 @@ impl ProductionComponents {
                 AttestorKms::connect(attestor)
                     .map_err(|_| "attestor quorum refused startup".to_owned())?,
             ),
-            (None, Some(kms)) => ProductionKms::Remote(production_kms_provider(&kms)?),
+            (None, Some(kms)) => {
+                ProductionKms::Remote(production_kms_provider(&kms, Arc::clone(&clock))?)
+            }
             (None, None) => {
                 return Err("neither attestor custody nor the remote KMS is configured".to_owned())
             }
@@ -7046,7 +7048,10 @@ pub fn validate_production_configuration(
     }
     Ok(())
 }
-fn production_kms_provider(config: &RemoteKmsConfig) -> Result<RemoteKmsProvider, String> {
+fn production_kms_provider(
+    config: &RemoteKmsConfig,
+    clock: Arc<dyn Clock>,
+) -> Result<RemoteKmsProvider, String> {
     let tls = mutual_tls(
         &config.root_certificate,
         &config.client_certificate,
@@ -7058,6 +7063,7 @@ fn production_kms_provider(config: &RemoteKmsConfig) -> Result<RemoteKmsProvider
         config.server_name.clone(),
         tls,
         config.limits,
+        clock,
     )
     .map_err(|_| "KMS configuration was refused".to_owned())?;
     Ok(provider)

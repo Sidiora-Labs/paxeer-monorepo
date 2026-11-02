@@ -96,39 +96,6 @@ generate_test_cert:
 .PHONY: generate_test_cert
 
 ###############################################################################
-###                              Distribution                               ###
-###############################################################################
-
-# dist builds binaries for all platforms and packages them for distribution
-# TODO add abci to these scripts
-dist:
-	@BUILD_TAGS=$(BUILD_TAGS) sh -c "'$(CURDIR)/scripts/dist.sh'"
-.PHONY: dist
-
-go-mod-cache: go.sum
-	@echo "--> Download go modules to local cache"
-	@go mod download
-.PHONY: go-mod-cache
-
-go.sum: go.mod
-	@echo "--> Ensure dependencies have not been modified"
-	@go mod verify
-	@go mod tidy
-
-draw_deps:
-	@# requires brew install graphviz or apt-get install graphviz
-	go install github.com/RobotsAndPencils/goviz@latest
-	@goviz -i github.com/tendermint/tendermint/cmd/tendermint -d 3 | dot -Tpng -o dependency-graph.png
-.PHONY: draw_deps
-
-get_deps_bin_size:
-	@# Copy of build recipe with additional flags to perform binary size analysis
-	$(eval $(shell go build -work -a $(BUILD_FLAGS) -tags $(BUILD_TAGS) -o $(BUILDDIR)/ ./cmd/tendermint/ 2>&1))
-	@find $(WORK) -type f -name "*.a" | xargs -I{} du -hxs "{}" | sort -rh | sed -e s:${WORK}/::g > deps_bin_size.log
-	@echo "Results can be found here: $(CURDIR)/deps_bin_size.log"
-.PHONY: get_deps_bin_size
-
-###############################################################################
 ###                                  Libs                                   ###
 ###############################################################################
 
@@ -189,17 +156,6 @@ build-linux:
 
 clean:
 	rm -rf $(CURDIR)/artifacts/ $(BUILDDIR)/
-
-build-reproducible:
-	docker rm latest-build || true
-	docker run --volume=$(CURDIR):/sources:ro \
-		--env TARGET_PLATFORMS='linux/amd64 linux/arm64 darwin/amd64 windows/amd64' \
-		--env APP=tendermint \
-		--env COMMIT=$(shell git rev-parse --short=8 HEAD) \
-		--env VERSION=$(shell git describe --tags --always --match 'paxeer-network/v*' | sed 's|^paxeer-network/||') \
-		--name latest-build cosmossdk/rbuilder:latest
-	docker cp -a latest-build:/home/builder/artifacts/ $(CURDIR)/
-.PHONY: build-reproducible
 
 # Implements test splitting and running. This is pulled directly from
 # the github action workflows for better local reproducibility.
