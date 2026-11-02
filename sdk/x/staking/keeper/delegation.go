@@ -879,6 +879,10 @@ func (k Keeper) CompleteUnbonding(ctx sdk.Context, delAddr sdk.AccAddress, valAd
 	for i := 0; i < len(ubd.Entries); i++ {
 		entry := ubd.Entries[i]
 		if entry.IsMature(ctxTime) {
+			if !entry.Balance.IsZero() && !k.bankKeeper.CanSendTo(ctx, delegatorAddress) {
+				return nil, sdkerrors.ErrInvalidRecipient
+			}
+
 			ubd.RemoveEntry(int64(i))
 			i--
 
