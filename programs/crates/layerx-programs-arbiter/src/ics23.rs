@@ -3,6 +3,8 @@ use sha2::{Digest, Sha256};
 const MAX_PROOF_BYTES: usize = 1 << 20;
 const MAX_PATH_DEPTH: usize = 128;
 
+/// Decoded producer proof, shared by admission, replay, and Market consumers.
+/// Decoding establishes syntax only; `verify_existence` authenticates its contents.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExistenceProof {
     pub key: Vec<u8>,

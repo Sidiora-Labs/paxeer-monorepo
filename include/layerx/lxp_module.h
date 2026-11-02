@@ -113,6 +113,10 @@ lxp_result lxp_ctx_kv_del(lxp_module_ctx *ctx, const uint8_t *key,
 lxp_result lxp_ctx_kv_iter(lxp_module_ctx *ctx, const uint8_t *prefix,
                            size_t prefix_length, lxp_kv_visit_fn visit,
                            void *user);
+/* Asset dispatch stages canonical accounts in the active journal; publication
+ * happens at context commit. Repeated issuance/account creation is refused.
+ * The former lxp_ctx_asset_grant_state_stage interface is retired: grant
+ * activities are rejected by asset dispatch and have no staging entry point. */
 lxp_result lxp_ctx_asset_issuance_stage(
     lxp_module_ctx *ctx, const lxp_activity *activity,
     const lxp_authority_resolved *authority, lx_account **account);
@@ -169,6 +173,8 @@ void *lxp_ctx_module_runtime(const lxp_module_ctx *ctx);
 lxp_result lxp_ctx_verified_receipt_facts(
     const lxp_module_ctx *ctx, const uint8_t receipt_digest[32],
     lxp_verified_receipt_facts *facts);
+/* Reads the execution's verified receipt index. Consumers must also bind the
+ * returned network, digest and committed height to their requested view. */
 lxp_result lxp_ctx_verified_receipt_authority_facts(
     const lxp_module_ctx *ctx, const uint8_t receipt_digest[32],
     lxp_verified_receipt_authority_facts *facts);

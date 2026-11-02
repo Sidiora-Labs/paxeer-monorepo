@@ -583,6 +583,8 @@ impl Pay2FundedRun<'_> {
             .get_identity_sequence(&self.cluster.treasury_did)
             .required("PAY2 Send identity sequence")
             .next_sequence;
+        let send_payload =
+            pay2_run(send.sign(self.payer_wallet.signer)).required("PAY2 signed Send payload");
         let executed =
             pay2_run(self.payer_wallet.send_debit(&send, &options)).required("PAY2 executed Send");
         let protocol = executed
@@ -590,16 +592,40 @@ impl Pay2FundedRun<'_> {
             .protocol()
             .required("PAY2 executed Send receipt");
         assert_eq!(protocol.result_code(), 0);
-        let (registry, _) = layerx_platform_core::asset_registry().required("PAY2 Asset registry");
-        let activity = layerx_wire::activity::decode_signed(
+        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(
             executed
                 .canonical_activity()
-                .required("PAY2 signed Send activity"),
-            &registry,
+                .required("PAY2 signed Send transaction"),
         )
-        .required("PAY2 canonical Send");
-        assert_eq!(activity.account_sequence(), identity_sequence);
-        assert_ne!(activity.account_sequence(), source_sequence);
+        .required("PAY2 canonical Send transaction");
+        let treasury = self
+            .payer_wallet
+            .signer
+            .evm_address()
+            .required("PAY2 treasury EVM address");
+        assert_eq!(
+            layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+                .required("PAY2 Send transaction sender"),
+            treasury
+        );
+        let mut ledger = [0; 20];
+        ledger[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+        assert_eq!(call.to, ledger);
+        let expected = layerx_crypto::send::ledger_payment_call(
+            &send_payload,
+            &layerx_crypto::send::CallOptions {
+                from: treasury,
+                chain_id: call.chain_id,
+                nonce: call.nonce,
+                max_priority_fee_per_gas: call.max_priority_fee_per_gas,
+                max_fee_per_gas: call.max_fee_per_gas,
+                gas_limit: call.gas_limit,
+            },
+        )
+        .required("PAY2 ledger Send call");
+        assert_eq!(call.data, expected.call.data);
+        assert_eq!(call.nonce, identity_sequence);
+        assert_ne!(call.nonce, source_sequence);
         let batched = self
             .payer_wallet
             .wait_for(

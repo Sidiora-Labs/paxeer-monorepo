@@ -87,6 +87,11 @@ export function recordBridgeSubmission(
   return transfer;
 }
 
+export function bridgeCardAmount(input: string, decimals: number) {
+  const parsedAmount = parseAmount(input, decimals);
+  return { parsedAmount, amountValue: parsedAmount ?? 0n };
+}
+
 export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () => void }) {
   const [ direction, setDirection ] = useState<Direction>('in');
   const [ foreignKey, setForeignKey ] = useState('base');
@@ -129,8 +134,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
     }
   }, [ direction, asset.address, asset.isNative, address, foreign.vault, foreign.viemChain, approve.confirmed, deposit.confirmed, refetchAllowance ]);
 
-  const parsedAmount = parseAmount(amount, asset.decimals);
-  const amountValue = parsedAmount ?? 0n;
+  const { parsedAmount, amountValue } = bridgeCardAmount(amount, asset.decimals);
   const finality = paxeerState.finalityDepth ?? foreign.finalityDepth;
 
   const destination = destTouched ? destOverride.trim() : (address ?? '');

@@ -54,7 +54,7 @@ function retireChain(uint32 id) external;
 function governancePause(uint32 id,bool paused) external;
 function setOperator(uint32 id,address operator) external;
 function getChain(uint32 id) external view returns (uint32 id,string name,address operator,uint8 status,uint64 chainId,uint64 gasAllowance,uint64 byteAllowance,uint16 feeShareBps,uint256 bond,uint256 baseFeePerGas,uint64 createdHeight);
-function chainByName(string name) external view returns (uint32);
+function chainByName(string name) external view returns (uint32); // Zero for an unused name; retained ID for any existing record, including retired chains.
 function chainCount() external view returns (uint32);
 function chainIdOf(uint32 id) external pure returns (uint64);
 function params() external view returns (address authority,uint256 minBond,uint256 creationFee,uint64 minGasAllowance,uint64 maxGasAllowance,uint64 totalGasAllowanceLeft,uint32 maxChains);
