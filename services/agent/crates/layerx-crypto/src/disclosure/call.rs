@@ -2,8 +2,14 @@ use super::*;
 use crate::payments::Registration;
 use sha3::{Digest as _, Keccak256};
 
+pub use super::program::{decode_program_call, encode_program_call};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConstructMethod {
+    ProgramCall {
+        call: Box<DisclosedProgramCall>,
+        fee_limit: u128,
+    },
     LedgerOpenAccount {
         asset: [u8; 32],
     },
@@ -67,14 +73,14 @@ pub enum ConstructMethod {
     },
 }
 
-fn word(args: &[u8], index: usize) -> Result<[u8; 32], DisclosureError> {
+pub(super) fn word(args: &[u8], index: usize) -> Result<[u8; 32], DisclosureError> {
     args.get(index * 32..(index + 1) * 32)
         .ok_or(DisclosureError::MalformedPayload)?
         .try_into()
         .map_err(|_| DisclosureError::MalformedPayload)
 }
 
-fn uint<const N: usize>(word: [u8; 32]) -> Result<[u8; N], DisclosureError> {
+pub(super) fn uint<const N: usize>(word: [u8; 32]) -> Result<[u8; N], DisclosureError> {
     if word[..32 - N].iter().any(|byte| *byte != 0) {
         return Err(DisclosureError::MalformedPayload);
     }
@@ -112,7 +118,11 @@ fn dynamic(args: &[u8], head_words: usize, index: usize) -> Result<&[u8], Disclo
         .ok_or(DisclosureError::MalformedPayload)
 }
 
-fn tail<'a>(args: &'a [u8], index: usize, cursor: &mut usize) -> Result<&'a [u8], DisclosureError> {
+pub(super) fn tail<'a>(
+    args: &'a [u8],
+    index: usize,
+    cursor: &mut usize,
+) -> Result<&'a [u8], DisclosureError> {
     let offset = usize::from_be_bytes(uint(word(args, index)?)?);
     if offset != *cursor {
         return Err(DisclosureError::MalformedPayload);
@@ -146,13 +156,13 @@ pub fn ledger_selector(signature: &str) -> [u8; 4] {
     [hash[0], hash[1], hash[2], hash[3]]
 }
 
-fn abi_word(value: u128) -> [u8; 32] {
+pub(super) fn abi_word(value: u128) -> [u8; 32] {
     let mut word = [0; 32];
     word[16..].copy_from_slice(&value.to_be_bytes());
     word
 }
 
-fn abi_tail(value: &[u8]) -> Vec<u8> {
+pub(super) fn abi_tail(value: &[u8]) -> Vec<u8> {
     let mut out = abi_word(value.len() as u128).to_vec();
     out.extend_from_slice(value);
     out.resize(out.len().div_ceil(32) * 32, 0);
@@ -251,6 +261,13 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
         .try_into()
         .map_err(|_| DisclosureError::MalformedPayload)?;
     let args = &call.data[4..];
+    if target(&call.to, [0x10, 0x1d]) {
+        let (call, fee_limit) = decode_program_call(&call.data)?;
+        return Ok(ConstructMethod::ProgramCall {
+            call: Box::new(call),
+            fee_limit,
+        });
+    }
     if target(&call.to, [0x10, 0x1a]) {
         return match selector {
             value if value == ledger_selector("openAccount(bytes32)") && args.len() == 32 => {
@@ -367,18 +384,42 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
                         "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
                     ) && args.len() == 384 =>
             {
+                let budget_id = word(args, 0)?;
+                let budget_account = word(args, 1)?;
+                let asset = word(args, 2)?;
+                let purpose = word(args, 3)?;
+                let per_period_limit = u128::from_be_bytes(uint(word(args, 4)?)?);
+                let carry_cap = u128::from_be_bytes(uint(word(args, 5)?)?);
+                let initial_amount = u128::from_be_bytes(uint(word(args, 6)?)?);
+                let period_length_ms = u64::from_be_bytes(uint(word(args, 7)?)?);
+                let period_start_ms = u64::from_be_bytes(uint(word(args, 8)?)?);
+                let expiry_ms = u64::from_be_bytes(uint(word(args, 9)?)?);
+                let revocation_sequence = u64::from_be_bytes(uint(word(args, 10)?)?);
+                let rollover = u8::from_be_bytes(uint(word(args, 11)?)?);
+                native::budget_create_terms(
+                    &budget_id,
+                    &budget_account,
+                    &asset,
+                    per_period_limit,
+                    carry_cap,
+                    initial_amount,
+                    period_length_ms,
+                    period_start_ms,
+                    expiry_ms,
+                    rollover,
+                )?;
                 let mut payload = Vec::with_capacity(211);
                 payload.extend_from_slice(&1_u16.to_be_bytes());
-                for index in 0..4 {
-                    payload.extend_from_slice(&word(args, index)?);
+                for value in [budget_id, budget_account, asset, purpose] {
+                    payload.extend_from_slice(&value);
                 }
-                for index in 4..7 {
-                    payload.extend_from_slice(&uint::<16>(word(args, index)?)?);
+                for value in [per_period_limit, carry_cap, initial_amount] {
+                    payload.extend_from_slice(&value.to_be_bytes());
                 }
-                for index in 7..11 {
-                    payload.extend_from_slice(&uint::<8>(word(args, index)?)?);
+                for value in [period_length_ms, period_start_ms, expiry_ms, revocation_sequence] {
+                    payload.extend_from_slice(&value.to_be_bytes());
                 }
-                payload.extend_from_slice(&uint::<1>(word(args, 11)?)?);
+                payload.push(rollover);
                 Ok(ConstructMethod::PayBudgetCreate { payload })
             }
             value
@@ -458,6 +499,7 @@ pub(super) fn fields(
 ) -> Result<DisclosureFields, DisclosureError> {
     let method = decode_method(call)?;
     let ordinal = match &method {
+        ConstructMethod::ProgramCall { .. } => 3,
         ConstructMethod::LedgerOpenAccount { .. } => 4,
         ConstructMethod::LedgerRegister { .. } | ConstructMethod::PayBudgetCreate { .. } => 1,
         ConstructMethod::LedgerMint { .. } => 10,
@@ -481,6 +523,8 @@ pub(super) fn fields(
         ModuleId::Budget
     } else if matches!(&method, ConstructMethod::AuthLifecycle { .. }) {
         ModuleId::Governance
+    } else if matches!(&method, ConstructMethod::ProgramCall { .. }) {
+        ModuleId::Programs
     } else {
         ModuleId::Asset
     };
@@ -510,6 +554,13 @@ pub(super) fn fields(
         native_operation: None,
     };
     match method {
+        ConstructMethod::ProgramCall { call, .. } => {
+            if let Some((idempotency_key, expiry)) = program::paxai_envelope_terms(&call)? {
+                fields.idempotency_key = idempotency_key;
+                fields.expiry = expiry;
+            }
+            fields.native_operation = Some(DisclosedNativeOperation::ProgramCall(call));
+        }
         ConstructMethod::LedgerOpenAccount { asset } => {
             fields.asset = asset;
             fields.payment = Some(Payment::OpenAccount { asset });

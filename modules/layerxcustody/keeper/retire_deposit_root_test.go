@@ -62,12 +62,12 @@ func TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, anchor.ActivateGuarantor(ctx, authority, guarantorID))
 
-	decodedCertificate, err := codec.DecodeCheckpointCertificate(certificate)
-	require.NoError(t, err)
-	guarantors := make([]anchortypes.Hash32, len(decodedCertificate.Attestations))
-	for i, attestation := range decodedCertificate.Attestations {
-		guarantors[i] = anchortypes.Hash32(attestation.GuarantorID)
-	}
+	var headerSignature [64]byte
+	copy(headerSignature[:], vectorBytes(t, vector, "header_signature"))
+	_, err = anchor.SubmitCheckpoint(ctx, operator, headerBytes, headerSignature, certificate)
+	require.ErrorIs(t, err, anchortypes.ErrModuleRetired)
+
+	guarantors := []anchortypes.Hash32{anchortypes.Hash32(guarantorID)}
 	genesis = anchor.ExportGenesis(ctx)
 	genesis.Checkpoints = []anchortypes.Checkpoint{{
 		BatchNumber: header.BatchNumber, CheckpointID: anchortypes.Hash32(codec.CheckpointHash(headerBytes, nil)),
@@ -77,8 +77,8 @@ func TestDepositRootRegistrationIsRefusedFromTheMergePlanHeight(t *testing.T) {
 		StateRoot: anchortypes.Hash32(header.ResultingStateRoot), ReceiptRoot: anchortypes.Hash32(header.ReceiptMerkleRoot),
 		DataAvailabilityRoot: anchortypes.Hash32(header.DataAvailabilityRoot), SequencerID: anchortypes.Hash32(header.SequencerID),
 		TimestampMs: header.TimestampMs, Status: anchortypes.CheckpointFinal,
-		DeclaredThreshold: decodedCertificate.Threshold, Guarantors: guarantors,
-		AvailabilityMask: decodedCertificate.Attestations[0].AvailabilityClassMask, Submitter: operator.String(),
+		DeclaredThreshold: 1, Guarantors: guarantors,
+		AvailabilityMask: codec.AvailabilityAll, Submitter: operator.String(),
 		SubmittedHeight: ctx.BlockHeight(), SubmittedTime: ctx.BlockTime().Unix(),
 		FinalizedHeight: ctx.BlockHeight(), FinalizedTime: ctx.BlockTime().Unix(),
 	}}

@@ -1,6 +1,9 @@
 //! Bounded, typed production transport for the Human journey engine.
 
+use layerx_agentd::human_receipt_frame::{ReceiptLookupAnswer, ReceiptLookupFrame};
+use layerx_types::clock::Clock;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use crate::frame::{ConnectionGate, FrameTransport, Uds};
 use layerx_agent_api::idempotency::IdempotentMutation;
@@ -196,6 +199,7 @@ const MAX_TRANSITIONS: usize = 64;
 /// Production journey adapter. Every call opens one deadline-bounded framed
 /// UDS exchange; no socket, request buffer, or untrusted response is retained.
 pub struct AgentRuntime {
+    clock: Arc<dyn Clock>,
     endpoint: PathBuf,
     gate: ConnectionGate,
     limits: crate::frame::Limits,
@@ -238,6 +242,7 @@ impl AgentRuntime {
         let account_id = layerx_intents::canonical::account_id_for_protocol(account, 3)
             .map_err(|_| AgentBoundaryError::Refused)?;
         Ok(Self {
+            clock: Arc::clone(&self.clock),
             endpoint: self.endpoint.clone(),
             gate: self.gate.clone(),
             limits: self.limits,
@@ -2058,10 +2063,11 @@ impl AgentRuntime {
         if policy.asset_id != asset {
             return Err(AgentBoundaryError::CorruptResponse);
         }
-        let now = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        let now = self
+            .clock
+            .sample(std::time::Duration::from_secs(1))
             .map_err(|_| AgentBoundaryError::Unavailable)?
-            .as_secs();
+            .unix_seconds();
         Ok(VerifiedBalance {
             account,
             asset,
@@ -2103,21 +2109,14 @@ impl AgentRuntime {
         writer.fixed(&idempotency_key);
         writer.fixed(&expected_activity_id);
         let mut reader = self.exchange(&writer.finish())?;
-        let found = reader.u8()?;
-        let value = match found {
-            0 => ReceiptLookup::Absent,
-            1 => ReceiptLookup::Found(decode_receipt(&mut reader)?),
-            _ => return Err(AgentBoundaryError::CorruptResponse),
-        };
-        reader.finish()?;
-        Ok(value)
+        decode_receipt_lookup(&mut reader)
     }
     /// Repeats the authenticated registry negotiation as a live readiness
     /// probe; a lockable adapter is not itself evidence that agentd is alive.
     /// # Errors
     /// Returns a boundary refusal for invalid request fields, an unavailable transport, or a malformed response.
     pub fn probe(&self) -> Result<(), AgentBoundaryError> {
-        let mut runtime = Self::connect_peer(&self.endpoint, self.limits)?;
+        let mut runtime = Self::connect_peer(&self.endpoint, self.limits, Arc::clone(&self.clock))?;
         let head = runtime.head()?;
         if head.finalised_checkpoint == [0; 32] {
             return Err(AgentBoundaryError::CorruptResponse);
@@ -2133,15 +2132,26 @@ impl AgentRuntime {
         endpoint: impl AsRef<Path>,
         limits: crate::frame::Limits,
     ) -> Result<Self, AgentBoundaryError> {
-        Self::connect_peer(endpoint, limits)
+        let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
+            .map_err(|_| AgentBoundaryError::Unavailable)?;
+        Self::connect_with_clock(endpoint, limits, clock)
+    }
+
+    pub fn connect_with_clock(
+        endpoint: impl AsRef<Path>,
+        limits: crate::frame::Limits,
+        clock: Arc<dyn Clock>,
+    ) -> Result<Self, AgentBoundaryError> {
+        Self::connect_peer(endpoint, limits, clock)
     }
 
     fn connect_peer(
         endpoint: impl AsRef<Path>,
         limits: crate::frame::Limits,
+        clock: Arc<dyn Clock>,
     ) -> Result<Self, AgentBoundaryError> {
         let empty = ModuleRegistry::new(&[]).map_err(|_| AgentBoundaryError::Refused)?;
-        let mut runtime = Self::new(endpoint, limits, empty)?;
+        let mut runtime = Self::new_with_clock(endpoint, limits, empty, clock)?;
         let mut reader = runtime.exchange(&Writer::new(REGISTRY).finish())?;
         let module_count = usize::from(reader.u16()?);
         if module_count == 0 || module_count > 32 {
@@ -2185,12 +2195,24 @@ impl AgentRuntime {
         limits: crate::frame::Limits,
         registry: ModuleRegistry,
     ) -> Result<Self, AgentBoundaryError> {
+        let clock = layerx_client::runtime_clock::RuntimeClock::from_environment()
+            .map_err(|_| AgentBoundaryError::Unavailable)?;
+        Self::new_with_clock(endpoint, limits, registry, clock)
+    }
+
+    pub fn new_with_clock(
+        endpoint: impl AsRef<Path>,
+        limits: crate::frame::Limits,
+        registry: ModuleRegistry,
+        clock: Arc<dyn Clock>,
+    ) -> Result<Self, AgentBoundaryError> {
         let endpoint = endpoint.as_ref();
         if !endpoint.is_absolute() || endpoint.as_os_str().is_empty() {
             return Err(AgentBoundaryError::Refused);
         }
         let limits = limits.validate().map_err(|_| AgentBoundaryError::Refused)?;
         Ok(Self {
+            clock,
             endpoint: endpoint.to_path_buf(),
             gate: ConnectionGate::new(limits.maximum_connections),
             limits,
@@ -4235,14 +4257,7 @@ impl AgentBoundary for AgentRuntime {
         writer.fixed(&idempotency_key);
         writer.fixed(&expected_activity_id);
         let mut reader = self.exchange(&writer.finish())?;
-        let found = reader.u8()?;
-        let result = match found {
-            0 => ReceiptLookup::Absent,
-            1 => ReceiptLookup::Found(decode_receipt(&mut reader)?),
-            _ => return Err(AgentBoundaryError::CorruptResponse),
-        };
-        reader.finish()?;
-        Ok(result)
+        decode_receipt_lookup(&mut reader)
     }
 }
 
@@ -4443,35 +4458,49 @@ fn decode_optional_receipt(
     }
 }
 
+fn decode_receipt_lookup(reader: &mut Reader) -> Result<ReceiptLookup, AgentBoundaryError> {
+    let answer = ReceiptLookupAnswer::decode(&reader.bytes[reader.offset..])
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    reader.offset = reader.bytes.len();
+    match answer {
+        ReceiptLookupAnswer::Absent => Ok(ReceiptLookup::Absent),
+        ReceiptLookupAnswer::Submitted { tx_hash, nonce } => {
+            Ok(ReceiptLookup::Submitted { tx_hash, nonce })
+        }
+        ReceiptLookupAnswer::Found(frame) => receipt_material(frame).map(ReceiptLookup::Found),
+    }
+}
+
 fn decode_receipt(reader: &mut Reader) -> Result<ReceiptMaterial, AgentBoundaryError> {
-    let canonical_bytes = reader.bytes()?;
-    let authorised_batch = AuthorizedBatch::new(
-        reader.fixed::<32>()?,
-        reader.fixed::<32>()?,
-        reader.fixed::<32>()?,
-        reader.fixed::<32>()?,
-        reader.fixed::<32>()?,
-    );
-    let verification_level = match reader.u8()? {
-        1 => VerificationLevel::SEQUENCER_SIGNED,
-        2 => VerificationLevel::BATCH_INCLUDED,
-        3 => VerificationLevel::STATE_PROVEN,
-        4 => VerificationLevel::CHECKPOINT_FINALISED,
-        5 => VerificationLevel::SETTLEMENT_ANCHORED,
-        _ => return Err(AgentBoundaryError::CorruptResponse),
-    };
-    let tx_hash = reader.fixed::<32>()?;
-    let receipt_hash = reader.fixed::<32>()?;
-    let block_height = reader.u64()?;
-    let rung = decode_rung(reader.u8()?)?;
-    let signed_receipt = reader.bytes()?;
+    let mut decoder = layerx_wire::decode::Decoder::new(&reader.bytes[reader.offset..], MAX_BYTES);
+    let frame = ReceiptLookupFrame::decode_from(&mut decoder)
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    reader.offset += decoder.offset();
+    receipt_material(frame)
+}
+
+fn receipt_material(frame: ReceiptLookupFrame) -> Result<ReceiptMaterial, AgentBoundaryError> {
+    let ReceiptLookupFrame {
+        canonical_bytes,
+        authorised_batch,
+        verification_level,
+        tx_hash,
+        receipt_hash,
+        block_height,
+        rung,
+        signed_receipt,
+        receipt_key_id,
+        public_key,
+        first_height,
+        last_height,
+        inclusion_height,
+    } = frame;
     let receipt_key = crate::journeys::ReceiptKeyEntry {
-        key_id: reader.fixed()?,
-        public_key: reader.fixed()?,
-        first_height: reader.u64()?,
-        last_height: reader.u64()?,
+        key_id: receipt_key_id,
+        public_key,
+        first_height,
+        last_height,
     };
-    let inclusion_height = reader.u64()?;
     if rung < Rung::Receipted
         || signed_receipt != canonical_bytes
         || inclusion_height == 0
