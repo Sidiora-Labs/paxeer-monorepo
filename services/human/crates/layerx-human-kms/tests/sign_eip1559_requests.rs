@@ -443,14 +443,10 @@ fn signing_request(
 fn decode_unsigned_activity(
     canonical: &[u8],
     registry: &layerx_types::payload::ModuleRegistry,
-) -> Result<layerx_intents::canonical::Activity> {
-    let activity = checked(layerx_intents::canonical::decode_unsigned_activity(
-        canonical, registry,
-    ))?;
+) -> Result<layerx_wire::activity::Activity> {
+    let activity = checked(layerx_wire::activity::decode_unsigned(canonical, registry))?;
     assert_eq!(
-        checked(layerx_intents::canonical::unsigned_activity_bytes(
-            &activity
-        ))?,
+        checked(layerx_wire::activity::encode_unsigned(&activity))?,
         canonical
     );
     Ok(activity)
@@ -697,9 +693,9 @@ fn lxkp_sign_refuses_a_kernel_activity_envelope() -> Result<()> {
         ))?),
     )?;
     checked(builder.payload(payload))?;
-    let canonical = checked(layerx_intents::canonical::unsigned_envelope_bytes(
-        &checked(builder.build())?,
-    ))?;
+    let canonical = checked(layerx_wire::activity::encode_unsigned_envelope(&checked(
+        builder.build(),
+    )?))?;
     let activity = decode_unsigned_activity(&canonical, &registry)?;
     assert_eq!(activity.network_id(), 125);
     assert_eq!(activity.activity_type(), kind);
