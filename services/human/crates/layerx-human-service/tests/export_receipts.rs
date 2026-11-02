@@ -98,7 +98,6 @@ fn evidence_bundle_v2_round_trips_receipt_fields() {
         .map(|(_, fact, _)| ReceiptExport {
             receipts: vec![fact.clone()],
             inclusions: Vec::new(),
-            checkpoints: Vec::new(),
             derived_aggregates: Vec::new(),
         })
         .collect();
