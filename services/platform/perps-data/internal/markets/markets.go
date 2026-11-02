@@ -269,13 +269,19 @@ func Check(db *sql.DB, maxAge time.Duration) httpx.Check {
 		}
 		var block sql.NullInt64
 		var refreshedAt sql.NullTime
-		if err := db.QueryRowContext(ctx, `SELECT m.refreshed_block, b.time
-FROM (SELECT MAX(refreshed_block) AS refreshed_block FROM perps.markets WHERE source = 'chain') m
-LEFT JOIN perps.blocks b ON b.number = m.refreshed_block`).Scan(&block, &refreshedAt); err != nil {
+		var complete bool
+		if err := db.QueryRowContext(ctx, `SELECT m.refreshed_block, b.time, m.complete
+FROM (SELECT MAX(refreshed_block) AS refreshed_block,
+    COUNT(*) > 0 AND COUNT(*) = COUNT(*) FILTER (WHERE source = 'chain' AND refreshed_block IS NOT NULL)
+    AND MIN(refreshed_block) = MAX(refreshed_block) AS complete FROM perps.markets) m
+LEFT JOIN perps.blocks b ON b.number = m.refreshed_block`).Scan(&block, &refreshedAt, &complete); err != nil {
 			return fmt.Errorf("markets: read refresh age: %w", err)
 		}
 		if !block.Valid {
 			return errors.New("markets: no chain refresh")
+		}
+		if !complete {
+			return errors.New("markets: incomplete chain refresh")
 		}
 		if !refreshedAt.Valid {
 			return fmt.Errorf("markets: refresh block %d has not been indexed", block.Int64)
