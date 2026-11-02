@@ -438,6 +438,30 @@ func CmdERC20Send() *cobra.Command {
 	return cmd
 }
 
+// BuildPrecompileCall resolves the destination and encodes the CLI arguments
+// together, before a command reads a key or contacts an RPC endpoint.
+func BuildPrecompileCall(name string, args []string) (precompiles.PrecompileInfo, []byte, error) {
+	info, err := precompiles.GetPrecompileInfoE(name)
+	if err != nil {
+		return precompiles.PrecompileInfo{}, nil, err
+	}
+	if len(args) == 0 {
+		return precompiles.PrecompileInfo{}, nil, errors.New("precompile method is required")
+	}
+	method, ok := info.ABI.Methods[args[0]]
+	if !ok {
+		return precompiles.PrecompileInfo{}, nil, fmt.Errorf("method %s not found in %s ABI", args[0], name)
+	}
+	if len(args)-1 != len(method.Inputs) {
+		return precompiles.PrecompileInfo{}, nil, fmt.Errorf("method %s expects %d arguments, got %d", args[0], len(method.Inputs), len(args)-1)
+	}
+	payload, err := getMethodPayload(info.ABI, args)
+	if err != nil {
+		return precompiles.PrecompileInfo{}, nil, err
+	}
+	return info, payload, nil
+}
+
 func CmdCallPrecompile() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "call-precompile [precompile name] [method] [args...] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>",
@@ -445,11 +469,7 @@ func CmdCallPrecompile() *cobra.Command {
 		Long:  "",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			pInfo, err := precompiles.GetPrecompileInfoE(args[0])
-			if err != nil {
-				return err
-			}
-			payload, err := getMethodPayload(pInfo.ABI, args[1:])
+			pInfo, payload, err := BuildPrecompileCall(args[0], args[1:])
 			if err != nil {
 				return err
 			}
